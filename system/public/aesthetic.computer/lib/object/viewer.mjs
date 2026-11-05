@@ -16,6 +16,26 @@ export function isObjectLisp(source) {
 
 const BG = [20, 23, 32];
 const GRID = [44, 48, 64];
+// One preference per AC runtime. Preparing a neighbor never starts its audio.
+let soundEnabled = false;
+const SPEAKER = [
+  "...#.........", "..##....#....", ".###.....#...", "####..#...#..",
+  "####..#...#..", "####..#...#..", ".###.....#...", "..##....#....", "...#.........",
+];
+function speaker(screen, enabled) {
+  const x0 = screen.width - 22, y0 = 11;
+  const color = enabled ? [230, 232, 240] : [138, 143, 158];
+  const dot = (x, y) => {
+    if (x < 0 || x >= screen.width || y < 0 || y >= screen.height) return;
+    screen.pixels.set([...color, 255], (y * screen.width + x) * 4);
+  };
+  SPEAKER.forEach((row, y) => [...row].forEach((c, x) => {
+    if (c === "#" && (enabled || x < 5)) dot(x0 + x, y0 + y);
+  }));
+  if (!enabled) for (let i = 0; i < 5; i++) {
+    dot(x0 + 7 + i, y0 + 2 + i); dot(x0 + 11 - i, y0 + 2 + i);
+  }
+}
 
 function extent(v) {
   let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -41,8 +61,9 @@ export function objectPiece(source, label = "", options = {}) {
   let preview = options.preview === true;
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
   const start = Date.now();
-  // The object's (tone ...) oscillators; browsers need a tap before sound.
+  // The object's (tone ...) oscillators, enabled by its canvas speaker control.
   let tones = [], voices = [];
+  let soundPress = false;
 
   try {
     shape = parseSource(source);
@@ -147,7 +168,10 @@ export function objectPiece(source, label = "", options = {}) {
       }
     }
     const name = (shape.name || "object").toLowerCase();
-    if (!preview) ink(138, 143, 158).write(tones.length && !voices.length ? `${name} - tap for sound` : name, { x: 6, y: h - 16 });
+    if (!preview) {
+      ink(138, 143, 158).write(name, { x: 6, y: h - 16 });
+      if (tones.length) speaker(screen, soundEnabled);
+    }
   }
 
   function play(sound) {
@@ -165,7 +189,9 @@ export function objectPiece(source, label = "", options = {}) {
 
   // Tones follow AC's shared clock, so a bell rings on the same beat as the
   // game and as any clock.mjs piece.
-  function sim({ clock } = {}) {
+  function sim({ clock, sound } = {}) {
+    if (soundEnabled) play(sound);
+    else if (voices.length) leave();
     const t = (Date.now() - start) / 1000;
     const beat = beatAt(clock?.time?.().getTime?.() ?? Date.now());
     voices.forEach((v, i) =>
@@ -183,9 +209,17 @@ export function objectPiece(source, label = "", options = {}) {
   }
 
   function act({ event: e, sound }) {
-    if (e.is("touch")) play(sound);
-    if (e.is("touch")) dragging = true;
-    if (e.is("lift")) dragging = false;
+    if (e.is("touch")) {
+      soundPress = tones.length > 0 && e.x >= size[0] - 30 && e.x < size[0] && e.y >= 3 && e.y < 29;
+      if (soundPress) {
+        soundEnabled = !soundEnabled;
+        if (soundEnabled) play(sound); else leave();
+        return;
+      }
+      dragging = true;
+    }
+    if (e.is("lift")) { dragging = false; soundPress = false; }
+    if (soundPress) return;
     if (e.is("draw")) {
       yaw += (e.delta?.x || 0) * 0.02;
       pitch = Math.max(-1.2, Math.min(1.4, pitch + (e.delta?.y || 0) * 0.02));

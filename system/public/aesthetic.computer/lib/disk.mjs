@@ -8387,7 +8387,7 @@ async function load(
           ? await import("./object/viewer.mjs")
           : null;
         loadedModule = objectViewer?.isObjectLisp(sourceToRun)
-          ? objectViewer.objectPiece(sourceToRun, currentOriginalCodeId || "")
+          ? (reel?.objectPiece(sourceToRun, currentOriginalCodeId || "") || objectViewer.objectPiece(sourceToRun, currentOriginalCodeId || ""))
           : lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         const compileEndTime = performance.now();
@@ -17329,6 +17329,7 @@ async function makeFrame({ data: { type, content } }) {
 
       // 🎞️ Compose after all raster HUD layers exist so the piece, label,
       // QR and author move as one screen. The reel consumes their overlays.
+      reel?.observe(sendData, screen);
       if (reel?.busy()) {
         $api.page(screen);
         reel.draw($api, sendData);

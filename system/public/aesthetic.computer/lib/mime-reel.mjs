@@ -1,10 +1,7 @@
 // 🎞️ Mime Reel
-// The mime feed as one AC runtime. Each card is a piece; only the card on
-// screen runs. A vertical swipe, a wheel stream or Page Up/Down moves the reel:
-// the outgoing card's last frame is frozen and slides away while the incoming
-// card shows its last frame (if it has been seen), its oven poster, or a blank
-// card with its title. When the slide settles, the reel jumps to the card's
-// piece and keeps showing that image until the piece paints its first frame.
+// One AC runtime with live, silent object neighbors. Prepared object instances
+// paint while sliding into view and become the active piece without restarting.
+// Other pieces retain their captured-frame / poster fallback.
 //
 // It only runs in a noauth MIME runtime (`?noauth=true&mime=1&reel=1`), so a
 // stranger's piece never sees the viewer's session. The prompt's mime sheet
@@ -16,6 +13,32 @@
 // until it shows what it is: a mostly-vertical move moves the reel, any other
 // move, a lift or a still hold (HOLD ms) hands the held events to the piece in
 // order. So taps, sideways drags and press-and-hold drawing all reach the card.
+
+import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs";
+import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
+
+const objects = new Map(); // address → prepared module; bounded to nearby cards
+const hudFrames = new Map();
+
+// Disk calls this at activation, reusing the exact instance painted in the swipe.
+export function objectPiece(source, address) {
+  let entry = objects.get(address);
+  if (!entry || entry.source !== source) {
+    entry = { source, piece: makeObject(source, address) };
+    objects.set(address, entry);
+  }
+  return entry.piece;
+}
+
+// Save complete native overlays for revisits and for the outgoing live frame.
+export function observe(overlays, screen) {
+  if (phase !== "idle" || !cards[index] || !objects.has(cards[index].address)) return;
+  hudFrames.set(cards[index].key, {
+    w: screen.width, h: screen.height,
+    layers: Object.values(overlays).filter(o => o?.img?.pixels)
+      .map(o => ({ ...o, img: { ...o.img, pixels: new Uint8ClampedArray(o.img.pixels) } })),
+  });
+}
 
 const MEDIA = [23, 21, 38, 255]; // mime's dark media colour
 const SLOP = 10; // px of movement before a press says what it is
@@ -249,11 +272,19 @@ function warm() {
   // Fill disk's source cache without booting extra runtimes.
   for (const i of [index + 1, index + 2]) {
     const card = cards[i];
-    if (!preload || !card || warmed.has(card.key)) continue;
+    if (!preload || !card || (warmed.has(card.key) && (objects.has(card.address) || !card.object))) continue;
     warmed.add(card.key);
-    Promise.resolve().then(() => preload(card.address)).catch(() => warmed.delete(card.key));
+    Promise.resolve().then(() => preload(card.address)).then(source => {
+      if (isObjectLisp(source) && cards.slice(Math.max(0, index - 1), index + 3).includes(card)) {
+        card.object = true;
+        objectPiece(source, card.address);
+      }
+    }).catch(() => warmed.delete(card.key));
   }
   const nearby = new Set(cards.slice(Math.max(0, index - 2), index + 4).map(card => card.key));
+  const addresses = new Set(cards.slice(Math.max(0, index - 2), index + 4).map(card => card.address));
+  for (const address of objects.keys()) if (!addresses.has(address)) objects.delete(address);
+  for (const key of hudFrames.keys()) if (!nearby.has(key)) hudFrames.delete(key);
   for (const [key, bitmap] of posters) if (!nearby.has(key)) {
     bitmap?.close();
     posters.delete(key);
@@ -533,7 +564,7 @@ export function draw($, overlays = {}) {
     for (const overlay of Object.values(overlays)) composite(current, overlay);
     remember(cards[index], { width: w, height: h, pixels: current.pixels });
     neighbors = new Map([-1, 1].map(dir => [dir,
-      imageFor(cards[index + dir], w, h) || blankFor(w, h)]));
+      liveFor($, cards[index + dir], w, h) || imageFor(cards[index + dir], w, h) || blankFor(w, h)]));
     warm();
   }
 
@@ -546,6 +577,16 @@ export function draw($, overlays = {}) {
     offset = Math.abs(gap) < 1 ? goal : offset + gap * (1 - Math.exp(-dt / GLIDE));
   }
 
+  // Only neighbors ready when the gesture began can turn live: a late fetch
+  // must not replace a poster halfway through a swipe.
+  if (current?.live || ((phase === "drag" || phase === "settle") && objects.has(cards[index]?.address))) {
+    const live = liveFor($, cards[index], w, h);
+    if (live) current = { ...live, backing: current?.backing };
+  }
+  for (const dir of [-1, 1]) if (neighbors?.get(dir)?.live && Math.sign(offset) === dir) {
+    const live = liveFor($, cards[index + dir], w, h);
+    if (live) neighbors.set(dir, live);
+  }
   const o = Math.round(offset);
   const here = sized(current, w, h) || imageFor(cards[index], w, h) || blankFor(w, h);
   blit(px, w, h, here, -o);
@@ -621,4 +662,29 @@ function composite(frame, overlay) {
       frame.pixels[dst + 3] = out * 255;
     }
   }
+}
+
+// Render only visible model neighbors. The same renderer, camera and animation
+// clock are used by the active piece; no second runtime or audio is booted.
+function liveFor($, card, w, h) {
+  const entry = objects.get(card?.address);
+  if (!entry || !$.painting) return null;
+  const rendered = $.painting(w, h, api => {
+    entry.piece.paint(api);
+    const saved = hudFrames.get(card.key);
+    if (saved?.w === w && saved.h === h) {
+      const frame = { w, h, pixels: api.screen.pixels };
+      for (const overlay of saved.layers) composite(frame, overlay);
+    } else {
+      api.ink(230, 232, 240).write(card.address, { x: 6, y: 10 }, undefined, undefined, false, "MatrixChunky8");
+      const cells = entry.qr ||= qr("https://prompt.ac/" + card.address, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
+      const x0 = w - cells.length - 5, y0 = h - cells.length - 6;
+      for (let y = 0; y < cells.length; y++) for (let x = 0; x < cells.length; x++)
+        api.ink(cells[y][x] ? "black" : "white").box(x0 + x, y0 + y, 1, 1);
+      const tw = card.address.length * 4;
+      api.ink("black").box(w - tw - 6, y0 - 9, tw + 2, 9);
+      api.ink("white").write(card.address, { x: w - tw - 5, y: y0 - 9 }, undefined, undefined, false, "MatrixChunky8");
+    }
+  });
+  return rendered?.pixels ? { w, h, pixels: rendered.pixels, live: true } : null;
 }
