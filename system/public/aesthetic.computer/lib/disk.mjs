@@ -1,3 +1,4 @@
+import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "./prompt-layout.mjs";
 import { createPreviewEvidence } from "./preview-evidence.mjs";
 import { createPlaybackClock } from "./playback-clock.mjs";
 // Manages a piece and the transitions between pieces like a
@@ -15160,7 +15161,6 @@ async function makeFrame({ data: { type, content } }) {
       // System info label (addressability).
       let label;
       const piece = currentHUDTxt?.split("~")[0];
-      const defo = 6; // Default offset
 
 
 
@@ -15579,7 +15579,7 @@ async function makeFrame({ data: { type, content } }) {
             const hoverEase = hudDriftEase(currentHUDHoverAmount);
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
             const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
-            const hudTextY = 4; // Aligned with the QR (corner-radius safe)
+            const hudTextY = HUD_TEXT_INSET_Y; // Internal padding; offset keeps the prompt baseline.
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
             const baseTextColor =
@@ -15773,7 +15773,7 @@ async function makeFrame({ data: { type, content } }) {
         });
 
         if (piece === "video") currentHUDOffset = { x: 0, y: 6 };
-        if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
+        if (!currentHUDOffset) currentHUDOffset = { ...HUD_DEFAULT_OFFSET };
 
         // Apply animation effects to HUD label position
         if (hudAnimationState.animating) {

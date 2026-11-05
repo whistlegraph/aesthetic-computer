@@ -1,3 +1,4 @@
+import { PROMPT_TEXT_ORIGIN } from "./prompt-layout.mjs";
 // Type, 22.12.10.14.06
 // Abstraction for typography and text input.
 
@@ -1567,8 +1568,8 @@ class TextInput {
     this.#gutterMax = options.gutterMax || 48;
 
     this.#prompt = new Prompt(
-      6, // blockWidth,
-      6, // blockWidth,
+      PROMPT_TEXT_ORIGIN.x,
+      PROMPT_TEXT_ORIGIN.y,
       options.wrap || "char", // "char" or "word"
       $.store["gutter:lock"] ||
         Math.min(this.#gutterMax, floor($.screen.width / blockWidth) - 2),

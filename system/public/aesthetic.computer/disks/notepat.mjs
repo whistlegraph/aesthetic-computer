@@ -13,6 +13,7 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 import { chordIntervals, createChordVoice } from "../lib/notepat-chords.mjs";
+import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "../lib/prompt-layout.mjs";
 import { createNotepatPanel } from "../lib/notepat-panel.mjs";
 import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
@@ -1273,7 +1274,7 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   if (modeBarLayout.logo) {
     const word=learningGlyph(api,"notepat",[255,255,255],"font_1",6,10);
     const shadow=learningGlyph(api,"notepat",[0,0,0],"font_1",6,10);
-    const label=autopatHud?.currentLabel?.(), textX=(label?.btn?.box?.x??6)+(label?.leftPad??0), textY=(label?.btn?.box?.y??6)+4;
+    const label=autopatHud?.currentLabel?.(), textX=(label?.btn?.box?.x??HUD_DEFAULT_OFFSET.x)+(label?.leftPad??0), textY=(label?.btn?.box?.y??HUD_DEFAULT_OFFSET.y)+HUD_TEXT_INSET_Y;
     painter.glyph(shadow,textX+(word.left||0)+1,textY+(word.top||0)+1).glyph(word,textX+(word.left||0),textY+(word.top||0));
     if (modeBarLayout.logo.endsWith(".com")) {
       const com=learningGlyph(api,"com",[0,220,255],"MatrixChunky8",6,10);

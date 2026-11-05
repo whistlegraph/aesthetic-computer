@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.c5f25ea8169e.mjs",
-  "sha256": "c5f25ea8169e037759a63cc35ac3b3706a13a24251c0d19ef5f2509b53ba03f2",
-  "bytes": 1826014,
-  "sourceSha256": "6d5e87a1ce2084988b5aac266403ea3902735abdc90be5804aecac31be4d9204",
+  "filename": "disk.worker.03df5c3b0c22.mjs",
+  "sha256": "03df5c3b0c22a6977854982b6cb0e525c1f17ad7c52a47df94d56f6f7fc26d5e",
+  "bytes": 1826255,
+  "sourceSha256": "39ba22b2551053406bd11ee7aad6fcab51ab177a5103292bcef18c8b8511a3eb",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -55,6 +55,7 @@
     "public/aesthetic.computer/lib/playback-clock.mjs",
     "public/aesthetic.computer/lib/pmove.mjs",
     "public/aesthetic.computer/lib/preview-evidence.mjs",
+    "public/aesthetic.computer/lib/prompt-layout.mjs",
     "public/aesthetic.computer/lib/redact.mjs",
     "public/aesthetic.computer/lib/restricted-api.mjs",
     "public/aesthetic.computer/lib/rich-text.mjs",
