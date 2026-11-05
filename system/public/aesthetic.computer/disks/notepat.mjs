@@ -1190,17 +1190,29 @@ let paintPictureOverlay = false;
 let waveBtn, octBtn;
 let modeBarHudHidden = false;
 const learningKeyGlyphs = new Map();
-function paintLearningKey(api, label, color) {
-  const key=label.text+":"+color.join(",");
+function learningKeyGlyph(api, text, color) {
+  const key=text+":"+color.join(",");
   let glyph=learningKeyGlyphs.get(key);
   if(!glyph) {
-    glyph=api.painting(label.text.length*6,8,p=>{
+    // Use AC's original letterforms, then trim transparent bearing space so
+    // the visible glyph (not its font cell) is centered in the pad.
+    const source=api.painting(text.length*6,10,p=>{
       p.wipe(0,0,0,0);
-      p.ink(...color).write(label.text,{x:0,y:0},undefined,undefined,false,"MatrixChunky8");
+      p.ink(...color).write(text,{x:0,y:0});
     });
+    let left=source.width,top=source.height,right=-1,bottom=-1;
+    for(let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
+      if(source.pixels[(y*source.width+x)*4+3]) {
+        left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+      }
+    }
+    if(right<left) return source; // Retry while a font is still loading.
+    const width=right-left+1,height=bottom-top+1,pixels=new Uint8ClampedArray(width*height*4);
+    for(let y=0;y<height;y++) pixels.set(source.pixels.subarray(((top+y)*source.width+left)*4,((top+y)*source.width+left+width)*4),y*width*4);
+    glyph={width,height,pixels};
     learningKeyGlyphs.set(key,glyph);
   }
-  api.paste(glyph,label.x,label.y,label.size);
+  return glyph;
 }
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
@@ -5357,9 +5369,11 @@ function paint({
           }
 
           if (classicControls()) {
-            const labels=learningPadLabels(btn.box, noteToKeyboardKey(note), note);
             const labelColor=getContrastingTextColor(color);
-            if(labels.primary) paintLearningKey(api,labels.primary,labelColor);
+            const key=(noteToKeyboardKey(note) || "").toUpperCase();
+            const glyph=learningKeyGlyph(api,key,labelColor);
+            const labels=learningPadLabels(btn.box,key,note,glyph);
+            if(labels.primary) api.paste(glyph,labels.primary.x,labels.primary.y,labels.primary.size);
             if(labels.secondary) ink(...labelColor,190).write(labels.secondary.text,
               {x:labels.secondary.x,y:labels.secondary.y},undefined,undefined,false,"MatrixChunky8");
             return;
