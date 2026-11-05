@@ -30,12 +30,16 @@ export class NotepatPainter {
   runs = new WeakMap();
   forceCpu = false;
   begin(api, background) {
-    this.api=api; this.frame.reset(); this.frame.clear(...background);
+    this.api=api; this.clipRect=null; this.frame.reset(); this.frame.clear(...background);
     if (!this.forceCpu) api.gpuFrame?.probe();
     return this;
   }
   ink(...color) { this.frame.ink(...color); return this; }
-  box(x,y,w,h) { this.frame.box(x,y,w,h); return this; }
+  clip(rect) { this.clipRect=rect;return this; }
+  box(x,y,w,h) {
+    if(this.clipRect) {const c=this.clipRect,right=Math.min(x+w,c.x+c.w),bottom=Math.min(y+h,c.y+c.h);x=Math.max(x,c.x);y=Math.max(y,c.y);w=right-x;h=bottom-y;}
+    if(w>0&&h>0)this.frame.box(x,y,w,h);return this;
+  }
   line(x1,y1,x2,y2) { this.frame.line(x1,y1,x2,y2); return this; }
   glyph(glyph,x,y,scale=1) {
     let runs=this.runs.get(glyph);

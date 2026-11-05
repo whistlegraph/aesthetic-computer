@@ -12,6 +12,7 @@ import {
   decodeBitmapToSample,
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
+import { chordIntervals, createChordVoice } from "../lib/notepat-chords.mjs";
 import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
@@ -19,7 +20,7 @@ import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
-import { notepatPianoLayout, pianoKeyContains } from "../lib/notepat-piano-layout.mjs";
+import { notepatPianoLayout, pianoKeyContains, pianoReachOffsets, pianoNoteName, pianoNoteOffset } from "../lib/notepat-piano-layout.mjs";
 import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
@@ -442,6 +443,8 @@ function panicNotepat() {
   for (const key of Object.keys(downs)) delete downs[key];
   for (const button of Object.values(buttons)) { button.down = false; button.over = false; }
   clearHeldVoices();
+  for(const group of [...chordVoices.values()])group.kill(.015);
+  chordVoices.clear();
   host({ op: "panic" });
 }
 const midiPerformance = createMidiPerformance({
@@ -484,6 +487,7 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //   release. BACKSPACE clears all held voices.
 // Drum / percussion presses skip both modes (handled at the press site).
 const performanceModifiers = createNotepatModifiers();
+const chordVoices = new Map();
 const drumKeys = new Map(), drumVoices = new Map();
 let shiftHeld = false;
 let enterHeld = false;
@@ -585,7 +589,7 @@ if (typeof window !== 'undefined') {
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
-const edges = "zx;']"; // below and above the octave
+const edges = "zx;'"; // below and above the octave
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
@@ -645,7 +649,6 @@ const MELODY_ALIAS_MIN_SIDE = 56;
 const MELODY_ALIAS_MARGIN = 6;
 
 const NOTE_TO_KEYBOARD_KEY = {
-  "-a": "control",
   "-a#": "z",
   "-b": "x",
   c: "c",
@@ -674,7 +677,6 @@ const NOTE_TO_KEYBOARD_KEY = {
   "+b": "n",
   "++c": ";",
   "++c#": "'",
-  "++d": "]",
 };
 
 const KEYBOARD_TO_NOTE = Object.fromEntries(
@@ -1227,6 +1229,23 @@ function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
 }
 const notepatPainter = new NotepatPainter();
 let mainLayout = "piano", pianoLayout = null;
+let pianoOffsets=[0,0], pianoMotionTime=0, pianoGeometryKey="";
+function heldPianoNotes() {
+  const active=new Set(Object.keys(sounds));
+  const base=(parseInt(octave)+1)*12;
+  for(const group of chordVoices.values())for(const midi of group.notes)active.add(pianoNoteName(midi-base));
+  for(const note of drumKeys.values())active.add(note);
+  return [...active];
+}
+function animatePianoReach(api) {
+  if(mainLayout!=="piano")return;
+  const now=performance.now(),dt=Math.min(50,Math.max(0,now-pianoMotionTime));pianoMotionTime=now;
+  const target=pianoReachOffsets(heldPianoNotes(),api.screen.width<=api.screen.height);
+  pianoOffsets=pianoOffsets.map((value,i)=>Math.abs(value-target[i])<.01?target[i]:value+(target[i]-value)*(1-Math.exp(-dt/70)));
+  const width=pianoLayout?.keyWidth||1;
+  const key=pianoOffsets.map(n=>Math.round(n*width)).join(":");
+  if(key!==pianoGeometryKey){pianoGeometryKey=key;setupButtons(api)}
+}
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
@@ -1290,11 +1309,13 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
 }
 function paintClassicNotepat(api, amplitude, waveforms) {
   const dark=api.dark !== false, palette=notepatPalette(dark), painter=notepatPainter.begin(api,palette.background);
+  animatePianoReach(api);
   const piano=mainLayout==='piano' ? pianoLayout : null;
   const notes=piano ? piano.keys.map(k=>k.note) : buttonNotes;
+  const activeNotes=new Set(heldPianoNotes());
   for(const note of notes) {
     const btn=buttons[note]; if(!btn || btn.hidden) continue;
-    const color=notepatNoteColor(note),sharp=note.includes('#'),active=!!sounds[note]||btn.down;
+    const color=notepatNoteColor(note),sharp=note.includes('#'),active=activeNotes.has(note)||btn.down;
     const colors=notepatPadColors(color,sharp,dark,active,btn.over);
     const b=btn.box;
     if(piano && !active) {
@@ -1311,7 +1332,7 @@ function paintClassicNotepat(api, amplitude, waveforms) {
     const glyph=learningGlyph(api,key,colors.text,'unifont',8,16);
     const labelBox=piano?piano.keys.find(k=>k.note===note).label:b;
     const label=learningPadLabels(labelBox,key,note,glyph,piano?.fontScale).primary;
-    if(label) painter.glyph(glyph,label.x,label.y,label.size);
+    if(label) { if(piano)painter.clip(piano.keys.find(k=>k.note===note).clip); painter.glyph(glyph,label.x,label.y,label.size); painter.clip(null); }
   }
   painter.ink(...palette.rail);
   if(piano) {
@@ -6369,6 +6390,22 @@ function setGmProgram(program, apiRef, fromMidi = false) {
 // Every locally played voice owns its MIDI output note until release. Input
 // devices use output:false so a hardware loop can never echo into itself.
 function makeNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
+  if(!output)return makeSingleNoteSound(tone,velocity,pan,{output});
+  const frequency=soundContext?.freq(tone),root=Math.round(69+12*Math.log2(frequency/440));
+  if(!Number.isFinite(root))return makeSingleNoteSound(tone,velocity,pan,{output});
+  const note=pianoNoteName(root-(parseInt(octave)+1)*12),id=++voiceSerial;
+  const toTone=midi=>`${Math.floor(midi/12)-1}${MIDI_NOTE_NAMES[((midi%12)+12)%12].toUpperCase()}`;
+  const group=createChordVoice({root,intervals:chordIntervals(performanceModifiers.chord(note)),
+    start:midi=>{
+      const voice=makeSingleNoteSound(toTone(midi),velocity,pan,{output});
+      return {...voice,update(value,interval){
+        if(value?.tone!==undefined){const hz=soundContext.freq(value.tone);voice.update({...value,tone:hz*2**(interval/12)})}
+        else voice.update(value);
+      }};
+    },onRelease:()=>chordVoices.delete(id)});
+  group.note=note;chordVoices.set(id,group);return group;
+}
+function makeSingleNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
   const id = ++voiceSerial;
   const frequency = soundContext?.freq(tone);
   const note = Math.round(69 + 12 * Math.log2(frequency / 440));
@@ -6824,6 +6861,9 @@ function act({
     return;
   }
   const bracket=performanceModifiers.observe(e);
+  for(const group of chordVoices.values())group.morph(chordIntervals(performanceModifiers.chord(group.note)));
+  // Control is now the chord-quality modifier, not an extra bass note.
+  if(e.is("keyboard:down:control")||e.is("keyboard:up:control"))return;
   shiftHeld=performanceModifiers.state.shift;
   if(bracket) {
     if(bracket.changed) {
@@ -6837,7 +6877,7 @@ function act({
     drumKeys.delete(key); stopButtonNote(note); if(buttons[note]) buttons[note].down=false;
     return;
   }
-  if(e.is("keyboard:down") && !e.ctrl && !e.alt && !e.meta) {
+  if(e.is("keyboard:down")) {
     const key=e.key?.toLowerCase(), note=keyboardKeyToNote(key);
     if(note && (wave==="drum" || performanceModifiers.drums(note))) {
       if(!e.repeat && !drumKeys.has(key)) {
@@ -7526,18 +7566,6 @@ function act({
     }
   }
 
-  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
-    perc = pc; //"cyan";
-    percDowns.alt = true;
-    makeCrash(e.velocity);
-  }
-
-  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
-    perc = pc; //"cyan";
-    percDowns.alt = true;
-    makeRide(e.velocity);
-  }
-
   if (e.is("keyboard:down:arrowleft") && !e.repeat && !percDowns.left) {
     perc = "brown";
     percDowns.left = true;
@@ -7579,9 +7607,7 @@ function act({
 
   // Spacebar keyup no longer needed (metronome toggle happens on keydown only)
 
-  if (e.is("keyboard:up:alt")) {
-    delete percDowns.alt;
-  }
+
 
   if (!tap) {
     const activePens = pens?.();
@@ -7778,7 +7804,7 @@ function act({
       );
     }
 
-    buttonNotes.forEach((note) => {
+    (classicControls()&&mainLayout==="piano"?Object.keys(buttons):buttonNotes).forEach((note) => {
       if (buttons[note]) {
         buttons[note].act(
           e,
@@ -7799,6 +7825,7 @@ function act({
             },
             // TODO: The order of over and out will be important...
             out: (btn) => {
+              releaseDrum(note);
               // Only stop the sound when dragging off, but don't affect button down state
               sounds[note]?.sound?.kill(killFade);
               delete tonestack[note]; // Remove from notestack  
@@ -7811,48 +7838,14 @@ function act({
               }
             },
             cancel: (btn) => {
+              releaseDrum(note,true);
               // Force cleanup when button gets stuck - stop the sound immediately
               sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
               delete tonestack[note]; // Remove from notestack
               delete sounds[note]; // Remove sound reference
               delete trail[note]; // Clean up trail
             },
-            up: (btn) => {
-              // ❤️‍🔥 TODO: How to manage the sliding here?
-              if (downs[note]) return false;
-
-              const orderedTones = orderedByCount(tonestack);
-
-              if (slide && orderedTones.length > 1 && sounds[note]) {
-                sounds[note]?.sound?.update({
-                  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-                  duration: 0.1,
-                });
-                const previousKey = orderedTones[orderedTones.length - 2];
-                sounds[previousKey] = sounds[note];
-                if (sounds[previousKey]) sounds[previousKey].note = previousKey;
-                applyPitchBendToNotes([previousKey], { immediate: true });
-              } else {
-                sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
-              }
-
-              // console.log("🪱 Trail:", note);
-
-              trail[note] = 1;
-
-              if (note.toUpperCase() === song?.[songIndex][0]) {
-                songIndex = (songIndex + 1) % song.length;
-                songNoteDown = false;
-                songShifting = true;
-              }
-
-              delete tonestack[note]; // Remove this key from the notestack.
-              delete sounds[note];
-              //} else {
-                stopButtonNote(note);
-              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
-              //}
-            },
+            up: (btn) => { stopButtonNote(note); },
           },
           pens?.(),
         );
@@ -7914,7 +7907,7 @@ function act({
   }
 
   // Individual Keyboard Notes
-  [...(octaves + notes + edges).split(""), "control"].forEach((key) => {
+  [...(octaves + notes + edges).split("")].forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
       // 📊 Track key press time for latency measurement
       perfStats.lastKeyTime = performance.now();
@@ -8541,7 +8534,8 @@ function resetModeState() {
 function setupButtons({ ui, screen, geo }) {
   padsViewport = `${screen.width}:${screen.height}`;
   if(classicControls() && mainLayout==='piano') {
-    pianoLayout=notepatPianoLayout(screen,{top:MODE_BAR_HEIGHT});
+    pianoLayout=notepatPianoLayout(screen,{top:MODE_BAR_HEIGHT,offsets:pianoOffsets});
+    for(const btn of Object.values(buttons)) {btn.box=new geo.Box(0,0,0,0);btn.box.contains=()=>false;}
     for(const key of pianoLayout.keys) {
       if(!buttons[key.note]) buttons[key.note]=new ui.Button(key.x,key.y,key.w,key.h);
       else buttons[key.note].box=new geo.Box(key.x,key.y,key.w,key.h);

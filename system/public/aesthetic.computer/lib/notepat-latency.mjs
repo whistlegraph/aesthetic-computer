@@ -1,8 +1,8 @@
 // Fast path is limited to musical keys. Pending shortcuts keep their original
 // ordering, and the normal frame path remains the cold-audio fallback.
 export function fastNotepatKey(event, { ready, queued = 0, mode } = {}) {
-  return !!ready && queued === 0 && mode !== "batched" && !event.ctrl && !event.alt && !event.meta &&
-    /^keyboard:(down|up):([a-z0-9;\]' ]|shift)$/.test(event.name);
+  return !!ready && queued === 0 && mode !== "batched" && (event.notepatMusical || (!event.ctrl && !event.alt && !event.meta &&
+    /^keyboard:(down|up):([a-z0-9;\]' ]|shift)$/.test(event.name)));
 }
 
 export function summarizeLatency(rows) {

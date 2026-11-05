@@ -1,6 +1,23 @@
-import { notepatPianoKeys } from './notepat-mode-bar.mjs';
+const NAMES=['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+const WHITE=[0,2,4,5,7,9,11], ORDINAL=[0,0,1,1,2,3,3,4,4,5,5,6];
+const pc=n=>((n%12)+12)%12;
+const white=n=>WHITE.includes(pc(n));
+const ordinal=n=>Math.floor(n/12)*7+ORDINAL[pc(n)];
+export const pianoNoteName=n=>(n<0?'-'.repeat(-Math.floor(n/12)) : '+'.repeat(Math.floor(n/12)))+NAMES[pc(n)];
+export function pianoNoteOffset(note) {
+  const name=note.replace(/^[+-]+/,'').toLowerCase(), pitch=NAMES.indexOf(name);
+  if(pitch<0)return null;
+  const prefix=note.match(/^[+-]+/)?.[0]||'';
+  return pitch+(prefix.startsWith('-')?-prefix.length:prefix.length)*12;
+}
+export function pianoReachOffsets(notes,stacked=false) {
+  const offsets=notes.map(pianoNoteOffset).filter(Number.isFinite);
+  const left=Math.max(0,...offsets.filter(n=>n<0).map(n=>-ordinal(n)-(white(n)?0:1-.31-.12)));
+  const right=Math.max(0,...offsets.filter(n=>n>=24).map(n=>ordinal(n)-14+(white(n)?1:1+.31+.12)));
+  return stacked?[left,-right||0]:[left-right,left-right];
+}
 
-export function notepatPianoLayout({width,height}, {top=21}={}) {
+export function notepatPianoLayout({width,height}, {top=21,offsets=[0,0]}={}) {
   const stacked=width<=height, columns=stacked?7:14, rows=stacked?2:1;
   const margin=4, gap=stacked?10:0;
   const keyWidth=Math.max(1,Math.floor((width-margin*2)/columns));
@@ -10,21 +27,23 @@ export function notepatPianoLayout({width,height}, {top=21}={}) {
   const x=Math.floor((width-columns*keyWidth)/2);
   const y=top+margin+Math.floor(Math.max(0,available-rows*keyHeight)/2);
   const keys=[],octaves=[];
-  const {whiteKeys,blackKeys}=notepatPianoKeys(7);
-  for(let octave=0;octave<2;octave++) {
-    const left=x+(stacked?0:octave*7*keyWidth),rowY=y+(stacked?octave*(keyHeight+gap):0),prefix=octave?'+':'';
-    octaves.push({x:left,y:rowY,w:7*keyWidth,h:keyHeight});
-    for(let i=0;i<7;i++) keys.push({note:prefix+whiteKeys[i].toLowerCase(),sharp:false,x:left+i*keyWidth,y:rowY,w:keyWidth,h:keyHeight,
-      label:{x:left+i*keyWidth,y:rowY+blackHeight+2,w:keyWidth,h:Math.max(1,keyHeight-blackHeight-4)}});
-    for(const key of blackKeys) {
-      const bx=Math.round(left+(key.afterWhite+1)*keyWidth-blackWidth/2);
-      keys.push({note:prefix+key.note.toLowerCase(),sharp:true,x:bx,y:rowY,w:blackWidth,h:blackHeight,
-        label:{x:bx,y:rowY,w:blackWidth,h:blackHeight}});
+  for(let octave=0;octave<2;octave++) octaves.push({x:x+(stacked?0:octave*7*keyWidth),y:y+(stacked?octave*(keyHeight+gap):0),w:7*keyWidth,h:keyHeight});
+  for(let row=0;row<rows;row++) {
+    const rowY=y+row*(keyHeight+gap),clip={x,y:rowY,w:columns*keyWidth,h:keyHeight};
+    const shift=Math.round(offsets[row]*keyWidth),base=stacked?row*7:0;
+    // Include the connective ghost keys while the keyboard eases back home.
+    for(let n=stacked&&row===1?12:-12;n< (stacked&&row===0?12:48);n++) {
+      const sharp=!white(n),w=sharp?blackWidth:keyWidth,h=sharp?blackHeight:keyHeight;
+      const rawX=Math.round(x+(ordinal(n)-base+(sharp?1:0))*keyWidth-(sharp?blackWidth/2:0))+shift;
+      const left=Math.max(clip.x,rawX),right=Math.min(clip.x+clip.w,rawX+w);
+      if(right<=left)continue;
+      keys.push({note:pianoNoteName(n),sharp,x:left,y:rowY,w:right-left,h,clip,
+        label:sharp?{x:rawX,y:rowY,w,h}:{x:rawX,y:rowY+blackHeight+2,w,h:Math.max(1,keyHeight-blackHeight-4)}});
     }
   }
-  keys.sort((a,b)=>Number(a.sharp)-Number(b.sharp)); // black keys paint above the white ones
+  keys.sort((a,b)=>Number(a.sharp)-Number(b.sharp));
   const fontScale=Math.max(1,Math.min(5,Math.floor((keyWidth-6)/8),Math.floor((keyHeight-blackHeight-10)/12),Math.floor((blackWidth-2)/8)+1));
-  return {keys,octaves,fontScale,stacked};
+  return {keys,octaves,fontScale,stacked,keyWidth};
 }
 export function pianoNoteAt(layout,x,y) {
   for(let i=layout.keys.length-1;i>=0;i--) {
@@ -33,8 +52,6 @@ export function pianoNoteAt(layout,x,y) {
   }
   return null;
 }
-
-// UI buttons also check absent drag coordinates during keyboard events.
 export function pianoKeyContains(layout,note,point) {
   return !!point && pianoNoteAt(layout,point.x,point.y)===note;
 }

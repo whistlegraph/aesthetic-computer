@@ -1,4 +1,5 @@
 // ⌨ Keyboard
+import { createNotepatKeyRoute } from "./notepat-chords.mjs";
 import { MetaBrowser, Aesthetic, MacOS } from "./platform.mjs";
 
 // TODO: Add more of these properties as needed:
@@ -14,9 +15,12 @@ export class Keyboard {
   #sequenceTimeout = null;
   needsImmediateOpen = false;
 
-  constructor(dispatch = () => false) {
+  constructor(dispatch = () => false, { isNotepat = () => false } = {}) {
     const emit = event => { if (!dispatch(event)) this.events.push(event); };
+    const routeNotepat=createNotepatKeyRoute();
+    const musicalFocus=()=>isNotepat()&&!document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]');
     window.addEventListener("keydown", (e) => {
+      if(routeNotepat(e,true,musicalFocus(),emit))return;
       // console.log("⌨️ Key event:", e);
 
       this.#held.add(e.key);
@@ -131,6 +135,7 @@ export class Keyboard {
     });
 
     window.addEventListener("keyup", (e) => {
+      if(routeNotepat(e,false,musicalFocus(),emit))return;
       this.#held.delete(e.key);
       emit({
         name: "keyboard:up:" + parseKey(e.key),

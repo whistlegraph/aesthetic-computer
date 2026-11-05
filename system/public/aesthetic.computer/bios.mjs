@@ -14436,7 +14436,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         })) return false;
         send({ type: "notepat:keyboard", content: event });
         return true;
-      });
+      }, {isNotepat:()=>!keyboardFocusLock && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||"")});
       {
         // console.log("⌨️ 🤖 Initializing Virtual Keyboard");
         /**
