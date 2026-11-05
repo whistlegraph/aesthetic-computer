@@ -24,6 +24,7 @@ function fakeDb() {
       calls.push({ name, pipeline });
       const match = pipeline[0].$match;
       if (name === CLASSIC_COLLECTION) return cursor(match.savedAt ? rows.saves : rows.reservations);
+      if (match.property === "notepat.com") return cursor([]);
       if (match.property === "nopaint.art") return cursor(rows.clicks);
       return cursor(match.$expr ? rows.destinations : rows.arrivals);
     },

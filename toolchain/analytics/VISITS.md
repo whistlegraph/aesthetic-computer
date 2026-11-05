@@ -657,3 +657,34 @@ node --env-file=.env ../toolchain/analytics/journey-report.mjs mime '{"hours":24
 ```
 
 Validate with `node --test system/tests/account-activity.test.mjs system/tests/feed-activity.test.mjs`.
+
+### No Paint → Notepat (5 November 2026)
+
+The default No Paint title bumper says “Make music on notepat.com!” and links
+with the static `ac_campaign=nopaint-music` tag. `?ad=ac` and `?ad=notepaint`
+retain the older previews. `notepat_ad_shown` follows the existing sticker
+measurement: title shown plus subsequent trusted interaction, not all page
+impressions. `notepat_opened` records trusted activation of the reviewed host.
+
+Notepat arrivals carry `notepatVersion: 1`, an allowlisted campaign (or null),
+and a monotonic `notepatReady` boolean set when instrument boot finishes.
+Ready is load coverage and may precede interaction. Manual accepted note starts
+set `notepat_note_played` (and the existing `note_played` flag); the eighth
+sets `notepat_eight_notes`. A chord may contribute several starts. Autopat is
+excluded. No notes, pitch, velocity, phrase, URL, or exact count are transmitted.
+
+`notepat_recording_started` marks Rec activation. A nonempty serialized phrase
+sets `notepat_recording_completed`; its jump to clock sets
+`notepat_playback_requested`. Neither confirms listening or saving a file.
+`notepat_amxd_requested` marks the Ableton download control, not completion.
+These flags share the document's ephemeral visit ID, including in-page jumps;
+no ID crosses sites or survives reload. DNT/GPC/opt-out, hidden-page interaction
+exclusion, automated-visit classification and 35-day retention still apply.
+
+`nopaint_report`, `network_report` and `nopaint-report.mjs --hours 24` include
+`notepatPathway`: source shown/clicked counts plus destination campaign,
+referrer-only, and other cohorts. Older unmeasured arrivals are separate;
+no measured arrivals yields null stage counts/rates. Flags indicate milestones
+within a visit, not a guaranteed sequence. Source and destination counts are
+separate aggregates: shared campaign links, referrer suppression, blocked
+tracking, and time boundaries prevent an exact person-by-person conversion.

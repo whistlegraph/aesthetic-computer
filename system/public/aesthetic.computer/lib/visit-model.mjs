@@ -51,6 +51,9 @@ export const VISIT_ACTIONS = Object.freeze([
   "ac_opened", "ac_ad_shown",
   "note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
   "teacher_note_opened", "teacher_note_sent",
+  "notepat_opened", "notepat_ad_shown", "notepat_note_played", "notepat_eight_notes",
+  "notepat_recording_started", "notepat_recording_completed",
+  "notepat_playback_requested", "notepat_amxd_requested",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.
@@ -74,6 +77,9 @@ export function visitLinkAction(hostname, href) {
   if (property === "nopaint.art" && url.protocol === "https:" &&
       !url.port && !url.username && !url.password && visitProperty(url.hostname) === "notepaint.art")
     return "notepaint_opened";
+  if (property === "nopaint.art" && url.protocol === "https:" &&
+      !url.port && !url.username && !url.password && visitProperty(url.hostname) === "notepat.com")
+    return "notepat_opened";
   // The other arm of No Paint's sticker test: the same sticker, pointing at AC.
   if (property === "nopaint.art" && url.protocol === "https:" &&
       !url.port && !url.username && !url.password && visitProperty(url.hostname) === "aesthetic.computer")
@@ -92,6 +98,11 @@ export function aeselVisitContext(hostname, pathname, search = "") {
   const tag = new URLSearchParams(search).get("ac_campaign");
   return { aeselVersion: 1, route: AESEL_ROUTES[pathname] || "other",
     campaign: AESEL_CAMPAIGNS.includes(tag) ? tag : null };
+}
+export function notepatVisitContext(hostname, search = "") {
+  if (visitProperty(hostname) !== "notepat.com") return {};
+  return { notepatVersion: 1, notepatReady: false,
+    campaign: new URLSearchParams(search).get("ac_campaign") === "nopaint-music" ? "nopaint-music" : null };
 }
 export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
 // Public upload milestones require a returned record code, never a click.
@@ -169,6 +180,8 @@ export function validateVisit(body, origin, userAgent = "") {
       (body.aeselVersion !== undefined && (body.aeselVersion !== 1 || property !== "aesel.app" ||
         ![...Object.values(AESEL_ROUTES), "other"].includes(body.route) ||
         !(body.campaign === null || AESEL_CAMPAIGNS.includes(body.campaign)))) ||
+      (body.notepatVersion !== undefined && (body.notepatVersion !== 1 || property !== "notepat.com" ||
+        typeof body.notepatReady !== "boolean" || !(body.campaign === null || body.campaign === "nopaint-music"))) ||
       (body.linkVersion !== undefined && body.linkVersion !== 1) ||
       !Array.isArray(body.inputs) || body.inputs.length > INPUTS.length ||
       body.inputs.some(value => !INPUTS.includes(value)) ||
@@ -182,6 +195,7 @@ export function validateVisit(body, origin, userAgent = "") {
     inputs: [...new Set(body.inputs)], actions: [...new Set(body.actions)],
     referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
     ...(body.aeselVersion === 1 ? { aeselVersion: 1, route: body.route, campaign: body.campaign } : {}),
+    ...(body.notepatVersion === 1 ? { notepatVersion: 1, notepatReady: body.notepatReady, campaign: body.campaign } : {}),
     ...(body.linkVersion === 1 ? { linkVersion: 1 } : {}),
   };
 }
@@ -189,12 +203,14 @@ export function validateVisit(body, origin, userAgent = "") {
 export function visitUpdate(visit, now = new Date()) {
   const max = { activeSeconds: visit.activeSeconds, interacted: visit.interacted,
     automated: visit.automated, engaged: visit.interacted && visit.activeSeconds >= 10 };
+  if (visit.notepatVersion === 1) max.notepatReady = visit.notepatReady;
   if (visit.linkVersion === 1) max.linkVersion = 1;
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;
   return {
     $setOnInsert: { property: visit.property, group: visitGroup(visit.property), surface: visit.surface, referrerHost: visit.referrerHost,
       ...(visit.aeselVersion === 1 ? { aeselVersion: 1, route: visit.route, campaign: visit.campaign } : {}),
+      ...(visit.notepatVersion === 1 ? { notepatVersion: 1, campaign: visit.campaign } : {}),
       expiresAt: new Date(now.getTime() + RETENTION_DAYS * 86400000) },
     $min: { startedAt: now }, $max: { ...max, lastSeenAt: now },
   };

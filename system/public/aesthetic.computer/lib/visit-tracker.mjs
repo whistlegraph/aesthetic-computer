@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext } from "./visit-model.mjs?v=20261104-teacher";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261105-notepat";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -10,6 +10,7 @@ export function startVisitTracker(win = window, doc = document) {
   if (disabled() || win !== win.top || win.acPACK_MODE ||
       !visitProperty(win.location.hostname) || !win.crypto?.randomUUID) return null;
 
+  let manualNotes = 0;
   let state, path, visibleMs = 0, lastTick = win.performance.now(), lastSent = "";
   let wasVisible = doc.visibilityState === "visible";
   let stopped = false, timer, recognition, failures = 0, retryAt = 0;
@@ -30,7 +31,9 @@ export function startVisitTracker(win = window, doc = document) {
       interacted: false, activeSeconds: 0, inputs: [], actions: [],
       referrerHost: visitReferrer(doc.referrer),
       ...aeselVisitContext(win.location.hostname, path, win.location.search),
+      ...notepatVisitContext(win.location.hostname, win.location.search),
     };
+    manualNotes = 0;
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
   };
@@ -86,14 +89,30 @@ export function startVisitTracker(win = window, doc = document) {
   // (notepaint's note). Field typing is never collected as interaction, so
   // this marks the visit interacted by keyboard; no text is ever passed.
   const action = (name, { typed = false } = {}) => {
-    if (!VISIT_ACTIONS.includes(name) || !visible() || disabled()) return false;
+    if (disabled() || stopped) return false;
     syncRoute();
+    // Boot completion is load coverage, not evidence of human interaction.
+    if (name === "notepat_ready") {
+      if (!state?.notepatVersion) return false;
+      state.notepatReady = true;
+      if (visible()) send();
+      return true;
+    }
+    if (!VISIT_ACTIONS.includes(name) || !visible()) return false;
+    // Preserve generic runtime note counts on AC; the destination funnel is
+    // scoped to notepat.com. Autopat never sends this manual-note signal.
+    if (name === "notepat_note_played" && !state?.notepatVersion) name = "note_played";
     if (typed && state) {
       state.interacted = true;
       if (!state.inputs.includes("keyboard")) state.inputs.push("keyboard");
     }
     if (!state?.interacted) return false;
-    win.acAccountActivity?.action(name);
+    if (name === "notepat_note_played") {
+      manualNotes = Math.min(8, manualNotes + 1);
+      if (!state.actions.includes("note_played")) state.actions.push("note_played");
+      if (manualNotes === 8 && !state.actions.includes("notepat_eight_notes")) state.actions.push("notepat_eight_notes");
+    }
+    win.acAccountActivity?.action(name === "notepat_note_played" ? "note_played" : name);
     if (!state.actions.includes(name)) state.actions.push(name);
     send(); return true;
   };

@@ -1911,6 +1911,7 @@ async function boot({
   }
 
   setupButtons(api);
+  api.send?.({ type: "visit:action", content: { action: "notepat_ready" } });
 }
 
 function sim({ sound, simCount, num, clock, painting }) {
@@ -6453,7 +6454,7 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
         publishNotepatMidi("note_off", midi, 0, 0);
       }
     }
-    if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
+    if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     return true;
   }
 
@@ -6561,7 +6562,7 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
     }
   }
 
-  if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
+  if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
   return true;
 }
 
@@ -7550,7 +7551,7 @@ function act({
       buttons[buttonNote].over = true;
     }
 
-    api.send?.({ type: "visit:action", content: { action: "note_played" } });
+    api.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     return true;
   };
 
@@ -7782,6 +7783,7 @@ function act({
       down: () => api.beep(400),
       push: () => {
         api.beep();
+        api.send?.({ type: "visit:action", content: { action: "notepat_amxd_requested" } });
         jump("out:https://notepat.com/amxd");
       },
     });
@@ -7802,6 +7804,7 @@ function act({
           recordBuffer = [];
           recordingActive = {};
           recording = true;
+          api.send?.({ type: "visit:action", content: { action: "notepat_recording_started" } });
           // Seed any currently-held notes so a press mid-chord still captures them.
           const now = performance.now();
           for (const bn of Object.keys(tonestack)) {
@@ -8324,7 +8327,7 @@ function act({
           pictureAdd(api, tone);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
-        api.send?.({ type: "visit:action", content: { action: "note_played" } });
+        api.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
       }
     }
 
@@ -9070,8 +9073,12 @@ function finishRecordingAndJump(api) {
   const result = serializeRecording();
   recordBuffer = [];
   if (!result) return;
+  api?.send?.({ type: "visit:action", content: { action: "notepat_recording_completed" } });
   const target = `clock ${result.melody}:${result.timing}`;
-  if (typeof api?.jump === "function") api.jump(target);
+  if (typeof api?.jump === "function") {
+    api.send?.({ type: "visit:action", content: { action: "notepat_playback_requested" } });
+    api.jump(target);
+  }
 }
 
 // Build metronome controls and toggle buttons with responsive layout

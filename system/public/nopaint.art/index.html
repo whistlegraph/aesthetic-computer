@@ -38,7 +38,7 @@
 		image-rendering: pixelated;
 	}
 </style>
-<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261105-notepat" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <div id="fb-root"></div>
@@ -96,7 +96,7 @@
 		#teacher-note button[value=cancel] { background: transparent; color: #1d2b14; }
 		#teacher-note .status { min-height: 1.2em; font-size: 14px; }
 	</style>
-	<a id="notepaint-ad" href="https://notepaint.art/" hidden><b>NEW!</b> notepaint.art</a>
+	<a id="notepaint-ad" href="https://notepat.com/?ac_campaign=nopaint-music" hidden>Make music on <b>notepat.com!</b></a>
 	<button id="teacher-chip" type="button" hidden>Teaching with No Paint?</button>
 	<dialog id="teacher-note" aria-labelledby="teacher-title">
 		<form method="dialog" novalidate>
@@ -114,16 +114,25 @@
 	<script>
 		(() => {
 			const ad = document.getElementById("notepaint-ad");
-			// Sticker (VISITS.md: No Paint sticker split): from 4 November 2026
-			// every visit gets the aesthetic.computer arm; the 50/50 split ran
-			// for one afternoon. ?ad=notepaint still shows the notepaint arm.
+			// Default music invitation; keep old destinations available for previews.
 			const pinned = new URLSearchParams(location.search).get("ad");
-			const arm = pinned === "notepaint" ? "notepaint" : "ac";
+			const arm = ["notepaint", "ac"].includes(pinned) ? pinned : "notepat";
 			if (arm === "ac") {
 				ad.href = "https://aesthetic.computer/";
 				ad.innerHTML = "<b>NEW!</b> aesthetic.computer";
 			}
-			const shownAction = arm === "ac" ? "ac_ad_shown" : "notepaint_ad_shown";
+			if (arm === "notepaint") {
+				ad.href = "https://notepaint.art/";
+				ad.innerHTML = "<b>NEW!</b> notepaint.art";
+			}
+			const shownAction = `${arm}_ad_shown`;
+			// Capture keyboard activation before navigation, without waiting for
+			// the first-interaction retry timer. The tracker has already marked
+			// the trusted click as interaction in its window capture listener.
+			for (const type of ["click", "auxclick"]) ad.addEventListener(type, (event) => {
+				if (event.isTrusted && (type === "click" || event.button === 1) && ad.classList.contains("shown"))
+					window.acVisits?.action(shownAction);
+			});
 			// Teacher note: Spanish for Spanish-language browsers (the class
 			// traffic of November 2026 came from Peru), English otherwise.
 			const chip = document.getElementById("teacher-chip"), note = document.getElementById("teacher-note");
@@ -178,7 +187,7 @@
 				if (!canvas?.isConnected) return;
 				const box = canvas.getBoundingClientRect();
 				if (!box.width) return;
-				const scale = Math.min(1.4, Math.max(0.7, box.width / 400));
+				const scale = Math.min(1.4, box.width / 400, (box.width * 0.90 - 20) / ad.offsetWidth);
 				// The sticker sits in the canvas's top-left corner (its centre is
 				// placed, so offset by half its unscaled size times the scale).
 				const inset = Math.max(10, box.width * 0.03);
@@ -223,7 +232,7 @@
 				addEventListener("pointerdown", peel, true);
 				addEventListener("keydown", peel, true);
 				// Show it once the loader has given way to the title art.
-				setTimeout(() => { place(); ad.classList.add("shown"); chip.classList.add("shown"); seen(); }, 1200);
+				setTimeout(() => { if (!ad.isConnected) return; place(); ad.classList.add("shown"); chip.classList.add("shown"); seen(); }, 1200);
 			});
 			watch.observe(document.body, { childList: true, subtree: true });
 		})();

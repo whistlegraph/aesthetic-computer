@@ -1,3 +1,5 @@
+import { notepatPipeline, notepatPathway } from "./notepat.mjs";
+
 // No Paint across its instruments, for nopaint-report.mjs (on Lith) and the
 // analytics MCP. Read-only; no database import here so tests can load it.
 //
@@ -37,7 +39,7 @@ export async function nopaintReport(db, options = {}) {
   const { start, end } = options.start && options.end ? options : nopaintReportOptions(options);
   const range = { $gte: start, $lt: end };
   const aggregate = (name, pipeline) => db.collection(name).aggregate(pipeline, { maxTimeMS: 10000 }).toArray();
-  const [clicks, destinations, arrivals, saves, reservations, notes] = await Promise.all([
+  const [clicks, destinations, arrivals, saves, reservations, notes, notepat] = await Promise.all([
     aggregate("network-visits", [
       { $match: { property: "nopaint.art", startedAt: range, linkVersion: 1 } },
       { $group: { _id: { automated: "$automated" }, visitsWithLink: { $sum: 1 },
@@ -51,6 +53,8 @@ export async function nopaintReport(db, options = {}) {
         // The aesthetic.computer arm of the sticker split (from 2026-11-04).
         acAdShown: count("actions.ac_ad_shown"), acOpened: count("actions.ac_opened"),
         acOpenedAfterShown: both("actions.ac_ad_shown", "actions.ac_opened"),
+        notepatAdShown: count("actions.notepat_ad_shown"),
+        notepatOpenedAfterShown: both("actions.notepat_ad_shown", "actions.notepat_opened"),
         teacherNoteOpened: count("actions.teacher_note_opened"), teacherNoteSent: count("actions.teacher_note_sent") } },
     ]),
     // Arrivals on each arm's destination with nopaint.art as referrer. Arrival
@@ -93,13 +97,14 @@ export async function nopaintReport(db, options = {}) {
     db.collection(TEACHER_COLLECTION).find({ createdAt: range },
       { projection: { _id: 0, createdAt: 1, school: 1, lang: 1 }, maxTimeMS: 10000 })
       .sort({ createdAt: 1 }).limit(MAX_NOTES + 1).toArray(),
+    aggregate("network-visits", notepatPipeline(start, end)),
   ]);
-  return foldNopaint({ clicks, destinations, arrivals, saves, reservations, notes }, { start, end });
+  return foldNopaint({ clicks, destinations, arrivals, saves, reservations, notes, notepat }, { start, end });
 }
 
 const rate = (n, d) => d ? +(100 * n / d).toFixed(2) : null;
 
-export function foldNopaint({ clicks = [], destinations = [], arrivals = [], saves = [], reservations = [], notes = [] }, { start, end }) {
+export function foldNopaint({ clicks = [], destinations = [], arrivals = [], saves = [], reservations = [], notes = [], notepat = [] }, { start, end }) {
   const human = clicks.find(row => !row._id.automated);
   const fromNopaint = arrivals.find(row => !row._id.automated && row._id.from === "nopaint.art");
   // The Braincells funnel across every human notepaint arrival. The purchase
@@ -142,6 +147,7 @@ export function foldNopaint({ clicks = [], destinations = [], arrivals = [], sav
     nopaintClickThroughOfAllLinkVisitsPercent: rate(human?.notepaintOpened, human?.visitsWithLink),
     fromNopaintMakingPercent: rate(fromNopaint?.painting_edited, fromNopaint?.visits),
     stickerSplit,
+    notepatPathway: notepatPathway(notepat, human),
     notepaintFunnelFromNopaint: Object.fromEntries(NOTEPAINT_STEPS.map(key => [key, fromNopaint?.[key] || 0])),
     braincellsFunnel: funnel,
     nopaint: clicks,
