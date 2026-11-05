@@ -1364,7 +1364,7 @@ function paintClassicNotepat(api, amplitude, waveforms) {
     }
   } else for(const start of [0,12]) {
     const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
-    if(first&&last) painter.ink(...(performanceModifiers.drums(start?"+c":"c")?palette.orange:palette.rail)).line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
+    if(first&&last) painter.ink(...(performanceModifiers.drums(start?"+c":"c")?palette.orange:palette.rail)).line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1).line(first.x,first.y,first.x,last.y+last.h-1).line(last.x+last.w-1,first.y,last.x+last.w-1,last.y+last.h-1);
   }
   paintModeBar(api,amplitude,waveforms,painter);
   if(controlsOpen) soundPanel.paint(api,painter,(text,color)=>learningGlyph(api,text,color,'MatrixChunky8',6,10),palette);
