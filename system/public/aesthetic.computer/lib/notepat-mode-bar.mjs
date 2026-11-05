@@ -20,7 +20,7 @@ export function notepatModeBar(width, { mode = "main", sound = "piano", octave =
 }
 export function notepatHeader(right) {
   // Reserve a playable octave and a scope before spending space on the wordmark.
-  const logo = right >= 119 ? 'notepat.com' : right >= 92 ? 'notepat' : '';
+  const logo = right >= 112 ? 'notepat.com' : right >= 84 ? 'notepat' : '';
   let x=logo==='notepat.com'?75:logo?50:3;
   const room=right-x-3;
   const whiteCount=room>=98?14:7;

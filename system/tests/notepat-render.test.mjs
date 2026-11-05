@@ -19,7 +19,7 @@ test('all natural keys share a font scale; sharps are 15% smaller and have no co
   }
 });
 test('portrait header keeps the miniature piano and waveform clear of the controls',()=>{
-  for(const width of [195,240,342,480,960]) for(const sound of ['piano','sine','g128']) {
+  for(const width of [187,195,240,342,480,960]) for(const sound of ['piano','sine','g128']) {
     const bar=notepatModeBar(width,{sound}),{piano,viz}=bar.header;
     assert.ok(piano,`${width}:${sound}`);
     assert.ok(piano.x>=0 && piano.x+piano.w<viz.x);
