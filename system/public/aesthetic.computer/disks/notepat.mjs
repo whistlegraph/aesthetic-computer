@@ -1187,6 +1187,7 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
+let modeBarHudHidden = false;
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
@@ -3289,7 +3290,11 @@ function paint({
   // Reconcile with the actual render size, including resize events that coalesce.
   if (padsViewport !== `${screen.width}:${screen.height}`) setupButtons(api);
 
-  if (classicControls()) { autopatHud?.label(undefined); autopatHud?.suffix(null); }
+  if (classicControls() !== modeBarHudHidden) {
+    modeBarHudHidden = classicControls();
+    autopatHud?.label(modeBarHudHidden ? undefined : "notepat");
+    autopatHud?.suffix(modeBarHudHidden ? null : ".com");
+  }
 
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
@@ -4835,7 +4840,7 @@ function paint({
     );
 
     // MIDI badge now renders in the top mini bar (left)
-  } else if (!paintPictureOverlay) {
+  } else if (!classicControls() && !paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
@@ -5000,7 +5005,7 @@ function paint({
   if (tap) {
     ink("yellow");
     write("tap", { right: 6, top: 6 });
-  } else if (!paintPictureOverlay) {
+  } else if (!classicControls() && !paintPictureOverlay) {
     waveBtn?.paint((btn) => {
       ink(btn.down ? [45, 56, 58] : [28, 34, 46]).box(
         btn.box.x,
@@ -7471,7 +7476,7 @@ function act({
     });
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
-    if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
+    if (!classicControls() && roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
       const barY = HEADER_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
