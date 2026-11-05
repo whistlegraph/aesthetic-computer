@@ -20350,6 +20350,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     function buildOverlay(name, o) {
+      // The reel already translated its complete AC frame, including the HUD.
+      // Do not resurrect cached overlays during a piece reframe.
+      if (content.reelFrame) return;
       // Skip ALL overlays in clean mode (no stamps, no progress bars, no labels)
       if (window.currentRecordingOptions?.cleanMode) {
         return;

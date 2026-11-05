@@ -14794,7 +14794,7 @@ async function makeFrame({ data: { type, content } }) {
           }
 
           // 🎞️ While the mime reel moves or loads a card, it draws instead.
-          const reelHolds = reel?.hold(paint !== defaults.paint) === true;
+          const reelHolds = reel?.hold(paint !== defaults.paint, screen) === true;
 
           // Only call paint() if timing allows or no FPS limit is set
           if (shouldPaint && !reelHolds) {
@@ -15063,14 +15063,6 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.dripDirections = null;
             }
           }
-        }
-
-        // 🎞️ The reel composites its cards over the frame, whole.
-        if (reel?.busy()) {
-          page($api.screen);
-          reel.draw($api);
-          painting.paint(true);
-          paintOut = undefined;
         }
 
         painted = true;
@@ -17333,6 +17325,17 @@ async function makeFrame({ data: { type, content } }) {
       // Interactive updates live in the HUD label or prompt's bottom hash button.
       if (globalUpdateReady) {
         sendData.updateBadge = { silent: true, auto: autoUpdateForFrame || globalAutoReload };
+      }
+
+      // 🎞️ Compose after all raster HUD layers exist so the piece, label,
+      // QR and author move as one screen. The reel consumes their overlays.
+      if (reel?.busy()) {
+        $api.page(screen);
+        reel.draw($api, sendData);
+        sendData.reelFrame = true;
+        painting.paint(true);
+        painted = true;
+        dirtyBox = undefined;
       }
 
       let transferredPixels;

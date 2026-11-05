@@ -10,7 +10,7 @@
 // stranger's piece never sees the viewer's session. The prompt's mime sheet
 // hosts this runtime in a single frame and owns the trip back to the prompt.
 //
-//   idle → drag → settle → (waiting → jumping → loading) → idle
+//   idle → drag → settle → (waiting → jumping → loading → reveal) → idle
 //
 // Input belongs to the piece except for a vertical drag. A press is held back
 // until it shows what it is: a mostly-vertical move moves the reel, any other
@@ -23,6 +23,7 @@ const HOLD = 180; // ms a still press waits before it belongs to the piece
 const COMMIT = 0.5; // of the screen: past halfway the trip finishes
 const FLICK = 0.0009; // screens per ms that also finish a trip...
 const FLICK_MIN = 0.06; // ...once it has gone at least this far
+const REVEAL = 180; // ms to blend a preview into its first live frames
 const GLIDE = 70; // ms time constant of a settle
 const WHEEL_REST = 140; // ms of wheel silence that ends a stream
 const LOAD_TIMEOUT = 10000; // a card that never paints still gets revealed
@@ -47,6 +48,9 @@ let toward = 0; // A settle's direction: 1 next, -1 previous, 0 back home.
 let lastStep = 0;
 let current = null; // { w, h, pixels }: the image standing in for this card.
 let loadSince = 0;
+let revealSince = 0;
+let neighbors = null; // Fixed for one gesture, including its loading handoff.
+let restore = null; // Clean piece pixels to resume after a cancelled swipe.
 
 let frozen = false; // The next frame is captured as `current` before drawing.
 let firstCard = false; // The first card's reveal tells the host we're ready.
@@ -152,7 +156,7 @@ function toCard(post) {
 }
 
 // 🧭 Put card `i` on screen.
-function go(i, first = false) {
+function go(i, first = false, preview = null) {
   const card = cards[i];
   if (!card) return;
   index = i;
@@ -160,7 +164,8 @@ function go(i, first = false) {
   toward = 0;
   phase = "waiting"; // Until disk can take the jump (a load may be in flight).
   loadSince = performance.now();
-  current = imageFor(card, current?.w, current?.h) || current;
+  current = preview || imageFor(card, current?.w, current?.h) || current;
+  neighbors = null;
   warm();
   if (cards.length - i < 4) more();
   at();
@@ -176,9 +181,16 @@ export function loadStarted() {
   if (phase === "jumping") phase = "loading";
 }
 
-function reveal() {
-  phase = "idle";
-  current = null;
+function reveal(screen) {
+  if (current && screen?.pixels) {
+    // Keep the exact displayed preview, including its AC caption.
+    current = { w: screen.width, h: screen.height, pixels: new Uint8ClampedArray(screen.pixels) };
+    phase = "reveal";
+    revealSince = performance.now();
+  } else {
+    phase = "idle";
+    current = null;
+  }
   if (firstCard) {
     firstCard = false;
     post({ type: "mime:sheet:ready" });
@@ -462,19 +474,23 @@ export function busy() {
   return phase !== "idle" || frozen;
 }
 
-export function hold(pieceReady) {
+export function hold(pieceReady, screen) {
+  if (restore && screen?.pixels) {
+    if (restore.w === screen.width && restore.h === screen.height) screen.pixels.set(restore.pixels);
+    restore = null;
+  }
   if (gesture?.mode === "pending" && performance.now() - gesture.t0 > HOLD)
     gesture.timedOut = true; // Handed over by `tick` before the next pens.
   if (phase === "loading" && pieceReady) {
-    reveal();
+    reveal(screen);
     return false;
   }
   if ((phase === "waiting" || phase === "jumping" || phase === "loading") &&
       performance.now() - loadSince > LOAD_TIMEOUT) {
-    reveal();
+    reveal(screen);
     return false;
   }
-  return phase !== "idle" || frozen;
+  return (phase !== "idle" && phase !== "reveal") || frozen;
 }
 
 // Disk calls this at the top of each frame's pens, to hand over a press that
@@ -485,16 +501,39 @@ export function tick(dispatch) {
     handOver(dispatch);
 }
 
-export function draw($) {
+export function draw($, overlays = {}) {
   const { screen } = $;
   const w = screen.width, h = screen.height, px = screen.pixels;
   if (!px || !w || !h) return;
   lastH = h;
 
+  if (phase === "reveal") {
+    // Let the piece paint normally, then blend complete AC frames so its HUD
+    // appears with the artwork. Restore its clean backing before the next paint.
+    restore = { w, h, pixels: new Uint8ClampedArray(px) };
+    const live = { w, h, pixels: px };
+    for (const overlay of Object.values(overlays)) composite(live, overlay);
+    const t = Math.min(1, (performance.now() - revealSince) / REVEAL);
+    const amount = t * t * (3 - 2 * t);
+    if (sized(current, w, h)) {
+      for (let i = 0; i < px.length; i++) px[i] = current.pixels[i] * (1 - amount) + px[i] * amount;
+    }
+    consume(overlays);
+    if (t === 1) { phase = "idle"; current = null; }
+    needsPaint();
+    return;
+  }
+
   if (frozen) {
     frozen = false;
-    current = { w, h, pixels: new Uint8ClampedArray(px) };
-    remember(cards[index], screen);
+    const backing = { w, h, pixels: new Uint8ClampedArray(px) };
+    current = { w, h, pixels: new Uint8ClampedArray(px), backing };
+    // BIOS normally paints these after the piece. Freeze them into the same
+    // screen before moving it, then suppress the stationary copies below.
+    for (const overlay of Object.values(overlays)) composite(current, overlay);
+    remember(cards[index], { width: w, height: h, pixels: current.pixels });
+    neighbors = new Map([-1, 1].map(dir => [dir,
+      imageFor(cards[index + dir], w, h) || blankFor(w, h)]));
     warm();
   }
 
@@ -510,22 +549,29 @@ export function draw($) {
   const o = Math.round(offset);
   const here = sized(current, w, h) || imageFor(cards[index], w, h) || blankFor(w, h);
   blit(px, w, h, here, -o);
-  if (o > 0) blit(px, w, h, imageFor(cards[index + 1], w, h) || blankFor(w, h), h - o);
-  if (o < 0) blit(px, w, h, imageFor(cards[index - 1], w, h) || blankFor(w, h), -h - o);
+  const next = sized(neighbors?.get(1), w, h) || blankFor(w, h);
+  const previous = sized(neighbors?.get(-1), w, h) || blankFor(w, h);
+  if (o > 0) blit(px, w, h, next, h - o);
+  if (o < 0) blit(px, w, h, previous, -h - o);
 
   caption($, cards[index], -o, h, here);
-  if (o > 0) caption($, cards[index + 1], h - o, h);
-  if (o < 0) caption($, cards[index - 1], -h - o, h);
+  if (o > 0) caption($, cards[index + 1], h - o, h, next);
+  if (o < 0) caption($, cards[index - 1], -h - o, h, previous);
+  // The translated image already owns these layers, even on the frame that
+  // settles or starts loading. BIOS must not paint another HUD over it.
+  consume(overlays);
 
   if (phase === "settle" && offset === goal) {
     if (toward === 0) {
       phase = "idle";
-      current = null; // The piece takes over from its own frozen frame.
+      restore = current?.backing || null;
+      current = null;
+      neighbors = null;
       needsPaint();
     } else {
       const next = index + toward;
-      current = imageFor(cards[next], w, h) || blankFor(w, h);
-      go(next);
+      const preview = sized(neighbors?.get(toward), w, h) || blankFor(w, h);
+      go(next, false, preview);
     }
   } else if (phase !== "idle") needsPaint();
 }
@@ -544,11 +590,35 @@ function blit(px, w, h, image, top) {
 
 function caption($, card, top, h, image) {
   if (!card || top >= h || top + h <= 0) return;
-  if (image && !image.blank && !image.poster && top === 0) return; // A live frame needs no label.
-  // At the card's foot, kept inside the part of it that is on screen.
-  const lo = Math.max(top, 0) + 6, hi = Math.min(top + h, h) - 18;
-  if (hi < lo) return;
-  const y = Math.max(lo, Math.min(hi, top + h - 18));
+  if (image && !image.blank) return; // Captured HUD travels with its frame; posters need no extra label.
+  // Anchor to the card, never clamp its label to the viewport edge.
+  const y = top + h - 18;
+  if (y < 0 || y >= h) return;
   $.ink(0, 0, 0, 160).write(card.caption, { x: 7, y: y + 1 });
   $.ink(255, 255, 255).write(card.caption, { x: 6, y });
+}
+
+function consume(overlays) {
+  for (const [name, overlay] of Object.entries(overlays)) {
+    if (overlay?.img?.pixels) delete overlays[name];
+  }
+}
+
+// Composite a raster HUD layer at its normal AC coordinates. Do not mutate
+// its source buffer: the runtime may cache it for later frames.
+function composite(frame, overlay) {
+  const image = overlay?.img;
+  if (!image?.pixels || !Number.isFinite(overlay.x) || !Number.isFinite(overlay.y)) return;
+  const x = Math.round(overlay.x), y = Math.round(overlay.y);
+  const alpha = Math.max(0, Math.min(1, overlay.opacity ?? 1));
+  for (let sy = Math.max(0, -y); sy < Math.min(image.height, frame.h - y); sy++) {
+    for (let sx = Math.max(0, -x); sx < Math.min(image.width, frame.w - x); sx++) {
+      const src = (sy * image.width + sx) * 4, dst = ((sy + y) * frame.w + sx + x) * 4;
+      const a = image.pixels[src + 3] / 255 * alpha;
+      if (!a) continue;
+      const b = frame.pixels[dst + 3] / 255 * (1 - a), out = a + b;
+      for (let c = 0; c < 3; c++) frame.pixels[dst + c] = (image.pixels[src + c] * a + frame.pixels[dst + c] * b) / out;
+      frame.pixels[dst + 3] = out * 255;
+    }
+  }
 }
