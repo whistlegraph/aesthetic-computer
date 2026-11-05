@@ -10,7 +10,6 @@ export function notepatModeBar(width, { mode = "main", sound = "piano", octave =
   if (total() > width - 4) for (const b of labels) {
     if (["slide", "room", "glitch", "quick"].includes(b.id)) b.label = {slide:"sld", room:"rm", glitch:"glt", quick:"qk"}[b.id];
     if (b.id === "sound") b.label = b.label.slice(0, 3);
-    if (b.id === "theme") b.label = dark ? "day" : "dim";
   }
   if (total() > width - 4) for (const b of labels) if (["slide", "room", "glitch", "quick", "theme"].includes(b.id)) b.label = b.label[0];
   let x = Math.max(0,width-total()-2);
