@@ -1083,7 +1083,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let diskSupervisor;
   const pendingImmediateSounds = new Map();
   let currentPiece = null; // Gets set to a path after `loaded`.
-  let notepatControls, notepatControlsPromise, notepatGeneration = 0, notepatGMGain, notepatGMContext;
+  let notepatControls, notepatControlsPromise, notepatGeneration = 0, notepatGMGain, notepatGMContext, notepatGMAnalyser;
+  const notepatGMMeter = new Float32Array(256);
+  let notepatGMAmplitude = 0;
   const accountActivity = startAccountActivity();
   let currentPieceHasKeyboard = false;
   let keyboardMaxChars = 256; // Default; pieces can override via keyboard:set-max-chars
@@ -4008,11 +4010,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessor.port.onmessage = ({ data: msg }) => {
           if (msg.type === "waveforms") {
+            // GM sample voices run outside the synth worklet; include them in
+            // Notepat's existing visualizer feed without touching the audio path.
+            if (notepatGMAnalyser) {
+              notepatGMAnalyser.getFloatTimeDomainData(notepatGMMeter);
+              notepatGMAmplitude = Math.sqrt(notepatGMMeter.reduce((sum,v)=>sum+v*v,0)/notepatGMMeter.length);
+              for (const channel of ["left", "right"]) {
+                const samples = msg.content[channel];
+                if (samples?.length) msg.content[channel] = Array.from(samples, (v,i)=>
+                  v + notepatGMMeter[Math.floor(i/samples.length*notepatGMMeter.length)]);
+              }
+            }
             send({ type: "waveforms", content: msg.content });
             return;
           }
 
           if (msg.type === "amplitudes") {
+            if (notepatGMAnalyser) for (const channel of ["left", "right"])
+              msg.content[channel] = Math.max(msg.content[channel] || 0, notepatGMAmplitude);
             send({ type: "amplitudes", content: msg.content });
             return;
           }
@@ -6857,8 +6872,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           destination: ctx => {
             if (notepatGMContext !== ctx) {
               notepatGMGain?.disconnect();
+              notepatGMAnalyser?.disconnect();
               notepatGMContext = ctx;
               notepatGMGain = ctx.createGain();
+              notepatGMAnalyser = ctx.createAnalyser();
+              notepatGMAnalyser.fftSize = notepatGMMeter.length;
+              notepatGMGain.connect(notepatGMAnalyser);
               notepatGMGain.connect(speakerGain || ctx.destination);
               if (sfxStreamGain) notepatGMGain.connect(sfxStreamGain);
             }
@@ -15084,6 +15103,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       notepatGeneration++;
       notepatControls?.dispose(); notepatControls = null; notepatControlsPromise = null;
       notepatGMGain?.disconnect(); notepatGMGain = null; notepatGMContext = null;
+      notepatGMAnalyser?.disconnect(); notepatGMAnalyser = null; notepatGMAmplitude = 0;
       pendingImmediateSounds.clear();
       currentPiece = content.path;
       keyboardMaxChars = 256; // Reset to default on each piece load
