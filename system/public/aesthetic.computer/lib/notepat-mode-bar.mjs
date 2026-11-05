@@ -1,14 +1,13 @@
 export const MODE_BAR_HEIGHT = 21;
 export function notepatModeBar(width, { sound = "piano", octave = 4, dark = true, layout = "piano" } = {}) {
   const labels = [["sound", sound], ["octave", String(octave)],
-    ["theme", dark ? "light" : "dark"], ["layout", layout === "piano" ? "grid" : "keys"]]
+    ["layout", "  "]]
     .map(([id, label]) => ({ id, label }));
   let padding=6,gap=2;
   const total = () => labels.reduce((n, b) => n + b.label.length * 6 + padding, 0) + (labels.length - 1) * gap;
   // Keep the corner wordmark on phone widths; use initials only when needed.
   if (total() > width - (width >= 140 ? 90 : 4)) for (const b of labels) {
     if (b.id === "sound") b.label = b.label.slice(0, 3);
-    if (b.id === "theme" || b.id === "layout") b.label = b.label[0].toUpperCase();
   }
   if(total()>width-4) { padding=4; gap=1; }
   let x = Math.max(0,width-total()-2);

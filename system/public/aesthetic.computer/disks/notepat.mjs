@@ -13,6 +13,7 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 import { chordIntervals, createChordVoice } from "../lib/notepat-chords.mjs";
+import { createNotepatPanel } from "../lib/notepat-panel.mjs";
 import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
@@ -431,6 +432,8 @@ let voiceSerial = 0;
 let hostReady = false, lastHostRequest = 0, controlsOpen = false;
 const host = content => autopatApi?.send?.({ type: "notepat:host", content });
 const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled, recording });
+const soundPanel = createNotepatPanel({host,close:()=>{controlsOpen=false;host({op:"close"})}});
+function openSoundPanel() { panicNotepat();controlsOpen=true;soundPanel.open();host({op:"open"}); }
 function panicNotepat() {
   performanceModifiers.resetMomentary(); shiftHeld = enterHeld = false;
   drumKeys.clear();
@@ -1222,7 +1225,7 @@ function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
     if(right<left) return source; // Retry while a font is still loading.
     const width=right-left+1,height=bottom-top+1,pixels=new Uint8ClampedArray(width*height*4);
     for(let y=0;y<height;y++) pixels.set(source.pixels.subarray(((top+y)*source.width+left)*4,((top+y)*source.width+left+width)*4),y*width*4);
-    glyph={width,height,pixels};
+    glyph={width,height,pixels,left,top};
     learningKeyGlyphs.set(key,glyph);
   }
   return glyph;
@@ -1270,13 +1273,14 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   if (modeBarLayout.logo) {
     const word=learningGlyph(api,"notepat",[255,255,255],"font_1",6,10);
     const shadow=learningGlyph(api,"notepat",[0,0,0],"font_1",6,10);
-    painter.glyph(shadow,5,5).glyph(word,4,4);
+    const label=autopatHud?.currentLabel?.(), textX=(label?.btn?.box?.x??6)+(label?.leftPad??0), textY=(label?.btn?.box?.y??6)+4;
+    painter.glyph(shadow,textX+(word.left||0)+1,textY+(word.top||0)+1).glyph(word,textX+(word.left||0),textY+(word.top||0));
     if (modeBarLayout.logo.endsWith(".com")) {
       const com=learningGlyph(api,"com",[0,220,255],"MatrixChunky8",6,10);
       const comShadow=learningGlyph(api,"com",[0,0,0],"MatrixChunky8",6,10);
       const dot=learningGlyph(api,".",relaySocket?.connected?[0,255,100]:[255,100,100],"MatrixChunky8",6,10);
       const dotShadow=learningGlyph(api,".",[0,0,0],"MatrixChunky8",6,10);
-      const bottom=4+word.height-2, dotX=4+word.width+2, comX=dotX+dot.width+2;
+      const bottom=textY+8, dotX=textX+api.text.width("notepat",api.typeface)+1, comX=textX+api.text.width("notepat",api.typeface)+2+api.text.width(".","MatrixChunky8");
       painter.glyph(dotShadow,dotX+1,bottom-dot.height+1).glyph(dot,dotX,bottom-dot.height);
       painter.glyph(comShadow,comX+1,bottom-com.height+1).glyph(com,comX,bottom-com.height);
     }
@@ -1313,7 +1317,16 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
     painter.ink(...fill).box(c.x,c.y+1,c.w,c.h-1);
     if(btn.over) painter.ink(...palette.text,24).box(c.x,c.y+1,c.w,c.h-1);
     if(c.id==='sound') painter.ink(...palette.orange).line(c.x+c.w-1,3,c.x+c.w-1,18);
-    text(c.label,c.x+3,6,color,['sound','octave'].includes(c.id)?'font_1':'MatrixChunky8');
+    if(c.id==='layout') {
+      const x=c.x+Math.floor((c.w-12)/2),y=6;
+      painter.ink(...palette.text);
+      if(mainLayout==='piano') for(let row=0;row<2;row++)for(let col=0;col<3;col++)painter.box(x+col*4,y+row*5,3,4);
+      else {
+        painter.box(x,y,12,9).ink(...palette.control);
+        for(const dx of [3,6,9])painter.box(x+dx,y,1,9);
+        for(const dx of [2,5,8])painter.box(x+dx,y,2,5);
+      }
+    } else text(c.label,c.x+3,6,color,['sound','octave'].includes(c.id)?'font_1':'MatrixChunky8');
   });
 }
 function paintClassicNotepat(api, amplitude, waveforms) {
@@ -1345,12 +1358,16 @@ function paintClassicNotepat(api, amplitude, waveforms) {
   }
   painter.ink(...palette.rail);
   if(piano) {
-    for(const [i,row] of piano.octaves.entries()) painter.ink(...(performanceModifiers.drums(i?"+c":"c")?palette.orange:palette.rail)).line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
+    for(const [i,row] of piano.octaves.entries()) {
+      painter.ink(...(performanceModifiers.drums(i?"+c":"c")?palette.orange:palette.rail)).line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
+      if(i===0||piano.stacked)painter.line(row.x,row.y,row.x,row.y+row.h-1);
+    }
   } else for(const start of [0,12]) {
     const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
     if(first&&last) painter.ink(...(performanceModifiers.drums(start?"+c":"c")?palette.orange:palette.rail)).line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
   }
   paintModeBar(api,amplitude,waveforms,painter);
+  if(controlsOpen) soundPanel.paint(api,painter,(text,color)=>learningGlyph(api,text,color,'MatrixChunky8',6,10),palette);
   painter.finish();
 }
 function actModeBar(e, api) {
@@ -1361,8 +1378,7 @@ function actModeBar(e, api) {
       api.store['notepat:layout']=mainLayout; api.store.persist('notepat:layout');
       setupButtons(api); modeBarKey='';
     }
-    else if (c.id === "theme") { api.darkMode(api.dark === false); modeBarKey = ""; }
-    else if (c.id === "sound") host({ op: "open" });
+    else if (c.id === "sound") openSoundPanel();
     else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
   } }, api.pens?.());
 }
@@ -3509,7 +3525,7 @@ function paint({
     waveformsAvailable &&
     typeof amplitudeRaw === "number" &&
     Number.isFinite(amplitudeRaw);
-  if (classicControls() && !perfOSD) {
+  if (controlsOpen || (classicControls() && !perfOSD)) {
     paintClassicNotepat(api, amplitude, waveformsForBars);
     return;
   }
@@ -6833,6 +6849,7 @@ function act({
 }) {
   setSoundContext({ synth, play, freq, num }, e.latencyProbe);
   if (e.is("notepat:state")) {
+    soundPanel.state(e);
     if (e.hostReady && !hostReady) { hostReady = true; syncInstrument(); }
     if (typeof e.controlsOpen === "boolean") controlsOpen = e.controlsOpen;
     if (typeof e.gmReady === "boolean") gmReady = e.gmReady;
@@ -6848,6 +6865,7 @@ function act({
     buildWaveButton(api); syncInstrument();
     return;
   }
+  if (controlsOpen && soundPanel.act(e,api)) return;
   const bracket=performanceModifiers.observe(e);
   for(const group of chordVoices.values())group.morph(chordIntervals(performanceModifiers.chord(group.note)));
   // Control is now the chord-quality modifier, not an extra bass note.
@@ -7588,7 +7606,7 @@ function act({
       down: () => api.beep(400),
       push: (btn) => {
         api.beep();
-        host({ op: "open" });
+        openSoundPanel();
       },
     });
 
