@@ -1207,7 +1207,7 @@ function paintModeBar(api) {
   for (const c of modeBarButtons) c.button.paint(btn => {
     const color = active[c.id] ? [95, 225, 190] : c.id === "sound" ? [255, 185, 65] : [205, 213, 230];
     ink(...(active[c.id] ? [28, 77, 67] : [30, 36, 49])).box(btn.box);
-    ink(...color, btn.over ? 255 : 130).box(btn.box, "outline");
+    ink(...color, btn.over ? 255 : 210).box(btn.box, "inline");
     ink(...color).write(c.label, { x: c.x + 3, y: c.y + 5 }, undefined, undefined, false, "MatrixChunky8");
   });
 }
@@ -3145,8 +3145,8 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       // Offset box Y by gridTop since painting starts at gridTop
       const relBox = { ...btn.box, y: btn.box.y - gridTop };
       p.ink(tinted, 196).box(relBox);
-      const olColor = globalThis.__theme?.dark === false ? [140, 150, 160] : [90, 110, 120];
-      p.ink(...olColor).box(relBox, "outline");
+      const olColor = globalThis.__theme?.dark === false ? [85, 95, 105] : [125, 145, 160];
+      p.ink(...olColor).box(relBox, "inline");
     });
   });
 
@@ -5480,6 +5480,10 @@ function paint({
               false,
               keyFont,
             );
+          }
+          if (!projector && !recitalMode) {
+            const border = globalThis.__theme?.dark === false ? [85, 95, 105] : [125, 145, 160];
+            ink(...border).box(btn.box, "inline");
           }
         });
     }

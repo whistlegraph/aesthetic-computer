@@ -55,7 +55,7 @@ export async function benchmarkNotepat({ count = 40, mode = "fast", holdMs = 60,
     }
     await sleep(250);
     return { ...probe.report(), synthetic: true, holdMs, stallMs,
-      revision: (await fetch('/version.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null)),
+      revision: await fetch('/.commit-ref', { cache: 'no-store' }).then(r => r.ok ? r.text() : null).then(s => /^[a-f0-9]{40}$/.test(s?.trim()) ? s.trim() : null).catch(() => null),
       viewport: { width: innerWidth, height: innerHeight }, userAgent: navigator.userAgent };
   } finally { key("keyup"); window.acNotepatLatency = previous; }
 }
