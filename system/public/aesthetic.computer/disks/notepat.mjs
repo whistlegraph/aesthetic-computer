@@ -1211,6 +1211,11 @@ function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
       p.wipe(0,0,0,0);
       p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font);
     });
+    // Font glyphs arrive asynchronously; never retain their loading patterns.
+    if (font !== "note") {
+      const glyphs = api.glyphs(font);
+      if ([...text].some(c => !glyphs[c] || glyphs[c].isPlaceholder)) return source;
+    }
     let left=source.width,top=source.height,right=-1,bottom=-1;
     for(let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
       if(source.pixels[(y*source.width+x)*4+3]) {
