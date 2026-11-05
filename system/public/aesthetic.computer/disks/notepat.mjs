@@ -15,7 +15,7 @@ import {
 import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
-import { classicNotepatLayout } from "../lib/notepat-layout.mjs";
+import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
@@ -3079,7 +3079,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
   if (!api?.painting) return null;
 
   const gridTop = Math.round(layout.topButtonY);
-  const gridHeight = Math.round(layout.buttonHeight * layout.totalRows);
+  const gridHeight = notepatGridHeight(layout);
 
   // Create bitmap only for the button grid area - boxes + grid only, no text
   const painting = api.painting(screen.width, gridHeight, (p) => {
@@ -3111,7 +3111,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       }
 
       for (let row = 0; row <= layout.totalRows; row += 1) {
-        const y = Math.round(row * layout.buttonHeight);
+        const y = Math.round(row * layout.buttonHeight + (row >= 3 ? layout.octaveGap || 0 : 0));
         p.ink(...gridColor, gridAlpha).line(leftEdge, y, rightEdge, y);
       }
     }
@@ -5480,7 +5480,7 @@ function paint({
     if (!projector && !usePadsBase) {
       const gridAlpha = 40;
       const topEdge = round(layout.topButtonY);
-      const bottomEdge = round(layout.topButtonY + layout.buttonHeight * layout.totalRows);
+      const bottomEdge = round(layout.topButtonY + notepatGridHeight(layout));
 
       if (!layout.splitLayout) {
         const gridWidth = layout.buttonsPerRow * layout.buttonWidth;

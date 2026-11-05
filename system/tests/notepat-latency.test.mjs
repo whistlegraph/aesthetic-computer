@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fastNotepatKey, createNotepatLatency, summarizeLatency } from '../public/aesthetic.computer/lib/notepat-latency.mjs';
 import { notepatModeBar } from '../public/aesthetic.computer/lib/notepat-mode-bar.mjs';
-import { classicNotepatLayout } from '../public/aesthetic.computer/lib/notepat-layout.mjs';
+import { classicNotepatLayout, notepatGridHeight } from '../public/aesthetic.computer/lib/notepat-layout.mjs';
 
 test('only musical keys bypass frames, preserving pending shortcut order and cold audio', () => {
   for (const key of ['c', 'z', '9', ';', "'", ']', 'shift']) for (const action of ['down', 'up']) {
@@ -65,4 +65,12 @@ test('keyboard dispatch delivers a rapid chord exactly once, with frame fallback
     enabled=false;key('keydown','g');key('keyup','g');assert.equal(keyboard.events.length,2);
     focused=true;key('keydown','a');assert.equal(keyboard.events.length,2);
   } finally { globalThis.window=saved.window;globalThis.document=saved.document; }
+});
+
+test('cached pad bitmap includes the octave gap and the entire bottom row', () => {
+  for (const screen of [{width:342,height:372},{width:195,height:379},{width:480,height:120}]) {
+    const l=classicNotepatLayout(screen,{top:21});
+    const lastRowY=l.splitLayout ? 2*l.buttonHeight : 5*l.buttonHeight+l.octaveGap;
+    assert.equal(notepatGridHeight(l),lastRowY+l.buttonHeight);
+  }
 });

@@ -22,3 +22,8 @@ export function classicNotepatLayout({ width, height }, { top = 33, bottom = 2, 
     buttonBlockHeight: 3 * buttonHeight, bottomCenterY: height - bottom - 12,
     miniInputsEnabled: false, verticalTrack: false, trackHeight: 0, trackSpacing: 0, melodyButtonRect: null };
 }
+
+// The cached pad bitmap must include the space between stacked octaves.
+export function notepatGridHeight(layout) {
+  return Math.round(layout.buttonHeight * layout.totalRows + (layout.splitLayout ? 0 : layout.octaveGap || 0));
+}
