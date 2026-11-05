@@ -1190,12 +1190,24 @@ let paintPictureOverlay = false;
 let waveBtn, octBtn;
 let modeBarHudHidden = false;
 const learningKeyGlyphs = new Map();
+function noteGlyphPixels(text, color) {
+  const letters={
+    C:[7,4,4,4,7], D:[6,5,5,5,6], E:[7,4,6,4,7], F:[7,4,6,4,4],
+    G:[7,4,5,5,7], A:[2,5,7,5,5], B:[6,5,6,5,6],
+    "+":[0,2,7,2,0], "#":[5,7,5,7,5],
+  };
+  const width=Math.max(1,text.length*4-1),height=5,pixels=new Uint8ClampedArray(width*height*4);
+  [...text].forEach((c,i)=>(letters[c] || [0,0,0,0,0]).forEach((row,y)=>{
+    for(let x=0;x<3;x++) if(row & (4>>x)) pixels.set([...color,255],(y*width+i*4+x)*4);
+  }));
+  return {width,height,pixels};
+}
 function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
   const key=font+":"+text+":"+color.join(",");
   let glyph=learningKeyGlyphs.get(key);
   if(!glyph) {
     // Trim transparent bearings so placement follows visible glyph edges.
-    const source=api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
+    const source=font === "note" ? noteGlyphPixels(text,color) : api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
       p.wipe(0,0,0,0);
       p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font);
     });
@@ -1231,7 +1243,7 @@ function paintModeBar(api, amplitude, waveforms) {
     ink("white").write("notepat", { x: 6, y: 6 });
     ink("cyan").write(".com", { x: 48, y: 6 });
     const vizWidth = modeBarButtons[0].x - 79;
-    if (vizWidth > 8) sound.paint.bars(api, amplitude, waveforms, 75, 3, vizWidth, 15,
+    if (vizWidth > 8) sound.paint.bars(api, Math.max(0,Math.min(1,amplitude || 0)), waveforms, 75, 3, vizWidth, 15,
       [255, 0, 0, 255], { primaryColor, secondaryColor });
   }
   const active = { slide, room: roomMode, glitch: glitchMode, quick: quickFade, metro: metronomeEnabled, tempo: metronomeEnabled, fx: slide || roomMode || glitchMode || quickFade };
@@ -3434,7 +3446,7 @@ function paint({
   const defaultBg = isDark ? [18, 22, 32] : [235, 237, 232];
 
   if (!tap) {
-    bg = activeBg ? activeBg.map((value, i) => Math.round(defaultBg[i] * 0.85 + value * 0.15)) : defaultBg;
+    bg = !classicControls() && activeBg ? activeBg.map((value, i) => Math.round(defaultBg[i] * 0.85 + value * 0.15)) : defaultBg;
 
     if (perc && !activeBg) {
       bg = perc;
@@ -3600,7 +3612,7 @@ function paint({
   }
 
   // 🥁 Draw peripheral screen flash for metronome beats
-  if (metronomeFlash > 0 && metronomeEnabled) {
+  if (!classicControls() && metronomeFlash > 0 && metronomeEnabled) {
     const flashAlpha = Math.floor(metronomeFlash * 120); // Max alpha 120 for subtle effect
     const flashWidth = Math.max(3, Math.floor(6 * metronomeFlash)); // Shrinking border width
     // Choose color based on beat (downbeat = brighter)
@@ -4881,7 +4893,6 @@ function paint({
       { noamp: true, primaryColor, secondaryColor },
     );
     //ink("yellow").write(scope, 6, sy + sh + 5);
-    ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
     if (perfOSD) sound.paint.audioEngineBadge(
       { ink, screen },
@@ -5371,7 +5382,7 @@ function paint({
             const labelColor=getContrastingTextColor(color);
             const key=(noteToKeyboardKey(note) || "").toUpperCase();
             const glyph=learningGlyph(api,key,labelColor,"unifont",8,16);
-            const noteGlyph=learningGlyph(api,note.toUpperCase(),labelColor,"microtype",4,5);
+            const noteGlyph=learningGlyph(api,note.toUpperCase(),labelColor,"note",4,5);
             const labels=learningPadLabels(btn.box,key,note,glyph,noteGlyph);
             if(labels.primary) api.paste(glyph,labels.primary.x,labels.primary.y,labels.primary.size);
             if(labels.secondary) api.paste(noteGlyph,labels.secondary.x,labels.secondary.y);
@@ -5657,8 +5668,8 @@ function paint({
 
   // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
   // Can be horizontal (bottom-right) or vertical (center/right side based on layout)
-  // In single-column portrait mode, skip the horizontal piano roll entirely
-  if (!paintPictureOverlay && !projector && !recitalMode) {
+  // Keep the standard playing area free of visualization.
+  if (!classicControls() && !paintPictureOverlay && !projector && !recitalMode) {
     const noteCount = buttonNotes.length; // 24 notes
     
     // Increment frame counter and check if we should scroll this frame
@@ -7034,7 +7045,6 @@ function act({
     hud.label(overlayMode || paintPictureOverlay ? undefined : "notepat");
     setupButtons(api);
   }
-  if (e.is("keyboard:down:\\")) projector = !projector;
 
   // � Performance OSD toggle (backtick key)
   if (e.is("keyboard:down:`") && !e.repeat) {
