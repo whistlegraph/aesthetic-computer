@@ -1345,6 +1345,9 @@ async function fun(event, context) {
         ></script>
         ${workerHintTag}
         ${pieceHintTag}
+        <!-- Install visit state before boot rewrites the entry URL or sends
+             piece readiness. Both module scripts execute in document order. -->
+        <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261105-notepat" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         <script
           src="/aesthetic.computer/boot.mjs"
           type="module"
@@ -1426,7 +1429,6 @@ async function fun(event, context) {
           "sourceOrganization": { "@type": "Organization", "name": "Aesthetic Computer", "url": "https://tangled.org/aesthetic.computer/core" }
         })}
         </script>
-      <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261105-notepat" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
       </head>
       <body class="native-cursor" ${lanHost ? " data-lan-host=" + lanHost : ""}>
         <article id="llm-context" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;padding:0;margin:0">

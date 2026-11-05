@@ -127,3 +127,18 @@ test("empty recordings do not claim completion and phrase data never enters visi
   assert.deepEqual(jumps, ["clock 4c4d:0.5"]);
   assert.doesNotMatch(JSON.stringify(messages), /4c4d|0.5|melody/);
 });
+
+
+test("entry attribution survives runtime URL cleanup and tracker installs before boot", async () => {
+  const { win, api, sent } = harness();
+  win.acAutomation = true;
+  win.location.search = "";
+  api.action("notepat_ready");
+  assert.equal(sent.at(-1).campaign, "nopaint-music");
+  assert.equal(sent.at(-1).notepatReady, true);
+  assert.equal(sent.at(-1).automated, true);
+  const html = await readFile(new URL("../netlify/functions/index.mjs", import.meta.url), "utf8");
+  const tracker = html.indexOf('src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs');
+  const boot = html.indexOf('src="/aesthetic.computer/boot.mjs"');
+  assert.ok(tracker > 0 && tracker < boot, "deferred tracker must execute before URL-rewriting boot");
+});
