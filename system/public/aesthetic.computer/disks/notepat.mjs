@@ -16,8 +16,9 @@ import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
-import { notepatModeBar, notepatPianoKeys, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
+import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
+import { notepatPianoLayout, pianoNoteAt } from "../lib/notepat-piano-layout.mjs";
 import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
@@ -757,14 +758,7 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 }
 
 function getTopBarPianoMetrics(screen) {
-  if (classicControls()) {
-    updateModeBar(autopatApi);
-    const p=modeBarLayout.header.piano;
-    if(!p) return {hidden:true};
-    return {mode:p.whiteCount===14?'full':'compact',x:p.x,y:p.y,height:p.h,
-      ...notepatPianoKeys(p.whiteCount),
-      whiteKeyWidth:p.keyWidth,blackKeyWidth:Math.max(2,Math.floor(p.keyWidth*.6)),blackKeyHeight:8};
-  }
+  if (classicControls()) return {hidden:true};
   if (!miniInputsEnabled) return { hidden: true };
   const topPianoY = 3;
   const topPianoHeight = 15;
@@ -1225,14 +1219,15 @@ function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
   return glyph;
 }
 const notepatPainter = new NotepatPainter();
+let mainLayout = "piano", pianoLayout = null;
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
   const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? (gmProgram === 0 ? "piano" : `g${gmProgram + 1}`) : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
-  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM, api.dark].join(":");
+  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM, api.dark, mainLayout].join(":");
   if (key === modeBarKey) return;
   modeBarKey = key;
-  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM, dark: api.dark });
+  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM, dark: api.dark, layout: mainLayout });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
 function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
@@ -1283,19 +1278,33 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
 }
 function paintClassicNotepat(api, amplitude, waveforms) {
   const dark=api.dark !== false, palette=notepatPalette(dark), painter=notepatPainter.begin(api,palette.background);
-  for(const note of buttonNotes) {
+  const piano=mainLayout==='piano' ? pianoLayout : null;
+  const notes=piano ? piano.keys.map(k=>k.note) : buttonNotes;
+  for(const note of notes) {
     const btn=buttons[note]; if(!btn || btn.hidden) continue;
-    const color=notepatNoteColor(note);
-    const colors=notepatPadColors(color,note.includes('#'),dark,!!sounds[note]||btn.down,btn.over);
+    const color=notepatNoteColor(note),sharp=note.includes('#'),active=!!sounds[note]||btn.down;
+    const colors=notepatPadColors(color,sharp,dark,active,btn.over);
     const b=btn.box;
+    if(piano && !active) {
+      colors.fill=sharp?(dark?[22,22,29]:[40,40,46]):(dark?[200,200,207]:[248,247,240]);
+      colors.text=sharp?[205,205,215]:[40,40,48];
+      if(btn.over) colors.fill=colors.fill.map(c=>Math.min(255,c+8));
+    }
     painter.ink(...colors.fill).box(b.x,b.y,b.w,b.h);
+    if(piano) {
+      painter.ink(...palette.rail).line(b.x+b.w-1,b.y,b.x+b.w-1,b.y+b.h-1);
+      painter.ink(...color).box(b.x,b.y+b.h-2,b.w-1,2);
+    }
     const key=(noteToKeyboardKey(note)||'').toUpperCase();
     const glyph=learningGlyph(api,key,colors.text,'unifont',8,16);
-    const label=learningPadLabels(b,key,note,glyph).primary;
+    const labelBox=piano?piano.keys.find(k=>k.note===note).label:b;
+    const label=learningPadLabels(labelBox,key,note,glyph,piano?.fontScale).primary;
     if(label) painter.glyph(glyph,label.x,label.y,label.size);
   }
   painter.ink(...palette.rail);
-  for(const start of [0,12]) {
+  if(piano) {
+    for(const row of piano.octaves) painter.line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
+  } else for(const start of [0,12]) {
     const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
     if(first&&last) painter.line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
   }
@@ -1308,6 +1317,11 @@ function actModeBar(e, api) {
     if (c.id === "fx") modeBarPage = "fx";
     else if (c.id === "tempo") modeBarPage = "tempo";
     else if (c.id === "back") modeBarPage = "main";
+    else if (c.id === "layout") {
+      panicNotepat(); mainLayout=mainLayout==='piano'?'grid':'piano';
+      api.store['notepat:layout']=mainLayout; api.store.persist('notepat:layout');
+      setupButtons(api); modeBarKey='';
+    }
     else if (c.id === "theme") { api.darkMode(api.dark === false); modeBarKey = ""; }
     else if (c.id === "sound") host({ op: "open" });
     else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
@@ -1746,6 +1760,7 @@ async function boot({
 }) {
   autopatApi = api;
   notepatPainter.forceCpu = query?.renderer === "cpu";
+  mainLayout = store["notepat:layout"] === "grid" ? "grid" : "piano";
   autopatHud = hud;
   autopatTypeface = typeface;
   setSoundContext({
@@ -6858,18 +6873,6 @@ function act({
 
   if (classicControls()) {
     actModeBar(e, api);
-    if (e.is("lift") && topBarPianoActiveNote) {
-      stopButtonNote(topBarPianoActiveNote,{force:true}); topBarPianoActiveNote=null;
-    }
-    if ((e.is("touch") || e.is("draw")) && (e.is("touch") || topBarPianoActiveNote)) {
-      const note=getTopBarPianoNoteAt(e.x,e.y,screen);
-      if(note!==topBarPianoActiveNote) {
-        if(topBarPianoActiveNote) stopButtonNote(topBarPianoActiveNote,{force:true});
-        topBarPianoActiveNote=note;
-        if(note) startButtonNote(note,127,api);
-      }
-      if(note) return;
-    }
     if ((e.is("touch") || e.is("draw") || e.is("lift")) && e.y < MODE_BAR_HEIGHT) {
       if (e.is("lift")) cleanupOrphanedSounds(pens);
       return;
@@ -8511,6 +8514,19 @@ function resetModeState() {
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
   padsViewport = `${screen.width}:${screen.height}`;
+  if(classicControls() && mainLayout==='piano') {
+    pianoLayout=notepatPianoLayout(screen,{top:MODE_BAR_HEIGHT});
+    for(const key of pianoLayout.keys) {
+      if(!buttons[key.note]) buttons[key.note]=new ui.Button(key.x,key.y,key.w,key.h);
+      else buttons[key.note].box=new geo.Box(key.x,key.y,key.w,key.h);
+      buttons[key.note].id=`note-${key.note}`;
+      // White keys yield their overlapping hit area to the black keys. Reuse
+      // the existing multi-touch and drag lifecycle for every other detail.
+      buttons[key.note].box.contains=point=>pianoNoteAt(pianoLayout,point.x,point.y)===key.note;
+    }
+    return;
+  }
+  pianoLayout=null;
   const sampleRateText = getSampleRateText(undefined);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const cachedLayout = getCachedLayout(screen, {

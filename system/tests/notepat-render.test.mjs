@@ -19,15 +19,10 @@ test('all natural keys share a font scale; sharps use the next crisp size and ha
     assert.equal(learningPadLabels(box,'V','c#').primary.size,Math.max(1,size-1));
   }
 });
-test('portrait header keeps the miniature piano and waveform clear of the controls',()=>{
+test('header uses the freed mini-piano space for the visualizer',()=>{
   for(const width of [187,195,240,342,480,960]) for(const sound of ['piano','sine','g128']) {
     const bar=notepatModeBar(width,{sound}),{piano,viz}=bar.header;
-    assert.ok(piano,`${width}:${sound}`);
-    const keys=notepatPianoKeys(piano.whiteCount);
-    assert.equal(keys.whiteKeys.length,piano.whiteCount);
-    assert.equal(keys.whiteKeys[0],"C");
-    assert.ok(keys.blackKeys.every(k=>k.afterWhite>=0&&k.afterWhite<piano.whiteCount-1));
-    assert.ok(piano.x>=0 && piano.x+piano.w<viz.x);
+    assert.equal(piano,null);
     assert.ok(viz.w>=4 && viz.x+viz.w<bar.controls[0].x);
     for(const c of bar.controls) assert.ok(c.x+c.w<=width);
   }
