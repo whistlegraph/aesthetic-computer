@@ -96,7 +96,7 @@ export function createNotepatControls({ send, context, destination, focus = () =
         field("record").textContent = current.recording ? "Stop and play recording" : "Record a phrase";
       } else if (op === "program") { gm.program(content.program); if (!content.fromMidi) midi.program(content.program); }
       else if (op === "gm-on") gm.note(content);
-      else if (op === "gm-off") gm.stop(content.id);
+      else if (op === "gm-off") gm.stop(content.id, content.fade);
       else if (op === "gm-bend") gm.update(content);
       else if (op === "midi-on") midi.noteOn(content.id, content.note, content.velocity);
       else if (op === "midi-off") midi.noteOff(content.id);

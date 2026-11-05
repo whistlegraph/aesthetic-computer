@@ -12,6 +12,7 @@ import {
   decodeBitmapToSample,
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
+import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
@@ -430,6 +431,10 @@ let hostReady = false, lastHostRequest = 0, controlsOpen = false;
 const host = content => autopatApi?.send?.({ type: "notepat:host", content });
 const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled, recording });
 function panicNotepat() {
+  performanceModifiers.resetMomentary(); shiftHeld = enterHeld = false;
+  drumKeys.clear();
+  for (const note of drumVoices.keys()) releaseDrum(note,true);
+  drumVoices.clear();
   midiPerformance.panic();
   for (const entry of Object.values(sounds)) entry.sound?.kill?.(0.015);
   for (const key of Object.keys(sounds)) delete sounds[key];
@@ -471,13 +476,15 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       keys and pops them off the stack as keys are lifted.
 //                       (These tones will not necessarily be playing.)
 
-// 🔒 Sustain modifier state — both modifiers are momentary (no latch).
-// SHIFT held during a key press → that voice gets a long decay tail when
+// Shift lingers the matching octave; Caps Lock latches linger on both.
+// Linger armed during a key press → that voice gets a long decay tail when
 //   released, so it dissipates rather than cuts off. Re-press of the
 //   same voiceId interrupts and restarts.
 // ENTER held during a key press → that voice is held permanently after
 //   release. BACKSPACE clears all held voices.
 // Drum / percussion presses skip both modes (handled at the press site).
+const performanceModifiers = createNotepatModifiers();
+const drumKeys = new Map(), drumVoices = new Map();
 let shiftHeld = false;
 let enterHeld = false;
 // voiceId = `${wave}:${octave}:${noteName}` — stable identity across
@@ -485,7 +492,7 @@ let enterHeld = false;
 // after their key is released; re-press of the same voiceId kills the
 // old one and starts a fresh voice.
 const heldVoices = new Map();
-const SHIFT_DECAY_SECONDS = 6.0; // long tail after release in shift-sustain mode
+const SHIFT_DECAY_SECONDS = LINGER_SECONDS; // long tail after release in shift-sustain mode
 
 // 👀 Character eye-tracking state. Two characters watch the piano:
 // Piano Man on the left half, Sample Sally on the right half. Their
@@ -1224,10 +1231,11 @@ let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
   const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? (gmProgram === 0 ? "piano" : `g${gmProgram + 1}`) : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
-  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM, api.dark, mainLayout].join(":");
+  const octaveLabel=`${performanceModifiers.state.left?"[":""}${octave}${performanceModifiers.state.right?"]":""}`;
+  const key = [api.screen.width, modeBarPage, sound, octaveLabel, metronomeBPM, api.dark, mainLayout].join(":");
   if (key === modeBarKey) return;
   modeBarKey = key;
-  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM, dark: api.dark, layout: mainLayout });
+  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave:octaveLabel, bpm: metronomeBPM, dark: api.dark, layout: mainLayout });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
 function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
@@ -1237,8 +1245,12 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
     painter.glyph(learningGlyph(api,String(value),color,font,6,10),x,y);
   painter.ink(...palette.background).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
   if(modeBarLayout.logo) {
-    text("notepat",6,6);
-    if(modeBarLayout.logo.endsWith(".com")) text(".com",48,6,palette.accent);
+    const word=learningGlyph(api,"notepat",palette.text,"font_1",6,10);
+    painter.glyph(word,6,6);
+    if(modeBarLayout.logo.endsWith(".com")) {
+      const domain=learningGlyph(api,".com",palette.accent,"font_1",6,10);
+      painter.glyph(domain,48,6+word.height-domain.height);
+    }
   }
   const metrics=getTopBarPianoMetrics(api.screen);
   if(!metrics.hidden) {
@@ -1303,10 +1315,10 @@ function paintClassicNotepat(api, amplitude, waveforms) {
   }
   painter.ink(...palette.rail);
   if(piano) {
-    for(const row of piano.octaves) painter.line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
+    for(const [i,row] of piano.octaves.entries()) painter.ink(...(performanceModifiers.drums(i?"+c":"c")?palette.orange:palette.rail)).line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
   } else for(const start of [0,12]) {
     const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
-    if(first&&last) painter.line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
+    if(first&&last) painter.ink(...(performanceModifiers.drums(start?"+c":"c")?palette.orange:palette.rail)).line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
   }
   paintModeBar(api,amplitude,waveforms,painter);
   painter.finish();
@@ -6193,7 +6205,7 @@ function startRelayButtonNote(buttonNote, velocity = 127) {
     const isDrum = wave === "drum";
     const sustainMode = isDrum
       ? null
-      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
+      : (enterHeld ? "enter" : (performanceModifiers.linger(buttonNote) ? "shift" : null));
     sounds[buttonNote] = {
       note: buttonNote,
       count: active.length + 1,
@@ -6362,10 +6374,16 @@ function makeNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
   const note = Math.round(69 + 12 * Math.log2(frequency / 440));
   if (output) host({ op: "midi-on", id, note, velocity: Math.max(1, Math.min(127, Math.round(velocity))) });
   const local = localSoundEnabled ? makeLocalNoteSound(tone, velocity, pan) : null;
-  let released = false;
+  let released = false, releaseTimer;
   return {
     startedAt: local?.startedAt ?? performance.now() / 1000,
-    kill(fade) { if (released) return; released = true; local?.kill?.(fade); if (output) host({ op: "midi-off", id }); },
+    kill(fade) {
+      local?.kill?.(fade);
+      if (released) return;
+      clearTimeout(releaseTimer);
+      const off=()=>{released=true;if(output) host({op:"midi-off",id});};
+      if (fade>1) releaseTimer=setTimeout(off,fade*1000); else off();
+    },
     update(value) { local?.update?.(value); },
   };
 }
@@ -6407,7 +6425,7 @@ function makeLocalNoteSound(tone, velocity = 127, pan = 0) {
     host({ op: "gm-on", id, program: gmProgram, note, velocity: Math.round(velocityRatio * 127), pan, volume: toneVolume });
     return {
       startedAt: performance.now() / 1000,
-      kill: () => host({ op: "gm-off", id }),
+      kill: fade => host({ op: "gm-off", id, fade }),
       update: value => {
         if (value?.tone !== undefined) host({ op: "gm-bend", id, semitones: 12 * Math.log2(freq(value.tone) / baseFrequency) });
       },
@@ -6564,16 +6582,19 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
   // any octave prefix (++, +, -) and lowercase so "C", "+c", and "++c" all
   // land on the same drum slot. The note's pan is derived from its key
   // position like the pitched voices.
-  if (wave === "drum" && soundContext) {
+  if ((wave === "drum" || performanceModifiers.drums(note)) && soundContext) {
     const letter = note.replace(/^[+\-]+/, "").toLowerCase();
     const pan = getPanForButtonNote(note);
     const volume = Math.max(0.1, velocity / 127);
-    console.log("🥁 drum:", letter, "from", note, "vol", volume.toFixed(2), "pan", pan.toFixed(2));
-    playPercussion(soundContext, letter, {
-      volume,
+    releaseDrum(note,true);
+    const holds=[];
+    drumVoices.set(note,{holds,released:false});
+    const drumSound={synth:options=>localSoundEnabled ? soundContext.synth({...options,immediate:true}) : null};
+    playPercussion(drumSound, letter, {
+      volume: volume * (performanceModifiers.linger(note)?1.25:1),
       pan,
       pitchFactor: 1.0,
-      phase: "both",
+      phase: "down", holdVoices: holds,
     });
     // 🎹 Mirror drum hits to /amxd at the same tone the note's letter would
     // have played at, in the current base octave. Lets Ableton route to a
@@ -6661,7 +6682,7 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
     const isDrum = wave === "drum";
     const sustainMode = isDrum
       ? null
-      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
+      : (enterHeld ? "enter" : (performanceModifiers.linger(note) ? "shift" : null));
 
     const pan = getPanForButtonNote(note);
     sounds[note] = {
@@ -6699,8 +6720,22 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
   return true;
 }
 
+function releaseDrum(note,force=false) {
+  const entry=drumVoices.get(note);
+  if(!entry || (entry.released&&!force)) return;
+  entry.released=true;
+  for(const v of entry.holds) {
+    if(force) v.handle?.kill?.(.015);
+    else if(!v.ignoreRelease) {
+      if(v.releaseUpdate) v.handle?.update?.(v.releaseUpdate);
+      v.handle?.kill?.(v.releaseFade ?? .05);
+      v.onRelease?.();
+    }
+  }
+}
 function stopButtonNote(note, { force = false } = {}) {
   if (downs[note]) return false;
+  releaseDrum(note);
 
   // 🎹 Mirror note_off to /amxd.
   if (amxdPublishEnabled && amxdActiveNotes.has(note)) {
@@ -6787,6 +6822,30 @@ function act({
     else if (e.kind === "local") { panicNotepat(); localSoundEnabled = e.enabled === true; }
     buildWaveButton(api); syncInstrument();
     return;
+  }
+  const bracket=performanceModifiers.observe(e);
+  shiftHeld=performanceModifiers.state.shift;
+  if(bracket) {
+    if(bracket.changed) {
+      // Release the old route before changing an octave from notes to drums.
+      panicNotepat(); modeBarKey="";
+    }
+    return;
+  }
+  if(e.is("keyboard:up") && drumKeys.has(e.key?.toLowerCase())) {
+    const key=e.key.toLowerCase(), note=drumKeys.get(key);
+    drumKeys.delete(key); stopButtonNote(note); if(buttons[note]) buttons[note].down=false;
+    return;
+  }
+  if(e.is("keyboard:down") && !e.ctrl && !e.alt && !e.meta) {
+    const key=e.key?.toLowerCase(), note=keyboardKeyToNote(key);
+    if(note && (wave==="drum" || performanceModifiers.drums(note))) {
+      if(!e.repeat && !drumKeys.has(key)) {
+        drumKeys.set(key,note); startButtonNote(note,e.velocity??127,api);
+        if(buttons[note]) buttons[note].down=true;
+      }
+      return;
+    }
   }
   if (pendingAudioReinit && !audioReinitRequested && api?.send) {
     if (e.is("touch") || e.is("keyboard:down")) {
@@ -7027,51 +7086,10 @@ function act({
     }
   }
 
-  // 🔒 SHIFT held → next press uses short-attack / long-decay envelope.
-  // Both physical shifts qualify; left/right shift's own toggles
-  // (quickFade, slide) still fire on shift-down — they're orthogonal to
-  // the held-state tracking that the press dispatcher reads.
-  if (e.is("keyboard:down:shift")) shiftHeld = true;
-  if (e.is("keyboard:up:shift")) shiftHeld = false;
-
   // 🔒 ENTER held → next press latches the voice into heldVoices until
   // backspace clears it. ENTER wins over SHIFT when both are held.
   if (e.is("keyboard:down:enter")) enterHeld = true;
   if (e.is("keyboard:up:enter")) enterHeld = false;
-
-  if (
-    e.is("keyboard:down") &&
-    !e.repeat &&
-    e.key === "Shift" &&
-    e.code === "ShiftLeft"
-  ) {
-    quickFade = !quickFade;
-  }
-
-  if (
-    e.is("keyboard:down") &&
-    !e.repeat &&
-    e.key === "Shift" &&
-    e.code === "ShiftRight"
-  ) {
-    // console.log("Code:", e.code);
-    slide = !slide;
-
-    if (slide && Object.keys(tonestack).length > 1) {
-      const orderedTones = orderedByCount(tonestack);
-      orderedTones.forEach((tone, index) => {
-        if (index > 0) {
-          sounds[tone]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
-          trail[tone] = 1;
-          delete tonestack[tone]; // Remove this key from the notestack.
-          delete sounds[tone];
-          if (buttons[tone]) buttons[tone].down = false;
-        }
-      });
-    }
-    // Clean up any orphaned sounds when toggling slide
-    cleanupOrphanedSounds(pens, true);
-  }
 
   //  if (
   //    e.is("keyboard:down:control") ||
@@ -8083,10 +8101,13 @@ function act({
             tone,
           };
           const pan = getPanForQwertyKey(key);
+          const voiceId=computeVoiceId(buttonNote);
+          heldVoices.get(voiceId)?.sound?.kill?.(.02); heldVoices.delete(voiceId);
           sounds[buttonNote] = {
-            note: buttonNote,
+            note: buttonNote, voiceId,
+            sustainMode: enterHeld ? "enter" : performanceModifiers.linger(buttonNote) ? "shift" : null,
             count: active.length + 1,
-            sound: makeNoteSound(tone, e.velocity ?? 127, pan), // Use velocity from event
+            sound: makeNoteSound(tone, e.velocity ?? 127, pan),
           };
 
           applyPitchBendToNotes([buttonNote], { immediate: true });
@@ -8217,6 +8238,11 @@ function act({
         }
 
         const buttonNote = noteFromKey(key);
+        if(sounds[buttonNote]?.sustainMode) {
+          stopButtonNote(buttonNote);
+          if(buttons[buttonNote]) buttons[buttonNote].down=false;
+          return;
+        }
 
         const orderedTones = orderedByCount(tonestack);
 

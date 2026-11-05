@@ -9,10 +9,14 @@ export function createGmBridge({ context, destination, status = () => {}, load =
     patches.get(ctx).set(program,patch);
   }
   let selection = 0;
-  function stop(id) {
+  function stop(id, fade) {
     const entry = voices.get(id);
     if (!entry) return;
-    voices.delete(id); entry.voice?.release();
+    clearTimeout(entry.timer);
+    entry.released=true;
+    entry.voice?.release(fade);
+    if(fade>1 && entry.voice) entry.timer=setTimeout(()=>{if(voices.get(id)===entry) voices.delete(id);},fade*1000+50);
+    else voices.delete(id);
   }
   return {
     async program(program) {
@@ -46,7 +50,7 @@ export function createGmBridge({ context, destination, status = () => {}, load =
       if(cached) return;
       try {
         const patch = await load(program, ctx);
-        if (voices.get(id) !== entry) return;
+        if (voices.get(id) !== entry || entry.released) return;
         if (!patch) { if(!entry.voice) voices.delete(id); return; }
         remember(ctx,program,patch);
         if (entry.voice) { void patch.prefetch(note); return; }

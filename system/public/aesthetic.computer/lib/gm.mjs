@@ -330,10 +330,11 @@ function scheduleNote(ctx, audioBuffer, opts) {
   let stopped = false;
   let scheduledStop = null;
 
-  const releaseAt = (t) => {
-    if (stopped) return;
-    stopped = true;
+  const releaseAt = (t, fade = release) => {
     const time = Math.max(t, ctx.currentTime);
+    fade=Number.isFinite(fade)?Math.max(.005,Math.min(10,fade)):release;
+    if(scheduledStop!==null && time+fade+.02>=scheduledStop) return;
+    stopped = true;
     try {
       // 🍿 Release the note from wherever the envelope actually is. A bare
       // cancelScheduledValues() drops the pending ramp *event*, so a note
@@ -349,9 +350,9 @@ function scheduleNote(ctx, audioBuffer, opts) {
         gain.gain.cancelScheduledValues(time);
         gain.gain.setValueAtTime(current, time);
       }
-      gain.gain.linearRampToValueAtTime(0.0001, time + release);
+      gain.gain.linearRampToValueAtTime(0.0001, time + fade);
       // Schedule actual stop slightly after the release fade.
-      scheduledStop = time + release + 0.02;
+      scheduledStop = time + fade + 0.02;
       source.stop(scheduledStop);
     } catch (err) {
       // Already stopped or invalid state — ignore.
@@ -367,8 +368,8 @@ function scheduleNote(ctx, audioBuffer, opts) {
     stop(when = 0) {
       releaseAt(when || ctx.currentTime);
     },
-    release() {
-      releaseAt(ctx.currentTime);
+    release(fade) {
+      releaseAt(ctx.currentTime,fade);
     },
     update({ semitones = 0 } = {}) {
       if (!stopped && Number.isFinite(semitones)) source.playbackRate.setTargetAtTime(playbackRate * 2 ** (semitones / 12), ctx.currentTime, 0.008);
@@ -483,9 +484,9 @@ export async function loadPatch(programNumber, audioContext) {
             externalReleased = true;
             live?.stop?.(when);
           },
-          release() {
+          release(fade) {
             externalReleased = true;
-            live?.release?.();
+            live?.release?.(fade);
           },
         };
       },

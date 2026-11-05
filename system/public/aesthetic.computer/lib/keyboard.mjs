@@ -115,6 +115,7 @@ export class Keyboard {
         key,
         code: e.code,
         repeat: e.repeat || repeat,
+        caps: e.getModifierState?.("CapsLock"),
         shift: e.shiftKey,
         alt: e.altKey,
         ctrl: e.ctrlKey,
@@ -133,7 +134,7 @@ export class Keyboard {
       this.#held.delete(e.key);
       emit({
         name: "keyboard:up:" + parseKey(e.key),
-        key: e.key,
+        key: e.key, code: e.code, shift: e.shiftKey, caps: e.getModifierState?.("CapsLock"),
       });
       this.#lastKeyCodeDown = null;
     });
