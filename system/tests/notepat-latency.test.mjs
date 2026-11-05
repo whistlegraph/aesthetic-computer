@@ -86,8 +86,8 @@ test('learning labels prioritize keyboard keys and keep note names separate', as
     }
     assert.ok(Math.abs(primary.y+primary.h/2-(box.y+h/2))<=.5);
     if(secondary) {
-      assert.equal(box.x+w-secondary.x-secondary.w,4);
-      assert.equal(box.y+h-secondary.y-secondary.h,4);
+      assert.equal(box.x+w-secondary.x-secondary.w,2);
+      assert.equal(box.y+h-secondary.y-secondary.h,2);
       assert.ok(primary.y+primary.h<=secondary.y || primary.x+primary.w<=secondary.x);
     }
     if(w>=45 && h>=45) assert.ok(primary.size>=2);

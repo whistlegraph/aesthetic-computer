@@ -1190,15 +1190,14 @@ let paintPictureOverlay = false;
 let waveBtn, octBtn;
 let modeBarHudHidden = false;
 const learningKeyGlyphs = new Map();
-function learningKeyGlyph(api, text, color) {
-  const key=text+":"+color.join(",");
+function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
+  const key=font+":"+text+":"+color.join(",");
   let glyph=learningKeyGlyphs.get(key);
   if(!glyph) {
-    // Use AC's original letterforms, then trim transparent bearing space so
-    // the visible glyph (not its font cell) is centered in the pad.
-    const source=api.painting(text.length*6,10,p=>{
+    // Trim transparent bearings so placement follows visible glyph edges.
+    const source=api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
       p.wipe(0,0,0,0);
-      p.ink(...color).write(text,{x:0,y:0});
+      p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font);
     });
     let left=source.width,top=source.height,right=-1,bottom=-1;
     for(let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
@@ -5371,11 +5370,11 @@ function paint({
           if (classicControls()) {
             const labelColor=getContrastingTextColor(color);
             const key=(noteToKeyboardKey(note) || "").toUpperCase();
-            const glyph=learningKeyGlyph(api,key,labelColor);
-            const labels=learningPadLabels(btn.box,key,note,glyph);
+            const glyph=learningGlyph(api,key,labelColor,"unifont",8,16);
+            const noteGlyph=learningGlyph(api,note.toUpperCase(),labelColor,"microtype",4,5);
+            const labels=learningPadLabels(btn.box,key,note,glyph,noteGlyph);
             if(labels.primary) api.paste(glyph,labels.primary.x,labels.primary.y,labels.primary.size);
-            if(labels.secondary) ink(...labelColor,190).write(labels.secondary.text,
-              {x:labels.secondary.x,y:labels.secondary.y},undefined,undefined,false,"MatrixChunky8");
+            if(labels.secondary) api.paste(noteGlyph,labels.secondary.x,labels.secondary.y);
             return;
           }
 
