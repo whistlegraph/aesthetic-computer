@@ -121,7 +121,7 @@ test("the two octave grids remain inside the playing area across mobile and desk
     });
     for (const rect of rects) {
       assert.ok(rect.x >= 0 && rect.x+rect.w <= width, `${width}×${height} horizontal fit`);
-      assert.ok(rect.y >= 33 && rect.y+rect.h <= height-14, `${width}×${height} header/footer fit`);
+      assert.ok(rect.y >= 33 && rect.y+rect.h <= height-2, `${width}×${height} header/edge fit`);
     }
     for (let i=0;i<24;i++) for(let j=i+1;j<24;j++) {
       const a=rects[i],b=rects[j]; assert.ok(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
@@ -156,15 +156,4 @@ test("GM sample voices stay on their AudioContext and cancel or bend during lazy
     assert.equal(b.started[0].playbackRate.value, 2);
     held.release(); held.release(); assert.equal(b.stopped.length, 1);
   } finally { globalThis.fetch = originalFetch; setGMAssetBase("https://assets.aesthetic.computer/gm"); }
-});
-
-
-test("studio banner labels fit the canvas without shrinking their type", async () => {
-  const { NOTEPAT_PROMOS, notepatPromoLabel } = await import("../public/aesthetic.computer/lib/notepat-promos.mjs");
-  const measure = label => label.length * 6;
-  for (const width of [148,183,288,468]) for (const item of NOTEPAT_PROMOS) {
-    const label = notepatPromoLabel(item, width, measure);
-    assert.ok(measure(label) <= width);
-    assert.ok(label.includes(item.name.replace(" >", "")) || label.includes("nopaint.art"));
-  }
 });

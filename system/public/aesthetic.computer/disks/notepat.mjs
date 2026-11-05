@@ -13,7 +13,6 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
-import { NOTEPAT_PROMOS, notepatPromoLabel } from "../lib/notepat-promos.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout } from "../lib/notepat-layout.mjs";
@@ -425,10 +424,7 @@ let gmDigitBuffer = "";
 let gmDigitLastMs = 0;
 let localSoundEnabled = true;
 let voiceSerial = 0;
-const FOOTER_HEIGHT = 14;
 let hostReady = false, lastHostRequest = 0, controlsOpen = false;
-let promoBtn, promoIndex = 0, nextPromoAt = 0;
-const promoVisible = () => !projector && !paintPictureOverlay && !overlayMode;
 const host = content => autopatApi?.send?.({ type: "notepat:host", content });
 const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled, recording });
 function panicNotepat() {
@@ -2687,7 +2683,7 @@ function getButtonLayoutMetrics(
     ? melodyButtonRect.height + MELODY_ALIAS_MARGIN
     : 0;
 
-  const baseBottomPadding = !projector && !paintPictureOverlay && !overlayMode ? FOOTER_HEIGHT + 2 : 2;
+  const baseBottomPadding = 2;
   const bottomPadding = pictureOverlay
     ? baseBottomPadding
     : songMode
@@ -5812,15 +5808,6 @@ function paint({
       api.sharpen(sharpenAmount);
     }
   }
-  if (promoVisible()) promoBtn?.paint((btn) => {
-    const now = performance.now();
-    if (!nextPromoAt || btn.over || btn.down || controlsOpen) nextPromoAt = now + 12000;
-    if (now >= nextPromoAt) { promoIndex = (promoIndex + 1) % NOTEPAT_PROMOS.length; nextPromoAt = now + 12000; }
-    const label = notepatPromoLabel(NOTEPAT_PROMOS[promoIndex], screen.width - 12, measureMatrixTextWidth);
-    ink(btn.over || btn.down ? [52, 67, 50] : [32, 42, 44]).box(btn.box);
-    ink(86, 107, 88).line(0, btn.box.y, screen.width, btn.box.y);
-    ink(213, 233, 203).write(label, { x: Math.max(4, Math.floor((screen.width - measureMatrixTextWidth(label)) / 2)), y: btn.box.y + 4 }, undefined, undefined, false, "MatrixChunky8");
-  });
 
 }
 
@@ -6570,11 +6557,6 @@ function act({
   api,
 }) {
   setSoundContext({ synth, play, freq, num });
-  if (promoVisible()) promoBtn?.act(e, { push: () => {
-    const item = NOTEPAT_PROMOS[promoIndex];
-    api.send?.({ type: "visit:action", content: { action: item.action } });
-    api.jump(`out:${item.url}`);
-  } });
   if (e.is("notepat:state")) {
     if (e.hostReady && !hostReady) { hostReady = true; syncInstrument(); }
     if (typeof e.controlsOpen === "boolean") controlsOpen = e.controlsOpen;
@@ -8309,8 +8291,6 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
-  promoBtn = new ui.Button(0, screen.height - FOOTER_HEIGHT, screen.width, FOOTER_HEIGHT);
-  promoBtn.id = "notepat-studio-link";
   const sampleRateText = getSampleRateText(undefined);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const cachedLayout = getCachedLayout(screen, {

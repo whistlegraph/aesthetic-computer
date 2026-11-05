@@ -1,9 +1,7 @@
 # Notepat web controls
 
 The two 4 × 3 octave grids are the main touch interface. They stack in portrait
-and sit side by side in landscape. The footer is drawn with AC ink and activated through an AC button in a
-reserved strip outside the pads. Edit `notepat-promos.mjs` for the studio links; each new measured link also
-needs a reviewed action in `visit-model.mjs`.
+and sit side by side in landscape.
 
 Tap the sound name to open Sound & MIDI. Record a phrase starts capture and
 closes the panel; tap REC to reopen it and stop/play the recording. Choose a Notepat voice or any
