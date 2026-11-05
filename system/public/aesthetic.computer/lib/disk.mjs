@@ -11014,6 +11014,19 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Musical keyboard input bypasses the display clock, using the last complete API.
+  if (type === "notepat:keyboard") {
+    if (!booted || !cachedAPI || TV_MODE || !/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPath || "")) return;
+    const previous = cachedAPI.event;
+    const data = { ...content, device: "keyboard" };
+    data.is = name => name.split(":").length > 2 ? data.name === name : data.name.startsWith(name);
+    cachedAPI.event = data;
+    try { if (!reel?.key(data)) act(cachedAPI); }
+    catch (error) { console.warn("Notepat keyboard act failed", error); }
+    finally { cachedAPI.event = previous; }
+    return;
+  }
+
   // Receive a midi input message.
   if (["midi:keyboard", "notepat:control", "notepat:state"].includes(type) && booted) {
     // console.log("🎹 Keyboard:", content.data);

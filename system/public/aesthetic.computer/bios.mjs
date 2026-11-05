@@ -12,6 +12,7 @@ import * as perf from "./lib/perf.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
+import { fastNotepatKey } from "./lib/notepat-latency.mjs";
 import { Gamepad } from "./lib/gamepad.mjs";
 import { createOutputWaveform } from "./lib/output-waveform.mjs";
 import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
@@ -1080,6 +1081,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let now = 0;
 
   let diskSupervisor;
+  const pendingImmediateSounds = new Map();
   let currentPiece = null; // Gets set to a path after `loaded`.
   let notepatControls, notepatControlsPromise, notepatGeneration = 0, notepatGMGain, notepatGMContext;
   const accountActivity = startAccountActivity();
@@ -4085,6 +4087,20 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             return;
           }
 
+          if (msg.type === "audio:onset") {
+            const stamp = audioContext?.getOutputTimestamp?.();
+            const p = msg.content;
+            window.acNotepatLatency?.record?.({
+              id: p.id, mode: p.mode, inputAt: p.inputAt, pieceAt: p.pieceAt,
+              bridgeAt: performance.timeOrigin + p.biosAt,
+              estimatedOutputAt: stamp?.performanceTime > 0 && audioContext?.state === "running"
+                ? performance.timeOrigin + stamp.performanceTime + (p.onsetTime - stamp.contextTime) * 1000 : null,
+              sampleRate: p.sampleRate, baseMs: (audioContext?.baseLatency || 0) * 1000,
+              outputMs: (audioContext?.outputLatency || 0) * 1000,
+              visible: !document.hidden,
+            });
+            return;
+          }
           if (msg.type === "audio:probe") {
             const receivedAt = performance.now();
             const probe = msg.content || {};
@@ -4289,6 +4305,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         applyMasterVolume(masterVolume);
 
         activatedSoundCallback?.();
+        for (const sound of pendingImmediateSounds.values()) triggerSound?.(sound);
+        pendingImmediateSounds.clear();
 
         // Process any queued sound effects now that audioContext is available
         processPendingSfx();
@@ -14375,7 +14393,22 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       });
 
       // ⌨️ Keyboard
-      keyboard = new Keyboard();
+      keyboard = new Keyboard(event => {
+        if (!/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece || "")) return false;
+        // Modal typing must never play a note; releases still clear held notes.
+        if (event.name.startsWith("keyboard:down") && (keyboardFocusLock ||
+            document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]'))) return true;
+        const probe = window.acNotepatLatency;
+        if (event.name.startsWith("keyboard:down") && !event.repeat) {
+          event.latencyProbe = probe?.begin?.();
+        }
+        if (!fastNotepatKey(event, {
+          ready: audioContext?.state === "running" && !!triggerSound,
+          queued: keyboard.events.length, mode: probe?.mode,
+        })) return false;
+        send({ type: "notepat:keyboard", content: event });
+        return true;
+      });
       {
         // console.log("⌨️ 🤖 Initializing Virtual Keyboard");
         /**
@@ -15042,6 +15075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       notepatGeneration++;
       notepatControls?.dispose(); notepatControls = null; notepatControlsPromise = null;
       notepatGMGain?.disconnect(); notepatGMGain = null; notepatGMContext = null;
+      pendingImmediateSounds.clear();
       currentPiece = content.path;
       keyboardMaxChars = 256; // Reset to default on each piece load
       // console.log("🎮 currentPiece SET TO:", currentPiece);
@@ -15837,10 +15871,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
     if (type === "synth:trigger") {
-      triggerSound?.(content);
+      if (!triggerSound) {
+        if (pendingImmediateSounds.size < 128) pendingImmediateSounds.set(content.id, content);
+      } else triggerSound(content);
       return;
     }
     if (type === "synth:kill") {
+      pendingImmediateSounds.delete(content.id);
       killSound?.(content.id, content.fade);
       return;
     }

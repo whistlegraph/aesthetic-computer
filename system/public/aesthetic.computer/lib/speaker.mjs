@@ -588,6 +588,7 @@ class SpeakerProcessor extends AudioWorkletProcessor {
           this.#running[msg.data.id] = sound; // Index by the unique id.
           // }
 
+          if (msg.data.probe) sound.inputLatencyProbe = msg.data.probe;
           this.#queue.push(sound);
           if (msg.data.probe) {
             this.#report("audio:probe", {
@@ -828,6 +829,11 @@ class SpeakerProcessor extends AudioWorkletProcessor {
       for (const instrument of this.#queue) {
         // For now, all sounds are maxed out and mixing happens by dividing by the total length.
         const amplitude = instrument.next(s); // this.#queue.length;
+        if (instrument.inputLatencyProbe && Number.isFinite(amplitude) && Math.abs(amplitude) > 0.00001) {
+          this.#report("audio:onset", { ...instrument.inputLatencyProbe,
+            onsetTime: (currentFrame + s) / sampleRate, sampleRate });
+          instrument.inputLatencyProbe = null;
+        }
 
         // 🔊 Debug: Log sample instrument output at key points
         // if (instrument.type === "sample" && s === 0 && this._sampleDebugCounter === undefined) {

@@ -16,6 +16,7 @@ import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout } from "../lib/notepat-layout.mjs";
+import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
   UNMEASURED_WAVES,
@@ -1186,6 +1187,50 @@ let paintPictureOverlay = false;
 // let qrcells;
 
 let waveBtn, octBtn;
+let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
+function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
+function updateModeBar(api) {
+  const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? `g${gmProgram + 1}` : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
+  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM].join(":");
+  if (key === modeBarKey) return;
+  modeBarKey = key;
+  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM });
+  modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
+}
+function paintModeBar(api) {
+  updateModeBar(api);
+  const { ink, screen } = api;
+  ink(18, 22, 32).box(0, 0, screen.width, MODE_BAR_HEIGHT);
+  if (modeBarLayout.logo) ink("white").write(modeBarLayout.logo, { x: 3, y: 7 }, undefined, undefined, false, "MatrixChunky8");
+  const active = { slide, room: roomMode, glitch: glitchMode, quick: quickFade, metro: metronomeEnabled, tempo: metronomeEnabled, fx: slide || roomMode || glitchMode || quickFade };
+  for (const c of modeBarButtons) c.button.paint(btn => {
+    const color = active[c.id] ? [95, 225, 190] : c.id === "sound" ? [255, 185, 65] : [205, 213, 230];
+    ink(...(active[c.id] ? [28, 77, 67] : [30, 36, 49])).box(btn.box);
+    ink(...color, btn.over ? 255 : 130).box(btn.box, "outline");
+    ink(...color).write(c.label, { x: c.x + 3, y: c.y + 5 }, undefined, undefined, false, "MatrixChunky8");
+  });
+}
+function actModeBar(e, api) {
+  updateModeBar(api);
+  for (const c of modeBarButtons) c.button.act(e, { push: () => {
+    if (c.id === "fx") modeBarPage = "fx";
+    else if (c.id === "tempo") modeBarPage = "tempo";
+    else if (c.id === "back") modeBarPage = "main";
+    else if (c.id === "sound") host({ op: "open" });
+    else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
+    else if (c.id === "slide") { slide = !slide; if (slide) cleanupOrphanedSounds(api.pens, true); }
+    else if (c.id === "room") { roomMode = !roomMode; api.sound.room.toggle(); }
+    else if (c.id === "glitch") { glitchMode = !glitchMode; api.sound.glitch?.toggle?.(); }
+    else if (c.id === "quick") quickFade = !quickFade;
+    else if (c.id === "metro") metronomeEnabled = !metronomeEnabled;
+    else if (c.id === "minus") metronomeBPM = Math.max(20, metronomeBPM - 5);
+    else if (c.id === "plus") metronomeBPM = Math.min(300, metronomeBPM + 5);
+    if (["minus", "plus", "metro"].includes(c.id)) {
+      const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
+      metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM)); metronomeVisualPhase = 0;
+    }
+  } }, api.pens?.());
+}
 // 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
 // every note fires from lib/percussion.mjs instead of the pitched synth.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
@@ -2691,7 +2736,7 @@ function getButtonLayoutMetrics(
     : baseBottomPadding;
 
   if (!songMode && !pictureOverlay && !projector && !recitalMode) {
-    return { ...classicNotepatLayout(screen, { top: HEADER_BOTTOM, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
+    return { ...classicNotepatLayout(screen, { top: MODE_BAR_HEIGHT, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
   }
   const totalButtons = buttonNotes.length;
   const margin = 2;
@@ -3241,6 +3286,10 @@ function paint({
   sharpen
 }) {
   const paintStart = performance.now();
+  // Reconcile with the actual render size, including resize events that coalesce.
+  if (padsViewport !== `${screen.width}:${screen.height}`) setupButtons(api);
+
+  if (classicControls()) { autopatHud?.label(undefined); autopatHud?.suffix(null); }
 
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
@@ -3512,7 +3561,7 @@ function paint({
   // Store piano end position for visualizer to use
   const topBarDefaultX = dotComMode ? 75 : 54;
   let topBarPianoEndX = topBarDefaultX; // Default if piano not shown
-  if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
+  if (!classicControls() && !recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
     const metrics = getTopBarPianoMetrics(screen);
     if (metrics && !metrics.hidden) {
       const {
@@ -3654,8 +3703,8 @@ function paint({
     ink(...recitalColor, blinkAlpha).write("< BACK", { x: 6, y: 6 }, undefined, undefined, false, "MatrixChunky8");
   }
 
-  // 🎛️ Draw secondary top bar with toggle buttons (normal mode)
-  if (!paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
+  // Legacy secondary controls for song and special modes.
+  if (!classicControls() && !paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
     // Draw segmented secondary bar backgrounds with distinct colors
     // Calculate segment boundaries
     const hideMidiBadge = !perfOSD || screen.width < 240;
@@ -5321,7 +5370,7 @@ function paint({
           const padShakeX = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
           const padShakeY = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
           
-          if (noteLabelText && noteLabelBounds) {
+          if (noteLabelText && noteLabelBounds && noteLabelBounds.h + 2 <= btn.box.h) {
             ink(0, 0, 0, 160).write(
               noteLabelText,
               { x: noteLabelBounds.x + 1 + padShakeX, y: noteLabelBounds.y + 1 + padShakeY },
@@ -5396,7 +5445,7 @@ function paint({
           }
 
           // Paint keyboard shortcuts (always - cache only has boxes)
-          if (keyLabel && keyBounds) {
+          if (keyLabel && keyBounds && keyBounds.h + 2 <= btn.box.h) {
             ink(0, 0, 0, 120).write(
               keyLabel,
               { x: keyBounds.x + 1, y: keyBounds.y + 1 },
@@ -5799,6 +5848,8 @@ function paint({
     }
   }
 
+  if (classicControls()) paintModeBar(api);
+
   // 🥁 Metronome pulse post-process (sharpen)
   if (metronomeEnabled && metronomeFlash > 0 && !paintPictureOverlay && !projector) {
     const sharpenAmount = 0.8 * metronomeFlash;
@@ -5819,8 +5870,10 @@ let miniMapActiveNote = null;
 let miniMapActiveKey = null;
 let topBarPianoActiveNote = null; // Track active note from top bar piano
 let soundContext = null;
+let noteLatencyProbe = null;
 
-function setSoundContext(ctx) {
+function setSoundContext(ctx, probe = null) {
+  noteLatencyProbe = probe;
   soundContext = ctx;
 }
 
@@ -6159,7 +6212,10 @@ function makeNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
 }
 
 function makeLocalNoteSound(tone, velocity = 127, pan = 0) {
-  const synth = soundContext?.synth;
+  const synth = soundContext?.synth && (options => soundContext.synth({
+    ...options, immediate: noteLatencyProbe?.mode !== "batched",
+    probe: noteLatencyProbe ? { ...noteLatencyProbe, pieceAt: performance.timeOrigin + performance.now() } : null,
+  }));
   const play = soundContext?.play;
   const freq = soundContext?.freq;
   const num = soundContext?.num;
@@ -6556,7 +6612,7 @@ function act({
   painting,
   api,
 }) {
-  setSoundContext({ synth, play, freq, num });
+  setSoundContext({ synth, play, freq, num }, e.latencyProbe);
   if (e.is("notepat:state")) {
     if (e.hostReady && !hostReady) { hostReady = true; syncInstrument(); }
     if (typeof e.controlsOpen === "boolean") controlsOpen = e.controlsOpen;
@@ -6653,6 +6709,14 @@ function act({
       } else {
         delete gp.axes[axisIndex];
       }
+    }
+  }
+
+  if (classicControls()) {
+    actModeBar(e, api);
+    if ((e.is("touch") || e.is("draw") || e.is("lift")) && e.y < MODE_BAR_HEIGHT) {
+      if (e.is("lift")) cleanupOrphanedSounds(pens);
+      return;
     }
   }
 
@@ -7376,7 +7440,7 @@ function act({
     });
 
     // 🎛️ Toggle button interactions
-    slideBtn?.act(e, {
+    if (!classicControls()) slideBtn?.act(e, {
       push: () => {
         api.beep();
         slide = !slide;
@@ -7398,7 +7462,7 @@ function act({
       },
     });
 
-    roomBtn?.act(e, {
+    if (!classicControls()) roomBtn?.act(e, {
       push: () => {
         api.beep();
         roomMode = !roomMode;
@@ -7422,7 +7486,7 @@ function act({
       }
     }
 
-    glitchBtn?.act(e, {
+    if (!classicControls()) glitchBtn?.act(e, {
       push: () => {
         api.beep();
         glitchMode = !glitchMode;
@@ -7432,7 +7496,7 @@ function act({
       },
     });
 
-    quickBtn?.act(e, {
+    if (!classicControls()) quickBtn?.act(e, {
       push: () => {
         api.beep();
         quickFade = !quickFade;
@@ -7440,7 +7504,7 @@ function act({
     });
 
     // 🥁 Metronome button interactions
-    bpmMinusBtn?.act(e, {
+    if (!classicControls()) bpmMinusBtn?.act(e, {
       push: () => {
         api.beep();
         // Decrease BPM by 5 (min 20)
@@ -7451,7 +7515,7 @@ function act({
       },
     });
 
-    bpmPlusBtn?.act(e, {
+    if (!classicControls()) bpmPlusBtn?.act(e, {
       push: () => {
         api.beep();
         // Increase BPM by 5 (max 300)
@@ -7462,7 +7526,7 @@ function act({
       },
     });
 
-    metroBtn?.act(e, {
+    if (!classicControls()) metroBtn?.act(e, {
       push: () => {
         api.beep();
         metronomeEnabled = !metronomeEnabled;
@@ -8291,6 +8355,7 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
+  padsViewport = `${screen.width}:${screen.height}`;
   const sampleRateText = getSampleRateText(undefined);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const cachedLayout = getCachedLayout(screen, {
@@ -8365,7 +8430,7 @@ function setupButtons({ ui, screen, geo }) {
     }
 
     const noteLabelText = label.toUpperCase();
-    const noteFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
+    const noteFont = buttonWidth >= 22 && buttonHeight >= 20 ? "unifont" : "MatrixChunky8";
     const noteGlyphWidth = noteFont === "unifont" ? 8 : glyphMetrics.width;
     const noteGlyphHeight = noteFont === "unifont" ? 16 : glyphMetrics.height;
     const noteLabelWidth = noteLabelText.length * noteGlyphWidth;
@@ -8385,7 +8450,7 @@ function setupButtons({ ui, screen, geo }) {
     const keyLabelCandidate = noteToKeyboardKey(label) || label.toLowerCase();
     // Skip apostrophe key - it's too wide and cuts into narrow pads
     const keyLabel = keyLabelCandidate === "'" ? null : keyLabelCandidate;
-    const keyFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
+    const keyFont = buttonWidth >= 22 && buttonHeight >= 20 ? "unifont" : "MatrixChunky8";
     const keyGlyphWidth = keyFont === "unifont" ? 8 : glyphMetrics.width;
     const keyGlyphHeight = keyFont === "unifont" ? 16 : glyphMetrics.height;
 

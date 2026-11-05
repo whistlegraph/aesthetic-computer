@@ -14,7 +14,8 @@ export class Keyboard {
   #sequenceTimeout = null;
   needsImmediateOpen = false;
 
-  constructor() {
+  constructor(dispatch = () => false) {
+    const emit = event => { if (!dispatch(event)) this.events.push(event); };
     window.addEventListener("keydown", (e) => {
       // console.log("⌨️ Key event:", e);
 
@@ -109,7 +110,7 @@ export class Keyboard {
       // if (e.key === "Unidentified" && e.which === 13) key = "Enter";
 
       // Send a normal keyboard message if we are anywhere else.
-      this.events.push({
+      emit({
         name: "keyboard:down:" + parseKey(key),
         key,
         code: e.code,
@@ -117,6 +118,7 @@ export class Keyboard {
         shift: e.shiftKey,
         alt: e.altKey,
         ctrl: e.ctrlKey,
+        meta: e.metaKey,
         velocity: e.velocity ?? 127, // Support velocity from custom events (0-127)
       });
 
@@ -129,7 +131,7 @@ export class Keyboard {
 
     window.addEventListener("keyup", (e) => {
       this.#held.delete(e.key);
-      this.events.push({
+      emit({
         name: "keyboard:up:" + parseKey(e.key),
         key: e.key,
       });
