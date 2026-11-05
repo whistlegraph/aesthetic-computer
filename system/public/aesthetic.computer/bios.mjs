@@ -6826,7 +6826,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (generation !== notepatGeneration) return null;
         notepatControls = createNotepatControls({
           send, context: () => audioContext,
-          display: () => canvas?.getBoundingClientRect(),
           focus: locked => { keyboardFocusLock = locked; },
           destination: ctx => {
             if (notepatGMContext !== ctx) {

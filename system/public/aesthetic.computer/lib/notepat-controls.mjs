@@ -1,27 +1,8 @@
-import { NOTEPAT_PROMOS } from "./notepat-promos.mjs";
 import { GM_PROGRAM_NAMES } from "./notepat-programs.mjs";
 import { createMidiController } from "./midi-controller.mjs";
 import { createGmBridge } from "./notepat-gm-bridge.mjs";
 
-export function createNotepatControls({ send, context, destination, display, focus = () => {} }) {
-  let layout = null, promoIndex = 0, promoPaused = false;
-  const promo = document.createElement("a");
-  promo.className = "notepat-promo";
-  promo.hidden = true;
-  const showPromo = () => { const item = NOTEPAT_PROMOS[promoIndex]; promo.textContent = item.label; promo.href = item.url; };
-  showPromo();
-  const placePromo = () => {
-    const box = display?.();
-    if (!box || !layout) { promo.hidden = true; return; }
-    promo.hidden = !layout.promoHeight;
-    const height = layout.promoHeight * box.height / layout.height;
-    Object.assign(promo.style, { left: `${box.left}px`, top: `${box.bottom - height}px`, width: `${box.width}px`, height: `${height}px`, fontSize: `${Math.min(14, Math.max(10, height - 8))}px` });
-  };
-  for (const event of ["pointerenter", "focus", "pointerdown"]) promo.addEventListener(event, () => { promoPaused = true; });
-  for (const event of ["pointerleave", "blur"]) promo.addEventListener(event, () => { promoPaused = false; });
-  promo.addEventListener("click", e => { if (e.isTrusted) window.acVisits?.action(NOTEPAT_PROMOS[promoIndex].action); });
-  const promoTimer = setInterval(() => { if (!promoPaused && !document.hidden && !dialog.open) { promoIndex = (promoIndex + 1) % NOTEPAT_PROMOS.length; showPromo(); } }, 12000);
-  window.addEventListener("resize", placePromo);
+export function createNotepatControls({ send, context, destination, focus = () => {} }) {
   let disposed = false, current = { wave: "sine", program: 0, local: true }, midiState;
   const dialog = document.createElement("dialog");
   dialog.className = "notepat-controls";
@@ -35,10 +16,11 @@ export function createNotepatControls({ send, context, destination, display, foc
     <p role="status" data-field="midi-status"></p>
     <div class="ports"><label>Input<select data-field="input"></select></label><label>Output<select data-field="output"></select></label>
     <label>Output channel<select data-field="channel"></select></label></div>
+    <button type="button" data-field="record">Record a phrase</button>
     <footer><button type="button" data-field="panic">Stop all notes</button><a href="https://notepat.com/amxd" data-field="ableton">Ableton device ↗</a></footer>`;
   const style = document.createElement("style");
-  style.textContent = `.notepat-promo{pointer-events:auto;position:fixed;z-index:5;box-sizing:border-box;display:flex;align-items:center;justify-content:center;padding:0 8px;background:#202a2c;color:#d5e9cb;border-top:1px solid #566b58;font:14px/1.2 system-ui,sans-serif;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.notepat-promo[hidden]{display:none}.notepat-promo:hover,.notepat-promo:focus-visible{background:#344332;color:#fff;outline:2px solid #c6f7a0;outline-offset:-2px}.notepat-controls{box-sizing:border-box;width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:20px;color:#f3efe4;background:#191e29;border:1px solid #73807c;border-radius:14px;font:16px/1.4 system-ui,sans-serif;box-shadow:0 18px 70px #0009}.notepat-controls,.notepat-controls *{pointer-events:auto}.notepat-controls::backdrop{background:#070b15b8}.notepat-controls header,.notepat-controls footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.notepat-controls header{margin-bottom:14px}.notepat-controls strong{font-size:20px}.notepat-controls label{display:grid;gap:6px;margin:12px 0}.notepat-controls select,.notepat-controls button{font:inherit;min-height:44px;border:1px solid #64726f;border-radius:7px;background:#292f3e;color:#fff;padding:8px;max-width:100%}.notepat-controls button{cursor:pointer}.notepat-controls button:hover{background:#384535}.notepat-controls :focus-visible{outline:2px solid #c6f7a0;outline-offset:3px}.notepat-controls .check{display:flex;align-items:center;gap:9px}.notepat-controls input{width:20px;height:20px}.notepat-controls p{font-size:14px;color:#c1cbd0;margin:8px 0;min-height:0}.notepat-controls p:empty{display:none}.notepat-controls a{color:#c6f7a0}.notepat-controls footer{margin-top:18px}.notepat-controls .ports{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.notepat-controls .ports label{min-width:0}.notepat-controls [data-field=connect]{width:100%;background:#344332}@media(max-width:360px){.notepat-controls .ports{grid-template-columns:1fr}}`;
-  document.head.append(style); document.body.append(dialog, promo);
+  style.textContent = `.notepat-controls{box-sizing:border-box;width:min(420px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:20px;color:#f3efe4;background:#191e29;border:1px solid #73807c;border-radius:14px;font:16px/1.4 system-ui,sans-serif;box-shadow:0 18px 70px #0009}.notepat-controls,.notepat-controls *{pointer-events:auto}.notepat-controls::backdrop{background:#070b15b8}.notepat-controls header,.notepat-controls footer{display:flex;align-items:center;justify-content:space-between;gap:12px}.notepat-controls header{margin-bottom:14px}.notepat-controls strong{font-size:20px}.notepat-controls label{display:grid;gap:6px;margin:12px 0}.notepat-controls select,.notepat-controls button{font:inherit;min-height:44px;border:1px solid #64726f;border-radius:7px;background:#292f3e;color:#fff;padding:8px;max-width:100%}.notepat-controls button{cursor:pointer}.notepat-controls button:hover{background:#384535}.notepat-controls :focus-visible{outline:2px solid #c6f7a0;outline-offset:3px}.notepat-controls .check{display:flex;align-items:center;gap:9px}.notepat-controls input{width:20px;height:20px}.notepat-controls p{font-size:14px;color:#c1cbd0;margin:8px 0;min-height:0}.notepat-controls p:empty{display:none}.notepat-controls a{color:#c6f7a0}.notepat-controls footer{margin-top:18px}.notepat-controls .ports{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.notepat-controls .ports label{min-width:0}.notepat-controls [data-field=connect]{width:100%;background:#344332}@media(max-width:360px){.notepat-controls .ports{grid-template-columns:1fr}}`;
+  document.head.append(style); document.body.append(dialog);
   const field = name => dialog.querySelector(`[data-field="${name}"]`);
   const option = (parent, value, label) => { const o = document.createElement("option"); o.value = value; o.textContent = label; parent.append(o); };
   const waves = ["sine", "composite", "triangle", "square", "whistle", "sawtooth", "harp", "stample", "drum"];
@@ -72,6 +54,7 @@ export function createNotepatControls({ send, context, destination, display, foc
     send({ type: "notepat:state", content: { gmReady: content.ready, gmLoading: !!content.loading } });
   } });
   const control = content => send({ type: "notepat:control", content });
+  field("record").onclick = () => { control({ kind: "record" }); dialog.close(); };
   field("connect").onclick = () => midi.connect();
   field("input").onchange = e => midi.selectInput(e.target.value);
   field("output").onchange = e => { midi.selectOutput(e.target.value); if (current.wave === "gm") midi.program(current.program); };
@@ -85,7 +68,7 @@ export function createNotepatControls({ send, context, destination, display, foc
   field("panic").onclick = panic;
   field("ableton").onclick = () => window.acVisits?.action("notepat_amxd_requested");
   for (const type of ["keydown", "keyup", "keypress"]) dialog.addEventListener(type, e => e.stopPropagation());
-  dialog.addEventListener("close", () => focus(false));
+  dialog.addEventListener("close", () => { focus(false); send({ type: "notepat:state", content: { controlsOpen: false } }); });
   const blur = () => panic();
   window.addEventListener("blur", blur);
   const hidden = () => { if (document.hidden) panic(); };
@@ -95,12 +78,12 @@ export function createNotepatControls({ send, context, destination, display, foc
     message(content) {
       if (disposed || !content) return;
       const { op } = content;
-      if (op === "layout") { layout = content; placePromo(); }
-      else if (op === "open") { panic(); focus(true); if (!dialog.open) dialog.showModal(); }
+      if (op === "open") { panic(); focus(true); if (!dialog.open) dialog.showModal(); send({ type: "notepat:state", content: { controlsOpen: true } }); }
       else if (op === "state") {
         current = { ...current, ...content };
         field("sound").value = current.wave === "gm" ? `gm:${current.program}` : current.wave;
         field("local").checked = current.local;
+        field("record").textContent = current.recording ? "Stop and play recording" : "Record a phrase";
       } else if (op === "program") { gm.program(content.program); if (!content.fromMidi) midi.program(content.program); }
       else if (op === "gm-on") gm.note(content);
       else if (op === "gm-off") gm.stop(content.id);
@@ -109,6 +92,6 @@ export function createNotepatControls({ send, context, destination, display, foc
       else if (op === "midi-off") midi.noteOff(content.id);
       else if (op === "panic") { midi.panic(); gm.panic(); }
     },
-    dispose() { disposed = true; midi.disconnect(); gm.panic(); focus(false); dialog.remove(); style.remove(); promo.remove(); clearInterval(promoTimer); window.removeEventListener("resize", placePromo); window.removeEventListener("blur", blur); document.removeEventListener("visibilitychange", hidden); },
+    dispose() { disposed = true; midi.disconnect(); gm.panic(); focus(false); dialog.remove(); style.remove(); window.removeEventListener("blur", blur); document.removeEventListener("visibilitychange", hidden); },
   };
 }

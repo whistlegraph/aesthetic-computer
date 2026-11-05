@@ -1,11 +1,12 @@
 # Notepat web controls
 
 The two 4 × 3 octave grids are the main touch interface. They stack in portrait
-and sit side by side in landscape. The footer has a reserved strip outside the
-pads. Edit `notepat-promos.mjs` for the studio links; each new measured link also
+and sit side by side in landscape. The footer is drawn with AC ink and activated through an AC button in a
+reserved strip outside the pads. Edit `notepat-promos.mjs` for the studio links; each new measured link also
 needs a reviewed action in `visit-model.mjs`.
 
-Tap the sound name or MIDI to open Sound & MIDI. Choose a Notepat voice or any
+Tap the sound name to open Sound & MIDI. Record a phrase starts capture and
+closes the panel; tap REC to reopen it and stop/play the recording. Choose a Notepat voice or any
 of the 128 General MIDI instruments. On a keyboard, type 1–128 within 800 ms
 between digits; 0 toggles local sound, leaving selected MIDI output active.
 Tab continues to cycle Notepat voices. Escape or Stop all notes releases voices.

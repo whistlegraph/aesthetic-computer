@@ -1,6 +1,6 @@
 // The two classic 4 × 3 octave grids own the playing area. Header/footer
 // reservations never overlap a pad, at either orientation.
-export function classicNotepatLayout({ width, height }, { top = 45, bottom = 14, side = 0 } = {}) {
+export function classicNotepatLayout({ width, height }, { top = 33, bottom = 14, side = 0 } = {}) {
   const usableWidth = Math.max(1, width - side), margin = 3;
   const available = Math.max(1, height - top - bottom - margin * 2);
   const splitLayout = width > height;

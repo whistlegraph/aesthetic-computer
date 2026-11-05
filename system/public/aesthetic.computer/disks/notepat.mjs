@@ -13,6 +13,7 @@ import {
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
+import { NOTEPAT_PROMOS, notepatPromoLabel } from "../lib/notepat-promos.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout } from "../lib/notepat-layout.mjs";
@@ -425,10 +426,11 @@ let gmDigitLastMs = 0;
 let localSoundEnabled = true;
 let voiceSerial = 0;
 const FOOTER_HEIGHT = 14;
-let lastHostLayout = "";
-let hostReady = false, lastHostRequest = 0;
+let hostReady = false, lastHostRequest = 0, controlsOpen = false;
+let promoBtn, promoIndex = 0, nextPromoAt = 0;
+const promoVisible = () => !projector && !paintPictureOverlay && !overlayMode;
 const host = content => autopatApi?.send?.({ type: "notepat:host", content });
-const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled });
+const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled, recording });
 function panicNotepat() {
   midiPerformance.panic();
   for (const entry of Object.values(sounds)) entry.sound?.kill?.(0.015);
@@ -611,10 +613,7 @@ const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
 const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
 
-// OS bar — thin strip below the secondary bar for the "x86 os" button
-const OS_BAR_TOP = SECONDARY_BAR_BOTTOM;
-const OS_BAR_HEIGHT = 12;
-const OS_BAR_BOTTOM = OS_BAR_TOP + OS_BAR_HEIGHT;
+const HEADER_BOTTOM = SECONDARY_BAR_BOTTOM;
 
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
@@ -769,8 +768,6 @@ function getTopBarPianoMetrics(screen) {
   // Cap the piano's right edge at the leftmost top-bar button (os/m4l/wave/oct)
   // so keys never slide under the button strip on narrow screens.
   const leftmostButtonX = Math.min(
-    osBtn?.box?.x ?? Infinity,
-    abletonBtn?.box?.x ?? Infinity,
     waveBtn?.box?.x ?? Infinity,
     octBtn?.box?.x ?? Infinity,
   );
@@ -1192,7 +1189,7 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn, abletonBtn, recBtn;
+let waveBtn, octBtn;
 // 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
 // every note fires from lib/percussion.mjs instead of the pitched synth.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
@@ -1200,7 +1197,7 @@ let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
 
 // 🔴 Recording for clock jump-and-play
-// `recBtn` is rendered on the OS bar. First press starts capturing every
+// The Sound & MIDI panel starts capturing every
 // note-on as { tone, downAt } and finalizes it on note-off; second press
 // serializes the buffer to clock's melody syntax and jumps to clock so the
 // recording plays back. Sticky duration modifiers in clock's parser are why
@@ -1902,9 +1899,6 @@ async function boot({
 
   buildOctButton(api);
   buildWaveButton(api);
-  buildAbletonButton(api);
-  buildOsButton(api);
-  buildRecButton(api);
   buildToggleButtons(api);
   buildMetronomeButtons(api);
 
@@ -1922,6 +1916,9 @@ async function boot({
 }
 
 function sim({ sound, simCount, num, clock, painting }) {
+  if (!hostReady && performance.now() - lastHostRequest > 1000) {
+    lastHostRequest = performance.now(); syncInstrument();
+  }
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
   setSoundContext({
     synth: sound?.synth,
@@ -2343,7 +2340,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     (qKeyWidth + qKeySpacing);
   const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
 
-  let pianoY = OS_BAR_BOTTOM;
+  let pianoY = HEADER_BOTTOM;
   let pianoStartX = 58;
   const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
   const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
@@ -2360,7 +2357,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
     const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
     pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || HEADER_BOTTOM;
     
     // Check if rotated piano fits horizontally (x + width within screen)
     const pianoRight = pianoStartX + rotatedPianoWidth;
@@ -2404,7 +2401,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || HEADER_BOTTOM;
     
     // Check if piano fits horizontally
     const pianoRight = pianoStartX + pianoWidth;
@@ -2442,7 +2439,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   }
 
   if (isCompact) {
-    pianoY = OS_BAR_BOTTOM + 2;
+    pianoY = HEADER_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
       // Piano doesn't fit - hide it but still compute QWERTY position for center
@@ -2469,7 +2466,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const maxX = Math.max(minX, centerRight - pianoWidth);
     pianoStartX = clamp(idealX, minX, maxX);
   } else if (song) {
-    const effectiveTrackY = trackY ?? OS_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? HEADER_BOTTOM;
     pianoY = effectiveTrackY + (trackHeight || 0) + 2;
     pianoStartX = effectiveWidth - pianoWidth - 2;
   } else {
@@ -2698,7 +2695,7 @@ function getButtonLayoutMetrics(
     : baseBottomPadding;
 
   if (!songMode && !pictureOverlay && !projector && !recitalMode) {
-    return { ...classicNotepatLayout(screen, { top: OS_BAR_BOTTOM, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
+    return { ...classicNotepatLayout(screen, { top: HEADER_BOTTOM, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
   }
   const totalButtons = buttonNotes.length;
   const margin = 2;
@@ -2726,7 +2723,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = OS_BAR_BOTTOM;
+    const hudReserved = HEADER_BOTTOM;
     
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
@@ -2866,7 +2863,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = OS_BAR_BOTTOM;
+  const hudReserved = HEADER_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const baseReservedTop = hudReserved + trackHeight + trackSpacing;
@@ -2887,7 +2884,7 @@ function getButtonLayoutMetrics(
   // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
   const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
   const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
-  const availableHeightForRotated = screen.height - OS_BAR_BOTTOM - 4; // Leave some margin
+  const availableHeightForRotated = screen.height - HEADER_BOTTOM - 4; // Leave some margin
   // Only show rotated piano if ALL keys fit vertically
   const narrowVerticalSpace = !horizontalSpaceForMini && 
     usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
@@ -3247,13 +3244,6 @@ function paint({
   scroll,
   sharpen
 }) {
-  const promoHeight = !projector && !paintPictureOverlay && !overlayMode ? FOOTER_HEIGHT : 0;
-  const hostLayout = `${screen.width}:${screen.height}:${promoHeight}`;
-  if (hostLayout !== lastHostLayout || (!hostReady && performance.now() - lastHostRequest > 1000)) {
-    lastHostRequest = performance.now();
-    lastHostLayout = hostLayout;
-    host({ op: "layout", width: screen.width, height: screen.height, promoHeight });
-  }
   const paintStart = performance.now();
 
   // Hover state (for newbie-friendly overlays)
@@ -3460,7 +3450,7 @@ function paint({
     wipe(0, 0, 0, 0);
   } else if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
-    const klY = OS_BAR_BOTTOM;
+    const klY = HEADER_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
     const klH = klBottom - klY;
     if (klH > 10) {
@@ -3738,7 +3728,7 @@ function paint({
     // 🎚️ Room parameter bar - appears when room mode is enabled
     if (roomMode && roomBtn?.box) {
       const barHeight = 6;
-      const barY = OS_BAR_BOTTOM + 2;
+      const barY = HEADER_BOTTOM + 2;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
       const fillWidth = Math.floor(barWidth * roomAmount);
@@ -4045,7 +4035,7 @@ function paint({
   // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
   const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
   const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showHorizontalTrack ? OS_BAR_BOTTOM : null;
+  const trackY = showHorizontalTrack ? HEADER_BOTTOM : null;
 
 
   if (showHorizontalTrack) {
@@ -4966,76 +4956,6 @@ function paint({
     ink("yellow");
     write("tap", { right: 6, top: 6 });
   } else if (!paintPictureOverlay) {
-    abletonBtn?.paint((btn) => {
-      ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(150, 175, 255, 160).box(btn.box, "outline");
-      }
-      ink(90, 120, 210).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      ink(btn.down ? [235, 240, 255] : [175, 205, 255]).write(
-        abletonBtn.label || "m4l",
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
-    osBtn?.paint((btn) => {
-      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(100, 255, 255, 140).box(btn.box, "outline");
-      }
-      ink(70, 160, 160).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
-        osBtn.label || "os",
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
-    recBtn?.paint((btn) => {
-      // Pulse a half-cycle per second while armed so the red dot reads as live.
-      const pulse = recording
-        ? 0.7 + 0.3 * Math.sin(performance.now() / 160)
-        : 1;
-      const bgIdle = btn.down ? [90, 20, 20] : [55, 10, 10];
-      const bgRec = [Math.round(180 * pulse), 20, 20];
-      const bg = recording ? bgRec : bgIdle;
-      ink(bg).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 120, 120, 160).box(btn.box, "outline");
-      }
-      ink(220, 80, 80).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      const label = recording
-        ? osBarButtonMetrics({ screen }).labels.recStop
-        : osBarButtonMetrics({ screen }).labels.rec;
-      const fg = recording
-        ? [255, 240, 240]
-        : btn.down ? [255, 220, 220] : [255, 150, 150];
-      ink(fg).write(
-        label,
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
     waveBtn?.paint((btn) => {
       ink(btn.down ? [45, 56, 58] : [28, 34, 46]).box(
         btn.box.x,
@@ -5553,7 +5473,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(OS_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(HEADER_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -5892,6 +5812,16 @@ function paint({
       api.sharpen(sharpenAmount);
     }
   }
+  if (promoVisible()) promoBtn?.paint((btn) => {
+    const now = performance.now();
+    if (!nextPromoAt || btn.over || btn.down || controlsOpen) nextPromoAt = now + 12000;
+    if (now >= nextPromoAt) { promoIndex = (promoIndex + 1) % NOTEPAT_PROMOS.length; nextPromoAt = now + 12000; }
+    const label = notepatPromoLabel(NOTEPAT_PROMOS[promoIndex], screen.width - 12, measureMatrixTextWidth);
+    ink(btn.over || btn.down ? [52, 67, 50] : [32, 42, 44]).box(btn.box);
+    ink(86, 107, 88).line(0, btn.box.y, screen.width, btn.box.y);
+    ink(213, 233, 203).write(label, { x: Math.max(4, Math.floor((screen.width - measureMatrixTextWidth(label)) / 2)), y: btn.box.y + 4 }, undefined, undefined, false, "MatrixChunky8");
+  });
+
 }
 
 let anyDown = true;
@@ -6640,14 +6570,21 @@ function act({
   api,
 }) {
   setSoundContext({ synth, play, freq, num });
+  if (promoVisible()) promoBtn?.act(e, { push: () => {
+    const item = NOTEPAT_PROMOS[promoIndex];
+    api.send?.({ type: "visit:action", content: { action: item.action } });
+    api.jump(`out:${item.url}`);
+  } });
   if (e.is("notepat:state")) {
-    if (e.hostReady && !hostReady) { hostReady = true; lastHostLayout = ""; syncInstrument(); }
+    if (e.hostReady && !hostReady) { hostReady = true; syncInstrument(); }
+    if (typeof e.controlsOpen === "boolean") controlsOpen = e.controlsOpen;
     if (typeof e.gmReady === "boolean") gmReady = e.gmReady;
     if (typeof e.midiConnected === "boolean") midiConnected = e.midiConnected;
     return;
   }
   if (e.is("notepat:control")) {
     if (e.kind === "panic") panicNotepat();
+    else if (e.kind === "record") toggleRecording(api);
     else if (e.kind === "program") { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(e.program, api); }
     else if (e.kind === "wave" && wavetypes.includes(e.wave)) { panicNotepat(); wave = e.wave; waveIndex = wavetypes.indexOf(wave); localSoundEnabled = true; }
     else if (e.kind === "local") { panicNotepat(); localSoundEnabled = e.enabled === true; }
@@ -6674,9 +6611,6 @@ function act({
     setupButtons(api);
     buildOctButton(api);
     buildWaveButton(api);
-    buildAbletonButton(api);
-    buildOsButton(api);
-    buildRecButton(api);
     buildToggleButtons(api);
     buildMetronomeButtons(api);
     // Resize picture to quarter resolution (half width, half height)
@@ -6778,8 +6712,6 @@ function act({
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
     const vizRight = Math.min(
-      osBtn?.box?.x ?? Infinity,
-      abletonBtn?.box?.x ?? Infinity,
       waveBtn?.box?.x ?? screen.width,
     ) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
@@ -6805,7 +6737,7 @@ function act({
     if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-      const trackY = showTrack ? OS_BAR_BOTTOM : null;
+      const trackY = showTrack ? HEADER_BOTTOM : null;
       const pianoGeometry = getMiniPianoGeometry({
         screen,
         layout,
@@ -6948,9 +6880,6 @@ function act({
     waveIndex = (waveIndex + 1) % wavetypes.length;
     wave = wavetypes[waveIndex];
     buildWaveButton(api);
-    buildAbletonButton(api);
-    buildOsButton(api);
-    buildRecButton(api);
   }
 
   if (e.is("keyboard:down") && !e.repeat) {
@@ -7453,9 +7382,6 @@ function act({
         octave = max(1, (octNum + 1) % 10).toString();
         buildOctButton(api);
         buildWaveButton(api);
-        buildAbletonButton(api);
-        buildOsButton(api);
-        buildRecButton(api);
       },
     });
 
@@ -7464,51 +7390,6 @@ function act({
       push: (btn) => {
         api.beep();
         host({ op: "open" });
-      },
-    });
-
-    abletonBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        api.send?.({ type: "visit:action", content: { action: "notepat_amxd_requested" } });
-        jump("out:https://notepat.com/amxd");
-      },
-    });
-
-    osBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        host({ op: "open" });
-      },
-    });
-
-    recBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        if (!recording) {
-          recordBuffer = [];
-          recordingActive = {};
-          recording = true;
-          api.send?.({ type: "visit:action", content: { action: "notepat_recording_started" } });
-          // Seed any currently-held notes so a press mid-chord still captures them.
-          const now = performance.now();
-          for (const bn of Object.keys(tonestack)) {
-            const tone = tonestack[bn]?.tone;
-            if (tone) recordingActive[bn] = { tone, downAt: now };
-          }
-        } else {
-          // Close out any still-held notes before serializing.
-          const now = performance.now();
-          for (const bn of Object.keys(recordingActive)) {
-            const { tone, downAt } = recordingActive[bn];
-            recordBuffer.push({ tone, downAt, upAt: now });
-          }
-          recordingActive = {};
-          finishRecordingAndJump(api);
-        }
       },
     });
 
@@ -7545,7 +7426,7 @@ function act({
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
     if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
-      const barY = OS_BAR_BOTTOM + 2;
+      const barY = HEADER_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
@@ -8428,6 +8309,8 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
+  promoBtn = new ui.Button(0, screen.height - FOOTER_HEIGHT, screen.width, FOOTER_HEIGHT);
+  promoBtn.id = "notepat-studio-link";
   const sampleRateText = getSampleRateText(undefined);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const cachedLayout = getCachedLayout(screen, {
@@ -8627,6 +8510,7 @@ function buildWaveButton({ screen, ui, typeface }) {
     displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
   }
   if (!localSoundEnabled) displayWave = "MIDI";
+  if (recording) displayWave = "REC";
   const waveWidth = displayWave.length * glyphWidth;
   const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(
@@ -8656,61 +8540,29 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-// OS bar (m4l / os / drum) — dedicated row below the secondary bar so the
-// top bar stays uncluttered. Buttons are right-aligned and chain leftward;
-// when the screen is narrow they collapse widths/labels so they still fit.
-const OS_BAR_BTN_GAP = 3;
-const OS_BAR_RIGHT_MARGIN = 4;
-
-function osBarButtonMetrics({ screen }) {
-  const isNarrow = screen.width < 240;
-  const isVeryNarrow = screen.width < 180;
-  const padX = isVeryNarrow ? 2 : isNarrow ? 3 : 4;
-  const glyph = 6;
-  return {
-    isNarrow,
-    isVeryNarrow,
-    padX,
-    glyph,
-    y: OS_BAR_TOP + 1,
-    h: OS_BAR_HEIGHT - 2,
-    labels: {
-      ableton: "m4l",
-      os: "MIDI",
-      rec: "rec",
-      recStop: "stop",
-    },
-  };
-}
-
-function buildAbletonButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const w = m.labels.ableton.length * m.glyph + m.padX * 2;
-  const x = screen.width - OS_BAR_RIGHT_MARGIN - w;
-  abletonBtn = new ui.Button(x, m.y, w, m.h);
-  abletonBtn.id = "ableton-button";
-  abletonBtn.label = m.labels.ableton;
-}
-
-function buildOsButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const w = m.labels.os.length * m.glyph + m.padX * 2;
-  const anchorX = abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
-  osBtn.id = "os-button";
-  osBtn.label = m.labels.os;
-}
-
-// 🔴 Record button — sits to the left of osBtn on the OS bar.
-// Width reserves space for the wider label ("stop") so the button doesn't
-// reflow when toggling between idle and recording states.
-function buildRecButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const labelLen = Math.max(m.labels.rec.length, m.labels.recStop.length);
-  const w = labelLen * m.glyph + m.padX * 2;
-  const anchorX = osBtn?.box?.x ?? abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  recBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
-  recBtn.id = "rec-button";
+function toggleRecording(api) {
+  if (!recording) {
+    recordBuffer = [];
+    recordingActive = {};
+    recording = true;
+    api.send?.({ type: "visit:action", content: { action: "notepat_recording_started" } });
+    // Seed any currently-held notes so a press mid-chord still captures them.
+    const now = performance.now();
+    for (const bn of Object.keys(tonestack)) {
+      const tone = tonestack[bn]?.tone;
+      if (tone) recordingActive[bn] = { tone, downAt: now };
+    }
+  } else {
+    // Close out any still-held notes before serializing.
+    const now = performance.now();
+    for (const bn of Object.keys(recordingActive)) {
+      const { tone, downAt } = recordingActive[bn];
+      recordBuffer.push({ tone, downAt, upAt: now });
+    }
+    recordingActive = {};
+    finishRecordingAndJump(api);
+  }
+  buildWaveButton(api); syncInstrument();
 }
 
 // Snapshot tonestack each sim tick so every note-on/note-off path feeds
