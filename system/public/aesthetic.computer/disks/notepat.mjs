@@ -17,6 +17,7 @@ import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
+import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
   UNMEASURED_WAVES,
@@ -1198,17 +1199,31 @@ function updateModeBar(api) {
   modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
-function paintModeBar(api) {
+function paintModeBar(api, amplitude, waveforms) {
   updateModeBar(api);
-  const { ink, screen } = api;
+  const { ink, screen, sound } = api;
   ink(18, 22, 32).box(0, 0, screen.width, MODE_BAR_HEIGHT);
-  if (modeBarLayout.logo) ink("white").write(modeBarLayout.logo, { x: 3, y: 7 }, undefined, undefined, false, "MatrixChunky8");
+  if (modeBarLayout.logo) {
+    ink("white").write("notepat", { x: 6, y: 6 });
+    ink("cyan").write(".com", { x: 48, y: 6 });
+    const vizWidth = modeBarButtons[0].x - 79;
+    if (vizWidth > 8) sound.paint.bars(api, amplitude, waveforms, 75, 3, vizWidth, 15,
+      [255, 0, 0, 255], { primaryColor, secondaryColor });
+  }
   const active = { slide, room: roomMode, glitch: glitchMode, quick: quickFade, metro: metronomeEnabled, tempo: metronomeEnabled, fx: slide || roomMode || glitchMode || quickFade };
+  const colors = { slide:[0,220,140], room:[150,110,255], glitch:[255,80,160], quick:[255,170,0], fx:[180,150,255], back:[180,150,255] };
   for (const c of modeBarButtons) c.button.paint(btn => {
-    const color = active[c.id] ? [95, 225, 190] : c.id === "sound" ? [255, 185, 65] : [205, 213, 230];
-    ink(...(active[c.id] ? [28, 77, 67] : [30, 36, 49])).box(btn.box);
-    ink(...color, btn.over ? 255 : 210).box(btn.box, "inline");
-    ink(...color).write(c.label, { x: c.x + 3, y: c.y + 5 }, undefined, undefined, false, "MatrixChunky8");
+    const color = colors[c.id] || [205,213,230];
+    if (c.id === "sound") ink(btn.down ? [45,56,58] : [28,34,46]);
+    else if (c.id === "octave") ink(octaveTheme[octave],196);
+    else if (["tempo","metro","minus","plus"].includes(c.id)) ink(active[c.id] ? [50,50,50] : [20,20,20]);
+    else ink(...color.map(v => Math.round(v * (active[c.id] ? .8 : .23))));
+    api.box(c.x,c.y+1,c.w,c.h-1);
+    if(btn.over) ink(255,255,255,24).box(c.x,c.y+1,c.w,c.h-1);
+    if(c.id === "sound") ink("orange").line(c.x+c.w-1,3,c.x+c.w-1,18);
+    const textColor=c.id === "sound" ? "orange" : c.id === "octave" ? "pink" : active[c.id] ? "white" : color;
+    ink(textColor).write(c.label,{x:c.x+3,y:6},undefined,undefined,false,
+      ["sound","octave"].includes(c.id) ? undefined : "MatrixChunky8");
   });
 }
 function actModeBar(e, api) {
@@ -3104,7 +3119,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
     const bottomEdge = gridHeight;
 
     // Grid lines
-    if (!layout.splitLayout) {
+    if (!classicControls() && !layout.splitLayout) {
       const gridWidth = layout.buttonsPerRow * layout.buttonWidth;
       const availableWidth = layout.usableWidth ?? screen.width;
       // Left-align grid when mini inputs are to the right, otherwise center
@@ -3146,7 +3161,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       const relBox = { ...btn.box, y: btn.box.y - gridTop };
       p.ink(tinted, 196).box(relBox);
       const olColor = globalThis.__theme?.dark === false ? [85, 95, 105] : [125, 145, 160];
-      p.ink(...olColor).box(relBox, "inline");
+      if (!classicControls()) p.ink(...olColor).box(relBox, "inline");
     });
   });
 
@@ -5300,7 +5315,7 @@ function paint({
           if (btn.over && !btn.down && !isBlocked) {
             const hoverTint = hoverBaseColor || [200, 220, 255];
             ink(hoverTint[0], hoverTint[1], hoverTint[2], 40).box(btn.box);
-            ink(hoverTint[0], hoverTint[1], hoverTint[2], 140).box(btn.box, "outline");
+            if (!classicControls()) ink(hoverTint[0], hoverTint[1], hoverTint[2], 140).box(btn.box, "outline");
 
             if (!hoveredNote) {
               hoveredNote = note;
@@ -5326,6 +5341,16 @@ function paint({
               trail[note] * btn.box.h,
               "center",
             );
+          }
+
+          if (classicControls()) {
+            const labels=learningPadLabels(btn.box, noteToKeyboardKey(note), note);
+            const labelColor=getContrastingTextColor(color);
+            if(labels.primary) ink(...labelColor).write(labels.primary.text,
+              {x:labels.primary.x,y:labels.primary.y,size:labels.primary.size},undefined,undefined,false,"MatrixChunky8");
+            if(labels.secondary) ink(...labelColor,190).write(labels.secondary.text,
+              {x:labels.secondary.x,y:labels.secondary.y},undefined,undefined,false,"MatrixChunky8");
+            return;
           }
 
           // 🎵 Note label
@@ -5486,6 +5511,18 @@ function paint({
             ink(...border).box(btn.box, "inline");
           }
         });
+    }
+
+    if (classicControls()) {
+      ink(globalThis.__theme?.dark === false ? [85,95,105] : [125,145,160]);
+      for (const start of [0,12]) {
+        const first=buttons[buttonNotes[start]]?.box;
+        const last=buttons[buttonNotes[start+11]]?.box;
+        if(first && last) {
+          line(first.x,first.y,last.x+last.w-1,first.y);
+          line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
+        }
+      }
     }
 
     // 🎩👩 Piano Man + Sample Sally watch from above the keys.
@@ -5870,7 +5907,7 @@ function paint({
     }
   }
 
-  if (classicControls()) paintModeBar(api);
+  if (classicControls()) paintModeBar(api, amplitude, waveformsForBars);
 
   // 🥁 Metronome pulse post-process (sharpen)
   if (metronomeEnabled && metronomeFlash > 0 && !paintPictureOverlay && !projector) {
