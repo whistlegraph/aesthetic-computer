@@ -1261,7 +1261,8 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   const v=modeBarLayout.header.viz;
   if(v.w>=4) {
     painter.ink(...(dark?[0,0,0]:[225,223,217])).box(v.x,v.y,v.w,v.h);
-    const mid=v.y+Math.floor(v.h/2), gain=(v.h-3)/2;
+    const peak=waveforms.reduce((m,sample)=>Math.max(m,Math.abs(sample)),.04);
+    const mid=v.y+Math.floor(v.h/2), gain=(v.h-3)/2/peak;
     painter.ink(...palette.accent);
     for(let i=1;i<v.w;i++) {
       const a=waveforms[Math.floor((i-1)/v.w*waveforms.length)] || 0;

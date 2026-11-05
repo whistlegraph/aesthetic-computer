@@ -4017,8 +4017,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               notepatGMAmplitude = Math.sqrt(notepatGMMeter.reduce((sum,v)=>sum+v*v,0)/notepatGMMeter.length);
               for (const channel of ["left", "right"]) {
                 const samples = msg.content[channel];
-                if (samples?.length) msg.content[channel] = Array.from(samples, (v,i)=>
-                  v + notepatGMMeter[Math.floor(i/samples.length*notepatGMMeter.length)]);
+                msg.content[channel] = samples?.length ? Array.from(samples, (v,i)=>
+                  v + notepatGMMeter[Math.floor(i/samples.length*notepatGMMeter.length)]) : Array.from(notepatGMMeter);
               }
             }
             send({ type: "waveforms", content: msg.content });
