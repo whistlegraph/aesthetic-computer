@@ -1403,6 +1403,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   gpuFrameCanvas.style.display = "none";
   gpuFrameCanvas.style.imageRendering = "pixelated";
   let frameRenderer = null, frameRendererRequest = null, pendingGpuFrame = null;
+  function disableFrameRenderer(renderer = frameRenderer) {
+    if (renderer !== frameRenderer) return;
+    frameRenderer = null;
+    pendingGpuFrame = null;
+    gpuFrameCanvas.style.display = "none";
+    canvas.style.visibility = "visible";
+    send({ type: "gpu-frame-unavailable" });
+    renderer?.destroy();
+  }
   const gpuFrameMeshes = new Map();   // the 3D layer's mesh table, filled by the frames that carry new meshes
 
   // 🖥️🎨 WebGL Composite Canvas (blitted pixel buffer)
@@ -15571,6 +15580,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (!frameRendererRequest) {
         frameRendererRequest = createFrameRenderer(gpuFrameCanvas).then((renderer) => {
           frameRenderer = renderer;
+          renderer?.device.lost.then(() => disableFrameRenderer(renderer));
           send({ type: renderer ? "gpu-frame-ready" : "gpu-frame-unavailable" });
         }).catch((error) => { console.warn("GPU frame renderer unavailable:", error?.message || error); send({ type: "gpu-frame-unavailable" }); });
       }
@@ -20393,6 +20403,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     pixelsDidChange = content.paintChanged || false;
+    if (!content.gpuFrame && gpuFrameCanvas.style.display !== "none") gpuFrameCanvas.style.display = "none";
     if (window.acNativeWindowColor && content.windowColor) {
       reportNativeWindowColor(content.windowColor);
     }
@@ -20892,7 +20903,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             if (webglCompositeCanvas.style.display !== "none") webglCompositeCanvas.style.display = "none";
             if (overlayCan.style.display !== "none") overlayCan.style.display = "none";
             try { frameRenderer.render(frame.buffer, frame.overlay ? { pixels: imageData.data, width: imageData.width, height: imageData.height } : null, gpuFrameMeshes); }
-            catch (error) { console.warn("GPU frame render failed:", error?.message || error); }
+            catch (error) { console.warn("GPU frame render failed:", error?.message || error); disableFrameRenderer(); }
             skipImmediateOverlays = true;
           } else if (content.webgpuEnabled) {
             // Switch backend if piece requests a specific one

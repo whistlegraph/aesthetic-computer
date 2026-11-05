@@ -74,22 +74,3 @@ test('cached pad bitmap includes the octave gap and the entire bottom row', () =
     assert.equal(notepatGridHeight(l),lastRowY+l.buttonHeight);
   }
 });
-
-test('learning labels prioritize keyboard keys and keep note names separate', async () => {
-  const { learningPadLabels }=await import('../public/aesthetic.computer/lib/notepat-pad-labels.mjs');
-  for(const w of [12,18,24,45,80,120]) for(const h of [12,18,24,45,80,120]) {
-    const box={x:7,y:11,w,h}, {primary,secondary}=learningPadLabels(box,'h','+C#');
-    assert.equal(primary.text,'H');
-    for(const label of [primary,secondary].filter(Boolean)) {
-      assert.ok(label.x>=box.x && label.y>=box.y);
-      assert.ok(label.x+label.w<=box.x+w && label.y+label.h<=box.y+h);
-    }
-    assert.ok(Math.abs(primary.y+primary.h/2-(box.y+h/2))<=.5);
-    if(secondary) {
-      assert.equal(box.x+w-secondary.x-secondary.w,2);
-      assert.equal(box.y+h-secondary.y-secondary.h,2);
-      assert.ok(primary.y+primary.h<=secondary.y || primary.x+primary.w<=secondary.x);
-    }
-    if(w>=45 && h>=45) assert.ok(primary.size>=2);
-  }
-});

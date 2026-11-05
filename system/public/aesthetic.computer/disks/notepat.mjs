@@ -18,6 +18,7 @@ import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
 import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
+import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
   UNMEASURED_WAVES,
@@ -405,10 +406,8 @@ let STARTING_OCTAVE = "4";
 // timbre to place on the ramp, so they sit together after it and Tab does
 // not drop you into one halfway up the brightness walk.
 const wavetypes = [...WAVES_BY_BRIGHTNESS, ...UNMEASURED_WAVES];
-// Sine is the instrument notepat opens on — the plainest voice in the list,
-// and the one every other wave is heard against. It is also, as measured, the
-// darkest, so booting here starts the Tab walk at the bottom of the ramp.
-let waveIndex = wavetypes.indexOf("sine");
+// Open on General MIDI Acoustic Grand Piano (program 1).
+let waveIndex = wavetypes.indexOf("gm");
 const STARTING_WAVE = wavetypes[waveIndex];
 let wave = STARTING_WAVE;
 // let hold = false;
@@ -758,6 +757,15 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 }
 
 function getTopBarPianoMetrics(screen) {
+  if (classicControls()) {
+    updateModeBar(autopatApi);
+    const p=modeBarLayout.header.piano;
+    if(!p) return {hidden:true};
+    return {mode:p.whiteCount===14?'full':'compact',x:p.x,y:p.y,height:p.h,
+      whiteKeys:p.whiteCount===14?MINI_PIANO_WHITE_KEYS:TOP_BAR_COMPACT_WHITE_KEYS,
+      blackKeys:p.whiteCount===14?MINI_PIANO_BLACK_KEYS:TOP_BAR_COMPACT_BLACK_KEYS,
+      whiteKeyWidth:p.keyWidth,blackKeyWidth:Math.max(2,Math.floor(p.keyWidth*.6)),blackKeyHeight:8};
+  }
   if (!miniInputsEnabled) return { hidden: true };
   const topPianoY = 3;
   const topPianoHeight = 15;
@@ -1190,32 +1198,19 @@ let paintPictureOverlay = false;
 let waveBtn, octBtn;
 let modeBarHudHidden = false;
 const learningKeyGlyphs = new Map();
-function noteGlyphPixels(text, color) {
-  const letters={
-    C:[7,4,4,4,7], D:[6,5,5,5,6], E:[7,4,6,4,7], F:[7,4,6,4,4],
-    G:[7,4,5,5,7], A:[2,5,7,5,5], B:[6,5,6,5,6],
-    "+":[0,2,7,2,0], "#":[5,7,5,7,5],
-  };
-  const width=Math.max(1,text.length*4-1),height=5,pixels=new Uint8ClampedArray(width*height*4);
-  [...text].forEach((c,i)=>(letters[c] || [0,0,0,0,0]).forEach((row,y)=>{
-    for(let x=0;x<3;x++) if(row & (4>>x)) pixels.set([...color,255],(y*width+i*4+x)*4);
-  }));
-  return {width,height,pixels};
-}
 function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
   const key=font+":"+text+":"+color.join(",");
   let glyph=learningKeyGlyphs.get(key);
   if(!glyph) {
     // Trim transparent bearings so placement follows visible glyph edges.
-    const source=font === "note" ? noteGlyphPixels(text,color) : api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
+    const source=api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
       p.wipe(0,0,0,0);
-      p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font);
+      p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font === "font_1" ? undefined : font);
     });
     // Font glyphs arrive asynchronously; never retain their loading patterns.
-    if (font !== "note") {
-      const glyphs = api.glyphs(font);
-      if ([...text].some(c => !glyphs[c] || glyphs[c].isPlaceholder)) return source;
-    }
+    const glyphs = font === "font_1" ? api.typeface.glyphs : api.glyphs(font);
+    if ([...text].some(c => c !== " " && (!glyphs[c] || glyphs[c].isPlaceholder)))
+      return {width:0,height:0,pixels:new Uint8ClampedArray(0)};
     let left=source.width,top=source.height,right=-1,bottom=-1;
     for(let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
       if(source.pixels[(y*source.width+x)*4+3]) {
@@ -1230,42 +1225,82 @@ function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
   }
   return glyph;
 }
+const notepatPainter = new NotepatPainter();
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
-  const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? `g${gmProgram + 1}` : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
-  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM].join(":");
+  const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? (gmProgram === 0 ? "piano" : `g${gmProgram + 1}`) : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
+  const key = [api.screen.width, modeBarPage, sound, octave, metronomeBPM, api.dark].join(":");
   if (key === modeBarKey) return;
   modeBarKey = key;
-  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM });
+  modeBarLayout = notepatModeBar(api.screen.width, { mode: modeBarPage, sound, octave, bpm: metronomeBPM, dark: api.dark });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
-function paintModeBar(api, amplitude, waveforms) {
+function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   updateModeBar(api);
-  const { ink, screen, sound } = api;
-  ink(18, 22, 32).box(0, 0, screen.width, MODE_BAR_HEIGHT);
-  if (modeBarLayout.logo) {
-    ink("white").write("notepat", { x: 6, y: 6 });
-    ink("cyan").write(".com", { x: 48, y: 6 });
-    const vizWidth = modeBarButtons[0].x - 79;
-    if (vizWidth > 8) sound.paint.bars(api, Math.max(0,Math.min(1,amplitude || 0)), waveforms, 75, 3, vizWidth, 15,
-      [255, 0, 0, 255], { primaryColor, secondaryColor });
+  const dark=api.dark !== false, palette=notepatPalette(dark);
+  const text=(value,x,y,color=palette.text,font="font_1")=>
+    painter.glyph(learningGlyph(api,String(value),color,font,6,10),x,y);
+  painter.ink(...palette.background).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
+  if(modeBarLayout.logo) {
+    text("notepat",6,6);
+    if(modeBarLayout.logo.endsWith(".com")) text(".com",48,6,palette.accent);
   }
-  const active = { slide, room: roomMode, glitch: glitchMode, quick: quickFade, metro: metronomeEnabled, tempo: metronomeEnabled, fx: slide || roomMode || glitchMode || quickFade };
-  const colors = { slide:[0,220,140], room:[150,110,255], glitch:[255,80,160], quick:[255,170,0], fx:[180,150,255], back:[180,150,255] };
-  for (const c of modeBarButtons) c.button.paint(btn => {
-    const color = colors[c.id] || [205,213,230];
-    if (c.id === "sound") ink(btn.down ? [45,56,58] : [28,34,46]);
-    else if (c.id === "octave") ink(octaveTheme[octave],196);
-    else if (["tempo","metro","minus","plus"].includes(c.id)) ink(active[c.id] ? [50,50,50] : [20,20,20]);
-    else ink(...color.map(v => Math.round(v * (active[c.id] ? .8 : .23))));
-    api.box(c.x,c.y+1,c.w,c.h-1);
-    if(btn.over) ink(255,255,255,24).box(c.x,c.y+1,c.w,c.h-1);
-    if(c.id === "sound") ink("orange").line(c.x+c.w-1,3,c.x+c.w-1,18);
-    const textColor=c.id === "sound" ? "orange" : c.id === "octave" ? "pink" : active[c.id] ? "white" : color;
-    ink(textColor).write(c.label,{x:c.x+3,y:6},undefined,undefined,false,
-      ["sound","octave"].includes(c.id) ? undefined : "MatrixChunky8");
+  const metrics=getTopBarPianoMetrics(api.screen);
+  if(!metrics.hidden) {
+    const {x,y,height,whiteKeys,blackKeys,whiteKeyWidth,blackKeyWidth,blackKeyHeight}=metrics;
+    const sounding=note=>sounds[note.toLowerCase()] || (metrics.mode === "compact" && sounds["+"+note.toLowerCase()]);
+    for(let i=0;i<whiteKeys.length;i++) {
+      const note=whiteKeys[i], color=sounding(note)?notepatNoteColor(note):[220,220,225];
+      painter.ink(...color).box(x+i*whiteKeyWidth,y,whiteKeyWidth-1,height);
+    }
+    for(const {note,afterWhite} of blackKeys) {
+      const color=sounding(note)?notepatNoteColor(note):[18,18,23];
+      painter.ink(...color).box(Math.round(x+(afterWhite+1)*whiteKeyWidth-blackKeyWidth/2),y,blackKeyWidth,blackKeyHeight);
+    }
+  }
+  const v=modeBarLayout.header.viz;
+  if(v.w>=4) {
+    painter.ink(...(dark?[0,0,0]:[225,223,217])).box(v.x,v.y,v.w,v.h);
+    const mid=v.y+Math.floor(v.h/2), gain=(v.h-3)/2;
+    painter.ink(...palette.accent);
+    for(let i=1;i<v.w;i++) {
+      const a=waveforms[Math.floor((i-1)/v.w*waveforms.length)] || 0;
+      const b=waveforms[Math.floor(i/v.w*waveforms.length)] || 0;
+      painter.line(v.x+i-1,Math.round(mid-Math.max(-1,Math.min(1,a))*gain),v.x+i,Math.round(mid-Math.max(-1,Math.min(1,b))*gain));
+    }
+    painter.ink(...palette.rail).line(v.x,v.y,v.x+v.w-1,v.y).line(v.x,v.y+v.h-1,v.x+v.w-1,v.y+v.h-1);
+  }
+  const active={slide,room:roomMode,glitch:glitchMode,quick:quickFade,metro:metronomeEnabled,tempo:metronomeEnabled,fx:slide||roomMode||glitchMode||quickFade};
+  for(const c of modeBarButtons) c.button.paint(btn=>{
+    let color=c.id==='sound'?palette.orange:c.id==='octave'?(dark?[255,160,210]:[135,35,95]):['fx','back'].includes(c.id)?(dark?[180,150,255]:[100,65,160]):palette.text;
+    const fill=active[c.id]?(dark?[60,55,80]:[195,190,215]):palette.control;
+    painter.ink(...fill).box(c.x,c.y+1,c.w,c.h-1);
+    if(btn.over) painter.ink(...palette.text,24).box(c.x,c.y+1,c.w,c.h-1);
+    if(c.id==='sound') painter.ink(...palette.orange).line(c.x+c.w-1,3,c.x+c.w-1,18);
+    text(c.label,c.x+3,6,color,['sound','octave'].includes(c.id)?'font_1':'MatrixChunky8');
   });
+}
+function paintClassicNotepat(api, amplitude, waveforms) {
+  const dark=api.dark !== false, palette=notepatPalette(dark), painter=notepatPainter.begin(api,palette.background);
+  for(const note of buttonNotes) {
+    const btn=buttons[note]; if(!btn || btn.hidden) continue;
+    const color=notepatNoteColor(note);
+    const colors=notepatPadColors(color,note.includes('#'),dark,!!sounds[note]||btn.down,btn.over);
+    const b=btn.box;
+    painter.ink(...colors.fill).box(b.x,b.y,b.w,b.h);
+    const key=(noteToKeyboardKey(note)||'').toUpperCase();
+    const glyph=learningGlyph(api,key,colors.text,'unifont',8,16);
+    const label=learningPadLabels(b,key,note,glyph).primary;
+    if(label) painter.glyph(glyph,label.x,label.y,label.size);
+  }
+  painter.ink(...palette.rail);
+  for(const start of [0,12]) {
+    const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
+    if(first&&last) painter.line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
+  }
+  paintModeBar(api,amplitude,waveforms,painter);
+  painter.finish();
 }
 function actModeBar(e, api) {
   updateModeBar(api);
@@ -1273,6 +1308,7 @@ function actModeBar(e, api) {
     if (c.id === "fx") modeBarPage = "fx";
     else if (c.id === "tempo") modeBarPage = "tempo";
     else if (c.id === "back") modeBarPage = "main";
+    else if (c.id === "theme") { api.darkMode(api.dark === false); modeBarKey = ""; }
     else if (c.id === "sound") host({ op: "open" });
     else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
     else if (c.id === "slide") {
@@ -1709,6 +1745,7 @@ async function boot({
   handle,
 }) {
   autopatApi = api;
+  notepatPainter.forceCpu = query?.renderer === "cpu";
   autopatHud = hud;
   autopatTypeface = typeface;
   setSoundContext({
@@ -3436,6 +3473,10 @@ function paint({
     waveformsAvailable &&
     typeof amplitudeRaw === "number" &&
     Number.isFinite(amplitudeRaw);
+  if (classicControls() && !perfOSD) {
+    paintClassicNotepat(api, amplitude, waveformsForBars);
+    return;
+  }
   const matrixGlyphMetrics = resolveMatrixGlyphMetrics(typeface);
   // Use global theme for background when no note is active
   const theme = globalThis.__theme;
@@ -5387,10 +5428,8 @@ function paint({
             const labelColor=getContrastingTextColor(color);
             const key=(noteToKeyboardKey(note) || "").toUpperCase();
             const glyph=learningGlyph(api,key,labelColor,"unifont",8,16);
-            const noteGlyph=learningGlyph(api,note.toUpperCase(),labelColor,"note",4,5);
-            const labels=learningPadLabels(btn.box,key,note,glyph,noteGlyph);
+            const labels=learningPadLabels(btn.box,key,note,glyph);
             if(labels.primary) api.paste(glyph,labels.primary.x,labels.primary.y,labels.primary.size);
-            if(labels.secondary) api.paste(noteGlyph,labels.secondary.x,labels.secondary.y);
             return;
           }
 
@@ -5948,7 +5987,12 @@ function paint({
     }
   }
 
-  if (classicControls()) paintModeBar(api, amplitude, waveformsForBars);
+  if (classicControls()) {
+    notepatPainter.frame.reset(); notepatPainter.api=api;
+    const forced=notepatPainter.forceCpu; notepatPainter.forceCpu=true;
+    paintModeBar(api, amplitude, waveformsForBars); notepatPainter.finish();
+    notepatPainter.forceCpu=forced;
+  }
 
   // 🥁 Metronome pulse post-process (sharpen)
   if (metronomeEnabled && metronomeFlash > 0 && !paintPictureOverlay && !projector) {
@@ -6814,6 +6858,18 @@ function act({
 
   if (classicControls()) {
     actModeBar(e, api);
+    if (e.is("lift") && topBarPianoActiveNote) {
+      stopButtonNote(topBarPianoActiveNote,{force:true}); topBarPianoActiveNote=null;
+    }
+    if ((e.is("touch") || e.is("draw")) && (e.is("touch") || topBarPianoActiveNote)) {
+      const note=getTopBarPianoNoteAt(e.x,e.y,screen);
+      if(note!==topBarPianoActiveNote) {
+        if(topBarPianoActiveNote) stopButtonNote(topBarPianoActiveNote,{force:true});
+        topBarPianoActiveNote=note;
+        if(note) startButtonNote(note,127,api);
+      }
+      if(note) return;
+    }
     if ((e.is("touch") || e.is("draw") || e.is("lift")) && e.y < MODE_BAR_HEIGHT) {
       if (e.is("lift")) cleanupOrphanedSounds(pens);
       return;
