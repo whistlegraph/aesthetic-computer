@@ -688,3 +688,10 @@ no measured arrivals yields null stage counts/rates. Flags indicate milestones
 within a visit, not a guaranteed sequence. Source and destination counts are
 separate aggregates: shared campaign links, referrer suppression, blocked
 tracking, and time boundaries prevent an exact person-by-person conversion.
+
+The Notepat studio footer rotates reviewed links from `notepat-promos.mjs`.
+Trusted activation sets `notepat_menuband_clicked`, `notepat_os_clicked`, or
+`notepat_nopaint_clicked`. These are outbound intent, not confirmed arrivals.
+The static `notepat-footer` tag carries no visit ID; destination campaign
+coverage must be implemented separately before reporting a joined pathway.
+MIDI device names, IDs, messages and musical content stay out of visit analytics.

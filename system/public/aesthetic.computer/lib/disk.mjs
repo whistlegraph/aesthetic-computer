@@ -11015,12 +11015,12 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   // Receive a midi input message.
-  if (type === "midi:keyboard" && booted) {
+  if (["midi:keyboard", "notepat:control", "notepat:state"].includes(type) && booted) {
     // console.log("🎹 Keyboard:", content.data);
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
-      device: "midi:keyboard",
+      device: type,
       is: (e) => e === type,
     });
     $api.event = data;

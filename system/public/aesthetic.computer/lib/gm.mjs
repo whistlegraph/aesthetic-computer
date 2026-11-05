@@ -45,7 +45,8 @@ export function setGMAssetBase(base) {
   ASSET_BASE = String(base).replace(/\/$/, "");
   _manifest = null;
   _manifestPromise = null;
-  _patchCache.clear();
+  _patchCache = new WeakMap();
+  _drumCache = new WeakMap();
   _bufferCache.clear();
   return ASSET_BASE;
 }
@@ -195,6 +196,7 @@ function fetchAndDecode(url, ctx) {
     }
   })();
   _bufferCache.set(url, p);
+  p.then(buffer => { if (!buffer && _bufferCache.get(url) === p) _bufferCache.delete(url); });
   return p;
 }
 
@@ -203,8 +205,8 @@ function fetchAndDecode(url, ctx) {
 // any individual sample on demand. `play()` finds the nearest rendered
 // note, pitch-shifts it, and schedules with an ADSR-ish envelope.
 
-const _patchCache = new Map(); // programNumber -> Promise<patchHandle>
-const _drumCache = new Map();  // kitId -> Promise<kitHandle>
+let _patchCache = new WeakMap(); // AudioContext -> Map<programNumber, Promise<patchHandle>>
+let _drumCache = new WeakMap(); // AudioContext -> Map<kitId, Promise<kitHandle>>
 
 function programDir(programNumber) {
   return `${ASSET_BASE}/${String(programNumber).padStart(3, "0")}`;
@@ -263,10 +265,12 @@ function scheduleNote(ctx, audioBuffer, opts) {
     sustain = 0.85,   // fraction of peak
     release = 0.15,   // 150ms
     destination,
+    volume = 1,
+    pan = 0,
   } = opts;
 
   const startTime = when || ctx.currentTime;
-  const peak = Math.max(0, Math.min(1, velocity / 127));
+  const peak = Math.max(0, Math.min(1, velocity / 127)) * Math.max(0, Math.min(1, volume));
 
   let source, gain;
   try {
@@ -283,7 +287,15 @@ function scheduleNote(ctx, audioBuffer, opts) {
     );
 
     source.connect(gain);
-    gain.connect(destination || ctx.destination);
+    if (ctx.createStereoPanner) {
+      const panner = ctx.createStereoPanner();
+      panner.pan.value = Math.max(-1, Math.min(1, pan));
+      gain.connect(panner); panner.connect(destination || ctx.destination);
+      source.onended = () => { source.disconnect(); gain.disconnect(); panner.disconnect(); };
+    } else {
+      gain.connect(destination || ctx.destination);
+      source.onended = () => { source.disconnect(); gain.disconnect(); };
+    }
 
     source.start(startTime);
   } catch (err) {
@@ -334,6 +346,9 @@ function scheduleNote(ctx, audioBuffer, opts) {
     release() {
       releaseAt(ctx.currentTime);
     },
+    update({ semitones = 0 } = {}) {
+      if (!stopped && Number.isFinite(semitones)) source.playbackRate.setTargetAtTime(playbackRate * 2 ** (semitones / 12), ctx.currentTime, 0.008);
+    },
     get _node() { return source; },
     get _gain() { return gain; },
   };
@@ -347,14 +362,13 @@ export async function loadPatch(programNumber, audioContext) {
     return null;
   }
 
-  if (_patchCache.has(program)) return _patchCache.get(program);
+  const ctx = resolveAudioContext(audioContext);
+  if (!ctx) return null;
+  if (!_patchCache.has(ctx)) _patchCache.set(ctx, new Map());
+  const cache = _patchCache.get(ctx);
+  if (cache.has(program)) return cache.get(program);
 
   const p = (async () => {
-    const ctx = resolveAudioContext(audioContext);
-    if (!ctx) {
-      console.warn("🎼 GM: no AudioContext available");
-      return null;
-    }
 
     const manifest = await loadManifest(ctx);
     const patchEntry = manifest.patches[program];
@@ -370,6 +384,7 @@ export async function loadPatch(programNumber, audioContext) {
       if (samples.has(midi)) return samples.get(midi);
       const promise = fetchAndDecode(noteUrl(dir, midi), ctx);
       samples.set(midi, promise);
+      promise.then(buffer => { if (!buffer && samples.get(midi) === promise) samples.delete(midi); });
       return promise;
     }
 
@@ -393,6 +408,7 @@ export async function loadPatch(programNumber, audioContext) {
 
         let live = noopNoteHandle("pending");
         let externalReleased = false;
+        let pendingUpdate = null;
 
         getSample(sampleNote).then((buf) => {
           if (!buf) {
@@ -407,9 +423,11 @@ export async function loadPatch(programNumber, audioContext) {
             ...opts,
             playbackRate,
           });
+          if (pendingUpdate) live.update?.(pendingUpdate);
         });
 
         return {
+          update(value) { pendingUpdate = value; live?.update?.(value); },
           stop(when = 0) {
             externalReleased = true;
             live?.stop?.(when);
@@ -423,7 +441,9 @@ export async function loadPatch(programNumber, audioContext) {
     };
   })();
 
-  _patchCache.set(program, p);
+  cache.set(program, p);
+  p.then(patch => { if (!patch && cache.get(program) === p) cache.delete(program); },
+    () => { if (cache.get(program) === p) cache.delete(program); });
   return p;
 }
 
@@ -444,11 +464,13 @@ export async function prefetchPatch(programNumber, audioContext) {
 // re-enable pitched drums.
 export async function loadDrumKit(kitId = 0, audioContext) {
   const id = kitId | 0;
-  if (_drumCache.has(id)) return _drumCache.get(id);
+  const ctx = resolveAudioContext(audioContext);
+  if (!ctx) return null;
+  if (!_drumCache.has(ctx)) _drumCache.set(ctx, new Map());
+  const cache = _drumCache.get(ctx);
+  if (cache.has(id)) return cache.get(id);
 
   const p = (async () => {
-    const ctx = resolveAudioContext(audioContext);
-    if (!ctx) return null;
     const manifest = await loadManifest(ctx);
     const kitEntry = manifest.drumKits[id] || manifest.drumKits[0];
     const noteList = (kitEntry && kitEntry.notes) || manifest.defaultNotes || defaultNoteList();
@@ -459,6 +481,7 @@ export async function loadDrumKit(kitId = 0, audioContext) {
       if (samples.has(midi)) return samples.get(midi);
       const promise = fetchAndDecode(drumNoteUrl(dir, midi), ctx);
       samples.set(midi, promise);
+      promise.then(buffer => { if (!buffer && samples.get(midi) === promise) samples.delete(midi); });
       return promise;
     }
 
@@ -477,6 +500,7 @@ export async function loadDrumKit(kitId = 0, audioContext) {
 
         let live = noopNoteHandle("pending");
         let externalReleased = false;
+        let pendingUpdate = null;
 
         getSample(sampleNote).then((buf) => {
           if (!buf) { live = noopNoteHandle("decode-failed"); return; }
@@ -491,9 +515,11 @@ export async function loadDrumKit(kitId = 0, audioContext) {
             sustain: 1.0,
             release: 0.03,
           });
+          if (pendingUpdate) live.update?.(pendingUpdate);
         });
 
         return {
+          update(value) { pendingUpdate = value; live?.update?.(value); },
           stop(when = 0) { externalReleased = true; live?.stop?.(when); },
           release() { externalReleased = true; live?.release?.(); },
         };
@@ -501,15 +527,15 @@ export async function loadDrumKit(kitId = 0, audioContext) {
     };
   })();
 
-  _drumCache.set(id, p);
+  cache.set(id, p);
   return p;
 }
 
 // ─── Cache controls (mostly for tests / hot reload) ───────────────────
 export function _resetGMCaches() {
   _bufferCache.clear();
-  _patchCache.clear();
-  _drumCache.clear();
+  _patchCache = new WeakMap();
+  _drumCache = new WeakMap();
   _manifest = null;
   _manifestPromise = null;
 }

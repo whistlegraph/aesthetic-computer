@@ -1081,6 +1081,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   let diskSupervisor;
   let currentPiece = null; // Gets set to a path after `loaded`.
+  let notepatControls, notepatControlsPromise, notepatGeneration = 0, notepatGMGain, notepatGMContext;
   const accountActivity = startAccountActivity();
   let currentPieceHasKeyboard = false;
   let keyboardMaxChars = 256; // Default; pieces can override via keyboard:set-max-chars
@@ -6815,6 +6816,33 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       } else {
         send({ type: "usb:flash-error", content: { error: "Not running in Electron" } });
       }
+      return;
+    }
+
+    if (type === "notepat:host") {
+      if (!/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece || "")) return;
+      const generation = notepatGeneration;
+      notepatControlsPromise ||= import("./lib/notepat-controls.mjs").then(({ createNotepatControls }) => {
+        if (generation !== notepatGeneration) return null;
+        notepatControls = createNotepatControls({
+          send, context: () => audioContext,
+          display: () => canvas?.getBoundingClientRect(),
+          focus: locked => { keyboardFocusLock = locked; },
+          destination: ctx => {
+            if (notepatGMContext !== ctx) {
+              notepatGMGain?.disconnect();
+              notepatGMContext = ctx;
+              notepatGMGain = ctx.createGain();
+              notepatGMGain.connect(speakerGain || ctx.destination);
+              if (sfxStreamGain) notepatGMGain.connect(sfxStreamGain);
+            }
+            return notepatGMGain;
+          },
+        });
+        return notepatControls;
+      }).catch(error => { notepatControlsPromise = null; console.warn("Notepat controls unavailable", error); });
+      const controls = await notepatControlsPromise;
+      if (generation === notepatGeneration) controls?.message(content);
       return;
     }
 
@@ -15010,6 +15038,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         }
       }
       
+      // Release this instrument's pending samples and owned MIDI notes before
+      // another piece boots. An in-flight import cannot resurrect its panel.
+      notepatGeneration++;
+      notepatControls?.dispose(); notepatControls = null; notepatControlsPromise = null;
+      notepatGMGain?.disconnect(); notepatGMGain = null; notepatGMContext = null;
       currentPiece = content.path;
       keyboardMaxChars = 256; // Reset to default on each piece load
       // console.log("🎮 currentPiece SET TO:", currentPiece);

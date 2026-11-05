@@ -54,6 +54,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "notepat_opened", "notepat_ad_shown", "notepat_note_played", "notepat_eight_notes",
   "notepat_recording_started", "notepat_recording_completed",
   "notepat_playback_requested", "notepat_amxd_requested",
+  "notepat_menuband_clicked", "notepat_os_clicked", "notepat_nopaint_clicked",
 ]);
 
 // Reviewed link milestones only; never retain destinations or mailto contents.
