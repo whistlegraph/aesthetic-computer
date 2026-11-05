@@ -38,6 +38,7 @@ export function objectPiece(source, label = "", options = {}) {
   // looks up from underneath.
   let yaw = options.yaw ?? 0.6, pitch = options.pitch ?? -0.95, dragging = !!options.still;
   let depth, size = [0, 0];
+  let preview = options.preview === true;
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
   const start = Date.now();
   // The object's (tone ...) oscillators; browsers need a tap before sound.
@@ -53,7 +54,9 @@ export function objectPiece(source, label = "", options = {}) {
     error = String(e.message || e).slice(0, 80);
   }
 
-  function boot({ hud, clock }) {
+  function boot({ hud, clock, query }) {
+    preview ||= query?.objectPreview === "1";
+    if (preview) pitch = -0.22;
     clock?.resync?.();
     if (label) hud?.label?.(label, [230, 232, 240]);
   }
@@ -73,8 +76,9 @@ export function objectPiece(source, label = "", options = {}) {
       size = [w, h];
     }
     depth.fill(Infinity);
-    const t = (Date.now() - start) / 1000;
-    if (!dragging) yaw += 0.006;
+    const t = options.time ?? (Date.now() - start) / 1000;
+    if (preview) yaw = (options.yaw ?? 0.6) + t * Math.PI / 4; // One turn in eight seconds.
+    else if (!dragging) yaw += 0.006;
 
     const v = sourceFrame(shape, t).vertices;
     if (v.length) {
@@ -83,7 +87,12 @@ export function objectPiece(source, label = "", options = {}) {
     }
 
     const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const distance = radius * 2.4 + 0.6, focal = Math.min(w, h) * 0.9;
+    const distance = radius * 2.4 + 0.6;
+    // Fit the object's bounding sphere inside the capture at every yaw. Keep
+    // the scale fixed throughout a turn, with room for moving limbs and fur.
+    const focal = preview
+      ? Math.min(w, h) * 0.44 * Math.sqrt(distance * distance - radius * radius) / radius
+      : Math.min(w, h) * 0.9;
     const project = (x, y, z) => {
       const dx = x - center.x, dy = y - center.y, dz = z - center.z;
       const rx = dx * cy - dz * sy, rz = dx * sy + dz * cy;
@@ -112,7 +121,7 @@ export function objectPiece(source, label = "", options = {}) {
     };
     const reach = Math.max(2, Math.ceil(radius * 2));
     const gx = Math.round(center.x), gz = Math.round(center.z);
-    for (let g = -reach; g <= reach; g++) {
+    for (let g = -reach; !preview && g <= reach; g++) {
       segment(gx + g, gz - reach, gx + g, gz + reach);
       segment(gx - reach, gz + g, gx + reach, gz + g);
     }
@@ -138,7 +147,7 @@ export function objectPiece(source, label = "", options = {}) {
       }
     }
     const name = (shape.name || "object").toLowerCase();
-    ink(138, 143, 158).write(tones.length && !voices.length ? `${name} - tap for sound` : name, { x: 6, y: h - 16 });
+    if (!preview) ink(138, 143, 158).write(tones.length && !voices.length ? `${name} - tap for sound` : name, { x: 6, y: h - 16 });
   }
 
   function play(sound) {

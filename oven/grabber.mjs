@@ -1,3 +1,4 @@
+import { captureObjectFrames } from "./object-preview.mjs";
 // Grabber - KidLisp piece screenshot/GIF capture using Puppeteer
 // Captures frames from running KidLisp pieces for thumbnails
 
@@ -2313,6 +2314,7 @@ export async function grabPiece(piece, options = {}) {
     quality = 90,
     baseUrl = 'https://aesthetic.computer',
     skipCache = false, // Force regeneration
+    view = '', // Optional model turntable capture
     cacheKey = '', // Optional extra cache discriminator (e.g. source hash)
     source = 'manual', // 'keep', 'manual', 'api', etc.
     keepId = null, // Tezos keep token ID if source is 'keep'
@@ -2327,7 +2329,7 @@ export async function grabPiece(piece, options = {}) {
   const outputHeight = height * effectiveScale;
   
   const animated = format !== 'png';
-  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, cacheKey);
+  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, view === 'object' ? `${cacheKey}-object-v1` : cacheKey);
   
   // Check for existing capture (deduplication)
   if (!skipCache) {
@@ -2406,7 +2408,9 @@ export async function grabPiece(piece, options = {}) {
         // Single frame PNG — captureFrame filters blank frames via captureFrames,
         // but nearly-black frames (a few pixels above threshold) can slip through.
         // Validate explicitly before caching to prevent black preview images.
-        const frame = await captureFrame(piece, { width, height, density, viewportScale, baseUrl, grabId });
+        const frame = view === 'object'
+          ? (await captureObjectFrames(piece, { width: outputWidth, height: outputHeight, frames: 1 }))[0]
+          : await captureFrame(piece, { width, height, density, viewportScale, baseUrl, grabId });
         if (!frame) {
           throw new Error('Failed to capture frame — blank or black image detected');
         }
@@ -2429,9 +2433,9 @@ export async function grabPiece(piece, options = {}) {
         let uniformCheck = { isUniform: false };
 
         for (let attempt = 0; attempt <= MAX_DUD_RETRIES; attempt++) {
-          capturedFrames = await captureFrames(piece, {
-            width, height, duration, fps, density, viewportScale, baseUrl, grabId
-          });
+          capturedFrames = view === 'object'
+            ? await captureObjectFrames(piece, { width: outputWidth, height: outputHeight, duration, fps })
+            : await captureFrames(piece, { width, height, duration, fps, density, viewportScale, baseUrl, grabId });
 
           if (capturedFrames.length === 0) {
             throw new Error('No frames captured');
@@ -2987,7 +2991,7 @@ export async function grabHandler(req, res) {
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false', cacheKey = '' } = req.query;
+  const { duration = 12000, fps = 7.5, playbackFps = 15, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false', cacheKey = '', view = '' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -3013,7 +3017,7 @@ export async function grabGetHandler(req, res) {
   // Calculate captureKey to check for in-progress grabs
   const animated = format !== 'png';
   const parsedDensity = parseFloat(density) || 1;
-  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, cacheKey);
+  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, view === 'object' ? `${cacheKey}-object-v1` : cacheKey);
   
   // If nowait=true, check if there's already a grab in progress for this key
   if (nowait === 'true' || nowait === true) {
@@ -3056,7 +3060,9 @@ export async function grabGetHandler(req, res) {
       height: h,
       skipCache: skipCache === 'true' || skipCache === true,
       duration: parseInt(duration),
-      fps: parseInt(fps),
+      fps: parseFloat(fps),
+      playbackFps: Math.max(1, Math.min(30, parseFloat(playbackFps) || 15)),
+      view: view === 'object' ? view : '',
       density: parsedDensity,
       quality: parseInt(quality) || 80,
       source: source || 'manual',

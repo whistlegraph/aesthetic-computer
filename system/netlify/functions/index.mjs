@@ -16,6 +16,7 @@ import {
 import { respond } from "../../backend/http.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
+import { objectMetadata } from "../../backend/object-metadata.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
 import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backend/boot-preloads.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
@@ -59,6 +60,28 @@ async function trackPieceHit(piece, type) {
   } catch (e) {
     // Silent fail — counting a read must never cost the reader the page.
     if (dev) console.log("📊 Hit tracking failed:", e.message);
+  }
+}
+
+const objectMetadataCache = new Map();
+async function savedObjectMetadata(code) {
+  const cached = objectMetadataCache.get(code);
+  if (cached && cached.until > Date.now()) return cached.value;
+  let database;
+  try {
+    database = await connect();
+    const record = await database.db.collection("kidlisp").findOne(
+      { code }, { projection: { source: 1, _id: 0 } },
+    );
+    const value = objectMetadata(code, record?.source);
+    objectMetadataCache.set(code, { value, until: Date.now() + 300000 });
+    if (objectMetadataCache.size > 128) objectMetadataCache.delete(objectMetadataCache.keys().next().value);
+    return value;
+  } catch (err) {
+    console.warn("Object preview metadata unavailable:", err?.message);
+    return null;
+  } finally {
+    await database?.disconnect();
   }
 }
 
@@ -716,6 +739,7 @@ async function fun(event, context) {
         // Handle $code nanoid pieces - these load source from MongoDB client-side
         } else if (path.startsWith("$") && path.length >= 4 && /^\$[a-zA-Z0-9]+$/.test(path)) {
           console.log("[kidlisp] Detected $code piece, skipping file load:", path);
+          meta = await savedObjectMetadata(path.slice(1));
           sourceCode = null; // Source loaded client-side from MongoDB
           statusCode = 200; // Ensure we return 200 for valid $code pieces
         // Handle *code clock pieces - these load source from MongoDB client-side and route to clock.mjs
@@ -863,12 +887,14 @@ async function fun(event, context) {
     return redirect;
   }
 
-  const { title, desc, ogImage, icon, iconWebp, twitterImage, manifest } = metadata(
+  const { title, desc, ogImage, icon, iconWebp, twitterImage: defaultTwitterImage, manifest } = metadata(
     event.headers["host"],
     slug,
     meta,
     "https:", // Server-side defaults to HTTPS
   );
+
+  const twitterImage = meta?.twitter_image_url || defaultTwitterImage;
 
   // TODO: Not sure if 'location' is correct here, but I wan tto skip rendering the link rel icon and og:image if the icon or preview parameter is present
   //      in the request url qury params...
@@ -936,15 +962,21 @@ async function fun(event, context) {
         ${canonical ? html`<link rel="canonical" href="${encode(canonical)}" />
         <meta property="og:url" content="${encode(canonical)}" />` : ""}
         <meta name="description" content="${encode(desc)}" />
+        <meta property="og:type" content="website" />
         <meta property="og:title" content="${encode(title)}" />
         <meta property="og:description" content="${encode(desc)}" />
         ${!previewOrIcon
-          ? html`<meta property="og:image" content="${ogImage}" />`
+          ? html`<meta property="og:image" content="${encode(ogImage)}" />
+            ${meta?.image_type ? html`<meta property="og:image:type" content="${encode(meta.image_type)}" />
+            <meta property="og:image:width" content="${meta.image_width}" />
+            <meta property="og:image:height" content="${meta.image_height}" />
+            <meta property="og:image:alt" content="${encode(meta.image_alt)}" />` : ""}`
           : ""}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content="${encode(title)}" />
         <meta name="twitter:site" content="aesthetic.computer" />
-        <meta name="twitter:image" content="${twitterImage}" />
+        <meta name="twitter:image" content="${encode(twitterImage)}" />
+        ${meta?.image_alt ? html`<meta name="twitter:image:alt" content="${encode(meta.image_alt)}" />` : ""}
         ${dev
           ? ""
           : `<!-- <script crossorigin="anonymous" src="https://js.sentry-cdn.com/ef4704c0df6a410e972bca14d69e1898.min.js"></script> -->`}
