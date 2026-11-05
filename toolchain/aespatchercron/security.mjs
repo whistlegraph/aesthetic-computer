@@ -20,7 +20,7 @@ const semver = /^v?(\d+)\.(\d+)\.(\d+)$/;
 const severities = ["critical", "high", "moderate", "low"];
 // Which audit kinds page an operator under --strict; the rest are advisories.
 const urgentKinds = new Set(["runtime-security-release", "runtime-end-of-life", "dependency-advisory", "sensitive-path-exposed", "tls-invalid", "tls-expiring",
-  "tls-legacy-protocol", "plain-http-served", "dangling-cname", "unexpected-listener", "ssh-password-auth"]);
+  "tls-legacy-protocol", "plain-http-served", "dangling-cname", "unexpected-listener", "ssh-password-auth", "cloudflare-ranges-stale"]);
 
 export function securitySettings(config) {
   const settings = config.security ?? defaultSecurity();
@@ -155,6 +155,18 @@ const target = file => file.replace(/^\.+/, "");
 
 // Public hosts are probed over the open internet; servers over their own SSH
 // key, so `remote` gates them with the Lith runtime read.
+// The ranges pinned in the Caddyfile snippet, and the ones Cloudflare publishes.
+export function pinnedCloudflareRanges(caddyfile) {
+  const line = /\(cloudflare_only\)[\s\S]*?not remote_ip ([^\n]+)/.exec(caddyfile)?.[1] || "";
+  return line.trim().split(/\s+/).filter(Boolean);
+}
+async function cloudflareRanges() {
+  const body = await (await fetch("https://api.cloudflare.com/client/v4/ips", { signal: AbortSignal.timeout(10000) })).json();
+  const ranges = [...(body?.result?.ipv4_cidrs || []), ...(body?.result?.ipv6_cidrs || [])];
+  if (!body?.success || !ranges.length || !ranges.every(r => /^[0-9a-f.:]+\/\d{1,3}$/i.test(r))) throw new Error("Cloudflare ranges unreadable");
+  return ranges;
+}
+
 const lead = (signals, source, group) => {
   signals.metrics.push({ source, metric: group.kind, target: null, count: group.hosts.length });
   signals.leads.push({ source, kind: group.kind, route: null, count: group.hosts.length, evidenceRefs: [], summary: describe(group) });
@@ -209,6 +221,18 @@ async function collectSurface(repo, settings, signals, detail, { remote, network
         const open = detail.origin.filter(row => row.status === "available" && row.answers);
         if (open.length) lead(signals, "network", { kind: "origin-bypass", severity: "moderate", hosts: open.map(row => row.host) });
       }
+      // lith's :443 catch-all drops anything not from Cloudflare (lith/Caddyfile
+      // `cloudflare_only`). A range Cloudflare adds that the pin lacks would drop
+      // real visitors, so drift is urgent.
+      try {
+        const pinned = pinnedCloudflareRanges(await readFile(join(repo, "lith/Caddyfile"), "utf8"));
+        if (pinned.length) {
+          const live = await (probes.cloudflareRanges || cloudflareRanges)();
+          const missing = live.filter(range => !pinned.includes(range));
+          detail.cloudflareRanges = { pinned: pinned.length, live: live.length, missing };
+          if (missing.length) lead(signals, "network", { kind: "cloudflare-ranges-stale", severity: "high", hosts: missing.slice(0, 20) });
+        }
+      } catch { detail.cloudflareRanges = { status: "unavailable" }; }
       // Mail authentication at every apex.
       if (settings.network.email) {
         detail.email = [];

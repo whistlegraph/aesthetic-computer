@@ -110,6 +110,7 @@ const SSL_KEY = join(__dirname, "..", "ssl-dev", "localhost-key.pem");
 const HAS_SSL = existsSync(SSL_CERT) && existsSync(SSL_KEY);
 
 const app = express();
+app.disable("x-powered-by"); // no framework fingerprint (security audit 2026-11-05)
 // Every finished build is a KidLisp program: the store gives it a $code under
 // the builder's own account (2026-11-03; without this, nothing got a code).
 // The room must outlive a restart: without a state directory the object

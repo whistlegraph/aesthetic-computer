@@ -24,6 +24,8 @@ const CORS_HEADERS = {
   "Content-Type": "application/json",
 };
 
+const MAX_CIDS = 8;
+
 function isValidCid(v) {
   return typeof v === "string" && /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|ba[a-z0-9]{56,})$/.test(v.trim());
 }
@@ -40,7 +42,12 @@ export const handler = async (event) => {
   try { body = JSON.parse(event.body || "{}"); }
   catch { return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "Invalid JSON body" }) }; }
 
-  const cids = Array.isArray(body.cids) ? body.cids.filter(isValidCid) : [];
+  // Each CID fans out to every gateway, so an unbounded list turns this open
+  // endpoint into an amplifier. One mint needs a handful (security audit
+  // 2026-11-05).
+  const cids = Array.isArray(body.cids)
+    ? [...new Set(body.cids.filter(isValidCid).map((cid) => cid.trim()))].slice(0, MAX_CIDS)
+    : [];
   if (!cids.length) {
     return { statusCode: 400, headers: CORS_HEADERS, body: JSON.stringify({ error: "cids array required" }) };
   }

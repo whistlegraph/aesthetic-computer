@@ -89,3 +89,10 @@ test("security settings are validated with the runner config and default on", ()
   assert.throws(() => validateConfig({ ...defaults("/repo"), security: { enabled: true, packages: ["../lith"], runtimes: [] } }), /Invalid security settings/);
   assert.throws(() => validateConfig({ ...defaults("/repo"), security: { enabled: true, packages: [], runtimes: ["/etc/passwd"] } }), /Invalid repository file/);
 });
+
+test("the Cloudflare ranges pinned in lith's Caddyfile are read from the cloudflare_only snippet", async () => {
+  const { pinnedCloudflareRanges } = await import("../security.mjs");
+  const caddy = "(lith_proxy) {\n}\n(cloudflare_only) {\n    @origin_bypass {\n        not host lith.aesthetic.computer\n        not remote_ip 173.245.48.0/20 2400:cb00::/32 127.0.0.0/8\n    }\n}\n";
+  assert.deepEqual(pinnedCloudflareRanges(caddy), ["173.245.48.0/20", "2400:cb00::/32", "127.0.0.0/8"]);
+  assert.deepEqual(pinnedCloudflareRanges("no snippet here"), []);
+});

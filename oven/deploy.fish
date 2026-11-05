@@ -241,7 +241,7 @@ ssh -i "$HOME/.ssh/$SSH_KEY_NAME" root@$DROPLET_IP "printf '[Unit]\nDescription=
 
 # Configure Caddy
 echo -e "$GREEN🔧 Configuring Caddy...$NC"
-ssh -i "$HOME/.ssh/$SSH_KEY_NAME" root@$DROPLET_IP "printf '{\n    email me@jas.life\n}\n\n$OVEN_HOSTNAME {\n    reverse_proxy localhost:3000\n    encode gzip\n    \n    log {\n        output file /var/log/caddy/oven.log\n    }\n}\n' > /etc/caddy/Caddyfile"
+ssh -i "$HOME/.ssh/$SSH_KEY_NAME" root@$DROPLET_IP "printf '{\n    email me@jas.life\n}\n\n$OVEN_HOSTNAME {\n    header {\n        Strict-Transport-Security \"max-age=15552000\"\n        X-Content-Type-Options \"nosniff\"\n        -X-Powered-By\n        defer\n    }\n    reverse_proxy localhost:3000\n    encode gzip\n    \n    log {\n        output file /var/log/caddy/oven.log\n    }\n}\n' > /etc/caddy/Caddyfile"
 
 # Start services
 echo -e "$GREEN🚀 Starting services...$NC"

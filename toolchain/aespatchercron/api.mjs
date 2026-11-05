@@ -7,7 +7,7 @@ import { join } from "node:path";
 // every origin. Names and booleans only; no handler source leaves this module.
 export const functionsDir = "system/netlify/functions";
 const writes = /httpMethod\s*(?:===?\s*"(?:POST|DELETE|PUT|PATCH)"|!==?\s*"POST")/;
-const authorized = /\b(?:authorize|hasAdmin)\s*\(/;
+const authorized = /\b(?:authorize|authenticate|hasAdmin)\s*\(/;
 const signed = /\b(?:constructEvent|verifySignature|verifyWebhook|LITH_OPERATIONS_TOKEN|x-hub-signature)\b/;
 const gated = /\b(?:secret|api[_-]?key|token|password|admin|signature|hmac|bearer)\b/i;
 const wildcard = /"Access-Control-Allow-Origin":\s*"\*"/;

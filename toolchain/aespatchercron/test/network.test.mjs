@@ -121,3 +121,14 @@ test("the collector folds the network and server audits into leads, metrics and 
   const off = await collectSecurity(repo, { ...config, security: { ...config.security, network: { ...defaultNetwork(), enabled: false } } }, { remote: false, network: false, fetchImpl: fetchStub, now });
   assert.deepEqual(off.signals.coverage.filter(c => c.source === "network"), [{ source: "network", status: "disabled" }]);
 });
+
+test("lith's non-web names on the origin certificate are an advisory, a stranger's self-signed cert still pages", () => {
+  const selfSigned = host => ok(host, { tls: { ...ok("x").tls, authorized: false, error: "DEPTH_ZERO_SELF_SIGNED_CERT" } });
+  const groups = networkFindings([selfSigned("inbound.aesthetic.computer"), selfSigned("rogue.aesthetic.computer"),
+    ok("lith.aesthetic.computer", { tls: { ...ok("x").tls, authorized: false, error: "CERT_HAS_EXPIRED" } })],
+    { expiryDays: 14, originCertHosts: ["lith.aesthetic.computer", "inbound.aesthetic.computer"] });
+  const byKind = Object.fromEntries(groups.map(g => [g.kind, g]));
+  assert.deepEqual(byKind["tls-origin-cert-direct"].hosts, ["inbound.aesthetic.computer"]);
+  assert.equal(byKind["tls-origin-cert-direct"].severity, "moderate");
+  assert.deepEqual(byKind["tls-invalid"].hosts, ["rogue.aesthetic.computer", "lith.aesthetic.computer"]);
+});

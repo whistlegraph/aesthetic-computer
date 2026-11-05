@@ -1,12 +1,20 @@
 // Update Painting Slug, 25.10.16
 // Updates an anonymous painting's slug to include recording code (colon format)
 
+import { authorize, hasAdmin } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
 
 export async function handler(event, context) {
   if (event.httpMethod !== "POST") {
     return respond(405, { message: "Method Not Allowed" });
+  }
+
+  // No client calls this; it rewrites any anonymous painting's slug, so only
+  // an admin may (security audit 2026-11-05).
+  const user = await authorize(event.headers);
+  if (!user || !(await hasAdmin(user))) {
+    return respond(401, { message: "unauthorized" });
   }
 
   let body;

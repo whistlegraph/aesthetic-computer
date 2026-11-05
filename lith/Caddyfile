@@ -110,6 +110,23 @@
     }
 }
 
+# Cloudflare edge ranges (https://api.cloudflare.com/client/v4/ips, etag
+# 38f79d050aa027e3be3865e495dcc9bc, read 2026-11-05). aespatchercron's
+# security audit compares this list with the live one and pages when it drifts.
+#
+# Everything the :443 catch-all serves is orange-cloud except lith's own two
+# grey-cloud names, so any other request from outside Cloudflare (or loopback,
+# lith itself and the tailnet) is someone dialing the origin to skip the edge.
+(cloudflare_only) {
+    @origin_bypass {
+        not host lith.aesthetic.computer inbound.aesthetic.computer
+        not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32 127.0.0.0/8 ::1 100.64.0.0/10 fd7a:115c:a1e0::/48 209.38.133.33
+    }
+    handle @origin_bypass {
+        abort
+    }
+}
+
 (lith_proxy) {
 	reverse_proxy localhost:8888 {
 		lb_try_duration 30s
@@ -137,6 +154,9 @@
 # (touched 2026-04-29 to re-fire webhook after the install-Caddyfile-before-reload fix)
 :443 {
     import security_headers
+    # Proxied hosts answer only to Cloudflare, so its rules cannot be skipped
+    # by dialing the origin address (security audit 2026-11-05).
+    import cloudflare_only
     import machine_discovery
     tls /etc/caddy/origin-cert.pem /etc/caddy/origin-key.pem
     import lith_access_log

@@ -3,6 +3,12 @@
 }
 
 oven.aesthetic.computer, oven-origin.aesthetic.computer {
+    header {
+        Strict-Transport-Security "max-age=15552000"
+        X-Content-Type-Options "nosniff"
+        -X-Powered-By
+        defer
+    }
     reverse_proxy localhost:3002
     encode gzip
     

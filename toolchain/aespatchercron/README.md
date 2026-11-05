@@ -205,8 +205,17 @@ Three more sources feed the host list, each switchable under
 * Origin bypass: the first configured server's address is asked, over TLS
   with up to five proxied hostnames as SNI, for its front page. A 2xx or 3xx
   is `origin-bypass`: anyone who learns the address skips every Cloudflare
-  rule. The fix is firewalling 443 to Cloudflare's ranges or authenticated
-  origin pulls; both are operator work and the lead says so.
+  rule. lith closes it in Caddy: the `cloudflare_only` snippet in
+  `lith/Caddyfile` drops any :443 catch-all request that is not from
+  Cloudflare, loopback, lith itself or the tailnet, except lith's two
+  grey-cloud names (2026-11-05). Because that pins Cloudflare's ranges, the
+  audit reads https://api.cloudflare.com/client/v4/ips and reports
+  `cloudflare-ranges-stale` (urgent) for any live range the snippet lacks.
+* `lith.aesthetic.computer` and `inbound.aesthetic.computer` are not
+  websites (SSH, the SMTP door) and answer with the Cloudflare origin
+  certificate. A self-signed answer from a name in `network.originCertHosts`
+  is the advisory `tls-origin-cert-direct`; any other untrusted certificate
+  is still `tls-invalid`.
 
 ### Mail authentication
 

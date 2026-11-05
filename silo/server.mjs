@@ -24,6 +24,7 @@ import { ingestAll as ingestBluesky, ingestFromActor as ingestBlueskyActor, getC
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
+app.disable("x-powered-by"); // no framework fingerprint (security audit 2026-11-05)
 const PORT = process.env.PORT || 3003;
 const dev = process.env.NODE_ENV === "development";
 const SERVER_START_TIME = Date.now();

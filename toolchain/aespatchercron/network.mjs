@@ -18,8 +18,12 @@ export const sensitivePaths = [
 // Infrastructure names the public directory deliberately omits but the audit must not.
 export const infrastructureHosts = ["lith.aesthetic.computer", "oven.aesthetic.computer", "session-server.aesthetic.computer", "relay-sfo.aesthetic.computer",
   "knot.aesthetic.computer", "inbound.aesthetic.computer", "releases.aesthetic.computer"];
+// Grey-cloud names on lith that are not websites (SSH, the SMTP door). The :443
+// catch-all answers them with the Cloudflare origin certificate, which no
+// browser trusts; that is expected, so it is an advisory, not a page.
+const originCertHosts = ["lith.aesthetic.computer", "inbound.aesthetic.computer"];
 export const defaultNetwork = () => ({ enabled: true, directory: "system/public/network.json", extra: [], exclude: [], concurrency: 6, expiryDays: 14,
-  infrastructure: infrastructureHosts, zones: true, email: true, api: true });
+  infrastructure: infrastructureHosts, originCertHosts, zones: true, email: true, api: true });
 // 4001 is the IPFS swarm port on the two hosts that run a daemon; it must face peers.
 export const defaultServers = () => [
   { name: "lith", host: "root@lith.aesthetic.computer", identity: "aesthetic-computer-vault/home/.ssh/id_rsa", ports: [22, 80, 443, 4001] },
@@ -30,8 +34,8 @@ export const defaultServers = () => [
 export function networkSettings(value = defaultNetwork()) {
   const list = rows => Array.isArray(rows) && rows.length <= 100 && rows.every(h => typeof h === "string" && hostName.test(h));
   // Older config files predate the infrastructure, zone, email and api legs; the defaults fill in.
-  for (const [key, fallback] of Object.entries({ infrastructure: infrastructureHosts, zones: true, email: true, api: true })) if (value?.[key] === undefined) value[key] = fallback;
-  if (!value || typeof value !== "object" || typeof value.enabled !== "boolean" || !list(value.extra) || !list(value.exclude) || !list(value.infrastructure) ||
+  for (const [key, fallback] of Object.entries({ infrastructure: infrastructureHosts, originCertHosts, zones: true, email: true, api: true })) if (value?.[key] === undefined) value[key] = fallback;
+  if (!value || typeof value !== "object" || typeof value.enabled !== "boolean" || !list(value.extra) || !list(value.exclude) || !list(value.infrastructure) || !list(value.originCertHosts) ||
       !Number.isInteger(value.concurrency) || value.concurrency < 1 || value.concurrency > 16 ||
       !Number.isInteger(value.expiryDays) || value.expiryDays < 1 || value.expiryDays > 90 ||
       ["zones", "email", "api"].some(key => typeof value[key] !== "boolean")) throw new Error("Invalid network audit settings");
@@ -331,7 +335,8 @@ export function networkFindings(rows, settings) {
     const { host, tls, http, plain, paths, dns: dnsRow } = row;
     if (paths.status === "available" && paths.exposed.length) note("sensitive-path-exposed", host, "critical");
     if (tls.status === "available") {
-      if (!tls.authorized) note("tls-invalid", host, "high");
+      if (!tls.authorized && settings.originCertHosts?.includes(host) && /SELF_SIGNED/.test(tls.error || "")) note("tls-origin-cert-direct", host, "moderate");
+      else if (!tls.authorized) note("tls-invalid", host, "high");
       else if (tls.daysLeft !== null && tls.daysLeft <= settings.expiryDays) note("tls-expiring", host, "high");
       if (tls.protocol && !/^TLSv1\.[23]$/.test(tls.protocol)) note("tls-legacy-protocol", host, "high");
     }
@@ -352,6 +357,8 @@ export function networkFindings(rows, settings) {
 const findingText = {
   "sensitive-path-exposed": "serves a repository or environment file over HTTPS; remove the file or deny the path in Caddy before anything else",
   "tls-invalid": "presents a certificate the client rejects (expired, wrong name or untrusted chain); check Caddy's issuance log and DNS for the host",
+  "cloudflare-ranges-stale": "are Cloudflare edge ranges missing from lith/Caddyfile cloudflare_only, so visitors routed through them are dropped; add them and deploy",
+  "tls-origin-cert-direct": "is a non-web lith name answered with the Cloudflare origin certificate; expected, but keep browsers away from it",
   "tls-expiring": "has a certificate within the expiry window; confirm Caddy renewal is not blocked by DNS or rate limits",
   "tls-legacy-protocol": "negotiates a TLS version older than 1.2; raise the minimum protocol in the Caddy tls block",
   "plain-http-served": "answers plain HTTP with content instead of redirecting to HTTPS; add the redirect so no session starts in the clear",
