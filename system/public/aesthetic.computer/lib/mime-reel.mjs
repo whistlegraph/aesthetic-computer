@@ -14,7 +14,7 @@
 // move, a lift or a still hold (HOLD ms) hands the held events to the piece in
 // order. So taps, sideways drags and press-and-hold drawing all reach the card.
 
-import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-3";
+import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-4";
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 const objects = new Map(); // address → prepared module; bounded to nearby cards
@@ -336,7 +336,7 @@ export function pen(data, dispatch) {
   }
 
   if (name === "touch") {
-    if (phase === "settle" && toward && neighbors?.get(toward)?.live && Math.abs(offset) > lastH * COMMIT)
+    if (phase === "settle" && toward && neighbors?.has(toward))
       go(index + toward, false, neighbors.get(toward));
     if (phase === "drag" || phase === "settle") {
       // Catch the reel mid-glide.
@@ -345,7 +345,7 @@ export function pen(data, dispatch) {
       toward = 0;
       return true;
     }
-    if (phase !== "idle" && !canSwipeLive()) {
+    if (phase !== "idle" && !canSwipePreview()) {
       gesture = { mode: "eat" }; // A static preview cannot accept piece input yet.
       return true;
     }
@@ -463,7 +463,7 @@ export function scroll(content) {
   // One trackpad stream commits one card; momentum must not grab the settle
   // again or spill into the following card after loading completes.
   if (wheelCommitted) return true;
-  if ((phase === "waiting" || phase === "jumping" || phase === "loading") && !canSwipeLive()) return true;
+  if ((phase === "waiting" || phase === "jumping" || phase === "loading") && !canSwipePreview()) return true;
   if (!wheel) {
     if (dy < 0 && index === 0) {
       if (hosted) post({ type: "mime:sheet:wheel", dy: -dy });
@@ -503,7 +503,7 @@ export function key(data) {
   if (!open || index < 0 || !data.name?.startsWith("keyboard:down")) return false;
   const k = data.key;
   if (k !== "PageDown" && k !== "PageUp") return false;
-  if (phase !== "idle" && !canSwipeLive()) return true;
+  if (phase !== "idle" && !canSwipePreview()) return true;
   const dir = k === "PageDown" ? 1 : -1;
   if (dir < 0 && index === 0) {
     if (hosted) post({ type: "mime:sheet:back" });
@@ -522,8 +522,8 @@ export function key(data) {
 
 // 🎨 Per frame. `hold` says whether the piece's own paint should be skipped
 // and the reel drawn instead; disk calls it before painting.
-function canSwipeLive() {
-  return current?.live || (phase === "reveal" && objects.has(cards[index]?.address));
+function canSwipePreview() {
+  return current !== null; // A cold card can keep sliding while its source arrives.
 }
 
 export function busy() {

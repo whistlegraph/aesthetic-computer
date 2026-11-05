@@ -223,3 +223,17 @@ test('a slow earlier load cannot reveal the wrong model after a faster swipe', a
   assert.equal(r.m.busy(),false);
   assert.equal(r.jumps.at(-1),'$c2');
 });
+
+
+test('cold previews also accept consecutive swipes instead of eating the next gesture', async t => {
+  const r = await reel(t, 8, false, null, true);
+  const pen = (name,y) => r.m.pen({name,x:10,y,isPrimary:true},()=>assert.fail('cold preview dispatched piece input'));
+  for(let i=0;i<4;i++) {
+    pen('touch',90);pen('draw',25);r.step();pen('lift',25);r.step();
+  }
+  r.settle();
+  assert.deepEqual(r.jumps,['$c0','$c1','$c2','$c3','$c4']);
+  for(let i=1;i<4;i++) assert.equal(r.callbacks[i](),false);
+  assert.equal(r.callbacks[4](),true);r.loaded();
+  assert.equal(r.m.busy(),false);
+});
