@@ -48,7 +48,8 @@ test('keyboard dispatch delivers a rapid chord exactly once, with frame fallback
   const { readFile } = await import('node:fs/promises');
   const source = (await readFile(new URL('../public/aesthetic.computer/lib/keyboard.mjs', import.meta.url),'utf8'))
     .replace(/import \{ MetaBrowser, Aesthetic, MacOS \} from "\.\/platform.mjs";/,'const MetaBrowser=false, Aesthetic=false, MacOS=false;')
-    .replace('./notepat-chords.mjs',new URL('../public/aesthetic.computer/lib/notepat-chords.mjs',import.meta.url).href);
+    .replace('./notepat-chords.mjs',new URL('../public/aesthetic.computer/lib/notepat-chords.mjs',import.meta.url).href)
+    .replace('./notepat-focus.mjs',new URL('../public/aesthetic.computer/lib/notepat-focus.mjs',import.meta.url).href);
   const saved = { window:globalThis.window, document:globalThis.document };
   globalThis.window = new EventTarget(); globalThis.document = new EventTarget();
   document.activeElement = {}; document.hidden = false;

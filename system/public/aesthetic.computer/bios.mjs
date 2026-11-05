@@ -12,6 +12,7 @@ import * as perf from "./lib/perf.mjs";
 import { Pen } from "./lib/pen.mjs";
 import { Box } from "./lib/geo.mjs";
 import { Keyboard } from "./lib/keyboard.mjs";
+import { notepatHasEditor, focusNotepatSurface } from "./lib/notepat-focus.mjs";
 import { fastNotepatKey } from "./lib/notepat-latency.mjs";
 import { Gamepad } from "./lib/gamepad.mjs";
 import { createOutputWaveform } from "./lib/output-waveform.mjs";
@@ -1376,6 +1377,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Wrap everything in an #aesthetic-computer div.
   const wrapper = document.createElement("div");
   wrapper.id = "aesthetic-computer";
+  function focusNotepatKeyboard() {
+    if(!keyboardFocusLock && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||""))
+      focusNotepatSurface(wrapper,keyboard?.input);
+  }
 
   // 🖥️ Our main display surface. (Software Renderer)
   const canvas = document.createElement("canvas");
@@ -6868,7 +6873,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (generation !== notepatGeneration) return null;
         notepatControls = createNotepatControls({
           send, context: () => audioContext,
-          focus: locked => { keyboardFocusLock = locked; },
+          focus: locked => { keyboardFocusLock = locked; if(!locked) focusNotepatKeyboard(); },
           destination: ctx => {
             if (notepatGMContext !== ctx) {
               notepatGMGain?.disconnect();
@@ -14425,7 +14430,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (!/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece || "")) return false;
         // Modal typing must never play a note; releases still clear held notes.
         if (event.name.startsWith("keyboard:down") && (keyboardFocusLock ||
-            document.activeElement?.closest?.('input, textarea, select, [contenteditable="true"]'))) return true;
+            notepatHasEditor(document.activeElement,keyboard?.input))) return true;
         const probe = window.acNotepatLatency;
         if (event.name.startsWith("keyboard:down") && !event.repeat) {
           event.latencyProbe = probe?.begin?.();
@@ -14736,6 +14741,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         });
 
         window.addEventListener("pointerup", (e) => {
+          if (/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||"") && !notepatHasEditor(e.target,input)) {
+            focusNotepatKeyboard();
+            return;
+          }
           //if (keyboard.needsImmediateOpen) {
           //  keyboard.needsImmediateOpen = false;
           //  return;
@@ -15131,6 +15140,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       
       if (keyboard) keyboard.input.value = "";
+      requestAnimationFrame(focusNotepatKeyboard);
 
       if (!content.taping) {
         detachMicrophone?.(); // Remove any attached microphone unless we
@@ -24004,6 +24014,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Window Focus
   window.addEventListener("focus", function (e) {
+    focusNotepatKeyboard();
     send({ type: "focus-change", content: true });
   });
 

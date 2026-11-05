@@ -23,7 +23,7 @@ export function createNotepatControls({ send, context, destination, focus = () =
   }
   const panic=()=>{midi.panic();gm.panic();control({kind:'panic'})};
   const hidden=()=>{if(visibility?.hidden)panic()};
-  const escape=e=>{if(controlsOpen&&e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();controlsOpen=false;publish()}};
+  const escape=e=>{if(controlsOpen&&e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();controlsOpen=false;focus(false);publish()}};
   events?.addEventListener('keydown',escape,true);
   events?.addEventListener('blur',panic);visibility?.addEventListener('visibilitychange',hidden);
   midiState=midi.state();publish();
@@ -32,7 +32,7 @@ export function createNotepatControls({ send, context, destination, focus = () =
       if(disposed||!content)return;
       const {op}=content;prepareInstrument();
       if(op==='open'){panic();controlsOpen=true;publish()}
-      else if(op==='close'){controlsOpen=false;publish()}
+      else if(op==='close'){controlsOpen=false;focus(false);publish()}
       else if(op==='state'){current={...current,...content};prepareInstrument();publish()}
       else if(op==='connect')void midi.connect();
       else if(op==='select-input')midi.selectInput(content.value);
