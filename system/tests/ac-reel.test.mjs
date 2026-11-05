@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-async function reel(t, count = 20, deferPosters = false, objectSource = null) {
+async function reel(t, count = 20, deferPosters = false, objectSource = null, deferJumps = false) {
   let now = 0;
   t.mock.method(performance, 'now', () => now);
   const posters = [];
@@ -19,9 +19,9 @@ async function reel(t, count = 20, deferPosters = false, objectSource = null) {
     return bitmap;
   });
   const m = await import(`../public/aesthetic.computer/lib/mime-reel.mjs?test=${Math.random()}`);
-  const jumps = [], warmed = [];
+  const jumps = [], warmed = [], callbacks = [];
   m.start({send() {}, needsPaint() {}, preload: async address => { warmed.push(address); return objectSource; },
-    jump(address, ready) { jumps.push(address); ready(); }});
+    jump(address, ready) { jumps.push(address); callbacks.push(ready); if (!deferJumps || jumps.length === 1) ready(); }});
   const flush = () => new Promise(resolve => setImmediate(resolve));
   await flush();
   const writes = [];
@@ -32,7 +32,7 @@ async function reel(t, count = 20, deferPosters = false, objectSource = null) {
   m.draw($); loaded(); writes.length = 0;
   const step = (ms = 16) => { now += ms; if (m.busy()) m.draw($, overlays); };
   const settle = () => { for (let i = 0; i < 60; i++) step(); };
-  return {m, jumps, warmed, posters, loaded, step, settle, flush, $, overlays, writes, releasePosters};
+  return {m, jumps, callbacks, warmed, posters, loaded, step, settle, flush, $, overlays, writes, releasePosters};
 }
 
 // Node may not expose this browser API.
@@ -40,7 +40,7 @@ if (!globalThis.createImageBitmap) globalThis.createImageBitmap = async () => {}
 
 test('neighbors are warmed before the next swipe and decoded posters stay bounded', async t => {
   const r = await reel(t);
-  assert.deepEqual(r.warmed, ['$c1', '$c2']);
+  assert.deepEqual(r.warmed, ['$c1', '$c2', '$c3', '$c4']);
   for (let i = 0; i < 12; i++) {
     r.m.key({name: 'keyboard:down', key: 'PageDown'});
     r.settle(); r.loaded(); await r.flush();
@@ -178,4 +178,48 @@ test('a prepared model animates during the swipe and the same instance survives 
   assert.equal(r.m.objectPiece(source, '$c1'), next, 'activation preserves the animation instance');
   r.loaded();
   assert.equal(r.jumps.at(-1), '$c1');
+});
+
+
+test('rapid swipes advance live cards during loading and cancel obsolete queued jumps', async t => {
+  const source = '(ink 255 90 150) (slab -.2 0 -.1 .2 3 .1)';
+  const r = await reel(t, 8, false, source, true);
+  r.$.painting = (width, height, draw) => {
+    const screen = {width, height, pixels: new Uint8ClampedArray(width * height * 4)};
+    const api = {screen, ink: () => api, write: () => api, box: () => api};
+    draw(api);return screen;
+  };
+  const pen = (name, y) => r.m.pen({name, x: 10, y, isPrimary: true}, () => assert.fail('loading card input reached old piece'));
+  pen('touch',90);pen('draw',25);r.step();pen('lift',25);r.step();
+  // Second finger lands before the first slide has finished settling.
+  pen('touch',90);pen('draw',25);r.step();pen('lift',25);r.settle();
+  assert.deepEqual(r.jumps, ['$c0','$c1','$c2']);
+  assert.equal(r.callbacks[1](), false, 'superseded jump cannot activate its card');
+  assert.equal(r.callbacks[2](), true);
+  r.m.loadStarted();
+  // Third swipe begins while disk is still booting the second target.
+  pen('touch',90);pen('draw',25);r.step();pen('lift',25);r.settle();
+  assert.equal(r.jumps.at(-1),'$c3');
+  assert.equal(r.callbacks[3](),true);
+  r.loaded();
+  assert.equal(r.m.busy(),false);
+});
+
+test('a slow earlier load cannot reveal the wrong model after a faster swipe', async t => {
+  const source = '(ink 255 90 150) (slab -.2 0 -.1 .2 3 .1)';
+  const r = await reel(t, 8, false, source, true);
+  r.$.painting = (width, height, draw) => {
+    const screen = {width, height, pixels: new Uint8ClampedArray(width * height * 4)};
+    const api = {screen, ink: () => api, write: () => api, box: () => api};
+    draw(api);return screen;
+  };
+  r.m.key({name:'keyboard:down',key:'PageDown'});r.settle();
+  assert.equal(r.callbacks[1](),true);
+  r.m.key({name:'keyboard:down',key:'PageDown'});r.settle();
+  r.m.loadStarted(); // Previous module finishes fetching after we've moved on.
+  assert.equal(r.m.hold(true,r.$.screen),true,'old native paint must remain hidden');
+  assert.equal(r.callbacks[2](),true);
+  r.loaded();
+  assert.equal(r.m.busy(),false);
+  assert.equal(r.jumps.at(-1),'$c2');
 });

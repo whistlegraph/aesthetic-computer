@@ -14,7 +14,7 @@
 // move, a lift or a still hold (HOLD ms) hands the held events to the piece in
 // order. So taps, sideways drags and press-and-hold drawing all reach the card.
 
-import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-2";
+import { objectPiece as makeObject, isObjectLisp } from "./object/viewer.mjs?v=live-3";
 import { qrcode as qr, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 const objects = new Map(); // address → prepared module; bounded to nearby cards
@@ -47,7 +47,7 @@ const COMMIT = 0.5; // of the screen: past halfway the trip finishes
 const FLICK = 0.0009; // screens per ms that also finish a trip...
 const FLICK_MIN = 0.06; // ...once it has gone at least this far
 const REVEAL = 180; // ms to blend a preview into its first live frames
-const GLIDE = 70; // ms time constant of a settle
+const GLIDE = 35; // ms time constant of a settle
 const WHEEL_REST = 140; // ms of wheel silence that ends a stream
 const LOAD_TIMEOUT = 10000; // a card that never paints still gets revealed
 const FRAMES_KEPT = 6;
@@ -65,6 +65,9 @@ const seed = Math.floor(Math.random() * 1e9);
 
 let index = -1; // The card on screen; -1 before the first one lands.
 let phase = "idle";
+let arrival = null; // Loading runs independently of a live card's next gesture.
+let trip = 0; // Invalidates jumps queued behind a previous piece load.
+let composed = false; // The displayed live preview already contains its HUD.
 let offset = 0; // px; > 0 shows the next card coming up from below.
 let goal = 0;
 let toward = 0; // A settle's direction: 1 next, -1 previous, 0 back home.
@@ -186,6 +189,8 @@ function go(i, first = false, preview = null) {
   offset = goal = 0;
   toward = 0;
   phase = "waiting"; // Until disk can take the jump (a load may be in flight).
+  arrival = "waiting";
+  const ticket = ++trip;
   loadSince = performance.now();
   current = preview || imageFor(card, current?.w, current?.h) || current;
   neighbors = null;
@@ -193,7 +198,10 @@ function go(i, first = false, preview = null) {
   if (cards.length - i < 4) more();
   at();
   jump(card.address, () => {
-    if (index === i && phase === "waiting") phase = "jumping";
+    if (ticket !== trip) return false;
+    arrival = "jumping";
+    if (phase === "waiting") phase = "jumping";
+    return true;
   });
   needsPaint();
   if (first) firstCard = true;
@@ -201,6 +209,8 @@ function go(i, first = false, preview = null) {
 
 // Disk calls this when a piece load swaps in its module.
 export function loadStarted() {
+  if (arrival !== "jumping") return;
+  arrival = "loading";
   if (phase === "jumping") phase = "loading";
 }
 
@@ -270,19 +280,19 @@ function cover(bitmap, w, h) {
 
 function warm() {
   // Fill disk's source cache without booting extra runtimes.
-  for (const i of [index + 1, index + 2]) {
+  for (const i of [index + 1, index + 2, index + 3, index + 4]) {
     const card = cards[i];
     if (!preload || !card || (warmed.has(card.key) && (objects.has(card.address) || !card.object))) continue;
     warmed.add(card.key);
     Promise.resolve().then(() => preload(card.address)).then(source => {
-      if (isObjectLisp(source) && cards.slice(Math.max(0, index - 1), index + 3).includes(card)) {
+      if (isObjectLisp(source) && cards.slice(Math.max(0, index - 1), index + 5).includes(card)) {
         card.object = true;
         objectPiece(source, card.address);
       }
     }).catch(() => warmed.delete(card.key));
   }
-  const nearby = new Set(cards.slice(Math.max(0, index - 2), index + 4).map(card => card.key));
-  const addresses = new Set(cards.slice(Math.max(0, index - 2), index + 4).map(card => card.address));
+  const nearby = new Set(cards.slice(Math.max(0, index - 2), index + 6).map(card => card.key));
+  const addresses = new Set(cards.slice(Math.max(0, index - 2), index + 6).map(card => card.address));
   for (const address of objects.keys()) if (!addresses.has(address)) objects.delete(address);
   for (const key of hudFrames.keys()) if (!nearby.has(key)) hudFrames.delete(key);
   for (const [key, bitmap] of posters) if (!nearby.has(key)) {
@@ -326,6 +336,8 @@ export function pen(data, dispatch) {
   }
 
   if (name === "touch") {
+    if (phase === "settle" && toward && neighbors?.get(toward)?.live && Math.abs(offset) > lastH * COMMIT)
+      go(index + toward, false, neighbors.get(toward));
     if (phase === "drag" || phase === "settle") {
       // Catch the reel mid-glide.
       gesture = { mode: "reel", y0: data.y + offset, samples: [[now, data.y]] };
@@ -333,8 +345,8 @@ export function pen(data, dispatch) {
       toward = 0;
       return true;
     }
-    if (phase !== "idle") {
-      gesture = { mode: "eat" }; // Loading: the card isn't the piece's yet.
+    if (phase !== "idle" && !canSwipeLive()) {
+      gesture = { mode: "eat" }; // A static preview cannot accept piece input yet.
       return true;
     }
     gesture = { mode: "pending", x0: data.x, y0: data.y, t0: now, held: [data] };
@@ -383,6 +395,10 @@ export function pen(data, dispatch) {
 }
 
 function handOver(dispatch, ended = false) {
+  if (arrival) {
+    gesture = ended ? null : { mode: "eat" };
+    return true; // Never deliver taps to the outgoing piece while loading.
+  }
   const held = gesture.held;
   gesture = ended ? null : { mode: "piece" };
   for (const e of held) dispatch(e);
@@ -398,6 +414,7 @@ function engage(data, now, dispatch) {
     return;
   }
   gesture = { mode: "reel", y0: g.y0, samples: [[g.t0, g.y0], [now, data.y]] };
+  composed = phase !== "idle";
   phase = "drag";
   toward = 0;
   frozen = true;
@@ -446,14 +463,17 @@ export function scroll(content) {
   // One trackpad stream commits one card; momentum must not grab the settle
   // again or spill into the following card after loading completes.
   if (wheelCommitted) return true;
-  if (phase === "waiting" || phase === "jumping" || phase === "loading") return true;
+  if ((phase === "waiting" || phase === "jumping" || phase === "loading") && !canSwipeLive()) return true;
   if (!wheel) {
     if (dy < 0 && index === 0) {
       if (hosted) post({ type: "mime:sheet:wheel", dy: -dy });
       return true;
     }
     wheel = { travel: phase === "settle" ? offset : 0, timer: 0 };
-    if (phase === "idle") frozen = true;
+    if (phase !== "drag" && phase !== "settle") {
+      composed = phase !== "idle";
+      frozen = true;
+    }
     phase = "drag";
     toward = 0;
   }
@@ -483,13 +503,14 @@ export function key(data) {
   if (!open || index < 0 || !data.name?.startsWith("keyboard:down")) return false;
   const k = data.key;
   if (k !== "PageDown" && k !== "PageUp") return false;
-  if (phase !== "idle") return true;
+  if (phase !== "idle" && !canSwipeLive()) return true;
   const dir = k === "PageDown" ? 1 : -1;
   if (dir < 0 && index === 0) {
     if (hosted) post({ type: "mime:sheet:back" });
     return true;
   }
   if (!cards[index + dir]) return true;
+  composed = phase !== "idle";
   frozen = true;
   phase = "settle";
   toward = dir;
@@ -501,6 +522,10 @@ export function key(data) {
 
 // 🎨 Per frame. `hold` says whether the piece's own paint should be skipped
 // and the reel drawn instead; disk calls it before painting.
+function canSwipeLive() {
+  return current?.live || (phase === "reveal" && objects.has(cards[index]?.address));
+}
+
 export function busy() {
   return phase !== "idle" || frozen;
 }
@@ -512,12 +537,16 @@ export function hold(pieceReady, screen) {
   }
   if (gesture?.mode === "pending" && performance.now() - gesture.t0 > HOLD)
     gesture.timedOut = true; // Handed over by `tick` before the next pens.
-  if (phase === "loading" && pieceReady) {
-    reveal(screen);
-    return false;
+  if (arrival === "loading" && pieceReady) {
+    arrival = null;
+    if (phase === "loading") {
+      reveal(screen);
+      return false;
+    }
   }
   if ((phase === "waiting" || phase === "jumping" || phase === "loading") &&
       performance.now() - loadSince > LOAD_TIMEOUT) {
+    arrival = null;
     reveal(screen);
     return false;
   }
@@ -557,11 +586,12 @@ export function draw($, overlays = {}) {
 
   if (frozen) {
     frozen = false;
-    const backing = { w, h, pixels: new Uint8ClampedArray(px) };
+    const backing = composed ? null : { w, h, pixels: new Uint8ClampedArray(px) };
     current = { w, h, pixels: new Uint8ClampedArray(px), backing };
     // BIOS normally paints these after the piece. Freeze them into the same
     // screen before moving it, then suppress the stationary copies below.
-    for (const overlay of Object.values(overlays)) composite(current, overlay);
+    if (!composed) for (const overlay of Object.values(overlays)) composite(current, overlay);
+    composed = false;
     remember(cards[index], { width: w, height: h, pixels: current.pixels });
     neighbors = new Map([-1, 1].map(dir => [dir,
       liveFor($, cards[index + dir], w, h) || imageFor(cards[index + dir], w, h) || blankFor(w, h)]));
@@ -604,9 +634,9 @@ export function draw($, overlays = {}) {
 
   if (phase === "settle" && offset === goal) {
     if (toward === 0) {
-      phase = "idle";
+      phase = arrival || "idle";
       restore = current?.backing || null;
-      current = null;
+      if (!arrival) current = null;
       neighbors = null;
       needsPaint();
     } else {
@@ -676,7 +706,8 @@ function liveFor($, card, w, h) {
       const frame = { w, h, pixels: api.screen.pixels };
       for (const overlay of saved.layers) composite(frame, overlay);
     } else {
-      api.ink(230, 232, 240).write(card.address, { x: 6, y: 10 }, undefined, undefined, false, "font_1");
+      // The active corner label uses the default font_1, already loaded by disk.
+      api.ink(230, 232, 240).write(card.address, { x: 6, y: 10 }, undefined, undefined, false);
       const cells = entry.qr ||= qr("https://prompt.ac/" + card.address, { errorCorrectLevel: ErrorCorrectLevel.M }).modules;
       const x0 = w - cells.length - 5, y0 = h - cells.length - 6;
       for (let y = 0; y < cells.length; y++) for (let x = 0; x < cells.length; x++)
