@@ -1189,6 +1189,19 @@ let paintPictureOverlay = false;
 
 let waveBtn, octBtn;
 let modeBarHudHidden = false;
+const learningKeyGlyphs = new Map();
+function paintLearningKey(api, label, color) {
+  const key=label.text+":"+color.join(",");
+  let glyph=learningKeyGlyphs.get(key);
+  if(!glyph) {
+    glyph=api.painting(label.text.length*6,8,p=>{
+      p.wipe(0,0,0,0);
+      p.ink(...color).write(label.text,{x:0,y:0},undefined,undefined,false,"MatrixChunky8");
+    });
+    learningKeyGlyphs.set(key,glyph);
+  }
+  api.paste(glyph,label.x,label.y,label.size);
+}
 let padsViewport = "", modeBarPage = "main", modeBarKey = "", modeBarButtons = [], modeBarLayout;
 function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
 function updateModeBar(api) {
@@ -5346,8 +5359,7 @@ function paint({
           if (classicControls()) {
             const labels=learningPadLabels(btn.box, noteToKeyboardKey(note), note);
             const labelColor=getContrastingTextColor(color);
-            if(labels.primary) ink(...labelColor).write(labels.primary.text,
-              {x:labels.primary.x,y:labels.primary.y,size:labels.primary.size},undefined,undefined,false,"MatrixChunky8");
+            if(labels.primary) paintLearningKey(api,labels.primary,labelColor);
             if(labels.secondary) ink(...labelColor,190).write(labels.secondary.text,
               {x:labels.secondary.x,y:labels.secondary.y},undefined,undefined,false,"MatrixChunky8");
             return;
