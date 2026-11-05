@@ -63,3 +63,23 @@ keyboard scan/debounce, OS delivery before the handler, and acoustic travel.
 
 Timing reference: [Web Audio output timestamps](https://www.w3.org/TR/webaudio-1.1/#dom-audiocontext-getoutputtimestamp)
 and [Apple output presentation latency](https://developer.apple.com/documentation/avfaudio/avaudionode/outputpresentationlatency).
+
+## Measured 2026-11-05
+
+Chrome 156 on macOS, sine, 48 kHz AudioContext, warm audio, visible 700×760
+window. Each cell summarizes 40 generated notes; all 160 notes produced onset
+reports. Quiet runs used `d8865a0be5`; load runs used `fc43be78fe` with the
+same audio path. These are one-machine observations, not universal budgets.
+
+| Mode | Input → bridge median / p95 | Input → estimated output median / p95 |
+| --- | --- | --- |
+| Frame-batched | 14.7 / 22.8 ms | 41.8 / 49.3 ms |
+| Immediate | 0.3 / 4.5 ms | 27.5 / 33.7 ms |
+| Frame-batched, 12 ms main-thread stall | 17.1 / 22.8 ms | 44.0 / 52.6 ms |
+| Immediate, 12 ms main-thread stall | 12.2 / 13.8 ms | 38.9 / 42.1 ms |
+
+The controlled stall still delays the main-thread audio bridge. Removing the
+frame waits does not remove browser scheduling or device buffering. The browser
+reported 24 ms output latency. Menu Band's earlier startup log on this host
+reported 256 frames at 44.1 kHz (5.80 ms) and 1.45 ms presentation time; the
+sample rates differ and this is not a matched keypress comparison.

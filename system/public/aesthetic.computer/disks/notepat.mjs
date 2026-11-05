@@ -1219,7 +1219,20 @@ function actModeBar(e, api) {
     else if (c.id === "back") modeBarPage = "main";
     else if (c.id === "sound") host({ op: "open" });
     else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
-    else if (c.id === "slide") { slide = !slide; if (slide) cleanupOrphanedSounds(api.pens, true); }
+    else if (c.id === "slide") {
+      slide = !slide;
+      if (slide && Object.keys(tonestack).length > 1) {
+        orderedByCount(tonestack).forEach((tone, index) => {
+          if (index > 0) {
+            sounds[tone]?.sound.kill(quickFade ? fastFade : fade);
+            trail[tone] = 1;
+            delete tonestack[tone]; delete sounds[tone];
+            if (buttons[tone]) buttons[tone].down = false;
+          }
+        });
+      }
+      cleanupOrphanedSounds(api.pens, true);
+    }
     else if (c.id === "room") { roomMode = !roomMode; api.sound.room.toggle(); }
     else if (c.id === "glitch") { glitchMode = !glitchMode; api.sound.glitch?.toggle?.(); }
     else if (c.id === "quick") quickFade = !quickFade;
