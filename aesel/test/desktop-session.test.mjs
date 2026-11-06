@@ -92,5 +92,17 @@ test('a paused network recovery survives reload with its prompt and queue',async
   await writeDesktopSession(file,snapshot);
   const restored=await readDesktopSession(file,root);
   assert.deepEqual(restored.recovery,snapshot.recovery);assert.deepEqual(restored.ui.queued,snapshot.ui.queued);
+  snapshot.recovery.about=null;
+  await writeDesktopSession(file,snapshot);
+  assert.deepEqual((await readDesktopSession(file,root)).recovery,snapshot.recovery);
+  const about={path:join(root,'dots.mjs'),name:'dots.mjs',glyph:'●',mime:'text/javascript'};
+  snapshot.recovery.about=about;
+  await writeDesktopSession(file,snapshot);
+  assert.deepEqual((await readDesktopSession(file,root)).recovery,snapshot.recovery);
+  for(const invalid of ['dots',[],{unexpected:true},{...about,token:'must not persist'},{...about,mime:42}]){
+    snapshot.recovery.about=invalid;
+    await assert.rejects(writeDesktopSession(file,snapshot),/recovery request/);
+  }
+  snapshot.recovery.about=about;
   snapshot.recovery.token='must not persist';await assert.rejects(writeDesktopSession(file,snapshot),/recovery request/);
 });

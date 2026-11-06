@@ -31,7 +31,10 @@ export function validateDesktopSession(snapshot, cwd) {
   const recovery = snapshot.recovery;
   if (recovery != null && (typeof recovery.text !== "string" || typeof recovery.from !== "string" ||
       typeof recovery.accepted !== "boolean" || typeof recovery.submitted !== "boolean" ||
-      Object.keys(recovery).some(key => !["text", "from", "accepted", "submitted"].includes(key)))) throw new Error("Invalid saved recovery request.");
+      (recovery.about != null && (typeof recovery.about !== "object" || Array.isArray(recovery.about) ||
+        typeof recovery.about.path !== "string" || typeof recovery.about.name !== "string" ||
+        Object.entries(recovery.about).some(([key,value]) => !["path", "name", "glyph", "mime"].includes(key) || typeof value !== "string"))) ||
+      Object.keys(recovery).some(key => !["text", "from", "accepted", "submitted", "about"].includes(key)))) throw new Error("Invalid saved recovery request.");
   return snapshot;
 }
 export async function readDesktopSession(file, cwd) {

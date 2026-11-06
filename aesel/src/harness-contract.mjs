@@ -2,9 +2,9 @@
 import {harnessText} from './harness-text.mjs';
 export const SETTINGS_TOOL={
  name:'aesel_settings',
- description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, or reify Aesel after editing its code. Reify reloads the TUI in place with its conversation, draft, queue and settings preserved. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',
+ description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, reify Aesel after editing its code, or retry an interrupted request. Reify reloads the TUI in place with its conversation, draft, queue and settings preserved. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Retry resumes connection recovery and refuses while a normal turn is running. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',
  inputSchema:{type:'object',properties:{
-  action:{type:'string',enum:['read','open','update','reify']},
+  action:{type:'string',enum:['read','open','update','reify','retry']},
   provider:{type:'string',enum:['ac','claude','codex','open','relay']},
   model:{type:'string',maxLength:160},
   effort:{type:'string',enum:['','none','minimal','low','medium','high','xhigh','max','ultra']},
@@ -17,7 +17,7 @@ export const PIECE_INSTRUCTIONS=harnessText('piece-instructions');
 export function validateSettingsRequest(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Expected a settings request');
  const keys=['action','provider','model','effort','autopublish'];
- if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update','reify'].includes(value.action))throw Error('Unsupported settings action');
+ if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update','reify','retry'].includes(value.action))throw Error('Unsupported settings action');
  if(value.action!=='update'&&Object.keys(value).length!==1)throw Error('Only update accepts setting values');
  if(value.action==='update'&&Object.keys(value).length===1)throw Error('Choose a setting to update');
  if(value.provider!==undefined&&!['ac','claude','codex','open','relay'].includes(value.provider))throw Error('Unknown provider');

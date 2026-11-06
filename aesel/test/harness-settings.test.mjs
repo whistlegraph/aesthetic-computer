@@ -66,3 +66,13 @@ test('reification uses the session control and reports queued before reloading',
  await assert.rejects(callSettings({action:'reify',model:'anything'}, {socket:bridge.socket}), /Only update/);
  await assert.rejects(fixture().controller.call({action:'reify'}), /unavailable/);
 });
+
+test('connection retry uses the private session control and preserves settings',async t=>{
+ let retries=0;
+ const controller=createSettingsController({read:()=>({model:'flash',busy:false}),retry:()=>{retries++;return 'queued';}});
+ const bridge=await serveSettings(args=>controller.call(args));t.after(()=>bridge.close());
+ const reply=await callSettings({action:'retry'},{socket:bridge.socket});
+ assert.equal(reply.status,'queued');assert.equal(reply.model,'flash');assert.equal(retries,1);
+ await assert.rejects(callSettings({action:'retry',model:'anything'},{socket:bridge.socket}),/Only update/);
+ await assert.rejects(fixture().controller.call({action:'retry'}),/unavailable/);
+});

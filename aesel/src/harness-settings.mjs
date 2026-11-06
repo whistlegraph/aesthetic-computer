@@ -8,7 +8,7 @@ import {validateSettingsRequest} from './harness-contract.mjs';
 export * from './harness-contract.mjs';
 export {callSettings} from './harness-client.mjs';
 
-export function createSettingsController({read,normalize,open,apply,isBusy,reify}){
+export function createSettingsController({read,normalize,open,apply,isBusy,reify,retry}){
  let pending=null,chain=Promise.resolve();
  const serial=work=>{const operation=chain.then(work);chain=operation.catch(()=>{});return operation;};
  const context=()=>({...read(),pending});
@@ -17,6 +17,10 @@ export function createSettingsController({read,normalize,open,apply,isBusy,reify
   call(args){return serial(async()=>{
    validateSettingsRequest(args);
    if(args.action==='read')return {status:'current',...context()};
+   if(args.action==='retry'){
+    if(!retry)throw Error('Connection retry is unavailable in this Aesel host');
+    return {status:await retry(),...context()};
+   }
    if(args.action==='reify'){
     if(!reify)throw Error('Reification is unavailable in this Aesel host');
     return {status:await reify(),...context()};

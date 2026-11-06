@@ -802,7 +802,7 @@ const harnessSettings=createSettingsController({
  read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
   medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
   providers:['ac','claude','codex','open'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
-  reifyPending, supported:['provider','model','effort','autopublish','reify']}),
+  reifyPending, supported:['provider','model','effort','autopublish','reify','retry']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
   if(patch.provider)backendFor(patch.provider);
@@ -813,6 +813,7 @@ const harnessSettings=createSettingsController({
  },
  isBusy:()=>state.busy,
  reify:()=>requestReify(),
+ retry:()=>requestRecoveryRetry(),
  open:()=>{
   if(process.env.AESEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
   if(state.busy){harnessPanelPending=true;return 'queued';}
@@ -1463,6 +1464,14 @@ function cancelRecovery(){
   if(turnRecovery.active&&state.busy){engine.close();recoveryNeedsReconnect=true;}
   turnRecovery.reset();recoveryPaused=true;state.recoveryNotice='Recovery stopped · /retry';
   state.busy=false;state.status='ready';slabSession.interrupted();saveDesktopIdle();redraw();
+}
+function requestRecoveryRetry(){
+  if(state.busy&&!turnRecovery.providerWaiting)throw Error('Wait for the current turn, or stop it before retrying.');
+  if(turnRecovery.active)return 'queued';
+  if(!recoveryRequest)throw Error('There is no interrupted request to retry.');
+  const reconnect=turnRecovery.providerWaiting||recoveryNeedsReconnect||engine.closed;
+  turnRecovery.reset();recoveryPaused=false;
+  recoverEngine(new Error('Connection lost'),{reconnect});return 'queued';
 }
 
 let reconnectTimer=null,reconnectDelay=3000,hostOffline=false;
@@ -2591,10 +2600,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     const [command, ...restWords] = text.split(/\s+/);
     const rest = restWords.join(" ");
     if(command==='/retry'){
-      if(state.busy&&!turnRecovery.providerWaiting){flash('Wait for the current turn, or Ctrl-C to stop it');return redraw();}
-      const reconnect=turnRecovery.providerWaiting||recoveryNeedsReconnect||engine.closed;
-      turnRecovery.reset();recoveryPaused=false;
-      recoverEngine(new Error('Connection lost'),{reconnect});return;
+      try{requestRecoveryRetry();}catch(error){flash(error.message);redraw();}return;
     }
     if (command === "/quit" || command === "/exit") return finish();
     if (command === "/close") return closeOut();
