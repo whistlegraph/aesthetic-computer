@@ -14,6 +14,7 @@ test("botFamily names known bots, our own render flags, and generic -bot words",
   assert.equal(botFamily(GOOGLE), "Googlebot");
   assert.equal(botFamily(HEADLESS), "Headless Chrome");
   assert.equal(botFamily(CHROME, "?social-preview=1"), "own: social-preview");
+  assert.equal(botFamily(HEADLESS, "?density=4&tv=true&nolabel=true&nogap=true&spoofaudio=true&noboot=true"), "own: oven grabber");
   assert.equal(botFamily("Mozilla/5.0 (compatible; GPTBot/1.2)"), "GPTBot");
   assert.equal(botFamily("SomethingNewBot/0.1 (+https://example.org)"), "SomethingNewBot");
   assert.equal(botFamily(""), "empty user agent");

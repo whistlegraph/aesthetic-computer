@@ -68,6 +68,9 @@ export function botFamily(userAgent = "", search = "") {
   const params = new URLSearchParams(search || "");
   const own = OWN_MARKERS.find(key => params.has(key));
   if (own) return `own: ${own}`;
+  // The oven's grabber renders pieces and docs pages for thumbnails and
+  // previews with these flags (oven/grabber.mjs); it carries no fleet marker.
+  if (params.get("spoofaudio") === "true" && params.get("tv") === "true") return "own: oven grabber";
   const ua = String(userAgent || "");
   for (const [name, pattern] of FAMILIES) if (pattern.test(ua)) return name;
   const generic = ua.match(/([A-Za-z0-9_.-]*(?:bot|crawler|spider|webindexer)[A-Za-z0-9_.-]*)/i);
