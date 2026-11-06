@@ -706,12 +706,22 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
         scheduleBackdropRebuild(reason: "appearance flipped")
     }
 
+    /// Two passes: the 2.5 s one catches the usual flip, the late one catches
+    /// a flip that keeps settling (neo 2026-11-05 sat in Dark under a light
+    /// band after the 2.5 s rebuild had already run; a restart cleared it).
     private func scheduleBackdropRebuild(reason: String) {
         backdropRebuild?.cancel()
         let work = DispatchWorkItem { [weak self] in
             print("\(reason) — rebuilding windows so the menu bar backdrop re-derives")
             fflush(stdout)
             self?.rebuildWindows()
+            let late = DispatchWorkItem { [weak self] in
+                print("\(reason) — late rebuild")
+                fflush(stdout)
+                self?.rebuildWindows()
+            }
+            self?.backdropRebuild = late
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: late)
         }
         backdropRebuild = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
