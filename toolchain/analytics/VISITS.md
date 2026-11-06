@@ -696,3 +696,23 @@ historical trusted activations retain `notepat_menuband_clicked`, `notepat_os_cl
 The static `notepat-footer` tag carries no visit ID; destination campaign
 coverage must be implemented separately before reporting a joined pathway.
 MIDI device names, IDs, messages and musical content stay out of visit analytics.
+
+## Who the traffic is: humans, bots, walls, handles
+
+The visit tracker records only an `automated` flag, so it can count bot
+visits but never name them. `toolchain/analytics/boot-audience.mjs` reads
+lith's boot telemetry instead (`boots`: user agent, query flags, Cloudflare
+country, signed-in handle) and folds each page load into one of three
+audiences — **humans** (browser, country, language, signed-in vs anonymous,
+pieces, referrer sites), **automated** (bot family such as Googlebot, GPTBot,
+Headless Chrome or one of our own render flags, with one example user agent
+per family) and **walls** (embedded iframes, the kidlisp.com gallery screens).
+`handle_usage` folds the same boots per public handle and joins server-verified
+account-activity events. Both ship inside `network_report` and as the
+`network_audience` / `handle_usage` MCP tools (`journey-report.mjs audience |
+handles` over ssh).
+
+A boot exists only when boot.mjs ran. Bots that never execute JavaScript
+(curl, python, most scrapers) never boot and are invisible here; Cloudflare's
+request totals see those. Do not sum the tracker's automated count with the
+boot audience: they are different instruments.

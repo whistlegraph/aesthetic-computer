@@ -6,10 +6,11 @@ import { visitScopeMatch, visitReferrer, visitProperty, visitSurface, automatedV
 import { laklokFeatureReport } from "./laklok-feature-report.mjs";
 import { mimeJourneyReport } from "./mime-journey-report.mjs";
 import { foldPieceLandings } from "./piece-landings.mjs";
+import { foldBootAudience, foldHandleUsage } from "./boot-audience.mjs";
 
 const mode = process.argv[2];
 const { hours = 24, limit = mode === "features" ? 30 : 100, handle, scope = "studio", property } = JSON.parse(process.argv[3] || "{}");
-if (!["accounts", "referrers", "features", "pieces", "mime"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
+if (!["accounts", "referrers", "features", "pieces", "mime", "audience", "handles"].includes(mode) || !Number.isFinite(hours) || hours <= 0 || hours > 840 ||
     !Number.isInteger(limit) || limit < 1 || limit > (mode === "features" ? 50 : 500) ||
     (handle !== undefined && !/^@?[a-z0-9_-]{1,64}$/i.test(handle))) throw new Error("Invalid report options");
 const scoped = visitScopeMatch(scope), end = new Date(), start = new Date(+end - hours * 3600000);
@@ -22,6 +23,53 @@ const { db } = await connect();
 try {
   if (mode === "mime") {
     console.log(JSON.stringify(await mimeJourneyReport(db, { start, end, scoped, handle, limit })));
+  } else if (mode === "audience" || mode === "handles") {
+    // Boots carry the user agent, query flags, Cloudflare country and handle
+    // that the visit tracker deliberately drops, so the nature of the traffic
+    // (which bots, which browsers, which countries, which accounts) reads here.
+    const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
+      projection: { _id: 0, status: 1, createdAt: 1, "server.country": 1, "meta.host": 1, "meta.path": 1, "meta.search": 1, "meta.referrer": 1,
+        "meta.userAgent": 1, "meta.browser": 1, "meta.mobile": 1, "meta.language": 1, "meta.timezone": 1, "meta.embedded": 1,
+        "meta.packMode": 1, "meta.localDev": 1, "meta.user.handle": 1 }, maxTimeMS: 15000,
+    }).sort({ createdAt: -1 }).limit(50001).toArray();
+    const properties = scoped.property.$in;
+    if (mode === "audience") {
+      console.log(JSON.stringify({ start, end, scope,
+        unit: "page loads (boots), split into humans, automated and walls (embedded iframes such as the kidlisp.com gallery screens). A boot exists only when boot.mjs ran, so bots that never execute JavaScript (curl, python, most scrapers) are invisible here; Cloudflare sees those. The visit tracker's automated count is a different instrument and must not be summed with this one. Country is Cloudflare's; (unknown) means the header was absent. Signed-in is not proof of a human.",
+        ...foldBootAudience(boots.slice(0, 50000), { properties, limit: Math.min(limit, 25) }),
+        bootsTruncated: boots.length > 50000,
+      }));
+    } else {
+      // Server-verified account activity (piece opens, action milestones) is a
+      // second instrument for the same handles; it starts at its own rollout.
+      const activity = await db.collection("account-activity").aggregate([
+        { $match: { at: { $gte: start, $lt: end }, ...scoped } },
+        { $group: { _id: { tenant: "$tenant", user: "$user" }, events: { $sum: 1 },
+          sessions: { $addToSet: "$session" }, pieces: { $addToSet: "$piece" }, actions: { $addToSet: "$action" }, lastAt: { $max: "$at" } } },
+        { $sort: { events: -1 } }, { $limit: 500 },
+      ], { maxTimeMS: 10000 }).toArray();
+      const key = row => row._id.tenant === "sotce" ? `sotce-${row._id.user}` : row._id.user;
+      const names = new Map((await db.collection("@handles").find({ _id: { $in: activity.map(key) } }, { projection: { handle: 1 } }).toArray())
+        .map(row => [String(row._id), row.handle]));
+      const folded = foldHandleUsage(boots.slice(0, 50000), { properties, limit });
+      const byHandle = new Map(folded.rows.map(row => [row.handle, row]));
+      let unnamed = 0;
+      for (const row of activity) {
+        const handle = names.get(key(row));
+        if (!handle) { unnamed++; continue; }
+        const name = `@${handle}`;
+        const target = byHandle.get(name) || (byHandle.size < limit ? { handle: name, boots: 0, completed: 0, mobile: 0, properties: [], pieces: [], browsers: [], firstSeen: null, lastSeen: null } : null);
+        if (!target) continue;
+        target.activity = { events: row.events, sessions: row.sessions.length, pieces: row.pieces.filter(Boolean).slice(0, 12), actions: row.actions.filter(Boolean).slice(0, 12), lastAt: row.lastAt };
+        byHandle.set(name, target);
+      }
+      const rows = [...byHandle.values()].sort((a, b) => (b.boots + (b.activity?.events || 0)) - (a.boots + (a.activity?.events || 0)));
+      console.log(JSON.stringify({ start, end, scope,
+        unit: "signed-in usage per public handle. boots = page loads carrying that handle (a tab kept open all day is one boot); activity = server-verified account-activity events (piece opens and action milestones) from that rollout onward. Bots, walls and local dev are excluded. Login is not proof of a human; absence here is not proof of absence.",
+        handles: folded.handles, anonymousBoots: folded.anonymousBoots, activityAccounts: activity.length, activityWithoutHandle: unnamed,
+        truncated: folded.truncated || activity.length >= 500, rows, bootsTruncated: boots.length > 50000,
+      }));
+    }
   } else if (mode === "pieces") {
     const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
       projection: { _id: 0, status: 1, "meta.host": 1, "meta.path": 1, "meta.referrer": 1, "meta.userAgent": 1, "meta.embedded": 1,

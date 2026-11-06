@@ -167,10 +167,12 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
   // Apple's numbers lag a day and arrive sparse, so the app parts read at
   // least a week regardless of the visit window.
   const appDays = Math.min(Math.max(days, 7), 35);
-  const [visits, referrers, pieces, braincells, nopaint, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
+  const [visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
     part(visitsReport({ hours, scope })),
     part(journeyReport("referrers", { hours, scope, limit: 25 })),
     part(journeyReport("pieces", { hours, scope, limit: 25 })),
+    part(journeyReport("audience", { hours, scope, limit: 12 })),
+    part(journeyReport("handles", { hours, scope, limit: 25 })),
     part(braincellsReport({ hours, limit: 15 })),
     part(nopaintReport({ hours }).then(nopaintSummary)),
     part(tezosRevenue({ hours: checkedHours(hours) })),
@@ -181,7 +183,7 @@ async function networkReport({ hours = 24, scope = "all" } = {}) {
     part(iosUsage({ days: appDays })),
     part(appReview()),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
+  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
     apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
 }
 
@@ -384,9 +386,13 @@ const TOOLS = [
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
     } },
   },
-  ...["account_activity", "network_referrers", "feature_usage", "piece_landings", "mime_journeys"].map(name => ({
+  ...["account_activity", "network_referrers", "feature_usage", "piece_landings", "mime_journeys", "network_audience", "handle_usage"].map(name => ({
     name,
-    description: name === "mime_journeys"
+    description: name === "network_audience"
+      ? "Who is loading the network, from lith's boot telemetry: humans (browser, country, language, signed-in vs anonymous, pieces, referrer sites), automated (bot family such as Googlebot, GPTBot, Headless Chrome or our own render flags, with one example user agent per family, plus country, pieces and referrers) and walls (embedded iframes like the kidlisp.com gallery screens). Only bots that ran JavaScript appear; the visit tracker's automated count is a separate instrument. Use when asked where bots come from or what they are."
+      : name === "handle_usage"
+      ? "Signed-in usage per public handle: page loads (boots) carrying each handle with completed loads, pieces landed on, properties, browsers, first and last seen, plus server-verified account-activity events, sessions, pieces and actions. Bots, walls and local dev excluded. Login is not proof of a human. Private SSH-backed read."
+      : name === "mime_journeys"
       ? "Compare signed-in AC accounts opening MIME from the prompt (swipe vs wheel/key/history), direct MIME visits, and Laer Klokken opens/minutes. Includes overlap, public handles and per-content foreground time. Private SSH report; MIME coverage starts at its tracking rollout, no anonymous-history joins. Optional handle filter."
       : name === "piece_landings"
       ? "Which pieces people land on, anonymous visitors included: page loads per property and piece from lith's boot telemetry, split anonymous / signed-in, completed loads and top referrer sites per piece. Parameters are stripped; private paths are excluded. Counts landings, not in-tab moves between pieces. Optional property filter."
@@ -401,12 +407,12 @@ const TOOLS = [
       limit: { type: "integer", minimum: 1, maximum: name === "feature_usage" ? 50 : 500, description: name === "feature_usage" ? "Maximum accounts; default 30" : "Maximum rows; default 100" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Default studio" },
       property: { type: "string", description: "Optional reviewed site, e.g. sotce.net; must belong to selected scope" },
-      ...(!["network_referrers", "piece_landings"].includes(name) ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
+      ...(!["network_referrers", "piece_landings", "network_audience", "handle_usage"].includes(name) ? { handle: { type: "string", description: "Optional public handle, with or without @" } } : {}),
     } },
   })),
   {
     name: "network_report",
-    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), No Paint (classic game saves per UTC day, teacher notes, the notepaint/AC sticker split and notepaint funnel), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
+    description: "The Aesthetic network report in one call: first-party visits per site (including shop.aesthetic.computer and notepaint.art), referral sites, landing pieces (anonymous and signed-in), the audience split (humans by browser, country and language vs automated by bot family, country and piece, vs embedded walls), signed-in usage per handle (boots, pieces and account-activity events), the Braincell economy (circulation and dollar value, spend by model, handle and product, purchases, OpenRouter balance and usage), No Paint (classic game saves per UTC day, teacher notes, the notepaint/AC sticker split and notepaint funnel), Tezos revenue (objkt sales, royalties, Keeps fees, buyers), social accounts (Instagram reels with insights, Bluesky, X), Google search (clicks, impressions and top queries per domain), Google Analytics sessions by source, and the apps (App Store review queue, App Store downloads per app, AC iOS active installs). Use this whenever asked about Aesthetic network traffic. Parts that fail report themselves as unavailable.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
@@ -554,6 +560,8 @@ async function callTool(name, args = {}) {
     : name === "feature_usage" ? await journeyReport("features", args)
     : name === "network_referrers" ? await journeyReport("referrers", args)
     : name === "piece_landings" ? await journeyReport("pieces", args)
+    : name === "network_audience" ? await journeyReport("audience", args)
+    : name === "handle_usage" ? await journeyReport("handles", args)
     : name === "human_fishery" ? await humanFishery(args)
     : name === "network_recognition" ? await networkRecognition(args)
     : name === "direct_downloads" ? await directDownloads(args)
