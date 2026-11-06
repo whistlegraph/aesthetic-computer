@@ -114,11 +114,17 @@ enum TerminalReadability {
             .replacingOccurrences(of: "\"", with: "\\\"")
         return """
         if not (exists settings set "\(profileName)") then
-          set _slabBeforeImport to id of every window
+          set _slabBeforeImport to {}
+          repeat with _slabExistingWindow in windows
+            try
+              set end of _slabBeforeImport to id of _slabExistingWindow
+            end try
+          end repeat
           open POSIX file "\(path)"
           repeat 50 times
             set _slabImportClosed to false
             repeat with _slabImportWindow in windows
+              try
               if id of _slabImportWindow is not in _slabBeforeImport then
                 if (count tabs of _slabImportWindow) is 1 then
                   set _slabImportTab to tab 1 of _slabImportWindow
@@ -128,6 +134,7 @@ enum TerminalReadability {
                   end if
                 end if
               end if
+              end try
             end repeat
             if _slabImportClosed then exit repeat
             delay 0.1

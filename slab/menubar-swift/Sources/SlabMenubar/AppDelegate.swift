@@ -2762,8 +2762,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             "    set _slabDecorIds to {}",
             "    set _slabDecorBounds to {}",
             "    repeat with _slabDecorWindow in windows",
-            "      set end of _slabDecorIds to id of _slabDecorWindow",
-            "      set end of _slabDecorBounds to bounds of _slabDecorWindow",
+            // Terminal can retain invalid window references after a tab closes.
+            // Resolve both values before appending so the lists stay aligned.
+            "      try",
+            "        set _slabDecorId to id of _slabDecorWindow",
+            "        set _slabDecorBound to bounds of _slabDecorWindow",
+            "        set end of _slabDecorIds to _slabDecorId",
+            "        set end of _slabDecorBounds to _slabDecorBound",
+            "      end try",
             "    end repeat",
             TerminalReadability.bootstrapScript(profileURL: readableURL),
             "    set clean commands of slabSS to \(Self.terminalCleanCommands)",
@@ -2776,6 +2782,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tm.append("    set font size of slabSS to " + (decorFont.map(String.init) ?? "font size of default settings"))
         tm.append(contentsOf: [
             "    repeat with w in windows",
+            "      try",
             "      repeat with t in tabs of w",
             "        try",
             "          set ttyName to tty of t",
@@ -2819,6 +2826,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tm.append(contentsOf: [
             "        end try",
             "      end repeat",
+            "      end try",
             "    end repeat",
             // Terminal reapplies a settings set's character-cell dimensions
             // after `current settings` changes. Restore captured PIXEL bounds
