@@ -1,6 +1,13 @@
 import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "./prompt-layout.mjs";
 import { createPreviewEvidence } from "./preview-evidence.mjs";
 import { createPlaybackClock } from "./playback-clock.mjs";
+import { createConnectionModal } from "./connection-modal.mjs";
+const connectionModal = createConnectionModal();
+function actConnection($) {
+  const handled = connectionModal.act($);
+  if (handled && !connectionModal.visible) $.send({ type: "connection:modal", content: { visible: false } });
+  return handled;
+}
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -11745,6 +11752,20 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  if (type === "connection:status") {
+    connectionModal.update(content.status);
+    send({ type: "connection:modal", content: { visible: connectionModal.visible } });
+    $commonApi.needsPaint();
+    return;
+  }
+
+  if (type === "connection:key") {
+    actConnection({ ...(cachedAPI || $commonApi), event: {
+      is: name => name === `keyboard:down:${content.key}`,
+    } });
+    return;
+  }
+
   if (type === "gpu-config") {
     graph.setGpuConfig(content);
     return;
@@ -12637,6 +12658,10 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
 
+    // Remove only our previous overlay before a piece reads its pixel buffer.
+    const connectionRestored = connectionModal.restore(screen, $commonApi.slug);
+    if (connectionRestored) noPaint = false;
+
     function getHudEditScrubThreshold() {
       const promptLength = Math.max(
         1,
@@ -12712,6 +12737,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
+      if (connectionModal.visible) return;
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
 
       // 📼 [Ctrl+R+R] Quick tape - start recording without leaving the piece
@@ -13973,6 +13999,7 @@ async function makeFrame({ data: { type, content } }) {
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
+        if (actConnection($api)) return;
         try {
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send, sound, system, piece } = $api;
@@ -14277,7 +14304,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          if (!TV_MODE) act($api); // Skip 3D pen events in TV mode
+          if (!connectionModal.visible && !TV_MODE) act($api); // Skip 3D pen events in TV mode
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -14315,6 +14342,7 @@ async function makeFrame({ data: { type, content } }) {
         $api.event = data;
         if (reel?.key(data)) return; // 🎞️ Page Up / Page Down step the reel.
         try {
+          if (actConnection($api)) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14329,6 +14357,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
+          if (connectionModal.visible) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -15092,6 +15121,17 @@ async function makeFrame({ data: { type, content } }) {
               golTransition.dripDirections = null;
             }
           }
+        }
+
+        if (connectionModal.visible) {
+          connectionModal.capture(screen, $commonApi.slug);
+          layer(1001);
+          connectionModal.paint($api);
+          painting.paint(true);
+        }
+        if (connectionModal.visible || connectionRestored) {
+          noPaint = false;
+          dirtyBox = undefined;
         }
 
         painted = true;

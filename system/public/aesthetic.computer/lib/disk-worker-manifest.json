@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.03df5c3b0c22.mjs",
-  "sha256": "03df5c3b0c22a6977854982b6cb0e525c1f17ad7c52a47df94d56f6f7fc26d5e",
-  "bytes": 1826255,
-  "sourceSha256": "39ba22b2551053406bd11ee7aad6fcab51ab177a5103292bcef18c8b8511a3eb",
+  "filename": "disk.worker.819273d6e03a.mjs",
+  "sha256": "819273d6e03af2a9e2f0376cd51485205b7b40507b0337a492686632c937bc44",
+  "bytes": 1831131,
+  "sourceSha256": "cf04f8a3d2e45878f27cee11f5c94c3a5b0d02899c1f5b75a75e47fb95861693",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -23,6 +23,7 @@
     "public/aesthetic.computer/lib/chat.mjs",
     "public/aesthetic.computer/lib/color-codes.mjs",
     "public/aesthetic.computer/lib/color-highlighting.mjs",
+    "public/aesthetic.computer/lib/connection-modal.mjs",
     "public/aesthetic.computer/lib/diagnostics.mjs",
     "public/aesthetic.computer/lib/disk.mjs",
     "public/aesthetic.computer/lib/fade-state.mjs",
@@ -46,6 +47,7 @@
     "public/aesthetic.computer/lib/melody-parser.mjs",
     "public/aesthetic.computer/lib/note-colors.mjs",
     "public/aesthetic.computer/lib/num.mjs",
+    "public/aesthetic.computer/lib/onboarding-ui.mjs",
     "public/aesthetic.computer/lib/p5-worker.mjs",
     "public/aesthetic.computer/lib/pack-mode.mjs",
     "public/aesthetic.computer/lib/pads.mjs",

@@ -1,4 +1,5 @@
 import { createWindowColorReporter } from "./lib/native-window-color.mjs";
+import { watchConnection } from "./lib/connection-status.mjs";
 import { installIOSPushBridge } from "./lib/ios-push.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
 import { visitMediaAction } from "./lib/visit-model.mjs";
@@ -851,6 +852,8 @@ if (!window.acDISK_SEND) {
     !_diskQ.consumed ? _diskQ.sends.push(message) : window.acSEND(message);
   };
 }
+
+const connectionStatus = watchConnection(window, message => window.acDISK_SEND(message));
 
 // 🔊 Master volume control (for desktop app sliders, etc.)
 // NOTE: These must be at module scope so window.AC.setMasterVolume works before boot()
@@ -20048,6 +20051,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "aesel-preview") {
       window.dispatchEvent(new CustomEvent("aesel-preview", {detail: content}));
       consumeDiskSends(send);
+      return;
+    }
+    if (type === "connection:modal") {
+      connectionStatus.setModal(content.visible);
+      return;
+    }
+    if (type === "connection:retry") {
+      connectionStatus.retry();
       return;
     }
     if (type === "mime:reel") {
