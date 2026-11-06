@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "paper": "Time to Answer",
+  "pdf": "time-to-answer.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 0,
+  "visualInference": true,
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Inspected both full pages and contact sheet. Visible Aesthetic.Computer on page 2 has its canonical pink period."
+  },
+  "figures": [],
+  "diagrams": [],
+  "pdfSha256": "dda9ba808b6fbfcc4060ea85366dcfe14d49786d2aeffc6ee8563c9450383055",
+  "reviewedAt": "2026-11-05T19:27:39.694982+00:00",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "layout": {
+    "design": "pass",
+    "pages": 2,
+    "notes": "Two-page researched letter, no visible title or byline. Both full-page renders inspected: clear body, linked sources, no clipping or collisions; source attachment retained."
+  }
+}

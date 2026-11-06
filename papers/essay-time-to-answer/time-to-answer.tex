@@ -1,0 +1,60 @@
+% !TEX program = xelatex
+% ai-pass-begin: commissioned draft in Jeffrey's writing voice, for review.
+\documentclass[12pt,letterpaper]{article}
+\usepackage[top=0.8in,bottom=0.8in,left=1.15in,right=1.15in]{geometry}
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=lmmono10-italic,Scale=0.85]
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{microtype}
+\usepackage{ac-paper-essay}
+\renewcommand{\essaytitle}[1]{\begin{center}{\acbold\fontsize{28pt}{32pt}\selectfont\color{acdark}#1}\end{center}\vspace{0.3em}}
+\linespread{1.20}
+\newcommand{\ac}{Aesthetic\textcolor{acpink}{.}Computer}
+\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,pdfauthor={@jeffrey (draft prepared with Codex)},pdftitle={}}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[C]{\footnotesize\color{acgray}\thepage}
+\setlength{\footskip}{24pt}
+\raggedbottom
+\widowpenalty=10000
+\clubpenalty=10000
+\begin{document}
+\noindent
+Rusty, \href{https://rustysantos.substack.com/p/exploring-the-shadows-of-electronic}{you write}: “The dream was recorded but only captured part of the way.” I wonder how much of that missing part is the exchange between a person and the equipment. While I'm making something, every response changes what I do next. The recording keeps a result. It doesn't necessarily tell you what it felt like to get there.
+
+I made a small keyboard instrument called notepat. Press C and it plays C. I want the part your fingers learn to survive a change of computer. The \href{https://papers.aesthetic.computer/notepat-26-arxiv.pdf}{notepat paper} follows the instrument's development; in \href{https://papers.aesthetic.computer/keymaps-social-software-26-arxiv.pdf}{\textit{Keymaps as Social Software}}, I look at the layout itself as a form that travels.\enote{\textit{notepat.com: From Keyboard Toy to System Front Door} traces the instrument; \textit{Keymaps as Social Software}, section 6, describes its shared note layout.}
+
+The layout has its own texture. Notes become reaches, clusters, and repeated shapes under the hand. Some phrases fall easily; others require a stretch. These gestural shapes translate across the technical apparatus. Their sound and timing change, but enough remains for a phrase to be recognized and played again. Meaning and energy travel in the gesture, carried by practice as well as by a file.
+
+That form can be exploited for its familiarity, recalled after an absence, subordinated to another purpose, or brought forward again. A shape I once played as a melody can become accompaniment. Later I can bring it back and hear its earlier role inside the new one. Something of the old gesture's force can return without reproducing the old performance.
+
+But the agreement between versions leaves something out. It says which note I get, not exactly when it arrives or how it stops. A computer coordinates sound, screen updates, and incoming gestures. Latency is the delay before the answer; jitter is how much that delay varies. These are measurable parts of the exchange. They don't explain the whole feeling.\enote{McPherson, Jack, and Moro, \href{https://www.nime.org/proceedings/2016/nime2016_paper0005.pdf}{\textit{Action-Sound Latency: Are Our Tools Fast Enough?}}, NIME 2016.}
+
+I care about a prompt answer because I want to choose the pace. A note can take several seconds to swell and still respond exactly as I intended. An unexpected stall leaves me wondering whether the computer received my gesture. I can reduce an unwanted delay and still make slow music.
+
+Drawing works this way too. I put down a mark, look at it, and answer it with another. If it appears late, I may have moved my hand before I see what I've done. The delay can change the next decision without becoming something a viewer can identify in the finished image.\enote{On drawing as a conversation with a recording: my \href{https://www.youtube.com/watch?v=K8xCBPW1rmo}{lecture on mediation}, April 14, 2020.}
+
+\clearpage
+\noindent
+You also write: “An artist’s role is to elevate the content above the container.” My work pulls me toward the container, but also toward the forms that pass between containers. The layout gives a gesture somewhere to return. Each instrument gives it particular resistance, timing, and sound. I work on those conditions so somebody else can make music I couldn't predict.
+
+This is why I maintain several implementations of my instrument across different software and hardware conditions. Some parts are shared, but each has different code fitted to its machine's material environment. I want to use the apparatus's qualities natively. The shared layout lets a player carry something learned into those different conditions.
+
+The website, \href{https://notepat.com}{notepat.com}, was the first implementation. It is made for mobile phones and quick, casual play: open a link and touch the notes. Its availability comes with the browser's constraints. Of these versions, it is where I accept the most delay between gesture and sound; the phone and browser determine how much. It puts the instrument within easy reach.
+
+\href{https://papers.aesthetic.computer/ac-native-os-26-arxiv.pdf}{ACOS}—the \ac{} operating system—takes another approach. On supported older, inexpensive hardware, it boots straight into notepat and pursues very low latency. An old laptop can become a dedicated instrument. The code works close to the hardware so the machine can give its attention to playing.\enote{For the hardware-dependent latency work, see \href{https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf}{\textit{Where the Microseconds Go}}.}
+
+Menu Band, at \href{https://menuband.app}{menuband.app}, lives casually in the Mac's menu bar. It uses the Mac's General MIDI instrument palette, audio interfaces, and native audio and MIDI routing. I can play a phrase, record it, export audio and MIDI, or send notes into recording applications such as \href{https://help.ableton.com/hc/en-us/articles/211476789-Setting-up-an-Audio-Interface}{Ableton Live}. The instrument joins the musical environment already on that computer.
+
+So vendor systems and closed-source operating systems belong on the playing field too. A particular interface, driver, sound library, or recording application may be part of why someone chooses that apparatus. They all need to play. The material conditions are chosen by the musicker. I maintain different code to meet those conditions, while keeping the layout available to translate between them.
+
+% ai-pass-end
+\end{document}

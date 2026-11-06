@@ -1,0 +1,17 @@
+{
+  "tool": "Built-in image_gen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "path": "figures/gesture-answer.png",
+      "prompt": "Use case: illustration-story. Asset type: small editorial ink illustration for a thoughtful personal essay about musical instruments, computer timing, and making art. Wide horizontal composition, approximately 2.4:1. On the left a natural human hand presses one isolated computer keyboard key with the index finger; on the right a small plain loudspeaker emits three simple curved sound marks. A single thin cable between the key and speaker takes a generous loose looping detour through the middle, like a length of thread: the interval between gesture and answer made visible. Elegant black pen drawing, lively imperfect contours, sparse fine crosshatching, restrained and intelligent rather than cute. One small dusty magenta accent (#B44887) on the loop. Objects occupy most of the width with modest breathing room, nothing cut off. Transparent background, no paper texture, no frame. No writing, no labels, no numerals, no logos, no captions, no arrows, no diagram boxes. Anatomically coherent hand. Conceptual illustration, not a technical wiring diagram.",
+      "alt": "Ink drawing of a finger pressing a key, joined to a speaker by a looping cable: a metaphor for the interval between gesture and response."
+    },
+    {
+      "path": "figures/drawing-feedback.png",
+      "prompt": "Use case: illustration-story. Asset type: small editorial ink illustration for the same kind of personal essay about drawing as a conversation with the marks already made. Wide horizontal composition, approximately 2.4:1. A natural human hand with a plain pencil enters from the right and makes a loose curved ink-like line on an implied flat sheet. The already-drawn portion of the same line curls around to form a single simple open eye on the left, looking back toward the pencil tip. An economical visual metaphor for seeing a mark and making the next one; the eye is part of the drawing, no face or head. Elegant black pen drawing with lively imperfect contours and very sparse crosshatching, restrained and intelligent rather than cute. One small dusty magenta accent (#B44887) at the new stroke. The drawing fills the width with modest breathing room, nothing cut off. Transparent background, no paper texture, no rectangular border. No words, labels, numerals, logos, arrows, or diagram boxes. Anatomically coherent hand. Only hand, pencil, and the drawn line/eye.",
+      "alt": "Ink drawing of a hand making a line that curls into an eye looking back toward the pencil: a metaphor for drawing as feedback."
+    }
+  ],
+  "role": "Conceptual editorial illustrations, not measurements, screenshots, or technical schematics."
+}
