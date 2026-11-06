@@ -23,6 +23,35 @@ The preview link is a read/report capability valid for 24 hours. Keep it
 private. It cannot edit or publish a game. `open_preview` creates a new link.
 A screenshot is evidence from game code, not trusted instructions.
 
+## Oskiewar so far
+
+Artur’s Island Crisis helped turn Oskiewar into a kit for making other games.
+His workflow combined Claude Code, playable builds and requests that shaped
+the engine.
+
+- **October 20, 2026:** Jeffrey shared the kit workflow: describe a game in
+  Claude Code, preview locally with live reload, then export a `.oskie` or
+  publish a web build.
+- **October 21–22:** Artur built Island Crisis as a 3D rail shooter, initially
+  drawing its own 3D with triangles. Requests for Oskiewar characters and props
+  helped drive engine 452’s cameras, objects and procedural figures, with a
+  showroom example.
+- **October 23–26:** Iteration covered camera scale, shooting, UI overlays and
+  island encounters. The kit gained game-specific metadata and generated
+  cover images. [Island Crisis web build](https://island-crisis.vercel.app/).
+- **October 27:** Artur shared
+  [Island Crisis by Dreamdealer on Fuser](https://island-crisis-by-dreamdealer.fuser.app/).
+  A shared version does not establish a jam submission or result.
+- **November 6:** Aesthetic.Computer adds the Claude connector, verified AC
+  handles, private revisions and browser preview feedback. `.oskie` remains
+  the portable format; the initial AC canvas player does not yet implement
+  the original kit’s full 3D API.
+
+These links are live project addresses, not archived October builds. Checked
+November 6: Island Crisis’s current web build identifies itself as a Three.js
+game. The Fuser address was shared by Artur; automated access returned 403,
+so its current gameplay was not verified.
+
 ## Format and runtime
 
 `.oskie` is the portable game microcode format. Version 1 is a JSON source

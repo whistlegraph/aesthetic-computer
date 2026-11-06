@@ -12,6 +12,11 @@
     </header>
     <main style="max-width: 760px">
       <h1>Make games in Claude</h1>
+      <p>
+        <a href="#oskiewar-so-far"
+          >Oskiewar so far — Artur’s work with the kit</a
+        >
+      </p>
       <ol>
         <li>
           In Claude Desktop, open
@@ -50,6 +55,57 @@
         Ask Claude to restore an earlier revision, unpublish a game, or delete a
         project and its history. Download a copy before deleting.
       </p>
+      <section id="oskiewar-so-far" aria-labelledby="oskiewar-history-title">
+        <h2 id="oskiewar-history-title">Oskiewar so far</h2>
+        <p>
+          Artur’s Island Crisis helped turn Oskiewar into a kit for making other
+          games. He worked with Claude Code, played successive builds, and
+          brought back requests for what the engine should do next.
+        </p>
+        <dl class="history">
+          <dt>October 20, 2026 · The kit</dt>
+          <dd>
+            Jeffrey shared a workflow with Artur: describe a game in Claude
+            Code, play it locally with live reload, then pack a single
+            <code>.oskie</code> file or publish a web build.
+          </dd>
+          <dt>October 21–22 · Island Crisis</dt>
+          <dd>
+            Artur built a 3D rail shooter, initially drawing its own 3D with
+            triangles. His requests to use Oskiewar’s characters and props
+            helped drive engine 452: camera controls, reusable objects and
+            procedural figures, with a showroom example.
+          </dd>
+          <dt>October 23–26 · Playing and sharing</dt>
+          <dd>
+            The work moved between camera scale, shooting, UI overlays and
+            island encounters. The kit gained game-specific titles and generated
+            cover images for sharing.
+            <a href="https://island-crisis.vercel.app/"
+              >Island Crisis web build ↗</a
+            >
+          </dd>
+          <dt>October 27 · A Fuser version</dt>
+          <dd>
+            Artur shared
+            <a href="https://island-crisis-by-dreamdealer.fuser.app/"
+              >Island Crisis by Dreamdealer on Fuser ↗</a
+            >, taking the experiment into another game-making tool.
+          </dd>
+          <dt>November 6 · Aesthetic.Computer</dt>
+          <dd>
+            The next workflow brings game creation into Claude Desktop with an
+            AC <code>@handle</code>, live browser previews and saved revisions.
+            The <code>.oskie</code> name carries forward. This first AC canvas
+            player does not yet run the original kit’s full 3D API.
+          </dd>
+        </dl>
+        <p>
+          The linked games may show later revisions. Island Crisis’s current web
+          build identifies itself as a Three.js game; it is not an archived copy
+          of the October Oskiewar build.
+        </p>
+      </section>
       <h2>.oskie files</h2>
       <p>
         Portable game microcode: a JSON bundle of JavaScript modules and assets.

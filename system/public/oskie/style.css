@@ -137,3 +137,24 @@ li {
 code {
   overflow-wrap: anywhere;
 }
+
+.history dt {
+  margin-top: 24px;
+  font-weight: 600;
+  color: #ffb1d7;
+}
+.history dd {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+#oskiewar-so-far {
+  margin-block: 48px;
+  scroll-margin-top: 24px;
+}
+
+.history dt:nth-of-type(3n + 2) {
+  color: #ffb36b;
+}
+.history dt:nth-of-type(3n) {
+  color: #a9e7cc;
+}
