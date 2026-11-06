@@ -49,6 +49,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "braincells_sheet_shown", "braincells_limit_reached", "braincells_checkout_opened", "braincells_purchased",
   "painting_viewed",
   "ac_opened", "ac_ad_shown",
+  "dool_entered",
   "note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
   "teacher_note_opened", "teacher_note_sent",
   "notepat_opened", "notepat_ad_shown", "notepat_note_played", "notepat_eight_notes",

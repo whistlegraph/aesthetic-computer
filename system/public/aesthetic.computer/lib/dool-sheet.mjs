@@ -187,6 +187,7 @@ function hide() {
 
 function opened() {
   state = "open";
+  window.acVisits?.action("dool_entered"); // One per visit: the daily count of people who went in.
   write();
   post({ type: "dool:sheet", phase: "opened" }); // The paper is gone: the guest may show its HUD.
   pausePrompt();

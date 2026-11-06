@@ -60,6 +60,7 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 | `painting_edited` | No Paint commits an accepted proposal to the artwork and undo history; generated previews do not qualify |
 | `recording_started` | The runtime's MediaRecorder emits `start`; recorder requests or permission prompts alone do not qualify |
 | `painting_saved` | PNG upload tracking returns a successful media record with a code |
+| `dool_entered` | The homepage world opened: the paper finished dropping and the dool frame took pointer focus; the frame loading beneath the curtain does not qualify |
 | `painting_signed` | No Paint burns the owner's `@handle` signature into the painting as an accepted step; a painting already signed as its last step does not fire again |
 | `piece_made` | notepaint.art turned a painting into a published piece from the # list (Make piece) |
 | `notepaint_opened` | A trusted activation (pointer, keyboard or middle-click) of No Paint's HTTPS link to notepaint.art; opening a tab does not prove arrival |
