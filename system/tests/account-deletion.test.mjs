@@ -751,3 +751,19 @@ test("No Paint billing exports exclude image digests and deletion preserves othe
   await runDueDeletions(deps,{now:later(GRACE_MS)});
   assert.deepEqual(db.all("nopaint-move-requests"),[seed["nopaint-move-requests"][1]]);
 });
+
+
+test("oskie games export with owner isolation and deletion removes revisions and preview grants", async () => {
+  const seed = world();
+  for (const name of ["oskie-games", "oskie-revisions", "oskie-previews"])
+    seed[name] = [{ _id: name + "-mine", owner: SUB }, { _id: name + "-other", owner: OTHER }];
+  const db = fakeDb(seed), deps = fakeDeps(db);
+  const copy = await exportAccount(deps, { user, now: T0 });
+  assert.deepEqual(copy.records["oskie-games"], [seed["oskie-games"][0]]);
+  assert.deepEqual(copy.records["oskie-revisions"], [seed["oskie-revisions"][0]]);
+  assert.equal(copy.records["oskie-previews"], undefined);
+  await requestDeletion(deps, { user, now: T0 });
+  await runDueDeletions(deps, { now: later(GRACE_MS) });
+  for (const name of ["oskie-games", "oskie-revisions", "oskie-previews"])
+    assert.deepEqual(db.all(name), [seed[name][1]]);
+});

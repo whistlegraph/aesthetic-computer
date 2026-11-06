@@ -20,7 +20,8 @@ export const TOKEN_PREFIX = "act_";
 
 // The products a connector can be linked to.
 export const RESOURCES = {
-  "https://notepaint.art/mcp": { name: "notepaint", home: "https://notepaint.art" },
+  "https://notepaint.art/mcp": { name: "notepaint", home: "https://notepaint.art", permissions: "paint, and spend your Braincells when it does" },
+  "https://aesthetic.computer/mcp/ac": { name: "Aesthetic.Computer", home: "https://aesthetic.computer/oskie/", permissions: "read your AC handle, create and edit your game projects, and publish games when you ask" },
 };
 
 const CODE_MS = 10 * 60 * 1000;
@@ -111,7 +112,7 @@ export function createOAuth({ db, now = Date.now, random = (bytes) => base64url(
     if (typeof query.code_challenge !== "string" || !/^[A-Za-z0-9_-]{43,128}$/.test(query.code_challenge) ||
         query.code_challenge_method !== "S256")
       throw back("invalid_request", "PKCE with S256 is required");
-    // One product today, so a client that leaves `resource` out means it.
+    // Preserve the original notepaint default for older clients; new clients send resource.
     const resource = query.resource || Object.keys(RESOURCES)[0];
     if (!RESOURCES[resource]) throw back("invalid_target", "Unknown resource");
     const scope = typeof query.scope === "string" ? query.scope.slice(0, 200) : "";

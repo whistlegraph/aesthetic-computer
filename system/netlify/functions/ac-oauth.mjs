@@ -40,7 +40,10 @@ function basicClientId(headers = {}) {
   catch { return undefined; }
 }
 
-async function verifiedUser(headers) {
+export async function verifiedUser(headers) {
+  // A product token cannot consent to another product on the account.
+  if (/^Bearer\s+act_/i.test(headers?.authorization || ""))
+    throw Object.assign(Error("Sign in with AC to link a connector."), { status: 401 });
   const [{ authorize }, { fighterIdentity }, { resolveNoPaintAccount }] = await Promise.all([
     import("../../backend/authorization.mjs"),
     import("../../backend/oskiewar-identity.mjs"),
@@ -76,7 +79,7 @@ function linkPage({ client, product, request }) {
   const host = new URL(client.redirect).host;
   return page(`Link ${product.name}`, `
 <h1>Link ${escape(client.name)} to your AC account</h1>
-<p><b>${escape(client.name)}</b> wants to use <b>${escape(product.name)}</b> as you: paint, and spend your Braincells when it does.</p>
+<p><b>${escape(client.name)}</b> wants to use <b>${escape(product.name)}</b> as you: ${escape(product.permissions)}.</p>
 <p class="dim">It will return to ${escape(host)}. It can't reach the rest of your AC account.</p>
 <section id="who" hidden><p id="as"></p><button class="go" id="approve">Link</button><button id="other">Use another account</button></section>
 <section id="signin" hidden>

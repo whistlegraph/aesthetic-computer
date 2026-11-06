@@ -121,6 +121,8 @@ export async function previewDeletion(deps, { user }) {
 // mean losing it. Records it created, and links to its uploaded files
 // (public while the account exists).
 const EXPORT = [
+  ["oskie-games", "owner"],
+  ["oskie-revisions", "owner"],
   ["paintings", "user"],
   ["pieces", "user"],
   ["kidlisp", "user"],
@@ -335,6 +337,9 @@ export async function handleQuarantined(db, handle, now = new Date()) {
 // Records keyed to the account that are deleted outright.
 // [collection, query(sub, ctx)]
 const DELETE = [
+  ["oskie-games", (sub) => ({ owner: sub })],
+  ["oskie-revisions", (sub) => ({ owner: sub })],
+  ["oskie-previews", (sub) => ({ owner: sub })],
   ["whistlegraph-speech-requests", (sub) => ({ user: sub })],
   ["nopaint-move-requests", (sub) => ({ user: sub })],
   ["paintings", (sub) => ({ user: sub })],

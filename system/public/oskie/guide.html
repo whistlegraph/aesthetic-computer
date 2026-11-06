@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Make .oskie games · Aesthetic.Computer</title>
+    <link rel="stylesheet" href="/oskie/style.css" />
+  </head>
+  <body>
+    <header>
+      <a href="/">Aesthetic.Computer</a><a href="/oskie/">Play .oskie</a>
+    </header>
+    <main style="max-width: 760px">
+      <h1>Make games in Claude</h1>
+      <ol>
+        <li>
+          In Claude Desktop, open
+          <a href="https://claude.ai/customize/connectors"
+            >Customize → Connectors</a
+          >
+          and add a custom connector.
+        </li>
+        <li>
+          Name it <strong>Aesthetic.Computer</strong>. Use
+          <code>https://aesthetic.computer/mcp/ac</code> as its URL.
+        </li>
+        <li>
+          Connect and sign in with your AC account. Choose a
+          <a href="/handle">handle</a> first if you need one.
+        </li>
+        <li>
+          Enable the connector in a chat. Ask: “Read the game guide, check my AC
+          handle, and make a private .oskie game where I catch a moving square.”
+        </li>
+        <li>
+          Open its preview link in Chrome. Keep the tab open while asking Claude
+          for changes. Claude can inspect screenshots and errors from that tab.
+        </li>
+        <li>
+          When ready, ask Claude to publish the reviewed game. Share the public
+          link or download the .oskie file.
+        </li>
+      </ol>
+      <p>
+        Draft edits stay private until you publish again. Preview links last 24
+        hours; anyone with the link can view the draft. Ask Claude for a new
+        preview when one expires.
+      </p>
+      <p>
+        Ask Claude to restore an earlier revision, unpublish a game, or delete a
+        project and its history. Download a copy before deleting.
+      </p>
+      <h2>.oskie files</h2>
+      <p>
+        Portable game microcode: a JSON bundle of JavaScript modules and assets.
+        Drop one onto Aesthetic Computer or
+        <a href="/oskie/">open it in the player</a>. Local files stay in your
+        browser.
+      </p>
+      <p>
+        The initial AC runtime supports canvas graphics, keyboard, pointer,
+        gamepads and tones. Oskiewar fight overlays, its 3D figures and netplay
+        still need their original engine. Hosted games can contain up to 2 MB
+        and 128 files. The beta allows 100 projects and 200 saved revisions per
+        account.
+      </p>
+      <p>
+        <a
+          href="https://github.com/whistlegraph/aesthetic-computer/tree/main/docs/oskie"
+          >Format and developer documentation</a
+        >
+        · <a href="/privacy-policy.html#oskie">Privacy</a> ·
+        <a href="/help">Help</a>
+      </p>
+    </main>
+  </body>
+</html>

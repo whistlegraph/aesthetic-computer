@@ -1368,6 +1368,14 @@ app.all("/media-collection", directFn("media-collection"));
 app.all("/media-collection/*rest", directFn("media-collection"));
 app.all("/device-login", directFn("device-login"));
 app.all("/device-auth", directFn("device-auth"));
+app.all("/mcp/ac", directFn("ac-connector"));
+app.get("/.well-known/oauth-protected-resource/mcp/ac", directFn("ac-connector"));
+app.all("/api/oskie/*rest", directFn("oskie"));
+app.get(["/oskie", "/oskie/", "/oskie/:id"], (req, res, next) => {
+  if (req.params.id && !/^[a-f0-9]{32}$/.test(req.params.id)) return next();
+  res.set({"Cache-Control":"no-store", "Referrer-Policy":"no-referrer"});
+  res.sendFile(join(PUBLIC, "oskie", "index.html"));
+});
 app.all("/mcp", directFn("mcp-remote"));
 // MCP OAuth discovery; mcp-remote answers it on notepaint.art only.
 app.get("/.well-known/oauth-protected-resource", directFn("mcp-remote"));

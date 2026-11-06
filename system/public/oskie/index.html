@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>.oskie · Aesthetic.Computer</title>
+    <link rel="stylesheet" href="/oskie/style.css" />
+    <script type="module" src="/oskie/player.mjs"></script>
+  </head>
+  <body>
+    <header>
+      <a href="/">Aesthetic.Computer</a><span id="identity"></span
+      ><a id="download" hidden>Download .oskie</a>
+    </header>
+    <main>
+      <section id="welcome">
+        <h1>.oskie</h1>
+        <p>Portable game microcode.</p>
+        <button id="open-file">Open a game</button
+        ><input
+          id="file"
+          type="file"
+          accept=".oskie,application/vnd.aesthetic.oskie+json"
+          hidden
+        /><button id="example">Play an example</button>
+        <p class="connect">
+          Make games from Claude with the
+          <strong>Aesthetic.Computer</strong> connector.
+        </p>
+        <label for="connector">Connector URL</label
+        ><input
+          id="connector"
+          readonly
+          value="https://aesthetic.computer/mcp/ac"
+        />
+        <p>
+          <a href="https://claude.ai/customize/connectors">Connect Claude ↗</a>
+          · Sign in with your AC @handle.
+        </p>
+        <p><a href="/oskie/guide.html">Setup and game format</a></p>
+      </section>
+      <section id="game" hidden>
+        <div class="game-bar">
+          <h1 id="title"></h1>
+          <button id="restart">Restart</button><button id="stop">Stop</button>
+        </div>
+        <div id="stage"></div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+      <p id="error" role="alert" hidden></p>
+    </main>
+  </body>
+</html>
