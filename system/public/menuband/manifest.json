@@ -1,7 +1,15 @@
 {
   "_comment": "Historical release index for the retired direct download (committed, served by lith at /menuband/manifest.json). The website no longer offers a direct Menu Band DMG — the Mac App Store is the only version sold, and /advanced carries only the free TrackDrum companion — so no page reads this file anymore. It is kept because already-installed direct builds poll a smaller-schema sibling at https://assets.aesthetic.computer/menuband/latest.json, both are written by slab/menuband/bin/publish-release.fish, and /api/menuband-downloads still validates POST {version} against this file's `versions[].version` allowlist.",
-  "latest": "1.6.12",
+  "latest": "1.6.14",
   "versions": [
+    {
+      "version": "1.6.14",
+      "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-1.6.14.dmg",
+      "size": 73437136,
+      "sha256": "32d6042e0455c04ca41bc2baaf32c5c18c0f96dcbc75fd3c67b5226880cfa5f6",
+      "releasedAt": "2026-11-06",
+      "requirements": "macOS 11+ · Universal (Intel + Apple Silicon)"
+    },
     {
       "version": "1.6.12",
       "dmg": "https://assets.aesthetic.computer/menuband/Menu-Band-1.6.12.dmg",

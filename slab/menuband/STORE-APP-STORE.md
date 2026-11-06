@@ -20,7 +20,9 @@ Connect reports `WAITING_FOR_REVIEW`; review submission
 hold modes, the singer and self-choir, the AC Whistle and backtick/tilde
 instruments, the cc and Electro kits, and the audio-recovery run. Built
 headless on jas's Mac (archive, export, `fastlane mac upload`/`meta`,
-`asc.mjs submit`). The direct-download DMG lane was not cut this round.
+`asc.mjs submit`). The direct-download DMG (notarized, stapled, universal) was cut
+the same morning for workshop distribution: assets.aesthetic.computer/menuband/Menu-Band-1.6.14.dmg,
+manifest + latest.json at 1.6.14.
 
 Previous: v1.6.13 (build 176), submitted 2026-10-15, approved. Build
 `0853a10d-2c18-4b54-8b33-ac36393371db` replaces build 175 in submission
