@@ -1,20 +1,38 @@
 {
   "version": 1,
-  "updated": "2026-10-29",
+  "updated": "2026-11-06",
   "opportunities": [
     {
       "id": "interplay-2027",
       "title": "Interplay 2027",
       "kind": "Performance",
-      "disciplines": ["Sound", "Performance", "Creative coding"],
+      "disciplines": [
+        "Sound",
+        "Performance",
+        "Creative coding"
+      ],
       "summary": "A 15–45 minute live online performance at the intersection of performance and technology.",
       "location": "Online",
       "remote": true,
       "dates": "February 10–12, 2027",
-      "deadline": {"date": "2026-10-08", "at": "2026-10-08T23:59:00-07:00", "note": "23:59 Pacific"},
-      "support": {"paid": true, "text": "CAD $1,500", "detail": "Artist fee per selected artist or group."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": true, "text": "International, all disciplines and career stages. Priority for projects led by women, femmes and gender-diverse artists."},
+      "deadline": {
+        "date": "2026-10-08",
+        "at": "2026-10-08T23:59:00-07:00",
+        "note": "23:59 Pacific"
+      },
+      "support": {
+        "paid": true,
+        "text": "CAD $1,500",
+        "detail": "Artist fee per selected artist or group."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International, all disciplines and career stages. Priority for projects led by women, femmes and gender-diverse artists."
+      },
       "requirements": "Bio, proposal, duration, three descriptive words, up to five minutes of support footage, and 3–5 promotional images.",
       "terms": "Selected artists provide a technical breakdown, a five-minute highlight edit and development-process documentation. Live performance must be central to the work.",
       "source": "https://interplay-arts.com/open_call.html",
@@ -25,15 +43,33 @@
       "id": "djerassi-2027",
       "title": "Djerassi Artist Residencies",
       "kind": "Residency",
-      "disciplines": ["Sound", "Digital art", "Performance"],
+      "disciplines": [
+        "Sound",
+        "Digital art",
+        "Performance"
+      ],
       "summary": "One month of studio time in the Santa Cruz Mountains for composers, media artists and other disciplines.",
       "location": "Woodside, California, US",
       "remote": false,
       "dates": "2027 · one month",
-      "deadline": {"date": "2026-10-09", "at": null, "note": "Cutoff time not confirmed"},
-      "support": {"paid": false, "text": "Room, board + workspace", "detail": "Residency provided at no cost. Cash stipend not confirmed; travel is self-funded."},
-      "fee": {"status": "paid", "text": "$35 application fee · reconfirm in form"},
-      "eligibility": {"international": true, "text": "National and international artists. Apply in one discipline; attendance for the full residency is required."},
+      "deadline": {
+        "date": "2026-10-09",
+        "at": null,
+        "note": "Cutoff time not confirmed"
+      },
+      "support": {
+        "paid": false,
+        "text": "Room, board + workspace",
+        "detail": "Residency provided at no cost. Cash stipend not confirmed; travel is self-funded."
+      },
+      "fee": {
+        "status": "paid",
+        "text": "$35 application fee · reconfirm in form"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "National and international artists. Apply in one discipline; attendance for the full residency is required."
+      },
       "requirements": "Recent work samples, with formats and limits depending on discipline. Review the full application before preparing materials.",
       "terms": "No shortened or partial residencies. Collaborators and couples must apply individually. Full form requirements, including references, have not been verified.",
       "source": "https://djerassi.org/apply/application-guidelines/",
@@ -44,15 +80,32 @@
       "id": "smallforms-2027",
       "title": "smallforms — Solo Sets",
       "kind": "Performance",
-      "disciplines": ["Sound", "Performance"],
+      "disciplines": [
+        "Sound",
+        "Performance"
+      ],
       "summary": "Solo experimental music and sound performances, with an optional recording session for a digital release.",
       "location": "Vienna, Austria",
       "remote": false,
       "dates": "March–December 2027 · 30–60 minute set",
-      "deadline": {"date": "2026-10-11", "at": null, "note": "Cutoff time not stated"},
-      "support": {"paid": true, "text": "€400", "detail": "Confirmed artist fee. Travel and accommodation support not stated."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": true, "text": "Musicians, sound artists and performers. One artist per proposal; no geographic restriction stated."},
+      "deadline": {
+        "date": "2026-10-11",
+        "at": null,
+        "note": "Cutoff time not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "€400",
+        "detail": "Confirmed artist fee. Travel and accommodation support not stated."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Musicians, sound artists and performers. One artist per proposal; no geographic restriction stated."
+      },
       "requirements": "Audio/video links, a proposal of at most 600 characters, and a short CV. State whether you also want a recording session. Apply by email via the official call.",
       "terms": "In-person solo performance. Recording-session releases use the smallforms label; confirm release terms if selected.",
       "source": "https://smallforms.org/open-call-2027/",
@@ -63,15 +116,33 @@
       "id": "eyebeam-agency-2026",
       "title": "Eyebeam — AGENCY",
       "kind": "Residency",
-      "disciplines": ["Digital art", "Creative coding", "Research"],
+      "disciplines": [
+        "Digital art",
+        "Creative coding",
+        "Research"
+      ],
       "summary": "A virtual residency for early-stage work exploring agency through art and technology.",
       "location": "Online · US outside New York City",
       "remote": true,
       "dates": "November 4, 2026–February 12, 2027",
-      "deadline": {"date": "2026-10-11", "at": "2026-10-11T23:59:00-04:00", "note": "23:59 Eastern"},
-      "support": {"paid": true, "text": "$2,000", "detail": "Stipend, mentorship, technical consultation and weekly residency programming."},
-      "fee": {"status": "free", "text": "Free to apply"},
-      "eligibility": {"international": false, "text": "Individuals based in the US outside NYC, remaining US-based throughout. No full-time degree enrollment or overlapping residency commitments."},
+      "deadline": {
+        "date": "2026-10-11",
+        "at": "2026-10-11T23:59:00-04:00",
+        "note": "23:59 Eastern"
+      },
+      "support": {
+        "paid": true,
+        "text": "$2,000",
+        "detail": "Stipend, mentorship, technical consultation and weekly residency programming."
+      },
+      "fee": {
+        "status": "free",
+        "text": "Free to apply"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "Individuals based in the US outside NYC, remaining US-based throughout. No full-time degree enrollment or overlapping residency commitments."
+      },
       "requirements": "Written answers, CV, work samples and a personal 1–2 minute introduction video, via Submittable.",
       "terms": "Weekly cohort participation and independent project work. The live application specifies 3–4 cohort hours weekly plus independent work; confirm the schedule before accepting.",
       "source": "https://eyebeam.org/articles/agency-virtual-residency",
@@ -82,15 +153,33 @@
       "id": "music-for-your-inbox-2027",
       "title": "Music for Your Inbox",
       "kind": "Open call",
-      "disciplines": ["Sound", "Moving image", "Performance"],
+      "disciplines": [
+        "Sound",
+        "Moving image",
+        "Performance"
+      ],
       "summary": "Unpremiered experimental sound and music films for an online series and library screenings.",
       "location": "Online · Los Angeles screenings",
       "remote": true,
       "dates": "2027 season · films complete by May 1",
-      "deadline": {"date": "2026-10-15", "at": null, "note": "23:59 PST as published; daylight-saving ambiguity — submit early"},
-      "support": {"paid": true, "text": "$600", "detail": "Honorarium. Limited production support is available for co-produced films."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": true, "text": "Artists and artist teams; no geographic restriction stated. Music or sound must be central. Films must be 10–20 minutes and not previously premiered."},
+      "deadline": {
+        "date": "2026-10-15",
+        "at": null,
+        "note": "23:59 PST as published; daylight-saving ambiguity — submit early"
+      },
+      "support": {
+        "paid": true,
+        "text": "$600",
+        "detail": "Honorarium. Limited production support is available for co-produced films."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Artists and artist teams; no geographic restriction stated. Music or sound must be central. Films must be 10–20 minutes and not previously premiered."
+      },
       "requirements": "A film proposal and samples demonstrating the proposed work. Finished or nearly finished projects are best suited to the available support.",
       "terms": "One year of exclusive presentation rights. Ordinary concert documentation is excluded. In-person attendance is not required. The organizer discourages creating a new project solely for this call.",
       "source": "https://www.musicforyourinbox.com/apply",
@@ -101,15 +190,34 @@
       "id": "lendhauer-2027",
       "title": "Lendhauer — Urban Ecologies",
       "kind": "Commission",
-      "disciplines": ["Digital art", "Sound", "Performance", "Research"],
+      "disciplines": [
+        "Digital art",
+        "Sound",
+        "Performance",
+        "Research"
+      ],
       "summary": "Public artworks exploring coexistence, control and interdependence at Klagenfurt’s Lendhafen.",
       "location": "Klagenfurt, Austria",
       "remote": false,
       "dates": "June–September 2027",
-      "deadline": {"date": "2026-11-02", "at": null, "note": "Cutoff time not stated"},
-      "support": {"paid": true, "text": "Up to €2,500 + costs", "detail": "Up to €2,500 gross artist fee, €4,000 gross production and €1,000 travel, per selected project."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": true, "text": "Individuals and collectives in Austria and abroad, including artists, designers, performers and interdisciplinary practitioners."},
+      "deadline": {
+        "date": "2026-11-02",
+        "at": null,
+        "note": "Cutoff time not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "Up to €2,500 + costs",
+        "detail": "Up to €2,500 gross artist fee, €4,000 gross production and €1,000 travel, per selected project."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Individuals and collectives in Austria and abroad, including artists, designers, performers and interdisciplinary practitioners."
+      },
       "requirements": "One PDF, at most 15 MB: project proposal up to three pages, production estimate, bio/CV and portfolio up to ten pages. Apply by email via the official call.",
       "terms": "The proposal must engage with the actual harbor and its social, ecological and material conditions. Timing is agreed with selected artists. Fee is per project, not per collaborator.",
       "source": "https://www.lendhafen.at/open-call-2027-urban-ecologies-coexistence-and-control/",
@@ -120,15 +228,33 @@
       "id": "spot-flux-2027",
       "title": "SPOT FLUX — Sound Art",
       "kind": "Performance",
-      "disciplines": ["Sound", "Performance", "Moving image"],
+      "disciplines": [
+        "Sound",
+        "Performance",
+        "Moving image"
+      ],
       "summary": "Existing sound works, music films and performances for SPOT Festival’s experimental program.",
       "location": "Aarhus, Denmark",
       "remote": false,
       "dates": "May 7–8, 2027",
-      "deadline": {"date": "2026-11-05", "at": null, "note": "14:00 as published; time zone not explicitly stated"},
-      "support": {"paid": true, "text": "Performer fee + production", "detail": "Danish Musicians’ Union rate per performer, with approved technical and material costs. Exact fee not stated."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": false, "text": "The work and/or artists must have a connection to Denmark. Existing works only; the artist must attend the presentation."},
+      "deadline": {
+        "date": "2026-11-05",
+        "at": null,
+        "note": "14:00 as published; time zone not explicitly stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "Performer fee + production",
+        "detail": "Danish Musicians’ Union rate per performer, with approved technical and material costs. Exact fee not stated."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "The work and/or artists must have a connection to Denmark. Existing works only; the artist must attend the presentation."
+      },
       "requirements": "Application form, work documentation and an estimated budget including rights costs. The work must be practical to set up and take down quickly.",
       "terms": "Travel, accommodation and preparation expenses are not covered. The Café Stage is an open, busy space; quiet cannot be guaranteed.",
       "source": "https://spotfestival.dk/spot-flux-2027-open-call/",
@@ -139,19 +265,38 @@
       "id": "amsterdam-light-festival-2027",
       "title": "Amsterdam Light Festival",
       "kind": "Commission",
-      "disciplines": ["Digital art", "Creative coding"],
+      "disciplines": [
+        "Digital art",
+        "Creative coding"
+      ],
       "summary": "Light artworks for the canals of Amsterdam, with technical and financial support to realize selected concepts.",
       "location": "Amsterdam, Netherlands",
       "remote": false,
       "dates": "November 25, 2027–January 16, 2028",
-      "deadline": {"date": "2026-12-07", "at": "2026-12-07T23:59:00+01:00", "note": "23:59 CET"},
-      "support": {"paid": true, "text": "€4,000 + costs", "detail": "Artist fee plus production and travel costs. General-call production ceiling is not specified in the FAQ."},
-      "fee": {"status": "unknown", "text": "Application fee not confirmed"},
-      "eligibility": {"international": true, "text": "The general open call is worldwide, including people new to light art. The separate Amarte call is restricted to Netherlands-based makers."},
+      "deadline": {
+        "date": "2026-12-07",
+        "at": "2026-12-07T23:59:00+01:00",
+        "note": "23:59 CET"
+      },
+      "support": {
+        "paid": true,
+        "text": "€4,000 + costs",
+        "detail": "Artist fee plus production and travel costs. General-call production ceiling is not specified in the FAQ."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not confirmed"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "The general open call is worldwide, including people new to light art. The separate Amarte call is restricted to Netherlands-based makers."
+      },
       "requirements": "Read the artist briefing, prepare a concept using the submission template (up to three pages), and submit through the linked portal.",
       "terms": "Work must withstand two months outdoors and avoid nuisance to residents, including sound, smoke and lasers. Full briefing and contract terms need review.",
       "source": "https://amsterdamlightfestival.com/en/open-call",
-      "sources": ["https://amsterdamlightfestival.com/en/faq-open-call"],
+      "sources": [
+        "https://amsterdamlightfestival.com/en/faq-open-call"
+      ],
       "checked": "2026-10-06",
       "published": "2026-10-06"
     },
@@ -159,15 +304,35 @@
       "id": "openfeed-2026-2027",
       "title": "OPENFEED",
       "kind": "Residency",
-      "disciplines": ["Digital art", "Creative coding", "Sound", "Performance"],
+      "disciplines": [
+        "Digital art",
+        "Creative coding",
+        "Sound",
+        "Performance"
+      ],
       "summary": "A virtual residency spanning interactive installations, software art, sound, electronics and participatory work.",
       "location": "Online · FEED Media Art Center, US",
       "remote": true,
       "dates": "2026–27 · program schedule to be confirmed",
-      "deadline": {"date": "2027-02-28", "at": null, "rolling": true, "note": "Rolling review within the October 1–February 28 application window"},
-      "support": {"paid": false, "text": "Tools + mentorship", "detail": "Hardware, computing, software and mentorship. Cash support and exact program dates are not confirmed."},
-      "fee": {"status": "free", "text": "Free to apply · form checked Oct 5"},
-      "eligibility": {"international": true, "text": "International artists working across digital, electronic and experimental media. Individual and participatory practices welcome."},
+      "deadline": {
+        "date": "2027-02-28",
+        "at": null,
+        "rolling": true,
+        "note": "Rolling review within the October 1–February 28 application window"
+      },
+      "support": {
+        "paid": false,
+        "text": "Tools + mentorship",
+        "detail": "Hardware, computing, software and mentorship. Cash support and exact program dates are not confirmed."
+      },
+      "fee": {
+        "status": "free",
+        "text": "Free to apply · form checked Oct 5"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International artists working across digital, electronic and experimental media. Individual and participatory practices welcome."
+      },
       "requirements": "Artist and project information with work samples through the official application form.",
       "terms": "Development may combine an online edition with an on-site presentation. Confirm resources, dates and any attendance requirements before accepting.",
       "source": "https://www.feed.art/open-feed",
@@ -178,15 +343,28 @@
       "id": "sequoia-open-source",
       "title": "Sequoia Open Source Fellowship",
       "kind": "Fellowship",
-      "disciplines": ["Open source", "Creative coding"],
+      "disciplines": [
+        "Open source",
+        "Creative coding"
+      ],
       "summary": "Living-expense support for developers sustaining important open-source projects.",
       "location": "Remote",
       "remote": true,
       "dates": "6–12 months",
       "deadline": null,
-      "support": {"paid": true, "text": "Living-expense support", "detail": "Six to twelve months of support, equity-free. Amount is individualized rather than a published fixed award."},
-      "fee": {"status": "free", "text": "Free to apply · form checked Oct 5"},
-      "eligibility": {"international": true, "text": "Open-source developers; no geographic restriction stated in the reviewed application. A small cohort is selected each year."},
+      "support": {
+        "paid": true,
+        "text": "Living-expense support",
+        "detail": "Six to twelve months of support, equity-free. Amount is individualized rather than a published fixed award."
+      },
+      "fee": {
+        "status": "free",
+        "text": "Free to apply · form checked Oct 5"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Open-source developers; no geographic restriction stated in the reviewed application. A small cohort is selected each year."
+      },
       "requirements": "Eight short application fields covering the project, contribution history, impact and need for support.",
       "terms": "No equity or required travel. Confirm the support amount and work expectations with the organizer.",
       "source": "https://sequoiacap.com/oss",
@@ -197,15 +375,33 @@
       "id": "michigan-central-newlab-2027",
       "title": "Michigan Central Art × Newlab — Creative Residency 2027",
       "kind": "Residency",
-      "disciplines": ["Creative coding", "Digital art", "Research"],
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Research"
+      ],
       "summary": "A 12-week research residency in Detroit at the intersection of art, technology, health and society, in an Art & Tech track (Knight Foundation) or an Art & Health track (Henry Ford Health).",
       "location": "Detroit, MI",
       "remote": false,
       "dates": "Session One February 8 – April 30, 2027; Session Two May 17 – August 6, 2027",
-      "deadline": {"date": "2026-10-30", "at": null, "note": "Published as 11:59 p.m. EST, though Detroit is on EDT that day — submit early"},
-      "support": {"paid": true, "text": "$30,000 unrestricted", "detail": "Plus Newlab fabrication shops, project-aligned research, mentors and a public conversation series."},
-      "fee": {"status": "free", "text": "Applications are free"},
-      "eligibility": {"international": false, "text": "Single applicants over 25, able to receive taxable US income via SSN, ITIN or EIN. No groups."},
+      "deadline": {
+        "date": "2026-10-30",
+        "at": null,
+        "note": "Published as 11:59 p.m. EST, though Detroit is on EDT that day — submit early"
+      },
+      "support": {
+        "paid": true,
+        "text": "$30,000 unrestricted",
+        "detail": "Plus Newlab fabrication shops, project-aligned research, mentors and a public conversation series."
+      },
+      "fee": {
+        "status": "free",
+        "text": "Applications are free"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "Single applicants over 25, able to receive taxable US income via SSN, ITIN or EIN. No groups."
+      },
       "requirements": "Submittable application; the organizers suggest about five hours in total, including selected work samples.",
       "terms": "Fellows are announced in January 2027 and are expected in Detroit for their 12-week session.",
       "source": "https://michigancentral.com/michigan-central-art-x-newlab-detroit-opens-applications-for-its-2027-creative-residency-program-supported-by-the-john-s-and-james-l-knight-foundation/",
@@ -216,15 +412,33 @@
       "id": "la-dca-near-2027",
       "title": "City of Los Angeles DCA — Neighborhood Engagement Artist Residency (NEAR) 2027–28",
       "kind": "Residency",
-      "disciplines": ["Creative coding", "Digital art", "Performance"],
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Performance"
+      ],
       "summary": "A grant for a participatory, workshop-based artist residency at a non-arts venue in one City of Los Angeles council district — libraries, community and youth centres and the like.",
       "location": "City of Los Angeles",
       "remote": false,
       "dates": "Service period July 1, 2027 – June 30, 2028",
-      "deadline": {"date": "2026-10-30", "at": "2026-10-30T23:59:00-07:00", "note": "11:59 pm Pacific"},
-      "support": {"paid": true, "text": "$12,000", "detail": "May be reduced to $6,000 for five workshops plus one event if the City's budget is cut."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": false, "text": "Individual artists (or teams under one lead) residing in Los Angeles County with a largely self-directed community practice."},
+      "deadline": {
+        "date": "2026-10-30",
+        "at": "2026-10-30T23:59:00-07:00",
+        "note": "11:59 pm Pacific"
+      },
+      "support": {
+        "paid": true,
+        "text": "$12,000",
+        "detail": "May be reduced to $6,000 for five workshops plus one event if the City's budget is cut."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "Individual artists (or teams under one lead) residing in Los Angeles County with a largely self-directed community practice."
+      },
       "requirements": "A business plan for at least 200 hours: eleven workshops of about 20 participants and a culminating public event of 40+, plus host-venue details and attachments, via SurveyMonkey Apply.",
       "terms": "Notification May–June 2027. The companion CO-UP track is for social-justice nonprofits naming a teaching artist.",
       "source": "https://culture.lacity.gov/grants/near-co-op",
@@ -235,15 +449,33 @@
       "id": "processing-foundation-fellowship-2027",
       "title": "Processing Foundation Fellowship 2027",
       "kind": "Fellowship",
-      "disciplines": ["Creative coding", "Open source", "Games"],
+      "disciplines": [
+        "Creative coding",
+        "Open source",
+        "Games"
+      ],
       "summary": "An eight-month fellowship for artists, educators and engineers building open-source tools and resources for the arts, in three tracks: Gaming the System (an open-source game-design toolkit co-designed with underserved young people in Los Angeles, backed by the Riot Games Social Impact Fund), Collective Intelligence (youth AI education with the Mark Cuban Foundation) and DIY Computing (cyberdecks in New York). Every project must build on p5.js, the p5.js Editor or Processing.",
       "location": "United States (hybrid in New York or Los Angeles, or remote)",
       "remote": true,
       "dates": "January 25 – September 26, 2027",
-      "deadline": {"date": "2026-11-01", "at": "2026-11-01T23:59:00-08:00", "note": "Nominations close 11:59 PM PST; invited nominees submit proposals by November 23"},
-      "support": {"paid": true, "text": "$10,000 stipend", "detail": "Plus open-source mentorship, a cohort, professional development and public programs."},
-      "fee": {"status": "unknown", "text": "Fee not stated"},
-      "eligibility": {"international": false, "text": "US-based nominees only; self-nomination is welcome. Gaming the System is hybrid in Los Angeles, for game makers, creative coders and educators based there; DIY Computing is hybrid in New York; Collective Intelligence is remote anywhere in the US."},
+      "deadline": {
+        "date": "2026-11-01",
+        "at": "2026-11-01T23:59:00-08:00",
+        "note": "Nominations close 11:59 PM PST; invited nominees submit proposals by November 23"
+      },
+      "support": {
+        "paid": true,
+        "text": "$10,000 stipend",
+        "detail": "Plus open-source mentorship, a cohort, professional development and public programs."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Fee not stated"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US-based nominees only; self-nomination is welcome. Gaming the System is hybrid in Los Angeles, for game makers, creative coders and educators based there; DIY Computing is hybrid in New York; Collective Intelligence is remote anywhere in the US."
+      },
       "requirements": "A nomination first; selected nominees are invited on November 2 to submit a full proposal, with an info session on November 7.",
       "terms": "Video interviews the week of December 7; fellows notified the week of December 14; final presentations October 2, 2027.",
       "source": "https://processingfoundation.org/programs/fellowships/fellowship-2027/",
@@ -254,19 +486,38 @@
       "id": "nlnet-restack-2026-11",
       "title": "NLnet — Open Internet Stack: Restack, first call",
       "kind": "Grant",
-      "disciplines": ["Open source", "Research"],
+      "disciplines": [
+        "Open source",
+        "Research"
+      ],
       "summary": "R&D grants for free and open-source software, open hardware, standards and other building blocks of an open internet stack, from the European Commission's NGI successor.",
       "location": "Remote",
       "remote": true,
       "dates": "Projects begin after selection; the fund runs to 2030",
-      "deadline": {"date": "2026-11-03", "at": "2026-11-03T12:00:00+01:00", "note": "12:00 noon CET; NLnet now calls every two months, on the third of odd months"},
-      "support": {"paid": true, "text": "€5,000–€50,000", "detail": "Scalable later with proven potential; plus security, accessibility, licensing and packaging support."},
-      "fee": {"status": "unknown", "text": "Fee not stated"},
-      "eligibility": {"international": true, "text": "Open to anyone, but projects need a strong European dimension — normally 60% of funds to people in Horizon Europe-eligible countries; others only for exceptional quality or unique expertise."},
+      "deadline": {
+        "date": "2026-11-03",
+        "at": "2026-11-03T12:00:00+01:00",
+        "note": "12:00 noon CET; NLnet now calls every two months, on the third of odd months"
+      },
+      "support": {
+        "paid": true,
+        "text": "€5,000–€50,000",
+        "detail": "Scalable later with proven potential; plus security, accessibility, licensing and packaging support."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Open to anyone, but projects need a strong European dimension — normally 60% of funds to people in Horizon Europe-eligible countries; others only for exceptional quality or unique expertise."
+      },
       "requirements": "A proposal through nlnet.nl/propose, selecting the Restack call. All outcomes must be published under recognised open licences.",
       "terms": "Milestone-based payments for completed work.",
       "source": "https://nlnet.nl/restack/",
-      "sources": ["https://nlnet.nl/news/2026/20260903-call.html"],
+      "sources": [
+        "https://nlnet.nl/news/2026/20260903-call.html"
+      ],
       "checked": "2026-10-19",
       "published": "2026-10-19"
     },
@@ -274,19 +525,39 @@
       "id": "swf-fediverse-multimedia-2026",
       "title": "Social Web Foundation — Fediverse Multimedia Grants",
       "kind": "Grant",
-      "disciplines": ["Open source", "Moving image", "Sound"],
+      "disciplines": [
+        "Open source",
+        "Moving image",
+        "Sound"
+      ],
       "summary": "Grants for a developer team and a creator or publisher who together start a new audio, video or image publication on the Fediverse, improving ActivityPub software for creators along the way.",
       "location": "Remote",
       "remote": true,
       "dates": "Decisions November 18; projects start December 1, 2026",
-      "deadline": {"date": "2026-11-04", "at": null, "note": "Cutoff time not stated"},
-      "support": {"paid": true, "text": "Up to US$20,000", "detail": "Funded by the Interledger Foundation; a grant, no equity."},
-      "fee": {"status": "unknown", "text": "Fee not stated"},
-      "eligibility": {"international": true, "text": "Developer-and-creator teams only. The foundation will try to match a developer or publisher who applies without a partner."},
+      "deadline": {
+        "date": "2026-11-04",
+        "at": null,
+        "note": "Cutoff time not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "Up to US$20,000",
+        "detail": "Funded by the Interledger Foundation; a grant, no equity."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Developer-and-creator teams only. The foundation will try to match a developer or publisher who applies without a partner."
+      },
       "requirements": "An application on the foundation's grants portal covering the software, the new publication, collaboration, schedule, budget and impact.",
       "terms": "The publication must be new and on the Fediverse.",
       "source": "https://hypha.swf.pub/",
-      "sources": ["https://devgrantsdaily.com/items/2026-10-13-fediverse-multimedia-grants-2026/"],
+      "sources": [
+        "https://devgrantsdaily.com/items/2026-10-13-fediverse-multimedia-grants-2026/"
+      ],
       "checked": "2026-10-19",
       "published": "2026-10-19"
     },
@@ -294,15 +565,33 @@
       "id": "cola-imap-2027",
       "title": "City of Los Angeles DCA — COLA Independent Master Artist Projects 2027–29",
       "kind": "Grant",
-      "disciplines": ["Digital art", "Performance", "Research"],
+      "disciplines": [
+        "Digital art",
+        "Performance",
+        "Research"
+      ],
       "summary": "A grant for an accomplished Los Angeles mid-career artist to make a new solo work, with a City catalog and a likely premiere. A new Graphic Design category covers books, typefaces and text–image work.",
       "location": "Los Angeles",
       "remote": false,
       "dates": "Projects July 1, 2027 – June 30, 2029",
-      "deadline": {"date": "2026-11-13", "at": "2026-11-13T23:59:00-08:00", "note": "11:59 pm online; a hard copy must be postmarked by November 18"},
-      "support": {"paid": true, "text": "$10,000", "detail": "Subject to the City budget; non-selected applicants may be named DCA Cultural Trailblazers with a stipend."},
-      "fee": {"status": "unknown", "text": "Application fee not stated"},
-      "eligibility": {"international": false, "text": "Los Angeles County residents who live in the City or have presented there for 3+ years, with a 15-year exhibition, publication or performance record. Collaborative or audience-interactive projects are ineligible."},
+      "deadline": {
+        "date": "2026-11-13",
+        "at": "2026-11-13T23:59:00-08:00",
+        "note": "11:59 pm online; a hard copy must be postmarked by November 18"
+      },
+      "support": {
+        "paid": true,
+        "text": "$10,000",
+        "detail": "Subject to the City budget; non-selected applicants may be named DCA Cultural Trailblazers with a stipend."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Application fee not stated"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "Los Angeles County residents who live in the City or have presented there for 3+ years, with a 15-year exhibition, publication or performance record. Collaborative or audience-interactive projects are ineligible."
+      },
       "requirements": "Online application via SurveyMonkey Apply after reading the guidelines, plus a mailed hard copy of the proposal.",
       "terms": "Grantees contribute catalog materials and use the funds for a new solo work. Results June–July 2027.",
       "source": "https://culture.lacity.gov/grants/independent-master-artist-projects-grant-program",
@@ -313,20 +602,1474 @@
       "id": "adk-mensch-maschine-2027",
       "title": "Akademie der Künste — Mensch Maschine VISIT Residency 2027 (“Energy Ghosts”)",
       "kind": "Residency",
-      "disciplines": ["Digital art", "Sound", "Research"],
+      "disciplines": [
+        "Digital art",
+        "Sound",
+        "Research"
+      ],
       "summary": "Four funded fellowships for new projects at the intersection of art, energy and ecology, critically engaging the “human machine” and pluriversal approaches to digital technology.",
       "location": "E-WERK Luckenwalde or Akademie der Künste, Berlin",
       "remote": false,
       "dates": "Residency mid-August – mid-November 2027; retreat in Warsaw in September; symposium in autumn 2027",
-      "deadline": {"date": "2026-12-01", "at": null, "note": "11:59 pm as published; time zone not stated"},
-      "support": {"paid": true, "text": "€20,000", "detail": "For artist fees and production; studio and accommodation provided."},
-      "fee": {"status": "unknown", "text": "Fee not stated"},
-      "eligibility": {"international": true, "text": "Artists from anywhere, across visual art, performance, film, installation, sound, writing and new media."},
+      "deadline": {
+        "date": "2026-12-01",
+        "at": null,
+        "note": "11:59 pm as published; time zone not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "€20,000",
+        "detail": "For artist fees and production; studio and accommodation provided."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Artists from anywhere, across visual art, performance, film, installation, sound, writing and new media."
+      },
       "requirements": "An application through the programme's portal.",
       "terms": "Fellows live and work on site at least 75% of the three-month residency. Jury in January 2027.",
       "source": "https://adk.de/en/news/2026/10/open-call-human-machine-fellowship",
       "checked": "2026-10-19",
       "published": "2026-10-19"
+    },
+    {
+      "id": "ljudmila-parameter-2027",
+      "title": "Ljudmila — Parameter Generative Arts Fair, Adela 2027",
+      "kind": "Open call",
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Open source"
+      ],
+      "summary": "A fair for generative, open-source and permacomputing art at Kino Šiška, Ljubljana, where selected artists present and sell work with no commission.",
+      "location": "Ljubljana, Slovenia",
+      "remote": false,
+      "dates": "Fair on March 6, 2027",
+      "deadline": {
+        "date": "2026-11-26",
+        "at": null,
+        "note": "Date as published; time not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "Accommodation + travel ≤€150",
+        "detail": "Accommodation, travel reimbursement up to €150, catalogue entry, no sales commission. Jury prize: a 2028 solo show plus €700; two €350 mentions."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International artists working with generative, algorithmic or open-source methods."
+      },
+      "requirements": "Application through the wiki form with work description, images and technical needs.",
+      "terms": "Selected artists bring and sell their own work; the organizers take no commission.",
+      "source": "https://wiki.ljudmila.org/Adela:_Parameter_2027_Open_Call",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "adaf-2027",
+      "title": "Athens Digital Arts Festival — ADAF 2027 “It’s Alive”",
+      "kind": "Open call",
+      "disciplines": [
+        "Digital art",
+        "Games",
+        "Sound",
+        "Performance"
+      ],
+      "summary": "Open call for web art, games, music, performance, workshops and a kids’ strand under a techno-animism theme.",
+      "location": "Athens, Greece",
+      "remote": false,
+      "dates": "Festival in spring 2027",
+      "deadline": {
+        "date": "2026-11-10",
+        "at": null,
+        "note": "Date as published; time not stated"
+      },
+      "support": {
+        "paid": false,
+        "text": "No fee published",
+        "detail": "No artist fee or production support is stated in the call."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International; all digital-art formats named in the call."
+      },
+      "requirements": "Online submission form with work documentation.",
+      "terms": "Selected works are presented during the festival; conditions per category.",
+      "source": "https://2027.adaf.gr/open-call-newsletter/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "data-through-design-2027",
+      "title": "Data Through Design — DxD 2027 (BRIC, Brooklyn)",
+      "kind": "Open call",
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Research"
+      ],
+      "summary": "A group exhibition of creative-coding data art built on an NYC Open Data dataset, themed “evidence of time.”",
+      "location": "Brooklyn, New York",
+      "remote": false,
+      "dates": "Exhibition ~March 26 – April 11, 2027",
+      "deadline": {
+        "date": "2026-11-15",
+        "at": "2026-11-15T23:59:00-05:00",
+        "note": "23:59 Eastern"
+      },
+      "support": {
+        "paid": true,
+        "text": "$900 stipend",
+        "detail": "Artist stipend for selected works."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Open; the work must use at least one NYC Open Data dataset."
+      },
+      "requirements": "Proposal, dataset, work description and documentation.",
+      "terms": "Selected artists deliver and install the work at BRIC.",
+      "source": "https://datathroughdesign.com/open-call-2027",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "realities-in-transition-call-4",
+      "title": "Realities in Transition — RiT2 Open Call #4 with Beta Festival (Dublin)",
+      "kind": "Residency",
+      "disciplines": [
+        "Digital art",
+        "Performance",
+        "Research"
+      ],
+      "summary": "Three grants for collective, multi-user XR works developed over a six-month hybrid residency with a creative technologist, including two months in Dublin.",
+      "location": "Dublin, Ireland (hybrid)",
+      "remote": true,
+      "dates": "Residency March–August 2027",
+      "deadline": {
+        "date": "2026-11-10",
+        "at": "2026-11-10T23:59:00+02:00",
+        "note": "23:59 CEST as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "3 × €15,000",
+        "detail": "Production grant plus residency and mentoring; Creative Europe funded."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "Fee not stated"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Eligibility follows Creative Europe rules; applicants outside Europe should confirm with the organizers."
+      },
+      "requirements": "Project proposal, team, budget and portfolio via the online form.",
+      "terms": "Collective multi-user XR work delivered for Beta Festival.",
+      "source": "https://www.realities-in-transition.eu/rit-2-open-call-4/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "newimages-2027-virtual-worlds",
+      "title": "NewImages Festival 2027 — Virtual Worlds Competition (Paris)",
+      "kind": "Open call",
+      "disciplines": [
+        "Digital art",
+        "Games"
+      ],
+      "summary": "Competition for independent online worlds and multiplayer art spaces at the NewImages immersive-arts festival.",
+      "location": "Paris, France",
+      "remote": false,
+      "dates": "Festival in 2027; early-bird deadline December 10",
+      "deadline": {
+        "date": "2026-12-22",
+        "at": null,
+        "note": "Final deadline; early bird December 10"
+      },
+      "support": {
+        "paid": true,
+        "text": "€3,000 award",
+        "detail": "Award for the selected world plus two festival accreditations."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No fee for this category"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Submission through the festival’s calls-for-projects form.",
+      "terms": "Selected works are shown during the festival.",
+      "source": "https://www.newimages.art/calls-for-projects",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "noorderlicht-play-2027",
+      "title": "Noorderlicht — Biennale PLAY! 2027 (Groningen)",
+      "kind": "Open call",
+      "disciplines": [
+        "Digital art",
+        "Games",
+        "Moving image"
+      ],
+      "summary": "A biennale of roughly 75 artists that explicitly includes generative, interactive and game-based work alongside lens-based art.",
+      "location": "Groningen, Netherlands",
+      "remote": false,
+      "dates": "Biennale in 2027",
+      "deadline": {
+        "date": "2026-12-15",
+        "at": "2026-12-15T23:59:00+01:00",
+        "note": "23:59 CET"
+      },
+      "support": {
+        "paid": true,
+        "text": "Artist fee",
+        "detail": "Artist fee; production, insurance and transport covered."
+      },
+      "fee": {
+        "status": "paid",
+        "text": "€5 per project"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Online submission with project documentation.",
+      "terms": "Production, insurance and transport are handled by the organizers.",
+      "source": "https://noorderlicht.com/en/updates/open-call-noorderlicht-bi%C3%ABnnale-play-2027",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "acm-dis-2027-interactivity-arts",
+      "title": "ACM DIS 2027 — Interactivity & Arts (KTH Stockholm)",
+      "kind": "Research",
+      "disciplines": [
+        "Digital art",
+        "Research",
+        "Creative coding"
+      ],
+      "summary": "Exhibited artworks, web-based works, games and installations with an accompanying ACM publication, under the theme “Sensuous Knowing.”",
+      "location": "Stockholm, Sweden",
+      "remote": false,
+      "dates": "Conference in 2027",
+      "deadline": {
+        "date": "2027-02-19",
+        "at": null,
+        "note": "Anywhere on Earth"
+      },
+      "support": {
+        "paid": false,
+        "text": "Exhibition + publication",
+        "detail": "Accepted works are exhibited and published in the ACM Digital Library; registration is required if accepted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No fee to submit; conference registration if accepted"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Paper-style description plus documentation via the conference submission system.",
+      "terms": "Authors present and install their work at the conference.",
+      "source": "https://dis.acm.org/2027/interactivity-arts/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "tetem-maker-festival-twente-2027",
+      "title": "Tetem — Maker Festival Twente 2027 (Enschede)",
+      "kind": "Open call",
+      "disciplines": [
+        "Digital art",
+        "Creative coding",
+        "Games"
+      ],
+      "summary": "Paid slots for independent makers to run interactive installations and workshops for children aged 6–12.",
+      "location": "Enschede, Netherlands",
+      "remote": false,
+      "dates": "Festival May 6–9, 2027",
+      "deadline": {
+        "date": "2027-03-15",
+        "at": null,
+        "note": "Date as published; call is in Dutch"
+      },
+      "support": {
+        "paid": true,
+        "text": "Paid slot",
+        "detail": "Fee for independent makers; amount per the call."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Open; the call is published in Dutch."
+      },
+      "requirements": "Proposal for an installation or workshop suitable for ages 6–12.",
+      "terms": "Makers run their activity during the festival days.",
+      "source": "https://tetem.nl/event/mft-open-call-2027/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "main-festival-2027",
+      "title": "LOXOS~ — MA/IN Festival 2027 (Lecce / Potenza)",
+      "kind": "Performance",
+      "disciplines": [
+        "Sound",
+        "Performance",
+        "Digital art"
+      ],
+      "summary": "Call for live performance, audiovisual works and sound or media installations for a festival programmed August–October 2027.",
+      "location": "Lecce and Potenza, Italy",
+      "remote": false,
+      "dates": "Programming August–October 2027",
+      "deadline": {
+        "date": "2026-11-30",
+        "at": null,
+        "note": "Date as published; time not stated"
+      },
+      "support": {
+        "paid": false,
+        "text": "Programming",
+        "detail": "Selected works are programmed; possible partner presentations in Rome and Milan."
+      },
+      "fee": {
+        "status": "paid",
+        "text": "€20 membership"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Submission via the festival call form.",
+      "terms": "Per category; see the call.",
+      "source": "https://www.mainfest.it/en/call27/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "eva-london-2027",
+      "title": "EVA London 2027 — BCS Computer Arts Society",
+      "kind": "Research",
+      "disciplines": [
+        "Digital art",
+        "Research",
+        "Creative coding"
+      ],
+      "summary": "Hybrid conference on electronic visualisation and the arts with papers, demos and a workshop track for unaffiliated digital artists.",
+      "location": "London, UK (hybrid)",
+      "remote": true,
+      "dates": "July 12–16, 2027",
+      "deadline": {
+        "date": "2027-01-11",
+        "at": null,
+        "note": "Papers; workshop track closes February 22"
+      },
+      "support": {
+        "paid": false,
+        "text": "Proceedings",
+        "detail": "Accepted work appears in the proceedings; registration and open-access fees apply if accepted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No fee to propose"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International; independent artists welcome."
+      },
+      "requirements": "Abstract or paper via the call.",
+      "terms": "Presenters register for the conference.",
+      "source": "https://www.eva-london.org/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "plein-theater-near-sound-2027",
+      "title": "Plein Theater — NEAR SOUND Residency 2027 (Amsterdam)",
+      "kind": "Residency",
+      "disciplines": [
+        "Sound",
+        "Performance"
+      ],
+      "summary": "A one-week residency on composition, space and technology, ending in a concert.",
+      "location": "Amsterdam, Netherlands",
+      "remote": false,
+      "dates": "January 11–17, 2027",
+      "deadline": {
+        "date": "2026-11-10",
+        "at": null,
+        "note": "Date as published; email application"
+      },
+      "support": {
+        "paid": true,
+        "text": "€2,000 budget",
+        "detail": "Production budget; travel is not covered."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Proposal by email.",
+      "terms": "Residency closes with a public concert.",
+      "source": "https://www.plein-theater.nl/en/news/open-call-near-sound-residency-2027",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "aion-digital-art-prize-2",
+      "title": "Aion Laboratory — 2nd Aion Digital Art Prize (online, Japan)",
+      "kind": "Open call",
+      "disciplines": [
+        "Digital art"
+      ],
+      "summary": "An online digital-art prize open to existing work.",
+      "location": "Online",
+      "remote": true,
+      "dates": "Results in 2027",
+      "deadline": {
+        "date": "2027-03-01",
+        "at": "2027-03-01T23:59:00Z",
+        "note": "23:59 GMT"
+      },
+      "support": {
+        "paid": true,
+        "text": "¥50,000 grand prize",
+        "detail": "Grand prize plus certificates."
+      },
+      "fee": {
+        "status": "paid",
+        "text": "¥3,000 (~$20) per work"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "International."
+      },
+      "requirements": "Online entry per work.",
+      "terms": "See the prize page.",
+      "source": "https://www.aionlabo.com/en/blank-2",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "nyu-itp-assistant-professor-2027",
+      "title": "NYU Tisch ITP/IMA — Assistant Professor (tenure track, Fall 2027)",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Research"
+      ],
+      "summary": "Tenure-track faculty line in interactive media arts; the posting names interactive design and storytelling, time-based media, XR, AI/ML and tool-building for creative communities.",
+      "location": "New York, NY",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-09",
+        "at": null,
+        "note": "Extended deadline as published; time not stated"
+      },
+      "support": {
+        "paid": true,
+        "text": "$100,000–120,000",
+        "detail": "Nine-month base pay, paid over twelve months."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Cover letter, CV, three referee contacts with bios, and work samples via Interfolio.",
+      "terms": "No degree requirement stated.",
+      "source": "https://itp.nyu.edu/itp/news-we-re-hiring/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "columbia-soa-visual-arts-2027",
+      "title": "Columbia School of the Arts — Assistant/Associate Professor of Visual Arts (tenure track)",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Sound",
+        "Performance"
+      ],
+      "summary": "An open-medium studio faculty line including sound art, with a four-course load and a July 2027 start.",
+      "location": "New York, NY",
+      "remote": false,
+      "dates": "Start July 1, 2027",
+      "deadline": {
+        "date": "2027-01-10",
+        "at": null,
+        "note": "Review begins January 10, then open until filled"
+      },
+      "support": {
+        "paid": true,
+        "text": "$108,000–135,000",
+        "detail": "Assistant $108,000–115,000; Associate $115,000–135,000."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Interfolio; BA minimum, MFA and three years of teaching strongly preferred.",
+      "terms": "Tenure track.",
+      "source": "https://apply.interfolio.com/194755",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "cooper-union-art-tt-2027",
+      "title": "Cooper Union School of Art — Tenure-track Assistant/Associate Professor",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Sound",
+        "Creative coding"
+      ],
+      "summary": "A tenure-track studio line in computational image and object fabrication, installation or sound art, starting August 2027.",
+      "location": "New York, NY",
+      "remote": false,
+      "dates": "Start August 2027",
+      "deadline": {
+        "date": "2027-01-19",
+        "at": null,
+        "note": "Review begins January 19"
+      },
+      "support": {
+        "paid": true,
+        "text": "$90,000–114,000",
+        "detail": "Annual salary range as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via SlideRoom; five years of college-level studio teaching required; no degree stated.",
+      "terms": "Tenure track.",
+      "source": "https://cooperunionschoolofart.slideroom.com/#/permalink/program/91826",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "nyu-tisch-collaborative-arts-chair-2027",
+      "title": "NYU Tisch — Chair of Collaborative Arts (Associate or Full Professor)",
+      "kind": "Job",
+      "disciplines": [
+        "Performance",
+        "Digital art",
+        "Research"
+      ],
+      "summary": "A twelve-month department chair on a tenure line for an artist, researcher or creator with an interdisciplinary practice across performance, media or technology.",
+      "location": "New York, NY",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-24",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "$130,000–170,000",
+        "detail": "Associate $130,000–150,000; Full $150,000–170,000; twelve-month appointment."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Must qualify at Associate or Full rank on a tenure line; administrative leadership experience.",
+      "terms": "Chair appointment.",
+      "source": "https://apply.interfolio.com/195906",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "pratt-film-video-chair-2027",
+      "title": "Pratt Institute — Film/Video Department Chairperson, School of Art",
+      "kind": "Job",
+      "disciplines": [
+        "Moving image",
+        "Digital art"
+      ],
+      "summary": "A twelve-month administrative chair on a three-year contract leading the Film/Video department.",
+      "location": "Brooklyn, NY",
+      "remote": false,
+      "dates": "Three-year contract",
+      "deadline": {
+        "date": "2027-02-01",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "$135,000–160,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA or terminal degree or equivalent in film/video or related field; five years of higher-education administration and five years of teaching.",
+      "terms": "Administrative appointment.",
+      "source": "https://www.schooljobs.com/careers/pratt/jobs/5537178-0",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "texas-am-pvfa-computational-design-2027",
+      "title": "Texas A&M PVFA — Assistant Professor of Art & Design in Intelligent Systems & Computational Design",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Research"
+      ],
+      "summary": "Tenure-track line for creative-coding, generative and AI art and design practice.",
+      "location": "College Station, TX",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-19",
+        "at": null,
+        "note": "Review begins about 30 days after the October 20 posting, then open until filled"
+      },
+      "support": {
+        "paid": true,
+        "text": "$72,000–78,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA, MDes or PhD or equivalent; ABD accepted. Apply via Interfolio.",
+      "terms": "Tenure track.",
+      "source": "https://apply.interfolio.com/195034",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "und-emerging-tech-ai-chair-2027",
+      "title": "University of North Dakota — Assistant Professor, Emerging Technologies & AI (New Media), Burgum Endowed Chair",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Creative coding"
+      ],
+      "summary": "Tenure-track endowed studio chair in new media, emerging technologies and AI with a 3/2 teaching load and annual chair funds.",
+      "location": "Grand Forks, ND",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-12",
+        "at": null,
+        "note": "Full consideration date; then open until filled"
+      },
+      "support": {
+        "paid": true,
+        "text": "Salary not stated + chair funds",
+        "detail": "Annual endowed-chair funds; salary not published."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA in any studio art.",
+      "terms": "Tenure track.",
+      "source": "https://jobs.chronicle.com/job/38041455/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "cal-lutheran-interactive-media-2027",
+      "title": "California Lutheran University — Assistant Professor or Lecturer, Interactive Media & Game Design",
+      "kind": "Job",
+      "disciplines": [
+        "Games",
+        "Digital art"
+      ],
+      "summary": "A .75 FTE digital-media faculty line in interactive media and game design, tenure track or lecturer depending on degree.",
+      "location": "Thousand Oaks, CA",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-08",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "Salary not stated",
+        "detail": ".75 FTE appointment."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Tenure track requires an MFA or terminal degree; lecturer requires a master’s.",
+      "terms": "Per posting.",
+      "source": "https://careers.callutheran.edu/postings/13634",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "york-crc-ai-arts-2027",
+      "title": "York University (Toronto) — Canada Research Chair Tier 2, AI and the Arts",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Research",
+        "Creative coding"
+      ],
+      "summary": "A tenure-stream research chair in AI and creative practice at the School of the Arts, Media, Performance & Design.",
+      "location": "Toronto, Canada",
+      "remote": false,
+      "dates": "Start 2027",
+      "deadline": {
+        "date": "2026-11-18",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "CAD $130,000–160,000",
+        "detail": "Annual salary range as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Canadians and permanent residents are prioritized; PhD, or MFA/MA with a substantial record, accepted."
+      },
+      "requirements": "Application per the posting PDF.",
+      "terms": "Tier 2 chairs normally fall within ten years of the degree; see the posting for exceptions.",
+      "source": "https://www.yorku.ca/unit/vpf/wp-content/uploads/sites/1070/2026/10/AMPD_CRC_AI.pdf",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "york-music-technology-2027",
+      "title": "York University (Toronto) — Assistant Professor, Music Technology & Production",
+      "kind": "Job",
+      "disciplines": [
+        "Sound",
+        "Research"
+      ],
+      "summary": "Tenure-stream line in audio technology and research-creation.",
+      "location": "Toronto, Canada",
+      "remote": false,
+      "dates": "Start 2027",
+      "deadline": {
+        "date": "2026-11-18",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "CAD $130,000–160,000",
+        "detail": "Annual salary range as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Canadians and permanent residents are prioritized; PhD/DMA, or MA/MFA with a substantial record, accepted."
+      },
+      "requirements": "Application per the posting PDF.",
+      "terms": "Tenure stream.",
+      "source": "https://www.yorku.ca/unit/vpf/wp-content/uploads/sites/1070/2026/09/AMPD_MUS_Tech.pdf",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "ual-lcf-creative-technology-lecturer-2026",
+      "title": "UAL London College of Fashion — Lecturer in Creative Technology & Visual Culture",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art"
+      ],
+      "summary": "A permanent lecturer post in creative technology within the Communication programme.",
+      "location": "London, UK",
+      "remote": false,
+      "dates": "Permanent",
+      "deadline": {
+        "date": "2026-11-30",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "£45,263–54,037",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "UK right to work or visa sponsorship per the posting; equivalent experience accepted in place of a degree."
+      },
+      "requirements": "Application via the UAL jobs portal.",
+      "terms": "Permanent lecturer.",
+      "source": "https://jobs.arts.ac.uk/job/12814-lecturer-in-creative-technology-and-visual-culture/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "lehman-cuny-sculpture-new-media-2027",
+      "title": "Lehman College CUNY — Assistant Professor of Art, Sculpture / New Media",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Performance"
+      ],
+      "summary": "Tenure-track line leading the sculpture area with a new-media emphasis.",
+      "location": "Bronx, NY",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2027-01-01",
+        "at": null,
+        "note": "Review begins January 2027"
+      },
+      "support": {
+        "paid": true,
+        "text": "$94,017–105,588",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA or equivalent; three or more years of teaching.",
+      "terms": "Tenure track.",
+      "source": "https://cuny.jobs/bronx-ny/assistant-professor-of-art-sculpturenew-media/ABB1AEBFA71A4D0C84B2A33CA39D5D61/job/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "ut-austin-interactive-design-2027",
+      "title": "UT Austin — Assistant Professor, Graphic Design for Interactive & Digital Media",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Creative coding"
+      ],
+      "summary": "Tenure-track design faculty line in interactive and digital media.",
+      "location": "Austin, TX",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2027-01-01",
+        "at": null,
+        "note": "Review begins January 1, then open until filled"
+      },
+      "support": {
+        "paid": true,
+        "text": "$90,000–100,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "PhD, MFA or equivalent.",
+      "terms": "Tenure track.",
+      "source": "https://jobs.chronicle.com/job/38055281/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "hamilton-time-based-media-2027",
+      "title": "Hamilton College — Assistant Professor of Time-based Media",
+      "kind": "Job",
+      "disciplines": [
+        "Moving image",
+        "Digital art"
+      ],
+      "summary": "Tenure-track studio line in time-based media.",
+      "location": "Clinton, NY",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-11-15",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "Salary not stated",
+        "detail": "See posting."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Interfolio.",
+      "terms": "Tenure track.",
+      "source": "https://apply.interfolio.com/192288",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "csu-fullerton-interactive-design-2027",
+      "title": "CSU Fullerton — Assistant Professor, Graphic & Interactive Design (tenure track)",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Creative coding"
+      ],
+      "summary": "Tenure-track line in graphic and interactive design.",
+      "location": "Fullerton, CA",
+      "remote": false,
+      "dates": "Start Fall 2027",
+      "deadline": {
+        "date": "2026-12-15",
+        "at": null,
+        "note": "Date as published"
+      },
+      "support": {
+        "paid": true,
+        "text": "Salary not stated",
+        "detail": "See posting."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via CSU Careers.",
+      "terms": "Tenure track.",
+      "source": "https://csucareers.calstate.edu/en-us/job/562527/assistant-professor-graphic-and-interactive-design",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "marist-games-emerging-media-2026",
+      "title": "Marist University — Assistant Professor or Professional Lecturer, Games & Emerging Media",
+      "kind": "Job",
+      "disciplines": [
+        "Games",
+        "Digital art"
+      ],
+      "summary": "Tenure-track or term faculty line in game art, UX and digital media; games-industry experience accepted in place of a terminal degree.",
+      "location": "Poughkeepsie, NY",
+      "remote": false,
+      "dates": "Posted October 26, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$75,000–80,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA/PhD and/or games-industry experience.",
+      "terms": "Open until filled.",
+      "source": "https://careers.marist.edu/jobs/assistant-professor-or-professional-lecturer-in-games-emerging-media-poughkeepsie-ny-new-york-united-states-103c0af1-cee3-4642-894d-12a90f6f3590",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "wheaton-ma-digital-media-pop-2026",
+      "title": "Wheaton College (MA) — Professor of the Practice, Digital Media & Communication",
+      "kind": "Job",
+      "disciplines": [
+        "Digital art",
+        "Moving image"
+      ],
+      "summary": "A professor-of-the-practice line to shape the Digital Media & Communication major.",
+      "location": "Norton, MA",
+      "remote": false,
+      "dates": "Posted October 5, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "Salary not stated",
+        "detail": "See posting."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MA plus experience, MFA, or PhD.",
+      "terms": "Open until filled.",
+      "source": "https://jobs.wheatoncollege.edu/postings/4942",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "chapman-game-design-cg-artist-2026",
+      "title": "Chapman University — Artistic Assistant Professor of Game Design, CG Artist",
+      "kind": "Job",
+      "disciplines": [
+        "Games",
+        "Digital art"
+      ],
+      "summary": "A non-tenure artistic faculty line in 3D CG game art.",
+      "location": "Orange, CA",
+      "remote": false,
+      "dates": "Posted September 4, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$100,000–110,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "BFA/MFA or equivalent industry experience.",
+      "terms": "Open until filled.",
+      "source": "https://jobs.chronicle.com/job/38043868/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "ferris-state-animation-game-design-2026",
+      "title": "Ferris State University — Assistant Professor, Digital Animation & Game Design",
+      "kind": "Job",
+      "disciplines": [
+        "Games",
+        "Moving image"
+      ],
+      "summary": "Tenure-track line teaching Unity/Unreal/C# game programming and animation.",
+      "location": "Big Rapids, MI",
+      "remote": false,
+      "dates": "Posted October 30, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$65,000–75,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "MFA preferred; professional experience or equivalent accepted.",
+      "terms": "Open until filled.",
+      "source": "https://careersmanager.pageuppeople.com/1010/cw/en-us/job/498370/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "nyu-tandon-makerspace-director-2026",
+      "title": "NYU Tandon — Director, Makerspace & Design Lab (staff)",
+      "kind": "Job",
+      "disciplines": [
+        "Research",
+        "Digital art"
+      ],
+      "summary": "Full-time staff director for Tandon’s makerspace and design lab.",
+      "location": "Brooklyn, NY",
+      "remote": false,
+      "dates": "Open until filled",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$110,000–150,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Bachelor’s in an engineering field; seven or more years mentoring in prototyping or manufacturing spaces with budget responsibility.",
+      "terms": "Staff position; verify the current listing on the NYU careers portal.",
+      "source": "https://main.hercjobs.org/jobs/22223440/director-makerspace-design-lab",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "anthropic-developer-education-lead-2026",
+      "title": "Anthropic — Developer Education Lead, Claude Platform",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Research",
+        "Open source"
+      ],
+      "summary": "An engineer-who-teaches role building labs, demos and curriculum on LLM APIs, agents and MCP for the Claude developer platform.",
+      "location": "San Francisco, New York or Seattle (hybrid)",
+      "remote": false,
+      "dates": "Posted September 21, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$290,000–365,000",
+        "detail": "Annual salary as posted, plus equity and benefits."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Greenhouse.",
+      "terms": "Open until filled.",
+      "source": "https://job-boards.greenhouse.io/anthropic/jobs/5311465008",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "anthropic-software-engineer-education-2026",
+      "title": "Anthropic — Software Engineer, Education",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Research"
+      ],
+      "summary": "Full-stack engineering on AI-native learning products.",
+      "location": "San Francisco or New York (hybrid)",
+      "remote": false,
+      "dates": "Posted September 21, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$320,000–405,000",
+        "detail": "Annual salary as posted, plus equity and benefits."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Seven or more years of full-stack experience; application via Greenhouse.",
+      "terms": "Open until filled.",
+      "source": "https://job-boards.greenhouse.io/anthropic/jobs/5389305008",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "anthropic-devrel-manager-claude-platform-2026",
+      "title": "Anthropic — Developer Relations Manager, Claude Platform",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Open source"
+      ],
+      "summary": "A people-manager developer-relations role for the Claude platform.",
+      "location": "San Francisco or New York (hybrid)",
+      "remote": false,
+      "dates": "Posted October 13, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$290,000–435,000",
+        "detail": "Annual salary as posted, plus equity and benefits."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Greenhouse.",
+      "terms": "Open until filled.",
+      "source": "https://job-boards.greenhouse.io/anthropic/jobs/5367562008",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "runway-labs-prototype-researcher-2026",
+      "title": "Runway — Prototype Researcher, Runway Labs",
+      "kind": "Job",
+      "disciplines": [
+        "Moving image",
+        "Creative coding",
+        "Research"
+      ],
+      "summary": "A research-prototype studio role taking concepts to working prototypes and demo films with storytelling.",
+      "location": "Remote US; offices in New York, San Francisco and Seattle",
+      "remote": true,
+      "dates": "Posted October 12, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$250,000–310,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Ashby.",
+      "terms": "Open until filled.",
+      "source": "https://jobs.ashbyhq.com/runway-ml/d8afa330-e713-4a2d-833b-cd2e4c6e0fcc",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "google-senior-creative-technologist-events-2026",
+      "title": "Google — Senior Creative Technologist, Events and Experiences",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art"
+      ],
+      "summary": "Builds launch demos, sandboxes and live moments for Google events and experiences.",
+      "location": "New York, NY (confirm on the posting)",
+      "remote": false,
+      "dates": "Live on Google Careers",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$171,000–247,000 + bonus",
+        "detail": "Base range as posted plus bonus target, equity and benefits."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Nine years in a creative-technology role per the posting.",
+      "terms": "Open until filled.",
+      "source": "https://www.google.com/about/careers/applications/jobs/results/129384711951655622-senior-creative-technologist-events-and-experiences",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "code-and-theory-director-creative-technology-2026",
+      "title": "Code and Theory — Director, Creative Technology (US)",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art"
+      ],
+      "summary": "Leads creative-technology pods and AI-native, agentic production pipelines at a design and technology agency.",
+      "location": "New York, NY, or remote US",
+      "remote": true,
+      "dates": "Posted about October 12, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$160,000–225,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Apply via codeandtheory.com/careers.",
+      "terms": "Open until filled.",
+      "source": "https://builtin.com/job/director-creative-technology-us/10829738",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "meta-brand-experiences-creative-technologist-2026",
+      "title": "Meta — Global Brand Experiences Lead, Creative Technologist",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art"
+      ],
+      "summary": "Zero-to-one interactive brand activations built with creative coding, then productized.",
+      "location": "New York, San Francisco or Menlo Park",
+      "remote": false,
+      "dates": "Posted October 5, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$152,000–213,000 + bonus",
+        "detail": "Base range as posted plus bonus, equity and benefits."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Ten years of experiential production per the posting.",
+      "terms": "Open until filled.",
+      "source": "https://www.metacareers.com/profile/job_details/1710216337776550/",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "kettle-senior-creative-technologist-2026",
+      "title": "Kettle — Senior Creative Technologist",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding"
+      ],
+      "summary": "Builds tools, accelerators and AI-powered experiences for an agency in Node, Python and Swift.",
+      "location": "Remote US; New York office",
+      "remote": true,
+      "dates": "Posted about October 13, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$140,000–160,000",
+        "detail": "Annual salary as posted."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Greenhouse.",
+      "terms": "Open until filled.",
+      "source": "https://job-boards.greenhouse.io/kettle/jobs/8885210002",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
+    },
+    {
+      "id": "whop-creative-technologist-2026",
+      "title": "Whop — Creative Technologist",
+      "kind": "Job",
+      "disciplines": [
+        "Creative coding",
+        "Digital art"
+      ],
+      "summary": "AI-accelerated creative systems and rapid prototypes for an in-person Brooklyn team.",
+      "location": "Brooklyn, NY (in person)",
+      "remote": false,
+      "dates": "Posted October 21, 2026",
+      "deadline": null,
+      "support": {
+        "paid": true,
+        "text": "$125,000–170,000 + equity",
+        "detail": "Annual salary as posted plus equity."
+      },
+      "fee": {
+        "status": "free",
+        "text": "No application fee"
+      },
+      "eligibility": {
+        "international": false,
+        "text": "US work authorization or employer sponsorship; check the posting."
+      },
+      "requirements": "Application via Ashby.",
+      "terms": "Open until filled.",
+      "source": "https://jobs.ashbyhq.com/whop/c1981843-a081-470c-b2c7-d03a8bdd6eee",
+      "checked": "2026-11-06",
+      "published": "2026-11-06"
     }
   ]
 }

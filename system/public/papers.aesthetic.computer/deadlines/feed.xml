@@ -1,5 +1,497 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Thu, 29 Oct 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AC — New media deadlines</title><link>https://papers.aesthetic.computer/deadlines/</link><description>Reviewed opportunities for creative coding, digital art, experimental sound and new media.</description><language>en</language><lastBuildDate>Fri, 06 Nov 2026 12:00:00 GMT</lastBuildDate><atom:link href="https://papers.aesthetic.computer/deadlines/feed.xml" rel="self" type="application/rss+xml"/>
+<item><title>Ljudmila — Parameter Generative Arts Fair, Adela 2027</title><link>https://papers.aesthetic.computer/deadlines/#ljudmila-parameter-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#ljudmila-parameter-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A fair for generative, open-source and permacomputing art at Kino Šiška, Ljubljana, where selected artists present and sell work with no commission.
+
+Deadline: 2026-11-26. Date as published; time not stated
+Accommodation, travel reimbursement up to €150, catalogue entry, no sales commission. Jury prize: a 2028 solo show plus €700; two €350 mentions.
+No application fee
+
+Eligibility: International artists working with generative, algorithmic or open-source methods.
+
+Selected artists bring and sell their own work; the organizers take no commission.
+
+Official call: https://wiki.ljudmila.org/Adela:_Parameter_2027_Open_Call
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category><category>Open source</category></item>
+<item><title>Athens Digital Arts Festival — ADAF 2027 “It’s Alive”</title><link>https://papers.aesthetic.computer/deadlines/#adaf-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#adaf-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Open call for web art, games, music, performance, workshops and a kids’ strand under a techno-animism theme.
+
+Deadline: 2026-11-10. Date as published; time not stated
+No artist fee or production support is stated in the call.
+No application fee
+
+Eligibility: International; all digital-art formats named in the call.
+
+Selected works are presented during the festival; conditions per category.
+
+Official call: https://2027.adaf.gr/open-call-newsletter/
+Checked 2026-11-06</description><category>Digital art</category><category>Games</category><category>Sound</category><category>Performance</category></item>
+<item><title>Data Through Design — DxD 2027 (BRIC, Brooklyn)</title><link>https://papers.aesthetic.computer/deadlines/#data-through-design-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#data-through-design-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A group exhibition of creative-coding data art built on an NYC Open Data dataset, themed “evidence of time.”
+
+Deadline: 2026-11-15. 23:59 Eastern
+Artist stipend for selected works.
+No application fee
+
+Eligibility: Open; the work must use at least one NYC Open Data dataset.
+
+Selected artists deliver and install the work at BRIC.
+
+Official call: https://datathroughdesign.com/open-call-2027
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category><category>Research</category></item>
+<item><title>Realities in Transition — RiT2 Open Call #4 with Beta Festival (Dublin)</title><link>https://papers.aesthetic.computer/deadlines/#realities-in-transition-call-4</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#realities-in-transition-call-4</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Three grants for collective, multi-user XR works developed over a six-month hybrid residency with a creative technologist, including two months in Dublin.
+
+Deadline: 2026-11-10. 23:59 CEST as published
+Production grant plus residency and mentoring; Creative Europe funded.
+Fee not stated
+
+Eligibility: Eligibility follows Creative Europe rules; applicants outside Europe should confirm with the organizers.
+
+Collective multi-user XR work delivered for Beta Festival.
+
+Official call: https://www.realities-in-transition.eu/rit-2-open-call-4/
+Checked 2026-11-06</description><category>Digital art</category><category>Performance</category><category>Research</category></item>
+<item><title>NewImages Festival 2027 — Virtual Worlds Competition (Paris)</title><link>https://papers.aesthetic.computer/deadlines/#newimages-2027-virtual-worlds</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#newimages-2027-virtual-worlds</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Competition for independent online worlds and multiplayer art spaces at the NewImages immersive-arts festival.
+
+Deadline: 2026-12-22. Final deadline; early bird December 10
+Award for the selected world plus two festival accreditations.
+No fee for this category
+
+Eligibility: International.
+
+Selected works are shown during the festival.
+
+Official call: https://www.newimages.art/calls-for-projects
+Checked 2026-11-06</description><category>Digital art</category><category>Games</category></item>
+<item><title>Noorderlicht — Biennale PLAY! 2027 (Groningen)</title><link>https://papers.aesthetic.computer/deadlines/#noorderlicht-play-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#noorderlicht-play-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A biennale of roughly 75 artists that explicitly includes generative, interactive and game-based work alongside lens-based art.
+
+Deadline: 2026-12-15. 23:59 CET
+Artist fee; production, insurance and transport covered.
+€5 per project
+
+Eligibility: International.
+
+Production, insurance and transport are handled by the organizers.
+
+Official call: https://noorderlicht.com/en/updates/open-call-noorderlicht-bi%C3%ABnnale-play-2027
+Checked 2026-11-06</description><category>Digital art</category><category>Games</category><category>Moving image</category></item>
+<item><title>ACM DIS 2027 — Interactivity &amp; Arts (KTH Stockholm)</title><link>https://papers.aesthetic.computer/deadlines/#acm-dis-2027-interactivity-arts</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#acm-dis-2027-interactivity-arts</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Exhibited artworks, web-based works, games and installations with an accompanying ACM publication, under the theme “Sensuous Knowing.”
+
+Deadline: 2027-02-19. Anywhere on Earth
+Accepted works are exhibited and published in the ACM Digital Library; registration is required if accepted.
+No fee to submit; conference registration if accepted
+
+Eligibility: International.
+
+Authors present and install their work at the conference.
+
+Official call: https://dis.acm.org/2027/interactivity-arts/
+Checked 2026-11-06</description><category>Digital art</category><category>Research</category><category>Creative coding</category></item>
+<item><title>Tetem — Maker Festival Twente 2027 (Enschede)</title><link>https://papers.aesthetic.computer/deadlines/#tetem-maker-festival-twente-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#tetem-maker-festival-twente-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Paid slots for independent makers to run interactive installations and workshops for children aged 6–12.
+
+Deadline: 2027-03-15. Date as published; call is in Dutch
+Fee for independent makers; amount per the call.
+No application fee
+
+Eligibility: Open; the call is published in Dutch.
+
+Makers run their activity during the festival days.
+
+Official call: https://tetem.nl/event/mft-open-call-2027/
+Checked 2026-11-06</description><category>Digital art</category><category>Creative coding</category><category>Games</category></item>
+<item><title>LOXOS~ — MA/IN Festival 2027 (Lecce / Potenza)</title><link>https://papers.aesthetic.computer/deadlines/#main-festival-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#main-festival-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Call for live performance, audiovisual works and sound or media installations for a festival programmed August–October 2027.
+
+Deadline: 2026-11-30. Date as published; time not stated
+Selected works are programmed; possible partner presentations in Rome and Milan.
+€20 membership
+
+Eligibility: International.
+
+Per category; see the call.
+
+Official call: https://www.mainfest.it/en/call27/
+Checked 2026-11-06</description><category>Sound</category><category>Performance</category><category>Digital art</category></item>
+<item><title>EVA London 2027 — BCS Computer Arts Society</title><link>https://papers.aesthetic.computer/deadlines/#eva-london-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#eva-london-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Hybrid conference on electronic visualisation and the arts with papers, demos and a workshop track for unaffiliated digital artists.
+
+Deadline: 2027-01-11. Papers; workshop track closes February 22
+Accepted work appears in the proceedings; registration and open-access fees apply if accepted.
+No fee to propose
+
+Eligibility: International; independent artists welcome.
+
+Presenters register for the conference.
+
+Official call: https://www.eva-london.org/
+Checked 2026-11-06</description><category>Digital art</category><category>Research</category><category>Creative coding</category></item>
+<item><title>Plein Theater — NEAR SOUND Residency 2027 (Amsterdam)</title><link>https://papers.aesthetic.computer/deadlines/#plein-theater-near-sound-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#plein-theater-near-sound-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A one-week residency on composition, space and technology, ending in a concert.
+
+Deadline: 2026-11-10. Date as published; email application
+Production budget; travel is not covered.
+No application fee
+
+Eligibility: International.
+
+Residency closes with a public concert.
+
+Official call: https://www.plein-theater.nl/en/news/open-call-near-sound-residency-2027
+Checked 2026-11-06</description><category>Sound</category><category>Performance</category></item>
+<item><title>Aion Laboratory — 2nd Aion Digital Art Prize (online, Japan)</title><link>https://papers.aesthetic.computer/deadlines/#aion-digital-art-prize-2</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#aion-digital-art-prize-2</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>An online digital-art prize open to existing work.
+
+Deadline: 2027-03-01. 23:59 GMT
+Grand prize plus certificates.
+¥3,000 (~$20) per work
+
+Eligibility: International.
+
+See the prize page.
+
+Official call: https://www.aionlabo.com/en/blank-2
+Checked 2026-11-06</description><category>Digital art</category></item>
+<item><title>NYU Tisch ITP/IMA — Assistant Professor (tenure track, Fall 2027)</title><link>https://papers.aesthetic.computer/deadlines/#nyu-itp-assistant-professor-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#nyu-itp-assistant-professor-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track faculty line in interactive media arts; the posting names interactive design and storytelling, time-based media, XR, AI/ML and tool-building for creative communities.
+
+Deadline: 2026-11-09. Extended deadline as published; time not stated
+Nine-month base pay, paid over twelve months.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+No degree requirement stated.
+
+Official call: https://itp.nyu.edu/itp/news-we-re-hiring/
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category><category>Research</category></item>
+<item><title>Columbia School of the Arts — Assistant/Associate Professor of Visual Arts (tenure track)</title><link>https://papers.aesthetic.computer/deadlines/#columbia-soa-visual-arts-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#columbia-soa-visual-arts-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>An open-medium studio faculty line including sound art, with a four-course load and a July 2027 start.
+
+Deadline: 2027-01-10. Review begins January 10, then open until filled
+Assistant $108,000–115,000; Associate $115,000–135,000.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://apply.interfolio.com/194755
+Checked 2026-11-06</description><category>Digital art</category><category>Sound</category><category>Performance</category></item>
+<item><title>Cooper Union School of Art — Tenure-track Assistant/Associate Professor</title><link>https://papers.aesthetic.computer/deadlines/#cooper-union-art-tt-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#cooper-union-art-tt-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A tenure-track studio line in computational image and object fabrication, installation or sound art, starting August 2027.
+
+Deadline: 2027-01-19. Review begins January 19
+Annual salary range as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://cooperunionschoolofart.slideroom.com/#/permalink/program/91826
+Checked 2026-11-06</description><category>Digital art</category><category>Sound</category><category>Creative coding</category></item>
+<item><title>NYU Tisch — Chair of Collaborative Arts (Associate or Full Professor)</title><link>https://papers.aesthetic.computer/deadlines/#nyu-tisch-collaborative-arts-chair-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#nyu-tisch-collaborative-arts-chair-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A twelve-month department chair on a tenure line for an artist, researcher or creator with an interdisciplinary practice across performance, media or technology.
+
+Deadline: 2026-11-24. Date as published
+Associate $130,000–150,000; Full $150,000–170,000; twelve-month appointment.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Chair appointment.
+
+Official call: https://apply.interfolio.com/195906
+Checked 2026-11-06</description><category>Performance</category><category>Digital art</category><category>Research</category></item>
+<item><title>Pratt Institute — Film/Video Department Chairperson, School of Art</title><link>https://papers.aesthetic.computer/deadlines/#pratt-film-video-chair-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#pratt-film-video-chair-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A twelve-month administrative chair on a three-year contract leading the Film/Video department.
+
+Deadline: 2027-02-01. Date as published
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Administrative appointment.
+
+Official call: https://www.schooljobs.com/careers/pratt/jobs/5537178-0
+Checked 2026-11-06</description><category>Moving image</category><category>Digital art</category></item>
+<item><title>Texas A&amp;M PVFA — Assistant Professor of Art &amp; Design in Intelligent Systems &amp; Computational Design</title><link>https://papers.aesthetic.computer/deadlines/#texas-am-pvfa-computational-design-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#texas-am-pvfa-computational-design-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track line for creative-coding, generative and AI art and design practice.
+
+Deadline: 2026-11-19. Review begins about 30 days after the October 20 posting, then open until filled
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://apply.interfolio.com/195034
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category><category>Research</category></item>
+<item><title>University of North Dakota — Assistant Professor, Emerging Technologies &amp; AI (New Media), Burgum Endowed Chair</title><link>https://papers.aesthetic.computer/deadlines/#und-emerging-tech-ai-chair-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#und-emerging-tech-ai-chair-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track endowed studio chair in new media, emerging technologies and AI with a 3/2 teaching load and annual chair funds.
+
+Deadline: 2026-11-12. Full consideration date; then open until filled
+Annual endowed-chair funds; salary not published.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://jobs.chronicle.com/job/38041455/
+Checked 2026-11-06</description><category>Digital art</category><category>Creative coding</category></item>
+<item><title>California Lutheran University — Assistant Professor or Lecturer, Interactive Media &amp; Game Design</title><link>https://papers.aesthetic.computer/deadlines/#cal-lutheran-interactive-media-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#cal-lutheran-interactive-media-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A .75 FTE digital-media faculty line in interactive media and game design, tenure track or lecturer depending on degree.
+
+Deadline: 2026-11-08. Date as published
+.75 FTE appointment.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Per posting.
+
+Official call: https://careers.callutheran.edu/postings/13634
+Checked 2026-11-06</description><category>Games</category><category>Digital art</category></item>
+<item><title>York University (Toronto) — Canada Research Chair Tier 2, AI and the Arts</title><link>https://papers.aesthetic.computer/deadlines/#york-crc-ai-arts-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#york-crc-ai-arts-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A tenure-stream research chair in AI and creative practice at the School of the Arts, Media, Performance &amp; Design.
+
+Deadline: 2026-11-18. Date as published
+Annual salary range as posted.
+No application fee
+
+Eligibility: Canadians and permanent residents are prioritized; PhD, or MFA/MA with a substantial record, accepted.
+
+Tier 2 chairs normally fall within ten years of the degree; see the posting for exceptions.
+
+Official call: https://www.yorku.ca/unit/vpf/wp-content/uploads/sites/1070/2026/10/AMPD_CRC_AI.pdf
+Checked 2026-11-06</description><category>Digital art</category><category>Research</category><category>Creative coding</category></item>
+<item><title>York University (Toronto) — Assistant Professor, Music Technology &amp; Production</title><link>https://papers.aesthetic.computer/deadlines/#york-music-technology-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#york-music-technology-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-stream line in audio technology and research-creation.
+
+Deadline: 2026-11-18. Date as published
+Annual salary range as posted.
+No application fee
+
+Eligibility: Canadians and permanent residents are prioritized; PhD/DMA, or MA/MFA with a substantial record, accepted.
+
+Tenure stream.
+
+Official call: https://www.yorku.ca/unit/vpf/wp-content/uploads/sites/1070/2026/09/AMPD_MUS_Tech.pdf
+Checked 2026-11-06</description><category>Sound</category><category>Research</category></item>
+<item><title>UAL London College of Fashion — Lecturer in Creative Technology &amp; Visual Culture</title><link>https://papers.aesthetic.computer/deadlines/#ual-lcf-creative-technology-lecturer-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#ual-lcf-creative-technology-lecturer-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A permanent lecturer post in creative technology within the Communication programme.
+
+Deadline: 2026-11-30. Date as published
+Annual salary as posted.
+No application fee
+
+Eligibility: UK right to work or visa sponsorship per the posting; equivalent experience accepted in place of a degree.
+
+Permanent lecturer.
+
+Official call: https://jobs.arts.ac.uk/job/12814-lecturer-in-creative-technology-and-visual-culture/
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category></item>
+<item><title>Lehman College CUNY — Assistant Professor of Art, Sculpture / New Media</title><link>https://papers.aesthetic.computer/deadlines/#lehman-cuny-sculpture-new-media-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#lehman-cuny-sculpture-new-media-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track line leading the sculpture area with a new-media emphasis.
+
+Deadline: 2027-01-01. Review begins January 2027
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://cuny.jobs/bronx-ny/assistant-professor-of-art-sculpturenew-media/ABB1AEBFA71A4D0C84B2A33CA39D5D61/job/
+Checked 2026-11-06</description><category>Digital art</category><category>Performance</category></item>
+<item><title>UT Austin — Assistant Professor, Graphic Design for Interactive &amp; Digital Media</title><link>https://papers.aesthetic.computer/deadlines/#ut-austin-interactive-design-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#ut-austin-interactive-design-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track design faculty line in interactive and digital media.
+
+Deadline: 2027-01-01. Review begins January 1, then open until filled
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://jobs.chronicle.com/job/38055281/
+Checked 2026-11-06</description><category>Digital art</category><category>Creative coding</category></item>
+<item><title>Hamilton College — Assistant Professor of Time-based Media</title><link>https://papers.aesthetic.computer/deadlines/#hamilton-time-based-media-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#hamilton-time-based-media-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track studio line in time-based media.
+
+Deadline: 2026-11-15. Date as published
+See posting.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://apply.interfolio.com/192288
+Checked 2026-11-06</description><category>Moving image</category><category>Digital art</category></item>
+<item><title>CSU Fullerton — Assistant Professor, Graphic &amp; Interactive Design (tenure track)</title><link>https://papers.aesthetic.computer/deadlines/#csu-fullerton-interactive-design-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#csu-fullerton-interactive-design-2027</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track line in graphic and interactive design.
+
+Deadline: 2026-12-15. Date as published
+See posting.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Tenure track.
+
+Official call: https://csucareers.calstate.edu/en-us/job/562527/assistant-professor-graphic-and-interactive-design
+Checked 2026-11-06</description><category>Digital art</category><category>Creative coding</category></item>
+<item><title>Marist University — Assistant Professor or Professional Lecturer, Games &amp; Emerging Media</title><link>https://papers.aesthetic.computer/deadlines/#marist-games-emerging-media-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#marist-games-emerging-media-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track or term faculty line in game art, UX and digital media; games-industry experience accepted in place of a terminal degree.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://careers.marist.edu/jobs/assistant-professor-or-professional-lecturer-in-games-emerging-media-poughkeepsie-ny-new-york-united-states-103c0af1-cee3-4642-894d-12a90f6f3590
+Checked 2026-11-06</description><category>Games</category><category>Digital art</category></item>
+<item><title>Wheaton College (MA) — Professor of the Practice, Digital Media &amp; Communication</title><link>https://papers.aesthetic.computer/deadlines/#wheaton-ma-digital-media-pop-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#wheaton-ma-digital-media-pop-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A professor-of-the-practice line to shape the Digital Media &amp; Communication major.
+
+Deadline: Rolling
+See posting.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://jobs.wheatoncollege.edu/postings/4942
+Checked 2026-11-06</description><category>Digital art</category><category>Moving image</category></item>
+<item><title>Chapman University — Artistic Assistant Professor of Game Design, CG Artist</title><link>https://papers.aesthetic.computer/deadlines/#chapman-game-design-cg-artist-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#chapman-game-design-cg-artist-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A non-tenure artistic faculty line in 3D CG game art.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://jobs.chronicle.com/job/38043868/
+Checked 2026-11-06</description><category>Games</category><category>Digital art</category></item>
+<item><title>Ferris State University — Assistant Professor, Digital Animation &amp; Game Design</title><link>https://papers.aesthetic.computer/deadlines/#ferris-state-animation-game-design-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#ferris-state-animation-game-design-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Tenure-track line teaching Unity/Unreal/C# game programming and animation.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://careersmanager.pageuppeople.com/1010/cw/en-us/job/498370/
+Checked 2026-11-06</description><category>Games</category><category>Moving image</category></item>
+<item><title>NYU Tandon — Director, Makerspace &amp; Design Lab (staff)</title><link>https://papers.aesthetic.computer/deadlines/#nyu-tandon-makerspace-director-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#nyu-tandon-makerspace-director-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Full-time staff director for Tandon’s makerspace and design lab.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Staff position; verify the current listing on the NYU careers portal.
+
+Official call: https://main.hercjobs.org/jobs/22223440/director-makerspace-design-lab
+Checked 2026-11-06</description><category>Research</category><category>Digital art</category></item>
+<item><title>Anthropic — Developer Education Lead, Claude Platform</title><link>https://papers.aesthetic.computer/deadlines/#anthropic-developer-education-lead-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#anthropic-developer-education-lead-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>An engineer-who-teaches role building labs, demos and curriculum on LLM APIs, agents and MCP for the Claude developer platform.
+
+Deadline: Rolling
+Annual salary as posted, plus equity and benefits.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://job-boards.greenhouse.io/anthropic/jobs/5311465008
+Checked 2026-11-06</description><category>Creative coding</category><category>Research</category><category>Open source</category></item>
+<item><title>Anthropic — Software Engineer, Education</title><link>https://papers.aesthetic.computer/deadlines/#anthropic-software-engineer-education-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#anthropic-software-engineer-education-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Full-stack engineering on AI-native learning products.
+
+Deadline: Rolling
+Annual salary as posted, plus equity and benefits.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://job-boards.greenhouse.io/anthropic/jobs/5389305008
+Checked 2026-11-06</description><category>Creative coding</category><category>Research</category></item>
+<item><title>Anthropic — Developer Relations Manager, Claude Platform</title><link>https://papers.aesthetic.computer/deadlines/#anthropic-devrel-manager-claude-platform-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#anthropic-devrel-manager-claude-platform-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A people-manager developer-relations role for the Claude platform.
+
+Deadline: Rolling
+Annual salary as posted, plus equity and benefits.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://job-boards.greenhouse.io/anthropic/jobs/5367562008
+Checked 2026-11-06</description><category>Creative coding</category><category>Open source</category></item>
+<item><title>Runway — Prototype Researcher, Runway Labs</title><link>https://papers.aesthetic.computer/deadlines/#runway-labs-prototype-researcher-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#runway-labs-prototype-researcher-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>A research-prototype studio role taking concepts to working prototypes and demo films with storytelling.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://jobs.ashbyhq.com/runway-ml/d8afa330-e713-4a2d-833b-cd2e4c6e0fcc
+Checked 2026-11-06</description><category>Moving image</category><category>Creative coding</category><category>Research</category></item>
+<item><title>Google — Senior Creative Technologist, Events and Experiences</title><link>https://papers.aesthetic.computer/deadlines/#google-senior-creative-technologist-events-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#google-senior-creative-technologist-events-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Builds launch demos, sandboxes and live moments for Google events and experiences.
+
+Deadline: Rolling
+Base range as posted plus bonus target, equity and benefits.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://www.google.com/about/careers/applications/jobs/results/129384711951655622-senior-creative-technologist-events-and-experiences
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category></item>
+<item><title>Code and Theory — Director, Creative Technology (US)</title><link>https://papers.aesthetic.computer/deadlines/#code-and-theory-director-creative-technology-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#code-and-theory-director-creative-technology-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Leads creative-technology pods and AI-native, agentic production pipelines at a design and technology agency.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://builtin.com/job/director-creative-technology-us/10829738
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category></item>
+<item><title>Meta — Global Brand Experiences Lead, Creative Technologist</title><link>https://papers.aesthetic.computer/deadlines/#meta-brand-experiences-creative-technologist-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#meta-brand-experiences-creative-technologist-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Zero-to-one interactive brand activations built with creative coding, then productized.
+
+Deadline: Rolling
+Base range as posted plus bonus, equity and benefits.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://www.metacareers.com/profile/job_details/1710216337776550/
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category></item>
+<item><title>Kettle — Senior Creative Technologist</title><link>https://papers.aesthetic.computer/deadlines/#kettle-senior-creative-technologist-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#kettle-senior-creative-technologist-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>Builds tools, accelerators and AI-powered experiences for an agency in Node, Python and Swift.
+
+Deadline: Rolling
+Annual salary as posted.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://job-boards.greenhouse.io/kettle/jobs/8885210002
+Checked 2026-11-06</description><category>Creative coding</category></item>
+<item><title>Whop — Creative Technologist</title><link>https://papers.aesthetic.computer/deadlines/#whop-creative-technologist-2026</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#whop-creative-technologist-2026</guid><pubDate>Fri, 06 Nov 2026 12:00:00 GMT</pubDate><description>AI-accelerated creative systems and rapid prototypes for an in-person Brooklyn team.
+
+Deadline: Rolling
+Annual salary as posted plus equity.
+No application fee
+
+Eligibility: US work authorization or employer sponsorship; check the posting.
+
+Open until filled.
+
+Official call: https://jobs.ashbyhq.com/whop/c1981843-a081-470c-b2c7-d03a8bdd6eee
+Checked 2026-11-06</description><category>Creative coding</category><category>Digital art</category></item>
 <item><title>Michigan Central Art × Newlab — Creative Residency 2027</title><link>https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</link><guid isPermaLink="true">https://papers.aesthetic.computer/deadlines/#michigan-central-newlab-2027</guid><pubDate>Mon, 19 Oct 2026 12:00:00 GMT</pubDate><description>A 12-week research residency in Detroit at the intersection of art, technology, health and society, in an Art &amp; Tech track (Knight Foundation) or an Art &amp; Health track (Henry Ford Health).
 
 Deadline: 2026-10-30. Published as 11:59 p.m. EST, though Detroit is on EDT that day — submit early

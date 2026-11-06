@@ -1,7 +1,7 @@
 // Shared by the public board and the feed builder. No personal application data.
 export const BASE = "https://papers.aesthetic.computer/deadlines/";
 export const DISCIPLINES = ["Creative coding", "Digital art", "Sound", "Performance", "Moving image", "Games", "Open source", "Research"];
-export const KINDS = ["Open call", "Commission", "Performance", "Residency", "Fellowship", "Grant", "Research"];
+export const KINDS = ["Open call", "Commission", "Performance", "Residency", "Fellowship", "Grant", "Research", "Job"];
 export const escapeHTML = (s) => String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
 const day = 86_400_000;
 const isoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;

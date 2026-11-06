@@ -48,15 +48,17 @@ test("unknown cutoffs retain their source date and eventually archive", () => {
 });
 
 test("rolling review with a closing date appears until the window ends", () => {
-  const ids = filterItems(catalog.opportunities, {view: "rolling"}, now).map((x) => x.id);
+  // Job postings are open-ended by nature; the rolling-window checks look at calls only.
+  const calls = catalog.opportunities.filter((x) => x.kind !== "Job");
+  const ids = filterItems(calls, {view: "rolling"}, now).map((x) => x.id);
   assert.deepEqual(ids, ["openfeed-2026-2027", "sequoia-open-source"]);
   const future = new Date("2027-03-02T12:00:00Z");
-  assert.deepEqual(filterItems(catalog.opportunities, {view: "rolling"}, future).map((x) => x.id), ["sequoia-open-source"]);
+  assert.deepEqual(filterItems(calls, {view: "rolling"}, future).map((x) => x.id), ["sequoia-open-source"]);
   assert(filterItems(catalog.opportunities, {view: "archive"}, future).some((x) => x.id === "openfeed-2026-2027"));
 });
 
 test("unknown fees do not pass the free filter; combined filters and search work", () => {
-  const items = filterItems(catalog.opportunities, {free: true, paid: true, remote: true}, now);
+  const items = filterItems(catalog.opportunities.filter((x) => x.kind !== "Job"), {free: true, paid: true, remote: true}, now);
   assert.deepEqual(items.map((x) => x.id), ["eyebeam-agency-2026", "sequoia-open-source"]);
   assert.deepEqual(filterItems(catalog.opportunities, {q: "VIENNA", discipline: "Sound"}, now).map((x) => x.id), ["smallforms-2027"]);
   assert.deepEqual(filterItems(catalog.opportunities, {q: "nothing matches"}, now), []);
