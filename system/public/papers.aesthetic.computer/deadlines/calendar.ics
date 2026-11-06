@@ -887,4 +887,34 @@ URL:https://csucareers.calstate.edu/en-us/job/562527/assistant-professor-gr
 LOCATION:Fullerton\, CA
 TRANSP:TRANSPARENT
 END:VEVENT
+BEGIN:VEVENT
+UID:epic-ai-megajam-2026@papers.aesthetic.computer
+DTSTAMP:20261106T000000Z
+LAST-MODIFIED:20261106T000000Z
+DTSTART:20261116T015900Z
+SUMMARY:Epic Games — 2026 Epic AI MegaJam — deadline
+DESCRIPTION:Build a playable game in Unreal Engine or UEFN in four days. AI
+  tools are optional\; solo entrants and teams of up to five people can com
+ pete.\n\nMain awards: Best Overall Unreal Engine\, Best Overall UEFN\, and
+  Best Student Project (either engine)\, each with $7\,500 / $5\,000 / $2\,
+ 500 for first / second / third. Modifiers: Best Team (2–5 people)\, $5\,
+ 000\; Solo Driver\, $2\,500\; Render Royalty (visuals)\, $2\,500\; Pocket 
+ Powerhouse (mobile)\, $2\,500 per engine\; Glass Box (dev log)\, $2\,500\;
+  Walkie-Talkie (narrative UEFN game with LLM-powered NPCs)\, $2\,500. Sepa
+ rate continuation grants: $50\,000 / $25\,000 / $10\,000 in each engine ca
+ tegory. Prizes are competitive\; no guaranteed participant payment.\nEntry
+  fee not stated\n\nEligibility: Developers age 18+ with an active Epic Gam
+ es account\, solo or in teams of up to five. Online participation from any
+ where\; full eligibility restrictions apply under the Official Rules. The 
+ student category requires current enrollment in higher education.\n\nDeadl
+ ine: 2026-11-15. 5:59 PM PST / 8:59 PM EST\; late submissions disqualified
+ \n\nDo not start building the game before November 12. Tools\, agents and 
+ MCP may be set up beforehand\; declare earlier prompts\, scripts and asset
+ s. Choose Unreal Engine or UEFN\, not both. Entrants retain ownership\; co
+ nsult the linked Official Rules.\n\nOfficial call: https://itch.io/jam/202
+ 6-epic-ai-megajam\nChecked 2026-11-06
+URL:https://itch.io/jam/2026-epic-ai-megajam
+LOCATION:Online · optional San Francisco event
+TRANSP:TRANSPARENT
+END:VEVENT
 END:VCALENDAR
