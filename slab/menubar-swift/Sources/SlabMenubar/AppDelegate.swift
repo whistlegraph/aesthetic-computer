@@ -1871,6 +1871,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ShellRunner.runAsync("/usr/bin/osascript", args: ["-e", script])
     }
 
+    /// Screen Share to a Tailnet Mac, typing its saved login password into the
+    /// session when one is saved (ScreenUnlock).
+    @objc func unlockPeer(_ sender: NSMenuItem) {
+        guard let pair = sender.representedObject as? [String], pair.count == 2 else { return }
+        ScreenUnlock.run(host: pair[0], ip: pair[1])
+    }
+
+    /// A person types the host's login password into a secure field; it goes
+    /// straight to the Keychain and is never shown, logged or written out.
+    @objc func saveUnlockPassword(_ sender: NSMenuItem) {
+        guard let host = sender.representedObject as? String else { return }
+        let alert = NSAlert()
+        alert.messageText = "Unlock password for \(host)"
+        alert.informativeText = "The login password of \(host)'s user. Kept in this Mac's Keychain and typed only into a Screen Sharing session with \(host)."
+        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn, !field.stringValue.isEmpty else { return }
+        let saved = UnlockKeychain.save(host, field.stringValue)
+        field.stringValue = ""
+        NSLog("🔓 [unlock] %@ — password %@", host, saved ? "saved to Keychain" : "could not be saved")
+    }
+
+    @objc func forgetUnlockPassword(_ sender: NSMenuItem) {
+        guard let host = sender.representedObject as? String else { return }
+        UnlockKeychain.forget(host)
+        NSLog("🔓 [unlock] %@ — password forgotten", host)
+    }
+
     /// Open N fresh Terminal windows, each resuming one of the most-recently-
     /// modified Claude sessions on disk that isn't already live. Built for
     /// the "Terminal.app crashed and took every Claude with it" case.
