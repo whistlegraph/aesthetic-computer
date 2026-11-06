@@ -51,6 +51,9 @@ test("foldBootAudience splits humans, automated and walls and ranks the breakdow
   assert.deepEqual(out.automated.byFamily, [{ key: "Googlebot", n: 1 }, { key: "own: offline-render", n: 1 }]);
   assert.deepEqual(out.automated.byCountry, [{ key: "US", n: 1 }, { key: "(unknown)", n: 1 }]);
   assert.ok(out.automated.examples.Googlebot.includes("Googlebot"));
+  assert.match(out.automated.explanations.Googlebot, /Google search/);
+  assert.match(out.automated.explanations["own: offline-render"], /fleet machine/);
+  assert.match(foldBootAudience([boot({ meta: { userAgent: "NewThingBot/1.0" } })], { properties: ["aesthetic.computer"] }).automated.explanations["NewThingBot"], /not yet in the known-bot list/);
   assert.equal(out.walls.boots, 1);
   assert.deepEqual(out.walls.byReferrer, [{ key: "top.kidlisp.com", n: 1 }]);
   assert.deepEqual(out.excluded, { outsideScope: 1, localDev: 1, packMode: 0 });

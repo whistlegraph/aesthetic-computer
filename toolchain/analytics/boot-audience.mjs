@@ -62,6 +62,56 @@ const FAMILIES = [
   ["Java client", /Java\/|okhttp|Apache-HttpClient/i],
 ];
 
+// One line per family saying what it is and why it loads our pages, so the
+// report carries its own breadcrumbs and nobody has to rediscover a bot.
+export const EXPLANATIONS = Object.freeze({
+  "own: social-preview": "Our social-card renderer: lith loads a piece with ?social-preview to screenshot it for link previews.",
+  "own: offline-render": "Our offline render flag: a fleet machine baking a piece to video or stills.",
+  "own: jev-vs-jev": "Our Oskiewar self-play harness (Jev vs Jev) driving matches for footage and tests.",
+  "own: ac-automation": "Our puppet/frame fleet with the ac-automation flag: an agent driving a real browser.",
+  "own: oven grabber": "The oven's grabber (oven/grabber.mjs) rendering pieces and docs pages for thumbnails and previews; HeadlessChrome from the oven's datacentre, never completes a boot by design.",
+  "Googlebot": "Google search indexing. Renders JavaScript, so it boots.",
+  "GoogleOther": "Google's non-search crawler (research, product teams).",
+  "Bingbot": "Microsoft Bing indexing.",
+  "Applebot": "Apple's crawler for Siri and Spotlight suggestions.",
+  "DuckDuckBot": "DuckDuckGo indexing.",
+  "YandexBot": "Yandex search indexing.",
+  "Baiduspider": "Baidu search indexing.",
+  "PetalBot": "Huawei's Petal search crawler.",
+  "GPTBot": "OpenAI: GPTBot gathers training data, ChatGPT-User and OAI-SearchBot fetch pages for ChatGPT answers.",
+  "ClaudeBot": "Anthropic: ClaudeBot gathers training data, Claude-User fetches pages for Claude answers.",
+  "PerplexityBot": "Perplexity's answer-engine crawler.",
+  "Bytespider": "ByteDance (TikTok) crawler, mostly training data.",
+  "CCBot": "Common Crawl's open web archive, which feeds many training sets.",
+  "Amazonbot": "Amazon's crawler for Alexa answers.",
+  "Meta crawler": "Facebook/Instagram/Threads link previews and Meta's AI crawler.",
+  "Twitterbot": "X link-card preview fetch when someone posts a link.",
+  "Slackbot": "Slack unfurling a pasted link.",
+  "Discordbot": "Discord unfurling a pasted link.",
+  "LinkedInBot": "LinkedIn link preview.",
+  "TelegramBot": "Telegram link preview.",
+  "WhatsApp": "WhatsApp link preview.",
+  "Pinterest": "Pinterest crawler or pin preview.",
+  "Redditbot": "Reddit link preview.",
+  "Link unfurler": "A link-preview fetcher from the fediverse, Bluesky or an embed service: someone shared a link.",
+  "Uptime monitor": "An uptime checker pinging a page on a schedule.",
+  "SEO crawler": "A commercial SEO/backlink crawler (Ahrefs, Semrush, Majestic and the like).",
+  "Lighthouse": "A Lighthouse or PageSpeed audit run.",
+  "Headless Chrome": "Headless Chrome with no fleet flag: a scraper or screenshot tool, or one of ours missing its marker. Check the piece and query flags.",
+  "Puppeteer/Playwright": "A browser-automation framework that announced itself in the UA.",
+  "curl": "A command-line fetch. Rarely boots, since curl runs no JavaScript.",
+  "wget": "A command-line fetch. Rarely boots, since wget runs no JavaScript.",
+  "Python client": "A Python HTTP library. Rarely boots, since it runs no JavaScript.",
+  "Go client": "A Go HTTP client.",
+  "Node client": "A Node HTTP client.",
+  "Java client": "A Java or Android HTTP client.",
+  "empty user agent": "No user agent at all: a stripped-down script.",
+  "WebDriver or unlabeled": "A driven real browser (navigator.webdriver or our fleet marker) with a normal UA. Tells: Puppeteer's default 1280x720 viewport, a UTC clock, a Linux UA from a cloud region.",
+});
+const explain = family => EXPLANATIONS[family] || (/bot|crawler|spider|webindexer/i.test(family)
+  ? "A self-identified crawler not yet in the known-bot list; add it to FAMILIES in boot-audience.mjs once you know what it is."
+  : "Unclassified.");
+
 // A family name for an automated boot. Our own markers win, then named bots,
 // then whatever word carried "bot", "crawler" or "spider" in the UA.
 export function botFamily(userAgent = "", search = "") {
@@ -97,7 +147,7 @@ const rank = (map, limit) => Object.entries(map).sort((a, b) => b[1] - a[1]).sli
 export function foldBootAudience(boots, { properties, limit = 12 } = {}) {
   const side = () => ({ boots: 0, completed: 0, byProperty: {}, byCountry: {}, byPiece: {}, byReferrer: {} });
   const humans = { ...side(), signedIn: 0, anonymous: 0, mobile: 0, byBrowser: {}, byLanguage: {} };
-  const automated = { ...side(), byFamily: {}, examples: {} };
+  const automated = { ...side(), byFamily: {}, examples: {}, explanations: {} };
   const walls = { boots: 0, byReferrer: {}, byProperty: {}, byTimezone: {} };
   let skipped = 0, localDev = 0, packMode = 0;
   for (const { meta = {}, status, server = {} } of boots) {
@@ -142,6 +192,7 @@ export function foldBootAudience(boots, { properties, limit = 12 } = {}) {
     excluded: { outsideScope: skipped, localDev, packMode },
   };
   out.automated.examples = Object.fromEntries(out.automated.byFamily.map(({ key }) => [key, automated.examples[key]]));
+  out.automated.explanations = Object.fromEntries(out.automated.byFamily.map(({ key }) => [key, explain(key)]));
   const total = humans.boots + automated.boots;
   out.automatedShare = total ? Math.round((automated.boots / total) * 1000) / 10 : null;
   return out;

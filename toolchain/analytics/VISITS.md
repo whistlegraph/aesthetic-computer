@@ -706,7 +706,9 @@ country, signed-in handle) and folds each page load into one of three
 audiences — **humans** (browser, country, language, signed-in vs anonymous,
 pieces, referrer sites), **automated** (bot family such as Googlebot, GPTBot,
 Headless Chrome or one of our own render flags, with one example user agent
-per family) and **walls** (embedded iframes, the kidlisp.com gallery screens).
+per family and a one-line explanation of what that bot is and why it loads our
+pages, from `EXPLANATIONS` in the same file) and **walls** (embedded iframes,
+the kidlisp.com gallery screens).
 `handle_usage` folds the same boots per public handle and joins server-verified
 account-activity events. Both ship inside `network_report` and as the
 `network_audience` / `handle_usage` MCP tools (`journey-report.mjs audience |
