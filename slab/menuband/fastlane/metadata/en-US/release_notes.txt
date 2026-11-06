@@ -1,11 +1,9 @@
-Reopen Menu Band from its Dock icon or Window → Open Menu Band after closing the panel. Opening it again while it is visible brings it forward.
+Press Shift+6 for the jam wall: a full-screen lava-lamp visualizer with melody on the left and drums on the right. Escape brings the menu bar back.
 
-New sampled Salamander and Hand Percussion drum kits, plus Steinway B and Yamaha Upright piano sources alongside Salamander Grand.
+Drums now duck the other voices like a sidechain, on keyboard kicks and on TrackDrum strikes alike. Space holds a mode while pressed: reverse by default, or a hammer that re-strikes held notes, with the left and right arrows switching between them mid-hold.
 
-Turn on the ABC layer to show and speak letters as you play. The Mono checkbox folds the output to a single signal for rooms with one speaker.
+New instruments: the AC Whistle (program 79) breathes as one voice across held notes, and the backtick and tilde prefixes reach Menu Band's own instruments, from the AC Grand Piano to Fluoddity and the Composite shimmer. A cc drum kit and an Electro kit join the sampled kits, and the TrackDrum kit is laid out for the hand.
 
-Clicked keys now hold for as long as you hold the mouse, and clicks on the menu-bar piano land on the key under the pointer, so the far ends of the strip are reachable again on the newest system. The menu-bar keys also refit themselves when the screen or bar changes size.
+The singer keeps prepared takes across stops and relaunches, shows one-word captions, and sings a chord-aware choir under every line. Takes back themselves up to your handle, and a collection .mbscore opens to its track list.
 
-The hold-to-sample microphone voice survives switching input devices, and your chosen studio monitor stays selected across launches. When the audio engine stalls, the surface cues now skip instead of freezing the app.
-
-The permission notice no longer traps the board in focus, and the TrackDrum polyrhythm trainer draws its lanes on the skin.
+Audio stays up when an interface resets or its clock faults: the engine rebuilds once, buffers resize with output stopped, and the microphone is an explicit toggle that is never switched on for you. The pitch wheel reaches two octaves either way on every voice, and opening the app from Finder now shows it.

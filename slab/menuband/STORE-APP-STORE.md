@@ -13,8 +13,16 @@ direct-download version. The full version stays at prompt.ac/menuband.
 
 ## 0. Where it stands
 
-**SUBMITTED — v1.6.13 (build 176), 2026-10-15, 20:12 UTC.** App Store
-Connect reports `WAITING_FOR_REVIEW`. Build
+**SUBMITTED — v1.6.14 (build 177), 2026-11-06, 17:31 UTC.** App Store
+Connect reports `WAITING_FOR_REVIEW`; review submission
+`0ecc6fb4-122f-434b-9214-afa55cb07d1b`. The first Store release since
+1.6.13 went live in September: the jam wall, drum sidechain, Space
+hold modes, the singer and self-choir, the AC Whistle and backtick/tilde
+instruments, the cc and Electro kits, and the audio-recovery run. Built
+headless on jas's Mac (archive, export, `fastlane mac upload`/`meta`,
+`asc.mjs submit`). The direct-download DMG lane was not cut this round.
+
+Previous: v1.6.13 (build 176), submitted 2026-10-15, approved. Build
 `0853a10d-2c18-4b54-8b33-ac36393371db` replaces build 175 in submission
 `75d33fc0-cd70-4e76-9479-0be5aff24e41`; its rejected item was resolved
 before resubmission. Build 175 was rejected
@@ -91,6 +99,9 @@ loss, and false Command-gesture activation. Automatic release is enabled.
 | 4 | Jul 15 (build 155) | **approved Jul 16** | — | v1.5.4 post-launch fixes and submission hardening. | Released automatically as configured. |
 | 5 | Jul 18 (build 156) | pending | — | v1.5.5: menu-bar 3·2·1 count-in, save-anywhere tape export, tape cover art, spoken digits; deduplicated screenshot set. | — |
 | 6 | Aug 7 (build 169) | waiting for review | — | v1.6.9: TrackDrum companion bridge, focused percussion/slider UX, smoother slide/effects, and Dock-safe overlays. | — |
+| 7 | Sep 18 (build 173) | rejected Sep 19 | **2.4.5(v)** | The ⌘⌘ quiet-focus gesture called `CGRequestListenEventAccess` at launch, raising the Input Monitoring prompt. | `37ffe2f962` — Store branch installs only the local key monitor, **build 174**; approved. |
+| 8 | Sep 23 (build 175) | rejected Sep 24 | **2.1(a)** | Closing the window left no menu item to reopen it. | Dock icon + Window → Open Menu Band, **build 176**, submitted Oct 15; approved. |
+| 9 | Nov 6 (build 177) | waiting for review | — | v1.6.14, the September-to-November feature run. | — |
 
 ### Screenshot duplication found after release
 
