@@ -2,7 +2,7 @@
 // the rate fallback, the daily wallet cap and settlement that cannot repeat.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {authorizePaidRequest,braincellRate,braincellsFromCost,BRAINCELLS_PER_USD,CREDIT_PACK,DAILY_PAID_BRAINCELL_CAP,INFERENCE_MARKUP,OUT_OF_BRAINCELLS,reserve,settle,settleDurably,reconcileWallet,HOLD_LIFETIME_MS,usageBraincells} from '../backend/easel-paid-credits.mjs';
+import {authorizePaidRequest,braincellRate,inputBraincellRate,braincellsFromCost,BRAINCELLS_PER_USD,CREDIT_PACK,DAILY_PAID_BRAINCELL_CAP,INFERENCE_MARKUP,OUT_OF_BRAINCELLS,reserve,settle,settleDurably,reconcileWallet,HOLD_LIFETIME_MS,usageBraincells} from '../backend/easel-paid-credits.mjs';
 import {DEFAULT_EASEL_MODEL,EASEL_MODELS,HOSTED_MAX_TOKENS,inferenceRequest} from '../backend/easel-policy.mjs';
 import {relayInference} from '../backend/easel-stream.mjs';
 
@@ -50,12 +50,12 @@ function wallets(docs){
 }
 const messages=[{role:'user',content:'hello'}];
 
-test('the six open models are allowed, flash is the default, and workspace turns may ask for 32,000',()=>{
- for(const model of ['deepseek/deepseek-v4.1-flash','deepseek/deepseek-v4-pro','moonshotai/kimi-k3','qwen/qwen3.7-plus','minimax/minimax-m3','z-ai/glm-5.3-flash']){
+test('the open models and older Flash are allowed, Flash 1017 is the default, and workspace turns may ask for 32,000',()=>{
+ for(const model of ['deepseek/deepseek-v4.1-flash-1017','deepseek/deepseek-v4.1-flash','deepseek/deepseek-v4-pro','moonshotai/kimi-k3','qwen/qwen3.7-plus','minimax/minimax-m3','z-ai/glm-5.3-flash']){
   assert.ok(Object.hasOwn(EASEL_MODELS,model),model);
   assert.ok(braincellRate(model)>0,model);
  }
- assert.equal(DEFAULT_EASEL_MODEL,'deepseek/deepseek-v4.1-flash');
+ assert.equal(DEFAULT_EASEL_MODEL,'deepseek/deepseek-v4.1-flash-1017');
  assert.equal(inferenceRequest({messages}).model,DEFAULT_EASEL_MODEL);
  assert.equal(inferenceRequest({messages,max_tokens:32000}).maxTokens,32000);
  assert.equal(inferenceRequest({messages,max_tokens:64000}).maxTokens,HOSTED_MAX_TOKENS);
@@ -97,6 +97,8 @@ test('without a reported cost, the model rate over weighted tokens applies',()=>
  assert.equal(usageBraincells({model:'openai/gpt-5.6-luna',tokens:1000}),1000);
  assert.equal(usageBraincells({model:'anthropic/claude-opus-5',tokens:4}),100);
  assert.equal(usageBraincells({model:'deepseek/deepseek-v4.1-flash',tokens:1000}),480);
+ assert.equal(usageBraincells({model:DEFAULT_EASEL_MODEL,tokens:1000}),480);
+ assert.equal(inputBraincellRate(DEFAULT_EASEL_MODEL),0.12);
  assert.equal(usageBraincells({model:'openai/gpt-5.6-luna',tokens:1000,cost:'0.1'}),1000,'a non-number cost is not trusted');
  // Reservation rates are worst case: every token at the output price, marked up.
  assert.equal(braincellRate('moonshotai/kimi-k3'),15*INFERENCE_MARKUP*BRAINCELLS_PER_USD/1e6);

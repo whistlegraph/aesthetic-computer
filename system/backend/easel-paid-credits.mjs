@@ -184,6 +184,8 @@ export function usageBraincells({model,tokens=0,cost,inputBound=0}) {
 // Only the hold and the no-cost fallback read these; the bill is the cost the
 // provider reports.
 const OPEN_PRICES={
+ // Verified 2026-11-06: peak rates bound holds across peak/off-peak routing.
+ 'deepseek/deepseek-v4.1-flash-1017':[0.30,1.20],
  'deepseek/deepseek-v4.1-flash':[0.30,1.20], 'deepseek/deepseek-v4-pro':[0.78,1.57],
  'moonshotai/kimi-k3':[3.00,15.0], 'qwen/qwen3.7-plus':[0.32,1.28],
  'minimax/minimax-m3':[0.30,1.20], 'z-ai/glm-5.3-flash':[0.15,0.50],

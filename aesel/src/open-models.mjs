@@ -9,7 +9,9 @@
 // not from a leaderboard; prices are OpenRouter's that day, per million tokens
 // as cache-read / input / output. An agent day is mostly cache reads.
 export const OPEN_MODEL_INFO = {
-  flash: { id: "deepseek/deepseek-v4.1-flash", label: "DeepSeek V4.1 Flash", smart: 4, cost: 1 }, // 5/5, best scene · 0.006 / 0.30 / 1.20
+  // October 17 snapshot; capability mark inherited from the September trial,
+  // pending a new local trial. Peak input / output: $0.30 / $1.20 per million.
+  flash: { id: "deepseek/deepseek-v4.1-flash-1017", label: "DeepSeek V4.1 Flash 1017", smart: 4, cost: 1 },
   deepseek: { id: "deepseek/deepseek-v4-pro", label: "DeepSeek V4 Pro", smart: 4, cost: 2 }, // 5/5, plain scene · 0.065 / 0.78 / 1.57
   kimi: { id: "moonshotai/kimi-k3", label: "Kimi K3", smart: 4, cost: 4 }, // 5/5, good scene · 0.30 / 3.00 / 15.0
   qwen: { id: "qwen/qwen3.7-plus", label: "Qwen 3.7 Plus", smart: 3, cost: 1 }, // 5/5, scene lost its ground · 0.064 / 0.32 / 1.28

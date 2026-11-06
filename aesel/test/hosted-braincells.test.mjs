@@ -57,7 +57,7 @@ test("settings may choose a model for the aesthetic provider but never its effor
   assert.throws(() => normalizeSettings({ provider: "ac", effort: "high" }, previous), /effort/);
   // A remembered older hosted model falls back to Automatic rather than sticking.
   assert.equal(normalizeSettings({}, { provider: "ac", model: "openai/gpt-5.6-luna", effort: "" }).model, "");
-  assert.equal(hostedModel("flash"), "deepseek/deepseek-v4.1-flash");
+  assert.equal(hostedModel("flash"), "deepseek/deepseek-v4.1-flash-1017");
 });
 
 test("Automatic names no model, so the relay runs its default; a chosen one is sent", async () => {

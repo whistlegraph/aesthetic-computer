@@ -4,6 +4,7 @@
 // because installed clients still ask for them by name.
 import {imageInputBound} from './easel-input-images.mjs';
 export const EASEL_MODELS = {
+  "deepseek/deepseek-v4.1-flash-1017": { label: "DeepSeek V4.1 Flash 1017" },
   "deepseek/deepseek-v4.1-flash": { label: "DeepSeek V4.1 Flash" },
   "deepseek/deepseek-v4-pro": { label: "DeepSeek V4 Pro" },
   "moonshotai/kimi-k3": { label: "Kimi K3" },
@@ -44,8 +45,8 @@ export function anthropicThinking(model, { thinking, reasoning } = {}) {
   }
   return out;
 }
-// Best of the 2026-09-28 trials, and among the cheapest to run.
-export const DEFAULT_EASEL_MODEL = "deepseek/deepseek-v4.1-flash";
+// October 17 update to the Flash family selected in the September trials.
+export const DEFAULT_EASEL_MODEL = "deepseek/deepseek-v4.1-flash-1017";
 // What a request gets when it does not say, and the most it may ask for. A
 // workspace turn writes whole files, so the ceiling is the client's 32,000;
 // the braincell hold grows with it, so a long answer is paid for up front.
