@@ -78,3 +78,10 @@ test("foldHandleUsage ranks signed-in handles and skips bots, walls and anonymou
   assert.equal(top.firstSeen.toISOString(), "2026-11-06T17:00:00.000Z");
   assert.equal(top.lastSeen.toISOString(), "2026-11-06T18:30:00.000Z");
 });
+
+test("a driven browser with a normal UA counts as automated once boots carry the webdriver flag", () => {
+  const out = foldBootAudience([boot({ meta: { webdriver: true } }), boot({ meta: { automation: true } }), boot()], { properties: ["aesthetic.computer"] });
+  assert.equal(out.automated.boots, 2);
+  assert.equal(out.humans.boots, 1);
+  assert.deepEqual(out.automated.byFamily, [{ key: "WebDriver or unlabeled", n: 2 }]);
+});

@@ -109,7 +109,7 @@ export function foldBootAudience(boots, { properties, limit = 12 } = {}) {
       bump(walls.byTimezone, meta.timezone || "(unknown)");
       continue;
     }
-    const bot = automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "");
+    const bot = automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation);
     const row = bot ? automated : humans;
     row.boots++;
     if (status === "success") row.completed++;
@@ -153,7 +153,7 @@ export function foldHandleUsage(boots, { properties, limit = 50, pieces = 6 } = 
   for (const { meta = {}, status, createdAt } of boots) {
     const property = visitProperty(meta.host);
     if (!property || (properties && !properties.includes(property)) || meta.localDev || meta.packMode || meta.embedded) continue;
-    if (automatedVisit({ userAgent: meta.userAgent }, meta.search || "")) continue;
+    if (automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) continue;
     const handle = meta.user?.handle;
     if (!handle) { anonymous++; continue; }
     const key = `@${String(handle).replace(/^@/, "")}`;

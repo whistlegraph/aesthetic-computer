@@ -166,6 +166,10 @@ const bootTelemetry = (() => {
     screen: window.screen ? { w: screen.width, h: screen.height, dpr: devicePixelRatio } : null,
     connection: navigator?.connection?.effectiveType || null,
     embedded: window !== window.top,
+    // Driven browsers (Puppeteer, Playwright, our puppet/frame fleet) keep a
+    // normal UA but set navigator.webdriver; without this the audience report
+    // counts them as people.
+    webdriver: navigator?.webdriver === true,
     packMode: Boolean(window.acPACK_MODE),
     localDev: typeof location !== "undefined" && location.hostname === "localhost",
   };
@@ -190,7 +194,9 @@ const bootTelemetry = (() => {
         body: JSON.stringify({
           bootId,
           phase,
-          meta: { ...meta, user: currentUser() },
+          // The fleet marker is read at send time like `user`: it can be set
+          // after boot.mjs starts evaluating.
+          meta: { ...meta, user: currentUser(), automation: window.acAutomation === true },
           data,
         }),
         keepalive: true,

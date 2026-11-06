@@ -28,7 +28,7 @@ export function foldPieceLandings(boots, { properties, limit = 50 }) {
   for (const { meta = {}, status } of boots) {
     const property = visitProperty(meta.host);
     const piece = property && properties.includes(property) ? bootPiece(meta.path) : null;
-    if (!piece || meta.embedded || meta.packMode || meta.localDev || automatedVisit({ userAgent: meta.userAgent })) { skipped++; continue; }
+    if (!piece || meta.embedded || meta.packMode || meta.localDev || automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) { skipped++; continue; }
     counted++;
     const key = `${property} ${piece}`;
     const row = rows.get(key) || { property, piece, boots: 0, anonymous: 0, signedIn: 0, completed: 0, referrers: {} };

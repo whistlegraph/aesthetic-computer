@@ -30,7 +30,7 @@ try {
     const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
       projection: { _id: 0, status: 1, createdAt: 1, "server.country": 1, "meta.host": 1, "meta.path": 1, "meta.search": 1, "meta.referrer": 1,
         "meta.userAgent": 1, "meta.browser": 1, "meta.mobile": 1, "meta.language": 1, "meta.timezone": 1, "meta.embedded": 1,
-        "meta.packMode": 1, "meta.localDev": 1, "meta.user.handle": 1 }, maxTimeMS: 15000,
+        "meta.packMode": 1, "meta.localDev": 1, "meta.webdriver": 1, "meta.automation": 1, "meta.user.handle": 1 }, maxTimeMS: 15000,
     }).sort({ createdAt: -1 }).limit(50001).toArray();
     const properties = scoped.property.$in;
     if (mode === "audience") {
@@ -72,8 +72,8 @@ try {
     }
   } else if (mode === "pieces") {
     const boots = await db.collection("boots").find({ createdAt: { $gte: start, $lt: end } }, {
-      projection: { _id: 0, status: 1, "meta.host": 1, "meta.path": 1, "meta.referrer": 1, "meta.userAgent": 1, "meta.embedded": 1,
-        "meta.packMode": 1, "meta.localDev": 1, "meta.user": 1 }, maxTimeMS: 15000,
+      projection: { _id: 0, status: 1, "meta.host": 1, "meta.path": 1, "meta.search": 1, "meta.referrer": 1, "meta.userAgent": 1, "meta.embedded": 1,
+        "meta.packMode": 1, "meta.localDev": 1, "meta.webdriver": 1, "meta.automation": 1, "meta.user": 1 }, maxTimeMS: 15000,
     }).sort({ createdAt: -1 }).limit(50001).toArray();
     console.log(JSON.stringify({ start, end, scope,
       unit: "page loads (boots) per landing piece; anonymous and signed-in. Moving between pieces inside a tab is not a new boot. completed = the boot finished loading.",
