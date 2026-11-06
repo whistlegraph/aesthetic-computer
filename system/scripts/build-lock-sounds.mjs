@@ -1,0 +1,1 @@
+../../aesthetic-computer-vault/products/mime/system/scripts/build-lock-sounds.mjs

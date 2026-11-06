@@ -1,0 +1,1 @@
+../../aesthetic-computer-vault/products/mime/system/scripts/sync-mime-glyphs.mjs
