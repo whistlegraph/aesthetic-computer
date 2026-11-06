@@ -1,123 +1,167 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Danz Ballet Studio</title>
+    <title>Danz Ballet Studio · Academia de ballet en Solares, Zapopan</title>
     <meta
       name="description"
-      content="A new space for movement, artistry, and ballet is taking shape. Danz Ballet Studio is coming soon."
+      content="Academia de Ballet afiliada a la Royal Academy of Dance en Solares Residencial, Zapopan. Baby Ballet, Ballet Kids, Ballet para jóvenes y adultas, Pilates flow y Cardio Dance. Maestras certificadas. Escríbenos y agenda tu clase."
     />
     <meta name="theme-color" content="#f9e3e8" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Danz Ballet Studio" />
-    <meta property="og:title" content="Danz Ballet Studio" />
+    <meta property="og:title" content="Danz Ballet Studio · Academia de ballet en Solares" />
     <meta
       property="og:description"
-      content="A new space for movement, artistry, and ballet is taking shape."
+      content="Enseñanza real, técnica y consciente. Ballet RAD, Pilates flow y Cardio Dance en Solares Residencial, Zapopan."
     />
     <meta property="og:url" content="https://danzballet.studio/" />
     <meta property="og:image" content="https://danzballet.studio/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Danz Ballet Studio — coming soon" />
+    <meta property="og:image:alt" content="Danz Ballet Studio" />
+    <meta property="og:locale" content="es_MX" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Danz Ballet Studio" />
+    <meta name="twitter:title" content="Danz Ballet Studio · Academia de ballet en Solares" />
     <meta
       name="twitter:description"
-      content="A new space for movement, artistry, and ballet is taking shape."
+      content="Enseñanza real, técnica y consciente. Ballet RAD, Pilates flow y Cardio Dance en Solares Residencial, Zapopan."
     />
     <meta name="twitter:image" content="https://danzballet.studio/og-image.png" />
     <link rel="icon" href="/logo.png" />
     <link rel="preload" href="/hero-pointe-shoes.jpg" as="image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "DanceSchool",
+        "name": "Danz Ballet Studio",
+        "alternateName": "Escuela de Danza en Solares",
+        "url": "https://danzballet.studio/",
+        "sameAs": ["https://www.instagram.com/danzballetstudio"],
+        "image": "https://danzballet.studio/og-image.png",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Paseo de La Luna 810, local 14, Solares Residencial",
+          "addressLocality": "Zapopan",
+          "addressRegion": "Jalisco",
+          "addressCountry": "MX"
+        }
+      }
+    </script>
     <style>
       :root {
         color-scheme: light;
         --paper: #f9e3e8;
         --paper-deep: #f4d3dc;
+        --paper-light: #fdf2f5;
         --rose: #ec7ea1;
         --pink-soft: #f2a6bc;
+        --magenta: #fb4fd0;
         --ink: #6b4a55;
+        --ink-soft: #8d6a76;
+        --serif: "Playfair Display", "Didot", "Bodoni MT", Georgia, serif;
+        --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        --gutter: clamp(20px, 6vw, 96px);
+        --measure: 62ch;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html {
+        scroll-behavior: smooth;
+      }
+
       html,
       body {
         width: 100%;
-        min-height: 100%;
         margin: 0;
-        background: linear-gradient(215deg, var(--paper) 0%, var(--paper-deep) 100%);
+        background: var(--paper);
       }
 
       body {
         position: relative;
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 17px;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      img,
+      video {
+        display: block;
+        max-width: 100%;
+      }
+
+      /* ---------- hero ---------- */
+
+      .hero {
+        position: relative;
         min-height: 100svh;
         overflow: hidden;
-        color: var(--ink);
-        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        isolation: isolate;
       }
 
-      body::before,
-      body::after {
-        position: fixed;
+      .hero::before,
+      .hero::after {
+        position: absolute;
         inset: 0;
         content: "";
+        z-index: -2;
       }
 
-      body::before {
+      .hero::before {
         background: var(--paper) url("/hero-pointe-shoes.jpg") center / cover no-repeat;
         animation: hero-breathe 18s ease-in-out infinite alternate;
       }
 
-      body::after {
+      .hero::after {
+        z-index: -1;
         background:
           linear-gradient(90deg, rgba(249, 227, 232, 0.97) 0%, rgba(249, 227, 232, 0.82) 36%, rgba(244, 211, 220, 0.28) 72%),
           linear-gradient(215deg, rgba(255, 244, 246, 0.5) 0%, transparent 45%),
-          linear-gradient(0deg, rgba(236, 126, 161, 0.08), transparent 52%);
+          linear-gradient(0deg, rgba(249, 227, 232, 1) 0%, rgba(249, 227, 232, 0) 22%);
       }
 
-      canvas {
-        position: fixed;
+      .hero canvas {
+        position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        z-index: 1;
+        z-index: 0;
+        pointer-events: none;
       }
 
-      main {
+      .hero-inner {
         position: relative;
-        z-index: 2;
+        z-index: 1;
         display: grid;
-        grid-template-columns: minmax(0, 1fr);
         min-height: 100svh;
-        align-items: center;
-        padding: clamp(28px, 7vw, 84px) clamp(24px, 8vw, 128px);
-        text-align: left;
+        align-content: center;
+        gap: clamp(20px, 3vw, 36px);
+        padding: clamp(28px, 7vw, 84px) var(--gutter);
       }
 
       .mark {
-        width: min(640px, 56vw);
-        max-width: 100%;
+        width: min(560px, 52vw);
         animation: logo-reveal 1.15s cubic-bezier(0.2, 0.75, 0.25, 1) both;
       }
 
-      h1 {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-      }
-
       .brand-logo {
-        display: block;
         width: 100%;
         /* interim rose grade of the hot-magenta mark — real fix is a two-tone
            re-export with Fía (see vault/fia/danz-site/VIBES-2026-08-15.md) */
@@ -126,6 +170,512 @@
         animation: logo-float 7s ease-in-out 1.15s infinite;
         transform-origin: 48% 52%;
       }
+
+      .hero h1 {
+        margin: 0;
+        max-width: 18ch;
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: clamp(26px, 3.6vw, 44px);
+        line-height: 1.15;
+        letter-spacing: -0.01em;
+        animation: fade-up 1s 0.35s both;
+      }
+
+      .hero h1 em {
+        font-style: italic;
+        color: var(--rose);
+      }
+
+      .hero .kicker {
+        margin: 0;
+        max-width: 44ch;
+        font-size: clamp(15px, 1.3vw, 18px);
+        color: var(--ink-soft);
+        animation: fade-up 1s 0.5s both;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        animation: fade-up 1s 0.65s both;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 22px;
+        border-radius: 999px;
+        border: 1px solid var(--rose);
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        transition: background 0.2s, color 0.2s, transform 0.2s;
+      }
+
+      .button.primary {
+        background: var(--rose);
+        color: #fff;
+      }
+
+      .button.primary:hover {
+        background: var(--magenta);
+        border-color: var(--magenta);
+        transform: translateY(-1px);
+      }
+
+      .button.ghost {
+        background: rgba(255, 255, 255, 0.4);
+        color: var(--ink);
+      }
+
+      .button.ghost:hover {
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .scroll-cue {
+        position: absolute;
+        left: 50%;
+        bottom: 22px;
+        z-index: 1;
+        width: 1px;
+        height: 42px;
+        background: linear-gradient(var(--rose), transparent);
+        opacity: 0.6;
+        transform: translateX(-50%);
+        animation: cue 2.4s ease-in-out infinite;
+      }
+
+      /* ---------- shared section chrome ---------- */
+
+      section {
+        position: relative;
+        padding: clamp(56px, 9vw, 120px) var(--gutter);
+      }
+
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .eyebrow {
+        display: block;
+        margin: 0 0 14px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--rose);
+      }
+
+      h2 {
+        margin: 0 0 20px;
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: clamp(30px, 4.2vw, 52px);
+        line-height: 1.08;
+        letter-spacing: -0.015em;
+        max-width: 18ch;
+      }
+
+      h2 em {
+        font-style: italic;
+        color: var(--rose);
+      }
+
+      .lede {
+        max-width: var(--measure);
+        margin: 0;
+        font-size: clamp(17px, 1.5vw, 21px);
+        line-height: 1.5;
+      }
+
+      .rule {
+        height: 1px;
+        margin: 0 var(--gutter);
+        background: var(--pink-soft);
+        opacity: 0.45;
+      }
+
+      /* ---------- bienvenidos ---------- */
+
+      .welcome .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+        gap: clamp(28px, 5vw, 72px);
+        align-items: center;
+      }
+
+      .tile {
+        overflow: hidden;
+        border-radius: 14px;
+        box-shadow: 0 24px 48px -24px rgba(107, 74, 85, 0.45);
+        background: var(--paper-deep);
+      }
+
+      .tile img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .welcome .tile {
+        aspect-ratio: 4 / 5;
+        transform: rotate(1.2deg);
+      }
+
+      .welcome p + p {
+        margin-top: 16px;
+      }
+
+      .welcome .motto {
+        margin-top: 28px;
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: clamp(20px, 2vw, 26px);
+        color: var(--rose);
+      }
+
+      /* ---------- clases ---------- */
+
+      .classes {
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
+      }
+
+      .class-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: clamp(18px, 2.4vw, 28px);
+        margin-top: clamp(28px, 4vw, 48px);
+      }
+
+      .class-card {
+        display: flex;
+        flex-direction: column;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.55);
+        border: 1px solid rgba(242, 166, 188, 0.5);
+        overflow: hidden;
+        transition: transform 0.25s, box-shadow 0.25s;
+      }
+
+      .class-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 28px 44px -28px rgba(236, 126, 161, 0.55);
+      }
+
+      .class-card .tile {
+        aspect-ratio: 4 / 5;
+        border-radius: 0;
+        box-shadow: none;
+      }
+
+      .class-card .copy {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 10px;
+        padding: 20px 20px 22px;
+      }
+
+      .class-card h3 {
+        margin: 0;
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .class-card .who {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--rose);
+      }
+
+      .class-card p {
+        margin: 0;
+        font-size: 15.5px;
+        color: var(--ink);
+      }
+
+      .class-card .when {
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid rgba(242, 166, 188, 0.5);
+        font-size: 14px;
+        line-height: 1.45;
+        color: var(--ink-soft);
+      }
+
+      .class-card .when strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .classes .note {
+        margin: clamp(24px, 3vw, 36px) 0 0;
+        font-size: 15px;
+        color: var(--ink-soft);
+      }
+
+      /* ---------- método ---------- */
+
+      .method .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        gap: clamp(28px, 5vw, 72px);
+        align-items: center;
+      }
+
+      /* 2:1 columns so the tall left tile and the two stacked right tiles
+         share the 4:5 proportion of the grid posts without cropping. */
+      .method .stack {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 14px;
+      }
+
+      .method .stack .tile {
+        aspect-ratio: 4 / 5;
+      }
+
+      .method .stack .tile:first-child {
+        grid-row: span 2;
+        aspect-ratio: auto;
+      }
+
+      .method p + p {
+        margin-top: 16px;
+      }
+
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 24px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .badges li {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--pink-soft);
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      /* ---------- valores ---------- */
+
+      .values {
+        padding-top: 0;
+      }
+
+      .values .wrap {
+        text-align: center;
+      }
+
+      .values h2 {
+        margin-inline: auto;
+      }
+
+      .word-strip {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin: clamp(28px, 4vw, 48px) auto 0;
+        max-width: 900px;
+      }
+
+      .word-strip .tile {
+        aspect-ratio: 4 / 5;
+      }
+
+      .values .ribbon {
+        margin: clamp(24px, 3vw, 36px) auto 0;
+        max-width: 60ch;
+        font-family: var(--serif);
+        font-size: clamp(18px, 2vw, 24px);
+        line-height: 1.4;
+        color: var(--ink);
+      }
+
+      .values .ribbon span {
+        color: var(--rose);
+      }
+
+      /* ---------- reel / poema ---------- */
+
+      .poem {
+        background: linear-gradient(180deg, var(--paper-deep) 0%, var(--paper) 100%);
+      }
+
+      .poem .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        gap: clamp(28px, 5vw, 80px);
+        align-items: center;
+      }
+
+      .reel {
+        aspect-ratio: 9 / 16;
+        max-width: 360px;
+        margin: 0 auto;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 30px 60px -30px rgba(107, 74, 85, 0.6);
+        background: var(--paper-deep);
+      }
+
+      .reel video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .verse {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(22px, 2.6vw, 34px);
+        line-height: 1.35;
+        max-width: 24ch;
+      }
+
+      .verse em {
+        font-style: italic;
+        color: var(--rose);
+      }
+
+      .verse small {
+        display: block;
+        margin-top: 22px;
+        font-family: var(--sans);
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+      }
+
+      /* ---------- quote band ---------- */
+
+      .quote {
+        padding-block: clamp(48px, 7vw, 96px);
+      }
+
+      .quote .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: clamp(28px, 5vw, 72px);
+        align-items: center;
+      }
+
+      .quote .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .quote .pair .tile {
+        aspect-ratio: 4 / 5;
+      }
+
+      .quote .pair .tile:last-child {
+        transform: translateY(28px);
+      }
+
+      .quote blockquote {
+        margin: 0;
+        font-family: var(--serif);
+        font-size: clamp(24px, 3vw, 38px);
+        line-height: 1.25;
+        max-width: 20ch;
+      }
+
+      .quote blockquote em {
+        color: var(--rose);
+        font-style: italic;
+      }
+
+      .quote cite {
+        display: block;
+        margin-top: 20px;
+        font-family: var(--sans);
+        font-style: normal;
+        font-size: 15px;
+        color: var(--ink-soft);
+        max-width: 48ch;
+      }
+
+      /* ---------- ubicación + contacto ---------- */
+
+      .visit {
+        background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
+      }
+
+      .visit .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: clamp(28px, 5vw, 72px);
+        align-items: center;
+      }
+
+      .visit address {
+        font-style: normal;
+        font-size: clamp(18px, 1.8vw, 22px);
+        line-height: 1.45;
+      }
+
+      .visit address strong {
+        display: block;
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: clamp(22px, 2.2vw, 28px);
+        margin-bottom: 6px;
+      }
+
+      .visit .actions {
+        margin-top: 26px;
+        animation: none;
+      }
+
+      .visit .tile {
+        aspect-ratio: 4 / 5;
+        transform: rotate(-1.2deg);
+      }
+
+      /* ---------- footer ---------- */
+
+      footer {
+        padding: 32px var(--gutter) 40px;
+        font-size: 13.5px;
+        color: var(--ink-soft);
+      }
+
+      footer .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 28px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      footer a {
+        text-decoration: none;
+        border-bottom: 1px solid var(--pink-soft);
+      }
+
+      footer a:hover {
+        color: var(--rose);
+      }
+
+      /* ---------- motion ---------- */
 
       @keyframes logo-reveal {
         from {
@@ -162,68 +712,474 @@
         }
       }
 
+      @keyframes fade-up {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cue {
+        0%,
+        100% {
+          transform: translate(-50%, 0);
+          opacity: 0.6;
+        }
+
+        50% {
+          transform: translate(-50%, 8px);
+          opacity: 0.25;
+        }
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(18px);
+        transition: opacity 0.8s ease, transform 0.8s ease;
+      }
+
+      .reveal.in {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* ---------- responsive ---------- */
+
+      @media (min-width: 560px) {
+        .class-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (min-width: 820px) {
+        .class-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (min-width: 1100px) {
+        .class-grid {
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .class-card .copy {
+          padding: 18px 16px 20px;
+        }
+
+        .class-card h3 {
+          font-size: 21px;
+        }
+
+        .class-card p {
+          font-size: 14.5px;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .welcome .wrap,
+        .method .wrap,
+        .poem .wrap,
+        .quote .wrap,
+        .visit .wrap {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .welcome .tile,
+        .visit .tile {
+          max-width: 420px;
+          transform: none;
+        }
+
+        .method .stack {
+          max-width: 520px;
+        }
+
+        .poem .wrap {
+          gap: 32px;
+        }
+
+        .reel {
+          max-width: 300px;
+        }
+
+        .word-strip {
+          gap: 10px;
+        }
+      }
+
       @media (max-width: 520px) {
-        body::before {
+        .hero::before {
           background-position: 68% center;
         }
 
-        body::after {
+        .hero::after {
           background:
-            linear-gradient(0deg, rgba(249, 227, 232, 0.94), rgba(249, 227, 232, 0.72)),
+            linear-gradient(0deg, rgba(249, 227, 232, 1), rgba(249, 227, 232, 0.72)),
             linear-gradient(90deg, rgba(244, 211, 220, 0.86), rgba(244, 211, 220, 0.3));
         }
 
-        main {
+        .hero-inner {
           justify-items: center;
-          padding: 28px 22px;
           text-align: center;
+          padding: 28px 22px 64px;
         }
 
         .mark {
           width: 100%;
+          max-width: 360px;
         }
 
-        .brand-logo {
-          width: 100%;
+        .hero h1,
+        .hero .kicker {
+          margin-inline: auto;
+        }
+
+        .actions {
+          justify-content: center;
+        }
+
+        .quote .pair .tile:last-child {
+          transform: translateY(16px);
+        }
+
+        .class-card h3 {
+          font-size: 22px;
         }
       }
 
       @media (prefers-reduced-motion: reduce) {
-        body::before,
+        .hero::before,
         .mark,
-        .brand-logo {
+        .brand-logo,
+        .scroll-cue {
           animation: none;
         }
 
-        canvas {
+        .hero canvas {
           display: none;
+        }
+
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
         }
       }
     </style>
     <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
   <body>
-    <canvas id="stage" aria-hidden="true"></canvas>
+    <header class="hero">
+      <canvas id="stage" aria-hidden="true"></canvas>
+      <div class="hero-inner">
+        <div class="mark">
+          <img class="brand-logo" src="/logo.png" alt="Danz Ballet Studio" width="846" height="206" />
+        </div>
+        <h1>Enseñanza real, <em>técnica y consciente.</em></h1>
+        <p class="kicker">
+          Academia de ballet afiliada a la Royal Academy of Dance, en Solares Residencial, Zapopan.
+          Ballet, Pilates flow y Cardio Dance con maestras certificadas.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://ig.me/m/danzballetstudio" target="_blank" rel="noopener">Escríbenos y agenda tu clase</a>
+          <a class="button ghost" href="https://www.instagram.com/danzballetstudio" target="_blank" rel="noopener">@danzballetstudio</a>
+        </div>
+      </div>
+      <span class="scroll-cue" aria-hidden="true"></span>
+    </header>
+
     <main>
-      <section class="mark" aria-label="Danz Ballet Studio, coming soon">
-        <img class="brand-logo" src="/logo.png" alt="" />
-        <h1>Danz Ballet Studio</h1>
+      <section class="welcome" id="bienvenidos">
+        <div class="wrap">
+          <div class="reveal">
+            <span class="eyebrow">Bienvenidos</span>
+            <h2>Un espacio pensado para tu <em>desarrollo integral.</em></h2>
+            <p class="lede">
+              Un proyecto diseñado para transformar la forma de vivir y experimentar la danza en
+              nuestra comunidad.
+            </p>
+            <p>
+              Además de los pasos que aprenden nuestros alumnos, les acompañamos a descubrir el poder
+              de una mente enfocada. Potenciamos tu capacidad cuidando tu cuerpo. El movimiento
+              comienza aquí.
+            </p>
+            <p class="motto">Movimiento, técnica, consciencia.</p>
+          </div>
+          <div class="tile reveal">
+            <img src="/ig/mas-alla.jpg" alt="Bailarina en el salón: Más allá de la técnica, lo que construimos en el salón" loading="lazy" width="864" height="1080" />
+          </div>
+        </div>
+      </section>
+
+      <div class="rule"></div>
+
+      <section class="classes" id="clases">
+        <div class="wrap">
+          <div class="reveal">
+            <span class="eyebrow">Clases</span>
+            <h2>Para chicas <em>y grandes.</em></h2>
+            <p class="lede">
+              Ballet con metodología RAD para cada etapa, y dos clases libres que completan el
+              entrenamiento.
+            </p>
+          </div>
+          <div class="class-grid">
+            <article class="class-card reveal">
+              <div class="tile">
+                <img src="/ig/baby-ballet.jpg" alt="Niñas pequeñas en clase de Baby Ballet" loading="lazy" width="810" height="1080" />
+              </div>
+              <div class="copy">
+                <p class="who">Pequeñitas</p>
+                <h3>Baby Ballet</h3>
+                <p>
+                  Clases creativas y dinámicas de introducción al ballet. Una clase que parece un juego
+                  y que tiene estructura, intención y objetivos. Saltos, cuentos, canciones,
+                  movimiento e imaginación.
+                </p>
+                <p class="when"><strong>Clase de cortesía sin costo.</strong> Mándanos mensaje para agendarla.</p>
+              </div>
+            </article>
+
+            <article class="class-card reveal">
+              <div class="tile">
+                <img src="/ig/ballet-kids.jpg" alt="Pies de niña en zapatillas de ballet" loading="lazy" width="810" height="1080" />
+              </div>
+              <div class="copy">
+                <p class="who">7 a 12 años</p>
+                <h3>Ballet Kids</h3>
+                <p>
+                  La etapa del desarrollo técnico estructurado en la danza. Las niñas descubren de qué
+                  son capaces, aprenden a ser tenaces, a poner atención y a intentarlo una y otra vez
+                  hasta lograrlo.
+                </p>
+                <p class="when"><strong>Por las tardes.</strong> Afiliadas a la Royal Academy of Dance.</p>
+              </div>
+            </article>
+
+            <article class="class-card reveal">
+              <div class="tile">
+                <img src="/ig/nunca-es-tarde.jpg" alt="Piernas de bailarina en la barra: Nunca es tarde para empezar" loading="lazy" width="864" height="1080" />
+              </div>
+              <div class="copy">
+                <p class="who">Jóvenes y adultas</p>
+                <h3>Ballet</h3>
+                <p>
+                  El ballet no tiene fecha de caducidad. Si siempre quisiste bailarlo o deseas retomar
+                  tu entrenamiento, este grupo es para ti. Técnica adaptada a cuerpos adultos.
+                </p>
+                <p class="when"><strong>Lunes y miércoles</strong> · 10:15 am y 7:30 pm</p>
+              </div>
+            </article>
+
+            <article class="class-card reveal">
+              <div class="tile">
+                <img src="/ig/pilates-flow.jpg" alt="Pilates flow: alinea tus músculos, moviliza tus articulaciones, evita lesiones, fortalece" loading="lazy" width="864" height="1080" />
+              </div>
+              <div class="copy">
+                <p class="who">Clase libre</p>
+                <h3>Pilates flow</h3>
+                <p>
+                  El complemento ideal de tu entrenamiento: consciencia corporal y stretching. Un
+                  cuerpo alineado es más eficiente y entrena mejor.
+                </p>
+                <p class="when"><strong>Lunes y miércoles</strong> · 9:15 am</p>
+              </div>
+            </article>
+
+            <article class="class-card reveal">
+              <div class="tile">
+                <img src="/ig/cardio-dance.jpg" alt="Cardio Dance: movimiento, ritmo, energía" loading="lazy" width="864" height="1080" />
+              </div>
+              <div class="copy">
+                <p class="who">Clase libre · con Andy</p>
+                <h3>Cardio Dance</h3>
+                <p>
+                  Ritmos latinos. Una forma divertida de activarte al máximo, entrenar tu memoria,
+                  soltar el estrés y disfrutar el movimiento.
+                </p>
+                <p class="when"><strong>Martes y jueves</strong> · 9:30 am y 7:00 pm</p>
+              </div>
+            </article>
+          </div>
+          <p class="note">
+            Horarios de la temporada de apertura (agosto 2026). Escríbenos para confirmar grupos y
+            cupo.
+          </p>
+        </div>
+      </section>
+
+      <section class="method" id="metodo">
+        <div class="wrap">
+          <div class="stack reveal">
+            <div class="tile">
+              <img src="/ig/valor-del-metodo.jpg" alt="Bailarina en arabesque: El valor del método, técnica respaldada por la experiencia" loading="lazy" width="864" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/habitar-el-cuerpo.jpg" alt="Habitar el cuerpo: conexión y percepción a través de la danza" loading="lazy" width="864" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/desarrollo-hija.jpg" alt="El desarrollo de tu hija a través de la danza" loading="lazy" width="864" height="1080" />
+            </div>
+          </div>
+          <div class="reveal">
+            <span class="eyebrow">Método</span>
+            <h2>Técnica respaldada <em>por la experiencia.</em></h2>
+            <p class="lede">
+              La libertad de bailar con soltura requiere una técnica sólida detrás. Cuando la danza
+              se enseña con metodología, tu sueño de bailar se convierte en realidad.
+            </p>
+            <p>
+              Trabajamos con la metodología de la Royal Academy of Dance, enriquecida con todo lo que
+              hemos recibido de nuestros maestros desde distintas escuelas. Esto nos da un mejor
+              acompañamiento y abordaje del cuerpo.
+            </p>
+            <p>
+              La danza nos pide aprender a escuchar el cuerpo. Combinamos la experiencia artística con
+              el respeto y conocimiento de la anatomía: colocarte, reajustar y volverlo a intentar te
+              hace capaz en barra y fuera de ella.
+            </p>
+            <ul class="badges">
+              <li>Royal Academy of Dance</li>
+              <li>Maestras certificadas</li>
+              <li>Técnica consciente</li>
+              <li>Grupos por etapa</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="values" id="valores">
+        <div class="wrap">
+          <div class="reveal">
+            <span class="eyebrow">Lo que construimos en el salón</span>
+            <h2>Constancia, enfoque, <em>compromiso.</em></h2>
+          </div>
+          <div class="word-strip reveal">
+            <div class="tile">
+              <img src="/ig/constancia.jpg" alt="Constancia" loading="lazy" width="864" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/enfoque.jpg" alt="Enfoque" loading="lazy" width="864" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/compromiso.jpg" alt="Compromiso" loading="lazy" width="864" height="1080" />
+            </div>
+          </div>
+          <p class="ribbon reveal">
+            Coordinación y ubicación espacial · musicalidad y enfoque · autoconciencia y sincronía en
+            grupo. <span>Aprender a alinearse y equilibrarse desde la infancia se convierte en un
+            hábito para toda la vida.</span>
+          </p>
+        </div>
+      </section>
+
+      <section class="poem" id="esencia">
+        <div class="wrap">
+          <div class="reel reveal">
+            <video
+              src="/ig/habitar-el-cuerpo.mp4"
+              poster="/ig/habitar-reel-poster.jpg"
+              muted
+              loop
+              playsinline
+              autoplay
+              preload="metadata"
+              aria-label="Reel: una forma de habitar el cuerpo"
+            ></video>
+          </div>
+          <div class="reveal">
+            <p class="verse">
+              La danza, el ballet, revela, construye, muestra <em>algo</em>: anhelo, búsqueda,
+              impulso. En nosotros, constancia, perseverancia, determinación. Movimiento, ritmo,
+              técnica que se expresa. <em>Y así surge nuestra esencia.</em>
+              <small>Una forma de habitar el cuerpo</small>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div class="rule"></div>
+
+      <section class="quote">
+        <div class="wrap">
+          <div>
+            <blockquote class="reveal">
+              No todo se ve. Hay cosas que se construyen mientras nadie está mirando,
+              <em>y un día también se notan.</em>
+              <cite>
+                Así es el ballet: cuando bailamos desarrollamos muchas habilidades, algunas con
+                intención y otras que nos sorprenden. Ven a bailar y a disfrutar del proceso.
+              </cite>
+            </blockquote>
+          </div>
+          <div class="pair reveal">
+            <div class="tile">
+              <img src="/ig/hay-cosas.jpg" alt="Hay cosas que se construyen mientras nadie está mirando" loading="lazy" width="864" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/un-dia.jpg" alt="Y un día también se notan" loading="lazy" width="864" height="1080" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="visit" id="contacto">
+        <div class="wrap">
+          <div class="reveal">
+            <span class="eyebrow">Ven a conocernos</span>
+            <h2>Estamos en <em>Solares.</em></h2>
+            <address>
+              <strong>Danz Ballet Studio</strong>
+              Paseo de La Luna 810, local 14<br />
+              Solares Residencial, Zapopan, Jalisco
+            </address>
+            <p>
+              Escríbenos para agendar tu clase, preguntar por grupos infantiles o reservar la clase de
+              cortesía de Baby Ballet. ¡Te esperamos!
+            </p>
+            <div class="actions">
+              <a class="button primary" href="https://ig.me/m/danzballetstudio" target="_blank" rel="noopener">Escríbenos por Instagram</a>
+              <a class="button ghost" href="https://www.google.com/maps/search/?api=1&query=Paseo+de+la+Luna+810+local+14+Solares+Residencial+Zapopan" target="_blank" rel="noopener">Cómo llegar</a>
+            </div>
+          </div>
+          <div class="tile reveal">
+            <img src="/ig/suenos-cumplidos.jpg" alt="Bailarina en el salón: sueños cumplidos" loading="lazy" width="864" height="1080" />
+          </div>
+        </div>
       </section>
     </main>
+
+    <footer>
+      <div class="wrap">
+        <span>© 2026 Danz Ballet Studio · Escuela de Danza en Solares</span>
+        <span>
+          <a href="https://www.instagram.com/danzballetstudio" target="_blank" rel="noopener">@danzballetstudio</a>
+          · Fotos <a href="https://www.instagram.com/shoot_dance" target="_blank" rel="noopener">@shoot_dance</a>
+        </span>
+      </div>
+    </footer>
+
     <script>
       (() => {
         const canvas = document.querySelector("#stage");
+        const hero = canvas.parentElement;
         const context = canvas.getContext("2d");
         const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
         let width = 0;
         let height = 0;
         let ratio = 1;
         let start = performance.now();
+        let visible = true;
 
         function resize() {
           ratio = Math.min(devicePixelRatio || 1, 2);
-          width = innerWidth;
-          height = innerHeight;
+          width = hero.clientWidth;
+          height = hero.clientHeight;
           canvas.width = Math.round(width * ratio);
           canvas.height = Math.round(height * ratio);
           context.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -274,12 +1230,54 @@
           context.lineTo(width * 0.88, height * 0.89);
           context.stroke();
 
-          if (!reduced) requestAnimationFrame(draw);
+          if (!reduced && visible) requestAnimationFrame(draw);
+        }
+
+        // Only animate the hero canvas while it is on screen.
+        if ("IntersectionObserver" in window) {
+          new IntersectionObserver(
+            (entries) => {
+              const wasVisible = visible;
+              visible = entries[0].isIntersecting;
+              if (visible && !wasVisible && !reduced) requestAnimationFrame(draw);
+            },
+            { threshold: 0.01 },
+          ).observe(hero);
         }
 
         addEventListener("resize", resize, { passive: true });
         resize();
         draw(performance.now());
+
+        // Scroll reveals.
+        const reveals = document.querySelectorAll(".reveal");
+        if (reduced || !("IntersectionObserver" in window)) {
+          reveals.forEach((el) => el.classList.add("in"));
+        } else {
+          const io = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add("in");
+                  io.unobserve(entry.target);
+                }
+              });
+            },
+            { rootMargin: "0px 0px -8% 0px", threshold: 0.08 },
+          );
+          reveals.forEach((el) => io.observe(el));
+        }
+
+        // The reel only plays when it is on screen.
+        const video = document.querySelector(".reel video");
+        if (video && "IntersectionObserver" in window) {
+          new IntersectionObserver(
+            (entries) => {
+              entries[0].isIntersecting ? video.play().catch(() => {}) : video.pause();
+            },
+            { threshold: 0.25 },
+          ).observe(video);
+        }
       })();
     </script>
   </body>
