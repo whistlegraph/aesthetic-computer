@@ -103,7 +103,7 @@ async function exportRuntime(hash) {
   // A plain extract, then prune: GNU tar 1.35 selects nothing when member
   // patterns are combined with --strip-components (verified on jasellite).
   const keep = RUNTIME_EXTENSIONS.map((e) => `-name '*${e}'`).join(" -o ");
-  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 -C '${fresh}' && find '${fresh}' -type f ! \( ${keep} \) -delete && find '${fresh}' -type d -empty -delete`);
+  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 -C '${fresh}' && find '${fresh}' -type f ! \\( ${keep} \\) -delete && find '${fresh}' -type d -empty -delete`);
   await fs.access(path.join(fresh, "lib", "disk.mjs")); // a runtime without its core is not a runtime
   await fs.rm(old, { recursive: true, force: true });
   try { await fs.rename(AC_SOURCE_DIR, old); } catch {}
