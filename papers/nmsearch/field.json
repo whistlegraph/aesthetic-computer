@@ -1,0 +1,373 @@
+{
+ "name": "nmsearch field",
+ "version": 1,
+ "purpose": "The sources that define the field of new media for nmsearch. Membership here is what makes a hit in-field.",
+ "spine": {
+  "wikidata": "Every validated entity is matched to or gets a QID."
+ },
+ "genres": {
+  "Q378604": "new media art",
+  "Q2553758": "net.art",
+  "Q860372": "digital art",
+  "Q682010": "video art",
+  "Q1744327": "sound art",
+  "Q5569949": "glitch art",
+  "Q2864686": "software art",
+  "Q1502032": "generative art",
+  "Q2394336": "interactive art",
+  "Q173167": "electronic literature"
+ },
+ "wikipediaCategories": [
+  "New_media_art",
+  "New_media_artists",
+  "Digital_art",
+  "Digital_artists",
+  "Net.art",
+  "Video_art",
+  "Video_artists",
+  "Sound_art",
+  "Sound_artists",
+  "Computer_art",
+  "Interactive_art",
+  "Electronic_art",
+  "Glitch_art",
+  "Generative_art",
+  "Software_art",
+  "Electronic_literature",
+  "Media_art",
+  "Live_coding",
+  "Demoscene",
+  "Media_archaeology",
+  "Internet_art",
+  "Algorithmic_art",
+  "Digital_media_festivals",
+  "Electronic_music_festivals",
+  "Computer_music",
+  "Creative_coding"
+ ],
+ "sources": [
+  {
+   "id": "wikipedia",
+   "name": "Wikipedia",
+   "tier": "live",
+   "kind": "encyclopedia",
+   "home": "https://en.wikipedia.org",
+   "api": "wikipedia",
+   "ramp": "https://en.wikipedia.org/w/index.php?search={q}+incategory%3A%22New_media_art%7CDigital_art%7CNet.art%7CVideo_art%7CSound_art%7CElectronic_art%22",
+   "covers": "articles directly in the field's categories",
+   "evidence": [
+    "article title",
+    "pageid",
+    "revision seen"
+   ]
+  },
+  {
+   "id": "wikidata",
+   "name": "Wikidata",
+   "tier": "live",
+   "kind": "knowledge-graph",
+   "home": "https://www.wikidata.org",
+   "api": "wikidata",
+   "ramp": "https://www.wikidata.org/w/index.php?search={q}&ns0=1",
+   "covers": "items whose genre, movement, field of work, class or occupation is in the field (SPARQL; slow lane)",
+   "spine": true,
+   "evidence": [
+    "QID",
+    "label",
+    "description"
+   ]
+  },
+  {
+   "id": "monoskop",
+   "name": "Monoskop",
+   "tier": "live",
+   "kind": "wiki",
+   "home": "https://monoskop.org",
+   "api": "mediawiki",
+   "endpoint": "https://monoskop.org/api.php",
+   "ramp": "https://monoskop.org/index.php?search={q}",
+   "covers": "media art, media theory, avant-garde: people, works, books, events",
+   "evidence": [
+    "page title",
+    "pageid",
+    "timestamp"
+   ]
+  },
+  {
+   "id": "openalex",
+   "name": "OpenAlex · Leonardo",
+   "tier": "live",
+   "kind": "bibliographic",
+   "home": "https://openalex.org",
+   "api": "openalex",
+   "sourceIds": [
+    "S103229351",
+    "S72455244",
+    "S2764586806"
+   ],
+   "ramp": "https://openalex.org/works?page=1&filter=primary_location.source.id:S103229351|S72455244,default.search:{q}",
+   "covers": "Leonardo, Leonardo Music Journal, Leonardo Electronic Almanac",
+   "evidence": [
+    "DOI",
+    "OpenAlex ID",
+    "year"
+   ]
+  },
+  {
+   "id": "zenodo-nime",
+   "name": "Zenodo · NIME",
+   "tier": "live",
+   "kind": "proceedings",
+   "home": "https://nime.org",
+   "api": "zenodo",
+   "community": "nime_conference",
+   "ramp": "https://zenodo.org/communities/nime_conference/records?q={q}",
+   "covers": "New Interfaces for Musical Expression proceedings",
+   "evidence": [
+    "DOI",
+    "record ID",
+    "year"
+   ]
+  },
+  {
+   "id": "internet-archive",
+   "name": "Internet Archive",
+   "tier": "live",
+   "kind": "archive",
+   "home": "https://archive.org",
+   "api": "ia",
+   "collections": [
+    "xfrstn",
+    "ubu_com",
+    "ubu_audio",
+    "ubu_video",
+    "ArchiveIt-Collection-4388"
+   ],
+   "ramp": "https://archive.org/search?query={q}+AND+%28subject%3A%22new+media%22+OR+subject%3A%22net+art%22+OR+subject%3A%22media+art%22+OR+collection%3Axfrstn%29",
+   "covers": "XFR STN, UbuWeb mirrors, the Digital Art Web Archive, and any item tagged with a field subject",
+   "evidence": [
+    "item identifier",
+    "file name",
+    "archive URL"
+   ],
+   "subjects": [
+    "net art",
+    "new media art",
+    "new media",
+    "media art",
+    "video art",
+    "electronic literature",
+    "internet art",
+    "software art",
+    "net.art"
+   ]
+  },
+  {
+   "id": "rhizome",
+   "name": "Rhizome",
+   "tier": "ramp",
+   "kind": "organization",
+   "home": "https://rhizome.org",
+   "ramp": "https://rhizome.org/search/?q={q}",
+   "covers": "editorial, programs, Net Art Anthology"
+  },
+  {
+   "id": "artbase",
+   "name": "Rhizome ArtBase",
+   "tier": "ramp",
+   "kind": "archive",
+   "home": "https://artbase.rhizome.org",
+   "ramp": "https://artbase.rhizome.org/w/index.php?search={q}",
+   "covers": "born-digital artworks since 1999; a Wikibase",
+   "proxyCandidate": true
+  },
+  {
+   "id": "net-art-anthology",
+   "name": "Net Art Anthology",
+   "tier": "ramp",
+   "kind": "exhibition",
+   "home": "https://anthology.rhizome.org",
+   "ramp": "https://anthology.rhizome.org/?s={q}",
+   "covers": "100 works of net art, 1980s to today"
+  },
+  {
+   "id": "ada",
+   "name": "Archive of Digital Art",
+   "tier": "ramp",
+   "kind": "archive",
+   "home": "https://digitalartarchive.at",
+   "ramp": "https://digitalartarchive.at/nc/home.html?tx_indexedsearch%5Bsword%5D={q}",
+   "covers": "artists, works, literature, institutions since 1999"
+  },
+  {
+   "id": "isea",
+   "name": "ISEA Symposium Archives",
+   "tier": "ramp",
+   "kind": "proceedings",
+   "home": "https://isea-archives.siggraph.org",
+   "ramp": "https://isea-archives.siggraph.org/?s={q}",
+   "covers": "every ISEA since 1988: papers, works, presenters"
+  },
+  {
+   "id": "elmcip",
+   "name": "ELMCIP Knowledge Base",
+   "tier": "ramp",
+   "kind": "knowledge-base",
+   "home": "https://elmcip.net",
+   "ramp": "https://elmcip.net/search/node/{q}",
+   "covers": "electronic literature: works, critical writing, events, people",
+   "proxyCandidate": true
+  },
+  {
+   "id": "elc",
+   "name": "Electronic Literature Collection",
+   "tier": "ramp",
+   "kind": "collection",
+   "home": "https://collection.eliterature.org",
+   "ramp": "https://collection.eliterature.org/4/?s={q}",
+   "covers": "ELO's curated volumes"
+  },
+  {
+   "id": "medienkunstnetz",
+   "name": "Media Art Net",
+   "tier": "ramp",
+   "kind": "encyclopedia",
+   "home": "http://www.medienkunstnetz.de",
+   "ramp": "http://www.medienkunstnetz.de/search/?q={q}",
+   "covers": "works, artists, themes; German and English"
+  },
+  {
+   "id": "zkm",
+   "name": "ZKM",
+   "tier": "ramp",
+   "kind": "institution",
+   "home": "https://zkm.de",
+   "ramp": "https://zkm.de/en/search?q={q}",
+   "covers": "exhibitions, collection, publications"
+  },
+  {
+   "id": "ars-electronica",
+   "name": "Ars Electronica Archive",
+   "tier": "ramp",
+   "kind": "festival",
+   "home": "https://ars.electronica.art/archive/",
+   "ramp": "https://ars.electronica.art/archive/?s={q}",
+   "covers": "Prix and festival since 1979"
+  },
+  {
+   "id": "transmediale",
+   "name": "transmediale archive",
+   "tier": "ramp",
+   "kind": "festival",
+   "home": "https://archive.transmediale.de",
+   "ramp": "https://archive.transmediale.de/search?query={q}",
+   "covers": "festival contributions since 1988"
+  },
+  {
+   "id": "nettime",
+   "name": "nettime",
+   "tier": "ramp",
+   "kind": "mailing-list",
+   "home": "https://nettime.org",
+   "ramp": "https://duckduckgo.com/?q=site%3Anettime.org+{q}",
+   "covers": "net criticism since 1995; site-scoped web search"
+  },
+  {
+   "id": "ubu",
+   "name": "UbuWeb",
+   "tier": "ramp",
+   "kind": "collection",
+   "home": "https://www.ubu.com",
+   "ramp": "https://duckduckgo.com/?q=site%3Aubu.com+{q}",
+   "covers": "avant-garde film, sound, text; site-scoped web search"
+  },
+  {
+   "id": "artport",
+   "name": "Whitney Artport",
+   "tier": "ramp",
+   "kind": "collection",
+   "home": "https://whitney.org/artport",
+   "ramp": "https://whitney.org/search?q={q}",
+   "covers": "commissioned net art since 2001"
+  },
+  {
+   "id": "langlois",
+   "name": "Daniel Langlois Foundation",
+   "tier": "ramp",
+   "kind": "archive",
+   "home": "https://www.fondation-langlois.org",
+   "ramp": "https://www.fondation-langlois.org/html/e/recherche.php?q={q}",
+   "covers": "collection of documents on art, science and technology"
+  },
+  {
+   "id": "v2",
+   "name": "V2_ archive",
+   "tier": "ramp",
+   "kind": "institution",
+   "home": "https://v2.nl",
+   "ramp": "https://v2.nl/search?q={q}",
+   "covers": "Rotterdam lab for unstable media since 1981"
+  },
+  {
+   "id": "neural",
+   "name": "Neural",
+   "tier": "ramp",
+   "kind": "magazine",
+   "home": "https://neural.it",
+   "ramp": "https://neural.it/?s={q}",
+   "covers": "new media art, electronic music, hacktivism since 1993"
+  },
+  {
+   "id": "furtherfield",
+   "name": "Furtherfield",
+   "tier": "ramp",
+   "kind": "organization",
+   "home": "https://www.furtherfield.org",
+   "ramp": "https://www.furtherfield.org/?s={q}",
+   "covers": "art, technology and social change since 1996"
+  },
+  {
+   "id": "wmmna",
+   "name": "we make money not art",
+   "tier": "ramp",
+   "kind": "blog",
+   "home": "https://we-make-money-not-art.com",
+   "ramp": "https://we-make-money-not-art.com/?s={q}",
+   "covers": "field reporting since 2004"
+  },
+  {
+   "id": "nime",
+   "name": "NIME proceedings",
+   "tier": "ramp",
+   "kind": "proceedings",
+   "home": "https://nime.org/proceedings/",
+   "ramp": "https://nime.org/proceedings/?q={q}",
+   "covers": "the proceedings site itself; Zenodo is the live mirror"
+  },
+  {
+   "id": "leonardo",
+   "name": "Leonardo (MIT Press)",
+   "tier": "ramp",
+   "kind": "journal",
+   "home": "https://direct.mit.edu/leon",
+   "ramp": "https://direct.mit.edu/leon/search-results?q={q}",
+   "covers": "the journal since 1968; OpenAlex is the live mirror"
+  },
+  {
+   "id": "ctheory",
+   "name": "CTheory",
+   "tier": "ramp",
+   "kind": "journal",
+   "home": "https://journals.uvic.ca/index.php/ctheory",
+   "ramp": "https://journals.uvic.ca/index.php/ctheory/search/search?query={q}",
+   "covers": "theory, technology and culture 1993 to 2016"
+  }
+ ],
+ "occupations": {
+  "Q7016454": "new media artist",
+  "Q18216771": "video artist",
+  "Q11079476": "digital artist",
+  "Q19850998": "sound artist",
+  "Q106208042": "net artist"
+ }
+}

@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nmsearch · Aesthetic Computer</title>
+  <meta name="description" content="Search only the field of new media: Rhizome, Monoskop, Wikipedia's new-media categories, Wikidata, Leonardo, NIME, the Internet Archive, and the Aesthetic Computer research platter.">
+  <meta property="og:title" content="nmsearch — Aesthetic Computer">
+  <meta property="og:description" content="A search engine whose whole identity is its boundary. Type bats and get bats inside new media.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://papers.aesthetic.computer/nmsearch/">
+  <link rel="icon" href="/papers-og.jpg" type="image/jpeg">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+  <link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/ywft-processing-regular.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171729; --surface: #202038; --surface-2: #282844;
+      --text: #f4f0f5; --dim: #aaa4b0; --pink: #ef71bd; --cyan: #55ddd2; --gold: #e5b957;
+      --line: rgba(255,255,255,.13); --hit: rgba(239,113,189,.18);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        color-scheme: light;
+        --bg: #f4f0f3; --surface: #fff; --surface-2: #eee8ed;
+        --text: #201b25; --dim: #69616d; --pink: #b4489a; --cyan: #087e83; --gold: #946700;
+        --line: rgba(32,27,37,.16); --hit: rgba(180,72,154,.14);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text); background: var(--bg);
+      font-family: "Berkeley Mono Variable", ui-monospace, monospace; font-size: 14px; line-height: 1.5;
+    }
+    a { color: inherit; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 22px 0 64px; }
+    .masthead { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+    .brand { text-decoration: none; font-size: clamp(18px, 2vw, 24px); }
+    .brand span { color: var(--pink); font-family: "YWFTProcessing-Regular", sans-serif; }
+    .return { color: var(--dim); font-size: 13px; text-underline-offset: 3px; }
+
+    .hero { padding: clamp(44px, 9vh, 110px) 0 28px; max-width: 820px; }
+    .hero h1 { margin: 0 0 10px; font-size: clamp(26px, 4vw, 44px); line-height: 1.1; font-weight: 600; letter-spacing: -.01em; }
+    .hero h1 em { font-style: normal; color: var(--pink); }
+    .hero p { margin: 0 0 22px; color: var(--dim); max-width: 60ch; }
+    form { display: flex; gap: 10px; }
+    input[type=search] {
+      flex: 1; min-width: 0; font: inherit; font-size: clamp(18px, 2.4vw, 26px); padding: 12px 16px;
+      color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; outline: none;
+    }
+    input[type=search]:focus { border-color: var(--pink); box-shadow: 0 0 0 4px var(--hit); }
+    button.go {
+      font: inherit; font-size: 15px; padding: 0 20px; border-radius: 10px; cursor: pointer;
+      background: var(--pink); color: #fff; border: 0;
+    }
+    .examples { margin-top: 12px; color: var(--dim); font-size: 13px; }
+    .examples a { margin-right: 10px; text-underline-offset: 3px; }
+
+    .lanes { display: grid; grid-template-columns: 1fr; gap: 28px; margin-top: 34px; }
+    @media (min-width: 900px) { .lanes { grid-template-columns: 1fr 1.4fr; } .lanes > .ramps { grid-column: 1 / -1; } }
+    .lane h2 {
+      margin: 0 0 12px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); font-weight: 650;
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    .lane h2 .n { color: var(--cyan); font-weight: 600; }
+    .lane h2 .why { text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+    .card header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+    .card header b { font-weight: 650; }
+    .card header .state { font-size: 12px; color: var(--dim); }
+    .card header .state.busy::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); margin-right: 6px; animation: pulse 1s infinite alternate; }
+    @keyframes pulse { from { opacity: .35 } to { opacity: 1 } }
+    .card ol { list-style: none; margin: 0; padding: 0; }
+    .card li { padding: 7px 0; border-top: 1px solid var(--line); }
+    .card li:first-child { border-top: 0; }
+    .card li a { text-decoration: none; }
+    .card li a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .card li .t { display: block; }
+    .card li .s { display: block; color: var(--dim); font-size: 12.5px; }
+    .card li .s mark, .card li .t mark { background: var(--hit); color: inherit; border-radius: 3px; padding: 0 2px; }
+    .card li .id { color: var(--cyan); font-size: 11.5px; }
+    .card .more { display: block; margin-top: 10px; font-size: 12.5px; color: var(--dim); text-underline-offset: 3px; }
+    .card.empty { color: var(--dim); }
+    .card.empty ol, .card.err ol { display: none; }
+    .card.err header .state { color: var(--gold); }
+
+    .ramps .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      display: inline-flex; flex-direction: column; gap: 1px; text-decoration: none; padding: 8px 12px; border-radius: 9px;
+      background: var(--surface); border: 1px solid var(--line); font-size: 13px; max-width: 100%;
+    }
+    .chip:hover { border-color: var(--pink); }
+    .chip small { color: var(--dim); font-size: 11.5px; }
+    .chip.live { border-style: dashed; }
+
+    .roles { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .roles h3 { margin: 0 0 6px; font-size: 13px; color: var(--pink); text-transform: lowercase; }
+    .roles p { margin: 0; color: var(--dim); font-size: 13px; }
+    footer { margin-top: 40px; color: var(--dim); font-size: 12.5px; }
+    footer a { text-underline-offset: 3px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="masthead">
+      <a class="brand" href="/"><span>papers</span> / nmsearch</a>
+      <a class="return" href="/platter">platter</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Search only <em>new media</em>.</h1>
+        <p>One query, fanned across the field's own archives and nowhere else. Type <code>bats</code> and get the bats inside net art, media theory and festival history, not the animal.</p>
+        <form id="f" role="search">
+          <input id="q" type="search" name="q" placeholder="bats" autocomplete="off" autofocus aria-label="Search the field of new media">
+          <button class="go" type="submit">search</button>
+        </form>
+        <div class="examples">try
+          <a href="?q=bats">bats</a><a href="?q=glitch">glitch</a><a href="?q=live+coding">live coding</a><a href="?q=keyboard">keyboard</a><a href="?q=Goodiepal">Goodiepal</a><a href="?q=telematic">telematic</a>
+        </div>
+      </section>
+
+      <section class="lanes hidden" id="lanes">
+        <div class="lane" id="lane-local">
+          <h2>platter <span class="n" id="local-n"></span> <span class="why">· ours, instant</span></h2>
+          <div id="local"></div>
+        </div>
+        <div class="lane" id="lane-field">
+          <h2>field <span class="n" id="field-n"></span> <span class="why">· live from each source</span></h2>
+          <div id="field"></div>
+        </div>
+        <div class="lane ramps" id="lane-ramps">
+          <h2>exit ramps <span class="why">· the same query, handed to every in-field archive</span></h2>
+          <div class="chips" id="ramps"></div>
+        </div>
+      </section>
+
+      <section class="roles" id="roles">
+        <div><h3>validator</h3><p>Every hit shows its source's own identifier. A result is a lead until the primary page is opened and recorded.</p></div>
+        <div><h3>intaker</h3><p>A door for works, people, events and texts that are not yet anywhere. Provenance first, publication second. Coming.</p></div>
+        <div><h3>archive</h3><p>Snapshot and checksum for what gets validated, so a dead link is a lead and not a loss.</p></div>
+        <div><h3>exit ramp</h3><p>Long-term home is Wikidata, then Wikipedia, ArtBase and Monoskop. Validated records with no QID become the intake queue.</p></div>
+      </section>
+    </main>
+
+    <footer>
+      <span id="built"></span> · field defined in <a href="/nmsearch/field.json">field.json</a> · routing in <a href="/sleuth/">sleuth</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/nmsearch">source</a>
+    </footer>
+  </div>
+
+  <script type="module">
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const [field, local] = await Promise.all([
+      fetch("field.json").then((r) => r.json()),
+      fetch("local.json").then((r) => r.json()),
+    ]);
+    $("#built").textContent = `built ${field.built.slice(0, 10)} · ${field.sources.length} sources`;
+
+    const hl = (text, q) => {
+      const t = esc(text);
+      const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+      if (!words.length) return t;
+      const re = new RegExp("(" + words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+      return t.replace(re, "<mark>$1</mark>");
+    };
+    const item = (q, { url, title, sub, id }) =>
+      `<li><a href="${esc(url)}" target="_blank" rel="noopener"><span class="t">${hl(title, q)}</span>${sub ? `<span class="s">${hl(sub, q)}</span>` : ""}${id ? `<span class="id">${esc(id)}</span>` : ""}</a></li>`;
+
+    function card(id, name, state = "searching", busy = true) {
+      const el = document.createElement("article");
+      el.className = "card"; el.id = "card-" + id;
+      el.innerHTML = `<header><b>${esc(name)}</b><span class="state ${busy ? "busy" : ""}">${esc(state)}</span></header><ol></ol>`;
+      return el;
+    }
+    function fill(el, q, hits, total, more, moreLabel = "open in source") {
+      const st = el.querySelector(".state"); st.classList.remove("busy");
+      if (!hits.length) { el.classList.add("empty"); st.textContent = "nothing"; }
+      else st.textContent = total != null && total > hits.length ? `${total} · showing ${hits.length}` : `${hits.length}`;
+      el.querySelector("ol").innerHTML = hits.map((h) => item(q, h)).join("");
+      if (more && hits.length) el.insertAdjacentHTML("beforeend", `<a class="more" href="${esc(more)}" target="_blank" rel="noopener">${esc(moreLabel)} →</a>`);
+    }
+    function fail(el, msg) { const st = el.querySelector(".state"); st.classList.remove("busy"); el.classList.add("err"); st.textContent = msg; }
+
+    // ---- platter lane: tiny ranked substring search over local.json
+    function searchLocal(q) {
+      const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+      return local.items.map((it) => {
+        const hay = [it.title, it.note, it.text, it.meta].filter(Boolean).join(" ").toLowerCase();
+        let score = 0;
+        for (const w of words) {
+          if (!hay.includes(w)) return null;
+          score += (it.title.toLowerCase().includes(w) ? 5 : 1) + (hay.split(w).length - 1) * 0.2;
+        }
+        return { it, score };
+      }).filter(Boolean).sort((a, b) => b.score - a.score).map((r) => r.it);
+    }
+
+    // ---- live lanes
+    const ramp = (s, q) => s.ramp.replace("{q}", encodeURIComponent(q));
+    const live = {
+      async wikipedia(s, q) {
+        const cats = field.wikipediaCategories.join("|");
+        const u = `https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit=8&srsearch=${encodeURIComponent(`${q} incategory:"${cats}"`)}`;
+        const b = await (await fetch(u)).json();
+        return { total: b.query.searchinfo.totalhits, hits: b.query.search.map((x) => ({ title: x.title, sub: x.snippet.replace(/<[^>]+>/g, ""), url: `https://en.wikipedia.org/?curid=${x.pageid}`, id: `pageid ${x.pageid}` })) };
+      },
+      async wikidata(s, q) {
+        // two fast calls: full-text search for candidates, then keep only items whose claims point into the field
+        const inField = new Set([...Object.keys(field.genres), ...Object.keys(field.occupations || {})]);
+        const su = `https://www.wikidata.org/w/api.php?action=query&list=search&format=json&origin=*&srlimit=50&srsearch=${encodeURIComponent(q)}`;
+        const ids = (await (await fetch(su)).json()).query.search.map((x) => x.title).filter((t) => /^Q\d+$/.test(t));
+        if (!ids.length) return { total: 0, hits: [] };
+        const eu = `https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&origin=*&props=claims|labels|descriptions&languages=en&ids=${ids.join("|")}`;
+        const ents = (await (await fetch(eu)).json()).entities || {};
+        const hits = [];
+        for (const Q of ids) {
+          const e = ents[Q]; if (!e?.claims) continue;
+          const points = Object.values(e.claims).flat().some((c) => inField.has(c.mainsnak?.datavalue?.value?.id));
+          if (!points) continue;
+          hits.push({ title: e.labels?.en?.value || Q, sub: e.descriptions?.en?.value || "", url: `https://www.wikidata.org/wiki/${Q}`, id: Q });
+        }
+        return { total: hits.length, hits: hits.slice(0, 8) };
+      },
+      async mediawiki(s, q) {
+        const u = `${s.endpoint}?action=query&list=search&format=json&origin=*&srlimit=8&srsearch=${encodeURIComponent(q)}`;
+        const b = await (await fetch(u)).json();
+        return { total: b.query.searchinfo.totalhits, hits: b.query.search.map((x) => ({ title: x.title, sub: x.snippet.replace(/<[^>]+>/g, ""), url: `${s.home}/${encodeURIComponent(x.title.replace(/ /g, "_"))}`, id: `pageid ${x.pageid}` })) };
+      },
+      async openalex(s, q) {
+        const u = `https://api.openalex.org/works?search=${encodeURIComponent(q)}&filter=primary_location.source.id:${s.sourceIds.join("|")}&per-page=8&select=id,display_name,publication_year,doi,primary_location`;
+        const b = await (await fetch(u)).json();
+        if (b.error) throw new Error(b.message?.slice(0, 60) || b.error);
+        return { total: b.meta.count, hits: b.results.map((x) => ({ title: x.display_name, sub: `${x.primary_location?.source?.display_name || ""} · ${x.publication_year || ""}`, url: x.doi || x.id, id: (x.doi || x.id).replace(/^https?:\/\/(doi\.org|openalex\.org)\//, "") })) };
+      },
+      async zenodo(s, q) {
+        const u = `https://zenodo.org/api/records?q=${encodeURIComponent(q)}&communities=${s.community}&size=8`;
+        const b = await (await fetch(u)).json();
+        return { total: b.hits.total, hits: b.hits.hits.map((x) => ({ title: x.metadata.title, sub: `${(x.metadata.creators || []).map((c) => c.name).slice(0, 3).join(", ")} · ${x.metadata.publication_date?.slice(0, 4) || ""}`, url: x.links.self_html || x.doi_url, id: x.doi || `record ${x.id}` })) };
+      },
+      async ia(s, q) {
+        const scope = [...s.collections.map((c) => `collection:${c}`), ...(s.subjects || []).map((t) => `subject:"${t}"`)].join(" OR ");
+        const u = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(`(${q}) AND (${scope})`)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=mediatype&rows=8&output=json`;
+        const b = await (await fetch(u)).json();
+        return { total: b.response.numFound, hits: b.response.docs.map((x) => ({ title: x.title, sub: `${[].concat(x.creator || []).slice(0, 2).join(", ")} ${x.year || ""} · ${x.mediatype || ""}`, url: `https://archive.org/details/${x.identifier}`, id: x.identifier })) };
+      },
+    };
+
+    let run = 0;
+    async function search(q) {
+      q = q.trim(); if (!q) return;
+      const me = ++run;
+      $("#q").value = q; document.title = `${q} · nmsearch`;
+      history.replaceState(null, "", "?q=" + encodeURIComponent(q));
+      $("#lanes").classList.remove("hidden");
+
+      // platter
+      const hits = searchLocal(q);
+      $("#local-n").textContent = hits.length;
+      const lc = card("local", "papers.aesthetic.computer", "", false);
+      $("#local").replaceChildren(lc);
+      fill(lc, q, hits.slice(0, 12).map((it) => ({ title: it.title, sub: [it.note, it.meta].filter(Boolean).join(" · "), url: it.url, id: it.kind + " · " + it.id })), hits.length, null);
+
+      // field
+      const fieldEl = $("#field"); fieldEl.replaceChildren();
+      let total = 0; $("#field-n").textContent = "";
+      const liveSources = field.sources.filter((s) => s.tier === "live");
+      await Promise.all(liveSources.map(async (s) => {
+        const el = card(s.id, s.name); fieldEl.append(el);
+        try {
+          const r = await live[s.api](s, q);
+          if (me !== run) return;
+          fill(el, q, r.hits, r.total, ramp(s, q));
+          total += r.hits.length; $("#field-n").textContent = total;
+        } catch (e) { if (me === run) fail(el, "unreachable · " + (e.message || "error").slice(0, 40)); }
+      }));
+      // cards with hits float up
+      [...fieldEl.children].sort((a, b) => (b.querySelector("ol").children.length > 0) - (a.querySelector("ol").children.length > 0)).forEach((c) => fieldEl.append(c));
+
+      // ramps
+      $("#ramps").innerHTML = field.sources.filter((s) => s.tier === "ramp").map((s) =>
+        `<a class="chip" href="${esc(ramp(s, q))}" target="_blank" rel="noopener"><span>${esc(s.name)}</span><small>${esc(s.covers)}</small></a>`).join("");
+    }
+
+    $("#f").addEventListener("submit", (e) => { e.preventDefault(); search($("#q").value); });
+    document.querySelectorAll(".examples a").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); search(new URL(a.href).searchParams.get("q")); }));
+    const q0 = new URLSearchParams(location.search).get("q");
+    if (q0) search(q0);
+  </script>
+</body>
+</html>
