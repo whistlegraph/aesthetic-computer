@@ -57,7 +57,8 @@
           "addressLocality": "Zapopan",
           "addressRegion": "Jalisco",
           "addressCountry": "MX"
-        }
+        },
+        "telephone": "+52 33 1714 2700"
       }
     </script>
     <style>
@@ -168,6 +169,7 @@
 
       .brand-logo {
         width: 100%;
+        height: auto;
         /* interim rose grade of the hot-magenta mark — real fix is a two-tone
            re-export with Fía (see vault/fia/danz-site/VIBES-2026-08-15.md) */
         filter: hue-rotate(24deg) saturate(0.42) brightness(1.4)
@@ -503,19 +505,6 @@
         aspect-ratio: 4 / 5;
       }
 
-      .values .ribbon {
-        margin: clamp(24px, 3vw, 36px) auto 0;
-        max-width: 60ch;
-        font-family: var(--serif);
-        font-size: clamp(18px, 2vw, 24px);
-        line-height: 1.4;
-        color: var(--ink);
-      }
-
-      .values .ribbon span {
-        color: var(--rose);
-      }
-
       /* ---------- reel / poema ---------- */
 
       .poem {
@@ -566,6 +555,38 @@
         letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--ink-soft);
+      }
+
+      /* ---------- nuestro estudio ---------- */
+
+      .studio .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: clamp(28px, 5vw, 72px);
+        align-items: center;
+      }
+
+      .studio .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .studio .pair .tile {
+        aspect-ratio: 9 / 16;
+      }
+
+      .studio .pair .tile:first-child {
+        transform: translateY(24px);
+      }
+
+      .visit .tel {
+        display: inline-block;
+        margin-top: 8px;
+        color: var(--rose);
+        font-weight: 600;
+        text-decoration: none;
+        border-bottom: 1px solid var(--pink-soft);
       }
 
       /* ---------- quote band ---------- */
@@ -789,6 +810,7 @@
         .welcome .wrap,
         .method .wrap,
         .poem .wrap,
+        .studio .wrap,
         .quote .wrap,
         .visit .wrap {
           grid-template-columns: minmax(0, 1fr);
@@ -800,7 +822,8 @@
           transform: none;
         }
 
-        .method .stack {
+        .method .stack,
+        .studio .pair {
           max-width: 520px;
         }
 
@@ -883,7 +906,7 @@
       <canvas id="stage" aria-hidden="true"></canvas>
       <div class="hero-inner">
         <div class="mark">
-          <img class="brand-logo" src="/logo.png" alt="Danz Ballet Studio" width="846" height="206" />
+          <img class="brand-logo" src="/logo.png" alt="Danz Ballet Studio" />
         </div>
         <h1>Enseñanza real, <em>técnica y consciente.</em></h1>
         <p class="kicker">
@@ -939,7 +962,7 @@
                 <img src="/ig/baby-ballet.jpg" alt="Niñas pequeñas en clase de Baby Ballet" loading="lazy" width="810" height="1080" />
               </div>
               <div class="copy">
-                <p class="who">Pequeñitas</p>
+                <p class="who">3 a 6 años · Pre-primary y Primary</p>
                 <h3>Baby Ballet</h3>
                 <p>
                   Clases creativas y dinámicas de introducción al ballet. Una clase que parece un juego
@@ -955,14 +978,14 @@
                 <img src="/ig/ballet-kids.jpg" alt="Pies de niña en zapatillas de ballet" loading="lazy" width="810" height="1080" />
               </div>
               <div class="copy">
-                <p class="who">7 a 12 años</p>
+                <p class="who">7 a 12 años · Grados I a V</p>
                 <h3>Ballet Kids</h3>
                 <p>
                   La etapa del desarrollo técnico estructurado en la danza. Las niñas descubren de qué
                   son capaces, aprenden a ser tenaces, a poner atención y a intentarlo una y otra vez
                   hasta lograrlo.
                 </p>
-                <p class="when"><strong>Por las tardes.</strong> Afiliadas a la Royal Academy of Dance.</p>
+                <p class="when"><strong>Lunes a jueves</strong> · niñas a partir de las 5:00 pm</p>
               </div>
             </article>
 
@@ -971,7 +994,7 @@
                 <img src="/ig/nunca-es-tarde.jpg" alt="Piernas de bailarina en la barra: Nunca es tarde para empezar" loading="lazy" width="864" height="1080" />
               </div>
               <div class="copy">
-                <p class="who">Jóvenes y adultas</p>
+                <p class="who">Teens 12+ · intermedio y avanzado 14+ · adultas 16+</p>
                 <h3>Ballet</h3>
                 <p>
                   El ballet no tiene fecha de caducidad. Si siempre quisiste bailarlo o deseas retomar
@@ -992,7 +1015,7 @@
                   El complemento ideal de tu entrenamiento: consciencia corporal y stretching. Un
                   cuerpo alineado es más eficiente y entrena mejor.
                 </p>
-                <p class="when"><strong>Lunes y miércoles</strong> · 9:15 am</p>
+                <p class="when"><strong>Lunes, miércoles y viernes</strong> · 9:15 am</p>
               </div>
             </article>
 
@@ -1012,8 +1035,9 @@
             </article>
           </div>
           <p class="note">
-            Horarios de la temporada de apertura (agosto 2026). Escríbenos para confirmar grupos y
-            cupo.
+            Niveles según la Royal Academy of Dance: Pre-primary y Primary, Grados I a V,
+            Intermediate Foundation, Intermedio y Avanzado, y clases libres para adultas. Escríbenos
+            para confirmar grupos y cupo.
           </p>
         </div>
       </section>
@@ -1035,8 +1059,8 @@
             <span class="eyebrow">Método</span>
             <h2>Técnica respaldada <em>por la experiencia.</em></h2>
             <p class="lede">
-              La libertad de bailar con soltura requiere una técnica sólida detrás. Cuando la danza
-              se enseña con metodología, tu sueño de bailar se convierte en realidad.
+              Formación internacional y libertad de movimiento en un solo lugar. La libertad de
+              bailar con soltura requiere una técnica sólida detrás.
             </p>
             <p>
               Trabajamos con la metodología de la Royal Academy of Dance, enriquecida con todo lo que
@@ -1075,11 +1099,6 @@
               <img src="/ig/compromiso.jpg" alt="Compromiso" loading="lazy" width="864" height="1080" />
             </div>
           </div>
-          <p class="ribbon reveal">
-            Coordinación y ubicación espacial · musicalidad y enfoque · autoconciencia y sincronía en
-            grupo. <span>Aprender a alinearse y equilibrarse desde la infancia se convierte en un
-            hábito para toda la vida.</span>
-          </p>
         </div>
       </section>
 
@@ -1103,6 +1122,31 @@
               impulso. En nosotros, constancia, perseverancia, determinación. Movimiento, ritmo,
               técnica que se expresa. <em>Y así surge nuestra esencia.</em>
               <small>Una forma de habitar el cuerpo</small>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="studio" id="estudio">
+        <div class="wrap">
+          <div class="pair reveal">
+            <div class="tile">
+              <img src="/ig/fachada.jpg" alt="Fachada de Danz Ballet Studio en Plaza Elite, Solares" loading="lazy" width="608" height="1080" />
+            </div>
+            <div class="tile">
+              <img src="/ig/piso.jpg" alt="El salón: piso de madera con cama de aire, barras y espejos" loading="lazy" width="608" height="1080" />
+            </div>
+          </div>
+          <div class="reveal">
+            <span class="eyebrow">Nuestro estudio</span>
+            <h2>Un salón que tiene <em>lo necesario.</em></h2>
+            <p class="lede">
+              Piso de madera con cama de aire, barras, espejos, equipo de sonido y, sobre todo,
+              ubicación.
+            </p>
+            <p>
+              En el ballet lo importante es tener un espacio adecuado: los bailarines nos formamos
+              en espacios que se enriquecen con la presencia de quienes acuden a clase.
             </p>
           </div>
         </div>
@@ -1140,8 +1184,9 @@
             <h2>Estamos en <em>Solares.</em></h2>
             <address>
               <strong>Danz Ballet Studio</strong>
-              Paseo de La Luna 810, local 14<br />
-              Solares Residencial, Zapopan, Jalisco
+              Paseo de La Luna 810, local 14, Plaza Elite<br />
+              Solares Residencial, Zapopan, Jalisco<br />
+              <a class="tel" href="tel:+523317142700">33 1714 2700</a>
             </address>
             <p>
               Escríbenos para agendar tu clase, preguntar por grupos infantiles o reservar la clase de
@@ -1149,7 +1194,8 @@
             </p>
             <div class="actions">
               <a class="button primary" href="https://ig.me/m/danzballetstudio" target="_blank" rel="noopener">Escríbenos por Instagram</a>
-              <a class="button ghost" href="https://www.google.com/maps/search/?api=1&query=Paseo+de+la+Luna+810+local+14+Solares+Residencial+Zapopan" target="_blank" rel="noopener">Cómo llegar</a>
+              <a class="button ghost" href="tel:+523317142700">Llámanos</a>
+              <a class="button ghost" href="https://www.google.com/maps/search/?api=1&query=Plaza+Elite+Paseo+de+la+Luna+810+Solares+Residencial+Zapopan" target="_blank" rel="noopener">Cómo llegar</a>
             </div>
           </div>
           <div class="tile reveal">
