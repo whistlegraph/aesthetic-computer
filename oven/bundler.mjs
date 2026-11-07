@@ -58,6 +58,16 @@ export function refreshGitCommit() {
 let coreBundleCache = null;
 let coreBundleCacheCommit = null;
 let coreBundleCacheBuiltAt = 0;
+
+// The source poller (source-git-poller.mjs) swapped a fresh ac-source in at
+// this revision: key the core cache on it and drop what was built before.
+export function setSourceRevision(revision) {
+  GIT_COMMIT = String(revision || "unknown").slice(0, 10);
+  coreBundleCache = null;
+  coreBundleCacheCommit = null;
+  coreBundleCacheBuiltAt = 0;
+  return GIT_COMMIT;
+}
 let skipMinification = false;
 
 // ─── Brotli WASM decoder (loaded once at startup) ──────────────────
