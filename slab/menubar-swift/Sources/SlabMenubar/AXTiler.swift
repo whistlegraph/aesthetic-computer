@@ -67,7 +67,11 @@ enum AXTiler {
     /// grid. GeForce NOW's stream window is the reason this exists; its floor
     /// (`nv-min-window-size` in the bundle's GeForceNOW.json) is honored by
     /// measuring what the window accepted rather than assuming.
-    static let stageBundleIDs = [GameMode.gfnBundleID]
+    static let stageBundleIDs = authoringBundleIDs + [GameMode.gfnBundleID]
+
+    /// Claude clamps to 700×400: stage it when a grid cell cannot fit,
+    /// keeping its conversation readable and clear of the prompt panes.
+    static let authoringBundleIDs = ["com.anthropic.claudefordesktop"]
 
     /// Messenger apps that tile as equal grid cells beside the terminals.
     static let messengerBundleIDs = ["org.whispersystems.signal-desktop"]
