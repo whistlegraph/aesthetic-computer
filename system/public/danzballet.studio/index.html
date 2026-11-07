@@ -34,7 +34,8 @@
       content="Enseñanza real, técnica y consciente. Ballet RAD, Pilates flow y Cardio Dance en Solares Residencial, Zapopan."
     />
     <meta name="twitter:image" content="https://danzballet.studio/og-image.png" />
-    <link rel="icon" href="/logo.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="preload" href="/hero-pointe-shoes.jpg" as="image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -170,10 +171,8 @@
       .brand-logo {
         width: 100%;
         height: auto;
-        /* interim rose grade of the hot-magenta mark — real fix is a two-tone
-           re-export with Fía (see vault/fia/danz-site/VIBES-2026-08-15.md) */
-        filter: hue-rotate(24deg) saturate(0.42) brightness(1.4)
-          drop-shadow(0 14px 26px rgba(236, 126, 161, 0.22));
+        /* two-tone mark: "danz studio" soft pink, "ballet" rose — the 08-14 reference */
+        filter: drop-shadow(0 14px 26px rgba(236, 126, 161, 0.22));
         animation: logo-float 7s ease-in-out 1.15s infinite;
         transform-origin: 48% 52%;
       }
@@ -906,7 +905,7 @@
       <canvas id="stage" aria-hidden="true"></canvas>
       <div class="hero-inner">
         <div class="mark">
-          <img class="brand-logo" src="/logo.png" alt="Danz Ballet Studio" />
+          <img class="brand-logo" src="/logo-blush.png" alt="Danz Ballet Studio" />
         </div>
         <h1>Enseñanza real, <em>técnica y consciente.</em></h1>
         <p class="kicker">
