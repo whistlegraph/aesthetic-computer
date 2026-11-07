@@ -59,7 +59,9 @@ compose against `screen.width` and `screen.height`, not the surrounding app.
 | `dool=true` | Boots the prompt with the dool room already up (the paper drops once the room says hello). | A minted object's doorway back to aesthetic.computer; links from outside the runtime. |
 
 These flags are read by presence in several runtime paths. Remove a flag to
-disable it; do not rely on `nogap=false` or `nolabel=false`.
+disable it; do not rely on `nogap=false` or `nolabel=false`. The full ledger
+of query parameters — every name, kind, scope and reader — is
+[query-params.md](query-params.md), generated from `lib/params.mjs`.
 
 The ordinary embedded authoring baseline is
 `?nogap=true&nolabel=true&autoreload=true`. A blank draft runtime can start at

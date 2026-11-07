@@ -5,34 +5,11 @@
 import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
 import { checkPackMode } from "./pack-mode.mjs";
 import { entryMetadata } from "./site-metadata.mjs";
+import { legitimate } from "./params.mjs";
 
-// List of legitimate query parameters that should be preserved
-const LEGITIMATE_PARAMS = [
-  "icon",
-  "preview",
-  "signup",
-  "supportSignUp",
-  "success",
-  "code",
-  "supportForgotPassword",
-  "message",
-  "vscode",
-  "nogap",
-  "nolabel",
-  "shellhtml",
-  "noboot",
-  "density",
-  "zoom",
-  "duration",
-  "session-aesthetic",
-  "session-sotce",
-  "notice",
-  "tv",
-  "highlight",
-  "daw",
-  "width",
-  "height",
-];
+// Legitimate query parameters: every name the ledger knows (lib/params.mjs).
+// This list used to be kept by hand here and drift from boot's.
+const LEGITIMATE_PARAMS = legitimate();
 
 const LEGITIMATE_PARAM_SET = new Set(
   LEGITIMATE_PARAMS.map((param) => param.toLowerCase()),

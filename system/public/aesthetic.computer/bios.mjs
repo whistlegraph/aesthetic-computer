@@ -24,6 +24,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
+import { viewParams, cleanSearch } from "./lib/params.mjs";
 import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage, getCachedCode } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
@@ -1056,10 +1057,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.solo === true) preservedParams.solo = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
-  // Preserve URL-provided view options, never auth callbacks or piece arguments.
+  // Every other view name the URL carries rides along as written — the
+  // ledger's `carry: bar` names (lib/params.mjs), never an auth callback or
+  // a piece argument. Flags boot already resolved above keep their value.
   const currentParams = new URLSearchParams(location.search);
-  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "nosource", "mime", "reel"]) {
-    if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
+  for (const name of viewParams("bar")) {
+    if (preservedParams[name] === undefined && currentParams.has(name)) {
+      preservedParams[name] = currentParams.get(name);
+    }
   }
 
   if (debug) {
@@ -4915,15 +4920,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //const worker = new Worker("./aesthetic.computer/lib/disk.js", {
   //  type: "module",
   //});
+  // The worker reads its own `location.search`; hand it the query minus the
+  // auth scope, so a session or an Auth0 code never lands in a worker URL.
+  const workerSearch = cleanSearch(window.location.search, { drop: ["auth"] });
   const standardWorkerPath =
     (window.acPACK_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
-    window.location.search +
+    workerSearch +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
   const workerBundlePath = await workerBundlePathPromise;
   let usingBundledWorker = Boolean(workerBundlePath);
   let activeWorkerPath = workerBundlePath
-    ? workerBundlePath + window.location.search + "#" + Date.now()
+    ? workerBundlePath + workerSearch + "#" + Date.now()
     : standardWorkerPath;
   workerBundleState.active = usingBundledWorker;
 

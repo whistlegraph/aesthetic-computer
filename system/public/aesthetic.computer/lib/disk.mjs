@@ -57,6 +57,7 @@ import * as platform from "./platform.mjs";
 
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
+import { parseQuery, serialize, canonical as canonicalParam, createParamStore, warnUnknown } from "./params.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import { Diagnostics } from "./diagnostics.mjs"; // Reports a piece's health to its author.
 import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -840,6 +841,24 @@ let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
 let SPOOF_AUDIO_MODE = false; // Whether to generate synthetic audio data (for headless captures)
 let NOGAP_MODE = false; // Whether gap is disabled (nogap URL param)
+// View flags remembered for the worker's life (lib/params.mjs); `jump` carries
+// the ledger's `carry: jump` names from here, and `$.queryParams` reads it.
+const paramStore = createParamStore();
+
+// `$.queryParams`: the typed query plus what the worker remembers across
+// jumps. `clear` drops a name from both. (`$.params` is the positional list.)
+function queryParamsApi(query) {
+  return {
+    get: (name) => query[canonicalParam(name)] ?? paramStore.get(name),
+    has: (name) => canonicalParam(name) in query || paramStore.has(name),
+    clear(name) {
+      delete query[canonicalParam(name)];
+      paramStore.forget(name);
+    },
+    remember: (name, value = true) => paramStore.remember(name, value),
+    all: () => ({ ...paramStore.all(), ...query }),
+  };
+}
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -1095,11 +1114,13 @@ function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, 
   }
 }
 
-const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
+// The worker's own query, typed by the ledger (lib/params.mjs); read by name.
+const workerQuery = parseQuery(location.search);
+const projectionMode = workerQuery.nolabel === true; // Skip loading noise.
 // 🐚 shellhtml mode — the runtime is hosted by an HTML shell (prompt.ac) that
 // owns the prompt + return-to-prompt chrome in crisp DOM above the pixel
 // buffer. The composited typable prompt and corner label stand down here.
-const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
+const shellHTMLMode = workerQuery.shellhtml === true;
 
 // Mirror the prompt TextInput out to the shell whenever it changes, so LLM
 // replies, command confirmations, and the thinking state render in DOM even
@@ -3284,28 +3305,17 @@ const $commonApi = {
       graph.unmask(); // Clear any active mask when leaving a piece
     }
 
-    // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
-    // This ensures HUD visibility and other display settings persist when navigating
+    // Preserve view parameters across jumps (device mode, TV mode, etc.) so
+    // HUD visibility and other display settings persist when navigating: the
+    // ledger's `carry: jump` names as the worker remembers them. The label
+    // flags follow the current piece. (This used to write `autoScale=true`,
+    // which boot never read; the ledger spells it `auto-scale`.)
     {
-      const params = [];
-      if (DEVICE_MODE) params.push("device=true");
-      if (TV_MODE) params.push("tv=true");
-      if (SOLO_MODE) params.push("solo=true");
-      if (HIGHLIGHT_MODE) {
-        if (HIGHLIGHT_COLOR && HIGHLIGHT_COLOR !== "64,64,64") {
-          params.push(`highlight=${encodeURIComponent(HIGHLIGHT_COLOR)}`);
-        } else {
-          params.push("highlight=true");
-        }
-      }
-      if (PERF_MODE) params.push("perf=true");
-      if (AUTO_SCALE_MODE) params.push("autoScale=true");
-      if (hideLabel) params.push("nolabel=true");
-      if (hideSource) params.push("nosource=true");
-      if (NOGAP_MODE) params.push("nogap=true");
-      if (SPOOF_AUDIO_MODE) params.push("spoofaudio=true");
+      paramStore.remember("nolabel", hideLabel);
+      paramStore.remember("nosource", hideSource);
+      const carried = serialize(paramStore.carried("jump"));
 
-      if (params.length > 0) {
+      if (carried) {
         // Query params must land BEFORE any #fragment, otherwise they get
         // glued into the hash (e.g. `painting#qwfV8wDk?nogap=true`) and the
         // fragment-based code lookup — like painting short codes from `#eou`
@@ -3314,7 +3324,7 @@ const $commonApi = {
         const base = hashIdx >= 0 ? to.slice(0, hashIdx) : to;
         const frag = hashIdx >= 0 ? to.slice(hashIdx) : "";
         const separator = base.includes("?") ? "&" : "?";
-        to = base + separator + params.join("&") + frag;
+        to = base + separator + carried + frag;
         console.log("🧭 Preserving resolution params:", to);
       }
     }
@@ -9549,7 +9559,11 @@ async function load(
 
   $commonApi.slug = slug;
   $commonApi.piece = slug?.split("~")[0].split(":")[0];
-  $commonApi.query = Object.fromEntries(new URLSearchParams(search));
+  // Typed by the ledger (lib/params.mjs): flags are true, numbers are numbers;
+  // unknown names stay strings and are warned once so we learn them.
+  $commonApi.query = parseQuery(search);
+  warnUnknown($commonApi.query.__unknown);
+  $commonApi.queryParams = queryParamsApi($commonApi.query);
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
   $commonApi.hash = hash; // Add hash support for painting codes like #2ug
@@ -10354,8 +10368,9 @@ async function load(
       // `?preview` or `?preview=1200x630` asks for a thumbnail; any other value
       // is a flag (`preview=walkieware` only hushes telemetry) and must not
       // reframe the piece, or the thumbnail's resolution brings back the gap.
+      // `preview=true` is how the embedding doc spells the bare flag.
       const preview = searchParams.get("preview");
-      previewMode = preview === "" || /^\d+x\d+$/.test(preview ?? "");
+      previewMode = preview === "" || preview === "true" || /^\d+x\d+$/.test(preview ?? "");
       iconMode = searchParams.has("icon");
     }
 
@@ -10910,6 +10925,17 @@ async function makeFrame({ data: { type, content } }) {
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
     SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
     NOGAP_MODE = content.resolution?.gap === 0;
+
+    // Remember the view flags for the worker's life; `jump` re-appends the
+    // ledger's `carry: jump` names from here.
+    paramStore.remember("device", DEVICE_MODE);
+    paramStore.remember("tv", TV_MODE);
+    paramStore.remember("solo", SOLO_MODE);
+    paramStore.remember("highlight", HIGHLIGHT_MODE ? (HIGHLIGHT_COLOR !== "64,64,64" ? HIGHLIGHT_COLOR : true) : false);
+    paramStore.remember("perf", PERF_MODE);
+    paramStore.remember("auto-scale", AUTO_SCALE_MODE);
+    paramStore.remember("nogap", NOGAP_MODE);
+    paramStore.remember("spoofaudio", SPOOF_AUDIO_MODE);
 
     microphone.permission = content.microphonePermission;
 
@@ -14717,16 +14743,14 @@ async function makeFrame({ data: { type, content } }) {
           // which can be over-ridden using `resolution` inside the
           // `preview` function.
           if (firstPreviewOrIcon) {
-            if (currentSearch === "preview") {
-              $api.resolution(1200 / 8, 630 / 8, 0);
+            // `?preview` / `?preview=true` → the default card; `?preview=WxH`
+            // → that size. Parsed, not compared to "preview": the first
+            // load's search still wears its "?", which used to throw here.
+            const size = new URLSearchParams(currentSearch).get("preview");
+            if (/^\d+x\d+$/.test(size ?? "")) {
+              $api.resolution(...size.split("x").map((n) => floor(parseInt(n) / 8)), 0);
             } else {
-              $api.resolution(
-                ...currentSearch
-                  .split("=")[1]
-                  .split("x")
-                  .map((n) => floor(parseInt(n) / 8)),
-                0,
-              );
+              $api.resolution(1200 / 8, 630 / 8, 0);
             }
             firstPreviewOrIcon = false;
           }
@@ -14744,18 +14768,12 @@ async function makeFrame({ data: { type, content } }) {
         // Render a favicon instead of the piece.
         try {
           if (firstPreviewOrIcon) {
-            $api.resolution(128, 128, 0);
-            if (currentSearch === "icon") {
-              $api.resolution(128, 128, 0);
+            // `?icon` / `?icon=true` → 128×128; `?icon=WxH` → that size.
+            const size = new URLSearchParams(currentSearch).get("icon");
+            if (/^\d+x\d+$/.test(size ?? "")) {
+              $api.resolution(...size.split("x").map((n) => parseInt(n)), 0);
             } else {
-              console.log("Current:", currentSearch);
-              $api.resolution(
-                ...currentSearch
-                  .split("=")[1]
-                  .split("x")
-                  .map((n) => parseInt(n)),
-                0,
-              );
+              $api.resolution(128, 128, 0);
             }
             firstPreviewOrIcon = false;
           }
