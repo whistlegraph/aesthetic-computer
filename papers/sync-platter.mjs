@@ -181,7 +181,7 @@ function main() {
   const functionCount = countFiles(join(REPO_ROOT, "system/netlify/functions"), ".mjs");
   const sessionModules = countFiles(join(REPO_ROOT, "session-server"), ".mjs");
   const papersCount = existsSync(INDEX_PATH)
-    ? (readFileSync(INDEX_PATH, "utf8").match(/class="p"\s+data-paper-id=/g) || [])
+    ? (readFileSync(INDEX_PATH, "utf8").match(/<tr\b[^>]*\bdata-key=|class="p"\s+data-paper-id=/g) || [])
         .length
     : 0;
   const readingsCount = countFiles(
