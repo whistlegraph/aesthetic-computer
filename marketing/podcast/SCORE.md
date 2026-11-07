@@ -53,7 +53,7 @@ The `.upload.lock` serializes uploaders; after a crash, check its PID before
 removing a stale lock. A saved receipt always wins over a leftover queue job.
 
 **The daily token (bin/daily-token.mjs).** With `DAILY_MINT=1` the episode is
-also minted as a hic et nunc OBJKT signed by aesthetic.tez, named just the
+also minted as a 1/1 OBJKT on Teia, signed by aesthetic.tez, named just the
 episode title. Its image is the update itself: the script set in AC's pixel
 font by a KidLisp piece (stored as a new $code, with punctuation preserved)
 over a date-colored starfield, rendered locally as a 512² GIF, with a frame as

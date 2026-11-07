@@ -200,7 +200,7 @@ async function dailyStatus({ limit = 14 } = {}) {
     rows.push({
       objkt: Number(t.tokenId), name: t.name, minted: t.firstTime, editions: Number(t.totalSupply),
       sold: out.reduce((a, x) => a + Number(x.amount), 0), buyers: new Set(out.map((x) => x.to)).size,
-      url: `https://objkt.com/tokens/hicetnunc/${t.tokenId}`,
+      url: `https://teia.art/objkt/${t.tokenId}`,
     });
   }
   const balance = tez(await get(`${TZKT}/accounts/${TEZOS.aesthetic}/balance`));
@@ -283,7 +283,7 @@ const TOOLS = [
   },
   {
     name: "daily_token_status",
-    description: "The daily token (each night's podcast update, set in AC's pixel font and minted as a hic et nunc 1/1 by jasellite): recent OBJKTs with editions sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
+    description: "The daily token (each night's podcast update, set in AC's pixel font and minted as a 1/1 on Teia by jasellite): recent OBJKTs with editions sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
     inputSchema: { type: "object", properties: { limit: { type: "number", description: "How many recent tokens (default 14)" } } },
   },
   {
