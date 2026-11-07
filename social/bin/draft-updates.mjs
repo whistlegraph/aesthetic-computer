@@ -55,8 +55,11 @@ function fit(body, url, limit, urlCost) {
 const forX = (body, url) => fit(body, url, X_LIMIT, X_URL);
 const forBsky = (body, url) => fit(body, url, BSKY_LIMIT, url ? url.length : 0);
 
+// Where each stream goes. NFT / token news lives on X (@promptDOTac); the rest goes to both.
+const TARGETS = { daily: ["x"], deadlines: ["x", "bluesky"], papers: ["x", "bluesky"], pop: ["x", "bluesky"] };
+
 function draft(id, stream, body, url, extra = {}) {
-  return { id, stream, created: new Date().toISOString(), date: TODAY, url: url || null,
+  return { id, stream, to: TARGETS[stream] || ["x", "bluesky"], created: new Date().toISOString(), date: TODAY, url: url || null,
     x: forX(body, url), bsky: forBsky(body, url), status: "pending", ...extra };
 }
 
