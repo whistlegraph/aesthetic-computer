@@ -82,12 +82,12 @@ node -e 'const fs=require("fs");const f=process.argv[1];const q=JSON.parse(fs.re
 const out=(${mutation.toString()})(q,m);fs.writeFileSync(f,JSON.stringify(q,null,2)+"\\n");console.log(JSON.stringify(out));' "$f" '${JSON.stringify(mutation.args).replace(/'/g, "'\\''")}'`;
   return JSON.parse(await sshScript(script));
 }
-const fmtDraft = (d) => `[${d.id}] ${d.stream} → ${(d.to || ["x", "bluesky"]).join("+")} · ${d.status}${d.posted ? " · " + Object.entries(d.posted).map(([k, v]) => k + ":" + v).join(" ") : ""}\n  x    ${d.x}\n  bsky ${d.bsky}`;
+const fmtDraft = (d) => `[${d.id}] ${d.stream} → ${(d.to || ["x", "bluesky"]).join("+")} · ${d.status}${d.posted ? " · " + Object.entries(d.posted).map(([k, v]) => k + ":" + v).join(" ") : ""}\n  x    ${d.x}\n  bsky ${d.bsky}${(d.alts || []).map((a, i) => `\n  alt${i + 1} ${a.bsky === a.x ? a.bsky : "x: " + a.x + " | bsky: " + a.bsky}`).join("")}`;
 
 const TOOLS = [
   { name: "social_drafts", description: "Pending Aesthetic network posts drafted nightly on jasellite (daily token, deadlines board, papers, pop) for human approval. Call this when jeffrey asks for Aesthetic network news. Read-only.", inputSchema: { type: "object", properties: { status: { type: "string", enum: ["pending", "posted", "skipped", "all"], default: "pending" }, limit: { type: "integer", minimum: 1, maximum: 50, default: 20 } } } },
   { name: "social_draft_add", description: "Add a hand-written draft to the queue (status pending). Give one text, or separate x and bsky texts. NFT/token news goes to X only (to: [\"x\"]).", inputSchema: { type: "object", properties: { stream: { type: "string", enum: STREAMS, default: "note" }, to: { type: "array", items: { type: "string", enum: ["x", "bluesky"] } }, text: { type: "string" }, x: { type: "string" }, bsky: { type: "string" }, url: { type: "string" } } } },
-  { name: "social_draft_post", description: "Publish one queued draft to X (@promptDOTac) and/or Bluesky (@aesthetic.computer) and mark it posted. SIDE EFFECT: live public posts. Requires confirm:true; without it, shows exactly what would be sent.", inputSchema: { type: "object", properties: { id: { type: "string" }, to: { type: "array", items: { type: "string", enum: ["x", "bluesky"] }, default: ["x", "bluesky"] }, xText: { type: "string", description: "Override the X text before posting." }, bskyText: { type: "string", description: "Override the Bluesky text before posting." }, confirm: { type: "boolean" } }, required: ["id"] } },
+  { name: "social_draft_post", description: "Publish one queued draft to X (@promptDOTac) and/or Bluesky (@aesthetic.computer) and mark it posted. SIDE EFFECT: live public posts. Requires confirm:true; without it, shows exactly what would be sent.", inputSchema: { type: "object", properties: { id: { type: "string" }, to: { type: "array", items: { type: "string", enum: ["x", "bluesky"] }, default: ["x", "bluesky"] }, variant: { type: "integer", minimum: 1, description: "Post alt N instead of the primary text." }, xText: { type: "string", description: "Override the X text before posting." }, bskyText: { type: "string", description: "Override the Bluesky text before posting." }, confirm: { type: "boolean" } }, required: ["id"] } },
   { name: "social_draft_mark", description: "Set a draft's status (skipped, pending, posted) without posting.", inputSchema: { type: "object", properties: { id: { type: "string" }, status: { type: "string", enum: ["pending", "skipped", "posted"] }, note: { type: "string" } }, required: ["id", "status"] } },
   { name: "x_accounts", description: "List AC X aliases and whether their vault-backed OAuth 1.0a credentials resolve on this host. Never returns secret values.", inputSchema: { type: "object", properties: {} } },
   { name: "x_me", description: "Verify an X account's credentials and return its public follower/post counts.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "promptdotac" } } } },
@@ -122,7 +122,9 @@ async function callTool(name, args = {}) {
     if (!d) throw new Error(`no draft ${args.id}`);
     if (d.status === "posted") throw new Error(`${d.id} is already posted: ${JSON.stringify(d.posted)}`);
     const to = args.to?.length ? args.to : (d.to?.length ? d.to : ["x", "bluesky"]);
-    const xText = args.xText || d.x, bskyText = args.bskyText || d.bsky;
+    const alt = args.variant ? d.alts?.[args.variant - 1] : null;
+    if (args.variant && !alt) throw new Error(`${d.id} has no alt${args.variant}`);
+    const xText = args.xText || (alt ? alt.x : d.x), bskyText = args.bskyText || (alt ? alt.bsky : d.bsky);
     if (args.confirm !== true) return text(`would post ${d.id} to ${to.join(" + ")}:\n  x    ${xText}\n  bsky ${bskyText}\nCall again with confirm: true.`);
     const posted = {}, errors = [];
     if (to.includes("x")) { try { posted.x = await run(x, ["--as", "promptdotac", "post", xText], root, 300_000); } catch (e) { errors.push("x: " + e.message); } }
