@@ -75,17 +75,18 @@ function dailyToken(state) {
   const base = join(ROOT, "marketing/podcast/out/daily", `daily-${TODAY}`);
   const md = existsSync(`${base}.md`) ? readFileSync(`${base}.md`, "utf8") : null;
   const token = readJson(`${base}.token.json`, null);
-  if (!md || !token?.objktUrl) return [];
+  const url = token?.teiaUrl || (token?.tokenId !== undefined ? `https://teia.art/objkt/${token.tokenId}` : null);
+  if (!md || !url) return [];
   const title = (md.match(/^title:\s*(.+)$/m) || [])[1]?.trim();
   if (!title) return [];
   const price = token.priceXtz ? ` ${token.priceXtz} xtz` : "";
-  const body = `daily: “${title}” — today's update from the studio, read aloud and minted as a 1/1 on hic et nunc.${price ? ` (${token.priceXtz} xtz)` : ""}`;
+  const body = `daily: “${title}” — today's update from the studio, read aloud and minted as a 1/1 on Teia.${price ? ` (${token.priceXtz} xtz)` : ""}`;
   const lead = firstSentence(md);
   const alts = [
-    `“${title}” — tonight's studio note, as a 1/1 on hic et nunc.`,
+    `“${title}” — tonight's studio note, as a 1/1 on Teia.`,
     lead ? `${lead} (today's daily, 1/1)` : null,
   ];
-  return [draft(`daily:${TODAY}`, "daily", body, token.objktUrl, { title, alts })];
+  return [draft(`daily:${TODAY}`, "daily", body, url, { title, alts })];
 }
 
 function deadlines(state) {

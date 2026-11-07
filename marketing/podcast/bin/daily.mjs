@@ -7,7 +7,7 @@
 //             or, with DAILY_WRITER=ac, by the daily's own AC braincells
 //   produce — bin/produce.mjs with the club bed + the daily frame
 //   publish — bin/buzzsprout.mjs (public; --stage keeps it private for review)
-//   mint    — with DAILY_MINT=1, bin/daily-token.mjs mints it on hic et nunc
+//   mint    — with DAILY_MINT=1, bin/daily-token.mjs mints it as a 1/1 on Teia
 //
 // Usage:
 //   node bin/daily.mjs                # today, produce + publish

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// daily-token.mjs — each day's podcast update, minted as a hic et nunc 1/1.
+// daily-token.mjs — each day's podcast update, minted as a 1/1 on Teia (the hic et nunc objkts contract).
 //
 //   page    — the episode as a Star Wars crawl in AC's pixel font: a GIF drawn
 //             here (lib/crawl.mjs), and the same crawl as a live KidLisp
@@ -9,7 +9,8 @@
 //   pin     — the ZIP's contents as an IPFS directory, plus GIF, thumb and
 //             TZIP-21 metadata (/api/ipfs-add); the GIF stays the display
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
-//   list    — an objkt ask for the whole edition
+//   list    — an objkt ask for the whole edition (Teia lists it too; the
+//             receipt's teiaUrl is the link we advertise)
 //
 // Every stage writes into out/daily/<slug>.token.json as it lands, so a
 // failed run resumes where it stopped and a finished one never double-mints.
@@ -107,7 +108,7 @@ const READALONG = dailyRenderer(receipt, process.env, ARTIFACT) === 'readalong';
 if (READALONG && ARTIFACT !== 'zip') throw new Error('Readalong receipts require the interactive directory format');
 
 if (receipt.listed) {
-  console.log(`✓ ${slug} already minted and listed: ${receipt.objktUrl}`);
+  console.log(`✓ ${slug} already minted and listed: ${receipt.teiaUrl || receipt.objktUrl}`);
   process.exit(0);
 }
 checkPinnedArtifact(receipt, ARTIFACT);
@@ -356,6 +357,7 @@ await op.confirmation(1);
 Object.assign(receipt, {
   listOp: op.hash, listed: true, editions: EDITIONS, priceXtz: PRICE_XTZ,
   objktUrl: `https://objkt.com/tokens/hicetnunc/${receipt.tokenId}`,
+  teiaUrl: `https://teia.art/objkt/${receipt.tokenId}`,
 });
 save();
-console.log(`✓ ${slug}: OBJKT #${receipt.tokenId} — ${EDITIONS} × ${PRICE_XTZ} XTZ — ${receipt.objktUrl}`);
+console.log(`✓ ${slug}: OBJKT #${receipt.tokenId} — ${EDITIONS} × ${PRICE_XTZ} XTZ — ${receipt.teiaUrl}`);
