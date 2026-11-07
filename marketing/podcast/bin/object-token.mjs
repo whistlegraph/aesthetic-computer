@@ -98,6 +98,8 @@ const receipt = existsSync(receiptPath) ? JSON.parse(readFileSync(receiptPath, "
 if (receipt.dryRun && !flags.dry) {
   if (receipt.metadataUri || receipt.mintOp || receipt.tokenId !== undefined) throw new Error("Dry receipt unexpectedly contains a published operation");
   for (const key of ["code", "source", "dryRun"]) delete receipt[key];
+  // The dry pack named a preview piece; the real one is packed under the stored $code.
+  for (const f of [`${code}.html`, `${code}.metadata.json`]) if (existsSync(resolve(outDir, f))) unlinkSync(resolve(outDir, f));
 }
 const save = () => writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + "\n");
 if (receipt.listed) { console.log(`✓ $${code} already minted and listed: ${receipt.teiaUrl}`); process.exit(0); }
@@ -242,7 +244,7 @@ if (!existsSync(htmlPath)) {
   // The pack is a self-extracting gzip page; the doorway and the viewer live inside it.
   const b64 = html.match(/const b64='([A-Za-z0-9+/=]+)'/)?.[1];
   const inner = b64 ? gunzipSync(Buffer.from(b64, "base64")).toString("utf8") : html;
-  for (const [what, mark] of [["doorway", `window.acDOORWAY = ${JSON.stringify(DOOR)};`], ["object viewer", "lib/object/viewer.mjs"], ["#bg pragma support", "sourceBackground"], ["source", `window.acKIDLISP_SOURCE = ${JSON.stringify(receipt.source)};`]]) {
+  for (const [what, mark] of [["doorway", `window.acDOORWAY = ${JSON.stringify(DOOR)};`], ["object viewer", "lib/object/viewer.mjs"], ["#bg pragma support", "sourceBackground"], ["source", `window.acKIDLISP_SOURCE = ${JSON.stringify(receipt.source)};`], ["starting piece", `window.acSTARTING_PIECE = "$${receipt.code}";`]]) {
     if (!inner.includes(mark)) { console.error(`✗ the pack lacks the ${what}; the bundler or runtime on this checkout predates it`); process.exit(1); }
   }
   writeFileSync(htmlPath, html);
