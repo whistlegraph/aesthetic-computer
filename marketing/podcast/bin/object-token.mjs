@@ -29,7 +29,8 @@
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for store-kidlisp and /api/ipfs-add
 // Tuning: OBJECT_PRICE_XTZ (5), OBJECT_ROYALTIES_PERMILLE (150), OBJECT_DOOR.
 
-import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync, unlinkSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -223,6 +224,7 @@ if (!existsSync(gifPath) || !existsSync(thumbPath)) {
   ff(["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${SIZE}x${SIZE}`, "-r", String(FPS), "-i", rawPath,
     "-vf", "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none", "-loop", "0", gifPath]);
   ff(["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${SIZE}x${SIZE}`, "-i", rawPath, "-frames:v", "1", "-vf", "scale=320:320:flags=area", thumbPath]);
+  unlinkSync(rawPath); // 100 MB of frames, spent
   Object.assign(receipt, { frames: count, gifBytes: readFileSync(gifPath).length });
   save();
   console.log(`  ✓ turntable ${count} frames (${(receipt.gifBytes / 1024).toFixed(0)} KB) → out/objects/${code}.gif`);
@@ -237,7 +239,12 @@ const { teiaPackage, TEIA_FORMAT } = await import(resolve(REPO, "system", "backe
 const htmlPath = resolve(outDir, `${code}.html`);
 if (!existsSync(htmlPath)) {
   const { html } = await createBundleFromSource(receipt.code, receipt.source, { authorHandle: HANDLE, style: OBJECT_STYLE, doorway: DOOR });
-  if (!html.includes("window.acDOORWAY")) { console.error("✗ the pack has no doorway; the bundler on this checkout predates it"); process.exit(1); }
+  // The pack is a self-extracting gzip page; the doorway and the viewer live inside it.
+  const b64 = html.match(/const b64='([A-Za-z0-9+/=]+)'/)?.[1];
+  const inner = b64 ? gunzipSync(Buffer.from(b64, "base64")).toString("utf8") : html;
+  for (const [what, mark] of [["doorway", `window.acDOORWAY = ${JSON.stringify(DOOR)};`], ["object viewer", "lib/object/viewer.mjs"], ["#bg pragma support", "sourceBackground"], ["source", `window.acKIDLISP_SOURCE = ${JSON.stringify(receipt.source)};`]]) {
+    if (!inner.includes(mark)) { console.error(`✗ the pack lacks the ${what}; the bundler or runtime on this checkout predates it`); process.exit(1); }
+  }
   writeFileSync(htmlPath, html);
   console.log(`  ✓ packed ${(html.length / 1024).toFixed(0)} KB → out/objects/${code}.html`);
 }
