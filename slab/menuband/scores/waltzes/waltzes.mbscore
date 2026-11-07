@@ -1,0 +1,30 @@
+{
+  "title": "QWERTY Waltzes",
+  "description": "Three waltzes for one notepat keyboard, left hand and right. Open a track to hear Menu Band play it; the score cards (cards.pdf) show the letters.",
+  "tracks": [
+    {
+      "file": "home-row-waltz.mbscore",
+      "title": "Home Row Waltz",
+      "machines": 1,
+      "bpm": 132,
+      "seconds": 21.8,
+      "section": "QWERTY waltzes"
+    },
+    {
+      "file": "minor-waltz.mbscore",
+      "title": "Minor Waltz",
+      "machines": 1,
+      "bpm": 112,
+      "seconds": 25.7,
+      "section": "QWERTY waltzes"
+    },
+    {
+      "file": "sharp-waltz.mbscore",
+      "title": "Sharp Waltz",
+      "machines": 1,
+      "bpm": 126,
+      "seconds": 22.9,
+      "section": "QWERTY waltzes"
+    }
+  ]
+}
