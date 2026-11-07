@@ -4,22 +4,439 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Make .oskie games · Aesthetic.Computer</title>
-    <link rel="stylesheet" href="/oskie/style.css" />
+    <style>
+      /* AC HTML frontend palette, type and layout: reports/ac-html-frontend-style-guide.md. */
+      @font-face {
+        font-family: "Berkeley Mono Variable";
+        src: url("/type/webfonts/BerkeleyMonoVariable-Regular.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: normal;
+        font-display: swap;
+      }
+      :root {
+        color-scheme: dark;
+        --bg: #1a1a2e;
+        --text: #e8e8e8;
+        --dim: #a5a5b6;
+        --pink: #ff6b9d;
+        --cyan: #4ecdc4;
+        --green: #6bcb77;
+        --gold: #ffd93d;
+        --blue: #8edaff;
+        --purple: #c5b0ff;
+        --box-bg: rgba(255, 255, 255, 0.03);
+        --box-border: rgba(255, 255, 255, 0.17);
+        --input-bg: #202034;
+        --open-bg: #173c3d;
+        --play-bg: #3b3420;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --bg: #f5f5f5;
+          --text: #1a1a2e;
+          --dim: #626272;
+          --pink: #b8407d;
+          --cyan: #087a7a;
+          --green: #23743e;
+          --gold: #886100;
+          --blue: #24659a;
+          --purple: #7352a5;
+          --box-bg: rgba(0, 0, 0, 0.025);
+          --box-border: rgba(0, 0, 0, 0.18);
+          --input-bg: #fff;
+          --open-bg: #d5f1ed;
+          --play-bg: #fff0b5;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          400 14px/1.65 "Berkeley Mono Variable",
+          Menlo,
+          monospace;
+        font-variation-settings: "wght" 100;
+        -webkit-text-size-adjust: none;
+        cursor:
+          url("/aesthetic.computer/cursors/precise.svg") 12 12,
+          auto;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      a {
+        color: var(--pink);
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--cyan);
+      }
+      button,
+      input {
+        font: inherit;
+        font-variation-settings: inherit;
+        border-radius: 0;
+      }
+      button,
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0.65em 1em;
+        border: 1px solid var(--box-border);
+        background: var(--input-bg);
+        color: var(--text);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      button:hover,
+      .button:hover {
+        color: var(--bg);
+        background: var(--pink);
+        border-color: var(--pink);
+      }
+      button:active,
+      .button:active {
+        transform: translateY(1px);
+      }
+      :focus-visible {
+        outline: 2px solid var(--pink);
+        outline-offset: 3px;
+      }
+      h1,
+      h2,
+      h3,
+      strong {
+        font-weight: 400;
+      }
+      h1 {
+        font-size: 22px;
+        line-height: 1.25;
+        margin: 0;
+      }
+      h2 {
+        font-size: 1.2em;
+        line-height: 1.5;
+        margin: 0 0 0.8em;
+      }
+      h3 {
+        font-size: 1.15em;
+        line-height: 1.5;
+        margin: 0 0 0.5em;
+      }
+      p {
+        margin: 0.8em 0;
+      }
+      code {
+        overflow-wrap: anywhere;
+        font: inherit;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6em 1.2em;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--box-border);
+      }
+      header h1 {
+        margin-right: auto;
+      }
+      .piece-label {
+        color: var(--pink);
+        text-decoration: none;
+      }
+      .piece-label:hover {
+        color: var(--purple);
+      }
+      .ac-brand {
+        color: var(--text);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .ac-dot {
+        color: var(--pink);
+      }
+      #identity {
+        color: var(--dim);
+      }
+      main {
+        max-width: 1160px;
+        margin: auto;
+        padding: 1.7em 20px;
+      }
+      .intro-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: clamp(24px, 4vw, 56px);
+      }
+      .start-panel {
+        min-width: 0;
+      }
+      .file-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8em;
+      }
+      .file-actions button {
+        flex: 1 1 170px;
+      }
+      #open-file {
+        color: var(--cyan);
+        background: var(--open-bg);
+        border-color: var(--cyan);
+      }
+      #example {
+        color: var(--gold);
+        background: var(--play-bg);
+        border-color: var(--gold);
+      }
+      #open-file:hover {
+        background: var(--cyan);
+        color: var(--bg);
+      }
+      #example:hover {
+        background: var(--gold);
+        color: var(--bg);
+      }
+      .dim {
+        color: var(--dim);
+        font-size: 0.85em;
+      }
+      .connector-panel {
+        margin: 2em 0 1em;
+        padding-top: 1.5em;
+        border-top: 1px solid var(--box-border);
+      }
+      label[for="connector"] {
+        display: block;
+        margin: 1em 0 0.4em;
+        font-size: 0.85em;
+        color: var(--dim);
+      }
+      .connector-address {
+        display: flex;
+        gap: 0.5em;
+      }
+      #connector {
+        min-width: 0;
+        width: 100%;
+        padding: 0.65em 0.7em;
+        border: 1px solid var(--box-border);
+        color: var(--text);
+        background: var(--input-bg);
+        font-size: 0.9em;
+      }
+      #copy-connector {
+        flex: none;
+      }
+      nav {
+        padding-top: 1em;
+      }
+      .game-example {
+        margin: 0;
+        padding: 1em;
+        border: 1px solid var(--box-border);
+        background: var(--box-bg);
+        min-width: 0;
+      }
+      .example-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-bottom: 1em;
+      }
+      .game-example h3 {
+        color: var(--green);
+      }
+      .game-example p {
+        line-height: 1.7;
+      }
+      .game-example p:last-child {
+        margin-bottom: 0;
+        color: var(--dim);
+        font-size: 0.85em;
+      }
+      .game-example .button {
+        margin: 0 0.6em 0.6em 0;
+      }
+      #oskiewar-so-far {
+        margin: 2.5em 0 0;
+        padding-top: 1.5em;
+        border-top: 1px solid var(--box-border);
+        scroll-margin-top: 20px;
+      }
+      #oskiewar-so-far > p {
+        max-width: 78ch;
+        line-height: 1.8;
+      }
+      .history {
+        margin: 1.5em 0;
+        display: grid;
+        gap: 0.8em;
+      }
+      .history > div {
+        --history-color: var(--pink);
+        display: grid;
+        grid-template-columns: minmax(160px, 230px) minmax(0, 1fr);
+        gap: 1.4em;
+        border-left: 3px solid var(--history-color);
+        background: var(--box-bg);
+        padding: 1em 1.2em;
+      }
+      .history > div:nth-child(2) {
+        --history-color: var(--gold);
+      }
+      .history > div:nth-child(3) {
+        --history-color: var(--cyan);
+      }
+      .history > div:nth-child(4) {
+        --history-color: var(--blue);
+      }
+      .history > div:nth-child(5) {
+        --history-color: var(--purple);
+      }
+      .history dt {
+        color: var(--history-color);
+        margin: 0;
+        line-height: 1.7;
+      }
+      .history dd {
+        margin: 0;
+        line-height: 1.8;
+      }
+      .game-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6em;
+        margin-bottom: 1em;
+      }
+      .game-bar h2 {
+        flex: 1 1 160px;
+        margin: 0;
+      }
+      #stage {
+        height: min(70svh, 760px);
+        min-height: 240px;
+        background: #12091c;
+      }
+      iframe {
+        border: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #status {
+        font-size: 0.85em;
+        color: var(--dim);
+        overflow-wrap: anywhere;
+      }
+      #error {
+        color: var(--gold);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      footer {
+        margin-top: 2em;
+        padding-top: 1em;
+        border-top: 1px solid var(--box-border);
+        font-size: 0.85em;
+        color: var(--dim);
+      }
+      .guide-page main {
+        max-width: 900px;
+      }
+      .guide-page .game-example {
+        max-width: 560px;
+        margin: 1.5em 0;
+      }
+      .guide-title {
+        color: var(--pink);
+      }
+      li {
+        margin: 0.8em 0;
+        line-height: 1.8;
+      }
+      @media (max-width: 780px) {
+        .intro-grid {
+          grid-template-columns: 1fr;
+          gap: 2em;
+        }
+        .history > div {
+          grid-template-columns: 170px minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        header {
+          padding: 12px 14px;
+          gap: 0.6em;
+        }
+        header .ac-brand {
+          font-size: 0.85em;
+        }
+        main {
+          padding: 1.2em 14px;
+        }
+        .history > div {
+          grid-template-columns: 1fr;
+          gap: 0.5em;
+          padding: 0.8em 1em;
+        }
+        .file-actions button {
+          flex-basis: 140px;
+        }
+        #stage {
+          height: 64svh;
+        }
+        .game-example {
+          padding: 0.8em;
+        }
+      }
+      @media (max-height: 500px) and (orientation: landscape) {
+        #stage {
+          height: 68svh;
+          min-height: 180px;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        button,
+        .button,
+        a {
+          transition:
+            color 0.12s,
+            background 0.12s;
+        }
+      }
+    </style>
   </head>
-  <body>
+  <body class="guide-page">
     <header>
-      <a
-        class="piece-label"
-        href="/"
-        aria-label="oskie — return to the AC prompt"
-        >oskie</a
-      >
+      <h1>
+        <a
+          class="piece-label"
+          href="/"
+          aria-label="oskie — return to the AC prompt"
+          >oskie</a
+        >
+      </h1>
       <a class="ac-brand" href="/"
         >Aesthetic<span class="ac-dot">.</span>Computer</a
       ><a href="/oskie/">Play .oskie</a>
     </header>
-    <main style="max-width: 760px">
-      <h1>Make games in Claude</h1>
+    <main>
+      <h2 class="guide-title">Make games in Claude</h2>
       <p>
         <a href="#oskiewar-so-far"
           >Oskiewar so far — Artur’s work with the kit</a

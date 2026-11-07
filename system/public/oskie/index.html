@@ -4,59 +4,482 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
-    <title>.oskie · Aesthetic.Computer</title>
-    <link rel="stylesheet" href="/oskie/style.css" />
-    <script type="module" src="/oskie/player.mjs"></script>
+    <title>oskie · Aesthetic.Computer</title>
+    <link rel="icon" href="/icon/128x128/prompt.png" />
+    <style>
+      /* AC HTML frontend palette, type and layout: reports/ac-html-frontend-style-guide.md. */
+      @font-face {
+        font-family: "Berkeley Mono Variable";
+        src: url("/type/webfonts/BerkeleyMonoVariable-Regular.woff2")
+          format("woff2");
+        font-style: normal;
+        font-weight: normal;
+        font-display: swap;
+      }
+      :root {
+        color-scheme: dark;
+        --bg: #1a1a2e;
+        --text: #e8e8e8;
+        --dim: #a5a5b6;
+        --pink: #ff6b9d;
+        --cyan: #4ecdc4;
+        --green: #6bcb77;
+        --gold: #ffd93d;
+        --blue: #8edaff;
+        --purple: #c5b0ff;
+        --box-bg: rgba(255, 255, 255, 0.03);
+        --box-border: rgba(255, 255, 255, 0.17);
+        --input-bg: #202034;
+        --open-bg: #173c3d;
+        --play-bg: #3b3420;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --bg: #f5f5f5;
+          --text: #1a1a2e;
+          --dim: #626272;
+          --pink: #b8407d;
+          --cyan: #087a7a;
+          --green: #23743e;
+          --gold: #886100;
+          --blue: #24659a;
+          --purple: #7352a5;
+          --box-bg: rgba(0, 0, 0, 0.025);
+          --box-border: rgba(0, 0, 0, 0.18);
+          --input-bg: #fff;
+          --open-bg: #d5f1ed;
+          --play-bg: #fff0b5;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          400 14px/1.65 "Berkeley Mono Variable",
+          Menlo,
+          monospace;
+        font-variation-settings: "wght" 100;
+        -webkit-text-size-adjust: none;
+        cursor:
+          url("/aesthetic.computer/cursors/precise.svg") 12 12,
+          auto;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      a {
+        color: var(--pink);
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--cyan);
+      }
+      button,
+      input {
+        font: inherit;
+        font-variation-settings: inherit;
+        border-radius: 0;
+      }
+      button,
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0.65em 1em;
+        border: 1px solid var(--box-border);
+        background: var(--input-bg);
+        color: var(--text);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      button:hover,
+      .button:hover {
+        color: var(--bg);
+        background: var(--pink);
+        border-color: var(--pink);
+      }
+      button:active,
+      .button:active {
+        transform: translateY(1px);
+      }
+      :focus-visible {
+        outline: 2px solid var(--pink);
+        outline-offset: 3px;
+      }
+      h1,
+      h2,
+      h3,
+      strong {
+        font-weight: 400;
+      }
+      h1 {
+        font-size: 22px;
+        line-height: 1.25;
+        margin: 0;
+      }
+      h2 {
+        font-size: 1.2em;
+        line-height: 1.5;
+        margin: 0 0 0.8em;
+      }
+      h3 {
+        font-size: 1.15em;
+        line-height: 1.5;
+        margin: 0 0 0.5em;
+      }
+      p {
+        margin: 0.8em 0;
+      }
+      code {
+        overflow-wrap: anywhere;
+        font: inherit;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6em 1.2em;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--box-border);
+      }
+      header h1 {
+        margin-right: auto;
+      }
+      .piece-label {
+        color: var(--pink);
+        text-decoration: none;
+      }
+      .piece-label:hover {
+        color: var(--purple);
+      }
+      .ac-brand {
+        color: var(--text);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .ac-dot {
+        color: var(--pink);
+      }
+      #identity {
+        color: var(--dim);
+      }
+      main {
+        max-width: 1160px;
+        margin: auto;
+        padding: 1.7em 20px;
+      }
+      .intro-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+        gap: clamp(24px, 4vw, 56px);
+      }
+      .start-panel {
+        min-width: 0;
+      }
+      .file-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8em;
+      }
+      .file-actions button {
+        flex: 1 1 170px;
+      }
+      #open-file {
+        color: var(--cyan);
+        background: var(--open-bg);
+        border-color: var(--cyan);
+      }
+      #example {
+        color: var(--gold);
+        background: var(--play-bg);
+        border-color: var(--gold);
+      }
+      #open-file:hover {
+        background: var(--cyan);
+        color: var(--bg);
+      }
+      #example:hover {
+        background: var(--gold);
+        color: var(--bg);
+      }
+      .dim {
+        color: var(--dim);
+        font-size: 0.85em;
+      }
+      .connector-panel {
+        margin: 2em 0 1em;
+        padding-top: 1.5em;
+        border-top: 1px solid var(--box-border);
+      }
+      label[for="connector"] {
+        display: block;
+        margin: 1em 0 0.4em;
+        font-size: 0.85em;
+        color: var(--dim);
+      }
+      .connector-address {
+        display: flex;
+        gap: 0.5em;
+      }
+      #connector {
+        min-width: 0;
+        width: 100%;
+        padding: 0.65em 0.7em;
+        border: 1px solid var(--box-border);
+        color: var(--text);
+        background: var(--input-bg);
+        font-size: 0.9em;
+      }
+      #copy-connector {
+        flex: none;
+      }
+      nav {
+        padding-top: 1em;
+      }
+      .game-example {
+        margin: 0;
+        padding: 1em;
+        border: 1px solid var(--box-border);
+        background: var(--box-bg);
+        min-width: 0;
+      }
+      .example-image {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-bottom: 1em;
+      }
+      .game-example h3 {
+        color: var(--green);
+      }
+      .game-example p {
+        line-height: 1.7;
+      }
+      .game-example p:last-child {
+        margin-bottom: 0;
+        color: var(--dim);
+        font-size: 0.85em;
+      }
+      .game-example .button {
+        margin: 0 0.6em 0.6em 0;
+      }
+      #oskiewar-so-far {
+        margin: 2.5em 0 0;
+        padding-top: 1.5em;
+        border-top: 1px solid var(--box-border);
+        scroll-margin-top: 20px;
+      }
+      #oskiewar-so-far > p {
+        max-width: 78ch;
+        line-height: 1.8;
+      }
+      .history {
+        margin: 1.5em 0;
+        display: grid;
+        gap: 0.8em;
+      }
+      .history > div {
+        --history-color: var(--pink);
+        display: grid;
+        grid-template-columns: minmax(160px, 230px) minmax(0, 1fr);
+        gap: 1.4em;
+        border-left: 3px solid var(--history-color);
+        background: var(--box-bg);
+        padding: 1em 1.2em;
+      }
+      .history > div:nth-child(2) {
+        --history-color: var(--gold);
+      }
+      .history > div:nth-child(3) {
+        --history-color: var(--cyan);
+      }
+      .history > div:nth-child(4) {
+        --history-color: var(--blue);
+      }
+      .history > div:nth-child(5) {
+        --history-color: var(--purple);
+      }
+      .history dt {
+        color: var(--history-color);
+        margin: 0;
+        line-height: 1.7;
+      }
+      .history dd {
+        margin: 0;
+        line-height: 1.8;
+      }
+      .game-bar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.6em;
+        margin-bottom: 1em;
+      }
+      .game-bar h2 {
+        flex: 1 1 160px;
+        margin: 0;
+      }
+      #stage {
+        height: min(70svh, 760px);
+        min-height: 240px;
+        background: #12091c;
+      }
+      iframe {
+        border: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #status {
+        font-size: 0.85em;
+        color: var(--dim);
+        overflow-wrap: anywhere;
+      }
+      #error {
+        color: var(--gold);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      footer {
+        margin-top: 2em;
+        padding-top: 1em;
+        border-top: 1px solid var(--box-border);
+        font-size: 0.85em;
+        color: var(--dim);
+      }
+      .guide-page main {
+        max-width: 900px;
+      }
+      .guide-page .game-example {
+        max-width: 560px;
+        margin: 1.5em 0;
+      }
+      .guide-title {
+        color: var(--pink);
+      }
+      li {
+        margin: 0.8em 0;
+        line-height: 1.8;
+      }
+      @media (max-width: 780px) {
+        .intro-grid {
+          grid-template-columns: 1fr;
+          gap: 2em;
+        }
+        .history > div {
+          grid-template-columns: 170px minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        header {
+          padding: 12px 14px;
+          gap: 0.6em;
+        }
+        header .ac-brand {
+          font-size: 0.85em;
+        }
+        main {
+          padding: 1.2em 14px;
+        }
+        .history > div {
+          grid-template-columns: 1fr;
+          gap: 0.5em;
+          padding: 0.8em 1em;
+        }
+        .file-actions button {
+          flex-basis: 140px;
+        }
+        #stage {
+          height: 64svh;
+        }
+        .game-example {
+          padding: 0.8em;
+        }
+      }
+      @media (max-height: 500px) and (orientation: landscape) {
+        #stage {
+          height: 68svh;
+          min-height: 180px;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        button,
+        .button,
+        a {
+          transition:
+            color 0.12s,
+            background 0.12s;
+        }
+      }
+    </style>
   </head>
   <body>
     <header>
-      <a
-        class="piece-label"
-        href="/"
-        aria-label="oskie — return to the AC prompt"
-        >oskie</a
-      >
+      <h1>
+        <a
+          class="piece-label"
+          href="/"
+          aria-label="oskie — return to the AC prompt"
+          >oskie</a
+        >
+      </h1>
       <a class="ac-brand" href="/"
         >Aesthetic<span class="ac-dot">.</span>Computer</a
-      ><span id="identity"></span><a id="download" hidden>Download .oskie</a>
+      >
+      <span id="identity"></span><a id="download" hidden>Download .oskie</a>
     </header>
     <main>
       <section id="welcome">
-        <h1>.oskie</h1>
-        <p>Portable game microcode.</p>
-        <button id="open-file">Open a game</button
-        ><input
-          id="file"
-          type="file"
-          accept=".oskie,application/vnd.aesthetic.oskie+json"
-          hidden
-        /><button id="example">Play an example</button>
-        <p class="connect">
-          Make games from Claude with the
-          <strong>Aesthetic<span class="ac-dot">.</span>Computer</strong>
-          connector.
-        </p>
-        <label for="connector">Connector URL</label
-        ><input
-          id="connector"
-          readonly
-          value="https://aesthetic.computer/mcp/ac"
-        />
-        <p>
-          <a href="https://claude.ai/customize/connectors">Connect Claude ↗</a>
-          · Sign in with your AC @handle.
-        </p>
-        <p>
-          <a href="/oskie/guide.html">Setup and game format</a> ·
-          <a href="#oskiewar-so-far">Oskiewar so far</a>
-        </p>
-        <section id="oskiewar-so-far" aria-labelledby="oskiewar-history-title">
-          <h2 id="oskiewar-history-title">Oskiewar so far</h2>
-          <p>
-            Artur’s Island Crisis helped turn Oskiewar into a kit for making
-            other games. He worked with Claude Code, played successive builds,
-            and brought back requests for what the engine should do next.
-          </p>
+        <div class="intro-grid">
+          <div class="start-panel">
+            <h2>Portable game microcode</h2>
+            <div class="file-actions">
+              <button id="open-file">Open a game</button>
+              <button id="example">Play an example</button>
+              <input
+                id="file"
+                type="file"
+                accept=".oskie,application/vnd.aesthetic.oskie+json"
+                hidden
+              />
+            </div>
+            <p class="dim">Open a .oskie file here or drop it onto the page.</p>
+            <section class="connector-panel" aria-labelledby="connector-title">
+              <h2 id="connector-title">Make a game with Claude</h2>
+              <p>
+                Connect your AC <code>@handle</code>, then keep a browser
+                preview open while you create.
+              </p>
+              <label for="connector">Connector URL</label>
+              <div class="connector-address">
+                <input
+                  id="connector"
+                  readonly
+                  value="https://aesthetic.computer/mcp/ac"
+                /><button id="copy-connector">Copy</button>
+              </div>
+              <p id="copy-status" role="status" class="dim" hidden></p>
+              <p>
+                <a href="https://claude.ai/customize/connectors"
+                  >Connect Claude ↗</a
+                >
+                · <a href="/oskie/guide.html">Setup and game format</a>
+              </p>
+            </section>
+            <nav aria-label="On this page">
+              <a href="#oskiewar-so-far">Oskiewar so far ↓</a>
+            </nav>
+          </div>
           <article class="game-example" aria-labelledby="island-crisis-example">
             <img
               class="example-image"
@@ -73,7 +496,7 @@
             </p>
             <p>
               <a
-                class="button"
+                class="button download-button"
                 href="/oskie/examples/island-crisis-engine-455.oskie"
                 download="island-crisis.oskie"
                 >Download .oskie</a
@@ -87,6 +510,14 @@
               November 6. Requires the original Oskiewar 3D runtime.
             </p>
           </article>
+        </div>
+        <section id="oskiewar-so-far" aria-labelledby="oskiewar-history-title">
+          <h2 id="oskiewar-history-title">Oskiewar so far</h2>
+          <p>
+            Artur made Island Crisis with Claude Code. Playing successive builds
+            helped shape the Oskiewar kit.
+          </p>
+
           <dl class="history">
             <div>
               <dt>
@@ -147,13 +578,232 @@
       </section>
       <section id="game" hidden>
         <div class="game-bar">
-          <h1 id="title"></h1>
+          <h2 id="title"></h2>
           <button id="restart">Restart</button><button id="stop">Stop</button>
         </div>
         <div id="stage"></div>
         <p id="status" role="status" aria-live="polite"></p>
       </section>
       <p id="error" role="alert" hidden></p>
+      <footer>
+        <a href="/privacy-policy.html#oskie">Privacy</a> ·
+        <a href="/help">Help</a>
+      </footer>
     </main>
+    <script type="module">
+      import { validateGame, starterGame } from "/oskie/format.mjs";
+      import { sandboxDocument } from "/oskie/runtime.mjs";
+      const $ = (id) => document.getElementById(id),
+        id = /\/oskie\/([a-f0-9]{32})\/?$/.exec(location.pathname)?.[1];
+      const token = new URLSearchParams(location.hash.slice(1)).get("preview");
+      // Never put the read-only preview grant into a request URL or a referrer.
+      let current,
+        port,
+        iframe,
+        localURL,
+        timer,
+        capturing = false,
+        loading = false,
+        disposed = false,
+        health = "waiting",
+        generation = 0,
+        local = false;
+      const headers = token ? { Authorization: "Preview " + token } : {};
+      const say = (text, error = false) => {
+        $("status").textContent = text;
+        health = error ? "error" : health;
+      };
+      const fail = (e) => {
+        $("error").hidden = false;
+        $("error").textContent = String(e.message || e);
+      };
+      async function report(data) {
+        if (!id || !token || !current || local) return;
+        await fetch(`/api/oskie/${id}/feedback`, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ ...data, revision: current.revision }),
+          credentials: "omit",
+        }).catch(() => {});
+      }
+      function stop() {
+        generation++;
+        disposed = true;
+        capturing = false;
+        clearInterval(timer);
+        port?.close();
+        port = null;
+        iframe?.remove();
+        iframe = null;
+        health = "stopped";
+        say("Stopped.");
+      }
+      function play(value) {
+        stop();
+        disposed = false;
+        current = value;
+        const game = validateGame(value.bundle);
+        $("error").hidden = true;
+        $("welcome").hidden = true;
+        $("game").hidden = false;
+        $("title").textContent = game.manifest.title;
+        $("identity").textContent = game.manifest.author || "";
+        document.title = game.manifest.title + " · Aesthetic.Computer";
+        if (localURL) URL.revokeObjectURL(localURL);
+        localURL = URL.createObjectURL(
+          new Blob([JSON.stringify(game, null, 2)], {
+            type: "application/vnd.aesthetic.oskie+json",
+          }),
+        );
+        $("download").href = localURL;
+        $("download").download = game.manifest.slug + ".oskie";
+        $("download").hidden = false;
+        iframe = document.createElement("iframe");
+        iframe.title = game.manifest.title;
+        iframe.setAttribute("sandbox", "allow-scripts");
+        iframe.allow = "autoplay; gamepad";
+        iframe.referrerPolicy = "no-referrer";
+        const channel = new MessageChannel();
+        port = channel.port1;
+        const revision = value.revision,
+          run = generation,
+          frameElement = iframe;
+        port.onmessage = async ({ data: d }) => {
+          if (disposed || run !== generation || current.revision !== revision)
+            return;
+          if (d.type === "ready") {
+            health = "running";
+            say(
+              (token ? "Private preview · " : "") +
+                (value.revision
+                  ? "Revision " + value.revision.slice(0, 8)
+                  : "Local game"),
+            );
+            void report({ status: "running" });
+          }
+          if (d.type === "error") {
+            health = "error";
+            say(String(d.error).slice(0, 2000), true);
+            void report({
+              status: "error",
+              error: String(d.error).slice(0, 2000),
+            });
+          }
+          if (
+            d.type === "frame" &&
+            d.bytes instanceof ArrayBuffer &&
+            d.bytes.byteLength < 650000
+          ) {
+            const capturedRevision = revision;
+            const reader = new FileReader();
+            reader.onload = () => {
+              capturing = false;
+              if (run === generation && current.revision === capturedRevision)
+                void report({
+                  status: health === "error" ? "error" : "running",
+                  frame: reader.result,
+                });
+            };
+            reader.readAsDataURL(new Blob([d.bytes], { type: "image/png" }));
+          }
+        };
+        iframe.addEventListener(
+          "load",
+          () =>
+            frameElement.contentWindow?.postMessage(
+              { type: "start", bundle: game },
+              "*",
+              [channel.port2],
+            ),
+          { once: true },
+        );
+        const nonce = crypto.randomUUID().replaceAll("-", "");
+        iframe.srcdoc = sandboxDocument(nonce);
+        $("stage").replaceChildren(iframe);
+        say("Starting…");
+        timer = setInterval(() => {
+          if (health === "running" && port && !capturing) {
+            capturing = true;
+            port.postMessage({ type: "capture" });
+            setTimeout(() => {
+              capturing = false;
+            }, 3000);
+          }
+        }, 5000);
+      }
+      async function poll() {
+        if (!id || loading || local) return;
+        loading = true;
+        try {
+          const r = await fetch("/api/oskie/" + id, {
+            headers,
+            cache: "no-store",
+            credentials: "omit",
+          });
+          const value = await r.json();
+          if (!r.ok) throw Error(value.error);
+          if (!current || value.revision !== current.revision) play(value);
+        } catch (e) {
+          fail(e);
+        } finally {
+          loading = false;
+        }
+      }
+      async function file(file) {
+        if (!file) return;
+        if (file.size > 3 * 1024 * 1024)
+          throw Error(
+            "This player accepts .oskie files up to 2 MB of bundled data.",
+          );
+        const bundle = validateGame(JSON.parse(await file.text()));
+        local = true;
+        play({ bundle, revision: "local-" + crypto.randomUUID() });
+      }
+      $("file").addEventListener("change", (e) =>
+        file(e.target.files[0]).catch(fail),
+      );
+      $("example").onclick = () =>
+        play({ bundle: starterGame(), revision: "example" });
+      $("restart").onclick = () => current && play(current);
+      $("stop").onclick = stop;
+      addEventListener("dragover", (e) => e.preventDefault());
+      addEventListener("drop", (e) => {
+        e.preventDefault();
+        file(e.dataTransfer.files[0]).catch(fail);
+      });
+      addEventListener("pagehide", () => {
+        stop();
+        if (localURL) URL.revokeObjectURL(localURL);
+      });
+      const dropped = sessionStorage.getItem("ac:oskie:drop");
+      if (dropped) {
+        sessionStorage.removeItem("ac:oskie:drop");
+        try {
+          play({
+            bundle: validateGame(JSON.parse(dropped)),
+            revision: "local-" + crypto.randomUUID(),
+          });
+        } catch (e) {
+          fail(e);
+        }
+      }
+      if (id) {
+        await poll();
+        setInterval(poll, 2000);
+      }
+
+      $("open-file").onclick = () => $("file").click();
+
+      $("copy-connector").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText($("connector").value);
+          $("copy-status").textContent = "Connector URL copied.";
+          $("copy-status").hidden = false;
+        } catch {
+          $("connector").focus();
+          $("connector").select();
+        }
+      };
+    </script>
   </body>
 </html>
