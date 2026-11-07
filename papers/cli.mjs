@@ -101,6 +101,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "arxiv-oskie-unreal": {
+    base: "oskie-unreal",
+    siteName: "oskie-unreal-26-arxiv",
+    title: "Oskie Files in Unreal Engine",
+  },
   "arxiv-harness-factory": {
     base: "harness-factory",
     siteName: "pick-the-type-first-26-arxiv",
@@ -580,6 +585,7 @@ const CATEGORIES = [
       "arxiv-pieces",
       "arxiv-notepat",
       "arxiv-oskiewar",
+      "arxiv-oskie-unreal",
       "arxiv-oskiewar-store",
       "arxiv-oskiewar-reels",
       "arxiv-cal",
@@ -1112,6 +1118,7 @@ function updateIndex(entries) {
 
   // Importance ranking — curated order for 2026 impact
   const IMPORTANCE = {
+    "oskie-unreal-26-arxiv": 8.25,
     "stack-of-the-summer-26-arxiv": 0.25,
     "keymaps-social-software-26-arxiv": 0.5,
     "aesthetic-computer-26-arxiv": 1,
@@ -1206,6 +1213,10 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "oskie-unreal-26-arxiv": {
+      detail: "An implementation map for portable game files in Unreal Engine",
+      abstract: "A six-stage plan for running .oskie games through an Unreal runtime plugin: bundle loading, QuickJS execution, rendering compatibility, input and sound, packaged desktop playback, and an optional world-space bridge. Architecture, module boundaries, and acceptance tests; the Unreal host remains to be built.",
+    },
     "stack-of-the-summer-26-arxiv": {
       detail: "A Nine-Vector Platform Report · arXiv-style · Summer 2026",
       abstract:
