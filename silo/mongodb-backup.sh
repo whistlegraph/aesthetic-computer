@@ -1,47 +1,48 @@
 #!/bin/bash
-# Nightly MongoDB backup for silo.aesthetic.computer (cron, 04:00 UTC).
-# Installed to /usr/local/bin/mongodb-backup.sh by silo/install-backup.fish.
-#
-# On 2026-10-20 the old version dumped uncompressed (1.8 GB) beside 15 days
-# of archives, filled the 24 GB disk and crashed mongod. This one:
-#   - streams one gzipped archive (mongodump --archive --gzip), no staging copy;
-#   - writes <name>.partial and renames it only once the dump and gzip check
-#     pass, removing the partial on any failure;
-#   - checks free space first (twice the last archive plus 1 GB), pruning the
-#     oldest archives down to MIN_KEEP and skipping the night rather than
-#     ever filling the disk;
-#   - keeps KEEP archives on silo and copies each to a private Spaces bucket,
-#     keeping REMOTE_DAYS days there.
-# Credentials come from /opt/silo/.env, never from this file.
-
+# Nightly Mongo backup (04:00 UTC). --prune-only verifies offsite copies and
+# applies local retention without taking a new dump. No database writes.
+# Three local archives, 30 days offsite. Failed verification always keeps data.
+# The 2026-10-20 outage was a backup filling the database's root filesystem.
 set -euo pipefail
+umask 077
 
-ENV_FILE=/opt/silo/.env
-BACKUP_DIR=/var/backups/mongodb
-LOG=/var/log/silo/backup.log
-KEEP=7
-MIN_KEEP=3
+# Overrides are for isolated tests/restore drills, never client input.
+ENV_FILE=${SILO_BACKUP_ENV_FILE:-/opt/silo/.env}
+BACKUP_DIR=${SILO_BACKUP_DIR:-/var/backups/mongodb}
+LOG=${SILO_BACKUP_LOG:-/var/log/silo/backup.log}
+KEEP=3
 REMOTE_DAYS=30
+RESERVE_KB=2097152 # Leave 2 GiB outside the dump's file-size budget.
 BUCKET=silo-backups-aesthetic-computer
 PREFIX=mongodb
+MODE=${1:-backup}
+case "$MODE" in backup|--prune-only) ;; *) echo 'Usage: mongodb-backup.sh [--prune-only]' >&2; exit 2 ;; esac
 
+mkdir -p "$BACKUP_DIR" "$(dirname "$LOG")"
 log() { echo "[$(date -Iseconds)] $*" >> "$LOG"; }
-fail() { log "ERROR: $*"; exit 1; }
+fail() { log "ERROR: $*"; echo "Mongo backup failed: $*" >&2; exit 1; }
+exec 9>"$BACKUP_DIR/.backup.lock"
+flock -n 9 || fail 'another backup/prune is running'
+PARTIAL=""
+trap '[ -z "$PARTIAL" ] || rm -f -- "$PARTIAL"' EXIT
 
-read_env() { grep -E "^$1=" "$ENV_FILE" | head -1 | cut -d= -f2-; }
+read_env() { (grep -E "^$1=" "$ENV_FILE" || true) | head -1 | cut -d= -f2-; }
 MONGO_URI=$(read_env MONGODB_CONNECTION_STRING)
 SPACES_KEY=$(read_env SPACES_KEY)
 SPACES_SECRET=$(read_env SPACES_SECRET)
 SPACES_ENDPOINT=$(read_env SPACES_ENDPOINT)
-[ -n "$MONGO_URI" ] || fail "MONGODB_CONNECTION_STRING missing from $ENV_FILE"
-
-mkdir -p "$BACKUP_DIR"
-cd "$BACKUP_DIR"
-NAME="$(date -u +%Y%m%d_%H%M%S).archive.gz"
-PARTIAL="$NAME.partial"
-trap 'rm -f "$BACKUP_DIR/$PARTIAL"' EXIT
-
-# Finished archives, oldest first (the .tar.gz ones are the old script's).
+REMOTE_READY=false
+if [ -n "$SPACES_KEY" ] && [ -n "$SPACES_SECRET" ] &&
+   [[ "$SPACES_ENDPOINT" =~ ^https://([a-z0-9]+)\.digitaloceanspaces\.com/?$ ]]; then
+  region=${BASH_REMATCH[1]}
+  base="https://$BUCKET.$region.digitaloceanspaces.com"
+  REMOTE_READY=true
+fi
+s3() {
+  curl -sS --fail --connect-timeout 10 --max-time 1200 --retry 2 \
+    --aws-sigv4 "aws:amz:$region:s3" --user "$SPACES_KEY:$SPACES_SECRET" \
+    -H 'x-amz-content-sha256: UNSIGNED-PAYLOAD' "$@"
+}
 archives() {
   shopt -s nullglob
   local found=("$BACKUP_DIR"/*.archive.gz "$BACKUP_DIR"/*.tar.gz)
@@ -49,45 +50,85 @@ archives() {
 }
 free_kb() { df -Pk "$BACKUP_DIR" | awk 'NR==2 {print $4}'; }
 
-# Room for twice the newest archive plus 1 GB, pruning the oldest to make it.
-last=$(archives | tail -1)
-need_kb=$(( ${last:+$(du -k "$last" | cut -f1) * 2} + 1048576 ))
-while [ "$(free_kb)" -lt "$need_kb" ]; do
-  [ "$(archives | wc -l)" -gt "$MIN_KEEP" ] || fail "only $(( $(free_kb) / 1024 )) MB free, need $(( need_kb / 1024 )) MB; skipping tonight's backup"
-  oldest=$(archives | head -1)
-  log "Low space: removing $(basename "$oldest") to make room"
-  rm -f "$oldest"
-done
+# Single-PUT ETags are content MD5s. Multipart or nonmatching ETags fail
+# closed. Size alone is not enough evidence to delete a local copy.
+verify_remote() {
+  local file=$1 headers bytes digest remote_bytes remote_digest
+  $REMOTE_READY || return 1
+  headers=$(s3 -I "$base/$PREFIX/$(basename "$file")" 2>> "$LOG") || return 1
+  remote_bytes=$(printf '%s\n' "$headers" | awk 'tolower($1)=="content-length:" {gsub(/\r/,"",$2); v=$2} END {print v}')
+  remote_digest=$(printf '%s\n' "$headers" | awk 'tolower($1)=="etag:" {gsub(/["\r]/,"",$2); v=tolower($2)} END {print v}')
+  bytes=$(wc -c < "$file" | tr -d ' ')
+  digest=$(md5sum "$file" | cut -d' ' -f1)
+  [ "$bytes" = "$remote_bytes" ] && [ "$digest" = "$remote_digest" ]
+}
 
-log "Starting backup $NAME..."
-mongodump --uri="$MONGO_URI" --archive="$PARTIAL" --gzip --quiet 2>> "$LOG" || fail "mongodump failed"
-gzip -t "$PARTIAL" 2>> "$LOG" || fail "archive failed its gzip check"
-mv "$PARTIAL" "$NAME"
-log "Backup complete: $NAME ($(du -h "$NAME" | cut -f1))"
+prune_local() {
+  local files=() file i failed=0
+  while IFS= read -r file; do files+=("$file"); done < <(archives)
+  for ((i=0; i<${#files[@]}-KEEP; i++)); do
+    file=${files[$i]}
+    if verify_remote "$file"; then
+      rm -- "$file" || return 1
+      log "Removed $(basename "$file"): offsite size + MD5 verified"
+    else
+      log "KEEP $(basename "$file"): offsite verification unavailable or mismatched"
+      failed=1
+    fi
+  done
+  return "$failed"
+}
 
-# Keep the newest KEEP archives on silo.
-archives | head -n -"$KEEP" | while read -r old; do rm -f "$old"; log "Removed $(basename "$old")"; done
-log "$(archives | wc -l) local backups retained, $(( $(free_kb) / 1024 )) MB free."
-
-# Offsite copy, private (no ACL header means private on Spaces).
-if [ -n "$SPACES_KEY" ] && [ -n "$SPACES_SECRET" ] && [ -n "$SPACES_ENDPOINT" ]; then
-  region=$(echo "$SPACES_ENDPOINT" | sed -E 's#https://([a-z0-9]+)\..*#\1#')
-  base="https://$BUCKET.$region.digitaloceanspaces.com"
-  s3() { curl -sS --fail --aws-sigv4 "aws:amz:$region:s3" --user "$SPACES_KEY:$SPACES_SECRET" \
-    -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" "$@"; }
-  if s3 -T "$NAME" "$base/$PREFIX/$NAME" -o /dev/null 2>> "$LOG"; then
-    log "Uploaded $NAME to $BUCKET/$PREFIX/"
-  else
-    log "ERROR: upload of $NAME to $BUCKET failed (local copy kept)"
-  fi
-  cutoff=$(date -u -d "-$REMOTE_DAYS days" +%Y%m%d)
-  s3 "$base/?list-type=2&prefix=$PREFIX/" 2>> "$LOG" | grep -oE "<Key>[^<]+</Key>" | sed -E 's#</?Key>##g' |
-    while read -r key; do
-      day=$(basename "$key" | cut -c1-8)
-      if [[ "$day" =~ ^[0-9]{8}$ ]] && [ "$day" -lt "$cutoff" ]; then
-        s3 -X DELETE "$base/$key" -o /dev/null 2>> "$LOG" && log "Removed offsite $key"
-      fi
-    done || true
-else
-  log "ERROR: Spaces credentials missing from $ENV_FILE; offsite copy skipped"
+if [ "$MODE" = --prune-only ]; then
+  prune_local || fail 'some local archives could not be verified offsite; kept them'
+  log "Retention checked: $(archives | wc -l) local archives, $(( $(free_kb) / 1024 )) MiB free"
+  exit 0
 fi
+[ -n "$MONGO_URI" ] || fail "MONGODB_CONNECTION_STRING missing from $ENV_FILE"
+
+# Remote outages may increase local retention, never erase unverified copies.
+prune_local || true
+last=$(archives | tail -1)
+last_kb=0
+if [ -n "$last" ]; then last_kb=$(du -k "$last" | cut -f1); fi
+need_kb=$(( RESERVE_KB + last_kb * 2 ))
+available_kb=$(free_kb)
+[ "$available_kb" -ge "$need_kb" ] || fail "only $(( available_kb / 1024 )) MiB free; need $(( need_kb / 1024 )); skipping dump"
+
+NAME="$(date -u +%Y%m%d_%H%M%S).archive.gz"
+[ ! -e "$BACKUP_DIR/$NAME" ] && [ ! -e "$BACKUP_DIR/$NAME.partial" ] || fail 'backup filename already exists'
+PARTIAL="$BACKUP_DIR/$NAME.partial"
+log "Starting backup $NAME..."
+# Linux bash's file-size limit uses KiB. Stop an unexpectedly large dump;
+# disable core dumps so exceeding the limit cannot create one. Other writers
+# still need normal disk monitoring. No uncompressed staging copy.
+if ! (
+  ulimit -c 0 || exit 1
+  ulimit -f "$(( available_kb - RESERVE_KB ))" || exit 1
+  exec mongodump --uri="$MONGO_URI" --archive="$PARTIAL" --gzip \
+    --numParallelCollections=1 --quiet
+) 2>> "$LOG"; then
+  fail 'mongodump failed or exceeded its disk budget; incomplete archive removed'
+fi
+gzip -t "$PARTIAL" 2>> "$LOG" || fail 'archive failed its gzip check'
+mv "$PARTIAL" "$BACKUP_DIR/$NAME"
+PARTIAL=""
+log "Backup complete: $NAME ($(du -h "$BACKUP_DIR/$NAME" | cut -f1))"
+
+$REMOTE_READY || fail 'Spaces configuration missing; local backup retained'
+s3 -T "$BACKUP_DIR/$NAME" "$base/$PREFIX/$NAME" -o /dev/null 2>> "$LOG" || fail 'offsite upload failed; local backup retained'
+verify_remote "$BACKUP_DIR/$NAME" || fail 'offsite upload verification failed; local backup retained'
+log "Uploaded and verified $NAME (size + MD5)"
+prune_local || fail 'some older archives could not be verified offsite; kept them'
+log "$(archives | wc -l) local backups retained, $(( $(free_kb) / 1024 )) MiB free"
+
+# Only expire offsite history after today's new copy passed verification.
+cutoff=$(date -u -d "-$REMOTE_DAYS days" +%Y%m%d)
+listing=$(s3 "$base/?list-type=2&prefix=$PREFIX/" 2>> "$LOG") || fail 'offsite retention listing failed'
+while IFS= read -r key; do
+  if [[ "$key" =~ ^mongodb/([0-9]{8})_[0-9]{6}\.(archive|tar)\.gz$ ]] &&
+     [ "${BASH_REMATCH[1]}" -lt "$cutoff" ]; then
+    s3 -X DELETE "$base/$key" -o /dev/null 2>> "$LOG" || fail 'offsite retention delete failed'
+    log "Removed offsite $key"
+  fi
+done < <(printf '%s\n' "$listing" | grep -oE '<Key>[^<]+</Key>' | sed -E 's#</?Key>##g')
