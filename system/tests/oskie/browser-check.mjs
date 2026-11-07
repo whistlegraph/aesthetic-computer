@@ -70,6 +70,14 @@ try {
   page.on("console", (m) => {
     if (m.type() === "error") console.error(m.text());
   });
+  async function assertWholeWindow() {
+    const bounds = await page.locator("iframe").boundingBox();
+    const viewport = page.viewportSize();
+    assert.deepEqual(bounds, {x: 0, y: 0, width: viewport.width, height: viewport.height});
+    for (const selector of ["header", "footer", ".game-bar", "#welcome"])
+      assert.equal(await page.locator(selector).isVisible(), false, selector + " must not surround gameplay");
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight), false);
+  }
   const url =
     base + new URL(project.preview).pathname + new URL(project.preview).hash;
   await page.goto(url);
@@ -88,6 +96,7 @@ try {
       throw e;
     });
   await mkdir("/tmp/ac-oskie-check", { recursive: true });
+  await assertWholeWindow();
   await page.screenshot({ path: "/tmp/ac-oskie-check/game.png" });
   const canvas = page.frameLocator("iframe").locator("canvas"),
     box = await canvas.boundingBox();
@@ -115,7 +124,7 @@ try {
   await page
     .locator("#status")
     .filter({ hasText: "Intentional preview error" })
-    .waitFor({ timeout: 10000 });
+    .waitFor({ state: "attached", timeout: 10000 });
   assert.equal(
     (await store.feedback(owner, project.id)).revision,
     next.revision,
@@ -128,7 +137,7 @@ try {
   await page
     .locator("#title")
     .filter({ hasText: "Sandbox test" })
-    .waitFor({ timeout: 10000 });
+    .waitFor({ state: "attached", timeout: 10000 });
   await page
     .locator("#status")
     .filter({ hasText: "Revision " + probed.revision.slice(0, 8) })
@@ -161,19 +170,19 @@ try {
   }), 3);
   await page.setViewportSize({width:390,height:844});
   await page.waitForTimeout(300);
+  await assertWholeWindow();
   await page.screenshot({path:"/tmp/ac-oskie-check/monowheel-mobile.png"});
   await page.setViewportSize({width:1280,height:1000});
-  // A runaway game worker must remain stoppable from the host page.
+  // Browser navigation must still dispose a runaway canvas worker.
   const runaway = starterGame("loop-test", "Runaway test");
   runaway.files["game.mjs"].text = "export function boot(){while(true){}}";
   await store.update(owner, project.id, runaway, playable.revision);
   await page
     .locator("#title")
     .filter({ hasText: "Runaway test" })
-    .waitFor({ timeout: 10000 });
-  await page.getByRole("button", { name: "Stop", exact: true }).click();
-  assert.equal(await page.locator("iframe").count(), 0);
+    .waitFor({ state: "attached", timeout: 10000 });
   await page.goto(base + "/oskie/");
+  assert.equal(await page.locator("iframe").count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: "/tmp/ac-oskie-check/mobile.png" });
   assert.equal(
@@ -182,9 +191,25 @@ try {
     ),
     false,
   );
+  await page.getByRole("button", {name:"Play an example",exact:true}).click();
+  await page.locator("#status").filter({hasText:"Revision example"}).waitFor();
+  await assertWholeWindow();
+  await page.goto(base + "/oskie/");
+  await page.locator("#file").setInputFiles({name:"local.oskie",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(starterGame()))});
+  await page.locator("#status").filter({hasText:"Revision local-"}).waitFor();
+  await assertWholeWindow();
+  const shared = await store.create(owner, {bundle: starterEngineGame()});
+  await store.publish(owner, shared.id, shared.revision);
+  await page.goto(base + "/oskie/" + shared.id);
+  await page.locator("#status").filter({hasText:"Revision " + shared.revision.slice(0,8)}).waitFor();
+  await assertWholeWindow();
+  await page.setViewportSize({width:844,height:390});
+  await page.waitForTimeout(150);
+  await assertWholeWindow();
+  await page.screenshot({path:"/tmp/ac-oskie-check/full-window-landscape.png"});
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: rendering, pointer input, preview pixels, live reload, error reporting, sandbox restrictions, runaway stop, mobile layout. Screenshots: /tmp/ac-oskie-check",
+    "PASS: rendering, pointer input, preview pixels, live reload, error reporting, sandbox restrictions, runaway navigation, mobile layout; preview/public/example/local play fills the whole window. Screenshots: /tmp/ac-oskie-check",
   );
 } finally {
   await browser.close();
