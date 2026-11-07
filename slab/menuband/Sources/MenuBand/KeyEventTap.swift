@@ -19,6 +19,8 @@ final class KeyEventTap {
     private let handler: Handler
     private let diagnosticSource: SessionDiagnostics.Source
     private let focusedProcessOnly: Bool
+    private let observation: ((CGEventType, CGEvent) -> Void)?
+    private let observationMask: CGEventMask
     var onFlagsChanged: ((CGEventFlags, CGEventTimestamp) -> Void)?
     var onDiscontinuity: (() -> Void)?
     /// The keyboard's media row — volume, mute, brightness, keyboard light,
@@ -36,6 +38,19 @@ final class KeyEventTap {
         self.diagnosticSource = source
         self.focusedProcessOnly = focusedProcessOnly
         self.handler = handler
+        self.observation = nil
+        self.observationMask = 0
+    }
+
+    /// Passive observation uses the same dedicated run loop as musical input.
+    /// Handlers copy primitive event values and enqueue UI work, then return.
+    init(source: SessionDiagnostics.Source, observing mask: CGEventMask,
+         handler: @escaping (CGEventType, CGEvent) -> Void) {
+        self.diagnosticSource = source
+        self.focusedProcessOnly = false
+        self.handler = { _, _, _, _ in false }
+        self.observation = handler
+        self.observationMask = mask
     }
 
     func start() -> Bool {
@@ -54,6 +69,8 @@ final class KeyEventTap {
         }
         if onFlagsChanged != nil { mask |= (1 << CGEventType.flagsChanged.rawValue) }
 
+        if observation != nil { mask = observationMask }
+
         let opaque = Unmanaged.passRetained(self).toOpaque()
 
         let callback: CGEventTapCallBack = { _, type, event, refcon in
@@ -69,6 +86,10 @@ final class KeyEventTap {
                     SessionDiagnostics.shared.record(.tapReenabled, source: me.diagnosticSource, state: CGEvent.tapIsEnabled(tap: tap))
                 }
                 me.lifecycleLock.unlock()
+                return Unmanaged.passUnretained(event)
+            }
+            if let observation = me.observation {
+                observation(type, event)
                 return Unmanaged.passUnretained(event)
             }
             if me.focusedProcessOnly {
@@ -88,7 +109,7 @@ final class KeyEventTap {
                 let kc = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
                 let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
                 let consume = InputLatencyProbe.withEvent(at: Double(event.timestamp) / 1_000_000_000,
-                    down: type == .keyDown, repeated: isRepeat) {
+                    down: type == .keyDown, repeated: isRepeat, source: .keyboardTap) {
                     me.handler(kc, type == .keyDown, isRepeat, event.flags)
                 }
                 if consume { return nil }  // sink — don't propagate to focused app
@@ -115,7 +136,7 @@ final class KeyEventTap {
         guard let tap = CGEvent.tapCreate(
             tap: focusedProcessOnly ? .cgAnnotatedSessionEventTap : .cgSessionEventTap,
             place: .headInsertEventTap,
-            options: .defaultTap,  // .defaultTap allows consuming events; .listenOnly does not
+            options: observation == nil ? .defaultTap : .listenOnly,
             eventsOfInterest: mask,
             callback: callback,
             userInfo: opaque
@@ -146,7 +167,7 @@ final class KeyEventTap {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
         }
         thread.qualityOfService = .userInteractive
-        thread.name = "MenuBand-KeyTap"
+        thread.name = observation == nil ? "MenuBand-KeyTap" : "MenuBand-ObserverTap"
         thread.start()
         self.thread = thread
         return true

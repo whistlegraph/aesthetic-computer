@@ -45,6 +45,46 @@ final class ArtworkAndLatencyTests: XCTestCase {
         }
     }
 
+    func testFlattenedFrameNeverReplaysItsDrawingHandler() throws {
+        var draws = 0
+        var color = NSColor.red
+        let source = NSImage(size: NSSize(width: 20, height: 12), flipped: false) { rect in
+            draws += 1
+            color.setFill()
+            rect.fill()
+            return true
+        }
+        let frozen = rasterizedArtwork(source, scale: 2)
+        let initialDraws = draws
+        XCTAssertGreaterThan(initialDraws, 0)
+        color = .blue
+        for scale: CGFloat in [1, 2, 3] {
+            let rep = bitmap(size: source.size, scale: scale) {
+                frozen.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            let pixel = try XCTUnwrap(rep.colorAt(x: 4, y: 4)?.usingColorSpace(.deviceRGB))
+            XCTAssertGreaterThan(pixel.redComponent, 0.99)
+            XCTAssertLessThan(pixel.blueComponent, 0.01)
+        }
+        XCTAssertEqual(draws, initialDraws)
+    }
+
+    func testFlattenedKeyboardMatchesDirectRenderingAtBothDisplayScales() throws {
+        _ = NSApplication.shared
+        for scale: CGFloat in [1, 2] {
+            let source = KeyboardIconRenderer.image(litNotes: [60, 64, 67],
+                enabled: false, typeMode: true, letterAlpha: { _ in 0.8 })
+            let direct = bitmap(size: source.size, scale: scale) {
+                source.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            let frozen = rasterizedArtwork(source, scale: scale)
+            let rendered = bitmap(size: source.size, scale: scale) {
+                frozen.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            try assertSimilar(direct, rendered, name: "flattened-\(Int(scale))x", tolerance: 1)
+        }
+    }
+
     func testTimingPipelinePublishesConcurrentSamplesAndAccountsForDrops() {
         let p = mb_latency_create()!
         defer { mb_latency_destroy(p) }

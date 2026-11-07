@@ -45,12 +45,21 @@ The instrument grid and QWERTY view invalidate only changed state; grid hover
 invalidates the old/new cells. Grid cells and idle piano keycaps use bounded
 bitmap caches keyed by appearance, scale, geometry and visual state. Live
 letters, pressed keys, drum pulses and count-in animation remain dynamic.
+The status item receives a flattened bitmap per requested frame so AppKit's
+later compositing cannot replay its drawing handler. Unchanged width and
+tooltip values are not reassigned.
+
+The Command gesture observer runs on a dedicated event-tap loop and carries
+hardware timestamps to main for gesture timing. Menu-bar visibility queries
+run on a utility queue with one query in flight and one latest pending request;
+obsolete widths are discarded. Negotiation reports pending visibility as
+settling until a fresh result arrives. Keep the shared MenuBarFit copies in sync.
 
 Opt-in input timing: set `MBInputLatencyDiagnosticsEnabled` to true in the
 `computer.aestheticcomputer.menuband` defaults domain before launch. Set it to `false`
 and relaunch to disable. `~/Library/Logs/MenuBand/input-latency.jsonl` and its
-previous file are each capped at 2 MiB. Schema 1 contains one-second summaries:
-source (`keyboard_event` or `trackpad_callback`), count, capture/queue/control/
+previous file are each capped at 2 MiB. Schema 2 contains one-second summaries:
+source (`keyboard_tap`, `keyboard_appkit`, or `trackpad_callback`), count, capture/queue/control/
 next-render/total delays in milliseconds (p50, p95, max), dropped-measurement
 count, timestamp and PID. No keycodes, notes, audio or remote transport.
 Keyboard samples cover non-repeated downs that submit local notes; one chord

@@ -3,7 +3,16 @@ import QuartzCore
 import CRealtimeAudio
 
 struct PerformanceInputTiming {
-    enum Source: UInt32 { case keyboard = 1, trackpad = 2 }
+    enum Source: UInt32, CaseIterable {
+        case keyboardTap = 1, trackpad = 2, keyboardAppKit = 3
+        var label: String {
+            switch self {
+            case .keyboardTap: return "keyboard_tap"
+            case .keyboardAppKit: return "keyboard_appkit"
+            case .trackpad: return "trackpad_callback"
+            }
+        }
+    }
     let source: Source
     let event, captured: Double
     var queued: Double = 0
@@ -42,11 +51,12 @@ final class InputLatencyProbe {
     }
 
     static func withEvent<T>(at timestamp: Double, down: Bool, repeated: Bool,
+                             source: PerformanceInputTiming.Source = .keyboardAppKit,
                              _ work: () -> T) -> T {
         guard shared.enabled, down, !repeated, timestamp > 0 else { return work() }
         let dictionary = Thread.current.threadDictionary
         let previous = dictionary[eventKey]
-        dictionary[eventKey] = PerformanceInputTiming(source: .keyboard,
+        dictionary[eventKey] = PerformanceInputTiming(source: source,
             event: timestamp, captured: CACurrentMediaTime())
         defer { dictionary[eventKey] = previous }
         return work()
@@ -69,7 +79,7 @@ final class InputLatencyProbe {
 
     private func writeSummary() {
         if !loggedStart {
-            try? log.append(["schema": 1, "event": "session_started",
+            try? log.append(["schema": 2, "event": "session_started",
                 "boundary": "next_output_block_after_submission", "includesSpeakerLatency": false])
             loggedStart = true
         }
@@ -87,11 +97,11 @@ final class InputLatencyProbe {
             return ["p50": percentile(0.50), "p95": percentile(0.95), "max": sorted.last! * 1000]
         }
         var groups: [[String: Any]] = []
-        for source in [PerformanceInputTiming.Source.keyboard, .trackpad] {
+        for source in PerformanceInputTiming.Source.allCases {
             let rows = samples.filter { $0.source == source.rawValue }
             guard !rows.isEmpty else { continue }
             groups.append([
-                "source": source == .keyboard ? "keyboard_event" : "trackpad_callback",
+                "source": source.label,
                 "n": rows.count,
                 "captureMs": distribution(rows.map { $0.captured - $0.event }),
                 "queueMs": distribution(rows.map { $0.queued - $0.captured }),
@@ -100,7 +110,7 @@ final class InputLatencyProbe {
                 "inputToNextRenderMs": distribution(rows.map { $0.rendered - $0.event })
             ])
         }
-        try? log.append(["schema": 1, "event": "input_latency", "groups": groups,
+        try? log.append(["schema": 2, "event": "input_latency", "groups": groups,
             "droppedMeasurements": drops,
             "boundary": "next_output_block_after_submission",
             "includesSpeakerLatency": false])

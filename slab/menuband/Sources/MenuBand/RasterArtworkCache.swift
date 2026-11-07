@@ -68,3 +68,29 @@ func artworkColorKey(_ color: NSColor) -> [CGFloat] {
     guard let c = color.usingColorSpace(.deviceRGB) else { return [] }
     return [c.redComponent, c.greenComponent, c.blueComponent, c.alphaComponent]
 }
+
+/// Freeze a frame into pixels before handing it to AppKit. The source may
+/// contain a drawing handler that reads live renderer state; the result does
+/// not retain that handler or repeat its work on later compositing passes.
+func rasterizedArtwork(_ source: NSImage, scale: CGFloat) -> NSImage {
+    let size = source.size
+    guard size.width > 0, size.height > 0, scale.isFinite, scale > 0 else { return source }
+    let width = ceil(size.width * scale), height = ceil(size.height * scale)
+    guard width <= 8192, height <= 8192, width * height * 4 <= 32 * 1024 * 1024,
+          let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+            pixelsWide: Int(width), pixelsHigh: Int(height), bitsPerSample: 8,
+            samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+          let context = NSGraphicsContext(bitmapImageRep: rep) else { return source }
+    rep.size = size
+    NSGraphicsContext.saveGraphicsState()
+    defer { NSGraphicsContext.restoreGraphicsState() }
+    context.cgContext.scaleBy(x: width / size.width, y: height / size.height)
+    NSGraphicsContext.current = context
+    source.draw(in: NSRect(origin: .zero, size: size), from: .zero,
+                operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    let result = NSImage(size: size)
+    result.addRepresentation(rep)
+    result.isTemplate = source.isTemplate
+    return result
+}
