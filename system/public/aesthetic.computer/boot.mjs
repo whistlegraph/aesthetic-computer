@@ -160,7 +160,8 @@ const bootTelemetry = (() => {
     href: typeof location !== "undefined" ? location.href : null,
     host: typeof location !== "undefined" ? location.host : null,
     path: typeof location !== "undefined" ? location.pathname : null,
-    search: typeof location !== "undefined" ? location.search : null,
+    // The query as written, minus auth callbacks and session tokens: telemetry never carries a credential.
+    search: typeof location !== "undefined" ? cleanSearch(location.search, { drop: ["auth"] }) : null,
     params: typeof location !== "undefined" ? presentParams(location.search) : [], // names only
     hash: typeof location !== "undefined" ? location.hash : null,
     referrer: document?.referrer || null,
