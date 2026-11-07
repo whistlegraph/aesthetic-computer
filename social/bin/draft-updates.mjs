@@ -59,10 +59,15 @@ const forBsky = (body, url) => fit(body, url, BSKY_LIMIT, url ? url.length : 0);
 // new-media opportunities and conceptual ideas live on Bluesky (@aesthetic.computer); music goes to both.
 const TARGETS = { daily: ["x"], deadlines: ["bluesky"], papers: ["bluesky"], pop: ["x", "bluesky"] };
 
+// Each draft carries alternative angles (alts) so the human picks a voice, not just a yes/no.
 function draft(id, stream, body, url, extra = {}) {
+  const { alts = [], ...rest } = extra;
   return { id, stream, to: TARGETS[stream] || ["x", "bluesky"], created: new Date().toISOString(), date: TODAY, url: url || null,
-    x: forX(body, url), bsky: forBsky(body, url), status: "pending", ...extra };
+    x: forX(body, url), bsky: forBsky(body, url),
+    alts: alts.filter(Boolean).map((b) => ({ x: forX(b, url), bsky: forBsky(b, url) })),
+    status: "pending", ...rest };
 }
+const firstSentence = (md) => (md.split(/^---[\s\S]*?---\s*/m).pop() || "").trim().split(/(?<=[.!?])\s+/)[0] || "";
 
 // ---------- sources ----------
 
@@ -75,7 +80,12 @@ function dailyToken(state) {
   if (!title) return [];
   const price = token.priceXtz ? ` ${token.priceXtz} xtz` : "";
   const body = `daily: “${title}” — today's update from the studio, read aloud and minted as a 1/1 on hic et nunc.${price ? ` (${token.priceXtz} xtz)` : ""}`;
-  return [draft(`daily:${TODAY}`, "daily", body, token.objktUrl, { title })];
+  const lead = firstSentence(md);
+  const alts = [
+    `“${title}” — tonight's studio note, as a 1/1 on hic et nunc.`,
+    lead ? `${lead} (today's daily, 1/1)` : null,
+  ];
+  return [draft(`daily:${TODAY}`, "daily", body, token.objktUrl, { title, alts })];
 }
 
 function deadlines(state) {
@@ -92,7 +102,11 @@ function deadlines(state) {
   if (jobs.length) parts.push(`${jobs.length} new-media job${jobs.length > 1 ? "s" : ""}`);
   const body = `${parts.join(" and ")} on the AC deadlines board, each checked on its source page${soonest.length ? `: ${soonest.join(", ")}` : ""}.`;
   const newest = fresh.map((o) => o.published).sort().at(-1);
-  return [draft(`deadlines:${newest}`, "deadlines", body, BOARD, { count: fresh.length, markSeen: { deadlinesSeen: newest } })];
+  const open = fresh.filter((o) => o.deadline?.date && o.deadline.date >= TODAY);
+  const paid = open.filter((o) => o.support?.paid && o.kind !== "Job").sort((a, b) => a.deadline.date.localeCompare(b.deadline.date))[0];
+  const spotlight = paid ? `${paid.title.split(" — ")[0]}: ${paid.summary.replace(/\.$/, "")}. ${paid.support.text}, due ${paid.deadline.date.slice(5).replace("-", "/")}.` : null;
+  const jobLine = jobs.length ? `${jobs.length} new-media faculty and creative-tech postings, pay ranges included, now on the AC deadlines board under the Job filter.` : null;
+  return [draft(`deadlines:${newest}`, "deadlines", body, BOARD, { count: fresh.length, alts: [spotlight, jobLine], markSeen: { deadlinesSeen: newest } })];
 }
 
 function papers(state) {
@@ -110,7 +124,11 @@ function papers(state) {
     if (/\bCV$/.test(title || "") || /term="cv"/i.test(e)) continue;
     const summary = (get("summary") || "").split(" — ")[0].split(" · ")[0];
     if (!title || !href) continue;
-    out.push(draft(`paper:${href}`, "papers", `new paper: ${title}${summary ? ` — ${summary}` : ""}`, href, { markSeen: { papersSeen: published } }));
+    const full = get("summary") || "";
+    const thesis = full.includes(" — ") ? full.split(" — ").slice(1).join(" — ").split(/(?<=[.!?])\s+/)[0] : "";
+    const pages = (full.match(/(\d+)pp/) || [])[1];
+    out.push(draft(`paper:${href}`, "papers", `new paper: ${title}${summary ? ` — ${summary}` : ""}`, href,
+      { alts: [thesis || null, `reading: ${title}${pages ? ` (${pages} pages)` : ""}, from the AC papers press.`], markSeen: { papersSeen: published } }));
   }
   return out;
 }
@@ -124,7 +142,9 @@ function pop(state) {
     .map((t) => {
       const links = t.links && typeof t.links === "object" ? Object.values(t.links).filter((v) => typeof v === "string" && /^https?:/.test(v)) : [];
       const url = links[0] || "https://aesthetic.computer/pop";
-      return draft(`pop:${t.lane || t.title}`, "pop", `new track: “${t.title}” by ${t.artist || "Aesthetic Dot Computer"} is out.`, url, { markSeen: { popSeen: t.releaseDate.slice(0, 10) } });
+      const facts = [t.bpm ? `${t.bpm} bpm` : null, t.key || null, t.durationSec ? `${Math.round(t.durationSec / 60)} min` : null].filter(Boolean).join(", ");
+      return draft(`pop:${t.lane || t.title}`, "pop", `new track: “${t.title}” by ${t.artist || "Aesthetic Dot Computer"} is out.`, url,
+        { alts: [`${t.artist || "Aesthetic Dot Computer"} — “${t.title}”, out now.`, facts ? `“${t.title}”: ${facts}. a new one from the pop mill.` : null], markSeen: { popSeen: t.releaseDate.slice(0, 10) } });
     });
 }
 
@@ -143,7 +163,7 @@ for (const d of fresh) {
   const { markSeen, ...row } = d;
   if (!DRY) queue.push(row);
   if (markSeen && !DRY) Object.assign(state, markSeen);
-  console.log(`${DRY ? "would draft" : "drafted"} ${row.id}\n  x    (${row.x.length}): ${row.x}\n  bsky (${graphemes(row.bsky)}): ${row.bsky}`);
+  console.log(`${DRY ? "would draft" : "drafted"} ${row.id} → ${row.to.join("+")}\n  x    ${row.x}\n  bsky ${row.bsky}${row.alts.map((a, i) => `\n  alt${i + 1} ${a.bsky}`).join("")}`);
 }
 if (!fresh.length) console.log(`no new drafts for ${TODAY} (${queue.filter((d) => d.status === "pending").length} pending in queue)`);
 if (!DRY) {
