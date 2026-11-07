@@ -82,11 +82,11 @@ node -e 'const fs=require("fs");const f=process.argv[1];const q=JSON.parse(fs.re
 const out=(${mutation.toString()})(q,m);fs.writeFileSync(f,JSON.stringify(q,null,2)+"\\n");console.log(JSON.stringify(out));' "$f" '${JSON.stringify(mutation.args).replace(/'/g, "'\\''")}'`;
   return JSON.parse(await sshScript(script));
 }
-const fmtDraft = (d) => `[${d.id}] ${d.stream} · ${d.status}${d.posted ? " · " + Object.entries(d.posted).map(([k, v]) => k + ":" + v).join(" ") : ""}\n  x    ${d.x}\n  bsky ${d.bsky}`;
+const fmtDraft = (d) => `[${d.id}] ${d.stream} → ${(d.to || ["x", "bluesky"]).join("+")} · ${d.status}${d.posted ? " · " + Object.entries(d.posted).map(([k, v]) => k + ":" + v).join(" ") : ""}\n  x    ${d.x}\n  bsky ${d.bsky}`;
 
 const TOOLS = [
   { name: "social_drafts", description: "Pending Aesthetic network posts drafted nightly on jasellite (daily token, deadlines board, papers, pop) for human approval. Call this when jeffrey asks for Aesthetic network news. Read-only.", inputSchema: { type: "object", properties: { status: { type: "string", enum: ["pending", "posted", "skipped", "all"], default: "pending" }, limit: { type: "integer", minimum: 1, maximum: 50, default: 20 } } } },
-  { name: "social_draft_add", description: "Add a hand-written draft to the queue (status pending). Give one text, or separate x and bsky texts.", inputSchema: { type: "object", properties: { stream: { type: "string", enum: STREAMS, default: "note" }, text: { type: "string" }, x: { type: "string" }, bsky: { type: "string" }, url: { type: "string" } } } },
+  { name: "social_draft_add", description: "Add a hand-written draft to the queue (status pending). Give one text, or separate x and bsky texts. NFT/token news goes to X only (to: [\"x\"]).", inputSchema: { type: "object", properties: { stream: { type: "string", enum: STREAMS, default: "note" }, to: { type: "array", items: { type: "string", enum: ["x", "bluesky"] } }, text: { type: "string" }, x: { type: "string" }, bsky: { type: "string" }, url: { type: "string" } } } },
   { name: "social_draft_post", description: "Publish one queued draft to X (@promptDOTac) and/or Bluesky (@aesthetic.computer) and mark it posted. SIDE EFFECT: live public posts. Requires confirm:true; without it, shows exactly what would be sent.", inputSchema: { type: "object", properties: { id: { type: "string" }, to: { type: "array", items: { type: "string", enum: ["x", "bluesky"] }, default: ["x", "bluesky"] }, xText: { type: "string", description: "Override the X text before posting." }, bskyText: { type: "string", description: "Override the Bluesky text before posting." }, confirm: { type: "boolean" } }, required: ["id"] } },
   { name: "social_draft_mark", description: "Set a draft's status (skipped, pending, posted) without posting.", inputSchema: { type: "object", properties: { id: { type: "string" }, status: { type: "string", enum: ["pending", "skipped", "posted"] }, note: { type: "string" } }, required: ["id", "status"] } },
   { name: "x_accounts", description: "List AC X aliases and whether their vault-backed OAuth 1.0a credentials resolve on this host. Never returns secret values.", inputSchema: { type: "object", properties: {} } },
@@ -112,7 +112,7 @@ async function callTool(name, args = {}) {
     const body = args.text || args.x || args.bsky;
     if (!body) throw new Error("give text, or x and bsky");
     const id = `${args.stream || "note"}:${Date.now().toString(36)}`;
-    const row = { id, stream: args.stream || "note", created: new Date().toISOString(), date: new Date().toISOString().slice(0, 10), url: args.url || null, x: args.x || args.text, bsky: args.bsky || args.text, status: "pending" };
+    const row = { id, stream: args.stream || "note", to: args.to?.length ? args.to : ["x", "bluesky"], created: new Date().toISOString(), date: new Date().toISOString().slice(0, 10), url: args.url || null, x: args.x || args.text, bsky: args.bsky || args.text, status: "pending" };
     const out = await mutateQueue(Object.assign((q, m) => { q.push(m.row); return m.row.id; }, { args: { row } }));
     return text(`added ${out}\n${fmtDraft(row)}`);
   }
@@ -121,7 +121,7 @@ async function callTool(name, args = {}) {
     const d = queue.find((r) => r.id === args.id);
     if (!d) throw new Error(`no draft ${args.id}`);
     if (d.status === "posted") throw new Error(`${d.id} is already posted: ${JSON.stringify(d.posted)}`);
-    const to = args.to?.length ? args.to : ["x", "bluesky"];
+    const to = args.to?.length ? args.to : (d.to?.length ? d.to : ["x", "bluesky"]);
     const xText = args.xText || d.x, bskyText = args.bskyText || d.bsky;
     if (args.confirm !== true) return text(`would post ${d.id} to ${to.join(" + ")}:\n  x    ${xText}\n  bsky ${bskyText}\nCall again with confirm: true.`);
     const posted = {}, errors = [];
