@@ -1373,6 +1373,10 @@ app.get(["/.well-known/oauth-protected-resource/mcp/ac", "/.well-known/oauth-pro
 app.all("/api/oskie/*rest", directFn("oskie"));
 // Deliver the installed engine without copying private implementation into core.
 app.get("/oskie/engine/:file", (req, res) => {
+  if (req.params.file === "ComicRelief-Regular.woff2") {
+    res.set("Cache-Control", "no-cache");
+    return res.sendFile(join(PUBLIC, "papers.aesthetic.computer", "foundry", "fonts", req.params.file));
+  }
   if (!["oskiewar.js", "scene3d.mjs", "scene3d-webgl.mjs", "oskiewar-sfx.mjs"].includes(req.params.file))
     return res.sendStatus(404);
   res.set("Cache-Control", "no-cache");

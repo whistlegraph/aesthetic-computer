@@ -29,6 +29,10 @@ const server = createServer(async (req, res) => {
     }
     if (path.startsWith("/oskie/engine/")) {
       const name = path.slice("/oskie/engine/".length);
+      if (name === "ComicRelief-Regular.woff2") {
+        res.setHeader("Content-Type", "font/woff2");
+        return res.end(await readFile(new URL("../../public/papers.aesthetic.computer/foundry/fonts/" + name, import.meta.url)));
+      }
       if (!["oskiewar.js", "scene3d.mjs", "scene3d-webgl.mjs", "oskiewar-sfx.mjs"].includes(name)) return res.writeHead(404).end();
       res.setHeader("Content-Type", "text/javascript");
       return res.end(await readFile(new URL("../../../xbox/live/" + name, import.meta.url)));
@@ -173,10 +177,60 @@ try {
   await assertWholeWindow();
   await page.screenshot({path:"/tmp/ac-oskie-check/monowheel-mobile.png"});
   await page.setViewportSize({width:1280,height:1000});
+  // Verify rendered pixels: GPU depth survives reverse submission order, HUD
+  // covers the world, and text uses the measured face above both strata.
+  const layers = starterEngineGame("render-layers", "Render layers");
+  layers.files["game.mjs"].text = `
+    export function paint(api) {
+      if (!globalThis.hideTestText) api.wipe(0,0,0);
+      api.camera({position:[0,0,0],target:[0,0,400],fov:80,perspective:1});
+      api.face(-100,-100,400, 100,-100,400, 0,100,400, 0,255,0);
+      api.face(-200,-200,800, 200,-200,800, 0,200,800, 0,0,255);
+      const p=api.project(0,0,400);
+      api.box(p.x-8,p.y-8,16,16,255,0,0);
+      api.box(20,20,600,200,0,0,255);
+      if (!globalThis.hideTestText) {
+        api.write('last light\\nwave 1',40,40,40,255,255,255);
+        api.write('sky',40,240,40,255,255,255);
+      }
+      globalThis.renderProbe={p,width:api.textWidth('last light',40),large:api.textWidth('last light',80)};
+    }`;
+  const layered = await store.update(owner, project.id, layers, playable.revision);
+  await page.locator("#status").filter({hasText:"Revision " + layered.revision.slice(0,8)}).waitFor({timeout:15000});
+  const layersFrame = page.frames().find(f => f.parentFrame());
+  await layersFrame.waitForFunction(() => globalThis.renderProbe);
+  const pixels = await layersFrame.evaluate(() => {
+    const canvas=document.querySelector('canvas'), ctx=canvas.getContext('2d');
+    const sy=canvas.height/1080, sx=sy, {p,width,large}=globalThis.renderProbe;
+    const pixel=(x,y)=>Array.from(ctx.getImageData(Math.round(x*sx),Math.round(y*sy),1,1).data).slice(0,3);
+    const expected=document.createElement('canvas');expected.width=canvas.width;expected.height=canvas.height;
+    const text=expected.getContext('2d');text.setTransform(sx,0,0,sy,0,0);
+    text.fillStyle='rgb(0,0,255)';text.fillRect(20,20,600,200);
+    text.fillStyle='white';text.font='40px "Comic Relief"';text.textBaseline='alphabetic';
+    ['last light','wave 1'].forEach((line,i)=>text.fillText(line,Math.round(40*sx)/sx,Math.round((40+40*2160/2048+i*40*1.15)*sy)/sy));
+    const region=[Math.ceil(20*sx),Math.ceil(20*sy),Math.floor(590*sx),Math.floor(190*sy)];
+    const actual=ctx.getImageData(...region).data, target=text.getImageData(...region).data;
+    let mismatches=0,white=0;
+    for(let i=0;i<actual.length;i+=4){if(Math.abs(actual[i]-target[i])>2||Math.abs(actual[i+1]-target[i+1])>2||Math.abs(actual[i+2]-target[i+2])>2)mismatches++;if(actual[i]>240&&actual[i+1]>240)white++;}
+    return {near:pixel(p.x,p.y-30),hud:pixel(p.x,p.y),width,large,fontWidth:text.measureText('last light').width,mismatches,white,fontLoaded:document.fonts.check('40px "Comic Relief"')};
+  });
+  assert.deepEqual(pixels.near,[0,255,0],"near face survives a far face submitted later");
+  assert.deepEqual(pixels.hud,[255,0,0],"HUD stays above world geometry");
+  assert.ok(pixels.fontLoaded && pixels.white>100,"Comic Relief text is visible above the HUD");
+  assert.ok(Math.abs(pixels.width-pixels.fontWidth)<2,"textWidth agrees with the rendered face");
+  assert.ok(Math.abs(pixels.large/pixels.width-2)<1e-9,"requested text sizes are preserved");
+  assert.equal(pixels.mismatches,0,"multiline text matches the original host's baseline and spacing");
+  await page.screenshot({path:"/tmp/ac-oskie-check/render-layers.png"});
+  await layersFrame.evaluate(() => {globalThis.hideTestText=true;});
+  await layersFrame.evaluate(() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await layersFrame.evaluate(() => {
+    const c=document.querySelector('canvas'),s=c.height/1080,d=c.getContext('2d').getImageData(30*s,30*s,580*s,280*s).data;
+    for(let i=0;i<d.length;i+=4)if(d[i]>240&&d[i+1]>240)return true;return false;
+  }),false,"previous-frame text is cleared even without a backdrop wipe");
   // Browser navigation must still dispose a runaway canvas worker.
   const runaway = starterGame("loop-test", "Runaway test");
   runaway.files["game.mjs"].text = "export function boot(){while(true){}}";
-  await store.update(owner, project.id, runaway, playable.revision);
+  await store.update(owner, project.id, runaway, layered.revision);
   await page
     .locator("#title")
     .filter({ hasText: "Runaway test" })
