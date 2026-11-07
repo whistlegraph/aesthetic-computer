@@ -710,12 +710,16 @@ export async function createBundle(pieceName, onProgress = () => {}, nocompress 
 // without the trip to /api/store-kidlisp. (the daily token's crawl, packed in
 // node on jasellite.) No $refs are followed and no #paintings are embedded,
 // since a crawl's text can hold either by accident.
-export async function createBundleFromSource(pieceName, source, { authorHandle = "anon", onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = true, keeplabel = false, forceRefresh = false, style = "", glyphs = {} } = {}) {
+// doorway: an https URL a tap on the packed page opens in a new tab (a minted
+// object's one way back to aesthetic.computer). The shell handles the tap in
+// the page's own pointer events, since a gesture relayed through the worker
+// has lost its user activation by the time bios could call window.open.
+export async function createBundleFromSource(pieceName, source, { authorHandle = "anon", onProgress = () => {}, nocompress = false, density = null, brotli = false, noboxart = true, keeplabel = false, forceRefresh = false, style = "", glyphs = {}, doorway = "" } = {}) {
   const name = pieceName.replace(/^\$/, "");
-  return packKidLisp({ name, sources: { [name]: source }, authorHandle, userCode: null, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style, paintings: false, glyphs });
+  return packKidLisp({ name, sources: { [name]: source }, authorHandle, userCode: null, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style, paintings: false, glyphs, doorway });
 }
 
-async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style = "", paintings = true, glyphs = {} }) {
+async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources, authorHandle, userCode, onProgress, nocompress, density, brotli, noboxart, keeplabel, forceRefresh, style = "", paintings = true, glyphs = {}, doorway = "" }) {
   const PIECE_NAME = "$" + PIECE_NAME_NO_DOLLAR;
   const mainSource = kidlispSources[PIECE_NAME_NO_DOLLAR];
   const depCount = Object.keys(kidlispSources).length - 1;
@@ -773,7 +777,7 @@ async function packKidLisp({ name: PIECE_NAME_NO_DOLLAR, sources: kidlispSources
   const htmlContent = generateHTMLBundle({
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
     files, paintingData, authorHandle, packDate, packTime,
-    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style,
+    gitVersion: GIT_COMMIT, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style, doorway,
   });
 
   const method = nocompress ? "none" : brotli ? "brotli" : "gzip";
@@ -2294,8 +2298,9 @@ async function generateBoxArtPNG(pieceName, authorHandle, bgColor, packDate) {
 function generateHTMLBundle(opts) {
   const {
     PIECE_NAME, PIECE_NAME_NO_DOLLAR, mainSource, kidlispSources,
-    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style = "",
+    files, paintingData, authorHandle, packDate, packTime, gitVersion, filename, density, bgColor, bdfGlyphs, boxArtPNG, keeplabel, style = "", doorway = "",
   } = opts;
+  if (doorway && !/^https:\/\/[^\s"'<>]+$/.test(doorway)) throw new Error("doorway must be an https URL");
 
   const bgRule = `background: ${bgColor || "black"}; `;
   const boxArtImg = renderBoxArt(PIECE_NAME, boxArtPNG);
@@ -2330,6 +2335,21 @@ function generateHTMLBundle(opts) {
     window.acPACK_DATE = "${packDate}";
     window.acPACK_GIT = "${gitVersion}";
     window.acKIDLISP_SOURCE = ${JSON.stringify(mainSource)};
+    ${doorway ? `window.acDOORWAY = ${JSON.stringify(doorway)};
+    // The doorway: a tap (under 6px of travel, under 400ms) opens it in a new
+    // tab from this gesture. A market that sandboxes popups away leaves the
+    // piece's own written address as the way through.
+    (function () {
+      var press = null;
+      addEventListener("pointerdown", function (e) { press = { x: e.clientX, y: e.clientY, at: Date.now() }; }, true);
+      addEventListener("pointerup", function (e) {
+        if (!press) return;
+        var moved = Math.hypot(e.clientX - press.x, e.clientY - press.y), held = Date.now() - press.at;
+        press = null;
+        if (moved < 6 && held < 400) { try { window.open(window.acDOORWAY, "_blank", "noopener"); } catch (_) {} }
+      }, true);
+      addEventListener("pointercancel", function () { press = null; }, true);
+    })();` : ""}
     ${density ? `window.acPACK_DENSITY = ${density};` : `// Smart density: match device.html logic for keep bundles
     (function() {
       var sw = window.screen.width * (window.devicePixelRatio || 1);

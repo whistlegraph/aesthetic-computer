@@ -1150,6 +1150,7 @@ async function boot({
   dark,
   store,
   debug,
+  query,
   // code,
   net: { socket },
   vscode,
@@ -1179,6 +1180,9 @@ async function boot({
   if (theme === "default") send({ type: "mime:sheet", content: { action: "warm" } });
   // 🎯 And the dool world, so the paper drops onto a room already built.
   if (theme === "default") send({ type: "dool:sheet", content: { action: "warm" } });
+  // `?dool` (a minted object's doorway) arrives with the room already up: the
+  // paper drops as soon as the guest says hello, no crosshair flight.
+  if (theme === "default" && query?.dool) send({ type: "dool:sheet", content: { action: "show" } });
   // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
   // persisting — the `flair` command still owns the saved preference. Handy for
   // a clean attract screen and for the FPS regression test.

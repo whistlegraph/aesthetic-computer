@@ -676,7 +676,8 @@ const LEGITIMATE_PARAMS = [
   'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'nosource', 'shellhtml',
   'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
   'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
-  'crossfade', 'maxfps', 'autoreload'
+  'crossfade', 'maxfps', 'autoreload',
+  'dool' // Open the prompt with the dool room already up (a minted object's doorway).
 ];
 
 // Auth0 parameters that need to be temporarily processed but then removed

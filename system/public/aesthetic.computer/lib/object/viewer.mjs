@@ -14,8 +14,25 @@ export function isObjectLisp(source) {
   return SHAPES.test(source.replace(/;[^\n]*/g, ""));
 }
 
-const BG = [20, 23, 32];
-const GRID = [44, 48, 64];
+const DEFAULT_BG = [20, 23, 32];
+const DEFAULT_GRID = [44, 48, 64];
+
+// A `; #bg r g b` pragma gives the object its own ground (a minted object
+// carries the colour its ink asked for); the floor grid lifts off it.
+export function sourceBackground(source) {
+  const m = typeof source === "string" && source.match(/^\s*;\s*#bg\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b/m);
+  if (!m) return null;
+  return [m[1], m[2], m[3]].map((c) => Math.min(255, Number(c)));
+}
+
+// A `; #door https://…` pragma is the object's one doorway: a tap (a press
+// that never dragged) opens it. Inside a market's iframe the page may not be
+// allowed to open anything, so the address is also written on the ground for
+// a few seconds after the tap.
+export function sourceDoor(source) {
+  const m = typeof source === "string" && source.match(/^\s*;\s*#door\s+(https?:\/\/\S+)/m);
+  return m ? m[1] : null;
+}
 // One preference per AC runtime. Preparing a neighbor never starts its audio.
 let soundEnabled = false;
 const SPEAKER = [
@@ -60,6 +77,11 @@ export function objectPiece(source, label = "", options = {}) {
   let depth, size = [0, 0];
   let preview = options.preview === true;
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
+  const BG = sourceBackground(source) || DEFAULT_BG;
+  const door = sourceDoor(source);
+  let press = null; // { x, y, at } while a touch may still be a tap
+  let doorShownAt = 0;
+  const GRID = BG === DEFAULT_BG ? DEFAULT_GRID : BG.map((c) => Math.min(255, c + 24));
   const start = Date.now();
   // The object's (tone ...) oscillators, enabled by its canvas speaker control.
   let tones = [], voices = [];
@@ -169,7 +191,11 @@ export function objectPiece(source, label = "", options = {}) {
     }
     const name = (shape.name || "object").toLowerCase();
     if (!preview) {
-      ink(138, 143, 158).write(name, { x: 6, y: h - 16 });
+      const packed = typeof globalThis !== "undefined" && globalThis.acPACK_MODE;
+      if (!packed) ink(138, 143, 158).write(name, { x: 6, y: h - 16 });
+      if (door && Date.now() - doorShownAt < 4000) {
+        ink(230, 232, 240).write(door.replace(/^https?:\/\//, ""), { x: 6, y: h - 16 });
+      }
       if (tones.length) speaker(screen, soundEnabled);
     }
   }
@@ -208,7 +234,7 @@ export function objectPiece(source, label = "", options = {}) {
     voices = [];
   }
 
-  function act({ event: e, sound }) {
+  function act({ event: e, sound, jump }) {
     if (e.is("touch")) {
       soundPress = tones.length > 0 && e.x >= size[0] - 30 && e.x < size[0] && e.y >= 3 && e.y < 29;
       if (soundPress) {
@@ -217,12 +243,25 @@ export function objectPiece(source, label = "", options = {}) {
         return;
       }
       dragging = true;
+      press = door ? { x: e.x, y: e.y, at: Date.now() } : null;
     }
-    if (e.is("lift")) { dragging = false; soundPress = false; }
+    if (e.is("lift")) {
+      dragging = false; soundPress = false;
+      // A tap: under 6px of travel and under 400ms. The pack's shell opens the
+      // door in the page's own gesture (see oven/bundler.mjs doorway); here the
+      // address is shown, and outside a pack the runtime jumps to it.
+      if (press && Math.hypot(e.x - press.x, e.y - press.y) < 6 && Date.now() - press.at < 400) {
+        doorShownAt = Date.now();
+        const packed = typeof globalThis !== "undefined" && globalThis.acPACK_MODE;
+        if (!packed) jump?.("out:" + door);
+      }
+      press = null;
+    }
     if (soundPress) return;
     if (e.is("draw")) {
       yaw += (e.delta?.x || 0) * 0.02;
       pitch = Math.max(-1.2, Math.min(1.4, pitch + (e.delta?.y || 0) * 0.02));
+      if (press && Math.hypot(e.x - press.x, e.y - press.y) >= 6) press = null;
     }
   }
 
