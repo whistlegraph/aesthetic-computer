@@ -35,7 +35,8 @@ const OVEN_DIR = path.dirname(fileURLToPath(import.meta.url));
 const AC_SOURCE_DIR = process.env.AC_SOURCE_DIR || path.join(OVEN_DIR, "ac-source");
 const SELF_UPDATE = process.env.OVEN_SELF_UPDATE !== "0";
 const STATE_DIR = path.join(GIT_REPO_DIR, ".git", "oven-state");
-const HASH_FILE = path.join(STATE_DIR, "source-last-synced-hash");
+const RUNTIME_HASH_FILE = path.join(STATE_DIR, "source-last-synced-hash");
+const OVEN_HASH_FILE = path.join(STATE_DIR, "oven-last-synced-hash");
 
 const RUNTIME_PREFIX = "system/public/aesthetic.computer/";
 const RUNTIME_EXTENSIONS = [".mjs", ".js", ".json", ".lisp"]; // what deploy.sh ships
@@ -56,7 +57,8 @@ const health = {
   lastPollOk: null,
   lastError: null,
   consecutiveErrors: 0,
-  syncedHash: null,
+  syncedHash: null, // the runtime lane's commit
+  ovenHash: null, // the oven lane's commit
   runtimeSyncedAt: null,
   ovenUpdatedAt: null,
   restartPending: false,
@@ -80,13 +82,12 @@ function sh(script, opts = {}) {
   });
 }
 
-async function readSyncedHash() {
-  try { return (await fs.readFile(HASH_FILE, "utf8")).trim(); } catch { return null; }
+async function readHash(file) {
+  try { return (await fs.readFile(file, "utf8")).trim(); } catch { return null; }
 }
-async function writeSyncedHash(hash) {
+async function writeHash(file, hash) {
   await fs.mkdir(STATE_DIR, { recursive: true });
-  await fs.writeFile(HASH_FILE, hash + "\n", "utf8");
-  health.syncedHash = hash;
+  await fs.writeFile(file, hash + "\n", "utf8");
 }
 
 const isRuntimeChange = (p) => p.startsWith(RUNTIME_PREFIX) && RUNTIME_EXTENSIONS.includes(path.extname(p).toLowerCase());
@@ -99,10 +100,10 @@ async function exportRuntime(hash) {
   const fresh = AC_SOURCE_DIR + ".next", old = AC_SOURCE_DIR + ".prev";
   await fs.rm(fresh, { recursive: true, force: true });
   await fs.mkdir(fresh, { recursive: true });
-  const globs = RUNTIME_EXTENSIONS.map((e) => `'*${e}'`).join(" ");
-  // --wildcards-match-slash: a member is "system/public/aesthetic.computer/lib/disk.mjs",
-  // and without it `*.mjs` cannot cross the slashes (the first run extracted nothing).
-  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 --wildcards --wildcards-match-slash ${globs} -C '${fresh}'`);
+  // A plain extract, then prune: GNU tar 1.35 selects nothing when member
+  // patterns are combined with --strip-components (verified on jasellite).
+  const keep = RUNTIME_EXTENSIONS.map((e) => `-name '*${e}'`).join(" -o ");
+  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 -C '${fresh}' && find '${fresh}' -type f ! \( ${keep} \) -delete && find '${fresh}' -type d -empty -delete`);
   await fs.access(path.join(fresh, "lib", "disk.mjs")); // a runtime without its core is not a runtime
   await fs.rm(old, { recursive: true, force: true });
   try { await fs.rename(AC_SOURCE_DIR, old); } catch {}
@@ -142,38 +143,28 @@ async function poll() {
   try {
     await git(["fetch", "origin", BRANCH, "--quiet"]);
     const remoteHead = await git(["rev-parse", `origin/${BRANCH}`]);
-    const synced = await readSyncedHash();
-    health.syncedHash = synced;
+    const runtimeSynced = await readHash(RUNTIME_HASH_FILE), ovenSynced = await readHash(OVEN_HASH_FILE);
+    health.syncedHash = runtimeSynced;
+    health.ovenHash = ovenSynced;
     health.lastPollOk = true;
     health.lastError = null;
     health.consecutiveErrors = 0;
-    if (remoteHead === synced) { polling = false; return; }
+    if (remoteHead === runtimeSynced && remoteHead === ovenSynced) { polling = false; return; }
 
-    // Without a marker (first run after this poller lands), or after a force
-    // push, everything counts as changed: one full sync, then diffs.
-    let changed = null;
-    if (synced) {
-      try { changed = (await git(["diff", "--name-only", synced, remoteHead])).split("\n").filter(Boolean); } catch { changed = null; }
-    }
-    const runtime = changed ? changed.some(isRuntimeChange) : true;
-    const oven = changed ? changed.some(isOvenChange) : true;
-
-    // Each lane fails on its own: a broken runtime export must not keep the
-    // oven's own code (including a fix for that export) from landing.
+    // Each lane keeps its own marker and fails on its own: a broken runtime
+    // export must not keep the oven's code (including a fix for it) from
+    // landing, and a landed oven update restarts once, not every tick.
+    // Without a marker (first run, force push) everything counts as changed.
+    const changedSince = async (since) => {
+      if (!since) return null;
+      try { return (await git(["diff", "--name-only", since, remoteHead])).split("\n").filter(Boolean); } catch { return null; }
+    };
     const failures = [];
     let ovenLanded = false;
-    if (runtime) {
-      try {
-        await exportRuntime(remoteHead);
-        health.runtimeSyncedAt = new Date().toISOString();
-        onRuntimeSynced(remoteHead);
-        logFn("info", "📥", `ac-source now at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isRuntimeChange).length : "all"} runtime file(s))`);
-      } catch (err) { failures.push(`runtime: ${(err.stderr || err.message || String(err)).slice(0, 200)}`); }
-    }
-    if (oven) {
-      if (!SELF_UPDATE) {
-        logFn("info", "⏭️", `oven/ changed at ${remoteHead.slice(0, 10)} but OVEN_SELF_UPDATE=0 — run oven/deploy.sh`);
-      } else {
+
+    if (remoteHead !== ovenSynced && SELF_UPDATE) {
+      const changed = await changedSince(ovenSynced);
+      if (!changed || changed.some(isOvenChange)) {
         try {
           await updateOven(remoteHead, changed || []);
           health.ovenUpdatedAt = new Date().toISOString();
@@ -181,11 +172,29 @@ async function poll() {
           logFn("info", "🧰", `oven code at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isOvenChange).length : "all"} file(s))`);
         } catch (err) { failures.push(`oven: ${(err.stderr || err.message || String(err)).slice(0, 200)}`); }
       }
+      if (!failures.length) { await writeHash(OVEN_HASH_FILE, remoteHead); health.ovenHash = remoteHead; }
+    } else if (remoteHead !== ovenSynced) {
+      logFn("info", "⏭️", `oven/ may have changed at ${remoteHead.slice(0, 10)} but OVEN_SELF_UPDATE=0 — run oven/deploy.sh`);
+      await writeHash(OVEN_HASH_FILE, remoteHead); health.ovenHash = remoteHead;
     }
-    if (!runtime && !oven) logFn("info", "⏭️", `new commits (${remoteHead.slice(0, 10)}) touch neither the runtime nor oven/`);
-    if (failures.length) throw new Error(failures.join(" | ")); // marker stays: the next tick retries
-    await writeSyncedHash(remoteHead);
-    if (ovenLanded) restartWhenIdle(remoteHead);
+
+    if (remoteHead !== runtimeSynced) {
+      const changed = await changedSince(runtimeSynced);
+      if (!changed || changed.some(isRuntimeChange)) {
+        try {
+          await exportRuntime(remoteHead);
+          health.runtimeSyncedAt = new Date().toISOString();
+          onRuntimeSynced(remoteHead);
+          logFn("info", "📥", `ac-source now at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isRuntimeChange).length : "all"} runtime file(s))`);
+          await writeHash(RUNTIME_HASH_FILE, remoteHead); health.syncedHash = remoteHead;
+        } catch (err) { failures.push(`runtime: ${(err.stderr || err.message || String(err)).slice(0, 200)}`); }
+      } else {
+        await writeHash(RUNTIME_HASH_FILE, remoteHead); health.syncedHash = remoteHead;
+      }
+    }
+
+    if (ovenLanded) restartWhenIdle(remoteHead); // the new code may carry the runtime lane's fix
+    if (failures.length) throw new Error(failures.join(" | ")); // its marker stays: the next tick retries
   } catch (err) {
     health.lastPollOk = false;
     health.lastError = (err.stderr || err.message || String(err)).slice(0, 300);
