@@ -41,6 +41,9 @@ enum Piano {
         case 79: return NSColor(srgbRed:  50/255, green: 200/255, blue: 255/255, alpha: 1)  // G5
         case 81: return NSColor(srgbRed: 180/255, green:  50/255, blue: 255/255, alpha: 1)  // A5
         case 83: return NSColor(srgbRed: 255/255, green:  80/255, blue: 255/255, alpha: 1)  // B5
+        // Extended top keys — reuse the octave-5 hues so song cards can draw them.
+        case 84: return NSColor(srgbRed: 255/255, green:  40/255, blue:  80/255, alpha: 1)  // C6
+        case 86: return NSColor(srgbRed: 255/255, green: 180/255, blue:   0/255, alpha: 1)  // D6
         default: return .clear
         }
     }

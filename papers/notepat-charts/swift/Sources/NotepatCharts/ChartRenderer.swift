@@ -579,7 +579,9 @@ enum ChartRenderer {
         bylineAttr.append(NSAttributedString(string: "@jeffrey", attributes: [
             .font: bodyFont(size: 9.5, bold: true), .foregroundColor: dark,
         ]))
-        bylineAttr.append(NSAttributedString(string: "  ·  aesthetic.computer  ·  may 2026", attributes: [
+        // A cover's `footer` overrides the date stamp (the default deck is May 2026).
+        let stamp = chart.footer.isEmpty ? "may 2026" : chart.footer
+        bylineAttr.append(NSAttributedString(string: "  ·  aesthetic.computer  ·  " + stamp, attributes: [
             .font: bodyFont(size: 9.5), .foregroundColor: gray,
         ]))
         let bylineBounds = bylineAttr.boundingRect(
@@ -695,11 +697,28 @@ enum ChartRenderer {
                 }
                 let gap = current.isEmpty ? 0 : colGap
                 if x + gap + w > availW && !current.isEmpty {
-                    // wrap; drop trailing separator on the wrapped row
-                    if case .sep = current.last?.unit { current.removeLast() }
-                    rows.append(current)
-                    current = []
-                    x = 0
+                    // wrap. Prefer breaking at the last phrase separator so a
+                    // phrase (a bar, for score cards) stays whole on one row;
+                    // fall back to a plain greedy break when the row holds a
+                    // single long phrase.
+                    let lastSep = current.lastIndex { if case .sep = $0.unit { return true } else { return false } }
+                    if let cut = lastSep, cut > 0, cut < current.count - 1 {
+                        let carried = Array(current[(cut + 1)...])
+                        rows.append(Array(current[..<cut]))
+                        current = []
+                        x = 0
+                        for c in carried {
+                            let g = current.isEmpty ? 0 : colGap
+                            current.append(Placed(unit: c.unit, x: x + g, w: c.w))
+                            x += g + c.w
+                        }
+                    } else {
+                        // drop trailing separator on the wrapped row
+                        if case .sep = current.last?.unit { current.removeLast() }
+                        rows.append(current)
+                        current = []
+                        x = 0
+                    }
                 }
                 // skip leading separator at the start of a new row
                 if current.isEmpty {
@@ -755,7 +774,11 @@ enum ChartRenderer {
                 let cx = x + cw / 2
                 switch placed.unit {
                 case .pair(let note, let syl):
-                    let color = noteColorForLetter(note)
+                    // Unknown letters (e.g. a held-note dash) fall back to a
+                    // catalog gray that has no RGB components; normalise so the
+                    // ring/luminance math below never throws.
+                    let rawColor = noteColorForLetter(note)
+                    let color = rawColor.usingColorSpace(.sRGB) ?? rawColor
                     // Circle — filled note color with a darker stroke
                     // ring (~35% darker hue) so the note pops as a
                     // bordered chip.
