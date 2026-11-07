@@ -1368,9 +1368,16 @@ app.all("/media-collection", directFn("media-collection"));
 app.all("/media-collection/*rest", directFn("media-collection"));
 app.all("/device-login", directFn("device-login"));
 app.all("/device-auth", directFn("device-auth"));
-app.all("/mcp/ac", directFn("ac-connector"));
-app.get("/.well-known/oauth-protected-resource/mcp/ac", directFn("ac-connector"));
+app.all(["/mcp/ac", "/mcp/aesthetic.computer"], directFn("ac-connector"));
+app.get(["/.well-known/oauth-protected-resource/mcp/ac", "/.well-known/oauth-protected-resource/mcp/aesthetic.computer"], directFn("ac-connector"));
 app.all("/api/oskie/*rest", directFn("oskie"));
+// Deliver the installed engine without copying private implementation into core.
+app.get("/oskie/engine/:file", (req, res) => {
+  if (!["oskiewar.js", "scene3d.mjs", "scene3d-webgl.mjs", "oskiewar-sfx.mjs"].includes(req.params.file))
+    return res.sendStatus(404);
+  res.set("Cache-Control", "no-cache");
+  res.sendFile(join(__dirname, "..", "xbox", "live", req.params.file));
+});
 app.get(["/oskie", "/oskie/", "/oskie/:id"], (req, res, next) => {
   if (req.params.id && !/^[a-f0-9]{32}$/.test(req.params.id)) return next();
   res.set({"Cache-Control":"no-store", "Referrer-Policy":"no-referrer"});

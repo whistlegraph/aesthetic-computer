@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
     <title>oskie · Aesthetic.Computer</title>
-    <link rel="icon" href="/icon/128x128/prompt.png" />
+    <link rel="icon" href="/oskie/connector-icon.png" />
     <style>
       /* AC HTML frontend palette, type and layout: reports/ac-html-frontend-style-guide.md. */
       @font-face {
@@ -455,7 +455,7 @@
             </div>
             <p class="dim">Open a .oskie file here or drop it onto the page.</p>
             <section class="connector-panel" aria-labelledby="connector-title">
-              <h2 id="connector-title">Make a game with Claude</h2>
+              <h2 id="connector-title">Make a game with Claude or ChatGPT</h2>
               <p>
                 Connect your AC <code>@handle</code>, then keep a browser
                 preview open while you create.
@@ -465,7 +465,7 @@
                 <input
                   id="connector"
                   readonly
-                  value="https://aesthetic.computer/mcp/ac"
+                  value="https://mcp.aesthetic.computer"
                 /><button id="copy-connector">Copy</button>
               </div>
               <p id="copy-status" role="status" class="dim" hidden></p>
@@ -473,6 +473,7 @@
                 <a href="https://claude.ai/customize/connectors"
                   >Connect Claude ↗</a
                 >
+                · <a href="https://chatgpt.com/plugins">Connect ChatGPT ↗</a>
                 · <a href="/oskie/guide.html">Setup and game format</a>
               </p>
             </section>
@@ -501,13 +502,14 @@
                 download="island-crisis.oskie"
                 >Download .oskie</a
               >
+              <a class="button" href="/oskie/?example=island-crisis">Play here</a>
               <a href="https://ow-engine-railshooter.vercel.app/"
                 >Open original web build ↗</a
               >
             </p>
             <p>
               Recovered from the build Artur shared October 21–22; saved
-              November 6. Requires the original Oskiewar 3D runtime.
+              November 6. Plays here on the original Oskiewar 3D engine.
             </p>
           </article>
         </div>
@@ -524,11 +526,9 @@
                 November 6 · Aesthetic<span class="ac-dot">.</span>Computer
               </dt>
               <dd>
-                The next workflow brings game creation into Claude Desktop with
-                an AC <code>@handle</code>, live browser previews and saved
-                revisions. The <code>.oskie</code> name carries forward. This
-                first AC canvas player does not yet run the original kit’s full
-                3D API.
+                Create in Claude or ChatGPT with an AC <code>@handle</code>,
+                live browser previews and saved revisions. The player uses the
+                original Oskiewar engine: 3D cameras, objects and characters.
               </dd>
             </div>
             <div>
@@ -591,8 +591,9 @@
       </footer>
     </main>
     <script type="module">
-      import { validateGame, starterGame } from "/oskie/format.mjs";
+      import { validateGame, starterEngineGame } from "/oskie/format.mjs";
       import { sandboxDocument } from "/oskie/runtime.mjs";
+      import { loadEngineSources, engineSandboxDocument } from "/oskie/engine-runtime.mjs";
       const $ = (id) => document.getElementById(id),
         id = /\/oskie\/([a-f0-9]{32})\/?$/.exec(location.pathname)?.[1];
       const token = new URLSearchParams(location.hash.slice(1)).get("preview");
@@ -638,11 +639,14 @@
         health = "stopped";
         say("Stopped.");
       }
-      function play(value) {
+      async function play(value) {
         stop();
         disposed = false;
         current = value;
         const game = validateGame(value.bundle);
+        const starting = generation;
+        const engineSources = game.manifest.runtime === "oskiewar-1" ? await loadEngineSources() : undefined;
+        if (starting !== generation) return;
         $("error").hidden = true;
         $("welcome").hidden = true;
         $("game").hidden = false;
@@ -711,14 +715,14 @@
           "load",
           () =>
             frameElement.contentWindow?.postMessage(
-              { type: "start", bundle: game },
+              { type: "start", bundle: game, engineSources },
               "*",
               [channel.port2],
             ),
           { once: true },
         );
         const nonce = crypto.randomUUID().replaceAll("-", "");
-        iframe.srcdoc = sandboxDocument(nonce);
+        iframe.srcdoc = engineSources ? engineSandboxDocument(nonce) : sandboxDocument(nonce);
         $("stage").replaceChildren(iframe);
         say("Starting…");
         timer = setInterval(() => {
@@ -742,7 +746,7 @@
           });
           const value = await r.json();
           if (!r.ok) throw Error(value.error);
-          if (!current || value.revision !== current.revision) play(value);
+          if (!current || value.revision !== current.revision) await play(value);
         } catch (e) {
           fail(e);
         } finally {
@@ -757,14 +761,14 @@
           );
         const bundle = validateGame(JSON.parse(await file.text()));
         local = true;
-        play({ bundle, revision: "local-" + crypto.randomUUID() });
+        await play({ bundle, revision: "local-" + crypto.randomUUID() });
       }
       $("file").addEventListener("change", (e) =>
         file(e.target.files[0]).catch(fail),
       );
       $("example").onclick = () =>
-        play({ bundle: starterGame(), revision: "example" });
-      $("restart").onclick = () => current && play(current);
+        play({ bundle: starterEngineGame(), revision: "example" }).catch(fail);
+      $("restart").onclick = () => current && play(current).catch(fail);
       $("stop").onclick = stop;
       addEventListener("dragover", (e) => e.preventDefault());
       addEventListener("drop", (e) => {
@@ -779,13 +783,17 @@
       if (dropped) {
         sessionStorage.removeItem("ac:oskie:drop");
         try {
-          play({
+          await play({
             bundle: validateGame(JSON.parse(dropped)),
             revision: "local-" + crypto.randomUUID(),
           });
         } catch (e) {
           fail(e);
         }
+      }
+      if (new URLSearchParams(location.search).get("example") === "island-crisis") {
+        const response = await fetch("/oskie/examples/island-crisis-engine-455.oskie");
+        if (response.ok) await play({bundle: await response.json(), revision: "example-island-crisis"}).catch(fail);
       }
       if (id) {
         await poll();

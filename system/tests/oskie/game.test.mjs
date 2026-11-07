@@ -11,6 +11,7 @@ import { createGameStore } from "../../backend/oskie-store.mjs";
 import {
   resolveGameAccount,
   OSKIE_RESOURCE,
+  OSKIE_RESOURCES,
 } from "../../backend/oskie-account.mjs";
 import { createOAuth } from "../../backend/ac-oauth.mjs";
 import {
@@ -40,7 +41,7 @@ test("format rejects traversal, prototype paths, oversized data, malformed files
   large.files["big.txt"] = { type: "text/plain", text: "x".repeat(MAX_BYTES) };
   assert.throws(() => validateGame(large), /2 MB/);
   for (const change of [
-    (b) => (b.manifest.mode = "overlay"),
+    (b) => (b.manifest.mode = "unknown"),
     (b) => (b.manifest.runtime = "unknown"),
     (b) => (b.manifest.entry = "missing.mjs"),
     (b) => (b.files["bad.bin"] = { type: "image/png", base64: "%%%" }),
@@ -83,7 +84,7 @@ test("owner isolation, concurrent edits, public revision pinning and restoration
   assert.equal(draft.bundle.manifest.title, "Changed");
   assert.equal(
     (await store.readPublic(p.id)).bundle.manifest.title,
-    "Catch the square",
+    "Monowheel garden",
   );
   await rejected(store.publish(alice, p.id, p.revision), 409);
   const restored = await store.restore(alice, p.id, p.revision, draft.revision);
@@ -214,7 +215,7 @@ test("MCP discovery, errors, full tool lifecycle and public API access", async (
   assert.equal(unauth.statusCode, 401);
   assert.match(
     unauth.headers["WWW-Authenticate"],
-    /oauth-protected-resource\/mcp\/ac/,
+    /https:\/\/mcp\.aesthetic\.computer\/\.well-known\/oauth-protected-resource/,
   );
   const badOrigin = await handler({
     httpMethod: "POST",
@@ -305,4 +306,52 @@ test("product tokens cannot approve another connector", async () => {
   const { verifiedUser } = await import("../../netlify/functions/ac-oauth.mjs");
   await assert.rejects(verifiedUser({authorization:"Bearer act_existing_product"}), {status:401});
   await assert.rejects(verifiedUser({authorization:"bearer act_existing_product"}), {status:401});
+});
+
+test("canonical and legacy discovery preserve resource identity; icons negotiate with protocol", async () => {
+  const handler = createConnector({ account: async () => alice });
+  for (const [path, resource] of [
+    ["/.well-known/oauth-protected-resource/mcp/aesthetic.computer", OSKIE_RESOURCE],
+    ["/.well-known/oauth-protected-resource/mcp/ac", OSKIE_RESOURCES[2]],
+  ]) {
+    const r = JSON.parse((await handler({path, httpMethod: "GET", headers: {}})).body);
+    assert.equal(r.resource, resource);
+    assert.equal(r.resource_logo_uri, OSKIE_RESOURCE + "/icon.png");
+  }
+  for (const version of ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]) {
+    const r = JSON.parse((await handler({httpMethod: "POST", headers: {}, body: JSON.stringify({jsonrpc: "2.0", id: 1, method: "initialize", params: {protocolVersion: version}})})).body).result;
+    assert.equal(r.protocolVersion, version);
+    assert.equal(Boolean(r.serverInfo.icons), version === "2025-11-25");
+  }
+});
+
+test("separate Claude and ChatGPT OAuth clients share tools and owned projects across resource aliases", async () => {
+  const db = memoryDb(), oauth = createOAuth({db}), store = createGameStore(db);
+  const handler = createConnector({
+    account: (headers) => resolveGameAccount(headers, {oauth, locked: async () => false, identity: async sub => ({sub, handle: sub === alice.sub ? "alice" : "bob"})}),
+    store: async () => store,
+  });
+  async function connect(clientName, redirect, user, resource) {
+    const client = await oauth.register({client_name: clientName, redirect_uris: [redirect]});
+    const verifier = "p".repeat(64);
+    const query = {client_id: client.client_id, response_type: "code", resource, code_challenge_method: "S256", code_challenge: createHash("sha256").update(verifier).digest("base64url")};
+    const callback = new URL(await oauth.approve(query, user));
+    const token = await oauth.token({client_id: client.client_id, grant_type: "authorization_code", code: callback.searchParams.get("code"), code_verifier: verifier, resource});
+    return async (method, params = {}) => JSON.parse((await handler({httpMethod: "POST", headers: {authorization: "Bearer " + token.access_token}, body: JSON.stringify({jsonrpc: "2.0", id: 1, method, params})})).body).result;
+  }
+  const claude = await connect("Claude", "https://claude.ai/api/mcp/auth_callback", alice, OSKIE_RESOURCES[2]);
+  const chatgpt = await connect("ChatGPT", "https://chatgpt.com/connector/oauth/test", alice, OSKIE_RESOURCE);
+  const other = await connect("ChatGPT", "https://chatgpt.com/connector/oauth/other", bob, OSKIE_RESOURCE + "/");
+  assert.deepEqual(await claude("tools/list"), await chatgpt("tools/list"));
+  const call = async (client, name, args = {}) => {
+    const r = await client("tools/call", {name, arguments: args});
+    assert.equal(r.isError, undefined, JSON.stringify(r));
+    return JSON.parse(r.content[0].text);
+  };
+  const game = await call(claude, "create_game");
+  const read = await call(chatgpt, "read_game", {id: game.id});
+  const updated = await call(chatgpt, "update_game", {id: game.id, expected_revision: read.revision, bundle: starterGame("shared-game", "Shared game")});
+  assert.equal((await call(claude, "read_game", {id: game.id})).revision, updated.revision);
+  assert.deepEqual(await call(other, "list_games"), []);
+  assert.equal((await other("tools/call", {name: "read_game", arguments: {id: game.id}})).isError, true);
 });

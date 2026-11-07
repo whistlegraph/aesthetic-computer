@@ -6,10 +6,10 @@ import { chromium } from "playwright";
 import { memoryDb } from "./memory-db.mjs";
 import { createGameStore } from "../../backend/oskie-store.mjs";
 import { createGameAPI } from "../../netlify/functions/oskie.mjs";
-import { starterGame } from "../../public/oskie/format.mjs";
+import { starterGame, starterEngineGame } from "../../public/oskie/format.mjs";
 const owner = { sub: "browser-test", handle: "@browser-test" },
   store = createGameStore(memoryDb());
-const project = await store.create(owner),
+const project = await store.create(owner, {bundle: starterGame()}),
   api = createGameAPI({ store: async () => store });
 const server = createServer(async (req, res) => {
   try {
@@ -26,6 +26,12 @@ const server = createServer(async (req, res) => {
       res.writeHead(r.statusCode, r.headers);
       res.end(r.body);
       return;
+    }
+    if (path.startsWith("/oskie/engine/")) {
+      const name = path.slice("/oskie/engine/".length);
+      if (!["oskiewar.js", "scene3d.mjs", "scene3d-webgl.mjs", "oskiewar-sfx.mjs"].includes(name)) return res.writeHead(404).end();
+      res.setHeader("Content-Type", "text/javascript");
+      return res.end(await readFile(new URL("../../../xbox/live/" + name, import.meta.url)));
     }
     const filename =
       /^\/oskie\/(?:[a-f0-9]{32})?$/.test(path) || path === "/oskie"
@@ -127,10 +133,40 @@ try {
     .locator("#status")
     .filter({ hasText: "Revision " + probed.revision.slice(0, 8) })
     .waitFor();
+  // The recovered game runs unchanged on the original engine, including its DOM UI.
+  const island = JSON.parse(await readFile(new URL("../../public/oskie/examples/island-crisis-engine-455.oskie", import.meta.url)));
+  const original = await store.update(owner, project.id, island, probed.revision);
+  await page.locator("#status").filter({hasText: "Revision " + original.revision.slice(0,8)}).waitFor({timeout: 20000});
+  await page.waitForTimeout(1500);
+  console.log("original game state", await page.locator("#status").textContent());
+  await page.screenshot({path:"/tmp/ac-oskie-check/island-title.png"});
+  await page.frameLocator("iframe").locator("canvas").click({position:{x:400,y:250}});
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(1500);
+  await page.screenshot({path:"/tmp/ac-oskie-check/island-playing.png"});
+  assert.ok((await page.locator("#status").textContent()).includes("Revision"));
+  assert.equal(await page.frameLocator("iframe").locator("#ic-controller-button").count(), 1);
+  const threeD = starterEngineGame();
+  const playable = await store.update(owner, project.id, threeD, original.revision);
+  await page.locator("#status").filter({hasText: "Revision " + playable.revision.slice(0,8)}).waitFor({timeout:15000});
+  await page.waitForTimeout(700);
+  await page.screenshot({path:"/tmp/ac-oskie-check/monowheel.png"});
+  const gameFrame = page.frames().find(f => f.parentFrame());
+  assert.equal(await gameFrame.evaluate(async () => {
+    let blocked=0;
+    try { parent.document.body; } catch { blocked++; }
+    try { localStorage.getItem("secret"); } catch { blocked++; }
+    try { await fetch("https://example.com"); } catch { blocked++; }
+    return blocked;
+  }), 3);
+  await page.setViewportSize({width:390,height:844});
+  await page.waitForTimeout(300);
+  await page.screenshot({path:"/tmp/ac-oskie-check/monowheel-mobile.png"});
+  await page.setViewportSize({width:1280,height:1000});
   // A runaway game worker must remain stoppable from the host page.
   const runaway = starterGame("loop-test", "Runaway test");
   runaway.files["game.mjs"].text = "export function boot(){while(true){}}";
-  await store.update(owner, project.id, runaway, probed.revision);
+  await store.update(owner, project.id, runaway, playable.revision);
   await page
     .locator("#title")
     .filter({ hasText: "Runaway test" })

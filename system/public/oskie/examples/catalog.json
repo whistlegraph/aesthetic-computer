@@ -9,13 +9,14 @@
     "bytes": 194237,
     "sha256": "024ff2e2669e883a545bf8e9242b50ac8cbec68531046719d6c49113a43e8ff1",
     "source": "https://ow-engine-railshooter.vercel.app/game.oskie",
-    "play": "https://ow-engine-railshooter.vercel.app/",
+    "play": "https://aesthetic.computer/oskie/?example=island-crisis",
     "sharedDates": [
       "2026-10-21",
       "2026-10-22"
     ],
     "retrieved": "2026-11-06",
     "provenance": "Recovered from the web build Artur shared. Original bytes, not a downloaded iMessage attachment; the live file may have changed since it was shared.",
-    "compatibility": "Requires the legacy Oskiewar 3D runtime; not supported by ac-game-1."
+    "compatibility": "Original Oskiewar engine, hosted by the AC player as oskiewar-1. Persistent saves and controller calibration are unavailable in the sandbox.",
+    "originalPlay": "https://ow-engine-railshooter.vercel.app/"
   }
 ]

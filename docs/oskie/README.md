@@ -1,6 +1,6 @@
 # Aesthetic.Computer connector
 
-Make `.oskie` games in Claude Desktop and play them in an open Chrome tab.
+Make `.oskie` games in Claude Desktop or ChatGPT and play them in an open Chrome tab.
 Games belong to your verified Aesthetic Computer account and carry your AC
 `@handle`. No local code checkout, terminal, browser extension or Aesel
 installation is required.
@@ -11,16 +11,31 @@ Enter `oskie` at the Aesthetic Computer prompt to open the player and guide.
 The `oskie` corner label returns to the prompt.
 
 1. In Claude Desktop, open **Customize → Connectors → Add custom connector**.
-2. Name it **Aesthetic.Computer** and enter `https://aesthetic.computer/mcp/ac`.
+2. Name it **Aesthetic.Computer** and enter `https://mcp.aesthetic.computer`.
 3. Connect and sign in with your AC account. Choose an AC handle first at
    https://aesthetic.computer/handle if you do not have one.
 4. Enable the connector in a conversation. Ask: “Read the game guide, check
    my AC handle, and create a private .oskie game where I catch a moving square.”
 5. Open the returned preview link in Chrome. Keep the tab open while asking
-   Claude for changes. The tab loads saved revisions and returns screenshots
+   your assistant for changes. The tab loads saved revisions and returns screenshots
    and errors for Claude to inspect.
 6. Ask to publish a reviewed revision. Share its public AC link or download
    the `.oskie` file. Later edits remain private until you publish again.
+
+ChatGPT uses the same endpoint and tools. Open [ChatGPT Plugins](https://chatgpt.com/plugins),
+select **+ → Add custom MCP server**, enter **Aesthetic.Computer** and
+`https://mcp.aesthetic.computer`, and choose OAuth with automatic registration.
+Select **Create as a plugin**, review the tools, and connect your own AC account.
+In a new conversation, select the plugin with `@` and follow steps 4–6 above.
+Account and workspace policies determine custom MCP availability. See the
+[official setup](https://developers.openai.com/plugins/deploy/connect-chatgpt) and
+[OAuth requirements](https://developers.openai.com/plugins/build/auth) (checked November 6, 2026).
+
+Both clients share all 13 tools, runtime, project storage, revision checks and
+publishing behavior. Separate OAuth clients for the same AC account see the
+same games; different accounts cannot access each other's drafts. Browser
+preview feedback is the common visual feedback path. Client tool selection,
+approval prompts and image display still need separate real-client checks.
 
 The preview link is a read/report capability valid for 24 hours. Keep it
 private. It cannot edit or publish a game. `open_preview` creates a new link.
@@ -32,10 +47,9 @@ Artur’s Island Crisis helped turn Oskiewar into a kit for making other games.
 His workflow combined Claude Code, playable builds and requests that shaped
 the engine.
 
-- **November 6:** Aesthetic.Computer adds the Claude connector, verified AC
+- **November 6:** Aesthetic.Computer adds Claude and ChatGPT connections, verified AC
   handles, private revisions and browser preview feedback. `.oskie` remains
-  the portable format; the initial AC canvas player does not yet implement
-  the original kit’s full 3D API.
+  the portable format; the player hosts the original engine’s 3D camera, figures and objects.
 - **October 27:** Artur shared
   [Island Crisis by Dreamdealer on Fuser](https://island-crisis-by-dreamdealer.fuser.app/).
   A shared version does not establish a jam submission or result.
@@ -56,7 +70,8 @@ the engine.
 by Artur Matveichenkov is preserved byte-for-byte from
 [the rail-shooter build](https://ow-engine-railshooter.vercel.app/) he shared
 October 21–22. Retrieved November 6, 2026; 194,237 bytes, engine 455.
-It requires the original Oskiewar 3D API, not `ac-game-1`.
+[Play it in AC](https://aesthetic.computer/oskie/?example=island-crisis)
+using the original Oskiewar engine. The archived download is unchanged.
 
 SHA-256: `024ff2e2669e883a545bf8e9242b50ac8cbec68531046719d6c49113a43e8ff1`.
 The public [catalog](https://aesthetic.computer/oskie/examples/catalog.json)
@@ -84,7 +99,7 @@ service lives on aesthetic.computer.
     "slug": "my-game",
     "title": "My game",
     "mode": "own",
-    "runtime": "ac-game-1",
+    "runtime": "oskiewar-1",
     "entry": "game.mjs"
   },
   "files": {
@@ -96,19 +111,25 @@ service lives on aesthetic.computer.
 }
 ```
 
-The AC player supports `boot(api)`, fixed-step `sim(api)` at 60 Hz and
-`paint(api)`, with canvas drawing, pointer, keyboard, gamepads and tones.
-The `game_guide` tool is the runtime API reference. Relative module imports
-must resolve inside the bundle; cyclic imports are not supported. Assets
-may use `{type,base64}`. Hosted bundles are limited to 2 MB and 128 files;
-the beta allows 100 projects and 200 saved revisions per account.
+The default `oskiewar-1` runtime loads the original Oskiewar engine and WebGL
+renderer from the installed private product. It exposes the original
+`boot`, fixed-60-Hz `sim`, `paint` and overlay `signal` hooks, 3D cameras,
+faces, lighting, projection, procedural objects, posed characters, HUD,
+keyboard, pointer, gamepads and sound. `game_guide` documents these APIs.
+Original bundles without a runtime field select this engine. The earlier
+`ac-game-1` canvas runtime remains available for already-authored games.
 
-This is the initial AC canvas runtime. Full Oskiewar fight overlays, 3D
-figures/props, its camera system and netplay still require their original
-engine. The format identifier alone does not imply API compatibility.
-Games execute in a dedicated worker inside an opaque sandbox iframe.
-They receive the public creator handle, not account credentials. Network,
-parent-window access and persistent browser storage are unavailable.
+Engine source stays in the vault; `/oskie/engine/` serves only the four
+allowlisted runtime assets. Games run in an opaque sandbox frame without AC
+credentials, parent access, network access or persistent storage. Original-engine
+games can create DOM controls; bundled blob assets can be fetched. Local saves
+and controller calibration therefore do not persist. Unlike `ac-game-1`'s
+worker, the DOM-compatible engine shares a browser renderer thread; runaway
+synchronous game code can freeze its tab. Public-room netplay is not enabled.
+
+Relative module imports must resolve inside the bundle; cycles are unsupported.
+Hosted bundles are limited to 2 MB and 128 files; the beta allows 100 projects
+and 200 saved revisions per account.
 
 Open a local file at https://aesthetic.computer/oskie/ or drop a `.oskie`
 onto Aesthetic Computer. Local files are not uploaded. To import a file into
@@ -136,8 +157,15 @@ verified account, never from a handle supplied by the assistant.
 The remote MCP endpoint uses Streamable HTTP POST with JSON responses and
 resource-bound OAuth with PKCE. Discovery:
 
-- `/.well-known/oauth-protected-resource/mcp/ac`
-- `/.well-known/oauth-authorization-server`
+- `https://mcp.aesthetic.computer/.well-known/oauth-protected-resource`
+- `https://aesthetic.computer/.well-known/oauth-authorization-server`
+
+The legacy `https://aesthetic.computer/mcp/ac` endpoint and its resource-bound
+tokens remain supported. The dedicated host is routed through Cloudflare to
+lith. Its `/icon.png` and favicon aliases serve the existing
+[Pals Neon Punch logo](https://pals.aesthetic.computer/pals-av-neon-punch.png),
+archived as `system/public/oskie/connector-icon.png`. Protected-resource metadata
+advertises the logo; MCP 2025-11-25 initialization also includes a server icon.
 
 The existing `/mcp` and notepaint connector remain separate. The new runtime
 uses Mongo collections `oskie-games`, `oskie-revisions` and `oskie-previews`.

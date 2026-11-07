@@ -1,4 +1,6 @@
-export const OSKIE_RESOURCE = "https://aesthetic.computer/mcp/ac";
+export const OSKIE_RESOURCE = "https://mcp.aesthetic.computer";
+export const LEGACY_OSKIE_RESOURCE = "https://aesthetic.computer/mcp/ac";
+export const OSKIE_RESOURCES = [OSKIE_RESOURCE, OSKIE_RESOURCE + "/", LEGACY_OSKIE_RESOURCE];
 export async function resolveGameAccount(headers, dependencies = {}) {
   const token = (headers?.authorization || "").replace(/^Bearer\s+/i, "");
   let user;
@@ -6,7 +8,7 @@ export async function resolveGameAccount(headers, dependencies = {}) {
     const oauth =
       dependencies.oauth || (await (await import("./ac-oauth.mjs")).acOAuth());
     const linked = await oauth.resolve(token);
-    if (!linked || linked.resource !== OSKIE_RESOURCE)
+    if (!linked || !OSKIE_RESOURCES.includes(linked.resource))
       throw Object.assign(Error("Link Aesthetic.Computer again."), {
         status: 401,
       });

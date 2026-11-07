@@ -22,6 +22,8 @@ export const TOKEN_PREFIX = "act_";
 export const RESOURCES = {
   "https://notepaint.art/mcp": { name: "notepaint", home: "https://notepaint.art", permissions: "paint, and spend your Braincells when it does" },
   "https://aesthetic.computer/mcp/ac": { name: "Aesthetic.Computer", home: "https://aesthetic.computer/oskie/", permissions: "read your AC handle, create and edit your game projects, and publish games when you ask" },
+  "https://mcp.aesthetic.computer": { name: "Aesthetic.Computer", home: "https://aesthetic.computer/oskie/", permissions: "read your AC handle, create and edit your game projects, and publish games when you ask" },
+  "https://mcp.aesthetic.computer/": { name: "Aesthetic.Computer", home: "https://aesthetic.computer/oskie/", permissions: "read your AC handle, create and edit your game projects, and publish games when you ask" },
 };
 
 const CODE_MS = 10 * 60 * 1000;

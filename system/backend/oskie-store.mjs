@@ -1,5 +1,5 @@
 import { randomBytes, createHash } from "node:crypto";
-import { validateGame, starterGame } from "../public/oskie/format.mjs";
+import { validateGame, starterEngineGame } from "../public/oskie/format.mjs";
 const fail = (status, message) => Object.assign(Error(message), { status });
 const id = () => randomBytes(16).toString("hex");
 const hash = (x) => createHash("sha256").update(x).digest("hex");
@@ -91,7 +91,7 @@ export function createGameStore(db, { now = () => new Date() } = {}) {
         r = await saveRevision(
           owner,
           gameId,
-          bundle || starterGame(slug, title),
+          bundle || starterEngineGame(slug, title),
         );
       await games.insertOne({
         _id: gameId,

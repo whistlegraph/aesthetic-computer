@@ -436,7 +436,7 @@
       ><a href="/oskie/">Play .oskie</a>
     </header>
     <main>
-      <h2 class="guide-title">Make games in Claude</h2>
+      <h2 class="guide-title">Make games in Claude or ChatGPT</h2>
       <p>
         <a href="#oskiewar-so-far"
           >Oskiewar so far — Artur’s work with the kit</a
@@ -448,37 +448,40 @@
           <a href="https://claude.ai/customize/connectors"
             >Customize → Connectors</a
           >
-          and add a custom connector.
+          and add a custom connector. In ChatGPT, open
+          <a href="https://chatgpt.com/plugins">Plugins</a>, select +, then
+          <strong>Add custom MCP server</strong>.
         </li>
         <li>
           Name it
           <strong>Aesthetic<span class="ac-dot">.</span>Computer</strong>. Use
-          <code>https://aesthetic.computer/mcp/ac</code> as its URL.
+          <code>https://mcp.aesthetic.computer</code> as its URL. Choose OAuth
+          and automatic client registration. In ChatGPT, select
+          <strong>Create as a plugin</strong> and review the discovered tools.
         </li>
         <li>
           Connect and sign in with your AC account. Choose a
           <a href="/handle">handle</a> first if you need one.
         </li>
         <li>
-          Enable the connector in a chat. Ask: “Read the game guide, check my AC
+          Enable the connector in a chat (in ChatGPT, select it with @). Ask: “Read the game guide, check my AC
           handle, and make a private .oskie game where I catch a moving square.”
         </li>
         <li>
-          Open its preview link in Chrome. Keep the tab open while asking Claude
-          for changes. Claude can inspect screenshots and errors from that tab.
+          Open its preview link in Chrome. Keep the tab open while asking for changes. Both clients can inspect screenshots and errors from that tab.
         </li>
         <li>
-          When ready, ask Claude to publish the reviewed game. Share the public
+          When ready, ask to publish the reviewed game. Share the public
           link or download the .oskie file.
         </li>
       </ol>
       <p>
         Draft edits stay private until you publish again. Preview links last 24
-        hours; anyone with the link can view the draft. Ask Claude for a new
+        hours; anyone with the link can view the draft. Ask for a new
         preview when one expires.
       </p>
       <p>
-        Ask Claude to restore an earlier revision, unpublish a game, or delete a
+        Ask to restore an earlier revision, unpublish a game, or delete a
         project and its history. Download a copy before deleting.
       </p>
       <section id="oskiewar-so-far" aria-labelledby="oskiewar-history-title">
@@ -509,24 +512,23 @@
               download="island-crisis.oskie"
               >Download .oskie</a
             >
-            <a href="https://ow-engine-railshooter.vercel.app/"
+            <a class="button" href="/oskie/?example=island-crisis">Play here</a>
+              <a href="https://ow-engine-railshooter.vercel.app/"
               >Open original web build ↗</a
             >
           </p>
           <p>
             Recovered from the build Artur shared October 21–22; saved November
-            6. Requires the original Oskiewar 3D runtime.
+            6. Plays here on the original Oskiewar 3D engine.
           </p>
         </article>
         <dl class="history">
           <div>
             <dt>November 6 · Aesthetic<span class="ac-dot">.</span>Computer</dt>
             <dd>
-              The next workflow brings game creation into Claude Desktop with an
-              AC <code>@handle</code>, live browser previews and saved
-              revisions. The <code>.oskie</code> name carries forward. This
-              first AC canvas player does not yet run the original kit’s full 3D
-              API.
+              Create in Claude or ChatGPT with an AC <code>@handle</code>,
+                live browser previews and saved revisions. The player uses the
+                original Oskiewar engine: 3D cameras, objects and characters.
             </dd>
           </div>
           <div>
@@ -581,9 +583,10 @@
         browser.
       </p>
       <p>
-        The initial AC runtime supports canvas graphics, keyboard, pointer,
-        gamepads and tones. Oskiewar fight overlays, its 3D figures and netplay
-        still need their original engine. Hosted games can contain up to 2 MB
+        The player runs the original Oskiewar engine: 3D cameras, lighting,
+        procedural objects, posed characters, 2D HUD graphics and sound.
+        Games run in an isolated frame with keyboard, pointer and gamepad input.
+        Network access and persistent browser storage are unavailable. Hosted games can contain up to 2 MB
         and 128 files. The beta allows 100 projects and 200 saved revisions per
         account.
       </p>
