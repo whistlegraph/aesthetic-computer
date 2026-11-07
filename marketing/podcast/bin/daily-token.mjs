@@ -9,8 +9,9 @@
 //   pin     — the ZIP's contents as an IPFS directory, plus GIF, thumb and
 //             TZIP-21 metadata (/api/ipfs-add); the GIF stays the display
 //   mint    — mint_OBJKT on the hic et nunc minter, signed by aesthetic.tez
-//   list    — an objkt ask for the whole edition (Teia lists it too; the
-//             receipt's teiaUrl is the link we advertise)
+//   list    — a swap on Teia's Community Marketplace for the whole edition,
+//             so teia.art shows a buy button (DAILY_LIST_ON=objkt lists an
+//             objkt ask instead, as the series did before 2026-11-07)
 //
 // Every stage writes into out/daily/<slug>.token.json as it lands, so a
 // failed run resumes where it stopped and a finished one never double-mints.
@@ -24,6 +25,7 @@
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
 //   AC_TOKEN or ~/.ac-token            an @jeffrey AC session, for /api/ipfs-add
 // Tuning: DAILY_EDITIONS (1), DAILY_PRICE_XTZ (5), DAILY_ROYALTIES_PERMILLE (150),
+//         DAILY_LIST_ON (teia | objkt),
 //         DAILY_ARTIFACT (zip | gif; legacy html also uses ZIP packaging).
 
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
@@ -64,6 +66,7 @@ const SIGNER = "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"; // aesthetic.tez
 const HEN_MINTER = "KT1Hkg5qeNhfwpKW4fXvq7HGZB9z2EnmCCA9";
 const HEN_OBJKTS = "KT1RJ6PbjHpwc3M5rw5s2Nbmefwbuwbdxton";
 const OBJKT_MARKET = "KT1SwbTqhSKF6Pdokiu1K4Fpi17ahPPzmt1X"; // objkt marketplace v6.2
+const TEIA_MARKET = "KT1PHubm9HtyQEJ4BBpMTVomq6mhbfNZ9z5w"; // Teia Community Marketplace
 const RPC = process.env.TEZOS_RPC || "https://rpc.tzkt.io/mainnet";
 const TZKT = "https://api.tzkt.io/v1";
 const OVEN = process.env.OVEN_URL || "https://oven.aesthetic.computer";
@@ -73,6 +76,8 @@ const SHOW = "https://www.buzzsprout.com/2628235";
 const EDITIONS = Number(process.env.DAILY_EDITIONS || 1);
 const PRICE_XTZ = Number(process.env.DAILY_PRICE_XTZ || 5);
 const ROYALTIES = Number(process.env.DAILY_ROYALTIES_PERMILLE || 150); // HEN is per-mille
+const LIST_ON = process.env.DAILY_LIST_ON || "teia";
+if (!["teia", "objkt"].includes(LIST_ON)) { console.error(`✗ DAILY_LIST_ON=${LIST_ON}; teia or objkt`); process.exit(1); }
 const MIN_BALANCE_XTZ = 0.15; // a mint + a listing burn ~0.06
 
 const { artifactMode, dailyRenderer, crawlBundle, checkBundle, dailyPackage, contentFiles, checkPublishedContent, checkPinnedArtifact, tokenMetadata, TEIA_FORMAT } = await import(resolve(ROOT, "lib", "artifact.mjs"));
@@ -335,13 +340,21 @@ if (receipt.tokenId === undefined) {
 }
 
 // ── 4. list ──────────────────────────────────────────────────────────────
+// The market takes the editions into its own custody (Teia) or sells them
+// from the signer's wallet (objkt), so it is made an operator first.
 const token = await tezos.contract.at(HEN_OBJKTS);
-const market = await tezos.contract.at(OBJKT_MARKET);
-const op = await tezos.contract.batch()
-  .withContractCall(token.methodsObject.update_operators([
-    { add_operator: { owner: SIGNER, operator: OBJKT_MARKET, token_id: String(receipt.tokenId) } },
-  ]))
-  .withContractCall(market.methodsObject.ask({
+const marketAddress = LIST_ON === "teia" ? TEIA_MARKET : OBJKT_MARKET;
+const market = await tezos.contract.at(marketAddress);
+const listing = LIST_ON === "teia"
+  ? market.methodsObject.swap({
+    fa2: HEN_OBJKTS,
+    objkt_id: String(receipt.tokenId),
+    objkt_amount: String(EDITIONS),
+    xtz_per_objkt: String(Math.round(PRICE_XTZ * 1e6)),
+    royalties: String(ROYALTIES), // Teia is per-mille too
+    creator: SIGNER,
+  })
+  : market.methodsObject.ask({
     token: { address: HEN_OBJKTS, token_id: String(receipt.tokenId) },
     currency: { tez: {} },
     amount: String(Math.round(PRICE_XTZ * 1e6)),
@@ -351,13 +364,19 @@ const op = await tezos.contract.batch()
     expiry_time: null,
     referral_bonus: "500",
     condition: null,
-  }))
+  });
+const op = await tezos.contract.batch()
+  .withContractCall(token.methodsObject.update_operators([
+    { add_operator: { owner: SIGNER, operator: marketAddress, token_id: String(receipt.tokenId) } },
+  ]))
+  .withContractCall(listing)
   .send();
 await op.confirmation(1);
 Object.assign(receipt, {
-  listOp: op.hash, listed: true, editions: EDITIONS, priceXtz: PRICE_XTZ,
+  listOp: op.hash, listed: true, listedOn: LIST_ON, editions: EDITIONS, priceXtz: PRICE_XTZ,
   objktUrl: `https://objkt.com/tokens/hicetnunc/${receipt.tokenId}`,
   teiaUrl: `https://teia.art/objkt/${receipt.tokenId}`,
 });
+if (LIST_ON === "teia") receipt.teiaSwapOp = op.hash;
 save();
-console.log(`✓ ${slug}: OBJKT #${receipt.tokenId} — ${EDITIONS} × ${PRICE_XTZ} XTZ — ${receipt.teiaUrl}`);
+console.log(`✓ ${slug}: OBJKT #${receipt.tokenId} — ${EDITIONS} × ${PRICE_XTZ} XTZ on ${LIST_ON} — ${receipt.teiaUrl}`);
