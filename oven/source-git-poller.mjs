@@ -100,7 +100,9 @@ async function exportRuntime(hash) {
   await fs.rm(fresh, { recursive: true, force: true });
   await fs.mkdir(fresh, { recursive: true });
   const globs = RUNTIME_EXTENSIONS.map((e) => `'*${e}'`).join(" ");
-  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 --wildcards ${globs} -C '${fresh}'`);
+  // --wildcards-match-slash: a member is "system/public/aesthetic.computer/lib/disk.mjs",
+  // and without it `*.mjs` cannot cross the slashes (the first run extracted nothing).
+  await sh(`git -C '${GIT_REPO_DIR}' archive ${hash} '${RUNTIME_PREFIX}' | tar -x -m --strip-components=3 --wildcards --wildcards-match-slash ${globs} -C '${fresh}'`);
   await fs.access(path.join(fresh, "lib", "disk.mjs")); // a runtime without its core is not a runtime
   await fs.rm(old, { recursive: true, force: true });
   try { await fs.rename(AC_SOURCE_DIR, old); } catch {}
@@ -156,24 +158,34 @@ async function poll() {
     const runtime = changed ? changed.some(isRuntimeChange) : true;
     const oven = changed ? changed.some(isOvenChange) : true;
 
+    // Each lane fails on its own: a broken runtime export must not keep the
+    // oven's own code (including a fix for that export) from landing.
+    const failures = [];
+    let ovenLanded = false;
     if (runtime) {
-      await exportRuntime(remoteHead);
-      health.runtimeSyncedAt = new Date().toISOString();
-      onRuntimeSynced(remoteHead);
-      logFn("info", "📥", `ac-source now at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isRuntimeChange).length : "all"} runtime file(s))`);
+      try {
+        await exportRuntime(remoteHead);
+        health.runtimeSyncedAt = new Date().toISOString();
+        onRuntimeSynced(remoteHead);
+        logFn("info", "📥", `ac-source now at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isRuntimeChange).length : "all"} runtime file(s))`);
+      } catch (err) { failures.push(`runtime: ${(err.stderr || err.message || String(err)).slice(0, 200)}`); }
     }
     if (oven) {
       if (!SELF_UPDATE) {
         logFn("info", "⏭️", `oven/ changed at ${remoteHead.slice(0, 10)} but OVEN_SELF_UPDATE=0 — run oven/deploy.sh`);
       } else {
-        await updateOven(remoteHead, changed || []);
-        health.ovenUpdatedAt = new Date().toISOString();
-        logFn("info", "🧰", `oven code at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isOvenChange).length : "all"} file(s))`);
+        try {
+          await updateOven(remoteHead, changed || []);
+          health.ovenUpdatedAt = new Date().toISOString();
+          ovenLanded = true;
+          logFn("info", "🧰", `oven code at ${remoteHead.slice(0, 10)} (${changed ? changed.filter(isOvenChange).length : "all"} file(s))`);
+        } catch (err) { failures.push(`oven: ${(err.stderr || err.message || String(err)).slice(0, 200)}`); }
       }
     }
     if (!runtime && !oven) logFn("info", "⏭️", `new commits (${remoteHead.slice(0, 10)}) touch neither the runtime nor oven/`);
+    if (failures.length) throw new Error(failures.join(" | ")); // marker stays: the next tick retries
     await writeSyncedHash(remoteHead);
-    if (oven && SELF_UPDATE) restartWhenIdle(remoteHead);
+    if (ovenLanded) restartWhenIdle(remoteHead);
   } catch (err) {
     health.lastPollOk = false;
     health.lastError = (err.stderr || err.message || String(err)).slice(0, 300);
