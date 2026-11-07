@@ -27,6 +27,13 @@ import CoreAudio
 /// hears something. Once MIDISynth is up and primed, subsequent calls
 /// flip over silently — no audible glitch.
 final class MenuBandSynth {
+    private let performance: PerformanceExecutor
+
+    init(performance: PerformanceExecutor = PerformanceExecutor()) {
+        self.performance = performance
+        rewindVoice = MenuBandRewindVoice(controlQueue: performance.queue)
+    }
+
     private let engine = AVAudioEngine()
     private let outputGuard = MenuBandOutputGuard()
     private let audioTelemetry = MenuBandAudioTelemetry()
@@ -120,7 +127,7 @@ final class MenuBandSynth {
     /// the most-recent few seconds backwards. Plays DRY straight into
     /// mainMixerNode; capture self-gates during playback so the reversed
     /// audio isn't recaptured (notepat's `setCapturePaused` behaviour).
-    private let rewindVoice = MenuBandRewindVoice()
+    private let rewindVoice: MenuBandRewindVoice
     /// Sums every backend before the limiter so simultaneous voices share one
     /// gain stage. Without this, each backend would feed `mainMixerNode`
     /// directly and a chord across melodic + drums + midiSynth could exceed
@@ -235,7 +242,7 @@ final class MenuBandSynth {
     private var midiSynthConnected = false
     private var limiterConnected = false
     private var waveformCaptureEnabled = false
-    private var activeNotes: Set<UInt16> = []
+    private let activeNotes = PerformanceSnapshot(Set<UInt16>())
     /// Note keys currently sounding on the AC `gmSynth` node (vs. MIDISynth).
     /// Recorded on note-on so `noteOff` releases the GM voice even if the
     /// melodic program changed or the toggle flipped between press and
@@ -429,9 +436,9 @@ final class MenuBandSynth {
     private var melodicDuckGain: Float = 1
     private var melodicDuckTarget: Float = 1
     private var melodicDuckHoldUntil: CFTimeInterval = 0
-    private var melodicDuckTimer: Timer?
+    private var melodicDuckTimer: DispatchSourceTimer?
     private let melodicHeadroom = MelodicHeadroom()
-    private var melodicHeadroomTimer: Timer?
+    private var melodicHeadroomTimer: DispatchSourceTimer?
 
     /// External callers (the controller's hover-preview path) read this
     /// to decide whether they need to wait for the bank-swap settle delay
@@ -1411,6 +1418,7 @@ final class MenuBandSynth {
     /// wasn't enough captured audio to rewind (caller can cue a fallback).
     @discardableResult
     func playReverse() -> Bool {
+        engineLock.lock(); defer { engineLock.unlock() }
         return rewindVoice.playReverse()
     }
 
@@ -1419,6 +1427,7 @@ final class MenuBandSynth {
     /// note resets that anchor to the live head
     /// (see the `resetReverseAnchor` call in `noteOn`).
     func releaseReverse() {
+        engineLock.lock(); defer { engineLock.unlock() }
         rewindVoice.release()
     }
 
@@ -1689,14 +1698,14 @@ final class MenuBandSynth {
 
     private func scheduleIdleSuspendIfNeeded() {
         guard started, !waveformCaptureEnabled, waveformTapPinReasons.isEmpty,
-              !keepEngineWarm, activeNotes.isEmpty,
+              !keepEngineWarm, activeNotes.read().isEmpty,
               !sampleRecordingActive, !inputMonitor.isAttached, !ambientAir.isActive else { return }
         idleSuspendWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
         }
         idleSuspendWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + idleSuspendDelay, execute: workItem)
+        performance.queue.asyncAfter(deadline: .now() + idleSuspendDelay, execute: workItem)
     }
 
     private func suspendAudioEngineForHiddenIdleIfNeeded() {
@@ -1706,7 +1715,7 @@ final class MenuBandSynth {
         // stop the voice and leave every player node facing a paused engine
         // (AVAudioPlayerNode.play() then throws — two crashes on 2026-09-25).
         guard started, engine.isRunning, !waveformCaptureEnabled,
-              waveformTapPinReasons.isEmpty, activeNotes.isEmpty,
+              waveformTapPinReasons.isEmpty, activeNotes.read().isEmpty,
               !sampleRecordingActive, !keepEngineWarm, !inputMonitor.isAttached,
               !ambientAir.isActive else { return }
         interfaceFaultRecovery.suspend(at: ProcessInfo.processInfo.systemUptime)
@@ -2612,22 +2621,23 @@ final class MenuBandSynth {
     /// of the user's tones trim and the percussion sidechain. Mixer parameter
     /// ramps smooth attenuation; the model supplies a slower gain recovery.
     private func updateMelodicHeadroom() {
-        let update = { [weak self] in
+        performance.perform { [weak self] in
             guard let self, self.started else { return }
             self.preLimiterMixer.outputVolume = self.melodicHeadroom.nextGain(at: CACurrentMediaTime())
             guard self.melodicHeadroomTimer == nil else { return }
-            let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
-                guard let self, self.started else { timer.invalidate(); return }
+            let timer = DispatchSource.makeTimerSource(queue: self.performance.queue)
+            timer.schedule(deadline: .now(), repeating: 1.0 / 120, leeway: .milliseconds(1))
+            timer.setEventHandler { [weak self] in
+                guard let self else { return }
                 self.preLimiterMixer.outputVolume = self.melodicHeadroom.nextGain(at: CACurrentMediaTime())
-                if self.melodicHeadroom.isIdle {
-                    timer.invalidate()
+                if !self.started || self.melodicHeadroom.isIdle {
+                    self.melodicHeadroomTimer?.cancel()
                     self.melodicHeadroomTimer = nil
                 }
             }
             self.melodicHeadroomTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
+            timer.resume()
         }
-        if Thread.isMainThread { update() } else { DispatchQueue.main.async(execute: update) }
     }
 
     /// The monitor is audible only while Menu Band has performance focus:
@@ -2656,7 +2666,7 @@ final class MenuBandSynth {
                                     hold: TimeInterval,
                                     floor: Float = 0.48) {
         let velocityScale = Float(velocity) / 127
-        let polyphony = max(0, activeNotes.count - 1)
+        let polyphony = max(0, activeNotes.read().count - 1)
         let chordRelief = 1 - min(Float(0.33), Float(polyphony) * 0.11)
         let scaledDepth = depth * (0.55 + 0.45 * velocityScale) * chordRelief
         let target = max(floor, 1 - scaledDepth)
@@ -2678,8 +2688,7 @@ final class MenuBandSynth {
             }
             self.startMelodicDuckTimerIfNeeded()
         }
-        if Thread.isMainThread { apply() }
-        else { DispatchQueue.main.async(execute: apply) }
+        performance.perform(apply)
     }
 
     /// The keyboard kit's sidechain. The melodic bus (and the air, which
@@ -2727,9 +2736,10 @@ final class MenuBandSynth {
     private func startMelodicDuckTimerIfNeeded() {
         guard melodicDuckTimer == nil else { return }
         let tick: TimeInterval = 1.0 / 120.0
-        let timer = Timer(timeInterval: tick, repeats: true) {
-            [weak self] timer in
-            guard let self else { timer.invalidate(); return }
+        let timer = DispatchSource.makeTimerSource(queue: performance.queue)
+        timer.schedule(deadline: .now() + tick, repeating: tick, leeway: .milliseconds(1))
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
             let held = CACurrentMediaTime() < self.melodicDuckHoldUntil
             if !held { self.melodicDuckTarget = 1 }
             let target: Float = held ? self.melodicDuckTarget : 1
@@ -2750,13 +2760,12 @@ final class MenuBandSynth {
                 self.melodicDuckGain = 1
                 self.melodicDuckTarget = 1
                 self.melodicDuckMixer.outputVolume = 1
-                timer.invalidate()
+                self.melodicDuckTimer?.cancel()
                 self.melodicDuckTimer = nil
             }
         }
-        timer.tolerance = 1.0 / 480.0
-        RunLoop.main.add(timer, forMode: .common)
         melodicDuckTimer = timer
+        timer.resume()
     }
 
     /// Read the current master volume (last persisted or set value).
@@ -3193,8 +3202,10 @@ final class MenuBandSynth {
         engine.stop()
         audioTelemetry.stop()
         removeWaveformTapIfNeeded()
-        melodicHeadroomTimer?.invalidate()
+        melodicHeadroomTimer?.cancel()
         melodicHeadroomTimer = nil
+        melodicDuckTimer?.cancel()
+        melodicDuckTimer = nil
         melodicHeadroom.reset()
         preLimiterMixer.outputVolume = 1
         // Unwire the duplex input before the engine goes away so the private
@@ -3204,7 +3215,7 @@ final class MenuBandSynth {
         started = false
         midiSynthReady = false
         waveformCaptureEnabled = false
-        activeNotes.removeAll()
+        activeNotes.update { $0.removeAll() }
     }
 
     /// Send a CC#10 (pan) message on the given channel. Only takes
@@ -3215,7 +3226,7 @@ final class MenuBandSynth {
     func setPan(_ pan: UInt8, channel: UInt8 = 0) {
         // Mirror the pan into per-channel state regardless of the audible path,
         // so the tape's note hook can stamp CC10 onto captured MIDI note-ons.
-        channelPan[Int(channel & 0x0F)] = pan & 0x7F
+        channelPanState.update { $0[Int(channel & 0x0F)] = pan & 0x7F }
         acPiano.setPan(pan, channel: channel)
         whistle.setPan(pan, channel: channel)
         composite.setPan(pan, channel: channel)
@@ -3256,6 +3267,7 @@ final class MenuBandSynth {
         }
         triggerMelodicDuck(depth: depth, velocity: velocity, hold: hold)
         percussion.play(drum, velocity: velocity, pan: p)
+        performance.markInputSubmitted()
         // Keep the engine awake long enough for the drum tail to ring out,
         // since `activeNotes` stays empty. Re-arm the idle suspend timer so
         // it can't fire mid-tail.
@@ -3363,6 +3375,7 @@ final class MenuBandSynth {
         // half pumps the hand on the notes.
         sidechainDuck(drum: drum, velocity: velocity)
         let g = percussion.noteOn(drum, velocity: velocity, pan: p, accent: accent)
+        if g != 0 { performance.markInputSubmitted() }
         // Roomward: a TrackDrum hit flashes its own pars (no-op without a
         // widget) — routed apart from the keys, see DMXOut.fixtures.
         DMXOut.shared.drum(drum, velocity: Int(velocity))
@@ -3410,7 +3423,7 @@ final class MenuBandSynth {
             self?.suspendAudioEngineForHiddenIdleIfNeeded()
         }
         idleSuspendWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + max(idleSuspendDelay, 2.0),
+        performance.queue.asyncAfter(deadline: .now() + max(idleSuspendDelay, 2.0),
                                       execute: workItem)
     }
 
@@ -3421,11 +3434,13 @@ final class MenuBandSynth {
 
     /// Per-channel CC10 pan (0–127, 64 = center), mirrored from `setPan` so the
     /// note hook can stamp each note-on with the pan it was played at.
-    private(set) var channelPan = [UInt8](repeating: 64, count: 16)
+    private let channelPanState = PerformanceSnapshot([UInt8](repeating: 64, count: 16))
+    var channelPan: [UInt8] { channelPanState.read() }
 
     func noteOn(_ midi: UInt8, velocity: UInt8 = 100, channel: UInt8 = 0) {
         guard started else { return }
         guard resumeAudioEngineIfNeeded() else { return }
+        defer { performance.markInputSubmitted() }
         audioTelemetry.trigger(percussion: channel == 9)
         onNoteEvent?(midi, velocity, true, channel, channelPan[Int(channel & 0x0F)])
         // Roomward: every sounding note also pulses the DMX fixture (no-op
@@ -3439,7 +3454,7 @@ final class MenuBandSynth {
         // Self-heal after a device switch: reload the soundbank before the
         // first note so it can't sound as the default sine.
         reassertMIDISynthBankIfDirty()
-        activeNotes.insert(noteKey(midi, channel: channel))
+        activeNotes.update { $0.insert(noteKey(midi, channel: channel)) }
         melodicHeadroom.noteOn(midi, velocity: velocity, channel: channel, at: CACurrentMediaTime())
         updateMelodicHeadroom()
         // A struck note puffs more air into the held bed (no-op when the
@@ -3654,7 +3669,7 @@ final class MenuBandSynth {
         onNoteEvent?(midi, 0, false, channel, channelPan[Int(channel & 0x0F)])
         DMXOut.shared.noteOff(midi: Int(midi))
         let key = noteKey(midi, channel: channel)
-        activeNotes.remove(key)
+        activeNotes.update { $0.remove(key) }
         melodicHeadroom.noteOff(midi, channel: channel, at: CACurrentMediaTime())
         defer { scheduleIdleSuspendIfNeeded() }
         // Release an AC GM voice if this exact note was routed there on
@@ -3714,7 +3729,7 @@ final class MenuBandSynth {
         DMXOut.shared.blackout()
         melodicHeadroom.reset()
         preLimiterMixer.outputVolume = 1
-        activeNotes.removeAll()
+        activeNotes.update { $0.removeAll() }
         gmRoutedNotes.removeAll()
         if gmSynthEnabled { gmSynth.panic() }
         fluodRoutedNotes.removeAll()

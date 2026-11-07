@@ -266,8 +266,15 @@ cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 # Stamp the git revision this build came from, so the running app can tell
 # when it has fallen behind the served main (RevisionChecker → orange branch
 # mark on the chip). Skipped silently outside a git checkout.
-if GIT_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse HEAD 2>/dev/null)"; then
-    GIT_COUNT="$(git -C "${SCRIPT_DIR}" rev-list --count HEAD 2>/dev/null || echo 0)"
+# A worker-built binary can come from a different revision than this checkout.
+# Resolve and validate the supplied provenance before replacing the live app.
+BUILD_REVISION="${MENUBAND_PREBUILT_REVISION:-HEAD}"
+if [[ -n "${MENUBAND_PREBUILT_REVISION:-}" ]]; then
+    [[ -n "${MENUBAND_PREBUILT_DIR:-}" ]] || { echo "A prebuilt revision requires MENUBAND_PREBUILT_DIR" >&2; exit 1; }
+    git -C "${SCRIPT_DIR}" rev-parse --verify "${BUILD_REVISION}^{commit}" >/dev/null || exit 1
+fi
+if GIT_COMMIT="$(git -C "${SCRIPT_DIR}" rev-parse --verify "${BUILD_REVISION}^{commit}" 2>/dev/null)"; then
+    GIT_COUNT="$(git -C "${SCRIPT_DIR}" rev-list --count "${GIT_COMMIT}" 2>/dev/null || echo 0)"
     GIT_BRANCH="$(git -C "${SCRIPT_DIR}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
     for kv in "MBGitCommit string ${GIT_COMMIT}" "MBGitCommitCount integer ${GIT_COUNT}" "MBGitBranch string ${GIT_BRANCH}"; do
         set -- ${kv}

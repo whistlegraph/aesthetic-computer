@@ -87,7 +87,7 @@ final class InstrumentListView: NSView {
         + midiOutGap + stationRowH                                 // bottom radio row
         + midiOutGap + fluodRowH                                   // fluoddity row
 
-    var selectedProgram: UInt8 = 0 { didSet { needsDisplay = true } }
+    var selectedProgram: UInt8 = 0 { didSet { if selectedProgram != oldValue { needsDisplay = true } } }
     private(set) var hoveredProgram: UInt8?
     /// Visual hover is deliberately separate from `hoveredProgram`: moving
     /// the pointer should make every picker element feel clickable, while
@@ -105,13 +105,16 @@ final class InstrumentListView: NSView {
     }
     private var hoveredTarget: HoverTarget? {
         didSet {
-            if hoveredTarget != oldValue { needsDisplay = true }
+            if hoveredTarget != oldValue {
+                if let oldValue { setNeedsDisplay(hoverRect(oldValue)) }
+                if let hoveredTarget { setNeedsDisplay(hoverRect(hoveredTarget)) }
+            }
         }
     }
     /// Lit when the controller's `midiMode` is on. Drives the
     /// MIDI-OUT cell's filled/outlined appearance and tints the
     /// rest of the grid as deselected.
-    var midiModeActive: Bool = false { didSet { needsDisplay = true } }
+    var midiModeActive: Bool = false { didSet { if midiModeActive != oldValue { needsDisplay = true } } }
     var onCommit: ((Int) -> Void)?
     /// Fires when the user clicks the MIDI-OUT cell at the top of the
     /// grid. The popover wires this to `menuBand.toggleMIDIMode()`.
@@ -121,23 +124,23 @@ final class InstrumentListView: NSView {
     var onSampleCommit: (() -> Void)?
     /// True while the mic-sampler backend is active — fills the SAMPLE cell
     /// the same way `midiModeActive` fills MIDI OUT.
-    var sampleBackendActive: Bool = false { didSet { needsDisplay = true } }
+    var sampleBackendActive: Bool = false { didSet { if sampleBackendActive != oldValue { needsDisplay = true } } }
     /// Fires when the `1 PIANO cell (left of SAMPLE) is clicked. The popover
     /// wires this to `menuBand.setACPianoBackend(...)`.
     var onACPianoCommit: (() -> Void)?
     /// True while the AC grand piano backend is active — fills the cell.
-    var acPianoActive: Bool = false { didSet { needsDisplay = true } }
+    var acPianoActive: Bool = false { didSet { if acPianoActive != oldValue { needsDisplay = true } } }
     /// Fires when the `79 cell is clicked; wired to `menuBand.setWhistleBackend`.
     var onWhistleCommit: (() -> Void)?
     /// True while the AC whistle backend is active — fills the cell.
-    var whistleActive: Bool = false { didSet { needsDisplay = true } }
+    var whistleActive: Bool = false { didSet { if whistleActive != oldValue { needsDisplay = true } } }
     /// When true, a MIC cell appears at the LEFT edge of the top row — the
     /// same mic Menu Band already uses for sampling, here routed to voice
     /// squawk. Driven by the About-window "Voice squawk" Advanced flag,
     /// so the cell is absent unless the user opted in.
-    var squawkEnabled: Bool = false { didSet { needsDisplay = true } }
+    var squawkEnabled: Bool = false { didSet { if squawkEnabled != oldValue { needsDisplay = true } } }
     /// Fills the MIC cell while squawk is actively listening.
-    var squawkListening: Bool = false { didSet { needsDisplay = true } }
+    var squawkListening: Bool = false { didSet { if squawkListening != oldValue { needsDisplay = true } } }
     /// Fires when the MIC cell is clicked — the host toggles listening.
     var onMicCommit: (() -> Void)?
     /// Fires whenever the hovered cell changes (including transitions to
@@ -159,23 +162,23 @@ final class InstrumentListView: NSView {
     /// Radio-station chooser cells that sit in a full-width strip at the
     /// BOTTOM of the board, below the patch grid. Set by the host view;
     /// empty = no radio cells.
-    var radioStations: [RadioStation] = [] { didSet { needsDisplay = true } }
+    var radioStations: [RadioStation] = [] { didSet { if radioStations != oldValue { needsDisplay = true } } }
     /// True while an internet station is the active CDJ Radio source.
-    var radioBackendActive: Bool = false { didSet { needsDisplay = true } }
+    var radioBackendActive: Bool = false { didSet { if radioBackendActive != oldValue { needsDisplay = true } } }
     /// Which station id is currently tuned (highlighted when active).
-    var selectedRadioStationID: String? { didSet { needsDisplay = true } }
+    var selectedRadioStationID: String? { didSet { if selectedRadioStationID != oldValue { needsDisplay = true } } }
     /// Fires when the user clicks a radio-station cell.
     var onRadioCommit: ((RadioStation) -> Void)?
     /// Direct-download builds append Spotify to the same CDJ source strip.
-    var spotifyEnabled: Bool = false { didSet { needsDisplay = true } }
-    var spotifyActive: Bool = false { didSet { needsDisplay = true } }
+    var spotifyEnabled: Bool = false { didSet { if spotifyEnabled != oldValue { needsDisplay = true } } }
+    var spotifyActive: Bool = false { didSet { if spotifyActive != oldValue { needsDisplay = true } } }
     var onSpotifyCommit: (() -> Void)?
 
     /// True while the Fluoddity ecosystem backend owns melodic notes —
     /// fills the FLUODDITY cell the way `sampleBackendActive` fills SAMPLE,
     /// and starts the live trail-field strip animating inside the cell.
     var fluoddityActive: Bool = false {
-        didSet { needsDisplay = true; updateFluodAnimTimer() }
+        didSet { if fluoddityActive != oldValue { needsDisplay = true; updateFluodAnimTimer() } }
     }
     /// Fires when the FLUODDITY cell is clicked (host toggles the backend).
     var onFluoddityCommit: (() -> Void)?
@@ -186,6 +189,34 @@ final class InstrumentListView: NSView {
     /// Repaints the FLUODDITY cell while the backend is active so the
     /// swarm's trail field reads as a living picture, not a still.
     private var fluodAnimTimer: Timer?
+
+    private struct CellArtwork: Hashable {
+        let program: Int
+        let selection: UInt8
+        let layout: String
+        let hovered, previewed: Bool
+        let colors: [CGFloat]
+    }
+    private let cellArtwork = RasterArtworkCache<CellArtwork>(capacity: 384)
+    var artworkCachingEnabled: Bool {
+        get { cellArtwork.enabled }
+        set { cellArtwork.enabled = newValue; needsDisplay = true }
+    }
+    var cachedCellRasterizations: Int { cellArtwork.rasterizations }
+
+    private func hoverRect(_ target: HoverTarget) -> NSRect {
+        switch target {
+        case .mic: return micRect
+        case .midiOut: return midiOutRect
+        case .sample: return sampleRect
+        case .acPiano: return acPianoRect
+        case .whistle: return whistleRect
+        case .program(let p): return cellRect(program: p)
+        case .radio(let i): return radioStationRect(i)
+        case .spotify: return spotifyRect
+        case .fluoddity: return fluodMainRect
+        }
+    }
 
     private var trackingArea: NSTrackingArea?
 
@@ -810,9 +841,15 @@ final class InstrumentListView: NSView {
         let selectedRow = selectedSlot / Self.cols
         let selectedCol = selectedSlot % Self.cols
 
+        let colors = artworkColorKey(.windowBackgroundColor)
+            + artworkColorKey(.labelColor) + artworkColorKey(.controlAccentColor)
         for p in 0..<128 {
             let r = cellRect(program: p)
             guard r.intersects(dirtyRect) else { continue }
+            let key = CellArtwork(program: p, selection: selectedProgram,
+                layout: Self.gridLayout.rawValue,
+                hovered: hoveredTarget == .program(p), previewed: hoveredProgram == UInt8(p), colors: colors)
+            cellArtwork.draw(key, in: r) { [self] in
             let fam = familyColor(forProgram: p)
             let slot = Self.slot(forProgram: p)
             let row = slot / Self.cols
@@ -899,6 +936,7 @@ final class InstrumentListView: NSView {
             let size = str.size()
             str.draw(at: NSPoint(x: r.midX - size.width / 2,
                                  y: r.midY - size.height / 2))
+            }
         }
     }
 

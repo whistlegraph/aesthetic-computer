@@ -7,6 +7,7 @@ final class MenuBandOutputGuard {
     private let unit = AVAudioUnitEQ(numberOfBands: 1)
     let health = MenuBandPlaybackHealth()
     var telemetry: MenuBandAudioTelemetry?
+    let inputTiming = InputLatencyProbe.shared
 
     init() {
         unit.bands[0].bypass = true
@@ -55,6 +56,11 @@ final class MenuBandOutputGuard {
 
 private let menuBandOutputGuardNotify: AURenderCallback = {
     context, flags, _, _, frames, output in
+    let guardNode = Unmanaged<MenuBandOutputGuard>.fromOpaque(context).takeUnretainedValue()
+    if flags.pointee.contains(.unitRenderAction_PreRender) { guardNode.inputTiming.beginRender() }
+    if flags.pointee.contains(.unitRenderAction_PostRender) {
+        guardNode.inputTiming.endRender(valid: !flags.pointee.contains(.unitRenderAction_PostRenderError))
+    }
     guard flags.pointee.contains(.unitRenderAction_PostRender),
           !flags.pointee.contains(.unitRenderAction_PostRenderError),
           let output else { return noErr }

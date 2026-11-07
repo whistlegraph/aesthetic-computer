@@ -88,9 +88,11 @@ final class PianoSourceTests: XCTestCase {
     func testSourcePersistsWhenLeavingAndReturningToPiano() {
         withFreshController { controller in
             controller.selectPianoSource(.yamahaUpright)
+            controller.performance.flush()
             XCTAssertEqual(controller.instrumentBackend, .acPiano)
             controller.setACPianoBackend(false)
             controller.selectCustomInstrument(1)
+            controller.performance.flush()
             XCTAssertEqual(controller.pianoSource, .yamahaUpright)
             XCTAssertTrue(controller.voiceContextLabel.contains("3 · Yamaha Upright"))
             XCTAssertEqual(MenuBandController().pianoSource, .yamahaUpright)
@@ -102,7 +104,10 @@ final class PianoSourceTests: XCTestCase {
         XCTAssertTrue(controller.handleLocalKey(keyCode: code, isDown: false, isRepeat: false, flags: []))
     }
 
+    private var activeController: MenuBandController?
+
     private func drainMainQueue() {
+        activeController?.performance.flush()
         let drained = expectation(description: "Source selection applied")
         DispatchQueue.main.async { drained.fulfill() }
         wait(for: [drained], timeout: 3)
@@ -124,7 +129,10 @@ final class PianoSourceTests: XCTestCase {
             MenuBandPercussion.DrumKit.current = mirror
         }
         for key in keys { defaults.removeObject(forKey: key) }
-        body(MenuBandController())
+        let controller = MenuBandController()
+        activeController = controller
+        body(controller)
         drainMainQueue()
+        activeController = nil
     }
 }

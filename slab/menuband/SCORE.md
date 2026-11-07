@@ -25,6 +25,50 @@ Claude session menubar; different status item, different process).
 
 ## Output and Air
 
+Keyboard, physical MIDI, direct trackpad audio, and musical release/hammer
+timers share the serial `PerformanceExecutor`. AppKit receives visual updates
+after musical work; status-item invalidations coalesce to one draw per frame.
+UI readouts use small value snapshots and do not wait for engine preparation.
+Control code must never synchronously dispatch to main. Tests that submit input
+must drain the performance queue before asserting musical state; draining main
+alone is insufficient.
+
+The direct build's focused keyboard tap uses annotated events addressed to
+Menu Band. It consumes each owned down/up pair once, preserves control-key
+ordering, and releases voices when its gate closes. Unavailable event-tap
+permission and the sandboxed build retain local AppKit delivery, then enqueue
+musical work. AppKit delivery itself can still be delayed in those fallback
+paths. Focus keeps output warm alongside the existing percussion/conductor
+reasons; leaving one mode does not cancel another mode's warm requirement.
+
+The instrument grid and QWERTY view invalidate only changed state; grid hover
+invalidates the old/new cells. Grid cells and idle piano keycaps use bounded
+bitmap caches keyed by appearance, scale, geometry and visual state. Live
+letters, pressed keys, drum pulses and count-in animation remain dynamic.
+
+Opt-in input timing: set `MBInputLatencyDiagnosticsEnabled` to true in the
+`computer.aestheticcomputer.menuband` defaults domain before launch. Set it to `false`
+and relaunch to disable. `~/Library/Logs/MenuBand/input-latency.jsonl` and its
+previous file are each capped at 2 MiB. Schema 1 contains one-second summaries:
+source (`keyboard_event` or `trackpad_callback`), count, capture/queue/control/
+next-render/total delays in milliseconds (p50, p95, max), dropped-measurement
+count, timestamp and PID. No keycodes, notes, audio or remote transport.
+Keyboard samples cover non-repeated downs that submit local notes; one chord
+counts once, after its immediate notes are submitted. Trackpad samples cover
+articulation changes, including lifts; their clock starts at the callback.
+The boundary is completion of the first output block that **starts after**
+submission, including silent blocks. It is a scheduling measurement, not proof
+of a particular note's audible onset, and excludes speaker/DAC latency. Bounded
+C rings drop diagnostics on overflow without changing notes; render performs
+no logging, allocation or locking for this probe. Collectors run on a utility
+queue, so UI stalls cannot postpone or duplicate the measurement itself.
+
+The native GM renderer drains a fixed-capacity C atomic command ring without
+taking the producer lock or allocating a command array. Overflow rejects new
+commands until render discards the backlog and silences the old voices; it
+cannot retain an onset whose release was discarded. Pitch targets cross through
+an atomic value. Other synth backends retain their existing render handoffs.
+
 Menu Band plays through the selected macOS output, including a Focusrite
 Scarlett, without a volume enable switch. The headset menu can pin another
 output for Menu Band. Playback binds to that device before the engine starts.

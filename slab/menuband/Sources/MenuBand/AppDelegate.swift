@@ -585,7 +585,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let trackpadPercussionClickShield = TrackpadClickShield()
     /// Contact-to-drum triggering runs independently of AppKit presentation.
     /// The main-thread handler below still owns every visual and cursor state.
-    private lazy var trackpadAudioLane = TrackpadAudioLane(output: menuBand)
+    private lazy var trackpadAudioLane = TrackpadAudioLane(output: menuBand, queue: menuBand.performance.queue)
     /// Record gesture (folded into the quiet-focus ⌘ monitor): hold both the
     /// left and right Command keys through the full count-in.
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
@@ -738,12 +738,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && (keyCode == UInt16(kVK_ANSI_D) || keyCode == UInt16(kVK_ANSI_X))
         if protectedChord {
             let localFlags = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-            DispatchQueue.main.async {
-                let consumed = self.menuBand.handleLocalKey(
-                    keyCode: keyCode, isDown: isDown,
-                    isRepeat: isRepeat, flags: localFlags
-                )
-                if consumed && isDown {
+            let consumed = self.menuBand.handleLocalKey(
+                keyCode: keyCode, isDown: isDown,
+                isRepeat: isRepeat, flags: localFlags
+            )
+            if consumed && isDown {
+                DispatchQueue.main.async {
                     let pivot = self.menuBand.litNotes.max() ?? 60
                     self.extendGhost(0.4, pivot: pivot)
                 }
@@ -909,6 +909,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         RevisionChecker.start()
         // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
         MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        localCapture.onWillArm = { [weak self] in
+            self?.refreshPerformanceInputRouting()
+            self?.menuBand.setKeyboardPerformanceActive(true)
+        }
         MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
@@ -1833,6 +1837,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Local key capture wiring. Routes keys to the same note logic the
         // global tap uses, with the ghost-label flash on every press so the
         // user sees the layout dynamically appear while typing.
+        localCapture.onPerformanceKey = { [weak self] key, down, repeated, flags in
+            guard let self else { return }
+            self.menuBand.performance.enqueueInput { [weak self] in
+                guard let self else { return }
+                let consumed = self.menuBand.handleLocalKey(
+                    keyCode: key, isDown: down, isRepeat: repeated, flags: flags)
+                if consumed && down {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.localCapture.isArmed else { return }
+                        self.didPlayKeyboardInput()
+                    }
+                }
+            }
+        }
+        localCapture.onPerformanceFlags = { [weak self] flags in
+            self?.menuBand.morphHeldKeys(rawFlags: flags)
+        }
+        localCapture.onPerformanceRelease = { [weak self] in
+            self?.menuBand.releaseAllHeldNotes()
+        }
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
             // Local fallback for an exact ⌘Tab when the global Accessibility
@@ -1873,6 +1897,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Only unfocus when NOT in record mode.
                 if self.recordModeActive {
                     self.stopRecordingAndSave()
+                    self.localCapture.arm() // Escape closed the fast input gate; recording keeps focus.
                     return true
                 }
 #endif
@@ -1945,40 +1970,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let consumed = self.menuBand.handleLocalKey(
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
             )
-            if consumed && isDown {
-                // A mouse click may provisionally arm the local key panel, but
-                // the first mapped PHYSICAL key is what promotes that state to
-                // keyboard-performance focus. Mouse-only auditions therefore
-                // never acquire slide ownership or the red defocus cue.
-                let promoting = !self.keyboardPerformanceFocusActive
-                self.keyboardPerformanceFocusActive = true
-                if promoting {
-                    // Promotion is the SAME focus ⌘⌘ arms, so it owes the same
-                    // surface: TrackDrum live, pointer hidden and pinned. The
-                    // flag alone left the trackpad dead in a session that
-                    // otherwise looked focused. Deferred off the key event for
-                    // the reason the quiet-focus tap defers — arming does real
-                    // AppKit work (key-window dance, click-shield handshake),
-                    // and running it mid-dispatch resigns the very capture it
-                    // is promoting.
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.localCapture.isArmed,
-                              self.keyboardPerformanceFocusActive else { return }
-                        self.enterFullPerformanceFocus()
-                    }
-                }
-                // Note plays only — the floating panel is reserved
-                // for explicit triggers (LED chip / gear popover).
-                // Earlier this called `showIfNeeded()` so a typed
-                // letter would auto-open the panel; the surprise
-                // pop-up was not what the user wanted while playing.
-                // Use the most-recent lit display note as the wave pivot
-                // so the ripple emanates from whichever key the user just
-                // played. `litNotes` is updated synchronously on this
-                // thread, so it already contains the new note.
-                let pivot = self.menuBand.litNotes.max() ?? 60
-                DispatchQueue.main.async { self.extendGhost(0.4, pivot: pivot) }
-            }
+            if consumed && isDown { self.didPlayKeyboardInput() }
             return consumed
         }
         localCapture.isOwnStatusItemPress = { [weak self] in
@@ -1995,6 +1987,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.map { "padMode=\($0.trackpadPadMode)" } ?? ""
         }
         localCapture.onCaptureEnd = { [weak self] reason in
+            self?.menuBand.setKeyboardPerformanceActive(false)
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging. Only the
             // explicit keyboard-performance focus owns the stop cue; a
@@ -3255,9 +3248,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startChordMorphMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            self.menuBand.morphHeldKeys(
-                rawFlags: UInt64(event.modifierFlags.rawValue)
-            )
+            if !self.localCapture.capturedModifierEvent(at: event.timestamp)
+                && !self.menuBand.capturedModifierEvent(at: event.timestamp) {
+                self.menuBand.morphHeldKeys(rawFlags: UInt64(event.modifierFlags.rawValue))
+            }
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -3906,7 +3900,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             playing: menuBand.cdjRadioPlaying)
     }
 
+    private func didPlayKeyboardInput() {
+        // A mouse click may provisionally arm the local key panel, but
+        // the first mapped PHYSICAL key is what promotes that state to
+        // keyboard-performance focus. Mouse-only auditions therefore
+        // never acquire slide ownership or the red defocus cue.
+        let promoting = !self.keyboardPerformanceFocusActive
+        self.keyboardPerformanceFocusActive = true
+        if promoting {
+            // Promotion is the SAME focus ⌘⌘ arms, so it owes the same
+            // surface: TrackDrum live, pointer hidden and pinned. The
+            // flag alone left the trackpad dead in a session that
+            // otherwise looked focused. Deferred off the key event for
+            // the reason the quiet-focus tap defers — arming does real
+            // AppKit work (key-window dance, click-shield handshake),
+            // and running it mid-dispatch resigns the very capture it
+            // is promoting.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.localCapture.isArmed,
+                      self.keyboardPerformanceFocusActive else { return }
+                self.enterFullPerformanceFocus()
+            }
+        }
+        // Note plays only — the floating panel is reserved
+        // for explicit triggers (LED chip / gear popover).
+        // Earlier this called `showIfNeeded()` so a typed
+        // letter would auto-open the panel; the surprise
+        // pop-up was not what the user wanted while playing.
+        // Use the most-recent lit display note as the wave pivot
+        // so the ripple emanates from whichever key the user just
+        // played. This is a UI readout; it never gates the note.
+        let pivot = self.menuBand.litNotes.max() ?? 60
+        DispatchQueue.main.async { self.extendGhost(0.4, pivot: pivot) }
+    }
+
+    private func refreshPerformanceInputRouting() {
+        var reserved: Set<UInt16> = [48, 53, 44]
+        if trackpadPadMode == .skin && polyrhythmTrainer.isActive {
+            reserved.formUnion([18, 19, 20, 21, 23, 22, 26, 28, 25, 29, 27, 24])
+        }
+        if trackpadPadMode == .fx && toneTrials.isActive {
+            reserved.formUnion([27, 24])
+        }
+        var shortcuts = [MenuBandShortcutPreferences.layoutShortcut,
+                         MenuBandShortcut.defaultPercussionToggle]
+        if let shortcut = localCapture.recordShortcut { shortcuts.append(shortcut) }
+        if let shortcut = localCapture.cancelShortcut { shortcuts.append(shortcut) }
+        localCapture.configurePerformanceRouting(keymap: menuBand.keymap,
+                                                  reservedKeys: reserved,
+                                                  shortcuts: shortcuts)
+    }
+
+    private let iconRefresh = CoalescedUIRefresh()
     func updateIcon() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in self?.updateIcon() }
+            return
+        }
+        refreshPerformanceInputRouting()
+        iconRefresh.request { [weak self] in self?.renderIcon() }
+    }
+
+    private func renderIcon() {
+
         if let timer = visualizerAnimTimer,
            timer.fireDate.timeIntervalSinceNow > 1.0 / 24.0 {
             timer.fireDate = Date()
@@ -4026,12 +4082,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
         let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
         button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
-        // Force a synchronous redraw — the click drag-loop runs the runloop
-        // in `eventTracking` mode and has been swallowing the next CA flush
-        // until mouseUp. Without this, key blinks and hover highlights only
-        // appeared after the user released the mouse.
+        // Let AppKit batch presentation after the coalesced image update.
         button.needsDisplay = true
-        button.displayIfNeeded()
     }
 
     /// Extend the letter ghost duration and pivot the wave at the given

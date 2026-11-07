@@ -744,7 +744,9 @@ final class CollapsedPianoWaveformView: NSView {
                 .baselineOffset: 1,
             ]
         ))
-        instrumentReadoutButton.attributedTitle = attr
+        if !instrumentReadoutButton.attributedTitle.isEqual(to: attr) {
+            instrumentReadoutButton.attributedTitle = attr
+        }
         instrumentReadoutButton.toolTip = menuBand.instrumentBackend == .acPiano
             ? "Choose piano source · Option-Left/Right to audition"
             : (chartExpanded ? "Hide the instrument chart" : "Show the instrument chart")

@@ -26,10 +26,7 @@ extension MenuBandController: TrackpadAudioOutput {}
 final class TrackpadAudioLane {
     enum Mode: Equatable { case off, kit, skin, synth, split }
 
-    private let queue = DispatchQueue(
-        label: "computer.aesthetic.menuband.trackpad-audio",
-        qos: .userInteractive
-    )
+    private let queue: DispatchQueue
     private weak var output: TrackpadAudioOutput?
     private var mode: Mode = .off
     private var contactsByID: [Int32: CGPoint] = [:]
@@ -40,8 +37,10 @@ final class TrackpadAudioLane {
     /// landed right of the seam ever reach the drum.
     private var splitOwnership = TrackpadSplitSurface.Ownership()
 
-    init(output: TrackpadAudioOutput) {
+    init(output: TrackpadAudioOutput,
+         queue: DispatchQueue = DispatchQueue(label: "computer.aesthetic.menuband.trackpad-audio", qos: .userInteractive)) {
         self.output = output
+        self.queue = queue
     }
 
     func setMode(_ newMode: Mode) {
@@ -55,13 +54,21 @@ final class TrackpadAudioLane {
                  callbackTime: Double, shiftDown: Bool,
                  suppressed: Bool) {
         queue.async { [weak self] in
-            self?.processFrame(
-                contacts: contacts,
-                timestamp: timestamp,
-                callbackTime: callbackTime,
-                shiftDown: shiftDown,
-                suppressed: suppressed
-            )
+            guard let self else { return }
+            let work = {
+                self.processFrame(
+                    contacts: contacts,
+                    timestamp: timestamp,
+                    callbackTime: callbackTime,
+                    shiftDown: shiftDown,
+                    suppressed: suppressed
+                )
+            }
+            if let controller = self.output as? MenuBandController,
+               controller.performance.isCurrent, InputLatencyProbe.shared.enabled {
+                controller.performance.withInput(PerformanceInputTiming(source: .trackpad,
+                    event: callbackTime, captured: callbackTime), work)
+            } else { work() }
         }
     }
 
