@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Played to Learn · Ignite Reading · 2026 · WIP Application</title>
+<meta name="description" content="Jeffrey Alan Scudder's drafted general-interest application to Ignite Reading, the one-to-one Science of Reading tutoring company. Alerted by their Senior Engineering Manager posting; applying as a builder of instruments that teach by being played — Typist and KidLisp.">
+<link rel="icon" href="https://aesthetic.computer/icon/128x128/prompt.png" type="image/png">
+<link rel="stylesheet" href="https://aesthetic.computer/type/webfonts/berkeley-mono-variable.css">
+<style>
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-regular.woff2') format('woff2');
+    font-weight: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: 'YWFT Processing';
+    src: url('https://aesthetic.computer/type/webfonts/ywft-processing-bold.woff2') format('woff2');
+    font-weight: bold;
+    font-display: swap;
+  }
+
+  :root {
+    --bg: #11161e;
+    --text: #e6ecf2;
+    --dim: #93a0b3;
+    --pink: #d4929d;
+    --cyan: #7fc2d6;
+    --purple: #b3a4ce;
+    --gold: #dab87e;
+    --green: #b8c895;
+    --red: #d6a098;
+    --citrus: #c8e25f;
+    --box-bg: rgba(228,236,242,0.05);
+    --box-border: rgba(228,236,242,0.16);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not(.dark-mode) {
+      --bg: #f3f6fa;
+      --text: #14202c;
+      --dim: #4a5a6e;
+      --pink: #8e3a5b;
+      --cyan: #1e5566;
+      --purple: #4a3878;
+      --gold: #6e4f10;
+      --green: #3f4f25;
+      --red: #762522;
+      --citrus: #5a7d12;
+      --box-bg: rgba(20,32,44,0.05);
+      --box-border: rgba(20,32,44,0.20);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  ::-webkit-scrollbar { display: none; }
+
+  html, body { background: var(--bg); color: var(--text); }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-text-size-adjust: none;
+    padding: 1.4em 1.6em 4em;
+    min-height: 100vh;
+    font-feature-settings: "ss01", "cv11";
+  }
+  @media (min-width: 900px) { body { padding: 1.8em 2.2em 5em; } }
+
+  .mono, code {
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { color: var(--pink); }
+
+  .wrap { max-width: 900px; margin: 0 auto; }
+
+  .wip-banner {
+    background: var(--gold);
+    color: #1c1208;
+    padding: 0.7em 1em;
+    margin: -1em -1em 1.6em -1em;
+    font-size: 0.94em;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-align: center;
+    border-radius: 4px;
+  }
+  .wip-banner strong { font-size: 1.05em; font-weight: 700; }
+  .wip-banner .blink {
+    display: inline-block;
+    color: #5a3a08;
+    animation: blink 1.4s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0.35; } }
+
+  .mast { margin-bottom: 2em; }
+  .eyebrow {
+    color: var(--dim);
+    font-size: 0.78em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .eyebrow .tag { color: var(--purple); }
+  .eyebrow .wip { color: var(--gold); }
+
+  h1 {
+    font-family: 'YWFT Processing', 'Inter', sans-serif;
+    font-size: clamp(34px, 5.8vw, 60px);
+    font-weight: normal;
+    letter-spacing: -0.015em;
+    line-height: 1.02;
+    margin: 0.2em 0 0.2em;
+  }
+  h1 .dot { color: var(--pink); }
+  h1 em { font-style: normal; color: var(--citrus); }
+
+  .sub {
+    color: var(--dim);
+    font-size: 0.95em;
+    margin-bottom: 1.1em;
+  }
+  .sub strong { color: var(--text); font-weight: normal; }
+
+  .meta {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.3em 1.4em;
+    padding: 1em 1.2em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    font-size: 0.94em;
+  }
+  .meta dt { color: var(--dim); font-size: 0.92em; padding-top: 0.12em; font-weight: 500; }
+  .meta dd { margin: 0; }
+  .meta .due { color: var(--gold); }
+  .meta .partner { color: var(--purple); }
+
+  section { margin: 2.4em 0; }
+  h2 {
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 1.35em;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.005em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--box-border);
+    margin-bottom: 1em;
+  }
+  h2 .ord {
+    color: var(--pink);
+    margin-right: 0.45em;
+    font-weight: 400;
+  }
+  h2 .count { float: right; color: var(--dim); font-size: 0.78em; padding-top: 0.7em; font-weight: 400; letter-spacing: 0; }
+
+  .glance {
+    margin: 1.4em 0 2.2em;
+    padding: 1em 1.2em;
+    background: linear-gradient(180deg, var(--box-bg) 0%, transparent 100%);
+    border: 1px solid var(--box-border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+  }
+  .glance .hint { color: var(--dim); font-size: 0.85em; margin-bottom: 1em; font-style: italic; }
+  .glance dl {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0.8em 1.2em;
+    margin: 0;
+  }
+  .glance dt {
+    color: var(--dim);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 0.86em;
+    font-weight: 600;
+    padding-top: 0.32em;
+    align-self: start;
+    letter-spacing: 0;
+  }
+  .glance dt .cap {
+    display: block;
+    color: var(--gold);
+    font-size: 0.78em;
+    margin-top: 0.2em;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .glance dd {
+    margin: 0;
+    padding-bottom: 1em;
+    border-bottom: 1px dotted var(--box-border);
+    line-height: 1.6;
+    font-size: 1em;
+  }
+  .glance dd:last-child { border-bottom: none; padding-bottom: 0; }
+  .glance dd strong { color: var(--text); }
+  .glance dd em { color: var(--citrus); font-style: normal; }
+  .glance .statement { font-size: 0.96em; color: var(--text); line-height: 1.6; }
+  .glance .excerpt { color: var(--dim); font-size: 0.96em; margin: 0 0 0.5em; line-height: 1.6; }
+  .glance .jump {
+    display: inline-block;
+    font-size: 0.86em;
+    color: var(--cyan);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .glance .jump:hover { color: var(--pink); }
+  @media (max-width: 640px) {
+    .glance dl { grid-template-columns: 1fr; gap: 0.3em 0; }
+    .glance dt { padding-top: 0.8em; font-size: 0.7em; }
+    .glance dd { padding-bottom: 0.6em; }
+  }
+
+  .pitch p { margin: 0 0 1em; font-size: 1.04em; line-height: 1.66; }
+  .pitch p:last-child { margin-bottom: 0; }
+  .pitch .drop {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.18em;
+    font-weight: 600;
+    color: var(--cyan);
+    display: block;
+    margin: 1.6em 0 0.5em;
+    letter-spacing: -0.005em;
+  }
+  .pitch em { color: var(--citrus); font-style: normal; }
+  .pitch strong { color: var(--text); }
+  .pitch q { quotes: "“" "”"; color: var(--gold); font-style: italic; }
+  .pitch code {
+    font-family: 'Berkeley Mono Variable', monospace;
+    font-size: 0.9em;
+    padding: 0 0.25em;
+    background: var(--box-bg);
+    border-radius: 2px;
+    color: var(--cyan);
+  }
+
+  .anchors {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .anchor {
+    padding: 0.8em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-left: 2px solid var(--pink);
+    border-radius: 3px;
+  }
+  .anchor b {
+    display: block;
+    color: var(--pink);
+    font-size: 1.05em;
+    font-weight: 600;
+    margin-bottom: 0.3em;
+    letter-spacing: -0.005em;
+  }
+  .anchor p { margin: 0; color: var(--text); font-size: 0.94em; line-height: 1.55; }
+
+  /* Infrastructure stack diagram — AC's working layers */
+  .stack {
+    margin: 1em 0;
+    padding: 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 100px;
+    gap: 0.8em;
+    align-items: stretch;
+    padding: 0.7em 0.4em;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+    line-height: 1.5;
+  }
+  .stack-row:last-child { border-bottom: none; }
+  .stack-row .label {
+    color: var(--pink);
+    font-weight: 600;
+    font-family: 'Berkeley Mono Variable', 'Menlo', ui-monospace, monospace;
+    font-size: 0.92em;
+    align-self: center;
+  }
+  .stack-row .what { color: var(--text); }
+  .stack-row .what em { color: var(--citrus); font-style: normal; }
+  .stack-row .role {
+    color: var(--dim);
+    text-align: right;
+    font-size: 0.82em;
+    align-self: center;
+    font-weight: 500;
+  }
+  .stack-row.gpu .label { color: var(--citrus); }
+  .stack-row.metal .label { color: var(--gold); }
+  .stack-row.client .label { color: var(--purple); }
+  @media (max-width: 700px) {
+    .stack-row { grid-template-columns: 1fr; gap: 0.1em; }
+    .stack-row .role { text-align: left; }
+  }
+  .stack-floor {
+    border-top: 1px dashed var(--box-border);
+    padding-top: 0.7em;
+    margin-top: 0.4em;
+    font-size: 0.9em;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 0;
+  }
+  .stack-floor .pin { color: var(--pink); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6em;
+    margin: 1em 0;
+  }
+  .stat {
+    padding: 0.9em 1em;
+    background: var(--box-bg);
+    border: 1px solid var(--box-border);
+    border-radius: 3px;
+    text-align: left;
+  }
+  .stat .n {
+    display: block;
+    font-size: 1.85em;
+    font-weight: 600;
+    color: var(--cyan);
+    line-height: 1;
+    margin-bottom: 0.2em;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l { color: var(--dim); font-size: 0.84em; font-weight: 500; letter-spacing: 0; }
+  .stat.loaded .n { color: var(--citrus); }
+  .stats-status { font-size: 0.88em; color: var(--dim); margin-top: 0.5em; }
+  .stats-status .ok { color: var(--green); }
+  .stats-status .err { color: var(--red); }
+
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.5em;
+    margin: 1em 0;
+  }
+  .feat {
+    padding: 0.75em 0.95em;
+    border-left: 2px solid var(--purple);
+    background: var(--box-bg);
+    border-radius: 0 3px 3px 0;
+    font-size: 0.94em;
+    line-height: 1.55;
+  }
+  .feat b { color: var(--purple); font-weight: 600; display: block; margin-bottom: 0.25em; font-size: 1.0em; letter-spacing: -0.005em; }
+  .feat.gold { border-left-color: var(--gold); }
+  .feat.gold b { color: var(--gold); }
+  .feat.cyan { border-left-color: var(--cyan); }
+  .feat.cyan b { color: var(--cyan); }
+  .feat.citrus { border-left-color: var(--citrus); }
+  .feat.citrus b { color: var(--citrus); }
+
+  .lineage { display: grid; gap: 0.5em; }
+  .lineage .row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1em;
+    padding: 0.5em 0;
+    border-bottom: 1px dotted var(--box-border);
+    font-size: 0.92em;
+  }
+  .lineage .row:last-child { border-bottom: none; }
+  .lineage .who { color: var(--cyan); }
+  .lineage .claim { color: var(--text); }
+  .lineage .claim em { color: var(--citrus); font-style: normal; }
+
+  .check { list-style: none; padding: 0; font-size: 0.96em; line-height: 1.6; }
+  .check li { padding: 0.35em 0; display: flex; gap: 0.6em; }
+  .check li::before { width: 1em; text-align: center; font-weight: 600; }
+  .check .done { color: var(--dim); }
+  .check .done::before { content: "✓"; color: var(--green); }
+  .check .todo::before { content: "▸"; color: var(--gold); }
+  .check .todo { color: var(--text); }
+  .check .todo em { color: var(--gold); font-style: normal; }
+
+  footer {
+    margin-top: 4em;
+    padding-top: 1em;
+    border-top: 1px solid var(--box-border);
+    color: var(--dim);
+    font-size: 0.88em;
+    line-height: 1.6;
+  }
+  footer a { color: var(--dim); }
+  footer a:hover { color: var(--cyan); }
+
+  @media (max-width: 560px) {
+    body { padding: 1.2em 1em 3em; font-size: 13px; }
+    .lineage .row { grid-template-columns: 1fr; gap: 0.1em; }
+    .meta { grid-template-columns: 1fr; gap: 0.05em; }
+    .meta dt { padding-top: 0.6em; }
+  }
+</style>
+<style>
+  .cmap { display: grid; gap: 0.5em; font-size: 0.95em; }
+  .cmap .row { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.2em; padding: 0.55em 0; border-bottom: 1px solid var(--box-border); }
+  .cmap .row:last-child { border-bottom: none; }
+  .cmap .line { color: var(--dim); }
+  .cmap .line q { color: var(--text); }
+  .cmap .ev { color: var(--text); }
+  .cmap .ev em { color: var(--citrus); font-style: normal; }
+  .cmap .ev .gap { color: var(--red); }
+  .roles { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+  .roles th { text-align: left; color: var(--dim); font-weight: 600; font-size: 0.86em; padding: 0.4em 0.6em 0.4em 0; border-bottom: 1px solid var(--box-border); }
+  .roles td { padding: 0.5em 0.6em 0.5em 0; border-bottom: 1px solid var(--box-border); vertical-align: top; }
+  .roles tr.alert td { color: var(--gold); }
+  .roles tr.door td { color: var(--citrus); }
+  @media (max-width: 560px) { .cmap .row { grid-template-columns: 1fr; gap: 0.2em; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <div class="wip-banner">
+    <strong>▸ WIP · NOT YET SUBMITTED</strong> · a general-interest application to <strong>Ignite Reading</strong>, drafted 2026-11-06 · <span class="blink">●</span> <em>the letter rides as page 1 of the résumé PDF; Jeffrey reads it before it goes in</em>
+  </div>
+
+  <header class="mast">
+    <div class="eyebrow"><span class="tag">Ignite Reading · General Interest</span> · 2026 · <span class="wip">work in progress</span></div>
+    <h1>Played<br>to <em>Learn</em><span class="dot">.</span></h1>
+    <p class="sub" style="font-size:1.08em;color:var(--text);margin-top:-0.2em;margin-bottom:0.9em;font-weight:500;letter-spacing:-0.005em">A general-interest application to <span style="color:var(--pink)">Ignite Reading</span> — one-to-one Science of Reading tutoring — from someone who builds instruments that teach by being played</p>
+    <p class="sub">Application by <strong>@jeffrey</strong> (Jeffrey Alan Scudder) · <a href="https://aesthetic.computer">aesthetic.computer</a></p>
+    <dl class="meta">
+      <dt>Status</dt><dd class="due"><strong>Drafting</strong> · letter v0 + PDF built 2026-11-06 · not submitted</dd>
+      <dt>Company</dt><dd><span class="partner">Ignite Reading</span> · public benefit corporation · daily 15-minute one-to-one virtual tutoring in phonics, phonemic awareness and sight words · co-founded by Jessica Reid Sliwerski (CEO) and Evan Marwell</dd>
+      <dt>What alerted us</dt><dd><a href="https://jobs.ashbyhq.com/ignite-reading/c17a8d26-961f-4d80-9325-b175a671bffb">Senior Engineering Manager, Infrastructure &amp; Data Engineering</a> · remote US · $210,000–220,000, fixed · posted 2026-09-02 · <strong>not the role we are applying to</strong></dd>
+      <dt>Door</dt><dd><a href="https://jobs.ashbyhq.com/ignite-reading/bdc0d76c-467d-4c5d-9a07-79ee09156e46">General Interest Application</a> · Ashby · six fields, no free text · résumé upload carries the letter</dd>
+      <dt>Ask</dt><dd>Be on the list for a product or learning-engineering seat: the thing a six-year-old sees, or the tool a tutor holds for fifteen minutes</dd>
+      <dt>Location</dt><dd>Remote · United States · Ignite is a virtual organization headquartered in the Bay Area</dd>
+      <dt>Deadline</dt><dd>None · rolling</dd>
+      <dt>Evidence</dt><dd><a href="https://oskiewar.com/typist">oskiewar.com/typist</a> · <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/kidlisp">KidLisp</a> · <a href="https://github.com/whistlegraph/aesthetic-computer">the repository</a></dd>
+    </dl>
+  </header>
+
+  <!-- ── ONE-LINE SPINE ─────────────────────── -->
+  <section style="margin: 0 0 2.4em">
+    <div style="padding: 1.2em 1.4em; background: linear-gradient(135deg, rgba(200,226,95,0.08), transparent); border: 1px solid var(--box-border); border-left: 3px solid var(--citrus); border-radius: 4px;">
+      <p style="font-size: 1.32em; line-height: 1.45; color: var(--text); margin: 0; font-weight: 500; letter-spacing: -0.01em;">
+        I build <em style="color:var(--citrus);font-style:normal">instruments that teach by being played</em>. Typist makes a child sound out nonsense syllables to open doors. KidLisp fits a program in a text message. <strong style="color:var(--pink);font-weight:600">Ignite teaches decoding fifteen minutes at a time. Same instrument, different room.</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ── APPLICATION AT A GLANCE ─────── -->
+  <section class="glance" id="glance">
+    <h2><span class="ord">§</span>Application at a Glance<span class="count">draft v0 · Ashby general-interest form</span></h2>
+    <p class="hint">The form has six fields and no free text. The letter is page 1 of the uploaded résumé PDF.</p>
+    <dl>
+      <dt>Name</dt><dd>Jeffrey Alan Scudder</dd>
+      <dt>Email</dt><dd>mail@aesthetic.computer</dd>
+      <dt>Résumé</dt><dd><code>cover-and-cv.pdf</code> · letter (1 page) + curriculum vitae (built 2026-11-06)</dd>
+      <dt>Employed at Ignite?</dt><dd>No</dd>
+      <dt>Sponsorship?</dt><dd>No</dd>
+      <dt>Cover letter<span class="cap">~400 w · v0</span></dt>
+      <dd>
+        <p class="excerpt">Your posting for a Senior Engineering Manager, Infrastructure &amp; Data Engineering, is what brought me to the careers page. I read it twice. It is a job for someone who has run two teams and a SOC2 audit, and I have done neither. I am writing anyway, through the general application, because the mission is one I have been circling for years…</p>
+        <a class="jump" href="#pitch">Read the full letter ↓</a>
+      </dd>
+      <dt>Why not the manager role<span class="cap">honest read</span></dt>
+      <dd class="statement">The posting's gating line is <q>2+ years directly managing engineers (not solely projects or tech leadership)</q>, plus AWS, a data warehouse and a SOC2 program. The CV says <q>founder and sole engineer</q>. The posting's AI-assisted-engineering section fits exactly; the rest does not. So we name it and go in the general door.</dd>
+    </dl>
+  </section>
+
+  <!-- ── COVER LETTER ─────────────────────── -->
+  <section class="pitch" id="pitch">
+    <h2><span class="ord">§</span>Cover Letter<span class="count">v0 · 2026-11-06 · Jeffrey edits before filing</span></h2>
+
+    <p>To the Ignite Reading team,</p>
+
+    <p>Your posting for a Senior Engineering Manager, Infrastructure &amp; Data Engineering, is what brought me to the careers page. I read it twice. It is a job for someone who has run two teams and a SOC2 audit, and I have done neither. I am writing anyway, through the general application, because the mission is one I have been circling for years, and I think there is a product or learning-engineering seat where I would do my best work.</p>
+
+    <span class="drop">Instruments.</span>
+
+    <p>I build instruments that teach by being played. <strong>Aesthetic Computer</strong> is a creative-computing runtime I started in 2021 and have maintained alone since: a browser where you type a word and a program loads. Its language, <strong>KidLisp</strong>, fits a program in a text message. People have saved 18,650 of them under 3,069 handles. Two weeks ago I shipped <strong>Typist</strong> (<a href="https://oskiewar.com/typist">oskiewar.com/typist</a>), a typing game in which a child walks a hall of doors, and each door opens only when they type the word on it. Even halls use short real words. Odd halls use consonant-vowel nonsense syllables, because a nonsense word cannot be guessed, so it tests decoding and nothing else. Each correct letter sounds a note. Each finished syllable is spoken back in a recorded voice the moment its vowel lands, so the child hears what they just built.</p>
+
+    <span class="drop">Kids first.</span>
+
+    <p>Before any of this I ran children's activities at a bookstore in Naples, Florida, and coached boys' gymnastics for two years. Teaching has run alongside the engineering ever since: Parsons, UCLA, Southern Oregon University, and later this month a workshop at UCLA Design Media Arts on building coding harnesses.</p>
+
+    <span class="drop">The stack.</span>
+
+    <p>The engineering is real. One person runs the whole stack: a Linux build I ship to surplus laptops, a realtime session server, the web monolith, a fleet of 31 MCP servers, and a terminal harness I wrote so Claude could work inside the platform under human approval. The section of your posting on AI-assisted engineering describes my daily practice. The repository is public and holds 25,000 commits. What I lack is the management résumé. What I have is fourteen years of shipping software that strangers and students learn by touching.</p>
+
+    <p>If a role opens where someone needs to build the thing a six-year-old sees, or the tool a tutor holds during a fifteen-minute lesson, I would like to be on your list.</p>
+
+    <p style="color:var(--dim);font-size:0.94em;margin-top:1.8em">— Jeffrey Alan Scudder · <code>@jeffrey</code> · Los Angeles, CA</p>
+  </section>
+
+  <!-- ── COMPETENCY MAP ─────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>The Manager Posting, Line by Line<span class="count">what fits · what does not</span></h2>
+    <div class="cmap">
+      <div class="row"><div class="line"><q>Model effective use of AI coding and analysis tools … in your own technical work.</q></div><div class="ev"><em>Fits.</em> Aesel, a dependency-free terminal harness that runs Claude Code inside Aesthetic Computer with approvals routed to the person at the keyboard; 31 MCP servers in the repo.</div></div>
+      <div class="row"><div class="line"><q>Ensure AI-generated code and configuration are validated to meet quality, security, and architecture standards.</q></div><div class="ev"><em>Fits.</em> Deploys verify served bytes against the shipped revision; a public papers press documents the harness contract.</div></div>
+      <div class="row"><div class="line"><q>Deep, hands-on expertise in … cloud infrastructure/DevOps (AWS, IaC, CI/CD, containerization, observability).</q></div><div class="ev"><em>Partly.</em> Five years running a monolith, a build oven, a custom Linux OS and a 72-host fleet alone. <span class="gap">No AWS.</span></div></div>
+      <div class="row"><div class="line"><q>… or modern data engineering (orchestration, warehousing, pipelines-as-code, data quality).</q></div><div class="ev"><em>Fluency only.</em> Analytics tooling over MongoDB and Redis for the network's own numbers. <span class="gap">No warehouse.</span></div></div>
+      <div class="row"><div class="line"><q>2+ years directly managing engineers (not solely projects or tech leadership).</q></div><div class="ev"><span class="gap">Does not fit.</span> Founder and sole engineer. Mentoring and teaching, yes; direct reports, no.</div></div>
+      <div class="row"><div class="line"><q>Own the annual SOC2 audit cycle and annual penetration test.</q></div><div class="ev"><span class="gap">Does not fit.</span> A 72-host security audit of our own fleet in 2026, but no compliance program.</div></div>
+      <div class="row"><div class="line"><q>Ability to be self-managing and flexible while working in a remote environment.</q></div><div class="ev"><em>Fits.</em> That is the whole job description of the last five years.</div></div>
+    </div>
+  </section>
+
+  <!-- ── OTHER ROLES ─────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Every Open Role at Ignite<span class="count">board fetched 2026-11-06</span></h2>
+    <table class="roles">
+      <tr><th>Posted</th><th>Title</th><th>Dept</th><th>Comp</th></tr>
+      <tr class="door"><td>Jul 20</td><td>General Interest Application ← the door</td><td>General</td><td>$55K–150K + equity</td></tr>
+      <tr class="alert"><td>Sep 2</td><td>Senior Engineering Manager, Infrastructure &amp; Data Engineering ← the alert</td><td>Engineering</td><td>$210K–220K</td></tr>
+      <tr><td>Jun 25</td><td>Senior Analytics Manager</td><td>Data &amp; Analytics</td><td>$175K + equity</td></tr>
+      <tr><td>Nov 3</td><td>Partnerships Manager</td><td>Revenue</td><td>$90K + equity + commission</td></tr>
+      <tr><td>Nov 4</td><td>Assessment Administrator (Contract)</td><td>Academics</td><td>$55 / hr</td></tr>
+      <tr><td>Nov 6</td><td>Tutor Educator Winter 2027</td><td>Tutor Operations</td><td>$20 / hr</td></tr>
+    </table>
+    <p style="color:var(--dim);font-size:0.9em;margin-top:0.8em">No product-engineering or learning-experience engineering role is open. The general application exists for exactly this case.</p>
+  </section>
+
+  <!-- ── STATUS ──────────────────────────── -->
+  <section>
+    <h2><span class="ord">§</span>Status<span class="count">▸ drafting</span></h2>
+    <ul class="check">
+      <li class="done">Fit verdict · the manager role is a people-management job; apply through General Interest and name the posting</li>
+      <li class="done">Research · <code>aesthetic-computer-vault/grants/ignite-reading-2026/RESEARCH.md</code></li>
+      <li class="done">Letter v0 · <code>DRAFT.md</code> · typeset as <code>cover.pdf</code>, merged with the CV into <code>cover-and-cv.pdf</code></li>
+      <li class="todo">Jeffrey reads the letter · confirms the even/odd hall rule by playing three doors of Typist · confirms Travels With Max was a bookstore</li>
+      <li class="todo">Jeffrey fills phone and submits the Ashby form</li>
+    </ul>
+  </section>
+
+  <footer>
+    <a href="https://aesthetic.computer/ignite-reading-2026">aesthetic.computer/ignite-reading-2026</a> · WIP application · <strong>Ignite Reading</strong> · General Interest (Ashby) · alerted by the Senior Engineering Manager posting · evidence <a href="https://oskiewar.com/typist">Typist</a> and <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/kidlisp">KidLisp</a>
+  </footer>
+
+</main>
+</body>
+</html>
