@@ -123,9 +123,10 @@ Original bundles without a runtime field select this engine. The earlier
 `ac-game-1` canvas runtime remains available for already-authored games.
 
 Engine source stays in the vault; `/oskie/engine/` serves only the four
-allowlisted runtime assets. Games run in an opaque sandbox frame without AC
+allowlisted runtime assets and Comic Relief font. Games run in an opaque sandbox frame without AC
 credentials, parent access, network access or persistent storage. Original-engine
-games can create DOM controls; bundled blob assets can be fetched. Local saves
+games can create DOM controls and request pointer lock from a click for mouse-look;
+Escape releases the mouse. Bundled blob assets can be fetched. Local saves
 and controller calibration therefore do not persist. Unlike `ac-game-1`'s
 worker, the DOM-compatible engine shares a browser renderer thread; runaway
 synchronous game code can freeze its tab. Public-room netplay is not enabled.
@@ -179,12 +180,15 @@ records. See [privacy policy](https://aesthetic.computer/privacy-policy.html#osk
 ```sh
 node --experimental-vm-modules --test system/tests/oskie/game.test.mjs system/tests/ac-oauth.test.mjs system/tests/account-deletion.test.mjs
 node system/tests/oskie/browser-check.mjs
+OSKIE_POINTER_LOCK=1 node system/tests/oskie/browser-check.mjs
 ```
 
 The browser check uses installed Chrome and an isolated in-memory test server.
 It checks rendering, input, live revision changes, preview screenshots, errors,
 sandbox restrictions, stopping runaway code and mobile layout. Screenshots
 are written to `/tmp/ac-oskie-check` for visual inspection.
+The pointer-lock check opens foreground Chrome and verifies capture, relative
+mouse movement, release, and continued isolation from the parent page.
 
 ## Directory listing
 

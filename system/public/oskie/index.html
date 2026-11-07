@@ -715,7 +715,7 @@
         $("download").hidden = false;
         iframe = document.createElement("iframe");
         iframe.title = game.manifest.title;
-        iframe.setAttribute("sandbox", "allow-scripts");
+        iframe.setAttribute("sandbox", engineSources ? "allow-scripts allow-pointer-lock" : "allow-scripts");
         iframe.allow = "autoplay; gamepad";
         iframe.referrerPolicy = "no-referrer";
         const channel = new MessageChannel();

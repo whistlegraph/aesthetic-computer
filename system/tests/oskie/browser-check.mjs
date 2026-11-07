@@ -64,7 +64,9 @@ const server = createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = "http://127.0.0.1:" + server.address().port;
-const browser = await chromium.launch({ channel: "chrome", headless: true });
+// macOS Chrome requires a focused native window for pointer lock.
+const pointerLockCheck = process.env.OSKIE_POINTER_LOCK === "1";
+const browser = await chromium.launch({ channel: "chrome", headless: !pointerLockCheck });
 try {
   const page = await browser.newPage({
       viewport: { width: 1280, height: 1000 },
@@ -181,6 +183,11 @@ try {
   // covers the world, and text uses the measured face above both strata.
   const layers = starterEngineGame("render-layers", "Render layers");
   layers.files["game.mjs"].text = `
+    export function boot() {
+      globalThis.lockMovement=0;
+      document.addEventListener('mousedown',event=>event.target.requestPointerLock());
+      document.addEventListener('mousemove',event=>{if(document.pointerLockElement)globalThis.lockMovement+=Math.abs(event.movementX)+Math.abs(event.movementY);});
+    }
     export function paint(api) {
       if (!globalThis.hideTestText) api.wipe(0,0,0);
       api.camera({position:[0,0,0],target:[0,0,400],fov:80,perspective:1});
@@ -227,6 +234,19 @@ try {
     const c=document.querySelector('canvas'),s=c.height/1080,d=c.getContext('2d').getImageData(30*s,30*s,580*s,280*s).data;
     for(let i=0;i<d.length;i+=4)if(d[i]>240&&d[i+1]>240)return true;return false;
   }),false,"previous-frame text is cleared even without a backdrop wipe");
+  assert.equal(await page.locator("iframe").getAttribute("sandbox"),"allow-scripts allow-pointer-lock");
+  if (pointerLockCheck) {
+    await page.bringToFront();
+    await page.keyboard.press("Shift");
+    await page.frameLocator("iframe").locator("canvas").click({position:{x:640,y:500}});
+    await layersFrame.waitForFunction(() => document.pointerLockElement === document.querySelector("canvas"));
+    await page.mouse.move(740,540,{steps:4});
+    await layersFrame.waitForFunction(() => globalThis.lockMovement > 0);
+    assert.equal(await layersFrame.evaluate(() => {try{parent.document;return false;}catch{return true;}}),true,"pointer lock must not grant parent access");
+    await layersFrame.evaluate(() => document.exitPointerLock());
+    await layersFrame.waitForFunction(() => document.pointerLockElement === null);
+    console.log("PASS: pointer lock, relative movement, release, and opaque origin");
+  }
   // Browser navigation must still dispose a runaway canvas worker.
   const runaway = starterGame("loop-test", "Runaway test");
   runaway.files["game.mjs"].text = "export function boot(){while(true){}}";
