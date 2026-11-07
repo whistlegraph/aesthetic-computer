@@ -22,7 +22,7 @@ a {
   color: #ffb1d7;
   text-underline-offset: 4px;
 }
-header a:first-child {
+header .ac-brand {
   margin-right: auto;
 }
 main {
@@ -138,23 +138,96 @@ code {
   overflow-wrap: anywhere;
 }
 
+/* The wordmark keeps its colored period in headers and connector copy. */
+.ac-brand {
+  color: #fff1f9;
+  white-space: nowrap;
+}
+.ac-dot {
+  color: #ff69b4;
+  font-weight: 900;
+  font-size: 1.2em;
+}
+.piece-label {
+  color: #231035;
+  background: #ffb1d7;
+  padding: 4px 8px;
+  text-decoration: none;
+  font-weight: 700;
+}
+.history {
+  display: grid;
+  gap: 20px;
+}
+.history > div {
+  --history-color: #ff8eca;
+  border-left: 3px solid var(--history-color);
+  padding: 16px 20px;
+  background: color-mix(in srgb, var(--history-color) 8%, transparent);
+}
+.history > div:nth-child(2) {
+  --history-color: #ffb36b;
+}
+.history > div:nth-child(3) {
+  --history-color: #a9e7cc;
+}
+.history > div:nth-child(4) {
+  --history-color: #8edaff;
+}
+.history > div:nth-child(5) {
+  --history-color: #c5b0ff;
+}
 .history dt {
-  margin-top: 24px;
+  margin: 0;
   font-weight: 600;
-  color: #ffb1d7;
+  color: var(--history-color);
+  line-height: 1.6;
 }
 .history dd {
-  margin: 8px 0 0;
-  line-height: 1.6;
+  margin: 10px 0 0;
+  line-height: 1.85;
 }
 #oskiewar-so-far {
   margin-block: 48px;
   scroll-margin-top: 24px;
 }
-
-.history dt:nth-of-type(3n + 2) {
-  color: #ffb36b;
+#oskiewar-so-far > p {
+  line-height: 1.8;
 }
-.history dt:nth-of-type(3n) {
+@media (max-width: 600px) {
+  .history > div {
+    padding: 14px 16px;
+  }
+  header {
+    gap: 12px;
+  }
+}
+
+.game-example {
+  border: 1px solid #65bca1;
+  background: #123c38;
+  padding: 22px;
+  margin-block: 28px;
+}
+.game-example h3 {
   color: #a9e7cc;
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.4;
+}
+.game-example p {
+  line-height: 1.8;
+}
+.game-example p:last-child {
+  margin-bottom: 0;
+}
+.game-example .button {
+  margin: 0 12px 12px 0;
+}
+
+.example-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 20px;
 }

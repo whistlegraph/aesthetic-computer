@@ -8,7 +8,15 @@
   </head>
   <body>
     <header>
-      <a href="/">Aesthetic.Computer</a><a href="/oskie/">Play .oskie</a>
+      <a
+        class="piece-label"
+        href="/"
+        aria-label="oskie — return to the AC prompt"
+        >oskie</a
+      >
+      <a class="ac-brand" href="/"
+        >Aesthetic<span class="ac-dot">.</span>Computer</a
+      ><a href="/oskie/">Play .oskie</a>
     </header>
     <main style="max-width: 760px">
       <h1>Make games in Claude</h1>
@@ -26,7 +34,8 @@
           and add a custom connector.
         </li>
         <li>
-          Name it <strong>Aesthetic.Computer</strong>. Use
+          Name it
+          <strong>Aesthetic<span class="ac-dot">.</span>Computer</strong>. Use
           <code>https://aesthetic.computer/mcp/ac</code> as its URL.
         </li>
         <li>
@@ -62,43 +71,84 @@
           games. He worked with Claude Code, played successive builds, and
           brought back requests for what the engine should do next.
         </p>
-        <dl class="history">
-          <dt>October 20, 2026 · The kit</dt>
-          <dd>
-            Jeffrey shared a workflow with Artur: describe a game in Claude
-            Code, play it locally with live reload, then pack a single
-            <code>.oskie</code> file or publish a web build.
-          </dd>
-          <dt>October 21–22 · Island Crisis</dt>
-          <dd>
-            Artur built a 3D rail shooter, initially drawing its own 3D with
-            triangles. His requests to use Oskiewar’s characters and props
-            helped drive engine 452: camera controls, reusable objects and
-            procedural figures, with a showroom example.
-          </dd>
-          <dt>October 23–26 · Playing and sharing</dt>
-          <dd>
-            The work moved between camera scale, shooting, UI overlays and
-            island encounters. The kit gained game-specific titles and generated
-            cover images for sharing.
-            <a href="https://island-crisis.vercel.app/"
-              >Island Crisis web build ↗</a
+        <article class="game-example" aria-labelledby="island-crisis-example">
+          <img
+            class="example-image"
+            src="/oskie/examples/island-crisis.png"
+            width="1200"
+            height="800"
+            loading="lazy"
+            alt="Island Crisis title screen: yellow and red letters above a low-poly island."
+          />
+          <h3 id="island-crisis-example">Island Crisis · Artur</h3>
+          <p>
+            A 3D rail shooter with a hallway, hangar and branching island.
+            Engine 455 · 190 KB.
+          </p>
+          <p>
+            <a
+              class="button"
+              href="/oskie/examples/island-crisis-engine-455.oskie"
+              download="island-crisis.oskie"
+              >Download .oskie</a
             >
-          </dd>
-          <dt>October 27 · A Fuser version</dt>
-          <dd>
-            Artur shared
-            <a href="https://island-crisis-by-dreamdealer.fuser.app/"
-              >Island Crisis by Dreamdealer on Fuser ↗</a
-            >, taking the experiment into another game-making tool.
-          </dd>
-          <dt>November 6 · Aesthetic.Computer</dt>
-          <dd>
-            The next workflow brings game creation into Claude Desktop with an
-            AC <code>@handle</code>, live browser previews and saved revisions.
-            The <code>.oskie</code> name carries forward. This first AC canvas
-            player does not yet run the original kit’s full 3D API.
-          </dd>
+            <a href="https://ow-engine-railshooter.vercel.app/"
+              >Open original web build ↗</a
+            >
+          </p>
+          <p>
+            Recovered from the build Artur shared October 21–22; saved November
+            6. Requires the original Oskiewar 3D runtime.
+          </p>
+        </article>
+        <dl class="history">
+          <div>
+            <dt>November 6 · Aesthetic<span class="ac-dot">.</span>Computer</dt>
+            <dd>
+              The next workflow brings game creation into Claude Desktop with an
+              AC <code>@handle</code>, live browser previews and saved
+              revisions. The <code>.oskie</code> name carries forward. This
+              first AC canvas player does not yet run the original kit’s full 3D
+              API.
+            </dd>
+          </div>
+          <div>
+            <dt>October 27 · A Fuser version</dt>
+            <dd>
+              Artur shared
+              <a href="https://island-crisis-by-dreamdealer.fuser.app/"
+                >Island Crisis by Dreamdealer on Fuser ↗</a
+              >, taking the experiment into another game-making tool.
+            </dd>
+          </div>
+          <div>
+            <dt>October 23–26 · Playing and sharing</dt>
+            <dd>
+              The work moved between camera scale, shooting, UI overlays and
+              island encounters. The kit gained game-specific titles and
+              generated cover images for sharing.
+              <a href="https://island-crisis.vercel.app/"
+                >Island Crisis web build ↗</a
+              >
+            </dd>
+          </div>
+          <div>
+            <dt>October 21–22 · Island Crisis</dt>
+            <dd>
+              Artur built a 3D rail shooter, initially drawing its own 3D with
+              triangles. His requests to use Oskiewar’s characters and props
+              helped drive engine 452: camera controls, reusable objects and
+              procedural figures, with a showroom example.
+            </dd>
+          </div>
+          <div>
+            <dt>October 20, 2026 · The kit</dt>
+            <dd>
+              Jeffrey shared a workflow with Artur: describe a game in Claude
+              Code, play it locally with live reload, then pack a single
+              <code>.oskie</code> file or publish a web build.
+            </dd>
+          </div>
         </dl>
         <p>
           The linked games may show later revisions. Island Crisis’s current web
