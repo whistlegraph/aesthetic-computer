@@ -92,7 +92,7 @@ export const PARAMS = Object.freeze({
 
   // — piece —
   notice: p("string", "piece", ["disk", "piece:painting"], "A notice to flash on load: `success`, `cancel`, `email-verified`, or free text."),
-  dool: p("string", "piece", ["piece:prompt"], "`dool=true`: boot the prompt with the dool room already up."),
+  dool: p("flag", "piece", ["piece:prompt"], "Boot the prompt with the dool room already up (a minted object's doorway links `?dool` bare)."),
   test: p("string", "piece", ["piece:chat", "piece:laklok", "piece:mail"], "Test hooks (BroadcastChannel) for browser e2e runs."),
   ticket: p("string", "piece", ["piece:botce"], "A botce ticket key."),
   rom: p("string", "piece", ["piece:gameboy"], "A ROM link to load."),
