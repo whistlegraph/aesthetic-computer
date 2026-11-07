@@ -24,6 +24,22 @@ struct Chart {
     var songPhrases: [[(String, String)]] = []
     /// How the back face of this card is drawn.
     var backStyle: BackStyle = .info
+    /// Time-boxed score bars (see ScoreCard.swift). Non-empty → score card.
+    var score: [ScoreBar] = []
+    /// Bars per phrase, for the phrase brackets on score cards.
+    var phraseLength: Int = 4
+    /// Which bar number the first `score` entry is (for the margin labels).
+    var firstBarNumber: Int = 1
+}
+
+/// One bar of a two-hand score: three beat cells per hand. A cell is a
+/// key ("k"), a chord ("f+a"), or "-" meaning the previous cell's key is
+/// still held — the renderer merges holds into one pill that spans the
+/// beats. Written as a Lisp tuple `(left right)`: each side is a single
+/// key when it fills the bar, otherwise a group that splits the bar evenly.
+struct ScoreBar {
+    let left: [String]
+    let right: [String]
 }
 
 /// Card back layouts. `.info` shows the card's title + subtitle centered;
@@ -236,6 +252,10 @@ enum ChartRenderer {
             renderSong(chart, in: ctx)
             return
         }
+        if !chart.score.isEmpty {
+            renderScore(chart, in: ctx)
+            return
+        }
 
         // Header: big title, then a one-line subtitle. Sit slightly
         // lower so the title clears the inset border with breathing room.
@@ -418,7 +438,7 @@ enum ChartRenderer {
         // page-numbering chrome.
     }
 
-    private static func drawText(in ctx: CGContext,
+    static func drawText(in ctx: CGContext,
                                   text: NSAttributedString,
                                   origin: CGPoint) {
         NSGraphicsContext.saveGraphicsState()
@@ -842,7 +862,7 @@ enum ChartRenderer {
     /// Look up the notepat color for a QWERTY letter (c, d, e, …, h, i, j, …).
     /// Naturals return their own color; sharps return the natural-to-the-left
     /// color (same rule the menuband piano uses).
-    private static func noteColorForLetter(_ letter: String) -> NSColor {
+    static func noteColorForLetter(_ letter: String) -> NSColor {
         for (midi, l) in Piano.notepatLetter where l == letter {
             if Piano.isWhite(midi) { return Piano.noteColor(midi: midi) }
             var left = midi - 1

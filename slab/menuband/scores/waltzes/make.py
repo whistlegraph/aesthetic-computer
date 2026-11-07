@@ -181,22 +181,20 @@ def emit_swift():
         out.append(f"    do {{ var h: [Int: Piano.Highlight] = {hl}; {dim}")
         out.append(f"        out.append(Chart(title: {swift_str(w['title'] + '.')}, subtitle: {swift_str(w['key'] + ' · ' + str(w['bpm']) + ' bpm · count 1 2 3')}, highlights: h, body: [")
         out.append(f"            BodyParagraph(runs: [.text(\"right hand \"), .key({swift_str(' '.join(sorted(rh_keys, key=lambda k: L2M[k])))}), .text(\" — pink. left hand \"), .key({swift_str(' '.join(sorted(lh_keys, key=lambda k: L2M[k])))}), .text(\" — blue.\")], topSpacing: 6),")
-        out.append(f"            BodyParagraph(runs: [.text(\"on the next two cards each circle is one beat: the letter in the circle is the right hand, the box under it is the left hand. \"), .key(\"–\"), .text(\" in a circle means keep holding. \"), .key(\"f+a\"), .text(\" in a box means press both.\")], topSpacing: 8),")
-        out.append(f"            BodyParagraph(runs: [.text(\"a bar is three circles. count ONE two three. the bass key lands on ONE, the two-key chord on two and three.\")], topSpacing: 8),")
+        out.append('            BodyParagraph(runs: [.text("the next two cards are time-boxed: each box is one bar, each column one beat, count ONE two three. top lane is the left hand, bottom lane the right. a pill that runs across columns is one key held that long. "), .key("f+a"), .text(" is two keys pressed together.")], topSpacing: 8),')
+        out.append('            BodyParagraph(runs: [.text("under each bar is the same bar as a list, "), .key("(left right)"), .text(". a side that is one key fills the bar. a side in parens splits the bar evenly, "), .key("(k j k)"), .text(", and "), .key("-"), .text(" keeps holding. parens nest: a bar is a list of beats, a phrase a list of bars.")], topSpacing: 8),')
         out.append(f"            BodyParagraph(runs: [.text({swift_str(w['note'] + '.')})], topSpacing: 8),")
         out.append(f"        ], footer: \"\")) }}")
         for half,(lo,hi) in enumerate([(0,8),(8,16)]):
-            phrases=[]
+            bars=[]
             for chord,pat in w["bars"][lo:hi]:
-                b,(x,y)=CHORDS[chord]; lhs=[b, f"{x}+{y}", f"{x}+{y}"]
-                pairs=[]; prev=None
-                for beat,t in enumerate(pat.split()):
-                    note = "–" if t=="-" else t
-                    pairs.append(f"({swift_str(note)},{swift_str(lhs[beat])})")
-                phrases.append("[" + ", ".join(pairs) + "]")
-            out.append(f"    out.append(Chart(title: {swift_str(w['title'] + ('  ·  bars 1–8' if half==0 else '  ·  bars 9–16'))}, subtitle: {swift_str(str(w['bpm']) + ' bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three')}, highlights: [:], body: [], footer: \"\", isSong: true, songPhrases: [")
-            out.append("        " + ",\n        ".join(phrases))
-            out.append("    ]))")
+                b,(x,y)=CHORDS[chord]
+                left=[b, f"{x}+{y}", f"{x}+{y}"]
+                right=pat.split()
+                bars.append("ScoreBar(left: [" + ", ".join(swift_str(c) for c in left) + "], right: [" + ", ".join(swift_str(c) for c in right) + "])")
+            out.append(f"    out.append(Chart(title: {swift_str(w['title'] + ('  ·  bars 1–8' if half==0 else '  ·  bars 9–16'))}, subtitle: {swift_str(str(w['bpm']) + ' bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar')}, highlights: [:], body: [], footer: \"\", score: [")
+            out.append("        " + ",\n        ".join(bars))
+            out.append(f"    ], phraseLength: 4, firstBarNumber: {lo+1}))")
     out.append("    return out"); out.append("}")
     open(SWIFT_OUT,"w").write("\n".join(out)+"\n"); print("wrote", SWIFT_OUT)
 

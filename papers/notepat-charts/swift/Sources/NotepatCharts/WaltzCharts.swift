@@ -10,83 +10,83 @@ func waltzCharts() -> [Chart] {
     do { var h: [Int: Piano.Highlight] = [84: .active(rh), 72: .active(rh), 76: .active(rh), 77: .active(rh), 79: .active(rh), 69: .active(lh), 62: .active(lh), 65: .active(lh), 67: .active(lh)]; for m in Piano.firstMidi...Piano.lastMidi where h[m] == nil { h[m] = .dimmed }
         out.append(Chart(title: "Home Row Waltz.", subtitle: "D minor, home row only · 120 bpm · count 1 2 3", highlights: h, body: [
             BodyParagraph(runs: [.text("right hand "), .key("h j k l ;"), .text(" — pink. left hand "), .key("d f g a"), .text(" — blue.")], topSpacing: 6),
-            BodyParagraph(runs: [.text("on the next two cards each circle is one beat: the letter in the circle is the right hand, the box under it is the left hand. "), .key("–"), .text(" in a circle means keep holding. "), .key("f+a"), .text(" in a box means press both.")], topSpacing: 8),
-            BodyParagraph(runs: [.text("a bar is three circles. count ONE two three. the bass key lands on ONE, the two-key chord on two and three.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("the next two cards are time-boxed: each box is one bar, each column one beat, count ONE two three. top lane is the left hand, bottom lane the right. a pill that runs across columns is one key held that long. "), .key("f+a"), .text(" is two keys pressed together.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("under each bar is the same bar as a list, "), .key("(left right)"), .text(". a side that is one key fills the bar. a side in parens splits the bar evenly, "), .key("(k j k)"), .text(", and "), .key("-"), .text(" keeps holding. parens nest: a bar is a list of beats, a phrase a list of bars.")], topSpacing: 8),
             BodyParagraph(runs: [.text("home row only: left hand d f g a, right hand h j k l, and one climb to ; at the end.")], topSpacing: 8),
         ], footer: "")) }
-    out.append(Chart(title: "Home Row Waltz  ·  bars 1–8", subtitle: "120 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("k","d"), ("j","f+a"), ("k","f+a")],
-        [("k","d"), ("–","f+a"), ("–","f+a")],
-        [("h","f"), ("j","f+a"), ("h","f+a")],
-        [("k","f"), ("–","f+a"), ("–","f+a")],
-        [("l","g"), ("–","d+g"), ("–","d+g")],
-        [("l","g"), ("k","d+g"), ("l","d+g")],
-        [("k","d"), ("j","f+a"), ("k","f+a")],
-        [("k","d"), ("–","f+a"), ("–","f+a")]
-    ]))
-    out.append(Chart(title: "Home Row Waltz  ·  bars 9–16", subtitle: "120 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("h","f"), ("–","f+a"), ("–","f+a")],
-        [("h","f"), ("j","f+a"), ("k","f+a")],
-        [("l","g"), ("–","d+g"), ("–","d+g")],
-        [("l","g"), ("k","d+g"), ("l","d+g")],
-        [("k","d"), ("j","f+a"), ("k","f+a")],
-        [("h","f"), ("j","f+a"), ("k","f+a")],
-        [("l","g"), (";","d+g"), ("–","d+g")],
-        [("k","d"), ("–","f+a"), ("–","f+a")]
-    ]))
+    out.append(Chart(title: "Home Row Waltz  ·  bars 1–8", subtitle: "120 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "j", "k"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "-", "-"]),
+        ScoreBar(left: ["f", "f+a", "f+a"], right: ["h", "j", "h"]),
+        ScoreBar(left: ["f", "f+a", "f+a"], right: ["k", "-", "-"]),
+        ScoreBar(left: ["g", "d+g", "d+g"], right: ["l", "-", "-"]),
+        ScoreBar(left: ["g", "d+g", "d+g"], right: ["l", "k", "l"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "j", "k"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 1))
+    out.append(Chart(title: "Home Row Waltz  ·  bars 9–16", subtitle: "120 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["f", "f+a", "f+a"], right: ["h", "-", "-"]),
+        ScoreBar(left: ["f", "f+a", "f+a"], right: ["h", "j", "k"]),
+        ScoreBar(left: ["g", "d+g", "d+g"], right: ["l", "-", "-"]),
+        ScoreBar(left: ["g", "d+g", "d+g"], right: ["l", "k", "l"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "j", "k"]),
+        ScoreBar(left: ["f", "f+a", "f+a"], right: ["h", "j", "k"]),
+        ScoreBar(left: ["g", "d+g", "d+g"], right: ["l", ";", "-"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["k", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 9))
     do { var h: [Int: Piano.Highlight] = [72: .active(rh), 74: .active(rh), 76: .active(rh), 77: .active(rh), 79: .active(rh), 81: .active(rh), 83: .active(rh), 80: .active(rh), 69: .active(lh), 71: .active(lh), 60: .active(lh), 62: .active(lh), 64: .active(lh), 65: .active(lh), 68: .active(lh)]; for m in Piano.firstMidi...Piano.lastMidi where h[m] == nil { h[m] = .dimmed }
         out.append(Chart(title: "Minor Waltz.", subtitle: "A minor · 112 bpm · count 1 2 3", highlights: h, body: [
             BodyParagraph(runs: [.text("right hand "), .key("h i j k l o m n"), .text(" — pink. left hand "), .key("c d e f r a b"), .text(" — blue.")], topSpacing: 6),
-            BodyParagraph(runs: [.text("on the next two cards each circle is one beat: the letter in the circle is the right hand, the box under it is the left hand. "), .key("–"), .text(" in a circle means keep holding. "), .key("f+a"), .text(" in a box means press both.")], topSpacing: 8),
-            BodyParagraph(runs: [.text("a bar is three circles. count ONE two three. the bass key lands on ONE, the two-key chord on two and three.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("the next two cards are time-boxed: each box is one bar, each column one beat, count ONE two three. top lane is the left hand, bottom lane the right. a pill that runs across columns is one key held that long. "), .key("f+a"), .text(" is two keys pressed together.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("under each bar is the same bar as a list, "), .key("(left right)"), .text(". a side that is one key fills the bar. a side in parens splits the bar evenly, "), .key("(k j k)"), .text(", and "), .key("-"), .text(" keeps holding. parens nest: a bar is a list of beats, a phrase a list of bars.")], topSpacing: 8),
             BodyParagraph(runs: [.text("one sharp in the left hand: r is G#. the E chord is e with r+b.")], topSpacing: 8),
         ], footer: "")) }
-    out.append(Chart(title: "Minor Waltz  ·  bars 1–8", subtitle: "112 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("j","a"), ("m","c+e"), ("j","c+e")],
-        [("h","a"), ("–","c+e"), ("–","c+e")],
-        [("i","d"), ("k","f+a"), ("i","f+a")],
-        [("j","a"), ("–","c+e"), ("–","c+e")],
-        [("o","e"), ("n","r+b"), ("o","r+b")],
-        [("j","e"), ("–","r+b"), ("–","r+b")],
-        [("h","a"), ("i","c+e"), ("j","c+e")],
-        [("n","e"), ("–","r+b"), ("–","r+b")]
-    ]))
-    out.append(Chart(title: "Minor Waltz  ·  bars 9–16", subtitle: "112 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("m","a"), ("–","c+e"), ("l","c+e")],
-        [("k","a"), ("–","c+e"), ("j","c+e")],
-        [("i","d"), ("j","f+a"), ("k","f+a")],
-        [("m","d"), ("–","f+a"), ("–","f+a")],
-        [("o","e"), ("–","r+b"), ("n","r+b")],
-        [("j","e"), ("–","r+b"), ("–","r+b")],
-        [("o","e"), ("n","r+b"), ("o","r+b")],
-        [("m","a"), ("–","c+e"), ("–","c+e")]
-    ]))
+    out.append(Chart(title: "Minor Waltz  ·  bars 1–8", subtitle: "112 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["j", "m", "j"]),
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["h", "-", "-"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["i", "k", "i"]),
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["j", "-", "-"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["o", "n", "o"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["j", "-", "-"]),
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["h", "i", "j"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["n", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 1))
+    out.append(Chart(title: "Minor Waltz  ·  bars 9–16", subtitle: "112 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["m", "-", "l"]),
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["k", "-", "j"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["i", "j", "k"]),
+        ScoreBar(left: ["d", "f+a", "f+a"], right: ["m", "-", "-"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["o", "-", "n"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["j", "-", "-"]),
+        ScoreBar(left: ["e", "r+b", "r+b"], right: ["o", "n", "o"]),
+        ScoreBar(left: ["a", "c+e", "c+e"], right: ["m", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 9))
     do { var h: [Int: Piano.Highlight] = [74: .active(rh), 76: .active(rh), 79: .active(rh), 81: .active(rh), 83: .active(rh), 78: .active(rh), 69: .active(lh), 71: .active(lh), 60: .active(lh), 62: .active(lh), 64: .active(lh), 67: .active(lh), 66: .active(lh)]; for m in Piano.firstMidi...Piano.lastMidi where h[m] == nil { h[m] = .dimmed }
         out.append(Chart(title: "Sharp Waltz.", subtitle: "G major · 126 bpm · count 1 2 3", highlights: h, body: [
             BodyParagraph(runs: [.text("right hand "), .key("i j u l m n"), .text(" — pink. left hand "), .key("c d e w g a b"), .text(" — blue.")], topSpacing: 6),
-            BodyParagraph(runs: [.text("on the next two cards each circle is one beat: the letter in the circle is the right hand, the box under it is the left hand. "), .key("–"), .text(" in a circle means keep holding. "), .key("f+a"), .text(" in a box means press both.")], topSpacing: 8),
-            BodyParagraph(runs: [.text("a bar is three circles. count ONE two three. the bass key lands on ONE, the two-key chord on two and three.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("the next two cards are time-boxed: each box is one bar, each column one beat, count ONE two three. top lane is the left hand, bottom lane the right. a pill that runs across columns is one key held that long. "), .key("f+a"), .text(" is two keys pressed together.")], topSpacing: 8),
+            BodyParagraph(runs: [.text("under each bar is the same bar as a list, "), .key("(left right)"), .text(". a side that is one key fills the bar. a side in parens splits the bar evenly, "), .key("(k j k)"), .text(", and "), .key("-"), .text(" keeps holding. parens nest: a bar is a list of beats, a phrase a list of bars.")], topSpacing: 8),
             BodyParagraph(runs: [.text("F sharp is w in the left hand and u in the right.")], topSpacing: 8),
         ], footer: "")) }
-    out.append(Chart(title: "Sharp Waltz  ·  bars 1–8", subtitle: "126 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("l","g"), ("n","b+d"), ("l","b+d")],
-        [("i","g"), ("–","b+d"), ("–","b+d")],
-        [("j","c"), ("l","e+g"), ("j","e+g")],
-        [("i","g"), ("–","b+d"), ("–","b+d")],
-        [("u","d"), ("m","w+a"), ("u","w+a")],
-        [("i","d"), ("j","w+a"), ("u","w+a")],
-        [("l","g"), ("–","b+d"), ("n","b+d")],
-        [("m","d"), ("–","w+a"), ("–","w+a")]
-    ]))
-    out.append(Chart(title: "Sharp Waltz  ·  bars 9–16", subtitle: "126 bpm · circle = right hand · box = left hand · – = still holding · a+b = press both · ONE two three", highlights: [:], body: [], footer: "", isSong: true, songPhrases: [
-        [("j","e"), ("l","g+b"), ("j","g+b")],
-        [("n","e"), ("–","g+b"), ("–","g+b")],
-        [("j","c"), ("l","e+g"), ("m","e+g")],
-        [("u","d"), ("–","w+a"), ("–","w+a")],
-        [("l","g"), ("n","b+d"), ("l","b+d")],
-        [("l","c"), ("m","e+g"), ("j","e+g")],
-        [("i","d"), ("j","w+a"), ("u","w+a")],
-        [("l","g"), ("–","b+d"), ("–","b+d")]
-    ]))
+    out.append(Chart(title: "Sharp Waltz  ·  bars 1–8", subtitle: "126 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["l", "n", "l"]),
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["i", "-", "-"]),
+        ScoreBar(left: ["c", "e+g", "e+g"], right: ["j", "l", "j"]),
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["i", "-", "-"]),
+        ScoreBar(left: ["d", "w+a", "w+a"], right: ["u", "m", "u"]),
+        ScoreBar(left: ["d", "w+a", "w+a"], right: ["i", "j", "u"]),
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["l", "-", "n"]),
+        ScoreBar(left: ["d", "w+a", "w+a"], right: ["m", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 1))
+    out.append(Chart(title: "Sharp Waltz  ·  bars 9–16", subtitle: "126 bpm · each box is a bar, each column a beat · top lane left hand, bottom lane right hand · a long pill is a held key · (left right) under each bar", highlights: [:], body: [], footer: "", score: [
+        ScoreBar(left: ["e", "g+b", "g+b"], right: ["j", "l", "j"]),
+        ScoreBar(left: ["e", "g+b", "g+b"], right: ["n", "-", "-"]),
+        ScoreBar(left: ["c", "e+g", "e+g"], right: ["j", "l", "m"]),
+        ScoreBar(left: ["d", "w+a", "w+a"], right: ["u", "-", "-"]),
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["l", "n", "l"]),
+        ScoreBar(left: ["c", "e+g", "e+g"], right: ["l", "m", "j"]),
+        ScoreBar(left: ["d", "w+a", "w+a"], right: ["i", "j", "u"]),
+        ScoreBar(left: ["g", "b+d", "b+d"], right: ["l", "-", "-"])
+    ], phraseLength: 4, firstBarNumber: 9))
     return out
 }
