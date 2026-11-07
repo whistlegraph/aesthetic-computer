@@ -29,7 +29,9 @@ echo "   Host: $OVEN_HOST"
 echo "   Key: $SSH_KEY"
 
 # Get current git version for OVEN_VERSION env var
-GIT_VERSION=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+# OVEN_VERSION names the revision the oven reports when this runs from an export
+# rather than a checkout (a throwaway tree of origin/main has its own sha).
+GIT_VERSION=${OVEN_VERSION:-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")}
 echo "   Version: $GIT_VERSION"
 
 # Time the rsync
