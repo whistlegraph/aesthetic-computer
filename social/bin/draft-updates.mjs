@@ -32,7 +32,9 @@ const opt = (name, fallback) => { const i = args.indexOf(name); return i >= 0 ? 
 const ROOT = resolve(opt("--root", resolve(dirname(fileURLToPath(import.meta.url)), "../..")));
 const HOME = process.env.AC_SOCIAL_HOME || join(homedir(), ".local/share/ac/social");
 const DRY = flag("--dry-run");
-const TODAY = opt("--date", new Date().toISOString().slice(0, 10));
+// The studio day is New York time, like podcast-daily's mint date; the 01:00 UTC timer still lands on the right day.
+const TZ = process.env.AC_SOCIAL_TZ || "America/New_York";
+const TODAY = opt("--date", new Date().toLocaleDateString("en-CA", { timeZone: TZ }));
 const BOARD = "https://papers.aesthetic.computer/deadlines";
 
 const X_LIMIT = 280, X_URL = 23, BSKY_LIMIT = 300;
