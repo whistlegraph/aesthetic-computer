@@ -1,4 +1,4 @@
-import { captureObjectFrames } from "./object-preview.mjs";
+import { captureObjectFrames, OBJECT_PREVIEW_FPS, OBJECT_TURN_SECONDS } from "./object-preview.mjs";
 // Grabber - KidLisp piece screenshot/GIF capture using Puppeteer
 // Captures frames from running KidLisp pieces for thumbnails
 
@@ -2306,9 +2306,9 @@ export async function grabPiece(piece, options = {}) {
     format = 'webp', // 'webp', 'gif', or 'png'
     width = 512,
     height = 512,
-    duration = 12000,
-    fps = 7.5, // Capture fps
-    playbackFps = 15, // Playback fps (2x speed)
+    duration = options.view === 'object' ? OBJECT_TURN_SECONDS * 1000 : 12000,
+    fps = options.view === 'object' ? OBJECT_PREVIEW_FPS : 7.5,
+    playbackFps = options.view === 'object' ? fps : 15,
     density = 1,
     viewportScale = null, // Override deviceScaleFactor (null = use density)
     quality = 90,
@@ -2329,7 +2329,7 @@ export async function grabPiece(piece, options = {}) {
   const outputHeight = height * effectiveScale;
   
   const animated = format !== 'png';
-  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, view === 'object' ? `${cacheKey}-object-v1` : cacheKey);
+  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, view === 'object' ? `${cacheKey}-object-v2` : cacheKey);
   
   // Check for existing capture (deduplication)
   if (!skipCache) {
@@ -2991,7 +2991,7 @@ export async function grabHandler(req, res) {
  */
 export async function grabGetHandler(req, res) {
   const { format, width, height, piece } = req.params;
-  const { duration = 12000, fps = 7.5, playbackFps = 15, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false', cacheKey = '', view = '' } = req.query;
+  const { view = '', duration = view === 'object' ? OBJECT_TURN_SECONDS * 1000 : 12000, fps = view === 'object' ? OBJECT_PREVIEW_FPS : 7.5, playbackFps = view === 'object' ? fps : 15, density = 1, quality = 80, source = 'manual', skipCache = 'false', nowait = 'false', cacheKey = '' } = req.query;
   
   if (!piece) {
     return res.status(400).json({ error: 'Missing piece parameter' });
@@ -3017,7 +3017,7 @@ export async function grabGetHandler(req, res) {
   // Calculate captureKey to check for in-progress grabs
   const animated = format !== 'png';
   const parsedDensity = parseFloat(density) || 1;
-  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, view === 'object' ? `${cacheKey}-object-v1` : cacheKey);
+  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, view === 'object' ? `${cacheKey}-object-v2` : cacheKey);
   
   // If nowait=true, check if there's already a grab in progress for this key
   if (nowait === 'true' || nowait === true) {

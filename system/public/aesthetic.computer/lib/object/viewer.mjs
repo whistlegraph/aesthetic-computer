@@ -15,10 +15,12 @@ export function isObjectLisp(source) {
 }
 
 const DEFAULT_BG = [20, 23, 32];
-const DEFAULT_GRID = [44, 48, 64];
+// GIF delays are exact centiseconds at 25 fps; 100 poses make a four-second loop.
+export const OBJECT_PREVIEW_FPS = 25;
+export const OBJECT_TURN_SECONDS = 4;
 
 // A `; #bg r g b` pragma gives the object its own ground (a minted object
-// carries the colour its ink asked for); the floor grid lifts off it.
+// carries the colour its ink asked for).
 export function sourceBackground(source) {
   const m = typeof source === "string" && source.match(/^\s*;\s*#bg\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b/m);
   if (!m) return null;
@@ -81,8 +83,8 @@ export function objectPiece(source, label = "", options = {}) {
   const door = sourceDoor(source);
   let press = null; // { x, y, at } while a touch may still be a tap
   let doorShownAt = 0;
-  const GRID = BG === DEFAULT_BG ? DEFAULT_GRID : BG.map((c) => Math.min(255, c + 24));
   const start = Date.now();
+  let lastPaint = start;
   // The object's (tone ...) oscillators, enabled by its canvas speaker control.
   let tones = [], voices = [];
   let soundPress = false;
@@ -119,9 +121,14 @@ export function objectPiece(source, label = "", options = {}) {
       size = [w, h];
     }
     depth.fill(Infinity);
-    const t = options.time ?? (Date.now() - start) / 1000;
-    if (preview) yaw = (options.yaw ?? 0.6) + t * Math.PI / 4; // One turn in eight seconds.
-    else if (!dragging) yaw += 0.006;
+    const nowMs = Date.now();
+    const t = options.time ?? (nowMs - start) / 1000;
+    // Integrate wall time so 30/60/120 Hz displays turn at the same speed.
+    // Cap a resumed tab's first step; dragging keeps its current angle.
+    const elapsed = Math.min(0.1, Math.max(0, (nowMs - lastPaint) / 1000));
+    lastPaint = nowMs;
+    if (preview) yaw = (options.yaw ?? 0.6) + t * Math.PI * 2 / OBJECT_TURN_SECONDS;
+    else if (!dragging) yaw += elapsed * Math.PI * 2 / OBJECT_TURN_SECONDS;
 
     const v = sourceFrame(shape, t).vertices;
     if (v.length) {
@@ -144,8 +151,7 @@ export function objectPiece(source, label = "", options = {}) {
     };
     const near = 0.1;
 
-    // Floor grid, depth tested so the object stands on it; segments that
-    // reach behind the camera are clipped rather than drawn wild.
+    // Depth-tested points for fur. Standalone objects have a clean ground.
     const plot = (x, y, d, rgb) => {
       x |= 0; y |= 0;
       if (x < 0 || y < 0 || x >= w || y >= h) return;
@@ -154,21 +160,6 @@ export function objectPiece(source, label = "", options = {}) {
       depth[i] = d;
       pixels[i * 4] = rgb[0]; pixels[i * 4 + 1] = rgb[1]; pixels[i * 4 + 2] = rgb[2];
     };
-    const segment = (ax, az, bx, bz) => {
-      const steps = 64;
-      for (let s = 0; s <= steps; s++) {
-        const k = s / steps;
-        const p = project(ax + (bx - ax) * k, 0, az + (bz - az) * k);
-        if (p[2] > near) plot(p[0], p[1], p[2] + 0.01, GRID);
-      }
-    };
-    const reach = Math.max(2, Math.ceil(radius * 2));
-    const gx = Math.round(center.x), gz = Math.round(center.z);
-    for (let g = -reach; !preview && g <= reach; g++) {
-      segment(gx + g, gz - reach, gx + g, gz + reach);
-      segment(gx - reach, gz + g, gx + reach, gz + g);
-    }
-
     for (let i = 0; i < v.length; i += 18) {
       const a = project(v[i], v[i + 1], v[i + 2]);
       const b = project(v[i + 6], v[i + 7], v[i + 8]);

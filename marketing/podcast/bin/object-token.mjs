@@ -74,7 +74,7 @@ const PRICE_XTZ = Number(flags.price || process.env.OBJECT_PRICE_XTZ || 5);
 const ROYALTIES = Number(process.env.OBJECT_ROYALTIES_PERMILLE || 150); // HEN and Teia are per-mille
 const DOOR = typeof flags.door === "string" ? flags.door : (process.env.OBJECT_DOOR || "https://aesthetic.computer/?dool");
 const MIN_BALANCE_XTZ = 0.15;
-const SIZE = 640, FPS = 8, SECONDS = 8;
+const SIZE = 640;
 const OBJECT_STYLE = "#aesthetic-computer { position: relative; overflow: hidden; }";
 
 if (!/^https:\/\/\S+$/.test(DOOR)) { console.error(`✗ --door must be an https URL, not ${DOOR}`); process.exit(1); }
@@ -108,7 +108,7 @@ if (receipt.listed) { console.log(`✓ $${code} already minted and listed: ${rec
 // The runtime's own viewer decides what counts as an object and compiles it;
 // the same code draws it on aesthetic.computer, in the pack, and here.
 const viewerPath = resolve(REPO, "system/public/aesthetic.computer/lib/object/viewer.mjs");
-const { objectPiece, isObjectLisp, sourceBackground, sourceDoor } = await import(viewerPath);
+const { objectPiece, isObjectLisp, sourceBackground, sourceDoor, OBJECT_PREVIEW_FPS: FPS, OBJECT_TURN_SECONDS: SECONDS } = await import(viewerPath);
 const { parseSource, sourceFrame } = await import(resolve(REPO, "system/public/aesthetic.computer/lib/object/object-language.mjs"));
 
 async function fetchObject(code) {
@@ -207,7 +207,9 @@ if (!receipt.code) {
 // The viewer's preview pose, one full turn, drawn into raw RGBA frames that
 // ffmpeg turns into the GIF and the still.
 const gifPath = resolve(outDir, `${code}.gif`), thumbPath = resolve(outDir, `${code}-thumb.png`);
-if (!existsSync(gifPath) || !existsSync(thumbPath)) {
+const renderChanged = receipt.fps !== FPS || receipt.seconds !== SECONDS;
+// Pinned receipts must keep the bytes their immutable metadata references.
+if (!existsSync(gifPath) || !existsSync(thumbPath) || (!receipt.metadataUri && renderChanged)) {
   const view = { preview: true, time: 0, yaw: 0.6 };
   const piece = objectPiece(receipt.source, "", view);
   const screen = { width: SIZE, height: SIZE, pixels: new Uint8ClampedArray(SIZE * SIZE * 4) };
@@ -226,8 +228,8 @@ if (!existsSync(gifPath) || !existsSync(thumbPath)) {
   ff(["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${SIZE}x${SIZE}`, "-r", String(FPS), "-i", rawPath,
     "-vf", "split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none", "-loop", "0", gifPath]);
   ff(["-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${SIZE}x${SIZE}`, "-i", rawPath, "-frames:v", "1", "-vf", "scale=320:320:flags=area", thumbPath]);
-  unlinkSync(rawPath); // 100 MB of frames, spent
-  Object.assign(receipt, { frames: count, gifBytes: readFileSync(gifPath).length });
+  unlinkSync(rawPath); // The raw frames are spent.
+  Object.assign(receipt, { frames: count, fps: FPS, seconds: SECONDS, gifBytes: readFileSync(gifPath).length });
   save();
   console.log(`  ✓ turntable ${count} frames (${(receipt.gifBytes / 1024).toFixed(0)} KB) → out/objects/${code}.gif`);
 }
@@ -239,7 +241,7 @@ process.env.AC_SOURCE_DIR ||= resolve(REPO, "system", "public", "aesthetic.compu
 const { createBundleFromSource } = await import(resolve(REPO, "oven", "bundler.mjs"));
 const { teiaPackage, TEIA_FORMAT } = await import(resolve(REPO, "system", "backend", "whistlegraph-teia.mjs"));
 const htmlPath = resolve(outDir, `${code}.html`);
-if (!existsSync(htmlPath)) {
+if (!existsSync(htmlPath) || (!receipt.metadataUri && renderChanged)) {
   const { html } = await createBundleFromSource(receipt.code, receipt.source, { authorHandle: HANDLE, style: OBJECT_STYLE, doorway: DOOR });
   // The pack is a self-extracting gzip page; the doorway and the viewer live inside it.
   const b64 = html.match(/const b64='([A-Za-z0-9+/=]+)'/)?.[1];
