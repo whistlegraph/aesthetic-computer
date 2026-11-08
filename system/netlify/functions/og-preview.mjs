@@ -12,6 +12,10 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 const UNAVAILABLE_TTL = 5 * 60 * 1000;
 const MAX_HTML_BYTES = 50 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+// What a bot wall calls itself. A fetched page whose <title> says this is the
+// host turning a scraper away, not the page the link points at, so the card
+// names the host and stops rather than reading "Client Challenge" in chat.
+const BOT_WALL = /^\s*(client challenge|just a moment|attention required|access denied|are you a (?:ro)?bot|verif(?:y|ying) you are (?:a )?human|please verify|security check|checking your browser|ddos-guard|bot verification)/i;
 
 function getCached(url) {
   const entry = cache.get(url);
@@ -204,6 +208,11 @@ export default async function handler(req) {
 
     // Parse Open Graph and other meta tags
     const resultData = parseMetaTags(html, targetUrl);
+    if (BOT_WALL.test(resultData.title || "")) {
+      const data = unavailablePreview(parsedUrl, "bot_wall", response.status);
+      setCache(targetUrl, data, UNAVAILABLE_TTL);
+      return previewResponse(data, UNAVAILABLE_TTL);
+    }
     setCache(targetUrl, resultData);
 
     return previewResponse(resultData, CACHE_TTL);
@@ -264,6 +273,21 @@ async function providerPreview(url) {
       siteName: byline("SoundCloud", data.author_name), favicon: null,
       player: { kind: "soundcloud",
         src: `https://w.soundcloud.com/player/?url=${encodeURIComponent(url.href)}&auto_play=true&visual=false&show_comments=false&show_user=true&show_reposts=false` } };
+  }
+
+  if (hostIs(url, "bandcamp.com")) {
+    // Bandcamp answers scrapers with a bot wall, so the card reads what the
+    // URL already spells: the subdomain is the artist or label and the slug
+    // is the title. Nothing is fetched, so there is no wall to hit.
+    const match = url.pathname.match(/^\/(track|album)\/([^/?#]+)/);
+    if (!match) return null;
+    const [, kind, slug] = match;
+    const who = url.hostname.endsWith(".bandcamp.com") ? url.hostname.slice(0, -".bandcamp.com".length) : null;
+    let words = slug;
+    try { words = decodeURIComponent(slug); } catch {}
+    const title = words.split("-").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+    return { url: url.href, title: title || words, image: null, description: null,
+      siteName: byline("Bandcamp", who && who !== "www" && who, kind), favicon: null };
   }
 
   if (hostIs(url, "discogs.com")) {
