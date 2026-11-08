@@ -95,6 +95,7 @@ export const paletteFor = () => 'night';
 import {
   WALLS,
   COLORS,
+  seatColor,
   WORLD,
   SCREEN,
   CFG,
@@ -541,7 +542,7 @@ export async function createView(canvas) {
     spending = false,
     tiles = {},
     floorAim = null,
-    chalk = [[], []],
+    chalk = [],
     chalkLocal = [],
     chalkMode = null,
     face = null,
@@ -862,10 +863,10 @@ export async function createView(canvas) {
       // (The object's code tree is no longer drawn in the room; the lingering
       // window still times the landing burst above.)
     }
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
       const p = i === seat && me ? me : players[i];
       if (!p?.alive) continue;
-      const f = fighters[i],
+      const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight;
       if (i !== seat || third || !me) {
@@ -1638,7 +1639,7 @@ export async function createView(canvas) {
       for (const w of walls) if (w.model) fd(w.model, 0, 0, 0);
       for (const o of objects)
         if (!o.item && o.geometry.format === OBJECT_FORMAT) fd(sourceFrame(o.geometry, worldTime).vertices, o.x, 0, o.z);
-      const fs = fighters[face.seat] || fighters[0];
+      const fs = fighters[Math.max(0, face.seat) % fighters.length];
       fd(fs.torso, me.x, base, me.z, yawR);
       fd(fs.head, me.x, base, me.z, yawR);
       fd(eyeFor(me, face.seat, now, face), me.x, base, me.z, yawR);
@@ -1768,7 +1769,7 @@ export async function createView(canvas) {
         if (me) return;
         px(0, 0, 24, 24, 0x15171e, 0.000003);
         // Shoulders in the seat colour.
-        px(3, 0, 18, 5, COLORS[face.seat] || 0xc0c0c0, 0.000002);
+        px(3, 0, 18, 5, face.seat >= 0 ? seatColor(face.seat) : 0xc0c0c0, 0.000002);
         // Head: the player's white block with a shaded side.
         const hx = 6, hy = 5 + bob / unit;
         px(hx, hy, 12, 13, 0xf2f2f2, 0.000002);
@@ -1939,7 +1940,7 @@ export async function createView(canvas) {
       });
     const liveChalk = new Set();
     chalk.forEach((strokes, seatIndex) => {
-      const ink = seatIndex === 0 ? 0xffd9cf : 0xd6ecff;
+      const ink = tint(seatColor(seatIndex), 1.6);
       (strokes || []).forEach((points, k) => {
         if (!points || points.length < 2) return;
         const key = `${seatIndex}:${k}`;

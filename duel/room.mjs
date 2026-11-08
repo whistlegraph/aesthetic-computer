@@ -1,5 +1,6 @@
 import { guestName } from './guest-name.mjs';
 import { Match } from './match.mjs';
+import { MAX_PLAYERS } from './world.mjs';
 
 // Connections are not people. Duplicate verified handles share one player slot.
 export class Room {
@@ -8,7 +9,7 @@ export class Room {
     this.match = new Match();
     this.clients = new Map();
     this.sessions = new Map();
-    this.members = [null, null];
+    this.members = Array(MAX_PLAYERS).fill(null);
   }
   add(ws, pending = false) {
     const record = {
@@ -33,7 +34,7 @@ export class Room {
       const key = r.handle?.toLowerCase() || r.owner || r;
       if (seen.has(key)) continue;
       seen.add(key);
-      if (selected.length < 2) selected.push(r);
+      if (selected.length < MAX_PLAYERS) selected.push(r);
     }
     for (const r of this.sessions.values())
       if (r.seat >= 0 && !selected.includes(r)) {
@@ -41,7 +42,7 @@ export class Room {
         r.seat = -1;
       }
     for (const r of selected) if (r.seat < 0) r.seat = this.match.join();
-    this.members = [null, null];
+    this.members = Array(MAX_PLAYERS).fill(null);
     for (const r of this.sessions.values()) {
       const previous = this.clients.get(r.ws);
       this.clients.set(r.ws, r.seat);

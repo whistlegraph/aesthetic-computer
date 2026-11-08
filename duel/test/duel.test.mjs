@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import { attachSocketRoute } from '../../lith/socket-routing.mjs';
 import { Match } from '../match.mjs';
 import { createDuelServer } from '../server.mjs';
-import { spawn, move, HZ, PROTOCOL, FRAG_LIMIT } from '../world.mjs';
+import { spawn, spawnPoint, move, HZ, PROTOCOL, FRAG_LIMIT, MAX_PLAYERS } from '../world.mjs';
 import { command, reconcile, interpolate } from '../net.mjs';
 
 const cmd = (seq, extra = {}) => ({ seq, fwd: 0, right: 0, yaw: 0, pitch: 0,
@@ -155,11 +155,50 @@ test('interpolation uses shortest yaw, freezes on starvation and never lerps acr
   assert.equal(interpolate([a, b], 20, 0).x, 10);
 });
 
-test('disconnect resets the remaining player and releases the second slot', () => {
-  const m = playing(); assert.equal(m.join(), -1);
+test('the last rival leaving resets the one left behind and frees the seat', () => {
+  const m = playing();
   shoot(m); m.leave(1);
   assert.equal(m.phase, 'waiting'); assert.equal(m.seats[0].player.score, 0);
   assert.equal(m.join(), 1); assert.equal(m.phase, 'countdown');
+});
+
+test('a room holds many players; late arrivals join the running match', () => {
+  const m = playing();
+  m.seats[0].player.score = 3;
+  assert.equal(m.join(), 2);
+  assert.equal(m.phase, 'playing', 'a third arrival does not restart the match');
+  assert.equal(m.seats[0].player.score, 3);
+  while (m.join() >= 0);
+  assert.equal(m.count, MAX_PLAYERS);
+  assert.equal(m.join(), -1, 'the room refuses a seat past MAX_PLAYERS');
+  m.leave(5);
+  assert.equal(m.phase, 'playing', 'one departure among many keeps the match');
+  assert.equal(m.seats[0].player.score, 3);
+  assert.equal(m.join(), 5, 'the freed seat is reused');
+  const snap = m.snapshot();
+  assert.equal(snap.players.filter(Boolean).length, MAX_PLAYERS);
+  assert.equal(snap.acks.length, MAX_PLAYERS);
+});
+
+test('every seat spawns inside the walls, apart, facing the middle', () => {
+  const points = Array.from({ length: MAX_PLAYERS }, (_, s) => spawnPoint(s));
+  assert.deepEqual(points[0], { x: 0, z: -5, yaw: 0 });
+  assert.deepEqual(points[1], { x: 0, z: 5, yaw: 180 });
+  for (const [i, p] of points.entries()) {
+    assert.ok(Math.abs(p.x) < 8 && Math.abs(p.z) < 8, 'seat ' + i + ' inside');
+    for (const q of points.slice(i + 1)) assert.ok(Math.hypot(p.x - q.x, p.z - q.z) > 1.5, 'seat ' + i + ' apart');
+    const toCenter = Math.atan2(-p.x, -p.z) * 180 / Math.PI;
+    assert.ok(Math.abs(((toCenter - p.yaw + 540) % 360) - 180) < 0.1, 'seat ' + i + ' faces in');
+  }
+});
+
+test('a third player\'s rocket frags under the free-for-all score', () => {
+  const m = playing(); m.join();
+  const shooter = m.seats[2].player, target = m.seats[0].player;
+  target.health = 1;
+  m.damage(0, 5, 2);
+  assert.equal(m.seats[0].player.alive, false);
+  assert.equal(m.seats[2].player.score, 1);
 });
 
 test('HTTP allowlist, actual two-socket match, full room, room isolation and cleanup', async t => {
@@ -181,7 +220,7 @@ test('HTTP allowlist, actual two-socket match, full room, room isolation and cle
   const a = connect(); assert.equal((await waitFor(a, d => d.type === 'welcome')).seat, 0);
   const b = connect(); assert.equal((await waitFor(b, d => d.type === 'welcome')).seat, 1);
   await waitFor(a, d => d.phase === 'countdown');
-  const c = connect('test', 'instagib'); assert.equal((await waitFor(c, d => d.type === 'welcome')).role, 'spectator'); c.close(); await once(c, 'close');
+  const c = connect('test', 'instagib'); assert.equal((await waitFor(c, d => d.type === 'welcome')).seat, 2, 'a third socket plays too'); c.close(); await once(c, 'close');
   const other = connect('other-room'); assert.equal((await waitFor(other, d => d.type === 'welcome')).seat, 0);
   a.send(JSON.stringify({ type: 'input', commands: [cmd(1)] }));
   await waitFor(a, d => d.acks?.[0] === 1);

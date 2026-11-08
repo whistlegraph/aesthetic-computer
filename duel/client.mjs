@@ -57,7 +57,7 @@ let yaw = 0,
   firing = false,
   latestAt = 0,
   eventId = 0;
-let chalkStrokes = [[], []],
+let chalkStrokes = [],
   chalkVersion = 0,
   chalkLocal = [],
   // Draw mode inside a build: { text, target } while you chalk the shape.
@@ -1503,7 +1503,7 @@ function step(now) {
     }
   }
   view.render({
-    players: connected ? [0, 1].map((i) => interpolate(history, tick, i)) : [],
+    players: connected ? (snapshot?.players || []).map((_, i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
     camera: seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0,

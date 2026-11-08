@@ -145,7 +145,7 @@ export class Builders {
     await this.store.clearRoom(room);
     // A clean room: chalk goes too.
     const match = this.rooms.get(room)?.match;
-    if (match) for (const seat of [0, 1]) match.clearChalk(seat);
+    if (match) for (let seat = 0; seat < match.chalk.length; seat++) match.clearChalk(seat);
     this.broadcast(room);
   }
   // Put a copy of a remembered $code in front of the player, no Aesel needed.

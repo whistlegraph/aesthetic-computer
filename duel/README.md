@@ -336,7 +336,9 @@ connection for that handle becomes a spectator; room presence lists the handle
 once. Spectators receive the same scene and builds, but have no body, collision,
 player input or build authority. The first connection retains priority even if
 account verification finishes out of order. On disconnect, the earliest eligible
-spectator takes the open slot. Rooms allow two players and up to eight spectators.
+spectator takes the open slot. Rooms hold up to sixteen players (`MAX_PLAYERS`) and as many
+spectators again. The second player to arrive starts a match; later arrivals drop into it on a
+spawn ring facing the middle, and a departure only stops the match when it leaves one player alone.
 
 Spectator freecam: WASD and mouse, Space up, Shift down. It starts looking at the
 active player. Handles use AC's canonical pixel font, exact casing, and saved
@@ -385,3 +387,22 @@ system's label on every AC piece, SCREEN.md). The host answers with
 `{ type: "dool:sheet", open }` as the paper moves. Back in the browser closes
 the world too; the open world is one history entry at `/dool/`. Standalone,
 the corner block goes to the homepage.
+
+## Toward unidool
+
+One room now holds sixteen players. Measured on a local server (2026-11-08): twelve sockets each
+held a seat at 61 snapshots a second; a snapshot was about 2.5 KB, so each client receives about
+150 KB/s, and the room sends about 1.8 MB/s in total. Snapshots are serialized once per room per tick.
+
+A single shared world for everyone ("unidool") needs four more things, in this order:
+
+1. **Smaller snapshots.** Quantize positions and angles, send only fields that changed, and drop
+   to 30 Hz for distant players. Bandwidth per client is the first wall, not CPU.
+2. **Interest.** Send each client the players and objects near it, not the whole room.
+3. **Cells.** Split the world into adjacent rooms, each its own authority, with players handed
+   across an edge carrying their state. A cell is the unit that can move to a host near its players.
+4. **Persistence per person.** Keep position, inventory and builds by handle, so leaving and
+   returning lands you where you were.
+
+Oskiewar's rollback lane does not carry over: it suits two seats on one engine. dool keeps one
+authority per cell. See papers/arxiv-relay-rollback for both designs and the review questions.
