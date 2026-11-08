@@ -3367,12 +3367,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if ((content?.left || 0) > 0.0005 || (content?.right || 0) > 0.0005) lastAudibleAt = now;
     else lastSilentReportAt = now;
   }
+  // Playing for real: a source, not paused or ended, data to play. The
+  // background-music element sits "unpaused" with no source after the first
+  // audio unlock (seen in the Mac app, 2026-11-08), which must not count.
+  const sounding = (a) =>
+    !!a && a.paused === false && !a.ended && !!a.currentSrc && a.readyState > 2;
   function anythingStreaming() {
-    if (backgroundMusicEl && backgroundMusicEl.paused === false) return true;
-    for (const id in streamAudio) {
-      const a = streamAudio[id]?.audio;
-      if (a && a.paused === false) return true;
-    }
+    if (sounding(backgroundMusicEl)) return true;
+    for (const id in streamAudio) if (sounding(streamAudio[id]?.audio)) return true;
     return false;
   }
   function restAudio(now) {
@@ -6484,6 +6486,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     pacing.paceMs = paceMs;
     pacing.resting = resting;
     pacing.audio = audioContext?.state || "none";
+    pacing.streaming = anythingStreaming();
     if (resting) {
       if (!restingSince) restingSince = now;
       if (!audioRested) requestSpeakerAmplitudes?.(); // A level to judge silence by.
