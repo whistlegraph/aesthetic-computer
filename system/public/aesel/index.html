@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aesel — make media easily</title>
-<meta name="description" content="Make media easily. Aesel is Aesthetic Computer's making harness: describe a piece, an engine writes it, it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers and Game Boy ROMs.">
+<meta name="description" content="Make media easily. Describe a piece; an engine writes it; it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers and Game Boy ROMs.">
 <meta name="theme-color" content="#f5f0df">
 <link rel="canonical" href="https://aesel.app/">
 <meta property="og:title" content="Aesel">
-<meta property="og:description" content="Make media easily. Aesthetic Computer's making harness. Describe a piece; watch it live on your phone; publish it to your @handle.">
+<meta property="og:description" content="Make media easily. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
-<link rel="stylesheet" href="/style.css?v=090">
+<link rel="stylesheet" href="/style.css?v=091">
 <script type="module" src="/site.js?v=089"></script>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -42,7 +42,6 @@
 </figure>
 <h1 id="title">aesel</h1>
 <p class="slogan">make media easily</p>
-<p class="lede">The making harness of <a href="https://aesthetic.computer">Aesthetic Computer</a>. Describe a piece; an engine writes it; it plays live on your phone and publishes to your <b>@handle</b>.</p>
 <div class="get">
 <div class="get-app">
 <a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>Mac beta <span aria-hidden="true">↓</span></a>
@@ -64,16 +63,12 @@
 <figure class="shot-wall"><img src="/shot-piece.jpg" width="930" height="780" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky" loading="lazy"><figcaption>The <code>.p5</code> piece it made, running on Aesthetic Computer.</figcaption></figure>
 </section>
 
-<section class="band" aria-labelledby="stack">
+<section class="band band-figure" aria-labelledby="stack">
 <h2 id="stack">Where it sits</h2>
-<p class="intro">Aesel is the part of Aesthetic Computer you talk to. It holds the conversation and the files; an engine does the writing; Aesthetic Computer runs and keeps what you make.</p>
-<ol class="flow">
-<li class="node you"><span class="tag">you</span><strong>a prompt</strong><span>“a starfield that warps when I press”</span></li>
-<li class="node aesel"><span class="tag">aesel</span><strong>the harness</strong><span>terminal · Mac · Windows · browser</span><span class="sub">asks an engine: AC hosted, Claude, Codex or OpenRouter</span></li>
-<li class="node file"><span class="tag">your file</span><strong>a piece</strong><span><code>.mjs</code> <code>.lisp</code> <code>.p5</code> <code>.l5</code></span><span class="sub">every save is a version on your machine</span></li>
-<li class="node live"><span class="tag">live</span><strong>your phone</strong><span>scan the QR; each save plays as it lands</span><span class="sub">and in Slab’s preview beside the terminal</span></li>
-<li class="node ac"><span class="tag">aesthetic.computer</span><strong>@handle/name</strong><span>published on every save, signed in</span><span class="sub">post anything else to <a href="https://mime.ac">mime.ac</a></span></li>
-</ol>
+<figure class="paper-figure">
+<div class="figure-scroll"><a href="/stack.pdf"><img src="/stack.svg?v=091" width="2325" height="1937" alt="Diagram in three dashed regions. Your machine: Aesel (terminal, Mac, Windows, iPhone, browser), the .aesel workspace with transcript and revisions, the tools the engine holds, and media made locally. Aesthetic Computer: Cloudflare in front of lith, an Express monolith on DigitalOcean with the inference relay, live channel, publish, transcripts, hosted picture tools, Auth0 sign-in, braincell top-ups and releases, over Spaces and the live piece at your handle. Engines: AC hosted via OpenRouter, your Claude account, your Codex account, open with your own key, and a personal relay. Any phone joins the live channel."></a></div>
+<figcaption><b>Figure 1.</b> Where Aesel sits. It holds the conversation and the files on your machine; Aesthetic Computer relays, publishes and keeps; one of four engines writes. Surveyed 2026-11-08 from the source. <a href="/stack.pdf">PDF</a> · <a href="/stack.png">PNG</a></figcaption>
+</figure>
 </section>
 
 <section class="band" aria-labelledby="session">
