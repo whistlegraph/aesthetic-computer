@@ -23,13 +23,13 @@
 \tikzset{
   nd/.style={draw=#1,fill=#1!7,rounded corners=3pt,align=center,font=\sffamily\footnotesize,inner sep=4pt,line width=.6pt,text width=3.4cm,execute at begin node=\hyphenpenalty10000\exhyphenpenalty10000\relax},
   app/.style={draw=#1,fill=#1!7,rounded corners=3pt,align=left,font=\sffamily\footnotesize,inner sep=3.5pt,line width=.6pt,text width=5.9cm,execute at begin node=\hyphenpenalty10000\exhyphenpenalty10000\relax},
-  region/.style={draw=acgray,dashed,rounded corners=8pt,line width=.6pt,inner sep=9pt,fill=#1},
+  region/.style={draw=acgray,dashed,rounded corners=8pt,line width=.6pt,inner sep=9pt,fill=none},
   rlab/.style={font=\sffamily\scriptsize\bfseries,color=acgray,anchor=south west,inner sep=2pt},
   arr/.style={-{Stealth[length=4pt]},color=ink,line width=.6pt},
   eng/.style={-{Stealth[length=4pt]},color=acpurple,line width=.8pt,dashed},
   live/.style={-{Stealth[length=3.5pt]},color=acteal,line width=.6pt,dotted},
   loc/.style={{Stealth[length=3.5pt]}-{Stealth[length=3.5pt]},color=acpink,line width=.6pt},
-  lab/.style={font=\sffamily\scriptsize,color=muted,align=center,fill=white,inner sep=1.5pt}}
+  lab/.style={font=\sffamily\scriptsize,color=muted,align=center,fill=white,fill opacity=.75,text opacity=1,inner sep=1.5pt}}
 \newsavebox{\figbox}
 \begin{document}
 \savebox{\figbox}{%
@@ -56,7 +56,7 @@
 \node[app=acdark,below=.18 of auth,text width=2.8cm,anchor=north west] (pay) at ($(auth.south west)+(0,-0.18)$) {\textbf{braincell top-ups}\\[-1pt]\scriptsize \chip{stripe}Stripe · \chip{apple}in-app · Tezos};
 \node[app=acdark,text width=2.8cm,anchor=north east] (rel) at ($(auth.south east)+(0,-0.18)$) {\textbf{releases}\hfill\h{prompt.ac/aesel.sh}\\[-1pt]\scriptsize self-update · DMG / EXE via \h{/api/download}};
 \begin{pgfonlayer}{boxes}
-\node[draw=acteal,rounded corners=5pt,line width=.8pt,fill=acteal!3,inner sep=7pt,fit=(lithhead)(inf)(pay)(rel)] (lith) {};
+\node[draw=acteal,rounded corners=5pt,line width=.8pt,fill=acteal!6,fill opacity=.6,inner sep=7pt,fit=(lithhead)(inf)(pay)(rel)] (lith) {};
 \end{pgfonlayer}
 \node[nd=acgray,text width=2.6cm,anchor=north east] (spaces) at ($(lith.south east)+(0,-0.75)$) {\chip{digitalocean}\textbf{Spaces}\\[1pt]\scriptsize user bucket · CDN\\ pieces, paintings, builds};
 \node[nd=acgray,text width=2.6cm,anchor=north west] (site) at ($(lith.south west)+(0,-0.75)$) {\textbf{the piece, live}\\[1pt]\scriptsize \h{@you/name} on\\ \h{aesthetic.computer}};
