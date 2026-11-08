@@ -126,8 +126,8 @@
   },
   "arxiv-whistlegraph": {
     "created": "2026-03-21",
-    "revisions": 5665,
-    "updated": "2026-11-08T21:13:12.255Z"
+    "revisions": 5666,
+    "updated": "2026-11-08T22:25:56.586Z"
   },
   "arxiv-plork": {
     "created": "2026-03-21",
@@ -381,7 +381,7 @@
   },
   "arxiv-relay-rollback": {
     "created": "2026-11-08",
-    "revisions": 1,
-    "updated": "2026-11-08T22:22:43.298Z"
+    "revisions": 2,
+    "updated": "2026-11-08T22:25:56.586Z"
   }
 }
