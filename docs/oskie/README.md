@@ -31,7 +31,7 @@ Account and workspace policies determine custom MCP availability. See the
 [official setup](https://developers.openai.com/plugins/deploy/connect-chatgpt) and
 [OAuth requirements](https://developers.openai.com/plugins/build/auth) (checked November 6, 2026).
 
-Both clients share all 13 tools, runtime, project storage, revision checks and
+Both clients share all 14 tools, runtime, project storage, revision checks and
 publishing behavior. Separate OAuth clients for the same AC account see the
 same games; different accounts cannot access each other's drafts. Browser
 preview feedback is the common visual feedback path. Client tool selection,
@@ -86,6 +86,41 @@ These other links are live project addresses, not archived October builds. Check
 November 6: Island Crisis’s current web build identifies itself as a Three.js
 game. The Fuser address was shared by Artur; automated access returned 403,
 so its current gameplay was not verified.
+
+## Published game catalog and storage
+
+“Try an example” opens a chooser, never an automatic game launch. Browse
+[Everyone](https://aesthetic.computer/oskie/?browse=all),
+[@jeffrey](https://aesthetic.computer/oskie/?browse=jeffrey), or the bundled
+[Examples](https://aesthetic.computer/oskie/?browse=examples).
+Only published revisions appear. Empty collections say so; concepts and private
+drafts are not playable listings.
+
+`GET /api/oskie/catalog?author=@jeffrey&limit=24&cursor=<id>` returns `games`
+and `nextCursor`. Omit `author` for everyone. Limits are 1–50; cursor pagination
+uses stable descending game IDs. The response contains the published title,
+description, creator, revision, play/download links, and `file`/`media` descriptors
+for consumers such as MIME. This does not itself add games to MIME's feed.
+`list_published_games` exposes the same catalog to the connector.
+
+New revisions store their actual `.oskie` JSON in the existing private user
+Spaces bucket at `<account>/oskie/<game>/<revision>.oskie`. MongoDB stores the
+manifest, byte count, SHA-256 and object reference, plus ownership, history,
+preview grants and publication state. Credentials and object keys stay server-side.
+The player and download endpoints read and checksum the object after checking
+publication or a preview grant. Objects remain private even after publishing;
+unpublishing therefore revokes anonymous play and download access immediately.
+Previously downloaded copies cannot be revoked.
+
+Legacy inline Mongo revisions remain readable. To migrate them, load the normal
+Lith environment and run `node system/backend/oskie-migrate-objects.mjs` for a
+count, then `node system/backend/oskie-migrate-objects.mjs --apply`. Each object
+is uploaded and read back before replacing its inline payload. Revision IDs,
+public links and preview grants remain unchanged. The migration is repeatable.
+
+Project deletion removes objects and keeps a retryable hidden tombstone if
+storage cleanup fails. Account deletion already clears the account's user-bucket
+prefix; account exports hydrate the private objects into portable bundles.
 
 ## Format and runtime
 
@@ -146,6 +181,7 @@ a hosted project, provide its parsed bundle to `create_game` or `update_game`.
 | `whoami` | Current verified AC handle |
 | `game_guide` | Bundle format and runtime API |
 | `list_games`, `read_game` | Account-owned projects and current source |
+| `list_published_games` | Public catalog, optionally filtered by creator |
 | `create_game`, `update_game` | Private projects and immutable revisions |
 | `open_preview`, `preview_feedback` | Expiring live preview, pixels and errors |
 | `game_history`, `restore_game` | Revision history and restoration as a new revision |

@@ -13,6 +13,11 @@ const reply = (statusCode, value, extra = {}) => ({
 export function createGameAPI({ store = gameStore } = {}) {
   return async (event) => {
     try {
+      if (/^\/api\/oskie\/catalog\/?$/.test(event.path || "")) {
+        if (event.httpMethod !== "GET") return reply(405, { error: "Method not allowed" });
+        const { author, cursor, limit } = event.queryStringParameters || {};
+        return reply(200, await (await store()).listPublished({ author, cursor, limit }));
+      }
       const match =
         /\/api\/oskie\/([a-f0-9]{32})(?:\/(download|feedback))?\/?$/.exec(
           event.path || "",
@@ -34,9 +39,12 @@ export function createGameAPI({ store = gameStore } = {}) {
       }
       if (event.httpMethod !== "GET")
         return reply(405, { error: "Method not allowed" });
+      const known = action ? undefined : event.queryStringParameters?.if_revision;
+      if (known != null && (typeof known !== "string" || !/^[a-f0-9]{32}$/.test(known)))
+        return reply(400, { error: "Invalid revision." });
       const game = token
-        ? await s.readPreview(id, token)
-        : await s.readPublic(id);
+        ? await s.readPreview(id, token, known)
+        : await s.readPublic(id, known);
       if (action === "feedback") return reply(404, { error: "Not found" });
       if (action === "download")
         return reply(200, game.bundle, {

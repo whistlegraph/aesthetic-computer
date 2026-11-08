@@ -9,7 +9,7 @@
     <script>
       // Direct play links never flash the surrounding landing page.
       if (/^\/oskie\/[a-f0-9]{32}\/?$/.test(location.pathname) ||
-          new URLSearchParams(location.search).get("example") === "island-crisis")
+          new URLSearchParams(location.search).has("example"))
         document.documentElement.dataset.playing = "true";
     </script>
     <style>
@@ -197,7 +197,8 @@
         flex-wrap: wrap;
         gap: 0.8em;
       }
-      .file-actions button {
+      .file-actions button,
+      .file-actions > .button {
         flex: 1 1 170px;
       }
       #open-file {
@@ -218,6 +219,21 @@
         background: var(--gold);
         color: var(--bg);
       }
+      .catalog-top, .catalog-filters, .catalog-actions {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+      }
+      .catalog-top { justify-content: space-between; margin-bottom: 24px; }
+      .catalog-top h2 { margin: 0; font-size: 28px; }
+      .catalog-filters { margin-bottom: 28px; }
+      .catalog-filters a[aria-current="page"] { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+      #catalog-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+      .catalog-card { border: 1px solid var(--box-border); padding: 24px; background: var(--box-bg); display: flex; flex-direction: column; align-items: start; }
+      .catalog-card h3 { font-size: 22px; line-height: 1.3; overflow-wrap: anywhere; }
+      .catalog-card .creator { color: var(--cyan); }
+      .catalog-card p { overflow-wrap: anywhere; }
+      .catalog-actions { margin-top: auto; padding-top: 18px; }
+      #catalog-more { margin-top: 24px; }
+      #catalog-status { margin: 20px 0; }
       .dim {
         color: var(--dim);
         font-size: 0.85em;
@@ -402,7 +418,8 @@
           gap: 0.5em;
           padding: 0.8em 1em;
         }
-        .file-actions button {
+        .file-actions button,
+      .file-actions > .button {
           flex-basis: 140px;
         }
         #stage {
@@ -494,7 +511,7 @@
             <h2>Portable game microcode</h2>
             <div class="file-actions">
               <button id="open-file">Open a game</button>
-              <button id="example">Play an example</button>
+              <a class="button" id="example" href="/oskie/?browse=all">Try an example</a>
               <input
                 id="file"
                 type="file"
@@ -625,6 +642,18 @@
           </p>
         </section>
       </section>
+      <section id="catalog" hidden aria-labelledby="catalog-title">
+        <div class="catalog-top"><h2 id="catalog-title">Games</h2><a href="/oskie/">← Make or open a game</a></div>
+        <nav class="catalog-filters" aria-label="Game collection">
+          <a class="button" href="/oskie/?browse=all" data-collection="all">Everyone</a>
+          <a class="button" href="/oskie/?browse=jeffrey" data-collection="jeffrey">@jeffrey</a>
+          <a class="button" href="/oskie/?browse=examples" data-collection="examples">Examples</a>
+        </nav>
+        <p id="catalog-status" role="status" aria-live="polite"></p>
+        <div id="catalog-list"></div>
+        <button id="catalog-more" hidden>Load more</button>
+        <button id="catalog-retry" hidden>Try again</button>
+      </section>
       <section id="game" hidden>
         <div class="game-bar">
           <h2 id="title"></h2>
@@ -696,6 +725,7 @@
         const game = validateGame(value.bundle);
         document.documentElement.dataset.playing = "true";
         $("welcome").hidden = true;
+        $("catalog").hidden = true;
         $("game").hidden = false;
         $("error").hidden = true;
         const starting = generation;
@@ -791,7 +821,8 @@
         if (!id || loading || local) return;
         loading = true;
         try {
-          const r = await fetch("/api/oskie/" + id, {
+          const suffix = current?.revision ? "?if_revision=" + encodeURIComponent(current.revision) : "";
+          const r = await fetch("/api/oskie/" + id + suffix, {
             headers,
             cache: "no-store",
             credentials: "omit",
@@ -818,8 +849,7 @@
       $("file").addEventListener("change", (e) =>
         file(e.target.files[0]).catch(fail),
       );
-      $("example").onclick = () =>
-        play({ bundle: starterEngineGame(), revision: "example" }).catch(fail);
+
       $("restart").onclick = () => current && play(current).catch(fail);
       $("stop").onclick = stop;
       addEventListener("dragover", (e) => e.preventDefault());
@@ -843,9 +873,70 @@
           fail(e);
         }
       }
-      if (new URLSearchParams(location.search).get("example") === "island-crisis") {
-        const response = await fetch("/oskie/examples/island-crisis-engine-455.oskie");
-        if (response.ok) await play({bundle: await response.json(), revision: "example-island-crisis"}).catch(fail);
+      const query = new URLSearchParams(location.search);
+      const browse = query.get("browse");
+      if (browse) {
+        $("welcome").hidden = true;
+        $("catalog").hidden = false;
+        document.title = "Games · oskie · Aesthetic.Computer";
+        const collection = ["all", "jeffrey", "examples"].includes(browse) ? browse : "all";
+        document.querySelector(`[data-collection="${collection}"]`).setAttribute("aria-current", "page");
+        let nextCursor, busy = false, count = 0;
+        function card(game) {
+          const article = document.createElement("article"); article.className = "catalog-card";
+          const title = document.createElement("h3"); title.textContent = game.title;
+          const creator = document.createElement("span"); creator.className = "creator"; creator.textContent = game.author;
+          const description = document.createElement("p"); description.textContent = game.description || "";
+          const actions = document.createElement("div"); actions.className = "catalog-actions";
+          const play = document.createElement("a"); play.className = "button"; play.textContent = "Play";
+          // Route from validated IDs, never from author-supplied markup or URLs.
+          play.href = game.example ? `/oskie/?example=${encodeURIComponent(game.example)}` : `/oskie/${game.id}`;
+          actions.append(play);
+          if (game.download) {
+            const download = document.createElement("a"); download.textContent = "Download .oskie";
+            download.href = game.example ? game.download : `/api/oskie/${game.id}/download`;
+            download.setAttribute("download", ""); actions.append(download);
+          }
+          article.append(title, creator, description, actions); $("catalog-list").append(article);
+        }
+        async function load() {
+          if (busy) return; busy = true;
+          $("catalog-more").disabled = true; $("catalog-retry").hidden = true;
+          $("catalog-status").textContent = "Loading games…";
+          try {
+            const params = new URLSearchParams({limit: "24"});
+            if (collection === "jeffrey") params.set("author", "@jeffrey");
+            if (nextCursor) params.set("cursor", nextCursor);
+            const response = await fetch("/api/oskie/catalog?" + params, {cache: "no-store", credentials: "omit"});
+            if (!response.ok) throw Error("Could not load published games.");
+            const data = await response.json();
+            if (!Array.isArray(data.games)) throw Error("Could not load published games.");
+            for (const game of data.games) if (/^[a-f0-9]{32}$/.test(game.id)) { card(game); count++; }
+            nextCursor = data.nextCursor;
+            $("catalog-more").hidden = !nextCursor;
+            $("catalog-status").textContent = count ? "" : collection === "jeffrey" ? "@jeffrey hasn’t published a game here yet." : "No published games yet. Try the Examples collection.";
+          } catch (error) {
+            $("catalog-status").textContent = error.message;
+            $("catalog-retry").hidden = false;
+          } finally { busy = false; $("catalog-more").disabled = false; }
+        }
+        $("catalog-more").onclick = load; $("catalog-retry").onclick = load;
+        if (collection === "examples") {
+          card({title: "Island Crisis", author: "Artur Matveichenkov", description: "A 3D rail shooter through a hallway, hangar and island.", example: "island-crisis", download: "/oskie/examples/island-crisis-engine-455.oskie"});
+          card({title: "Monowheel garden", author: "Aesthetic.Computer", description: "Roll around the garden and collect glowing beacons.", example: "monowheel-garden"});
+        } else await load();
+      }
+      if (query.has("example")) {
+        try {
+          const example = query.get("example");
+          if (example === "island-crisis") {
+            const response = await fetch("/oskie/examples/island-crisis-engine-455.oskie");
+            if (!response.ok) throw Error("Could not load Island Crisis.");
+            await play({bundle: await response.json(), revision: "example-island-crisis"});
+          } else if (example === "monowheel-garden") {
+            await play({bundle: starterEngineGame(), revision: "example-monowheel-garden"});
+          } else throw Error("Example not found. Choose a game from the gallery.");
+        } catch (error) { delete document.documentElement.dataset.playing; fail(error); }
       }
       if (id) {
         await poll();

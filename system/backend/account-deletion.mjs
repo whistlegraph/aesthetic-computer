@@ -183,6 +183,14 @@ export async function exportAccount(deps, { user, now = new Date() }) {
   const records = {};
   for (const [name, field] of EXPORT) {
     const docs = await deps.db.collection(name).find({ [field]: sub }).toArray();
+    if (name === "oskie-revisions") {
+      // Private Spaces objects cannot be exported as anonymous bucket links.
+      // Include the actual portable bundles, as the Mongo-only export did.
+      const { revisionBundle } = await import("./oskie-objects.mjs");
+      for (const doc of docs) {
+        if (doc.object) doc.bundle = await revisionBundle(doc, deps.gameObjects);
+      }
+    }
     if (docs.length) records[name] = docs;
   }
   for (const [name, field, fields] of PRIVATE_EXPORT) {
@@ -191,7 +199,8 @@ export async function exportAccount(deps, { user, now = new Date() }) {
       records[name] = docs.map(doc => exportFields(doc, fields));
     }
   }
-  const files = await deps.storage.list("user", `${sub}/`);
+  const files = (await deps.storage.list("user", `${sub}/`))
+    .filter(file => !file.key?.startsWith(`${sub}/oskie/`));
   return {
     exportedAt: now.toISOString(),
     account: { sub, handle: handleDoc?.handle || "", email: user.email || "" },

@@ -1,7 +1,18 @@
 // In-memory Mongo subset used by account isolation and revision tests.
 export function memoryDb() {
   const collections = new Map();
-  const matches = (d, q) => Object.entries(q).every(([k, v]) => d[k] === v);
+  const matches = (d, q) => Object.entries(q).every(([k, v]) => {
+    if (v && typeof v === "object" && !(v instanceof Date)) {
+      return Object.entries(v).every(([op, value]) => {
+        if (op === "$ne") return d[k] !== value;
+        if (op === "$lt") return d[k] < value;
+        if (op === "$type") return typeof d[k] === value;
+        if (op === "$exists") return Object.hasOwn(d, k) === value;
+        throw Error("Unsupported test query: " + op);
+      });
+    }
+    return d[k] === v;
+  });
   return {
     collection(name) {
       if (!collections.has(name)) collections.set(name, []);
@@ -39,6 +50,7 @@ export function memoryDb() {
         find(q) {
           let rows = docs.filter((d) => matches(d, q));
           return {
+            async *[Symbol.asyncIterator]() { for (const row of rows) yield structuredClone(row); },
             sort(order) {
               const [key, dir] = Object.entries(order)[0];
               rows.sort(

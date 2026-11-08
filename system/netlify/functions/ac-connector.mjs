@@ -45,6 +45,8 @@ export const TOOLS = [
     true,
   ),
   tool("list_games", "List your AC game projects.", {}, [], true),
+  tool("list_published_games", "Browse publicly published .oskie games by everyone or one @handle. Returns play/download links and a cursor for the next page. Never includes drafts.",
+    { author: string, cursor: string }, [], true),
   tool(
     "create_game",
     "Create a private .oskie game under your AC handle. Returns a live preview link. Start with a playable example or supply a bundle.",
@@ -291,6 +293,9 @@ export function createConnector({
             switch (name) {
               case "list_games":
                 value = await s.list(owner);
+                break;
+              case "list_published_games":
+                value = await s.listPublished(a);
                 break;
               case "create_game":
                 value = await s.create(owner, a);
