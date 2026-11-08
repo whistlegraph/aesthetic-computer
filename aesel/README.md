@@ -1,5 +1,7 @@
 # Aesel
 
+Make media easily.
+
 Aesel also powers the Aesthetic.Computer prompt's automatic KidLisp sketches through
 `/api/aesel-sketch`: an unknown drawable word becomes a shared drawing with a
 tune. This bounded, server-funded path shares Aesel's provider transport while

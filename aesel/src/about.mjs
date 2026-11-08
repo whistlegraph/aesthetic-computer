@@ -1,6 +1,6 @@
 export function aboutMap() {
   return [
-    "aesel — make things by talking to them",
+    "aesel — make media easily",
     "",
     "You → model → artifact → preview → export / share",
     "       │          │",
