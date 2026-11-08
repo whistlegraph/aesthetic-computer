@@ -367,6 +367,23 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/19-52-12/pofu-remaster.mp4",
         "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/19-52-12/pofu-cover.jpg"
       },
+      "insights": null,
+      "deleted": "2026-11-08: jeffrey removed it in-app ~44 min after posting — the tail of the spoken roll call (\"alex\") leaked through the 2.95s cut; at deletion 666 views / 2 likes / skip 2.3%; reposted 22:30 UTC with the cut at 4.20s — the real roll-call end; whole-file whisper word times ran ~1s early, so 2.95 opened ON \"Alex\" (3.18–3.39)"
+    },
+    {
+      "mediaId": "18034007135883990",
+      "containerId": "18643091050050687",
+      "publishedAt": "2026-11-08T22:31:39.432Z",
+      "permalink": "https://www.instagram.com/reel/Dff1T2qCaql/",
+      "caption": "pofu",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/8e61b48b-cef7-45bc-a06a-4c99d50c9dde/scratchpad/pofu-remaster-v2.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/22-29-22/pofu-remaster-v2.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/22-29-22/pofu-cover-v2.jpg"
+      },
       "insights": null
     }
   ]
