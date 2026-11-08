@@ -11,7 +11,7 @@
 <meta property="og:description" content="Make media easily. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
-<link rel="stylesheet" href="/style.css?v=095">
+<link rel="stylesheet" href="/style.css?v=096">
 <script type="module" src="/site.js?v=089"></script>
 <script type="module" src="/stack.js?v=094"></script>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -164,12 +164,19 @@ end</code></pre></article>
 <p class="aside">Switch any time with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness that runs with your own settings, skills and MCP servers.</p>
 </section>
 
-<div class="setup">
-<details><summary>Install on Mac</summary><p>Drag Aesel to Applications, open it, and sign in with your Aesthetic Computer account.</p><p><code>aesel</code> opens the app from a terminal. <code>a</code> runs the harness in the terminal.</p></details>
-<details><summary>Install on Windows</summary><p>Run the installer, open Aesel, and sign in with your Aesthetic Computer account in your browser. Requires Microsoft WebView2 Runtime.</p><p>This beta uses the hosted engine; Claude and Codex are not included. The installer is unsigned, so Windows may show an unknown-publisher or SmartScreen notice.</p></details>
-<details><summary>Install in a terminal</summary><p><code>curl -fsSL https://prompt.ac/aesel.sh | sh</code> installs the harness and links <code>a</code>, <code>ac</code> and <code>aesel</code>. <code>/update</code> brings it up to date from inside.</p></details>
-<p class="privacy-note">Conversation context goes to the engine that generates your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a></p>
+<section class="band" aria-labelledby="use">
+<h2 id="use">Use aesel by…</h2>
+<div class="uses">
+<article class="use"><h3>downloading it for Mac</h3><p><a class="use-link" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>aesel-0.8.19-arm64.dmg ↓</a></p><p>Apple silicon, macOS 14+. Drag it to Applications, open it and sign in with your Aesthetic Computer account. <code>aesel</code> opens it from a terminal.</p></article>
+<article class="use"><h3>downloading it for Windows</h3><p><a class="use-link" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">aesel-0.8.19-windows-x64-setup.exe ↓</a></p><p>Windows 10/11 on x64 with the WebView2 Runtime. Hosted brain only. The installer is unsigned, so SmartScreen may warn first.</p></article>
+<article class="use"><h3>installing it in a terminal</h3><p><code class="terminal">curl -fsSL https://prompt.ac/aesel.sh | sh</code></p><p>Links <code>a</code>, <code>ac</code> and <code>aesel</code>. Type <code>a</code> to start; <code>/update</code> keeps it current.</p></article>
+<article class="use"><h3>opening it in a browser</h3><p><a class="use-link" href="/try/">aesel.app/try</a></p><p>Nothing to install. Sign in, describe a piece and play it as it takes shape; edits publish to your @handle.</p></article>
+<article class="use"><h3>typing a word into Aesthetic Computer</h3><p><a class="use-link" href="https://aesthetic.computer">aesthetic.computer</a></p><p>Type a word the prompt doesn't know and Aesel sketches it in KidLisp, with a tune, then runs it under a new <code>$code</code>.</p></article>
+<article class="use"><h3>reading the install card in AC</h3><p><a class="use-link" href="https://prompt.ac/aesel">prompt.ac/aesel</a></p><p>The same one-line install as a piece, for whoever is already at the prompt. Tap the line to copy it.</p></article>
 </div>
+<p class="privacy-note">Conversation context goes to the brain that writes your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a></p>
+</section>
+
 </main>
 <footer><a href="/privacy.html">Privacy</a></footer>
 </body>
