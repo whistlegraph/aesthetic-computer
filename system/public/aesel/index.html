@@ -11,8 +11,9 @@
 <meta property="og:description" content="Make media easily. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
-<link rel="stylesheet" href="/style.css?v=093">
+<link rel="stylesheet" href="/style.css?v=094">
 <script type="module" src="/site.js?v=089"></script>
+<script type="module" src="/stack.js?v=094"></script>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -62,13 +63,44 @@
 <figure class="shot-wall"><img src="/shot-piece.jpg" width="930" height="780" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky" loading="lazy"><figcaption>The <code>.p5</code> piece it made, running on Aesthetic Computer.</figcaption></figure>
 </section>
 
-<section class="band band-figure" aria-labelledby="stack">
+<section class="band" aria-labelledby="stack">
 <h2 id="stack">Where it sits</h2>
-<figure class="paper-figure">
-<div class="figure-scroll"><a href="/stack.pdf"><img src="/stack.svg?v=092" width="2325" height="1937" alt="Diagram in three dashed regions. Your machine: Aesel (terminal, Mac, Windows, iPhone, browser), the .aesel workspace with transcript and revisions, the tools the engine holds, and media made locally. Aesthetic Computer: Cloudflare in front of lith, an Express monolith on DigitalOcean with the inference relay, live channel, publish, transcripts, hosted picture tools, Auth0 sign-in, braincell top-ups and releases, over Spaces and the live piece at your handle. Engines: AC hosted via OpenRouter, your Claude account, your Codex account, open with your own key, and a personal relay. Any phone joins the live channel."></a></div>
-<figcaption><b>Figure 1.</b> Where Aesel sits. It holds the conversation and the files on your machine; Aesthetic Computer relays, publishes and keeps; one of four engines writes. Surveyed 2026-11-08 from the source. <a href="/stack.pdf">PDF</a> · <a href="/stack.png">PNG</a></figcaption>
+<figure class="stack-map" aria-describedby="stack-cap">
+<svg class="wires" aria-hidden="true"></svg>
+<div class="zone z-you"><p class="zone-name">your machine</p>
+<div class="nd t-pink" id="n-aesel"><header><img src="/stack/icons/aesel.png" alt=""><b>aesel</b></header><p><img src="/stack/icons/apple.svg" alt=""><img src="/stack/icons/linux.svg" alt="">terminal <code>a</code> · <img src="/stack/icons/swift.svg" alt="">Mac · <img src="/stack/icons/windows.svg" alt="">Windows · iPhone · <code>aesel.app/try</code></p><p>holds the conversation and the files</p></div>
+<div class="nd" id="n-work"><header><b>the workspace</b></header><p><code>.aesel/</code> on this disk: transcript, revisions v1 → v<i>n</i>, artifacts</p><p><code>/rollback</code> adds, never erases</p></div>
+<div class="nd" id="n-tools"><header><b>tools the engine holds</b></header><p><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></p><p>the preview writes its pixels back here</p></div>
+<div class="nd" id="n-made"><header><b>made here, kept here</b></header><p>papers in XeLaTeX · Game Boy ROMs with GBDK · synthesized sound · brush-step pictures</p></div>
+</div>
+<div class="zone z-ac"><p class="zone-name">aesthetic computer</p>
+<div class="nd" id="n-cf"><header><img src="/stack/icons/cloudflare.svg" alt=""><b>Cloudflare</b></header><p>DNS · proxy · cache for <code>aesthetic.computer</code> <code>prompt.ac</code> <code>aesel.app</code></p></div>
+<div class="lith" id="n-lith"><header><img src="/stack/icons/digitalocean.svg" alt=""><img src="/stack/icons/caddy.svg" alt=""><img src="/stack/icons/nodedotjs.svg" alt=""><b>lith</b><code>lith.aesthetic.computer</code></header><p>one Express monolith behind Caddy on a DigitalOcean VPS</p>
+<div class="nd t-teal" id="n-inf"><header><b>inference relay</b><code>/api/easel-inference</code></header><p>model allowlist · <img src="/stack/icons/braincell.png" alt="">braincells: a daily allowance, then a wallet</p></div>
+<div class="nd t-teal" id="n-live"><header><b>live channel</b><code>/api/easel-live</code></header><p><img src="/stack/icons/redis.svg" alt="">Redis · every save, pushed to whoever is watching</p></div>
+<div class="nd t-teal" id="n-pub"><header><b>publish</b><code>/api/register-piece</code></header><p>a presigned PUT to your bucket · <code>@you/name</code></p></div>
+<div class="nd t-teal" id="n-tr"><header><b>transcripts</b><code>/api/easel-transcripts</code></header><p><img src="/stack/icons/mongodb.svg" alt="">MongoDB · shared with AC to improve Aesel</p></div>
+<div class="nd t-teal" id="n-img"><header><b>picture tools</b><code>/api/easel-image</code></header><p><img src="/stack/icons/openai.svg" alt="">OpenAI or fal · five a day</p></div>
+<div class="nd t-purple" id="n-auth"><header><img src="/stack/icons/auth0.svg" alt=""><b>sign-in</b><code>hi.aesthetic.computer</code></header><p>Auth0 · one @handle everywhere</p></div>
+<div class="pair"><div class="nd" id="n-pay"><header><b>top-ups</b></header><p><img src="/stack/icons/stripe.svg" alt="">Stripe · <img src="/stack/icons/apple.svg" alt="">in-app · Tezos</p></div><div class="nd" id="n-rel"><header><b>releases</b></header><p><code>prompt.ac/aesel.sh</code> · self-update · DMG · EXE</p></div></div>
+</div>
+<div class="pair"><div class="nd" id="n-site"><header><b>the piece, live</b></header><p><code>aesthetic.computer/@you/name</code></p></div><div class="nd" id="n-spaces"><header><img src="/stack/icons/digitalocean.svg" alt=""><b>Spaces</b></header><p>your bucket · CDN</p></div></div>
+</div>
+<div class="zone z-eng"><p class="zone-name">engines</p>
+<div class="nd t-purple" id="n-hosted"><header><img src="/stack/icons/openrouter.svg" alt=""><b>AC hosted</b><span class="pill">default</span></header><p>OpenRouter on AC's account: <img src="/stack/icons/anthropic.svg" alt="">Claude Opus and Sonnet 5.5 · <img src="/stack/icons/openai.svg" alt="">Luna · <img src="/stack/icons/deepseek.svg" alt="">DeepSeek · Kimi · Qwen · MiniMax</p><p>nothing to install; metered in braincells</p></div>
+<div class="nd t-purple" id="n-claude"><header><img src="/stack/icons/anthropic.svg" alt=""><b>your Claude account</b></header><p>the <code>claude</code> CLI on your machine</p></div>
+<div class="nd t-purple" id="n-codex"><header><img src="/stack/icons/openai.svg" alt=""><b>your Codex account</b></header><p>the <code>codex</code> CLI on your machine</p></div>
+<div class="nd t-purple" id="n-open"><header><img src="/stack/icons/openrouter.svg" alt=""><b>open</b></header><p>OpenRouter with your own key · open-weight models</p></div>
+<div class="nd t-ghost" id="n-relay"><header><b>personal relay</b></header><p><code>help.aesthetic.computer</code></p></div>
+</div>
+<div class="zone z-any"><p class="zone-name">anywhere</p>
+<div class="nd t-teal" id="n-phone"><header><b>any phone</b></header><p>scans the QR, joins the channel; each save arrives and hot-reloads</p></div>
+</div>
+<figcaption id="stack-cap"><span class="k k-https">https</span><span class="k k-eng">engine stream</span><span class="k k-live">live channel</span><span class="k k-auth">sign-in</span><span class="k-note">Surveyed 2026-11-08 from the source · <a href="/stack.pdf">paper version</a></span></figcaption>
 </figure>
 </section>
+
+
 
 <section class="band" aria-labelledby="session">
 <h2 id="session">A session</h2>
@@ -139,6 +171,6 @@ end</code></pre></article>
 <p class="privacy-note">Conversation context goes to the engine that generates your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a></p>
 </div>
 </main>
-<footer><a href="https://aesthetic.computer">Aesthetic Computer</a><a href="https://aesthetic.computer/slab/">Slab</a><a href="https://nopaint.art">No Paint</a><a href="https://mime.ac">mime.ac</a><a href="/privacy.html">Privacy</a><a href="/support.html">Support</a></footer>
+<footer><a href="https://aesthetic.computer/slab/">Slab</a><a href="https://nopaint.art">No Paint</a><a href="https://mime.ac">mime.ac</a><a href="/privacy.html">Privacy</a></footer>
 </body>
 </html>
