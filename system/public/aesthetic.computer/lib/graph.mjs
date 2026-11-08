@@ -43,12 +43,28 @@ let width, height, pixels;
 const depthBuffer = [];
 let depthEnabled = true;   // global toggle (pieces can flip this for debugging)
 
+let depthDirty = true; // Some depth was written since the last reset.
+
 function clearDepthBuffer() {
   if (!depthEnabled) return;
   const needed = width * height;
   if (needed === 0) return;
-  if (depthBuffer.length !== needed) depthBuffer.length = needed;
+  resetDepthBuffer(needed);
+}
+
+// Size the Z-buffer for `needed` pixels and set every entry to "infinitely
+// far" — but only when something wrote depth since the last reset, or the
+// size changed. A 2D frame (the prompt, most pieces) used to fill this
+// million-entry Array twice a frame for a buffer nothing read (2026-11-08).
+function resetDepthBuffer(needed) {
+  if (!(needed > 0)) return; // No screen yet (or a size that is not a number).
+  if (depthBuffer.length !== needed) {
+    depthBuffer.length = needed;
+    depthDirty = true;
+  }
+  if (!depthDirty) return;
   depthBuffer.fill(Number.MAX_VALUE);
+  depthDirty = false;
 }
 
 const writeBuffer = [];
@@ -1305,6 +1321,7 @@ export {
   getBuffer,
   changePixels,
   depthBuffer,
+  resetDepthBuffer,
   writeBuffer,
   color,
   color2,
@@ -3596,6 +3613,7 @@ function line3d(a, b, lineColor, gradients) {
       if (depth > depthBuffer[index]) {
       } else {
         depthBuffer[index] = depth;
+        depthDirty = true;
         plot(p.x, p.y);
       }
     } else {
@@ -4467,7 +4485,10 @@ function drawGradientTriangle(x1, y1, color1, z1, x2, y2, color2, z2, x3, y3, co
               pix[rowPix + 3] = dstA > a ? dstA : a;
             }
           }
-          if (hasDepth) depthBuffer[rowDep] = depth;
+          if (hasDepth) {
+            depthBuffer[rowDep] = depth;
+            depthDirty = true;
+          }
           pixCount++;
         }
       } else if (wasInside) {
@@ -4684,6 +4705,7 @@ function drawTexturedTriangle(x1, y1, uv1, z1, w1, x2, y2, uv2, z2, w2, x3, y3, 
         // Update depth buffer and draw pixel
         if (depthBuffer.length > 0) {
           depthBuffer[bufferIndex] = depth;
+          depthDirty = true;
         }
         
         // Draw the textured pixel with alpha fade

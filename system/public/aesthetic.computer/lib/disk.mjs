@@ -7711,8 +7711,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   screen.height = height;
 
   // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
-  graph.depthBuffer.length = screen.width * screen.height;
-  graph.depthBuffer.fill(Number.MAX_VALUE);
+  graph.resetDepthBuffer(screen.width * screen.height);
   graph.writeBuffer.length = 0; //screen.width * screen.height;
   // graph.writeBuffer.fill(Number.MAX_VALUE);
 
@@ -14549,17 +14548,15 @@ async function makeFrame({ data: { type, content } }) {
         // TODO: Add the depth buffer back here.
         // Reset the depth buffer.
         // TODO: I feel like this is causing a memory leak...
-        graph.depthBuffer.length = screen.width * screen.height;
-        graph.depthBuffer.fill(Number.MAX_VALUE);
+        graph.resetDepthBuffer(screen.width * screen.height);
 
         graph.writeBuffer.length = 0; //screen.width * screen.height;
         // graph.writeBuffer.fill(0);
       }
 
-      // TODO: Disable the depth buffer for now... it doesn't need to be
-      //       regenerated on every frame.
-      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
-      graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      // The Z-buffer resets only after a frame that wrote depth (3D forms);
+      // a 2D frame leaves it untouched (2026-11-08).
+      graph.resetDepthBuffer(screen.width * screen.height);
       graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
       $api.screen = screen;
