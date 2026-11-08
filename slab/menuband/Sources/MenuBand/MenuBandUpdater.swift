@@ -4,7 +4,7 @@ import AppKit
 /// per launch. install.sh stamps the commit (`MBGitCommit`) and the checkout's
 /// git dir (`MBSourceGitDir`) into Info.plist. A little after launch this
 /// fetches origin/main into that repo and lists the commits since the build
-/// that touch Menu Band's sources. When there are any, a modal lists them
+/// that touch Menu Band's sources. When there are any, a nonmodal window lists them
 /// with Update / Later.
 ///
 /// Update never touches the working tree the build came from (it may hold
@@ -18,8 +18,7 @@ import AppKit
 /// Not in the App Store build, silent for unstamped `swift run` binaries, and
 /// silent when the repo is missing (a bundle built on another Mac).
 enum MenuBandUpdater {
-    /// Everything install.sh and Package.swift read. A commit outside these
-    /// cannot change the built app, so it doesn't count as an update.
+    /// Sparse checkout roots, NOT the update eligibility filter.
     /// `live` and `fedac/native/src` are where CSinger's and CGMSynth's
     /// symlinks land; prepareWorktree also follows any it doesn't know yet.
     static let sourcePaths = [
@@ -27,11 +26,67 @@ enum MenuBandUpdater {
         "juke-wizard", "fedac/native/samples/piano",
         "live", "fedac/native/src",
     ]
+    /// Files compiled or packaged by Package.swift/install.sh. Keep broad
+    /// checkout roots above separate: slab/bin also contains unrelated tools.
+    static let buildInputPaths = [
+        "slab/menuband/Package.swift", "slab/menuband/install.sh",
+        "slab/menuband/Info.plist", "slab/menuband/Info-Launcher.plist",
+        "slab/menuband/MenuBand.entitlements", "slab/menuband/AppIcon.icns",
+        "slab/menuband/computer.aestheticcomputer.menuband.plist.tmpl",
+        "slab/menuband/computer.aestheticcomputer.menubandlauncher.plist.tmpl",
+        "slab/menuband/Sources/MenuBand", "slab/menuband/Sources/MenuBandLauncher",
+        "slab/menuband/Sources/CGMSynth", "slab/menuband/Sources/CFluoddity",
+        "slab/menuband/Sources/CSinger", "slab/menuband/Help",
+        "slab/menuband/quicklook/App", "slab/menuband/quicklook/Preview",
+        "slab/menuband/quicklook/Thumbnail", "slab/menuband/quicklook/project.yml",
+        "slab/bin/build-lock.sh",
+        "slab/macos-audio/Package.swift", "slab/macos-audio/Sources/ACMacAudio",
+        "juke-wizard/Package.swift", "juke-wizard/Sources/JukeWizard",
+        "juke-wizard/Sources/JukeDSP",
+        "fedac/native/samples/piano/*.raw",
+        "fedac/native/src/gm_synth.c", "fedac/native/src/gm_synth.h",
+        "live/singer.c", "live/singer.h", "live/world/world",
+    ] + [
+        "cheaptrick", "codec", "common", "d4c", "dio", "fft", "harvest",
+        "matlabfunctions", "stonemask", "synthesis", "synthesisrealtime",
+    ].map { "live/world/\($0).cpp" } + [
+        ":(exclude)slab/menuband/Sources/MenuBand/KidLisp/README.md",
+    ]
+
+    static func changes(gitDir: String, built: String, target: String) -> [Change] {
+        // A change followed by its revert needs no new build.
+        let diff = git(["--git-dir", gitDir, "diff", "--quiet", built, target, "--"] + buildInputPaths)
+        guard diff.status == 1 else { return [] }
+        let log = git(["--git-dir", gitDir, "log", "--no-merges", "--format=%h%x09%s",
+                       "\(built)..\(target)", "--"] + buildInputPaths)
+        return log.status == 0 ? parseChanges(log.output) : []
+    }
+
     static let launchDelay: TimeInterval = 12
-    /// Shown in the modal; the rest are summarised as "and N more".
+    /// Shown in the update window; the rest are summarised as "and N more".
     static let listedChanges = 8
 
     static var onChange: (() -> Void)?
+    static var onWillPresent: (() -> Void)?
+    private(set) static var notice: MenuBandUpdateNotice?
+
+    /// Returning to the instrument is equivalent to Later, never recapturing
+    /// input behind a waiting update dialog.
+    static func dismissNotice() {
+        notice?.dismiss()
+    }
+
+    static func present(_ alert: NSAlert, completion: @escaping (Bool) -> Void) {
+        dismissNotice()
+        onWillPresent?()
+        let window = MenuBandUpdateNotice(alert: alert) { accepted in
+            notice = nil
+            completion(accepted)
+        }
+        notice = window
+        window.show()
+    }
+
     /// Tooltip line while an update builds, or after one fails.
     private(set) static var statusLine: String?
 
@@ -90,11 +145,10 @@ enum MenuBandUpdater {
             }
             let target = git(["--git-dir", gitDir, "rev-parse", "origin/main"]).output
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let log = git(["--git-dir", gitDir, "log", "--no-merges", "--format=%h%x09%s",
-                           "\(built)..\(target)", "--"] + sourcePaths)
-            let changes = parseChanges(log.output)
+            guard !target.isEmpty else { return }
+            let changes = changes(gitDir: gitDir, built: built, target: target)
             NSLog("MenuBand update: build \(built.prefix(10)) vs origin/main \(target.prefix(10)) → \(changes.count) Menu Band change(s)")
-            guard log.status == 0, !target.isEmpty, !changes.isEmpty else { return }
+            guard !changes.isEmpty else { return }
             DispatchQueue.main.async { prompt(changes: changes, target: target, gitDir: gitDir) }
         }
         #endif
@@ -114,9 +168,9 @@ enum MenuBandUpdater {
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Update")
         alert.addButton(withTitle: "Later")
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        start(target: target, gitDir: gitDir)
+        present(alert) { accepted in
+            if accepted { start(target: target, gitDir: gitDir) }
+        }
     }
 
     private static func start(target: String, gitDir: String) {
@@ -197,8 +251,9 @@ enum MenuBandUpdater {
         let script = "cd \"$1\" && exec ./install.sh"
 
         var env = ProcessInfo.processInfo.environment
-        // The real toolchain first: ~/.local/bin wrappers can defer builds.
-        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin"
+        // Keep the host's resource guard in the update path too.
+        env["PATH"] = FileManager.default.homeDirectoryForCurrentUser.path
+            + "/.local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         // No identity in the keychain → still install, ad-hoc signed.
         env["MENUBAND_ADHOC_FALLBACK"] = "1"
         env["MENUBAND_UPDATE"] = "1"
@@ -255,9 +310,8 @@ enum MenuBandUpdater {
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Show Log")
         alert.addButton(withTitle: "OK")
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            NSWorkspace.shared.open(logURL)
+        present(alert) { accepted in
+            if accepted { NSWorkspace.shared.open(logURL) }
         }
     }
 
@@ -286,5 +340,51 @@ enum MenuBandUpdater {
         p.waitUntilExit()
         killer.cancel()
         return (p.terminationStatus, String(data: data, encoding: .utf8) ?? "")
+    }
+}
+
+/// NSAlert's layout in an ordinary window: no nested modal loop, so switching
+/// apps and Quit keep working. Escape, Later and close all decline the update.
+final class MenuBandUpdateNotice: NSObject, NSWindowDelegate {
+    let alert: NSAlert
+    private var completion: ((Bool) -> Void)?
+
+    init(alert: NSAlert, completion: @escaping (Bool) -> Void) {
+        self.alert = alert
+        self.completion = completion
+        super.init()
+        alert.layout()
+        alert.window.styleMask.insert(.closable)
+        alert.window.delegate = self
+        alert.window.isReleasedWhenClosed = false
+        for (index, button) in alert.buttons.enumerated() {
+            button.target = self
+            button.action = #selector(choose(_:))
+            button.tag = index
+        }
+        alert.buttons.first?.keyEquivalent = "\r"
+        alert.buttons.first?.keyEquivalentModifierMask = []
+        alert.buttons.last?.keyEquivalent = "\u{1b}"
+        alert.buttons.last?.keyEquivalentModifierMask = []
+    }
+
+    func show() {
+        NSApp.activate(ignoringOtherApps: true)
+        alert.window.center()
+        alert.window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func choose(_ sender: NSButton) {
+        finish(accepted: sender.tag == 0)
+    }
+
+    func dismiss() { finish(accepted: false) }
+    func windowWillClose(_ notification: Notification) { finish(accepted: false) }
+
+    private func finish(accepted: Bool) {
+        guard let completion else { return }
+        self.completion = nil
+        alert.window.orderOut(nil)
+        completion(accepted)
     }
 }

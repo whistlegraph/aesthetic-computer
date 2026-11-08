@@ -906,9 +906,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon()
         }
         RevisionChecker.start()
-        // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
+        // Launch-time "update from main?" notice (fleet builds; see MenuBandUpdater).
         MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        MenuBandUpdater.onWillPresent = { [weak self] in
+            self?.prepareForModalAlert()
+        }
         localCapture.onWillArm = { [weak self] in
+            MenuBandUpdater.dismissNotice()
             self?.refreshPerformanceInputRouting()
             self?.menuBand.setKeyboardPerformanceActive(true)
         }
@@ -1071,6 +1075,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.onChange = { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                if self.menuBand.typeMode { MenuBandUpdater.dismissNotice() }
                 // Pre-warm the MP3 export on the recording→idle edge so the
                 // first drag-out / EJECT after a take feels instant. One
                 // hook covers all stop paths; callers share the same pending
@@ -2256,10 +2261,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// unreachable — the app reads as crashed and permanently focused.
     /// So hand the machine back FIRST, then let the notice appear.
     private func prepareForModalAlert() {
-        if pitchBendModeLatched || pitchBendCursorLocked
-            || pitchBendCursorPushed {
-            endPitchBendSession()
-        }
+        // Clear this BEFORE ending the bend: active percussion focus retains
+        // the click shields and cursor lock between notes.
+        keyboardPerformanceFocusActive = false
+        localCapture.keepsCaptureArmedOnResign = false
+        localCapture.disarm(reason: .resignedKey)
+        endPitchBendSession()
         if visualizerOverlay.isShown {
             visualizerOverlay.dismiss()
         }
@@ -2275,14 +2282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         unlockSystemCursorIfNeeded()
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
-        if localCapture.isArmed {
-            // `.resignedKey`, not `.cancelled`: cancelling bounces focus
-            // back to whatever app was frontmost before play started,
-            // which would leave the notice visible but unable to take
-            // key — no Escape. Resigning keeps Menu Band active and
-            // plays the usual focus-released cue.
-            localCapture.disarm(reason: .resignedKey)
-        }
+        finishPianoWaveformKeyboardFocus()
+        appBeforeFocusCapture = nil
         if menuBand.typeMode {
             menuBand.disableTypeModeForFocusCapture()
         }
@@ -2600,6 +2601,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showExpandedKeymap(
         restoringTo previousApp: NSRunningApplication? = nil
     ) {
+        MenuBandUpdater.dismissNotice()
         if pitchBendModeLatched || pitchBendCursorLocked
             || pitchBendCursorPushed {
             endPitchBendSession()

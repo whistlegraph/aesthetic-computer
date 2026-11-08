@@ -6,6 +6,12 @@ enum TerminalReadability {
     typealias RGB = (Int, Int, Int)
     static let profileName = "Slab-Rainbow-v2"
 
+    /// Codex caches its input/history backgrounds at startup. Keep the page
+    /// and ink in that appearance as status hues change, even if the seat flips.
+    static func darkAppearance(agentType: String, startupDark: Bool?, seatDark: Bool) -> Bool {
+        agentType == "codex" ? (startupDark ?? seatDark) : seatDark
+    }
+
     // Conventional ANSI roles, with orange and indigo in the bright bank.
     // Preserve each hue when adjusting it against the actual status page.
     static let ansiNames = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White",

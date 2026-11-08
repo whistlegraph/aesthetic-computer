@@ -182,6 +182,7 @@ enum WindowNav {
         let authoring = AXTiler.authoringBundleIDs.flatMap { resolved(AXTiler.windows(bundleId: $0)) }
         let easel = resolved(AXTiler.easelWindows())
         let noPaint = resolved(AXTiler.windows(bundleId: "computer.aesthetic.nopaint"))
+        let airbrush = resolved(AXTiler.windows(bundleId: "computer.aesthetic.airbrush"))
         let oskiewar = resolved(AXTiler.windows(bundleId: "computer.aesthetic.oskiewar"))
         let aestheticComputer = resolved(AXTiler.windows(bundleId: "aesthetic.computer"))
         // The prompt overlay has already done the expensive tty→window bind.
@@ -189,7 +190,7 @@ enum WindowNav {
         // shell window. During the short startup/rebind gap, retain the old
         // terminal-wide behavior rather than making the shortcut feel dead.
         let promptIDs = PromptSigilOverlayController.shared.promptWindowIDs
-        return (promptIDs.isEmpty ? all : all.filter { promptIDs.contains($0.id) }) + easel + noPaint + oskiewar + aestheticComputer + authoring
+        return (promptIDs.isEmpty ? all : all.filter { promptIDs.contains($0.id) }) + easel + noPaint + airbrush + oskiewar + aestheticComputer + authoring
     }
 
     private static func directionalWindow(in wins: [Window], from current: CGPoint,

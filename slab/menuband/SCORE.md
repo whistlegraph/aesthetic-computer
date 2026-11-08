@@ -23,6 +23,18 @@ MIDI-mode shortcut. The shared chord modifiers work on every layout.
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 
+## Automated module stress
+
+Run `bash Tests/fuzz/run.sh` from this package on a compute Mac. It uses guarded
+Swift builds (two jobs) with Address Sanitizer and Thread Sanitizer, then a
+seeded C mutation runner with ASan/UBSan, coverage reporting, and a separate
+`leaks --atExit` check. No app bootstrap, audio device, event injection, or UI
+interaction. `MB_STRESS_RUNS`, `MB_STRESS_SEED`, and `MB_STRESS_ARTIFACTS` control
+the mutation count, reproducible seed, and output directory. This is bounded
+randomized testing, not coverage-guided fuzzing; the C entry point can also be
+used with libFuzzer when that runtime is installed. Passing checks do not prove
+the live app is leak-free or establish its real-time audio deadline performance.
+
 ## Output and Air
 
 Keyboard, physical MIDI, direct trackpad audio, and musical release/hammer
@@ -385,6 +397,13 @@ triggers `rebuildPopoverForLanguageChange()`, which closes the popover,
 runs `installPopoverVC()` to build a fresh VC against the new locale,
 and reopens it if it was visible. Same path runs every time
 `watch-reload.sh` reposts the showPopover notification after relaunch.
+
+**Update notices.** Fleet updates compare compiled and packaged inputs, not
+sparse-checkout roots; unrelated `slab/bin` tools, marketing, and tests do not
+trigger an update. Both update and failure notices are nonmodal. Before opening,
+they release keyboard capture, drum click shields, and the pointer. Escape,
+Later/OK, and close dismiss them; returning to keyboard play also dismisses them.
+Update installers retain the host's resource guard on PATH.
 
 **Hardened Runtime.** Release builds opt into Hardened Runtime *without*
 exceptions. CoreMIDI, AVAudioEngine, CGEventTap, and Carbon
