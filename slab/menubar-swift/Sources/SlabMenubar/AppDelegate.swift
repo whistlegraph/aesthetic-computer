@@ -2522,6 +2522,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var changes: [Assignment] = []
         var seen = Set<String>()
         let darkAppearance = effectiveDark()
+        // Claude Code's own colors have to come from the ANSI swatches this
+        // pass corrects, or inline code and secondary text fade into the page.
+        ClaudeTheme.align(dark: darkAppearance)
         let loopboyLabels = loopboySessionLabels()
         // Opt-in diagnostic (off unless the flag file exists): `touch
         // $SLAB_HOME/state/decor-debug` to log what the agent actually

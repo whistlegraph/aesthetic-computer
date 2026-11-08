@@ -15,6 +15,23 @@ with open(sys.argv[2], 'a') as f:
 PY
 cat >> "$probe/check.swift" <<'SWIFT'
 var checks = 0
+// Claude Code follows the seat onto its ANSI theme; daltonized stays the user's.
+precondition(ClaudeTheme.aligned("{\n  \"theme\": \"auto\",\n  \"tui\": \"fullscreen\"\n}", dark: true)
+    == "{\n  \"theme\": \"dark-ansi\",\n  \"tui\": \"fullscreen\"\n}")
+precondition(ClaudeTheme.aligned("{\"theme\":\"dark-ansi\"}", dark: false) == "{\"theme\":\"light-ansi\"}")
+precondition(ClaudeTheme.aligned("{\"theme\":\"light-ansi\"}", dark: false) == nil)
+precondition(ClaudeTheme.aligned("{\"theme\":\"dark-daltonized\"}", dark: true) == nil)
+precondition(ClaudeTheme.aligned("{\n  \"tui\": \"fullscreen\"\n}", dark: true)
+    == "{\n  \"theme\": \"dark-ansi\",\n  \"tui\": \"fullscreen\"\n}")
+precondition(ClaudeTheme.aligned("{}", dark: false) == "{\n  \"theme\": \"light-ansi\"\n}")
+for bg in [(0, 0, 0), (2200, 4200, 14000), (12000, 4000, 18000), (19000, 10500, 900), (65535, 65535, 65535), (42000, 50000, 65535)] {
+    for (i, c) in TerminalReadability.ansi(on: bg).enumerated() {
+        let wanted = TerminalReadability.ansiNeutrals.contains(i) ? TerminalReadability.ansiMinimumContrast : TerminalReadability.ansiHueMinimumContrast
+        let floor = min(wanted, max(TerminalReadability.contrast((0, 0, 0), bg), TerminalReadability.contrast((65535, 65535, 65535), bg)))
+        precondition(TerminalReadability.contrast(c, bg) >= floor - 0.01, "ANSI swatch below the floor on \(bg)")
+    }
+}
+print("PASS Claude Code theme alignment; ANSI swatches 7:1 neutral and 5:1 hue on every page")
 func check(_ p: AppDelegate.Palette) {
     let p = p.readable, bg = p.bg!
     precondition(TerminalReadability.contrast(p.text!, bg) >= 6.999, "Text below 7:1")

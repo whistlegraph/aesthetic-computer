@@ -18,9 +18,20 @@ enum TerminalReadability {
         (108, 90, 239), (223, 73, 201), (26, 193, 177), (246, 243, 255),
     ].map { ($0.0 * 257, $0.1 * 257, $0.2 * 257) }
 
+    /// Body-text contrast, not accent contrast: on its ANSI theme Claude Code
+    /// sets inline code, secondary text and permission prompts in these
+    /// swatches, and 5:1 left them hard to read on the tinted pages. The
+    /// neutrals carry text and get 7:1; the hues keep 5:1, the most the
+    /// amber pages allow before red and indigo go pastel. `ink` still caps at
+    /// what a midtone page can give. Terminal rounds channels.
+    static let ansiMinimumContrast = 7.0
+    static let ansiHueMinimumContrast = 5.0
+    static let ansiNeutrals: Set<Int> = [0, 7, 8, 15]
+
     static func ansi(on background: RGB) -> [RGB] {
-        // Leave headroom for Terminal's ANSI rendering and channel rounding.
-        rainbow.map { ink($0, on: background, minimum: 5) }
+        rainbow.enumerated().map { index, color in
+            ink(color, on: background, minimum: ansiNeutrals.contains(index) ? ansiMinimumContrast : ansiHueMinimumContrast)
+        }
     }
 
     /// OSC 4 changes only this tab's ANSI swatches, including already-painted
@@ -143,5 +154,54 @@ enum TerminalReadability {
         set slabSS to settings set "\(profileName)"
         set font name of slabSS to font name of default settings
         """
+    }
+}
+
+/// Claude Code paints its own colors in truecolor on the `auto`, `dark` and
+/// `light` themes: hues chosen for a black or white page. Slab's pages are
+/// tinted per status, so inline code, secondary text and permission prompts
+/// drift toward the page and lose contrast, and OSC 4 cannot reach them. The
+/// `dark-ansi` / `light-ansi` themes draw from the sixteen ANSI swatches that
+/// `TerminalReadability` already corrects against each page. While theme-by-
+/// status is on, keep Claude Code on the ANSI theme matching the seat's
+/// appearance. Daltonized choices are the user's and are left alone.
+enum ClaudeTheme {
+    static var settingsPath: String { NSHomeDirectory() + "/.claude/settings.json" }
+    static let managed: Set<String> = ["auto", "dark", "light", "dark-ansi", "light-ansi"]
+
+    static func wanted(dark: Bool) -> String { dark ? "dark-ansi" : "light-ansi" }
+
+    /// The settings text with its theme aligned, or nil when nothing should
+    /// change. A textual edit, so the user's key order and comments survive.
+    static func aligned(_ text: String, dark: Bool) -> String? {
+        let want = wanted(dark: dark)
+        let pattern = try! NSRegularExpression(pattern: #""theme"\s*:\s*"([^"]*)""#)
+        if let m = pattern.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+           let r = Range(m.range(at: 1), in: text) {
+            let current = String(text[r])
+            guard managed.contains(current), current != want else { return nil }
+            return text.replacingCharacters(in: r, with: want)
+        }
+        // No theme key: Claude Code would default to dark. Add one up front.
+        guard let brace = text.firstIndex(of: "{") else { return nil }
+        let after = text.index(after: brace)
+        let empty = text[after...].drop(while: { $0.isWhitespace }).first == "}"
+        return String(text[...brace]) + "\n  \"theme\": \"\(want)\"" + (empty ? "\n" : ",") + String(text[after...])
+    }
+
+    /// Rewrite ~/.claude/settings.json in place when its theme is off. Keeps
+    /// the file's permissions, and never writes anything that is not JSON.
+    @discardableResult
+    static func align(dark: Bool) -> Bool {
+        let fm = FileManager.default
+        guard let data = fm.contents(atPath: settingsPath),
+              let text = String(data: data, encoding: .utf8),
+              let out = aligned(text, dark: dark),
+              let outData = out.data(using: .utf8),
+              (try? JSONSerialization.jsonObject(with: outData)) != nil else { return false }
+        let mode = (try? fm.attributesOfItem(atPath: settingsPath))?[.posixPermissions]
+        guard (try? outData.write(to: URL(fileURLWithPath: settingsPath), options: .atomic)) != nil else { return false }
+        if let mode { try? fm.setAttributes([.posixPermissions: mode], ofItemAtPath: settingsPath) }
+        return true
     }
 }
