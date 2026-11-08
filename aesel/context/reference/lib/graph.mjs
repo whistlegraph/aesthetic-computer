@@ -3144,6 +3144,12 @@ function lineh(x0, x1, y) {
     }
     // No alpha.
   } else if (c[3] === 255) {
+    const u32 = pixels32For(pixels);
+    if (u32) {
+      // One packed word per pixel, filled natively.
+      u32.fill((c[0] | (c[1] << 8) | (c[2] << 16) | 0xff000000) >>> 0, startIndex >> 2, (endIndex >> 2) + 1);
+      return;
+    }
     for (let i = startIndex; i <= endIndex; i += 4) {
       pixels[i] = c[0];
       pixels[i + 1] = c[1];
@@ -3161,6 +3167,11 @@ function lineh(x0, x1, y) {
     const alpha = c[3] + 1;
     const invAlpha = 256 - alpha;
     const r = alpha * c[0], g = alpha * c[1], b = alpha * c[2];
+    const u32 = pixels32For(pixels);
+    if (u32) {
+      blendRow32(u32, pixels, startIndex >> 2, endIndex >> 2, r, g, b, invAlpha);
+      return;
+    }
     for (let i = startIndex; i <= endIndex; i += 4) {
       if (pixels[i + 3] === 255) {
         pixels[i] = (r + invAlpha * pixels[i]) >> 8;
@@ -3171,6 +3182,57 @@ function lineh(x0, x1, y) {
       }
     }
   }
+}
+
+// One row of constant-colour blending, each pixel read and written as one
+// word (2026-11-03). Its own small function so the JIT optimises it: inside
+// the much larger `lineh` the same loop ran slower than the byte stores. The
+// prompt's half-opaque background box covers the whole frame every paint, so
+// this is the hottest loop in the worker while typing. `r`, `g`, `b` arrive
+// premultiplied by the source alpha, as `blend`'s opaque case has them.
+// Three 256-entry tables (one per channel, each already shifted into place)
+// turn the per-pixel multiplies into lookups; they are rebuilt only when the
+// colour changes, so a full-frame box of 800 rows builds them once.
+const blendLut = new Uint32Array(768);
+let blendLutKey = -1;
+function blendRow32(u32, bytes, start, end, r, g, b, invAlpha) {
+  const key = ((c[0] << 24) | (c[1] << 16) | (c[2] << 8) | c[3]) >>> 0;
+  if (key !== blendLutKey) {
+    blendLutKey = key;
+    for (let d = 0; d < 256; d++) {
+      blendLut[d] = (r + invAlpha * d) >> 8;
+      blendLut[256 + d] = ((g + invAlpha * d) >> 8) << 8;
+      blendLut[512 + d] = ((b + invAlpha * d) >> 8) << 16;
+    }
+  }
+  for (let j = start; j <= end; j++) {
+    const v = u32[j];
+    if ((v >>> 24) === 255) {
+      u32[j] = blendLut[v & 255] | blendLut[256 + ((v >>> 8) & 255)] | blendLut[512 + ((v >>> 16) & 255)] | 0xff000000;
+    } else {
+      blend(bytes, c, 0, j << 2);
+    }
+  }
+}
+
+// A 32-bit view over the current pixel buffer, one word per RGBA pixel, kept
+// as long as the same buffer is in place. Only on little-endian machines with
+// a word-aligned buffer; anywhere else the byte loops above take over.
+const pixelsLittleEndian = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+let pixels32 = null,
+  pixels32Of = null;
+function pixels32For(bytes) {
+  if (pixels32Of === bytes && pixels32 && pixels32.length === bytes.length >> 2) return pixels32;
+  pixels32 = null;
+  pixels32Of = bytes;
+  if (pixelsLittleEndian && bytes.buffer && !bytes.buffer.detached && (bytes.byteOffset & 3) === 0) {
+    try {
+      pixels32 = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length >> 2);
+    } catch {
+      pixels32 = null;
+    }
+  }
+  return pixels32;
 }
 
 // Draws a line

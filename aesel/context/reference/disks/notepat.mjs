@@ -12,8 +12,18 @@ import {
   decodeBitmapToSample,
   loadPaintingAsAudio,
 } from "../lib/pixel-sample.mjs";
+import { chordIntervals, createChordVoice } from "../lib/notepat-chords.mjs";
+import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "../lib/prompt-layout.mjs";
+import { createNotepatPanel } from "../lib/notepat-panel.mjs";
+import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers.mjs";
 import { playPercussion } from "../lib/percussion.mjs";
-import * as gm from "../lib/gm.mjs";
+import { gmDigitSelection } from "../lib/notepat-programs.mjs";
+import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
+import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
+import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
+import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
+import { notepatPianoLayout, pianoKeyContains, pianoReachOffsets, pianoNoteName, pianoNoteOffset } from "../lib/notepat-piano-layout.mjs";
+import { NotepatPainter, notepatPalette, notepatPadColors, notepatNoteColor } from "../lib/notepat-render.mjs";
 import {
   WAVES_BY_BRIGHTNESS,
   UNMEASURED_WAVES,
@@ -401,10 +411,8 @@ let STARTING_OCTAVE = "4";
 // timbre to place on the ramp, so they sit together after it and Tab does
 // not drop you into one halfway up the brightness walk.
 const wavetypes = [...WAVES_BY_BRIGHTNESS, ...UNMEASURED_WAVES];
-// Sine is the instrument notepat opens on — the plainest voice in the list,
-// and the one every other wave is heard against. It is also, as measured, the
-// darkest, so booting here starts the Tab walk at the bottom of the ramp.
-let waveIndex = wavetypes.indexOf("sine");
+// Open on General MIDI Acoustic Grand Piano (program 1).
+let waveIndex = wavetypes.indexOf("gm");
 const STARTING_WAVE = wavetypes[waveIndex];
 let wave = STARTING_WAVE;
 // let hold = false;
@@ -415,41 +423,54 @@ let roomAmount = 0.5; // 🎚️ Room/reverb amount (0-1)
 let glitchMode = false; // 🧩 Global glitch toggle
 let octave = STARTING_OCTAVE;
 
-// 🎼 GM (General MIDI) state — see lib/gm.mjs
-// Number-row digits 0-9 type into a 1-3 digit decimal buffer that picks GM
-// program 0-127 live (mirrors menuband). 700ms pause auto-clears the buffer.
-// "0" / "00" / "000" map to program 0 (Acoustic Grand Piano) — notepat has
-// no MIDI-passthrough slot like menuband does.
+// GM audio runs on the browser thread; this worker owns musical state.
 let gmReady = false;
 let gmProgram = 0;
-let gmPatch = null;
-let gmPatchLoading = false;
-let gmInitStarted = false;
 let gmDigitBuffer = "";
-let gmDigitBufferDeadline = 0;
-const GM_DIGIT_TIMEOUT_MS = 700;
-
-// Fire the GM bootstrap exactly once, as soon as window.audioContext is
-// available. Browsers gate audio creation behind the first user gesture,
-// so this can't run at boot — it has to wait for setSoundContext to see
-// a real context.
-function maybeInitGM() {
-  if (gmInitStarted) return;
-  if (typeof window === "undefined" || !(/** @type {any} */ (window).audioContext)) return;
-  gmInitStarted = true;
-  (async () => {
-    try {
-      await gm.loadManifest();
-      const patch = await gm.loadPatch(gmProgram);
-      if (patch) {
-        gmPatch = patch;
-        gmReady = true;
-      }
-    } catch (err) {
-      console.warn("🎼 GM init failed — staying on oscillator fallback:", err);
-    }
-  })();
+let gmDigitLastMs = 0;
+let localSoundEnabled = true;
+let voiceSerial = 0;
+let hostReady = false, lastHostRequest = 0, controlsOpen = false;
+const host = content => autopatApi?.send?.({ type: "notepat:host", content });
+const syncInstrument = () => host({ op: "state", wave, program: gmProgram, local: localSoundEnabled, recording });
+const soundPanel = createNotepatPanel({host,close:()=>{controlsOpen=false;host({op:"close"})}});
+function openSoundPanel() { panicNotepat();controlsOpen=true;soundPanel.open();host({op:"open"}); }
+function panicNotepat() {
+  performanceModifiers.resetMomentary(); shiftHeld = enterHeld = false;
+  drumKeys.clear();
+  for (const note of drumVoices.keys()) releaseDrum(note,true);
+  drumVoices.clear();
+  midiPerformance.panic();
+  for (const entry of Object.values(sounds)) entry.sound?.kill?.(0.015);
+  for (const key of Object.keys(sounds)) delete sounds[key];
+  for (const key of Object.keys(tonestack)) delete tonestack[key];
+  for (const key of Object.keys(downs)) delete downs[key];
+  for (const button of Object.values(buttons)) { button.down = false; button.over = false; }
+  clearHeldVoices();
+  for(const group of [...chordVoices.values()])group.kill(.015);
+  chordVoices.clear();
+  host({ op: "panic" });
 }
+const midiPerformance = createMidiPerformance({
+  start(voice) {
+    const name = MIDI_NOTE_NAMES[voice.note % 12].toLowerCase();
+    const oct = Math.floor(voice.note / 12) - 1;
+    voice.tone = `${oct}${name.toUpperCase()}`;
+    voice.button = oct === lowerBaseOctave() ? name : oct === upperBaseOctave() ? `+${name}` : null;
+    if (voice.button && buttons[voice.button]) buttons[voice.button].down = true;
+    tonestack[`midi:${voice.id}`] = { tone: voice.tone, count: Object.keys(tonestack).length };
+    autopatApi?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
+    return makeNoteSound(voice.tone, voice.velocity, 0, { output: false });
+  },
+  stop(voice) {
+    voice.handle?.kill?.(0.08);
+    delete tonestack[`midi:${voice.id}`];
+    if (voice.button && buttons[voice.button] && !sounds[voice.button] &&
+        ![...midiPerformance.notes.values()].some(v => v.button === voice.button)) buttons[voice.button].down = false;
+  },
+  bend(voice, semitones) { voice.handle?.update?.({ tone: soundContext?.freq(voice.tone) * 2 ** (semitones / 12) }); },
+  program(program) { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(program, autopatApi, true); },
+});
 
 let keys = "";
 let tap = false;
@@ -462,13 +483,16 @@ const tonestack = {}; // Temporary tone-stack that always keeps currently held
 //                       keys and pops them off the stack as keys are lifted.
 //                       (These tones will not necessarily be playing.)
 
-// 🔒 Sustain modifier state — both modifiers are momentary (no latch).
-// SHIFT held during a key press → that voice gets a long decay tail when
+// Shift lingers the matching octave; Caps Lock latches linger on both.
+// Linger armed during a key press → that voice gets a long decay tail when
 //   released, so it dissipates rather than cuts off. Re-press of the
 //   same voiceId interrupts and restarts.
 // ENTER held during a key press → that voice is held permanently after
 //   release. BACKSPACE clears all held voices.
 // Drum / percussion presses skip both modes (handled at the press site).
+const performanceModifiers = createNotepatModifiers();
+const chordVoices = new Map();
+const drumKeys = new Map(), drumVoices = new Map();
 let shiftHeld = false;
 let enterHeld = false;
 // voiceId = `${wave}:${octave}:${noteName}` — stable identity across
@@ -476,7 +500,7 @@ let enterHeld = false;
 // after their key is released; re-press of the same voiceId kills the
 // old one and starts a fresh voice.
 const heldVoices = new Map();
-const SHIFT_DECAY_SECONDS = 6.0; // long tail after release in shift-sustain mode
+const SHIFT_DECAY_SECONDS = LINGER_SECONDS; // long tail after release in shift-sustain mode
 
 // 👀 Character eye-tracking state. Two characters watch the piano:
 // Piano Man on the left half, Sample Sally on the right half. Their
@@ -500,7 +524,7 @@ let audioReinitRequested = false;
 let pendingAudioReinit = false;
 let bootTimestamp = 0; // Set in boot() to detect pre-boot stuck notes
 let storedSampleRate = null; // Store sample rate at boot for layout calculations
-let miniInputsEnabled = true; // Show mini piano/qwerty when there is space
+let miniInputsEnabled = false; // Show mini piano/qwerty when there is space
 let paintPerfEnabled = false; // Console timing logs for paint
 let paintPerfEvery = 60; // Log every N frames
 let layoutCache = {
@@ -569,7 +593,7 @@ if (typeof window !== 'undefined') {
 //let sharps = false,
 //  flats = false;
 const notes = "cdefgab" + "vswrq" + "hijklmn" + "tyuop"; // hold shift on C D F G A for sharps.
-const edges = "zx;']"; // below and above the octave
+const edges = "zx;'"; // below and above the octave
 //                              cdefgab (next ovtave)
 //                       // or alt on   D E G A B for flats
 // This is a notes -> keys mapping, that uses v for c#
@@ -602,10 +626,7 @@ const SECONDARY_BAR_TOP = TOP_BAR_BOTTOM;
 const SECONDARY_BAR_HEIGHT = 12;
 const SECONDARY_BAR_BOTTOM = SECONDARY_BAR_TOP + SECONDARY_BAR_HEIGHT;
 
-// OS bar — thin strip below the secondary bar for the "x86 os" button
-const OS_BAR_TOP = SECONDARY_BAR_BOTTOM;
-const OS_BAR_HEIGHT = 12;
-const OS_BAR_BOTTOM = OS_BAR_TOP + OS_BAR_HEIGHT;
+const HEADER_BOTTOM = SECONDARY_BAR_BOTTOM;
 
 const TOGGLE_BTN_PADDING_X = 2;
 const TOGGLE_BTN_PADDING_Y = 2;
@@ -632,7 +653,6 @@ const MELODY_ALIAS_MIN_SIDE = 56;
 const MELODY_ALIAS_MARGIN = 6;
 
 const NOTE_TO_KEYBOARD_KEY = {
-  "-a": "control",
   "-a#": "z",
   "-b": "x",
   c: "c",
@@ -661,7 +681,6 @@ const NOTE_TO_KEYBOARD_KEY = {
   "+b": "n",
   "++c": ";",
   "++c#": "'",
-  "++d": "]",
 };
 
 const KEYBOARD_TO_NOTE = Object.fromEntries(
@@ -752,6 +771,8 @@ function getMiniPianoBlackKeyHeight(isCompact) {
 }
 
 function getTopBarPianoMetrics(screen) {
+  if (classicControls()) return {hidden:true};
+  if (!miniInputsEnabled) return { hidden: true };
   const topPianoY = 3;
   const topPianoHeight = 15;
   // Push piano right when .com superscript is shown to avoid overlap with HUD label
@@ -759,8 +780,6 @@ function getTopBarPianoMetrics(screen) {
   // Cap the piano's right edge at the leftmost top-bar button (os/m4l/wave/oct)
   // so keys never slide under the button strip on narrow screens.
   const leftmostButtonX = Math.min(
-    osBtn?.box?.x ?? Infinity,
-    abletonBtn?.box?.x ?? Infinity,
     waveBtn?.box?.x ?? Infinity,
     octBtn?.box?.x ?? Infinity,
   );
@@ -989,7 +1008,7 @@ const buttonNotes = [
 const buttonNoteLookup = new Set(buttonNotes);
 const MIDI_NOTE_NAMES = ["c", "c#", "d", "d#", "e", "f", "f#", "g", "g#", "a", "a#", "b"];
 
-const midiActiveNotes = new Map();
+
 
 const MIDI_PITCH_BEND_RANGE = 2; // Semitones up/down for pitch wheel.
 let midiPitchBendValue = 0; // Normalized -1..1 position of the wheel.
@@ -1182,7 +1201,188 @@ let paintPictureOverlay = false;
 
 // let qrcells;
 
-let waveBtn, octBtn, osBtn, abletonBtn, recBtn;
+let waveBtn, octBtn;
+let modeBarHudState = null;
+const learningKeyGlyphs = new Map();
+function learningGlyph(api, text, color, font, cellWidth, cellHeight) {
+  const key=font+":"+text+":"+color.join(",");
+  let glyph=learningKeyGlyphs.get(key);
+  if(!glyph) {
+    // Trim transparent bearings so placement follows visible glyph edges.
+    const source=api.painting(Math.max(1,text.length*cellWidth),cellHeight,p=>{
+      p.wipe(0,0,0,0);
+      p.ink(...color).write(text,{x:0,y:0},undefined,undefined,false,font === "font_1" ? undefined : font);
+    });
+    // Font glyphs arrive asynchronously; never retain their loading patterns.
+    const glyphs = font === "font_1" ? api.typeface.glyphs : api.glyphs(font);
+    if ([...text].some(c => c !== " " && (!glyphs[c] || glyphs[c].isPlaceholder)))
+      return {width:0,height:0,pixels:new Uint8ClampedArray(0)};
+    let left=source.width,top=source.height,right=-1,bottom=-1;
+    for(let y=0;y<source.height;y++) for(let x=0;x<source.width;x++) {
+      if(source.pixels[(y*source.width+x)*4+3]) {
+        left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);
+      }
+    }
+    if(right<left) return source; // Retry while a font is still loading.
+    const width=right-left+1,height=bottom-top+1,pixels=new Uint8ClampedArray(width*height*4);
+    for(let y=0;y<height;y++) pixels.set(source.pixels.subarray(((top+y)*source.width+left)*4,((top+y)*source.width+left+width)*4),y*width*4);
+    glyph={width,height,pixels,left,top};
+    learningKeyGlyphs.set(key,glyph);
+  }
+  return glyph;
+}
+const notepatPainter = new NotepatPainter();
+let mainLayout = "piano", pianoLayout = null;
+let pianoOffsets=[0,0], pianoMotionTime=0, pianoGeometryKey="";
+function heldPianoNotes() {
+  const active=new Set(Object.keys(sounds));
+  const base=(parseInt(octave)+1)*12;
+  for(const group of chordVoices.values())for(const midi of group.notes)active.add(pianoNoteName(midi-base));
+  for(const note of drumKeys.values())active.add(note);
+  return [...active];
+}
+function animatePianoReach(api) {
+  if(mainLayout!=="piano")return;
+  const now=performance.now(),dt=Math.min(50,Math.max(0,now-pianoMotionTime));pianoMotionTime=now;
+  const target=pianoReachOffsets(heldPianoNotes(),api.screen.width<=api.screen.height);
+  pianoOffsets=pianoOffsets.map((value,i)=>Math.abs(value-target[i])<.01?target[i]:value+(target[i]-value)*(1-Math.exp(-dt/70)));
+  const width=pianoLayout?.keyWidth||1;
+  const key=pianoOffsets.map(n=>Math.round(n*width)).join(":");
+  if(key!==pianoGeometryKey){pianoGeometryKey=key;setupButtons(api)}
+}
+let padsViewport = "", modeBarKey = "", modeBarButtons = [], modeBarLayout;
+function classicControls() { return !song && !tap && !paintPictureOverlay && !projector && !recitalMode && !overlayMode; }
+function updateModeBar(api) {
+  const sound = recording ? "REC" : !localSoundEnabled ? "MIDI" : wave === "gm" ? (gmProgram === 0 ? "piano" : `g${gmProgram + 1}`) : ({triangle:"tri",sawtooth:"saw",square:"sqr",composite:"cmp",stample:"stp"}[wave] || wave);
+  const octaveLabel=`${performanceModifiers.state.left?"[":""}${octave}${performanceModifiers.state.right?"]":""}`;
+  const key = [api.screen.width, sound, octaveLabel, api.dark, mainLayout].join(":");
+  if (key === modeBarKey) return;
+  modeBarKey = key;
+  modeBarLayout = notepatModeBar(api.screen.width, { sound, octave:octaveLabel, dark: api.dark, layout: mainLayout });
+  modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
+}
+function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
+  updateModeBar(api);
+  const dark=api.dark !== false, palette=notepatPalette(dark);
+  const text=(value,x,y,color=palette.text,font="font_1")=>
+    painter.glyph(learningGlyph(api,String(value),color,font,6,10),x,y);
+  painter.ink(...palette.bar).box(0,0,api.screen.width,MODE_BAR_HEIGHT);
+  painter.ink(...palette.rail).line(0,MODE_BAR_HEIGHT-1,api.screen.width-1,MODE_BAR_HEIGHT-1);
+  // Mirror the original corner lettering in the GPU scene; its HUD hit target
+  // remains active underneath. Align the compact suffix to the letter baseline,
+  // two pixels above the p descender.
+  if (modeBarLayout.logo) {
+    const word=learningGlyph(api,"notepat",[255,255,255],"font_1",6,10);
+    const shadow=learningGlyph(api,"notepat",[0,0,0],"font_1",6,10);
+    const label=autopatHud?.currentLabel?.(), textX=(label?.btn?.box?.x??HUD_DEFAULT_OFFSET.x)+(label?.leftPad??0), textY=(label?.btn?.box?.y??HUD_DEFAULT_OFFSET.y)+HUD_TEXT_INSET_Y;
+    painter.glyph(shadow,textX+(word.left||0)+1,textY+(word.top||0)+1).glyph(word,textX+(word.left||0),textY+(word.top||0));
+    if (modeBarLayout.logo.endsWith(".com")) {
+      const com=learningGlyph(api,"com",[0,220,255],"MatrixChunky8",6,10);
+      const comShadow=learningGlyph(api,"com",[0,0,0],"MatrixChunky8",6,10);
+      const dot=learningGlyph(api,".",relaySocket?.connected?[0,255,100]:[255,100,100],"MatrixChunky8",6,10);
+      const dotShadow=learningGlyph(api,".",[0,0,0],"MatrixChunky8",6,10);
+      const bottom=textY+8, dotX=textX+api.text.width("notepat",api.typeface)+1, comX=textX+api.text.width("notepat",api.typeface)+2+api.text.width(".","MatrixChunky8");
+      painter.glyph(dotShadow,dotX+1,bottom-dot.height+1).glyph(dot,dotX,bottom-dot.height);
+      painter.glyph(comShadow,comX+1,bottom-com.height+1).glyph(com,comX,bottom-com.height);
+    }
+  }
+  const metrics=getTopBarPianoMetrics(api.screen);
+  if(!metrics.hidden) {
+    const {x,y,height,whiteKeys,blackKeys,whiteKeyWidth,blackKeyWidth,blackKeyHeight}=metrics;
+    const sounding=note=>sounds[note.toLowerCase()] || (metrics.mode === "compact" && sounds["+"+note.toLowerCase()]);
+    for(let i=0;i<whiteKeys.length;i++) {
+      const note=whiteKeys[i], color=sounding(note)?notepatNoteColor(note):[220,220,225];
+      painter.ink(...color).box(x+i*whiteKeyWidth,y,whiteKeyWidth-1,height);
+    }
+    for(const {note,afterWhite} of blackKeys) {
+      const color=sounding(note)?notepatNoteColor(note):[18,18,23];
+      painter.ink(...color).box(Math.round(x+(afterWhite+1)*whiteKeyWidth-blackKeyWidth/2),y,blackKeyWidth,blackKeyHeight);
+    }
+  }
+  const v=modeBarLayout.header.viz;
+  if(v.w>=4) {
+    painter.ink(...(dark?[0,0,0]:[225,223,217])).box(v.x,v.y,v.w,v.h);
+    const peak=waveforms.reduce((m,sample)=>Math.max(m,Math.abs(sample)),.04);
+    const mid=v.y+Math.floor(v.h/2), gain=(v.h-3)/2/peak;
+    painter.ink(...palette.accent);
+    for(let i=1;i<v.w;i++) {
+      const a=waveforms[Math.floor((i-1)/v.w*waveforms.length)] || 0;
+      const b=waveforms[Math.floor(i/v.w*waveforms.length)] || 0;
+      painter.line(v.x+i-1,Math.round(mid-Math.max(-1,Math.min(1,a))*gain),v.x+i,Math.round(mid-Math.max(-1,Math.min(1,b))*gain));
+    }
+    painter.ink(...palette.rail).line(v.x,v.y,v.x+v.w-1,v.y).line(v.x,v.y+v.h-1,v.x+v.w-1,v.y+v.h-1);
+  }
+  for(const c of modeBarButtons) c.button.paint(btn=>{
+    let color=c.id==='sound'?palette.orange:c.id==='octave'?(dark?[255,160,210]:[135,35,95]):palette.text;
+    const fill=palette.control;
+    painter.ink(...fill).box(c.x,c.y+1,c.w,c.h-1);
+    if(btn.over) painter.ink(...palette.text,24).box(c.x,c.y+1,c.w,c.h-1);
+    if(c.id==='sound') painter.ink(...palette.orange).line(c.x+c.w-1,3,c.x+c.w-1,18);
+    if(c.id==='layout') {
+      const x=c.x+Math.floor((c.w-12)/2),y=6;
+      painter.ink(...palette.text);
+      if(mainLayout==='piano') for(let row=0;row<2;row++)for(let col=0;col<3;col++)painter.box(x+col*4,y+row*5,3,4);
+      else {
+        painter.box(x,y,12,9).ink(...palette.control);
+        for(const dx of [3,6,9])painter.box(x+dx,y,1,9);
+        for(const dx of [2,5,8])painter.box(x+dx,y,2,5);
+      }
+    } else text(c.label,c.x+3,6,color,['sound','octave'].includes(c.id)?'font_1':'MatrixChunky8');
+  });
+}
+function paintClassicNotepat(api, amplitude, waveforms) {
+  const dark=api.dark !== false, palette=notepatPalette(dark), painter=notepatPainter.begin(api,palette.background);
+  animatePianoReach(api);
+  const piano=mainLayout==='piano' ? pianoLayout : null;
+  const notes=piano ? piano.keys.map(k=>k.note) : buttonNotes;
+  const activeNotes=new Set(heldPianoNotes());
+  for(const note of notes) {
+    const btn=buttons[note]; if(!btn || btn.hidden) continue;
+    const color=notepatNoteColor(note),sharp=note.includes('#'),active=activeNotes.has(note)||btn.down;
+    const colors=notepatPadColors(color,sharp,dark,active,btn.over);
+    const b=btn.box;
+    if(piano && !active) {
+      colors.fill=sharp?(dark?[22,22,29]:[40,40,46]):(dark?[200,200,207]:[248,247,240]);
+      colors.text=sharp?[205,205,215]:[40,40,48];
+      if(btn.over) colors.fill=colors.fill.map(c=>Math.min(255,c+8));
+    }
+    painter.ink(...colors.fill).box(b.x,b.y,b.w,b.h);
+    if(piano) {
+      painter.ink(...palette.rail).line(b.x+b.w-1,b.y,b.x+b.w-1,b.y+b.h-1);
+      painter.ink(...color).box(b.x,b.y+b.h-2,b.w-1,2);
+    }
+    const key=(noteToKeyboardKey(note)||'').toUpperCase();
+    const glyph=learningGlyph(api,key,colors.text,'unifont',8,16);
+    const labelBox=piano?piano.keys.find(k=>k.note===note).label:b;
+    const label=learningPadLabels(labelBox,key,note,glyph,piano?.fontScale).primary;
+    if(label) { if(piano)painter.clip(piano.keys.find(k=>k.note===note).clip); painter.glyph(glyph,label.x,label.y,label.size); painter.clip(null); }
+  }
+  painter.ink(...palette.rail);
+  if(piano) {
+    for(const [i,row] of piano.octaves.entries()) {
+      painter.ink(...(performanceModifiers.drums(i?"+c":"c")?palette.orange:palette.rail)).line(row.x,row.y,row.x+row.w-1,row.y).line(row.x,row.y+row.h-1,row.x+row.w-1,row.y+row.h-1);
+      if(i===0||piano.stacked)painter.line(row.x,row.y,row.x,row.y+row.h-1);
+    }
+  } else for(const start of [0,12]) {
+    const first=buttons[buttonNotes[start]]?.box,last=buttons[buttonNotes[start+11]]?.box;
+    if(first&&last) painter.ink(...(performanceModifiers.drums(start?"+c":"c")?palette.orange:palette.rail)).line(first.x,first.y,last.x+last.w-1,first.y).line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1).line(first.x,first.y,first.x,last.y+last.h-1).line(last.x+last.w-1,first.y,last.x+last.w-1,last.y+last.h-1);
+  }
+  paintModeBar(api,amplitude,waveforms,painter);
+  if(controlsOpen) soundPanel.paint(api,painter,(text,color)=>learningGlyph(api,text,color,'MatrixChunky8',6,10),palette);
+  painter.finish();
+}
+function actModeBar(e, api) {
+  updateModeBar(api);
+  for (const c of modeBarButtons) c.button.act(e, { push: () => {
+    if (c.id === "layout") {
+      panicNotepat(); mainLayout=mainLayout==='piano'?'grid':'piano';
+      api.store['notepat:layout']=mainLayout; api.store.persist('notepat:layout');
+      setupButtons(api); modeBarKey='';
+    }
+    else if (c.id === "sound") openSoundPanel();
+    else if (c.id === "octave") { octave = String(Math.max(1, (parseInt(octave) + 1) % 10)); buildOctButton(api); }
+  } }, api.pens?.());
+}
 // 🥁 Drum kit lives as a wave type ("drum") in `wavetypes` — when selected,
 // every note fires from lib/percussion.mjs instead of the pitched synth.
 let slideBtn, roomBtn, glitchBtn, quickBtn; // Toggle buttons for slide/room/glitch/quick modes
@@ -1190,7 +1390,7 @@ let metroBtn, bpmMinusBtn, bpmPlusBtn; // Metronome controls
 let melodyAliasBtn;
 
 // 🔴 Recording for clock jump-and-play
-// `recBtn` is rendered on the OS bar. First press starts capturing every
+// The Sound & MIDI panel starts capturing every
 // note-on as { tone, downAt } and finalizes it on note-off; second press
 // serializes the buffer to clock's melody syntax and jumps to clock so the
 // recording plays back. Sticky duration modifiers in clock's parser are why
@@ -1591,6 +1791,8 @@ async function boot({
   handle,
 }) {
   autopatApi = api;
+  notepatPainter.forceCpu = query?.renderer === "cpu";
+  mainLayout = store["notepat:layout"] === "grid" ? "grid" : "piano";
   autopatHud = hud;
   autopatTypeface = typeface;
   setSoundContext({
@@ -1763,11 +1965,7 @@ async function boot({
     }
   }
 
-  try {
-    sound?.midi?.connect?.();
-  } catch (err) {
-    console.warn("🎹 Unable to request MIDI connection", err);
-  }
+  // MIDI access is requested only by the Connect MIDI control.
 
   // Load MatrixChunky8 font for note letters
   if (api.Typeface) {
@@ -1896,11 +2094,6 @@ async function boot({
 
   buildOctButton(api);
   buildWaveButton(api);
-  buildAbletonButton(api);
-  buildOsButton(api);
-  buildRecButton(api);
-  buildToggleButtons(api);
-  buildMetronomeButtons(api);
 
   const newOctave =
     parseInt(colon[0]) || parseInt(colon[1]) || parseInt(colon[2]);
@@ -1911,9 +2104,14 @@ async function boot({
   }
 
   setupButtons(api);
+  syncInstrument();
+  api.send?.({ type: "visit:action", content: { action: "notepat_ready" } });
 }
 
 function sim({ sound, simCount, num, clock, painting }) {
+  if (!hostReady && performance.now() - lastHostRequest > 1000) {
+    lastHostRequest = performance.now(); syncInstrument();
+  }
   const simTick = typeof simCount === "bigint" ? Number(simCount) : simCount;
   setSoundContext({
     synth: sound?.synth,
@@ -2335,7 +2533,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     (qKeyWidth + qKeySpacing);
   const qwertyHeight = QWERTY_MINIMAP_HEIGHT;
 
-  let pianoY = OS_BAR_BOTTOM;
+  let pianoY = HEADER_BOTTOM;
   let pianoStartX = 58;
   const centerX = layout?.centerX ?? (effectiveWidth - pianoWidth) / 2;
   const centerWidth = layout?.centerAreaWidth ?? pianoWidth;
@@ -2352,7 +2550,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const rotatedPianoWidth = whiteKeyHeight + 2; // Keys drawn horizontally but stacked vertically
     const rotatedPianoHeight = MINI_PIANO_WHITE_KEYS.length * whiteKeyWidth; // Full piano height when rotated
     pianoStartX = gridLeft + gridWidth + 4; // Gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || HEADER_BOTTOM;
     
     // Check if rotated piano fits horizontally (x + width within screen)
     const pianoRight = pianoStartX + rotatedPianoWidth;
@@ -2396,7 +2594,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const gridWidth = (layout?.buttonsPerRow || 4) * (layout?.buttonWidth || 20) + (layout?.margin || 2) * 2;
     const gridLeft = layout?.margin || 2;
     pianoStartX = gridLeft + gridWidth + 8; // 8px gap from grid
-    pianoY = layout?.topButtonY || OS_BAR_BOTTOM;
+    pianoY = layout?.topButtonY || HEADER_BOTTOM;
     
     // Check if piano fits horizontally
     const pianoRight = pianoStartX + pianoWidth;
@@ -2434,7 +2632,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
   }
 
   if (isCompact) {
-    pianoY = OS_BAR_BOTTOM + 2;
+    pianoY = HEADER_BOTTOM + 2;
     // Check if piano fits in center area - if not, skip it (return hidden flag)
     if (centerWidth < pianoWidth + 4) {
       // Piano doesn't fit - hide it but still compute QWERTY position for center
@@ -2461,7 +2659,7 @@ function getMiniPianoGeometry({ screen, layout, song, trackY, trackHeight }) {
     const maxX = Math.max(minX, centerRight - pianoWidth);
     pianoStartX = clamp(idealX, minX, maxX);
   } else if (song) {
-    const effectiveTrackY = trackY ?? OS_BAR_BOTTOM;
+    const effectiveTrackY = trackY ?? HEADER_BOTTOM;
     pianoY = effectiveTrackY + (trackHeight || 0) + 2;
     pianoStartX = effectiveWidth - pianoWidth - 2;
   } else {
@@ -2689,6 +2887,9 @@ function getButtonLayoutMetrics(
     ? baseBottomPadding + badgeMetrics.height + MIDI_BADGE_MARGIN + aliasPadding
     : baseBottomPadding;
 
+  if (!songMode && !pictureOverlay && !projector && !recitalMode) {
+    return { ...classicNotepatLayout(screen, { top: MODE_BAR_HEIGHT, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
+  }
   const totalButtons = buttonNotes.length;
   const margin = 2;
 
@@ -2715,7 +2916,7 @@ function getButtonLayoutMetrics(
     const notesPerSide = 12;
     const buttonsPerRow = 4;  // 4 notes per row on each side
     const totalRows = Math.ceil(notesPerSide / buttonsPerRow);  // 3 rows
-    const hudReserved = OS_BAR_BOTTOM;
+    const hudReserved = HEADER_BOTTOM;
     
     // Piano dimensions (extended mini layout)
     const whiteKeyWidth = getMiniPianoWhiteKeyWidth(true);
@@ -2855,7 +3056,7 @@ function getButtonLayoutMetrics(
     };
   }
 
-  const hudReserved = OS_BAR_BOTTOM;
+  const hudReserved = HEADER_BOTTOM;
   const trackHeight = songMode ? TRACK_HEIGHT : 0;
   const trackSpacing = songMode ? TRACK_GAP : 0;
   const baseReservedTop = hudReserved + trackHeight + trackSpacing;
@@ -2876,7 +3077,7 @@ function getButtonLayoutMetrics(
   // Rotated piano: width = MINI_KEYBOARD_HEIGHT, height = pianoWidth (all keys stacked)
   const rotatedPianoWidth = MINI_KEYBOARD_HEIGHT + 4; // Piano keys become vertical
   const rotatedPianoHeight = pianoWidth; // Height needed to fit ALL white keys
-  const availableHeightForRotated = screen.height - OS_BAR_BOTTOM - 4; // Leave some margin
+  const availableHeightForRotated = screen.height - HEADER_BOTTOM - 4; // Leave some margin
   // Only show rotated piano if ALL keys fit vertically
   const narrowVerticalSpace = !horizontalSpaceForMini && 
     usableWidth - gridWidthEstimate - rotatedPianoWidth > 4 &&
@@ -3029,7 +3230,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
   if (!api?.painting) return null;
 
   const gridTop = Math.round(layout.topButtonY);
-  const gridHeight = Math.round(layout.buttonHeight * layout.totalRows);
+  const gridHeight = notepatGridHeight(layout);
 
   // Create bitmap only for the button grid area - boxes + grid only, no text
   const painting = api.painting(screen.width, gridHeight, (p) => {
@@ -3041,7 +3242,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
     const bottomEdge = gridHeight;
 
     // Grid lines
-    if (!layout.splitLayout) {
+    if (!classicControls() && !layout.splitLayout) {
       const gridWidth = layout.buttonsPerRow * layout.buttonWidth;
       const availableWidth = layout.usableWidth ?? screen.width;
       // Left-align grid when mini inputs are to the right, otherwise center
@@ -3061,7 +3262,7 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       }
 
       for (let row = 0; row <= layout.totalRows; row += 1) {
-        const y = Math.round(row * layout.buttonHeight);
+        const y = Math.round(row * layout.buttonHeight + (row >= 3 ? layout.octaveGap || 0 : 0));
         p.ink(...gridColor, gridAlpha).line(leftEdge, y, rightEdge, y);
       }
     }
@@ -3082,8 +3283,8 @@ function buildPadsBase({ api, screen, layout, matrixGlyphMetrics, num }) {
       // Offset box Y by gridTop since painting starts at gridTop
       const relBox = { ...btn.box, y: btn.box.y - gridTop };
       p.ink(tinted, 196).box(relBox);
-      const olColor = globalThis.__theme?.dark === false ? [140, 150, 160] : [90, 110, 120];
-      p.ink(...olColor).box(relBox, "outline");
+      const olColor = globalThis.__theme?.dark === false ? [85, 95, 105] : [125, 145, 160];
+      if (!classicControls()) p.ink(...olColor).box(relBox, "inline");
     });
   });
 
@@ -3237,6 +3438,22 @@ function paint({
   sharpen
 }) {
   const paintStart = performance.now();
+  // Reconcile with the actual render size, including resize events that coalesce.
+  if (padsViewport !== `${screen.width}:${screen.height}`) setupButtons(api);
+
+  if (classicControls()) {
+    updateModeBar(api);
+    const label = modeBarLayout.logo;
+    if (label !== modeBarHudState) {
+      modeBarHudState = label;
+      autopatHud?.label(label ? "notepat" : undefined);
+      autopatHud?.suffix(label.endsWith(".com") ? ".com" : null);
+    }
+  } else if (modeBarHudState) {
+    modeBarHudState = "";
+    autopatHud?.label(overlayMode || paintPictureOverlay ? undefined : "notepat");
+    autopatHud?.suffix(overlayMode || paintPictureOverlay ? null : ".com");
+  }
 
   // Hover state (for newbie-friendly overlays)
   let hoveredNote = null;
@@ -3309,6 +3526,10 @@ function paint({
     waveformsAvailable &&
     typeof amplitudeRaw === "number" &&
     Number.isFinite(amplitudeRaw);
+  if (controlsOpen || (classicControls() && !perfOSD)) {
+    paintClassicNotepat(api, amplitude, waveformsForBars);
+    return;
+  }
   const matrixGlyphMetrics = resolveMatrixGlyphMetrics(typeface);
   // Use global theme for background when no note is active
   const theme = globalThis.__theme;
@@ -3321,10 +3542,10 @@ function paint({
     ? darkenColor(colorFromNote(latestNote, num), tap ? 0.55 : 0.45)
     : null;
 
-  const defaultBg = isDark ? [0, 0, 180] : [220, 225, 235];
+  const defaultBg = isDark ? [18, 22, 32] : [235, 237, 232];
 
   if (!tap) {
-    bg = activeBg ?? (isDark ? [50, 50, 255] : [200, 210, 230]);
+    bg = !classicControls() && activeBg ? activeBg.map((value, i) => Math.round(defaultBg[i] * 0.85 + value * 0.15)) : defaultBg;
 
     if (perc && !activeBg) {
       bg = perc;
@@ -3442,7 +3663,7 @@ function paint({
     wipe(0, 0, 0, 0);
   } else if (kidlispBgEnabled && kidlispBackground && !paintPictureOverlay) {
     wipe(bg); // Base background first
-    const klY = OS_BAR_BOTTOM;
+    const klY = HEADER_BOTTOM;
     const klBottom = earlyLayout.topButtonY;
     const klH = klBottom - klY;
     if (klH > 10) {
@@ -3490,7 +3711,7 @@ function paint({
   }
 
   // 🥁 Draw peripheral screen flash for metronome beats
-  if (metronomeFlash > 0 && metronomeEnabled) {
+  if (!classicControls() && metronomeFlash > 0 && metronomeEnabled) {
     const flashAlpha = Math.floor(metronomeFlash * 120); // Max alpha 120 for subtle effect
     const flashWidth = Math.max(3, Math.floor(6 * metronomeFlash)); // Shrinking border width
     // Choose color based on beat (downbeat = brighter)
@@ -3508,7 +3729,7 @@ function paint({
   // Store piano end position for visualizer to use
   const topBarDefaultX = dotComMode ? 75 : 54;
   let topBarPianoEndX = topBarDefaultX; // Default if piano not shown
-  if (!recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
+  if (!classicControls() && !recitalMode && !visualizerFullscreen && !paintPictureOverlay && !projector) {
     const metrics = getTopBarPianoMetrics(screen);
     if (metrics && !metrics.hidden) {
       const {
@@ -3587,7 +3808,7 @@ function paint({
   const sampleRateText = getSampleRateText(sound?.sampleRate);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const showTrack = Boolean(song) && autopatConfig.showTrack !== false;
-  const hideMidiBadge = screen.width < 240;
+  const hideMidiBadge = !perfOSD || screen.width < 240;
 
   // 🎭 Recital mode: Draw wireframe UI on top of visualizer
   if (recitalMode && !paintPictureOverlay && !projector) {
@@ -3650,11 +3871,11 @@ function paint({
     ink(...recitalColor, blinkAlpha).write("< BACK", { x: 6, y: 6 }, undefined, undefined, false, "MatrixChunky8");
   }
 
-  // 🎛️ Draw secondary top bar with toggle buttons (normal mode)
-  if (!paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
+  // Legacy secondary controls for song and special modes.
+  if (!classicControls() && !paintPictureOverlay && !projector && !visualizerFullscreen && !recitalMode) {
     // Draw segmented secondary bar backgrounds with distinct colors
     // Calculate segment boundaries
-    const hideMidiBadge = screen.width < 240;
+    const hideMidiBadge = !perfOSD || screen.width < 240;
     const midiBadgeEnd = hideMidiBadge
       ? 0
       : MIDI_BADGE_MARGIN + (computeMidiBadgeTopMetrics(screen, matrixGlyphMetrics, sampleRateLabel, sampleRateText)?.width || 60) + 2;
@@ -3720,7 +3941,7 @@ function paint({
     // 🎚️ Room parameter bar - appears when room mode is enabled
     if (roomMode && roomBtn?.box) {
       const barHeight = 6;
-      const barY = OS_BAR_BOTTOM + 2;
+      const barY = HEADER_BOTTOM + 2;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
       const fillWidth = Math.floor(barWidth * roomAmount);
@@ -4027,7 +4248,7 @@ function paint({
   // In single-column mode (non-split), hide horizontal track entirely - only show vertical track if available
   const showHorizontalTrack = showTrack && !useVerticalTrack && layout.splitLayout;
   const trackHeight = showHorizontalTrack ? TRACK_HEIGHT : 0;
-  const trackY = showHorizontalTrack ? OS_BAR_BOTTOM : null;
+  const trackY = showHorizontalTrack ? HEADER_BOTTOM : null;
 
 
   if (showHorizontalTrack) {
@@ -4771,9 +4992,8 @@ function paint({
       { noamp: true, primaryColor, secondaryColor },
     );
     //ink("yellow").write(scope, 6, sy + sh + 5);
-    ink("yellow").write(scope, 50 + 4, 6);
     // ink("pink").write(scopeTrim, 6 + 18, sy + sh + 5);
-    sound.paint.audioEngineBadge(
+    if (perfOSD) sound.paint.audioEngineBadge(
       { ink, screen },
       sound.speaker,
       null,
@@ -4782,7 +5002,7 @@ function paint({
     );
 
     // MIDI badge now renders in the top mini bar (left)
-  } else if (!paintPictureOverlay) {
+  } else if (!classicControls() && !paintPictureOverlay) {
     const sy = 3;
     const sh = 15; // screen.height - sy;
 
@@ -4831,7 +5051,7 @@ function paint({
 
     const rightEdge = waveBtn?.box?.x ?? screen.width - 8;
 
-    sound.paint.audioEngineBadge(
+    if (perfOSD) sound.paint.audioEngineBadge(
       { ink, screen },
       sound.speaker,
       rightEdge - 4,
@@ -4947,79 +5167,9 @@ function paint({
   if (tap) {
     ink("yellow");
     write("tap", { right: 6, top: 6 });
-  } else if (!paintPictureOverlay) {
-    abletonBtn?.paint((btn) => {
-      ink(btn.down ? [52, 48, 90] : [30, 28, 62]).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(150, 175, 255, 160).box(btn.box, "outline");
-      }
-      ink(90, 120, 210).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      ink(btn.down ? [235, 240, 255] : [175, 205, 255]).write(
-        abletonBtn.label || "m4l",
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
-    osBtn?.paint((btn) => {
-      ink(btn.down ? [20, 70, 70] : [10, 45, 45]).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(100, 255, 255, 140).box(btn.box, "outline");
-      }
-      ink(70, 160, 160).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      ink(btn.down ? [220, 255, 255] : [120, 255, 255]).write(
-        osBtn.label || "os",
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
-    recBtn?.paint((btn) => {
-      // Pulse a half-cycle per second while armed so the red dot reads as live.
-      const pulse = recording
-        ? 0.7 + 0.3 * Math.sin(performance.now() / 160)
-        : 1;
-      const bgIdle = btn.down ? [90, 20, 20] : [55, 10, 10];
-      const bgRec = [Math.round(180 * pulse), 20, 20];
-      const bg = recording ? bgRec : bgIdle;
-      ink(bg).box(btn.box);
-      if (btn.over && !btn.down) {
-        ink(255, 255, 255, 24).box(btn.box);
-        ink(255, 120, 120, 160).box(btn.box, "outline");
-      }
-      ink(220, 80, 80).line(
-        btn.box.x + btn.box.w,
-        btn.box.y,
-        btn.box.x + btn.box.w,
-        btn.box.y + btn.box.h - 1,
-      );
-      const label = recording
-        ? osBarButtonMetrics({ screen }).labels.recStop
-        : osBarButtonMetrics({ screen }).labels.rec;
-      const fg = recording
-        ? [255, 240, 240]
-        : btn.down ? [255, 220, 220] : [255, 150, 150];
-      ink(fg).write(
-        label,
-        { x: btn.box.x + TOGGLE_BTN_PADDING_X, y: btn.box.y + TOGGLE_BTN_PADDING_Y },
-        undefined, undefined, false, "MatrixChunky8"
-      );
-    });
-
+  } else if (!classicControls() && !paintPictureOverlay) {
     waveBtn?.paint((btn) => {
-      ink(btn.down ? [40, 40, 100] : "darkblue").box(
+      ink(btn.down ? [45, 56, 58] : [28, 34, 46]).box(
         btn.box.x,
         btn.box.y + 3,
         btn.box.w,
@@ -5056,7 +5206,7 @@ function paint({
           undefined, undefined, false, "MatrixChunky8"
         );
       } else {
-        write(wave, { right: 27, top: 6 });
+        write(displayWave, { right: 27, top: 6 });
       }
     });
 
@@ -5299,7 +5449,7 @@ function paint({
           if (btn.over && !btn.down && !isBlocked) {
             const hoverTint = hoverBaseColor || [200, 220, 255];
             ink(hoverTint[0], hoverTint[1], hoverTint[2], 40).box(btn.box);
-            ink(hoverTint[0], hoverTint[1], hoverTint[2], 140).box(btn.box, "outline");
+            if (!classicControls()) ink(hoverTint[0], hoverTint[1], hoverTint[2], 140).box(btn.box, "outline");
 
             if (!hoveredNote) {
               hoveredNote = note;
@@ -5325,6 +5475,15 @@ function paint({
               trail[note] * btn.box.h,
               "center",
             );
+          }
+
+          if (classicControls()) {
+            const labelColor=getContrastingTextColor(color);
+            const key=(noteToKeyboardKey(note) || "").toUpperCase();
+            const glyph=learningGlyph(api,key,labelColor,"unifont",8,16);
+            const labels=learningPadLabels(btn.box,key,note,glyph);
+            if(labels.primary) api.paste(glyph,labels.primary.x,labels.primary.y,labels.primary.size);
+            return;
           }
 
           // 🎵 Note label
@@ -5387,7 +5546,7 @@ function paint({
           const padShakeX = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
           const padShakeY = padNoteShake > 0 ? Math.floor((Math.random() - 0.5) * padNoteShake * 2) : 0;
           
-          if (noteLabelText && noteLabelBounds) {
+          if (noteLabelText && noteLabelBounds && noteLabelBounds.h + 2 <= btn.box.h) {
             ink(0, 0, 0, 160).write(
               noteLabelText,
               { x: noteLabelBounds.x + 1 + padShakeX, y: noteLabelBounds.y + 1 + padShakeY },
@@ -5462,7 +5621,7 @@ function paint({
           }
 
           // Paint keyboard shortcuts (always - cache only has boxes)
-          if (keyLabel && keyBounds) {
+          if (keyLabel && keyBounds && keyBounds.h + 2 <= btn.box.h) {
             ink(0, 0, 0, 120).write(
               keyLabel,
               { x: keyBounds.x + 1, y: keyBounds.y + 1 },
@@ -5480,7 +5639,23 @@ function paint({
               keyFont,
             );
           }
+          if (!projector && !recitalMode) {
+            const border = globalThis.__theme?.dark === false ? [85, 95, 105] : [125, 145, 160];
+            ink(...border).box(btn.box, "inline");
+          }
         });
+    }
+
+    if (classicControls()) {
+      ink(globalThis.__theme?.dark === false ? [85,95,105] : [125,145,160]);
+      for (const start of [0,12]) {
+        const first=buttons[buttonNotes[start]]?.box;
+        const last=buttons[buttonNotes[start+11]]?.box;
+        if(first && last) {
+          line(first.x,first.y,last.x+last.w-1,first.y);
+          line(first.x,last.y+last.h-1,last.x+last.w-1,last.y+last.h-1);
+        }
+      }
     }
 
     // 🎩👩 Piano Man + Sample Sally watch from above the keys.
@@ -5492,7 +5667,7 @@ function paint({
     if (!projector && !usePadsBase) {
       const gridAlpha = 40;
       const topEdge = round(layout.topButtonY);
-      const bottomEdge = round(layout.topButtonY + layout.buttonHeight * layout.totalRows);
+      const bottomEdge = round(layout.topButtonY + notepatGridHeight(layout));
 
       if (!layout.splitLayout) {
         const gridWidth = layout.buttonsPerRow * layout.buttonWidth;
@@ -5535,7 +5710,7 @@ function paint({
     // Use layout metrics to find a safe spot
     const padTop = layout?.topButtonY || (screen.height - 120);
     const osdX = screen.width - osdWidth - 4;
-    const osdY = Math.max(OS_BAR_BOTTOM + 2, padTop - osdHeight - 4);
+    const osdY = Math.max(HEADER_BOTTOM + 2, padTop - osdHeight - 4);
     
     // Semi-transparent background
     ink(0, 0, 0, 210).box(osdX - 2, osdY - 2, osdWidth, osdHeight);
@@ -5590,8 +5765,8 @@ function paint({
 
   // 🎹 Piano Roll Timeline - pixel-by-pixel held note history
   // Can be horizontal (bottom-right) or vertical (center/right side based on layout)
-  // In single-column portrait mode, skip the horizontal piano roll entirely
-  if (!paintPictureOverlay && !projector && !recitalMode) {
+  // Keep the standard playing area free of visualization.
+  if (!classicControls() && !paintPictureOverlay && !projector && !recitalMode) {
     const noteCount = buttonNotes.length; // 24 notes
     
     // Increment frame counter and check if we should scroll this frame
@@ -5865,6 +6040,13 @@ function paint({
     }
   }
 
+  if (classicControls()) {
+    notepatPainter.frame.reset(); notepatPainter.api=api;
+    const forced=notepatPainter.forceCpu; notepatPainter.forceCpu=true;
+    paintModeBar(api, amplitude, waveformsForBars); notepatPainter.finish();
+    notepatPainter.forceCpu=forced;
+  }
+
   // 🥁 Metronome pulse post-process (sharpen)
   if (metronomeEnabled && metronomeFlash > 0 && !paintPictureOverlay && !projector) {
     const sharpenAmount = 0.8 * metronomeFlash;
@@ -5874,6 +6056,7 @@ function paint({
       api.sharpen(sharpenAmount);
     }
   }
+
 }
 
 let anyDown = true;
@@ -5884,10 +6067,11 @@ let miniMapActiveNote = null;
 let miniMapActiveKey = null;
 let topBarPianoActiveNote = null; // Track active note from top bar piano
 let soundContext = null;
+let noteLatencyProbe = null;
 
-function setSoundContext(ctx) {
+function setSoundContext(ctx, probe = null) {
+  noteLatencyProbe = probe;
   soundContext = ctx;
-  maybeInitGM();
 }
 
 function lowerBaseOctave() {
@@ -6047,7 +6231,7 @@ function startRelayButtonNote(buttonNote, velocity = 127) {
     const isDrum = wave === "drum";
     const sustainMode = isDrum
       ? null
-      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
+      : (enterHeld ? "enter" : (performanceModifiers.linger(buttonNote) ? "shift" : null));
     sounds[buttonNote] = {
       note: buttonNote,
       count: active.length + 1,
@@ -6198,30 +6382,59 @@ function flushRelayMidiQueueInner() {
   }
 }
 
-// 🎼 Switch the live GM patch. Awaitable; safely no-ops if a newer call
-// supersedes this one mid-load. Triggered by the digit-buffered picker
-// in `act()` and by incoming MIDI program-change messages.
-async function setGmProgram(program, apiRef) {
-  const next = Math.max(0, Math.min(127, program | 0));
-  gmProgram = next;
-  if (gmPatchLoading) return;
-  gmPatchLoading = true;
-  try {
-    const patch = await gm.loadPatch(next);
-    if (gmProgram === next) {
-      gmPatch = patch;
-      gmReady = true;
-    }
-    if (apiRef) buildWaveButton(apiRef);
-  } catch (err) {
-    console.warn("🎼 GM: loadPatch failed for", next, err);
-  } finally {
-    gmPatchLoading = false;
-  }
+// Switch the GM patch; the host discards stale asynchronous loads.
+function setGmProgram(program, apiRef, fromMidi = false) {
+  gmProgram = Math.max(0, Math.min(127, program | 0));
+  gmReady = false;
+  localSoundEnabled = true;
+  host({ op: "program", program: gmProgram, fromMidi });
+  if (apiRef) buildWaveButton(apiRef);
+  syncInstrument();
 }
 
-function makeNoteSound(tone, velocity = 127, pan = 0) {
-  const synth = soundContext?.synth;
+// Every locally played voice owns its MIDI output note until release. Input
+// devices use output:false so a hardware loop can never echo into itself.
+function makeNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
+  if(!output)return makeSingleNoteSound(tone,velocity,pan,{output});
+  const frequency=soundContext?.freq(tone),root=Math.round(69+12*Math.log2(frequency/440));
+  if(!Number.isFinite(root))return makeSingleNoteSound(tone,velocity,pan,{output});
+  const note=pianoNoteName(root-(parseInt(octave)+1)*12),id=++voiceSerial;
+  const toTone=midi=>`${Math.floor(midi/12)-1}${MIDI_NOTE_NAMES[((midi%12)+12)%12].toUpperCase()}`;
+  const group=createChordVoice({root,intervals:chordIntervals(performanceModifiers.chord(note)),
+    start:midi=>{
+      const voice=makeSingleNoteSound(toTone(midi),velocity,pan,{output});
+      return {...voice,update(value,interval){
+        if(value?.tone!==undefined){const hz=soundContext.freq(value.tone);voice.update({...value,tone:hz*2**(interval/12)})}
+        else voice.update(value);
+      }};
+    },onRelease:()=>chordVoices.delete(id)});
+  group.note=note;chordVoices.set(id,group);return group;
+}
+function makeSingleNoteSound(tone, velocity = 127, pan = 0, { output = true } = {}) {
+  const id = ++voiceSerial;
+  const frequency = soundContext?.freq(tone);
+  const note = Math.round(69 + 12 * Math.log2(frequency / 440));
+  if (output) host({ op: "midi-on", id, note, velocity: Math.max(1, Math.min(127, Math.round(velocity))) });
+  const local = localSoundEnabled ? makeLocalNoteSound(tone, velocity, pan) : null;
+  let released = false, releaseTimer;
+  return {
+    startedAt: local?.startedAt ?? performance.now() / 1000,
+    kill(fade) {
+      local?.kill?.(fade);
+      if (released) return;
+      clearTimeout(releaseTimer);
+      const off=()=>{released=true;if(output) host({op:"midi-off",id});};
+      if (fade>1) releaseTimer=setTimeout(off,fade*1000); else off();
+    },
+    update(value) { local?.update?.(value); },
+  };
+}
+
+function makeLocalNoteSound(tone, velocity = 127, pan = 0) {
+  const synth = soundContext?.synth && (options => soundContext.synth({
+    ...options, immediate: noteLatencyProbe?.mode !== "batched",
+    probe: noteLatencyProbe ? { ...noteLatencyProbe, pieceAt: performance.timeOrigin + performance.now() } : null,
+  }));
   const play = soundContext?.play;
   const freq = soundContext?.freq;
   const num = soundContext?.num;
@@ -6248,36 +6461,17 @@ function makeNoteSound(tone, velocity = 127, pan = 0) {
   const volumeScale = minVelocityVolume + (1 - minVelocityVolume) * velocityRatio;
 
   if (wave === "gm") {
-    // 🎼 GM playback via lib/gm.mjs. Falls back to a sine oscillator if the
-    // patch isn't ready yet (manifest still loading, or asset host down).
-    // The shim mimics the synth handle shape — { startedAt, kill, update } —
-    // so the rest of notepat (panic, sustain, pitch-bend) doesn't have to
-    // care which backend played the note. Pitch-bend update is a no-op for
-    // GM voices in v1; gm.mjs doesn't expose a per-voice frequency setter.
-    if (gmReady && gmPatch) {
-      const hz = freq(tone);
-      const midi = Math.round(12 * Math.log2(hz / 440) + 69);
-      const ctx =
-        typeof window !== "undefined" ? /** @type {any} */ (window).audioContext : null;
-      const startedAt = ctx?.currentTime ?? performance.now() / 1000;
-      const noteHandle = gmPatch.play(midi, {
-        velocity: Math.round(velocityRatio * 127),
-      });
-      return {
-        startedAt,
-        kill: (_fade) => noteHandle.release(),
-        update: () => {},
-      };
-    }
-    // Fallback while GM is still loading or unavailable.
-    return synth({
-      type: "sine",
-      attack: quickFade ? 0.0015 : attack,
-      tone,
-      duration: "🔁",
-      volume: toneVolume * volumeScale,
-      pan,
-    });
+    const id = ++voiceSerial;
+    const baseFrequency = freq(tone);
+    const note = Math.round(69 + 12 * Math.log2(baseFrequency / 440));
+    host({ op: "gm-on", id, program: gmProgram, note, velocity: Math.round(velocityRatio * 127), pan, volume: toneVolume });
+    return {
+      startedAt: performance.now() / 1000,
+      kill: fade => host({ op: "gm-off", id, fade }),
+      update: value => {
+        if (value?.tone !== undefined) host({ op: "gm-bend", id, semitones: 12 * Math.log2(freq(value.tone) / baseFrequency) });
+      },
+    };
   } else if (wave === "stample" || wave === "sample") {
     const sampleId = stampleSampleId || startupSfx;
     return play(sampleId, {
@@ -6430,16 +6624,19 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
   // any octave prefix (++, +, -) and lowercase so "C", "+c", and "++c" all
   // land on the same drum slot. The note's pan is derived from its key
   // position like the pitched voices.
-  if (wave === "drum" && soundContext) {
+  if ((wave === "drum" || performanceModifiers.drums(note)) && soundContext) {
     const letter = note.replace(/^[+\-]+/, "").toLowerCase();
     const pan = getPanForButtonNote(note);
     const volume = Math.max(0.1, velocity / 127);
-    console.log("🥁 drum:", letter, "from", note, "vol", volume.toFixed(2), "pan", pan.toFixed(2));
-    playPercussion(soundContext, letter, {
-      volume,
+    releaseDrum(note,true);
+    const holds=[];
+    drumVoices.set(note,{holds,released:false});
+    const drumSound={synth:options=>localSoundEnabled ? soundContext.synth({...options,immediate:true}) : null};
+    playPercussion(drumSound, letter, {
+      volume: volume * (performanceModifiers.linger(note)?1.25:1),
       pan,
       pitchFactor: 1.0,
-      phase: "both",
+      phase: "down", holdVoices: holds,
     });
     // 🎹 Mirror drum hits to /amxd at the same tone the note's letter would
     // have played at, in the current base octave. Lets Ableton route to a
@@ -6453,7 +6650,7 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
         publishNotepatMidi("note_off", midi, 0, 0);
       }
     }
-    if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
+    if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     return true;
   }
 
@@ -6527,7 +6724,7 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
     const isDrum = wave === "drum";
     const sustainMode = isDrum
       ? null
-      : (enterHeld ? "enter" : (shiftHeld ? "shift" : null));
+      : (enterHeld ? "enter" : (performanceModifiers.linger(note) ? "shift" : null));
 
     const pan = getPanForButtonNote(note);
     sounds[note] = {
@@ -6561,12 +6758,26 @@ function startButtonNote(note, velocity = 127, apiRef = null, automatic = false)
     }
   }
 
-  if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "note_played" } });
+  if (!automatic) apiRef?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
   return true;
 }
 
+function releaseDrum(note,force=false) {
+  const entry=drumVoices.get(note);
+  if(!entry || (entry.released&&!force)) return;
+  entry.released=true;
+  for(const v of entry.holds) {
+    if(force) v.handle?.kill?.(.015);
+    else if(!v.ignoreRelease) {
+      if(v.releaseUpdate) v.handle?.update?.(v.releaseUpdate);
+      v.handle?.kill?.(v.releaseFade ?? .05);
+      v.onRelease?.();
+    }
+  }
+}
 function stopButtonNote(note, { force = false } = {}) {
   if (downs[note]) return false;
+  releaseDrum(note);
 
   // 🎹 Mirror note_off to /amxd.
   if (amxdPublishEnabled && amxdActiveNotes.has(note)) {
@@ -6637,7 +6848,52 @@ function act({
   painting,
   api,
 }) {
-  setSoundContext({ synth, play, freq, num });
+  setSoundContext({ synth, play, freq, num }, e.latencyProbe);
+  if (e.is("notepat:state")) {
+    soundPanel.state(e);
+    if (e.hostReady && !hostReady) { hostReady = true; syncInstrument(); }
+    if (typeof e.controlsOpen === "boolean") controlsOpen = e.controlsOpen;
+    if (typeof e.gmReady === "boolean") gmReady = e.gmReady;
+    if (typeof e.midiConnected === "boolean") midiConnected = e.midiConnected;
+    return;
+  }
+  if (e.is("notepat:control")) {
+    if (e.kind === "panic") panicNotepat();
+    else if (e.kind === "record") toggleRecording(api);
+    else if (e.kind === "program") { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(e.program, api); }
+    else if (e.kind === "wave" && wavetypes.includes(e.wave)) { panicNotepat(); wave = e.wave; waveIndex = wavetypes.indexOf(wave); localSoundEnabled = true; }
+    else if (e.kind === "local") { panicNotepat(); localSoundEnabled = e.enabled === true; }
+    buildWaveButton(api); syncInstrument();
+    return;
+  }
+  if (controlsOpen && soundPanel.act(e,api)) return;
+  const bracket=performanceModifiers.observe(e);
+  for(const group of chordVoices.values())group.morph(chordIntervals(performanceModifiers.chord(group.note)));
+  // Control is now the chord-quality modifier, not an extra bass note.
+  if(e.is("keyboard:down:control")||e.is("keyboard:up:control"))return;
+  shiftHeld=performanceModifiers.state.shift;
+  if(bracket) {
+    if(bracket.changed) {
+      // Release the old route before changing an octave from notes to drums.
+      panicNotepat(); modeBarKey="";
+    }
+    return;
+  }
+  if(e.is("keyboard:up") && drumKeys.has(e.key?.toLowerCase())) {
+    const key=e.key.toLowerCase(), note=drumKeys.get(key);
+    drumKeys.delete(key); stopButtonNote(note); if(buttons[note]) buttons[note].down=false;
+    return;
+  }
+  if(e.is("keyboard:down")) {
+    const key=e.key?.toLowerCase(), note=keyboardKeyToNote(key);
+    if(note && (wave==="drum" || performanceModifiers.drums(note))) {
+      if(!e.repeat && !drumKeys.has(key)) {
+        drumKeys.set(key,note); startButtonNote(note,e.velocity??127,api);
+        if(buttons[note]) buttons[note].down=true;
+      }
+      return;
+    }
+  }
   if (pendingAudioReinit && !audioReinitRequested && api?.send) {
     if (e.is("touch") || e.is("keyboard:down")) {
       api.send({
@@ -6658,12 +6914,7 @@ function act({
     setupButtons(api);
     buildOctButton(api);
     buildWaveButton(api);
-    buildAbletonButton(api);
-    buildOsButton(api);
-    buildRecButton(api);
-    buildToggleButtons(api);
-    buildMetronomeButtons(api);
-    // Resize picture to quarter resolution (half width, half height)
+        // Resize picture to quarter resolution (half width, half height)
     const resizedPictureWidth = Math.max(1, Math.floor(screen.width / 2));
     const resizedPictureHeight = Math.max(1, Math.floor(screen.height / 2));
     picture = painting(resizedPictureWidth, resizedPictureHeight, ({ wipe }) => {
@@ -6724,6 +6975,14 @@ function act({
     }
   }
 
+  if (classicControls()) {
+    actModeBar(e, api);
+    if ((e.is("touch") || e.is("draw") || e.is("lift")) && e.y < MODE_BAR_HEIGHT) {
+      if (e.is("lift")) cleanupOrphanedSounds(pens);
+      return;
+    }
+  }
+
   // 🎭 In recital mode, tap on top bar (BACK button) to exit recital mode
   if (recitalMode && e.is("touch") && e.y < TOP_BAR_BOTTOM) {
     recitalMode = false;
@@ -6762,8 +7021,6 @@ function act({
     const topPianoEndX = topBarBase + topPianoWidth;
     const vizLeft = topPianoEndX; // Start after piano
     const vizRight = Math.min(
-      osBtn?.box?.x ?? Infinity,
-      abletonBtn?.box?.x ?? Infinity,
       waveBtn?.box?.x ?? screen.width,
     ) - 1;
     if (e.x >= vizLeft && e.x <= vizRight) {
@@ -6789,7 +7046,7 @@ function act({
     if (layout.miniInputsEnabled && !recitalMode) {
 
       const trackHeight = showTrack ? TRACK_HEIGHT : 0;
-      const trackY = showTrack ? OS_BAR_BOTTOM : null;
+      const trackY = showTrack ? HEADER_BOTTOM : null;
       const pianoGeometry = getMiniPianoGeometry({
         screen,
         layout,
@@ -6857,68 +7114,13 @@ function act({
     upperOctaveShift -= 1;
   }
 
-  // 🏠 Room mode toggle (/ key) - global reverb
-  if (e.is("keyboard:down:/") && !e.repeat) {
-    roomMode = !roomMode;
-    room.toggle();
-  }
-
-  // 🔇 BACKSPACE — clear all held (shift-decaying / enter-latched) voices.
-  // Falls through to the original glitch-mode toggle when no held voices
-  // exist, so the binding still serves both purposes without surprise.
-  if (e.is("keyboard:down:backspace") && !e.repeat) {
-    if (!clearHeldVoices()) {
-      glitchMode = !glitchMode;
-      glitch?.toggle?.();
-      cleanupOrphanedSounds(pens, true);
-    }
-  }
-
-  // 🔒 SHIFT held → next press uses short-attack / long-decay envelope.
-  // Both physical shifts qualify; left/right shift's own toggles
-  // (quickFade, slide) still fire on shift-down — they're orthogonal to
-  // the held-state tracking that the press dispatcher reads.
-  if (e.is("keyboard:down:shift")) shiftHeld = true;
-  if (e.is("keyboard:up:shift")) shiftHeld = false;
+  // Backspace only releases latched voices; it no longer enables an effect.
+  if (e.is("keyboard:down:backspace") && !e.repeat) clearHeldVoices();
 
   // 🔒 ENTER held → next press latches the voice into heldVoices until
   // backspace clears it. ENTER wins over SHIFT when both are held.
   if (e.is("keyboard:down:enter")) enterHeld = true;
   if (e.is("keyboard:up:enter")) enterHeld = false;
-
-  if (
-    e.is("keyboard:down") &&
-    !e.repeat &&
-    e.key === "Shift" &&
-    e.code === "ShiftLeft"
-  ) {
-    quickFade = !quickFade;
-  }
-
-  if (
-    e.is("keyboard:down") &&
-    !e.repeat &&
-    e.key === "Shift" &&
-    e.code === "ShiftRight"
-  ) {
-    // console.log("Code:", e.code);
-    slide = !slide;
-
-    if (slide && Object.keys(tonestack).length > 1) {
-      const orderedTones = orderedByCount(tonestack);
-      orderedTones.forEach((tone, index) => {
-        if (index > 0) {
-          sounds[tone]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
-          trail[tone] = 1;
-          delete tonestack[tone]; // Remove this key from the notestack.
-          delete sounds[tone];
-          if (buttons[tone]) buttons[tone].down = false;
-        }
-      });
-    }
-    // Clean up any orphaned sounds when toggling slide
-    cleanupOrphanedSounds(pens, true);
-  }
 
   //  if (
   //    e.is("keyboard:down:control") ||
@@ -6932,58 +7134,18 @@ function act({
     waveIndex = (waveIndex + 1) % wavetypes.length;
     wave = wavetypes[waveIndex];
     buildWaveButton(api);
-    buildAbletonButton(api);
-    buildOsButton(api);
-    buildRecButton(api);
   }
 
-  // 🎼 GM digit-buffered patch picker — top-row 0-9 like menuband. Each
-  // digit press updates the live GM program; the buffer auto-clears after
-  // GM_DIGIT_TIMEOUT_MS of inactivity or when a non-digit key arrives.
-  // NuPhy WebHID also delivers digits through this channel, so hardware
-  // presses pick patches too.
-  {
-    const isKbdDown = e.is("keyboard:down") && !e.repeat;
-    const digit = isKbdDown && /^[0-9]$/.test(e.key) ? e.key : null;
-    const now = performance.now();
-
-    if (gmDigitBuffer && now > gmDigitBufferDeadline) {
-      gmDigitBuffer = "";
-    }
-
-    if (digit) {
-      if (gmDigitBuffer.length >= 3) gmDigitBuffer = "";
-      gmDigitBuffer += digit;
-      gmDigitBufferDeadline = now + GM_DIGIT_TIMEOUT_MS;
-
-      // "0" / "00" / "000" → program 0; otherwise typed value clamped 0-127.
-      const v = parseInt(gmDigitBuffer, 10);
-      const program = Math.max(0, Math.min(127, v));
-
-      // Friendly auto-switch: typing a digit while in a legacy wave snaps
-      // the wave switcher to "gm" so the user actually hears the program
-      // they just picked.
-      if (wave !== "gm") {
-        waveIndex = wavetypes.indexOf("gm");
-        if (waveIndex >= 0) {
-          wave = "gm";
-          buildAbletonButton(api);
-          buildOsButton(api);
-          buildRecButton(api);
-        }
-      }
-
-      setGmProgram(program, api);
-      buildWaveButton(api); // Immediate label refresh — shows the buffer live.
-      api.beep();
+  if (e.is("keyboard:down") && !e.repeat) {
+    if (/^[0-9]$/.test(e.key)) {
+      const choice = gmDigitSelection(gmDigitBuffer, e.key, performance.now(), gmDigitLastMs);
+      gmDigitBuffer = choice.buffer; gmDigitLastMs = choice.time;
+      if (choice.passthrough) { panicNotepat(); localSoundEnabled = !localSoundEnabled; }
+      else { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(choice.program, api); }
+      buildWaveButton(api); syncInstrument();
       return;
     }
-
-    // Non-digit keypress clears any pending buffer (the live program was
-    // already applied per-digit, so nothing to commit).
-    if (isKbdDown && gmDigitBuffer) {
-      gmDigitBuffer = "";
-    }
+    gmDigitBuffer = "";
   }
 
   // if (e.is("keyboard:down:shift") && !e.repeat) {
@@ -6996,7 +7158,6 @@ function act({
     hud.label(overlayMode || paintPictureOverlay ? undefined : "notepat");
     setupButtons(api);
   }
-  if (e.is("keyboard:down:\\")) projector = !projector;
 
   // � Performance OSD toggle (backtick key)
   if (e.is("keyboard:down:`") && !e.repeat) {
@@ -7004,18 +7165,7 @@ function act({
   }
 
   // �🚨 PANIC BUTTON: Press Escape to stop all stuck sounds
-  if (e.is("keyboard:down:escape")) {
-    console.log("🚨 PANIC: Force stopping all sounds!");
-    Object.keys(sounds).forEach(note => {
-      console.log("🔇 Force killing stuck sound:", note);
-      sounds[note]?.sound?.kill(0.01); // Very fast kill
-    });
-    // Clear all state
-    Object.keys(sounds).forEach(note => delete sounds[note]);
-    Object.keys(tonestack).forEach(note => delete tonestack[note]);
-    Object.keys(trail).forEach(note => delete trail[note]);
-    console.log("🧹 All audio state cleared");
-  }
+  if (e.is("keyboard:down:escape")) panicNotepat();
 
   // if (e.is("keyboard:down:arrowleft")) {
   // scopeTrim -= 1;
@@ -7380,317 +7530,10 @@ function act({
     BB: "A#",
   };
 
-  const MIDI_NOTE_ON = 0x90;
-  const MIDI_NOTE_OFF = 0x80;
-  const MIDI_PITCH_BEND = 0xe0;
-  const MIDI_PROGRAM_CHANGE = 0xc0;
-
-  const midiNoteToButton = (noteNumber) => {
-      if (!midiUtil?.note || typeof noteNumber !== "number") return null;
-
-      const raw = midiUtil.note(noteNumber);
-      if (!raw) return null;
-
-      const normalized = raw.toUpperCase();
-      const match = normalized.match(/^([A-G])([#B]?)(-?\d+)$/);
-      if (!match) return null;
-
-      let [, letter, accidental, octaveStr] = match;
-
-      if (accidental === "B") {
-        const enharmonic = flatToSharp[`${letter}${accidental}`];
-        if (!enharmonic) return null;
-        letter = enharmonic[0];
-        accidental = enharmonic[1] || "";
-      }
-
-      const noteName = (letter + accidental).toLowerCase();
-      const noteOctave = parseInt(octaveStr, 10);
-
-      if (Number.isNaN(noteOctave)) return null;
-
-      const lowerOct = lowerBaseOctave();
-      const upperOct = upperBaseOctave();
-
-      if (noteOctave === lowerOct && buttonNoteLookup.has(noteName)) {
-        return noteName;
-      }
-      if (noteOctave === upperOct) {
-        const upperNote = `+${noteName}`;
-        if (buttonNoteLookup.has(upperNote)) {
-          return upperNote;
-        }
-      }
-
-      if (noteOctave < lowerOct) {
-        const offset = (lowerOct - noteOctave) % 2;
-        const baseNote = offset === 0 ? noteName : `+${noteName}`;
-        if (buttonNoteLookup.has(baseNote)) {
-          return baseNote;
-        }
-      }
-
-      if (noteOctave > upperOct) {
-        const offset = (noteOctave - upperOct) % 2;
-        const baseNote = offset === 0 ? `+${noteName}` : noteName;
-        if (buttonNoteLookup.has(baseNote)) {
-          return baseNote;
-        }
-      }
-
-      if (buttonNoteLookup.has(noteName)) {
-        console.warn("🎹 MIDI note folded to base octave:", {
-          noteNumber,
-          raw,
-          mappedTo: noteName,
-        });
-        return noteName;
-      }
-
-      const sharpCandidate = `+${noteName}`;
-      if (buttonNoteLookup.has(sharpCandidate)) {
-        console.warn("🎹 MIDI note folded to upper octave:", {
-          noteNumber,
-          raw,
-          mappedTo: sharpCandidate,
-        });
-        return sharpCandidate;
-      }
-
-      console.warn("🎹 MIDI note unmapped:", { noteNumber, raw, lowerOct, upperOct });
-      return null;
-    };
-
-  const startMidiButtonNote = (buttonNote, velocity = 127) => {
-    if (!buttonNote) return false;
-
-    if (song && buttonNote.toUpperCase() !== song?.[songIndex][0]) {
-      synth({
-        type: "noise-white",
-        tone: 1000,
-        duration: 0.05,
-        volume: 0.3,
-        attack: 0,
-      });
-      return false;
-    }
-
-    anyDown = true;
-    noteShake[buttonNote] = 3; // Trigger per-note typography shake
-
-    let noteName = buttonNote;
-    let targetOctave = lowerBaseOctave();
-    if (buttonNote.startsWith("+")) {
-      noteName = buttonNote.slice(1);
-      targetOctave = upperBaseOctave();
-    }
-
-    const noteUpper = noteName.toUpperCase();
-    const tone = `${targetOctave}${noteUpper}`;
-    const active = orderedByCount(sounds);
-
-    if (slide && active.length > 0) {
-      sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
-      tonestack[buttonNote] = {
-        count: Object.keys(tonestack).length,
-        tone,
-      };
-      sounds[buttonNote] = sounds[active[0]];
-      if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
-      delete sounds[active[0]];
-      applyPitchBendToNotes([buttonNote], { immediate: true });
-    } else {
-      tonestack[buttonNote] = {
-        count: Object.keys(tonestack).length,
-        tone,
-      };
-
-      const pan = getPanForButtonNote(buttonNote);
-      let soundHandle = makeNoteSound(tone, velocity, pan);
-
-      if (!soundHandle || typeof soundHandle.kill !== "function") {
-        const velocityRatio = velocity === undefined ? 1 : velocity / 127;
-        const clampedRatio = num?.clamp
-          ? num.clamp(velocityRatio, 0, 1)
-          : Math.max(0, Math.min(1, velocityRatio));
-        const minVelocityVolume = 0.05;
-        const fallbackVolume =
-          toneVolume * (minVelocityVolume + (1 - minVelocityVolume) * clampedRatio);
-        soundHandle = synth({
-          type: "sine",
-          tone: freq(tone),
-          attack: quickFade ? 0.0015 : attack,
-          decay: 0.9,
-          duration: 0.4,
-          volume: fallbackVolume,
-          pan,
-        });
-      }
-
-      sounds[buttonNote] = {
-        note: buttonNote,
-        count: active.length + 1,
-        sound: soundHandle,
-      };
-
-      applyPitchBendToNotes([buttonNote], { immediate: true });
-
-      if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
-        songNoteDown = true;
-      }
-
-      delete trail[buttonNote];
-
-      pictureAdd(api, tone);
-      udpServer?.send("tv", { note: buttonNote });
-    }
-
-    if (buttons[buttonNote]) {
-      buttons[buttonNote].down = true;
-      buttons[buttonNote].over = true;
-    }
-
-    api.send?.({ type: "visit:action", content: { action: "note_played" } });
-    return true;
-  };
-
-  const stopMidiButtonNote = (buttonNote) => {
-    if (!buttonNote) return;
-
-    const orderedTones = orderedByCount(tonestack);
-
-    if (slide && orderedTones.length > 1 && sounds[buttonNote]) {
-      const previousKey = orderedTones[orderedTones.length - 2];
-      const previousTone = tonestack[previousKey]?.tone;
-      if (previousTone) {
-        sounds[buttonNote]?.sound?.update({ tone: previousTone, duration: 0.1 });
-        sounds[previousKey] = sounds[buttonNote];
-        if (sounds[previousKey]) sounds[previousKey].note = previousKey;
-        applyPitchBendToNotes([previousKey], { immediate: true });
-      }
-    } else if (sounds[buttonNote]?.sound) {
-      const soundEntry = sounds[buttonNote];
-      const lifespan = soundEntry.sound?.startedAt
-        ? performance.now() / 1000 - soundEntry.sound.startedAt
-        : 0.1;
-      const fade = max(0.075, min(lifespan, 0.15));
-      soundEntry.sound.kill(quickFade ? fastFade : fade);
-    }
-
-    if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
-      songIndex = (songIndex + 1) % song.length;
-      songNoteDown = false;
-      songShifting = true;
-    }
-
-    delete tonestack[buttonNote];
-    delete sounds[buttonNote];
-    trail[buttonNote] = 1;
-
-    if (buttons[buttonNote]) {
-      buttons[buttonNote].down = false;
-      buttons[buttonNote].over = false;
-    }
-
-    if (melodyAliasActiveNote === buttonNote) {
-      melodyAliasDown = false;
-      melodyAliasActiveNote = null;
-      melodyAliasStartedNote = false;
-    }
-  };
-
   if (e.is("midi:keyboard")) {
-    midiConnected = true;
-
-    const status = e.data?.[0] ?? 0;
-    const noteNumber = e.data?.[1];
-    const velocity = e.data?.[2] ?? 0;
-    const command = status & 0xf0;
-
-    if (command === MIDI_PITCH_BEND) {
-      const lsb = e.data?.[1] ?? 0;
-      const msb = e.data?.[2] ?? 0;
-      const rawValue = (msb << 7) | lsb; // 0 - 16383
-      const normalized = (rawValue - 8192) / 8192;
-      const clamped = num?.clamp
-        ? num.clamp(normalized, -1, 1)
-        : Math.max(-1, Math.min(1, normalized));
-
-      if (clamped !== midiPitchBendValue) {
-        midiPitchBendValue = clamped;
-        applyPitchBendToNotes(undefined, { immediate: true });
-      }
-
-      return;
-    }
-
-    // 🎼 Incoming GM program-change → switch the active GM patch. Auto-
-    // snaps the wave switcher to "gm" so the user hears the new voice.
-    if (command === MIDI_PROGRAM_CHANGE) {
-      const program = noteNumber ?? 0;
-      if (wave !== "gm") {
-        const idx = wavetypes.indexOf("gm");
-        if (idx >= 0) {
-          waveIndex = idx;
-          wave = "gm";
-        }
-      }
-      setGmProgram(program, api);
-      return;
-    }
-
-    if (typeof noteNumber === "number") {
-      if (command === MIDI_NOTE_ON && velocity > 0) {
-        // 📊 Track MIDI key press time for latency measurement
-        perfStats.lastKeyTime = performance.now();
-        
-        const buttonNote = midiNoteToButton(noteNumber);
-        if (buttonNote && startMidiButtonNote(buttonNote, velocity)) {
-          midiActiveNotes.set(noteNumber, buttonNote);
-        }
-      } else if (command === MIDI_NOTE_OFF || (command === MIDI_NOTE_ON && velocity === 0)) {
-        const mappedNote = midiActiveNotes.get(noteNumber) ?? midiNoteToButton(noteNumber);
-        if (mappedNote) {
-          stopMidiButtonNote(mappedNote);
-        }
-        midiActiveNotes.delete(noteNumber);
-      }
-    }
-
+    midiConnected = !e.disconnected;
+    midiPerformance.receive(e);
     return;
-  }
-
-  if (!tap) {
-    // 🥁 Spacebar now toggles metronome on/off (instead of snare)
-    if (e.is("keyboard:down:space") && !e.repeat) {
-      metronomeEnabled = !metronomeEnabled;
-      if (metronomeEnabled) {
-        // Seed beat count to (current beat - 1) so the very next sim
-        // tick computes a fresh beatNumber and fires the click on the
-        // press itself. Previously we seeded to the *current* beat,
-        // which made the comparison at line 1844 a no-op and forced a
-        // wait of up-to-one full beat-interval before the first click
-        // (~333ms of silence at 180 BPM, every toggle-on).
-        const now = metronomeClockRef?.time?.()?.getTime?.() ?? Date.now();
-        metronomeBeatCount = Math.floor(now / (60000 / metronomeBPM)) - 1;
-      } else {
-        metronomeVisualPhase = 0;
-        metronomeBallPos = 0;
-        metronomeFlash = 0;
-      }
-    }
-  }
-
-  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltLeft") {
-    perc = pc; //"cyan";
-    percDowns.alt = true;
-    makeCrash(e.velocity);
-  }
-
-  if (e.is("keyboard:down:alt") && !e.repeat && e.code === "AltRight") {
-    perc = pc; //"cyan";
-    percDowns.alt = true;
-    makeRide(e.velocity);
   }
 
   if (e.is("keyboard:down:arrowleft") && !e.repeat && !percDowns.left) {
@@ -7734,9 +7577,7 @@ function act({
 
   // Spacebar keyup no longer needed (metronome toggle happens on keydown only)
 
-  if (e.is("keyboard:up:alt")) {
-    delete percDowns.alt;
-  }
+
 
   if (!tap) {
     const activePens = pens?.();
@@ -7759,9 +7600,6 @@ function act({
         octave = max(1, (octNum + 1) % 10).toString();
         buildOctButton(api);
         buildWaveButton(api);
-        buildAbletonButton(api);
-        buildOsButton(api);
-        buildRecButton(api);
       },
     });
 
@@ -7769,60 +7607,12 @@ function act({
       down: () => api.beep(400),
       push: (btn) => {
         api.beep();
-        waveIndex = (waveIndex + 1) % wavetypes.length;
-        wave = wavetypes[waveIndex];
-        buildWaveButton(api);
-        buildAbletonButton(api);
-        buildOsButton(api);
-        buildRecButton(api);
-      },
-    });
-
-    abletonBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        jump("out:https://notepat.com/amxd");
-      },
-    });
-
-    osBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        jump("os");
-      },
-    });
-
-    recBtn?.act(e, {
-      down: () => api.beep(400),
-      push: () => {
-        api.beep();
-        if (!recording) {
-          recordBuffer = [];
-          recordingActive = {};
-          recording = true;
-          // Seed any currently-held notes so a press mid-chord still captures them.
-          const now = performance.now();
-          for (const bn of Object.keys(tonestack)) {
-            const tone = tonestack[bn]?.tone;
-            if (tone) recordingActive[bn] = { tone, downAt: now };
-          }
-        } else {
-          // Close out any still-held notes before serializing.
-          const now = performance.now();
-          for (const bn of Object.keys(recordingActive)) {
-            const { tone, downAt } = recordingActive[bn];
-            recordBuffer.push({ tone, downAt, upAt: now });
-          }
-          recordingActive = {};
-          finishRecordingAndJump(api);
-        }
+        openSoundPanel();
       },
     });
 
     // 🎛️ Toggle button interactions
-    slideBtn?.act(e, {
+    if (!classicControls()) slideBtn?.act(e, {
       push: () => {
         api.beep();
         slide = !slide;
@@ -7844,7 +7634,7 @@ function act({
       },
     });
 
-    roomBtn?.act(e, {
+    if (!classicControls()) roomBtn?.act(e, {
       push: () => {
         api.beep();
         roomMode = !roomMode;
@@ -7853,8 +7643,8 @@ function act({
     });
 
     // 🎚️ Room parameter bar interaction (drag to adjust room amount)
-    if (roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
-      const barY = OS_BAR_BOTTOM + 2;
+    if (!classicControls() && roomMode && roomBtn?.box && (e.is("touch") || e.is("draw"))) {
+      const barY = HEADER_BOTTOM + 2;
       const barHeight = 6;
       const barX = roomBtn.box.x;
       const barWidth = Math.max(40, roomBtn.box.w * 2);
@@ -7868,7 +7658,7 @@ function act({
       }
     }
 
-    glitchBtn?.act(e, {
+    if (!classicControls()) glitchBtn?.act(e, {
       push: () => {
         api.beep();
         glitchMode = !glitchMode;
@@ -7878,7 +7668,7 @@ function act({
       },
     });
 
-    quickBtn?.act(e, {
+    if (!classicControls()) quickBtn?.act(e, {
       push: () => {
         api.beep();
         quickFade = !quickFade;
@@ -7886,7 +7676,7 @@ function act({
     });
 
     // 🥁 Metronome button interactions
-    bpmMinusBtn?.act(e, {
+    if (!classicControls()) bpmMinusBtn?.act(e, {
       push: () => {
         api.beep();
         // Decrease BPM by 5 (min 20)
@@ -7897,7 +7687,7 @@ function act({
       },
     });
 
-    bpmPlusBtn?.act(e, {
+    if (!classicControls()) bpmPlusBtn?.act(e, {
       push: () => {
         api.beep();
         // Increase BPM by 5 (max 300)
@@ -7908,7 +7698,7 @@ function act({
       },
     });
 
-    metroBtn?.act(e, {
+    if (!classicControls()) metroBtn?.act(e, {
       push: () => {
         api.beep();
         metronomeEnabled = !metronomeEnabled;
@@ -7984,7 +7774,7 @@ function act({
       );
     }
 
-    buttonNotes.forEach((note) => {
+    (classicControls()&&mainLayout==="piano"?Object.keys(buttons):buttonNotes).forEach((note) => {
       if (buttons[note]) {
         buttons[note].act(
           e,
@@ -8005,6 +7795,7 @@ function act({
             },
             // TODO: The order of over and out will be important...
             out: (btn) => {
+              releaseDrum(note);
               // Only stop the sound when dragging off, but don't affect button down state
               sounds[note]?.sound?.kill(killFade);
               delete tonestack[note]; // Remove from notestack  
@@ -8017,48 +7808,14 @@ function act({
               }
             },
             cancel: (btn) => {
+              releaseDrum(note,true);
               // Force cleanup when button gets stuck - stop the sound immediately
               sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
               delete tonestack[note]; // Remove from notestack
               delete sounds[note]; // Remove sound reference
               delete trail[note]; // Clean up trail
             },
-            up: (btn) => {
-              // ❤️‍🔥 TODO: How to manage the sliding here?
-              if (downs[note]) return false;
-
-              const orderedTones = orderedByCount(tonestack);
-
-              if (slide && orderedTones.length > 1 && sounds[note]) {
-                sounds[note]?.sound?.update({
-                  tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-                  duration: 0.1,
-                });
-                const previousKey = orderedTones[orderedTones.length - 2];
-                sounds[previousKey] = sounds[note];
-                if (sounds[previousKey]) sounds[previousKey].note = previousKey;
-                applyPitchBendToNotes([previousKey], { immediate: true });
-              } else {
-                sounds[note]?.sound.kill(quickFade ? fastFade : killFade);
-              }
-
-              // console.log("🪱 Trail:", note);
-
-              trail[note] = 1;
-
-              if (note.toUpperCase() === song?.[songIndex][0]) {
-                songIndex = (songIndex + 1) % song.length;
-                songNoteDown = false;
-                songShifting = true;
-              }
-
-              delete tonestack[note]; // Remove this key from the notestack.
-              delete sounds[note];
-              //} else {
-                stopButtonNote(note);
-              // sounds[orderedTones[orderedTones.length - 2]] = sounds[key];
-              //}
-            },
+            up: (btn) => { stopButtonNote(note); },
           },
           pens?.(),
         );
@@ -8120,7 +7877,7 @@ function act({
   }
 
   // Individual Keyboard Notes
-  [...(octaves + notes + edges).split(""), "control"].forEach((key) => {
+  [...(octaves + notes + edges).split("")].forEach((key) => {
     if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
       // 📊 Track key press time for latency measurement
       perfStats.lastKeyTime = performance.now();
@@ -8307,10 +8064,13 @@ function act({
             tone,
           };
           const pan = getPanForQwertyKey(key);
+          const voiceId=computeVoiceId(buttonNote);
+          heldVoices.get(voiceId)?.sound?.kill?.(.02); heldVoices.delete(voiceId);
           sounds[buttonNote] = {
-            note: buttonNote,
+            note: buttonNote, voiceId,
+            sustainMode: enterHeld ? "enter" : performanceModifiers.linger(buttonNote) ? "shift" : null,
             count: active.length + 1,
-            sound: makeNoteSound(tone, e.velocity ?? 127, pan), // Use velocity from event
+            sound: makeNoteSound(tone, e.velocity ?? 127, pan),
           };
 
           applyPitchBendToNotes([buttonNote], { immediate: true });
@@ -8324,7 +8084,7 @@ function act({
           pictureAdd(api, tone);
           udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
         }
-        api.send?.({ type: "visit:action", content: { action: "note_played" } });
+        api.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
       }
     }
 
@@ -8441,6 +8201,11 @@ function act({
         }
 
         const buttonNote = noteFromKey(key);
+        if(sounds[buttonNote]?.sustainMode) {
+          stopButtonNote(buttonNote);
+          if(buttons[buttonNote]) buttons[buttonNote].down=false;
+          return;
+        }
 
         const orderedTones = orderedByCount(tonestack);
 
@@ -8737,6 +8502,21 @@ function resetModeState() {
 
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
+  padsViewport = `${screen.width}:${screen.height}`;
+  if(classicControls() && mainLayout==='piano') {
+    pianoLayout=notepatPianoLayout(screen,{top:MODE_BAR_HEIGHT,offsets:pianoOffsets});
+    for(const btn of Object.values(buttons)) {btn.box=new geo.Box(0,0,0,0);btn.box.contains=()=>false;}
+    for(const key of pianoLayout.keys) {
+      if(!buttons[key.note]) buttons[key.note]=new ui.Button(key.x,key.y,key.w,key.h);
+      else buttons[key.note].box=new geo.Box(key.x,key.y,key.w,key.h);
+      buttons[key.note].id=`note-${key.note}`;
+      // White keys yield their overlapping hit area to the black keys. Reuse
+      // the existing multi-touch and drag lifecycle for every other detail.
+      buttons[key.note].box.contains=point=>pianoKeyContains(pianoLayout,key.note,point);
+    }
+    return;
+  }
+  pianoLayout=null;
   const sampleRateText = getSampleRateText(undefined);
   const sampleRateLabel = sampleRateText ? MIDI_RATE_LABEL_TEXT : null;
   const cachedLayout = getCachedLayout(screen, {
@@ -8789,10 +8569,10 @@ function setupButtons({ ui, screen, geo }) {
         x = leftOctaveX + col * buttonWidth;
       }
     } else {
-      // Normal grid layout
+      // Portrait: the same two 4×3 grids, separated by an octave gap.
       const row = floor(i / buttonsPerRow);
       const col = i % buttonsPerRow;
-      y = topButtonY + row * buttonHeight;
+      y = topButtonY + row * buttonHeight + (i >= 12 ? layout.octaveGap || 0 : 0);
       const gridWidth = buttonsPerRow * buttonWidth;
       const availableWidth = usableWidth ?? screen.width;
       // Left-align grid when mini inputs are to the right, otherwise center
@@ -8811,7 +8591,7 @@ function setupButtons({ ui, screen, geo }) {
     }
 
     const noteLabelText = label.toUpperCase();
-    const noteFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
+    const noteFont = buttonWidth >= 22 && buttonHeight >= 20 ? "unifont" : "MatrixChunky8";
     const noteGlyphWidth = noteFont === "unifont" ? 8 : glyphMetrics.width;
     const noteGlyphHeight = noteFont === "unifont" ? 16 : glyphMetrics.height;
     const noteLabelWidth = noteLabelText.length * noteGlyphWidth;
@@ -8831,7 +8611,7 @@ function setupButtons({ ui, screen, geo }) {
     const keyLabelCandidate = noteToKeyboardKey(label) || label.toLowerCase();
     // Skip apostrophe key - it's too wide and cuts into narrow pads
     const keyLabel = keyLabelCandidate === "'" ? null : keyLabelCandidate;
-    const keyFont = buttonWidth >= 22 ? "unifont" : "MatrixChunky8";
+    const keyFont = buttonWidth >= 22 && buttonHeight >= 20 ? "unifont" : "MatrixChunky8";
     const keyGlyphWidth = keyFont === "unifont" ? 8 : glyphMetrics.width;
     const keyGlyphHeight = keyFont === "unifont" ? 16 : glyphMetrics.height;
 
@@ -8930,11 +8710,13 @@ function buildWaveButton({ screen, ui, typeface }) {
   // loaded and what they're partway through typing.
   let displayWave;
   if (wave === "gm") {
-    const shown = gmDigitBuffer || String(gmProgram).padStart(3, "0");
+    const shown = gmDigitBuffer || String(gmProgram + 1);
     displayWave = isNarrow ? `g${shown}` : `GM:${shown}`;
   } else {
     displayWave = isNarrow ? (shortWaveNames[wave] || wave.slice(0, 3)) : wave;
   }
+  if (!localSoundEnabled) displayWave = "MIDI";
+  if (recording) displayWave = "REC";
   const waveWidth = displayWave.length * glyphWidth;
   const margin = isNarrow ? 2 : 4;
   waveBtn = new ui.Button(
@@ -8946,6 +8728,7 @@ function buildWaveButton({ screen, ui, typeface }) {
   waveBtn.id = "wave-button";
   waveBtn.isNarrow = isNarrow;
   waveBtn.displayWave = displayWave;
+  syncInstrument();
 }
 
 function buildOctButton({ screen, ui, typeface }) {
@@ -8963,61 +8746,29 @@ function buildOctButton({ screen, ui, typeface }) {
   octBtn.isNarrow = isNarrow;
 }
 
-// OS bar (m4l / os / drum) — dedicated row below the secondary bar so the
-// top bar stays uncluttered. Buttons are right-aligned and chain leftward;
-// when the screen is narrow they collapse widths/labels so they still fit.
-const OS_BAR_BTN_GAP = 3;
-const OS_BAR_RIGHT_MARGIN = 4;
-
-function osBarButtonMetrics({ screen }) {
-  const isNarrow = screen.width < 240;
-  const isVeryNarrow = screen.width < 180;
-  const padX = isVeryNarrow ? 2 : isNarrow ? 3 : 4;
-  const glyph = 6;
-  return {
-    isNarrow,
-    isVeryNarrow,
-    padX,
-    glyph,
-    y: OS_BAR_TOP + 1,
-    h: OS_BAR_HEIGHT - 2,
-    labels: {
-      ableton: "m4l",
-      os: "os",
-      rec: "rec",
-      recStop: "stop",
-    },
-  };
-}
-
-function buildAbletonButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const w = m.labels.ableton.length * m.glyph + m.padX * 2;
-  const x = screen.width - OS_BAR_RIGHT_MARGIN - w;
-  abletonBtn = new ui.Button(x, m.y, w, m.h);
-  abletonBtn.id = "ableton-button";
-  abletonBtn.label = m.labels.ableton;
-}
-
-function buildOsButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const w = m.labels.os.length * m.glyph + m.padX * 2;
-  const anchorX = abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  osBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
-  osBtn.id = "os-button";
-  osBtn.label = m.labels.os;
-}
-
-// 🔴 Record button — sits to the left of osBtn on the OS bar.
-// Width reserves space for the wider label ("stop") so the button doesn't
-// reflow when toggling between idle and recording states.
-function buildRecButton({ ui, screen }) {
-  const m = osBarButtonMetrics({ screen });
-  const labelLen = Math.max(m.labels.rec.length, m.labels.recStop.length);
-  const w = labelLen * m.glyph + m.padX * 2;
-  const anchorX = osBtn?.box?.x ?? abletonBtn?.box?.x ?? (screen.width - OS_BAR_RIGHT_MARGIN);
-  recBtn = new ui.Button(anchorX - w - OS_BAR_BTN_GAP, m.y, w, m.h);
-  recBtn.id = "rec-button";
+function toggleRecording(api) {
+  if (!recording) {
+    recordBuffer = [];
+    recordingActive = {};
+    recording = true;
+    api.send?.({ type: "visit:action", content: { action: "notepat_recording_started" } });
+    // Seed any currently-held notes so a press mid-chord still captures them.
+    const now = performance.now();
+    for (const bn of Object.keys(tonestack)) {
+      const tone = tonestack[bn]?.tone;
+      if (tone) recordingActive[bn] = { tone, downAt: now };
+    }
+  } else {
+    // Close out any still-held notes before serializing.
+    const now = performance.now();
+    for (const bn of Object.keys(recordingActive)) {
+      const { tone, downAt } = recordingActive[bn];
+      recordBuffer.push({ tone, downAt, upAt: now });
+    }
+    recordingActive = {};
+    finishRecordingAndJump(api);
+  }
+  buildWaveButton(api); syncInstrument();
 }
 
 // Snapshot tonestack each sim tick so every note-on/note-off path feeds
@@ -9070,125 +8821,12 @@ function finishRecordingAndJump(api) {
   const result = serializeRecording();
   recordBuffer = [];
   if (!result) return;
+  api?.send?.({ type: "visit:action", content: { action: "notepat_recording_completed" } });
   const target = `clock ${result.melody}:${result.timing}`;
-  if (typeof api?.jump === "function") api.jump(target);
-}
-
-// Build metronome controls and toggle buttons with responsive layout
-// Calculates available space and shortens labels as needed to prevent overlap
-function buildMetronomeButtons({ screen, ui, typeface, text }) {
-  const btnHeight = SECONDARY_BAR_HEIGHT - 2;
-  const btnY = SECONDARY_BAR_TOP + 1;
-  const glyphWidth = typeface?.glyphs?.["0"]?.resolution?.[0] ?? matrixFont?.glyphs?.["0"]?.resolution?.[0] ?? 6;
-  const glyphMetrics = resolveMatrixGlyphMetrics();
-  const hideMidiBadge = screen.width < 240;
-  
-  // Calculate actual MIDI badge width using proper text measurement
-  // Use stored sample rate or fallback to window.audioContext
-  const sampleRate = storedSampleRate || (typeof window !== "undefined" ? window.audioContext?.sampleRate : null);
-  const sampleRateText = getSampleRateText(sampleRate);
-  const midiTextW = measureMatrixTextWidth("M");
-  const divWidth = 5; // divider (2px) + spacing (3px)
-  const shortRate = sampleRateText ? sampleRateText.replace("Hz", "") : "";
-  const rateTextW = measureMatrixTextWidth(shortRate);
-  const fpsTextW = measureMatrixTextWidth("120fps"); // Max FPS width (6 chars)
-  const totalMidiTextWidth = midiTextW + divWidth + rateTextW + divWidth + fpsTextW;
-  const midiBadgeWidth = hideMidiBadge ? 0 : totalMidiTextWidth + MIDI_BADGE_PADDING_X + MIDI_BADGE_PADDING_RIGHT;
-  
-  // Left reserved = MIDI badge margin + badge width + tiny gap
-  const leftReserved = hideMidiBadge ? 0 : MIDI_BADGE_MARGIN + midiBadgeWidth + 1;
-  const rightMargin = 4;
-  
-  // Fixed elements: [-] [+] [BPM] - BPM is now 3 chars with minimal padding
-  const minusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  const plusBtnWidth = glyphWidth + TOGGLE_BTN_PADDING_X * 2;
-  const bpmTextWidth = 3 * glyphWidth + TOGGLE_BTN_PADDING_X; // Reduced padding - only left side
-  
-  // Available width for metronome + toggle buttons
-  const availableWidth = screen.width - leftReserved - rightMargin;
-  
-  // Calculate width needed for each label variant level
-  const calcLabelWidth = (label) => {
-    return (measureMatrixTextBoxWidth(label, { text }, screen.width) || (label.length * glyphWidth)) + TOGGLE_BTN_PADDING_X * 2;
-  };
-  
-  // Fixed metronome elements width: [-] [+] [BPM] (BPM is the toggle button now)
-  const metroFixedWidth = minusBtnWidth + 1 + plusBtnWidth + 1 + bpmTextWidth + TOGGLE_BTN_GAP;
-  
-  // Try different label lengths until everything fits
-  let variantLevel = 0;
-  let totalNeeded = Infinity;
-  
-  while (variantLevel < 3 && totalNeeded > availableWidth) {
-    // Get labels at this variant level (no metro label needed - BPM display is the toggle)
-    const slideLabel = LABEL_VARIANTS.slide[Math.min(variantLevel, LABEL_VARIANTS.slide.length - 1)];
-    const roomLabel = LABEL_VARIANTS.room[Math.min(variantLevel, LABEL_VARIANTS.room.length - 1)];
-    const glitchLabel = LABEL_VARIANTS.glitch[Math.min(variantLevel, LABEL_VARIANTS.glitch.length - 1)];
-    const quickLabel = LABEL_VARIANTS.quick[Math.min(variantLevel, LABEL_VARIANTS.quick.length - 1)];
-    
-    const toggleWidths = calcLabelWidth(slideLabel) + calcLabelWidth(roomLabel) + 
-                        calcLabelWidth(glitchLabel) + calcLabelWidth(quickLabel) + (3 * TOGGLE_BTN_GAP);
-    
-    totalNeeded = metroFixedWidth + toggleWidths;
-    variantLevel++;
+  if (typeof api?.jump === "function") {
+    api.send?.({ type: "visit:action", content: { action: "notepat_playback_requested" } });
+    api.jump(target);
   }
-  
-  // Use the labels that fit (or shortest if nothing fits)
-  const finalLevel = Math.min(variantLevel - 1, 2);
-  secondaryBarLabels = {
-    slide: LABEL_VARIANTS.slide[Math.min(finalLevel, LABEL_VARIANTS.slide.length - 1)],
-    room: LABEL_VARIANTS.room[Math.min(finalLevel, LABEL_VARIANTS.room.length - 1)],
-    glitch: LABEL_VARIANTS.glitch[Math.min(finalLevel, LABEL_VARIANTS.glitch.length - 1)],
-    quick: LABEL_VARIANTS.quick[Math.min(finalLevel, LABEL_VARIANTS.quick.length - 1)],
-  };
-  
-  // Calculate toggle button widths with chosen labels
-  const toggleBtns = [
-    { key: "slide", width: calcLabelWidth(secondaryBarLabels.slide) },
-    { key: "room", width: calcLabelWidth(secondaryBarLabels.room) },
-    { key: "glitch", width: calcLabelWidth(secondaryBarLabels.glitch) },
-    { key: "quick", width: calcLabelWidth(secondaryBarLabels.quick) },
-  ];
-  const toggleTotalWidth = toggleBtns.reduce((sum, b) => sum + b.width, 0) + (toggleBtns.length - 1) * TOGGLE_BTN_GAP;
-  
-  // Position toggle buttons from right side
-  let toggleX = screen.width - rightMargin - toggleTotalWidth;
-  toggleBtns.forEach(({ key, width }) => {
-    const btn = new ui.Button(toggleX, btnY, width, btnHeight);
-    btn.id = `${key}-toggle`;
-    if (key === "slide") slideBtn = btn;
-    else if (key === "room") roomBtn = btn;
-    else if (key === "glitch") glitchBtn = btn;
-    else if (key === "quick") quickBtn = btn;
-    toggleX += width + TOGGLE_BTN_GAP;
-  });
-  
-  // Position metronome controls from left, after MIDI badge
-  let btnX = leftReserved;
-  
-  // Build minus button
-  bpmMinusBtn = new ui.Button(btnX, btnY, minusBtnWidth, btnHeight);
-  bpmMinusBtn.id = "bpm-minus";
-  btnX += minusBtnWidth + 1;
-  
-  // Build plus button (to the left of BPM display)
-  bpmPlusBtn = new ui.Button(btnX, btnY, plusBtnWidth, btnHeight);
-  bpmPlusBtn.id = "bpm-plus";
-  btnX += plusBtnWidth + 1;
-
-  // BPM display area
-  const bpmDisplayX = btnX;
-  btnX += bpmTextWidth + 1;
-
-  // The BPM display itself is the metronome toggle button (no separate metro button)
-  metroBtn = new ui.Button(bpmDisplayX, btnY, bpmTextWidth, btnHeight);
-  metroBtn.id = "metro-toggle";
-}
-
-// Build toggle buttons - now handled by buildMetronomeButtons for unified layout
-function buildToggleButtons({ screen, ui, typeface, text }) {
-  // Toggle buttons are now built in buildMetronomeButtons for responsive layout
-  // This function is kept for backwards compatibility but does nothing
 }
 
 let primaryColor = [0, 0, 0];

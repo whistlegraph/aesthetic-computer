@@ -1,5 +1,13 @@
+import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "./prompt-layout.mjs";
 import { createPreviewEvidence } from "./preview-evidence.mjs";
 import { createPlaybackClock } from "./playback-clock.mjs";
+import { createConnectionModal } from "./connection-modal.mjs";
+const connectionModal = createConnectionModal();
+function actConnection($) {
+  const handled = connectionModal.act($);
+  if (handled && !connectionModal.visible) $.send({ type: "connection:modal", content: { visible: false } });
+  return handled;
+}
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -49,6 +57,7 @@ import * as platform from "./platform.mjs";
 
 import { signed as shop } from "./shop.mjs";
 import { parse, metadata, inferTitleDesc, updateCode } from "./parse.mjs";
+import { parseQuery, serialize, canonical as canonicalParam, createParamStore, warnUnknown } from "./params.mjs";
 import { Socket } from "./socket.mjs"; // TODO: Eventually expand to `net.Socket`
 import { Diagnostics } from "./diagnostics.mjs"; // Reports a piece's health to its author.
 import { Chat } from "./chat.mjs"; // TODO: Eventually expand to `net.Socket`
@@ -832,6 +841,24 @@ let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
 let SPOOF_AUDIO_MODE = false; // Whether to generate synthetic audio data (for headless captures)
 let NOGAP_MODE = false; // Whether gap is disabled (nogap URL param)
+// View flags remembered for the worker's life (lib/params.mjs); `jump` carries
+// the ledger's `carry: jump` names from here, and `$.queryParams` reads it.
+const paramStore = createParamStore();
+
+// `$.queryParams`: the typed query plus what the worker remembers across
+// jumps. `clear` drops a name from both. (`$.params` is the positional list.)
+function queryParamsApi(query) {
+  return {
+    get: (name) => query[canonicalParam(name)] ?? paramStore.get(name),
+    has: (name) => canonicalParam(name) in query || paramStore.has(name),
+    clear(name) {
+      delete query[canonicalParam(name)];
+      paramStore.forget(name);
+    },
+    remember: (name, value = true) => paramStore.remember(name, value),
+    all: () => ({ ...paramStore.all(), ...query }),
+  };
+}
 let AUDIO_SAMPLE_RATE = 0;
 let loopPaused = false; // Whether the main loop is paused (sent from bios)
 let debug = false; // This can be overwritten on boot.
@@ -1087,11 +1114,13 @@ function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, 
   }
 }
 
-const projectionMode = location.search.indexOf("nolabel") > -1; // Skip loading noise.
+// The worker's own query, typed by the ledger (lib/params.mjs); read by name.
+const workerQuery = parseQuery(location.search);
+const projectionMode = workerQuery.nolabel === true; // Skip loading noise.
 // 🐚 shellhtml mode — the runtime is hosted by an HTML shell (prompt.ac) that
 // owns the prompt + return-to-prompt chrome in crisp DOM above the pixel
 // buffer. The composited typable prompt and corner label stand down here.
-const shellHTMLMode = location.search.indexOf("shellhtml") > -1;
+const shellHTMLMode = workerQuery.shellhtml === true;
 
 // Mirror the prompt TextInput out to the shell whenever it changes, so LLM
 // replies, command confirmations, and the thinking state render in DOM even
@@ -1462,6 +1491,7 @@ let lastPaintTime = 0; // Last time paint() was executed
 let lastPaintOut = undefined; // Store last paintOut to preserve correct noPaint behavior
 let shouldSkipPaint = false; // Whether to skip this frame's paint call
 let pieceFrameCount = 0; // Frame counter that only increments when piece actually paints
+let reel = null; // 🎞️ The mime reel (lib/mime-reel.mjs), only in a noauth MIME runtime.
 
 // 🎬 Piece Transition System
 // Two transition types available: "drip" (default, fast) and "bubble-wrap" (organic, slower)
@@ -1808,6 +1838,19 @@ let hideLabel = false;
 let hideLabelForFrame = false;
 let hideLabelViaTab = false; // Track if label is hidden via tab key toggle
 let hideSource = false; // `?nosource`: a KidLisp $code labels itself by name, not source
+
+// Put the corner label back at once, no animation: a piece that isn't
+// KidLisp never hides it, so a Tab-hidden label stops at the next such piece.
+function showHUDLabel() {
+  Object.assign(hudAnimationState, {
+    visible: true,
+    animating: false,
+    opacity: 1.0,
+    slideOffset: { x: 0, y: 0 },
+    qrSlideOffset: { x: 0, y: 0 },
+    cornersVisibleBeforeFullscreen: true,
+  });
+}
 
 // Helper function to toggle HUD visibility (used by Tab key and center tap)
 function toggleHUDVisibility(isDoubleTap = false, skipSound = false) {
@@ -2327,6 +2370,7 @@ function updateHUDStatus() {
 }
 
 let loading = false;
+let deferredJumpToken = 0; // The newest jump asked for mid-load (see jump()).
 let loadingStartTime = null; // Track when loading started for timeout safety
 const LOADING_TIMEOUT_MS = 10000; // 10 second max loading time
 
@@ -2544,20 +2588,19 @@ let noPaint = false;
 let labelBack = false;
 let hiccupTimeout; // Prevent multiple hiccups from being triggered at once.
 
-// 🌐 Check if running on a branded .com domain (e.g. notepat.com) and redirect to aesthetic.computer
-function redirectIfBrandedDomain() {
+// 🌐 Branded .com domains (notepat.com, laklok.com) boot their own piece at
+// `/`; the prompt for them is aesthetic.computer. (Add more hosts here.)
+const BRANDED_DOMAINS = new Set(["notepat.com", "www.notepat.com", "laklok.com", "www.laklok.com"]);
+function brandedDomainHome() {
   const { hostname } = getSafeUrlParts();
-  if (!hostname) return false;
-  // Match notepat.com or www.notepat.com (add more branded domains here as needed)
-  if (hostname === "notepat.com" || hostname === "www.notepat.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
-    return true;
-  }
-  if (hostname === "laklok.com" || hostname === "www.laklok.com") {
-    send({ type: "web", content: { url: "https://aesthetic.computer", blank: false } });
-    return true;
-  }
-  return false;
+  return hostname && BRANDED_DOMAINS.has(hostname) ? "https://aesthetic.computer" : null;
+}
+// Redirect to aesthetic.computer when on a branded domain; true if it did.
+function redirectIfBrandedDomain() {
+  const url = brandedDomainHome();
+  if (!url) return false;
+  send({ type: "web", content: { url, blank: false } });
+  return true;
 }
 
 let storeRetrievalResolutions = {},
@@ -2615,6 +2658,7 @@ let screamingTimer; // Keep track of scream duration.
 const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
 
+let glazeDay = false;
 let glazeEnabled = false; // Keep track of whether glaze is on or off.
 
 // *** Dark Mode ***
@@ -3176,8 +3220,9 @@ const $commonApi = {
     },
   },
   glaze: function (content) {
-    if (glazeEnabled === content.on) return; // Prevent glaze from being fired twice...
+    if (glazeEnabled === content.on && glazeDay === !!content.day) return; // Prevent glaze from being fired twice...
     glazeEnabled = content.on;
+    glazeDay = !!content.day;
     // Send glaze message immediately when turning ON (don't wait for paint cycle)
     // This ensures glaze activates even when returning from a non-glaze piece
     if (content.on) {
@@ -3203,6 +3248,35 @@ const $commonApi = {
 
     if (leaving) {
       console.log("🚪🐴 Jump cancelled, already leaving...");
+      return;
+    }
+
+    // A jump asked for while a piece is still loading would be refused by
+    // load() and lost (2026-11-03: the mime feed's first card, asked for
+    // while its reel piece was booting, left the feed on the reel's splash).
+    // Wait for the load to finish, newest jump wins, then go.
+    if (loading) {
+      const token = ++deferredJumpToken;
+      const since = Date.now();
+      const later = () => {
+        if (token !== deferredJumpToken) return; // a newer jump replaced it
+        if (loading) {
+          if (Date.now() - since < 10000) setTimeout(later, 40);
+          return;
+        }
+        $commonApi.jump(to, ahistorical, alias);
+      };
+      setTimeout(later, 40);
+      return;
+    }
+
+    // 🌐 On a branded domain (laklok.com, notepat.com) the prompt lives at
+    // aesthetic.computer, so a jump to it crosses hosts: `prompt` lands on
+    // the front door and `prompt~text` keeps its text.
+    if (/^prompt(?:[~:]|$)/.test(to) && brandedDomainHome()) {
+      const url = "https://aesthetic.computer/" + (to === "prompt" ? "" : encodeURI(to));
+      console.log("🐎 Branded domain, prompt lives at:", url);
+      send({ type: "web", content: { url, blank: false } });
       return;
     }
     const jumpOut =
@@ -3231,27 +3305,17 @@ const $commonApi = {
       graph.unmask(); // Clear any active mask when leaving a piece
     }
 
-    // Preserve resolution parameters across jumps (device mode, TV mode, etc.)
-    // This ensures HUD visibility and other display settings persist when navigating
+    // Preserve view parameters across jumps (device mode, TV mode, etc.) so
+    // HUD visibility and other display settings persist when navigating: the
+    // ledger's `carry: jump` names as the worker remembers them. The label
+    // flags follow the current piece. (This used to write `autoScale=true`,
+    // which boot never read; the ledger spells it `auto-scale`.)
     {
-      const params = [];
-      if (DEVICE_MODE) params.push("device=true");
-      if (TV_MODE) params.push("tv=true");
-      if (SOLO_MODE) params.push("solo=true");
-      if (HIGHLIGHT_MODE) {
-        if (HIGHLIGHT_COLOR && HIGHLIGHT_COLOR !== "64,64,64") {
-          params.push(`highlight=${encodeURIComponent(HIGHLIGHT_COLOR)}`);
-        } else {
-          params.push("highlight=true");
-        }
-      }
-      if (PERF_MODE) params.push("perf=true");
-      if (AUTO_SCALE_MODE) params.push("autoScale=true");
-      if (hideLabel) params.push("nolabel=true");
-      if (NOGAP_MODE) params.push("nogap=true");
-      if (SPOOF_AUDIO_MODE) params.push("spoofaudio=true");
+      paramStore.remember("nolabel", hideLabel);
+      paramStore.remember("nosource", hideSource);
+      const carried = serialize(paramStore.carried("jump"));
 
-      if (params.length > 0) {
+      if (carried) {
         // Query params must land BEFORE any #fragment, otherwise they get
         // glued into the hash (e.g. `painting#qwfV8wDk?nogap=true`) and the
         // fragment-based code lookup — like painting short codes from `#eou`
@@ -3260,7 +3324,7 @@ const $commonApi = {
         const base = hashIdx >= 0 ? to.slice(0, hashIdx) : to;
         const frag = hashIdx >= 0 ? to.slice(hashIdx) : "";
         const separator = base.includes("?") ? "&" : "?";
-        to = base + separator + params.join("&") + frag;
+        to = base + separator + carried + frag;
         console.log("🧭 Preserving resolution params:", to);
       }
     }
@@ -8335,7 +8399,14 @@ async function load(
         // Initialize persistent image cache for paste/stamp (only needs to be done once)
         imageCache.init(store);
 
-        loadedModule = lisp.module(sourceToRun, path && path.endsWith(".lisp"));
+        // 🧊 KidLisp that draws in 3D (slab, orb, capsule, or a `; #3d`
+        // pragma) runs on the object turntable, keeping its $code URL.
+        const objectViewer = /\((?:slab|orb|capsule)\s|^\s*;\s*#3d\b/m.test(sourceToRun)
+          ? await import("./object/viewer.mjs?v=live-5")
+          : null;
+        loadedModule = objectViewer?.isObjectLisp(sourceToRun)
+          ? (reel?.objectPiece(sourceToRun, currentOriginalCodeId || "") || objectViewer.objectPiece(sourceToRun, currentOriginalCodeId || ""))
+          : lisp.module(sourceToRun, path && path.endsWith(".lisp"));
 
         const compileEndTime = performance.now();
         const compileElapsed = Math.round(compileEndTime - compileStartTime);
@@ -9488,7 +9559,11 @@ async function load(
 
   $commonApi.slug = slug;
   $commonApi.piece = slug?.split("~")[0].split(":")[0];
-  $commonApi.query = Object.fromEntries(new URLSearchParams(search));
+  // Typed by the ledger (lib/params.mjs): flags are true, numbers are numbers;
+  // unknown names stay strings and are warned once so we learn them.
+  $commonApi.query = parseQuery(search);
+  warnUnknown($commonApi.query.__unknown);
+  $commonApi.queryParams = queryParamsApi($commonApi.query);
   $commonApi.params = params || [];
   $commonApi.colon = colon || [];
   $commonApi.hash = hash; // Add hash support for painting codes like #2ug
@@ -10216,6 +10291,7 @@ async function load(
     lastPaintOut = undefined;
     shouldSkipPaint = false;
     pieceFrameCount = 0;
+    reel?.loadStarted();
     // Reset acPieceReady so the signal fires again for the next piece
     if (typeof window !== "undefined") {
       window.acPieceReady = false;
@@ -10292,8 +10368,9 @@ async function load(
       // `?preview` or `?preview=1200x630` asks for a thumbnail; any other value
       // is a flag (`preview=walkieware` only hushes telemetry) and must not
       // reframe the piece, or the thumbnail's resolution brings back the gap.
+      // `preview=true` is how the embedding doc spells the bare flag.
       const preview = searchParams.get("preview");
-      previewMode = preview === "" || /^\d+x\d+$/.test(preview ?? "");
+      previewMode = preview === "" || preview === "true" || /^\d+x\d+$/.test(preview ?? "");
       iconMode = searchParams.has("icon");
     }
 
@@ -10393,6 +10470,14 @@ async function load(
 
     currentText = slug;
     currentCode = sourceCode;
+
+    // ⇥ Tab hides the corner label only in KidLisp, and the hidden state is
+    // KidLisp's: it carries from one KidLisp piece to the next (through the
+    // prompt, which shows no label) and ends at any other piece.
+    if ((!hudAnimationState.visible || hudAnimationState.animating) && system !== "prompt" &&
+        !detectKidLispPiece({ currentPath, currentHUDTxt, currentText: sourceCode || slug, cleanText: currentHUDTxt })) {
+      showHUDLabel();
+    }
     previewEvidence.activate(previewIdentity);
 
     // 🧾 Begin piece-run telemetry (batched console capture → /api/piece-log)
@@ -10482,6 +10567,7 @@ async function startGlobalVersionPoll() {
       const res = await fetch("/api/version", { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      const running = globalVersionInfo?.running;
       globalVersionInfo = debug
         ? {
             ...data,
@@ -10490,6 +10576,8 @@ async function startGlobalVersionPoll() {
             behindBy: 0,
           }
         : data;
+      // `running` is the build this page booted with; `deployed` moves on.
+      globalVersionInfo.running = running || globalVersionInfo.deployed;
       globalRecentCommits = data.recentCommits || [];
       try { $commonApi.needsPaint?.(); } catch {}
     } catch (e) {
@@ -10529,11 +10617,11 @@ async function startGlobalVersionPoll() {
         continue;
       }
       if (!/^[a-f0-9]{7}$/i.test(globalVersionInfo.deployed)) {
-        globalVersionInfo = data;
+        globalVersionInfo = { ...data, running: data.deployed };
         continue; // Establish a baseline after an unavailable initial lookup.
       }
       globalUpdateReady = true;
-      globalVersionInfo = data;
+      globalVersionInfo = { ...data, running: globalVersionInfo.running };
       globalRecentCommits = data.recentCommits || [];
       console.log("📦 New deployment detected:", data.deployed);
       try {
@@ -10755,6 +10843,28 @@ async function makeFrame({ data: { type, content } }) {
     }
 
     globalThis.MIME_MODE = content.mime === true && content.noauth === true;
+    // 🎞️ The mime feed as one runtime: cards are pieces, swiped between here.
+    if (globalThis.MIME_MODE && content.reel === true && !reel) {
+      import("./mime-reel.mjs?v=live-5").then((module) => {
+        reel = module;
+        const reelJump = (to, jumped) => {
+          // The feed can arrive before the initial slot has booted. Starting
+          // its first jump then lets that late slot overwrite the first card.
+          if (leaving || loading || !booted || !currentPath)
+            return setTimeout(() => reelJump(to, jumped), 50);
+          if (jumped?.() === false) return; // A faster swipe superseded this queued card.
+          $commonApi.jump(to, true);
+        };
+        module.start({
+          send,
+          hosted: content.reelHosted === true,
+          jump: reelJump,
+          preload: (address) => address.startsWith("$")
+            ? getCachedCodeMultiLevel(address.slice(1)) : Promise.resolve(),
+          needsPaint: () => $commonApi.needsPaint(),
+        });
+      }).catch((err) => console.warn("🎞️ Reel failed to load:", err));
+    }
     USER = content.user;
     // if (USER) socket.send("login", { user: USER });
 
@@ -10815,6 +10925,17 @@ async function makeFrame({ data: { type, content } }) {
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
     SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
     NOGAP_MODE = content.resolution?.gap === 0;
+
+    // Remember the view flags for the worker's life; `jump` re-appends the
+    // ledger's `carry: jump` names from here.
+    paramStore.remember("device", DEVICE_MODE);
+    paramStore.remember("tv", TV_MODE);
+    paramStore.remember("solo", SOLO_MODE);
+    paramStore.remember("highlight", HIGHLIGHT_MODE ? (HIGHLIGHT_COLOR !== "64,64,64" ? HIGHLIGHT_COLOR : true) : false);
+    paramStore.remember("perf", PERF_MODE);
+    paramStore.remember("auto-scale", AUTO_SCALE_MODE);
+    paramStore.remember("nogap", NOGAP_MODE);
+    paramStore.remember("spoofaudio", SPOOF_AUDIO_MODE);
 
     microphone.permission = content.microphonePermission;
 
@@ -10927,13 +11048,26 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Musical keyboard input bypasses the display clock, using the last complete API.
+  if (type === "notepat:keyboard") {
+    if (!booted || !cachedAPI || TV_MODE || !/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPath || "")) return;
+    const previous = cachedAPI.event;
+    const data = { ...content, device: "keyboard" };
+    data.is = name => name.split(":").length > 2 ? data.name === name : data.name.startsWith(name);
+    cachedAPI.event = data;
+    try { if (!reel?.key(data)) act(cachedAPI); }
+    catch (error) { console.warn("Notepat keyboard act failed", error); }
+    finally { cachedAPI.event = previous; }
+    return;
+  }
+
   // Receive a midi input message.
-  if (type === "midi:keyboard" && booted) {
+  if (["midi:keyboard", "notepat:control", "notepat:state"].includes(type) && booted) {
     // console.log("🎹 Keyboard:", content.data);
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
-      device: "midi:keyboard",
+      device: type,
       is: (e) => e === type,
     });
     $api.event = data;
@@ -11159,6 +11293,7 @@ async function makeFrame({ data: { type, content } }) {
   // Capture the browser scroll wheel / scroll effect.
   if (type === "scroll") {
     if (!cachedAPI) return; // Guard against undefined cachedAPI
+    if (reel?.scroll(content)) return; // 🎞️ Wheels move the mime reel.
     const $api = cachedAPI;
     const data = { ...content };
     Object.assign(data, {
@@ -11171,6 +11306,12 @@ async function makeFrame({ data: { type, content } }) {
     } catch (e) {
       console.warn("️ ✒ Act failure...", e);
     }
+    return;
+  }
+
+  // 🎞️ The prompt's mime sheet opened or parked the reel.
+  if (type === "mime:reel:open") {
+    reel?.setOpen(content?.open === true);
     return;
   }
 
@@ -11634,6 +11775,20 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "dark-mode") {
     darkMode(content.enabled);
+    return;
+  }
+
+  if (type === "connection:status") {
+    connectionModal.update(content.status);
+    send({ type: "connection:modal", content: { visible: connectionModal.visible } });
+    $commonApi.needsPaint();
+    return;
+  }
+
+  if (type === "connection:key") {
+    actConnection({ ...(cachedAPI || $commonApi), event: {
+      is: name => name === `keyboard:down:${content.key}`,
+    } });
     return;
   }
 
@@ -12529,6 +12684,10 @@ async function makeFrame({ data: { type, content } }) {
       }
     }
 
+    // Remove only our previous overlay before a piece reads its pixel buffer.
+    const connectionRestored = connectionModal.restore(screen, $commonApi.slug);
+    if (connectionRestored) noPaint = false;
+
     function getHudEditScrubThreshold() {
       const promptLength = Math.max(
         1,
@@ -12604,6 +12763,7 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
+      if (connectionModal.visible) return;
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
 
       // 📼 [Ctrl+R+R] Quick tape - start recording without leaving the piece
@@ -13647,6 +13807,21 @@ async function makeFrame({ data: { type, content } }) {
     };
 
     // Act & Sim (Occurs after first boot and paint, `boot` occurs below.)
+    // Reel navigation remains available while the next piece boots. Normal
+    // piece input stays gated below; otherwise its boot swallows fast swipes.
+    if (reel && !(booted && paintCount > 0n)) {
+      reel.tick(() => {}, content.pen?.events);
+      for (const data of content.pen?.events || []) {
+        data.is = (event) => {
+          const [name, pointer] = event.split(":");
+          return name === data.name && (pointer === "any" ||
+            (pointer ? data.index === Number(pointer) : data.isPrimary === true));
+        };
+        reel.pen(data, () => {});
+      }
+      for (const data of content.keyboard || []) reel.key(data);
+    }
+
     if (booted && paintCount > 0n /*&& !leaving*/) {
       let $api = {};
       keys($commonApi).forEach((key) => ($api[key] = $commonApi[key]));
@@ -13808,6 +13983,18 @@ async function makeFrame({ data: { type, content } }) {
       const startTime = performance.now();
       let penEventCount = 0;
 
+      // 🎞️ The reel holds a press back until it shows what it is; hand over
+      // any press that has been held still long enough.
+      const reelDispatch = (held) => {
+        $api.event = held;
+        try {
+          if (!TV_MODE) act($api);
+        } catch (e) {
+          console.warn("️ ✒ Act failure...", e);
+        }
+      };
+      reel?.tick(reelDispatch, content.pen?.events);
+
       content.pen?.events.forEach((data) => {
         penEventCount++;
         Object.assign(data, {
@@ -13838,6 +14025,7 @@ async function makeFrame({ data: { type, content } }) {
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
+        if (actConnection($api)) return;
         try {
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send, sound, system, piece } = $api;
@@ -14120,6 +14308,7 @@ async function makeFrame({ data: { type, content } }) {
             });
           }
 
+          if (reel?.pen(data, reelDispatch)) return; // 🎞️ The reel's, or held.
           if (!masked && !TV_MODE) act($api); // Run the act function for all pen events (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14141,7 +14330,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          if (!TV_MODE) act($api); // Skip 3D pen events in TV mode
+          if (!connectionModal.visible && !TV_MODE) act($api); // Skip 3D pen events in TV mode
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -14177,7 +14366,9 @@ async function makeFrame({ data: { type, content } }) {
           },
         });
         $api.event = data;
+        if (reel?.key(data)) return; // 🎞️ Page Up / Page Down step the reel.
         try {
+          if (actConnection($api)) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14192,6 +14383,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
+          if (connectionModal.visible) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14551,16 +14743,14 @@ async function makeFrame({ data: { type, content } }) {
           // which can be over-ridden using `resolution` inside the
           // `preview` function.
           if (firstPreviewOrIcon) {
-            if (currentSearch === "preview") {
-              $api.resolution(1200 / 8, 630 / 8, 0);
+            // `?preview` / `?preview=true` → the default card; `?preview=WxH`
+            // → that size. Parsed, not compared to "preview": the first
+            // load's search still wears its "?", which used to throw here.
+            const size = new URLSearchParams(currentSearch).get("preview");
+            if (/^\d+x\d+$/.test(size ?? "")) {
+              $api.resolution(...size.split("x").map((n) => floor(parseInt(n) / 8)), 0);
             } else {
-              $api.resolution(
-                ...currentSearch
-                  .split("=")[1]
-                  .split("x")
-                  .map((n) => floor(parseInt(n) / 8)),
-                0,
-              );
+              $api.resolution(1200 / 8, 630 / 8, 0);
             }
             firstPreviewOrIcon = false;
           }
@@ -14578,18 +14768,12 @@ async function makeFrame({ data: { type, content } }) {
         // Render a favicon instead of the piece.
         try {
           if (firstPreviewOrIcon) {
-            $api.resolution(128, 128, 0);
-            if (currentSearch === "icon") {
-              $api.resolution(128, 128, 0);
+            // `?icon` / `?icon=true` → 128×128; `?icon=WxH` → that size.
+            const size = new URLSearchParams(currentSearch).get("icon");
+            if (/^\d+x\d+$/.test(size ?? "")) {
+              $api.resolution(...size.split("x").map((n) => parseInt(n)), 0);
             } else {
-              console.log("Current:", currentSearch);
-              $api.resolution(
-                ...currentSearch
-                  .split("=")[1]
-                  .split("x")
-                  .map((n) => parseInt(n)),
-                0,
-              );
+              $api.resolution(128, 128, 0);
             }
             firstPreviewOrIcon = false;
           }
@@ -14603,6 +14787,8 @@ async function makeFrame({ data: { type, content } }) {
           previewOrIconMode = previewMode || iconMode;
         }
       }
+
+      if (reel?.busy()) noPaint = false; // 🎞️ The reel draws every frame it moves.
 
       // Attempt a paint.
       if (
@@ -14683,8 +14869,11 @@ async function makeFrame({ data: { type, content } }) {
             }
           }
 
+          // 🎞️ While the mime reel moves or loads a card, it draws instead.
+          const reelHolds = reel?.hold(paint !== defaults.paint, screen) === true;
+
           // Only call paint() if timing allows or no FPS limit is set
-          if (shouldPaint) {
+          if (shouldPaint && !reelHolds) {
             // Reset zebra cache at the start of each frame so it can advance once per frame
             $api.num.resetZebraCache();
 
@@ -14952,6 +15141,17 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
 
+        if (connectionModal.visible) {
+          connectionModal.capture(screen, $commonApi.slug);
+          layer(1001);
+          connectionModal.paint($api);
+          painting.paint(true);
+        }
+        if (connectionModal.visible || connectionRestored) {
+          noPaint = false;
+          dirtyBox = undefined;
+        }
+
         painted = true;
         if (system === "video") console.log('🟢 DISK: painted set to TRUE, paintCount:', paintCount);
         paintCount = paintCount + 1n;
@@ -15019,7 +15219,6 @@ async function makeFrame({ data: { type, content } }) {
       // System info label (addressability).
       let label;
       const piece = currentHUDTxt?.split("~")[0];
-      const defo = 6; // Default offset
 
 
 
@@ -15438,7 +15637,7 @@ async function makeFrame({ data: { type, content } }) {
             const hoverEase = hudDriftEase(currentHUDHoverAmount);
             // Keep text fixed while scrubbing left; only right-scrub shifts label content.
             const hudTextX = baseX + HUD_LABEL_TEXT_MARGIN + Math.max(0, currentHUDScrub);
-            const hudTextY = 4; // Aligned with the QR (corner-radius safe)
+            const hudTextY = HUD_TEXT_INSET_Y; // Internal padding; offset keeps the prompt baseline.
             const typefaceNameForWrite = selectedHudFont;
             const hasColorCodes = textContainsColorCodes(text);
             const baseTextColor =
@@ -15632,7 +15831,7 @@ async function makeFrame({ data: { type, content } }) {
         });
 
         if (piece === "video") currentHUDOffset = { x: 0, y: 6 };
-        if (!currentHUDOffset) currentHUDOffset = { x: defo, y: defo };
+        if (!currentHUDOffset) currentHUDOffset = { ...HUD_DEFAULT_OFFSET };
 
         // Apply animation effects to HUD label position
         if (hudAnimationState.animating) {
@@ -17212,6 +17411,18 @@ async function makeFrame({ data: { type, content } }) {
       // Interactive updates live in the HUD label or prompt's bottom hash button.
       if (globalUpdateReady) {
         sendData.updateBadge = { silent: true, auto: autoUpdateForFrame || globalAutoReload };
+      }
+
+      // 🎞️ Compose after all raster HUD layers exist so the piece, label,
+      // QR and author move as one screen. The reel consumes their overlays.
+      reel?.observe(sendData, screen);
+      if (reel?.busy()) {
+        $api.page(screen);
+        reel.draw($api, sendData);
+        sendData.reelFrame = true;
+        painting.paint(true);
+        painted = true;
+        dirtyBox = undefined;
       }
 
       let transferredPixels;
