@@ -412,6 +412,10 @@ struct WebView: ACWebViewRepresentable {
         // Keep WebKit's desktop identity; exact "Aesthetic" means iPhone in AC.
         webView.customUserAgent = nil
         webView.focusRingType = .none
+        // Safari's Web Inspector can attach to the native app (Develop menu →
+        // this Mac → Aesthetic Computer): Timelines, Graphics and Layers for
+        // the real WKWebView, which has no CDP (2026-11-08).
+        if #available(macOS 13.3, *) { webView.isInspectable = true }
         context.coordinator.observePiece(in: webView)
         webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
         #else

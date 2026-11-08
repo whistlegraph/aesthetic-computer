@@ -6231,7 +6231,13 @@ function paint($) {
             ink(Math.round(150 + 105 * r), Math.round(150 + 105 * g), Math.round(150 + 105 * b), Math.round(220 * (1 - age / 1.4))).plot(Math.floor(d.x), Math.floor(d.y));
           }
         }
-        $.needsPaint?.();
+        // The resting caret moves on its glint's 40 ms clock, so between
+        // steps the curtain has nothing new to show: it repaints 25 times a
+        // second instead of every frame (an idle homepage was a 60 fps
+        // worker→main blit, 2026-11-08). A hover fill or a press
+        // keep the full rate; the drips are slow beads and read fine at 25.
+        if (caretFill > 0.01 || (curtainPressAt && now - curtainPressAt < 1500)) $.needsPaint?.();
+        else curtainPaintDue = now + 40 - (now % 40); // sim asks when it is time
 
 
         // Reset to default layer
@@ -8053,6 +8059,7 @@ let caretRect = null; // Where the curtain caret was last drawn, for the focus b
 const caretBurst = [];
 let caretBurstAt = 0;
 let curtainPressAt = 0; // A press on the bare curtain, charging the caret.
+let curtainPaintDue = 0; // When the resting curtain next repaints (set in paint, asked in sim).
 let caretPulse = 0;
 let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
@@ -8108,6 +8115,13 @@ function softGlow($, box, color, strength = 1, R = 9) {
 
 // 🧮 Sim
 function sim($) {
+  // The resting curtain's slow clock: paint sets the time, sim asks for the
+  // frame when it comes (a timer could fire between paint and the loop's
+  // rest flag and be lost, 2026-11-08).
+  if (curtainPaintDue && performance.now() >= curtainPaintDue) {
+    curtainPaintDue = 0;
+    $.needsPaint();
+  }
   // 📬 Ask once whether there's mail waiting. `?count` is two counts, not the
   // whole inbox — the curtain only needs to know whether to draw the envelope.
   if (MAIL_ON_CURTAIN && mailCount === null && $.user) {
@@ -8204,8 +8218,11 @@ function sim($) {
     $.sound.speaker.poll();
   }
 
-  // ✨ Starfield sim, while the curtain shows it.
-  if (flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
+  // ✨ Starfield sim, while the curtain shows it. The curtain's own snow
+  // rests while the world under it carries the snow (CURTAIN_WORLD_SNOW), and
+  // then nothing here is drawn: no sim, and no repaint every tick for it
+  // (that alone kept an idle homepage painting at 60 fps, 2026-11-08).
+  if (!CURTAIN_WORLD_SNOW && flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
     starfield.sim($);
     $.needsPaint();
   }

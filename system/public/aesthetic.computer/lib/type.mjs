@@ -2160,11 +2160,13 @@ class TextInput {
       $.layer(1);
     }
 
-    // Return false if we have loaded every glyph.
-    // (Can be wired up to the return value of the parent's `paint`)
-    return !(
-      keys(this.typeface.glyphs).length === keys(this.typeface.glyphData).length
-    );
+    // True while the input can type: its caret and text move frame to frame.
+    // Resting (the curtain, a locked reply) it asks for nothing, so a piece
+    // that returns false from its own paint can rest too. Glyphs that arrive
+    // later repaint through the load callback, not by painting every frame
+    // until every glyph in the font is loaded — with lazy BDF fallbacks that
+    // never happened, and the prompt repainted at 60 fps forever (2026-11-08).
+    return this.canType === true;
   }
   // Simulate anything necessary.
   sim({ seconds, needsPaint, gizmo: { Hourglass } }) {

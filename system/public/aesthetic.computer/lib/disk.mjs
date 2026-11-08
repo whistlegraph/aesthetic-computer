@@ -10136,6 +10136,9 @@ async function load(
         // shellhtml: the host page's DOM layer IS the prompt — never composite
         // the low-res typable input over the stage beneath it.
         const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
+        // A piece that returns nothing keeps repainting, as every piece does;
+        // one that returns false rests, unless the input is typing.
+        if (noPaint === undefined) return undefined;
         return noPaint || promptPainted;
       };
 
