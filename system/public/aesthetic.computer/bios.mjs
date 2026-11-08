@@ -3351,6 +3351,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     backgroundMusicEl.src = "";
   }
 
+  // 🔇 Audio rest (2026-11-08): the native app starts audio in every window,
+  // and AC's speaker worklet then runs in JavaScript for each one — the
+  // largest cost of a background window once its frames rest (measured with
+  // `sample` on the Mac app's WebContent processes). A resting window
+  // (see pacedRequestFrame) whose output has measured silent for 3 s, with no
+  // music element or stream playing, suspends its AudioContext. Waking the
+  // window, or any sound a piece asks for, resumes it first.
+  let audioRested = false;
+  let restingSince = 0;
+  let lastAudibleAt = 0;
+  let lastSilentReportAt = 0;
+  function noteAmplitudes(content) {
+    const now = performance.now();
+    if ((content?.left || 0) > 0.0005 || (content?.right || 0) > 0.0005) lastAudibleAt = now;
+    else lastSilentReportAt = now;
+  }
+  function anythingStreaming() {
+    if (backgroundMusicEl && backgroundMusicEl.paused === false) return true;
+    for (const id in streamAudio) {
+      const a = streamAudio[id]?.audio;
+      if (a && a.paused === false) return true;
+    }
+    return false;
+  }
+  function restAudio(now) {
+    if (audioRested || !audioContext || audioContext.state !== "running") return;
+    if (now - restingSince < 3000) return; // Resting for a while,
+    if (now - lastSilentReportAt > 500) return; // just measured silent,
+    if (now - lastAudibleAt < 3000) return; // and silent for 3 s.
+    if (anythingStreaming()) return;
+    audioRested = true;
+    audioContext.suspend().then(
+      () => console.log("🔇 Audio resting: background window, silent."),
+      () => (audioRested = false),
+    );
+  }
+  function wakeAudio(reason) {
+    if (!audioRested) return;
+    audioRested = false;
+    resumeAudioContext(`wake:${reason}`, { force: true });
+    console.log("🔊 Audio awake:", reason);
+  }
+
   function resumeAudioContext(reason = "unspecified", { force = false, onResumed } = {}) {
     if (!audioContext) return;
     if (audioContext.state === "running") {
@@ -3855,6 +3898,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessorNode = speakerProcessor;
 
+        // Any sound asked of a rested context wakes it first (level and
+        // progress requests do not).
+        {
+          const portPost = speakerProcessor.port.postMessage.bind(speakerProcessor.port);
+          speakerProcessor.port.postMessage = (msg, transfer) => {
+            const kind = typeof msg?.type === "string" ? msg.type : "";
+            if (audioRested && !kind.startsWith("get-")) wakeAudio(kind || "sound");
+            return transfer === undefined ? portPost(msg) : portPost(msg, transfer);
+          };
+        }
+
         // 🎵 WORKLET INITIALIZATION LOGGING
         // console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
@@ -4041,6 +4095,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (msg.type === "amplitudes") {
             if (notepatGMAnalyser) for (const channel of ["left", "right"])
               msg.content[channel] = Math.max(msg.content[channel] || 0, notepatGMAmplitude);
+            noteAmplitudes(msg.content);
             send({ type: "amplitudes", content: msg.content });
             return;
           }
@@ -6392,13 +6447,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
   }
 
-  // 💤 Background pacing (2026-11-08): a window you are not using, whose
-  // piece has painted nothing for a second and that has had no input for half
-  // a second, ticks ten times a second instead of every display frame
-  // (Loop.pace): each tick carries all the sim steps the time is owed, so
-  // timers and sound keep their pace, and the browser makes no frames for it.
-  // A painted frame, any input or focus brings full rate back at once.
-  // Several AC windows side by side then cost about what the one in front does.
+  // 💤 Background pacing (2026-11-08): a window you are not using, with no
+  // input for half a second, ticks on Loop.pace instead of every display
+  // frame — 30 frames a second while its piece paints, ten ticks a second
+  // once nothing has moved for a second. Each tick lands on a display frame
+  // and carries all the sim steps the time is owed, so animation, timers and
+  // sound keep their pace. Input or focus brings full rate back at once.
+  // Several AC windows side by side stay alive and cost a fraction each.
   let lastPaintAt = 0, lastInputAt = 0;
   let sentFocus; // The window focus the worker last heard (focus-change).
   function sendFocus(focused) {
@@ -6407,7 +6462,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.acDoolSheet?.windowFocus?.(focused); // The world under the paper rests too.
   }
   // Counts for checking from a console: requests sent, sim steps carried.
-  const pacing = (window.acPacing = { resting: false, requests: 0, updates: 0 });
+  const pacing = (window.acPacing = { resting: false, paceMs: 0, requests: 0, updates: 0 });
   for (const kind of ["pointermove", "pointerdown", "keydown", "wheel", "focus"]) {
     addEventListener(kind, () => {
       lastInputAt = performance.now();
@@ -6420,11 +6475,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // behind another never gets a blur event, and focus moving into a child
     // frame blurs this window while it is still the one in use.
     if (focused !== sentFocus) sendFocus(focused);
-    const resting =
-      !document.hidden && !focused &&
-      now - lastPaintAt > 1000 && now - lastInputAt > 500;
-    if (resting !== pacing.resting) Loop.pace(resting ? 100 : 0);
+    // A background window keeps animating, gently: 30 frames a second while
+    // its piece paints, ten ticks a second once nothing has moved for a
+    // second (2026-11-08: frozen windows felt dead; jeffrey wants them alive).
+    const resting = !document.hidden && !focused && now - lastInputAt > 500;
+    const paceMs = !resting ? 0 : now - lastPaintAt > 1000 ? 100 : 1000 / 30;
+    if (paceMs !== pacing.paceMs) Loop.pace(paceMs);
+    pacing.paceMs = paceMs;
     pacing.resting = resting;
+    pacing.audio = audioContext?.state || "none";
+    if (resting) {
+      if (!restingSince) restingSince = now;
+      if (!audioRested) requestSpeakerAmplitudes?.(); // A level to judge silence by.
+      restAudio(now);
+    } else {
+      restingSince = 0;
+      wakeAudio("window");
+    }
     pacing.requests += 1;
     pacing.updates += updateTimes;
     diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);

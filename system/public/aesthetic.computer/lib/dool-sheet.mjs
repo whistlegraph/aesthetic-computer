@@ -272,9 +272,9 @@ addEventListener("message", (e) => {
   else if (d.type === "dool:sheet:leave") hide();
 });
 
-// 💤 A window in the background: the world under a parked paper stops
-// drawing and keeps its last frame, so several AC windows side by side cost
-// only the one you are using (2026-11-08). bios calls `windowFocus` whenever
+// 💤 A window in the background: the world under a parked paper keeps
+// turning at a gentler rate (duel/client.mjs BACKGROUND_FPS), so several AC
+// windows side by side stay alive and cost little (2026-11-08). bios calls `windowFocus` whenever
 // document.hasFocus() changes — a window that opened behind another never
 // sees a blur event — and only a parked paper rests.
 let resting = false;

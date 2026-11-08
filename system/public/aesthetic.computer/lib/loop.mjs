@@ -30,14 +30,19 @@ function rafTick(now) {
   loop(now);
 }
 
+// The pace timer hands over to the next display frame, so a slowed window
+// still draws on the display's beat (no tearing between refreshes) while
+// asking for only one frame in every few.
 function paceTick() {
   paceTimer = 0;
-  loop(performance.now());
+  if (rafPending) return;
+  rafPending = true;
+  window.requestAnimationFrame(rafTick);
 }
 
 function schedule() {
   if (paceMs > 0 && !document.hidden) {
-    if (!paceTimer) paceTimer = setTimeout(paceTick, paceMs);
+    if (!paceTimer && !rafPending) paceTimer = setTimeout(paceTick, paceMs);
   } else if (!rafPending) {
     rafPending = true;
     window.requestAnimationFrame(rafTick);

@@ -72,7 +72,7 @@ let jumpQueued = false,
 let last = performance.now(),
   debt = 0;
 let resting = false; // The host window is in the background (lib/dool-sheet.mjs).
-let asleep = false; // The frame loop stopped while resting.
+const BACKGROUND_FPS = 30; // The room's rate behind a background window's paper.
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
@@ -1115,15 +1115,13 @@ function applyPrediction() {
   diagnostics.max('pendingCommandsMax', pending.length);
 }
 function frame(now) {
-  // 💤 The host window is in the background with the paper down: the last
-  // frame stays on screen, nothing is stepped or drawn and no further frame
-  // is asked for until the host wakes us (2026-11-08).
-  if (resting && !sheetOpen) {
-    asleep = true;
-    return;
-  }
-  // Schedule first: one bad frame must never stop the loop.
-  requestAnimationFrame(frame);
+  // Schedule first: one bad frame must never stop the loop. With the host
+  // window in the background and the paper down, the room keeps turning at
+  // a gentler 30 frames a second: a timer, then the next display frame, so
+  // the browser is asked for one frame in four instead of every one
+  // (2026-11-08).
+  if (resting && !sheetOpen) setTimeout(() => requestAnimationFrame(frame), 1000 / BACKGROUND_FPS);
+  else requestAnimationFrame(frame);
   // Full rate for a beat after the paper is back, so the return never stutters.
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)
@@ -1613,11 +1611,7 @@ if (hosted) {
         debt = 0;
       }
     }
-    // Opening, or the host waking, restarts a loop that went to sleep.
-    if (asleep && (!resting || e.data.open === true)) {
-      asleep = false;
-      requestAnimationFrame(frame);
-    }
+    // (A resting loop keeps running, slower; the next frame picks up the rate.)
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
     // (The room no longer scales with the crosshair's hover blink.)
