@@ -662,8 +662,10 @@ Validate with `node --test system/tests/account-activity.test.mjs system/tests/f
 ### No Paint → Notepat (5 November 2026)
 
 The default No Paint title bumper says “Make music on notepat.com!” and links
-with the static `ac_campaign=nopaint-music` tag. `?ad=ac` and `?ad=notepaint`
-retain the older previews. `notepat_ad_shown` follows the existing sticker
+with the static `ac_campaign=nopaint-music` tag. The `?ad=ac` and
+`?ad=notepaint` previews were retired on 8 November 2026; the sticker is
+Notepat only, and `ac_ad_shown` / `notepaint_ad_shown` stay in the model for
+the rows already recorded. `notepat_ad_shown` follows the existing sticker
 measurement: title shown plus subsequent trusted interaction, not all page
 impressions. `notepat_opened` records trusted activation of the reviewed host.
 
