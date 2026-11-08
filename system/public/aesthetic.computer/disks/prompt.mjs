@@ -6241,13 +6241,9 @@ function paint($) {
         // worker→main blit, 2026-11-08). A hover fill or a press
         // keep the full rate; the drips are slow beads and read fine at 25.
         if (caretFill > 0.01 || (curtainPressAt && now - curtainPressAt < 1500)) $.needsPaint?.();
-        // In a window you are not using the caret keeps moving on a slower
-        // clock (ten steps a second), so several AC windows side by side all
-        // stay alive while costing little (2026-11-08).
-        else {
-          const beat = $.inFocus === false ? 100 : 40;
-          curtainPaintDue = now + beat - (now % beat); // sim asks when it is time
-        }
+        // The caret keeps its own 40 ms clock in every window, in front or
+        // not, so it always moves the same smooth way (2026-11-08).
+        else curtainPaintDue = now + 40 - (now % 40); // sim asks when it is time
 
 
         // Reset to default layer

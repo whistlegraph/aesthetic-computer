@@ -72,7 +72,8 @@ let jumpQueued = false,
 let last = performance.now(),
   debt = 0;
 let resting = false; // The host window is in the background (lib/dool-sheet.mjs).
-const BACKGROUND_FPS = 30; // The room's rate behind a background window's paper.
+const BACKGROUND_FPS = 60; // The room's top rate behind a background window's paper.
+let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
@@ -1115,13 +1116,15 @@ function applyPrediction() {
   diagnostics.max('pendingCommandsMax', pending.length);
 }
 function frame(now) {
-  // Schedule first: one bad frame must never stop the loop. With the host
-  // window in the background and the paper down, the room keeps turning at
-  // a gentler 30 frames a second: a timer, then the next display frame, so
-  // the browser is asked for one frame in four instead of every one
-  // (2026-11-08).
-  if (resting && !sheetOpen) setTimeout(() => requestAnimationFrame(frame), 1000 / BACKGROUND_FPS);
-  else requestAnimationFrame(frame);
+  // Schedule first: one bad frame must never stop the loop.
+  requestAnimationFrame(frame);
+  // With the host window in the background and the paper down, the room
+  // still turns smoothly but draws at most 60 times a second, half the work
+  // on a 120 Hz display (2026-11-08).
+  if (resting && !sheetOpen) {
+    if (now - lastBackgroundFrameAt < 1000 / BACKGROUND_FPS - 2) return;
+    lastBackgroundFrameAt = now;
+  }
   // Full rate for a beat after the paper is back, so the return never stutters.
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)

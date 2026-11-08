@@ -6450,9 +6450,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   }
 
   // 💤 Background pacing (2026-11-08): a window you are not using, with no
-  // input for half a second, ticks on Loop.pace instead of every display
-  // frame — 30 frames a second while its piece paints, ten ticks a second
-  // once nothing has moved for a second. Each tick lands on a display frame
+  // input for half a second, animates on display frames while its piece
+  // paints and ticks ten times a second (Loop.pace) once nothing has moved
+  // for a second. Each tick lands on a display frame
   // and carries all the sim steps the time is owed, so animation, timers and
   // sound keep their pace. Input or focus brings full rate back at once.
   // Several AC windows side by side stay alive and cost a fraction each.
@@ -6477,11 +6477,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // behind another never gets a blur event, and focus moving into a child
     // frame blurs this window while it is still the one in use.
     if (focused !== sentFocus) sendFocus(focused);
-    // A background window keeps animating, gently: 30 frames a second while
-    // its piece paints, ten ticks a second once nothing has moved for a
-    // second (2026-11-08: frozen windows felt dead; jeffrey wants them alive).
+    // A background window keeps animating smoothly on display frames while
+    // its piece paints, and ticks ten times a second once nothing has moved
+    // for a second (2026-11-08: frozen windows felt dead, 30 fps felt rough —
+    // jeffrey wants every window smooth; the savings are the still windows,
+    // the sleeping mime feed and resting audio).
     const resting = !document.hidden && !focused && now - lastInputAt > 500;
-    const paceMs = !resting ? 0 : now - lastPaintAt > 1000 ? 100 : 1000 / 30;
+    const paceMs = resting && now - lastPaintAt > 1000 ? 100 : 0;
     if (paceMs !== pacing.paceMs) Loop.pace(paceMs);
     pacing.paceMs = paceMs;
     pacing.resting = resting;
