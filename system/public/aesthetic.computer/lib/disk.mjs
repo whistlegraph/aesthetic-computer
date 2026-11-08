@@ -7503,6 +7503,22 @@ class Painting {
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
+    // One runner per paint function, replaying a deferred call's arguments.
+    const runners = {};
+    for (const k in $paintApiUnwrapped) {
+      if (typeof $paintApiUnwrapped[k] !== "function") continue;
+      runners[k] =
+        k === "ink"
+          ? (callArgs) => {
+              $paintApiUnwrapped[k](...callArgs);
+              p.inkrn = graph.c.slice();
+            }
+          : (callArgs) => {
+              globals(k, callArgs); // Update globals again on chainable calls.
+              $paintApiUnwrapped[k](...callArgs);
+            };
+    }
+
     for (const k in $paintApiUnwrapped) {
       if (typeof $paintApiUnwrapped[k] === "function") {
         // Wrap and then transfer to #api.
@@ -7515,21 +7531,10 @@ class Painting {
           }
           // Create layer if necessary.
           if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
-          const callArgs = arguments;
-          // Add each deferred paint api function to the layer, to be run
-          // all at once in `paint` on each frame update.
-          p.#layers[p.#layer].push([
-            k,
-            () => {
-              if (k === "ink") {
-                $paintApiUnwrapped[k](...callArgs);
-                p.inkrn = graph.c.slice();
-              } else {
-                globals(k, callArgs); // Update globals again on chainable calls.
-                $paintApiUnwrapped[k](...callArgs);
-              }
-            },
-          ]);
+          // Add each deferred paint api call to the layer, to be run all at
+          // once in `paint` on each frame update: the name, its arguments and
+          // one shared runner per name (no new closure per call, 2026-11-08).
+          p.#layers[p.#layer].push([k, arguments, runners[k]]);
           return p.api;
         };
       }
@@ -7623,12 +7628,10 @@ class Painting {
     for (let layer of this.#layers) {
       layer ||= []; // Evaporate empty layers.
       for (const paint of layer) {
-        // if (immediate) {
-        // console.log("Label:", paint[0]);
-        paint[1]();
-        // } else {
-        // await paint();
-        // }
+        // [name, args, runner] from the wrapped API, or [name, thunk] from
+        // the fallbacks below the wrapper.
+        if (paint.length === 3) paint[2](paint[1]);
+        else paint[1]();
       }
     }
     this.#layers.length = 0;
@@ -11612,10 +11615,14 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "focus-change") {
+    // Remember the window's focus even before the first frame: a window that
+    // opens behind another hears it before any piece runs, and dropping it
+    // here left that window "focused" for good (2026-11-08).
+    const changed = content !== inFocus;
+    inFocus = content;
     if (!cachedAPI) return; // Hacky... 23.04.21.14.59
     const $api = cachedAPI;
-    if (content !== inFocus) {
-      inFocus = content;
+    if (changed) {
       const data = {};
       Object.assign(data, {
         device: "none",
@@ -11627,6 +11634,9 @@ async function makeFrame({ data: { type, content } }) {
       } catch (e) {
         console.warn("️ ✒ Act failure...", e);
       }
+      // One frame for the change: pieces that rest while the window is in the
+      // background (the prompt's steady caret) redraw as it comes and goes.
+      $commonApi.needsPaint();
     }
   }
 
@@ -14488,7 +14498,10 @@ async function makeFrame({ data: { type, content } }) {
       // This ensures frame-based calculations (like in kidlisp) work correctly with FPS limiting
       $api.paintCount = pieceFrameCount;
 
-      $api.inFocus = content.inFocus;
+      // bios sends no per-frame focus; the window's focus (focus-change) is
+      // what paint sees, as sim and act do (2026-11-08: paint always read
+      // undefined, so nothing could rest in a background window).
+      $api.inFocus = content.inFocus ?? inFocus;
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 

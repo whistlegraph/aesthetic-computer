@@ -6392,6 +6392,44 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
   }
 
+  // 💤 Background pacing (2026-11-08): a window you are not using, whose
+  // piece has painted nothing for a second and that has had no input for half
+  // a second, ticks ten times a second instead of every display frame
+  // (Loop.pace): each tick carries all the sim steps the time is owed, so
+  // timers and sound keep their pace, and the browser makes no frames for it.
+  // A painted frame, any input or focus brings full rate back at once.
+  // Several AC windows side by side then cost about what the one in front does.
+  let lastPaintAt = 0, lastInputAt = 0;
+  let sentFocus; // The window focus the worker last heard (focus-change).
+  function sendFocus(focused) {
+    sentFocus = focused;
+    send({ type: "focus-change", content: focused });
+    window.acDoolSheet?.windowFocus?.(focused); // The world under the paper rests too.
+  }
+  // Counts for checking from a console: requests sent, sim steps carried.
+  const pacing = (window.acPacing = { resting: false, requests: 0, updates: 0 });
+  for (const kind of ["pointermove", "pointerdown", "keydown", "wheel", "focus"]) {
+    addEventListener(kind, () => {
+      lastInputAt = performance.now();
+      if (pacing.resting) Loop.pace(0); // Wake on the next display frame.
+    }, { capture: true, passive: true });
+  }
+  function pacedRequestFrame(needsRender, updateTimes, now) {
+    const focused = document.hasFocus();
+    // The worker's idea of focus follows the window's: a window that opened
+    // behind another never gets a blur event, and focus moving into a child
+    // frame blurs this window while it is still the one in use.
+    if (focused !== sentFocus) sendFocus(focused);
+    const resting =
+      !document.hidden && !focused &&
+      now - lastPaintAt > 1000 && now - lastInputAt > 500;
+    if (resting !== pacing.resting) Loop.pace(resting ? 100 : 0);
+    pacing.resting = resting;
+    pacing.requests += 1;
+    pacing.updates += updateTimes;
+    diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);
+  }
+
   // *** Received Frame ***
   async function receivedChange({ data: { type, content } }) {
     // 🔍 DEBUG: Log ALL incoming messages to trace what's being received
@@ -14961,7 +14999,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
-          diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);
+          pacedRequestFrame(needsRender, updateTimes, now);
 
           if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
             ThreeD.collectGarbage();
@@ -20141,6 +20179,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
+    if (type === "render" && content.paintChanged === true) lastPaintAt = performance.now();
     meterFrameReturned(type === "render" && content.paintChanged === true);
     let probeAsyncRender = false;
     try {
@@ -24034,12 +24073,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Window Focus
   window.addEventListener("focus", function (e) {
     focusNotepatKeyboard();
-    send({ type: "focus-change", content: true });
+    sendFocus(true);
   });
 
   // Window Blur
   window.addEventListener("blur", function (e) {
-    send({ type: "focus-change", content: false });
+    sendFocus(false);
   });
 
   // Window Visibility

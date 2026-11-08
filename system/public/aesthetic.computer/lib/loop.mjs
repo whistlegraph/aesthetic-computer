@@ -15,6 +15,48 @@ let input;
 let updateAndRender;
 let paused = false;
 
+// 💤 Pace (2026-11-08): a window at rest — in the background, nothing
+// painting — ticks on a timer every `paceMs` instead of on every display
+// refresh, so the browser stops producing frames for it at all. Each tick
+// still runs every update step the elapsed time is owed (about twelve at
+// 100 ms), so timers and sound keep their pace. A hidden page always goes
+// back to animation frames, which the browser suspends.
+let paceMs = 0;
+let paceTimer = 0;
+let rafPending = false;
+
+function rafTick(now) {
+  rafPending = false;
+  loop(now);
+}
+
+function paceTick() {
+  paceTimer = 0;
+  loop(performance.now());
+}
+
+function schedule() {
+  if (paceMs > 0 && !document.hidden) {
+    if (!paceTimer) paceTimer = setTimeout(paceTick, paceMs);
+  } else if (!rafPending) {
+    rafPending = true;
+    window.requestAnimationFrame(rafTick);
+  }
+}
+
+// 0 (or nothing) for every display frame; a number of ms to rest between ticks.
+function pace(ms = 0) {
+  ms = ms > 0 ? ms : 0;
+  if (ms === paceMs) return;
+  paceMs = ms;
+  if (!paceMs && paceTimer) {
+    // Waking: drop the pending timer and catch the next display frame.
+    clearTimeout(paceTimer);
+    paceTimer = 0;
+    schedule();
+  }
+}
+
 // ⏱️ Background Timer Worker
 // When the page is hidden and a piece opts into `background: true`, we use a
 // Web Worker setInterval to keep pumping sim-only frames. Worker timers are
@@ -84,10 +126,15 @@ function stopBackgroundTicks() {
 // Input runs once per loop.
 // Update runs multiple times.
 // Render runs once if enough time has passed.
+let xrDriven = false; // An XR session calls the loop itself, frame by frame.
+
 function loop(now, XR = false) {
+  if (XR) xrDriven = true;
   if (paused) {
+    // A paused loop sleeps: no frame is asked for until `resume`, so a page
+    // held still (the parked mime feed under every prompt) costs the browser
+    // nothing at all (2026-11-08: it used to ask for every display frame).
     lastNow = now;
-    if (!XR) window.requestAnimationFrame(loop);
     return;
   }
 
@@ -117,7 +164,7 @@ function loop(now, XR = false) {
 
   // We don't use requestAnimationframe when
   // running the main loop in an VR/AR/XR environment.
-  if (!XR) window.requestAnimationFrame(loop);
+  if (!XR) schedule();
 }
 
 // Handle visibility changes:
@@ -153,7 +200,7 @@ function start(inputFun, updateAndRenderFun) {
   updateAndRender = updateAndRenderFun;
   lastNow = performance.now();
   paused = false;
-  window.requestAnimationFrame(loop);
+  schedule();
 }
 
 function pause() {
@@ -161,9 +208,11 @@ function pause() {
 }
 
 function resume() {
+  const wasPaused = paused;
   paused = false;
   lastNow = performance.now();
   updateTime = 0;
+  if (wasPaused && input && !xrDriven) schedule(); // Wake the sleeping loop (once started).
 }
 
 // Update the frame rate.
@@ -176,4 +225,4 @@ function frameRate(n = 165) {
 }
 
 export const mainLoop = loop;
-export { start, frameRate, pause, resume, setBackgroundEnabled };
+export { start, frameRate, pause, resume, setBackgroundEnabled, pace };

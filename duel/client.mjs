@@ -57,7 +57,7 @@ let yaw = 0,
   firing = false,
   latestAt = 0,
   eventId = 0;
-let chalkStrokes = [],
+let chalkStrokes = [[], []],
   chalkVersion = 0,
   chalkLocal = [],
   // Draw mode inside a build: { text, target } while you chalk the shape.
@@ -71,6 +71,8 @@ let jumpQueued = false,
   notice = 'CONNECTING';
 let last = performance.now(),
   debt = 0;
+let resting = false; // The host window is in the background (lib/dool-sheet.mjs).
+let asleep = false; // The frame loop stopped while resting.
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
@@ -1113,6 +1115,13 @@ function applyPrediction() {
   diagnostics.max('pendingCommandsMax', pending.length);
 }
 function frame(now) {
+  // 💤 The host window is in the background with the paper down: the last
+  // frame stays on screen, nothing is stepped or drawn and no further frame
+  // is asked for until the host wakes us (2026-11-08).
+  if (resting && !sheetOpen) {
+    asleep = true;
+    return;
+  }
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
   // Full rate for a beat after the paper is back, so the return never stutters.
@@ -1503,7 +1512,7 @@ function step(now) {
     }
   }
   view.render({
-    players: connected ? (snapshot?.players || []).map((_, i) => interpolate(history, tick, i)) : [],
+    players: connected ? [0, 1].map((i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
     camera: seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0,
@@ -1597,6 +1606,18 @@ if (hosted) {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
     // The prompt's pixel grid rides along: our pixels become its pixels.
     if ('grid' in e.data) view.grid(e.data.grid);
+    if ('rest' in e.data && resting !== (e.data.rest === true)) {
+      resting = e.data.rest === true;
+      if (!resting) {
+        last = performance.now(); // No catch-up for the time spent resting.
+        debt = 0;
+      }
+    }
+    // Opening, or the host waking, restarts a loop that went to sleep.
+    if (asleep && (!resting || e.data.open === true)) {
+      asleep = false;
+      requestAnimationFrame(frame);
+    }
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
     // (The room no longer scales with the crosshair's hover blink.)

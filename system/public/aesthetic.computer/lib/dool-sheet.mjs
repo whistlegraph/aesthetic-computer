@@ -153,6 +153,7 @@ function step(now) {
 function show() {
   const f = ensure();
   if (state === "open" || toward === "open") return;
+  rest(false); // Dropping in wakes the world.
   if (!said) {
     // Nothing to drop onto yet: wait a little for the guest, then let it go.
     clearTimeout(pendingShow);
@@ -252,7 +253,9 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "dool:sheet:hello") {
     said = true;
-    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid() });
+    // This module can load after bios last reported focus: ask the window.
+    if (!document.hasFocus() && state === "parked") resting = true;
+    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting });
     // A server restart reloads the guest without moving the host's paper.
     // Restore the completed transition too: otherwise its HUD stays hidden
     // and the native frame meter is still attached to the discarded document.
@@ -269,12 +272,27 @@ addEventListener("message", (e) => {
   else if (d.type === "dool:sheet:leave") hide();
 });
 
+// 💤 A window in the background: the world under a parked paper stops
+// drawing and keeps its last frame, so several AC windows side by side cost
+// only the one you are using (2026-11-08). bios calls `windowFocus` whenever
+// document.hasFocus() changes — a window that opened behind another never
+// sees a blur event — and only a parked paper rests.
+let resting = false;
+function rest(on) {
+  if (on === resting) return;
+  resting = on;
+  if (said) post({ type: "dool:sheet", rest: on });
+}
+function windowFocus(focused) {
+  rest(!focused && (state === "parked" || state === "cold"));
+}
+
 // bios reframed: pass the new grid down.
 function framed() {
   if (said) post({ type: "dool:sheet", grid: grid() });
 }
 
-window.acDoolSheet = { popstate, framed };
+window.acDoolSheet = { popstate, framed, windowFocus };
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle

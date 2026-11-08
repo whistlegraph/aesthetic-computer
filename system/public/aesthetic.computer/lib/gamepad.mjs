@@ -6,17 +6,34 @@ export class Gamepad {
   deviceData = [];
 
   constructor() {
+    // Poll only while a pad is connected: the 8 ms timer used to run in every
+    // window from boot, controller or not, and kept each one awake
+    // (2026-11-08). A pad shows up with `gamepadconnected`, which the browser
+    // sends after its first press.
+    let timer = 0;
+    const startPolling = () => {
+      if (!timer) timer = setInterval(poll, 8);
+    };
+    const stopPollingIfNone = () => {
+      if (timer && !Array.from(navigator.getGamepads?.() || []).some(Boolean)) {
+        clearInterval(timer);
+        timer = 0;
+      }
+    };
+
     window.addEventListener("gamepadconnected", (event) => {
       // console.log("🎮 Gamepad connected:", event.gamepad);
       this.deviceData[event.gamepad.index] = event.gamepad;
+      startPolling();
     });
 
     window.addEventListener("gamepaddisconnected", (event) => {
       // console.log("🎮 Gamepad disconnected:", event.gamepad);
       delete this.deviceData[event.gamepad.index];
+      stopPollingIfNone();
     });
 
-    setInterval(() => {
+    const poll = () => {
       const gamepads = navigator.getGamepads();
       gamepads.forEach((gamepad, gi) => {
         if (!gamepad) return;
@@ -100,7 +117,9 @@ export class Gamepad {
           id: gamepad.id, // Store the gamepad ID
         };
       });
-    }, 8); // Poll every 8 ms (~120 FPS)
+    }; // Polled every 8 ms (~120 FPS) while a pad is connected.
+
+    if (Array.from(navigator.getGamepads?.() || []).some(Boolean)) startPolling();
   }
 
   // Clear all events (both unified and per-gamepad arrays)

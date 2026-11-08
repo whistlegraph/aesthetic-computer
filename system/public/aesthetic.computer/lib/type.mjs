@@ -2182,10 +2182,12 @@ class TextInput {
     // later repaint through the load callback, not by painting every frame
     // until every glyph in the font is loaded — with lazy BDF fallbacks that
     // never happened, and the prompt repainted at 60 fps forever (2026-11-08).
-    return this.canType === true;
+    // In a background window the caret is drawn steady (see the blink check
+    // above), so nothing moves and no frame is needed until focus returns.
+    return this.canType === true && $.inFocus !== false;
   }
   // Simulate anything necessary.
-  sim({ seconds, needsPaint, gizmo: { Hourglass } }) {
+  sim({ seconds, needsPaint, inFocus, gizmo: { Hourglass } }) {
     this.blink =
       this.blink ||
       new Hourglass(seconds(0.75), {
@@ -2199,7 +2201,7 @@ class TextInput {
       });
 
     if (this.#lock) needsPaint();
-    if (this.canType) this.blink.step();
+    if (this.canType && inFocus !== false) this.blink.step(); // No blinking in a background window.
 
     // Check if we need to repaint due to async glyph loading
     if (this._needsRepaint) {
