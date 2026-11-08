@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "paper": "Rollback Over a Relay",
+  "pdf": "relay-rollback.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "topology",
+      "page": 2,
+      "crop": [
+        0.08,
+        0.06,
+        0.84,
+        0.2
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Full-width topology inspected at page 2 and in the crop: three boxes and the grandstand, solid socket arrows above dashed datagram arrows, labels sit outside the box band with air; no collisions after widening the seats to 34 mm."
+    },
+    {
+      "id": "dool-loop",
+      "page": 4,
+      "crop": [
+        0.08,
+        0.06,
+        0.42,
+        0.17
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Column-width loop inspected at page 4 and in the crop: five boxes, one edge label per arrow, the snapshot-to-interpolate route turns once; the per-frame label clears the server box after the 17 mm gap."
+    }
+  ],
+  "pdfSha256": "101e634b567781bf2d73542fec9026b6e72af653cd5d16242f35d9e36fef7498",
+  "reviewedAt": "2026-11-08T20:39:31.950Z",
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "table": {
+      "page": 2,
+      "design": "pass"
+    },
+    "notes": "All five pages inspected at reading size (pdftocairo 100 dpi) plus the contact sheet. Title block, abstract, two columns, three tables, two diagrams, references and the source-bundle paperclip fit; the Aesthetic.Computer period is pink in the byline, abstract and body. Page 5 renders blank in pdftoppm (\"Weird page contents\") but correctly in pdftocairo and Preview; the attachment annotation is the likely cause."
+  }
+}

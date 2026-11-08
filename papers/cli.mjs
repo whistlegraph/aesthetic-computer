@@ -101,6 +101,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "arxiv-relay-rollback": {
+    base: "relay-rollback",
+    siteName: "rollback-over-a-relay-26-arxiv",
+    title: "Rollback Over a Relay",
+  },
   "arxiv-oskie-unreal": {
     base: "oskie-unreal",
     siteName: "oskie-unreal-26-arxiv",
@@ -586,6 +591,7 @@ const CATEGORIES = [
       "arxiv-notepat",
       "arxiv-oskiewar",
       "arxiv-oskie-unreal",
+      "arxiv-relay-rollback",
       "arxiv-oskiewar-store",
       "arxiv-oskiewar-reels",
       "arxiv-cal",
@@ -1119,6 +1125,7 @@ function updateIndex(entries) {
   // Importance ranking — curated order for 2026 impact
   const IMPORTANCE = {
     "oskie-unreal-26-arxiv": 8.25,
+    "rollback-over-a-relay-26-arxiv": 8.3,
     "stack-of-the-summer-26-arxiv": 0.25,
     "keymaps-social-software-26-arxiv": 0.5,
     "aesthetic-computer-26-arxiv": 1,
@@ -1213,6 +1220,10 @@ function updateIndex(entries) {
 
   // Paper detail descriptions and short previews, keyed by siteName.
   const PAPER_COPY = {
+    "rollback-over-a-relay-26-arxiv": {
+      detail: "How oskiewar and dool share a fight, with the November 8 test record",
+      abstract: "Oskiewar runs the whole fight on both seats and moves only inputs through a small seat-to-seat relay with a UDP/WebRTC datagram lane and regional copies; dool keeps one authoritative 60 Hz server with own-body prediction and interpolation. Both designs from the source, the relay's trust boundaries, and today's suites: relay 43/43, dool 64/64, rollback 26/42 with every sync assertion green. Written to hand to a peer, closing with six review questions.",
+    },
     "oskie-unreal-26-arxiv": {
       detail: "An implementation map for portable game files in Unreal Engine",
       abstract: "A six-stage plan for running .oskie games through an Unreal runtime plugin: bundle loading, QuickJS execution, rendering compatibility, input and sound, packaged desktop playback, and an optional world-space bridge. Architecture, module boundaries, and acceptance tests; the Unreal host remains to be built.",
