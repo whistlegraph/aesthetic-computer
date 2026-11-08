@@ -5402,12 +5402,6 @@ function paint($) {
     scheme.dark.background[3] = scheme.light.background[3] = 0;
     $.wipe(pal.background[0], pal.background[1], pal.background[2], 44);
   } else if ($.store["painting"]) {
-    $.wipe(pal.background);
-    $.system.nopaint.present($); // Render the painting.
-    // Override pal if available from nopaint
-    if ($.system.prompt.input.pal) {
-      pal = $.system.prompt.input.pal;
-    }
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
     scheme.serious.dark.background[3] = 176;
@@ -5416,6 +5410,16 @@ function paint($) {
     scheme.neo.light.background[3] = 190;
     scheme.poe.dark.background[3] = 176;
     scheme.poe.light.background[3] = 190;
+    // A painting that fills the screen arrives already veiled, as one bitmap
+    // copied in; otherwise the frame is built as before and the input veils it.
+    if (!paintVeiledBackdrop($, pal)) {
+      $.wipe(pal.background);
+      $.system.nopaint.present($); // Render the painting.
+    }
+    // Override pal if available from nopaint
+    if ($.system.prompt.input.pal) {
+      pal = $.system.prompt.input.pal;
+    }
   } else {
     scheme.dark.background[3] = scheme.light.background[3] = 255;
     $.wipe(pal.background);
@@ -8060,6 +8064,41 @@ const caretBurst = [];
 let caretBurstAt = 0;
 let curtainPressAt = 0; // A press on the bare curtain, charging the caret.
 let curtainPaintDue = 0; // When the resting curtain next repaints (set in paint, asked in sim).
+// 🖼️ The painting under the prompt, already veiled, kept between frames.
+// While you type nothing under the text moves, yet every frame used to wipe
+// the screen, paste the painting and blend the input's half-opaque background
+// over all of it — that blend was the worker's hottest loop (2026-11-08).
+// For a painting that fills the screen the three passes are made once, into
+// one bitmap, and each frame copies it in; the input then skips its own box.
+let veilCache = null; // { key, of, ofPixels, buf, bufPixels, bitmap }
+function paintVeiledBackdrop($, pal) {
+  const np = $.system.nopaint;
+  const under = $.system.painting;
+  const { screen } = $;
+  if (!np || !under?.pixels) return false;
+  const tx = np.translation?.x || 0, ty = np.translation?.y || 0;
+  if (tx !== 0 || ty !== 0 || screen.width > under.width || screen.height > under.height) return false;
+  const [r, g, b, a] = pal.background;
+  const input = $.system.prompt.input;
+  const glow = input.hoverGlow?.($); // The input's wash while the pointer is on it.
+  const key = `${screen.width}x${screen.height}|${r},${g},${b},${a}|${glow ? glow.join(",") : ""}`;
+  const c = veilCache;
+  if (!c || c.key !== key || c.of !== under || c.ofPixels !== under.pixels || c.buf !== np.buffer || c.bufPixels !== np.buffer?.pixels || np.needsPresent) {
+    np.needsPresent = false; // As present() would have.
+    const bitmap = $.painting(screen.width, screen.height, (p) => {
+      p.wipe(r, g, b, a);
+      p.paste(under);
+      if (np.buffer) p.paste(np.buffer);
+      p.ink(r, g, b, a).box(0, 0, screen.width, screen.height);
+      if (glow) p.ink(...glow).box(0, 0, screen.width, screen.height);
+    });
+    if (!bitmap?.pixels) return false;
+    veilCache = { key, of: under, ofPixels: under.pixels, buf: np.buffer, bufPixels: np.buffer?.pixels, bitmap };
+  }
+  $.paste(veilCache.bitmap, 0, 0, 1, true); // One copy, no blending.
+  input.backdropPainted = true;
+  return true;
+}
 let caretPulse = 0;
 let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
