@@ -24250,6 +24250,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Extract file processing logic into reusable function
   async function processDroppedFile(file) {
     const ext = extension(file.name);
+    if (ext.toLowerCase() === "oskie") {
+      try {
+        if (file.size > 3 * 1024 * 1024) throw new Error("The AC .oskie player accepts up to 2 MB of bundled data.");
+        const { validateGame } = await import("/oskie/format.mjs");
+        const game = validateGame(JSON.parse(await file.text()));
+        sessionStorage.setItem("ac:oskie:drop", JSON.stringify(game));
+        location.assign("/oskie");
+      } catch (error) { alert(error.message); }
+      return;
+    }
     console.log("💧 Processing:", file.name, ext);
     
     // 📦 KidLisp bundle (.lisp.html) - extract embedded source and run it

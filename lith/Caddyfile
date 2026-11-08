@@ -820,6 +820,27 @@
         redir https://jas.life{uri} 301
     }
 
+    # Aesthetic.Computer MCP: same game tools for Claude and ChatGPT.
+    @ac_mcp host mcp.aesthetic.computer
+    handle @ac_mcp {
+        @mcp_icon path /icon.png /favicon.png /favicon.ico
+        handle @mcp_icon {
+            rewrite * /oskie/connector-icon.png
+            import lith_proxy
+        }
+        @mcp_discovery path /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/
+        handle @mcp_discovery {
+            rewrite * /.well-known/oauth-protected-resource/mcp/aesthetic.computer
+            import lith_proxy
+        }
+        @mcp_endpoint path / /mcp
+        handle @mcp_endpoint {
+            rewrite * /mcp/aesthetic.computer
+            import lith_proxy
+        }
+        respond "Not found" 404
+    }
+
     # --- pals.aesthetic.computer ---
     # pals.aesthetic.computer → /api/logo (dynamic logo generation)
     @pals host pals.aesthetic.computer

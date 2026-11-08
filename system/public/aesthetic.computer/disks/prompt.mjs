@@ -2149,6 +2149,11 @@ async function route($, text) {
     // 💸 Jump to billing dashboard
     jump(`https://bills.aesthetic.computer`);
     return true;
+  } else if (slug === "oskie") {
+    const oskieUrl = `${siteBase}/oskie/`;
+    if (openExternalFromIframe(oskieUrl)) return true;
+    jump(oskieUrl);
+    return true;
   } else if (slug === "papers") {
     // 📄 Jump to Papers site
     jump(`https://papers.aesthetic.computer`);
