@@ -4,7 +4,8 @@ import { validateGame, MAX_BYTES } from "../public/oskie/format.mjs";
 
 export const OSKIE_TYPE = "application/vnd.aesthetic.oskie+json";
 const digest = body => createHash("sha256").update(body).digest("hex");
-const maxObjectBytes = MAX_BYTES + 128 * 1024;
+// JSON may encode a source character as six bytes (for example \u0000).
+const maxObjectBytes = MAX_BYTES * 6 + 128 * 1024;
 
 // The account prefix lets the existing account-erasure job remove these too.
 // Object keys and credentials never appear in the public catalog or player API.

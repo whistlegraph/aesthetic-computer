@@ -169,3 +169,13 @@ test('revision polling checks access but does not repeatedly read unchanged obje
   await f.store.unpublish(jeffrey,p.id);
   assert.equal((await api(req)).statusCode,404);
 });
+
+test('valid source survives JSON escaping beyond the raw bundled-data size', async () => {
+  const f=fixture(), bundle=starterGame();
+  bundle.files['escaped.txt']={type:'text/plain',text:'"'.repeat(1200000)};
+  const p=await f.store.create(jeffrey,{bundle});
+  const loaded=await f.store.read(jeffrey,p.id);
+  assert.equal(loaded.bundle.files['escaped.txt'].text.length,1200000);
+  const r=await f.db.collection('oskie-revisions').findOne({_id:p.revision});
+  assert.ok(r.object.bytes>2*1024*1024);
+});
