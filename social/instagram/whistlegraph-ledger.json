@@ -29,7 +29,8 @@
         "ig_reels_video_view_total_time": 32892771,
         "reels_skip_rate": 17
       },
-      "insightsAt": "2026-10-28T19:55:44.753Z"
+      "insightsAt": "2026-10-28T19:55:44.753Z",
+      "deleted": "2026-10-28: archived/deleted in-app by jeffrey (cull week, views too low); Graph API 400 as of 2026-11-09"
     },
     {
       "mediaId": "17902117197600883",
@@ -56,7 +57,8 @@
         "ig_reels_video_view_total_time": 236724268,
         "reels_skip_rate": 13.2
       },
-      "insightsAt": "2026-10-28T19:55:45.884Z"
+      "insightsAt": "2026-10-28T19:55:45.884Z",
+      "deleted": "2026-10-28: archived/deleted in-app by jeffrey (cull week, views too low); Graph API 400 as of 2026-11-09"
     },
     {
       "mediaId": "18127789474939683",
@@ -126,7 +128,8 @@
         "ig_reels_video_view_total_time": 40341472,
         "reels_skip_rate": 16.3
       },
-      "insightsAt": "2026-10-28T19:55:48.927Z"
+      "insightsAt": "2026-10-28T19:55:48.927Z",
+      "deleted": "2026-10-28: archived/deleted in-app by jeffrey (cull week, views too low); Graph API 400 as of 2026-11-09"
     },
     {
       "mediaId": "18018198026974033",
@@ -207,7 +210,8 @@
         "ig_reels_video_view_total_time": 0,
         "reels_skip_rate": 0
       },
-      "insightsAt": "2026-10-28T19:55:52.602Z"
+      "insightsAt": "2026-10-28T19:55:52.602Z",
+      "deleted": "2026-10-28: archived/deleted in-app by jeffrey (cull week, views too low); Graph API 400 as of 2026-11-09"
     },
     {
       "mediaId": "17909646372328364",
@@ -234,7 +238,8 @@
         "ig_reels_video_view_total_time": 545265404,
         "reels_skip_rate": 14
       },
-      "insightsAt": "2026-10-31T19:37:25.520Z"
+      "insightsAt": "2026-10-31T19:37:25.520Z",
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "17908040850577847",
@@ -249,7 +254,8 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-29/17-36-34/boo-morose-B.mp4"
       },
-      "insights": null
+      "insights": null,
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "18154735015528066",
@@ -276,7 +282,8 @@
         "ig_reels_video_view_total_time": 6569909,
         "reels_skip_rate": 20.5
       },
-      "insightsAt": "2026-10-31T19:37:46.774Z"
+      "insightsAt": "2026-10-31T19:37:46.774Z",
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "18138240556645269",
@@ -291,7 +298,8 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-10-31/19-43-14/trib-remaster.mp4"
       },
-      "insights": null
+      "insights": null,
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "17918207652259983",
@@ -306,7 +314,8 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-02/19-13-24/ballo-remaster.mp4"
       },
-      "insights": null
+      "insights": null,
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "18110636906268996",
@@ -321,7 +330,8 @@
       "urls": {
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-03/02-07-01/bubb-remaster.mp4"
       },
-      "insights": null
+      "insights": null,
+      "deleted": "2026-11-09: archived in-app by jeffrey (views too low); Graph API returns 400 while archived"
     },
     {
       "mediaId": "18108121319575675",
@@ -337,8 +347,6 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-07/17-34-46/1p2-remaster.mp4"
       },
       "insights": null
-    },
-    {
     },
     {
       "mediaId": "18337435582302225",
