@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseDf, level, judge } from "./disk-watch.mjs";
+import { parseDf, level, judge, stagesToRemove } from "./disk-watch.mjs";
 
 const GB = 1024 * 1024;
 const disk = (percent, freeGb, sizeGb = 24) => ({ percent, freeKb: freeGb * GB, sizeKb: sizeGb * GB, usedKb: 0 });
@@ -48,4 +48,13 @@ test("a server that stops answering is reported on its second miss only", () => 
   assert.equal(say, "unreachable");
   ({ next, say } = judge(next, { error: "timeout" }));
   assert.equal(say, null);
+});
+
+test("deploy snapshots past the newest few go, but never one under an hour old", () => {
+  const now = Date.parse("2026-11-09T20:00:00Z"), hour = 3600_000;
+  const stage = (name, hoursAgo) => ({ path: `/tmp/ac-products.${name}`, mtime: now - hoursAgo * hour });
+  const stages = [stage("b", 2), stage("e", 0.5), stage("a", 30), stage("d", 1.5), stage("c", 5)];
+  assert.deepEqual(stagesToRemove(stages, 3, now), ["/tmp/ac-products.c", "/tmp/ac-products.a"]);
+  assert.deepEqual(stagesToRemove(stages, 1, now), ["/tmp/ac-products.d", "/tmp/ac-products.b", "/tmp/ac-products.c", "/tmp/ac-products.a"]);
+  assert.deepEqual(stagesToRemove([stage("x", 0.2), stage("y", 0.1)], 0, now), []);
 });

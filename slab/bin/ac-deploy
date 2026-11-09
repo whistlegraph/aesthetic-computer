@@ -190,8 +190,14 @@ function releaseProducts(revision) {
       if (check.status !== 0) fail(`these products do not fit lith's core ${core.slice(0, 10)}: ${check.stderr.trim().split("\n").pop()} — run a full ac-deploy`);
       const pack = spawnSync("node", ["toolchain/private-products.mjs", "pack", tgz], { cwd: ROOT, stdio: ["ignore", "ignore", "inherit"], env });
       if (pack.status !== 0) fail("could not pack the products");
-      const stage = ssh("mktemp -d /tmp/ac-products.XXXXXXXX").stdout.trim();
-      if (!/^\/tmp\/ac-products\.[A-Za-z0-9]+$/.test(stage)) fail("could not make a staging directory on lith");
+      // Keep lith under its 95% disk limit: each deploy's stage stays as a
+      // rollback snapshot, so drop all but the newest few first (as
+      // toolchain/private-products-deploy.fish does), then refuse when full.
+      const stage = ssh(`find /tmp -maxdepth 1 -name "ac-products.*" -mmin +60 -printf "%T@ %p\\n" | sort -rn | tail -n +4 | cut -d" " -f2- | xargs -r rm -rf --
+p=$(df -P / | awk "NR==2{print \\$5+0}")
+[ "$p" -lt 95 ] || { echo "lith's disk is $p% full and its limit is 95%: free space before deploying (lith/disk-watch.mjs)" >&2; exit 1; }
+mktemp -d /tmp/ac-products.XXXXXXXX`).stdout.trim();
+      if (!/^\/tmp\/ac-products\.[A-Za-z0-9]+$/.test(stage)) fail("could not make a staging directory on lith (see above)");
       const scp = spawnSync("scp", ["-q", "-i", key, tgz, installer, manifest, `root@${host}:${stage}/`], { stdio: "inherit" });
       if (scp.status !== 0) fail("could not upload the products to lith");
       const run = `env AC_CORE_ROOT=/opt/ac AC_PRODUCTS_MANIFEST=${stage}/private-products.json node ${stage}/private-products.mjs`;

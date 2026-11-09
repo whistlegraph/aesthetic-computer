@@ -14,7 +14,13 @@ function prepare_private_products --argument-names root key host remote node_bin
         rm -rf "$local_stage"
         return 1
     end
-    set -g PRODUCT_REMOTE_STAGE (ssh -i "$key" "$host" 'mktemp -d /tmp/ac-products.XXXXXXXX')
+    # Each stage stays behind as a rollback snapshot. Keep the host under its
+    # 95% disk limit: drop all but the newest few (as slab/bin/ac-deploy
+    # does), then refuse when the disk is still that full.
+    set -g PRODUCT_REMOTE_STAGE (ssh -i "$key" "$host" 'find /tmp -maxdepth 1 -name "ac-products.*" -mmin +60 -printf "%T@ %p\\n" | sort -rn | tail -n +4 | cut -d" " -f2- | xargs -r rm -rf --
+p=$(df -P / | awk "NR==2{print \\$5+0}")
+[ "$p" -lt 95 ] || { echo "this host\'s disk is $p% full and its limit is 95%: free space before deploying (lith/disk-watch.mjs)" >&2; exit 1; }
+mktemp -d /tmp/ac-products.XXXXXXXX')
     if not string match -qr '^/tmp/ac-products\.[A-Za-z0-9]+$' -- "$PRODUCT_REMOTE_STAGE"
         rm -rf "$local_stage"
         return 1
