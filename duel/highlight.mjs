@@ -115,8 +115,22 @@ const merge = (spans) =>
 export const spanWidth = (spans, unit) =>
   spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? 7 : s.text.length * 6) * unit, 0);
 
+// Compact (MatrixChunky8) widths: caps and badges are the name plus a
+// two-pixel frame each side.
+// MatrixChunky8 has no arrows: the arrow keys get five-pixel drawings.
+const SMALL_ARROWS = {
+  '←': ['..#..', '.#...', '#####', '.#...', '..#..'],
+  '→': ['..#..', '...#.', '#####', '...#.', '..#..'],
+  '↑': ['..#..', '.###.', '#.#.#', '..#..', '..#..'],
+  '↓': ['..#..', '..#..', '#.#.#', '.###.', '..#..'],
+};
+const smallBoxWidth = (k) => (SMALL_ARROWS[k] ? 5 : smallWidth(k)) + 4;
 export const smallSpanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.text ? smallWidth(s.text) + 1 : 0) * unit, 0);
+  spans.reduce(
+    (w, s) =>
+      w + (s.badge ? smallBoxWidth(s.badge) + 1 : s.cap ? smallBoxWidth(s.cap) + 1 : s.text ? smallWidth(s.text) + 1 : 0) * unit,
+    0,
+  );
 
 export const plain = (spans) =>
   spans.map((s) => (s.badge ? `[${s.badge}]` : s.cap ? s.cap : s.block ? '' : s.text)).join('');
@@ -144,7 +158,34 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   // tiny: MatrixChunky8 (proportional) instead of font_1.
   if (tiny && small) {
     let left = cx - smallSpanWidth(spans, unit) / 2;
+    // A glyph's rows run from y - unit down to y - 7 units; a cap or badge
+    // frames them with one row to spare above and below (nine rows).
+    const bottom = y - 8 * unit, bh = 9 * unit;
     for (const s of spans) {
+      if (s.badge || s.cap) {
+        const name = s.badge || s.cap;
+        const bw = smallBoxWidth(name) * unit;
+        if (s.badge) {
+          const { fill, ink } = s.lit ? LIT : BUTTONS[s.badge];
+          if (shadow !== null) rect(left + unit, bottom - unit, z + 2 * step, bw, bh, shadow);
+          rect(left, bottom, z + step, bw, bh, fill);
+          small(name, left + (bw - unit) / 2, y, z, unit, ink);
+        } else {
+          const line = s.lit ? THEME.verb : THEME.dim;
+          if (shadow !== null) rect(left + unit, bottom - unit, z + 3 * step, bw, bh, shadow);
+          rect(left, bottom, z + 2 * step, bw, bh, line);
+          rect(left + unit, bottom + unit, z + step, bw - 2 * unit, bh - 2 * unit, 0x15171e);
+          const ink = s.lit ? THEME.verb : THEME.text;
+          const arrow = SMALL_ARROWS[name];
+          if (arrow)
+            arrow.forEach((row, r) =>
+              [...row].forEach((ch, c) => ch === '#' && rect(left + (2 + c) * unit, y - (2 + r) * unit, z, unit, unit, ink)),
+            );
+          else small(name, left + (bw - unit) / 2, y, z, unit, ink);
+        }
+        left += bw + unit;
+        continue;
+      }
       if (!s.text) continue;
       const w = (smallWidth(s.text) + 1) * unit;
       const centre = left + (w - unit) / 2;

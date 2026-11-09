@@ -181,6 +181,9 @@ final class BootStatus: ObservableObject {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        #if os(macOS)
+        PointerLock.release(notifyPage: false) // the locked frame is going away
+        #endif
         LaunchPing.loaded(false)
         // Only watchdog real network loads; offline.html doesn't have JS that
         // can heartbeat back, so we'd false-alarm on the static offline page.
@@ -208,6 +211,9 @@ final class BootStatus: ObservableObject {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        #if os(macOS)
+        PointerLock.release(notifyPage: false)
+        #endif
         bootStatus?.setError("The page stopped. Reload to continue.")
     }
 
@@ -228,6 +234,12 @@ final class BootStatus: ObservableObject {
             NSLog("AC WebKit: %@", String(describing: message.body))
             return
         }
+        #if os(macOS)
+        if message.name == "acPointerLock" {
+            PointerLock.handle(message)
+            return
+        }
+        #endif
 
         guard message.name == "iOSApp", let jsonString = message.body as? String else { return }
         guard let data = jsonString.data(using: .utf8) else { return }
@@ -392,6 +404,11 @@ struct WebView: ACWebViewRepresentable {
         config.userContentController.addUserScript(WKUserScript(
             source: "window.acNativeWindowColor = true;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // Every frame, so the dool iframe can capture the mouse for mouse-look
+        // (WKWebView never grants the Pointer Lock API itself).
+        config.userContentController.add(context.coordinator, name: "acPointerLock")
+        config.userContentController.addUserScript(WKUserScript(
+            source: PointerLock.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         // The native canvas always uses AC's SVG pointer, including after
         // focus/click handlers request `auto`, `pointer`, or `none` inline.
         config.userContentController.addUserScript(WKUserScript(source: """

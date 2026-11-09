@@ -1100,7 +1100,7 @@ export async function createView(canvas) {
       const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode]);
       if (key !== promptKey) {
         promptKey = key;
-        promptModel = model(({ rect: worldRect, text }) => {
+        promptModel = model(({ rect: worldRect, text, small }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panel = prompt.open; // A build's status floats over the build itself.
           // Nothing here lifts the corners (2026-11-03). The prompt and a
@@ -1116,10 +1116,13 @@ export async function createView(canvas) {
               drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, height / 2 - oy - 2 * unit - i * 10 * unit, unit, { shadow: INK }),
             );
           } else {
+            // The controls and the hint, top-right, compact: MatrixChunky8
+            // with small key caps and badges, ten-pixel rows (2026-11-08).
             const right = width / 2 - safeX;
-            visible.forEach((spans, i) =>
-              drawSpans({ rect, text }, spans, right - widths[i] / 2, height / 2 - safeY - 2 * unit - i * 11 * unit, unit, { shadow: INK }),
-            );
+            visible.forEach((spans) => {
+              const w = smallSpanWidth(spans, unit);
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 1 * unit - visible.indexOf(spans) * 10 * unit, unit, { shadow: INK, tiny: true });
+            });
           }
         });
       }
@@ -1712,23 +1715,30 @@ export async function createView(canvas) {
         px(-1, 24, 26, 1, edge);
         px(-1, 0, 1, 24, edge);
         px(24, 0, 1, 24, edge);
+        // The column beside the cam — braincells, the connection, the frame
+        // rate — in even 9-row slots from the frame's top edge down, so no
+        // two overlap (2026-11-08). A slot's number is the top of small()'s
+        // 8-row glyph box; the glyphs themselves start a row lower.
+        let slot = 25;
+        const nextSlot = () => ((slot -= 9), slot + 9);
         // Braincells beside the cam: a pixel brain and the count, in purple.
         if (Number.isFinite(braincells)) {
+          const bt = nextSlot();
           const BR = ['.##.##.', '#######', '###.###', '#######', '.##.##.'];
           BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, 20 - r - 1, 1, 1, INK, 0.000002)),
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, bt - 1 - r - 1, 1, 1, INK, 0.000002)),
           );
           BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c, 20 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c, bt - 1 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
           );
           // Exact, with thousands separators, shadowed for contrast.
           const n = Math.round(braincells).toLocaleString('en-US');
-          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + 21 * unit;
+          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + bt * unit;
           small(n, nx + unit, ny - unit, 0.000002, unit, INK);
           small(n, nx, ny, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
           // Spending: purple pixels fly up and away from the count.
           if (spending && Math.random() < 0.7)
-            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: 22, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
+            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: bt + 1, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
           for (let k = cellBits.length - 1; k >= 0; k--) {
             const b = cellBits[k], t = (now - b.born) / 1000;
             if (t > 0.9) { cellBits.splice(k, 1); continue; }
@@ -1743,10 +1753,9 @@ export async function createView(canvas) {
           const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
           const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
           const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
-          // small() takes the top of its 8-row glyph box; the count sits at 21.
-          let top = Number.isFinite(braincells) ? 10 : 21;
           if (ping) {
-            const base = top - 8;
+            const pt = nextSlot();
+            const base = pt - 7; // The bars' foot on the glyphs' foot.
             for (let i = 0; i < 4; i++) {
               const h = 2 + i * 2, lit = i < bars;
               px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
@@ -1757,11 +1766,12 @@ export async function createView(canvas) {
             const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
             small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
             small(ping, tx, ty, 0, unit, pingColor);
-            top -= 9;
           }
           if (SHOW_FPS && fps) {
             const f = `${fps} fps`;
-            small(f, x0 + (27 + smallWidth(f) / 2) * unit, y0 + top * unit, 0, unit, fpsColor);
+            const fx = x0 + (27 + smallWidth(f) / 2) * unit, fy = y0 + nextSlot() * unit;
+            small(f, fx + unit, fy - unit, 0.000002, unit, INK); // Shadowed like the rest.
+            small(f, fx, fy, 0, unit, fpsColor);
           }
         }
         // The health bar under it, in health colours.

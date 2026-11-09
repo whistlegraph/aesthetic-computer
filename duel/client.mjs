@@ -370,7 +370,9 @@ const CONTROL_KEYS = [
 // The controls legend shows for the first eight seconds of play; H pins or hides it.
 let legendPinned = null,
   activeSeconds = 0;
-const legendShown = () => legendPinned ?? (seat >= 0 && activeSeconds < 8);
+// The controls stay up (2026-11-08: jeffrey wants every action always in
+// view, pad or keys); H still hides or brings them back.
+const legendShown = () => legendPinned ?? seat >= 0;
 const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
