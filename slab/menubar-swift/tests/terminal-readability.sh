@@ -15,6 +15,56 @@ with open(sys.argv[2], 'a') as f:
 PY
 cat >> "$probe/check.swift" <<'SWIFT'
 var checks = 0
+// A dark-started Codex input stays dark after a seat appearance change.
+// Check the actual default ink on both cached input/history surfaces, not
+// only on Slab's page; that missed the dark-on-dark composer regression.
+for startupDark in [false, true] {
+    for seatDark in [false, true] {
+        let dark = TerminalReadability.darkAppearance(
+            agentType: "codex", startupDark: startupDark, seatDark: seatDark)
+        precondition(dark == startupDark)
+        let surfaces = startupDark ? [0x1f, 0x28] : [0xe8, 0xf4]
+        for state in ClaudeSession.State.allCases {
+            for blink in [false, true] {
+                let p = AppDelegate.statusDecor(for: state, dark: dark, blink: blink, agentType: "codex").palette
+                for palette in [p, AppDelegate.loopboyTint(p, dark: dark, active: false),
+                                AppDelegate.loopboyTint(p, dark: dark, active: true)] {
+                    for level in surfaces {
+                        let input = (level * 257, level * 257, level * 257)
+                        precondition(TerminalReadability.contrast(palette.readable.text!, input) >= 4.5,
+                            "Codex input unreadable after appearance change: \(state), dark=\(dark)")
+                    }
+                }
+            }
+        }
+        for agent in ["claude", "easel"] {
+            precondition(TerminalReadability.darkAppearance(
+                agentType: agent, startupDark: startupDark, seatDark: seatDark) == seatDark)
+        }
+    }
+}
+for seatDark in [false, true] {
+    precondition(TerminalReadability.darkAppearance(
+        agentType: "codex", startupDark: nil, seatDark: seatDark) == seatDark)
+}
+print("PASS Codex input contrast through light/dark seat changes; other agents follow the seat")
+// Claude Code follows the seat onto its ANSI theme; daltonized stays the user's.
+precondition(ClaudeTheme.aligned("{\n  \"theme\": \"auto\",\n  \"tui\": \"fullscreen\"\n}", dark: true)
+    == "{\n  \"theme\": \"dark-ansi\",\n  \"tui\": \"fullscreen\"\n}")
+precondition(ClaudeTheme.aligned("{\"theme\":\"dark-ansi\"}", dark: false) == "{\"theme\":\"light-ansi\"}")
+precondition(ClaudeTheme.aligned("{\"theme\":\"light-ansi\"}", dark: false) == nil)
+precondition(ClaudeTheme.aligned("{\"theme\":\"dark-daltonized\"}", dark: true) == nil)
+precondition(ClaudeTheme.aligned("{\n  \"tui\": \"fullscreen\"\n}", dark: true)
+    == "{\n  \"theme\": \"dark-ansi\",\n  \"tui\": \"fullscreen\"\n}")
+precondition(ClaudeTheme.aligned("{}", dark: false) == "{\n  \"theme\": \"light-ansi\"\n}")
+for bg in [(0, 0, 0), (2200, 4200, 14000), (12000, 4000, 18000), (19000, 10500, 900), (65535, 65535, 65535), (42000, 50000, 65535)] {
+    for (i, c) in TerminalReadability.ansi(on: bg).enumerated() {
+        let wanted = TerminalReadability.ansiNeutrals.contains(i) ? TerminalReadability.ansiMinimumContrast : TerminalReadability.ansiHueMinimumContrast
+        let floor = min(wanted, max(TerminalReadability.contrast((0, 0, 0), bg), TerminalReadability.contrast((65535, 65535, 65535), bg)))
+        precondition(TerminalReadability.contrast(c, bg) >= floor - 0.01, "ANSI swatch below the floor on \(bg)")
+    }
+}
+print("PASS Claude Code theme alignment; ANSI swatches 7:1 neutral and 5:1 hue on every page")
 func check(_ p: AppDelegate.Palette) {
     let p = p.readable, bg = p.bg!
     precondition(TerminalReadability.contrast(p.text!, bg) >= 6.999, "Text below 7:1")

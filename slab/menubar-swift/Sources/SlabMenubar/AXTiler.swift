@@ -67,7 +67,11 @@ enum AXTiler {
     /// grid. GeForce NOW's stream window is the reason this exists; its floor
     /// (`nv-min-window-size` in the bundle's GeForceNOW.json) is honored by
     /// measuring what the window accepted rather than assuming.
-    static let stageBundleIDs = [GameMode.gfnBundleID]
+    static let stageBundleIDs = authoringBundleIDs + [GameMode.gfnBundleID]
+
+    /// Claude clamps to 700×400: stage it when a grid cell cannot fit,
+    /// keeping its conversation readable and clear of the prompt panes.
+    static let authoringBundleIDs = ["com.anthropic.claudefordesktop"]
 
     /// Messenger apps that tile as equal grid cells beside the terminals.
     static let messengerBundleIDs = ["org.whispersystems.signal-desktop"]
@@ -143,6 +147,7 @@ enum AXTiler {
                                 requireStandardSubrole: false, liveWindows: liveWindows)
                 + windowRefs(bundleId: "aesthetic.computer", liveWindows: liveWindows)
                 + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows)
+                + windowRefs(bundleId: "computer.aesthetic.airbrush", liveWindows: liveWindows)
                 // The oskiewar Mac app is a pane like the others: an equal
                 // grid cell beside the terminals, as small as the grid asks.
                 + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows)
@@ -178,6 +183,8 @@ enum AXTiler {
                          requireGeometry: false)
             + easelWindowRefs(liveWindows: liveWindows, requireGeometry: false)
             + windowRefs(bundleId: "computer.aesthetic.nopaint", liveWindows: liveWindows,
+                         requireGeometry: false)
+            + windowRefs(bundleId: "computer.aesthetic.airbrush", liveWindows: liveWindows,
                          requireGeometry: false)
             + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows,
                          requireGeometry: false)

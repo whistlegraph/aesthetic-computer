@@ -1150,6 +1150,7 @@ async function boot({
   dark,
   store,
   debug,
+  query,
   // code,
   net: { socket },
   vscode,
@@ -1179,6 +1180,9 @@ async function boot({
   if (theme === "default") send({ type: "mime:sheet", content: { action: "warm" } });
   // 🎯 And the dool world, so the paper drops onto a room already built.
   if (theme === "default") send({ type: "dool:sheet", content: { action: "warm" } });
+  // `?dool` (a minted object's doorway) arrives with the room already up: the
+  // paper drops as soon as the guest says hello, no crosshair flight.
+  if (theme === "default" && query?.dool) send({ type: "dool:sheet", content: { action: "show" } });
   // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
   // persisting — the `flair` command still owns the saved preference. Handy for
   // a clean attract screen and for the FPS regression test.
@@ -5398,12 +5402,6 @@ function paint($) {
     scheme.dark.background[3] = scheme.light.background[3] = 0;
     $.wipe(pal.background[0], pal.background[1], pal.background[2], 44);
   } else if ($.store["painting"]) {
-    $.wipe(pal.background);
-    $.system.nopaint.present($); // Render the painting.
-    // Override pal if available from nopaint
-    if ($.system.prompt.input.pal) {
-      pal = $.system.prompt.input.pal;
-    }
     scheme.dark.background[3] = 176; // Half semi-opaque palette background.
     scheme.light.background[3] = 190;
     scheme.serious.dark.background[3] = 176;
@@ -5412,6 +5410,16 @@ function paint($) {
     scheme.neo.light.background[3] = 190;
     scheme.poe.dark.background[3] = 176;
     scheme.poe.light.background[3] = 190;
+    // A painting that fills the screen arrives already veiled, as one bitmap
+    // copied in; otherwise the frame is built as before and the input veils it.
+    if (!paintVeiledBackdrop($, pal)) {
+      $.wipe(pal.background);
+      $.system.nopaint.present($); // Render the painting.
+    }
+    // Override pal if available from nopaint
+    if ($.system.prompt.input.pal) {
+      pal = $.system.prompt.input.pal;
+    }
   } else {
     scheme.dark.background[3] = scheme.light.background[3] = 255;
     $.wipe(pal.background);
@@ -6227,7 +6235,12 @@ function paint($) {
             ink(Math.round(150 + 105 * r), Math.round(150 + 105 * g), Math.round(150 + 105 * b), Math.round(220 * (1 - age / 1.4))).plot(Math.floor(d.x), Math.floor(d.y));
           }
         }
-        $.needsPaint?.();
+        // The curtain animates on every display frame, in front or behind,
+        // so the caret's glint and fill always move smoothly at the display's
+        // rate (jeffrey, 2026-11-08: "always at 60fps animated smooth"). Asked
+        // from sim: a needsPaint made during paint is overruled by paint's
+        // own return.
+        curtainAnimating = true;
 
 
         // Reset to default layer
@@ -6388,6 +6401,15 @@ function paint($) {
 
     // 🎰 UNITICKER - unified ticker combining chat, laer-klokken chat, sigiled media, commits, handles, moods
     $.layer(2); // Render ticker on top of tooltips
+
+    // Retired (DEPRECATE_UNITICKER): its item lists were still rebuilt on
+    // every paint — strings, sanitising regexes, arrays — and never drawn.
+    if (DEPRECATE_UNITICKER) {
+      uniticker = null;
+      unitickerButton = null;
+      unitickerHoveredItem = null;
+      unitickerItems = [];
+    } else {
 
     const loginY = screen.height / 2;
     const tickerHeight = 8; // MatrixChunky8 glyph height
@@ -6644,6 +6666,7 @@ function paint($) {
       unitickerButton = null;
       unitickerHoveredItem = null;
     }
+    } // DEPRECATE_UNITICKER
 
     $.layer(1);
 
@@ -7824,7 +7847,7 @@ function paint($) {
   {
     const canType = $.system.prompt.input?.canType;
     const cBox = commitBtn && !commitBtn.btn.disabled ? commitBtn.btn.box : null;
-    if (showFpsMeter && !canType && (cBox || !flairEnabled)) {
+    if (false && showFpsMeter && !canType && (cBox || !flairEnabled)) { // Retired: bios's FPS HUD (fps:hud).
       const fpsText = `${currentFps} fps`;
       const fpsColor = currentFps >= 55 ? [0, 200, 100, 220] :
                        currentFps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220];
@@ -8049,6 +8072,42 @@ let caretRect = null; // Where the curtain caret was last drawn, for the focus b
 const caretBurst = [];
 let caretBurstAt = 0;
 let curtainPressAt = 0; // A press on the bare curtain, charging the caret.
+let curtainAnimating = false; // The curtain caret drew this paint: keep frames coming.
+// 🖼️ The painting under the prompt, already veiled, kept between frames.
+// While you type nothing under the text moves, yet every frame used to wipe
+// the screen, paste the painting and blend the input's half-opaque background
+// over all of it — that blend was the worker's hottest loop (2026-11-08).
+// For a painting that fills the screen the three passes are made once, into
+// one bitmap, and each frame copies it in; the input then skips its own box.
+let veilCache = null; // { key, of, ofPixels, buf, bufPixels, bitmap }
+function paintVeiledBackdrop($, pal) {
+  const np = $.system.nopaint;
+  const under = $.system.painting;
+  const { screen } = $;
+  if (!np || !under?.pixels) return false;
+  const tx = np.translation?.x || 0, ty = np.translation?.y || 0;
+  if (tx !== 0 || ty !== 0 || screen.width > under.width || screen.height > under.height) return false;
+  const [r, g, b, a] = pal.background;
+  const input = $.system.prompt.input;
+  const glow = input.hoverGlow?.($); // The input's wash while the pointer is on it.
+  const key = `${screen.width}x${screen.height}|${r},${g},${b},${a}|${glow ? glow.join(",") : ""}`;
+  const c = veilCache;
+  if (!c || c.key !== key || c.of !== under || c.ofPixels !== under.pixels || c.buf !== np.buffer || c.bufPixels !== np.buffer?.pixels || np.needsPresent) {
+    np.needsPresent = false; // As present() would have.
+    const bitmap = $.painting(screen.width, screen.height, (p) => {
+      p.wipe(r, g, b, a);
+      p.paste(under);
+      if (np.buffer) p.paste(np.buffer);
+      p.ink(r, g, b, a).box(0, 0, screen.width, screen.height);
+      if (glow) p.ink(...glow).box(0, 0, screen.width, screen.height);
+    });
+    if (!bitmap?.pixels) return false;
+    veilCache = { key, of: under, ofPixels: under.pixels, buf: np.buffer, bufPixels: np.buffer?.pixels, bitmap };
+  }
+  $.paste(veilCache.bitmap, 0, 0, 1, true); // One copy, no blending.
+  input.backdropPainted = true;
+  return true;
+}
 let caretPulse = 0;
 let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
@@ -8104,6 +8163,11 @@ function softGlow($, box, color, strength = 1, R = 9) {
 
 // 🧮 Sim
 function sim($) {
+  // The curtain caret animates every frame while it is on screen.
+  if (curtainAnimating) {
+    curtainAnimating = false; // Set again by the next paint that draws it.
+    $.needsPaint();
+  }
   // 📬 Ask once whether there's mail waiting. `?count` is two counts, not the
   // whole inbox — the curtain only needs to know whether to draw the envelope.
   if (MAIL_ON_CURTAIN && mailCount === null && $.user) {
@@ -8200,8 +8264,11 @@ function sim($) {
     $.sound.speaker.poll();
   }
 
-  // ✨ Starfield sim, while the curtain shows it.
-  if (flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
+  // ✨ Starfield sim, while the curtain shows it. The curtain's own snow
+  // rests while the world under it carries the snow (CURTAIN_WORLD_SNOW), and
+  // then nothing here is drawn: no sim, and no repaint every tick for it
+  // (that alone kept an idle homepage painting at 60 fps, 2026-11-08).
+  if (!CURTAIN_WORLD_SNOW && flairEnabled && starsEnabled && theme === "default" && (!login?.btn.disabled || !profile?.btn.disabled)) {
     starfield.sim($);
     $.needsPaint();
   }
@@ -8493,6 +8560,13 @@ function act({
     const onCurtain = theme === "default" && !inp?.canType && !inp?.text;
     if (onCurtain && e.is("keyboard:down:arrowdown")) {
       send({ type: "mime:sheet", content: { action: "show" } });
+      return;
+    }
+    // Tab drops straight into dool, as a tap on its crosshair does; Escape
+    // in the world comes back (jeffrey, 2026-11-08).
+    if (onCurtain && e.is("keyboard:down:tab") && doolBtn && !doolFlight) {
+      pushSound();
+      openDool(send);
       return;
     }
     if (e.is("touch") && onCurtain && !doolBtn?.box?.contains(e)) {
@@ -9253,11 +9327,9 @@ function act({
 
   if (e.is("textinput:shift-right:empty")) autocompleteChar();
 
-  // 📊 Toggle FPS meter with backtick key
-  if (e.is("keyboard:down:`")) {
-    showFpsMeter = !showFpsMeter;
-    needsPaint();
-  }
+  // 📊 Toggle the FPS meter with backtick: bios draws it over everything
+  // (prompt, typing, dool, mime) and remembers it (2026-11-08).
+  if (e.is("keyboard:down:`")) send({ type: "fps:hud", content: { toggle: true } });
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
   // console.log("down key...");

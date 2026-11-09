@@ -1,5 +1,6 @@
 import AVFoundation
 import CGMSynth
+import CRealtimeAudio
 import Foundation
 import QuartzCore
 
@@ -13,8 +14,8 @@ import QuartzCore
 /// Modeled directly on `MenuBandPercussion`: an `AVAudioSourceNode`
 /// whose render callback owns a fixed, preallocated voice pool (no
 /// allocation on the render thread). The control thread stages note-on /
-/// note-off intent through a tiny critical section; the render thread
-/// drains it at the top of each block.
+/// note-off intent through a preallocated ring. Producers serialize with
+/// each other; the render thread never takes their lock.
 ///
 /// Each `Voice` wraps one C `GMVoice` (which holds ALL per-voice GM DSP
 /// state) plus a Swift-side amplitude envelope. `gm_voice_render` takes
@@ -80,24 +81,12 @@ final class MenuBandGMSynth {
     /// so a slot's contents before its first note are irrelevant.
     private let cores: UnsafeMutablePointer<GMVoice>
 
-    /// The current melodic GM program (0-based). Set by the coordinator via
-    /// `setProgram`; read on note-on to init the matching C voice. Plain
-    /// Int load/store is atomic enough here (a half-stale read at worst
-    /// picks the previous program for a single note).
-    private var program: Int32 = 0
-
     /// Per-trigger seed counter so each note-on draws a fresh stochastic
     /// stream (`gm_voice_init` seeds its xorshift from this). Bumped on the
     /// control thread.
     private var seedCounter: UInt32 = 0x9E3779B9
 
-    /// Global pitch multiplier TARGET from the trackpad bend (1.0 = none,
-    /// 2.0 = +1 octave). Written main-thread, read render-thread; a plain
-    /// Double is atomic enough (worst case one block reads a half-stale
-    /// value).
-    private var pitchScale: Double = 1.0
-
-    /// Render-thread-owned smoothed pitch that glides toward `pitchScale`.
+    /// Render-owned smoothed pitch follows a lock-free atomic target.
     /// The trackpad hands us a NEW target on every mouse-moved tick, so
     /// applying it as a hard per-block step makes the native voices'
     /// pitch-derived state jump — a Karplus-Strong delay line resizes,
@@ -113,25 +102,21 @@ final class MenuBandGMSynth {
 
     // MARK: Control → render handoff
 
-    private enum Command {
-        case noteOn(midi: UInt8, channel: UInt8, velocity: UInt8, program: Int32, seed: UInt32)
-        case noteOff(midi: UInt8, channel: UInt8)
-        case panic
-    }
-    private var pending: [Command] = []
+    private let commands = mb_realtime_queue_create()!
+    // Serializes producers only. The render callback never takes this lock.
     private let lock = NSLock()
 
     init() {
         voices = [Voice](repeating: Voice(), count: maxVoices)
         cores = UnsafeMutablePointer<GMVoice>.allocate(capacity: maxVoices)
         cores.initialize(repeating: GMVoice(), count: maxVoices)
-        pending.reserveCapacity(64)
         // Build the shared wavetable once, up front, so the first note-on
         // doesn't pay for it on the audio path. Idempotent.
         gm_synth_init()
     }
 
     deinit {
+        mb_realtime_queue_destroy(commands)
         cores.deinitialize(count: maxVoices)
         cores.deallocate()
     }
@@ -166,29 +151,28 @@ final class MenuBandGMSynth {
         gm_program_implemented(Int32(program)) == 1
     }
 
-    /// Inform the node of the current melodic program. Future note-ons use
-    /// it; sounding notes keep their original voice.
-    func setProgram(_ program: UInt8) {
-        self.program = Int32(program)
-    }
+    /// Program is carried by each note command; sounding voices keep theirs.
+    func setProgram(_ program: UInt8) {}
 
     /// Kit-wide pitch shift from a bend amount in the melodic voices' units
     /// (±1 == ±12 semitones). Applied live to sounding + future notes.
     func setPitchBend(amount: Float) {
-        pitchScale = pow(2.0, Double(amount))
+        mb_realtime_queue_set_pitch(commands, pow(2.0, Double(amount)))
     }
 
     /// Stage a note-on for `program`. Returns false if the program has no
     /// GM voice (so the caller can fall back to MIDISynth); true if it was
-    /// accepted for the GM path.
+    /// owned by the GM path. Overflow silence must not trigger fallback
+    /// into another backend whose release ownership would be ambiguous.
     @discardableResult
     func noteOn(_ midi: UInt8, velocity: UInt8, channel: UInt8, program: UInt8) -> Bool {
         guard gm_program_implemented(Int32(program)) == 1 else { return false }
         lock.lock()
         seedCounter = seedCounter &* 1_664_525 &+ 1_013_904_223
         let seed = seedCounter
-        pending.append(.noteOn(midi: midi, channel: channel, velocity: velocity,
-                               program: Int32(program), seed: seed))
+        _ = mb_realtime_queue_push(commands, MBRealtimeCommand(
+            kind: 1, seed: seed, program: Int32(program),
+            note: midi, channel: channel, velocity: velocity))
         lock.unlock()
         return true
     }
@@ -196,14 +180,16 @@ final class MenuBandGMSynth {
     /// Stage a note-off: the matching sounding voice enters its release.
     func noteOff(_ midi: UInt8, channel: UInt8) {
         lock.lock()
-        pending.append(.noteOff(midi: midi, channel: channel))
+        _ = mb_realtime_queue_push(commands, MBRealtimeCommand(
+            kind: 2, seed: 0, program: 0, note: midi, channel: channel, velocity: 0))
         lock.unlock()
     }
 
     /// Drop everything (e.g. backend switch / panic).
     func panic() {
         lock.lock()
-        pending.append(.panic)
+        _ = mb_realtime_queue_push(commands, MBRealtimeCommand(
+            kind: 3, seed: 0, program: 0, note: 0, channel: 0, velocity: 0))
         lock.unlock()
     }
 
@@ -231,22 +217,26 @@ final class MenuBandGMSynth {
 
     // MARK: Render thread
 
-    private func render(frameCount: Int, abl: UnsafeMutablePointer<AudioBufferList>) {
+    func render(frameCount: Int, abl: UnsafeMutablePointer<AudioBufferList>) {
         let buffers = UnsafeMutableAudioBufferListPointer(abl)
         let left = buffers[0].mData!.assumingMemoryBound(to: Float.self)
         let right = (buffers.count > 1 ? buffers[1].mData! : buffers[0].mData!)
             .assumingMemoryBound(to: Float.self)
         for i in 0..<frameCount { left[i] = 0; right[i] = 0 }
 
-        // Drain staged commands into the voice pool.
-        lock.lock()
-        let cmds = pending
-        if !pending.isEmpty { pending.removeAll(keepingCapacity: true) }
-        lock.unlock()
-
-        for cmd in cmds {
-            switch cmd {
-            case let .noteOn(midi, channel, velocity, prog, seed):
+        // Bounded, allocation-free control handoff. Overflow silences the
+        // entire old generation rather than dropping a release behind an onset.
+        if mb_realtime_queue_take_reset(commands) {
+            for i in 0..<maxVoices { voices[i].active = false }
+        }
+        var command = MBRealtimeCommand()
+        for _ in 0..<mb_realtime_queue_capacity() {
+            guard mb_realtime_queue_pop(commands, &command) else { break }
+            switch command.kind {
+            case 1:
+                let midi = command.note, channel = command.channel
+                let velocity = command.velocity, prog = command.program
+                let seed = command.seed
                 let slot = allocateVoice()
                 let f = MenuBandGMSynth.freq(forMIDI: midi)
                 // Init the C voice IN PLACE in the slot's `cores` entry. The
@@ -274,14 +264,16 @@ final class MenuBandGMSynth {
                     // Unimplemented program: make sure a stolen slot is freed.
                     voices[slot].active = false
                 }
-            case let .noteOff(midi, channel):
+            case 2:
+                let midi = command.note, channel = command.channel
                 for i in 0..<maxVoices where
                     voices[i].active && !voices[i].releasing
                     && voices[i].midi == midi && voices[i].channel == channel {
                     voices[i].releasing = true
                 }
-            case .panic:
+            case 3:
                 for i in 0..<maxVoices { voices[i].active = false }
+            default: break
             }
         }
 
@@ -292,7 +284,7 @@ final class MenuBandGMSynth {
         // so we replay the identical recurrence (same start, target, coeff)
         // per voice and commit the final value once at the end.
         let pitchStart = glidePitch
-        let pitchTarget = pitchScale
+        let pitchTarget = mb_realtime_queue_pitch(commands)
         let pitchCoeff = pitchGlideCoeff
 
         for idx in 0..<maxVoices where voices[idx].active {

@@ -1,0 +1,919 @@
+\documentclass[11pt,letterpaper]{article}
+\usepackage[top=0.6in,bottom=0.5in,left=0.55in,right=0.55in]{geometry}
+\usepackage{fontspec}\usepackage{graphicx}\graphicspath{{../../../../papers/notepat-charts/}}
+\usepackage{xcolor}\usepackage{amsmath}\usepackage{tikz}\usepackage{ifthen}
+\setmainfont[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic]{lmroman10}
+\setsansfont[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold]{lmsans10}
+\setmonofont[Extension=.otf,UprightFont=lmmono10-regular,BoldFont=lmmonolt10-bold]{lmmono10}
+\definecolor{cream}{HTML}{F6F0E2}\definecolor{ink}{HTML}{1E1A14}\definecolor{red}{HTML}{C03A2B}\definecolor{dim}{HTML}{9A8F7A}\definecolor{skin}{HTML}{E8C9A6}\definecolor{blue}{HTML}{2457A8}
+\pagecolor{cream}\color{ink}\pagestyle{empty}
+\newcommand{\keycap}[4]{\definecolor{capfill}{HTML}{#2}\begin{tikzpicture}[baseline=-0.5ex]
+\ifthenelse{\equal{#1}{big}}{\def\cw{0.78}\def\ch{0.78}\def\fs{\fontsize{22}{22}\selectfont}}{\def\cw{0.78}\def\ch{0.5}\def\fs{\fontsize{15}{15}\selectfont}}
+\fill[capfill!25!cream,draw=capfill!70!ink,line width=1pt,rounded corners=3pt] (-\cw/2,-\ch/2) rectangle (\cw/2,\ch/2);
+\node[font=\ttfamily\bfseries\fs,text=#3] at (0,0) {#4};\end{tikzpicture}}
+% \longcap{width}{letter dx}{fill}{text color}{letter}: one cap held across beats, a tail through the rest.
+\newcommand{\longcap}[5]{\definecolor{capfill}{HTML}{#3}\begin{tikzpicture}[baseline=-0.5ex]
+\fill[capfill!25!cream,draw=capfill!70!ink,line width=1pt,rounded corners=3pt] (-#1/2,-0.39) rectangle (#1/2,0.39);
+\node[font=\ttfamily\bfseries\fontsize{22}{22}\selectfont,text=#4] at (#2,0) {#5};
+\draw[capfill!70!ink,line width=1.6pt,line cap=round] (#2+0.42,0) -- (#1/2-0.18,0);\end{tikzpicture}}
+% \grp{right}{left}: one beat as text, right-hand letter then left-hand letters.
+\newcommand{\grp}[2]{{\ttfamily\bfseries\Large #1}{\ttfamily\Large\color{blue}#2}}
+\newcommand{\handpic}[1]{\begin{tikzpicture}[scale=0.13,xscale=#1,baseline=0]
+\fill[skin,draw=ink,line width=0.6pt,rounded corners=1.2pt] (-2.2,-3) rectangle (2.2,0.6);
+\foreach \x/\h in {-1.65/2.6,-0.55/3.2,0.55/3.0,1.65/2.3}{\fill[skin,draw=ink,line width=0.6pt,rounded corners=1.4pt] (\x-0.5,0.2) rectangle (\x+0.5,\h);}
+\fill[skin,draw=ink,line width=0.6pt,rounded corners=1.4pt,rotate around={-35:(2.2,-1.6)}] (1.8,-2.2) rectangle (3.0,0.3);
+\end{tikzpicture}}
+\newcommand{\rhand}{\handpic{1}}
+\newcommand{\lhand}{\handpic{-1}}
+\begin{document}
+\begin{center}{\fontsize{36}{40}\selectfont\bfseries QWERTY Waltzes}\\[24pt]
+\includegraphics[width=0.8\textwidth]{keys-strip.png}\\[30pt]
+{\LARGE \rhand\quad right hand row}\\[12pt]
+{\LARGE \lhand\quad left hand row}\\[24pt]
+{\LARGE one cap per beat \quad count \textbf{1} 2 3 \quad \textbf{1} 2 3}\\[12pt]
+{\LARGE thin lines split the beats, a heavy line ends the bar}\\[24pt]
+{\LARGE \keycap{big}{3278FF}{ink}{g}\quad press}\\[12pt]
+{\LARGE \longcap{1.78}{-0.5}{3278FF}{ink}{g}\quad hold for two beats}\\[12pt]
+{\LARGE \begin{tikzpicture}[baseline=-0.5ex]\node at (0,0.32) {\keycap{small}{FFE600}{ink}{e}};\node at (0,-0.32) {\keycap{small}{3278FF}{ink}{g}};\end{tikzpicture}\quad press both}\\[24pt]
+{\LARGE \grp{k}{d}\ \ \grp{j}{fa}\ \ \grp{k}{fa}\quad the same bar as a line}\\[8pt]
+{\large under each beat: right letter, then left letters. a beat with no right letter keeps holding.}
+\end{center}
+\clearpage
+
+\begin{center}
+{\fontsize{32}{36}\selectfont\bfseries Home Row Waltz}\\[6pt]
+{\large 120 bpm \quad count 1 2 3}
+\end{center}
+\vspace{6pt}
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{k}{fa}};
+\node at (1.80,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (2.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (3.80,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (1.80,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (2.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (2.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (3.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (3.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{fa}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{32C832}{ink}{k}};
+\node at (5.00,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (6.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (6.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (7.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (7.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{h}{f}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{h}{fa}};
+\node at (8.20,1.05) {\keycap{big}{FF3232}{ink}{h}};
+\node at (9.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (10.20,1.05) {\keycap{big}{FF3232}{ink}{h}};
+\node at (8.20,-0.35) {\keycap{big}{32C832}{ink}{f}};
+\node at (9.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (9.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (10.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (10.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{k}{f}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{fa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{32C832}{ink}{k}};
+\node at (11.40,-0.35) {\keycap{big}{32C832}{ink}{f}};
+\node at (12.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{}{dg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{}{dg}};
+\node at (2.80,1.05) {\longcap{2.78}{-1.00}{3278FF}{ink}{l}};
+\node at (1.80,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (2.80,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (2.80,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (3.80,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (3.80,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{k}{dg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{l}{dg}};
+\node at (5.00,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (6.00,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (7.00,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (5.00,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (6.00,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (6.00,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (7.00,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (7.00,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{k}{fa}};
+\node at (8.20,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (9.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (10.20,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (8.20,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (9.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (9.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (10.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (10.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{fa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{32C832}{ink}{k}};
+\node at (11.40,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (12.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{h}{f}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{}{fa}};
+\node at (2.80,1.05) {\longcap{2.78}{-1.00}{FF3232}{ink}{h}};
+\node at (1.80,-0.35) {\keycap{big}{32C832}{ink}{f}};
+\node at (2.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (2.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (3.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (3.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{h}{f}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{k}{fa}};
+\node at (5.00,1.05) {\keycap{big}{FF3232}{ink}{h}};
+\node at (6.00,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (7.00,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (5.00,-0.35) {\keycap{big}{32C832}{ink}{f}};
+\node at (6.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (6.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (7.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (7.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{}{dg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{}{dg}};
+\node at (9.20,1.05) {\longcap{2.78}{-1.00}{3278FF}{ink}{l}};
+\node at (8.20,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (9.20,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (9.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (10.20,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (10.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{k}{dg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{l}{dg}};
+\node at (11.40,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (12.40,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (13.40,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (11.40,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (12.40,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (12.40,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (13.40,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (13.40,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{k}{fa}};
+\node at (1.80,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (2.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (3.80,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (1.80,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (2.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (2.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (3.80,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (3.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{h}{f}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{k}{fa}};
+\node at (5.00,1.05) {\keycap{big}{FF3232}{ink}{h}};
+\node at (6.00,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (7.00,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (5.00,-0.35) {\keycap{big}{32C832}{ink}{f}};
+\node at (6.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (6.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (7.00,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (7.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{\,;}{dg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{}{dg}};
+\node at (8.20,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (9.70,1.05) {\longcap{1.78}{-0.50}{FF3232}{ink}{;}};
+\node at (8.20,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (9.20,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (9.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (10.20,-0.05) {\keycap{small}{FFA000}{ink}{d}};
+\node at (10.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{k}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{fa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{32C832}{ink}{k}};
+\node at (11.40,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (12.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+\clearpage
+\begin{center}
+{\fontsize{32}{36}\selectfont\bfseries Minor Waltz}\\[6pt]
+{\large 112 bpm \quad count 1 2 3}
+\end{center}
+\vspace{6pt}
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{j}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{m}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{j}{ce}};
+\node at (1.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (2.80,1.05) {\keycap{big}{8232C8}{ink}{m}};
+\node at (3.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (1.80,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (2.80,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (2.80,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (3.80,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (3.80,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{h}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{ce}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{FF3232}{ink}{h}};
+\node at (5.00,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (6.00,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (6.00,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (7.00,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (7.00,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{i}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{k}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{i}{fa}};
+\node at (8.20,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (9.20,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (10.20,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (8.20,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (9.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (9.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (10.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (10.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{j}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{ce}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{FFE600}{ink}{j}};
+\node at (11.40,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (12.40,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (12.40,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (13.40,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (13.40,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{o}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{n}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{o}{rb}};
+\node at (1.80,1.05) {\keycap{big}{333333}{white}{o}};
+\node at (2.80,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (3.80,1.05) {\keycap{big}{333333}{white}{o}};
+\node at (1.80,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (2.80,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (2.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (3.80,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (3.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{j}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{rb}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{FFE600}{ink}{j}};
+\node at (5.00,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (6.00,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (6.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (7.00,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (7.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{h}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{i}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{j}{ce}};
+\node at (8.20,1.05) {\keycap{big}{FF3232}{ink}{h}};
+\node at (9.20,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (10.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (8.20,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (9.20,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (9.20,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (10.20,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (10.20,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{n}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{rb}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{B450FF}{ink}{n}};
+\node at (11.40,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (12.40,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (12.40,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (13.40,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (13.40,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{m}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{l}{ce}};
+\node at (2.30,1.05) {\longcap{1.78}{-0.50}{8232C8}{ink}{m}};
+\node at (3.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (1.80,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (2.80,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (2.80,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (3.80,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (3.80,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{k}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{j}{ce}};
+\node at (5.50,1.05) {\longcap{1.78}{-0.50}{32C832}{ink}{k}};
+\node at (7.00,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (5.00,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (6.00,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (6.00,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (7.00,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (7.00,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{i}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{j}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{k}{fa}};
+\node at (8.20,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (9.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (10.20,1.05) {\keycap{big}{32C832}{ink}{k}};
+\node at (8.20,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (9.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (9.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (10.20,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (10.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{m}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{fa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{fa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{8232C8}{ink}{m}};
+\node at (11.40,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (12.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{32C832}{ink}{f}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{o}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{n}{rb}};
+\node at (2.30,1.05) {\longcap{1.78}{-0.50}{333333}{white}{o}};
+\node at (3.80,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (1.80,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (2.80,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (2.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (3.80,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (3.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{j}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{rb}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{FFE600}{ink}{j}};
+\node at (5.00,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (6.00,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (6.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (7.00,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (7.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{o}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{n}{rb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{o}{rb}};
+\node at (8.20,1.05) {\keycap{big}{333333}{white}{o}};
+\node at (9.20,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (10.20,1.05) {\keycap{big}{333333}{white}{o}};
+\node at (8.20,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (9.20,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (9.20,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (10.20,-0.05) {\keycap{small}{333333}{white}{r}};
+\node at (10.20,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{m}{a}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{ce}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{ce}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{8232C8}{ink}{m}};
+\node at (11.40,-0.35) {\keycap{big}{8232C8}{ink}{a}};
+\node at (12.40,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (12.40,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\node at (13.40,-0.05) {\keycap{small}{FF3232}{ink}{c}};
+\node at (13.40,-0.68) {\keycap{small}{FFE600}{ink}{e}};
+\end{tikzpicture}}
+\clearpage
+\begin{center}
+{\fontsize{32}{36}\selectfont\bfseries Sharp Waltz}\\[6pt]
+{\large 126 bpm \quad count 1 2 3}
+\end{center}
+\vspace{6pt}
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{n}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{l}{bd}};
+\node at (1.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (2.80,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (3.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (1.80,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (2.80,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (2.80,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (3.80,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (3.80,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{i}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{bd}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{FFA000}{ink}{i}};
+\node at (5.00,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (6.00,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (6.00,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (7.00,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (7.00,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{j}{c}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{l}{eg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{j}{eg}};
+\node at (8.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (9.20,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (10.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (8.20,-0.35) {\keycap{big}{FF3232}{ink}{c}};
+\node at (9.20,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (9.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (10.20,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (10.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{i}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{bd}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{FFA000}{ink}{i}};
+\node at (11.40,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (12.40,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (12.40,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (13.40,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (13.40,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{u}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{m}{wa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{u}{wa}};
+\node at (1.80,1.05) {\keycap{big}{333333}{white}{u}};
+\node at (2.80,1.05) {\keycap{big}{8232C8}{ink}{m}};
+\node at (3.80,1.05) {\keycap{big}{333333}{white}{u}};
+\node at (1.80,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (2.80,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (2.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (3.80,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (3.80,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{i}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{j}{wa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{u}{wa}};
+\node at (5.00,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (6.00,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (7.00,1.05) {\keycap{big}{333333}{white}{u}};
+\node at (5.00,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (6.00,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (6.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (7.00,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (7.00,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{n}{bd}};
+\node at (8.70,1.05) {\longcap{1.78}{-0.50}{3278FF}{ink}{l}};
+\node at (10.20,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (8.20,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (9.20,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (9.20,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (10.20,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (10.20,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{m}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{wa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{wa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{8232C8}{ink}{m}};
+\node at (11.40,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (12.40,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{j}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{l}{gb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{j}{gb}};
+\node at (1.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (2.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (3.80,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (1.80,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (2.80,-0.05) {\keycap{small}{3278FF}{ink}{g}};
+\node at (2.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (3.80,-0.05) {\keycap{small}{3278FF}{ink}{g}};
+\node at (3.80,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{n}{e}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{}{gb}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{}{gb}};
+\node at (6.00,1.05) {\longcap{2.78}{-1.00}{B450FF}{ink}{n}};
+\node at (5.00,-0.35) {\keycap{big}{FFE600}{ink}{e}};
+\node at (6.00,-0.05) {\keycap{small}{3278FF}{ink}{g}};
+\node at (6.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node at (7.00,-0.05) {\keycap{small}{3278FF}{ink}{g}};
+\node at (7.00,-0.68) {\keycap{small}{B450FF}{ink}{b}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{j}{c}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{l}{eg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{m}{eg}};
+\node at (8.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (9.20,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (10.20,1.05) {\keycap{big}{8232C8}{ink}{m}};
+\node at (8.20,-0.35) {\keycap{big}{FF3232}{ink}{c}};
+\node at (9.20,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (9.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (10.20,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (10.20,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{u}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{wa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{wa}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{333333}{white}{u}};
+\node at (11.40,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (12.40,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (12.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (13.40,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (13.40,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\end{tikzpicture}}
+
+\vspace{10pt}
+
+\noindent\resizebox{\textwidth}{!}{\begin{tikzpicture}[x=1cm,y=1cm]
+\node at (0.45,1.05) {\rhand};
+\node at (0.45,-0.35) {\lhand};
+\draw[ink!55!cream,line width=0.9pt] (1.30,-2.25) -- (1.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (2.30,-2.25) -- (2.30,1.60);
+\draw[dim!40!cream,line width=0.4pt] (3.30,-2.25) -- (3.30,1.60);
+\draw[ink!55!cream,line width=0.9pt] (4.50,-2.25) -- (4.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (5.50,-2.25) -- (5.50,1.60);
+\draw[dim!40!cream,line width=0.4pt] (6.50,-2.25) -- (6.50,1.60);
+\draw[ink!55!cream,line width=0.9pt] (7.70,-2.25) -- (7.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (8.70,-2.25) -- (8.70,1.60);
+\draw[dim!40!cream,line width=0.4pt] (9.70,-2.25) -- (9.70,1.60);
+\draw[ink!55!cream,line width=0.9pt] (10.90,-2.25) -- (10.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (11.90,-2.25) -- (11.90,1.60);
+\draw[dim!40!cream,line width=0.4pt] (12.90,-2.25) -- (12.90,1.60);
+\draw[ink!55!cream,line width=0.9pt] (14.10,-2.25) -- (14.10,1.60);
+\node[font=\large\sffamily\bfseries\color{ink}] at (1.80,-1.35) {1};
+\node at (1.80,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (2.80,-1.35) {2};
+\node at (2.80,-1.92) {\grp{n}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (3.80,-1.35) {3};
+\node at (3.80,-1.92) {\grp{l}{bd}};
+\node at (1.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (2.80,1.05) {\keycap{big}{B450FF}{ink}{n}};
+\node at (3.80,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (1.80,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (2.80,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (2.80,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (3.80,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (3.80,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (5.00,-1.35) {1};
+\node at (5.00,-1.92) {\grp{l}{c}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (6.00,-1.35) {2};
+\node at (6.00,-1.92) {\grp{m}{eg}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (7.00,-1.35) {3};
+\node at (7.00,-1.92) {\grp{j}{eg}};
+\node at (5.00,1.05) {\keycap{big}{3278FF}{ink}{l}};
+\node at (6.00,1.05) {\keycap{big}{8232C8}{ink}{m}};
+\node at (7.00,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (5.00,-0.35) {\keycap{big}{FF3232}{ink}{c}};
+\node at (6.00,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (6.00,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node at (7.00,-0.05) {\keycap{small}{FFE600}{ink}{e}};
+\node at (7.00,-0.68) {\keycap{small}{3278FF}{ink}{g}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (8.20,-1.35) {1};
+\node at (8.20,-1.92) {\grp{i}{d}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (9.20,-1.35) {2};
+\node at (9.20,-1.92) {\grp{j}{wa}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (10.20,-1.35) {3};
+\node at (10.20,-1.92) {\grp{u}{wa}};
+\node at (8.20,1.05) {\keycap{big}{FFA000}{ink}{i}};
+\node at (9.20,1.05) {\keycap{big}{FFE600}{ink}{j}};
+\node at (10.20,1.05) {\keycap{big}{333333}{white}{u}};
+\node at (8.20,-0.35) {\keycap{big}{FFA000}{ink}{d}};
+\node at (9.20,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (9.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node at (10.20,-0.05) {\keycap{small}{333333}{white}{w}};
+\node at (10.20,-0.68) {\keycap{small}{8232C8}{ink}{a}};
+\node[font=\large\sffamily\bfseries\color{ink}] at (11.40,-1.35) {1};
+\node at (11.40,-1.92) {\grp{l}{g}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (12.40,-1.35) {2};
+\node at (12.40,-1.92) {\grp{}{bd}};
+\node[font=\large\sffamily\bfseries\color{dim}] at (13.40,-1.35) {3};
+\node at (13.40,-1.92) {\grp{}{bd}};
+\node at (12.40,1.05) {\longcap{2.78}{-1.00}{3278FF}{ink}{l}};
+\node at (11.40,-0.35) {\keycap{big}{3278FF}{ink}{g}};
+\node at (12.40,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (12.40,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\node at (13.40,-0.05) {\keycap{small}{B450FF}{ink}{b}};
+\node at (13.40,-0.68) {\keycap{small}{FFA000}{ink}{d}};
+\end{tikzpicture}}
+\clearpage
+\end{document}

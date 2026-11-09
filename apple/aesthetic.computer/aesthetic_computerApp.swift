@@ -382,3 +382,127 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
     }
 }
+
+#if os(macOS)
+// pointer lock shim: WKWebView exposes requestPointerLock but never grants it
+// (the request rejects with pointerlockerror), so the page's API is replaced
+// in every aesthetic.computer frame, the dool iframe included. The frame that
+// asks gets the cursor hidden and pinned, and raw mouse deltas arrive as
+// mousemove events with movementX/Y until Escape, exitPointerLock, a resign
+// of the app or key window, or a navigation.
+@MainActor enum PointerLock {
+    private(set) static var active = false
+    private static weak var webView: WKWebView?
+    private static var frame: WKFrameInfo?
+    private static var monitors: [Any] = []
+    private static var observers: [NSObjectProtocol] = []
+    private static var dx = 0.0, dy = 0.0, flushing = false
+
+    static let script = """
+        (() => {
+          const bridge = window.webkit?.messageHandlers?.acPointerLock;
+          if (!bridge) return;
+          let locked = null;
+          Object.defineProperty(Document.prototype, 'pointerLockElement', { configurable: true, get: () => locked });
+          const change = () => document.dispatchEvent(new Event('pointerlockchange'));
+          Element.prototype.requestPointerLock = function () {
+            locked = this;
+            bridge.postMessage({ type: 'pointerlock', on: true });
+            change();
+            return Promise.resolve();
+          };
+          Document.prototype.exitPointerLock = function () {
+            if (!locked) return;
+            locked = null;
+            bridge.postMessage({ type: 'pointerlock', on: false });
+            change();
+          };
+          window.__acPointerMove = (dx, dy) => {
+            if (!locked) return;
+            const e = new MouseEvent('mousemove', { bubbles: true, movementX: dx, movementY: dy });
+            Object.defineProperty(e, 'movementX', { value: dx });
+            Object.defineProperty(e, 'movementY', { value: dy });
+            locked.dispatchEvent(e);
+          };
+        })();
+        """
+
+    static func handle(_ message: WKScriptMessage) {
+        guard message.frameInfo.securityOrigin.protocol == "https",
+              message.frameInfo.securityOrigin.host == "aesthetic.computer",
+              let body = message.body as? [String: Any], let on = body["on"] as? Bool else { return }
+        if on, let view = message.webView { lock(view, frame: message.frameInfo) }
+        else if !on { release(notifyPage: false) }
+    }
+
+    private static func lock(_ view: WKWebView, frame info: WKFrameInfo) {
+        release(notifyPage: true) // another frame took over; tell the old one
+        webView = view
+        frame = info
+        active = true
+        NSCursor.hide()
+        _ = CGAssociateMouseAndMouseCursorPosition(0)
+        let mouse = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged,
+                                                                .otherMouseDragged]) { event in
+            MainActor.assumeIsolated { move(event.deltaX, event.deltaY) }
+            return event // clicks and drags still reach the page
+        }
+        let keys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { MainActor.assumeIsolated { release(notifyPage: true) } } // Escape
+            return event
+        }
+        monitors = [mouse, keys].compactMap { $0 }
+        let center = NotificationCenter.default
+        observers = [
+            center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { release(notifyPage: true) }
+            },
+            center.addObserver(forName: NSWindow.didResignKeyNotification, object: view.window, queue: .main) { _ in
+                MainActor.assumeIsolated { release(notifyPage: true) }
+            },
+        ]
+    }
+
+    /// `notifyPage` runs `document.exitPointerLock()` in the locked frame so
+    /// its `pointerlockchange` fires; the page's own exit call arrives here
+    /// as `on: false` and finds nothing left to do.
+    static func release(notifyPage: Bool) {
+        guard active else { return }
+        active = false
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
+        dx = 0
+        dy = 0
+        _ = CGAssociateMouseAndMouseCursorPosition(1)
+        NSCursor.unhide()
+        if notifyPage, let webView, let frame {
+            webView.evaluateJavaScript("document.exitPointerLock()", in: frame, in: .page) { _ in }
+        }
+        webView = nil
+        frame = nil
+    }
+
+    // Deltas from one run-loop pass are summed into a single IPC to the page.
+    private static func move(_ x: CGFloat, _ y: CGFloat) {
+        dx += x
+        dy += y
+        guard !flushing else { return }
+        flushing = true
+        DispatchQueue.main.async { flush() }
+    }
+
+    private static func flush() {
+        flushing = false
+        guard active, let webView, let frame, dx != 0 || dy != 0 else { return }
+        let js = "window.__acPointerMove(\(dx),\(dy))"
+        dx = 0
+        dy = 0
+        webView.evaluateJavaScript(js, in: frame, in: .page) { result in
+            // The frame navigated away or reloaded while locked: the cursor must not stay pinned.
+            if case .failure = result { Task { @MainActor in release(notifyPage: false) } }
+        }
+    }
+}
+#endif

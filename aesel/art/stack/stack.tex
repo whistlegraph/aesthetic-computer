@@ -1,0 +1,114 @@
+% Where Aesel sits in the Aesthetic Computer stack — standalone TikZ figure in the papers house style
+% (modelled on the nela.computer infrastructure map of 2026-11-07).
+% build: ./build.sh  (xelatex stack.tex ; pdftocairo -png -r 300 -singlefile ; pdftocairo -svg)
+\documentclass{article}
+\usepackage{tikz}
+% no standalone.cls on this TeX Live: size the single page to the picture (8pt border)
+\pagestyle{empty}\parindent=0pt\topskip=0pt\hoffset=-1in\voffset=-1in\oddsidemargin=0pt\topmargin=0pt\headheight=0pt\headsep=0pt\textwidth=60cm\textheight=60cm
+\usepackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique,BoldItalicFont=lmsans10-boldoblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,ItalicFont=lmmono10-italic,Scale=0.85]
+\usepackage{xcolor,graphicx}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,calc}
+\pgfdeclarelayer{regions}\pgfdeclarelayer{boxes}\pgfsetlayers{regions,boxes,main}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acpurple}{RGB}{120,80,180}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\definecolor{acteal}{RGB}{42,138,130}
+\definecolor{ink}{HTML}{111111}\definecolor{muted}{HTML}{5C5C5C}
+\DeclareRobustCommand{\chip}[1]{\raisebox{\dimexpr-0.5\height+0.75ex\relax}{\includegraphics[height=1.05em,width=1.05em,keepaspectratio]{icons/#1.png}}\,}
+\newcommand{\h}[1]{{\ttfamily\scriptsize #1}}
+\tikzset{
+  nd/.style={draw=#1,fill=#1!7,rounded corners=3pt,align=center,font=\sffamily\footnotesize,inner sep=4pt,line width=.6pt,text width=3.4cm,execute at begin node=\hyphenpenalty10000\exhyphenpenalty10000\relax},
+  app/.style={draw=#1,fill=#1!7,rounded corners=3pt,align=left,font=\sffamily\footnotesize,inner sep=3.5pt,line width=.6pt,text width=5.9cm,execute at begin node=\hyphenpenalty10000\exhyphenpenalty10000\relax},
+  region/.style={draw=acgray,dashed,rounded corners=8pt,line width=.6pt,inner sep=9pt,fill=none},
+  rlab/.style={font=\sffamily\scriptsize\bfseries,color=acgray,anchor=south west,inner sep=2pt},
+  arr/.style={-{Stealth[length=4pt]},color=ink,line width=.6pt},
+  eng/.style={-{Stealth[length=4pt]},color=acpurple,line width=.8pt,dashed},
+  live/.style={-{Stealth[length=3.5pt]},color=acteal,line width=.6pt,dotted},
+  loc/.style={{Stealth[length=3.5pt]}-{Stealth[length=3.5pt]},color=acpink,line width=.6pt},
+  lab/.style={font=\sffamily\scriptsize,color=muted,align=center,fill=white,fill opacity=.75,text opacity=1,inner sep=1.5pt}}
+\newsavebox{\figbox}
+\begin{document}
+\savebox{\figbox}{%
+\begin{tikzpicture}[x=1cm,y=1cm]
+% ---------- your machine ----------
+\node[nd=acpink] (aesel) at (0,3.0) {\chip{aesel}\textbf{aesel}\\[1pt]\scriptsize \chip{apple}\chip{linux}terminal \h{a} · \chip{swift}Mac · \chip{windows}Windows · iPhone\\ browser at \h{aesel.app/try}\\[1pt] holds the conversation and the files;\\ an engine does the writing};
+\node[nd=acdark] (work) at (0,0.45) {\textbf{the workspace}\\[1pt]\scriptsize \h{.aesel/} on this disk\\ transcript · revisions v1\,$\to$\,v$n$ · artifacts\\ \h{/versions} · \h{/rollback} adds, never erases};
+\node[nd=acdark] (tools) at (0,-1.95) {\textbf{tools the engine holds}\\[1pt]\scriptsize \h{ac\_api} · \h{ac\_examples} · \h{ac\_outline}\\ \h{ac\_preview} · \h{ac\_frame}: the preview\\ writes its pixels back to this disk};
+\node[nd=acdark] (made) at (0,-4.35) {\textbf{made here, kept here}\\[1pt]\scriptsize paper: XeLaTeX / Tectonic\\ Game Boy ROM: GBDK-2020 \h{lcc}\\ sound: synthesized · picture: brush steps};
+\begin{pgfonlayer}{regions}
+\node[region=white,fit=(aesel)(work)(tools)(made)] (you) {};
+\end{pgfonlayer}
+\node[rlab] at (you.north west) {YOUR MACHINE};
+
+% ---------- aesthetic computer ----------
+\node[nd=acdark,text width=5.9cm] (cf) at (7.0,3.95) {\chip{cloudflare}\textbf{Cloudflare}\\[1pt]\scriptsize DNS · proxy · cache for \h{aesthetic.computer} · \h{prompt.ac} · \h{aesel.app}};
+\node[font=\sffamily\footnotesize,align=left,anchor=north west,text width=5.9cm,inner sep=0pt] (lithhead) at ($(cf.south west)+(0,-0.5)$) {\chip{digitalocean}\chip{caddy}\chip{nodedotjs}\textbf{lith}\hfill\h{lith.aesthetic.computer}\\[-1pt]\scriptsize one Express monolith behind Caddy · \mbox{DigitalOcean} VPS · deployed from the knot's \h{main}};
+\node[app=acteal,anchor=north west] (inf) at ($(lithhead.south west)+(0,-0.16)$) {\textbf{inference relay}\hfill\h{/api/easel-inference}\\[-1pt]\scriptsize Anthropic Messages shape · model allowlist · \chip{braincell}braincells: a daily allowance, then a wallet};
+\node[app=acteal,below=.18 of inf] (livea) {\textbf{live channel}\hfill\h{/api/easel-live}\\[-1pt]\scriptsize \chip{redis}Redis · every save pushed to whoever is watching};
+\node[app=acteal,below=.18 of livea] (pub) {\textbf{publish}\hfill\h{/api/register-piece}\\[-1pt]\scriptsize a presigned PUT to the user bucket · \h{aesthetic.computer/@you/name}};
+\node[app=acteal,below=.18 of pub] (tr) {\textbf{transcripts}\hfill\h{/api/easel-transcripts}\\[-1pt]\scriptsize \chip{mongodb}MongoDB · shared with AC to improve Aesel · soft-expire};
+\node[app=acteal,below=.18 of tr] (img) {\textbf{hosted picture tools}\hfill\h{/api/easel-image}\\[-1pt]\scriptsize \chip{openai}OpenAI or fal · five a day};
+\node[app=acpurple,below=.18 of img] (auth) {\chip{auth0}\textbf{sign-in}\hfill\h{hi.aesthetic.computer}\\[-1pt]\scriptsize Auth0 · one @handle across terminal, apps and web};
+\node[app=acdark,below=.18 of auth,text width=2.8cm,anchor=north west] (pay) at ($(auth.south west)+(0,-0.18)$) {\textbf{braincell top-ups}\\[-1pt]\scriptsize \chip{stripe}Stripe · \chip{apple}in-app · Tezos};
+\node[app=acdark,text width=2.8cm,anchor=north east] (rel) at ($(auth.south east)+(0,-0.18)$) {\textbf{releases}\hfill\h{prompt.ac/aesel.sh}\\[-1pt]\scriptsize self-update · DMG / EXE via \h{/api/download}};
+\begin{pgfonlayer}{boxes}
+\node[draw=acteal,rounded corners=5pt,line width=.8pt,fill=acteal!6,fill opacity=.6,inner sep=7pt,fit=(lithhead)(inf)(pay)(rel)] (lith) {};
+\end{pgfonlayer}
+\node[nd=acgray,text width=2.6cm,anchor=north east] (spaces) at ($(lith.south east)+(0,-0.75)$) {\chip{digitalocean}\textbf{Spaces}\\[1pt]\scriptsize user bucket · CDN\\ pieces, paintings, builds};
+\node[nd=acgray,text width=2.6cm,anchor=north west] (site) at ($(lith.south west)+(0,-0.75)$) {\textbf{the piece, live}\\[1pt]\scriptsize \h{@you/name} on\\ \h{aesthetic.computer}};
+\begin{pgfonlayer}{regions}
+\node[region=white,fit=(cf)(lith)(spaces)(site)] (ac) {};
+\end{pgfonlayer}
+\node[rlab] at (ac.north west) {AESTHETIC COMPUTER};
+
+% ---------- engines ----------
+\node[nd=acpurple] (hosted) at (14.3,2.75) {\chip{openrouter}\textbf{AC hosted}\quad{\scriptsize default}\\[1pt]\scriptsize OpenRouter, on AC's account\\ \chip{anthropic}Claude Opus / Sonnet 5.5 · \chip{openai}Luna\\ \chip{deepseek}DeepSeek · Kimi · Qwen · MiniMax\\ nothing to install; metered in braincells};
+\node[nd=acpurple] (claude) at (14.3,0.0) {\chip{anthropic}\textbf{your Claude account}\\[1pt]\scriptsize the \h{claude} CLI on your machine\\ \h{/backend claude}};
+\node[nd=acpurple] (codex) at (14.3,-1.95) {\chip{openai}\textbf{your Codex account}\\[1pt]\scriptsize the \h{codex} CLI on your machine\\ \h{/backend codex}};
+\node[nd=acpurple] (open) at (14.3,-4.0) {\chip{openrouter}\textbf{open}\\[1pt]\scriptsize OpenRouter with your own key\\ open-weight models · no handle budget};
+\node[nd=acgray,dashed] (relay) at (14.3,-5.85) {\textbf{personal relay}\\[1pt]\scriptsize \h{help.aesthetic.computer}};
+\begin{pgfonlayer}{regions}
+\node[region=white,fit=(hosted)(claude)(codex)(open)(relay)] (eng) {};
+\end{pgfonlayer}
+\node[rlab] at (eng.north west) {ENGINES};
+
+% ---------- any phone ----------
+\node[nd=acteal] (phone) at (0,-7.55) {\textbf{any phone}\\[1pt]\scriptsize scans the QR · \h{prompt.ac} joins the channel\\ each save arrives and hot-reloads\\ Slab's preview beside the terminal, too};
+\begin{pgfonlayer}{regions}
+\node[region=white,fit=(phone)] (any) {};
+\end{pgfonlayer}
+\node[rlab] at (any.north west) {ANYWHERE};
+
+% ---------- links ----------
+\draw[arr] ([yshift=10pt]aesel.east) to[out=12,in=185] node[lab,pos=.48,above=1pt]{https · bearer @handle} (cf.west);|- aesel.east);
+\draw[arr] (cf.south) -- (lithhead.north -| cf.south);
+\draw[eng] (inf.east) -- node[lab,pos=.5]{stream} (hosted.west |- inf.east);
+\draw[eng,rounded corners=8pt] (aesel.north) -- ++(0,1.45) -| node[lab,pos=.22]{straight from aesel: the \h{claude} and \h{codex} CLIs over stdio · \textbf{open} over https with your key} ($(eng.east)+(.45,0)$) |- (claude.east);
+\draw[eng] (open.east) -- ++(.45,0) |- ($(eng.east)+(.45,0)$);
+\draw[eng,rounded corners=8pt] ($(eng.east)+(.45,0)$) |- (codex.east);
+\draw[live,rounded corners=8pt] (work.east) -| node[lab,pos=.3]{each save} ($(livea.west)+(-.5,0)$) -- (livea.west);
+\draw[live,rounded corners=8pt] ($(livea.west)+(-.5,0)$) |- node[lab,pos=.72]{the channel} (phone.east);
+\draw[arr,rounded corners=8pt] (pub.east) -- ++(.42,0) |- node[lab,pos=.35]{PUT} ($(spaces.east)+(.2,0)$) -- (spaces.east);
+\draw[arr] (spaces.west) -- node[lab,pos=.5]{served} (site.east);
+\draw[loc] (work.south) -- (tools.north);
+\draw[loc] (tools.south) -- (made.north);
+\draw[arr,acpurple,rounded corners=8pt] (auth.west) -- ++(-.35,0) |- node[lab,text=acpurple,pos=.8]{sign-in} ([yshift=-16pt]aesel.east);
+
+% ---------- key ----------
+\begin{pgfonlayer}{regions}\node[fit=(you)(ac)(eng)(any),inner sep=0pt] (all) {};\end{pgfonlayer}
+\node[font=\sffamily\scriptsize,color=muted,anchor=north west,align=left] at ([yshift=-6pt]all.south west) {%
+  \tikz\draw[arr](0,0)--(.6,0); https\quad
+  \tikz\draw[eng](0,0)--(.6,0); engine stream\quad
+  \tikz\draw[live](0,0)--(.6,0); live channel\quad
+  \tikz\draw[loc](0,0)--(.6,0); on this disk\quad
+  \tikz\draw[arr,acpurple](0,0)--(.6,0); sign-in\quad
+  surveyed 2026-11-08 · \h{aesel/src}, lith's functions, \h{easel-policy}};
+\end{tikzpicture}}%
+\pdfpagewidth=\dimexpr\wd\figbox+16pt\relax
+\pdfpageheight=\dimexpr\ht\figbox+\dp\figbox+16pt\relax
+\hbox{\hskip8pt\raise\dimexpr\dp\figbox\relax\hbox{\vrule height\dimexpr\ht\figbox+8pt\relax depth\dimexpr\dp\figbox+8pt\relax width0pt\usebox{\figbox}}}
+\end{document}

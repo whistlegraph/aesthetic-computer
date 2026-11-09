@@ -590,6 +590,12 @@ charts.append(Chart(
     ]
 ))
 
+// ── Alternate deck: `NotepatCharts out.pdf --waltzes` renders the QWERTY
+// Waltzes (generated into WaltzCharts.swift by slab/menuband/scores/waltzes/make.py).
+if CommandLine.arguments.contains("--waltzes") {
+    charts = waltzCharts()
+}
+
 // ── Pastel rotation per card ───────────────────────────────────────
 let palette: [NSColor] = [
     bgWarmCream, bgPaleRose, bgPalePeach, bgPaleLemon,

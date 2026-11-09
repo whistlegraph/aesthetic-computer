@@ -24,6 +24,7 @@ import * as Glaze from "./lib/glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
+import { viewParams, cleanSearch } from "./lib/params.mjs";
 import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage, getCachedCode } from "./lib/kidlisp.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
@@ -1056,10 +1057,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   if (resolution.solo === true) preservedParams.solo = "true";
   if (resolution.highlight) preservedParams.highlight = resolution.highlight === true ? "true" : resolution.highlight;
   
-  // Preserve URL-provided view options, never auth callbacks or piece arguments.
+  // Every other view name the URL carries rides along as written — the
+  // ledger's `carry: bar` names (lib/params.mjs), never an auth callback or
+  // a piece argument. Flags boot already resolved above keep their value.
   const currentParams = new URLSearchParams(location.search);
-  for (const name of ["density", "zoom", "duration", "daw", "width", "height", "desktop", "noauth", "preview", "icon", "nosource", "mime", "reel"]) {
-    if (currentParams.has(name)) preservedParams[name] = currentParams.get(name);
+  for (const name of viewParams("bar")) {
+    if (preservedParams[name] === undefined && currentParams.has(name)) {
+      preservedParams[name] = currentParams.get(name);
+    }
   }
 
   if (debug) {
@@ -1527,6 +1532,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   window.acMeterPaint = () => {
     if (frameMeter.on) frameMeter.paints += 1;
   };
+
+  // 📊 FPS HUD (2026-11-08): one on/off shared by every AC surface, each of
+  // which draws its own readout in its own pixels — the worker in the piece's
+  // frame (disk.mjs), dool in its HUD (duel/view.mjs), the mime feed as an AC
+  // runtime of its own. Backtick on the prompt toggles it; localStorage
+  // "ac:fps-hud" carries it across reloads, frames and windows (the storage
+  // event updates the others live).
+  const fpsHud = { on: false };
+  function setFpsHud(on, persist = true) {
+    on = !!on;
+    if (on === fpsHud.on) return;
+    fpsHud.on = on;
+    if (persist) try { localStorage.setItem("ac:fps-hud", on ? "1" : "0"); } catch {}
+  }
+  try { if (localStorage.getItem("ac:fps-hud") === "1") setFpsHud(true, false); } catch {}
+  addEventListener("storage", (e) => {
+    if (e.key === "ac:fps-hud") setFpsHud(e.newValue === "1", false);
+  });
+  window.acFpsHud = setFpsHud;
+  try { if (localStorage.getItem("ac:fps-hud") === "1") setFpsHud(true); } catch {}
 
   function meterFrameReturned(painted) {
     if (!frameMeter.on || !frameMeter.sentAt) return;
@@ -3346,6 +3371,51 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     backgroundMusicEl.src = "";
   }
 
+  // 🔇 Audio rest (2026-11-08): the native app starts audio in every window,
+  // and AC's speaker worklet then runs in JavaScript for each one — the
+  // largest cost of a background window once its frames rest (measured with
+  // `sample` on the Mac app's WebContent processes). A resting window
+  // (see pacedRequestFrame) whose output has measured silent for 3 s, with no
+  // music element or stream playing, suspends its AudioContext. Waking the
+  // window, or any sound a piece asks for, resumes it first.
+  let audioRested = false;
+  let restingSince = 0;
+  let lastAudibleAt = 0;
+  let lastSilentReportAt = 0;
+  function noteAmplitudes(content) {
+    const now = performance.now();
+    if ((content?.left || 0) > 0.0005 || (content?.right || 0) > 0.0005) lastAudibleAt = now;
+    else lastSilentReportAt = now;
+  }
+  // Playing for real: a source, not paused or ended, data to play. The
+  // background-music element sits "unpaused" with no source after the first
+  // audio unlock (seen in the Mac app, 2026-11-08), which must not count.
+  const sounding = (a) =>
+    !!a && a.paused === false && !a.ended && !!a.currentSrc && a.readyState > 2;
+  function anythingStreaming() {
+    if (sounding(backgroundMusicEl)) return true;
+    for (const id in streamAudio) if (sounding(streamAudio[id]?.audio)) return true;
+    return false;
+  }
+  function restAudio(now) {
+    if (audioRested || !audioContext || audioContext.state !== "running") return;
+    if (now - restingSince < 3000) return; // Resting for a while,
+    if (now - lastSilentReportAt > 500) return; // just measured silent,
+    if (now - lastAudibleAt < 3000) return; // and silent for 3 s.
+    if (anythingStreaming()) return;
+    audioRested = true;
+    audioContext.suspend().then(
+      () => console.log("🔇 Audio resting: background window, silent."),
+      () => (audioRested = false),
+    );
+  }
+  function wakeAudio(reason) {
+    if (!audioRested) return;
+    audioRested = false;
+    resumeAudioContext(`wake:${reason}`, { force: true });
+    console.log("🔊 Audio awake:", reason);
+  }
+
   function resumeAudioContext(reason = "unspecified", { force = false, onResumed } = {}) {
     if (!audioContext) return;
     if (audioContext.state === "running") {
@@ -3850,6 +3920,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
         speakerProcessorNode = speakerProcessor;
 
+        // Any sound asked of a rested context wakes it first (level and
+        // progress requests do not).
+        {
+          const portPost = speakerProcessor.port.postMessage.bind(speakerProcessor.port);
+          speakerProcessor.port.postMessage = (msg, transfer) => {
+            const kind = typeof msg?.type === "string" ? msg.type : "";
+            if (audioRested && !kind.startsWith("get-")) wakeAudio(kind || "sound");
+            return transfer === undefined ? portPost(msg) : portPost(msg, transfer);
+          };
+        }
+
         // 🎵 WORKLET INITIALIZATION LOGGING
         // console.log(`🎵 WORKLET_CREATED: bpm=${sound.bpm}, audioTime=${audioContext.currentTime.toFixed(6)}s, totalSetupTime=${(performance.now() - audioStartTimestamp).toFixed(3)}ms`);
 
@@ -4036,6 +4117,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (msg.type === "amplitudes") {
             if (notepatGMAnalyser) for (const channel of ["left", "right"])
               msg.content[channel] = Math.max(msg.content[channel] || 0, notepatGMAmplitude);
+            noteAmplitudes(msg.content);
             send({ type: "amplitudes", content: msg.content });
             return;
           }
@@ -4915,15 +4997,18 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   //const worker = new Worker("./aesthetic.computer/lib/disk.js", {
   //  type: "module",
   //});
+  // The worker reads its own `location.search`; hand it the query minus the
+  // auth scope, so a session or an Auth0 code never lands in a worker URL.
+  const workerSearch = cleanSearch(window.location.search, { drop: ["auth"] });
   const standardWorkerPath =
     (window.acPACK_MODE ? "./aesthetic.computer/lib/disk.mjs" : "/aesthetic.computer/lib/disk.mjs") +
-    window.location.search +
+    workerSearch +
     "#" +
     Date.now(); // bust the cache. This prevents an error related to Safari loading workers from memory.
   const workerBundlePath = await workerBundlePathPromise;
   let usingBundledWorker = Boolean(workerBundlePath);
   let activeWorkerPath = workerBundlePath
-    ? workerBundlePath + window.location.search + "#" + Date.now()
+    ? workerBundlePath + workerSearch + "#" + Date.now()
     : standardWorkerPath;
   workerBundleState.active = usingBundledWorker;
 
@@ -6024,6 +6109,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         content: {
           needsRender,
           updateCount,
+          fpsHud: fpsHud.on, // The worker draws the readout itself.
           pixels: pixelsBuffer,
           audioTime: audioContext?.currentTime || 0,
           audioBpm: sound.bpm, // TODO: Turn this into a messaging thing.
@@ -6382,6 +6468,59 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       console.warn("📦 Update awareness cue unavailable:", error);
     }
     window.acUpdateReloadTimer = setTimeout(reloadForUpdate, graceMs);
+  }
+
+  // 💤 Background pacing (2026-11-08): a window you are not using, with no
+  // input for half a second, animates on display frames while its piece
+  // paints and ticks ten times a second (Loop.pace) once nothing has moved
+  // for a second. Each tick lands on a display frame
+  // and carries all the sim steps the time is owed, so animation, timers and
+  // sound keep their pace. Input or focus brings full rate back at once.
+  // Several AC windows side by side stay alive and cost a fraction each.
+  let lastPaintAt = 0, lastInputAt = 0;
+  let sentFocus; // The window focus the worker last heard (focus-change).
+  function sendFocus(focused) {
+    sentFocus = focused;
+    send({ type: "focus-change", content: focused });
+    window.acDoolSheet?.windowFocus?.(focused); // The world under the paper rests too.
+  }
+  // Counts for checking from a console: requests sent, sim steps carried.
+  const pacing = (window.acPacing = { resting: false, paceMs: 0, requests: 0, updates: 0 });
+  for (const kind of ["pointermove", "pointerdown", "keydown", "wheel", "focus"]) {
+    addEventListener(kind, () => {
+      lastInputAt = performance.now();
+      if (pacing.resting) Loop.pace(0); // Wake on the next display frame.
+    }, { capture: true, passive: true });
+  }
+  function pacedRequestFrame(needsRender, updateTimes, now) {
+    const focused = document.hasFocus();
+    // The worker's idea of focus follows the window's: a window that opened
+    // behind another never gets a blur event, and focus moving into a child
+    // frame blurs this window while it is still the one in use.
+    if (focused !== sentFocus) sendFocus(focused);
+    // A background window keeps animating smoothly on display frames while
+    // its piece paints, and ticks ten times a second once nothing has moved
+    // for a second (2026-11-08: frozen windows felt dead, 30 fps felt rough —
+    // jeffrey wants every window smooth; the savings are the still windows,
+    // the sleeping mime feed and resting audio).
+    const resting = !document.hidden && !focused && now - lastInputAt > 500;
+    const paceMs = resting && now - lastPaintAt > 1000 ? 100 : 0;
+    if (paceMs !== pacing.paceMs) Loop.pace(paceMs);
+    pacing.paceMs = paceMs;
+    pacing.resting = resting;
+    pacing.audio = audioContext?.state || "none";
+    pacing.streaming = anythingStreaming();
+    if (resting) {
+      if (!restingSince) restingSince = now;
+      if (!audioRested) requestSpeakerAmplitudes?.(); // A level to judge silence by.
+      restAudio(now);
+    } else {
+      restingSince = 0;
+      wakeAudio("window");
+    }
+    pacing.requests += 1;
+    pacing.updates += updateTimes;
+    diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);
   }
 
   // *** Received Frame ***
@@ -14496,7 +14635,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (
             document.activeElement !== input &&
             e.key !== "`" &&
-            e.key !== "Escape"
+            e.key !== "Escape" &&
+            e.key !== "Tab" // Tab is a command (dool from the curtain), not typing.
           ) {
             keyboardOpenMethod = "keyboard";
             input.focus();
@@ -14953,7 +15093,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
           // TODO: How can I get the pen data into the disk and back
           //       to Three.JS as fast as possible? 22.10.26.23.25
-          diskSupervisor?.requestFrame?.(needsRender, updateTimes, now);
+          pacedRequestFrame(needsRender, updateTimes, now);
 
           if (ThreeD?.status.alive === true && ThreeDBakeQueue.length > 0) {
             ThreeD.collectGarbage();
@@ -15531,6 +15671,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 🎯 The dool world under the prompt's paper (lib/dool-sheet.mjs).
+    if (type === "fps:hud") {
+      setFpsHud(content?.toggle ? !fpsHud.on : content?.on);
+      return;
+    }
+
     if (type === "dool:sheet") {
       const { doolSheet } = await import("./lib/dool-sheet.mjs");
       doolSheet(content);
@@ -20133,6 +20278,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
+    if (type === "render" && content.paintChanged === true) lastPaintAt = performance.now();
     meterFrameReturned(type === "render" && content.paintChanged === true);
     let probeAsyncRender = false;
     try {
@@ -24026,12 +24172,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // Window Focus
   window.addEventListener("focus", function (e) {
     focusNotepatKeyboard();
-    send({ type: "focus-change", content: true });
+    sendFocus(true);
   });
 
   // Window Blur
   window.addEventListener("blur", function (e) {
-    send({ type: "focus-change", content: false });
+    sendFocus(false);
   });
 
   // Window Visibility

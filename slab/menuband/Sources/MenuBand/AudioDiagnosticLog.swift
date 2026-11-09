@@ -9,9 +9,9 @@ final class AudioDiagnosticLog {
     private var handle: FileHandle?
     private var bytes: UInt64 = 0
 
-    init(directory: URL, maximumBytes: UInt64 = 4 * 1024 * 1024) {
-        url = directory.appendingPathComponent("audio-diagnostics.jsonl")
-        previous = directory.appendingPathComponent("audio-diagnostics.previous.jsonl")
+    init(directory: URL, maximumBytes: UInt64 = 4 * 1024 * 1024, name: String = "audio-diagnostics") {
+        url = directory.appendingPathComponent("\(name).jsonl")
+        previous = directory.appendingPathComponent("\(name).previous.jsonl")
         self.maximumBytes = maximumBytes
     }
 

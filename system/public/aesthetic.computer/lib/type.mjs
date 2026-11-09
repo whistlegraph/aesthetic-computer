@@ -1749,6 +1749,17 @@ class TextInput {
     return this.copiedCallback?.(text) || text;
   }
 
+  // The wash `paint` would blend over its frame this frame when the pointer
+  // is on it, as a colour, or null: for a piece that lays the backdrop itself
+  // and wants it to look the same.
+  hoverGlow($, frame = { x: 0, y: 0, width: $.screen.width, height: $.screen.height }) {
+    if (!this.canType || this.poe) return null;
+    const pen = $.pen;
+    if (!pen || pen.x < frame.x || pen.x >= frame.x + frame.width || pen.y < frame.y || pen.y >= frame.y + frame.height) return null;
+    const pal = this.scheme[$.dark ? "dark" : "light"] || this.scheme["dark"] || this.scheme;
+    return pal.promptHover || ($.dark ? [100, 80, 150, 30] : [180, 150, 220, 40]);
+  }
+
   // Paint the TextInput, with an optional `frame` for placement.
   paint(
     $,
@@ -1773,9 +1784,14 @@ class TextInput {
       pen.y >= frame.y && 
       pen.y < frame.y + frame.height;
 
-    if (!clear && this.pal.background !== undefined) {
+    // The piece may have laid this frame's backdrop itself, veil and hover
+    // wash included (the prompt keeps the veiled painting between frames,
+    // see `hoverGlow`); then both boxes rest. The flag is spent here.
+    const backdropPainted = this.backdropPainted === true;
+    this.backdropPainted = false;
+    if (!clear && this.pal.background !== undefined && !backdropPainted) {
       $.ink(this.pal.background).box(frame); // Paint bg.
-      
+
       // Add subtle hover glow effect on the prompt area
       if (isHovering && this.canType && !this.poe) {
         const glowColor = this.pal.promptHover || 
@@ -2160,14 +2176,18 @@ class TextInput {
       $.layer(1);
     }
 
-    // Return false if we have loaded every glyph.
-    // (Can be wired up to the return value of the parent's `paint`)
-    return !(
-      keys(this.typeface.glyphs).length === keys(this.typeface.glyphData).length
-    );
+    // True while the input can type: its caret and text move frame to frame.
+    // Resting (the curtain, a locked reply) it asks for nothing, so a piece
+    // that returns false from its own paint can rest too. Glyphs that arrive
+    // later repaint through the load callback, not by painting every frame
+    // until every glyph in the font is loaded — with lazy BDF fallbacks that
+    // never happened, and the prompt repainted at 60 fps forever (2026-11-08).
+    // In a background window the caret is drawn steady (see the blink check
+    // above), so nothing moves and no frame is needed until focus returns.
+    return this.canType === true && $.inFocus !== false;
   }
   // Simulate anything necessary.
-  sim({ seconds, needsPaint, gizmo: { Hourglass } }) {
+  sim({ seconds, needsPaint, inFocus, gizmo: { Hourglass } }) {
     this.blink =
       this.blink ||
       new Hourglass(seconds(0.75), {
@@ -2181,7 +2201,7 @@ class TextInput {
       });
 
     if (this.#lock) needsPaint();
-    if (this.canType) this.blink.step();
+    if (this.canType && inFocus !== false) this.blink.step(); // No blinking in a background window.
 
     // Check if we need to repaint due to async glyph loading
     if (this._needsRepaint) {

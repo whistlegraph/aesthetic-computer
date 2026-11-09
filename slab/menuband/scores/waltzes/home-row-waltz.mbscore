@@ -1,0 +1,26 @@
+{
+  "title": "Home Row Waltz",
+  "composer": "@jeffrey with Claude \u2014 QWERTY waltzes for one notepat keyboard",
+  "machines": 1,
+  "bpm": 120,
+  "lead": 3.0,
+  "key": "D minor, home row only",
+  "timeSignature": "3/4",
+  "description": "home row only: left hand d f g a, right hand h j k l, and one climb to ; at the end. Right hand = voice 1; left hand = voice 2 with the bass in notes and the two-key chord in notes2/notes3.",
+  "voices": [
+    {
+      "name": "right hand",
+      "program": 0,
+      "velocity": 100,
+      "notes": "77:1,76:1,77:1,77:3,72:1,76:1,72:1,77:3,79:3,79:1,77:1,79:1,77:1,76:1,77:1,77:3,72:3,72:1,76:1,77:1,79:3,79:1,77:1,79:1,77:1,76:1,77:1,72:1,76:1,77:1,79:1,84:2,77:3"
+    },
+    {
+      "name": "left hand",
+      "program": 0,
+      "velocity": 84,
+      "notes": "62:1,r:2,62:1,r:2,65:1,r:2,65:1,r:2,67:1,r:2,67:1,r:2,62:1,r:2,62:1,r:2,65:1,r:2,65:1,r:2,67:1,r:2,67:1,r:2,62:1,r:2,65:1,r:2,67:1,r:2,62:1,r:2",
+      "notes2": "r:1,65:1,65:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,62:1,62:1,r:1,62:1,62:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,62:1,62:1,r:1,62:1,62:1,r:1,65:1,65:1,r:1,65:1,65:1,r:1,62:1,62:1,r:1,65:1,65:1",
+      "notes3": "r:1,69:1,69:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,67:1,67:1,r:1,67:1,67:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,67:1,67:1,r:1,67:1,67:1,r:1,69:1,69:1,r:1,69:1,69:1,r:1,67:1,67:1,r:1,69:1,69:1"
+    }
+  ]
+}

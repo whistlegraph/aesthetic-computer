@@ -181,6 +181,9 @@ final class BootStatus: ObservableObject {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        #if os(macOS)
+        PointerLock.release(notifyPage: false) // the locked frame is going away
+        #endif
         LaunchPing.loaded(false)
         // Only watchdog real network loads; offline.html doesn't have JS that
         // can heartbeat back, so we'd false-alarm on the static offline page.
@@ -208,6 +211,9 @@ final class BootStatus: ObservableObject {
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        #if os(macOS)
+        PointerLock.release(notifyPage: false)
+        #endif
         bootStatus?.setError("The page stopped. Reload to continue.")
     }
 
@@ -228,6 +234,12 @@ final class BootStatus: ObservableObject {
             NSLog("AC WebKit: %@", String(describing: message.body))
             return
         }
+        #if os(macOS)
+        if message.name == "acPointerLock" {
+            PointerLock.handle(message)
+            return
+        }
+        #endif
 
         guard message.name == "iOSApp", let jsonString = message.body as? String else { return }
         guard let data = jsonString.data(using: .utf8) else { return }
@@ -239,6 +251,15 @@ final class BootStatus: ObservableObject {
         guard let type = dictionary["type"] as? String else { return }
 
         switch type {
+        #if os(macOS)
+        case "cursor:hidden":
+            // The page hides the pointer (dool's world): the native cursor
+            // stops reasserting itself until the page says otherwise.
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let webView = message.webView as? ACNativeWebView else { return }
+            webView.pageHidesCursor = (dictionary["body"] as? Bool) ?? false
+        #endif
         case "window:color":
             guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
@@ -383,6 +404,11 @@ struct WebView: ACWebViewRepresentable {
         config.userContentController.addUserScript(WKUserScript(
             source: "window.acNativeWindowColor = true;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // Every frame, so the dool iframe can capture the mouse for mouse-look
+        // (WKWebView never grants the Pointer Lock API itself).
+        config.userContentController.add(context.coordinator, name: "acPointerLock")
+        config.userContentController.addUserScript(WKUserScript(
+            source: PointerLock.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         // The native canvas always uses AC's SVG pointer, including after
         // focus/click handlers request `auto`, `pointer`, or `none` inline.
         config.userContentController.addUserScript(WKUserScript(source: """
@@ -412,6 +438,10 @@ struct WebView: ACWebViewRepresentable {
         // Keep WebKit's desktop identity; exact "Aesthetic" means iPhone in AC.
         webView.customUserAgent = nil
         webView.focusRingType = .none
+        // Safari's Web Inspector can attach to the native app (Develop menu →
+        // this Mac → Aesthetic Computer): Timelines, Graphics and Layers for
+        // the real WKWebView, which has no CDP (2026-11-08).
+        if #available(macOS 13.3, *) { webView.isInspectable = true }
         context.coordinator.observePiece(in: webView)
         webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
         #else

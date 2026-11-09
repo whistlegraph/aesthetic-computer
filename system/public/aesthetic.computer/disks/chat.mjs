@@ -379,6 +379,20 @@ function voxLink(message) {
   return message.text?.match(VOX_LINK)?.[0] || null;
 }
 
+// A posted file plays through lith's sound proxy. BIOS loads a sound with an
+// <audio crossOrigin="anonymous"> and a fetch-and-decode, and a personal
+// server that sends no Access-Control-Allow-Origin fails both: the chip went
+// pale and nothing played. AC's own hosts already answer with CORS, so they
+// play direct. `net.preload` reads the kind off `extension`; a query string
+// would otherwise hide it.
+function voxAudioSource(link) {
+  const extension = link.split(/[?#]/)[0].split(".").pop().toLowerCase();
+  let host = "";
+  try { host = new URL(link).hostname; } catch { return link; }
+  if (host === "aesthetic.computer" || host.endsWith(".aesthetic.computer")) return link;
+  return { path: `/api/og-audio?url=${encodeURIComponent(link)}`, extension };
+}
+
 // Whitespace tokens with char offsets — same split as the server tokenizer.
 function voxTokenize(text) {
   const tokens = [];
@@ -420,7 +434,7 @@ async function voxToggle(message, api) {
     prefix: (message.from || "").length + 1, // fullMessage = from + " " + text
   });
   try {
-    let audio = link;
+    let audio = link && voxAudioSource(link);
     if (!audio) {
       const res = await fetch(`/api/pruttivox?id=${encodeURIComponent(message.id)}`);
       if (!res.ok) throw new Error(`pruttivox ${res.status}`);

@@ -3,6 +3,11 @@ import { createSignupCanvas } from "./lib/signup-canvas.mjs";
 import { createOnboardingAudio } from "./lib/onboarding-audio.mjs";
 import { createSignupFlow } from "./lib/signup-flow.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintStartingPiece } from "./lib/nopaint-navigation.mjs";
+import { legitimate as ledgerParams, parseQuery, cleanSearch, present as presentParams } from "./lib/params.mjs";
+
+// The query, typed by the ledger (lib/params.mjs). Flags are read from here
+// by name — never by substring, which is how `?console` used to switch on solo.
+const urlQuery = parseQuery(window.location.search);
 
 // `aesthetic.computer` Bootstrap, 23.02.16.19.23
 
@@ -155,7 +160,9 @@ const bootTelemetry = (() => {
     href: typeof location !== "undefined" ? location.href : null,
     host: typeof location !== "undefined" ? location.host : null,
     path: typeof location !== "undefined" ? location.pathname : null,
-    search: typeof location !== "undefined" ? location.search : null,
+    // The query as written, minus auth callbacks and session tokens: telemetry never carries a credential.
+    search: typeof location !== "undefined" ? cleanSearch(location.search, { drop: ["auth"] }) : null,
+    params: typeof location !== "undefined" ? presentParams(location.search) : [], // names only
     hash: typeof location !== "undefined" ? location.hash : null,
     referrer: document?.referrer || null,
     userAgent: ua,
@@ -621,7 +628,7 @@ bootLog("initializing aesthetic.computer");
 // Check if we're embedded in kidlisp.com or similar iframe context
 // If so, we'll wait for theme from parent instead of using OS preference
 const isEmbeddedInKidlisp = window.parent !== window && 
-  (window.location.search.includes('nolabel=true') || window.location.search.includes('nogap=true'));
+  (urlQuery.nolabel === true || urlQuery.nogap === true);
 if (isEmbeddedInKidlisp) {
   window.acWAIT_FOR_PARENT_THEME = true;
 }
@@ -670,14 +677,8 @@ if (window.max?.outlet) {
   console.log("🎹 Sent ready signal to Max");
 }
 
-// List of legitimate query parameters that should be preserved
-const LEGITIMATE_PARAMS = [
-  'icon', 'preview', 'signup', 'supportSignUp', 'success', 'code', 
-  'supportForgotPassword', 'message', 'vscode', 'nogap', 'nolabel', 'nosource', 'shellhtml',
-  'density', 'zoom', 'duration', 'session-aesthetic', 'session-sotce', 'notice', 'tv', 'highlight',
-  'noauth', 'nocache', 'daw', 'width', 'height', 'desktop', 'device', 'perf', 'auto-scale', 'solo',
-  'crossfade', 'maxfps', 'autoreload'
-];
+// Legitimate query parameters: every name the ledger knows (lib/params.mjs).
+const LEGITIMATE_PARAMS = ledgerParams();
 
 // Auth0 parameters that need to be temporarily processed but then removed
 const AUTH0_PARAMS = ['state', 'error', 'error_description'];
@@ -1312,9 +1313,12 @@ if (hashLooksLikePaintingCode && hashCandidate && !parsed.hash) {
   parsed.hash = hashCandidate;
 }
 
-// Preserve the original search parameters that were stripped by slug()
-if (location.search) {
-  parsed.search = location.search;
+// Preserve the original search parameters that were stripped by slug() —
+// minus the auth scope. A session or an Auth0 code is boot's business alone;
+// it used to ride into every piece's `$.query` and the worker script URL.
+const workerSearch = cleanSearch(location.search, { drop: ["auth"] });
+if (workerSearch) {
+  parsed.search = workerSearch;
 }
 
 const bpm = 120; // Set the starting bpm. Is this still necessary?
@@ -1346,32 +1350,31 @@ if (!parsed.search) {
   if (query) parsed.search = query;
 }
 
-const nogap = params.has("nogap") || params.has("desktop") || location.search.includes("nogap") || location.host.includes("wipppps.world");
+const nogap = urlQuery.nogap === true || urlQuery.desktop === true || location.host.includes("wipppps.world");
 
 // Check for nolabel parameter (no localStorage persistence). `desktop` used to
 // imply it too, back when the Electron pane had its own card chrome; the pane
 // wears the native title bar now and wants the corner label like any page. The
 // implied flag also got written into the URL (`preservedParams`), so the label
 // drew on the first piece and vanished for good on the next reload.
-const nolabel = params.has("nolabel") || location.search.includes("nolabel");
+const nolabel = urlQuery.nolabel === true;
 
 // An embedded view has nobody to tap the update badge: a green arrow parked
 // in the corner of a 128-point preview card is a control nobody can reach,
 // sitting on top of the piece it is announcing. `autoreload` says take the
 // update instead of offering it — no badge, no chime, just the new piece.
-const autoreload = params.has("autoreload") || location.search.includes("autoreload");
+const autoreload = urlQuery.autoreload === true;
 
 // 🐚 shellhtml — an HTML shell (prompt.ac) hosts the runtime and owns the
 // prompt/corner chrome in DOM; the composited equivalents stand down.
-const shellhtml = params.has("shellhtml") || location.search.includes("shellhtml");
+const shellhtml = urlQuery.shellhtml === true;
 
 // Check for desktop mode (Electron app) - implies nogap
-const desktop = params.has("desktop") || location.search.includes("desktop");
+const desktop = urlQuery.desktop === true;
 
 // Check for device parameter early (needed for density handling)
 // FF1/display device mode - auto-enables audio, combines tv+nogap+noauth
-const deviceParamEarly = params.has("device") || location.search.includes("device");
-const deviceMode = deviceParamEarly === true || deviceParamEarly === "true";
+const deviceMode = urlQuery.device === true;
 
 // Check for density parameter with localStorage persistence
 // In device mode, DON'T persist to localStorage (device has its own density setting)
@@ -1438,8 +1441,7 @@ if (durationParam) {
 }
 
 // Check for tv parameter (disables touch/keyboard input for TV display mode)
-const tvParam = params.has("tv") || location.search.includes("tv");
-const tv = tvParam === true || tvParam === "true";
+const tv = urlQuery.tv === true;
 
 // Use the device mode flag computed earlier (for density handling)
 const device = deviceMode;
@@ -1454,24 +1456,20 @@ const highlightParam = params.get("highlight");
 const highlight = highlightParam ? (highlightParam === "true" ? true : highlightParam) : false;
 
 // Check for perf parameter (enables KidLisp performance/FPS HUD overlay)
-const perfParam = params.has("perf") || location.search.includes("perf");
-const perf = perfParam === true || perfParam === "true";
+const perf = urlQuery.perf === true;
 
 // Check for auto-scale parameter (enables automatic density scaling to maintain target FPS)
-const autoScaleParam = params.has("auto-scale") || location.search.includes("auto-scale");
-const autoScale = autoScaleParam === true || autoScaleParam === "true";
+const autoScale = urlQuery["auto-scale"] === true; // `autoScale` is an alias in the ledger
 
 // Check for solo parameter (locks piece in place, prevents navigation away)
-const soloParam = params.has("solo") || location.search.includes("solo");
-const solo = soloParam === true || soloParam === "true";
+const solo = urlQuery.solo === true;
 
 // Check for maxfps parameter (caps render framerate, e.g. maxfps=60 for calm display mode)
 const maxfpsParam = params.get("maxfps");
 const maxfps = maxfpsParam ? parseInt(maxfpsParam, 10) : null;
 
 // Check for spoofaudio parameter (synthetic audio amplitude for headless captures)
-const spoofaudioParam = params.has("spoofaudio") || location.search.includes("spoofaudio");
-const spoofaudio = spoofaudioParam === true || spoofaudioParam === "true";
+const spoofaudio = urlQuery.spoofaudio === true;
 
 // Note: zoom parameter is available but not automatically applied to avoid text rendering issues
 // It's passed to the boot function for selective use
@@ -1532,7 +1530,8 @@ const SOCIAL_CONNECTIONS = [
 ];
 
 // If noauth mode OR no Auth0 cache found, skip auth entirely
-const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && !location.search.includes('code=') && !location.search.includes('state='));
+const authQuery = parseQuery(location.search);
+const skipAuth = window.acNOAUTH || (!likelyLoggedIn && !sandboxed && authQuery.code === undefined && authQuery.state === undefined);
 
 // Login must survive a failed or expired saved session, including early returns
 // from the restore flow below. Install it before attempting authentication.
@@ -1699,10 +1698,10 @@ if (!sandboxed && !skipAuth) {
       if (!sandboxed && window.auth0 && !previewOrIcon) {
       const auth0Client = await setupAuth0Client();
 
+      const callback = parseQuery(location.search);
       if (
-        location.search.includes("state=") &&
-        (location.search.includes("code=") ||
-          location.search.includes("error="))
+        callback.state !== undefined &&
+        (callback.code !== undefined || callback.error !== undefined)
       ) {
         // Log the exchange to boot telemetry — a failure here is the "I logged
         // in and came back logged out" report, and console.error never reaches

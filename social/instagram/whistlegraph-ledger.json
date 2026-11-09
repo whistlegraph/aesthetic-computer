@@ -337,6 +337,88 @@
         "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-07/17-34-46/1p2-remaster.mp4"
       },
       "insights": null
+    },
+    {
+    },
+    {
+      "mediaId": "18337435582302225",
+      "containerId": "18642652090050687",
+      "publishedAt": "2026-11-07T18:08:25.000Z",
+      "permalink": "https://www.instagram.com/reel/Dfcx7W9j5Fj/",
+      "caption": "cmal",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/a9b03903-85f8-43a7-bc7f-ec1a663be4d1/scratchpad/cmal-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-07/18-02-47/cmal-remaster.mp4"
+      },
+      "insights": null
+    },
+    {
+      "mediaId": "17925168315449236",
+      "containerId": "18643039417050687",
+      "publishedAt": "2026-11-08T19:53:34.815Z",
+      "permalink": "https://www.instagram.com/reel/DffjQtVDj4L/",
+      "caption": "pofu",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/8e61b48b-cef7-45bc-a06a-4c99d50c9dde/scratchpad/pofu-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/19-52-12/pofu-remaster.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/19-52-12/pofu-cover.jpg"
+      },
+      "insights": null,
+      "deleted": "2026-11-08: jeffrey removed it in-app ~44 min after posting — the tail of the spoken roll call (\"alex\") leaked through the 2.95s cut; at deletion 666 views / 2 likes / skip 2.3%; reposted 22:30 UTC with the cut at 4.20s — the real roll-call end; whole-file whisper word times ran ~1s early, so 2.95 opened ON \"Alex\" (3.18–3.39)"
+    },
+    {
+      "mediaId": "18034007135883990",
+      "containerId": "18643091050050687",
+      "publishedAt": "2026-11-08T22:31:39.432Z",
+      "permalink": "https://www.instagram.com/reel/Dff1T2qCaql/",
+      "caption": "pofu",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/8e61b48b-cef7-45bc-a06a-4c99d50c9dde/scratchpad/pofu-remaster-v2.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/22-29-22/pofu-remaster-v2.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-08/22-29-22/pofu-cover-v2.jpg"
+      },
+      "insights": null
+    },
+    {
+      "mediaId": "18078036704726248",
+      "containerId": "18643379614050687",
+      "publishedAt": "2026-11-09T19:31:40.952Z",
+      "permalink": "https://www.instagram.com/reel/DfiFjPAiT_N/",
+      "caption": "pi",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/ff32bb90-3e5a-46dc-afd9-10f53b2b3f98/scratchpad/pi-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-09/19-30-18/pi-remaster.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-09/19-30-18/pi-cover.jpg"
+      },
+      "insights": null
+    },
+    {
+      "mediaId": "17918286330541403",
+      "containerId": "18643384993050687",
+      "publishedAt": "2026-11-09T19:54:44.197Z",
+      "permalink": "https://www.instagram.com/reel/DfiIL-vIGbA/",
+      "caption": "sprk",
+      "source": "/private/tmp/claude-501/-Users-jas-aesthetic-computer/ff32bb90-3e5a-46dc-afd9-10f53b2b3f98/scratchpad/sprk-remaster.mp4",
+      "audioName": null,
+      "collaborators": null,
+      "trial": "SS_PERFORMANCE",
+      "urls": {
+        "reel": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-09/19-53-28/sprk-remaster.mp4",
+        "cover": "https://art-aesthetic-computer.sfo3.digitaloceanspaces.com/ig/whistlegraph/2026-11-09/19-53-28/sprk-cover.jpg"
+      },
+      "insights": null
     }
   ]
 }

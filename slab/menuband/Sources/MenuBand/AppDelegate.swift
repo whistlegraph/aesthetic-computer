@@ -305,9 +305,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (MenuBandLauncher's header tells the story). The Store build installs
     /// neither: a keyboard tap needs Input Monitoring, and App Review rejects
     /// a Mac App Store app that asks for it (2.4.5(v), 1.6.13 build 173).
-    private var quietFocusTap: CFMachPort?
-    private var quietFocusTapSource: CFRunLoopSource?
-    private var quietFocusTapHandler: ((NSEvent.EventType, UInt16, NSEvent.ModifierFlags) -> Void)?
+    private var quietFocusTap: KeyEventTap?
+    private var quietFocusTapHandler: ((NSEvent.EventType, UInt16, NSEvent.ModifierFlags, Double) -> Void)?
     private var quietFocusRunCount = 0
     private var lastQuietFocusTapAt: CFTimeInterval = 0
     /// Physical side of the last clean Command down edge. A qualifying pair
@@ -585,7 +584,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let trackpadPercussionClickShield = TrackpadClickShield()
     /// Contact-to-drum triggering runs independently of AppKit presentation.
     /// The main-thread handler below still owns every visual and cursor state.
-    private lazy var trackpadAudioLane = TrackpadAudioLane(output: menuBand)
+    private lazy var trackpadAudioLane = TrackpadAudioLane(output: menuBand, queue: menuBand.performance.queue)
     /// Record gesture (folded into the quiet-focus ⌘ monitor): hold both the
     /// left and right Command keys through the full count-in.
     /// Scheduled count-in beats + the final record-start, so releasing a ⌘
@@ -738,12 +737,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             && (keyCode == UInt16(kVK_ANSI_D) || keyCode == UInt16(kVK_ANSI_X))
         if protectedChord {
             let localFlags = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-            DispatchQueue.main.async {
-                let consumed = self.menuBand.handleLocalKey(
-                    keyCode: keyCode, isDown: isDown,
-                    isRepeat: isRepeat, flags: localFlags
-                )
-                if consumed && isDown {
+            let consumed = self.menuBand.handleLocalKey(
+                keyCode: keyCode, isDown: isDown,
+                isRepeat: isRepeat, flags: localFlags
+            )
+            if consumed && isDown {
+                DispatchQueue.main.async {
                     let pivot = self.menuBand.litNotes.max() ?? 60
                     self.extendGhost(0.4, pivot: pivot)
                 }
@@ -907,8 +906,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateIcon()
         }
         RevisionChecker.start()
-        // Launch-time "update from main?" modal (fleet builds; see MenuBandUpdater).
+        // Launch-time "update from main?" notice (fleet builds; see MenuBandUpdater).
         MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
+        MenuBandUpdater.onWillPresent = { [weak self] in
+            self?.prepareForModalAlert()
+        }
+        localCapture.onWillArm = { [weak self] in
+            MenuBandUpdater.dismissNotice()
+            self?.refreshPerformanceInputRouting()
+            self?.menuBand.setKeyboardPerformanceActive(true)
+        }
         MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
@@ -1068,6 +1075,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBand.onChange = { [weak self] in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                if self.menuBand.typeMode { MenuBandUpdater.dismissNotice() }
                 // Pre-warm the MP3 export on the recording→idle edge so the
                 // first drag-out / EJECT after a take feels instant. One
                 // hook covers all stop paths; callers share the same pending
@@ -1833,6 +1841,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Local key capture wiring. Routes keys to the same note logic the
         // global tap uses, with the ghost-label flash on every press so the
         // user sees the layout dynamically appear while typing.
+        localCapture.onPerformanceKey = { [weak self] key, down, repeated, flags in
+            guard let self else { return }
+            self.menuBand.performance.enqueueInput { [weak self] in
+                guard let self else { return }
+                let consumed = self.menuBand.handleLocalKey(
+                    keyCode: key, isDown: down, isRepeat: repeated, flags: flags)
+                if consumed && down {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, self.localCapture.isArmed else { return }
+                        self.didPlayKeyboardInput()
+                    }
+                }
+            }
+        }
+        localCapture.onPerformanceFlags = { [weak self] flags in
+            self?.menuBand.morphHeldKeys(rawFlags: flags)
+        }
+        localCapture.onPerformanceRelease = { [weak self] in
+            self?.menuBand.releaseAllHeldNotes()
+        }
         localCapture.onKey = { [weak self] keyCode, isDown, isRepeat, flags in
             guard let self = self else { return false }
             // Local fallback for an exact ⌘Tab when the global Accessibility
@@ -1873,6 +1901,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Only unfocus when NOT in record mode.
                 if self.recordModeActive {
                     self.stopRecordingAndSave()
+                    self.localCapture.arm() // Escape closed the fast input gate; recording keeps focus.
                     return true
                 }
 #endif
@@ -1945,40 +1974,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let consumed = self.menuBand.handleLocalKey(
                 keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags
             )
-            if consumed && isDown {
-                // A mouse click may provisionally arm the local key panel, but
-                // the first mapped PHYSICAL key is what promotes that state to
-                // keyboard-performance focus. Mouse-only auditions therefore
-                // never acquire slide ownership or the red defocus cue.
-                let promoting = !self.keyboardPerformanceFocusActive
-                self.keyboardPerformanceFocusActive = true
-                if promoting {
-                    // Promotion is the SAME focus ⌘⌘ arms, so it owes the same
-                    // surface: TrackDrum live, pointer hidden and pinned. The
-                    // flag alone left the trackpad dead in a session that
-                    // otherwise looked focused. Deferred off the key event for
-                    // the reason the quiet-focus tap defers — arming does real
-                    // AppKit work (key-window dance, click-shield handshake),
-                    // and running it mid-dispatch resigns the very capture it
-                    // is promoting.
-                    DispatchQueue.main.async { [weak self] in
-                        guard let self, self.localCapture.isArmed,
-                              self.keyboardPerformanceFocusActive else { return }
-                        self.enterFullPerformanceFocus()
-                    }
-                }
-                // Note plays only — the floating panel is reserved
-                // for explicit triggers (LED chip / gear popover).
-                // Earlier this called `showIfNeeded()` so a typed
-                // letter would auto-open the panel; the surprise
-                // pop-up was not what the user wanted while playing.
-                // Use the most-recent lit display note as the wave pivot
-                // so the ripple emanates from whichever key the user just
-                // played. `litNotes` is updated synchronously on this
-                // thread, so it already contains the new note.
-                let pivot = self.menuBand.litNotes.max() ?? 60
-                DispatchQueue.main.async { self.extendGhost(0.4, pivot: pivot) }
-            }
+            if consumed && isDown { self.didPlayKeyboardInput() }
             return consumed
         }
         localCapture.isOwnStatusItemPress = { [weak self] in
@@ -1995,6 +1991,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.map { "padMode=\($0.trackpadPadMode)" } ?? ""
         }
         localCapture.onCaptureEnd = { [weak self] reason in
+            self?.menuBand.setKeyboardPerformanceActive(false)
             // Focus lost (user clicked another app). Drop the ghost and
             // any held notes so we don't leave anything hanging. Only the
             // explicit keyboard-performance focus owns the stop cue; a
@@ -2264,10 +2261,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// unreachable — the app reads as crashed and permanently focused.
     /// So hand the machine back FIRST, then let the notice appear.
     private func prepareForModalAlert() {
-        if pitchBendModeLatched || pitchBendCursorLocked
-            || pitchBendCursorPushed {
-            endPitchBendSession()
-        }
+        // Clear this BEFORE ending the bend: active percussion focus retains
+        // the click shields and cursor lock between notes.
+        keyboardPerformanceFocusActive = false
+        localCapture.keepsCaptureArmedOnResign = false
+        localCapture.disarm(reason: .resignedKey)
+        endPitchBendSession()
         if visualizerOverlay.isShown {
             visualizerOverlay.dismiss()
         }
@@ -2283,14 +2282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         unlockSystemCursorIfNeeded()
         showSystemCursorIfNeeded()
         CGAssociateMouseAndMouseCursorPosition(1)
-        if localCapture.isArmed {
-            // `.resignedKey`, not `.cancelled`: cancelling bounces focus
-            // back to whatever app was frontmost before play started,
-            // which would leave the notice visible but unable to take
-            // key — no Escape. Resigning keeps Menu Band active and
-            // plays the usual focus-released cue.
-            localCapture.disarm(reason: .resignedKey)
-        }
+        finishPianoWaveformKeyboardFocus()
+        appBeforeFocusCapture = nil
         if menuBand.typeMode {
             menuBand.disableTypeModeForFocusCapture()
         }
@@ -2608,6 +2601,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showExpandedKeymap(
         restoringTo previousApp: NSRunningApplication? = nil
     ) {
+        MenuBandUpdater.dismissNotice()
         if pitchBendModeLatched || pitchBendCursorLocked
             || pitchBendCursorPushed {
             endPitchBendSession()
@@ -2912,17 +2906,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `true` when the status item button is laid out on a real screen.
     /// macOS leaves the button's window assigned but with `screen == nil`
     /// when there's no room for it in the menu bar.
-    private func isStatusItemVisible() -> Bool {
-        guard let button = statusItem.button else { return false }
-        guard let window = button.window else { return false }
-        if window.screen == nil { return false }
-        if !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) { return false }
-        // macOS 26: the drawn item is a Control Center replicant; the checks
-        // above can't see clipping. See MenuBarFit.replicantVisible.
-        return MenuBarFit.replicantVisible(
-            width: window.frame.width,
-            preferredName: "menuband"
-        )
+    private let statusVisibilityProbe = MenuBarVisibilityProbe()
+    private func checkStatusItemVisibility(_ completion: @escaping (Bool) -> Void) {
+        guard let window = statusItem.button?.window, window.screen != nil,
+              NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else {
+            completion(false)
+            return
+        }
+        let width = window.frame.width
+        statusVisibilityProbe.sample(width: width, preferredName: "menuband") { [weak self] visible in
+            guard self?.statusItem.button?.window?.frame.width == width else { return }
+            completion(visible)
+        }
     }
 
     /// `forceLayout` UserDefaults key: lets the user pin the layout to
@@ -3255,9 +3250,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startChordMorphMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self = self else { return }
-            self.menuBand.morphHeldKeys(
-                rawFlags: UInt64(event.modifierFlags.rawValue)
-            )
+            if !self.localCapture.capturedModifierEvent(at: event.timestamp)
+                && !self.menuBand.capturedModifierEvent(at: event.timestamp) {
+                self.menuBand.morphHeldKeys(rawFlags: UInt64(event.modifierFlags.rawValue))
+            }
         }
         globalChordMorphMonitor = NSEvent.addGlobalMonitorForEvents(
             matching: .flagsChanged
@@ -3288,8 +3284,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// flagsChanged/keyDown stream — through a listen-only CGEventTap, with
     /// NSEvent monitors only as a fallback (see `installQuietFocusTap`).
     private func startQuietFocusTapMonitor() {
-        let handler: (NSEvent.EventType, UInt16, NSEvent.ModifierFlags) -> Void = {
-            [weak self] eventType, keyCode, modifierFlags in
+        let handler: (NSEvent.EventType, UInt16, NSEvent.ModifierFlags, Double) -> Void = {
+            [weak self] eventType, keyCode, modifierFlags, eventTime in
             guard let self = self else { return }
             // The two taps must be DIRECTLY consecutive — any real key between
             // them breaks the run, unconditionally. `.flagsChanged` fires the
@@ -3379,7 +3375,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 #endif
             // Otherwise: bare-⌘ double-tap tracking for PLAY.
             guard mask == .command else { self.quietFocusRunCount = 0; return }
-            let now = CACurrentMediaTime()
+            let now = eventTime
             let sameSide = self.lastQuietFocusSide == side
             let inWindow = sameSide && now - self.lastQuietFocusTapAt <= Self.quietFocusTapWindow
             self.quietFocusRunCount = (inWindow && self.quietFocusRunCount > 0)
@@ -3406,7 +3402,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // which is where quiet focus is armed from anyway.
         quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
             matching: Self.quietFocusMonitorMask
-        ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
+        ) { handler($0.type, $0.keyCode, $0.modifierFlags, $0.timestamp); return $0 }
 #else
         // Direct build: the tap is the primary route here too. The NSEvent
         // global monitor has silently stopped delivering keyDowns while
@@ -3425,10 +3421,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSLog("MenuBand: ⌘⌘ tap creation failed — falling back to NSEvent monitors")
             quietFocusMonitorGlobal = NSEvent.addGlobalMonitorForEvents(
                 matching: Self.quietFocusMonitorMask
-            ) { handler($0.type, $0.keyCode, $0.modifierFlags) }
+            ) { handler($0.type, $0.keyCode, $0.modifierFlags, $0.timestamp) }
             quietFocusMonitorLocal = NSEvent.addLocalMonitorForEvents(
                 matching: Self.quietFocusMonitorMask
-            ) { handler($0.type, $0.keyCode, $0.modifierFlags); return $0 }
+            ) { handler($0.type, $0.keyCode, $0.modifierFlags, $0.timestamp); return $0 }
         }
 #endif
     }
@@ -3445,57 +3441,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for type in Self.quietFocusCancellingCGEvents {
             mask |= (1 << type.rawValue)
         }
-        let callback: CGEventTapCallBack = { _, type, event, refcon in
-            guard let refcon else { return Unmanaged.passUnretained(event) }
-            let appDelegate = Unmanaged<AppDelegate>
-                .fromOpaque(refcon).takeUnretainedValue()
-            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                SessionDiagnostics.shared.record(.tapDisabled, reason: type == .tapDisabledByTimeout ? .timeout : .userInput, source: .quietFocus)
-                if let tap = appDelegate.quietFocusTap {
-                    CGEvent.tapEnable(tap: tap, enable: true)
-                    SessionDiagnostics.shared.record(.tapReenabled, source: .quietFocus, state: CGEvent.tapIsEnabled(tap: tap))
-                }
-                return Unmanaged.passUnretained(event)
-            }
-            guard type == .flagsChanged || type == .keyDown
-                    || AppDelegate.quietFocusCancellingCGEvents.contains(type)
-            else {
-                return Unmanaged.passUnretained(event)
-            }
-            // Deliver the way the NSEvent monitors did: as an ordinary
-            // main-queue callout, not from inside event dispatch. Arming
-            // focus does real AppKit work — the capture panel's key-window
-            // dance, the click shield's synchronous readiness handshake —
-            // and running that mid-tap resigned the capture and tripped the
-            // cursor watchdog. Snapshot the primitive values the handler
-            // consumes; carrying an NSEvent across this boundary can expose
-            // recycled flags on the main queue.
-            guard let eventType = NSEvent.EventType(rawValue: UInt(type.rawValue))
-            else { return Unmanaged.passUnretained(event) }
+        let tap = KeyEventTap(source: .quietFocus, observing: mask) { [weak self] type, event in
+            guard let eventType = NSEvent.EventType(rawValue: UInt(type.rawValue)) else { return }
             let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             let flags = NSEvent.ModifierFlags(rawValue: UInt(event.flags.rawValue))
-            DispatchQueue.main.async {
-                appDelegate.quietFocusTapHandler?(eventType, keyCode, flags)
+            let eventTime = Double(event.timestamp) / 1_000_000_000
+            DispatchQueue.main.async { [weak self] in
+                self?.quietFocusTapHandler?(eventType, keyCode, flags, eventTime)
             }
-            return Unmanaged.passUnretained(event)
         }
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .listenOnly,
-            eventsOfInterest: mask,
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else {
-            SessionDiagnostics.shared.record(.tapFailed, source: .quietFocus)
-            return false
+        tap.onDiscontinuity = { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                self?.quietFocusRunCount = 0
+                self?.lastQuietFocusTapAt = 0
+                self?.lastQuietFocusSide = nil
+            }
         }
+        guard tap.start() else { return false }
         quietFocusTap = tap
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        quietFocusTapSource = source
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        SessionDiagnostics.shared.record(.tapStarted, source: .quietFocus)
         return true
     }
 
@@ -3651,8 +3614,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ceiling: KeyboardIconRenderer.DisplayLayout? =
             KeyboardIconRenderer.forceLayout
         let current = KeyboardIconRenderer.displayLayout
-        let visible = isStatusItemVisible()
+        checkStatusItemVisibility { [weak self] visible in
+            guard let self, KeyboardIconRenderer.displayLayout == current else { return }
+            self.applyAdaptiveVisibility(visible, current: current, ceiling: ceiling)
+        }
+    }
 
+    private func applyAdaptiveVisibility(_ visible: Bool,
+                                         current: KeyboardIconRenderer.DisplayLayout,
+                                         ceiling: KeyboardIconRenderer.DisplayLayout?) {
         if !visible {
             // Shrink to the next-smaller layout. If we're already at
             // .compact and STILL not visible, keep retrying quietly.
@@ -3697,13 +3667,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // a beat to settle without making the user wait.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self = self else { return }
-            if !self.isStatusItemVisible() {
-                debugLog("expand \(current) → \(bigger) didn't fit; reverting")
-                KeyboardIconRenderer.displayLayout = current
-                self.updateIcon()
-            } else {
-                debugLog("statusItem expanded \(current) → \(bigger)")
-                self.adaptLayoutForAvailableSpace()
+            self.checkStatusItemVisibility { [weak self] visible in
+                guard let self, KeyboardIconRenderer.displayLayout == bigger else { return }
+                if !visible {
+                    debugLog("expand \(current) → \(bigger) didn't fit; reverting")
+                    KeyboardIconRenderer.displayLayout = current
+                    self.updateIcon()
+                } else {
+                    debugLog("statusItem expanded \(current) → \(bigger)")
+                    self.adaptLayoutForAvailableSpace()
+                }
             }
         }
     }
@@ -3719,6 +3692,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        quietFocusTap?.stop()
         SessionDiagnostics.shared.record(.terminationBegan, reason: .appTermination)
         #if MAC_APP_STORE
         trackpadPlugin.setCaptureEnabled(false)
@@ -3906,7 +3880,69 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             playing: menuBand.cdjRadioPlaying)
     }
 
+    private func didPlayKeyboardInput() {
+        // A mouse click may provisionally arm the local key panel, but
+        // the first mapped PHYSICAL key is what promotes that state to
+        // keyboard-performance focus. Mouse-only auditions therefore
+        // never acquire slide ownership or the red defocus cue.
+        let promoting = !self.keyboardPerformanceFocusActive
+        self.keyboardPerformanceFocusActive = true
+        if promoting {
+            // Promotion is the SAME focus ⌘⌘ arms, so it owes the same
+            // surface: TrackDrum live, pointer hidden and pinned. The
+            // flag alone left the trackpad dead in a session that
+            // otherwise looked focused. Deferred off the key event for
+            // the reason the quiet-focus tap defers — arming does real
+            // AppKit work (key-window dance, click-shield handshake),
+            // and running it mid-dispatch resigns the very capture it
+            // is promoting.
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.localCapture.isArmed,
+                      self.keyboardPerformanceFocusActive else { return }
+                self.enterFullPerformanceFocus()
+            }
+        }
+        // Note plays only — the floating panel is reserved
+        // for explicit triggers (LED chip / gear popover).
+        // Earlier this called `showIfNeeded()` so a typed
+        // letter would auto-open the panel; the surprise
+        // pop-up was not what the user wanted while playing.
+        // Use the most-recent lit display note as the wave pivot
+        // so the ripple emanates from whichever key the user just
+        // played. This is a UI readout; it never gates the note.
+        let pivot = self.menuBand.litNotes.max() ?? 60
+        DispatchQueue.main.async { self.extendGhost(0.4, pivot: pivot) }
+    }
+
+    private func refreshPerformanceInputRouting() {
+        var reserved: Set<UInt16> = [48, 53, 44]
+        if trackpadPadMode == .skin && polyrhythmTrainer.isActive {
+            reserved.formUnion([18, 19, 20, 21, 23, 22, 26, 28, 25, 29, 27, 24])
+        }
+        if trackpadPadMode == .fx && toneTrials.isActive {
+            reserved.formUnion([27, 24])
+        }
+        var shortcuts = [MenuBandShortcutPreferences.layoutShortcut,
+                         MenuBandShortcut.defaultPercussionToggle]
+        if let shortcut = localCapture.recordShortcut { shortcuts.append(shortcut) }
+        if let shortcut = localCapture.cancelShortcut { shortcuts.append(shortcut) }
+        localCapture.configurePerformanceRouting(keymap: menuBand.keymap,
+                                                  reservedKeys: reserved,
+                                                  shortcuts: shortcuts)
+    }
+
+    private let iconRefresh = CoalescedUIRefresh()
     func updateIcon() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in self?.updateIcon() }
+            return
+        }
+        refreshPerformanceInputRouting()
+        iconRefresh.request { [weak self] in self?.renderIcon() }
+    }
+
+    private func renderIcon() {
+
         if let timer = visualizerAnimTimer,
            timer.fireDate.timeIntervalSinceNow > 1.0 / 24.0 {
             timer.fireDate = Date()
@@ -3994,14 +4030,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if button.image != nil { button.image = nil }
             return
         }
-        statusItem.length = KeyboardIconRenderer.imageSize.width
+        let iconWidth = KeyboardIconRenderer.imageSize.width
+        if statusItem.length != iconWidth { statusItem.length = iconWidth }
         // Reach keys (Z X ; ') lean the piano to reveal their ghost slot.
         let lean = KeyboardIconRenderer.leanOffset(for: menuBand.litNotes)
         if lean != leanTarget {
             leanTarget = lean
             startIconAnimTimerIfNeeded()
         }
-        button.image = KeyboardIconRenderer.image(
+        let artwork = KeyboardIconRenderer.image(
             litNotes: menuBand.litNotes,
             playbackLitNotes: menuBand.playbackLitNotes,
             enabled: menuBand.midiMode,
@@ -4017,6 +4054,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             leanOffsetX: leanCurrent,
             settingsFlash: currentFlashStrength()
         )
+        // Flatten once per requested frame. AppKit can composite a status
+        // item repeatedly; those passes must not replay the drawing closure.
+        button.image = rasterizedArtwork(artwork, scale: button.window?.backingScaleFactor ?? 2)
         let layoutName: String
         switch menuBand.keymap {
         case .notepat: layoutName = "Notepat"
@@ -4025,13 +4065,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
         let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
-        button.toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
-        // Force a synchronous redraw — the click drag-loop runs the runloop
-        // in `eventTracking` mode and has been swallowing the next CA flush
-        // until mouseUp. Without this, key blinks and hover highlights only
-        // appeared after the user released the mouse.
+        let toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
+        if button.toolTip != toolTip { button.toolTip = toolTip }
+        // Let AppKit batch presentation after the coalesced image update.
         button.needsDisplay = true
-        button.displayIfNeeded()
     }
 
     /// Extend the letter ghost duration and pivot the wave at the given
@@ -4947,7 +4984,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         KeyboardIconRenderer.tapeFeatureEnabled = enabled
         // Status item width changes with the flag — resize the slot
         // before redrawing so the icon doesn't get cropped/scaled.
-        statusItem.length = KeyboardIconRenderer.imageSize.width
+        let iconWidth = KeyboardIconRenderer.imageSize.width
+        if statusItem.length != iconWidth { statusItem.length = iconWidth }
         updateIcon()
     }
 

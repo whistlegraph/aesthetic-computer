@@ -1009,6 +1009,18 @@ enum KeyboardIconRenderer {
     /// so the user gets visual feedback wherever the click lands.
     private static var settingsRect: NSRect { settingsHitRect }
 
+    private struct KeycapArtwork: Hashable {
+        let pitchClass: Int
+        let sharp, dark, left, right, tall: Bool
+        let colors: [CGFloat]
+    }
+    private static let keycapArtwork = RasterArtworkCache<KeycapArtwork>(capacity: 256)
+    static var artworkCachingEnabled: Bool {
+        get { keycapArtwork.enabled }
+        set { keycapArtwork.enabled = newValue }
+    }
+    static var cachedKeycapRasterizations: Int { keycapArtwork.rasterizations }
+
     static func image(litNotes: Set<UInt8>,
                       playbackLitNotes: Set<UInt8> = [],
                       enabled: Bool,
@@ -1213,6 +1225,8 @@ enum KeyboardIconRenderer {
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
                     let isLeftmost = !sliding && (m == leftmostMidi)
                     let isRightmost = !sliding && (m == rightmostMidi)
+                    let drumColor = Self.percussionDrumColor(forMidi: m)
+                    let paintCap = {
                     let path = roundedKeyPath(
                         rect: rect,
                         tl: isLeftmost ? 2.5 : 0,
@@ -1250,7 +1264,6 @@ enum KeyboardIconRenderer {
                     // Percussion split: wash the right-hand keys in their
                     // drum-pad color so the drum zone is unmistakable. Takes
                     // the place of the chromatic stripe for those keys.
-                    let drumColor = Self.percussionDrumColor(forMidi: m)
                     if let drumColor, !isLit, countIn == nil {
                         // Blink: a fresh hit flashes the pad brighter/whiter,
                         // riding the same envelope as the shake.
@@ -1340,6 +1353,13 @@ enum KeyboardIconRenderer {
                         path.lineWidth = 0.7
                     }
                     path.stroke()
+                    }
+                    if countIn == nil && !isLit && !isPlaybackLit && !isHover && vibe.blink <= 0.01 {
+                        let key = KeycapArtwork(pitchClass: m % 12, sharp: false, dark: isDark,
+                            left: isLeftmost, right: isRightmost, tall: keyHeightScale > 1,
+                            colors: artworkColorKey(accent) + (drumColor.map(artworkColorKey) ?? []))
+                        keycapArtwork.draw(key, in: rect, padding: 6, paint: paintCap)
+                    } else { paintCap() }
                     // Lit keys always wear their letter at full opacity (a
                     // mouse-press tap reveals just that letter). For unlit
                     // keys, the per-key `letterAlpha` closure drives a wave
@@ -1393,6 +1413,8 @@ enum KeyboardIconRenderer {
                                            held: isLit, phase: abcPhase)
                     let isPlaybackLit = tileOffset == 0 && playbackLitNotes.contains(UInt8(m))
                     let isHover = tileOffset == 0 && hovered == .note(UInt8(m))
+                    let sharpDrumColor = Self.percussionDrumColor(forMidi: m)
+                    let paintCap = {
                     let path = roundedKeyPath(rect: rect, tl: 0, tr: 0, br: 1.2, bl: 1.2)
                     if countIn != nil {
                         countInRed.setFill()
@@ -1439,7 +1461,6 @@ enum KeyboardIconRenderer {
                     // accent drums — crash/splash/cowbell/block/tambo) with
                     // their pad color. Higher alpha than the naturals so it
                     // reads against the dark keycap.
-                    let sharpDrumColor = Self.percussionDrumColor(forMidi: m)
                     if let drumColor = sharpDrumColor, !isLit, countIn == nil {
                         let b = vibe.blink
                         let c = b > 0.01
@@ -1458,6 +1479,13 @@ enum KeyboardIconRenderer {
                         path.lineWidth = 0.6
                     }
                     path.stroke()
+                    }
+                    if countIn == nil && !isLit && !isPlaybackLit && !isHover && vibe.blink <= 0.01 {
+                        let key = KeycapArtwork(pitchClass: m % 12, sharp: true, dark: isDark,
+                            left: false, right: false, tall: keyHeightScale > 1,
+                            colors: artworkColorKey(accent) + (sharpDrumColor.map(artworkColorKey) ?? []))
+                        keycapArtwork.draw(key, in: rect, padding: 6, paint: paintCap)
+                    } else { paintCap() }
                     if tileOffset == 0, practiceTargetMidi == m {
                         drawPracticeTarget(midi: m, in: rect)
                     } else if tileOffset == 0, let letter = labelByMidi[m] {

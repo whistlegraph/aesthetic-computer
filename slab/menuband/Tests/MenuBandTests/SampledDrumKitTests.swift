@@ -155,6 +155,7 @@ final class SampledDrumKitTests: XCTestCase {
             XCTAssertEqual(controller.drumKit, .menuBand)
             controller.startTapNote(60)
             controller.stopTapNote(60)
+            controller.performance.flush()
             XCTAssertFalse(controller.arrowsSelectDrumKit(shift: false))
         }
     }
@@ -181,7 +182,10 @@ final class SampledDrumKitTests: XCTestCase {
         XCTAssertTrue(controller.handleLocalKey(keyCode: code, isDown: false, isRepeat: false, flags: []))
     }
 
+    private var activeController: MenuBandController?
+
     private func drainMainQueue() {
+        activeController?.performance.flush()
         let drained = expectation(description: "Keyboard selection dispatched to main")
         DispatchQueue.main.async { drained.fulfill() }
         wait(for: [drained], timeout: 3)
@@ -204,8 +208,10 @@ final class SampledDrumKitTests: XCTestCase {
         }
         for key in keys { defaults.removeObject(forKey: key) }
         let controller = MenuBandController() // No audio engine or global event tap.
+        activeController = controller
         body(controller)
         drainMainQueue()
+        activeController = nil
     }
 
     /// Optional listening artifacts use the same renderer and matching gains

@@ -23,7 +23,72 @@ MIDI-mode shortcut. The shared chord modifiers work on every layout.
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 
+## Automated module stress
+
+Run `bash Tests/fuzz/run.sh` from this package on a compute Mac. It uses guarded
+Swift builds (two jobs) with Address Sanitizer and Thread Sanitizer, then a
+seeded C mutation runner with ASan/UBSan, coverage reporting, and a separate
+`leaks --atExit` check. No app bootstrap, audio device, event injection, or UI
+interaction. `MB_STRESS_RUNS`, `MB_STRESS_SEED`, and `MB_STRESS_ARTIFACTS` control
+the mutation count, reproducible seed, and output directory. This is bounded
+randomized testing, not coverage-guided fuzzing; the C entry point can also be
+used with libFuzzer when that runtime is installed. Passing checks do not prove
+the live app is leak-free or establish its real-time audio deadline performance.
+
 ## Output and Air
+
+Keyboard, physical MIDI, direct trackpad audio, and musical release/hammer
+timers share the serial `PerformanceExecutor`. AppKit receives visual updates
+after musical work; status-item invalidations coalesce to one draw per frame.
+UI readouts use small value snapshots and do not wait for engine preparation.
+Control code must never synchronously dispatch to main. Tests that submit input
+must drain the performance queue before asserting musical state; draining main
+alone is insufficient.
+
+The direct build's focused keyboard tap uses annotated events addressed to
+Menu Band. It consumes each owned down/up pair once, preserves control-key
+ordering, and releases voices when its gate closes. Unavailable event-tap
+permission and the sandboxed build retain local AppKit delivery, then enqueue
+musical work. AppKit delivery itself can still be delayed in those fallback
+paths. Focus keeps output warm alongside the existing percussion/conductor
+reasons; leaving one mode does not cancel another mode's warm requirement.
+
+The instrument grid and QWERTY view invalidate only changed state; grid hover
+invalidates the old/new cells. Grid cells and idle piano keycaps use bounded
+bitmap caches keyed by appearance, scale, geometry and visual state. Live
+letters, pressed keys, drum pulses and count-in animation remain dynamic.
+The status item receives a flattened bitmap per requested frame so AppKit's
+later compositing cannot replay its drawing handler. Unchanged width and
+tooltip values are not reassigned.
+
+The Command gesture observer runs on a dedicated event-tap loop and carries
+hardware timestamps to main for gesture timing. Menu-bar visibility queries
+run on a utility queue with one query in flight and one latest pending request;
+obsolete widths are discarded. Negotiation reports pending visibility as
+settling until a fresh result arrives. Keep the shared MenuBarFit copies in sync.
+
+Opt-in input timing: set `MBInputLatencyDiagnosticsEnabled` to true in the
+`computer.aestheticcomputer.menuband` defaults domain before launch. Set it to `false`
+and relaunch to disable. `~/Library/Logs/MenuBand/input-latency.jsonl` and its
+previous file are each capped at 2 MiB. Schema 2 contains one-second summaries:
+source (`keyboard_tap`, `keyboard_appkit`, or `trackpad_callback`), count, capture/queue/control/
+next-render/total delays in milliseconds (p50, p95, max), dropped-measurement
+count, timestamp and PID. No keycodes, notes, audio or remote transport.
+Keyboard samples cover non-repeated downs that submit local notes; one chord
+counts once, after its immediate notes are submitted. Trackpad samples cover
+articulation changes, including lifts; their clock starts at the callback.
+The boundary is completion of the first output block that **starts after**
+submission, including silent blocks. It is a scheduling measurement, not proof
+of a particular note's audible onset, and excludes speaker/DAC latency. Bounded
+C rings drop diagnostics on overflow without changing notes; render performs
+no logging, allocation or locking for this probe. Collectors run on a utility
+queue, so UI stalls cannot postpone or duplicate the measurement itself.
+
+The native GM renderer drains a fixed-capacity C atomic command ring without
+taking the producer lock or allocating a command array. Overflow rejects new
+commands until render discards the backlog and silences the old voices; it
+cannot retain an onset whose release was discarded. Pitch targets cross through
+an atomic value. Other synth backends retain their existing render handoffs.
 
 Menu Band plays through the selected macOS output, including a Focusrite
 Scarlett, without a volume enable switch. The headset menu can pin another
@@ -332,6 +397,13 @@ triggers `rebuildPopoverForLanguageChange()`, which closes the popover,
 runs `installPopoverVC()` to build a fresh VC against the new locale,
 and reopens it if it was visible. Same path runs every time
 `watch-reload.sh` reposts the showPopover notification after relaunch.
+
+**Update notices.** Fleet updates compare compiled and packaged inputs, not
+sparse-checkout roots; unrelated `slab/bin` tools, marketing, and tests do not
+trigger an update. Both update and failure notices are nonmodal. Before opening,
+they release keyboard capture, drum click shields, and the pointer. Escape,
+Later/OK, and close dismiss them; returning to keyboard play also dismisses them.
+Update installers retain the host's resource guard on PATH.
 
 **Hardened Runtime.** Release builds opt into Hardened Runtime *without*
 exceptions. CoreMIDI, AVAudioEngine, CGEventTap, and Carbon

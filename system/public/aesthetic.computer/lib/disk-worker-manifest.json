@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.819273d6e03a.mjs",
-  "sha256": "819273d6e03af2a9e2f0376cd51485205b7b40507b0337a492686632c937bc44",
-  "bytes": 1831131,
-  "sourceSha256": "cf04f8a3d2e45878f27cee11f5c94c3a5b0d02899c1f5b75a75e47fb95861693",
+  "filename": "disk.worker.636bcc230a3e.mjs",
+  "sha256": "636bcc230a3e2329041c3bec17d48b3c99ae75cff2f0724d7fcec889e742c4df",
+  "bytes": 1846175,
+  "sourceSha256": "75cd380dd62919b54d5d6917f6d0ebc96fc70598f6edbea41ade2b311f6039e7",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -51,6 +51,7 @@
     "public/aesthetic.computer/lib/p5-worker.mjs",
     "public/aesthetic.computer/lib/pack-mode.mjs",
     "public/aesthetic.computer/lib/pads.mjs",
+    "public/aesthetic.computer/lib/params.mjs",
     "public/aesthetic.computer/lib/parse.mjs",
     "public/aesthetic.computer/lib/piece-permissions.mjs",
     "public/aesthetic.computer/lib/platform.mjs",

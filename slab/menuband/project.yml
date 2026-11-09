@@ -113,6 +113,8 @@ targets:
       # Package.swift models this as a separate CGMSynth target; here we
       # compile the single .c straight into the app and expose its module map
       # via SWIFT_INCLUDE_PATHS / HEADER_SEARCH_PATHS below (see settings).
+      - path: Sources/CRealtimeAudio/MBRealtimeQueue.c
+      - path: Sources/CRealtimeAudio/MBLatencyProbe.c
       - path: Sources/CGMSynth/gm_synth.c
 
       # The Fluoddity voice C core (scanned-swarm ecosystem synth).
@@ -165,8 +167,8 @@ targets:
         # header live in Sources/CGMSynth/include. SWIFT_INCLUDE_PATHS lets the
         # Swift side find the module; HEADER_SEARCH_PATHS lets gm_synth.c find
         # its own "gm_synth.h".
-        SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include $(SRCROOT)/Sources/CSinger/include
-        HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include $(SRCROOT)/Sources/CSinger/include $(SRCROOT)/Sources/CSinger/world
+        SWIFT_INCLUDE_PATHS: $(SRCROOT)/Sources/CRealtimeAudio/include $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include $(SRCROOT)/Sources/CSinger/include
+        HEADER_SEARCH_PATHS: $(SRCROOT)/Sources/CRealtimeAudio/include $(SRCROOT)/Sources/CGMSynth/include $(SRCROOT)/Sources/CFluoddity/include $(SRCROOT)/Sources/CSinger/include $(SRCROOT)/Sources/CSinger/world
 
     postBuildScripts:
       # Index the copied Help book so Help Viewer search works. We index the

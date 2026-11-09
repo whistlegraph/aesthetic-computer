@@ -39,6 +39,11 @@ import AVFoundation
 /// phrases sitting inside reversed music. That's why `resetReverseAnchor` is a
 /// no-op while a pass is sounding: playing into the dive must not end it.
 final class MenuBandRewindVoice {
+    private let controlQueue: DispatchQueue
+    init(controlQueue: DispatchQueue = DispatchQueue(label: "menuband.reverse-control", qos: .userInteractive)) {
+        self.controlQueue = controlQueue
+    }
+
     /// How far back the ring physically remembers — a rolling 60 s tape
     /// loop (continuously overwritten). Plenty of headroom beyond the
     /// reverse window so longer windows can reach deep into recent play.
@@ -610,7 +615,7 @@ final class MenuBandRewindVoice {
         playGeneration &+= 1
         let gen = playGeneration
         mixer.outputVolume = 0
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+        controlQueue.asyncAfter(deadline: .now() + 0.02) { [weak self] in
             guard let self = self, self.playGeneration == gen else { return }
             if self.player.isPlaying { self.player.stop() }
             self.mixer.outputVolume = 0.88

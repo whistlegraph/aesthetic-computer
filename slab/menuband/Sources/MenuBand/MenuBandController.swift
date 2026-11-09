@@ -27,8 +27,54 @@ extension Float {
 }
 
 final class MenuBandController {
+    let performance: PerformanceExecutor
+    private struct PerformanceReadout {
+        var lastNote: UInt8 = 60
+        var chord: [UInt8] = [60]
+        var percussion = false
+        var hammer = false
+        var hammerRate: Double = 7
+        var previewProgram: UInt8?
+        var warm = false
+    }
+    private let performanceReadout = PerformanceSnapshot(PerformanceReadout())
+    private var performanceGeneration: UInt64 = 0
+    private var keyboardPerformanceActive = false
+    private var conductedPerformanceActive = false
+
+    func setKeyboardPerformanceActive(_ active: Bool) {
+        performance.enqueue { [weak self] in
+            guard let self else { return }
+            self.keyboardPerformanceActive = active
+            self.updateEngineWarmth()
+        }
+    }
+
+    private func updateEngineWarmth() {
+        synth.keepEngineWarm = keyboardPerformanceActive || conductedPerformanceActive || typeMode
+            || percussionLeft || percussionRight || trackpadPerformanceActive
+        performanceReadout.update { $0.warm = synth.keepEngineWarm }
+    }
+
+    private func notifyChange() {
+        DispatchQueue.main.async { [weak self] in self?.onChange?() }
+    }
+    private func notifyInstrumentVisualChange() {
+        DispatchQueue.main.async { [weak self] in self?.onInstrumentVisualChange?() }
+    }
+
+    private func notifySelfTestChanged() {
+        DispatchQueue.main.async { [weak self] in self?.onSelfTestChanged?() }
+    }
+
     private let midi = MenuBandMIDI()
-    private let synth = MenuBandSynth()
+    private let synth: MenuBandSynth
+
+    init() {
+        let executor = PerformanceExecutor()
+        performance = executor
+        synth = MenuBandSynth(performance: executor)
+    }
     var ambientAir: MenuBandAmbientAir { synth.ambientAir }
     private let mixAnalysis = MenuBandMixAnalysis()
     private var trackpadPerformanceActive = false
@@ -170,6 +216,12 @@ final class MenuBandController {
         synth.stopUnpinnedHotMicNow()
     }
     private var keyTap: KeyEventTap?
+    private let globalKeyboardGate = PerformanceInputGate()
+    private let lastModifierTimestamp = PerformanceSnapshot(0.0)
+
+    func capturedModifierEvent(at timestamp: TimeInterval) -> Bool {
+        lastModifierTimestamp.read() >= timestamp - 0.000001
+    }
     private var heldNotes: [UInt16: UInt8] = [:]
     /// Chord EXTENSION voices for a held key, keyed by interval (semitones
     /// above the root) → voice. The root itself (interval 0) always lives in
@@ -264,7 +316,7 @@ final class MenuBandController {
     /// moment the key is really up. Armed only when the key-state read
     /// agreed with the key-down, so a keyboard the API can't see never has
     /// its real hold cut short.
-    private var spaceWatchdog: Timer?
+    private var spaceWatchdog: DispatchSourceTimer?
     private var spaceKeyStateTrusted = false
     private static let spaceKeyCode = CGKeyCode(49)
     private static func physicalSpaceIsDown() -> Bool {
@@ -277,7 +329,9 @@ final class MenuBandController {
     /// (reshuffled every pass, with the whole chord landing now and then),
     /// random velocity. While the hammer is down, = / + raise the rate and
     /// - lowers it.
-    private var hammerHeld = false
+    private var hammerHeld = false {
+        didSet { performanceReadout.update { $0.hammer = hammerHeld } }
+    }
     private var hammerGeneration: UInt64 = 0
     private var hammerOrder: [UInt16] = []
     /// The voice the hammer last re-attacked per key, so a key that goes
@@ -286,12 +340,14 @@ final class MenuBandController {
     /// longer held. Guarded by `heldLock`.
     private var hammerSounding: [UInt16: (note: UInt8, channel: UInt8)] = [:]
     /// Mean strikes per second. Kept across holds.
-    private var hammerRate: Double = 7
+    private var hammerRate: Double = 7 {
+        didSet { performanceReadout.update { $0.hammerRate = hammerRate } }
+    }
     private static let hammerRateRange = 1.5...24.0
     /// Popover readout: true while Space is hammering the held notes.
-    var isHammering: Bool { hammerHeld }
+    var isHammering: Bool { performanceReadout.read().hammer }
     /// Popover readout: the mean hammer rate, e.g. "7.0/s".
-    var hammerRateLabel: String { String(format: "%.1f/s", hammerRate) }
+    var hammerRateLabel: String { String(format: "%.1f/s", performanceReadout.read().hammerRate) }
     /// Keys that steer the hammer rate: = / + and - while the hammer is
     /// down, ↑ / ↓ any time. They stay ours even under a held ⌘ / ⌥ (the
     /// chord hand is usually on a modifier while the other hand hammers).
@@ -498,15 +554,20 @@ final class MenuBandController {
     /// plays when picking a voice matches whatever the user last
     /// touched, instead of always defaulting to middle C.
     /// Defaults to 60 (C4) on a fresh session.
-    private(set) var lastPlayedNote: UInt8 = 60 {
-        didSet {
-            lastPlayedChord = [lastPlayedNote]
-            lastSoundWasPercussion = false
+    private(set) var lastPlayedNote: UInt8 {
+        get { performanceReadout.read().lastNote }
+        set {
+            performanceReadout.update {
+                $0.lastNote = newValue
+                $0.chord = [newValue]
+                $0.percussion = false
+            }
         }
     }
-    /// The last thing played, as pitches: one note, or a root and the
-    /// extensions it was chorded with. ⇧Space tunes its air to this.
-    private(set) var lastPlayedChord: [UInt8] = [60]
+    private(set) var lastPlayedChord: [UInt8] {
+        get { performanceReadout.read().chord }
+        set { performanceReadout.update { $0.chord = newValue } }
+    }
     /// True while ⇧Space is down, so its key-up ends the air even if Shift
     /// let go first — and never reaches the reverse's release.
     private var airKeyHeld = false
@@ -569,7 +630,7 @@ final class MenuBandController {
         if isDown { heldControlKeys.insert(keyCode) }
         else { heldControlKeys.remove(keyCode) }
         heldLock.unlock()
-        onChange?()
+        notifyChange()
     }
 
     /// Pose the spacebar reverse-replay state for a headless render — the scope
@@ -815,6 +876,10 @@ final class MenuBandController {
     /// clears the competing sample flag so routing can't shadow it, and
     /// restores the last GM voice on the way out.
     func setFluoddityBackend(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setFluoddityBackend(enabled) }
+            return
+        }
         if enabled {
             UserDefaults.standard.set("fluod", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
@@ -827,8 +892,8 @@ final class MenuBandController {
             synth.setFluoddityVoice(false)
             synth.setMelodicProgram(melodicProgram)
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     /// Switch the active melodic backend to (or away from) the AC grand
@@ -837,6 +902,10 @@ final class MenuBandController {
     /// backends so routing can't shadow it, restores the last GM voice on
     /// the way out. Survives relaunch (the bank is in the app).
     func setACPianoBackend(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setACPianoBackend(enabled) }
+            return
+        }
         if enabled {
             guard synth.selectPianoSource(pianoSource) else { return }
             UserDefaults.standard.set("acpiano", forKey: instrumentBackendKey)
@@ -850,8 +919,8 @@ final class MenuBandController {
             synth.setACPianoVoice(false)
             synth.setMelodicProgram(melodicProgram)
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     private let pianoSourceKey = "notepat.pianoSource"
@@ -863,6 +932,10 @@ final class MenuBandController {
     }
 
     func selectPianoSource(_ source: PianoSource) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.selectPianoSource(source) }
+            return
+        }
         guard synth.selectPianoSource(source) else { return }
         if midiMode { toggleMIDIMode() }
         UserDefaults.standard.set(source.rawValue, forKey: pianoSourceKey)
@@ -871,23 +944,33 @@ final class MenuBandController {
         let generation = pianoPreviewGeneration
         // Identical chord on an audition channel makes sources comparable.
         for note in [UInt8(60), 64, 67] { synth.noteOn(note, velocity: 85, channel: 15) }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+        performance.queue.asyncAfter(deadline: .now() + 0.65) { [weak self] in
             guard let self, self.pianoPreviewGeneration == generation,
                   self.instrumentBackend == .acPiano else { return }
             for note in [UInt8(60), 64, 67] { self.synth.noteOff(note, channel: 15) }
         }
-        NotificationCenter.default.post(name: PianoSource.didChange, object: source)
-        onChange?()
-        onInstrumentVisualChange?()
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: PianoSource.didChange, object: source)
+        }
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     func stepPianoSource(delta: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stepPianoSource(delta: delta) }
+            return
+        }
         selectPianoSource(pianoSource.stepped(by: delta))
     }
 
     /// Switch to (or away from) the AC whistle — custom instrument `79, our
     /// own version of GM 79: a human-whistle model, sine-smooth with breath.
     func setWhistleBackend(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setWhistleBackend(enabled) }
+            return
+        }
         if enabled {
             UserDefaults.standard.set("acwhistle", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
@@ -900,13 +983,17 @@ final class MenuBandController {
             synth.setCompositeVoice(false)
             synth.setMelodicProgram(melodicProgram)
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     /// Switch to (or away from) composite — ~2, notepat's old five-layer
     /// shimmer wave, ported in MenuBandCompositeVoice.
     func setCompositeBackend(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setCompositeBackend(enabled) }
+            return
+        }
         if enabled {
             UserDefaults.standard.set("composite", forKey: instrumentBackendKey)
             synth.setSampleBackend(false)
@@ -919,13 +1006,17 @@ final class MenuBandController {
             synth.setCompositeVoice(false)
             synth.setMelodicProgram(melodicProgram)
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     /// Our own non-MIDI instruments live behind ~: ~ then digits. Slot 1 is
     /// Fluoddity, 2 composite. Unknown slots are consumed and do nothing.
     func selectOwnInstrument(_ slot: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.selectOwnInstrument(slot) }
+            return
+        }
         switch slot {
         case 1:
             if midiMode { toggleMIDIMode() }
@@ -944,6 +1035,10 @@ final class MenuBandController {
     /// consumed and do nothing, so a stray digit can't pick a GM voice the
     /// user wasn't aiming for.
     func selectCustomInstrument(_ slot: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.selectCustomInstrument(slot) }
+            return
+        }
         switch slot {
         case 1:
             if midiMode { toggleMIDIMode() }
@@ -963,6 +1058,10 @@ final class MenuBandController {
     private var waveformCaptureClients = 0
 
     func setWaveformCaptureEnabled(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setWaveformCaptureEnabled(enabled) }
+            return
+        }
         if enabled {
             waveformCaptureClients += 1
             if waveformCaptureClients == 1 {
@@ -1000,7 +1099,9 @@ final class MenuBandController {
     // (DAW is the audio path then; we still apply the program change so
     // it's correct when the user toggles MIDI off).
     private var previewNote: UInt8?
-    private var previewProgram: UInt8?
+    private var previewProgram: UInt8? {
+        didSet { performanceReadout.update { $0.previewProgram = previewProgram } }
+    }
     /// Pending noteOn dispatched after a setMelodicProgram swap. Held so
     /// a fast hover sequence (cell A → cell B → cell C in <70 ms) cancels
     /// the not-yet-fired note for B before C's load even starts.
@@ -1011,6 +1112,10 @@ final class MenuBandController {
     /// hover ends to release the held note and restore the committed
     /// program.
     func setInstrumentPreview(_ program: UInt8?) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setInstrumentPreview(program) }
+            return
+        }
         // Always cancel any pending preview noteOn from a prior call —
         // each hover/click target gets a fresh 70 ms scheduling slot.
         pendingPreviewWork?.cancel()
@@ -1024,12 +1129,12 @@ final class MenuBandController {
             // menubar piano still plays whatever the user actually picked.
             previewProgram = nil
             synth.setMelodicProgram(melodicProgram)
-            onInstrumentVisualChange?()
+            notifyInstrumentVisualChange()
             return
         }
         previewProgram = prog
         synth.setMelodicProgram(prog)
-        onInstrumentVisualChange?()
+        notifyInstrumentVisualChange()
         guard !midiMode else { return }
         let note = lastPlayedNote
         previewNote = note
@@ -1050,7 +1155,7 @@ final class MenuBandController {
             self.synth.noteOn(note, velocity: 75, channel: 0)
         }
         pendingPreviewWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + previewLoadDelay,
+        performance.queue.asyncAfter(deadline: .now() + previewLoadDelay,
                                       execute: work)
     }
 
@@ -1071,7 +1176,7 @@ final class MenuBandController {
     private func octaveStepOnce(delta: Int) {
         let next = max(-4, min(4, octaveShift + delta))
         if next == octaveShift {
-            onOctaveLimitNudge?(delta)
+            DispatchQueue.main.async { [weak self] in self?.onOctaveLimitNudge?(delta) }
             return
         }
         octaveShift = next
@@ -1105,10 +1210,14 @@ final class MenuBandController {
     }
 
     func auditionCurrentProgram() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.auditionCurrentProgram() }
+            return
+        }
         let note = lastPlayedNote
         debugLog("audition: synth.noteOn \(note) (program \(melodicProgram))")
         synth.noteOn(note, velocity: 100, channel: 0)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+        performance.queue.asyncAfter(deadline: .now() + 0.7) { [weak self] in
             self?.synth.noteOff(note, channel: 0)
         }
     }
@@ -1171,7 +1280,7 @@ final class MenuBandController {
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: keymapKey)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1181,7 +1290,7 @@ final class MenuBandController {
         get { UserDefaults.standard.bool(forKey: abcLayerKey) }
         set {
             UserDefaults.standard.set(newValue, forKey: abcLayerKey)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1193,7 +1302,7 @@ final class MenuBandController {
         set {
             UserDefaults.standard.set(newValue, forKey: monoOutputKey)
             MenuBandMonoFold.enabled = newValue
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1206,7 +1315,7 @@ final class MenuBandController {
             // holding keeps sounding at its original pitch when you bump the
             // octave; only the NEXT press uses the new octave. (Their key-up
             // still releases the correct stored note.)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1252,19 +1361,23 @@ final class MenuBandController {
     /// so nothing hangs across the melodic↔drum flip, silence drums once
     /// both sides are off, and keep the engine warm while any side drums.
     private func applyPercussionSideEffects() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.applyPercussionSideEffects() }
+            return
+        }
         releaseAllHeldNotes()
         if !percussionLeft && !percussionRight { synth.percussion.silence() }
-        synth.keepEngineWarm = percussionLeft || percussionRight || trackpadPerformanceActive
-        onChange?()
+        updateEngineWarmth()
+        notifyChange()
     }
 
     var percussionLeftTrackDrum: Bool {
         get { UserDefaults.standard.bool(forKey: percussionLeftTrackDrumKey) }
-        set { UserDefaults.standard.set(newValue, forKey: percussionLeftTrackDrumKey); onChange?() }
+        set { UserDefaults.standard.set(newValue, forKey: percussionLeftTrackDrumKey); notifyChange() }
     }
     var percussionRightTrackDrum: Bool {
         get { UserDefaults.standard.bool(forKey: percussionRightTrackDrumKey) }
-        set { UserDefaults.standard.set(newValue, forKey: percussionRightTrackDrumKey); onChange?() }
+        set { UserDefaults.standard.set(newValue, forKey: percussionRightTrackDrumKey); notifyChange() }
     }
 
     /// Bracket press for one side. Plain `[`/`]`: off ↔ on with the keyboard
@@ -1336,6 +1449,10 @@ final class MenuBandController {
     /// melodic notes route through (or away from) the native gm_synth
     /// voices. Re-reads UserDefaults so the toggle is the source of truth.
     func reloadUseACMIDI() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.reloadUseACMIDI() }
+            return
+        }
         let on = UserDefaults.standard.bool(
             forKey: MenuBandSynth.useACMIDIDefaultsKey)
         synth.setUseACMIDI(on)
@@ -1345,6 +1462,10 @@ final class MenuBandController {
     /// closed-hat tick when disarmed — so the gesture lands by ear. `pan`
     /// places the cue on the side that toggled (32 left, 96 right, 64 both).
     func playPercussionToggleCue(on: Bool, pan: UInt8 = 64) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.playPercussionToggleCue(on: on, pan: pan) }
+            return
+        }
         synth.playPercussion(on ? .kick : .hatClosed,
                              velocity: on ? 100 : 80, pan: pan)
     }
@@ -1377,6 +1498,7 @@ final class MenuBandController {
     func percussionTriggerHandoffMs() -> Double { synth.percussionTriggerHandoffMs() }
 
     func markTrackpadInput(at callbackTime: Double) {
+        performance.markInputSubmitted()
         synth.markTrackpadInput(at: callbackTime)
     }
 
@@ -1437,7 +1559,10 @@ final class MenuBandController {
     /// Both keyboard and trackpad drum hits claim plain arrows. An enabled
     /// keyboard drum side keeps that ownership even while the other hand
     /// plays melody. Shift-arrows explicitly select kits in either mode.
-    private(set) var lastSoundWasPercussion = false
+    private(set) var lastSoundWasPercussion: Bool {
+        get { performanceReadout.read().percussion }
+        set { performanceReadout.update { $0.percussion = newValue } }
+    }
 
     func arrowsSelectDrumKit(shift: Bool) -> Bool {
         shift || percussionLeft || percussionRight || lastSoundWasPercussion
@@ -1456,28 +1581,38 @@ final class MenuBandController {
             UserDefaults.standard.set(newValue.rawValue, forKey: drumKitKey)
             synth.percussion.kit = newValue
             MenuBandPercussion.DrumKit.current = newValue
-            NotificationCenter.default.post(name: MenuBandPercussion.DrumKit.didChange,
-                                            object: newValue)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: MenuBandPercussion.DrumKit.didChange,
+                                                object: newValue)
+            }
         }
     }
 
     /// Step the kit and audition it: kick, then snare, on the new voicing.
     func stepDrumKit(delta: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stepDrumKit(delta: delta) }
+            return
+        }
         selectDrumKit(drumKit.stepped(by: delta))
     }
 
     func selectDrumKit(_ kit: MenuBandPercussion.DrumKit) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.selectDrumKit(kit) }
+            return
+        }
         guard kit.isAvailable else { return }
         drumKit = kit
         lastSoundWasPercussion = true
         debugLog("Drum kit = \(kit.label)")
         synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.5), anchors: [], velocity: 96)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+        performance.queue.asyncAfter(deadline: .now() + 0.16) { [weak self] in
             guard let self, self.drumKit == kit else { return }
             self.synth.playDrumSkin(strike: CGPoint(x: 0.5, y: 0.775),
                                     anchors: [], velocity: 90)
         }
-        onChange?()
+        notifyChange()
     }
 
     /// Pick a family from Will's cc library; the kit switches to it once its
@@ -1522,8 +1657,12 @@ final class MenuBandController {
     /// removes cold-engine startup from the first strike while preserving the
     /// keyboard split's independent warm pin.
     func setTrackpadPerformanceActive(_ active: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setTrackpadPerformanceActive(active) }
+            return
+        }
         trackpadPerformanceActive = active
-        synth.keepEngineWarm = percussionLeft || percussionRight || active
+        updateEngineWarmth()
     }
 
     /// Live per-pitch-class drum hit pulses driving the menubar key vibe.
@@ -1540,27 +1679,47 @@ final class MenuBandController {
 
     /// Hold a sustained melodic voice on an explicit channel (no auto-off).
     func engineVoiceOn(_ note: UInt8, channel: UInt8, velocity: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.engineVoiceOn(note, channel: channel, velocity: velocity) }
+            return
+        }
         synth.setPan(64, channel: channel)
         synth.noteOn(note, velocity: velocity, channel: channel)
     }
 
     /// Release a sustained engine voice.
     func engineVoiceOff(_ note: UInt8, channel: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.engineVoiceOff(note, channel: channel) }
+            return
+        }
         synth.noteOff(note, channel: channel)
     }
 
     /// Per-channel Expression (CC 11) — the engine's crossfade lever.
     func engineExpression(_ value: UInt8, channel: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.engineExpression(value, channel: channel) }
+            return
+        }
         synth.sendExpression(value: value, channel: channel)
     }
 
     /// One-shot percussion hit for the engine's drum loop.
     func engineDrum(_ drum: MenuBandPercussion.Drum, velocity: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.engineDrum(drum, velocity: velocity) }
+            return
+        }
         _ = synth.percussionNoteOn(drum, velocity: velocity, pan: 64, accent: false)
     }
 
     /// Set the melodic patch the engine's pad + arp voices speak through.
     func engineSetProgram(_ program: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.engineSetProgram(program) }
+            return
+        }
         synth.setMelodicProgram(program)
     }
 
@@ -1685,7 +1844,7 @@ final class MenuBandController {
             UserDefaults.standard.set(Double(clamped), forKey: tonesVolumeKey)
             synth.setTonesVolume(clamped)
             tape.noteMixParam("tones", clamped)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1701,7 +1860,7 @@ final class MenuBandController {
             UserDefaults.standard.set(Double(clamped), forKey: monitorGainKey)
             synth.setMonitorGain(clamped)
             tape.noteMixParam("mic", clamped)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1759,7 +1918,7 @@ final class MenuBandController {
             UserDefaults.standard.set(Double(clamped), forKey: percussionVolumeKey)
             synth.setPercussionVolume(clamped)
             tape.noteMixParam("percussion", clamped)
-            onChange?()
+            notifyChange()
         }
     }
 
@@ -1780,10 +1939,14 @@ final class MenuBandController {
     }
 
     var effectiveMelodicProgram: UInt8 {
-        previewProgram ?? melodicProgram
+        performanceReadout.read().previewProgram ?? melodicProgram
     }
 
     func setMelodicProgram(_ program: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setMelodicProgram(program) }
+            return
+        }
         UserDefaults.standard.set(Int(program), forKey: melodicProgramKey)
         previewProgram = nil
         // Picking a GM program implicitly switches us back to the GM
@@ -1823,8 +1986,8 @@ final class MenuBandController {
                 synth.noteOn(held.note, velocity: 100, channel: held.channel)
             }
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
     /// Apply a normalized pitch-bend (-1…+1) to every channel that
@@ -1882,8 +2045,13 @@ final class MenuBandController {
     /// Keep the audio engine from idle-pausing (a conducted sung sequence
     /// must not hit the 60 s pause hole mid-song).
     var keepEngineWarm: Bool {
-        get { synth.keepEngineWarm }
-        set { synth.keepEngineWarm = newValue }
+        get { performanceReadout.read().warm }
+        set {
+            performance.perform { [weak self] in
+                self?.conductedPerformanceActive = newValue
+                self?.updateEngineWarmth()
+            }
+        }
     }
 
     /// Secondary alphabet voice used by the popover's ABC checkbox.
@@ -1943,19 +2111,26 @@ final class MenuBandController {
 
     /// ⇧Space: air in the pitch of the last note or chord.
     func pushAir() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.pushAir() }
+            return
+        }
         synth.pushAir(pitches: lastPlayedChord)
     }
 
     func releaseAir() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.releaseAir() }
+            return
+        }
         synth.releaseAir()
     }
 
     /// Spacebar reverse-replay (notepat-native parity). Plays the most-recent
     /// few seconds of what just sounded, backwards. The synth keeps a rolling
     /// ring of its post-FX output at all times; this snapshots + reverses it.
-    /// Bounced to the main thread because `playKeyEvent` runs on the
-    /// KeyEventTap background thread and reverse playback mutates the engine
-    /// graph + schedules a player buffer (both main-thread-only).
+    /// Runs on the performance queue; the synth serializes player/graph
+    /// changes against engine lifecycle. Only visual state goes to main.
     /// True while the spacebar reverse-replay is sounding — drives the
     /// popover waveform strip's direction indicator (◀ reverse vs ▶ live).
     private(set) var isRewinding = false
@@ -1964,24 +2139,25 @@ final class MenuBandController {
     var onRewindChanged: ((Bool, [Float]) -> Void)?
 
     func rewind() {
-        isRewinding = true
-        DispatchQueue.main.async { [weak self] in
+        performance.perform { [weak self] in
             guard let self else { return }
-            let didPlay = self.synth.playReverse()
-            self.isRewinding = didPlay
-            self.onRewindChanged?(didPlay, self.synth.rewindPreviewLevels())
+            let played = self.synth.playReverse()
+            let preview = self.synth.rewindPreviewLevels()
+            DispatchQueue.main.async { [weak self] in
+                self?.isRewinding = played
+                self?.onRewindChanged?(played, preview)
+            }
         }
     }
 
-    /// Spacebar released — stop reverse playback and lift the needle back to
-    /// the session anchor. Quick presses therefore repeat the same phrase;
-    /// playing a real note drops the anchor so the next dive starts at now.
     func rewindRelease() {
-        isRewinding = false
-        DispatchQueue.main.async { [weak self] in
+        performance.perform { [weak self] in
             guard let self else { return }
             self.synth.releaseReverse()
-            self.onRewindChanged?(false, [])
+            DispatchQueue.main.async { [weak self] in
+                self?.isRewinding = false
+                self?.onRewindChanged?(false, [])
+            }
         }
     }
 
@@ -1997,6 +2173,10 @@ final class MenuBandController {
     func rewindLiveInputPeak() -> Float { synth.rewindLiveInputPeak() }
 
     func setBend(amount: Float, allChannels: Bool = false) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setBend(amount: amount, allChannels: allChannels) }
+            return
+        }
         guard amount.isFinite else { return }
         // The live voice monitor's wet sends follow the wheel in every mode
         // (MIDI mode included), so it's fed before any branching below.
@@ -2070,6 +2250,10 @@ final class MenuBandController {
     }
 
     func stepMelodicProgram(delta: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stepMelodicProgram(delta: delta) }
+            return
+        }
         let next = max(0, min(127, Int(melodicProgram) + delta))
         guard next != Int(melodicProgram) else { return }
         setMelodicProgram(UInt8(next))
@@ -2082,6 +2266,10 @@ final class MenuBandController {
     /// at slot 0 / 127) so the user doesn't hear repeated blips
     /// on the same voice when holding the arrow past the end.
     func stepMelodicProgramWithBlip(delta: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stepMelodicProgramWithBlip(delta: delta) }
+            return
+        }
         let prev = melodicProgram
         stepMelodicProgram(delta: delta)
         guard prev != melodicProgram else { return }
@@ -2107,11 +2295,15 @@ final class MenuBandController {
             self?.synth.noteOff(note, channel: 0)
         }
         previewBlipWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.previewBlipDuration,
+        performance.queue.asyncAfter(deadline: .now() + Self.previewBlipDuration,
                                       execute: work)
     }
 
     func stepOctave(delta: Int) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stepOctave(delta: delta) }
+            return
+        }
         octaveStepOnce(delta: delta)
     }
 
@@ -2152,7 +2344,7 @@ final class MenuBandController {
         UserDefaults.standard.set("gb", forKey: instrumentBackendKey)
         UserDefaults.standard.set(url.path, forKey: garageBandPatchPathKey)
         synth.setGarageBandPatch(at: url)
-        onChange?()
+        notifyChange()
     }
 
     /// Compatibility entry point for the former radio-as-instrument mode.
@@ -2182,8 +2374,8 @@ final class MenuBandController {
         set {
             UserDefaults.standard.set(newValue.id, forKey: radioStationKey)
             synth.setRadioStation(newValue)
-            onChange?()
-            onInstrumentVisualChange?()
+            notifyChange()
+            notifyInstrumentVisualChange()
         }
     }
 
@@ -2209,7 +2401,7 @@ final class MenuBandController {
         spotifyStatusIsError = false
         synth.startCDJRadio(station: station)
         onCDJRadioChange?()
-        onInstrumentVisualChange?()
+        notifyInstrumentVisualChange()
     }
 
     // MARK: - CDJ Radio / headless Spotify
@@ -2228,7 +2420,7 @@ final class MenuBandController {
         spotify.start()
         connectSpotifyDeckSoon()
         onCDJRadioChange?()
-        onInstrumentVisualChange?()
+        notifyInstrumentVisualChange()
     }
 
     func deactivateSpotifyPlayer() {
@@ -2251,7 +2443,7 @@ final class MenuBandController {
         synth.stopCDJInternetRadio()
         cdjRadioPresented = false
         onCDJRadioChange?()
-        onInstrumentVisualChange?()
+        notifyInstrumentVisualChange()
     }
 
     func toggleSpotifyPlayback() {
@@ -2439,11 +2631,11 @@ final class MenuBandController {
             currentInstrument: synth.pluginInstrument,
             onLoad: { [weak self] avUnit in
                 self?.synth.setPluginInstrument(avUnit)
-                self?.onChange?()
+                self?.notifyChange()
             },
             onUnload: { [weak self] in
                 self?.synth.setPluginInstrument(nil)
-                self?.onChange?()
+                self?.notifyChange()
             }
         )
         pluginPicker = ctrl
@@ -2507,6 +2699,10 @@ final class MenuBandController {
     /// restores whichever GM voice was last selected (same shape as
     /// `setRadioBackend(false)`).
     func setSampleBackend(_ enabled: Bool) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.setSampleBackend(enabled) }
+            return
+        }
         if enabled {
             UserDefaults.standard.set("sample", forKey: instrumentBackendKey)
             // Mutually exclusive with the Fluoddity and AC piano backends —
@@ -2524,8 +2720,8 @@ final class MenuBandController {
             // lands back on a familiar instrument instead of silence.
             synth.setMelodicProgram(melodicProgram)
         }
-        onChange?()
-        onInstrumentVisualChange?()
+        notifyChange()
+        notifyInstrumentVisualChange()
     }
 
 
@@ -2624,8 +2820,12 @@ final class MenuBandController {
     /// directly (bypassing the keyboard) so an `.mbscore` can auto-perform a
     /// take for testing the record → DMG pipeline.
     func playTestNote(midi: UInt8, velocity: UInt8 = 100, duration: TimeInterval) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.playTestNote(midi: midi, velocity: velocity, duration: duration) }
+            return
+        }
         synth.noteOn(midi, velocity: velocity, channel: 0)
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+        performance.queue.asyncAfter(deadline: .now() + duration) { [weak self] in
             self?.synth.noteOff(midi, channel: 0)
         }
     }
@@ -2662,7 +2862,7 @@ final class MenuBandController {
             synth.unpinHotMic(reason: tapeMicPinReason)
             synth.removeWaveformTapPin(tapeWaveformPinReason)
         }
-        onChange?()
+        notifyChange()
     }
 
     func bootstrap() {
@@ -2693,12 +2893,10 @@ final class MenuBandController {
         debugLog("bootstrap: post-synth.start")
         synth.setMelodicProgram(melodicProgram)
         // Physical USB/Bluetooth MIDI input is always available and does not
-        // depend on the DAW-facing MIDI output toggle. CoreMIDI invokes us on
-        // its delivery queue; serialize controller/synth/UI state on main.
+        // depend on the DAW-facing MIDI output toggle. CoreMIDI hands events
+        // to the ordered performance queue; UI state follows asynchronously.
         midi.startHardwareInput { [weak self] event in
-            DispatchQueue.main.async {
-                self?.handleHardwareMIDI(event)
-            }
+            self?.performance.enqueue { [weak self] in self?.handleHardwareMIDI(event) }
         }
         // Tape wiring: attach the player to the synth's pre-limiter
         // sum bus, fork the existing audio taps into the tape's
@@ -2858,7 +3056,7 @@ final class MenuBandController {
         midi.stopHardwareInput()
         disableTypeMode()
         disableMIDIMode()
-        synth.stop()
+        performance.sync { synth.stop() }
     }
 
     // MARK: - Physical MIDI controller input
@@ -2956,8 +3154,11 @@ final class MenuBandController {
         let display = hardwareMIDIDisplayNote(note)
         hardwareMIDIDisplayByKey[key] = display
         hardwareMIDIDisplayRefs[display, default: 0] += 1
-        litDownAt[display] = CACurrentMediaTime()
-        if litNotes.insert(display).inserted { onLitChanged?() }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.litDownAt[display] = CACurrentMediaTime()
+            if self.litNotes.insert(display).inserted { self.onLitChanged?() }
+        }
     }
 
     private func releaseHardwareMIDINote(_ key: UInt16) {
@@ -2976,11 +3177,18 @@ final class MenuBandController {
             return
         }
         hardwareMIDIDisplayRefs.removeValue(forKey: display)
-        litDownAt.removeValue(forKey: display)
-        if litNotes.remove(display) != nil { onLitChanged?() }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.litDownAt.removeValue(forKey: display)
+            if self.litNotes.remove(display) != nil { self.onLitChanged?() }
+        }
     }
 
     private func releaseAllHardwareMIDINotes(channel: UInt8? = nil) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.releaseAllHardwareMIDINotes(channel: channel) }
+            return
+        }
         let sounding = hardwareMIDIHeld.union(hardwareMIDISustained).filter { key in
             guard let channel else { return true }
             return hardwareMIDIAddress(key).channel == channel
@@ -2999,7 +3207,7 @@ final class MenuBandController {
         midi.start()
         synth.panic()  // DAW takes over from internal synth
         UserDefaults.standard.set(true, forKey: midiModeKey)
-        onChange?()
+        notifyChange()
         // Self-test runs once per session — first enable. Skipping it on
         // every toggle removes the 50–800ms perceived lag from the popover
         // switch.
@@ -3031,7 +3239,7 @@ final class MenuBandController {
     /// or the source is broken. Result lands on `midiSelfTest`.
     private func runMIDILoopbackTest() {
         midiSelfTest = .running
-        onSelfTestChanged?()
+        notifySelfTestChanged()
         let testNote: UInt8 = 60
         let testVelocity: UInt8 = 1     // velocity 1 — inaudible enough for a DAW
         let sentAt = CACurrentMediaTime()
@@ -3051,7 +3259,7 @@ final class MenuBandController {
                 // callback returns.
                 DispatchQueue.main.async {
                     self.midiSelfTest = .ok(latencyMs: dt)
-                    self.onSelfTestChanged?()
+                    self.notifySelfTestChanged()
                     self.midi.stopLoopback()
                 }
             }
@@ -3068,7 +3276,7 @@ final class MenuBandController {
                 debugLog("MIDI loopback: TIMEOUT — no note received within 800ms")
                 self.midi.stopLoopback()
                 self.midiSelfTest = .failed
-                self.onSelfTestChanged?()
+                self.notifySelfTestChanged()
             }
         }
     }
@@ -3079,8 +3287,8 @@ final class MenuBandController {
         debugLog("disableMIDIMode: midi.stop() returned")
         UserDefaults.standard.set(false, forKey: midiModeKey)
         midiSelfTest = .unknown
-        onSelfTestChanged?()
-        onChange?()
+        notifySelfTestChanged()
+        notifyChange()
         debugLog("disableMIDIMode: complete")
     }
 
@@ -3099,39 +3307,66 @@ final class MenuBandController {
         #else
         if !ensureAccessibility(prompt: promptForPermission) {
             UserDefaults.standard.set(false, forKey: typeModeKey)
-            onChange?()
+            notifyChange()
             return
         }
+        globalKeyboardGate.activate()
         let tap = KeyEventTap { [weak self] keyCode, isDown, isRepeat, flags in
-            return self?.handleKey(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags) ?? false
+            guard let self else { return false }
+            if keyCode == 53, isDown {
+                self.globalKeyboardGate.close { self.releaseAllHeldNotes() }
+                DispatchQueue.main.async { [weak self] in self?.disableTypeMode(playFeedback: true) }
+                return true
+            }
+            let local = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+            return self.globalKeyboardGate.submit(key: keyCode, down: isDown,
+                eligible: self.consumesLocalKey(keyCode: keyCode, isDown: isDown, flags: local)) {
+                _ = self.handleKey(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags)
+            }
+        }
+        tap.onDiscontinuity = { [weak self] in
+            guard let self else { return }
+            self.globalKeyboardGate.close { self.releaseAllHeldNotes() }
+            // Stop TYPE mode after a lost event stream; rearming is explicit.
+            DispatchQueue.main.async { [weak self] in self?.disableTypeMode() }
+        }
+        tap.onFlagsChanged = { [weak self] flags, timestamp in
+            self?.lastModifierTimestamp.update { $0 = Double(timestamp) / 1_000_000_000 }
+            self?.morphHeldKeys(rawFlags: flags.rawValue)
         }
         if !tap.start() {
+            globalKeyboardGate.close { releaseAllHeldNotes() }
             NSLog("MenuBand: CGEventTap creation failed (likely missing Accessibility permission)")
             UserDefaults.standard.set(false, forKey: typeModeKey)
-            onChange?()
+            notifyChange()
             return
         }
         keyTap = tap
         UserDefaults.standard.set(true, forKey: typeModeKey)
+        performance.enqueue { [weak self] in self?.updateEngineWarmth() }
         installClickAwayMonitor()
         if playFeedback {
             NSSound(named: NSSound.Name("Submarine"))?.play()
         }
-        onChange?()
+        notifyChange()
         #endif
     }
 
     private func disableTypeMode(playFeedback: Bool = false) {
+        globalKeyboardGate.close { releaseAllHeldNotes() }
         removeClickAwayMonitor()
         keyTap?.stop()
         keyTap = nil
         releaseAllHeldNotes()
-        voiceDigitBuffer = ""
+        performance.enqueue { [weak self] in
+            self?.voiceDigitBuffer = ""
+            self?.updateEngineWarmth()
+        }
         UserDefaults.standard.set(false, forKey: typeModeKey)
         if playFeedback {
             NSSound(named: NSSound.Name("Pop"))?.play()
         }
-        onChange?()
+        notifyChange()
     }
 
     private func handleSampleRecordKey(isDown: Bool, isRepeat: Bool, chromatic: Bool = false, source: String) -> Bool {
@@ -3155,7 +3390,7 @@ final class MenuBandController {
                 self.synth.startSampleRecording(chromatic: chromatic)
                 // Nudge the AppDelegate so the menubar icon immediately
                 // picks up the red "REC" tint on the chip.
-                self.onInstrumentVisualChange?()
+                self.notifyInstrumentVisualChange()
             } else {
                 let usable = self.synth.stopSampleRecording()
                 if usable || self.sampleVoiceHasRecording {
@@ -3318,6 +3553,10 @@ final class MenuBandController {
                       pan: UInt8 = 64,
                       displayNote: UInt8? = nil,
                       linger: Bool = false) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.startTapNote(midiNote, velocity: velocity, pan: pan, displayNote: displayNote, linger: linger) }
+            return
+        }
         debugLog("startTapNote midi=\(midiNote) midiMode=\(midiMode) linger=\(linger)")
         lastPlayedNote = midiNote
         if tapHeld.contains(midiNote) { return }
@@ -3369,12 +3608,20 @@ final class MenuBandController {
     /// While dragging, update pan in real time as the cursor slides within
     /// the held note. Doesn't retrigger the note.
     func updateTapPan(_ midiNote: UInt8, pan: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.updateTapPan(midiNote, pan: pan) }
+            return
+        }
         guard tapHeld.contains(midiNote) else { return }
         midi.sendCC(10, value: pan, channel: 0)
     }
 
     /// Release a note previously started with `startTapNote`.
     func stopTapNote(_ midiNote: UInt8) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.stopTapNote(midiNote) }
+            return
+        }
         guard tapHeld.contains(midiNote) else { return }
         tapHeld.remove(midiNote)
         let visualNote = tapDisplayNote.removeValue(forKey: midiNote) ?? midiNote
@@ -3597,6 +3844,10 @@ final class MenuBandController {
     /// unchanged) so the stream of flagsChanged events that a single modifier
     /// press emits doesn't machine-gun retriggers.
     func morphHeldKeys(rawFlags: UInt64) {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.morphHeldKeys(rawFlags: rawFlags) }
+            return
+        }
         // Snapshot under the lock — the per-key revoice helpers below take
         // `heldLock` themselves (NSLock isn't recursive), so we must NOT hold
         // it across them. Copying the intent dictionaries up front also gives
@@ -3672,7 +3923,7 @@ final class MenuBandController {
             // noteOff. Just delay the MIDI noteOff so external DAWs
             // see a clean pair without truncating the kit sample.
             let n = midiNote, mc = midiChannel
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.lingerTailSeconds) { [weak self] in
+            performance.queue.asyncAfter(deadline: .now() + Self.lingerTailSeconds) { [weak self] in
                 self?.midi.noteOff(n, channel: mc)
             }
             return
@@ -3724,7 +3975,7 @@ final class MenuBandController {
     /// main queue at once.
     private let lingerLock = NSLock()
     private var lingerFades: [UInt8: LingerFade] = [:]
-    private var lingerFadeTimer: Timer?
+    private var lingerFadeTimer: DispatchSourceTimer?
 
     /// Cancel an in-flight fade on `synthChannel` (if any) and
     /// immediately restore Expression to 127 so the next note on the
@@ -3773,17 +4024,13 @@ final class MenuBandController {
                                                midiChannel: midiChannel,
                                                startedAt: CACurrentMediaTime())
         lingerLock.unlock()
-        let arm = { [weak self] in
-            guard let self, self.lingerFadeTimer == nil else { return }
-            let timer = Timer(timeInterval: 1.0 / Self.lingerFadeHz,
-                              repeats: true) { [weak self] _ in
-                self?.stepLingerFades()
-            }
-            timer.tolerance = 1.0 / (Self.lingerFadeHz * 4)
-            RunLoop.main.add(timer, forMode: .common)
-            self.lingerFadeTimer = timer
-        }
-        if Thread.isMainThread { arm() } else { DispatchQueue.main.async(execute: arm) }
+        guard lingerFadeTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: performance.queue)
+        timer.schedule(deadline: .now(), repeating: 1.0 / Self.lingerFadeHz,
+                       leeway: .milliseconds(1))
+        timer.setEventHandler { [weak self] in self?.stepLingerFades() }
+        lingerFadeTimer = timer
+        timer.resume()
     }
 
     /// One tick of every fade in flight. Linear ramp: Ableton's stock
@@ -3833,7 +4080,7 @@ final class MenuBandController {
             midi.noteOff(f.fade.note, channel: f.fade.midiChannel)
         }
         if empty {
-            lingerFadeTimer?.invalidate()
+            lingerFadeTimer?.cancel()
             lingerFadeTimer = nil
         }
     }
@@ -3846,6 +4093,7 @@ final class MenuBandController {
     private func scheduleStaccatoDoppler(midiNote: UInt8,
                                          midiChannel: UInt8,
                                          startVelocity: UInt8) {
+        let generation = performanceGeneration
         var step = 0
         var interval = Self.dopplerInitialDelay
         var velocity = Double(startVelocity)
@@ -3856,14 +4104,14 @@ final class MenuBandController {
             cumulative += interval
             let v = UInt8(max(1, min(127, Int(velocity.rounded()))))
             let triggerAt = cumulative
-            DispatchQueue.main.asyncAfter(deadline: .now() + triggerAt) { [weak self] in
-                guard let self = self else { return }
+            performance.queue.asyncAfter(deadline: .now() + triggerAt) { [weak self] in
+                guard let self, self.performanceGeneration == generation else { return }
                 let ch = self.nextDopplerChannel()
                 self.primeChannelBend(ch)
                 if !self.midiMode { self.synth.noteOn(midiNote, velocity: v, channel: ch) }
                 self.midiNoteOn(midiNote, velocity: v, channel: midiChannel)
-                DispatchQueue.main.asyncAfter(deadline: .now() + Self.dopplerNoteOffWindow) { [weak self] in
-                    guard let self = self else { return }
+                performance.queue.asyncAfter(deadline: .now() + Self.dopplerNoteOffWindow) { [weak self] in
+                    guard let self, self.performanceGeneration == generation else { return }
                     if !self.midiMode { self.synth.noteOff(midiNote, channel: ch) }
                     self.midi.noteOff(midiNote, channel: midiChannel)
                 }
@@ -4026,11 +4274,36 @@ final class MenuBandController {
         }
     }
 
+    /// Pure admission decision; reads only the thread-safe preference store.
+    /// Releases always enter the lane so a modifier/layout change cannot strand
+    /// a voice. Musical state is examined only after admission, on the lane.
+    func consumesLocalKey(keyCode: UInt16, isDown: Bool, flags: NSEvent.ModifierFlags) -> Bool {
+        if !isDown || keyCode == 49 || keyCode == 50 { return true }
+        if (keyCode == 123 || keyCode == 124),
+           flags.intersection([.command, .option, .control, .shift]) == .option {
+            // Audio selection may already be queued ahead of this event.
+            // Reserve source-navigation keys while in performance capture.
+            return true
+        }
+        if keyCode == 125 || keyCode == 126 { return true }
+        let modifiers = flags.intersection([.command, .option, .control])
+        if modifiers.isEmpty { return true }
+        return MenuBandLayout.semitone(forKeyCode: keyCode, keymap: keymap) != nil
+    }
+
     // MARK: - Key handling (runs on KeyEventTap background thread)
     // Returns true to CONSUME the key event (sink it from the focused app);
     // false to let it pass through.
 
     private func handleKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool, flags: CGEventFlags) -> Bool {
+        if !performance.isCurrent {
+            let local = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+            guard keyCode == 53 || consumesLocalKey(keyCode: keyCode, isDown: isDown, flags: local) else { return false }
+            performance.enqueueInput { [weak self] in
+                _ = self?.handleKey(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, flags: flags)
+            }
+            return true
+        }
         // Escape exits TYPE mode (and consumes the keystroke).
         if isDown && keyCode == 53 {  // kVK_Escape
             DispatchQueue.main.async { [weak self] in
@@ -4083,6 +4356,14 @@ final class MenuBandController {
     /// pins and hides the cursor) stays a keyboard-only feature.
     func handleLocalKey(keyCode: UInt16, isDown: Bool, isRepeat: Bool,
                         flags: NSEvent.ModifierFlags, fromPointer: Bool = false) -> Bool {
+        if !performance.isCurrent {
+            guard consumesLocalKey(keyCode: keyCode, isDown: isDown, flags: flags) else { return false }
+            performance.enqueueInput { [weak self] in
+                _ = self?.handleLocalKey(keyCode: keyCode, isDown: isDown,
+                    isRepeat: isRepeat, flags: flags, fromPointer: fromPointer)
+            }
+            return true
+        }
         if fromPointer {
             heldLock.lock()
             if isDown { pointerHeldKeys.insert(keyCode) }
@@ -4150,7 +4431,7 @@ final class MenuBandController {
         // enabled. Shift-arrows remain the separate drum-kit selector.
         if optionOnly, instrumentBackend == .acPiano, keyCode == 123 || keyCode == 124 {
             if isDown && !isRepeat {
-                DispatchQueue.main.async { [weak self] in
+                performance.perform { [weak self] in
                     self?.stepPianoSource(delta: keyCode == 123 ? -1 : 1)
                 }
             }
@@ -4239,7 +4520,7 @@ final class MenuBandController {
 
             if isDown && modifierHeld {
                 let direction = keyCode == 126 ? 1 : -1
-                DispatchQueue.main.async { [weak self] in
+                performance.perform { [weak self] in
                     self?.adjustPercussionVolume(direction: direction,
                                                  isRepeat: isRepeat)
                 }
@@ -4268,7 +4549,7 @@ final class MenuBandController {
             heldLock.unlock()
 
             if isDown && !isRepeat {
-                DispatchQueue.main.async { [weak self] in
+                performance.perform { [weak self] in
                     guard let self = self else { return }
                     let enabled = self.pressPercussionLatch(left: left, trackDrum: wantTrackDrum)
                     let kitIsTrackDrum = left ? self.percussionLeftTrackDrum : self.percussionRightTrackDrum
@@ -4296,17 +4577,17 @@ final class MenuBandController {
             // out. The key-up is claimed by whichever of the two the
             // key-down began, so a Shift released early still ends the
             // air and never fires the reverse's release.
-            if isDown, shift, !airKeyHeld, !isRewinding {
+            if isDown, shift, !airKeyHeld, !spaceKeyHeld {
                 debugLog("air push pitches=\(lastPlayedChord)")
                 airKeyHeld = true
-                DispatchQueue.main.async { [weak self] in self?.pushAir() }
+                performance.perform { [weak self] in self?.pushAir() }
                 return true
             }
             if airKeyHeld {
                 if !isDown {
                     debugLog("air release")
                     airKeyHeld = false
-                    DispatchQueue.main.async { [weak self] in self?.releaseAir() }
+                    performance.perform { [weak self] in self?.releaseAir() }
                 }
                 return true
             }
@@ -4331,7 +4612,9 @@ final class MenuBandController {
         // leak to the focused app.
         if keyCode == 36 /* kVK_Return */ {
             enterLatchHeld = isDown
-            if !isDown { latchArmedKeys.removeAll() }
+            if !isDown {
+                heldLock.lock(); latchArmedKeys.removeAll(); heldLock.unlock()
+            }
             return true
         }
         if keyCode == 51 /* kVK_Delete (Backspace) */ {
@@ -4365,7 +4648,7 @@ final class MenuBandController {
         if (keyCode == 123 || keyCode == 124) && arrowsSelectDrumKit(shift: shift) {
             if isDown && !isRepeat {
                 let delta = keyCode == 123 ? -1 : 1
-                DispatchQueue.main.async { [weak self] in
+                performance.perform { [weak self] in
                     self?.stepDrumKit(delta: delta)
                 }
             }
@@ -4425,7 +4708,7 @@ final class MenuBandController {
                     perKeySampleRecordingMidi = nil
                     _ = m
                 }
-                onInstrumentVisualChange?()
+                notifyInstrumentVisualChange()
                 return true
             }
             // ⌃` = chromatic (pitch-corrected) global sample.
@@ -4464,11 +4747,11 @@ final class MenuBandController {
             if isDown && !isRepeat {
                 perKeySampleRecordingMidi = note
                 synth.startSampleRecording(forKey: note)
-                onInstrumentVisualChange?()
+                notifyInstrumentVisualChange()
             } else if !isDown && perKeySampleRecordingMidi == note {
                 if synth.stopSampleRecording() { setSampleBackend(true) }
                 perKeySampleRecordingMidi = nil
-                onInstrumentVisualChange?()
+                notifyInstrumentVisualChange()
             }
             return true
         }
@@ -4518,7 +4801,7 @@ final class MenuBandController {
                     if voiceDigitBuffer.count >= 3 { voiceDigitBuffer = "" }
                     voiceDigitBuffer.append(String(digit))
                     let slot = Int(voiceDigitBuffer) ?? 0
-                    DispatchQueue.main.async { [weak self] in
+                    performance.perform { [weak self] in
                         if own { self?.selectOwnInstrument(slot) }
                         else { self?.selectCustomInstrument(slot) }
                     }
@@ -4562,7 +4845,7 @@ final class MenuBandController {
                     deadline: .now() + Self.voiceNumberSpeechDelay,
                     execute: speech
                 )
-                DispatchQueue.main.async { [weak self] in
+                performance.perform { [weak self] in
                     guard let self = self, let v = Int(buffer) else { return }
                     if v == 0 {
                         if !self.midiMode { self.toggleMIDIMode() }
@@ -4796,7 +5079,7 @@ final class MenuBandController {
             // If Enter is held while this note is pressed, arm it so its
             // upcoming key-up latches (sustains) instead of releasing.
             if enterLatchHeld {
-                latchArmedKeys.insert(keyCode)
+                heldLock.lock(); latchArmedKeys.insert(keyCode); heldLock.unlock()
                 if !latchedKeys.contains(keyCode) { latchedKeys.append(keyCode) }
             }
             return true
@@ -4872,24 +5155,19 @@ final class MenuBandController {
     }
 
     private func startSpaceWatchdog() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.spaceKeyHeld else { return }
-            self.spaceWatchdog?.invalidate()
-            let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
-                guard let self else { return }
-                guard self.spaceKeyHeld else { self.stopSpaceWatchdog(); return }
-                if !Self.physicalSpaceIsDown() {
-                    debugLog("space watchdog: key is up but no key-up arrived — ending \(self.spaceMode.rawValue)")
-                    self.endSpace()
-                }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            self.spaceWatchdog = timer
+        spaceWatchdog?.cancel()
+        let timer = DispatchSource.makeTimerSource(queue: performance.queue)
+        timer.schedule(deadline: .now() + 0.1, repeating: 0.1)
+        timer.setEventHandler { [weak self] in
+            guard let self else { return }
+            if self.spaceKeyHeld && !Self.physicalSpaceIsDown() { self.endSpace() }
         }
+        spaceWatchdog = timer
+        timer.resume()
     }
 
     private func stopSpaceWatchdog() {
-        spaceWatchdog?.invalidate()
+        spaceWatchdog?.cancel()
         spaceWatchdog = nil
     }
 
@@ -4898,8 +5176,7 @@ final class MenuBandController {
     private func endSpace() {
         spaceKeyHeld = false
         debugLog("space up mode=\(spaceMode.rawValue)")
-        if Thread.isMainThread { stopSpaceWatchdog() }
-        else { DispatchQueue.main.async { [weak self] in self?.stopSpaceWatchdog() } }
+        stopSpaceWatchdog()
         switch spaceMode {
         case .reverse: rewindRelease()
         case .hammer: endHammer()
@@ -5000,7 +5277,7 @@ final class MenuBandController {
     }
 
     private func scheduleHammerStrike(after delay: Double, generation: UInt64) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        performance.after(delay) { [weak self] in
             guard let self, self.hammerHeld, self.hammerGeneration == generation else { return }
             self.hammerStrike()
             self.scheduleHammerStrike(after: self.hammerInterval(), generation: generation)
@@ -5047,8 +5324,12 @@ final class MenuBandController {
         }
         sweepHammerOrphans()
         let now = CACurrentMediaTime()
-        for d in flashed { litDownAt[d] = now }
-        if !flashed.isEmpty { onLitChanged?() }
+        let highlights = flashed
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            for d in highlights { self.litDownAt[d] = now }
+            if !highlights.isEmpty { self.onLitChanged?() }
+        }
     }
 
     /// Re-attack a sounding voice on its own channel: off, then on at the
@@ -5081,7 +5362,7 @@ final class MenuBandController {
     /// of `playKeyEvent` (linger-aware note-off + extinguish the lit
     /// cell) but is driven by Backspace rather than the physical key-up.
     private func unlatchKey(_ keyCode: UInt16) {
-        latchArmedKeys.remove(keyCode)
+        heldLock.lock(); latchArmedKeys.remove(keyCode); heldLock.unlock()
         latchedKeys.removeAll { $0 == keyCode }
         heldLock.lock()
         let note = heldNotes.removeValue(forKey: keyCode)
@@ -5111,12 +5392,34 @@ final class MenuBandController {
     /// Hard stop for the fleet Stop: release every held note and silence all
     /// sounding voices — melodic and percussion.
     func panic() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.panic() }
+            return
+        }
         releaseAllHeldNotes()
         synth.percussion.silence()
         synth.panic()
     }
 
     func releaseAllHeldNotes() {
+        if !performance.isCurrent {
+            performance.enqueue { [weak self] in self?.releaseAllHeldNotes() }
+            return
+        }
+        performanceGeneration &+= 1
+        if airKeyHeld { airKeyHeld = false; releaseAir() }
+        voiceNumberSpeechWork?.cancel()
+        pendingPreviewWork?.cancel()
+        previewBlipWork?.cancel()
+        pianoPreviewGeneration &+= 1
+        voiceDigitBuffer = ""
+        voiceCommandBuffer = ""
+        voiceCustomPrefix = false
+        voiceOwnPrefix = false
+        voiceDigitNegative = false
+        lingerFadeTimer?.cancel()
+        lingerFadeTimer = nil
+        lingerLock.lock(); lingerFades.removeAll(); lingerLock.unlock()
         // A blanket release also lets go of Space. Focus loss, Tab's pad
         // handoff and the panic path all land here, and any of them can
         // swallow the key-up that would have ended the dive or the hammer —

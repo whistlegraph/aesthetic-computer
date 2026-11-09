@@ -51,6 +51,9 @@ final class MenuBarFit {
     private(set) var current: Int
     private var maxRung: Int { rungs.count - 1 }
     private var lastClipped = false
+    private let visibilityProbe = MenuBarVisibilityProbe()
+    private var visibilityRequest: UInt64 = 0
+    private var visibilityPending = false
     private var pollTimer: Timer?
     private var isSettling = false
     private var settleWorkItem: DispatchWorkItem?
@@ -205,6 +208,7 @@ final class MenuBarFit {
     /// `applyCommandIfAny`; on Tahoe that made every growth look clipped and
     /// bounce back 10–20ms later.
     private func beginRungSettlement() {
+        visibilityRequest &+= 1
         settleWorkItem?.cancel()
         isSettling = true
         let expectedRung = current
@@ -229,7 +233,31 @@ final class MenuBarFit {
 
     @discardableResult
     private func sampleVisibility() -> Bool {
-        let clipped = !isVisible()
+        visibilityRequest &+= 1
+        let request = visibilityRequest
+        guard !Self.fakeClipped.contains(slug),
+              let window = statusItem?.button?.window, window.screen != nil,
+              NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else {
+            visibilityPending = false
+            return recordVisibility(false)
+        }
+        // WindowServer/LaunchServices IPC can stall independently of this
+        // app. Capture AppKit geometry here, then query on the utility lane.
+        visibilityPending = true
+        visibilityProbe.sample(width: window.frame.width, preferredName: slug) { [weak self] visible in
+            guard let self, request == self.visibilityRequest else { return }
+            self.visibilityPending = false
+            _ = self.recordVisibility(visible)
+            self.writeState()
+            self.postBus()
+            self.electBroker()
+            if self.isBroker { self.evaluate() }
+        }
+        return false
+    }
+
+    private func recordVisibility(_ visible: Bool) -> Bool {
+        let clipped = !visible
         let changed = clipped != lastClipped
         lastClipped = clipped
         if changed {
@@ -245,15 +273,6 @@ final class MenuBarFit {
     private static let fakeClipped: Set<String> = Set(
         (ProcessInfo.processInfo.environment["AC_MENUBARFIT_FAKECLIP"] ?? "")
             .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
-
-    // ── clip detection (the one honest macOS signal) ──────────────────
-    private func isVisible() -> Bool {
-        if Self.fakeClipped.contains(slug) { return false }
-        guard let button = statusItem?.button, let window = button.window else { return false }
-        if window.screen == nil { return false }
-        if !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) { return false }
-        return Self.replicantVisible(width: window.frame.width, preferredName: slug)
-    }
 
     // macOS 26 (Tahoe) re-architected status items: the thing actually drawn
     // in the bar is a Control Center-owned "replicant" window at the status
@@ -273,6 +292,7 @@ final class MenuBarFit {
             withBundleIdentifier: "com.apple.controlcenter").first else { return true }
         guard let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID)
             as? [[String: Any]] else { return true }
+        let controlCenterPID = cc.processIdentifier
         let statusLayer = 25
         var sawStatusLayer = false
         var sawPreferredName = false
@@ -282,7 +302,7 @@ final class MenuBarFit {
         var widthMatched = false
         for info in list {
             guard let pid = (info[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
-                  pid == cc.processIdentifier,
+                  pid == controlCenterPID,
                   let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue,
                   layer == statusLayer,
                   let bounds = info[kCGWindowBounds as String] as? [String: Any],
@@ -328,7 +348,7 @@ final class MenuBarFit {
                       priority: priority, clipped: lastClipped, rung: current,
                       rungWidths: rungs.map { Double($0.width) },
                       rungNames: rungs.map { $0.name },
-                      settling: isSettling ? true : nil,
+                      settling: (isSettling || visibilityPending) ? true : nil,
                       ts: Date().timeIntervalSince1970)
         atomicWrite(Self.stateDir + "/\(slug).json", s)
     }
@@ -500,5 +520,55 @@ final class MenuBarFit {
         if pid <= 0 { return false }
         // kill(pid, 0): 0 = alive, ESRCH = gone. EPERM still means it exists.
         return kill(pid, 0) == 0 || errno == EPERM
+    }
+}
+
+
+/// Main-owned request gate with one utility query in flight and one latest
+/// pending request. Slow system IPC cannot build an unbounded backlog or
+/// publish an obsolete width's answer over a newer layout.
+final class MenuBarVisibilityProbe {
+    private struct Request {
+        let width: CGFloat
+        let name: String?
+        let completion: (Bool) -> Void
+    }
+    private let queue = DispatchQueue(label: "computer.aesthetic.menubar-visibility", qos: .utility)
+    private let evaluate: (CGFloat, String?) -> Bool
+    private var running = false
+    private var pending: Request?
+
+    init(evaluate: @escaping (CGFloat, String?) -> Bool = {
+        MenuBarFit.replicantVisible(width: $0, preferredName: $1)
+    }) {
+        self.evaluate = evaluate
+    }
+
+    func sample(width: CGFloat, preferredName: String?, completion: @escaping (Bool) -> Void) {
+        dispatchPrecondition(condition: .onQueue(.main))
+        let request = Request(width: width, name: preferredName, completion: completion)
+        if running { pending = request } else { start(request) }
+    }
+
+    private func start(_ request: Request) {
+        running = true
+        let evaluate = self.evaluate
+        queue.async { [weak self] in
+            let visible = evaluate(request.width, request.name)
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.running = false
+                if let latest = self.pending {
+                    self.pending = nil
+                    if latest.width == request.width && latest.name == request.name {
+                        latest.completion(visible)
+                    } else {
+                        self.start(latest)
+                    }
+                } else {
+                    request.completion(visible)
+                }
+            }
+        }
     }
 }

@@ -71,6 +71,9 @@ let jumpQueued = false,
   notice = 'CONNECTING';
 let last = performance.now(),
   debt = 0;
+let resting = false; // The host window is in the background (lib/dool-sheet.mjs).
+const BACKGROUND_FPS = 60; // The room's top rate behind a background window's paper.
+let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
@@ -363,11 +366,12 @@ const engaged = () => locked() || keyboardMode;
 const CONTROL_KEYS = [
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV', 'KeyX',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'KeyZ', 'BracketLeft', 'BracketRight', 'Delete', 'Backspace',
 ];
-// The controls legend shows for the first eight seconds of play; H pins or hides it.
-let legendPinned = null,
-  activeSeconds = 0;
-const legendShown = () => legendPinned ?? (seat >= 0 && activeSeconds < 8);
+let activeSeconds = 0; // Seconds of play this visit.
+// The controls stay up whenever you are in the room, pad or keys
+// (2026-11-08: jeffrey wants every action always in view; no hide key).
+const legendShown = () => seat >= 0;
 const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
@@ -950,7 +954,10 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (!e.repeat && (e.code === 'Tab' || e.code === 'Backquote')) {
+  // Tab: rooms. $ (shift 4): the $code list, as the prompt's $ starts a
+  // code; not while typing, where $ is a letter (2026-11-08).
+  const dollar = e.key === '$' && !prompt.open;
+  if (!e.repeat && (e.code === 'Tab' || dollar)) {
     e.preventDefault();
     toggleMenu(e.code === 'Tab' ? 'room' : 'history');
     return;
@@ -1019,7 +1026,6 @@ document.addEventListener('keydown', (e) => {
     notice = '';
   }
   if (CONTROL_KEYS.includes(e.code)) e.preventDefault();
-  if (e.code === 'KeyH' && !e.repeat) legendPinned = !legendShown();
   keys.add(e.code);
   if (seat >= 0 && e.code === 'Space' && !e.repeat) {
     jumpQueued = true;
@@ -1031,7 +1037,21 @@ document.addEventListener('keydown', (e) => {
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
-  if (seat >= 0 && e.code === 'Delete' && !e.repeat && focusObject && !focusObject.wall) removeAimed();
+  // Lock on, as the pad's LB does (2026-11-08): Z toggles it, [ and ]
+  // change it like the d-pad, and delete removes the locked object at once
+  // (the lock is the confirmation, as B on the pad).
+  if (seat >= 0 && e.code === 'KeyZ' && !e.repeat) {
+    setLock(lockOn ? null : focusObject?.id || null);
+    sfx[lockOn ? 'ringOpen' : 'ringBack']();
+  }
+  if (lockOn && !e.repeat && (e.code === 'BracketLeft' || e.code === 'BracketRight')) cycleLock(e.code === 'BracketRight' ? 1 : -1);
+  if (seat >= 0 && (e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
+    if (lockOn && !lockOn.wall) {
+      send({ type: 'remove', objectId: lockOn.id });
+      setLock(null);
+      sfx.ringBack();
+    } else if (focusObject && !focusObject.wall) removeAimed();
+  }
   if (seat >= 0 && e.code === 'KeyX' && !e.repeat && !holding() && !chalkMode) paintSquare();
 });
 // Paint the floor square the aim ray lands on (the highlighted one), never
@@ -1049,12 +1069,8 @@ document.addEventListener('mousedown', (e) => {
     useQueued = true;
     return;
   }
-  if (seat >= 0 && locked() && e.button === 0 && !prompt.busy) {
-    e.preventDefault();
-    releaseInput();
-    document.exitPointerLock();
-    prompt.begin(focusObject?.owner === owner ? focusObject : null);
-  }
+  // A click no longer opens the build prompt (jeffrey, 2026-11-08): Enter,
+  // or the pad's build button, does.
 });
 document.addEventListener('mouseup', (e) => {
   firing = false;
@@ -1115,6 +1131,13 @@ function applyPrediction() {
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
+  // With the host window in the background and the paper down, the room
+  // still turns smoothly but draws at most 60 times a second, half the work
+  // on a 120 Hz display (2026-11-08).
+  if (resting && !sheetOpen) {
+    if (now - lastBackgroundFrameAt < 1000 / BACKGROUND_FPS - 2) return;
+    lastBackgroundFrameAt = now;
+  }
   // Full rate for a beat after the paper is back, so the return never stutters.
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)
@@ -1592,11 +1615,27 @@ function step(now) {
   });
   postProcess(elapsed);
 }
+// 📊 AC's fps switch, shared through localStorage with the prompt (and every
+// other AC window), live through the storage event.
+{
+  const fpsOn = () => { try { return localStorage.getItem('ac:fps-hud') === '1'; } catch { return false; } };
+  view.showFps?.(fpsOn());
+  window.addEventListener('storage', (e) => { if (e.key === 'ac:fps-hud') view.showFps?.(fpsOn()); });
+}
+let hushTimer = 0;
 if (hosted) {
   window.addEventListener('message', (e) => {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
     // The prompt's pixel grid rides along: our pixels become its pixels.
     if ('grid' in e.data) view.grid(e.data.grid);
+    if ('rest' in e.data && resting !== (e.data.rest === true)) {
+      resting = e.data.rest === true;
+      if (!resting) {
+        last = performance.now(); // No catch-up for the time spent resting.
+        debt = 0;
+      }
+    }
+    // (A resting loop keeps running, slower; the next frame picks up the rate.)
     // The HUD shows only between the paper's full drop and the start of its
     // return, so nothing pops in or out mid-fade (2026-11-03).
     // (The room no longer scales with the crosshair's hover blink.)
@@ -1604,6 +1643,7 @@ if (hosted) {
     if (e.data.phase === 'closing') {
       sheetShown = false;
       closingAt = performance.now();
+      sfx.exit(); // As the paper starts back up.
     }
     if (e.data.phase === 'opened') closingAt = 0;
     if (!('open' in e.data)) return;
@@ -1624,7 +1664,8 @@ if (hosted) {
       debt = 0;
       if (!ws || ws.readyState === WebSocket.CLOSED) connect();
       canvas.focus();
-      void sfx.wake();
+      clearTimeout(hushTimer);
+      void sfx.wake().then(() => sheetOpen && sfx.enter());
       // The tap that dropped the paper is a fresh gesture: take the mouse now,
       // so no cursor flickers over the world. A refusal leaves click-to-capture.
       if (!touch.active) {
@@ -1636,7 +1677,11 @@ if (hosted) {
       releaseInput();
       if (locked()) document.exitPointerLock();
       closeBuild();
-      sfx.audio?.suspend?.().catch?.(() => {});
+      // Let the exit chord ring out before the room goes quiet.
+      clearTimeout(hushTimer);
+      hushTimer = setTimeout(() => {
+        if (!sheetOpen) sfx.audio?.suspend?.().catch?.(() => {});
+      }, 1200);
     }
   });
   toHost({ type: 'dool:sheet:hello' });

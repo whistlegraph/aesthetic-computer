@@ -2522,6 +2522,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         var changes: [Assignment] = []
         var seen = Set<String>()
         let darkAppearance = effectiveDark()
+        // Claude Code's own colors have to come from the ANSI swatches this
+        // pass corrects, or inline code and secondary text fade into the page.
+        ClaudeTheme.align(dark: darkAppearance)
         let loopboyLabels = loopboySessionLabels()
         // Opt-in diagnostic (off unless the flag file exists): `touch
         // $SLAB_HOME/state/decor-debug` to log what the agent actually
@@ -2545,10 +2548,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         for s in state.claudeSessions where !s.tty.isEmpty {
             seen.insert(s.sessionId)
-            // All agent pages follow the current seat appearance. The startup
-            // probe only prepares Codex's initial colors; it must not pin a
-            // live terminal after the user switches Light/Dark.
-            let sessionDark = darkAppearance
+            // Codex keeps its startup input background. Switching only the
+            // page/ink creates dark text on a dark composer (or the reverse).
+            let sessionDark = TerminalReadability.darkAppearance(
+                agentType: s.agentType, startupDark: s.terminalDark, seatDark: darkAppearance)
             // Pulse only the attention states — every other state holds steady
             // so working/blank/stale sessions don't churn osascript on the
             // 0.6 s blink tick.

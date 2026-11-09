@@ -68,6 +68,7 @@ export const properties = [
 // client sites, credentials, private services and origin aliases out of the
 // public directory. Redirect-only hosts retain their existing canonical route.
 export const excludedHosts = {
+  "mcp.aesthetic.computer": "Authenticated Aesthetic.Computer MCP endpoint; documentation at aesthetic.computer/oskie/.",
   "server.nopaint.art": "Legacy save/load API for the preserved No Paint app; no separate product.",
   "lith.aesthetic.computer": "Origin hostname, not a separate public product.",
   "inbound.aesthetic.computer": "Amail SMTP door; not a website.",

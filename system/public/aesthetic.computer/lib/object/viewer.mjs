@@ -14,8 +14,27 @@ export function isObjectLisp(source) {
   return SHAPES.test(source.replace(/;[^\n]*/g, ""));
 }
 
-const BG = [20, 23, 32];
-const GRID = [44, 48, 64];
+const DEFAULT_BG = [20, 23, 32];
+// GIF delays are exact centiseconds at 25 fps; 100 poses make a four-second loop.
+export const OBJECT_PREVIEW_FPS = 25;
+export const OBJECT_TURN_SECONDS = 4;
+
+// A `; #bg r g b` pragma gives the object its own ground (a minted object
+// carries the colour its ink asked for).
+export function sourceBackground(source) {
+  const m = typeof source === "string" && source.match(/^\s*;\s*#bg\s+(\d{1,3})\s+(\d{1,3})\s+(\d{1,3})\b/m);
+  if (!m) return null;
+  return [m[1], m[2], m[3]].map((c) => Math.min(255, Number(c)));
+}
+
+// A `; #door https://…` pragma is the object's one doorway: a tap (a press
+// that never dragged) opens it. Inside a market's iframe the page may not be
+// allowed to open anything, so the address is also written on the ground for
+// a few seconds after the tap.
+export function sourceDoor(source) {
+  const m = typeof source === "string" && source.match(/^\s*;\s*#door\s+(https?:\/\/\S+)/m);
+  return m ? m[1] : null;
+}
 // One preference per AC runtime. Preparing a neighbor never starts its audio.
 let soundEnabled = false;
 const SPEAKER = [
@@ -60,7 +79,12 @@ export function objectPiece(source, label = "", options = {}) {
   let depth, size = [0, 0];
   let preview = options.preview === true;
   let center = { x: 0, y: 0.5, z: 0 }, radius = 1;
+  const BG = sourceBackground(source) || DEFAULT_BG;
+  const door = sourceDoor(source);
+  let press = null; // { x, y, at } while a touch may still be a tap
+  let doorShownAt = 0;
   const start = Date.now();
+  let lastPaint = start;
   // The object's (tone ...) oscillators, enabled by its canvas speaker control.
   let tones = [], voices = [];
   let soundPress = false;
@@ -97,9 +121,14 @@ export function objectPiece(source, label = "", options = {}) {
       size = [w, h];
     }
     depth.fill(Infinity);
-    const t = options.time ?? (Date.now() - start) / 1000;
-    if (preview) yaw = (options.yaw ?? 0.6) + t * Math.PI / 4; // One turn in eight seconds.
-    else if (!dragging) yaw += 0.006;
+    const nowMs = Date.now();
+    const t = options.time ?? (nowMs - start) / 1000;
+    // Integrate wall time so 30/60/120 Hz displays turn at the same speed.
+    // Cap a resumed tab's first step; dragging keeps its current angle.
+    const elapsed = Math.min(0.1, Math.max(0, (nowMs - lastPaint) / 1000));
+    lastPaint = nowMs;
+    if (preview) yaw = (options.yaw ?? 0.6) + t * Math.PI * 2 / OBJECT_TURN_SECONDS;
+    else if (!dragging) yaw += elapsed * Math.PI * 2 / OBJECT_TURN_SECONDS;
 
     const v = sourceFrame(shape, t).vertices;
     if (v.length) {
@@ -122,8 +151,7 @@ export function objectPiece(source, label = "", options = {}) {
     };
     const near = 0.1;
 
-    // Floor grid, depth tested so the object stands on it; segments that
-    // reach behind the camera are clipped rather than drawn wild.
+    // Depth-tested points for fur. Standalone objects have a clean ground.
     const plot = (x, y, d, rgb) => {
       x |= 0; y |= 0;
       if (x < 0 || y < 0 || x >= w || y >= h) return;
@@ -132,21 +160,6 @@ export function objectPiece(source, label = "", options = {}) {
       depth[i] = d;
       pixels[i * 4] = rgb[0]; pixels[i * 4 + 1] = rgb[1]; pixels[i * 4 + 2] = rgb[2];
     };
-    const segment = (ax, az, bx, bz) => {
-      const steps = 64;
-      for (let s = 0; s <= steps; s++) {
-        const k = s / steps;
-        const p = project(ax + (bx - ax) * k, 0, az + (bz - az) * k);
-        if (p[2] > near) plot(p[0], p[1], p[2] + 0.01, GRID);
-      }
-    };
-    const reach = Math.max(2, Math.ceil(radius * 2));
-    const gx = Math.round(center.x), gz = Math.round(center.z);
-    for (let g = -reach; !preview && g <= reach; g++) {
-      segment(gx + g, gz - reach, gx + g, gz + reach);
-      segment(gx - reach, gz + g, gx + reach, gz + g);
-    }
-
     for (let i = 0; i < v.length; i += 18) {
       const a = project(v[i], v[i + 1], v[i + 2]);
       const b = project(v[i + 6], v[i + 7], v[i + 8]);
@@ -169,7 +182,11 @@ export function objectPiece(source, label = "", options = {}) {
     }
     const name = (shape.name || "object").toLowerCase();
     if (!preview) {
-      ink(138, 143, 158).write(name, { x: 6, y: h - 16 });
+      const packed = typeof globalThis !== "undefined" && globalThis.acPACK_MODE;
+      if (!packed) ink(138, 143, 158).write(name, { x: 6, y: h - 16 });
+      if (door && Date.now() - doorShownAt < 4000) {
+        ink(230, 232, 240).write(door.replace(/^https?:\/\//, ""), { x: 6, y: h - 16 });
+      }
       if (tones.length) speaker(screen, soundEnabled);
     }
   }
@@ -208,7 +225,7 @@ export function objectPiece(source, label = "", options = {}) {
     voices = [];
   }
 
-  function act({ event: e, sound }) {
+  function act({ event: e, sound, jump }) {
     if (e.is("touch")) {
       soundPress = tones.length > 0 && e.x >= size[0] - 30 && e.x < size[0] && e.y >= 3 && e.y < 29;
       if (soundPress) {
@@ -217,12 +234,25 @@ export function objectPiece(source, label = "", options = {}) {
         return;
       }
       dragging = true;
+      press = door ? { x: e.x, y: e.y, at: Date.now() } : null;
     }
-    if (e.is("lift")) { dragging = false; soundPress = false; }
+    if (e.is("lift")) {
+      dragging = false; soundPress = false;
+      // A tap: under 6px of travel and under 400ms. The pack's shell opens the
+      // door in the page's own gesture (see oven/bundler.mjs doorway); here the
+      // address is shown, and outside a pack the runtime jumps to it.
+      if (press && Math.hypot(e.x - press.x, e.y - press.y) < 6 && Date.now() - press.at < 400) {
+        doorShownAt = Date.now();
+        const packed = typeof globalThis !== "undefined" && globalThis.acPACK_MODE;
+        if (!packed) jump?.("out:" + door);
+      }
+      press = null;
+    }
     if (soundPress) return;
     if (e.is("draw")) {
       yaw += (e.delta?.x || 0) * 0.02;
       pitch = Math.max(-1.2, Math.min(1.4, pitch + (e.delta?.y || 0) * 0.02));
+      if (press && Math.hypot(e.x - press.x, e.y - press.y) >= 6) press = null;
     }
   }
 

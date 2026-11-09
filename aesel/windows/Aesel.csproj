@@ -9,7 +9,7 @@
     <ApplicationIcon>assets\aesel.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Copyright>Aesthetic Computer</Copyright>
-    <Description>Aesel — make a piece with Aesthetic Computer</Description>
+    <Description>Aesel — make media easily</Description>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />

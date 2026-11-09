@@ -2,6 +2,10 @@
 
 const TOP_BAR_BOTTOM = 21; // Reserved space for prompt HUD label
 const REFRESH_INTERVAL = 5 * 60 * 1000; // Refresh weather every 5 minutes
+const FETCH_TIMEOUT = 12 * 1000; // Give up on a hung request after this long
+const RETRY_BASE = 5 * 1000; // First retry after a failure
+const RETRY_MAX = 5 * 60 * 1000; // Backoff ceiling
+const CACHE_MAX_AGE = 3 * 60 * 60 * 1000; // Show a cached forecast up to 3h old while refreshing
 
 let loading = true;
 let error = null;
@@ -10,6 +14,15 @@ let weatherData = null;
 let frame = 0;
 let useFahrenheit = false;
 let lastRefresh = 0;
+
+// Network bookkeeping - one request chain at a time, never a storm.
+let query = "New York";
+let inFlight = null; // Promise of the outstanding load, or null
+let nextFetchAt = 0; // sim() may start a load once the clock passes this
+let failures = 0; // Consecutive failures, drives the backoff
+let controller = null; // AbortController of the request in progress
+let generation = 0; // Bumped on every boot so stale responses are dropped
+let storeApi = null;
 
 // Animation
 let crawlX = 0;
@@ -114,75 +127,166 @@ function playMelody(chord, sound) {
   } catch(e) {}
 }
 
-async function fetchWeather() {
-  if (!location) return;
-  
-  // Build URL with more realtime current values
+function forecastUrl() {
   // Available current values: temperature_2m, relative_humidity_2m, apparent_temperature,
   // precipitation, rain, snowfall, weather_code, cloud_cover, pressure_msl, surface_pressure,
   // wind_speed_10m, wind_direction_10m, wind_gusts_10m
   const tempUnit = useFahrenheit ? "fahrenheit" : "celsius";
   const windUnit = useFahrenheit ? "mph" : "kmh";
-  const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,precipitation,cloud_cover,pressure_msl&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=5&temperature_unit=${tempUnit}&wind_speed_unit=${windUnit}`;
-  
+  return `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,precipitation,cloud_cover,pressure_msl&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto&forecast_days=5&temperature_unit=${tempUnit}&wind_speed_unit=${windUnit}`;
+}
+
+// Fetch JSON with a timeout, and treat Open-Meteo's `{ error, reason }`
+// payloads (rate limits, bad params) as failures instead of data.
+async function getJSON(url) {
+  controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
   try {
-    const weatherRes = await fetch(weatherUrl);
-    weatherData = await weatherRes.json();
-    lastRefresh = Date.now();
+    const res = await fetch(url, { signal: controller.signal });
+    const data = await res.json();
+    if (!res.ok || data?.error) {
+      throw new Error(data?.reason || `HTTP ${res.status}`);
+    }
+    return data;
   } catch (err) {
-    console.warn("Weather refresh failed:", err);
+    if (err?.name === "AbortError") throw new Error("Timed out");
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    controller = null;
   }
 }
 
-async function boot({ params, screen }) {
+function geoKey(q) {
+  return `weather:geo:${q.toLowerCase()}`;
+}
+
+function lastKey(q) {
+  return `weather:last:${q.toLowerCase()}`;
+}
+
+function remember(key, value) {
+  if (!storeApi) return;
+  try {
+    storeApi[key] = value;
+    storeApi.persist(key, "local");
+  } catch (e) {}
+}
+
+async function recall(key) {
+  if (!storeApi) return undefined;
+  try {
+    return await storeApi.retrieve(key, "local");
+  } catch (e) {
+    return undefined;
+  }
+}
+
+async function geocode(q) {
+  const cached = await recall(geoKey(q));
+  if (cached?.lat !== undefined) return cached;
+  const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
+  const geoData = await getJSON(geoUrl);
+  const r = geoData.results?.[0];
+  if (!r) {
+    const e = new Error("Location not found: " + q);
+    e.permanent = true;
+    throw e;
+  }
+  const loc = {
+    name: r.name,
+    region: r.admin1 || "",
+    country: r.country_code || "",
+    lat: r.latitude,
+    lon: r.longitude,
+  };
+  remember(geoKey(q), loc);
+  return loc;
+}
+
+// The one place network work happens. Never awaited by boot, so the piece
+// paints immediately; sim() calls it again once `nextFetchAt` passes.
+function load() {
+  if (inFlight) return inFlight;
+  const gen = generation;
+  inFlight = (async () => {
+    try {
+      if (!location) {
+        location = await geocode(query);
+        if (gen !== generation) return;
+        // Use Fahrenheit for USA locations
+        useFahrenheit = location.country === "US";
+      }
+      const data = await getJSON(forecastUrl());
+      if (gen !== generation) return;
+      weatherData = data;
+      lastRefresh = Date.now();
+      failures = 0;
+      error = null;
+      nextFetchAt = lastRefresh + REFRESH_INTERVAL;
+      remember(lastKey(query), { location, weatherData, at: lastRefresh });
+    } catch (err) {
+      if (gen !== generation) return;
+      failures++;
+      if (err.permanent) {
+        error = err.message;
+        nextFetchAt = Infinity;
+      } else {
+        const delay = Math.min(RETRY_BASE * 2 ** (failures - 1), RETRY_MAX);
+        nextFetchAt = Date.now() + delay;
+        // Keep showing stale data if we have any; only surface the error cold.
+        if (!weatherData) error = err.message;
+        console.warn("Weather fetch failed:", err.message, "- retry in", delay / 1000, "s");
+      }
+    } finally {
+      if (gen === generation) {
+        loading = false;
+        inFlight = null;
+      }
+    }
+  })();
+  return inFlight;
+}
+
+function boot({ params, screen, store }) {
+  generation++;
+  controller?.abort();
+  inFlight = null;
   loading = true;
   error = null;
+  location = null;
+  weatherData = null;
+  lastRefresh = 0;
+  failures = 0;
+  nextFetchAt = 0;
   frame = 0;
   crawlX = screen?.width || 320;
   particles = [];
   melodyNote = null;
-  
-  const query = params.join(" ").trim() || "New York";
-  
-  try {
-    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
-    const geoRes = await fetch(geoUrl);
-    const geoData = await geoRes.json();
-    
-    if (!geoData.results?.length) {
-      error = "Location not found: " + query;
+  storeApi = store;
+
+  query = params.join(" ").trim() || "New York";
+
+  const gen = generation;
+  // Show the last forecast for this place right away, then refresh it.
+  recall(lastKey(query)).then((saved) => {
+    if (gen !== generation || weatherData) return;
+    if (saved?.location && saved?.weatherData && Date.now() - (saved.at || 0) < CACHE_MAX_AGE) {
+      location = saved.location;
+      useFahrenheit = location.country === "US";
+      weatherData = saved.weatherData;
       loading = false;
-      return;
     }
-    
-    const r = geoData.results[0];
-    location = { 
-      name: r.name, 
-      region: r.admin1 || "", 
-      country: r.country_code || "",
-      lat: r.latitude, 
-      lon: r.longitude 
-    };
-    
-    // Use Fahrenheit for USA locations
-    useFahrenheit = location.country === "US";
-    
-    await fetchWeather();
-    
-  } catch (err) {
-    error = err.message;
-  }
-  
-  loading = false;
+  });
+  load();
 }
 
 function sim({ sound, screen }) {
   frame++;
   
-  // Auto-refresh weather every 5 minutes (Open-Meteo updates every 15 min)
-  if (location && Date.now() - lastRefresh > REFRESH_INTERVAL) {
-    fetchWeather();
-  }
+  // Auto-refresh every 5 minutes (Open-Meteo updates every 15 min), with
+  // backoff after failures. `load` is a no-op while a request is in flight.
+  if (!inFlight && Date.now() >= nextFetchAt) load();
   
   // Music - chord changes every 8 seconds based on clock
   if (sound) {
@@ -266,7 +370,9 @@ function paint({ wipe, ink, screen, line, box }) {
   }
   
   if (loading) {
-    ink(255).write("LOADING...", { center: "xy" });
+    ink(255).write("LOADING...", { center: "x", y: sh / 2 - 6 });
+    ink(180).write(query.toUpperCase().slice(0, 28), { center: "x", y: sh / 2 + 8 });
+    if (failures > 0) ink(255, 200, 100).write(`RETRY ${failures}`, { center: "x", y: sh / 2 + 22 });
     return;
   }
   
@@ -417,8 +523,18 @@ function paint({ wipe, ink, screen, line, box }) {
   ink(40, 30, 0).write(crawlText, { x: Math.floor(crawlX), y: tickerY + 2 }, undefined, undefined, false, "unifont");
 }
 
+function leave() {
+  generation++;
+  controller?.abort();
+  inFlight = null;
+  for (const s of activeSounds) {
+    try { s?.kill?.(0.2); } catch(e) {}
+  }
+  activeSounds = [];
+}
+
 function meta() {
   return { title: "Weather", desc: "Local forecast with smooth jazz" };
 }
 
-export { boot, sim, paint, meta };
+export { boot, sim, paint, leave, meta };

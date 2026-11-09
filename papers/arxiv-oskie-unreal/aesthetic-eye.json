@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "paper": "Oskie Files in Unreal Engine",
+  "pdf": "oskie-unreal.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 2,
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Codex"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    }
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "runtime-boundary",
+      "page": 2,
+      "crop": [
+        0.08,
+        0.06,
+        0.84,
+        0.17
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected full page and complete crop: labels fit, arrows are clear, nodes have consistent spacing, and captions remain readable."
+    },
+    {
+      "id": "implementation-sequence",
+      "page": 4,
+      "crop": [
+        0.08,
+        0.06,
+        0.84,
+        0.19
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected full page and complete crop: labels fit, arrows are clear, nodes have consistent spacing, and captions remain readable."
+    }
+  ],
+  "pdfSha256": "6b79993b74b2cf334585ad12f620131263250bcdab4b117932e309099ed0c5f6",
+  "reviewedAt": "2026-11-07T02:34:18.285637+00:00",
+  "pageReview": {
+    "pages": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "table": {
+      "page": 4,
+      "design": "pass"
+    },
+    "notes": "All pages inspected at reading size. Two columns and references fit; both vector maps and the implementation table are legible. The project-name period is pink in the byline, body, and bibliography. Server-built PDF inspected after publication; five pages and both diagrams retain the reviewed layout. Public attachment matches the committed TeX, bibliography, notes, and bundle configuration."
+  },
+  "publishedUrl": "https://papers.aesthetic.computer/oskie-unreal-26-arxiv.pdf"
+}

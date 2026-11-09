@@ -9,6 +9,7 @@ let package = Package(
         .package(path: "../../juke-wizard"),
     ],
     targets: [
+        .target(name: "CRealtimeAudio", path: "Sources/CRealtimeAudio", publicHeadersPath: "include"),
         // Tiny always-running daemon whose only job is to watch for the
         // double-tap right-Command gesture and relaunch Menu Band.app
         // if its process isn't currently running. When MenuBand IS
@@ -76,6 +77,7 @@ let package = Package(
             name: "MenuBand",
             dependencies: [
                 "CGMSynth",
+                "CRealtimeAudio",
                 "CFluoddity",
                 "CSinger",
                 .product(name: "ACMacAudio", package: "macos-audio"),
@@ -120,7 +122,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MenuBandTests",
-            dependencies: ["MenuBand"],
+            dependencies: ["MenuBand", "CRealtimeAudio"],
             path: "Tests/MenuBandTests"
         ),
         // Regression suite — invariants that have broken in a shipped build

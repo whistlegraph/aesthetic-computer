@@ -10,32 +10,75 @@ import { joinCode, hudLayout } from './hud.mjs';
 // A key is [label, code]; it lights while held. Plain strings are the verbs.
 export const LEGEND = {
   // Lines stay under thirty columns so a phone or a narrow window shows them whole.
+  // Keys and pad list the same actions, row for row (2026-11-08).
   keys: [
-    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' turn'],
-    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['h', 'KeyH'], ' hide'],
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
+    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
+    [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
+    [['$', 'Digit4'], ' list'],
   ],
-  pad: ['[LS] move / [RS] look', '[LT] jump / [Y] camera', '[RB] build / [X] paint', '[LB] lock on / [B] cancel'],
+  pad: [
+    '[LS] move / [RS] look',
+    '[LT] jump / [Y] camera',
+    '[RB] build / [RB] use / [X] drop',
+    '[X] paint / [RT] chalk / [START] rooms',
+    '[LB] lock on / [B] remove',
+    '[BACK] $ list',
+  ],
   touch: [
     [['left side', 'left'], ': drag to move'],
     [['right side', 'right'], ': drag to look'],
     [['tap right', 'right'], ' jumps / ', ['hold right', 'right'], ' builds'],
   ],
 };
+// Each action has its own colour, shared by its words and its key caps, so
+// the eye finds a control by colour (2026-11-08). Separators stay dim.
+const ACTION_COLORS = {
+  move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
+  camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a, list: 0xffd28a,
+  change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
+};
+const actionColor = (text) => {
+  const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
+  return ACTION_COLORS[word] ?? null;
+};
+// Split a text run on its separators: the verbs take their colours, the
+// slashes and colons stay dim.
+const colourWords = (s) =>
+  s.text.split(/(\s*\/\s*)/).filter(Boolean).map((t) => {
+    const c = /^\s*\/\s*$/.test(t) ? null : actionColor(t);
+    return { ...s, text: t, color: c ?? s.color };
+  });
 // held: { keys: [codes], pad: [badges], touch: ['left' | 'right'] } from the client.
 function legendRows(input, held = {}) {
   const down = new Set(held[input === 'keys' ? 'keys' : input] || []);
   const lit = (code) => (Array.isArray(code) ? code.some((c) => down.has(c)) : down.has(code));
-  return (LEGEND[input] || LEGEND.keys).map((line) =>
-    typeof line === 'string'
-      ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
-      : line.map((part) =>
-          typeof part === 'string'
-            ? { text: part, color: THEME.dim }
-            : { cap: part[0], lit: lit(part[1]) },
-        ),
-  );
+  return (LEGEND[input] || LEGEND.keys).map((line) => {
+    const spans =
+      typeof line === 'string'
+        ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
+        : line.map((part) =>
+            typeof part === 'string'
+              ? { text: part, color: THEME.dim }
+              : { cap: part[0], lit: lit(part[1]) },
+          );
+    return colourRow(spans);
+  });
+}
+// Verbs take their colours and each key cap the colour of the action it
+// leads to (the next verb); separators stay dim.
+function colourRow(spans) {
+  const out = spans.flatMap((s) => (s.text && !s.badge ? colourWords(s) : [s]));
+  for (let i = out.length - 1, next = null; i >= 0; i--) {
+    const s = out[i];
+    if (s.cap) { if (next) out[i] = { ...s, color: next }; }
+    else if (s.text && ACTION_COLORS[s.text.replace(/^[\s:]*(drag to )?/, '').trim()]) next = s.color;
+    else if (s.text && /\//.test(s.text)) next = null;
+  }
+  return out;
 }
 import { radialSlots, ringGeometry } from './radial.mjs';
 import {
@@ -95,6 +138,7 @@ export const paletteFor = () => 'night';
 import {
   WALLS,
   COLORS,
+  seatColor,
   WORLD,
   SCREEN,
   CFG,
@@ -307,7 +351,9 @@ export async function createView(canvas) {
   let promptKey, promptModel;
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
-  const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
+  // The frame-rate readout follows AC's shared fps switch (localStorage
+  // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
+  let SHOW_FPS = false;
   let panelTop = null;
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
@@ -541,7 +587,7 @@ export async function createView(canvas) {
     spending = false,
     tiles = {},
     floorAim = null,
-    chalk = [[], []],
+    chalk = [],
     chalkLocal = [],
     chalkMode = null,
     face = null,
@@ -862,10 +908,10 @@ export async function createView(canvas) {
       // (The object's code tree is no longer drawn in the room; the lingering
       // window still times the landing burst above.)
     }
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
       const p = i === seat && me ? me : players[i];
       if (!p?.alive) continue;
-      const f = fighters[i],
+      const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight;
       if (i !== seat || third || !me) {
@@ -971,10 +1017,22 @@ export async function createView(canvas) {
       const title = prompt.target
         ? `${prompt.target.code ? '$' + prompt.target.code : prompt.target.geometry.name} v${prompt.target.version} > v${prompt.target.version + 1}`
         : 'aesel';
+      // The cursor is a wireframe block (CARET marks its column); the
+      // ring's phrase keeps the blinking underscore.
+      const CARET = '\u0000';
       const writing =
         prompt.text.slice(0, prompt.cursor) +
-        cursor +
+        (radial ? cursor : CARET) +
         prompt.text.slice(prompt.cursor);
+      const caretSpans = (l) => {
+        const at = l.indexOf(CARET);
+        if (at < 0) return [{ text: l, color: THEME.text }];
+        return [
+          { text: l.slice(0, at), color: THEME.text },
+          { block: true, wire: builder ? 0x3fb950 : 0xff6b6b, turn: Math.round(now / 33) * 0.033 * 1.6 },
+          { text: l.slice(at + 1), color: THEME.text },
+        ].filter((x) => x.block || x.text);
+      };
       const named = (o) => (o.code ? `$${o.code}` : o.geometry.name);
       const verb = holding ? { shoot: 'shoot', poke: 'poke', throw: 'throw' }[holding.item] : null;
       const carry = holding
@@ -991,16 +1049,26 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.wall
-          ? pad ? '[RB] to change' : 'kidlisp wall'
+          ? pad ? '[RB] change' : '{f} change'
           : o.owner === owner
-            ? pad ? '[RB] change / [LB] lock on' : 'yours - {delete} removes'
-            : pad ? '[LB] lock on' : 'player ' + String(o.owner || '').slice(0, 4);
+            ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
+            : pad ? '[LB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
+      // Locked on, the top-right controls become the lock's own, row for
+      // row in the hand in use (2026-11-08).
+      const mine = focusObject && focusObject.owner === owner;
       const lockHint = lockedOn && focusObject
-        ? focusObject.wall
-          ? `${named(focusObject)} locked: [RB] change / [LB] unlock`
-          : `${named(focusObject)} locked: [B] remove / [RB] change / dpad next / [LB] unlock`
+        ? [
+            `${named(focusObject)} locked`,
+            ...(pad
+              ? focusObject.wall
+                ? ['[RB] change / [LB] unlock']
+                : [`${mine ? '[RB] change / ' : ''}[B] remove`, 'dpad next / [LB] unlock']
+              : focusObject.wall
+                ? ['{f} change / {z} unlock']
+                : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
+          ].join('\n')
         : null;
       // What the highlighted object offers ([B] remove, [LB] unlock, its
       // name and owner) is drawn at the object itself (2026-11-03); the
@@ -1010,7 +1078,7 @@ export async function createView(canvas) {
         : confirming
           ? confirming
           : focusObject
-            ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
+            ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`}\n${whose(focusObject)}`
             : null;
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
@@ -1043,7 +1111,10 @@ export async function createView(canvas) {
               .slice(0, 7)
           : null;
       // The legend only joins the plain hint, never a panel.
-      const showLegend = legend && !spectator && !wallCode && !prompt.open && !building;
+      // A mode (locked on, aiming at a build, chalk, carrying) shows its own
+      // controls in place of the general legend.
+      const moded = !!(objectHint || drawing || carry);
+      const showLegend = legend && !moded && !spectator && !wallCode && !prompt.open && !building;
       const rows = bare
         ? []
         : wallCode
@@ -1059,45 +1130,54 @@ export async function createView(canvas) {
         ? [
             // The typed line first, on the 2D prompt's own grid, so the text
             // stays put across the trip in and out of the paper.
-            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
-            [
-              // Whether a builder is listening, told where it matters: in the
-              // prompt; after the revision's title when there is one.
-              ...(prompt.target ? [{ text: `${title} `, color: THEME.verb }] : []),
-              builder
-                ? { text: `aesel online${builderNames.length ? ': ' + builderNames.join(' + ') : ''}`, color: 0x3fb950 }
-                : { text: 'aesel offline', color: 0xff6b6b },
-            ],
+            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : caretSpans(l))),
+            // Whether a builder listens is the cursor's colour; a revision
+            // still names what it revises.
+            ...(prompt.target ? [[{ text: title, color: THEME.verb }]] : []),
             ...(prompt.message ? wrap(prompt.message).map((l) => [{ text: l, color: THEME.number }]) : []),
-            hintSpans(
-              radial
-                ? input === 'touch'
-                  ? 'tap a choice / centre builds / outside undoes'
-                  : '[A] choose / [X] build / [B] undo'
-                : prompt.busy
-                  ? cancel
-                  : '{enter} build / {esc} close',
-              THEME.dim,
-            ),
+            // Typing, {enter} follows the cube on its line and {esc} sits
+            // top-right (both small, drawn below); the ring and a running
+            // build keep their own row.
+            ...(radial || prompt.busy
+              ? [
+                  hintSpans(
+                    radial
+                      ? input === 'touch'
+                        ? 'tap a choice / centre builds / outside undoes'
+                        : '[A] choose / [X] build / [B] undo'
+                      : cancel,
+                    THEME.dim,
+                  ),
+                ]
+              : []),
           ]
         : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
               ...(showLegend ? legendRows(input, held) : []),
-              spectator
-                ? hintSpans(
-                    controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
-                    THEME.text,
-                  )
-                : hintSpans(hint, confirming ? 0xff6b6b : THEME.text),
+              ...(spectator
+                ? [
+                    hintSpans(
+                      controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
+                      THEME.text,
+                    ),
+                  ]
+                : hint.split('\n').map((l, i) =>
+                    i === 0 && moded && hint.includes('\n')
+                      ? [{ text: l, color: THEME.verb }]
+                      : colourRow(hintSpans(l, confirming ? 0xff6b6b : THEME.text)),
+                  )),
             ];
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
-      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode]);
+      const typing = prompt.open && !radial && !prompt.busy;
+      const enterHint = typing ? hintSpans('{enter} build', THEME.dim) : null;
+      const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
+      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
-        promptModel = model(({ rect: worldRect, text }) => {
+        promptModel = model(({ rect: worldRect, text, small }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
           const panel = prompt.open; // A build's status floats over the build itself.
           // Nothing here lifts the corners (2026-11-03). The prompt and a
@@ -1109,14 +1189,27 @@ export async function createView(canvas) {
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
           if (panel) {
             const ox = grid ? 6 : safeX, oy = grid ? 6 : safeY;
-            visible.forEach((spans, i) =>
-              drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, height / 2 - oy - 2 * unit - i * 10 * unit, unit, { shadow: INK }),
-            );
+            visible.forEach((spans, i) => {
+              const y = height / 2 - oy - 2 * unit - i * 10 * unit;
+              drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, y, unit, { shadow: INK });
+              if (enterHint && spans.some((x) => x.wire !== undefined)) {
+                const hw = smallSpanWidth(enterHint, unit);
+                drawSpans({ rect, text, small }, enterHint, -width / 2 + ox + widths[i] + 4 * unit + hw / 2, y, unit, { shadow: INK, tiny: true });
+              }
+            });
+            // The way out sits top-right, where the legend rests while walking.
+            if (escHint) {
+              const ew = smallSpanWidth(escHint, unit);
+              drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });
+            }
           } else {
+            // The controls and the hint, top-right, compact: MatrixChunky8
+            // with small key caps and badges, ten-pixel rows (2026-11-08).
             const right = width / 2 - safeX;
-            visible.forEach((spans, i) =>
-              drawSpans({ rect, text }, spans, right - widths[i] / 2, height / 2 - safeY - 2 * unit - i * 11 * unit, unit, { shadow: INK }),
-            );
+            visible.forEach((spans) => {
+              const w = smallSpanWidth(spans, unit);
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 2 * unit - visible.indexOf(spans) * 12 * unit, unit, { shadow: INK, tiny: true });
+            });
           }
         });
       }
@@ -1328,9 +1421,13 @@ export async function createView(canvas) {
         h = 10 * unit;
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
-      cornerRect = { x: safeX, y: safeY, w, h };
-      const m = model(({ rect: worldRect }) => {
+      // Beside it, what it and Escape do (2026-11-08).
+      const label = hintSpans('{esc} back to AC', THEME.dim);
+      const labelW = smallSpanWidth(label, unit);
+      cornerRect = { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
+      const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
+        drawSpans({ rect, text, small }, label, left + w + 4 * unit + labelW / 2, H / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });
         // An outline like the curtain's caret (2026-11-03): its hue drifting
         // around the edge, each pixel shadowed.
         const ring = [];
@@ -1638,7 +1735,7 @@ export async function createView(canvas) {
       for (const w of walls) if (w.model) fd(w.model, 0, 0, 0);
       for (const o of objects)
         if (!o.item && o.geometry.format === OBJECT_FORMAT) fd(sourceFrame(o.geometry, worldTime).vertices, o.x, 0, o.z);
-      const fs = fighters[face.seat] || fighters[0];
+      const fs = fighters[Math.max(0, face.seat) % fighters.length];
       fd(fs.torso, me.x, base, me.z, yawR);
       fd(fs.head, me.x, base, me.z, yawR);
       fd(eyeFor(me, face.seat, now, face), me.x, base, me.z, yawR);
@@ -1709,23 +1806,30 @@ export async function createView(canvas) {
         px(-1, 24, 26, 1, edge);
         px(-1, 0, 1, 24, edge);
         px(24, 0, 1, 24, edge);
+        // The column beside the cam — braincells, the connection, the frame
+        // rate — in even 9-row slots from the frame's top edge down, so no
+        // two overlap (2026-11-08). A slot's number is the top of small()'s
+        // 8-row glyph box; the glyphs themselves start a row lower.
+        let slot = 25;
+        const nextSlot = () => ((slot -= 9), slot + 9);
         // Braincells beside the cam: a pixel brain and the count, in purple.
         if (Number.isFinite(braincells)) {
+          const bt = nextSlot();
           const BR = ['.##.##.', '#######', '###.###', '#######', '.##.##.'];
           BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, 20 - r - 1, 1, 1, INK, 0.000002)),
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, bt - 1 - r - 1, 1, 1, INK, 0.000002)),
           );
           BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c, 20 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
+            [...row].forEach((ch, c) => ch === '#' && px(27 + c, bt - 1 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
           );
           // Exact, with thousands separators, shadowed for contrast.
           const n = Math.round(braincells).toLocaleString('en-US');
-          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + 21 * unit;
+          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + bt * unit;
           small(n, nx + unit, ny - unit, 0.000002, unit, INK);
           small(n, nx, ny, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
           // Spending: purple pixels fly up and away from the count.
           if (spending && Math.random() < 0.7)
-            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: 22, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
+            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: bt + 1, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
           for (let k = cellBits.length - 1; k >= 0; k--) {
             const b = cellBits[k], t = (now - b.born) / 1000;
             if (t > 0.9) { cellBits.splice(k, 1); continue; }
@@ -1740,10 +1844,9 @@ export async function createView(canvas) {
           const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
           const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
           const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
-          // small() takes the top of its 8-row glyph box; the count sits at 21.
-          let top = Number.isFinite(braincells) ? 10 : 21;
           if (ping) {
-            const base = top - 8;
+            const pt = nextSlot();
+            const base = pt - 7; // The bars' foot on the glyphs' foot.
             for (let i = 0; i < 4; i++) {
               const h = 2 + i * 2, lit = i < bars;
               px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
@@ -1754,11 +1857,12 @@ export async function createView(canvas) {
             const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
             small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
             small(ping, tx, ty, 0, unit, pingColor);
-            top -= 9;
           }
           if (SHOW_FPS && fps) {
             const f = `${fps} fps`;
-            small(f, x0 + (27 + smallWidth(f) / 2) * unit, y0 + top * unit, 0, unit, fpsColor);
+            const fx = x0 + (27 + smallWidth(f) / 2) * unit, fy = y0 + nextSlot() * unit;
+            small(f, fx + unit, fy - unit, 0.000002, unit, INK); // Shadowed like the rest.
+            small(f, fx, fy, 0, unit, fpsColor);
           }
         }
         // The health bar under it, in health colours.
@@ -1768,7 +1872,7 @@ export async function createView(canvas) {
         if (me) return;
         px(0, 0, 24, 24, 0x15171e, 0.000003);
         // Shoulders in the seat colour.
-        px(3, 0, 18, 5, COLORS[face.seat] || 0xc0c0c0, 0.000002);
+        px(3, 0, 18, 5, face.seat >= 0 ? seatColor(face.seat) : 0xc0c0c0, 0.000002);
         // Head: the player's white block with a shaded side.
         const hx = 6, hy = 5 + bob / unit;
         px(hx, hy, 12, 13, 0xf2f2f2, 0.000002);
@@ -1866,7 +1970,16 @@ export async function createView(canvas) {
       const mid = projector.project(x + 1, y, z + 1);
       if (P.every(Boolean) && mid) {
         const S = P.map((p) => [Math.round((p.x * W) / 2), Math.round((p.y * H) / 2)]);
-        const C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
+        // The corners stay on the aimed square; the dot is the exact point
+        // the aim meets the floor, so it glides inside the square instead of
+        // jumping square to square (2026-11-08).
+        let C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
+        const f = projector.forward, e = lastEye;
+        if (f && e && f[1] < -1e-4) {
+          const t = (y - e.y) / f[1];
+          const hit = projector.project(e.x + f[0] * t, y, e.z + f[2] * t);
+          if (hit) C = [Math.round((hit.x * W) / 2), Math.round((hit.y * H) / 2)];
+        }
         const { unit } = hud;
         const m = model(({ rect: worldRect }) => {
           const rect = flip(worldRect);
@@ -1939,7 +2052,7 @@ export async function createView(canvas) {
       });
     const liveChalk = new Set();
     chalk.forEach((strokes, seatIndex) => {
-      const ink = seatIndex === 0 ? 0xffd9cf : 0xd6ecff;
+      const ink = tint(seatColor(seatIndex), 1.6);
       (strokes || []).forEach((points, k) => {
         if (!points || points.length < 2) return;
         const key = `${seatIndex}:${k}`;
@@ -2185,6 +2298,9 @@ export async function createView(canvas) {
     effect,
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
+    showFps(on) {
+      SHOW_FPS = !!on;
+    },
     grid(g) {
       const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0 } : null;
       if (JSON.stringify(next) === JSON.stringify(grid)) return;

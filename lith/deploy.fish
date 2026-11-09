@@ -518,7 +518,7 @@ else
     # whatever it had — including a cached 404 for a file that had since been
     # built, which is exactly how prompt.ac/easel.tar.gz stayed missing after a
     # deploy that produced it.
-    for CF_HOST in aesthetic.computer prompt.ac
+    for CF_HOST in aesthetic.computer prompt.ac danzballet.studio
         set CF_ZONE (curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$CF_HOST" \
             $CF_AUTH -H "content-type: application/json" \
             | python3 -c "import json,sys; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')" 2>/dev/null)

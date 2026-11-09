@@ -10,7 +10,7 @@ import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
-import { HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 
@@ -181,7 +181,7 @@ export function createDuelServer({
             objects: store.objects(id),
             tiles: store.tiles(id),
             screens: store.screens(id),
-            chalk: rooms.get(id)?.match.chalk || [[], []],
+            chalk: rooms.get(id)?.match.chalk || [],
           }),
         );
       return;
@@ -274,6 +274,18 @@ export function createDuelServer({
     }
     ws.send(JSON.stringify(data));
   };
+  // One frame for a whole room: serialize once, then hand the same text to
+  // every socket (the relay's lesson — per-socket stringify scales with the room).
+  // Players plus as many watchers again.
+const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
+  const sendText = (ws, text) => {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    if (ws.bufferedAmount > 256 * 1024) {
+      ws.close(1013, 'Connection too slow');
+      return;
+    }
+    ws.send(text);
+  };
   // Braincells: AC's allowance, read with the player's own sign-in and sent
   // to them alone. Refreshed every minute and after each build.
   async function refreshBraincells(ws, member) {
@@ -346,7 +358,7 @@ export function createDuelServer({
       rooms.set(key, new Room(send));
     }
     const room = rooms.get(key);
-    if (room.clients.size >= 10) {
+    if (room.clients.size >= ROOM_CONNECTIONS) {
       ws.close(1013, 'Room full');
       return;
     }
@@ -574,10 +586,8 @@ export function createDuelServer({
           for (const msg of room.match.takeChalk())
             for (const ws of room.clients.keys()) send(ws, msg);
         // Every tick (60 Hz): smaller gaps to interpolate across.
-        const snap = room.match.snapshot();
-        for (const ws of room.clients.keys()) {
-          send(ws, snap);
-        }
+        const snap = JSON.stringify(room.match.snapshot());
+        for (const ws of room.clients.keys()) sendText(ws, snap);
       }
     }
     if (diagnostics.enabled) {

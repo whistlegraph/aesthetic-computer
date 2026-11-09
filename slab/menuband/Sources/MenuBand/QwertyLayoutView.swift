@@ -12,6 +12,7 @@ final class QwertyLayoutView: NSView {
     /// redraw.
     var litKeyCodes: Set<UInt16> = [] {
         didSet {
+            guard litKeyCodes != oldValue else { return }
             needsDisplay = true
             updateABCFeedbackTimer()
         }
@@ -20,6 +21,7 @@ final class QwertyLayoutView: NSView {
     /// letter cap softly blinks while its glyph jitters.
     var abcLayerEnabled = false {
         didSet {
+            guard abcLayerEnabled != oldValue else { return }
             needsDisplay = true
             updateABCFeedbackTimer()
         }
@@ -29,6 +31,7 @@ final class QwertyLayoutView: NSView {
     /// M-mode QWERTY).
     var keymap: Keymap = .notepat {
         didSet {
+            guard keymap != oldValue else { return }
             needsDisplay = true
             if let window { window.invalidateCursorRects(for: self) }
         }
@@ -36,7 +39,10 @@ final class QwertyLayoutView: NSView {
     /// Current voice's family color — used to tint note-mapped
     /// keycaps so the keymap reads as part of the chosen instrument.
     var voiceColor: NSColor = .controlAccentColor {
-        didSet { needsDisplay = true }
+        didSet {
+            guard voiceColor != oldValue else { return }
+            needsDisplay = true
+        }
     }
     /// Active octave shift. Combined with the keymap's semitone table
     /// to decide whether each cap would produce a valid MIDI note
@@ -44,7 +50,10 @@ final class QwertyLayoutView: NSView {
     /// fill so the user can see at a glance which keys are "dead"
     /// when they push the octave to the extremes.
     var octaveShift: Int = 0 {
-        didSet { needsDisplay = true }
+        didSet {
+            guard octaveShift != oldValue else { return }
+            needsDisplay = true
+        }
     }
 
     /// Pointer-driven key event. Fires on mouseDown over a cap (isDown=true),

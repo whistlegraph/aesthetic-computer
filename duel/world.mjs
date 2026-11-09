@@ -6,7 +6,12 @@ export const DT = 1 / HZ;
 export const INTERP_TICKS = 6;
 export const PROTOCOL = 'duel-6';
 export const FRAG_LIMIT = 10;
-export const COLORS = [0xff593b, 0x69bfff];
+export const COLORS = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40];
+// Players one room holds at once. Seats 0 and 1 keep the original duel's
+// spawns; the rest stand on a ring facing the middle (2026-11-08).
+export const MAX_PLAYERS = 16;
+const SPAWN_YAWS = [0, 180, 90, 270, 45, 225, 135, 315];
+export const seatColor = (seat) => COLORS[((seat % COLORS.length) + COLORS.length) % COLORS.length];
 // Half the width of the room in metres: a small studio for now, not a world.
 export const WORLD = 8;
 export const SCREEN = 40;
@@ -46,9 +51,19 @@ export const CFG = Object.freeze({
 export const FIRE_COOLDOWN = 42;
 export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
+// Stand back from the middle along the seat's yaw, so every spawn faces in.
+// Seats past the first eight take an inner ring, turned half a step.
+export function spawnPoint(seat) {
+  const outer = seat < SPAWN_YAWS.length;
+  const yaw = SPAWN_YAWS[seat % SPAWN_YAWS.length] + (outer ? 0 : 22.5);
+  const r = outer ? WORLD - 3 : WORLD - 5.5;
+  const f = direction(yaw);
+  return { x: Math.round(-f.x * r * 1000) / 1000 || 0, z: Math.round(-f.z * r * 1000) / 1000 || 0, yaw };
+}
+
 export function spawn(seat, life = 1) {
   return {
-    ...newState({ z: seat ? WORLD - 3 : -WORLD + 3, yaw: seat ? 180 : 0, cfg: CFG }),
+    ...newState({ ...spawnPoint(seat), cfg: CFG }),
     seat,
     life,
     health: 100,

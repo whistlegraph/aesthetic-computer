@@ -1,0 +1,31 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&display=swap">
+<style>
+html,body{margin:0;width:1200px;height:630px;overflow:hidden}
+body{position:relative;background:linear-gradient(215deg,#f9e3e8 0%,#f4d3dc 100%);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;color:#6b4a55}
+.bg{position:absolute;inset:0;background:url(/hero-pointe-shoes.jpg) center/cover;opacity:.55}
+.veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(249,227,232,1) 0%,rgba(249,227,232,.96) 42%,rgba(249,227,232,.55) 70%,rgba(244,211,220,.25) 100%)}
+.rule{position:absolute;left:72px;right:72px;height:1px;background:#f2a6bc;opacity:.6}
+.rule.t{top:54px}.rule.b{bottom:54px}
+.left{position:absolute;left:72px;top:118px;width:560px}
+.logo{width:470px;display:block;filter:drop-shadow(0 14px 26px rgba(236,126,161,.22))}
+h1{margin:26px 0 0;font:400 44px/1.12 "Playfair Display",Didot,serif;letter-spacing:-.01em;color:#6b4a55}
+h1 em{color:#ec7ea1}
+p{margin:18px 0 0;font-size:19px;line-height:1.4;color:#8d6a76;max-width:520px}
+.tiles{position:absolute;right:62px;top:92px;width:520px;height:446px}
+.tiles img{position:absolute;width:206px;height:258px;object-fit:cover;border-radius:12px;box-shadow:0 26px 48px -22px rgba(107,74,85,.55)}
+.a{left:0;top:40px;transform:rotate(-5deg)}.b{left:168px;top:0;transform:rotate(2deg)}.c{left:300px;top:150px;transform:rotate(6deg)}.d{left:80px;top:230px;transform:rotate(-2deg);width:190px;height:238px}
+.url{position:absolute;left:72px;bottom:70px;font-size:16px;letter-spacing:.18em;text-transform:uppercase;color:#ec7ea1;font-weight:600}
+</style></head><body>
+<div class="bg"></div><div class="veil"></div>
+<div class="rule t"></div><div class="rule b"></div>
+<div class="left"><img class="logo" src="/logo-blush.png"><h1>Enseñanza real, <em>técnica y consciente.</em></h1><p>Academia de ballet RAD, Pilates flow y Cardio Dance en Solares Residencial, Zapopan.</p></div>
+<div class="tiles"><img class="a" src="/ig/baby-ballet.jpg"><img class="b" src="/ig/valor-del-metodo.jpg"><img class="c" src="/ig/cardio-dance.jpg"><img class="d" src="/ig/compromiso.jpg"></div>
+<div class="url">danzballet.studio · @danzballetstudio</div>
+<script>
+const t=parseFloat(new URLSearchParams(location.search).get('t')||'0');
+const base={a:[-5,0,40],b:[2,168,0],c:[6,300,150],d:[-2,80,230]};
+Object.entries(base).forEach(([k,[r,x,y]],i)=>{const e=document.querySelector('.tiles .'+k);const ph=i*Math.PI/2;
+ e.style.left=x+'px';e.style.top=(y+Math.sin(2*Math.PI*t+ph)*9)+'px';e.style.transform='rotate('+(r+Math.sin(2*Math.PI*t+ph+1)*1.6)+'deg)';});
+const l=document.querySelector('.logo');l.style.transform='translateY('+(Math.sin(2*Math.PI*t)*-5)+'px)';
+</script></body></html>

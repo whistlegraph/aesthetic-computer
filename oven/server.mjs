@@ -14,7 +14,7 @@ import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeSta
 import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, listBackdropPool, pickBackdropUrl, warmBackdropPool, getBackdropPoolStatus, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
 import archiver from 'archiver';
 import sharp from 'sharp';
-import { createBundle, createJSPieceBundle, createJSLibraryBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification } from './bundler.mjs';
+import { createBundle, createJSPieceBundle, createJSLibraryBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification, setSourceRevision } from './bundler.mjs';
 import { bundleMini, fetchPieceSource } from './kidlisp-mini/bundle.mjs';
 import { streamOSImage, getOSBuildStatus, invalidateManifest, purgeOSBuildCache, clearOSBuildLocalCache } from './os-builder.mjs';
 import { startOSBaseBuild, getOSBaseBuild, getOSBaseBuildsSummary, cancelOSBaseBuild } from './os-base-build.mjs';
@@ -22,6 +22,7 @@ import { startNativeBuild, getNativeBuild, getNativeBuildsSummary, cancelNativeB
 import { startPoller as startNativeGitPoller, getPollerStatus as getNativePollerStatus } from './native-git-poller.mjs';
 import { startPapersBuild, getPapersBuild, getPapersBuildsSummary, cancelPapersBuild } from './papers-builder.mjs';
 import { startPoller as startPapersGitPoller, getPollerStatus as getPapersPollerStatus } from './papers-git-poller.mjs';
+import { startPoller as startSourceGitPoller, getPollerStatus as getSourcePollerStatus } from './source-git-poller.mjs';
 import { startPaperCrunch, getPaperCrunch, getPaperCrunchesSummary, getPaperCrunchPdf, cancelPaperCrunch, CRUNCH_LIMITS } from './paper-crunch.mjs';
 import { startRecapBuild, getRecapBuild, getRecapBuildsSummary, cancelRecapBuild, getRecapMp4Path } from './recap-builder.mjs';
 const oskiewarReels = fs.existsSync(new URL('./oskiewar-reel-builder.mjs', import.meta.url))
@@ -3878,6 +3879,12 @@ app.get('/papers-build', (req, res) => {
   res.json({ ...getPapersBuildsSummary(), poller: getPapersPollerStatus() });
 });
 
+// Is this oven level with origin/main? (source-git-poller.mjs keeps ac-source
+// and the oven's own code there; a restart is pending while a job runs.)
+app.get('/source-sync', (req, res) => {
+  res.json({ version: GIT_VERSION, poller: getSourcePollerStatus() });
+});
+
 app.get('/papers-build/:jobId', (req, res) => {
   const tail = Math.max(0, Math.min(2000, parseInt(req.query.tail, 10) || 200));
   const includeLogs = req.query.logs === '1' || req.query.logs === 'true';
@@ -4466,6 +4473,12 @@ if (dev) {
     // Start papers PDF git poller — watches for papers/ changes
     startPapersGitPoller({ startPapersBuild, addServerLog });
     startRecapGitPoller({ startRecapBuild, addServerLog });
+    // Keep ac-source and the oven itself level with origin/main; restart only when idle.
+    startSourceGitPoller({
+      addServerLog,
+      isBusy: () => getActiveBakes().size > 0 || getIncomingBakes().size > 0 || getActiveGrabs().length > 0,
+      onRuntimeSynced: setSourceRevision,
+    });
   });
 }
 

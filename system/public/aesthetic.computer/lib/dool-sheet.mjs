@@ -153,6 +153,7 @@ function step(now) {
 function show() {
   const f = ensure();
   if (state === "open" || toward === "open") return;
+  rest(false); // Dropping in wakes the world.
   if (!said) {
     // Nothing to drop onto yet: wait a little for the guest, then let it go.
     clearTimeout(pendingShow);
@@ -200,6 +201,7 @@ function opened() {
   // is usually captured, so nothing is left to flicker at the frame's edge.
   document.documentElement.style.cursor = "none";
   document.body.style.cursor = "none";
+  nativeCursorHidden(true);
   frame.contentWindow?.focus();
   meterGuest();
 }
@@ -228,6 +230,7 @@ function home() {
   if (s) Object.assign(s.style, { opacity: "", willChange: "" });
   document.documentElement.style.cursor = "";
   document.body.style.cursor = "";
+  nativeCursorHidden(false);
   resumePrompt();
   post({ type: "dool:sheet", open: false }); // Park the guest: no input, no sound.
   leaveHistory();
@@ -252,7 +255,9 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "dool:sheet:hello") {
     said = true;
-    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid() });
+    // This module can load after bios last reported focus: ask the window.
+    if (!document.hasFocus() && state === "parked") resting = true;
+    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting });
     // A server restart reloads the guest without moving the host's paper.
     // Restore the completed transition too: otherwise its HUD stays hidden
     // and the native frame meter is still attached to the discarded document.
@@ -269,12 +274,35 @@ addEventListener("message", (e) => {
   else if (d.type === "dool:sheet:leave") hide();
 });
 
+// 💤 A window in the background: the world under a parked paper keeps
+// turning smoothly, capped at duel/client.mjs BACKGROUND_FPS, so several AC
+// windows side by side stay alive and cost little (2026-11-08). bios calls `windowFocus` whenever
+// document.hasFocus() changes — a window that opened behind another never
+// sees a blur event — and only a parked paper rests.
+let resting = false;
+function rest(on) {
+  if (on === resting) return;
+  resting = on;
+  if (said) post({ type: "dool:sheet", rest: on });
+}
+function windowFocus(focused) {
+  rest(!focused && (state === "parked" || state === "cold"));
+}
+
+// The Mac app reasserts its own cursor on every mouse event; tell it when the
+// world hides the pointer, or the two fight and it flickers (2026-11-08).
+function nativeCursorHidden(on) {
+  try {
+    window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: "cursor:hidden", body: on }));
+  } catch {}
+}
+
 // bios reframed: pass the new grid down.
 function framed() {
   if (said) post({ type: "dool:sheet", grid: grid() });
 }
 
-window.acDoolSheet = { popstate, framed };
+window.acDoolSheet = { popstate, framed, windowFocus };
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle

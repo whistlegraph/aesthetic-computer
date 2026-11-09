@@ -2,6 +2,7 @@ import {
   HZ,
   DT,
   FRAG_LIMIT,
+  MAX_PLAYERS,
   FIRE_COOLDOWN,
   spawn,
   move,
@@ -23,7 +24,7 @@ export class Match {
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
-    this.seats = [null, null];
+    this.seats = Array(MAX_PLAYERS).fill(null);
     this.rockets = [];
     this.events = [];
     this.eventId = 0;
@@ -31,9 +32,9 @@ export class Match {
     this.items = new Map();
     this.bullets = [];
     // Chalk: strokes of points in the air, per seat; sent when they change.
-    this.chalk = [[], []];
+    this.chalk = Array.from({ length: MAX_PLAYERS }, () => []);
     this.chalkDirty = false;
-    this.chalking = [false, false];
+    this.chalking = Array(MAX_PLAYERS).fill(false);
     // New points since the last broadcast, [seat, stroke, x, y, z]; a seat
     // whose old points were trimmed or cleared is re-sent whole instead.
     this.chalkOps = [];
@@ -119,7 +120,7 @@ export class Match {
         this.items.set(o.id, {
           id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, fuseAt: 0, awayUntil: 0,
           x: o.x, y: 0, z: o.z,
-          vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: [0, 0], ready: 0,
+          vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: {}, ready: 0,
         });
     }
     for (const id of this.items.keys()) if (!ids.has(id)) this.items.delete(id);
@@ -368,16 +369,26 @@ export class Match {
     this.bullets = this.bullets.filter((b) => !b.dead);
   }
 
+  get count() {
+    return this.seats.filter(Boolean).length;
+  }
+
+  // Many players share one room. The second arrival starts a match; anyone
+  // after that drops into the match already running instead of resetting it.
   join() {
     const seat = this.seats.indexOf(null);
     if (seat < 0) return -1;
     this.seats[seat] = { player: spawn(seat), ack: 0, queue: [], last: {} };
-    if (this.seats.every(Boolean)) this.reset();
+    if (this.count === 2 && this.phase === 'waiting') this.reset();
     return seat;
   }
 
+  // A departure only stops the match when it leaves one player alone.
   leave(seat) {
     this.seats[seat] = null;
+    this.rockets = this.rockets.filter((r) => r.owner !== seat);
+    for (const it of this.items.values()) if (it.holder === seat) it.holder = -1;
+    if (this.count >= 2) return;
     this.phase = 'waiting';
     this.winner = null;
     this.rockets = [];

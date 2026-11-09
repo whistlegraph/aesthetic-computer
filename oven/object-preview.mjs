@@ -4,13 +4,13 @@ import { existsSync } from "node:fs";
 import { setImmediate } from "node:timers/promises";
 import sharp from "sharp";
 const deployedViewer = new URL("./ac-source/lib/object/viewer.mjs", import.meta.url);
-const { objectPiece, isObjectLisp } = await import(existsSync(deployedViewer)
+const { objectPiece, isObjectLisp, OBJECT_PREVIEW_FPS, OBJECT_TURN_SECONDS } = await import(existsSync(deployedViewer)
   ? deployedViewer.href
   : new URL("../system/public/aesthetic.computer/lib/object/viewer.mjs", import.meta.url).href);
 
 export async function captureObjectFrames(piece, options = {}) {
   if (!/^\$[A-Za-z0-9]{3,64}$/.test(piece)) throw new Error("Object previews require a saved $code");
-  const { width = 800, height = 420, duration = 8000, fps = 8 } = options;
+  const { width = 800, height = 420, duration = OBJECT_TURN_SECONDS * 1000, fps = OBJECT_PREVIEW_FPS } = options;
   const count = options.frames ?? Math.ceil(duration / 1000 * fps);
   if (![width, height, count].every(Number.isInteger) || width < 32 || height < 32 ||
       width > 1920 || height > 1080 || count < 1 || count > 120) throw new Error("Invalid object capture dimensions or frame count");
@@ -34,3 +34,5 @@ export async function captureObjectFrames(piece, options = {}) {
   }
   return frames;
 }
+
+export { OBJECT_PREVIEW_FPS, OBJECT_TURN_SECONDS };

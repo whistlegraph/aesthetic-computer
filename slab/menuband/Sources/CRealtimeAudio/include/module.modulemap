@@ -1,0 +1,4 @@
+module CRealtimeAudio {
+    header "MBRealtimeQueue.h"
+    export *
+}

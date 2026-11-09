@@ -1,3 +1,4 @@
+import { glyphs as chunky } from './chunky-font.mjs';
 import { smallWidth } from './paint.mjs';
 // Coloured runs of pixel text: syntax colours for Aesel's code, controller
 // face buttons as coloured badges, and verbs in the dev strip.
@@ -24,6 +25,8 @@ export const BUTTONS = {
   LT: { fill: 0x5a5f70, ink: 0xffffff },
   LS: { fill: 0x5a5f70, ink: 0xffffff },
   RS: { fill: 0x5a5f70, ink: 0xffffff },
+  START: { fill: 0x5a5f70, ink: 0xffffff },
+  BACK: { fill: 0x5a5f70, ink: 0xffffff },
 };
 // A badge lights white while its button is held.
 const LIT = { fill: 0xffffff, ink: 0x181818 };
@@ -78,7 +81,7 @@ export function animateSpans(spans, now) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|[ABXY])\]|\{([^}]+)\}/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|START|BACK|[ABXY])\]|\{([^}]+)\}/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     if (m[1]) spans.push({ badge: m[1] });
     else spans.push({ cap: m[2] });
@@ -113,10 +116,41 @@ const merge = (spans) =>
   }, []);
 
 export const spanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? 7 : s.text.length * 6) * unit, 0);
+  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? (s.wire !== undefined ? 11 : 7) : s.text.length * 6) * unit, 0);
 
+// Compact (MatrixChunky8) widths: caps and badges are the name plus a
+// two-pixel frame each side.
+// MatrixChunky8 has no arrows: the arrow keys get five-pixel drawings.
+const SMALL_ARROWS = {
+  '←': ['..#..', '.#...', '#####', '.#...', '..#..'],
+  '→': ['..#..', '...#.', '#####', '...#.', '..#..'],
+  '↑': ['..#..', '.###.', '#.#.#', '..#..', '..#..'],
+  '↓': ['..#..', '..#..', '#.#.#', '.###.', '..#..'],
+};
+const smallBoxWidth = (k) => (SMALL_ARROWS[k] ? 5 : smallWidth(k)) + 4;
+// The rows a label's ink actually covers, counted down from small()'s y
+// (row k is the band from y - k to y - k + 1): tall letters start at 0,
+// x-height at 2; the baseline ends at 6, descenders at 7. A cap's outline sits
+// one clear row outside these, so every label has the same 1px gap
+// (2026-11-08).
+function inkRows(name) {
+  if (SMALL_ARROWS[name]) return [2, 6];
+  let top = Infinity, bottom = -Infinity;
+  for (const ch of String(name)) {
+    const g = chunky[ch] || chunky['?'];
+    const [, h, , yoff] = g;
+    if (ch === ' ') continue;
+    top = Math.min(top, 8 - yoff - h);
+    bottom = Math.max(bottom, 8 - yoff - 1);
+  }
+  return Number.isFinite(top) ? [top, bottom] : [2, 6];
+}
 export const smallSpanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.text ? smallWidth(s.text) + 1 : 0) * unit, 0);
+  spans.reduce(
+    (w, s) =>
+      w + (s.badge ? smallBoxWidth(s.badge) + 1 : s.cap ? smallBoxWidth(s.cap) + 1 : s.text ? smallWidth(s.text) + 1 : 0) * unit,
+    0,
+  );
 
 export const plain = (spans) =>
   spans.map((s) => (s.badge ? `[${s.badge}]` : s.cap ? s.cap : s.block ? '' : s.text)).join('');
@@ -145,6 +179,37 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   if (tiny && small) {
     let left = cx - smallSpanWidth(spans, unit) / 2;
     for (const s of spans) {
+      if (s.badge || s.cap) {
+        const name = s.badge || s.cap;
+        const bw = smallBoxWidth(name) * unit;
+        // Sized to the label's own ink: outline, one clear pixel, the ink,
+        // one clear pixel, outline — the same on every side.
+        const [top, low] = inkRows(name);
+        const bottom = y - (low + 2) * unit, bh = (low - top + 5) * unit;
+        const textX = left + 2 * unit + (smallWidth(name) * unit) / 2; // ink starts two in.
+        if (s.badge) {
+          const { fill, ink } = s.lit ? LIT : BUTTONS[s.badge];
+          if (shadow !== null) rect(left + unit, bottom - unit, z + 2 * step, bw, bh, shadow);
+          rect(left, bottom, z + step, bw, bh, fill);
+          small(name, textX, y, z, unit, ink);
+        } else {
+          // A coloured cap (the legend's action colour) outlines in its colour;
+          // held, any cap lights white.
+          const line = s.lit ? 0xffffff : s.color ?? THEME.dim;
+          if (shadow !== null) rect(left + unit, bottom - unit, z + 3 * step, bw, bh, shadow);
+          rect(left, bottom, z + 2 * step, bw, bh, line);
+          rect(left + unit, bottom + unit, z + step, bw - 2 * unit, bh - 2 * unit, 0x15171e);
+          const ink = s.lit ? 0xffffff : s.color ?? THEME.text;
+          const arrow = SMALL_ARROWS[name];
+          if (arrow)
+            arrow.forEach((row, r) =>
+              [...row].forEach((ch, c) => ch === '#' && rect(left + (2 + c) * unit, y - (2 + r) * unit, z, unit, unit, ink)),
+            );
+          else small(name, textX, y, z, unit, ink);
+        }
+        left += bw + unit;
+        continue;
+      }
       if (!s.text) continue;
       const w = (smallWidth(s.text) + 1) * unit;
       const centre = left + (w - unit) / 2;
@@ -163,6 +228,35 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
       rect(left, y - 7 * unit, z + step, bw, 9 * unit, fill);
       text(s.badge, left + bw / 2, y - unit, z, unit, ink, true);
       left += bw + unit;
+      continue;
+    }
+    if (s.block && s.wire !== undefined) {
+      // The build prompt's cursor: a wireframe cube turning in the block's
+      // cell (wider than a letter, so it reads at one pixel a unit), green
+      // while a builder listens, red when none does (2026-11-08).
+      const cx = left + 5 * unit, cy = y - 2 * unit, k = 3 * unit;
+      const a = s.turn, b = 0.55 + 0.2 * Math.sin(a * 0.7);
+      const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+      const P = [];
+      for (const vx of [-1, 1]) for (const vy of [-1, 1]) for (const vz of [-1, 1]) {
+        const x1 = vx * ca + vz * sa, z1 = -vx * sa + vz * ca;
+        const y1 = vy * cb - z1 * sb, z2 = vy * sb + z1 * cb;
+        const p = 1 / (1 - z2 * 0.18);
+        P.push([cx + x1 * k * p, cy + y1 * k * p]);
+      }
+      const edges = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+      const dot = (px, py, color, zz) =>
+        rect(Math.round(px / unit) * unit, Math.round(py / unit) * unit, zz, unit, unit, color);
+      for (const [i, j] of edges) {
+        const [[x0, y0], [x1, y1]] = [P[i], P[j]];
+        const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) / unit));
+        for (let t = 0; t <= n; t++) {
+          const px = x0 + ((x1 - x0) * t) / n, py = y0 + ((y1 - y0) * t) / n;
+          if (shadow !== null) dot(px + unit, py - unit, shadow, z + 2 * step);
+          dot(px, py, s.wire, z + step);
+        }
+      }
+      left += 11 * unit;
       continue;
     }
     if (s.block) {

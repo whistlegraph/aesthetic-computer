@@ -3,8 +3,9 @@ import QuartzCore
 
 /// Sandbox-friendly key capture: an invisible 1×1 NSPanel that becomes the
 /// key window after the user clicks the menubar piano. A local NSEvent
-/// monitor catches keyDown / keyUp while the panel is key — no
-/// `CGEventTap`, no Accessibility prompt, no global hook.
+/// monitor catches keyDown / keyUp while the panel is key. The direct build
+/// additionally uses an available event tap for musical input; the sandboxed
+/// build and permission fallback retain local delivery.
 ///
 /// Tradeoff: this only captures keys while Menu Band is the active app.
 /// The moment the user clicks any other app the panel resigns key and
@@ -22,6 +23,82 @@ final class LocalKeyCapture {
     /// (keyCode, isDown, isRepeat, flags) shape as the global tap so the
     /// AppDelegate can route both paths through one handler.
     var onKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Bool)?
+    /// Dismiss transient notices before taking keyboard ownership.
+    var onWillArm: (() -> Void)?
+    /// Audio-only callback, installed before arm. It must enqueue musical
+    /// work without reading AppKit objects or waiting for the main thread.
+    var onPerformanceKey: ((UInt16, Bool, Bool, NSEvent.ModifierFlags) -> Void)?
+    var onPerformanceFlags: ((UInt64) -> Void)?
+    var onPerformanceRelease: (() -> Void)?
+    private let performanceGate = PerformanceInputGate()
+    private let routingLock = NSLock()
+    private var performanceKeymap: Keymap = .notepat
+    private var performanceReservedKeys: Set<UInt16> = []
+    private var performanceReservedShortcuts: [MenuBandShortcut] = []
+    private var performanceTap: KeyEventTap?
+    private(set) var usesPerformanceTap = false
+    private let lastModifierTimestamp = PerformanceSnapshot(0.0)
+
+    func capturedModifierEvent(at timestamp: TimeInterval) -> Bool {
+        lastModifierTimestamp.read() >= timestamp - 0.000001
+    }
+
+    func configurePerformanceRouting(keymap: Keymap,
+                                     reservedKeys: Set<UInt16>,
+                                     shortcuts: [MenuBandShortcut]) {
+        routingLock.lock()
+        performanceKeymap = keymap
+        performanceReservedKeys = reservedKeys
+        performanceReservedShortcuts = shortcuts
+        routingLock.unlock()
+    }
+
+    private func performanceEligible(_ key: UInt16, flags: NSEvent.ModifierFlags) -> Bool {
+        routingLock.lock(); defer { routingLock.unlock() }
+        guard !performanceReservedKeys.contains(key) else { return false }
+        let modifiers = MenuBandShortcut.carbonModifiers(from: flags)
+        guard !performanceReservedShortcuts.contains(where: {
+            $0.matches(keyCode: UInt32(key), modifiers: modifiers)
+        }) else { return false }
+        // Musical prefixes, octave steps and Space must share note ordering.
+        // UI actions are excluded by the immutable routing snapshot above.
+        let musicalModifiers = flags.intersection([.command, .option, .control])
+        return musicalModifiers.isEmpty || key == 49 || key == 50
+            || ((key == 123 || key == 124) && musicalModifiers == [.option])
+            || MenuBandLayout.semitone(forKeyCode: key, keymap: performanceKeymap) != nil
+    }
+
+    private func startPerformanceTap() {
+#if !MAC_APP_STORE
+        guard onPerformanceKey != nil else { return }
+        if performanceTap == nil {
+            let tap = KeyEventTap(focusedProcessOnly: true) { [weak self] key, down, repeated, flags in
+                guard let self else { return false }
+                let local = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
+                if down && key == 53 {
+                    self.performanceGate.close { self.onPerformanceRelease?() }
+                    return false
+                }
+                return self.performanceGate.submit(key: key, down: down,
+                    eligible: self.performanceEligible(key, flags: local)) {
+                    self.onPerformanceKey?(key, down, repeated, local)
+                }
+            }
+            tap.onFlagsChanged = { [weak self] flags, timestamp in
+                self?.lastModifierTimestamp.update { $0 = Double(timestamp) / 1_000_000_000 }
+                self?.onPerformanceFlags?(flags.rawValue)
+            }
+            tap.onDiscontinuity = { [weak self] in
+                guard let self else { return }
+                self.performanceGate.close { self.onPerformanceRelease?() }
+            }
+            if tap.start() { performanceTap = tap }
+        }
+        usesPerformanceTap = performanceTap != nil
+        performanceGate.activate()
+#endif
+    }
+
     /// Called when the panel resigns key — capture has ended naturally
     /// because the user clicked another app.
     var onCaptureEnd: ((EndReason) -> Void)?
@@ -118,6 +195,7 @@ final class LocalKeyCapture {
     /// Bring up the invisible panel and start listening. Idempotent — if
     /// already armed, just refreshes the panel as key.
     func arm() {
+        onWillArm?()
         SessionDiagnostics.shared.record(.captureArm, source: .localCapture, state: isArmed)
         if panel == nil { buildPanel() }
         guard let panel = panel else { return }
@@ -172,7 +250,10 @@ final class LocalKeyCapture {
                     self.disarm(reason: .cancelled)
                     return nil
                 }
-                let consumed = self.onKey?(event.keyCode, isDown, event.isARepeat, event.modifierFlags) ?? false
+                let consumed = InputLatencyProbe.withEvent(at: event.timestamp,
+                    down: isDown, repeated: event.isARepeat) {
+                    self.onKey?(event.keyCode, isDown, event.isARepeat, event.modifierFlags) ?? false
+                }
                 return consumed ? nil : event
             }
         }
@@ -233,13 +314,23 @@ final class LocalKeyCapture {
             }
         }
         isArmed = true
+        startPerformanceTap()
 #if !MAC_APP_STORE
         if spaceTap == nil {
             let tap = KeyEventTap(source: .commandSpace) { [weak self] keyCode, isDown, isRepeat, flags in
                 guard let self, keyCode == 49 /* kVK_Space */,
                       flags.contains(.maskCommand) else { return false }
                 let mods = NSEvent.ModifierFlags(rawValue: UInt(flags.rawValue))
-                return self.onKey?(keyCode, isDown, isRepeat, mods) ?? false
+                if self.onPerformanceKey != nil {
+                    return self.performanceGate.submit(key: keyCode, down: isDown, eligible: true) {
+                        self.onPerformanceKey?(keyCode, isDown, isRepeat, mods)
+                    }
+                }
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.isArmed else { return }
+                    _ = self.onKey?(keyCode, isDown, isRepeat, mods)
+                }
+                return true
             }
             if tap.start() { spaceTap = tap }
             else { debugLog("capture: ⌘Space tap unavailable; Spotlight keeps ⌘Space") }
@@ -281,6 +372,10 @@ final class LocalKeyCapture {
         guard isArmed else { return }
         SessionDiagnostics.shared.record(.captureDisarmed, reason: reason == .cancelled ? .cancelled : .resignedKey, source: .localCapture)
         isArmed = false
+        performanceGate.close { onPerformanceRelease?() }
+        performanceTap?.stop()
+        performanceTap = nil
+        usesPerformanceTap = false
         if let m = monitor {
             NSEvent.removeMonitor(m)
             monitor = nil
@@ -343,7 +438,9 @@ final class LocalKeyCapture {
             let flags = event.modifierFlags
             guard flags.contains(.command) || flags.contains(.control)
                 || flags.contains(.option) else { return false }
-            return self.onKey?(event.keyCode, true, event.isARepeat, flags) ?? false
+            return InputLatencyProbe.withEvent(at: event.timestamp, down: true, repeated: event.isARepeat) {
+                self.onKey?(event.keyCode, true, event.isARepeat, flags) ?? false
+            }
         }
         panel = p
     }

@@ -24,6 +24,22 @@ struct Chart {
     var songPhrases: [[(String, String)]] = []
     /// How the back face of this card is drawn.
     var backStyle: BackStyle = .info
+    /// Time-boxed score bars (see ScoreCard.swift). Non-empty → score card.
+    var score: [ScoreBar] = []
+    /// Bars per phrase, for the phrase brackets on score cards.
+    var phraseLength: Int = 4
+    /// Which bar number the first `score` entry is (for the margin labels).
+    var firstBarNumber: Int = 1
+}
+
+/// One bar of a two-hand score: three beat cells per hand. A cell is a
+/// key ("k"), a chord ("f+a"), or "-" meaning the previous cell's key is
+/// still held — the renderer merges holds into one pill that spans the
+/// beats. Written as a Lisp tuple `(left right)`: each side is a single
+/// key when it fills the bar, otherwise a group that splits the bar evenly.
+struct ScoreBar {
+    let left: [String]
+    let right: [String]
 }
 
 /// Card back layouts. `.info` shows the card's title + subtitle centered;
@@ -236,6 +252,10 @@ enum ChartRenderer {
             renderSong(chart, in: ctx)
             return
         }
+        if !chart.score.isEmpty {
+            renderScore(chart, in: ctx)
+            return
+        }
 
         // Header: big title, then a one-line subtitle. Sit slightly
         // lower so the title clears the inset border with breathing room.
@@ -418,7 +438,7 @@ enum ChartRenderer {
         // page-numbering chrome.
     }
 
-    private static func drawText(in ctx: CGContext,
+    static func drawText(in ctx: CGContext,
                                   text: NSAttributedString,
                                   origin: CGPoint) {
         NSGraphicsContext.saveGraphicsState()
@@ -579,7 +599,9 @@ enum ChartRenderer {
         bylineAttr.append(NSAttributedString(string: "@jeffrey", attributes: [
             .font: bodyFont(size: 9.5, bold: true), .foregroundColor: dark,
         ]))
-        bylineAttr.append(NSAttributedString(string: "  ·  aesthetic.computer  ·  may 2026", attributes: [
+        // A cover's `footer` overrides the date stamp (the default deck is May 2026).
+        let stamp = chart.footer.isEmpty ? "may 2026" : chart.footer
+        bylineAttr.append(NSAttributedString(string: "  ·  aesthetic.computer  ·  " + stamp, attributes: [
             .font: bodyFont(size: 9.5), .foregroundColor: gray,
         ]))
         let bylineBounds = bylineAttr.boundingRect(
@@ -695,11 +717,28 @@ enum ChartRenderer {
                 }
                 let gap = current.isEmpty ? 0 : colGap
                 if x + gap + w > availW && !current.isEmpty {
-                    // wrap; drop trailing separator on the wrapped row
-                    if case .sep = current.last?.unit { current.removeLast() }
-                    rows.append(current)
-                    current = []
-                    x = 0
+                    // wrap. Prefer breaking at the last phrase separator so a
+                    // phrase (a bar, for score cards) stays whole on one row;
+                    // fall back to a plain greedy break when the row holds a
+                    // single long phrase.
+                    let lastSep = current.lastIndex { if case .sep = $0.unit { return true } else { return false } }
+                    if let cut = lastSep, cut > 0, cut < current.count - 1 {
+                        let carried = Array(current[(cut + 1)...])
+                        rows.append(Array(current[..<cut]))
+                        current = []
+                        x = 0
+                        for c in carried {
+                            let g = current.isEmpty ? 0 : colGap
+                            current.append(Placed(unit: c.unit, x: x + g, w: c.w))
+                            x += g + c.w
+                        }
+                    } else {
+                        // drop trailing separator on the wrapped row
+                        if case .sep = current.last?.unit { current.removeLast() }
+                        rows.append(current)
+                        current = []
+                        x = 0
+                    }
                 }
                 // skip leading separator at the start of a new row
                 if current.isEmpty {
@@ -755,7 +794,11 @@ enum ChartRenderer {
                 let cx = x + cw / 2
                 switch placed.unit {
                 case .pair(let note, let syl):
-                    let color = noteColorForLetter(note)
+                    // Unknown letters (e.g. a held-note dash) fall back to a
+                    // catalog gray that has no RGB components; normalise so the
+                    // ring/luminance math below never throws.
+                    let rawColor = noteColorForLetter(note)
+                    let color = rawColor.usingColorSpace(.sRGB) ?? rawColor
                     // Circle — filled note color with a darker stroke
                     // ring (~35% darker hue) so the note pops as a
                     // bordered chip.
@@ -819,7 +862,7 @@ enum ChartRenderer {
     /// Look up the notepat color for a QWERTY letter (c, d, e, …, h, i, j, …).
     /// Naturals return their own color; sharps return the natural-to-the-left
     /// color (same rule the menuband piano uses).
-    private static func noteColorForLetter(_ letter: String) -> NSColor {
+    static func noteColorForLetter(_ letter: String) -> NSColor {
         for (midi, l) in Piano.notepatLetter where l == letter {
             if Piano.isWhite(midi) { return Piano.noteColor(midi: midi) }
             var left = midi - 1

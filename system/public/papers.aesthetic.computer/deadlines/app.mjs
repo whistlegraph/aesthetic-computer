@@ -12,7 +12,7 @@ let catalog, view = "upcoming";
 
 function readURL() {
   const p = new URLSearchParams(location.search);
-  view = ["upcoming", "rolling", "archive"].includes(p.get("view")) ? p.get("view") : "upcoming";
+  view = ["upcoming", "contests", "rolling", "archive"].includes(p.get("view")) ? p.get("view") : "upcoming";
   for (const key of keys) {
     const input = form.elements.namedItem(key);
     if (flags.includes(key)) input.checked = p.get(key) === "1";

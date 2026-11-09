@@ -114,18 +114,9 @@
 	<script>
 		(() => {
 			const ad = document.getElementById("notepaint-ad");
-			// Default music invitation; keep old destinations available for previews.
-			const pinned = new URLSearchParams(location.search).get("ad");
-			const arm = ["notepaint", "ac"].includes(pinned) ? pinned : "notepat";
-			if (arm === "ac") {
-				ad.href = "https://aesthetic.computer/";
-				ad.innerHTML = "<b>NEW!</b> aesthetic.computer";
-			}
-			if (arm === "notepaint") {
-				ad.href = "https://notepaint.art/";
-				ad.innerHTML = "<b>NEW!</b> notepaint.art";
-			}
-			const shownAction = `${arm}_ad_shown`;
+			// The sticker is the music invitation only: notepat.com, for everyone.
+			// The notepaint.art and aesthetic.computer arms retired 8 November 2026.
+			const shownAction = "notepat_ad_shown";
 			// Capture keyboard activation before navigation, without waiting for
 			// the first-interaction retry timer. The tracker has already marked
 			// the trusted click as interaction in its window capture listener.

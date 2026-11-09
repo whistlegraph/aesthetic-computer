@@ -5,7 +5,7 @@
   <link rel="alternate" type="text/html" href="https://papers.aesthetic.computer/"/>
   <link rel="self" type="application/atom+xml" href="https://papers.aesthetic.computer/feed.xml"/>
   <id>https://papers.aesthetic.computer/</id>
-  <updated>2026-11-06T20:19:26.105Z</updated>
+  <updated>2026-11-08T22:25:56.586Z</updated>
   <author>
     <name>@jeffrey</name>
     <uri>https://prompt.ac/@jeffrey</uri>
@@ -13,29 +13,30 @@
   <icon>https://papers.aesthetic.computer/papers-og.jpg</icon>
   <rights>CC BY 4.0 unless noted otherwise.</rights>
   <entry>
+    <title>Rollback Over a Relay</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/rollback-over-a-relay-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/rollback-over-a-relay-26-arxiv.pdf</id>
+    <updated>2026-11-08T22:25:56.586Z</updated>
+    <published>2026-11-08T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">How oskiewar and dool share a fight, with the November 8 test record — Oskiewar runs the whole fight on both seats and moves only inputs through a small seat-to-seat relay with a UDP/WebRTC datagram lane and regional copies; dool keeps one authoritative 60 Hz server with own-body prediction and interpolation. Both designs from the source, the relay&apos;s trust boundaries, and today&apos;s suites: relay 43/43, dool 64/64, rollback 26/42 with every sync assertion green. Written to hand to a peer, closing with six review questions.</summary>
+  </entry>
+  <entry>
     <title>Whistlegraph</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/whistlegraph-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:26.105Z</updated>
+    <updated>2026-11-08T22:25:56.586Z</updated>
     <published>2026-03-21T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
     <summary type="text">Drawing, Singing, and the Graphic Score as Viral Form · arXiv 4pp — Whistlegraph explores drawing, singing, and score-making as forms that can spread like software. The paper links graphic notation to performance, remix, and browser-native sharing.</summary>
   </entry>
   <entry>
-    <title>Jeffrey Alan Scudder — CV</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
-    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
-    <updated>2026-11-06T20:19:26.105Z</updated>
-    <published>2026-07-03T00:00:00.000Z</published>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
     <title>Taking Turf</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/taking-turf-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:26.042Z</updated>
+    <updated>2026-11-08T22:25:56.487Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -43,7 +44,7 @@
     <title>Aesthetic Network Traffic Report</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/aesthetic-network-traffic-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/aesthetic-network-traffic-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:26.041Z</updated>
+    <updated>2026-11-08T22:25:56.486Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -51,7 +52,7 @@
     <title>iOS So Far</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/ios-so-far-26-arxiv.pdf"/>
     <id>https://papers.aesthetic.computer/ios-so-far-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:26.031Z</updated>
+    <updated>2026-11-08T22:25:56.484Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -59,7 +60,7 @@
     <title>No Paint 3.0: The Full Shape</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/nopaint-3-full-shape-2026.pdf"/>
     <id>https://papers.aesthetic.computer/nopaint-3-full-shape-2026.pdf</id>
-    <updated>2026-11-06T20:19:25.992Z</updated>
+    <updated>2026-11-08T22:25:56.431Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -67,23 +68,7 @@
     <title>Close of August &apos;26</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/close-of-august-26-essay.pdf"/>
     <id>https://papers.aesthetic.computer/close-of-august-26-essay.pdf</id>
-    <updated>2026-11-06T20:19:25.989Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Paying for Strangers</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/paying-for-strangers-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/paying-for-strangers-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:25.695Z</updated>
-    <category term="arXiv"/>
-    <author><name>@jeffrey</name></author>
-  </entry>
-  <entry>
-    <title>Edit the Harness, Not the Model</title>
-    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/edit-the-harness-26-arxiv.pdf"/>
-    <id>https://papers.aesthetic.computer/edit-the-harness-26-arxiv.pdf</id>
-    <updated>2026-11-06T20:19:25.694Z</updated>
+    <updated>2026-11-08T22:25:56.428Z</updated>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
@@ -91,7 +76,42 @@
     <title>Shipping the Easel</title>
     <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/shipping-the-easel-26-report.pdf"/>
     <id>https://papers.aesthetic.computer/shipping-the-easel-26-report.pdf</id>
-    <updated>2026-11-06T20:19:25.694Z</updated>
+    <updated>2026-11-08T22:25:56.039Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Paying for Strangers</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/paying-for-strangers-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/paying-for-strangers-26-arxiv.pdf</id>
+    <updated>2026-11-08T22:25:56.039Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Edit the Harness, Not the Model</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/edit-the-harness-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/edit-the-harness-26-arxiv.pdf</id>
+    <updated>2026-11-08T22:25:56.038Z</updated>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+  </entry>
+  <entry>
+    <title>Oskie Files in Unreal Engine</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/oskie-unreal-26-arxiv.pdf"/>
+    <id>https://papers.aesthetic.computer/oskie-unreal-26-arxiv.pdf</id>
+    <updated>2026-11-07T02:30:20.849Z</updated>
+    <published>2026-11-06T00:00:00.000Z</published>
+    <category term="arXiv"/>
+    <author><name>@jeffrey</name></author>
+    <summary type="text">An implementation map for portable game files in Unreal Engine — A six-stage plan for running .oskie games through an Unreal runtime plugin: bundle loading, QuickJS execution, rendering compatibility, input and sound, packaged desktop playback, and an optional world-space bridge. Architecture, module boundaries, and acceptance tests; the Unreal host remains to be built.</summary>
+  </entry>
+  <entry>
+    <title>Jeffrey Alan Scudder — CV</title>
+    <link rel="alternate" type="application/pdf" href="https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf"/>
+    <id>https://papers.aesthetic.computer/jeffrey-alan-scudder-cv.pdf</id>
+    <updated>2026-11-06T22:19:28.129Z</updated>
+    <published>2026-07-03T00:00:00.000Z</published>
     <category term="arXiv"/>
     <author><name>@jeffrey</name></author>
   </entry>
