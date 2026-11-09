@@ -23,19 +23,47 @@ export const LEGEND = {
     [['tap right', 'right'], ' jumps / ', ['hold right', 'right'], ' builds'],
   ],
 };
+// Each action has its own colour, shared by its words and its key caps, so
+// the eye finds a control by colour (2026-11-08). Separators stay dim.
+const ACTION_COLORS = {
+  move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
+  camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0xffe066, cancel: 0xff6b6b,
+};
+const actionColor = (text) => {
+  const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
+  return ACTION_COLORS[word] ?? null;
+};
+// Split a text run on its separators: the verbs take their colours, the
+// slashes and colons stay dim.
+const colourWords = (s) =>
+  s.text.split(/(\s*\/\s*)/).filter(Boolean).map((t) => {
+    const c = /^\s*\/\s*$/.test(t) ? null : actionColor(t);
+    return { ...s, text: t, color: c ?? s.color };
+  });
 // held: { keys: [codes], pad: [badges], touch: ['left' | 'right'] } from the client.
 function legendRows(input, held = {}) {
   const down = new Set(held[input === 'keys' ? 'keys' : input] || []);
   const lit = (code) => (Array.isArray(code) ? code.some((c) => down.has(c)) : down.has(code));
-  return (LEGEND[input] || LEGEND.keys).map((line) =>
-    typeof line === 'string'
-      ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
-      : line.map((part) =>
-          typeof part === 'string'
-            ? { text: part, color: THEME.dim }
-            : { cap: part[0], lit: lit(part[1]) },
-        ),
-  );
+  return (LEGEND[input] || LEGEND.keys).map((line) => {
+    const spans =
+      typeof line === 'string'
+        ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
+        : line.map((part) =>
+            typeof part === 'string'
+              ? { text: part, color: THEME.dim }
+              : { cap: part[0], lit: lit(part[1]) },
+          );
+    const out = spans.flatMap((s) => (s.text && !s.badge ? colourWords(s) : [s]));
+    // A key cap takes the colour of the action it leads to (the next verb).
+    for (let i = out.length - 1, next = null; i >= 0; i--) {
+      const s = out[i];
+      if (s.cap) { if (next) out[i] = { ...s, color: next }; }
+      else if (s.text && ACTION_COLORS[s.text.replace(/^[\s:]*(drag to )?/, '').trim()]) next = s.color;
+      else if (s.text && /\//.test(s.text)) next = null;
+    }
+    return out;
+  });
 }
 import { radialSlots, ringGeometry } from './radial.mjs';
 import {

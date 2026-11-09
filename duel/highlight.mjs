@@ -171,11 +171,13 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
           rect(left, bottom, z + step, bw, bh, fill);
           small(name, left + (bw - unit) / 2, y, z, unit, ink);
         } else {
-          const line = s.lit ? THEME.verb : THEME.dim;
+          // A coloured cap (the legend's action colour) outlines in its colour;
+          // held, any cap lights white.
+          const line = s.lit ? 0xffffff : s.color ?? THEME.dim;
           if (shadow !== null) rect(left + unit, bottom - unit, z + 3 * step, bw, bh, shadow);
           rect(left, bottom, z + 2 * step, bw, bh, line);
           rect(left + unit, bottom + unit, z + step, bw - 2 * unit, bh - 2 * unit, 0x15171e);
-          const ink = s.lit ? THEME.verb : THEME.text;
+          const ink = s.lit ? 0xffffff : s.color ?? THEME.text;
           const arrow = SMALL_ARROWS[name];
           if (arrow)
             arrow.forEach((row, r) =>
