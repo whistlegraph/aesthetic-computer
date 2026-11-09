@@ -6235,15 +6235,12 @@ function paint($) {
             ink(Math.round(150 + 105 * r), Math.round(150 + 105 * g), Math.round(150 + 105 * b), Math.round(220 * (1 - age / 1.4))).plot(Math.floor(d.x), Math.floor(d.y));
           }
         }
-        // The resting caret moves on its glint's 40 ms clock, so between
-        // steps the curtain has nothing new to show: it repaints 25 times a
-        // second instead of every frame (an idle homepage was a 60 fps
-        // worker→main blit, 2026-11-08). A hover fill or a press
-        // keep the full rate; the drips are slow beads and read fine at 25.
-        if (caretFill > 0.01 || (curtainPressAt && now - curtainPressAt < 1500)) $.needsPaint?.();
-        // The caret keeps its own 40 ms clock in every window, in front or
-        // not, so it always moves the same smooth way (2026-11-08).
-        else curtainPaintDue = now + 40 - (now % 40); // sim asks when it is time
+        // The curtain animates on every display frame, in front or behind,
+        // so the caret's glint and fill always move smoothly at the display's
+        // rate (jeffrey, 2026-11-08: "always at 60fps animated smooth"). Asked
+        // from sim: a needsPaint made during paint is overruled by paint's
+        // own return.
+        curtainAnimating = true;
 
 
         // Reset to default layer
@@ -8075,7 +8072,7 @@ let caretRect = null; // Where the curtain caret was last drawn, for the focus b
 const caretBurst = [];
 let caretBurstAt = 0;
 let curtainPressAt = 0; // A press on the bare curtain, charging the caret.
-let curtainPaintDue = 0; // When the resting curtain next repaints (set in paint, asked in sim).
+let curtainAnimating = false; // The curtain caret drew this paint: keep frames coming.
 // 🖼️ The painting under the prompt, already veiled, kept between frames.
 // While you type nothing under the text moves, yet every frame used to wipe
 // the screen, paste the painting and blend the input's half-opaque background
@@ -8166,11 +8163,9 @@ function softGlow($, box, color, strength = 1, R = 9) {
 
 // 🧮 Sim
 function sim($) {
-  // The resting curtain's slow clock: paint sets the time, sim asks for the
-  // frame when it comes (a timer could fire between paint and the loop's
-  // rest flag and be lost, 2026-11-08).
-  if (curtainPaintDue && performance.now() >= curtainPaintDue) {
-    curtainPaintDue = 0;
+  // The curtain caret animates every frame while it is on screen.
+  if (curtainAnimating) {
+    curtainAnimating = false; // Set again by the next paint that draws it.
     $.needsPaint();
   }
   // 📬 Ask once whether there's mail waiting. `?count` is two counts, not the
