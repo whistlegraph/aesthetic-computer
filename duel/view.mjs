@@ -12,7 +12,7 @@ export const LEGEND = {
   // Lines stay under thirty columns so a phone or a narrow window shows them whole.
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' turn'],
-    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['h', 'KeyH'], ' hide'],
+    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
   ],

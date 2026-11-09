@@ -367,12 +367,10 @@ const CONTROL_KEYS = [
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV', 'KeyX',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 ];
-// The controls legend shows for the first eight seconds of play; H pins or hides it.
-let legendPinned = null,
-  activeSeconds = 0;
-// The controls stay up (2026-11-08: jeffrey wants every action always in
-// view, pad or keys); H still hides or brings them back.
-const legendShown = () => legendPinned ?? seat >= 0;
+let activeSeconds = 0; // Seconds of play this visit.
+// The controls stay up whenever you are in the room, pad or keys
+// (2026-11-08: jeffrey wants every action always in view; no hide key).
+const legendShown = () => seat >= 0;
 const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
@@ -1024,7 +1022,6 @@ document.addEventListener('keydown', (e) => {
     notice = '';
   }
   if (CONTROL_KEYS.includes(e.code)) e.preventDefault();
-  if (e.code === 'KeyH' && !e.repeat) legendPinned = !legendShown();
   keys.add(e.code);
   if (seat >= 0 && e.code === 'Space' && !e.repeat) {
     jumpQueued = true;
