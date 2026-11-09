@@ -1115,16 +1115,21 @@ export async function createView(canvas) {
             // still names what it revises.
             ...(prompt.target ? [[{ text: title, color: THEME.verb }]] : []),
             ...(prompt.message ? wrap(prompt.message).map((l) => [{ text: l, color: THEME.number }]) : []),
-            hintSpans(
-              radial
-                ? input === 'touch'
-                  ? 'tap a choice / centre builds / outside undoes'
-                  : '[A] choose / [X] build / [B] undo'
-                : prompt.busy
-                  ? cancel
-                  : '{enter} build / {esc} close',
-              THEME.dim,
-            ),
+            // Typing, {enter} follows the cube on its line and {esc} sits
+            // top-right (both small, drawn below); the ring and a running
+            // build keep their own row.
+            ...(radial || prompt.busy
+              ? [
+                  hintSpans(
+                    radial
+                      ? input === 'touch'
+                        ? 'tap a choice / centre builds / outside undoes'
+                        : '[A] choose / [X] build / [B] undo'
+                      : cancel,
+                    THEME.dim,
+                  ),
+                ]
+              : []),
           ]
         : [
               // The controls for the hand in use, until the player has played
@@ -1140,7 +1145,10 @@ export async function createView(canvas) {
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
-      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode]);
+      const typing = prompt.open && !radial && !prompt.busy;
+      const enterHint = typing ? hintSpans('{enter} build', THEME.dim) : null;
+      const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
+      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
@@ -1155,9 +1163,19 @@ export async function createView(canvas) {
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
           if (panel) {
             const ox = grid ? 6 : safeX, oy = grid ? 6 : safeY;
-            visible.forEach((spans, i) =>
-              drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, height / 2 - oy - 2 * unit - i * 10 * unit, unit, { shadow: INK }),
-            );
+            visible.forEach((spans, i) => {
+              const y = height / 2 - oy - 2 * unit - i * 10 * unit;
+              drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, y, unit, { shadow: INK });
+              if (enterHint && spans.some((x) => x.wire !== undefined)) {
+                const hw = smallSpanWidth(enterHint, unit);
+                drawSpans({ rect, text, small }, enterHint, -width / 2 + ox + widths[i] + 4 * unit + hw / 2, y, unit, { shadow: INK, tiny: true });
+              }
+            });
+            // The way out sits top-right, where the legend rests while walking.
+            if (escHint) {
+              const ew = smallSpanWidth(escHint, unit);
+              drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });
+            }
           } else {
             // The controls and the hint, top-right, compact: MatrixChunky8
             // with small key caps and badges, ten-pixel rows (2026-11-08).
