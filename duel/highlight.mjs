@@ -26,6 +26,7 @@ export const BUTTONS = {
   LS: { fill: 0x5a5f70, ink: 0xffffff },
   RS: { fill: 0x5a5f70, ink: 0xffffff },
   START: { fill: 0x5a5f70, ink: 0xffffff },
+  BACK: { fill: 0x5a5f70, ink: 0xffffff },
 };
 // A badge lights white while its button is held.
 const LIT = { fill: 0xffffff, ink: 0x181818 };
@@ -80,7 +81,7 @@ export function animateSpans(spans, now) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|[ABXY])\]|\{([^}]+)\}/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|START|BACK|[ABXY])\]|\{([^}]+)\}/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     if (m[1]) spans.push({ badge: m[1] });
     else spans.push({ cap: m[2] });
