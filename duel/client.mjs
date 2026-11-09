@@ -954,7 +954,10 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (!e.repeat && (e.code === 'Tab' || e.code === 'Backquote')) {
+  // Tab: rooms. $ (shift 4): the $code list, as the prompt's $ starts a
+  // code; not while typing, where $ is a letter (2026-11-08).
+  const dollar = e.key === '$' && !prompt.open;
+  if (!e.repeat && (e.code === 'Tab' || dollar)) {
     e.preventDefault();
     toggleMenu(e.code === 'Tab' ? 'room' : 'history');
     return;

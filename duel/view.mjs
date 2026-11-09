@@ -17,7 +17,7 @@ export const LEGEND = {
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
     [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
-    [['`', 'Backquote'], ' $ list'],
+    [['$', 'Digit4'], ' list'],
   ],
   pad: [
     '[LS] move / [RS] look',
@@ -38,7 +38,7 @@ export const LEGEND = {
 const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
-  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a, list: 0xffd28a,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
