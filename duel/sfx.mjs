@@ -62,6 +62,37 @@ export class Sfx {
     src.start(t);
   }
 
+  // A chord of sines, each voice gliding from from × its pitch to its pitch,
+  // a little detuned against its neighbours so the chord shimmers.
+  chord(steps, { root = 196, duration = 1, from = 1, attack = 0.06, volume = 0.012, stagger = 0.03, at = 0 } = {}) {
+    if (!this.ready) return;
+    const a = this.audio;
+    steps.forEach((step, i) => {
+      const t = a.currentTime + at + i * stagger,
+        f = root * 2 ** (step / 12) * 2 ** (((i % 2 ? 1 : -1) * 4) / 1200),
+        o = a.createOscillator(),
+        g = a.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f * from, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + duration * 0.55);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(volume * MASTER, t + attack);
+      g.gain.setValueAtTime(volume * MASTER, t + duration * 0.45);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      o.connect(g).connect(a.destination);
+      o.start(t);
+      o.stop(t + duration + 0.02);
+    });
+  }
+  // Into the room from the prompt: a wide chord sliding up into place as the
+  // paper drops; back to the paper: the chord sinks and gathers (2026-11-08).
+  enter() {
+    this.chord([0, 7, 14, 16, 23], { duration: 1.5, from: 0.66, attack: 0.12, stagger: 0.045 });
+  }
+  exit() {
+    this.chord([23, 16, 14, 7, 0], { root: 196, duration: 0.8, from: 1.5, attack: 0.03, stagger: 0.02, volume: 0.011 });
+  }
+
   // Game.
   jump() {
     this.voice(220, 0.09, { slide: 1.8, volume: 0.025, type: 'square' });

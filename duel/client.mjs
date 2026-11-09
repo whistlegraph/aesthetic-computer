@@ -1622,6 +1622,7 @@ function step(now) {
   view.showFps?.(fpsOn());
   window.addEventListener('storage', (e) => { if (e.key === 'ac:fps-hud') view.showFps?.(fpsOn()); });
 }
+let hushTimer = 0;
 if (hosted) {
   window.addEventListener('message', (e) => {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
@@ -1642,6 +1643,7 @@ if (hosted) {
     if (e.data.phase === 'closing') {
       sheetShown = false;
       closingAt = performance.now();
+      sfx.exit(); // As the paper starts back up.
     }
     if (e.data.phase === 'opened') closingAt = 0;
     if (!('open' in e.data)) return;
@@ -1662,7 +1664,8 @@ if (hosted) {
       debt = 0;
       if (!ws || ws.readyState === WebSocket.CLOSED) connect();
       canvas.focus();
-      void sfx.wake();
+      clearTimeout(hushTimer);
+      void sfx.wake().then(() => sheetOpen && sfx.enter());
       // The tap that dropped the paper is a fresh gesture: take the mouse now,
       // so no cursor flickers over the world. A refusal leaves click-to-capture.
       if (!touch.active) {
@@ -1674,7 +1677,11 @@ if (hosted) {
       releaseInput();
       if (locked()) document.exitPointerLock();
       closeBuild();
-      sfx.audio?.suspend?.().catch?.(() => {});
+      // Let the exit chord ring out before the room goes quiet.
+      clearTimeout(hushTimer);
+      hushTimer = setTimeout(() => {
+        if (!sheetOpen) sfx.audio?.suspend?.().catch?.(() => {});
+      }, 1200);
     }
   });
   toHost({ type: 'dool:sheet:hello' });
