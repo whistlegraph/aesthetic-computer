@@ -7,8 +7,16 @@
   The pixel buffer feeds back into audio — what you see is what you hear.
   The audio feeds back into pixels — what you hear is what you see.
 
+  The field is 64x64 — an 8x8 grid of 8px cells. Digit n pushes n*8,
+  so 0..8 walk the grid lines and 4 is the center. Ops read values as:
+    position = px (wraps at 64) · radius = half · color = n*32 (max 255)
+    box w/h = px · fade = amount per frame (bare `l` = gentle)
+
+  Scores load from params, one line each: `jas 088g446d 2311f5311f`
+  or by preset name: `jas smiley` (see PRESETS).
+
   Rows:
-    1234567890  → values (literal push)
+    1234567890  → values (push n*8)
     QWERTYUIOP → pitch / frequency ops
     ASDFGHJKL  → drawing / shape ops
     ZXCVBNM    → control flow / modifiers
@@ -33,15 +41,15 @@ const FAMILIES = {
 
 const OPS = {
   // Number row: literal values (push 0-9 scaled)
-  "1": { family: "val", desc: "push 1",  val: 1 },
-  "2": { family: "val", desc: "push 2",  val: 2 },
-  "3": { family: "val", desc: "push 3",  val: 3 },
-  "4": { family: "val", desc: "push 4",  val: 4 },
-  "5": { family: "val", desc: "push 5",  val: 5 },
-  "6": { family: "val", desc: "push 6",  val: 6 },
-  "7": { family: "val", desc: "push 7",  val: 7 },
-  "8": { family: "val", desc: "push 8",  val: 8 },
-  "9": { family: "val", desc: "push 9",  val: 9 },
+  "1": { family: "val", desc: "push 8",  val: 1 },
+  "2": { family: "val", desc: "push 16",  val: 2 },
+  "3": { family: "val", desc: "push 24",  val: 3 },
+  "4": { family: "val", desc: "push 32",  val: 4 },
+  "5": { family: "val", desc: "push 40",  val: 5 },
+  "6": { family: "val", desc: "push 48",  val: 6 },
+  "7": { family: "val", desc: "push 56",  val: 7 },
+  "8": { family: "val", desc: "push 64",  val: 8 },
+  "9": { family: "val", desc: "push 72",  val: 9 },
   "0": { family: "val", desc: "push 0",  val: 0 },
 
   // QWERTY row: pitch / frequency / oscillation
@@ -120,6 +128,28 @@ let feedback = {
 };
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function toColor(v) { return clamp(v * 32, 0, 255); }
+
+// Named scores: `jas smiley`. Lines are contours.
+const PRESETS = {
+  smiley: ["088g446d", "2311f5311f", "2546s4656s"],
+  heart:  ["008g332d532d", "2346s6346s"],
+  target: ["008g447d", "880g446d", "080g445d", "088g444d", "808g443d", "888g442d"],
+  comet:  ["4l808gt41d"],
+  pulse:  ["000gh880g44td088g44t]d"],
+  tunnel: ["000gh808gtzv4b4bd1=1zn"],
+  sweep:  ["2l080g44t0s44t]0]s"],
+};
+
+function loadScore(lines) {
+  const valid = lines
+    .map((line) => [...line].filter((ch) => OPS[ch]))
+    .filter((c) => c.length > 0);
+  if (valid.length === 0) return false;
+  contours = valid;
+  activeContour = contours.length - 1;
+  return true;
+}
 
 // --- VM ---
 function resetVM() {
@@ -168,7 +198,7 @@ function execOp(key) {
   if (!op) return;
 
   if (op.val !== undefined) {
-    push(op.val * 28);
+    push(op.val * 8);
     return;
   }
 
@@ -206,7 +236,7 @@ function execOp(key) {
       break;
     }
     case "circle": {
-      const r = pop() & 31, cy = pop() & 63, cx = pop() & 63;
+      const r = (pop() >> 1) & 31, cy = pop() & 63, cx = pop() & 63;
       for (let a = 0; a < 64; a++) {
         const angle = (a / 64) * Math.PI * 2;
         plotPixel(
@@ -228,7 +258,7 @@ function execOp(key) {
       break;
     }
     case "fill": {
-      const r = pop() & 255, g = pop() & 255, b = pop() & 255;
+      const r = toColor(pop()), g = toColor(pop()), b = toColor(pop());
       inkR = r; inkG = g; inkB = b;
       break;
     }
@@ -254,10 +284,11 @@ function execOp(key) {
     }
     case "spin": break;
     case "fade": {
+      const amt = stack.length ? clamp(pop(), 0, 255) : 4;
       for (let i = 0; i < field.length; i += 4) {
-        field[i] = Math.max(0, field[i] - 4);
-        field[i + 1] = Math.max(0, field[i + 1] - 4);
-        field[i + 2] = Math.max(0, field[i + 2] - 4);
+        field[i] = Math.max(0, field[i] - amt);
+        field[i + 1] = Math.max(0, field[i + 1] - amt);
+        field[i + 2] = Math.max(0, field[i + 2] - amt);
       }
       break;
     }
@@ -418,12 +449,14 @@ function allOpsString() {
 }
 
 // 🥾 Boot
-function boot({ screen }) {
+function boot({ params }) {
   field = new Uint8ClampedArray(FIELD_W * FIELD_H * 4);
-  for (let i = 0; i < field.length; i += 4) {
-    field[i] = 10; field[i + 1] = 10;
-    field[i + 2] = 15; field[i + 3] = 255;
-  }
+  clearField();
+  const args = (params || []).map((p) => {
+    try { return decodeURIComponent(p); } catch { return p; }
+  });
+  if (args.length === 1 && PRESETS[args[0]]) loadScore(PRESETS[args[0]]);
+  else if (args.length > 0) loadScore(args);
 }
 
 // 🎪 Act
@@ -739,6 +772,8 @@ function paint({ wipe, ink, line, box, plot, write, screen }) {
     write("type to compose", { x: sw / 2 - 42, y: sh / 2 - 30 });
     write("space to run", { x: sw / 2 - 34, y: sh / 2 - 18 });
     write("tab for reference", { x: sw / 2 - 48, y: sh / 2 - 6 });
+    ink(60, 58, 70);
+    write("try: jas smiley", { x: sw / 2 - 42, y: sh / 2 + 10 });
   }
 }
 
