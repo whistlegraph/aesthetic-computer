@@ -8562,6 +8562,13 @@ function act({
       send({ type: "mime:sheet", content: { action: "show" } });
       return;
     }
+    // Tab drops straight into dool, as a tap on its crosshair does; Escape
+    // in the world comes back (jeffrey, 2026-11-08).
+    if (onCurtain && e.is("keyboard:down:tab") && doolBtn && !doolFlight) {
+      pushSound();
+      openDool(send);
+      return;
+    }
     if (e.is("touch") && onCurtain && !doolBtn?.box?.contains(e)) {
       mimeSwipe = { x: e.x, y: e.y, engaged: false };
       // A press on the MIMEs mark is a click on it, not on the curtain.

@@ -14635,7 +14635,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (
             document.activeElement !== input &&
             e.key !== "`" &&
-            e.key !== "Escape"
+            e.key !== "Escape" &&
+            e.key !== "Tab" // Tab is a command (dool from the curtain), not typing.
           ) {
             keyboardOpenMethod = "keyboard";
             input.focus();
