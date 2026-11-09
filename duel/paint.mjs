@@ -56,17 +56,48 @@ const colorOf = (color) => {
 
 // Models contain only solid triangles. Text uses Oskiewar's exact block glyphs.
 export function model(build) {
-  const data = [];
+  // Written straight into a growing float buffer: overlays rebuild every
+  // frame, and per-vertex arrays and spreads made them a garbage storm that
+  // stuttered the room while a build streamed (2026-11-08).
+  let data = new Float32Array(4096),
+    n = 0;
+  const room = (k) => {
+    if (n + k <= data.length) return;
+    const grown = new Float32Array(Math.max(data.length * 2, n + k));
+    grown.set(data);
+    data = grown;
+  };
+  const vertex = (x, y, z, ink) => {
+    data[n++] = x;
+    data[n++] = y;
+    data[n++] = z;
+    data[n++] = ink[0];
+    data[n++] = ink[1];
+    data[n++] = ink[2];
+  };
   const tri = (a, b, c, color) => {
     const ink = colorOf(color);
-    for (const p of [a, b, c]) data.push(...p, ...ink);
+    room(18);
+    vertex(a[0], a[1], a[2], ink);
+    vertex(b[0], b[1], b[2], ink);
+    vertex(c[0], c[1], c[2], ink);
   };
   const quad = (a, b, c, d, color) => {
     tri(a, b, c, color);
     tri(a, c, d, color);
   };
-  const rect = (x, y, z, w, h, color) =>
-    quad([x, y, z], [x + w, y, z], [x + w, y + h, z], [x, y + h, z], color);
+  const rect = (x, y, z, w, h, color) => {
+    const ink = colorOf(color),
+      X = x + w,
+      Y = y + h;
+    room(36);
+    vertex(x, y, z, ink);
+    vertex(X, y, z, ink);
+    vertex(X, Y, z, ink);
+    vertex(x, y, z, ink);
+    vertex(X, Y, z, ink);
+    vertex(x, Y, z, ink);
+  };
   const box = (x, y, z, w, h, d, color, side = color, top = PAPER) => {
     // Broad ambient light keeps color on shadow faces; tops retain their material.
     if (side === INK && color !== INK) side = tint(color, 0.72);
@@ -178,5 +209,5 @@ export function model(build) {
     }
   };
   build({ tri, quad, rect, box, text, handleText, small });
-  return new Float32Array(data);
+  return data.slice(0, n);
 }
