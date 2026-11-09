@@ -1879,7 +1879,16 @@ export async function createView(canvas) {
       const mid = projector.project(x + 1, y, z + 1);
       if (P.every(Boolean) && mid) {
         const S = P.map((p) => [Math.round((p.x * W) / 2), Math.round((p.y * H) / 2)]);
-        const C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
+        // The corners stay on the aimed square; the dot is the exact point
+        // the aim meets the floor, so it glides inside the square instead of
+        // jumping square to square (2026-11-08).
+        let C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
+        const f = projector.forward, e = lastEye;
+        if (f && e && f[1] < -1e-4) {
+          const t = (y - e.y) / f[1];
+          const hit = projector.project(e.x + f[0] * t, y, e.z + f[2] * t);
+          if (hit) C = [Math.round((hit.x * W) / 2), Math.round((hit.y * H) / 2)];
+        }
         const { unit } = hud;
         const m = model(({ rect: worldRect }) => {
           const rect = flip(worldRect);
