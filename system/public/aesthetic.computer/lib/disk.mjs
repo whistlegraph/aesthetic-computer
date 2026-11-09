@@ -15039,7 +15039,7 @@ async function makeFrame({ data: { type, content } }) {
 
         // 📊 FPS readout (bios's fps:hud, 2026-11-08): the frames this piece
         // painted in the last second, in its own pixels — MatrixChunky8 on a
-        // dark box, bottom centre above the prompt's MIMEs mark.
+        // dark box, top right under the prompt's version badge.
         if (fpsHud.on) {
           const now = performance.now();
           fpsHud.painted.push(now);
@@ -15048,7 +15048,7 @@ async function makeFrame({ data: { type, content } }) {
           const text = `${fps} fps`;
           const tw = $api.text.box(text, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
           const padX = 2, padY = 2, boxW = tw + padX * 2, boxH = 7 + padY * 2;
-          const bx = Math.floor((screen.width - boxW) / 2), by = screen.height - 40;
+          const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
           ink(0, 0, 0, 150).box(bx, by, boxW, boxH);
           ink(fps >= 55 ? [0, 200, 100, 220] : fps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220])
             .write(text, { x: bx + padX, y: by + padY }, undefined, undefined, false, "MatrixChunky8");

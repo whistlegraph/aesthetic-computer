@@ -1157,7 +1157,7 @@ export async function createView(canvas) {
             const right = width / 2 - safeX;
             visible.forEach((spans) => {
               const w = smallSpanWidth(spans, unit);
-              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 1 * unit - visible.indexOf(spans) * 10 * unit, unit, { shadow: INK, tiny: true });
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 2 * unit - visible.indexOf(spans) * 12 * unit, unit, { shadow: INK, tiny: true });
             });
           }
         });

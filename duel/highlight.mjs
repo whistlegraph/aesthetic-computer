@@ -1,3 +1,4 @@
+import { glyphs as chunky } from './chunky-font.mjs';
 import { smallWidth } from './paint.mjs';
 // Coloured runs of pixel text: syntax colours for Aesel's code, controller
 // face buttons as coloured badges, and verbs in the dev strip.
@@ -126,6 +127,23 @@ const SMALL_ARROWS = {
   '↓': ['..#..', '..#..', '#.#.#', '.###.', '..#..'],
 };
 const smallBoxWidth = (k) => (SMALL_ARROWS[k] ? 5 : smallWidth(k)) + 4;
+// The rows a label's ink actually covers, counted down from small()'s y
+// (row k is the band from y - k to y - k + 1): tall letters start at 0,
+// x-height at 2; the baseline ends at 6, descenders at 7. A cap's outline sits
+// one clear row outside these, so every label has the same 1px gap
+// (2026-11-08).
+function inkRows(name) {
+  if (SMALL_ARROWS[name]) return [2, 6];
+  let top = Infinity, bottom = -Infinity;
+  for (const ch of String(name)) {
+    const g = chunky[ch] || chunky['?'];
+    const [, h, , yoff] = g;
+    if (ch === ' ') continue;
+    top = Math.min(top, 8 - yoff - h);
+    bottom = Math.max(bottom, 8 - yoff - 1);
+  }
+  return Number.isFinite(top) ? [top, bottom] : [2, 6];
+}
 export const smallSpanWidth = (spans, unit) =>
   spans.reduce(
     (w, s) =>
@@ -159,18 +177,20 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   // tiny: MatrixChunky8 (proportional) instead of font_1.
   if (tiny && small) {
     let left = cx - smallSpanWidth(spans, unit) / 2;
-    // A glyph's rows run from y - unit down to y - 7 units; a cap or badge
-    // frames them with one row to spare above and below (nine rows).
-    const bottom = y - 8 * unit, bh = 9 * unit;
     for (const s of spans) {
       if (s.badge || s.cap) {
         const name = s.badge || s.cap;
         const bw = smallBoxWidth(name) * unit;
+        // Sized to the label's own ink: outline, one clear pixel, the ink,
+        // one clear pixel, outline — the same on every side.
+        const [top, low] = inkRows(name);
+        const bottom = y - (low + 2) * unit, bh = (low - top + 5) * unit;
+        const textX = left + 2 * unit + (smallWidth(name) * unit) / 2; // ink starts two in.
         if (s.badge) {
           const { fill, ink } = s.lit ? LIT : BUTTONS[s.badge];
           if (shadow !== null) rect(left + unit, bottom - unit, z + 2 * step, bw, bh, shadow);
           rect(left, bottom, z + step, bw, bh, fill);
-          small(name, left + (bw - unit) / 2, y, z, unit, ink);
+          small(name, textX, y, z, unit, ink);
         } else {
           // A coloured cap (the legend's action colour) outlines in its colour;
           // held, any cap lights white.
@@ -184,7 +204,7 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
             arrow.forEach((row, r) =>
               [...row].forEach((ch, c) => ch === '#' && rect(left + (2 + c) * unit, y - (2 + r) * unit, z, unit, unit, ink)),
             );
-          else small(name, left + (bw - unit) / 2, y, z, unit, ink);
+          else small(name, textX, y, z, unit, ink);
         }
         left += bw + unit;
         continue;
