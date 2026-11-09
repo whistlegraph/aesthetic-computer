@@ -39,6 +39,7 @@ const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
   paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a, list: 0xffd28a,
+  change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
@@ -64,16 +65,20 @@ function legendRows(input, held = {}) {
               ? { text: part, color: THEME.dim }
               : { cap: part[0], lit: lit(part[1]) },
           );
-    const out = spans.flatMap((s) => (s.text && !s.badge ? colourWords(s) : [s]));
-    // A key cap takes the colour of the action it leads to (the next verb).
-    for (let i = out.length - 1, next = null; i >= 0; i--) {
-      const s = out[i];
-      if (s.cap) { if (next) out[i] = { ...s, color: next }; }
-      else if (s.text && ACTION_COLORS[s.text.replace(/^[\s:]*(drag to )?/, '').trim()]) next = s.color;
-      else if (s.text && /\//.test(s.text)) next = null;
-    }
-    return out;
+    return colourRow(spans);
   });
+}
+// Verbs take their colours and each key cap the colour of the action it
+// leads to (the next verb); separators stay dim.
+function colourRow(spans) {
+  const out = spans.flatMap((s) => (s.text && !s.badge ? colourWords(s) : [s]));
+  for (let i = out.length - 1, next = null; i >= 0; i--) {
+    const s = out[i];
+    if (s.cap) { if (next) out[i] = { ...s, color: next }; }
+    else if (s.text && ACTION_COLORS[s.text.replace(/^[\s:]*(drag to )?/, '').trim()]) next = s.color;
+    else if (s.text && /\//.test(s.text)) next = null;
+  }
+  return out;
 }
 import { radialSlots, ringGeometry } from './radial.mjs';
 import {
@@ -1044,16 +1049,26 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.wall
-          ? pad ? '[RB] to change' : 'kidlisp wall'
+          ? pad ? '[RB] change' : '{f} change'
           : o.owner === owner
-            ? pad ? '[RB] change / [LB] lock on' : 'yours - {delete} removes'
-            : pad ? '[LB] lock on' : 'player ' + String(o.owner || '').slice(0, 4);
+            ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
+            : pad ? '[LB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
+      // Locked on, the top-right controls become the lock's own, row for
+      // row in the hand in use (2026-11-08).
+      const mine = focusObject && focusObject.owner === owner;
       const lockHint = lockedOn && focusObject
-        ? focusObject.wall
-          ? `${named(focusObject)} locked: [RB] change / [LB] unlock`
-          : `${named(focusObject)} locked: [B] remove / [RB] change / dpad next / [LB] unlock`
+        ? [
+            `${named(focusObject)} locked`,
+            ...(pad
+              ? focusObject.wall
+                ? ['[RB] change / [LB] unlock']
+                : [`${mine ? '[RB] change / ' : ''}[B] remove`, 'dpad next / [LB] unlock']
+              : focusObject.wall
+                ? ['{f} change / {z} unlock']
+                : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
+          ].join('\n')
         : null;
       // What the highlighted object offers ([B] remove, [LB] unlock, its
       // name and owner) is drawn at the object itself (2026-11-03); the
@@ -1063,7 +1078,7 @@ export async function createView(canvas) {
         : confirming
           ? confirming
           : focusObject
-            ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`} - ${whose(focusObject)}`
+            ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`}\n${whose(focusObject)}`
             : null;
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
@@ -1096,7 +1111,10 @@ export async function createView(canvas) {
               .slice(0, 7)
           : null;
       // The legend only joins the plain hint, never a panel.
-      const showLegend = legend && !spectator && !wallCode && !prompt.open && !building;
+      // A mode (locked on, aiming at a build, chalk, carrying) shows its own
+      // controls in place of the general legend.
+      const moded = !!(objectHint || drawing || carry);
+      const showLegend = legend && !moded && !spectator && !wallCode && !prompt.open && !building;
       const rows = bare
         ? []
         : wallCode
@@ -1137,12 +1155,18 @@ export async function createView(canvas) {
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
               ...(showLegend ? legendRows(input, held) : []),
-              spectator
-                ? hintSpans(
-                    controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
-                    THEME.text,
-                  )
-                : hintSpans(hint, confirming ? 0xff6b6b : THEME.text),
+              ...(spectator
+                ? [
+                    hintSpans(
+                      controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
+                      THEME.text,
+                    ),
+                  ]
+                : hint.split('\n').map((l, i) =>
+                    i === 0 && moded && hint.includes('\n')
+                      ? [{ text: l, color: THEME.verb }]
+                      : colourRow(hintSpans(l, confirming ? 0xff6b6b : THEME.text)),
+                  )),
             ];
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
