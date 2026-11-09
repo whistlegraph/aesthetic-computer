@@ -1531,9 +1531,57 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // The mime sheet counts its own frames here while the loop sleeps under it.
   window.acMeterPaint = () => {
     if (frameMeter.on) frameMeter.paints += 1;
+    fpsHud.paints += 1;
   };
 
+  // 📊 FPS HUD (2026-11-08): one small readout over everything — the prompt,
+  // its typing, and the dool and mime sheets above it — counting the frames
+  // whatever is on screen actually draws (the piece's painted frames, or the
+  // open sheet's own frames through acMeterPaint), never more than the
+  // display gives. Backtick on the prompt toggles it; it stays on across
+  // reloads (localStorage "ac:fps-hud").
+  const fpsHud = { on: false, el: null, rafs: 0, paints: 0, since: 0, timer: 0 };
+  function fpsHudTick() {
+    if (!fpsHud.on) return;
+    fpsHud.rafs += 1;
+    requestAnimationFrame(fpsHudTick);
+  }
+  function setFpsHud(on) {
+    on = !!on;
+    if (on === fpsHud.on) return;
+    fpsHud.on = on;
+    try { localStorage.setItem("ac:fps-hud", on ? "1" : "0"); } catch {}
+    clearInterval(fpsHud.timer);
+    if (!on) {
+      fpsHud.el?.remove();
+      fpsHud.el = null;
+      return;
+    }
+    const el = (fpsHud.el = document.createElement("div"));
+    el.id = "ac-fps-hud";
+    Object.assign(el.style, {
+      position: "fixed", left: "50%", bottom: "6px", transform: "translateX(-50%)",
+      zIndex: "2147483647", pointerEvents: "none", padding: "1px 5px",
+      background: "rgba(0,0,0,0.6)", font: "11px/1.3 berkeley-mono, ui-monospace, monospace",
+      color: "rgb(0,200,100)", borderRadius: "2px", whiteSpace: "nowrap",
+    });
+    el.textContent = "— fps";
+    document.documentElement.append(el);
+    Object.assign(fpsHud, { rafs: 0, paints: 0, since: performance.now() });
+    requestAnimationFrame(fpsHudTick);
+    fpsHud.timer = setInterval(() => {
+      const now = performance.now(), secs = (now - fpsHud.since) / 1000;
+      const fps = Math.round(Math.min(fpsHud.paints, fpsHud.rafs) / secs);
+      fpsHud.el.textContent = `${fps} fps`;
+      fpsHud.el.style.color = fps >= 55 ? "rgb(0,200,100)" : fps >= 30 ? "rgb(255,200,0)" : "rgb(255,60,60)";
+      Object.assign(fpsHud, { rafs: 0, paints: 0, since: now });
+    }, 500);
+  }
+  window.acFpsHud = setFpsHud;
+  try { if (localStorage.getItem("ac:fps-hud") === "1") setFpsHud(true); } catch {}
+
   function meterFrameReturned(painted) {
+    if (painted) fpsHud.paints += 1;
     if (!frameMeter.on || !frameMeter.sentAt) return;
     const ms = performance.now() - frameMeter.sentAt;
     frameMeter.sentAt = 0;
@@ -15649,6 +15697,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 🎯 The dool world under the prompt's paper (lib/dool-sheet.mjs).
+    if (type === "fps:hud") {
+      setFpsHud(content?.toggle ? !fpsHud.on : content?.on);
+      return;
+    }
+
     if (type === "dool:sheet") {
       const { doolSheet } = await import("./lib/dool-sheet.mjs");
       doolSheet(content);

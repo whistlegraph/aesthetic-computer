@@ -7847,7 +7847,7 @@ function paint($) {
   {
     const canType = $.system.prompt.input?.canType;
     const cBox = commitBtn && !commitBtn.btn.disabled ? commitBtn.btn.box : null;
-    if (showFpsMeter && !canType && (cBox || !flairEnabled)) {
+    if (false && showFpsMeter && !canType && (cBox || !flairEnabled)) { // Retired: bios's FPS HUD (fps:hud).
       const fpsText = `${currentFps} fps`;
       const fpsColor = currentFps >= 55 ? [0, 200, 100, 220] :
                        currentFps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220];
@@ -9320,11 +9320,9 @@ function act({
 
   if (e.is("textinput:shift-right:empty")) autocompleteChar();
 
-  // 📊 Toggle FPS meter with backtick key
-  if (e.is("keyboard:down:`")) {
-    showFpsMeter = !showFpsMeter;
-    needsPaint();
-  }
+  // 📊 Toggle the FPS meter with backtick: bios draws it over everything
+  // (prompt, typing, dool, mime) and remembers it (2026-11-08).
+  if (e.is("keyboard:down:`")) send({ type: "fps:hud", content: { toggle: true } });
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
   // console.log("down key...");
