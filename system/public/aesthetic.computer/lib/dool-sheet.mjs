@@ -201,6 +201,7 @@ function opened() {
   // is usually captured, so nothing is left to flicker at the frame's edge.
   document.documentElement.style.cursor = "none";
   document.body.style.cursor = "none";
+  nativeCursorHidden(true);
   frame.contentWindow?.focus();
   meterGuest();
 }
@@ -229,6 +230,7 @@ function home() {
   if (s) Object.assign(s.style, { opacity: "", willChange: "" });
   document.documentElement.style.cursor = "";
   document.body.style.cursor = "";
+  nativeCursorHidden(false);
   resumePrompt();
   post({ type: "dool:sheet", open: false }); // Park the guest: no input, no sound.
   leaveHistory();
@@ -285,6 +287,14 @@ function rest(on) {
 }
 function windowFocus(focused) {
   rest(!focused && (state === "parked" || state === "cold"));
+}
+
+// The Mac app reasserts its own cursor on every mouse event; tell it when the
+// world hides the pointer, or the two fight and it flickers (2026-11-08).
+function nativeCursorHidden(on) {
+  try {
+    window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: "cursor:hidden", body: on }));
+  } catch {}
 }
 
 // bios reframed: pass the new grid down.

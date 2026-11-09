@@ -239,6 +239,15 @@ final class BootStatus: ObservableObject {
         guard let type = dictionary["type"] as? String else { return }
 
         switch type {
+        #if os(macOS)
+        case "cursor:hidden":
+            // The page hides the pointer (dool's world): the native cursor
+            // stops reasserting itself until the page says otherwise.
+            guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let webView = message.webView as? ACNativeWebView else { return }
+            webView.pageHidesCursor = (dictionary["body"] as? Bool) ?? false
+        #endif
         case "window:color":
             guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",

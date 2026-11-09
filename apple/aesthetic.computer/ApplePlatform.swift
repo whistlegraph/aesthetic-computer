@@ -108,6 +108,16 @@ typealias ACImage = NSImage
 // after mouse dispatch so native focus changes cannot replace it.
 final class ACNativeWebView: WKWebView {
     weak var navigation: AppNavigation?
+    /// The page hides the pointer itself (dool's world): stop reasserting the
+    /// AC cursor, which fought the page's `cursor: none` and flickered on
+    /// every mouse move (2026-11-08). Set by the page's `cursor:hidden`.
+    var pageHidesCursor = false {
+        didSet {
+            guard pageHidesCursor != oldValue else { return }
+            window?.invalidateCursorRects(for: self)
+            if !pageHidesCursor { restoreACCursor() }
+        }
+    }
     private var colorObserver: NSObjectProtocol?
 
     private var cursorMonitor: Any?
@@ -183,11 +193,11 @@ final class ACNativeWebView: WKWebView {
 
     override func resetCursorRects() {
         super.resetCursorRects()
-        addCursorRect(bounds, cursor: acCursor)
+        if !pageHidesCursor { addCursorRect(bounds, cursor: acCursor) }
     }
 
     private func restoreACCursor() {
-        guard let window, window.isKeyWindow,
+        guard !pageHidesCursor, let window, window.isKeyWindow,
               bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil)) else { return }
         acCursor.set()
     }
