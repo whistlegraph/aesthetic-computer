@@ -24,6 +24,7 @@ export const BUTTONS = {
   LT: { fill: 0x5a5f70, ink: 0xffffff },
   LS: { fill: 0x5a5f70, ink: 0xffffff },
   RS: { fill: 0x5a5f70, ink: 0xffffff },
+  START: { fill: 0x5a5f70, ink: 0xffffff },
 };
 // A badge lights white while its button is held.
 const LIT = { fill: 0xffffff, ink: 0x181818 };

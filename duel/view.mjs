@@ -10,13 +10,21 @@ import { joinCode, hudLayout } from './hud.mjs';
 // A key is [label, code]; it lights while held. Plain strings are the verbs.
 export const LEGEND = {
   // Lines stay under thirty columns so a phone or a narrow window shows them whole.
+  // Keys and pad list the same actions, row for row (2026-11-08).
   keys: [
-    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' turn'],
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
+    [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
   ],
-  pad: ['[LS] move / [RS] look', '[LT] jump / [Y] camera', '[RB] build / [X] paint', '[LB] lock on / [B] cancel'],
+  pad: [
+    '[LS] move / [RS] look',
+    '[LT] jump / [Y] camera',
+    '[RB] build / [RB] use / [X] drop',
+    '[X] paint / [RT] chalk / [START] rooms',
+    '[LB] lock on / [B] remove',
+  ],
   touch: [
     [['left side', 'left'], ': drag to move'],
     [['right side', 'right'], ': drag to look'],
@@ -28,7 +36,7 @@ export const LEGEND = {
 const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
-  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0xffe066, cancel: 0xff6b6b,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();

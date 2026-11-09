@@ -366,6 +366,7 @@ const engaged = () => locked() || keyboardMode;
 const CONTROL_KEYS = [
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyV', 'KeyX',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  'KeyZ', 'BracketLeft', 'BracketRight', 'Delete', 'Backspace',
 ];
 let activeSeconds = 0; // Seconds of play this visit.
 // The controls stay up whenever you are in the room, pad or keys
@@ -1033,7 +1034,21 @@ document.addEventListener('keydown', (e) => {
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
-  if (seat >= 0 && e.code === 'Delete' && !e.repeat && focusObject && !focusObject.wall) removeAimed();
+  // Lock on, as the pad's LB does (2026-11-08): Z toggles it, [ and ]
+  // change it like the d-pad, and delete removes the locked object at once
+  // (the lock is the confirmation, as B on the pad).
+  if (seat >= 0 && e.code === 'KeyZ' && !e.repeat) {
+    setLock(lockOn ? null : focusObject?.id || null);
+    sfx[lockOn ? 'ringOpen' : 'ringBack']();
+  }
+  if (lockOn && !e.repeat && (e.code === 'BracketLeft' || e.code === 'BracketRight')) cycleLock(e.code === 'BracketRight' ? 1 : -1);
+  if (seat >= 0 && (e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
+    if (lockOn && !lockOn.wall) {
+      send({ type: 'remove', objectId: lockOn.id });
+      setLock(null);
+      sfx.ringBack();
+    } else if (focusObject && !focusObject.wall) removeAimed();
+  }
   if (seat >= 0 && e.code === 'KeyX' && !e.repeat && !holding() && !chalkMode) paintSquare();
 });
 // Paint the floor square the aim ray lands on (the highlighted one), never
