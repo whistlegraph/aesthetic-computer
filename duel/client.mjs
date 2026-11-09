@@ -1602,6 +1602,13 @@ function step(now) {
   });
   postProcess(elapsed);
 }
+// 📊 AC's fps switch, shared through localStorage with the prompt (and every
+// other AC window), live through the storage event.
+{
+  const fpsOn = () => { try { return localStorage.getItem('ac:fps-hud') === '1'; } catch { return false; } };
+  view.showFps?.(fpsOn());
+  window.addEventListener('storage', (e) => { if (e.key === 'ac:fps-hud') view.showFps?.(fpsOn()); });
+}
 if (hosted) {
   window.addEventListener('message', (e) => {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;

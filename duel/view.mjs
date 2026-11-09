@@ -308,7 +308,9 @@ export async function createView(canvas) {
   let promptKey, promptModel;
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
-  const SHOW_FPS = false; // The frame-rate readout rests for now (2026-11-03).
+  // The frame-rate readout follows AC's shared fps switch (localStorage
+  // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
+  let SHOW_FPS = false;
   let panelTop = null;
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
@@ -2186,6 +2188,9 @@ export async function createView(canvas) {
     effect,
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
+    showFps(on) {
+      SHOW_FPS = !!on;
+    },
     grid(g) {
       const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0 } : null;
       if (JSON.stringify(next) === JSON.stringify(grid)) return;
