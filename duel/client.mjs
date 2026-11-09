@@ -1051,12 +1051,8 @@ document.addEventListener('mousedown', (e) => {
     useQueued = true;
     return;
   }
-  if (seat >= 0 && locked() && e.button === 0 && !prompt.busy) {
-    e.preventDefault();
-    releaseInput();
-    document.exitPointerLock();
-    prompt.begin(focusObject?.owner === owner ? focusObject : null);
-  }
+  // A click no longer opens the build prompt (jeffrey, 2026-11-08): Enter,
+  // or the pad's build button, does.
 });
 document.addEventListener('mouseup', (e) => {
   firing = false;
