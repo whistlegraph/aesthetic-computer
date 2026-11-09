@@ -1538,9 +1538,82 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // its typing, and the dool and mime sheets above it — counting the frames
   // whatever is on screen actually draws (the piece's painted frames, or the
   // open sheet's own frames through acMeterPaint), never more than the
-  // display gives. Backtick on the prompt toggles it; it stays on across
-  // reloads (localStorage "ac:fps-hud").
-  const fpsHud = { on: false, el: null, rafs: 0, paints: 0, since: 0, timer: 0 };
+  // display gives. Drawn in AC pixels: the prompt's MatrixChunky8 glyphs on
+  // a tiny canvas laid on the prompt's own pixel grid (window.acFrameGrid),
+  // bottom centre above the MIMEs mark. Backtick on the prompt
+  // toggles it; it stays on across reloads (localStorage "ac:fps-hud").
+  const fpsHud = { on: false, el: null, rafs: 0, paints: 0, since: 0, timer: 0, glyphs: null, text: "" };
+  const FPS_HUD_CHARS = "0123456789 fps";
+  function fpsHudGlyphs() {
+    if (fpsHud.glyphs) return;
+    fpsHud.glyphs = {}; // Loading; filled below.
+    const hex = [...FPS_HUD_CHARS].map((c) => c.codePointAt(0).toString(16).toUpperCase()).join(",");
+    fetch(`/api/bdf-glyph?chars=${hex}&font=MatrixChunky8`)
+      .then((r) => r.json())
+      .then(({ glyphs }) => {
+        for (const c of FPS_HUD_CHARS) {
+          const g = glyphs?.[c.codePointAt(0).toString(16).toUpperCase()] || glyphs?.[c];
+          if (g) fpsHud.glyphs[c] = g;
+        }
+        fpsHudDraw();
+      })
+      .catch(() => {});
+  }
+  // Plot one glyph's line/point commands as pixels (inclusive Bresenham).
+  function fpsHudGlyph(ctx, g, ox, oy) {
+    const dot = (x, y) => ctx.fillRect(ox + x, oy + y, 1, 1);
+    for (const { name, args } of g.commands || []) {
+      if (name === "point") dot(args[0], args[1]);
+      else if (name === "line") {
+        let [x0, y0, x1, y1] = args;
+        const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+        let err = dx + dy;
+        for (;;) {
+          dot(x0, y0);
+          if (x0 === x1 && y0 === y1) break;
+          const e2 = 2 * err;
+          if (e2 >= dy) { err += dy; x0 += sx; }
+          if (e2 <= dx) { err += dx; y0 += sy; }
+        }
+      }
+    }
+  }
+  function fpsHudDraw() {
+    const el = fpsHud.el;
+    if (!el || !fpsHud.text) return;
+    const grid = window.acFrameGrid;
+    const px = grid?.pixel || 1;
+    const glyphs = fpsHud.glyphs || {};
+    const advance = (c) => glyphs[c]?.advance ?? glyphs[c]?.dwidth?.x ?? 4;
+    const text = fpsHud.text;
+    const textW = [...text].reduce((w, c) => w + advance(c), 0);
+    const padX = 2, padY = 2, boxW = textW + padX * 2, boxH = 7 + padY * 2;
+    if (el.width !== boxW) el.width = boxW;
+    if (el.height !== boxH) el.height = boxH;
+    const ctx = el.getContext("2d");
+    ctx.clearRect(0, 0, boxW, boxH);
+    ctx.fillStyle = "rgba(0,0,0,0.59)"; // The prompt's ink(0, 0, 0, 150).
+    ctx.fillRect(0, 0, boxW, boxH);
+    ctx.fillStyle = fpsHud.color;
+    let x = padX;
+    for (const c of text) {
+      const g = glyphs[c];
+      if (g) fpsHudGlyph(ctx, g, x + (g.offset?.[0] || 0), padY + (g.baselineOffset?.[1] ?? g.offset?.[1] ?? 0));
+      x += advance(c);
+    }
+    // On the prompt's grid: bottom centre, just above the curtain's MIMEs
+    // mark and its chevron (and clear of dool's corners).
+    const screenW = grid?.width || Math.round(innerWidth / px);
+    const screenH = grid?.height || Math.round(innerHeight / px);
+    const boxX = Math.floor((screenW - boxW) / 2), boxY = screenH - 40;
+    Object.assign(el.style, {
+      left: `${(grid?.left || 0) + boxX * px}px`,
+      top: `${(grid?.top || 0) + boxY * px}px`,
+      width: `${boxW * px}px`,
+      height: `${boxH * px}px`,
+    });
+  }
   function fpsHudTick() {
     if (!fpsHud.on) return;
     fpsHud.rafs += 1;
@@ -1557,23 +1630,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       fpsHud.el = null;
       return;
     }
-    const el = (fpsHud.el = document.createElement("div"));
+    fpsHudGlyphs();
+    const el = (fpsHud.el = document.createElement("canvas"));
     el.id = "ac-fps-hud";
     Object.assign(el.style, {
-      position: "fixed", left: "50%", bottom: "6px", transform: "translateX(-50%)",
-      zIndex: "2147483647", pointerEvents: "none", padding: "1px 5px",
-      background: "rgba(0,0,0,0.6)", font: "11px/1.3 berkeley-mono, ui-monospace, monospace",
-      color: "rgb(0,200,100)", borderRadius: "2px", whiteSpace: "nowrap",
+      position: "fixed", zIndex: "2147483647", pointerEvents: "none",
+      imageRendering: "pixelated",
     });
-    el.textContent = "— fps";
     document.documentElement.append(el);
-    Object.assign(fpsHud, { rafs: 0, paints: 0, since: performance.now() });
+    Object.assign(fpsHud, { rafs: 0, paints: 0, since: performance.now(), text: "", color: "rgb(0,200,100)" });
     requestAnimationFrame(fpsHudTick);
     fpsHud.timer = setInterval(() => {
       const now = performance.now(), secs = (now - fpsHud.since) / 1000;
       const fps = Math.round(Math.min(fpsHud.paints, fpsHud.rafs) / secs);
-      fpsHud.el.textContent = `${fps} fps`;
-      fpsHud.el.style.color = fps >= 55 ? "rgb(0,200,100)" : fps >= 30 ? "rgb(255,200,0)" : "rgb(255,60,60)";
+      fpsHud.text = `${fps} fps`;
+      // The prompt meter's colours: green, amber, red.
+      fpsHud.color = fps >= 55 ? "rgba(0,200,100,0.86)" : fps >= 30 ? "rgba(255,200,0,0.86)" : "rgba(255,60,60,0.86)";
+      fpsHudDraw();
       Object.assign(fpsHud, { rafs: 0, paints: 0, since: now });
     }, 500);
   }
