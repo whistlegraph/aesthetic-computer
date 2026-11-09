@@ -212,7 +212,15 @@ export class SpatialTones {
     }
     const L = a.listener,
       t = a.currentTime;
-    const set = (param, value) => param?.setTargetAtTime(value, t, 0.05);
+    // Every frame touches ~30 params. Skip what has not moved and clear what
+    // was queued before, so automation timelines never pile up (WebKit keeps
+    // them, and a long timeline costs on every frame) (2026-11-08).
+    const glide = (param, value, k, eps) => {
+      if (!param || Math.abs(param.value - value) < eps) return;
+      param.cancelScheduledValues(t);
+      param.setTargetAtTime(value, t, k);
+    };
+    const set = (param, value) => glide(param, value, 0.05, 0.01);
     if (L.positionX) {
       set(L.positionX, listener.x);
       set(L.positionY, listener.y);
@@ -235,6 +243,7 @@ export class SpatialTones {
     const live = new Set(nearest.map((s) => s.key));
     for (const [key, v] of this.voices)
       if (!live.has(key)) {
+        v.gain.gain.cancelScheduledValues(t);
         v.gain.gain.setTargetAtTime(0, t, 0.08);
         v.osc.stop(t + 0.5);
         this.voices.delete(key);
@@ -261,8 +270,8 @@ export class SpatialTones {
       // Square and saw are loud for their amplitude; even them out.
       const level = s.gain(time, beat) * (s.wave === 'sine' || s.wave === 'triangle' ? 0.25 : 0.1);
       // Short time constants so strikes and steps land crisply on the beat.
-      v.gain.gain.setTargetAtTime(level, t, 0.008);
-      v.osc.frequency.setTargetAtTime(Math.max(20, Math.min(4000, s.frequency(time, beat))), t, 0.004);
+      glide(v.gain.gain, level, 0.008, 0.0005);
+      glide(v.osc.frequency, Math.max(20, Math.min(4000, s.frequency(time, beat))), 0.004, 0.25);
       if (v.pan.positionX) {
         set(v.pan.positionX, s.x);
         set(v.pan.positionY, s.y);
