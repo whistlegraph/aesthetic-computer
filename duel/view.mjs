@@ -1010,10 +1010,22 @@ export async function createView(canvas) {
       const title = prompt.target
         ? `${prompt.target.code ? '$' + prompt.target.code : prompt.target.geometry.name} v${prompt.target.version} > v${prompt.target.version + 1}`
         : 'aesel';
+      // The cursor is a wireframe block (CARET marks its column); the
+      // ring's phrase keeps the blinking underscore.
+      const CARET = '\u0000';
       const writing =
         prompt.text.slice(0, prompt.cursor) +
-        cursor +
+        (radial ? cursor : CARET) +
         prompt.text.slice(prompt.cursor);
+      const caretSpans = (l) => {
+        const at = l.indexOf(CARET);
+        if (at < 0) return [{ text: l, color: THEME.text }];
+        return [
+          { text: l.slice(0, at), color: THEME.text },
+          { block: true, wire: builder ? 0x3fb950 : 0xff6b6b, turn: Math.round(now / 33) * 0.033 * 1.6 },
+          { text: l.slice(at + 1), color: THEME.text },
+        ].filter((x) => x.block || x.text);
+      };
       const named = (o) => (o.code ? `$${o.code}` : o.geometry.name);
       const verb = holding ? { shoot: 'shoot', poke: 'poke', throw: 'throw' }[holding.item] : null;
       const carry = holding
@@ -1098,15 +1110,10 @@ export async function createView(canvas) {
         ? [
             // The typed line first, on the 2D prompt's own grid, so the text
             // stays put across the trip in and out of the paper.
-            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : [{ text: l, color: THEME.text }])),
-            [
-              // Whether a builder is listening, told where it matters: in the
-              // prompt; after the revision's title when there is one.
-              ...(prompt.target ? [{ text: `${title} `, color: THEME.verb }] : []),
-              builder
-                ? { text: `aesel online${builderNames.length ? ': ' + builderNames.join(' + ') : ''}`, color: 0x3fb950 }
-                : { text: 'aesel offline', color: 0xff6b6b },
-            ],
+            ...wrap(writing).map((l) => (radial ? phraseSpans(l) : caretSpans(l))),
+            // Whether a builder listens is the cursor's colour; a revision
+            // still names what it revises.
+            ...(prompt.target ? [[{ text: title, color: THEME.verb }]] : []),
             ...(prompt.message ? wrap(prompt.message).map((l) => [{ text: l, color: THEME.number }]) : []),
             hintSpans(
               radial
@@ -1370,9 +1377,13 @@ export async function createView(canvas) {
         h = 10 * unit;
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
-      cornerRect = { x: safeX, y: safeY, w, h };
-      const m = model(({ rect: worldRect }) => {
+      // Beside it, what it and Escape do (2026-11-08).
+      const label = hintSpans('{esc} back to AC', THEME.dim);
+      const labelW = smallSpanWidth(label, unit);
+      cornerRect = { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
+      const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
+        drawSpans({ rect, text, small }, label, left + w + 4 * unit + labelW / 2, H / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });
         // An outline like the curtain's caret (2026-11-03): its hue drifting
         // around the edge, each pixel shadowed.
         const ring = [];

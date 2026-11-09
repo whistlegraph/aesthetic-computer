@@ -115,7 +115,7 @@ const merge = (spans) =>
   }, []);
 
 export const spanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? 7 : s.text.length * 6) * unit, 0);
+  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? (s.wire !== undefined ? 11 : 7) : s.text.length * 6) * unit, 0);
 
 // Compact (MatrixChunky8) widths: caps and badges are the name plus a
 // two-pixel frame each side.
@@ -227,6 +227,35 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
       rect(left, y - 7 * unit, z + step, bw, 9 * unit, fill);
       text(s.badge, left + bw / 2, y - unit, z, unit, ink, true);
       left += bw + unit;
+      continue;
+    }
+    if (s.block && s.wire !== undefined) {
+      // The build prompt's cursor: a wireframe cube turning in the block's
+      // cell (wider than a letter, so it reads at one pixel a unit), green
+      // while a builder listens, red when none does (2026-11-08).
+      const cx = left + 5 * unit, cy = y - 2 * unit, k = 3 * unit;
+      const a = s.turn, b = 0.55 + 0.2 * Math.sin(a * 0.7);
+      const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+      const P = [];
+      for (const vx of [-1, 1]) for (const vy of [-1, 1]) for (const vz of [-1, 1]) {
+        const x1 = vx * ca + vz * sa, z1 = -vx * sa + vz * ca;
+        const y1 = vy * cb - z1 * sb, z2 = vy * sb + z1 * cb;
+        const p = 1 / (1 - z2 * 0.18);
+        P.push([cx + x1 * k * p, cy + y1 * k * p]);
+      }
+      const edges = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
+      const dot = (px, py, color, zz) =>
+        rect(Math.round(px / unit) * unit, Math.round(py / unit) * unit, zz, unit, unit, color);
+      for (const [i, j] of edges) {
+        const [[x0, y0], [x1, y1]] = [P[i], P[j]];
+        const n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) / unit));
+        for (let t = 0; t <= n; t++) {
+          const px = x0 + ((x1 - x0) * t) / n, py = y0 + ((y1 - y0) * t) / n;
+          if (shadow !== null) dot(px + unit, py - unit, shadow, z + 2 * step);
+          dot(px, py, s.wire, z + step);
+        }
+      }
+      left += 11 * unit;
       continue;
     }
     if (s.block) {
