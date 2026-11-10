@@ -21,7 +21,8 @@ import { command } from './net.mjs';
 // newest commands again so a dropped message costs nothing; the queue holds
 // what a burst can bring; the grace is how long a silent player is held
 // still and owed their time before the body runs on without them.
-export const INPUT_BATCH = 12, INPUT_QUEUE = 24, INPUT_GRACE = 12;
+// (INPUT_SLACK: how many may wait once the budget is spent.)
+export const INPUT_BATCH = 12, INPUT_QUEUE = 60, INPUT_GRACE = 30, INPUT_SLACK = 3;
 export class Match {
   constructor() {
     this.tick = 0;
@@ -449,26 +450,30 @@ export class Match {
       // ⏱️ A player moves by their own commands, one per tick of their own
       // time, as in Quake: a command that arrives late is still run, in the
       // order sent, so the server ends where the client predicted and a
-      // jittery link never drags anyone back. The budget is real time: a
-      // tick with nothing to run is owed (up to INPUT_GRACE), and owed ticks
-      // are spent when the late commands land. Nobody gains time by it.
-      const take = Math.min(s.queue.length, 1 + (s.owed || 0));
+      // jittery link never drags anyone back. The budget is real time: every
+      // tick adds one command's worth, a tick with nothing to run keeps it
+      // (up to INPUT_GRACE, half a second), and a late burst spends it all at
+      // once. Nobody gains time by it, and nothing waits in the queue after:
+      // a backlog would be latency on every input for the rest of the visit.
+      s.budget = Math.min(INPUT_GRACE + 1, (s.budget || 0) + 1);
+      const take = Math.min(s.queue.length, Math.floor(s.budget));
       let commands = s.queue.splice(0, take);
       if (take) {
-        s.owed = (s.owed || 0) - (take - 1);
+        s.budget -= take;
         s.quiet = 0;
       } else if (s.ack && (s.quiet || 0) < INPUT_GRACE) {
-        // Late, not gone: hold still and owe the tick.
-        s.owed = Math.min(INPUT_GRACE, (s.owed || 0) + 1);
-        s.quiet = (s.quiet || 0) + 1;
+        s.quiet = (s.quiet || 0) + 1; // Late, not gone: hold still, keep the time.
       } else {
-        // Nothing for a while (or never): the body runs on with no input.
-        s.owed = 0;
+        // Nothing for a while (or never): the body runs on with no input,
+        // and that tick is spent.
+        s.budget = Math.max(0, s.budget - 1);
         commands = [null];
       }
-      // More waiting than the budget will ever run: drop the oldest without
-      // granting movement or weapon time.
-      while (s.queue.length > INPUT_QUEUE / 2) s.ack = s.queue.shift().seq;
+      // A few left over (clocks differ a little): run them off slowly, a
+      // twentieth faster than real time. More than a few is time the body
+      // already lived through without them: dropped, never run.
+      if (s.queue.length) s.budget = Math.min(INPUT_GRACE + 1, s.budget + 0.05);
+      while (s.queue.length > INPUT_SLACK) s.ack = s.queue.shift().seq;
       let p = s.player;
       if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
         p = { ...spawn(p.seat, p.life + 1), score: p.score };

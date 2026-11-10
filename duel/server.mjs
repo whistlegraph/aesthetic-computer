@@ -671,7 +671,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const timer = setInterval(() => {
     const now = performance.now();
     if (diagnostics.enabled) loopGapMaxMs = Math.max(loopGapMaxMs, now - previous);
-    debt += Math.min(100, now - previous);
+    // After a stall the world catches up (to half a second): ticks lost here
+    // would leave every player's commands waiting behind the world's clock.
+    debt += Math.min(500, now - previous);
     previous = now;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;

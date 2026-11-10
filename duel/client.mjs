@@ -446,6 +446,8 @@ if (query.has('debug'))
     forward: view.aimForward(),
     floorAim,
     corrections: { ...corrections },
+    pending: pending.length,
+    rtt: connection.rtt,
     focus: focusObject?.id || null,
     cursorAim,
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },

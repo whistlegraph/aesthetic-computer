@@ -97,9 +97,26 @@ test('a flood cannot run more commands than the time that has passed, plus the g
   }
   const still = spawn(0);
   let honest = still;
-  for (let i = 0; i < 100 + INPUT_GRACE; i++) honest = move(honest, cmd(1, { fwd: 1 }));
+  // A twentieth over real time while a backlog waits, and the grace once.
+  for (let i = 0; i < 105 + INPUT_GRACE + 1; i++) honest = move(honest, cmd(1, { fwd: 1 }));
   const p = m.seats[0].player;
   assert.ok(Math.hypot(p.x - still.x, p.z - still.z) <= Math.hypot(honest.x - still.x, honest.z - still.z) + 1e-9);
+});
+
+test('after an outage nothing is left waiting: the queue never becomes standing latency', () => {
+  const m = new Match(); m.join();
+  let seq = 0;
+  for (let i = 0; i < 60; i++) { m.input(0, [cmd(++seq, { fwd: 1 })]); m.step(); }
+  // Half a second of nothing, then everything at once (in batches, as sent).
+  const late = [];
+  for (let i = 0; i < 28; i++) { late.push(cmd(++seq, { fwd: 1 })); m.step(); }
+  for (let i = 0; i < late.length; i += INPUT_BATCH) m.input(0, late.slice(i, i + INPUT_BATCH));
+  m.input(0, [cmd(++seq, { fwd: 1 })]); m.step();
+  assert.equal(m.seats[0].ack, seq, 'the whole burst ran on the tick it landed');
+  for (let i = 0; i < 120; i++) { m.input(0, [cmd(++seq, { fwd: 1 })]); m.step(); assert.ok(m.seats[0].queue.length <= 1); }
+  let local = spawn(0);
+  for (let i = 0; i < seq; i++) local = move(local, cmd(1, { fwd: 1 }));
+  assert.ok(Math.abs(m.seats[0].player.z - local.z) < 1e-9, 'and nothing was dropped');
 });
 
 test('a player who goes silent is held for the grace, then the body runs on', () => {
