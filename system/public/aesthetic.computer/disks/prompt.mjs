@@ -5383,6 +5383,10 @@ function paint($) {
   // text input paints the palette background over its whole frame after
   // this, so the palette goes clear with the curtain. In dark mode the glaze
   // carries the canvas's alpha, so the world shows through it too.
+  if (theme === "default" && doolDarkSent !== !!$.dark) {
+    doolDarkSent = !!$.dark;
+    $.send({ type: "dool:sheet", content: { action: "theme", value: doolDarkSent } });
+  }
   const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text &&
     ((!login?.btn.disabled && !profile) || (!login && !profile?.btn.disabled));
@@ -8114,6 +8118,7 @@ const caretFold = []; // Motes folding back into the caret when the curtain retu
 let mimeBox = null; // The MIMEs mark's box this frame, for its halo.
 let doolHover = false; // The pointer is over the corner crosshair.
 let doolNearSent = 0; // The last nearness told to the world.
+let doolDarkSent; // The last theme told to the world: its room is dark or light with the prompt.
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;

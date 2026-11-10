@@ -109,8 +109,8 @@ const WALL = 0x3a3f4d,
 // evening and night. The sky bands run from the horizon glow up to overhead.
 export const PALETTES = {
   day: {
-    sky: 0xcfe3f5,
-    far: 0xd3d8e2,
+    sky: 0xcfe3f5, // Solid, like the night's: the clear colour is the whole sky.
+    far: 0xcfe3f5,
     // A pastel room: every surface its own tint, so the corners read.
     floor: 0xe2d2bb,
     dot: 0xb8a48c,
@@ -133,8 +133,10 @@ export const PALETTES = {
 // The room follows the viewer's colour scheme (dark mode is the night room);
 // with no such signal it follows the clock.
 const darkScheme = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
-// The room is the night room always (2026-11-03): dark pastel walls, a solid dark sky.
-export const paletteFor = () => 'night';
+// Under the prompt's paper the host says which theme the prompt is in (it can
+// be set by hand there, apart from the system's), and that wins.
+let hostDark = null;
+export const paletteFor = () => ((hostDark ?? darkScheme?.matches ?? true) ? 'night' : 'day');
 import {
   WALLS,
   COLORS,
@@ -2343,6 +2345,10 @@ export async function createView(canvas) {
     // pixel, and where the prompt's canvas starts); null to stand alone.
     showFps(on) {
       SHOW_FPS = !!on;
+    },
+    // The host's theme: true for dark, false for light, null to follow the system.
+    theme(dark) {
+      hostDark = typeof dark === 'boolean' ? dark : null;
     },
     grid(g) {
       const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0 } : null;

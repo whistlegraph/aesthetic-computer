@@ -16,7 +16,11 @@
 // once it is home again. The guest takes no seat until it is first opened,
 // so a visit to the homepage never puts a player in the world.
 
-const PAPER = "#141720"; // dool's own dark, behind a guest still loading
+// dool's own sky, behind a guest still loading: night under a dark prompt, day under a light one.
+const PAPER = { dark: "#0f1118", light: "#cfe3f5" };
+const systemDark = () => window.matchMedia?.("(prefers-color-scheme: dark)").matches !== false;
+let dark = null; // The prompt's theme once it says; until then, the system's.
+const paper = () => ((dark ?? systemDark()) ? PAPER.dark : PAPER.light);
 const GUEST = "/dool/?embed=prompt";
 
 let frame;
@@ -47,7 +51,7 @@ function ensure() {
     height: "100%",
     border: "0",
     zIndex: "-1", // An underlay: beneath the stage, over the page's backdrop.
-    background: PAPER,
+    background: paper(),
     colorScheme: "normal",
     pointerEvents: "none",
   });
@@ -257,7 +261,7 @@ addEventListener("message", (e) => {
     said = true;
     // This module can load after bios last reported focus: ask the window.
     if (!document.hasFocus() && state === "parked") resting = true;
-    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting });
+    post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting, ...(dark === null ? {} : { dark }) });
     // A server restart reloads the guest without moving the host's paper.
     // Restore the completed transition too: otherwise its HUD stays hidden
     // and the native frame meter is still attached to the discarded document.
@@ -302,16 +306,26 @@ function framed() {
   if (said) post({ type: "dool:sheet", grid: grid() });
 }
 
+// 🌗 The prompt's theme (its `dark` / `light` commands can differ from the
+// system's): the room under the paper wears the same one.
+function theme(value) {
+  dark = typeof value === "boolean" ? value : null;
+  if (frame) frame.style.background = paper();
+  if (said && dark !== null) post({ type: "dool:sheet", dark });
+}
+
 window.acDoolSheet = { popstate, framed, windowFocus };
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle
 //   { action: "show" }   drop the paper into the world
 //   { action: "hide" }   bring the paper back
+//   { action: "theme" }  the prompt is dark (true) or light (false)
 export function doolSheet({ action, value } = {}) {
   if (action === "warm") warm();
   else if (action === "show") show();
   else if (action === "hide") hide();
+  else if (action === "theme") theme(value);
   // The crosshair's breadth as the pointer nears: the room scales with it.
   else if (action === "near") post({ type: "dool:sheet", near: value });
 }

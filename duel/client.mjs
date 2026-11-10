@@ -1639,6 +1639,8 @@ if (hosted) {
     if (e.source !== window.parent || e.origin !== location.origin || e.data?.type !== 'dool:sheet') return;
     // The prompt's pixel grid rides along: our pixels become its pixels.
     if ('grid' in e.data) view.grid(e.data.grid);
+    // And its theme: a light prompt sits over the day room, a dark one over the night.
+    if ('dark' in e.data) view.theme(e.data.dark);
     if ('rest' in e.data && resting !== (e.data.rest === true)) {
       resting = e.data.rest === true;
       if (!resting) {
