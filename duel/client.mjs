@@ -1182,6 +1182,12 @@ document.addEventListener('mousedown', (e) => {
   if (e.button === 2 && locked()) chalkMouse = true;
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// A held thumb is a control, never a selection: iOS starts its loupe and
+// selection from touchstart whatever the CSS says, so the touch is refused
+// there (pointer events still arrive) and nothing can be selected (2026-11-10).
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); canvas.focus({ preventScroll: true }); }, { passive: false });
+for (const type of ['selectstart', 'dragstart', 'gesturestart'])
+  document.addEventListener(type, (e) => e.preventDefault());
 window.addEventListener('blur', releaseInput);
 document.addEventListener('visibilitychange', () => {
   diagnostics.reset();
