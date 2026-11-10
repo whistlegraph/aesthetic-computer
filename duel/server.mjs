@@ -94,6 +94,13 @@ export function createDuelServer({
     throw new Error('Invalid mount path');
   const rooms = new Map();
   const diagnostics = createDiagnostics({ enabled: diagnosticsEnabled, write: diagnosticWrite });
+  // AC's profanity filter, loaded on first use (a static import of a module
+  // with its own dependencies has taken lith down before); without it the
+  // line passes as typed.
+  let chatFilterLoad = null;
+  const chatFilter = () => (chatFilterLoad ||= import('../shared/filter.mjs')
+    .then((m) => (text) => { try { return String(m.filter(text)); } catch { return text; } })
+    .catch(() => (text) => text));
   const stallLog = []; // 🧊 The newest stalls clients reported (GET /stalls).
   let stallRevision = 'local';
   const store = new ObjectStore(stateDir),
@@ -407,7 +414,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const nativeAccount = authorization?.startsWith('Bearer ');
     ws.diagnosticSession = randomUUID();
     ws.diagnosticJobs = new Map();
-    let diagnosticAt = -Infinity, stallAt = -Infinity;
+    let diagnosticAt = -Infinity, stallAt = -Infinity, saidAt = -Infinity;
     const stallSession = randomUUID().slice(0, 6); // One visit, not a person.
     const creditRefreshes = new Set();
     // A page that says it is signed in waits for its handle before it is
@@ -563,6 +570,22 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         builders.cancel(owner, key);
       if (data?.type === 'account') void identifyAccount(data.accessToken).finally(seatGuest);
       if (data?.type === 'account-none') seatGuest();
+      // 💬 Room chat: a seated player's line goes to everyone in the room.
+      // Printable ASCII (the room's font), short, filtered like AC's chat,
+      // slowed to a line or so a second, and never stored.
+      if (data?.type === 'say' && member.seat >= 0 && typeof data.text === 'string') {
+        if (now - saidAt < 700) return;
+        saidAt = now;
+        const text = data.text.replace(/[^\x20-\x7e]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 140);
+        if (!text) return;
+        void chatFilter().then((clean) => {
+          if (!room.sessions.has(ws)) return;
+          const who = room.public(member);
+          const message = { type: 'said', seat: who.seat, handle: who.handle, name: who.name, colors: who.colors, text: clean(text) };
+          for (const client of room.clients.keys()) send(client, message);
+        });
+        return;
+      }
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
           const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token });

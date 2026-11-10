@@ -78,6 +78,11 @@ let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock();
 const prompt = new Prompt();
+// 💬 Room chat: T opens a line (Quake's say key), Enter says it, Escape drops
+// it. The same text entry as the build prompt, with a flat cursor.
+const chat = new Prompt();
+const CHAT_MAX = 140, CHAT_SHOWN_MS = 14000;
+let chatLog = []; // { at, handle, name, colors, text }
 const connection = new Connection();
 let selfMember = null;
 const diagnostics = new ClientDiagnostics((sample) => {
@@ -560,6 +565,11 @@ function connect() {
     if (data.type === 'dev-log')
       for (const d of data.entries.slice(-1)) if (d.kind !== 'done') sfx.dev(d.kind);
     if (data.type === 'pong') connection.reply(data.at, performance.now());
+    if (data.type === 'said' && typeof data.text === 'string') {
+      chatLog = [...chatLog, { at: performance.now(), handle: data.handle || null, name: data.name || null,
+        colors: data.colors || null, seat: data.seat, text: data.text.slice(0, CHAT_MAX) }].slice(-8);
+      sfx.ringMove(data.seat === seat ? 5 : 8);
+    }
     if (data.type === 'identity') {
       owner = data.owner;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
@@ -747,6 +757,13 @@ canvas.addEventListener('click', (e) => {
   void capture();
 });
 canvas.addEventListener('paste', (e) => {
+  if (chat.open) {
+    e.preventDefault();
+    chat.insert(e.clipboardData?.getData('text') || '');
+    chat.text = chat.text.slice(0, CHAT_MAX);
+    chat.cursor = Math.min(chat.cursor, chat.text.length);
+    return;
+  }
   if (!prompt.open) return;
   e.preventDefault();
   prompt.insert(e.clipboardData?.getData('text') || '');
@@ -975,6 +992,30 @@ document.addEventListener('keydown', (e) => {
   void sfx.wake();
   if (down && e.code !== 'Escape') {
     e.preventDefault();
+    return;
+  }
+  // 💬 Chat takes the keys while its line is open.
+  if (chat.open) {
+    if (e.code === 'Enter' && !e.repeat) {
+      const text = chat.text.trim();
+      if (text) send({ type: 'say', text });
+      chat.text = '';
+      chat.cursor = 0;
+      chat.open = false;
+    } else {
+      chat.key(e);
+      chat.text = chat.text.slice(0, CHAT_MAX);
+      chat.cursor = Math.min(chat.cursor, chat.text.length);
+    }
+    if (!(e.metaKey || e.ctrlKey)) e.preventDefault();
+    releaseInput();
+    return;
+  }
+  if (e.code === 'KeyT' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && seat >= 0 &&
+    !prompt.open && !menu && !radial.open && !chalkMode) {
+    e.preventDefault();
+    releaseInput();
+    chat.begin();
     return;
   }
   // Tab: rooms. $ (shift 4): the $code list, as the prompt's $ starts a
@@ -1239,6 +1280,7 @@ function step(now) {
     if (menu) closeMenu();
     if (radial.open) radial.close();
     if (prompt.open) prompt.open = false;
+    chat.open = false;
     chalkMode = null;
     releaseInput();
   }
@@ -1611,6 +1653,12 @@ function step(now) {
       : null,
     objects,
     prompt,
+    chat: {
+      open: chat.open,
+      text: chat.text,
+      cursor: chat.cursor,
+      lines: chatLog.filter((l) => chat.open || now - l.at < CHAT_SHOWN_MS),
+    },
     radial: radial.open
       ? {
           items: radial.items,

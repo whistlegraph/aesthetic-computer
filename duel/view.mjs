@@ -17,7 +17,7 @@ export const LEGEND = {
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['tab', 'Tab'], ' rooms'],
     [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
-    [['$', 'Digit4'], ' list'],
+    [['$', 'Digit4'], ' list / ', ['t', 'KeyT'], ' chat'],
   ],
   pad: [
     '[LS] move / [RS] look',
@@ -38,7 +38,7 @@ export const LEGEND = {
 const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
-  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a, list: 0xffd28a,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
 };
 const actionColor = (text) => {
@@ -599,6 +599,7 @@ export async function createView(canvas) {
     devLog = [],
     fps = 0,
     stallNote = '',
+    chat = null,
     walls = [],
     cube = [],
     menu = null,
@@ -1342,7 +1343,8 @@ export async function createView(canvas) {
     const W = canvas.width,
       H = canvas.height,
       pixel = W / Math.max(1, canvas.clientWidth);
-    if ((tags.length || ownTag) && !menu) {
+    const chatting = !bare && chat && (chat.open || chat.lines.length);
+    if ((tags.length || ownTag || chatting) && !menu) {
       const { unit } = hud;
       // 📍 World position in metres (x y z), small, after a handle: yours
       // bottom left, everyone else's over their head.
@@ -1354,6 +1356,48 @@ export async function createView(canvas) {
           small(t, cx, y, 0, unit, THEME.dim);
         };
         if (ownTag) place(me, ownTag.x, ownTag.y);
+        // 💬 Chat: the room's last lines up the left side, over the face cam,
+        // newest lowest; the line being typed sits under them with a flat
+        // block for a cursor (the build prompt's is the turning cube).
+        if (chatting) {
+          const { safeX, safeY } = hud;
+          const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
+          const left = -W / 2 + safeX + 2, step = 11 * unit;
+          const columns = Math.max(12, Math.floor((W * 0.55) / (6 * unit)));
+          const run = (s, x, y, color, handle) => {
+            const cx = x + ((s.length * 6 - 1) * unit) / 2;
+            (handle ? handleText : text)(s, cx + unit, y - unit, 0.000002, unit, handle ? shadowInk(s) : INK);
+            (handle ? handleText : text)(s, cx, y, 0, unit, color);
+            return x + s.length * 6 * unit;
+          };
+          // Bottom up: the typed line, then the log, newest first.
+          let y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 64 * unit;
+          if (chat.open) {
+            const shown = chat.text.slice(-(columns - 5)), offset = chat.text.length - shown.length;
+            const x = run('say ', left, y, 0x9be7a0);
+            run(shown, x, y, THEME.text);
+            // A flat, steady block where the next letter lands.
+            const cx = x + (chat.cursor - offset) * 6 * unit;
+            rect(cx, y - 8 * unit, 0.000001, 5 * unit, 9 * unit, 0xff3296);
+            y += step;
+          }
+          for (const line of [...chat.lines].reverse()) {
+            const who = line.handle ? `@${line.handle}` : line.name || `guest ${line.seat + 1}`;
+            const room = Math.max(8, columns - who.length - 1);
+            const words = line.text.split(' '), rows = [''];
+            for (const w of words) {
+              if ((rows.at(-1) + ' ' + w).trim().length > room) rows.push('');
+              rows[rows.length - 1] = (rows.at(-1) + ' ' + w).trim().slice(0, room);
+            }
+            for (let k = rows.length - 1; k >= 0; k--) {
+              let x = left;
+              if (k === 0) x = run(who + ' ', left, y, line.handle ? line.colors : PAPER, !!line.handle);
+              else x = left + (who.length + 1) * 6 * unit;
+              run(rows[k], x, y, THEME.text);
+              y += step;
+            }
+          }
+        }
         for (const t of tags) {
           const s = projector.project(t.x, t.y, t.z);
           if (!s || Math.abs(s.x) > 1.1 || Math.abs(s.y) > 1.1) continue;
