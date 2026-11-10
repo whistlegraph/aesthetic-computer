@@ -379,6 +379,7 @@ export async function createView(canvas) {
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
+  let menuBox = null; // The open menu's panel and rows, in buffer pixels about the centre.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let snow = null, snowAt = 0; // The room's falling snow.
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
@@ -595,6 +596,7 @@ export async function createView(canvas) {
     since = 0,
     holding = null,
     touch = null,
+    touchButtons = [],
     input = 'keys',
     devLog = [],
     fps = 0,
@@ -1460,12 +1462,22 @@ export async function createView(canvas) {
       }
       projector.overlay(ringModel, W, H);
     }
-    if (touch?.stick || touch?.look?.holding) {
+    if (touch?.stick || touch?.look?.holding || touchButtons.length) {
       // Pixel squares, like everything else: a ring for the anchor, a knob for the thumb.
       const { unit } = hud;
-      const m = model(({ rect: worldRect }) => {
+      const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
         const at = (x, y) => [x * pixel - W / 2, H / 2 - y * pixel];
+        // The phone's buttons: a cap in the action's colour, pressed in while held.
+        for (const b of touchButtons) {
+          const [x, top] = at(b.x, b.y),
+            w = b.w * pixel,
+            h = b.h * pixel,
+            sink = b.held ? unit : 0;
+          rect(x + unit, top - h - unit, 0.000004, w, h, INK);
+          rect(x + sink, top - h - sink, 0.000003, w, h, b.held ? 0xffffff : b.color);
+          text(b.name, x + w / 2 + sink, top - h / 2 + 3 * unit - sink, 0.000001, unit, INK);
+        }
         const frame = (cx, cy, size, thick, color, z) => {
           rect(cx - size / 2, cy + size / 2 - thick, z, size, thick, color);
           rect(cx - size / 2, cy - size / 2, z, size, thick, color);
@@ -2308,6 +2320,7 @@ export async function createView(canvas) {
       draw(s.model, s.x, 0, s.z, yaw);
       draw(frame, s.x, 0, s.z, yaw);
     }
+    menuBox = null;
     if (menu) {
       // A modal: the scene dimmed behind it, a panel with a title and a
       // left-aligned list, the chosen row on yellow. Drawn nearest of all.
@@ -2325,6 +2338,7 @@ export async function createView(canvas) {
         h = rows.length * lineH + titleH + 8 * unit;
       const z = -0.000009;
       const near = z - 0.000004; // text clearly in front of the row highlight
+      menuBox = { w, h, titleH, lineH, first, count: rows.length, unit, W, H };
       const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
         rect(-W / 2, -H / 2, z + 0.000004, W, H, 0x0b0c10);
@@ -2456,6 +2470,17 @@ export async function createView(canvas) {
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       const x = cssX * px, y = cssY * px;
       return x >= qrRect.x && x <= qrRect.x + qrRect.w && y >= qrRect.y && y <= qrRect.y + qrRect.h;
+    },
+    // A tap on the open menu: the row under it, -1 on the panel but no row,
+    // or null outside the panel.
+    menuHit(cssX, cssY) {
+      if (!menuBox) return null;
+      const { w, h, titleH, lineH, first, count, unit, W, H } = menuBox;
+      const x = (cssX * canvas.width) / (canvas.clientWidth || 1) - W / 2,
+        y = H / 2 - (cssY * canvas.height) / (canvas.clientHeight || 1);
+      if (Math.abs(x) > w / 2 || Math.abs(y) > h / 2) return null;
+      const k = Math.floor((h / 2 - titleH - 2 * unit - y) / lineH);
+      return k >= 0 && k < count ? first + k : -1;
     },
     cornerHit(cssX, cssY) {
       if (!cornerRect) return false;

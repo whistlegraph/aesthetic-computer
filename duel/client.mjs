@@ -12,7 +12,7 @@ import { accountToken, accountExpected } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
-import { TouchPad } from './touch.mjs';
+import { TouchPad, touchButtons } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 import { kidlispWall } from './kidlisp-wall.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
@@ -164,6 +164,8 @@ function watchHealth(hadSnapshot) {
 const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
+// A phone shows its buttons before the first touch.
+touch.active = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
 const sfx = new Sfx();
 // Two walls run real KidLisp: $roz on the far wall, $bop on the left.
 // The room says which $code is on each wall; a change loads the new one.
@@ -958,23 +960,85 @@ function touchRing() {
   return { cx: width / 2, cy: height / 2 - cy, r };
 }
 const touchy = (e) => e.pointerType === 'touch' || e.pointerType === 'pen';
+// 📱 The phone's buttons (touch.mjs) press the keys: one path for every
+// action, and a held button is a held key. A hidden field raises the phone's
+// keyboard for the build prompt and chat; what it types arrives as keys too.
+const synthetic = new WeakSet();
+function pressKey(type, code, key) {
+  const e = new KeyboardEvent(type, { code, key, bubbles: true, cancelable: true });
+  synthetic.add(e);
+  document.dispatchEvent(e);
+}
+const typing = () => prompt.open || chat.open;
+const touchMode = () => (seat < 0 || radial.open || chalkMode || menu ? null : typing() ? 'typing' : 'play');
+const shownButtons = () => (touch.active ? touchButtons(touchMode(), canvas.clientWidth, canvas.clientHeight) : []);
+const softKeys = Object.assign(document.createElement('input'), {
+  type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, enterKeyHint: 'send', tabIndex: -1,
+});
+softKeys.setAttribute('autocorrect', 'off');
+softKeys.setAttribute('aria-hidden', 'true');
+// Sixteen pixels so iOS never zooms to it; unseen and untouchable.
+softKeys.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0;pointer-events:none;';
+document.body.append(softKeys);
+const SOFT_FILL = '  '; // Something for backspace to delete.
+const syncSoftKeys = () => {
+  softKeys.value = SOFT_FILL;
+  if (!typing() && document.activeElement === softKeys) softKeys.blur();
+};
+softKeys.addEventListener('keydown', (e) => {
+  e.stopPropagation(); // Letters and backspace come by `input`, where every phone agrees.
+  if (['Enter', 'Escape', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+    e.preventDefault();
+    pressKey('keydown', e.key, e.key);
+    syncSoftKeys();
+  }
+});
+softKeys.addEventListener('keyup', (e) => e.stopPropagation());
+softKeys.addEventListener('input', (e) => {
+  if (e.inputType === 'deleteContentBackward') pressKey('keydown', 'Backspace', 'Backspace');
+  else if (e.inputType === 'insertLineBreak') pressKey('keydown', 'Enter', 'Enter');
+  else for (const ch of e.data || '') pressKey('keydown', '', ch);
+  syncSoftKeys();
+});
+function touchButton(button, isDown) {
+  if (!button) return;
+  pressKey(isDown ? 'keydown' : 'keyup', button.code, button.key);
+  if (isDown) return;
+  // On the lift, inside the gesture, so the phone lets its keyboard up.
+  if (typing()) {
+    softKeys.value = SOFT_FILL;
+    softKeys.focus({ preventScroll: true });
+  } else syncSoftKeys();
+}
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
+  if (menu) {
+    const row = view.menuHit(e.offsetX, e.offsetY);
+    if (row === null) closeMenu();
+    else if (row >= 0) {
+      menu.selected = row;
+      chooseMenu();
+    }
+    return;
+  }
   canvas.setPointerCapture?.(e.pointerId);
   const first = !touch.active;
-  touch.down(e, canvas.clientWidth, canvas.clientHeight, performance.now(), radial.open);
+  touchButton(touch.down(e, canvas.clientWidth, canvas.clientHeight, performance.now(), radial.open, shownButtons()), true);
   if (first) void capture();
 });
 canvas.addEventListener('pointermove', (e) => {
   if (touchy(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
 });
 canvas.addEventListener('pointerup', (e) => {
-  if (touchy(e)) touch.up(e, performance.now());
+  if (touchy(e)) touchButton(touch.up(e, performance.now()), false);
 });
 canvas.addEventListener('pointercancel', (e) => {
-  if (touchy(e)) touch.cancel(e);
+  if (!touchy(e)) return;
+  const held = touch.cancel(e);
+  if (held) pressKey('keyup', held.code, held.key);
 });
 function releaseInput() {
   keys.clear();
@@ -1097,7 +1161,7 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
-  if (!locked() && !keyboardMode) {
+  if (!locked() && !keyboardMode && !synthetic.has(e)) {
     if (touch.active || !CONTROL_KEYS.includes(e.code)) return;
     keyboardMode = true;
     if (!ws || ws.readyState === WebSocket.CLOSED) connect();
@@ -1185,7 +1249,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // A held thumb is a control, never a selection: iOS starts its loupe and
 // selection from touchstart whatever the CSS says, so the touch is refused
 // there (pointer events still arrive) and nothing can be selected (2026-11-10).
-canvas.addEventListener('touchstart', (e) => { e.preventDefault(); canvas.focus({ preventScroll: true }); }, { passive: false });
+canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if (!typing()) canvas.focus({ preventScroll: true }); }, { passive: false });
 for (const type of ['selectstart', 'dragstart', 'gesturestart'])
   document.addEventListener(type, (e) => e.preventDefault());
 window.addEventListener('blur', releaseInput);
@@ -1699,6 +1763,7 @@ function step(now) {
         }
       : null,
     touch: touch.state(),
+    touchButtons: shownButtons().map((b) => ({ ...b, held: [...touch.pressed.values()].some((p) => p.name === b.name) })),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps: sheetOpen ? fps : 0,
     stallNote: stalls.note(),
