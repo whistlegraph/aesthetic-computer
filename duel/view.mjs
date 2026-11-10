@@ -149,6 +149,25 @@ import {
   bodyBox,
 } from './world.mjs';
 
+// The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
+// once into 0xRRGGBB per pixel.
+const TINY = 20;
+const thumbCache = new Map();
+function thumbPixels(b64) {
+  if (thumbCache.has(b64)) return thumbCache.get(b64);
+  let out = null;
+  try {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    if (bytes.length === TINY * TINY * 3) {
+      out = new Uint32Array(TINY * TINY);
+      for (let i = 0; i < out.length; i++) out[i] = (bytes[i * 3] << 16) | (bytes[i * 3 + 1] << 8) | bytes[i * 3 + 2];
+    }
+  } catch {}
+  if (thumbCache.size > 512) thumbCache.delete(thumbCache.keys().next().value);
+  thumbCache.set(b64, out);
+  return out;
+}
+
 // Handle glyphs take one colour per character, '@' included.
 const shadowInk = (label) =>
   Array.from({ length: label.length + 1 }, () => ({ r: 24, g: 24, b: 24 }));
@@ -2222,10 +2241,17 @@ export async function createView(canvas) {
       // A modal: the scene dimmed behind it, a panel with a title and a
       // left-aligned list, the chosen row on yellow. Drawn nearest of all.
       const { unit } = hud;
-      const rows = menu.items.slice(0, 12);
-      const w = Math.min(W - 40 * unit, Math.max(130, ...rows.map((r) => r.label.length * 6 + 28)) * unit);
-      const lineH = 12 * unit,
-        h = (rows.length + 2) * lineH + 4 * unit;
+      // A list with thumbnails (the $ history) gets taller rows, each led by
+      // its object; a long list scrolls a window around the chosen row.
+      const pictured = menu.items.some((r) => r.thumb);
+      const lineH = (pictured ? TINY + 3 : 12) * unit;
+      const fits = Math.max(3, Math.min(12, Math.floor((H - 40 * unit) / lineH) - 1));
+      const first = Math.max(0, Math.min(menu.selected - Math.floor(fits / 2), menu.items.length - fits));
+      const rows = menu.items.slice(first, first + fits);
+      const indent = pictured ? (TINY + 6) * unit : 0;
+      const w = Math.min(W - 40 * unit, Math.max(130, ...rows.map((r) => r.label.length * 6 + 28)) * unit + indent);
+      const titleH = 12 * unit,
+        h = rows.length * lineH + titleH + 8 * unit;
       const z = -0.000009;
       const near = z - 0.000004; // text clearly in front of the row highlight
       const m = model(({ rect: worldRect, text }) => {
@@ -2234,16 +2260,33 @@ export async function createView(canvas) {
         rect(-w / 2 - unit, -h / 2 - unit, z + 0.000003, w + 2 * unit, h + 2 * unit, LINE);
         rect(-w / 2, -h / 2, z + 0.000002, w, h, 0x15171e);
         const left = -w / 2 + 8 * unit;
-        const title = [{ text: menu.title, color: THEME.verb }];
+        const more = menu.items.length > rows.length ? `  ${menu.selected + 1}/${menu.items.length}` : '';
+        const title = [{ text: menu.title, color: THEME.verb }, ...(more ? [{ text: more, color: THEME.text }] : [])];
         drawSpans({ rect, text }, title, left + spanWidthOf(title, unit) / 2, h / 2 - 5 * unit, unit, { shadow: null, z: near });
-        rows.forEach((r, i) => {
-          const y = h / 2 - (i + 2) * lineH;
+        rows.forEach((r, k) => {
+          const i = first + k;
+          const top = h / 2 - titleH - 2 * unit - k * lineH;
+          const y = top - (2 + Math.floor((lineH / unit - 12) / 2)) * unit; // centred in the row
           const on = i === menu.selected;
-          if (on) rect(-w / 2 + 4 * unit, y - 9 * unit, z + 0.000001, w - 8 * unit, 11 * unit, 0xffe066);
+          if (on) rect(-w / 2 + 4 * unit, top - lineH + unit, z + 0.000001, w - 8 * unit, lineH - unit, 0xffe066);
+          const pixels = r.thumb && thumbPixels(r.thumb);
+          if (pixels) {
+            // One rect per run of a colour along each pixel row.
+            const x0 = left - 2 * unit,
+              y0 = top - (TINY + 1) * unit;
+            for (let py = 0; py < TINY; py++)
+              for (let px = 0; px < TINY; ) {
+                const c = pixels[py * TINY + px];
+                let run = 1;
+                while (px + run < TINY && pixels[py * TINY + px + run] === c) run++;
+                rect(x0 + px * unit, y0 + (TINY - 1 - py) * unit, near, run * unit, unit, c);
+                px += run;
+              }
+          }
           const spans = r.label.startsWith('$')
             ? [{ text: r.label.split(' ')[0], color: on ? INK : THEME.verb }, { text: ' ' + r.label.split(' ').slice(1).join(' '), color: on ? INK : THEME.text }]
             : [{ text: r.label, color: on ? INK : THEME.text }];
-          drawSpans({ rect, text }, spans, left + spanWidthOf(spans, unit) / 2, y, unit, { shadow: null, z: near });
+          drawSpans({ rect, text }, spans, left + indent + spanWidthOf(spans, unit) / 2, y, unit, { shadow: null, z: near });
         });
       });
       projector.overlay(m, W, H);

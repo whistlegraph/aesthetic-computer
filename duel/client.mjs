@@ -258,7 +258,8 @@ let braincells = null,
   shownBraincells = null;
 let tiles = {},
   floorAim = null;
-let handleHistory = [];
+let handleHistory = [],
+  historyPending = false;
 // Motion blur: a post layer that blends each frame over the last ones,
 // more as the view turns faster. Toggled in the room menu.
 let motionBlur = true;
@@ -514,6 +515,7 @@ function connect() {
     }
     if (data.type === 'handle-history' && Array.isArray(data.items)) {
       handleHistory = data.items;
+      historyPending = false;
       if (menu?.kind === 'history') menu.items = menuItems('history');
     }
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
@@ -778,19 +780,28 @@ function menuItems(kind) {
         act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
       },
     ];
-  // This room's, then everything your handle has made that fits the space.
+  // Everything your handle has made that fits the space, from any session,
+  // with what this room remembers for you; newest first, a code once.
+  const time = (at) => (typeof at === 'number' ? at : Date.parse(at) || 0);
+  const thumbs = new Map(handleHistory.map((h) => [h.code, h.thumb]));
   const seen = new Set();
   const list = [
-    ...codeHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()} v${h.version}${h.kind && h.kind !== 'object' ? ' · ' + h.kind : ''}` })),
-    ...handleHistory.map((h) => ({ code: h.code, label: `$${h.code} ${h.name.toLowerCase()}` })),
-  ].filter((h) => !seen.has(h.code) && seen.add(h.code));
+    ...codeHistory.map((h) => ({ code: h.code, at: time(h.at), label: `$${h.code} ${h.name.toLowerCase()} v${h.version}${h.kind && h.kind !== 'object' ? ' · ' + h.kind : ''}` })),
+    ...handleHistory.map((h) => ({ code: h.code, at: time(h.at), label: `$${h.code} ${h.name.toLowerCase()}` })),
+  ]
+    .sort((a, b) => b.at - a.at)
+    .filter((h) => !seen.has(h.code) && seen.add(h.code))
+    .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
   return list.length
     ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
-    : [{ label: 'nothing made yet', act: () => {} }];
+    : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }];
 }
 function toggleMenu(kind) {
   if (menu?.kind === kind) return closeMenu();
-  if (kind === 'history') send({ type: 'handle-history' });
+  if (kind === 'history') {
+    historyPending = !handleHistory.length;
+    send({ type: 'handle-history' });
+  }
   menu = { kind, title: kind === 'room' ? 'room' : '$ history', items: menuItems(kind), selected: 0 };
   closeBuild();
   releaseInput();

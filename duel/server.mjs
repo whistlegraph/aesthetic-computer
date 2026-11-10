@@ -13,6 +13,8 @@ import { createDiagnostics } from './diagnostics.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
+import { tinyThumb } from './thumbs.mjs';
+import { isObjectLisp } from '../system/public/aesthetic.computer/lib/object/viewer.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Lith installs this dependency in production; standalone development can resolve root's copy.
@@ -286,6 +288,35 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     }
     ws.send(text);
   };
+  // A handle's whole $ history: every KidLisp object it has published, from
+  // any session, newest first. Read from the store for at most 30 s at a time.
+  // The newest THUMBED rows carry a tiny picture (base64 RGB, TINY square).
+  const THUMBED = 64;
+  const handleHistories = new Map();
+  async function handleHistory(handle) {
+    const cached = handleHistories.get(handle);
+    if (cached && Date.now() - cached.at < 30000) return cached.items;
+    const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=100000&handle=${encodeURIComponent(handle)}`, { signal: AbortSignal.timeout(10000) });
+    const { recent = [] } = await r.json();
+    const items = recent
+      .filter((x) => typeof x.code === 'string' && isObjectLisp(x.source))
+      .map((x, i) => ({
+        code: x.code,
+        name: (/^\s*;\s*([^#\n][^\n]*)/.exec(x.source)?.[1] || x.code).trim().slice(0, 40),
+        at: x.when,
+        thumb: i < THUMBED ? tinyThumb(x.code, x.source) : null,
+      }));
+    handleHistories.set(handle, { at: Date.now(), items });
+    if (handleHistories.size > 256) handleHistories.delete(handleHistories.keys().next().value);
+    return items;
+  }
+  async function sendHandleHistory(ws, handle) {
+    try {
+      send(ws, { type: 'handle-history', handle, items: await handleHistory(handle) });
+    } catch {
+      send(ws, { type: 'handle-history', handle, items: [], error: true });
+    }
+  }
   // Braincells: AC's allowance, read with the player's own sign-in and sent
   // to them alone. Refreshed every minute and after each build.
   async function refreshBraincells(ws, member) {
@@ -387,6 +418,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return;
         member.handle = handle;
         member.ready = true;
+        // The $ history is the handle's, ready before the menu opens.
+        member.wantsHistory = false;
+        void sendHandleHistory(ws, handle);
         // Kept in memory only, to read this player's braincells.
         member.token = token;
         void refreshBraincells(ws, member);
@@ -524,17 +558,19 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           builders.broadcast(key);
         });
       // Everything this handle has made that can stand in the space.
-      if (data?.type === 'handle-history' && member.handle)
-        void (async () => {
-          try {
-            const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=300&handle=${encodeURIComponent(member.handle)}`, { signal: AbortSignal.timeout(8000) });
-            const { recent = [] } = await r.json();
-            const items = recent
-              .filter((x) => typeof x.source === 'string' && /\((?:slab|orb|capsule)\s/.test(x.source.replace(/;[^\n]*/g, '')))
-              .map((x) => ({ code: x.code, name: (/^\s*;\s*([^\n]+)/.exec(x.source)?.[1] || x.code).slice(0, 40), at: x.when }));
-            send(ws, { type: 'handle-history', handle: member.handle, items });
-          } catch {}
-        })();
+      if (data?.type === 'handle-history') {
+        // Asked before the account check finished: answered once it does.
+        if (member.handle) void sendHandleHistory(ws, member.handle);
+        else {
+          member.wantsHistory = true;
+          // A guest never signs in: say so rather than leave the menu waiting.
+          setTimeout(() => {
+            if (member.handle || !member.wantsHistory) return;
+            member.wantsHistory = false;
+            send(ws, { type: 'handle-history', handle: null, items: [] });
+          }, 6000).unref();
+        }
+      }
       // Sharper or chunkier: change a screen's pixel grid; no Aesel needed.
       if (data?.type === 'wall-res' && member.seat >= 0 && ['north', 'west'].includes(data.face) && [-1, 1].includes(data.dir))
         void store.stepWallRes(key, data.face, data.dir).then(() => builders.broadcast(key));
