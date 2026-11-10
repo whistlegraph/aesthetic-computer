@@ -31,7 +31,10 @@ export function createWebGLBlitter(canvas) {
     uniform sampler2D u_texture;
     out vec4 outColor;
     void main() {
-      outColor = texture(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
+      // Premultiplied out: WebKit shows a straight-alpha canvas as white
+      // wherever it is translucent (the curtain's veil over the dool world).
+      vec4 c = texture(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
+      outColor = vec4(c.rgb * c.a, c.a);
     }
   `;
 
@@ -99,7 +102,7 @@ export function createWebGLBlitter(canvas) {
         antialias: false,
         depth: false,
         stencil: false,
-        premultipliedAlpha: false,
+        premultipliedAlpha: true, // The shader premultiplies; see the fragment source.
         preserveDrawingBuffer: true, // Keep previous frame to prevent black flash during resize
         powerPreference: "high-performance",
       });
