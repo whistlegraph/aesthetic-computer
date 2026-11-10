@@ -60,6 +60,13 @@ const float VHS_CONTRAST = 0.85;    // 0 = none, 1 = full smoothstep S-curve
 const float VHS_GAMMA = 1.7;        // >1 deepens the mid-tones
 const float VHS_SCANLINE = 0.07;    // darkening on every other band
 const float VHS_GRAIN = 0.05;
+// ☀️ By day the page is ink on light paper, and small type sits in the
+// corners, where the fog's radial smear is widest: the glaze holds its look
+// but keeps its hands off the letterforms.
+const float DAY_RADIAL = 0.25;      // share of the fog's radial smear kept by day
+const float DAY_SMEAR = 0.3;        // share of the sideways blur kept by day
+const float DAY_BLEED = 0.6;        // share of the red/blue offset kept by day
+const float DAY_WOBBLE = 0.4;       // share of the tracking jitter kept by day
 
 // Utils
 float random(vec2 p)
@@ -232,7 +239,8 @@ void main()
     float headStartCam = random(grainCoord - mod(offset, 289.0));
     float headStartShadow = random(grainCoord + mod(offset, 289.0));
 
-    vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount);
+    float day = step(0.5, iDay);
+    vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount * mix(1.0, DAY_RADIAL, day));
 
     // 🌫️ Fuzzy shadows: jitter the shadow ray direction a touch per pixel so the
     // penumbra softens instead of casting a hard edge.
@@ -267,10 +275,10 @@ void main()
     float tt = iTime * 0.001;
     vec2 texel = 1.0 / vec2(textureSize(iTexture, 0));
     float band = floor(v_texc.y / texel.y);
-    float tracking = (random(vec2(floor(tt * 30.0), band)) - 0.5) * VHS_WOBBLE * texel.x;
+    float tracking = (random(vec2(floor(tt * 30.0), band)) - 0.5) * VHS_WOBBLE * mix(1.0, DAY_WOBBLE, day) * texel.x;
     vec3 p0 = ro + rd * nearIntersectionDist;
     vec2 suv = worldToDensityMap(p0.xy) + vec2(1.0) + vec2(tracking, 0.0);
-    vec2 reach = vec2(VHS_SMEAR * texel.x, 0.0);
+    vec2 reach = vec2(VHS_SMEAR * mix(1.0, DAY_SMEAR, day) * texel.x, 0.0);
     vec4 centre = texture(iTexture, suv);
     vec4 left = texture(iTexture, suv - reach);
     vec4 right = texture(iTexture, suv + reach);
@@ -278,7 +286,7 @@ void main()
     // How much of the canvas covers this pixel; where it is clear, whatever
     // lies beneath the page shows through the glaze.
     float cover = (2.0 * centre.a + left.a + right.a) * 0.25;
-    vec2 bleed = vec2(VHS_BLEED * texel.x, 0.0);
+    vec2 bleed = vec2(VHS_BLEED * mix(1.0, DAY_BLEED, day) * texel.x, 0.0);
     vec3 src = vec3(texture(iTexture, suv - bleed).r, smear.g, texture(iTexture, suv + bleed).b);
     src = mix(smear, src, 0.65);
     if (iDay > 0.5) src = 1.0 - src;

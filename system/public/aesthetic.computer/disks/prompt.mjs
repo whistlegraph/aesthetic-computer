@@ -6822,7 +6822,7 @@ function paint($) {
       const ox = at.x + 8 * s, oy = at.y + 8 * s; // the reticle's centre
       // AC's cursor cyan, except the hover blink's yellow select and teal
       // inner phases; the press stays cyan for the handoff to the world.
-      const color = !hot || doolFlight ? [0, 255, 255] : lockBlink ? [255, 224, 102] : [0, 190, 175];
+      const color = !hot || doolFlight ? ($.dark ? [0, 255, 255] : [0, 196, 214]) : lockBlink ? ($.dark ? [255, 224, 102] : [232, 150, 0]) : [0, 190, 175];
       // Every shadow first, then every stroke: with no depth here, a
       // vertical arm's shadow drawn after its neighbour's stroke bit a black
       // notch out of the bottom-left corner (2026-11-03). dool's depth test
@@ -6908,12 +6908,19 @@ function paint($) {
                   255,                  // text alpha brighter
                   [35, 42, 50, 160]
                 ]
-              : [
-                  [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
-                  [40, 50, 60, 128],    // outline: lighter blue/gray
-                  255,                  // text alpha
-                  [20, 25, 30, 128]
-                ];
+              : $.dark
+                ? [
+                    [20, 25, 30, 128],    // fill: dark blue/gray (up-to-date)
+                    [40, 50, 60, 128],    // outline: lighter blue/gray
+                    255,                  // text alpha
+                    [20, 25, 30, 128]
+                  ]
+                : [
+                    [255, 253, 236, 215], // fill: a slip of light paper (up-to-date, by day)
+                    [96, 104, 120, 200],  // outline: slate
+                    255,
+                    [255, 253, 236, 215]
+                  ];
         // The hash's letters are drawn here instead, metallic: a hue taken
         // from the hash's own first six hex digits, a bright sheen sweeping
         // across them (2026-11-03).
@@ -6922,14 +6929,18 @@ function paint($) {
           const hex = (commitText || "").replace(/[^0-9a-f]/gi, "").padEnd(6, "8").slice(0, 6);
           const r0 = parseInt(hex.slice(0, 2), 16), g0 = parseInt(hex.slice(2, 4), 16), b0 = parseInt(hex.slice(4, 6), 16);
           const top = Math.max(r0, g0, b0, 1);
-          const base = [r0, g0, b0].map((v) => 110 + Math.round((v / top) * 120)); // bright, keeps the hash's hue
+          // Bright on the night's dark slip; by day dark ink on light paper,
+          // the sheen a brighter run of the same hue and the shadow a pale
+          // emboss, so the letters hold their edges.
+          const lit = $.dark || updateAvailable || versionInfo.status === "behind";
+          const base = [r0, g0, b0].map((v) => (lit ? 110 + Math.round((v / top) * 120) : 18 + Math.round((v / top) * 92))); // keeps the hash's hue
           const tt = performance.now();
           let tx = cBox.x + 2;
           [...commitText].forEach((ch, i) => {
             const band = Math.pow(Math.max(0, Math.cos((i * 0.9 - tt / 160) * 0.5)), 6);
             const shade = 0.7 + 0.3 * Math.sin(i * 1.7 + tt / 900);
-            const col = base.map((v) => Math.min(255, Math.round(v * shade + (255 - v * shade) * band)));
-            $.ink(0, 0, 0, 160).write(ch, { x: tx + 1, y: cBox.y + 3 }, undefined, undefined, false, "MatrixChunky8");
+            const col = base.map((v) => Math.min(255, Math.round(v * shade + ((lit ? 255 : Math.min(255, v * 2.1)) - v * shade) * band)));
+            $.ink(...(lit ? [0, 0, 0, 160] : [255, 255, 255, 230])).write(ch, { x: tx + 1, y: cBox.y + 3 }, undefined, undefined, false, "MatrixChunky8");
             $.ink(...col).write(ch, { x: tx, y: cBox.y + 2 }, undefined, undefined, false, "MatrixChunky8");
             tx += $.text.box(ch, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
           });
@@ -7753,11 +7764,26 @@ function paint($) {
       // A shadow under every letter for contrast against the curtain: the
       // label's own colour codes, each darkened to a quarter, drawn a pixel
       // down and right (the button's text sits 4 px in from its box).
+      // By day (2026-11-10) a dark shadow fills the counters of small
+      // letters (an "e" went solid), and the handle's pale colours sink into
+      // light paper: there each letter is inked down to a dark tone of its
+      // own hue, over a pale emboss a pixel down and right.
+      const day = !$.dark;
+      const retone = (txt, f) => txt.replace(/\\(\d+),(\d+),(\d+)\\/g, (m, r, g, b) => `\\${f([+r, +g, +b]).join(",")}\\`);
+      const inked = (c) => {
+        const l = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+        const k = l > 84 ? 84 / l : 1;
+        return c.map((v, i) => (i < 3 ? Math.round(v * k) : v));
+      };
+      const under = day ? (c) => c.map((v, i) => (i < 3 ? 255 - ((255 - v) >> 3) : v)) : (c) => c.map((v, i) => (i < 3 ? v >> 2 : v));
+      const dayBase = (base) => (day ? [base[0], base[1], inked(base[2]), base[3]] : base);
       if (profile) {
-        const shadow = profile.txt.replace(/\\(\d+),(\d+),(\d+)\\/g, (m, r, g, b) => `\\${r >> 2},${g >> 2},${b >> 2}\\`);
-        $.ink(profileScheme[2].map((c, i) => (i < 3 ? c >> 2 : c))).write(shadow, { x: profile.btn.box.x + 5, y: profile.btn.box.y + 5 });
+        $.ink(under(profileScheme[2])).write(retone(profile.txt, under), { x: profile.btn.box.x + 5, y: profile.btn.box.y + 5 });
       }
-      profile?.paint($, bareHandle(profileScheme), heldHandle(profileRollover), undefined, bareHandle(profileRollover));
+      const label = profile?.txt;
+      if (profile && day) profile.txt = retone(label, inked);
+      profile?.paint($, bareHandle(dayBase(profileScheme)), heldHandle(dayBase(profileRollover)), undefined, bareHandle(dayBase(profileRollover)));
+      if (profile && day) profile.txt = label;
     } else {
       profile?.paint(
         $,
