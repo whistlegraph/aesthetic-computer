@@ -2000,7 +2000,8 @@ export async function createView(canvas) {
         for (const [key, c] of Object.entries(tiles)) {
           const [i, j] = key.split(',').map(Number);
           const x = -18 + i * 2, z = -18 + j * 2, col = TILE_COLORS[(c - 1) % TILE_COLORS.length];
-          quad([x + 0.06, 0.005, z + 0.06], [x + 1.94, 0.005, z + 0.06], [x + 1.94, 0.005, z + 1.94], [x + 0.06, 0.005, z + 1.94], col);
+          // Edge to edge: neighbours of one colour read as one field (2026-11-10).
+          quad([x, 0.005, z], [x + 2, 0.005, z], [x + 2, 0.005, z + 2], [x, 0.005, z + 2], col);
         }
       });
     }

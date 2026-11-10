@@ -410,7 +410,19 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     let diagnosticAt = -Infinity, stallAt = -Infinity;
     const stallSession = randomUUID().slice(0, 6); // One visit, not a person.
     const creditRefreshes = new Set();
-    const member = room.add(ws, nativeAccount);
+    // A page that says it is signed in waits for its handle before it is
+    // seated or named, for a few seconds at most.
+    const webAccount = !nativeAccount && url.searchParams.get('account') === '1';
+    const member = room.add(ws, nativeAccount || webAccount);
+    const seatGuest = () => {
+      clearTimeout(accountHold);
+      if (room.sessions.has(ws) && !member.ready) {
+        member.ready = true;
+        room.assign();
+      }
+    };
+    const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
+    accountHold?.unref?.();
     room.match.setObjects(store.objects(key));
     let accountAttempted = false;
     const identifyAccount = async (token) => {
@@ -549,7 +561,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       if (data?.type === 'cancel-build' && owner && member.seat >= 0)
         builders.cancel(owner, key);
-      if (data?.type === 'account') void identifyAccount(data.accessToken);
+      if (data?.type === 'account') void identifyAccount(data.accessToken).finally(seatGuest);
+      if (data?.type === 'account-none') seatGuest();
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
           const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
@@ -611,7 +624,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           })
           .then(() => builders.broadcast(key));
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
-        void store.paintTile(key, data.i, data.j).then(() => builders.broadcast(key));
+        void store.paintTile(key, data.i, data.j, data.c).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
         void builders.restore(ws, key, owner, member.seat, data.code);
       if (data?.type === 'input' && member.seat >= 0)
@@ -621,6 +634,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     });
     ws.on('close', (code) => {
       diagnostics.emit('connection.closed', { session: ws.diagnosticSession, closeCode: code });
+      clearTimeout(accountHold);
       for (const timer of creditRefreshes) clearTimeout(timer);
       clearInterval(heartbeat);
       room.remove(ws);

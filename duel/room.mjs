@@ -81,7 +81,8 @@ export class Room {
       spectators,
     };
     for (const r of this.sessions.values())
-      if (r.welcomed) this.send(r.ws, { ...message, self: this.public(r) });
+      // A member still waiting for its handle has no name to show yet.
+      if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? this.public(r) : null });
   }
   remove(ws) {
     const r = this.sessions.get(ws);

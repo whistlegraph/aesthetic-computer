@@ -174,12 +174,13 @@ export class ObjectStore {
   tiles(room) {
     return this.data.tiles?.[room] || {};
   }
-  // Cycle a square through the palette and back to bare.
-  paintTile(room, i, j) {
+  // Cycle a square through the palette and back to bare, or set it outright
+  // (`colour` 0..6, 0 bare): a held brush dragged across the floor.
+  paintTile(room, i, j, colour = null) {
     return this.transact((data) => {
       const tiles = ((data.tiles ||= {})[room] ||= {});
       const key = `${i},${j}`;
-      const next = ((tiles[key] || 0) + 1) % 7;
+      const next = Number.isInteger(colour) && colour >= 0 && colour <= 6 ? colour : ((tiles[key] || 0) + 1) % 7;
       if (next) tiles[key] = next;
       else delete tiles[key];
       return tiles;

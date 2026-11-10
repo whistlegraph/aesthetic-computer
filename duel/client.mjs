@@ -8,7 +8,7 @@ import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
-import { accountToken } from './account.mjs';
+import { accountToken, accountExpected } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -248,6 +248,10 @@ let holdTime = 0,
 // ceiling and the dotted floor all show and the room reads as a room.
 let freecam = { x: -3, y: 2.1, z: -WORLD + 2, yaw: 28, pitch: -7 };
 let freecamPlaced = false;
+// Just arrived and not seated yet (the seat waits for a signed-in handle):
+// that is joining, not watching, so none of the spectator's mode shows.
+let joiningUntil = 0;
+const joining = () => seat < 0 && performance.now() < joiningUntil;
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -444,7 +448,10 @@ if (query.has('debug'))
 function connect() {
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  url.search = new URLSearchParams({ room, protocol: PROTOCOL });
+  // 🔐 Signed in on this page: fetch the token while the socket opens, and
+  // ask the server to keep the seat for the handle (no guest name first).
+  const account = accountExpected() ? accountToken() : null;
+  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(account ? { account: '1' } : {}) });
   history = [];
   pending = [];
   player = null;
@@ -461,6 +468,7 @@ function connect() {
   members = [];
   selfMember = null;
   freecamPlaced = false;
+  joiningUntil = performance.now() + 7000;
   connectAttempts++;
   logNet(`connecting to room ${room} (try ${connectAttempts})`);
   ws = new WebSocket(url);
@@ -498,16 +506,17 @@ function connect() {
     }
     if (data.type === 'welcome') {
       configureDiagnostics(data.diagnostics === true);
-      logNet(seat >= 0 ? `joined as player ${seat + 1}` : 'joined as a spectator', { good: true });
+      logNet(seat >= 0 ? `joined as player ${seat + 1}` : account ? 'signing in' : 'joined as a spectator', { good: true });
       if (data.joinURL) joinURL = data.joinURL;
       let token;
       try {
         token = localStorage.getItem('dool-owner');
       } catch {}
       send({ type: 'identity', token });
-      void accountToken().then((accessToken) => {
-        if (accessToken && ws === socket)
-          send({ type: 'account', accessToken });
+      void (account || accountToken()).then((accessToken) => {
+        if (ws !== socket) return;
+        if (accessToken) send({ type: 'account', accessToken });
+        else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       });
     }
     if (data.type === 'presence') {
@@ -1070,11 +1079,35 @@ document.addEventListener('keydown', (e) => {
 });
 // Paint the floor square the aim ray lands on (the highlighted one), never
 // the one underfoot (2026-11-03).
+// A press steps the square to its next colour and loads the brush with it;
+// held, the brush paints every square the aim crosses (2026-11-10), so a
+// press picks the colour and a drag lays it down.
+let brush = null; // { colour, key }: the colour in hand and the last square it touched.
 function paintSquare() {
   const at = floorAim && !focusObject ? floorAim : null;
   if (!at) return;
-  send({ type: 'paint', i: at.i, j: at.j });
+  const key = `${at.i},${at.j}`;
+  brush = { colour: ((tiles[key] || 0) + 1) % 7, key };
+  layTile(at, brush.colour);
+}
+function layTile(at, colour) {
+  const key = `${at.i},${at.j}`;
+  // Shown at once; the server's next word on the floor confirms it.
+  tiles = { ...tiles };
+  if (colour) tiles[key] = colour;
+  else delete tiles[key];
+  send({ type: 'paint', i: at.i, j: at.j, c: colour });
   sfx.ringPick(at.i + at.j);
+}
+function dragBrush() {
+  if (!brush) return;
+  if (!keys.has('KeyX') || seat < 0 || chalkMode) return void (brush = null);
+  const at = floorAim && !focusObject ? floorAim : null;
+  if (!at) return;
+  const key = `${at.i},${at.j}`;
+  if (key === brush.key) return;
+  brush.key = key;
+  if ((tiles[key] || 0) !== brush.colour) layTile(at, brush.colour);
 }
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 document.addEventListener('mousedown', (e) => {
@@ -1229,6 +1262,7 @@ function step(now) {
     }
   }
   if (gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
+  dragBrush();
   fpsFrames++;
   if (now - fpsAt >= 500) {
     fps = Math.round((fpsFrames * 1000) / (now - fpsAt));
@@ -1371,7 +1405,7 @@ function step(now) {
   if (seat >= 0 && (keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || pad.fwd || pad.right || pad.dx || pad.dy))
     activeSeconds += Math.min(0.1, elapsed);
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
-  if (seat < 0 && connected)
+  if (seat < 0 && connected && !joining())
     freecam = moveFreecam(
       { ...freecam, yaw, pitch },
       {
@@ -1559,7 +1593,7 @@ function step(now) {
     players: connected ? [0, 1].map((i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
     camera: seat < 0 ? { ...freecam, yaw, pitch } : null,
-    spectator: seat < 0,
+    spectator: seat < 0 && !joining(),
     controller: controller.id,
     seat,
     third,
