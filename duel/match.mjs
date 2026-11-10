@@ -17,6 +17,11 @@ import {
 } from './world.mjs';
 import { command } from './net.mjs';
 
+// Input from a real network arrives late and in bursts. A batch carries the
+// newest commands again so a dropped message costs nothing; the queue holds
+// what a burst can bring; the grace is how long a silent player is held
+// still and owed their time before the body runs on without them.
+export const INPUT_BATCH = 12, INPUT_QUEUE = 24, INPUT_GRACE = 12;
 export class Match {
   constructor() {
     this.tick = 0;
@@ -414,14 +419,14 @@ export class Match {
 
   input(seat, commands) {
     const s = this.seats[seat];
-    if (!s || !Array.isArray(commands) || commands.length > 6) return;
+    if (!s || !Array.isArray(commands) || commands.length > INPUT_BATCH) return;
     for (const raw of commands) {
       const c = command(raw);
       if (
         !c ||
         c.seq <= s.ack ||
         c.seq > s.ack + 120 ||
-        s.queue.length >= 12 ||
+        s.queue.length >= INPUT_QUEUE ||
         s.queue.some((q) => q.seq === c.seq)
       )
         continue;
@@ -441,33 +446,58 @@ export class Match {
     if (this.phase === 'countdown' && this.tick >= this.until) this.phase = 'playing';
     const shots = [];
     for (const s of this.seats.filter(Boolean)) {
-      // Drain excess backlog without granting extra movement or weapon time.
-      while (s.queue.length > 6) s.ack = s.queue.shift().seq;
-      const c = s.queue.shift();
-      if (c) {
-        s.ack = c.seq;
-        s.last = c;
+      // ⏱️ A player moves by their own commands, one per tick of their own
+      // time, as in Quake: a command that arrives late is still run, in the
+      // order sent, so the server ends where the client predicted and a
+      // jittery link never drags anyone back. The budget is real time: a
+      // tick with nothing to run is owed (up to INPUT_GRACE), and owed ticks
+      // are spent when the late commands land. Nobody gains time by it.
+      const take = Math.min(s.queue.length, 1 + (s.owed || 0));
+      let commands = s.queue.splice(0, take);
+      if (take) {
+        s.owed = (s.owed || 0) - (take - 1);
+        s.quiet = 0;
+      } else if (s.ack && (s.quiet || 0) < INPUT_GRACE) {
+        // Late, not gone: hold still and owe the tick.
+        s.owed = Math.min(INPUT_GRACE, (s.owed || 0) + 1);
+        s.quiet = (s.quiet || 0) + 1;
+      } else {
+        // Nothing for a while (or never): the body runs on with no input.
+        s.owed = 0;
+        commands = [null];
       }
-      const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
+      // More waiting than the budget will ever run: drop the oldest without
+      // granting movement or weapon time.
+      while (s.queue.length > INPUT_QUEUE / 2) s.ack = s.queue.shift().seq;
       let p = s.player;
       if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
         p = { ...spawn(p.seat, p.life + 1), score: p.score };
         s.last = {};
       }
       p.cooldown = Math.max(0, p.cooldown - 1);
-      // Waiting is a movement warmup; the match countdown locks both spawns.
-      if (this.phase === 'playing' || this.phase === 'waiting')
-        p = move(p, input, this.objects, this.tick / HZ);
-      else if (c) {
-        p.yaw = c.yaw;
-        p.pitch = c.pitch;
+      let fire = false;
+      for (const c of commands) {
+        if (c) {
+          s.ack = c.seq;
+          s.last = c;
+        }
+        const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
+        // Waiting is a movement warmup; the match countdown locks both spawns.
+        if (this.phase === 'playing' || this.phase === 'waiting')
+          p = move(p, input, this.objects, this.tick / HZ);
+        else if (c) {
+          p.yaw = c.yaw;
+          p.pitch = c.pitch;
+        }
+        s.player = p;
+        if (c && (c.use || c.drop)) this.useItem(s, c);
+        if (c?.chalk) this.addChalk(p.seat, c.chalk);
+        if (c) this.chalking[p.seat] = !!c.chalk;
+        fire ||= !!c?.fire;
       }
       s.player = p;
-      if (c && (c.use || c.drop)) this.useItem(s, c);
-      if (c?.chalk) this.addChalk(p.seat, c.chalk);
-      if (c) this.chalking[p.seat] = !!c.chalk;
       if (
-        c?.fire &&
+        fire &&
         p.alive &&
         !p.cooldown &&
         (this.phase === 'playing' || this.phase === 'waiting')

@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { WebSocket, WebSocketServer } from 'ws';
 import { createServer } from 'node:http';
 import { attachSocketRoute } from '../../lith/socket-routing.mjs';
-import { Match } from '../match.mjs';
+import { Match, INPUT_BATCH, INPUT_QUEUE, INPUT_GRACE } from '../match.mjs';
 import { createDuelServer } from '../server.mjs';
 import { spawn, spawnPoint, move, HZ, PROTOCOL, FRAG_LIMIT, MAX_PLAYERS } from '../world.mjs';
 import { command, reconcile, interpolate } from '../net.mjs';
@@ -61,8 +61,55 @@ test('input validation, duplicate/reordered commands and flooding cannot buy sim
   assert.equal(m.seats[0].queue.length, 1);
   const before = m.tick;
   for (let seq = 4; seq < 100; seq++) m.input(0, [cmd(seq, { fwd: 1 })]);
-  assert.ok(m.seats[0].queue.length <= 12);
+  assert.ok(m.seats[0].queue.length <= INPUT_QUEUE);
   m.step(); assert.equal(m.tick, before + 1);
+});
+
+test('late commands are run in the order sent: the server ends where the client predicted', () => {
+  const m = new Match(); m.join();
+  let local = spawn(0);
+  const transit = [];
+  let last = 0;
+  // Every command is delivered in order (a socket is a stream), but late and
+  // in clumps: up to nine ticks behind.
+  for (let seq = 1; seq <= 300; seq++) {
+    const c = cmd(seq, { fwd: seq % 50 < 40 ? 1 : 0, right: seq % 70 < 20 ? 1 : 0, yaw: (seq * 3) % 360 });
+    local = move(local, c);
+    last = Math.max(last, seq + [0, 0, 1, 9, 8, 7, 0, 3, 2, 1][seq % 10]);
+    transit.push({ due: last, commands: [c] });
+    for (const packet of transit.filter((p) => p.due === seq)) m.input(0, packet.commands);
+    m.step();
+  }
+  for (const packet of transit.filter((p) => p.due > 300)) m.input(0, packet.commands);
+  for (let i = 0; i < 12; i++) m.step();
+  assert.equal(m.seats[0].ack, 300);
+  const p = m.seats[0].player;
+  assert.ok(Math.hypot(p.x - local.x, p.z - local.z) < 1e-9, 'no command was dropped or replaced by an idle tick');
+});
+
+test('a flood cannot run more commands than the time that has passed, plus the grace', () => {
+  const m = new Match(); m.join();
+  let seq = 0;
+  for (let tick = 0; tick < 100; tick++) {
+    // Twelve fresh commands every tick: twelve times real time, if it were allowed.
+    m.input(0, Array.from({ length: INPUT_BATCH }, () => cmd(++seq, { fwd: 1 })));
+    m.step();
+  }
+  const still = spawn(0);
+  let honest = still;
+  for (let i = 0; i < 100 + INPUT_GRACE; i++) honest = move(honest, cmd(1, { fwd: 1 }));
+  const p = m.seats[0].player;
+  assert.ok(Math.hypot(p.x - still.x, p.z - still.z) <= Math.hypot(honest.x - still.x, honest.z - still.z) + 1e-9);
+});
+
+test('a player who goes silent is held for the grace, then the body runs on', () => {
+  const m = new Match(); m.join();
+  for (let seq = 1; seq <= 30; seq++) { m.input(0, [cmd(seq, { fwd: 1 })]); m.step(); }
+  const moving = { ...m.seats[0].player };
+  for (let i = 0; i < INPUT_GRACE; i++) m.step();
+  assert.equal(m.seats[0].player.z, moving.z, 'held still while the commands may only be late');
+  for (let i = 0; i < 30; i++) m.step();
+  assert.notEqual(m.seats[0].player.z, moving.z, 'then friction takes over');
 });
 
 test('three-command backup recovers dropped packets and reconciles under jitter', () => {

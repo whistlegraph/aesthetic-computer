@@ -445,6 +445,7 @@ if (query.has('debug'))
     origin: view.aimOrigin(),
     forward: view.aimForward(),
     floorAim,
+    corrections: { ...corrections },
     focus: focusObject?.id || null,
     cursorAim,
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
@@ -1209,12 +1210,23 @@ const AGENT = window.webkit?.messageHandlers?.iOSApp || window.parent?.webkit?.m
   : /chrome|chromium|crios/i.test(navigator.userAgent) ? 'chrome'
   : /safari/i.test(navigator.userAgent) ? 'safari' : 'other';
 const stalls = new Stalls({ send: (m) => send(m) });
+const corrections = { count: 0, sum: 0, max: 0 };
 function applyPrediction() {
   if (!prediction) return;
   const began = performance.now(), data = prediction, own = data.players[seat];
   prediction = null;
   const changedLife = !player || own.life !== player.life;
   const result = reconcile(own, pending, data.acks[seat], solids(), data.tick);
+  // How far the server's word moved us from where we thought we were: zero
+  // when prediction holds (?debug reads it).
+  if (player && !changedLife) {
+    const d = Math.hypot(result.player.x - player.x, result.player.y - player.y, result.player.z - player.z);
+    if (d > 0.002) {
+      corrections.count++;
+      corrections.sum += d;
+      corrections.max = Math.max(corrections.max, d);
+    }
+  }
   pending = result.pending;
   player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
   presentation.correct(player, changedLife || resetPrediction);
@@ -1527,7 +1539,7 @@ function step(now) {
   }
   // One newest batch per display frame: catch-up steps don't flood a slow link.
   if (seq !== firstSequence)
-    send({ type: 'input', commands: pending.slice(-6) });
+    send({ type: 'input', commands: pending.slice(-12) }); // match.mjs INPUT_BATCH
   const seconds = snapshot
     ? Math.max(1, Math.ceil((snapshot.until - snapshot.tick) / HZ))
     : 0;
