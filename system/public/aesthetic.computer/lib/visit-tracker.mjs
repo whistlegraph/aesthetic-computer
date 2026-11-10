@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261105-notepat-midi";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261110-notepat-play";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -11,6 +11,7 @@ export function startVisitTracker(win = window, doc = document) {
       !visitProperty(win.location.hostname) || !win.crypto?.randomUUID) return null;
 
   let manualNotes = 0;
+  let playMs = 0, playUntil = 0;
   let state, path, visibleMs = 0, lastTick = win.performance.now(), lastSent = "";
   let wasVisible = doc.visibilityState === "visible";
   let stopped = false, timer, recognition, failures = 0, retryAt = 0;
@@ -34,6 +35,7 @@ export function startVisitTracker(win = window, doc = document) {
       ...notepatVisitContext(win.location.hostname, win.location.search),
     };
     manualNotes = 0;
+    playMs = 0; playUntil = 0;
     visibleMs = 0; lastSent = ""; lastTick = win.performance.now();
     wasVisible = visible();
   };
@@ -71,6 +73,14 @@ export function startVisitTracker(win = window, doc = document) {
     if (stopped) return;
     syncRoute();
     const now = win.performance.now();
+    // Estimated playing: visible time within five seconds of a manual note.
+    // Chords share one clock; pauses, hidden tabs and suspension do not accrue.
+    if (state?.notepatPlayVersion && !disabled()) {
+      if (wasVisible) playMs += Math.max(0, Math.min(now, playUntil) - Math.max(lastTick, now - 2000));
+      if (!visible()) playUntil = 0;
+      playMs = Math.min(3600000, playMs);
+      state.notepatPlaySeconds = Math.floor(playMs / 5000) * 5;
+    }
     // Cap suspension gaps: a sleeping laptop is not engagement time.
     if (wasVisible) visibleMs += Math.min(2000, Math.max(0, now - lastTick));
     lastTick = now; wasVisible = visible();
@@ -108,6 +118,8 @@ export function startVisitTracker(win = window, doc = document) {
     }
     if (!state?.interacted) return false;
     if (name === "notepat_note_played") {
+      tick();
+      playUntil = win.performance.now() + 5000;
       manualNotes = Math.min(8, manualNotes + 1);
       if (!state.actions.includes("note_played")) state.actions.push("note_played");
       if (manualNotes === 8 && !state.actions.includes("notepat_eight_notes")) state.actions.push("notepat_eight_notes");

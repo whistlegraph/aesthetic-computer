@@ -8,6 +8,7 @@ import { notepatVisitContext, validateVisit, visitUpdate, visitLinkAction, VISIT
 import { notepatPathway, notepatPipeline } from "../../toolchain/analytics/notepat.mjs";
 
 function harness(hostname = "notepat.com") {
+  let now = 0, poll;
   const target = () => {
     const listeners = new Map();
     return { addEventListener(type, fn) { listeners.set(type, [...(listeners.get(type) || []), fn]); },
@@ -16,14 +17,17 @@ function harness(hostname = "notepat.com") {
   };
   const sent = [], doc = { ...target(), visibilityState: "visible", querySelectorAll: () => [], querySelector: () => null,
     referrer: "https://nopaint.art/?private=secret", hasFocus: () => true };
-  const win = { ...target(), navigator: {}, crypto: { randomUUID }, performance: { now: () => 0 },
+  const win = { ...target(), navigator: {}, crypto: { randomUUID }, performance: { now: () => now },
     location: { hostname, pathname: "/", search: "?ac_campaign=nopaint-music&private=secret" },
     fetch: async (_url, options) => { sent.push(JSON.parse(options.body)); return { ok: true }; },
-    setInterval: () => 1, clearInterval() {} };
+    setInterval: fn => { poll = fn; return 1; }, clearInterval() {} };
   win.top = win;
   const api = startVisitTracker(win, doc);
   const interact = (isTrusted = true) => win.emit("keydown", { isTrusted, target: {} });
-  return { win, doc, api, sent, interact };
+  return { win, doc, api, sent, interact, advance(ms, step = 1000) {
+    const end = now + ms;
+    while (now < end) { now = Math.min(end, now + step); poll(); }
+  } };
 }
 
 test("Notepat readiness precedes interaction; manual milestones stay bounded and private", () => {
@@ -79,7 +83,7 @@ test("private route boundaries reset note progress; other properties retain gene
 test("campaign validation and cumulative updates reject private labels and preserve load coverage", () => {
   const { sent } = harness();
   const body = sent[0];
-  assert.deepEqual(notepatVisitContext("notepat.com", "?ac_campaign=secret"), { notepatVersion: 1, notepatReady: false, campaign: null });
+  assert.deepEqual(notepatVisitContext("notepat.com", "?ac_campaign=secret"), { notepatVersion: 1, notepatReady: false, notepatPlayVersion: 1, notepatPlaySeconds: 0, campaign: null });
   assert.deepEqual(notepatVisitContext("jas.life", "?ac_campaign=nopaint-music"), {});
   for (const bad of [{ campaign: "secret" }, { notepatVersion: 2 }, { notepatReady: "secret" }])
     assert.equal(validateVisit({ ...body, ...bad }, "https://notepat.com"), null);
@@ -141,4 +145,71 @@ test("entry attribution survives runtime URL cleanup and tracker installs before
   const tracker = html.indexOf('src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs');
   const boot = html.indexOf('src="/aesthetic.computer/boot.mjs"');
   assert.ok(tracker > 0 && tracker < boot, "deferred tracker must execute before URL-rewriting boot");
+});
+
+test("play time follows manual notes, not idle tabs, chords, hidden time or suspension", () => {
+  const h = harness();
+  h.interact(); h.advance(60000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 0);
+  for (let n = 0; n < 8; n++) h.api.action("notepat_note_played");
+  h.advance(4000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 0, "round down to five seconds");
+  h.advance(1000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 5, "chord notes share one clock");
+  h.advance(60000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 5, "idle time stops after five seconds");
+  h.api.action("notepat_note_played"); h.advance(3000);
+  h.doc.visibilityState = "hidden"; h.doc.emit("visibilitychange"); h.advance(60000);
+  h.doc.visibilityState = "visible"; h.doc.emit("visibilitychange"); h.advance(10000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 5, "no hidden or stale resumed time");
+  h.api.action("notepat_note_played"); h.advance(2000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 10);
+  h.api.action("notepat_note_played"); h.advance(60000, 60000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 10, "sleep cannot fabricate play");
+  h.win.acVisitTrackingDisabled = true;
+  const count = h.sent.length; h.advance(10000);
+  assert.equal(h.sent.length, count);
+  assert.ok(h.sent.every(row => validateVisit(row, "https://notepat.com")));
+});
+
+test("continuous playing caps at one hour and private boundaries reset the clock", () => {
+  const h = harness(); h.interact();
+  for (let n = 0; n < 910; n++) { h.api.action("notepat_note_played"); h.advance(4000); }
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 3600);
+  h.win.location.pathname = "/mail"; h.advance(1000);
+  h.win.location.pathname = "/"; h.advance(1000);
+  assert.equal(h.sent.at(-1).notepatPlaySeconds, 0);
+});
+
+test("play duration is bounded, note-qualified and merged monotonically", () => {
+  const h = harness(); h.interact(); h.api.action("notepat_note_played"); h.advance(10000);
+  const body = h.sent.at(-1);
+  for (const bad of [{ notepatPlaySeconds: -5 }, { notepatPlaySeconds: 3 },
+    { notepatPlaySeconds: 3605 }, { notepatPlaySeconds: "5" }, { notepatPlayVersion: 2 },
+    { notepatPlayVersion: undefined }, { notepatPlaySeconds: undefined }, { actions: {} }, { actions: [] }])
+    assert.equal(validateVisit({ ...body, ...bad }, "https://notepat.com"), null);
+  const update = visitUpdate(validateVisit(body, "https://notepat.com"));
+  assert.equal(update.$max.notepatPlaySeconds, 5);
+  assert.equal(update.$max.notepatPlayVersion, 1);
+  const { notepatPlayVersion, notepatPlaySeconds, ...old } = body;
+  assert.ok(validateVisit(old, "https://notepat.com"), "older clients remain valid");
+  assert.equal(visitUpdate(validateVisit(old, "https://notepat.com")).$max.notepatPlaySeconds, undefined);
+});
+
+test("duration cohorts exclude missing coverage from means and distinguish zero players", () => {
+  const report = notepatPathway([
+    { _id: { source: "nopaint-music", measured: 1 }, visits: 8, firstNote: 4 },
+    { _id: { source: "nopaint-music", measured: 1, playMeasured: 1 }, visits: 4,
+      firstNote: 2, playSeconds: 80, maxPlaySeconds: 65, played10: 2, played30: 1, played60: 1 },
+    { _id: { source: "other", measured: 1, playMeasured: 1 }, visits: 3, firstNote: 0 },
+  ]);
+  const [campaign, missing, idle] = report.cohorts.map(c => c.playTime);
+  assert.equal(campaign.measuredVisits, 4);
+  assert.equal(campaign.unmeasuredVisits, 8);
+  assert.equal(campaign.averageSecondsLowerBoundPerPlayer, 40);
+  assert.equal(campaign.maxSecondsLowerBound, 65);
+  assert.deepEqual(campaign.playersAtLeast, { 10: 2, 30: 1, 60: 1, 180: 0, 600: 0 });
+  assert.equal(missing.totalSecondsLowerBound, null);
+  assert.equal(idle.totalSecondsLowerBound, 0);
+  assert.equal(idle.averageSecondsLowerBoundPerPlayer, null);
 });

@@ -5,7 +5,7 @@
 <title>Aesthetic network visit measurements</title>
 <style>body{max-width:42rem;margin:3rem auto;padding:0 1rem;font:18px/1.6 system-ui;color:#222;background:#fff}a{color:#174ca0}</style>
 <h1>Website visit measurements</h1>
-<p>Updated October 15, 2026.</p>
+<p>Updated November 9, 2026.</p>
 <p>Our public websites send small visit summaries to Aesthetic Computer so we
 can understand which projects people open, interact with, and use.</p>
 <p>A random identifier lasts for one page visit. It is held in memory, with no
@@ -17,6 +17,12 @@ recording, saving media or completing a game round. Actions are yes/no flags
 per visit, not recordings of notes, drawings or clicks. The tracker does not send page text, full
 URLs, search queries, form contents, raw keys, pointer movements or account
 identity. Known automated browsers are counted separately.</p>
+<p>On notepat.com, we estimate play time by counting visible time within five
+seconds of a manually played note. Pauses and hidden tabs stop the clock.
+The cumulative total is rounded down to five seconds and capped at one hour
+per visit. This is not a recording or a measure of how long sound was audible;
+held notes beyond the five-second window are not counted. A fixed campaign tag
+distinguishes arrivals from No Paint without linking visits or people.</p>
 <p>The visit database retains records for 35 days. Network requests necessarily
 reach our servers; existing access logs are separate from this database. The
 collector uses a temporary, salted address digest in memory for rate limiting,

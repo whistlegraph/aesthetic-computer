@@ -676,6 +676,18 @@ set `notepat_note_played` (and the existing `note_played` flag); the eighth
 sets `notepat_eight_notes`. A chord may contribute several starts. Autopat is
 excluded. No notes, pitch, velocity, phrase, URL, or exact count are transmitted.
 
+Play-duration coverage uses `notepatPlayVersion: 1` and cumulative
+`notepatPlaySeconds`: visible time within five seconds of an accepted manual
+note start, rounded down to five seconds, capped at 3,600 seconds per visit.
+Chords do not multiply the clock. Hidden tabs clear the active window; polling
+gaps contribute at most two seconds, and resuming after a pause never fills the
+gap retrospectively. Sustained notes beyond five seconds are not counted.
+This estimates recent-note activity, not audible duration or attention.
+Snapshots merge by maximum and share the existing opt-outs and 35-day TTL.
+The pathway report includes measured coverage, player visits, mean and maximum
+estimated play seconds, and counts reaching 10/30/60/180/600 seconds by arrival
+cohort. Historical rows lacking this version remain unmeasured, not zero.
+
 `notepat_recording_started` marks Rec activation. A nonempty serialized phrase
 sets `notepat_recording_completed`; its jump to clock sets
 `notepat_playback_requested`. Neither confirms listening or saving a file.

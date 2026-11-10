@@ -103,7 +103,7 @@ export function aeselVisitContext(hostname, pathname, search = "") {
 }
 export function notepatVisitContext(hostname, search = "") {
   if (visitProperty(hostname) !== "notepat.com") return {};
-  return { notepatVersion: 1, notepatReady: false,
+  return { notepatVersion: 1, notepatReady: false, notepatPlayVersion: 1, notepatPlaySeconds: 0,
     campaign: new URLSearchParams(search).get("ac_campaign") === "nopaint-music" ? "nopaint-music" : null };
 }
 export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
@@ -184,6 +184,11 @@ export function validateVisit(body, origin, userAgent = "") {
         !(body.campaign === null || AESEL_CAMPAIGNS.includes(body.campaign)))) ||
       (body.notepatVersion !== undefined && (body.notepatVersion !== 1 || property !== "notepat.com" ||
         typeof body.notepatReady !== "boolean" || !(body.campaign === null || body.campaign === "nopaint-music"))) ||
+      ((body.notepatPlayVersion !== undefined || body.notepatPlaySeconds !== undefined) &&
+        (body.notepatPlayVersion !== 1 || body.notepatVersion !== 1 ||
+          !Number.isInteger(body.notepatPlaySeconds) || body.notepatPlaySeconds < 0 ||
+          body.notepatPlaySeconds > 3600 || body.notepatPlaySeconds % 5 !== 0 ||
+          (body.notepatPlaySeconds > 0 && (!Array.isArray(body.actions) || !body.actions.includes("notepat_note_played"))))) ||
       (body.linkVersion !== undefined && body.linkVersion !== 1) ||
       !Array.isArray(body.inputs) || body.inputs.length > INPUTS.length ||
       body.inputs.some(value => !INPUTS.includes(value)) ||
@@ -198,6 +203,7 @@ export function validateVisit(body, origin, userAgent = "") {
     referrerHost: typeof body.referrerHost === "string" ? visitReferrer(body.referrerHost) : null,
     ...(body.aeselVersion === 1 ? { aeselVersion: 1, route: body.route, campaign: body.campaign } : {}),
     ...(body.notepatVersion === 1 ? { notepatVersion: 1, notepatReady: body.notepatReady, campaign: body.campaign } : {}),
+    ...(body.notepatPlayVersion === 1 ? { notepatPlayVersion: 1, notepatPlaySeconds: body.notepatPlaySeconds } : {}),
     ...(body.linkVersion === 1 ? { linkVersion: 1 } : {}),
   };
 }
@@ -206,6 +212,10 @@ export function visitUpdate(visit, now = new Date()) {
   const max = { activeSeconds: visit.activeSeconds, interacted: visit.interacted,
     automated: visit.automated, engaged: visit.interacted && visit.activeSeconds >= 10 };
   if (visit.notepatVersion === 1) max.notepatReady = visit.notepatReady;
+  if (visit.notepatPlayVersion === 1) {
+    max.notepatPlayVersion = 1;
+    max.notepatPlaySeconds = visit.notepatPlaySeconds;
+  }
   if (visit.linkVersion === 1) max.linkVersion = 1;
   for (const input of visit.inputs) max[`inputs.${input}`] = true;
   for (const action of visit.actions) max[`actions.${action}`] = true;

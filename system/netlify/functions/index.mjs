@@ -1347,7 +1347,7 @@ async function fun(event, context) {
         ${pieceHintTag}
         <!-- Install visit state before boot rewrites the entry URL or sends
              piece readiness. Both module scripts execute in document order. -->
-        <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261105-notepat-midi" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261110-notepat-play" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
         <script
           src="/aesthetic.computer/boot.mjs"
           type="module"
