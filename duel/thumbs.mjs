@@ -5,39 +5,18 @@
 import { createRequire } from 'node:module';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { objectPiece, isObjectLisp } from '../system/public/aesthetic.computer/lib/object/viewer.mjs';
+import { objectPiece } from '../system/public/aesthetic.computer/lib/object/viewer.mjs';
 
 const { PNG } = createRequire(new URL('../package.json', import.meta.url))('pngjs');
 const SIZE = 128;
 
 // Render one view: the piece's turntable fixed at a yaw and pitch.
-function view(source, yaw, pitch, size = SIZE, bare = false) {
-  // `preview` at time 0 is the same pose without the name or speaker marks.
-  const piece = objectPiece(source, '', bare ? { yaw, pitch, still: true, preview: true, time: 0 } : { yaw, pitch, still: true });
-  const pixels = new Uint8ClampedArray(size * size * 4);
+function view(source, yaw, pitch) {
+  const piece = objectPiece(source, '', { yaw, pitch, still: true });
+  const pixels = new Uint8ClampedArray(SIZE * SIZE * 4);
   const chain = { write: () => chain };
-  piece.paint({ ink: () => chain, screen: { width: size, height: size, pixels } });
+  piece.paint({ ink: () => chain, screen: { width: SIZE, height: SIZE, pixels } });
   return pixels;
-}
-
-// A menu-row thumbnail: one three-quarter view, TINY pixels square, sent to
-// the client as base64 RGB. Cached by $code, since a code never changes.
-export const TINY = 20;
-const tiny = new Map();
-export function tinyThumb(code, source) {
-  if (tiny.has(code)) return tiny.get(code);
-  let thumb = null;
-  try {
-    if (isObjectLisp(source)) {
-      const rgba = view(source, 0.6, 0.35, TINY, true);
-      const rgb = Buffer.alloc(TINY * TINY * 3);
-      for (let i = 0; i < TINY * TINY; i++) rgba.slice(i * 4, i * 4 + 3).forEach((c, k) => (rgb[i * 3 + k] = c));
-      thumb = rgb.toString('base64');
-    }
-  } catch {}
-  if (tiny.size > 2048) tiny.delete(tiny.keys().next().value);
-  tiny.set(code, thumb);
-  return thumb;
 }
 
 export function renderThumb(geometry) {

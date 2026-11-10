@@ -13,8 +13,6 @@ import { createDiagnostics } from './diagnostics.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
-import { tinyThumb } from './thumbs.mjs';
-import { isObjectLisp } from '../system/public/aesthetic.computer/lib/object/viewer.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Lith installs this dependency in production; standalone development can resolve root's copy.
@@ -298,6 +296,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (cached && Date.now() - cached.at < 30000) return cached.items;
     const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=100000&handle=${encodeURIComponent(handle)}`, { signal: AbortSignal.timeout(10000) });
     const { recent = [] } = await r.json();
+    // Loaded on first use, so the renderer can never stop lith from starting.
+    const { tinyThumb, isObjectLisp } = await import('./tiny-thumbs.mjs');
     const items = recent
       .filter((x) => typeof x.code === 'string' && isObjectLisp(x.source))
       .map((x, i) => ({
