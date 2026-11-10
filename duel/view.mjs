@@ -598,6 +598,7 @@ export async function createView(canvas) {
     input = 'keys',
     devLog = [],
     fps = 0,
+    stallNote = '',
     walls = [],
     cube = [],
     menu = null,
@@ -941,7 +942,7 @@ export async function createView(canvas) {
         draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
         // Name tags are screen text drawn after the world (see below), so
         // they stay crisp and never fight the scene for depth.
-        if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z });
+        if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z, at: p });
         const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10),
           right = direction(p.yaw - 90);
         for (const side of [-1, 1]) {
@@ -1236,6 +1237,7 @@ export async function createView(canvas) {
       }
       projector.overlay(promptModel, width, height);
     }
+    let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells || fps) {
       const width = canvas.width,
         height = canvas.height,
@@ -1247,6 +1249,11 @@ export async function createView(canvas) {
         handle: m.handle,
         colors: m.colors,
       }));
+      if (labels.length && me && !bare)
+        ownTag = {
+          x: -width / 2 + safeX + 2 + (labels[0].label.length * 6 + 3) * unit,
+          y: Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit),
+        };
       const meter = (connection?.label || '').toLowerCase();
       const jitter =
         connection?.samples && connection.jitter >= 10
@@ -1262,6 +1269,7 @@ export async function createView(canvas) {
         joinURL,
         panelTop,
         fps,
+        stallNote,
         !!face,
         bare,
       ]);
@@ -1325,7 +1333,7 @@ export async function createView(canvas) {
               }
               line([{ text: ping, color: pingColor }]);
             }
-            if (SHOW_FPS && fps) line([{ text: `${fps} fps`, color: fpsColor }]);
+            if (SHOW_FPS && fps) line([{ text: `${fps} fps`, color: fpsColor }, ...(stallNote ? [{ text: `  ${stallNote}`, color: fair }] : [])]);
           }
         });
       }
@@ -1334,9 +1342,18 @@ export async function createView(canvas) {
     const W = canvas.width,
       H = canvas.height,
       pixel = W / Math.max(1, canvas.clientWidth);
-    if (tags.length && !menu) {
+    if ((tags.length || ownTag) && !menu) {
       const { unit } = hud;
-      const m = model(({ rect: worldRect, text, handleText }) => {
+      // 📍 World position in metres (x y z), small, after a handle: yours
+      // bottom left, everyone else's over their head.
+      const where = (p) => `${p.x.toFixed(1)} ${(p.y || 0).toFixed(1)} ${p.z.toFixed(1)}`;
+      const m = model(({ rect: worldRect, text, handleText, small }) => {
+        const place = (p, left, y) => {
+          const t = where(p), cx = left + (smallWidth(t) / 2) * unit;
+          small(t, cx + unit, y - unit, 0.000002, unit, INK);
+          small(t, cx, y, 0, unit, THEME.dim);
+        };
+        if (ownTag) place(me, ownTag.x, ownTag.y);
         for (const t of tags) {
           const s = projector.project(t.x, t.y, t.z);
           if (!s || Math.abs(s.x) > 1.1 || Math.abs(s.y) > 1.1) continue;
@@ -1355,6 +1372,7 @@ export async function createView(canvas) {
             text(label, x + unit, y - unit, 0.000002, unit, INK);
             text(label, x, y, 0, unit, PAPER);
           }
+          if (t.at) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y);
         }
       });
       projector.overlay(m, W, H);
@@ -1884,6 +1902,12 @@ export async function createView(canvas) {
             const fx = x0 + (27 + smallWidth(f) / 2) * unit, fy = y0 + nextSlot() * unit;
             small(f, fx + unit, fy - unit, 0.000002, unit, INK); // Shadowed like the rest.
             small(f, fx, fy, 0, unit, fpsColor);
+            // 🧊 After it: how many times the picture stopped, and why last (stalls.mjs).
+            if (stallNote) {
+              const sx = fx + (smallWidth(f) / 2 + 4 + smallWidth(stallNote) / 2) * unit;
+              small(stallNote, sx + unit, fy - unit, 0.000002, unit, INK);
+              small(stallNote, sx, fy, 0, unit, fair);
+            }
           }
         }
         // The health bar under it, in health colours.

@@ -10,6 +10,7 @@ import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
+import { stallRow } from './stalls.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
@@ -44,6 +45,7 @@ const assets = new Map([
     'chunky-font',
     'kidlisp-wall',
     'diagnostics-client',
+    'stalls',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -92,9 +94,11 @@ export function createDuelServer({
     throw new Error('Invalid mount path');
   const rooms = new Map();
   const diagnostics = createDiagnostics({ enabled: diagnosticsEnabled, write: diagnosticWrite });
+  const stallLog = []; // 🧊 The newest stalls clients reported (GET /stalls).
+  let stallRevision = 'local';
   const store = new ObjectStore(stateDir),
     ready = Promise.all([store.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
-      .then((r) => diagnostics.setRevision(r.trim())).catch(() => {})]);
+      .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
   const handle = async (req, res) => {
     let url;
     try {
@@ -168,6 +172,13 @@ export function createDuelServer({
     }
     // The room as it stands, for a guest that only looks (the world behind
     // the prompt's curtain shows what is built without taking a seat).
+    // 🧊 What clients said about stopped frames (stalls.mjs): numbers only.
+    if (path === '/stalls' && req.method === 'GET') {
+      res
+        .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify({ building: builders.jobs.size, stalls: stallLog }));
+      return;
+    }
     if (path === '/room' && req.method === 'GET') {
       const id = url.searchParams.get('room') || 'lobby';
       if (!/^[a-z0-9-]{1,32}$/.test(id)) {
@@ -396,7 +407,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const nativeAccount = authorization?.startsWith('Bearer ');
     ws.diagnosticSession = randomUUID();
     ws.diagnosticJobs = new Map();
-    let diagnosticAt = -Infinity;
+    let diagnosticAt = -Infinity, stallAt = -Infinity;
+    const stallSession = randomUUID().slice(0, 6); // One visit, not a person.
     const creditRefreshes = new Set();
     const member = room.add(ws, nativeAccount);
     room.match.setObjects(store.objects(key));
@@ -490,6 +502,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         data = JSON.parse(raw.toString());
       } catch {
         ws.close(1008, 'Invalid JSON');
+        return;
+      }
+      if (data?.type === 'stall') {
+        if (now - stallAt < 200) return;
+        stallAt = now;
+        const row = stallRow(data, { session: stallSession, revision: stallRevision });
+        if (row) {
+          stallLog.push(row);
+          if (stallLog.length > 500) stallLog.splice(0, stallLog.length - 500);
+        }
         return;
       }
       if (data?.type === 'diagnostic') {

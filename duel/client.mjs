@@ -7,6 +7,7 @@ import { direction, rayBox, wallDistance, along, SCREEN, WORLD } from './world.m
 import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
+import { Stalls } from './stalls.mjs';
 import { accountToken } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -607,6 +608,7 @@ function connect() {
     if (data.type === 'snapshot' && !document.hidden && sheetOpen) diagnostics.snapshot();
     if (data.type !== 'snapshot' || (snapshot && data.tick <= snapshot.tick)) {
       diagnostics.max('messageMaxMs', performance.now() - messageAt);
+      stalls.handled(data.type, performance.now() - messageAt);
       return;
     }
     const own = data.players[seat];
@@ -683,6 +685,7 @@ function connect() {
       if (event.type === 'headshot') sfx.headshot();
     }
     diagnostics.max('messageMaxMs', performance.now() - messageAt);
+    stalls.handled(data.type, performance.now() - messageAt);
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
@@ -1125,6 +1128,13 @@ function reticleShift(now) {
   const hx = canvas.width / 2 - 22 * px, hy = -(canvas.height / 2 - 22 * px);
   return { x: Math.round(hx * ease), y: Math.round(hy * ease) };
 }
+// 🧊 Stalls (stalls.mjs): gaps in the picture and what filled them, reported
+// as numbers to /dool/stalls and shown beside the fps readout.
+const AGENT = window.webkit?.messageHandlers?.iOSApp || window.parent?.webkit?.messageHandlers?.iOSApp ? 'app'
+  : /firefox/i.test(navigator.userAgent) ? 'firefox'
+  : /chrome|chromium|crios/i.test(navigator.userAgent) ? 'chrome'
+  : /safari/i.test(navigator.userAgent) ? 'safari' : 'other';
+const stalls = new Stalls({ send: (m) => send(m) });
 function applyPrediction() {
   if (!prediction) return;
   const began = performance.now(), data = prediction, own = data.players[seat];
@@ -1142,6 +1152,12 @@ function applyPrediction() {
 function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
+  // 🧊 A gap since the last frame, while someone is in the room looking.
+  stalls.begin(now, !document.hidden && document.hasFocus() && (hosted ? sheetShown : true) && !resting, {
+    building: jobs.length, objects: objects.length, pending: pending.length,
+    rtt: Number.isFinite(connection.rtt) ? connection.rtt : undefined,
+    backend: canvas.doolStats?.backend, agent: AGENT, hosted,
+  });
   // With the host window in the background and the paper down, the room
   // still turns smoothly but draws at most 60 times a second, half the work
   // on a 120 Hz display (2026-11-08).
@@ -1153,13 +1169,16 @@ function frame(now) {
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)
   const began = performance.now();
+  let predicted = 0;
   try {
     applyPrediction();
+    predicted = performance.now() - began;
     step(now);
   } catch (error) {
     if (diagnostics.enabled) diagnostics.values.frameErrors++;
     console.error('dool frame', error);
   }
+  stalls.end({ work: performance.now() - began, render: canvas.doolStats?.cpuMs || 0, predict: predicted });
   if (diagnostics.enabled) diagnostics.frame({ visible: !document.hidden && sheetOpen,
     workMs: performance.now() - began, renderMs: canvas.doolStats?.cpuMs,
     backend: canvas.doolStats?.backend, objects: objects.length, triangles: canvas.doolStats?.triangles,
@@ -1569,6 +1588,7 @@ function step(now) {
     touch: touch.state(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps: sheetOpen ? fps : 0,
+    stallNote: stalls.note(),
     walls,
     cube,
     menu,
