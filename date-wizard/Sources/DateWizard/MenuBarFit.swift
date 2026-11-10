@@ -64,6 +64,14 @@ final class MenuBarFit {
     private var lastShrinkAt: Date = .distantPast
     private var lastGrowth: (slug: String, fromRung: Int, at: Date)?
     private var cooldownUntil: [String: Date] = [:]   // slug → don't grow before
+    // The frontmost app's menus set the left edge of the free space, so what
+    // fits is learned per frontmost app: the last rung each participant sat
+    // at unclipped, and the highest rung that front app leaves room for. An
+    // app switch then jumps straight to the remembered fit instead of walking
+    // the ladder and re-probing a width that already failed there.
+    private var fitByFront: [String: [String: Int]] = [:]     // front → slug → rung
+    private var ceilingByFront: [String: [String: Int]] = [:] // front → slug → max rung
+    private var lastFrontChangeAt: Date = .distantPast
 
     // ── paths ────────────────────────────────────────────────────────
     static let root = NSString(string: "~/.local/share/menubar-fit").expandingTildeInPath
@@ -89,6 +97,7 @@ final class MenuBarFit {
     private static let shrinkInterval: TimeInterval = 0.25
     private static let growthFailureWindow: TimeInterval = 1.5
     private static let revertCooldown: TimeInterval = 20 // don't regrow a just-reverted app
+    private static let learnAfter: TimeInterval = 3      // a fit must hold this long to be learned
 
     // ── init ─────────────────────────────────────────────────────────
     /// - rungs: smallest→largest. - startAt: initial rung (defaults to largest).
@@ -130,16 +139,27 @@ final class MenuBarFit {
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(onBusNote), name: Self.channel, object: nil)
         let workspaceNotes = NSWorkspace.shared.notificationCenter
-        for name in [NSWorkspace.didActivateApplicationNotification,
-                     NSWorkspace.didLaunchApplicationNotification,
-                     NSWorkspace.didTerminateApplicationNotification] {
-            workspaceNotes.addObserver(
-                self,
-                selector: #selector(onAvailableSpaceMayHaveChanged),
-                name: name,
-                object: nil
-            )
-        }
+        workspaceNotes.addObserver(
+            self,
+            selector: #selector(onFrontAppChanged),
+            name: NSWorkspace.didActivateApplicationNotification,
+            object: nil
+        )
+        // A launch can only take room, which clipping detects on its own, so
+        // it just lifts cooldowns; a quit can free room, so it also forgets
+        // the learned ceilings.
+        workspaceNotes.addObserver(
+            self,
+            selector: #selector(onAppLaunched),
+            name: NSWorkspace.didLaunchApplicationNotification,
+            object: nil
+        )
+        workspaceNotes.addObserver(
+            self,
+            selector: #selector(onAvailableSpaceMayHaveChanged),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(onAvailableSpaceMayHaveChanged),
@@ -186,16 +206,46 @@ final class MenuBarFit {
         if isBroker { evaluate() }
     }
 
-    /// App switches change the width of the left-side application menus;
-    /// launches, quits, and display changes can alter the right-side status
-    /// cluster. Those are real new space conditions, so do not wait out a
-    /// failed probe's 20-second cooldown before trying the next rung again.
+    /// Launches, quits, and display changes can alter the right-side status
+    /// cluster. Those are real new space conditions, so forget the learned
+    /// ceilings and do not wait out a failed probe's 20-second cooldown
+    /// before trying the next rung again.
     @objc private func onAvailableSpaceMayHaveChanged() {
         cooldownUntil.removeAll()
+        if !ceilingByFront.isEmpty {
+            NSLog("MenuBarFit[%@] space changed; forgetting ceilings", slug)
+            ceilingByFront.removeAll()
+        }
+        scheduleSpaceChange(jumpToRememberedFit: false)
+    }
+
+    @objc private func onAppLaunched() {
+        cooldownUntil.removeAll()
+        scheduleSpaceChange(jumpToRememberedFit: false)
+    }
+
+    /// An app switch only changes the left-side menus, and each front app's
+    /// fit is learned, so jump to it in one step.
+    @objc private func onFrontAppChanged() {
+        // Menu-bar-only apps (Menu Band's own popover, agents) show no menus,
+        // so the bar keeps the last regular app's menus and nothing moved.
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.activationPolicy == .regular,
+              app.bundleIdentifier != Self.menuFront else { return }
+        Self.menuFront = app.bundleIdentifier ?? "-"
+        lastFrontChangeAt = Date()
+        scheduleSpaceChange(jumpToRememberedFit: true)
+    }
+
+    private func scheduleSpaceChange(jumpToRememberedFit: Bool) {
         spaceChangeWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.spaceChangeWorkItem = nil
+            if jumpToRememberedFit {
+                self.electBroker()
+                if self.isBroker { self.jumpToRememberedFit() }
+            }
             self.tick()
             self.postBus()
         }
@@ -287,6 +337,14 @@ final class MenuBarFit {
     // replicants seen → return true and let the screen/frame checks above
     // stay authoritative, which keeps old-OS behavior unchanged.
     static func replicantVisible(width: CGFloat, preferredName: String? = nil) -> Bool {
+        // macOS 27 dropped the replicants: no CC status-layer windows, and the
+        // app-side windows are 0–1pt stubs that are never onscreen. The tell
+        // there is accessibility — a folded item (behind the bar's `<<`
+        // overflow, e.g. when Chrome's long menus are frontmost) vanishes from
+        // our own AXExtrasMenuBar, while a shown one reports its frame.
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 {
+            return extrasBarItemVisible(width: width)
+        }
         guard width > 0 else { return true }
         guard let cc = NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.apple.controlcenter").first else { return true }
@@ -328,6 +386,44 @@ final class MenuBarFit {
         if sawPreferredName { return namedWidthMatched && namedMatchOnScreen }
         if !widthMatched { return false }    // replicants exist, ours isn't among them
         return widthMatchOnScreen
+    }
+
+    /// Our status item as macOS 27 lays it out: present in the app's
+    /// AXExtrasMenuBar with a nonzero frame on some screen. kAXErrorNoValue
+    /// means every item is folded into the overflow. An app can own several
+    /// items (Menu Band's radio and juke chips), so judge the one whose width
+    /// matches `width`, and fall back to any item when none does. Without
+    /// accessibility trust (or on any other AX failure) we can't tell, so
+    /// report visible, as before.
+    static func extrasBarItemVisible(width: CGFloat) -> Bool {
+        let app = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        var bar: CFTypeRef?
+        let err = AXUIElementCopyAttributeValue(app, "AXExtrasMenuBar" as CFString, &bar)
+        if err == .noValue { return false }
+        guard err == .success, let bar else { return true }
+        var kids: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(bar as! AXUIElement,
+                                            kAXChildrenAttribute as CFString,
+                                            &kids) == .success,
+              let items = kids as? [AXUIElement] else { return true }
+        var frames: [CGRect] = []
+        for item in items {
+            var p: CFTypeRef?, s: CFTypeRef?
+            var origin = CGPoint.zero, size = CGSize.zero
+            if AXUIElementCopyAttributeValue(item, kAXPositionAttribute as CFString, &p) == .success,
+               let p { AXValueGetValue(p as! AXValue, .cgPoint, &origin) }
+            if AXUIElementCopyAttributeValue(item, kAXSizeAttribute as CFString, &s) == .success,
+               let s { AXValueGetValue(s as! AXValue, .cgSize, &size) }
+            frames.append(CGRect(origin: origin, size: size))
+        }
+        let matched = frames.filter { width > 1 && abs($0.width - width) <= 4 }
+        // AX uses top-left global coordinates; the bar sits at y ≈ 0 of
+        // whichever display, so an x-range check against screens suffices.
+        return (matched.isEmpty ? frames : matched).contains { f in
+            f.width > 1 && NSScreen.screens.contains {
+                f.minX >= $0.frame.minX - 1 && f.maxX <= $0.frame.maxX + 1
+            }
+        }
     }
 
     // ── participant state I/O ─────────────────────────────────────────
@@ -433,6 +529,19 @@ final class MenuBarFit {
         // Reconcile any state whose command we already issued but that hasn't
         // taken effect yet — treat the *reported* rung as truth.
         let anyClipped = states.contains { $0.clipped }
+        let front = Self.frontKey()
+
+        // Learn this front app's fit once the switch has settled. macOS can
+        // take ~2s to fold an item after the front app's menus widen, so a
+        // sample sooner than that would teach the old app's width. Never
+        // learn above a known ceiling for the same reason.
+        if !anyClipped, now.timeIntervalSince(lastFrontChangeAt) > Self.learnAfter,
+           now.timeIntervalSince(lastShrinkAt) > Self.learnAfter {
+            for state in states {
+                let ceiling = ceilingByFront[front]?[state.slug] ?? Int.max
+                fitByFront[front, default: [:]][state.slug] = min(state.rung, ceiling)
+            }
+        }
 
         if anyClipped {
             // A failed growth probe returns directly to its last known fitting
@@ -443,6 +552,7 @@ final class MenuBarFit {
                let grown = states.first(where: { $0.slug == growth.slug }),
                grown.rung > growth.fromRung {
                 cooldownUntil[growth.slug] = now.addingTimeInterval(Self.revertCooldown)
+                ceilingByFront[front, default: [:]][growth.slug] = growth.fromRung
                 lastGrowth = nil
                 lastShrinkAt = now
                 command(growth.slug, rung: growth.fromRung)
@@ -466,6 +576,7 @@ final class MenuBarFit {
             }
             lastGrowth = nil
             lastShrinkAt = now
+            ceilingByFront[front, default: [:]][victim.slug] = victim.rung - 1
             command(victim.slug, rung: victim.rung - 1)
             return
         }
@@ -474,7 +585,9 @@ final class MenuBarFit {
         // a min gap so we probe gently rather than thrash.
         guard now.timeIntervalSince(lastGrowAt) >= Self.growInterval else { return }
         let growable = states.filter {
-            $0.rung < ($0.rungWidths.count - 1) && (cooldownUntil[$0.slug].map { now >= $0 } ?? true)
+            $0.rung < min($0.rungWidths.count - 1,
+                          ceilingByFront[front]?[$0.slug] ?? Int.max)
+                && (cooldownUntil[$0.slug].map { now >= $0 } ?? true)
         }
         guard let grower = growable.max(by: { a, b in
             if a.priority != b.priority { return a.priority < b.priority }
@@ -483,6 +596,28 @@ final class MenuBarFit {
         lastGrowAt = now
         lastGrowth = (grower.slug, grower.rung, now)
         command(grower.slug, rung: grower.rung + 1)
+    }
+
+    /// The regular app whose menus are on the bar right now.
+    private static var menuFront: String = {
+        let app = NSWorkspace.shared.frontmostApplication
+        return app?.activationPolicy == .regular ? (app?.bundleIdentifier ?? "-") : "-"
+    }()
+
+    private static func frontKey() -> String { menuFront }
+
+    private func jumpToRememberedFit() {
+        guard let remembered = fitByFront[Self.frontKey()] else { return }
+        for state in readStates() {
+            guard let rung = remembered[state.slug], rung != state.rung,
+                  rung >= 0, rung < state.rungWidths.count else { continue }
+            NSLog("MenuBarFit[%@] front %@ → remembered rung %d for %@",
+                  slug, Self.frontKey(), rung, state.slug)
+            command(state.slug, rung: rung)
+        }
+        lastGrowth = nil
+        lastGrowAt = Date()
+        lastShrinkAt = Date()
     }
 
     private func widthOf(_ s: State) -> Double {
