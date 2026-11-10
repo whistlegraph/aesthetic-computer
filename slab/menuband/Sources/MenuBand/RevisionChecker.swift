@@ -7,14 +7,12 @@ import Foundation
 /// serving (`/.commit-ref`, `/.commit-count`, written by lith/deploy.fish and
 /// lith/webhook.sh). Commit counts on main only grow, so `served − built` is
 /// how far behind this build is; equal refs mean exactly current. When the
-/// build is behind, the music-note chip wears a small orange branch mark
-/// (`KeyboardIconRenderer.behindMainBy`), and the status-item tooltip says
-/// by how much. Not in the App Store build (no git there) and silent for
+/// build is behind, the status-item tooltip says by how much. Not in the App Store build (no git there) and silent for
 /// `swift run` dev binaries (no stamp).
 enum RevisionChecker {
     static let refURL = URL(string: "https://aesthetic.computer/.commit-ref")!
     static let countURL = URL(string: "https://aesthetic.computer/.commit-count")!
-    /// Half an hour — a deploy lands, the next check shows the mark.
+    /// Half an hour — a deploy lands, the next check updates the tooltip.
     static let interval: TimeInterval = 30 * 60
 
     static var buildCommit: String? {

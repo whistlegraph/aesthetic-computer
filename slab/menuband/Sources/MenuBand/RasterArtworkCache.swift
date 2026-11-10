@@ -72,7 +72,11 @@ func artworkColorKey(_ color: NSColor) -> [CGFloat] {
 /// Freeze a frame into pixels before handing it to AppKit. The source may
 /// contain a drawing handler that reads live renderer state; the result does
 /// not retain that handler or repeat its work on later compositing passes.
-func rasterizedArtwork(_ source: NSImage, scale: CGFloat) -> NSImage {
+/// Pass the destination view's appearance: flattening happens outside its
+/// draw pass, so dynamic colors (labelColor) would otherwise resolve against
+/// the app default rather than the menu bar's.
+func rasterizedArtwork(_ source: NSImage, scale: CGFloat,
+                       appearance: NSAppearance? = nil) -> NSImage {
     let size = source.size
     guard size.width > 0, size.height > 0, scale.isFinite, scale > 0 else { return source }
     let width = ceil(size.width * scale), height = ceil(size.height * scale)
@@ -87,8 +91,11 @@ func rasterizedArtwork(_ source: NSImage, scale: CGFloat) -> NSImage {
     defer { NSGraphicsContext.restoreGraphicsState() }
     context.cgContext.scaleBy(x: width / size.width, y: height / size.height)
     NSGraphicsContext.current = context
-    source.draw(in: NSRect(origin: .zero, size: size), from: .zero,
-                operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    let draw = {
+        source.draw(in: NSRect(origin: .zero, size: size), from: .zero,
+                    operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
+    }
+    if let appearance { appearance.performAsCurrentDrawingAppearance(draw) } else { draw() }
     let result = NSImage(size: size)
     result.addRepresentation(rep)
     result.isTemplate = source.isTemplate

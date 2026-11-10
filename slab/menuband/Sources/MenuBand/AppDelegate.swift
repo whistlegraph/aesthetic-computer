@@ -428,6 +428,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// for LSUIElement apps without a visible window.
     private var appearancePollTimer: Timer?
     private var lastObservedDarkMode: Bool = false
+    private var lastLoggedButtonAppearance = ""
 
     // MARK: - Pitch-bend (trackpad gesture while playing)
     /// Current bend amount in [-1, 1] (mapped to ±2 semitones via
@@ -900,11 +901,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         Self.registerBundledFonts()
         LaunchPing.send()
-        // Behind-main tell on the chip (fleet builds only; see RevisionChecker).
-        RevisionChecker.onChange = { [weak self] in
-            KeyboardIconRenderer.behindMainBy = RevisionChecker.behindBy ?? 0
-            self?.updateIcon()
-        }
+        // Behind-main tooltip (fleet builds only; see RevisionChecker).
+        RevisionChecker.onChange = { [weak self] in self?.updateIcon() }
         RevisionChecker.start()
         // Launch-time "update from main?" notice (fleet builds; see MenuBandUpdater).
         MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
@@ -4056,7 +4054,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         // Flatten once per requested frame. AppKit can composite a status
         // item repeatedly; those passes must not replay the drawing closure.
-        button.image = rasterizedArtwork(artwork, scale: button.window?.backingScaleFactor ?? 2)
+        // Resolve colors against the app's light/dark mode, like the rest of
+        // the renderer: a flattened bitmap loses the button's live vibrancy,
+        // so its vibrant appearance can resolve labelColor to black.
+        let buttonAppearance = button.effectiveAppearance.name.rawValue
+        if buttonAppearance != lastLoggedButtonAppearance {
+            lastLoggedButtonAppearance = buttonAppearance
+            debugLog("status button appearance \(buttonAppearance), app \(NSApp.effectiveAppearance.name.rawValue)")
+        }
+        button.image = rasterizedArtwork(artwork, scale: button.window?.backingScaleFactor ?? 2,
+                                         appearance: NSApp.effectiveAppearance)
         let layoutName: String
         switch menuBand.keymap {
         case .notepat: layoutName = "Notepat"
