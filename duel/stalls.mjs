@@ -7,6 +7,9 @@
 //   socket:<type>  a message handler ran long (the kind of message is named)
 //   starved        nothing of ours ran long: another script, a collection, the
 //                  compositor, or the machine itself kept the frame away
+// A second kind is not a stopped picture at all: `net` is the server going
+// quiet (no snapshot for a quarter second) while frames kept coming.
+export const QUIET_MS = 250;
 export const STALL_MS = 50;
 const TYPES = new Set(['welcome', 'role', 'presence', 'handle-history', 'braincells', 'chalk', 'chalk-ops',
   'dev-log', 'pong', 'identity', 'objects', 'build-accepted', 'build-result', 'snapshot']);
@@ -32,6 +35,34 @@ export class Stalls {
     this.messageType = '';
     this.sentAt = -1e9;
     this.sent = 0;
+    this.unsent = []; // Rows waiting for an open socket and the rate limit.
+    this.context = {};
+    this.heardAt = 0; // The last snapshot, on our clock.
+  }
+  // Count a row and queue it: a stall during a dead socket is still reported.
+  record(row) {
+    this.count++;
+    this.list = [...this.list, row].slice(-4);
+    if (this.unsent.length < 40) this.unsent.push({ row, at: this.now() });
+  }
+  // A few a second at most, and a ceiling for the whole visit.
+  flush() {
+    const t = this.now();
+    if (!this.unsent.length || t - this.sentAt <= 250 || this.sent >= 400) return;
+    const { row, at } = this.unsent[0];
+    if (this.send({ type: 'stall', ...row, ago: Math.round(t - at) }) === false) return;
+    this.unsent.shift();
+    this.sentAt = t;
+    this.sent++;
+  }
+  // A snapshot arrived. A long silence before it is the network's stall.
+  heard() {
+    const t = this.now();
+    const quiet = this.heardAt ? t - this.heardAt : 0;
+    this.heardAt = t;
+    if (this.watched && this.quietWatched && quiet >= QUIET_MS)
+      this.record({ gap: Math.round(quiet), ...this.context, cause: 'net' });
+    this.quietWatched = this.watched;
   }
   // A socket handler finished.
   handled(type, ms) {
@@ -57,18 +88,13 @@ export class Stalls {
         ...context,
       };
       row.cause = cause(row);
-      this.count++;
-      this.list = [...this.list, row].slice(-4);
-      // A few a second at most, and a ceiling for the whole visit.
-      const t = this.now();
-      if (t - this.sentAt > 250 && this.sent < 400) {
-        this.sentAt = t;
-        this.sent++;
-        this.send({ type: 'stall', ...row });
-      }
+      this.record(row);
     }
     this.lastAt = at;
     this.watched = watching;
+    if (!watching) this.quietWatched = false;
+    this.context = context;
+    this.flush();
     this.message = this.messageMax = 0;
     this.messageType = '';
   }
@@ -86,8 +112,8 @@ export class Stalls {
 }
 
 // The server's side: a bounded, anonymous ring of what clients reported.
-const NUMBERS = ['gap', 'work', 'render', 'predict', 'message', 'late', 'building', 'objects', 'pending', 'rtt'];
-const CAUSE = /^(render|step|starved|socket:[a-z-]{1,20})$/;
+const NUMBERS = ['ago', 'gap', 'work', 'render', 'predict', 'message', 'late', 'building', 'objects', 'pending', 'rtt'];
+const CAUSE = /^(render|step|starved|net|socket:[a-z-]{1,20})$/;
 const ENUMS = { backend: ['webgpu', 'webgl2'], agent: ['app', 'safari', 'chrome', 'firefox', 'other'] };
 export function stallRow(data, { at = Date.now(), session = '', revision = '' } = {}) {
   if (!data || !CAUSE.test(data.cause || '')) return null;
@@ -97,6 +123,8 @@ export function stallRow(data, { at = Date.now(), session = '', revision = '' } 
     if (Number.isFinite(v) && v >= 0) row[k] = Math.min(600000, Math.round(v));
   }
   if (!(row.gap >= STALL_MS)) return null;
+  if (row.ago) row.at = at - row.ago; // Held for a dead socket: when it happened, not when it landed.
+  delete row.ago;
   if (TYPES.has(data.messageType)) row.messageType = data.messageType;
   for (const [k, allowed] of Object.entries(ENUMS)) if (allowed.includes(data[k])) row[k] = data[k];
   row.hosted = data.hosted === true;

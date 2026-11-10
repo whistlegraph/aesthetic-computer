@@ -387,8 +387,11 @@ const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
     ws.bufferedAmount < (data.type === 'input' ? 2048 : 32768)
-  )
+  ) {
     ws.send(JSON.stringify(data));
+    return true;
+  }
+  return false;
 };
 
 function tone(frequency, duration, volume = 0.04) {
@@ -627,6 +630,7 @@ function connect() {
               `Object version ${data.version} ready. Enter to prompt Aesel.`,
       );
     }
+    if (data.type === 'snapshot') stalls.heard();
     if (data.type === 'snapshot' && !document.hidden && sheetOpen) diagnostics.snapshot();
     if (data.type !== 'snapshot' || (snapshot && data.tick <= snapshot.tick)) {
       diagnostics.max('messageMaxMs', performance.now() - messageAt);
@@ -1021,12 +1025,19 @@ document.addEventListener('keydown', (e) => {
     chat.begin();
     return;
   }
-  // Tab: rooms. $ (shift 4): the $code list, as the prompt's $ starts a
-  // code; not while typing, where $ is a letter (2026-11-08).
-  const dollar = e.key === '$' && !prompt.open;
-  if (!e.repeat && (e.code === 'Tab' || dollar)) {
+  // Tab: back to the prompt, as Tab there comes in (2026-11-10). R: rooms.
+  // $ (shift 4): the $code list, as the prompt's $ starts a code; not while
+  // typing, where $ and r are letters (2026-11-08).
+  if (e.code === 'Tab') {
     e.preventDefault();
-    toggleMenu(e.code === 'Tab' ? 'room' : 'history');
+    if (!e.repeat && !prompt.open) leave();
+    return;
+  }
+  const dollar = e.key === '$' && !prompt.open;
+  const rooms = e.code === 'KeyR' && !prompt.open && !e.metaKey && !e.ctrlKey && !e.altKey;
+  if (!e.repeat && (rooms || dollar)) {
+    e.preventDefault();
+    toggleMenu(rooms ? 'room' : 'history');
     return;
   }
   if (menu) {
