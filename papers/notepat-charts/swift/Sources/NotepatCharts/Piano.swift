@@ -207,17 +207,10 @@ enum Piano {
 
         // Body fill — soft cream for normal whites, faded for extended
         // or dimmed.
+        let theme = ChartRenderer.theme
         ctx.saveGState()
-        let bodyFill: NSColor = if isExt {
-            NSColor(srgbRed: 252/255, green: 244/255, blue: 220/255, alpha: 1.0)
-        } else if isDimmed {
-            NSColor(srgbRed: 248/255, green: 246/255, blue: 252/255, alpha: 0.6)
-        } else {
-            NSColor.white
-        }
-        let stroke: NSColor = isExt
-            ? NSColor(srgbRed: 200/255, green: 180/255, blue: 110/255, alpha: 1.0)
-            : NSColor(srgbRed: 120/255, green: 114/255, blue: 130/255, alpha: 1.0)
+        let bodyFill: NSColor = isExt ? theme.pianoExtWhite : (isDimmed ? theme.pianoWhiteDim : theme.pianoWhite)
+        let stroke: NSColor = isExt ? theme.pianoExtWhiteStroke : theme.pianoWhiteStroke
 
         let path = CGPath(roundedRect: rect,
                           cornerWidth: layout.cornerR,
@@ -266,7 +259,7 @@ enum Piano {
                 : noteColor(midi: midi)
             ctx.setFillColor(swatchColor.cgColor)
             ctx.fill(swatchRect.insetBy(dx: 0, dy: -layout.cornerR))
-            ctx.setStrokeColor(NSColor.black.withAlphaComponent(isDimmed ? 0.08 : 0.22).cgColor)
+            ctx.setStrokeColor((isDimmed ? theme.swatchEdge.withAlphaComponent(0.08) : theme.swatchEdge).cgColor)
             ctx.setLineWidth(0.4)
             ctx.move(to: CGPoint(x: rect.minX, y: rect.minY + layout.swatchH))
             ctx.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + layout.swatchH))
@@ -297,11 +290,8 @@ enum Piano {
         let noteCenterY   = rect.minY + layout.swatchH + layout.noteFontSize * 0.65
 
         if showLetter, let letter = notepatLetter[midi] {
-            let color: NSColor = isExt
-                ? NSColor(srgbRed: 138/255, green: 115/255, blue:  48/255, alpha: 1.0)
-                : (isDimmed
-                    ? NSColor.black.withAlphaComponent(0.30)
-                    : NSColor(srgbRed:  18/255, green:  16/255, blue:  18/255, alpha: 1.0))
+            let color: NSColor = isExt ? theme.pianoExtWhiteLetter
+                : (isDimmed ? theme.pianoWhiteLetterDim : theme.pianoWhiteLetter)
             drawCenteredText(in: ctx,
                               text: letter.uppercased(),
                               center: CGPoint(x: rect.midX, y: letterCenterY),
@@ -310,9 +300,7 @@ enum Piano {
         }
 
         if showNoteName {
-            let color: NSColor = isExt
-                ? NSColor(srgbRed: 168/255, green: 152/255, blue:  85/255, alpha: 1.0)
-                : NSColor.black.withAlphaComponent(0.55)
+            let color: NSColor = isExt ? theme.pianoExtWhiteNote : theme.pianoWhiteNote
             drawCenteredText(in: ctx,
                               text: noteName(midi: midi),
                               center: CGPoint(x: rect.midX, y: noteCenterY),
@@ -334,13 +322,8 @@ enum Piano {
         // Fully opaque in every state — a translucent black key let the
         // two white-key edge strokes underneath bleed through as a
         // vertical line down its middle. Dimmed = solid mid-gray.
-        let body: NSColor = if isExt {
-            NSColor(srgbRed:  90/255, green:  72/255, blue:  24/255, alpha: 1.0)
-        } else if isDimmed {
-            NSColor(srgbRed:  92/255, green:  90/255, blue: 100/255, alpha: 1.0)
-        } else {
-            NSColor(srgbRed:  18/255, green:  16/255, blue:  18/255, alpha: 1.0)
-        }
+        let theme = ChartRenderer.theme
+        let body: NSColor = isExt ? theme.pianoExtBlack : (isDimmed ? theme.pianoBlackDim : theme.pianoBlack)
         ctx.saveGState()
         let path = CGPath(roundedRect: rect,
                           cornerWidth: layout.cornerR * 0.8,
@@ -349,7 +332,7 @@ enum Piano {
         ctx.setFillColor(body.cgColor)
         ctx.addPath(path)
         ctx.fillPath()
-        ctx.setStrokeColor(NSColor.black.cgColor)
+        ctx.setStrokeColor(theme.pianoBlackStroke.cgColor)
         ctx.setLineWidth(0.5)
         ctx.addPath(path)
         ctx.strokePath()
@@ -380,9 +363,7 @@ enum Piano {
         // key so it visually rhymes with the lowered white-key letter.
         if showLetter, let letter = notepatLetter[midi] {
             let labelY = rect.midY + rect.height * 0.04
-            let color: NSColor = isExt
-                ? NSColor(srgbRed: 248/255, green: 231/255, blue: 160/255, alpha: 1.0)
-                : NSColor.white
+            let color: NSColor = isExt ? theme.pianoExtBlackLetter : theme.pianoBlackLetter
             drawCenteredText(in: ctx,
                               text: letter.uppercased(),
                               center: CGPoint(x: rect.midX, y: labelY),
@@ -393,9 +374,7 @@ enum Piano {
         // Note name — small caption near the bottom of the black key.
         if showNoteName {
             let labelY = rect.minY + layout.noteFontSize * 0.9
-            let color: NSColor = isExt
-                ? NSColor(srgbRed: 216/255, green: 200/255, blue: 120/255, alpha: 0.9)
-                : NSColor.white.withAlphaComponent(0.78)
+            let color: NSColor = isExt ? theme.pianoExtBlackNote : theme.pianoBlackNote
             drawCenteredText(in: ctx,
                               text: noteName(midi: midi),
                               center: CGPoint(x: rect.midX, y: labelY),

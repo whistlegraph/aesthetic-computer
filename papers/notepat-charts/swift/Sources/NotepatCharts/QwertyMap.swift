@@ -139,14 +139,15 @@ enum QwertyMap {
         let bodyColor: NSColor
         let letterColor: NSColor
         let border: NSColor
+        let theme = ChartRenderer.theme
         if isSharp {
-            bodyColor = NSColor(srgbRed: 18/255, green: 16/255, blue: 18/255, alpha: 1.0)
-            letterColor = .white
-            border = NSColor.black
+            bodyColor = theme.capSharp
+            letterColor = theme.capSharpLetter
+            border = theme.capSharpBorder
         } else {
-            bodyColor = .white
-            letterColor = NSColor(srgbRed: 18/255, green: 16/255, blue: 18/255, alpha: 1.0)
-            border = NSColor(srgbRed: 110/255, green: 104/255, blue: 120/255, alpha: 1.0)
+            bodyColor = theme.capNatural
+            letterColor = theme.capNaturalLetter
+            border = theme.capNaturalBorder
         }
 
         ctx.saveGState()
@@ -158,7 +159,7 @@ enum QwertyMap {
         ctx.addPath(path)
         ctx.fillPath()
         // Drop-shadow bar under each cap.
-        ctx.setStrokeColor(NSColor.black.withAlphaComponent(0.18).cgColor)
+        ctx.setStrokeColor(theme.capShadow.cgColor)
         ctx.setLineWidth(0.4)
         ctx.move(to: CGPoint(x: rect.minX + layout.cornerR * 0.4,
                               y: rect.minY - 0.4))
@@ -195,7 +196,7 @@ enum QwertyMap {
                 ctx.fill(rect)
                 ctx.restoreGState()
                 // Letter contrast picked off the flood color.
-                finalLetterColor = luminance(accent) > 0.62 ? NSColor.black : NSColor.white
+                finalLetterColor = luminance(accent) > 0.62 ? NSColor(srgbRed: 0.06, green: 0.05, blue: 0.07, alpha: 1) : NSColor.white
             }
 
             let ringColor: NSColor = dimmed

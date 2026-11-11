@@ -592,9 +592,22 @@ charts.append(Chart(
 
 // ── Alternate deck: `NotepatCharts out.pdf --waltzes` renders the QWERTY
 // Waltzes (generated into WaltzCharts.swift by slab/menuband/scores/waltzes/make.py).
+// Add `--hands` for the keycap hand-row notation instead of pills.
 if CommandLine.arguments.contains("--waltzes") {
-    charts = waltzCharts()
+    charts = waltzCharts(hands: CommandLine.arguments.contains("--hands"))
+    ChartRenderer.frameW = 10   // classic card margin
+    ChartRenderer.marginX = 24
 }
+
+// ── `--ocarina`: Ocarina Songs for Menu Band's ocarina (OcarinaCard.swift). ──
+if CommandLine.arguments.contains("--ocarina") {
+    charts = ocarinaCharts()
+    ChartRenderer.frameW = 10
+    ChartRenderer.marginX = 24
+}
+
+// ── `--dark`: the house dark theme (Theme.swift). ──
+ChartRenderer.theme = CommandLine.arguments.contains("--dark") ? .dark : .light
 
 // ── Pastel rotation per card ───────────────────────────────────────
 let palette: [NSColor] = [
@@ -606,7 +619,7 @@ let palette: [NSColor] = [
     bgPaleMint,  bgPaleSky,   bgPaleLilac, bgPaleSand,
 ]
 for i in charts.indices {
-    charts[i].background = palette[i % palette.count]
+    charts[i].background = ChartRenderer.theme.face(palette[i % palette.count])
 }
 
 // ── Render the whole deck. ─────────────────────────────────────────

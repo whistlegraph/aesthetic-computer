@@ -30,6 +30,17 @@ struct Chart {
     var phraseLength: Int = 4
     /// Which bar number the first `score` entry is (for the margin labels).
     var firstBarNumber: Int = 1
+    /// Draw `score` as keycap hand rows (HandsCard.swift) instead of pills.
+    var hands: Bool = false
+    /// The whole piece, for a `.waltz` back: this card's `score` is shown in
+    /// full ink inside it, the rest faded.
+    var backBars: [ScoreBar] = []
+    /// Ocarina song card (OcarinaCard.swift): the keys played, L R A Y X.
+    var ocarina: [String] = []
+    /// Keys per printed row on an ocarina card.
+    var ocarinaRows: [Int] = []
+    /// The ocarina deck's cover: legend instead of a song.
+    var ocarinaCover: Bool = false
 }
 
 /// One bar of a two-hand score: three beat cells per hand. A cell is a
@@ -40,6 +51,8 @@ struct Chart {
 struct ScoreBar {
     let left: [String]
     let right: [String]
+    /// Chord name over the bar on the back's line score ("Dm").
+    var chord: String = ""
 }
 
 /// Card back layouts. `.info` shows the card's title + subtitle centered;
@@ -47,6 +60,7 @@ struct ScoreBar {
 enum BackStyle {
     case info
     case pattern
+    case waltz     // WaltzBack.swift: keys used + whole piece as line score
 }
 
 struct BodyParagraph {
@@ -72,7 +86,7 @@ enum ChartRenderer {
     // Page geometry in PDF points (1pt = 1/72in). 4×6 inches.
     static let pageWidth:  CGFloat = 4 * 72   // 288
     static let pageHeight: CGFloat = 6 * 72   // 432
-    static let marginX:    CGFloat = 18
+    static var marginX:    CGFloat = 18   // decks may widen (waltzes: 24)
     static let marginTop:  CGFloat = 22
     static let marginBot:  CGFloat = 18
 
@@ -85,12 +99,18 @@ enum ChartRenderer {
     static let cardShadowOffsetY: CGFloat = -1.4
     static let cardShadowBlur:    CGFloat = 2.4
     static let cardShadowAlpha:   CGFloat = 0.62
+    /// Width of the white frame around the pastel face. Decks may widen it
+    /// for a classic card margin (main.swift sets 10 for the waltzes).
+    static var frameW: CGFloat = 6
 
     // AC palette — pulled from `ac-paper-cards.sty`.
-    static let pink   = NSColor(srgbRed: 205/255, green:  92/255, blue: 155/255, alpha: 1)
-    static let dark   = NSColor(srgbRed:  18/255, green:  16/255, blue:  18/255, alpha: 1)
-    static let gray   = NSColor(srgbRed: 119/255, green: 119/255, blue: 119/255, alpha: 1)
-    static let muted  = NSColor(srgbRed: 168/255, green: 168/255, blue: 172/255, alpha: 1)
+    static var pink:  NSColor { theme.accent }
+    /// The active theme (Theme.swift). `--dark` swaps it before rendering.
+    static var theme: Theme = .light
+    // Ink tiers, read through the theme.
+    static var dark:  NSColor { theme.ink }
+    static var gray:  NSColor { theme.ink2 }
+    static var muted: NSColor { theme.ink3 }
 
     /// Optional embedded keycap illustration for the cover. When set
     /// (and the file exists), the cover renders this PNG in place of
@@ -122,7 +142,7 @@ enum ChartRenderer {
             ctx.saveGState()
             ctx.translateBy(x: cardW, y: 0)
             drawCardChrome(bg: chart.background, in: ctx)
-            renderStandardBack(in: ctx)
+            if case .waltz = chart.backStyle { renderWaltzBack(chart, in: ctx) } else { renderStandardBack(in: ctx) }
             ctx.restoreGState()
             ctx.endPage()
         }
@@ -200,7 +220,7 @@ enum ChartRenderer {
     /// dots (the C D E F G A B notepat palette) covering the whole
     /// inner card. No text, no wordmark. The same back appears on
     /// every card so the deck reads as a unified pack when flipped.
-    private static func renderStandardBack(in ctx: CGContext) {
+    static func renderStandardBack(in ctx: CGContext) {
         let innerLeft  = cardInset + 14
         let innerRight = pageWidth - cardInset - 14
         let innerTop   = pageHeight - cardInset - 14
@@ -231,7 +251,7 @@ enum ChartRenderer {
                 let color = colors[(r * cols + c) % colors.count]
                 let x = gridX + CGFloat(c) * pitch
                 let y = gridY + CGFloat(r) * pitch
-                ctx.setFillColor(color.withAlphaComponent(0.55).cgColor)
+                ctx.setFillColor(color.withAlphaComponent(theme.dotAlpha).cgColor)
                 ctx.fillEllipse(in: CGRect(x: x, y: y, width: dot, height: dot))
             }
         }
@@ -252,8 +272,12 @@ enum ChartRenderer {
             renderSong(chart, in: ctx)
             return
         }
+        if !chart.ocarina.isEmpty {
+            renderOcarina(chart, in: ctx)
+            return
+        }
         if !chart.score.isEmpty {
-            renderScore(chart, in: ctx)
+            if chart.hands { renderHands(chart, in: ctx) } else { renderScore(chart, in: ctx) }
             return
         }
 
@@ -465,15 +489,14 @@ enum ChartRenderer {
         ctx.setShadow(
             offset: CGSize(width: 0, height: cardShadowOffsetY),
             blur: cardShadowBlur,
-            color: NSColor.black.withAlphaComponent(cardShadowAlpha).cgColor)
-        ctx.setFillColor(NSColor.white.cgColor)
+            color: NSColor.black.withAlphaComponent(theme.shadowAlpha).cgColor)
+        ctx.setFillColor(theme.frame.cgColor)
         ctx.addPath(outerPath)
         ctx.fillPath()
         ctx.restoreGState()
         // 2. Inner pastel area — inset by frameW, corner radius reduced
         //    to match so the white frame reads as a uniform-width strip
         //    all the way around.
-        let frameW: CGFloat = 6
         let innerRect = cardRect.insetBy(dx: frameW, dy: frameW)
         let innerPath = CGPath(
             roundedRect: innerRect,
@@ -486,9 +509,8 @@ enum ChartRenderer {
         // 3. Thin purple stroke on the very outer edge of the card —
         //    the material edge of the printed stock. acpurple at full
         //    opacity, ~0.7pt so it reads as a deliberate finishing line.
-        let purple = NSColor(srgbRed: 120/255, green: 80/255, blue: 180/255, alpha: 1)
         ctx.saveGState()
-        ctx.setStrokeColor(purple.cgColor)
+        ctx.setStrokeColor(theme.edge.cgColor)
         ctx.setLineWidth(0.7)
         ctx.addPath(outerPath)
         ctx.strokePath()
@@ -516,29 +538,52 @@ enum ChartRenderer {
                                 cornerWidth: cardCorner,
                                 cornerHeight: cardCorner,
                                 transform: nil)
-        if let imgPath = ChartRenderer.coverKeysImagePath,
+        if !chart.highlights.isEmpty {
+            // No illustration: the deck's own subject, the keyboard with the
+            // keys the pieces use lit, drawn in the theme. Hand bars under them.
+            let pad: CGFloat = 16
+            let q = QwertyMap.defaultLayout(capWidth: (pageWidth - 2 * (cardInset + pad)) / 10.9)
+            let qW = QwertyMap.totalWidth(layout: q), qH = QwertyMap.totalHeight(layout: q)
+            drawQwertyWithHands(in: ctx, origin: CGPoint(x: (pageWidth - qW) / 2, y: pageHeight * 0.47 - qH / 2),
+                                layout: q, highlights: chart.highlights)
+        } else if let imgPath = ChartRenderer.coverKeysImagePath,
            let nsimg = NSImage(contentsOfFile: imgPath),
            let cgimg = nsimg.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            ctx.saveGState()
-            ctx.addPath(outerPath)
-            ctx.clip()
             let imgW = CGFloat(cgimg.width)
             let imgH = CGFloat(cgimg.height)
-            let scale = max(cardRect.width / imgW, cardRect.height / imgH)
-            let drawW = imgW * scale
-            let drawH = imgH * scale
-            let drawX = cardRect.midX - drawW / 2
-            let drawY = cardRect.midY - drawH / 2
-            ctx.draw(cgimg, in: CGRect(x: drawX, y: drawY,
-                                        width: drawW, height: drawH))
-            ctx.restoreGState()
-            let purple = NSColor(srgbRed: 120/255, green: 80/255, blue: 180/255, alpha: 1)
-            ctx.saveGState()
-            ctx.setStrokeColor(purple.cgColor)
-            ctx.setLineWidth(0.7)
-            ctx.addPath(outerPath)
-            ctx.strokePath()
-            ctx.restoreGState()
+            if theme.coverFullBleed {
+                // The illustration is the card: cover-fit and clip to the die cut.
+                ctx.saveGState()
+                ctx.addPath(outerPath)
+                ctx.clip()
+                let scale = max(cardRect.width / imgW, cardRect.height / imgH)
+                let drawW = imgW * scale, drawH = imgH * scale
+                ctx.draw(cgimg, in: CGRect(x: cardRect.midX - drawW / 2, y: cardRect.midY - drawH / 2,
+                                            width: drawW, height: drawH))
+                ctx.restoreGState()
+                ctx.saveGState()
+                ctx.setStrokeColor(theme.edge.cgColor)
+                ctx.setLineWidth(0.7)
+                ctx.addPath(outerPath)
+                ctx.strokePath()
+                ctx.restoreGState()
+            } else {
+                // A framed picture on the face: the illustration keeps its own
+                // paper, the card keeps its surface. Sits between title and byline.
+                let pad: CGFloat = 16
+                let top = pageHeight - cardInset - pad - 44 * 2.2 - 10
+                let bot = cardInset + pad + 14 + 10
+                let maxW = pageWidth - 2 * (cardInset + pad)
+                let scale = min(maxW / imgW, (top - bot) / imgH)
+                let drawW = imgW * scale, drawH = imgH * scale
+                let r = CGRect(x: (pageWidth - drawW) / 2, y: bot + (top - bot - drawH) / 2, width: drawW, height: drawH)
+                let pic = CGPath(roundedRect: r, cornerWidth: 8, cornerHeight: 8, transform: nil)
+                ctx.saveGState(); ctx.addPath(pic); ctx.clip()
+                ctx.draw(cgimg, in: r)
+                ctx.restoreGState()
+                ctx.setStrokeColor(theme.separatorStrong.cgColor); ctx.setLineWidth(0.6)
+                ctx.addPath(pic); ctx.strokePath()
+            }
         }
 
         // ── PHASE 2 · TEXT OVERLAYS ──────────────────────────────────
