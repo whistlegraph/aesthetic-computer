@@ -1745,7 +1745,8 @@ function step(now) {
     }
   }
   view.render({
-    players: connected ? [0, 1].map((i) => interpolate(history, tick, i)) : [],
+    // Every seat the room holds, not only the original duel's two.
+    players: connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
     camera: seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0 && !joining(),

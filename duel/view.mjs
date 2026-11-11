@@ -1401,6 +1401,8 @@ export async function createView(canvas) {
             }
           }
         }
+        const placedTags = [];
+        tags.sort((p, q) => Math.hypot(p.x - eye.x, p.z - eye.z) - Math.hypot(q.x - eye.x, q.z - eye.z));
         for (const t of tags) {
           const s = projector.project(t.x, t.y, t.z);
           if (!s || Math.abs(s.x) > 1.1 || Math.abs(s.y) > 1.1) continue;
@@ -1410,8 +1412,19 @@ export async function createView(canvas) {
           if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime) < d - 0.3) continue;
           const member = members.find((x) => x.seat === t.seat);
           const label = member?.handle ? `@${member.handle}` : member?.name || `guest ${t.seat + 1}`;
-          const x = Math.round((s.x * W) / 2),
-            y = Math.round((s.y * H) / 2) + 10 * unit;
+          const x = Math.round((s.x * W) / 2);
+          let y = Math.round((s.y * H) / 2) + 10 * unit;
+          // 🏷️ A crowd's tags never sit on one another: a tag that would
+          // land on one already placed this frame rises a line at a time
+          // (nearest first below, so the closest player keeps the spot over
+          // their own head). Its width allows for the position after it.
+          const half = ((label.length * 6) / 2 + 3) * unit, wide = half + 15 * 4 * unit;
+          for (let tries = 0; tries < 12; tries++) {
+            const hit = placedTags.find((p) => x - half < p.right && x + wide > p.left && Math.abs(y - p.y) < 9 * unit);
+            if (!hit) break;
+            y = hit.y + 9 * unit;
+          }
+          placedTags.push({ left: x - half, right: x + wide, y });
           if (member?.handle) {
             handleText(label, x + unit, y - unit, 0.000002, unit, shadowInk(label));
             handleText(label, x, y, 0, unit, member.colors);
