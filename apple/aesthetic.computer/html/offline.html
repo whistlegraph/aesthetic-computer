@@ -6,12 +6,38 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
+    <meta name="color-scheme" content="dark light" />
     <style>
       @font-face {
         font-family: 'ProggyClean';
         src: url('ProggyClean.ttf') format('truetype');
         font-weight: normal;
         font-style: normal;
+      }
+
+      /* The prompt's own curtain, without the network: its night blue or its
+         legal-pad day, its caret in the corner, its buttons. */
+      :root {
+        --paper: rgb(34, 50, 112);
+        --ink: #fff1e0;
+        --quiet: rgba(255, 241, 224, 0.62);
+        --shade: rgba(0, 0, 0, 0.45);
+        --mark: #ff71bf;
+        --button: rgb(0, 0, 128);
+        --button-ink: #ffffff;
+        --button-edge: #ffffff;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --paper: rgb(252, 247, 197);
+          --ink: #2a2440;
+          --quiet: rgba(42, 36, 64, 0.66);
+          --shade: rgba(255, 255, 255, 0.9);
+          --mark: #b3246f;
+          --button: rgb(0, 0, 128);
+          --button-ink: #ffffff;
+          --button-edge: #2a2440;
+        }
       }
 
       * { box-sizing: border-box; }
@@ -21,53 +47,87 @@
         padding: 16px;
         display: grid;
         place-items: center;
-        background: rgb(70, 50, 100);
-        color: #fff1e0;
-        font: 24px/1.2 ProggyClean, monospace;
+        background: var(--paper);
+        color: var(--ink);
+        font: 32px/1 ProggyClean, monospace;
+        -webkit-font-smoothing: none;
         -webkit-text-size-adjust: none;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
       }
-      main {
-        width: min(100%, 340px);
-        padding: 20px;
-        border: 2px solid #ff71bf;
-        background: #191325;
+
+      /* The prompt's caret, where the prompt keeps it: a 6×10 block, two
+         pixels to the pixel, its edge turning through the spectrum. */
+      #caret {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        width: 12px;
+        height: 20px;
+        border: 2px solid;
+        animation: hue 2.4s linear infinite, breathe 1.2s steps(2, jump-none) infinite;
       }
-      h1 { margin: 0 0 12px; color: #ff71bf; font: inherit; }
-      p { margin: 0 0 20px; }
+      @keyframes hue {
+        0% { border-color: #ff5a5a #ffe45a #5aff8f #5aa8ff; }
+        25% { border-color: #5aa8ff #ff5a5a #ffe45a #5aff8f; }
+        50% { border-color: #5aff8f #5aa8ff #ff5a5a #ffe45a; }
+        75% { border-color: #ffe45a #5aff8f #5aa8ff #ff5a5a; }
+        100% { border-color: #ff5a5a #ffe45a #5aff8f #5aa8ff; }
+      }
+      @keyframes breathe { 0% { opacity: 1; } 100% { opacity: 0.45; } }
+
+      main { display: grid; justify-items: center; gap: 14px; text-align: center; }
+      h1, p { margin: 0; font: inherit; text-shadow: 2px 2px 0 var(--shade); }
+      h1 { color: var(--mark); }
+      p { color: var(--quiet); min-height: 1em; }
+
+      /* Log in's own button. */
       button {
-        border: 0;
-        padding: 8px 16px;
-        color: #191325;
-        background: #ff71bf;
+        margin-top: 10px;
+        padding: 6px 12px 8px;
+        border: 2px solid var(--button-edge);
+        color: var(--button-ink);
+        background: var(--button);
         font: inherit;
         cursor: pointer;
         touch-action: manipulation;
       }
-      button:focus-visible { outline: 2px solid #fff1e0; outline-offset: 3px; }
-      button:active { background: #fff1e0; }
-      button:disabled { opacity: .65; }
+      button:hover { filter: brightness(1.35); }
+      button:focus-visible { outline: 2px solid var(--mark); outline-offset: 3px; }
+      button:active { transform: translate(2px, 2px); }
+      button:disabled { opacity: 0.6; }
+
       @media (max-height: 260px) {
-        body { padding: 8px; font-size: 20px; line-height: 1; }
-        main { padding: 12px; }
-        h1 { margin-bottom: 8px; }
-        p { margin-bottom: 12px; }
+        body { padding: 8px; font-size: 16px; }
+        main { gap: 6px; }
+        button { margin-top: 4px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #caret { animation: none; border-color: var(--mark); }
       }
     </style>
   </head>
   <body>
+    <div id="caret" aria-hidden="true"></div>
     <main aria-labelledby="connection-title">
-      <h1 id="connection-title">Not connected</h1>
-      <p>Connect to start Aesthetic Computer.</p>
-      <button id="retry" type="button">Retry</button>
+      <h1 id="connection-title">no network</h1>
+      <p id="status" role="status">waiting to reconnect</p>
+      <button id="retry" type="button">try now</button>
     </main>
     <script>
       // Tell the native host to attempt the live URL even if its path
       // monitor still reads offline (the monitor can lag a few seconds
       // behind a real reconnect, especially on cell handoffs).
       const btn = document.getElementById("retry");
-      btn.addEventListener("click", () => {
+      const status = document.getElementById("status");
+      let going = false;
+      function goLive() {
+        if (going) return;
+        going = true;
         btn.disabled = true;
-        btn.textContent = "Retrying…";
+        dots = 0;
+        say("connecting");
         try {
           const bridge = window.webkit?.messageHandlers?.iOSApp;
           if (bridge) bridge.postMessage(JSON.stringify({ type: "reload-online" }));
@@ -76,13 +136,43 @@
           // No native bridge (running outside the app) — just reload.
           window.location.reload();
         }
-        // Re-enable after a moment so a second tap is possible if the
-        // first retry didn't actually swap the view.
+        // Still here after a moment: the retry did not swap the view, so
+        // the button and the watch come back.
         setTimeout(() => {
+          going = false;
           btn.disabled = false;
-          btn.textContent = "Retry";
+          say("waiting to reconnect");
         }, 4000);
+      }
+      btn.addEventListener("click", goLive);
+      addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") goLive();
       });
+
+      // The line under the title breathes three dots, so the page reads as
+      // watching rather than stopped.
+      let dots = 0, line = status.textContent;
+      function say(text) { line = text; status.textContent = text + ".".repeat(dots); }
+      setInterval(() => { dots = (dots + 1) % 4; say(line); }, 450);
+
+      // 📡 Reconnect without being asked: the moment the system says it is
+      // online, and otherwise by asking the site itself every few seconds (a
+      // reply of any kind, even an opaque one, means the network is back).
+      addEventListener("online", goLive);
+      async function probe() {
+        if (going) return;
+        try {
+          await fetch("https://aesthetic.computer/.commit-ref?offline=" + Date.now(), {
+            mode: "no-cors",
+            cache: "no-store",
+            signal: AbortSignal.timeout(3000),
+          });
+          goLive();
+        } catch (err) {
+          // Still away.
+        }
+      }
+      setInterval(probe, 4000);
     </script>
   </body>
 </html>
