@@ -706,11 +706,17 @@ enum KeyboardIconRenderer {
         78: "5", 79: "t", 80: "6", 81: "y", 82: "7", 83: "u",
     ]
 
+    /// The ocarina's five keys under their display notes (D5 F5 A5 B5 D6).
+    private static let labelByMidiOcarina: [Int: String] = [
+        74: "a", 77: "k", 81: "l", 83: "j", 86: "i",
+    ]
+
     static var labelByMidi: [Int: String] {
         labelByMidi(for: activeKeymap)
     }
 
     static func labelByMidi(for keymap: Keymap) -> [Int: String] {
+        if MenuBandLayout.instrument == .ocarina { return labelByMidiOcarina }
         switch keymap {
         case .notepat: return labelByMidiNotepat
         case .ableton: return labelByMidiAbleton
@@ -798,6 +804,8 @@ enum KeyboardIconRenderer {
     /// Reach on both sides at once cancels out — rare, and the keys still
     /// sound.
     static func leanOffset(for lit: Set<UInt8>) -> CGFloat {
+        // The ocarina has no reach keys past an edge; it never leans.
+        if MenuBandLayout.instrument == .ocarina { return 0 }
         guard let range = activeRange else { return 0 }
         let out = lit.map(Int.init).filter { !range.contains($0) }
         guard !out.isEmpty else { return 0 }
@@ -1186,6 +1194,14 @@ enum KeyboardIconRenderer {
             // corners. Active range may be right-aligned (Ableton) so the
             // outer corners sit on the first/last active white in the slot
             // layout, not the geometric ends of the render area.
+            // Ocarina: the same window holds a vessel flute instead of keys.
+            // Everything from here to the count-in is the piano's.
+            if MenuBandLayout.instrument == .ocarina {
+                drawOcarina(layout: layout, litNotes: litNotes,
+                            playbackLitNotes: playbackLitNotes,
+                            isDark: isDark, lit: lit, playbackLit: playbackLit,
+                            letterAlpha: letterAlpha)
+            } else {
             let activeWhites = activeWhites(layout: layout)
             let leftmostMidi = activeWhites.first ?? firstMidi
             let rightmostMidi = activeWhites.last ?? lastMidi
@@ -1581,6 +1597,7 @@ enum KeyboardIconRenderer {
                     }
                 }
             }
+            }   // end piano (the ocarina branch is above)
             if let countIn {
                 drawCountInProgress(countIn, layout: layout)
             }
@@ -1709,6 +1726,9 @@ enum KeyboardIconRenderer {
             return .openVisualizer
         }
         if settingsHitRect.contains(point) { return .openSettings }
+        if MenuBandLayout.instrument == .ocarina {
+            return ocarinaNote(at: point, layout: .fixedCanvas).map { .note($0) }
+        }
         let whites = whiteList()
         var whiteIndex: [Int: Int] = [:]
         for (i, m) in whites.enumerated() { whiteIndex[m] = i }
@@ -1744,6 +1764,9 @@ enum KeyboardIconRenderer {
     /// Public lookup so callers (drag handler) can compute cursor-relative
     /// expression — e.g. y→velocity, x→pan within the active key's bounds.
     static func keyRect(for midi: UInt8, layout: Layout = .fixedCanvas) -> NSRect? {
+        if MenuBandLayout.instrument == .ocarina {
+            return ocarinaHoles(layout: layout).first { $0.midi == midi }?.zone
+        }
         let m = Int(midi)
         let whites = whiteList()
         let slotOffset = slotOffset(layout: layout)
@@ -1797,6 +1820,9 @@ enum KeyboardIconRenderer {
         let point = layout == .fixedCanvas
             ? NSPoint(x: rawPoint.x / iconScale, y: rawPoint.y / iconScale)
             : rawPoint
+        if MenuBandLayout.instrument == .ocarina {
+            return ocarinaNote(at: point, layout: layout)
+        }
         let whites = whiteList()
         let activeWhites = activeWhites(layout: layout)
         guard !activeWhites.isEmpty else { return nil }
@@ -1829,6 +1855,174 @@ enum KeyboardIconRenderer {
         let localCol = Int((clampedX - leftEdge) / whiteW)
         let clamped = max(0, min(activeWhites.count - 1, localCol))
         return UInt8(activeWhites[clamped])
+    }
+
+    // MARK: - Ocarina
+
+    /// One finger hole: its display note, the drawn circle, and the column
+    /// of the body that plays it (full height, so a click anywhere in the
+    /// column sounds it, as the piano's white keys do).
+    struct OcarinaHole {
+        let midi: UInt8
+        let circle: NSRect
+        let zone: NSRect
+    }
+
+    /// The ocarina fills the piano's window: a widened oval body with the
+    /// mouthpiece at the left, five holes in a row from low D to high D.
+    private static func ocarinaBody(layout: Layout) -> (body: NSRect, mouth: NSRect) {
+        let x0 = pianoOriginX
+        let w = pianoWidth(layout: layout)
+        let h = whiteH
+        let mouthW = min(h * 0.9, w * 0.12)
+        let mouthH = h * 0.42
+        let body = NSRect(x: x0 + mouthW * 0.7, y: pad,
+                          width: w - mouthW * 0.7, height: h)
+        let mouth = NSRect(x: x0, y: pad + h * 0.5 - mouthH * 0.5 + h * 0.08,
+                           width: mouthW, height: mouthH)
+        return (body, mouth)
+    }
+
+    static func ocarinaHoles(layout: Layout = .fixedCanvas) -> [OcarinaHole] {
+        let (body, mouth) = ocarinaBody(layout: layout)
+        // Holes sit in the oval's fat middle, clear of the narrowing ends.
+        let inset = body.width * 0.08
+        let span = NSRect(x: body.minX + inset, y: body.minY,
+                          width: body.width - inset * 2, height: body.height)
+        let n = MenuBandLayout.ocarinaSemitones.count
+        let col = span.width / CGFloat(n)
+        let d = min(col * 0.62, body.height * 0.5)
+        return MenuBandLayout.ocarinaSemitones.enumerated().map { i, st in
+            let cx = span.minX + col * (CGFloat(i) + 0.5)
+            let circle = NSRect(x: cx - d / 2, y: body.midY - d / 2,
+                                width: d, height: d)
+            // The end columns stretch to the instrument's ends, mouthpiece
+            // included, so the whole drawing is playable.
+            let left = i == 0 ? mouth.minX : span.minX + col * CGFloat(i)
+            let right = i == n - 1 ? body.maxX : span.minX + col * CGFloat(i + 1)
+            let zone = NSRect(x: left, y: body.minY, width: right - left,
+                              height: body.height)
+            return OcarinaHole(midi: UInt8(60 + Int(st)), circle: circle, zone: zone)
+        }
+    }
+
+    /// Which hole a point plays: y is unbounded, like the white keys.
+    private static func ocarinaNote(at point: NSPoint, layout: Layout) -> UInt8? {
+        ocarinaHoles(layout: layout).first {
+            point.x >= $0.zone.minX && point.x < $0.zone.maxX
+        }?.midi
+    }
+
+    /// A widened sweet-potato: a full round end at the mouthpiece, tapering
+    /// to a smaller round tail. A plain oval this long comes to points and
+    /// reads as a leaf; a capsule reads as a recorder.
+    private static func ocarinaShape(_ r: NSRect) -> NSBezierPath {
+        let w = r.width, h = r.height
+        let p = NSBezierPath()
+        p.move(to: NSPoint(x: r.minX, y: r.midY))
+        p.curve(to: NSPoint(x: r.minX + w * 0.12, y: r.maxY),
+                controlPoint1: NSPoint(x: r.minX, y: r.maxY - h * 0.05),
+                controlPoint2: NSPoint(x: r.minX + w * 0.04, y: r.maxY))
+        p.line(to: NSPoint(x: r.maxX - w * 0.14, y: r.maxY - h * 0.1))
+        p.curve(to: NSPoint(x: r.maxX, y: r.midY),
+                controlPoint1: NSPoint(x: r.maxX - w * 0.04, y: r.maxY - h * 0.13),
+                controlPoint2: NSPoint(x: r.maxX, y: r.midY + h * 0.28))
+        p.curve(to: NSPoint(x: r.maxX - w * 0.14, y: r.minY + h * 0.1),
+                controlPoint1: NSPoint(x: r.maxX, y: r.midY - h * 0.28),
+                controlPoint2: NSPoint(x: r.maxX - w * 0.04, y: r.minY + h * 0.13))
+        p.line(to: NSPoint(x: r.minX + w * 0.12, y: r.minY))
+        p.curve(to: NSPoint(x: r.minX, y: r.midY),
+                controlPoint1: NSPoint(x: r.minX + w * 0.04, y: r.minY),
+                controlPoint2: NSPoint(x: r.minX, y: r.minY + h * 0.05))
+        p.close()
+        return p
+    }
+
+    /// A deep blue glazed body, five holes that light in the press color.
+    /// Shapes and colors are Menu Band's own; only the scale is borrowed.
+    private static func drawOcarina(layout: Layout,
+                                    litNotes: Set<UInt8>,
+                                    playbackLitNotes: Set<UInt8>,
+                                    isDark: Bool,
+                                    lit: (Int) -> NSColor,
+                                    playbackLit: NSColor,
+                                    letterAlpha: ((UInt8) -> CGFloat)?) {
+        let (body, mouth) = ocarinaBody(layout: layout)
+        let top = isDark
+            ? NSColor(srgbRed:  58/255, green:  92/255, blue: 178/255, alpha: 1)
+            : NSColor(srgbRed:  78/255, green: 120/255, blue: 214/255, alpha: 1)
+        let bottom = isDark
+            ? NSColor(srgbRed:  26/255, green:  44/255, blue: 104/255, alpha: 1)
+            : NSColor(srgbRed:  36/255, green:  62/255, blue: 148/255, alpha: 1)
+        let rim = NSColor(srgbRed: 14/255, green: 24/255, blue: 62/255, alpha: 0.85)
+
+        // Mouthpiece first, body over it, so the join is one surface.
+        let glazeFill = NSGradient(starting: top, ending: bottom)
+        rim.setStroke()
+        for part in [NSBezierPath(roundedRect: mouth,
+                                  xRadius: mouth.height * 0.3,
+                                  yRadius: mouth.height * 0.3),
+                     ocarinaShape(body)] {
+            glazeFill?.draw(in: part, angle: -90)
+            part.lineWidth = 0.75
+            part.stroke()
+        }
+
+        // Glaze: a soft highlight along the upper body.
+        let glaze = NSRect(x: body.minX + body.width * 0.1,
+                           y: body.maxY - body.height * 0.3,
+                           width: body.width * 0.72,
+                           height: body.height * 0.15)
+        NSColor.white.withAlphaComponent(isDark ? 0.14 : 0.22).setFill()
+        NSBezierPath(roundedRect: glaze, xRadius: glaze.height / 2,
+                     yRadius: glaze.height / 2).fill()
+
+        // Windway slit on the mouthpiece.
+        let slit = NSRect(x: mouth.minX + mouth.width * 0.18, y: mouth.midY - 0.6,
+                          width: mouth.width * 0.4, height: 1.2)
+        rim.setFill()
+        NSBezierPath(rect: slit).fill()
+
+        for hole in ocarinaHoles(layout: layout) {
+            let m = Int(hole.midi)
+            let pressed = litNotes.contains(hole.midi)
+            let playing = playbackLitNotes.contains(hole.midi)
+            let circle = NSBezierPath(ovalIn: hole.circle)
+            if pressed || playing {
+                let color = pressed ? lit(m) : playbackLit
+                withGlow(color: color, blur: 4, alpha: 0.8) {
+                    color.setFill()
+                    circle.fill()
+                }
+                // A bright rim, so an accent that matches the blue glaze
+                // still reads as pressed.
+                NSColor.white.withAlphaComponent(0.9).setStroke()
+                circle.lineWidth = 1.1
+                circle.stroke()
+            } else {
+                NSColor(srgbRed: 8/255, green: 12/255, blue: 30/255, alpha: 0.9).setFill()
+                circle.fill()
+                // Lower lip catches light, so the hole reads as a hole.
+                let lip = NSBezierPath()
+                lip.appendArc(withCenter: NSPoint(x: hole.circle.midX, y: hole.circle.midY),
+                              radius: hole.circle.width / 2, startAngle: 200, endAngle: 340)
+                NSColor.white.withAlphaComponent(0.28).setStroke()
+                lip.lineWidth = 0.6
+                lip.stroke()
+            }
+            // The key letter fades in the way the piano's labels do.
+            let a = letterAlpha?(hole.midi) ?? 0
+            if a > 0.01, let label = labelByMidiOcarina[m] {
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 8, weight: .bold),
+                    .foregroundColor: NSColor.white.withAlphaComponent(a),
+                ]
+                let str = NSAttributedString(string: label.uppercased(), attributes: attrs)
+                let sz = str.size()
+                str.draw(at: NSPoint(x: hole.circle.midX - sz.width / 2,
+                                     y: hole.circle.midY - sz.height / 2))
+            }
+        }
     }
 
     // MARK: - Layout helpers

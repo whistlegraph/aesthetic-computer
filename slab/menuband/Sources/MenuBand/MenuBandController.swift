@@ -74,6 +74,8 @@ final class MenuBandController {
         let executor = PerformanceExecutor()
         performance = executor
         synth = MenuBandSynth(performance: executor)
+        MenuBandLayout.instrument = MenuBandInstrument(
+            rawValue: UserDefaults.standard.string(forKey: instrumentKey) ?? "") ?? .piano
     }
     var ambientAir: MenuBandAmbientAir { synth.ambientAir }
     private let mixAnalysis = MenuBandMixAnalysis()
@@ -472,6 +474,7 @@ final class MenuBandController {
     private let octaveShiftKey = "notepat.octaveShift"
     private let melodicProgramKey = "notepat.melodicProgram"
     private let keymapKey = "notepat.keymap"
+    private let instrumentKey = "notepat.instrument"
     private let abcLayerKey = "notepat.abcLayer"
     private let monoOutputKey = "notepat.monoOutput"
     private let percussionLeftKey = KeyboardIconRenderer.percussionLeftDefaultsKey
@@ -1281,6 +1284,21 @@ final class MenuBandController {
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: keymapKey)
             notifyChange()
+        }
+    }
+
+    /// Piano (default) or ocarina — what the menu bar draws and which keys
+    /// play. The voice stays as it is: an ocarina can sound like a cello.
+    /// Held notes are released first, because their keys may not exist on
+    /// the other instrument and would never see a matching key-up.
+    var instrument: MenuBandInstrument {
+        get { MenuBandLayout.instrument }
+        set {
+            guard newValue != MenuBandLayout.instrument else { return }
+            releaseAllHeldNotes()
+            MenuBandLayout.instrument = newValue
+            UserDefaults.standard.set(newValue.rawValue, forKey: instrumentKey)
+            onChange?()
         }
     }
 

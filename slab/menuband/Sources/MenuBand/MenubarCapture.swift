@@ -47,6 +47,7 @@ enum MenubarCLI {
         // than the accent. Under a black accent the accent-lit state can only
         // come out grey, and the rainbow is the strip's whole idea anyway.
         KeyboardIconRenderer.perKeyAccent = args.contains("--key-accent")
+        if args.contains("--ocarina") { MenuBandLayout.instrument = .ocarina }
         KeyboardIconRenderer.percussionLeftActive = args.contains("--percussion-left")
         KeyboardIconRenderer.percussionRightActive = args.contains("--percussion-right")
 

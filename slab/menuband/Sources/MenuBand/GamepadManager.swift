@@ -293,14 +293,35 @@ final class GamepadManager {
             return
         }
 
-        let degree = GamepadDefaults.layout.degree(for: button)
-        let keyCode = MenuBandLayout.cMajorKeyCodes(for: controller.keymap)[degree]
+        let keyCode: UInt16
+        if MenuBandLayout.instrument == .ocarina {
+            guard let hole = Self.ocarinaHole(for: button) else { return }
+            keyCode = MenuBandLayout.ocarinaKeyCodes[hole]
+        } else {
+            let degree = GamepadDefaults.layout.degree(for: button)
+            keyCode = MenuBandLayout.cMajorKeyCodes(for: controller.keymap)[degree]
+        }
         var flags: NSEvent.ModifierFlags = []
         if isSustainHeld(scheme: scheme, gp: gp) { flags.insert(.shift) }
         flags.formUnion(chordFlags(scheme: scheme, gp: gp))
         heldNoteKeyCodes[button] = keyCode
         controller.handleLocalKey(keyCode: keyCode, isDown: true,
                                   isRepeat: false, flags: flags)
+    }
+
+    /// Ocarina hole (0 = low D … 4 = high D) for a note button. The face
+    /// diamond is the four-way pad of the ocarina's home controller —
+    /// down F, right A, left B, up high D — and the d-pad's left or down
+    /// plays the low D that sat beside it. D-pad up and right stay silent.
+    private static func ocarinaHole(for button: GamepadNoteButton) -> Int? {
+        switch button {
+        case .dpadLeft, .dpadDown: return 0
+        case .faceSouth: return 1
+        case .faceEast:  return 2
+        case .faceWest:  return 3
+        case .faceNorth: return 4
+        case .dpadUp, .dpadRight: return nil
+        }
     }
 
     private func releaseAllHeldNotes() {

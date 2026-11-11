@@ -20,6 +20,18 @@ remaining notes left. MilkyTracker maps `ZSXDCVGBHNJM` and
 `Q2W3ER5T6Y7U` as two chromatic octaves; `0` stays available for Menu Band's
 MIDI-mode shortcut. The shared chord modifiers work on every layout.
 
+## Instrument
+
+The **instrument** is what the menu bar draws and which keys play; the
+**voice** is the sound. They are separate settings. Piano is the default. The
+popover's Piano | Ocarina switch (`notepat.instrument`) swaps the keyboard for
+a widened blue ocarina with five holes — D5 F5 A5 B5 D6, the five-note scale
+every Ocarina of Time song uses — in whatever voice is selected. Keys: `A` is
+low D and `I J K L` are the diamond beside it (K F, L A, J B, I high D). On a
+gamepad the face diamond plays the same diamond and d-pad left/down plays low D.
+Octave shift and the stick bend still apply. The art is Menu Band's own; only
+the scale and button shape are borrowed.
+
 Lives at `slab/menuband/`. Distinct from `slab/menubar-swift/` (the
 Claude session menubar; different status item, different process).
 

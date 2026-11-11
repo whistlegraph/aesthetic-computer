@@ -323,6 +323,8 @@ final class MenuBandPopoverViewController: NSViewController {
     var isPlayPaletteShown: (() -> Bool)?
 
     private var inputSegmented: HoverSegmentedControl!  // legacy reference; no longer added to stack
+    /// Piano | Ocarina — the instrument, separate from the voice picker.
+    private var instrumentSegment: NSSegmentedControl?
     private var modeButtons: [NSButton] = []           // vertical stack: Mouse Only / Notepat.com / Ableton MIDI Keys
     private var focusShortcutButton: HoverFeedbackButton!
     private var focusShortcutStatusLabel: NSTextField!
@@ -1235,6 +1237,19 @@ final class MenuBandPopoverViewController: NSViewController {
         listeningRow.orientation = .horizontal
         listeningRow.alignment = .centerY
         listeningRow.spacing = 6
+        // The instrument leads the row: what you're holding, before what
+        // you're listening with. Piano is the default; the voice list above
+        // still picks the sound either one makes.
+        let instrumentPicker = NSSegmentedControl(
+            labels: MenuBandInstrument.allCases.map { $0.rawValue.capitalized },
+            trackingMode: .selectOne,
+            target: self,
+            action: #selector(instrumentChanged(_:)))
+        instrumentPicker.controlSize = .small
+        instrumentPicker.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        instrumentPicker.toolTip = "Instrument — what the menu bar draws and which keys play. The voice is separate."
+        instrumentSegment = instrumentPicker
+        listeningRow.addArrangedSubview(instrumentPicker)
         let listeningSpacer = NSView()
         listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         listeningRow.addArrangedSubview(listeningSpacer)
@@ -1645,6 +1660,8 @@ final class MenuBandPopoverViewController: NSViewController {
         refreshHeldNotes()
         octaveStepper.integerValue = n.octaveShift
         updateOctaveLabel(n.octaveShift)
+        instrumentSegment?.selectedSegment =
+            MenuBandInstrument.allCases.firstIndex(of: n.instrument) ?? 0
         let segIdx = inputModeSegment(keymap: n.keymap)
         for (i, btn) in modeButtons.enumerated() {
             btn.state = (i == segIdx) ? .on : .off
@@ -2572,6 +2589,12 @@ final class MenuBandPopoverViewController: NSViewController {
     /// `loadView()` after the "Mouse Only" option was retired.
     private func inputModeSegment(keymap: Keymap) -> Int {
         return keymap == .ableton ? 1 : 0
+    }
+
+    @objc private func instrumentChanged(_ sender: NSSegmentedControl) {
+        let all = MenuBandInstrument.allCases
+        guard all.indices.contains(sender.selectedSegment) else { return }
+        menuBand?.instrument = all[sender.selectedSegment]
     }
 
     @objc private func modeButtonClicked(_ sender: NSButton) {
