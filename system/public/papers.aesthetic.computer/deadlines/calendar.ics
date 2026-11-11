@@ -917,4 +917,31 @@ URL:https://itch.io/jam/2026-epic-ai-megajam
 LOCATION:Online · optional San Francisco event
 TRANSP:TRANSPARENT
 END:VEVENT
+BEGIN:VEVENT
+UID:moma-anthropic-creative-sprint-2026@papers.aesthetic.computer
+DTSTAMP:20261111T000000Z
+LAST-MODIFIED:20261111T000000Z
+DTSTART;VALUE=DATE:20261119
+DTEND;VALUE=DATE:20261120
+SUMMARY:MoMA × Anthropic — Creative Sprint (“Create Connections”) 
+ — deadline (check time)
+DESCRIPTION:A weeklong sprint on the prompt “Create Connections”: teams
+  of two experiment with Claude and other creative tools to make a project 
+ with a digitally native component\, then present at MoMA to a panel of sen
+ ior museum staff. Three teams are recognized: Judge's Pick\, Vision & Inno
+ vation\, and Craft & Execution.\n\nNo stipend\, compensation or travel sup
+ port is stated in the call.\nNo application fee mentioned\n\nEligibility: 
+ Anyone available to be onsite at MoMA on December 3–4. Apply individuall
+ y or as a pair\; selected individuals are paired. No engineering experienc
+ e required. Up to 50 participants.\n\nDeadline: 2026-11-19. Cutoff time an
+ d time zone not stated. This calendar entry is all-day\; verify the cutoff
+  with the organizer.\n\nParticipants must attend the virtual kickoff\, the
+  remote sprint and both onsite days. Rights and IP terms are not stated.\n
+ \nOfficial call: https://docs.google.com/forms/d/e/1FAIpQLSddhbaNuQ05XVQ7n
+ IsJkQRJAPST9ih29cwcyIzUmVkHYrNhOg/viewform\nChecked 2026-11-11
+URL:https://docs.google.com/forms/d/e/1FAIpQLSddhbaNuQ05XVQ7nIsJkQRJAPST9ih
+ 29cwcyIzUmVkHYrNhOg/viewform
+LOCATION:Virtual\, then MoMA\, New York
+TRANSP:TRANSPARENT
+END:VEVENT
 END:VCALENDAR

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-11-06",
+  "updated": "2026-11-11",
   "opportunities": [
     {
       "id": "interplay-2027",
@@ -2110,6 +2110,43 @@
       ],
       "checked": "2026-11-06",
       "published": "2026-11-06"
+    },
+    {
+      "id": "moma-anthropic-creative-sprint-2026",
+      "title": "MoMA × Anthropic — Creative Sprint (“Create Connections”)",
+      "kind": "Contest",
+      "disciplines": [
+        "Creative coding",
+        "Digital art",
+        "Research"
+      ],
+      "summary": "A weeklong sprint on the prompt “Create Connections”: teams of two experiment with Claude and other creative tools to make a project with a digitally native component, then present at MoMA to a panel of senior museum staff. Three teams are recognized: Judge's Pick, Vision & Innovation, and Craft & Execution.",
+      "location": "Virtual, then MoMA, New York",
+      "remote": false,
+      "dates": "Virtual sprint November 30 – December 2, 2026; onsite at MoMA December 3–4, 2026",
+      "deadline": {
+        "date": "2026-11-19",
+        "at": null,
+        "note": "Cutoff time and time zone not stated"
+      },
+      "support": {
+        "paid": false,
+        "text": "Recognition",
+        "detail": "No stipend, compensation or travel support is stated in the call."
+      },
+      "fee": {
+        "status": "unknown",
+        "text": "No application fee mentioned"
+      },
+      "eligibility": {
+        "international": true,
+        "text": "Anyone available to be onsite at MoMA on December 3–4. Apply individually or as a pair; selected individuals are paired. No engineering experience required. Up to 50 participants."
+      },
+      "requirements": "A Google Form: name, email, location, discipline, AI comfort, portfolio link, a short practice statement and an initial sketch responding to the prompt.",
+      "terms": "Participants must attend the virtual kickoff, the remote sprint and both onsite days. Rights and IP terms are not stated.",
+      "source": "https://docs.google.com/forms/d/e/1FAIpQLSddhbaNuQ05XVQ7nIsJkQRJAPST9ih29cwcyIzUmVkHYrNhOg/viewform",
+      "checked": "2026-11-11",
+      "published": "2026-11-11"
     }
   ]
 }
