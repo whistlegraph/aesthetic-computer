@@ -26,9 +26,11 @@ The **instrument** is what the menu bar draws and which keys play; the
 **voice** is the sound. They are separate settings. Piano is the default. The
 popover's Piano | Ocarina switch (`notepat.instrument`) swaps the keyboard for
 a widened blue ocarina with five holes — D5 F5 A5 B5 D6, the five-note scale
-every Ocarina of Time song uses — in whatever voice is selected. Keys: `A` is
-low D and `I J K L` are the diamond beside it (K F, L A, J B, I high D). On a
-gamepad the face diamond plays the same diamond and d-pad left/down plays low D.
+every Ocarina of Time song uses — in whatever voice is selected, about half
+the piano's width. The keys are the Switch 2 ocarina buttons spelled on
+QWERTY: `L R A Y X` play D F A B D, and each hole wears its letter, so the
+game's button tabs read straight across. On a gamepad the shoulders play L
+and R and the face buttons A (east), Y (west), X (north), by position.
 Octave shift and the stick bend still apply. The art is Menu Band's own; only
 the scale and button shape are borrowed.
 

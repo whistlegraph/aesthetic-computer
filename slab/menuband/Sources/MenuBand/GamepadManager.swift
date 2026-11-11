@@ -228,6 +228,15 @@ final class GamepadManager {
         bindNote(gp.buttonB, .faceEast, gp)
         bindNote(gp.buttonA, .faceSouth, gp)
 
+        // Shoulders are read live as modifiers on the piano. On the ocarina
+        // they are the two low notes, as on the Switch: L = D, R = F.
+        gp.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
+            self?.handleOcarinaShoulder(left: true, pressed: pressed)
+        }
+        gp.rightShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
+            self?.handleOcarinaShoulder(left: false, pressed: pressed)
+        }
+
         // Triggers — octave in octave-first / minimal; held modifiers in
         // chord-first (read live there, so no press action).
         gp.leftTrigger.pressedChangedHandler = { [weak self] _, _, pressed in
@@ -285,6 +294,14 @@ final class GamepadManager {
             return
         }
 
+        if MenuBandLayout.instrument == .ocarina {
+            // The shoulders are notes here, so none of the piano's shoulder
+            // layers (function, chord, sustain) apply.
+            guard let hole = Self.ocarinaHole(for: button) else { return }
+            pressOcarina(hole: hole, as: button)
+            return
+        }
+
         let scheme = GamepadDefaults.scheme
         // While the function layer is held the diamonds become control
         // pads, not notes — run the action and sound nothing.
@@ -293,14 +310,8 @@ final class GamepadManager {
             return
         }
 
-        let keyCode: UInt16
-        if MenuBandLayout.instrument == .ocarina {
-            guard let hole = Self.ocarinaHole(for: button) else { return }
-            keyCode = MenuBandLayout.ocarinaKeyCodes[hole]
-        } else {
-            let degree = GamepadDefaults.layout.degree(for: button)
-            keyCode = MenuBandLayout.cMajorKeyCodes(for: controller.keymap)[degree]
-        }
+        let degree = GamepadDefaults.layout.degree(for: button)
+        let keyCode = MenuBandLayout.cMajorKeyCodes(for: controller.keymap)[degree]
         var flags: NSEvent.ModifierFlags = []
         if isSustainHeld(scheme: scheme, gp: gp) { flags.insert(.shift) }
         flags.formUnion(chordFlags(scheme: scheme, gp: gp))
@@ -309,19 +320,42 @@ final class GamepadManager {
                                   isRepeat: false, flags: flags)
     }
 
-    /// Ocarina hole (0 = low D … 4 = high D) for a note button. The face
-    /// diamond is the four-way pad of the ocarina's home controller —
-    /// down F, right A, left B, up high D — and the d-pad's left or down
-    /// plays the low D that sat beside it. D-pad up and right stay silent.
+    /// Ocarina hole (0 = low D … 4 = high D) for a face button, in the
+    /// Switch 2 layout by position: A (east) = A, Y (west) = B, X (north) =
+    /// high D. The shoulders carry the two low notes. The bottom face button
+    /// and the d-pad are silent.
     private static func ocarinaHole(for button: GamepadNoteButton) -> Int? {
         switch button {
-        case .dpadLeft, .dpadDown: return 0
-        case .faceSouth: return 1
         case .faceEast:  return 2
         case .faceWest:  return 3
         case .faceNorth: return 4
-        case .dpadUp, .dpadRight: return nil
+        case .faceSouth, .dpadLeft, .dpadUp, .dpadRight, .dpadDown: return nil
         }
+    }
+
+    /// Shoulder notes held on the ocarina, keyed left = true.
+    private var heldShoulderKeyCodes: [Bool: UInt16] = [:]
+
+    private func handleOcarinaShoulder(left: Bool, pressed: Bool) {
+        if !pressed {
+            if let keyCode = heldShoulderKeyCodes.removeValue(forKey: left) {
+                controller?.handleLocalKey(keyCode: keyCode, isDown: false,
+                                           isRepeat: false, flags: [])
+            }
+            return
+        }
+        guard MenuBandLayout.instrument == .ocarina else { return }
+        let keyCode = MenuBandLayout.ocarinaKeyCodes[left ? 0 : 1]
+        heldShoulderKeyCodes[left] = keyCode
+        controller?.handleLocalKey(keyCode: keyCode, isDown: true,
+                                   isRepeat: false, flags: [])
+    }
+
+    private func pressOcarina(hole: Int, as button: GamepadNoteButton) {
+        let keyCode = MenuBandLayout.ocarinaKeyCodes[hole]
+        heldNoteKeyCodes[button] = keyCode
+        controller?.handleLocalKey(keyCode: keyCode, isDown: true,
+                                   isRepeat: false, flags: [])
     }
 
     private func releaseAllHeldNotes() {
@@ -330,6 +364,11 @@ final class GamepadManager {
                                        isRepeat: false, flags: [])
         }
         heldNoteKeyCodes.removeAll()
+        for (_, keyCode) in heldShoulderKeyCodes {
+            controller?.handleLocalKey(keyCode: keyCode, isDown: false,
+                                       isRepeat: false, flags: [])
+        }
+        heldShoulderKeyCodes.removeAll()
     }
 
     // MARK: - Modifier state (read live from the pad)

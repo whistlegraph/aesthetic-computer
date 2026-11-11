@@ -113,10 +113,10 @@ enum MenuBandLayout {
     /// The ocarina's five notes, as semitones above middle C, low to high.
     static let ocarinaSemitones: [Int8] = [14, 17, 21, 23, 26]   // D5 F5 A5 B5 D6
 
-    /// Ocarina keys, laid out like the controller the scale was written for:
-    /// A plays the low D (the A button), and I J K L are the four-way
-    /// diamond beside it — K down = F, L right = A, J left = B, I up = high D.
-    static let ocarinaKeyCodes: [UInt16] = [0, 40, 37, 38, 34]   // A K L J I
+    /// Ocarina keys are the Switch 2 ocarina buttons, spelled on QWERTY:
+    /// L R A Y X play D F A B D, low to high — the letter on the key is the
+    /// letter on the button, so the game's button tabs read straight across.
+    static let ocarinaKeyCodes: [UInt16] = [37, 15, 0, 16, 7]   // L R A Y X
 
     static let semitoneByKeyCodeOcarina: [Int8] = {
         var t = [Int8](repeating: Int8.min, count: 128)
@@ -194,6 +194,8 @@ enum MenuBandLayout {
     /// notes and would steal accidental presses).
     @inline(__always)
     static func octaveKeyCodes(for keymap: Keymap) -> (down: UInt16, up: UInt16) {
+        // The ocarina plays X, so Ableton's z/x octave pair would steal it.
+        if instrument == .ocarina { return (43, 47) }
         switch keymap {
         case .ableton: return (6, 7)
         case .notepat, .milkyTracker: return (43, 47)

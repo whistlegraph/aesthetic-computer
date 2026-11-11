@@ -708,8 +708,12 @@ enum KeyboardIconRenderer {
 
     /// The ocarina's five keys under their display notes (D5 F5 A5 B5 D6).
     private static let labelByMidiOcarina: [Int: String] = [
-        74: "a", 77: "k", 81: "l", 83: "j", 86: "i",
+        74: "l", 77: "r", 81: "a", 83: "y", 86: "x",
     ]
+
+    /// The ocarina is shorter than the keyboard — about one octave of keys
+    /// wide — and the status item shrinks to fit it.
+    private static var ocarinaWidth: CGFloat { 7 * whiteW }
 
     static var labelByMidi: [Int: String] {
         labelByMidi(for: activeKeymap)
@@ -749,7 +753,8 @@ enum KeyboardIconRenderer {
     }
 
     private static var pianoWidth: CGFloat {
-        CGFloat(whiteList().count) * whiteW
+        if MenuBandLayout.instrument == .ocarina { return ocarinaWidth }
+        return CGFloat(whiteList().count) * whiteW
     }
 
     /// Pixel distance for one octave of natural keys. AppDelegate uses this
@@ -2010,9 +2015,10 @@ enum KeyboardIconRenderer {
                 lip.lineWidth = 0.6
                 lip.stroke()
             }
-            // The key letter fades in the way the piano's labels do.
-            let a = letterAlpha?(hole.midi) ?? 0
-            if a > 0.01, let label = labelByMidiOcarina[m] {
+            // Every hole wears its key — the Switch button letter — so the
+            // instrument teaches itself. Typing brightens it further.
+            let a = max(0.82, letterAlpha?(hole.midi) ?? 0)
+            if let label = labelByMidiOcarina[m] {
                 let attrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.systemFont(ofSize: 8, weight: .bold),
                     .foregroundColor: NSColor.white.withAlphaComponent(a),
@@ -2047,6 +2053,7 @@ enum KeyboardIconRenderer {
     }
 
     private static func pianoWidth(layout: Layout) -> CGFloat {
+        if MenuBandLayout.instrument == .ocarina { return ocarinaWidth }
         switch layout {
         case .fixedCanvas:
             return CGFloat(whiteList().count) * whiteW
