@@ -1117,39 +1117,6 @@ function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, 
 // The worker's own query, typed by the ledger (lib/params.mjs); read by name.
 const workerQuery = parseQuery(location.search);
 const projectionMode = workerQuery.nolabel === true; // Skip loading noise.
-// 🐚 shellhtml mode — the runtime is hosted by an HTML shell (prompt.ac) that
-// owns the prompt + return-to-prompt chrome in crisp DOM above the pixel
-// buffer. The composited typable prompt and corner label stand down here.
-const shellHTMLMode = workerQuery.shellhtml === true;
-
-// Mirror the prompt TextInput out to the shell whenever it changes, so LLM
-// replies, command confirmations, and the thinking state render in DOM even
-// though the composited prompt never paints. Runs from the prompt system's
-// sim in place of prompt_sim.
-let shellLabelLast = null;
-function shellLabelSync() {
-  const text = currentHUDTxt || "";
-  const plain = currentHUDPlainTxt || stripCodes(text) || "";
-  const color = Array.isArray(currentHUDTextColor) ? currentHUDTextColor.slice(0, 4) : null;
-  const state = text + "\0" + plain + "\0" + (color ? color.join(",") : "");
-  if (state === shellLabelLast) return;
-  shellLabelLast = state;
-  send({ type: "hud:label:shell", content: { text, plain, color } });
-}
-
-let shellPromptLast = null;
-function shellPromptSync($) {
-  const input = $.system?.prompt?.input;
-  if (!input) return;
-  const thinking = !!$.system.prompt.thinking;
-  const state = (input.text || "") + "\0" + thinking;
-  if (state === shellPromptLast) return;
-  shellPromptLast = state;
-  send({
-    type: "prompt:text:shell",
-    content: { text: input.text || "", thinking },
-  });
-}
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
@@ -3438,11 +3405,6 @@ const $commonApi = {
     const sound = {};
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
-    // The host shell (prompt.ac) covers the pixel buffer with its DOM, so
-    // notices also travel up to render as crisp DOM flashes.
-    if (shellHTMLMode) {
-      send({ type: "notice:shell", content: { text: msg, color } });
-    }
   },
   // 🪟 A crisp vector overlay, drawn on the native UI canvas (uiCtx) above the pixel
   // buffer. Hand it a display-list of ops each frame and bios replays them with
@@ -3967,9 +3929,6 @@ const $commonApi = {
     data: {},
   },
   system: {
-    // 🐚 True when an HTML shell (prompt.ac) hosts the runtime and owns the
-    // prompt / corner chrome in DOM — pieces skip their own low-res chrome.
-    shellhtml: shellHTMLMode,
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
     // 🎵 ac-electron drag-drop: set when a file is dropped onto the app
     // (Dock icon or running window). Pieces (notably `play`) read this on
@@ -10122,8 +10081,7 @@ async function load(
 
       sim = ($) => {
         module.sim?.($);
-        if (!shellHTMLMode) prompt.prompt_sim($);
-        else shellPromptSync($); // mirror reply text / thinking to the shell
+        prompt.prompt_sim($);
       };
 
       paint = ($) => {
@@ -10136,9 +10094,7 @@ async function load(
           noPaint = true;
         }
 
-        // shellhtml: the host page's DOM layer IS the prompt — never composite
-        // the low-res typable input over the stage beneath it.
-        const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
+        const promptPainted = prompt.prompt_paint($);
         // A piece that returns nothing keeps repainting, as every piece does;
         // one that returns false rests, unless the input is typing.
         if (noPaint === undefined) return undefined;
@@ -10149,7 +10105,7 @@ async function load(
 
       act = ($) => {
         module.act?.($);
-        if (!shellHTMLMode) prompt.prompt_act($); // shell DOM owns typing
+        prompt.prompt_act($);
       };
 
       leave = ($) => {
@@ -10354,8 +10310,6 @@ async function load(
     if (searchParams.has("nosource")) hideSource = true;
     if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
-  if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
-  shellLabelLast = null; // a fresh piece re-sends its label even if the text repeats
 
     currentColon = colon;
     currentParams = params;
@@ -10728,40 +10682,6 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
-  // Native DOM prompt bridge (prompt.ac). Keep the TextInput and prompt piece
-  // as the source of truth while leaving their low-resolution composition off.
-  if (type === "prompt:dom-input") {
-    const promptInput = $commonApi?.system?.prompt?.input;
-    if (!promptInput || $commonApi?.slug !== "prompt") {
-      // The bridge comes up before the prompt piece is current, so a submit
-      // sent in that window must not vanish — reroute it through an autorun
-      // prompt load, which executes the command once the piece is ready.
-      // Never jump mid-load though: interrupting an in-flight load wedges the
-      // loader ("Already loading"), and the shell re-sends once ac:piece says
-      // the prompt is live.
-      const text = String(content?.text ?? "").trim();
-      if (content?.submit === true && text && !loading && !leaving) {
-        $commonApi?.jump?.(`prompt~${text}~!autorun`);
-      }
-      return;
-    }
-
-    const text = String(content?.text ?? "");
-    promptInput.text = text;
-    promptInput.addUserText?.(text);
-    promptInput.runnable = text.trim().length > 0;
-    promptInput.canType = content?.active !== false;
-    if (promptInput.enter?.btn) {
-      promptInput.enter.btn.disabled = !promptInput.touchButtons || !promptInput.runnable;
-    }
-    promptInput.snap?.();
-    $commonApi.needsPaint?.();
-
-    if (content?.submit === true && promptInput.runnable) {
-      await promptInput.run($commonApi.store);
-    }
-    return;
-  }
 
   // 🎵 ac-electron drag-drop: a file was dropped onto the app icon or
   // window. Stash it on system.droppedFile, fire a dropped:file act event
@@ -15244,13 +15164,6 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
-
-      // 🐚 shellhtml: the composited label stands down, so hand the hosting
-      // shell (prompt.ac) the same string the raster would paint — color
-      // codes and all — whenever it changes. The shell's DOM corner label
-      // then shows exactly what aesthetic.computer shows, kidlisp source
-      // included, instead of re-deriving a label from the slug.
-      if (shellHTMLMode) shellLabelSync();
 
       // System info label (addressability).
       let label;

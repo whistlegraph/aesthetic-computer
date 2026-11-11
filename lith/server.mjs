@@ -54,7 +54,6 @@ import os from "node:os";
 import { resolve as resolvePath } from "node:path";
 import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
-import { canonicalPageUrl } from "../system/public/aesthetic.computer/lib/site-metadata.mjs";
 import { paintingStorageUrl } from "../system/backend/painting-storage.mjs";
 import { sendStream } from "./stream-response.mjs";
 import { userMediaTarget, userMediaOrigin } from "./media-path.mjs";
@@ -282,21 +281,10 @@ app.use((req, res, next) => {
     if (entry?.bare) return res.redirect(302, entry.url || `https://whistlegraph.org/${entry.code}`);
   }
 
-  // Caddy sends non-root prompt.ac routes here so the same live resolver owns
-  // both domains. Piece-like paths serve the HTML prompt shell, which boots
-  // its runtime straight into the piece — prompt.ac/line stays on prompt.ac,
-  // matching the raster site's real paths. Dotted paths (assets and files)
-  // keep the historical aesthetic.computer redirect.
-  if (isPrompt && req.path !== "/") {
-    if (!req.path.includes(".")) {
-      const canonical = canonicalPageUrl(host, req.path).replaceAll("&", "&amp;");
-      const shell = readFileSync(join(PUBLIC, "prompt.ac", "index.html"), "utf8")
-        .replace('<link rel="canonical" href="https://prompt.ac/" />', `<link rel="canonical" href="${canonical}" />`)
-        .replace('<meta property="og:url" content="https://prompt.ac/" />', `<meta property="og:url" content="${canonical}" />`);
-      return res.type("html").send(shell);
-    }
-    return res.redirect(301, `https://aesthetic.computer${req.originalUrl}`);
-  }
+  // prompt.ac is shorthand for aesthetic.computer: same place, every path.
+  // Caddy redirects it at the edge; this covers a request that reaches lith
+  // directly.
+  if (isPrompt) return res.redirect(302, `https://aesthetic.computer${req.originalUrl}`);
   next();
 });
 

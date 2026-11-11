@@ -886,7 +886,7 @@
     # `*.prompt.ac → 100::` Worker wildcard swallows www and 522s.)
     @wwwpromptac host www.prompt.ac
     handle @wwwpromptac {
-        redir https://prompt.ac{uri} 301
+        redir https://aesthetic.computer{uri} 302
     }
 
     # --- prompt.ac/menuband → menuband.app (Menu Band's own domain) ---
@@ -905,21 +905,6 @@
             uri strip_prefix /menuband
             redir https://menuband.app{uri} 301
         }
-    }
-
-    # --- prompt.ac (apex root only) → HTML prompt shell (its own product) ---
-    # Naked prompt.ac serves the fast HTML prompt that hosts the AC runtime in
-    # an iframe. Every other prompt.ac/<path> still 301s to aesthetic.computer
-    # (below), so deep links keep working. Evaluated before the redirect since
-    # it appears first in source order.
-    @promptac_root {
-        host prompt.ac
-        path /
-    }
-    handle @promptac_root {
-        root * /opt/ac/system/public/prompt.ac
-        rewrite * /index.html
-        file_server
     }
 
     # --- prompt.ac/2018 → Jeffrey's prehistory-year media memorial ---
@@ -941,20 +926,20 @@
     # symbol — smaller modules, on the surface hardest to scan. Twenty-seven
     # bytes with the scheme keeps it at version 2.
     #
-    # A redirect rather than a rewrite: the shell reads the channel out of its
+    # A redirect rather than a rewrite: the prompt reads the channel out of its
     # own location client-side, so it has to actually arrive at the long URL.
-    # Must sit above @promptac, which otherwise claims every non-root path.
+    # Must sit above @promptac, which otherwise sends every path to aesthetic.computer.
     @promptac_channel {
         host prompt.ac
         path_regexp promptacchannel ^/~([A-Za-z0-9_-]{4,16})$
     }
     handle @promptac_channel {
-        redir https://prompt.ac/prompt~channel%20{re.promptacchannel.1}~!autorun 302
+        redir https://aesthetic.computer/prompt~channel%20{re.promptacchannel.1}~!autorun 302
     }
 
     # The installer and its tarball, served as files from both hosts. Must sit
-    # above @promptac, which otherwise hands every non-root path to the resolver
-    # and would turn `curl prompt.ac/aesel.sh` into a redirect to a piece.
+    # above @promptac, which otherwise redirects every path to aesthetic.computer
+    # and would turn `curl prompt.ac/aesel.sh` into a redirect.
     # The easel.* names are the same files under the name they had first;
     # installed copies poll easel.json, so both stay served.
     #
@@ -979,15 +964,15 @@
     }
 
     # --- prompt.ac routes ---
-    # Non-root paths pass through lith's conflict-aware Whistlegraph resolver.
-    # It sends live codes to whistlegraph.org and preserves the historical
-    # aesthetic.computer redirect for pieces, commands, and unknown paths.
+    # prompt.ac and aesthetic.computer lead to the same place: everything not
+    # claimed above (installer, /2018, /~channel) goes to aesthetic.computer,
+    # root included. The HTML-shell prompt that used to live here is retired.
+    # 302 rather than 301 so the decision is not baked into browsers.
     @promptac {
         host prompt.ac
-        not path /
     }
     handle @promptac {
-        import lith_proxy
+        redir https://aesthetic.computer{uri} 302
     }
 
     @tryshared {

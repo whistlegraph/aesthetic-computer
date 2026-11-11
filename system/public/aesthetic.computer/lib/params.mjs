@@ -38,7 +38,6 @@ export const PARAMS = Object.freeze({
   nolabel: p("flag", "view", ["boot", "bios", "disk", "kidlisp", "piece:clock"], "Hide the corner label / HUD.", { carry: BOTH }),
   nosource: p("flag", "view", ["boot", "bios", "disk"], "A KidLisp $code labels itself by name, not source.", { carry: BOTH }),
   autoreload: p("flag", "view", ["boot", "bios", "disk"], "Take piece updates automatically instead of showing the badge.", { carry: BAR }),
-  shellhtml: p("flag", "view", ["boot", "bios", "disk"], "An HTML shell (prompt.ac) owns the prompt and corner chrome in DOM.", { carry: BAR }),
   density: p("number", "view", ["boot", "bios"], "Rendering density; remembered in localStorage outside device mode.", { carry: BAR }),
   zoom: p("number", "view", ["boot"], "Navigator zoom level; stored in localStorage and handed to bios, not applied.", { carry: BAR }),
   duration: p("number", "view", ["boot", "disk"], "Seconds for a timed piece's progress bar.", { carry: BAR }),

@@ -385,8 +385,8 @@ function hideBootLog() {
     bc.hide();
   }
   // 🐚 The piece is on screen now. `ready` (disk loaded) fires earlier, while
-  // the overlay still stands, so a hosting shell that dresses the runtime —
-  // prompt.ac's corner label — needs this later moment to avoid drawing its
+  // the overlay still stands, so a hosting page that dresses the runtime
+  // needs this later moment to avoid drawing its
   // chrome over the boot log.
   window.parent?.postMessage({ type: "ac:boot-hidden" }, "*");
   // Third-party analytics (PostHog's array.js, gtag) wait for this so they
@@ -1365,10 +1365,6 @@ const nolabel = urlQuery.nolabel === true;
 // update instead of offering it — no badge, no chime, just the new piece.
 const autoreload = urlQuery.autoreload === true;
 
-// 🐚 shellhtml — an HTML shell (prompt.ac) hosts the runtime and owns the
-// prompt/corner chrome in DOM; the composited equivalents stand down.
-const shellhtml = urlQuery.shellhtml === true;
-
 // Check for desktop mode (Electron app) - implies nogap
 const desktop = urlQuery.desktop === true;
 
@@ -1491,7 +1487,7 @@ if (window.acVSCODE) {
 
 // Pass the parameters directly without stripping them
 bootLog(`booting: ${parsed?.text || 'prompt'}`);
-boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, autoreload, shellhtml, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
+boot(parsed, bpm, { gap: nogap ? 0 : undefined, nolabel, autoreload, density, zoom, duration, tv, highlight, desktop, device, perf, autoScale, solo, maxfps, spoofaudio }, debug);
 
 // Start processing any early kidlisp messages that arrived before boot completed
 processEarlyKidlispQueue();
@@ -1926,17 +1922,6 @@ if (!sandboxed && !skipAuth) {
           content: { user: window.acUSER },
         });
 
-        // 🐚 prompt.ac login popup: the shell opened this window named
-        // "ac-login-popup" (window.name survives the Auth0 round-trip).
-        // Report the completed session to the opener and close — the shell
-        // reboots its hidden runtime to pick the session up.
-        if (window.name === "ac-login-popup" && window.opener) {
-          try {
-            window.opener.postMessage({ type: "ac:login-complete" }, "*");
-          } catch (err) { /* opener gone — nothing to report to */ }
-          setTimeout(() => window.close(), 250);
-        }
-
         // 🔔 If the native iOS app handed us a push token before login, register it now.
         window.iOSTryRegisterPushToken?.();
 
@@ -2059,7 +2044,7 @@ function receive(event) {
     window.location.reload();
     return;
   } else if (event.data?.type === "load-piece") {
-    // An external HTML shell (prompt.ac) requests an in-place piece swap.
+    // A hosting page (moat.mjs) requests an in-place piece swap.
     // Parse the slug exactly like URL / back-button navigation does, then drive
     // the same worker load path (history-load → $commonApi.load) so there's no
     // full iframe reload. `parse` is already imported for boot-time routing.
@@ -2067,34 +2052,6 @@ function receive(event) {
     if (slug && window.acSEND) {
       window.acSEND({ type: "history-load", content: parse(slug) });
     }
-    return;
-  } else if (event.data?.type === "prompt:dom-input") {
-    // prompt.ac renders the prompt in native DOM, but the prompt system remains
-    // authoritative for input state, history, command aliases, and execution.
-    // Forward the DOM value to the worker instead of duplicating that logic in
-    // the shell. shellhtml only suppresses pixel composition and local acts.
-    window.acSEND?.({
-      type: "prompt:dom-input",
-      content: {
-        text: String(event.data.text ?? ""),
-        active: event.data.active !== false,
-        submit: event.data.submit === true,
-      },
-    });
-    return;
-  } else if (event.data?.type === "ac:user?") {
-    // An HTML shell (prompt.ac) asks who is signed in, to mirror the raster
-    // prompt's login/profile buttons in DOM. `handle` arrives via a background
-    // /user fetch after auth resolves, so shells may re-ask a few times.
-    event.source?.postMessage(
-      {
-        type: "ac:user",
-        user: window.acUSER
-          ? { sub: window.acUSER.sub, handle: window.acUSER.handle || null }
-          : null,
-      },
-      "*",
-    );
     return;
   } else if (event.data?.type === "kidlisp-reload") {
     // Live reload from kidlisp.com editor

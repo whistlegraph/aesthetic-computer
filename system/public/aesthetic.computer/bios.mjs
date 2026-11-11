@@ -1048,7 +1048,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // browser's real preference would leave it changed behind it.
     updateAutoReload = true;
   }
-  if (resolution.shellhtml === true) preservedParams.shellhtml = "true";
   // The frame-rate cap is the embedding's too: a preview card that reloads
   // without it runs at display rate, which is the one thing it was told not to do.
   if (resolution.maxfps) preservedParams.maxfps = String(resolution.maxfps);
@@ -2490,6 +2489,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           lastWidth === window.innerWidth &&
           lastHeight === window.innerHeight
         ) {
+          return;
+        }
+
+        // The prompt keeps its full height under the software keyboard: a
+        // height-only shrink while its hidden input has focus is the keyboard
+        // sliding up, not a new screen, so the canvas stays long and the
+        // keyboard covers the bottom. lastHeight keeps the tall value, so the
+        // keyboard sliding away matches it and nothing reframes either way.
+        if (
+          lastWidth === window.innerWidth &&
+          window.innerHeight < lastHeight &&
+          document.activeElement?.id === "software-keyboard-input" &&
+          currentPiece?.endsWith("/disks/prompt")
+        ) {
+          window.scrollTo(0, 0);
           return;
         }
 
@@ -14126,49 +14140,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🐚 Relay worker → hosting shell (prompt.ac): DOM notices + the prompt's
-    // mirrored reply text, since the shell covers the pixel buffer.
-    if (type === "notice:shell") {
-      if (window.parent !== window) {
-        window.parent.postMessage(
-          { type: "ac:notice", text: content?.text, color: content?.color },
-          "*",
-        );
-      }
-      return;
-    }
-
-    // The raster's corner label, as text: the shell paints it in DOM so a
-    // kidlisp piece shows its colored source there too, not just its slug.
-    if (type === "hud:label:shell") {
-      if (window.parent !== window) {
-        window.parent.postMessage(
-          {
-            type: "ac:label",
-            text: content?.text || "",
-            plain: content?.plain || "",
-            color: content?.color || null,
-          },
-          "*",
-        );
-      }
-      return;
-    }
-
-    if (type === "prompt:text:shell") {
-      if (window.parent !== window) {
-        window.parent.postMessage(
-          {
-            type: "ac:prompt-text",
-            text: content?.text || "",
-            thinking: !!content?.thinking,
-          },
-          "*",
-        );
-      }
-      return;
-    }
-
     if (type === "onboarding:open") {
       // The prompt, with `handle ` typed in, is where a handle gets set.
       send({ type: "jump", content: { piece: "prompt~handle " } });
@@ -15115,10 +15086,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       accountActivity.load(content.path);
       // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
 
-      // 🐚 Tell a hosting shell (prompt.ac) about every load, including the
+      // 🐚 Tell a hosting page (moat.mjs) about every load, including the
       // boot piece — the url:updated below skips first loads and history
-      // replays, but the shell needs them all to track the stage and to know
-      // when the prompt is actually ready for dom-input submits.
+      // replays, but the host needs them all to track the stage.
       if (window.parent !== window) {
         const shellSlug =
           content.text === "/prompt"
@@ -15259,6 +15229,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       pendingImmediateSounds.clear();
       currentPiece = content.path;
       keyboardMaxChars = 256; // Reset to default on each piece load
+
+      // ⌨️ Chrome lays the software keyboard over the prompt instead of
+      // shrinking the page, so the canvas stays long and nothing reframes
+      // while typing. Other pieces (chat) keep the default, where the page
+      // shrinks above the keyboard and their input stays in view. Safari
+      // ignores `interactive-widget`; the resize guard covers it there.
+      const viewportMeta = document.querySelector('meta[name="viewport"]');
+      if (viewportMeta) {
+        const base = viewportMeta.content
+          .split(",")
+          .map((part) => part.trim())
+          .filter((part) => part && !part.startsWith("interactive-widget"));
+        if (currentPiece?.endsWith("/disks/prompt")) {
+          base.push("interactive-widget=overlays-content");
+        }
+        const next = base.join(", ");
+        if (viewportMeta.content !== next) viewportMeta.content = next;
+      }
       // console.log("🎮 currentPiece SET TO:", currentPiece);
       
       // 🎬 Track piece changes during recording
@@ -15627,12 +15615,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "keyboard:open") {
-      // 🐚 shellhtml: at the prompt the host page's DOM bar is the text
-      // surface — never summon the soft keyboard over the buffer there.
-      if (preservedParams?.shellhtml && currentPiece?.endsWith("/prompt")) {
-        console.log("⌨️🐚 [bios keyboard:open handler] shellhtml prompt — host bar owns typing, skipping");
-        return;
-      }
       console.log("⌨️🟢 [bios keyboard:open handler] calling keyboard.input.focus()");
       if (keyboardFocusLock) return;
       keyboardFocusLock = false;

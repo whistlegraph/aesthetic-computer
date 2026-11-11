@@ -3,7 +3,7 @@
 Generated from [`lib/params.mjs`](../system/public/aesthetic.computer/lib/params.mjs)
 by `node system/scripts/params-doc.mjs`. Edit the ledger, not this file.
 
-74 parameters. A flag is on when present; `=false`
+73 parameters. A flag is on when present; `=false`
 does not turn it off — drop the name. Keep query parameters before any
 `#fragment`.
 
@@ -25,7 +25,6 @@ Boot telemetry records which names were present — names only, never values.
 | `nolabel` | flag | view | bar, jump | boot, bios, disk, kidlisp, piece:clock | live | Hide the corner label / HUD. |
 | `nosource` | flag | view | bar, jump | boot, bios, disk | live | A KidLisp $code labels itself by name, not source. |
 | `autoreload` | flag | view | bar | boot, bios, disk | live | Take piece updates automatically instead of showing the badge. |
-| `shellhtml` | flag | view | bar | boot, bios, disk | live | An HTML shell (prompt.ac) owns the prompt and corner chrome in DOM. |
 | `density` | number | view | bar | boot, bios | live | Rendering density; remembered in localStorage outside device mode. |
 | `zoom` | number | view | bar | boot | live | Navigator zoom level; stored in localStorage and handed to bios, not applied. |
 | `duration` | number | view | bar | boot, disk | live | Seconds for a timed piece's progress bar. |
@@ -73,7 +72,7 @@ Boot telemetry records which names were present — names only, never values.
 | `session-aesthetic` | token | auth | — | boot | live | A session handed in by a host (desktop app, VS Code); stored, then removed. |
 | `session-sotce` | token | auth | — | boot | live | A sotce session handed in by the VS Code extension; stored, then removed. |
 | `notice` | string | piece | — | disk, piece:painting | live | A notice to flash on load: `success`, `cancel`, `email-verified`, or free text. |
-| `dool` | string | piece | — | piece:prompt | live | `dool=true`: boot the prompt with the dool room already up. |
+| `dool` | flag | piece | — | piece:prompt | live | Boot the prompt with the dool room already up (a minted object's doorway links `?dool` bare). |
 | `test` | string | piece | — | piece:chat, piece:laklok, piece:mail | live | Test hooks (BroadcastChannel) for browser e2e runs. |
 | `ticket` | string | piece | — | piece:botce | live | A botce ticket key. |
 | `rom` | string | piece | — | piece:gameboy | live | A ROM link to load. |

@@ -88,7 +88,7 @@ test("viewParams carry sets match what bios preserves and what jump re-appends t
     [
       "autoreload", "daw", "density", "desktop", "device", "duration", "height",
       "highlight", "icon", "maxfps", "mime", "noauth", "nogap", "nolabel",
-      "nosource", "preview", "reel", "shellhtml", "solo", "tv", "width", "zoom",
+      "nosource", "preview", "reel", "solo", "tv", "width", "zoom",
     ],
   );
   assert.deepEqual(
