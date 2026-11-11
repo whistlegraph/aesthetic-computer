@@ -1873,37 +1873,42 @@ enum KeyboardIconRenderer {
         let zone: NSRect
     }
 
-    /// The ocarina fills the piano's window: a widened oval body with the
-    /// mouthpiece at the left, five holes in a row from low D to high D.
-    private static func ocarinaBody(layout: Layout) -> (body: NSRect, mouth: NSRect) {
+    /// The ocarina fills its window: room for breath at the far left, then
+    /// the mouthpiece, then the body with five holes from low D to high D.
+    private static func ocarinaBody(layout: Layout) -> (body: NSRect, mouth: NSRect, breath: NSRect) {
         let x0 = pianoOriginX
         let w = pianoWidth(layout: layout)
         let h = whiteH
-        let mouthW = min(h * 0.9, w * 0.12)
-        let mouthH = h * 0.42
-        let body = NSRect(x: x0 + mouthW * 0.7, y: pad,
-                          width: w - mouthW * 0.7, height: h)
-        let mouth = NSRect(x: x0, y: pad + h * 0.5 - mouthH * 0.5 + h * 0.08,
+        let breathW = h * 0.42
+        let mouthW = min(h * 0.85, w * 0.11)
+        let mouthH = h * 0.4
+        let mouth = NSRect(x: x0 + breathW, y: pad + h * 0.5 - mouthH * 0.5 + h * 0.1,
                            width: mouthW, height: mouthH)
-        return (body, mouth)
+        let body = NSRect(x: mouth.minX + mouthW * 0.65, y: pad,
+                          width: w - breathW - mouthW * 0.65, height: h)
+        let breath = NSRect(x: x0, y: mouth.minY - h * 0.1,
+                            width: breathW, height: mouthH + h * 0.2)
+        return (body, mouth, breath)
     }
 
     static func ocarinaHoles(layout: Layout = .fixedCanvas) -> [OcarinaHole] {
-        let (body, mouth) = ocarinaBody(layout: layout)
-        // Holes sit in the oval's fat middle, clear of the narrowing ends.
-        let inset = body.width * 0.08
-        let span = NSRect(x: body.minX + inset, y: body.minY,
-                          width: body.width - inset * 2, height: body.height)
+        let (body, mouth, breath) = ocarinaBody(layout: layout)
+        // Holes run along the belly, clear of the round end and the tail.
+        let span = NSRect(x: body.minX + body.width * 0.1, y: body.minY,
+                          width: body.width * 0.78, height: body.height)
         let n = MenuBandLayout.ocarinaSemitones.count
         let col = span.width / CGFloat(n)
-        let d = min(col * 0.62, body.height * 0.5)
         return MenuBandLayout.ocarinaSemitones.enumerated().map { i, st in
+            // Bigger holes sound higher on a real ocarina, so they grow
+            // from low D to high D.
+            let t = CGFloat(i) / CGFloat(max(1, n - 1))
+            let d = min(col * 0.8, body.height * (0.4 + 0.14 * t))
             let cx = span.minX + col * (CGFloat(i) + 0.5)
-            let circle = NSRect(x: cx - d / 2, y: body.midY - d / 2,
+            let circle = NSRect(x: cx - d / 2, y: body.midY - d / 2 + body.height * 0.02,
                                 width: d, height: d)
-            // The end columns stretch to the instrument's ends, mouthpiece
-            // included, so the whole drawing is playable.
-            let left = i == 0 ? mouth.minX : span.minX + col * CGFloat(i)
+            // The end columns stretch to the instrument's ends, breath and
+            // mouthpiece included, so the whole drawing is playable.
+            let left = i == 0 ? min(breath.minX, mouth.minX) : span.minX + col * CGFloat(i)
             let right = i == n - 1 ? body.maxX : span.minX + col * CGFloat(i + 1)
             let zone = NSRect(x: left, y: body.minY, width: right - left,
                               height: body.height)
@@ -1918,33 +1923,36 @@ enum KeyboardIconRenderer {
         }?.midi
     }
 
-    /// A widened sweet-potato: a full round end at the mouthpiece, tapering
-    /// to a smaller round tail. A plain oval this long comes to points and
-    /// reads as a leaf; a capsule reads as a recorder.
+    /// The body as four smooth curves meeting with matched tangents: a full
+    /// round end by the mouthpiece, a belly, and a tail that narrows and
+    /// tips slightly up. No straight runs, so there are no corners.
     private static func ocarinaShape(_ r: NSRect) -> NSBezierPath {
         let w = r.width, h = r.height
+        let tailY = r.midY + h * 0.07       // the tail tips up a little
+        let tailR = h * 0.4                 // half-height of the tail tip
+        let topX = r.minX + w * 0.3         // belly's high point
+        let botX = r.minX + w * 0.36        // belly's low point
         let p = NSBezierPath()
         p.move(to: NSPoint(x: r.minX, y: r.midY))
-        p.curve(to: NSPoint(x: r.minX + w * 0.12, y: r.maxY),
-                controlPoint1: NSPoint(x: r.minX, y: r.maxY - h * 0.05),
-                controlPoint2: NSPoint(x: r.minX + w * 0.04, y: r.maxY))
-        p.line(to: NSPoint(x: r.maxX - w * 0.14, y: r.maxY - h * 0.1))
-        p.curve(to: NSPoint(x: r.maxX, y: r.midY),
-                controlPoint1: NSPoint(x: r.maxX - w * 0.04, y: r.maxY - h * 0.13),
-                controlPoint2: NSPoint(x: r.maxX, y: r.midY + h * 0.28))
-        p.curve(to: NSPoint(x: r.maxX - w * 0.14, y: r.minY + h * 0.1),
-                controlPoint1: NSPoint(x: r.maxX, y: r.midY - h * 0.28),
-                controlPoint2: NSPoint(x: r.maxX - w * 0.04, y: r.minY + h * 0.13))
-        p.line(to: NSPoint(x: r.minX + w * 0.12, y: r.minY))
+        p.curve(to: NSPoint(x: topX, y: r.maxY),
+                controlPoint1: NSPoint(x: r.minX, y: r.maxY - h * 0.2),
+                controlPoint2: NSPoint(x: r.minX + w * 0.08, y: r.maxY))
+        p.curve(to: NSPoint(x: r.maxX, y: tailY),
+                controlPoint1: NSPoint(x: topX + w * 0.4, y: r.maxY),
+                controlPoint2: NSPoint(x: r.maxX + w * 0.015, y: tailY + tailR * 1.2))
+        p.curve(to: NSPoint(x: botX, y: r.minY),
+                controlPoint1: NSPoint(x: r.maxX + w * 0.015, y: tailY - tailR * 1.35),
+                controlPoint2: NSPoint(x: botX + w * 0.38, y: r.minY))
         p.curve(to: NSPoint(x: r.minX, y: r.midY),
-                controlPoint1: NSPoint(x: r.minX + w * 0.04, y: r.minY),
-                controlPoint2: NSPoint(x: r.minX, y: r.minY + h * 0.05))
+                controlPoint1: NSPoint(x: r.minX + w * 0.1, y: r.minY),
+                controlPoint2: NSPoint(x: r.minX, y: r.minY + h * 0.2))
         p.close()
         return p
     }
 
-    /// A deep blue glazed body, five holes that light in the press color.
-    /// Shapes and colors are Menu Band's own; only the scale is borrowed.
+    /// A deep blue glazed ceramic body, five holes that light in the press
+    /// color, and breath at the mouthpiece while a note sounds. Shapes and
+    /// colors are Menu Band's own; only the scale is borrowed.
     private static func drawOcarina(layout: Layout,
                                     litNotes: Set<UInt8>,
                                     playbackLitNotes: Set<UInt8>,
@@ -1952,41 +1960,79 @@ enum KeyboardIconRenderer {
                                     lit: (Int) -> NSColor,
                                     playbackLit: NSColor,
                                     letterAlpha: ((UInt8) -> CGFloat)?) {
-        let (body, mouth) = ocarinaBody(layout: layout)
+        let (body, mouth, breath) = ocarinaBody(layout: layout)
         let top = isDark
-            ? NSColor(srgbRed:  58/255, green:  92/255, blue: 178/255, alpha: 1)
-            : NSColor(srgbRed:  78/255, green: 120/255, blue: 214/255, alpha: 1)
+            ? NSColor(srgbRed:  64/255, green: 100/255, blue: 190/255, alpha: 1)
+            : NSColor(srgbRed:  86/255, green: 130/255, blue: 224/255, alpha: 1)
+        let mid = isDark
+            ? NSColor(srgbRed:  38/255, green:  64/255, blue: 140/255, alpha: 1)
+            : NSColor(srgbRed:  50/255, green:  86/255, blue: 180/255, alpha: 1)
         let bottom = isDark
-            ? NSColor(srgbRed:  26/255, green:  44/255, blue: 104/255, alpha: 1)
-            : NSColor(srgbRed:  36/255, green:  62/255, blue: 148/255, alpha: 1)
-        let rim = NSColor(srgbRed: 14/255, green: 24/255, blue: 62/255, alpha: 0.85)
+            ? NSColor(srgbRed:  18/255, green:  30/255, blue:  76/255, alpha: 1)
+            : NSColor(srgbRed:  26/255, green:  44/255, blue: 112/255, alpha: 1)
+        let rim = NSColor(srgbRed: 10/255, green: 18/255, blue: 48/255, alpha: 0.9)
+        let glaze = NSGradient(colorsAndLocations: (top, 0), (mid, 0.55), (bottom, 1))
 
         // Mouthpiece first, body over it, so the join is one surface.
-        let glazeFill = NSGradient(starting: top, ending: bottom)
-        rim.setStroke()
-        for part in [NSBezierPath(roundedRect: mouth,
-                                  xRadius: mouth.height * 0.3,
-                                  yRadius: mouth.height * 0.3),
-                     ocarinaShape(body)] {
-            glazeFill?.draw(in: part, angle: -90)
-            part.lineWidth = 0.75
+        let mouthPath = NSBezierPath(roundedRect: mouth, xRadius: mouth.height * 0.32,
+                                     yRadius: mouth.height * 0.32)
+        let shape = ocarinaShape(body)
+        for part in [mouthPath, shape] {
+            glaze?.draw(in: part, angle: -90)
+            rim.setStroke()
+            part.lineWidth = 0.7
             part.stroke()
         }
 
-        // Glaze: a soft highlight along the upper body.
-        let glaze = NSRect(x: body.minX + body.width * 0.1,
-                           y: body.maxY - body.height * 0.3,
-                           width: body.width * 0.72,
-                           height: body.height * 0.15)
-        NSColor.white.withAlphaComponent(isDark ? 0.14 : 0.22).setFill()
-        NSBezierPath(roundedRect: glaze, xRadius: glaze.height / 2,
-                     yRadius: glaze.height / 2).fill()
+        NSGraphicsContext.saveGraphicsState()
+        shape.addClip()
+        // Shine: the body's own outline, shrunk toward its upper edge, so
+        // the highlight follows the taper; it fades out toward the tail.
+        let shine = ocarinaShape(NSRect(x: body.minX + body.width * 0.05,
+                                        y: body.maxY - body.height * 0.34,
+                                        width: body.width * 0.8,
+                                        height: body.height * 0.24))
+        NSGradient(colorsAndLocations:
+            (NSColor.white.withAlphaComponent(isDark ? 0.30 : 0.42), 0),
+            (NSColor.white.withAlphaComponent(isDark ? 0.12 : 0.18), 0.6),
+            (NSColor.white.withAlphaComponent(0), 1))?.draw(in: shine, angle: 0)
+        // Fired speckle — fixed positions, so the glaze doesn't shimmer.
+        var seed: UInt32 = 0x0C4A
+        NSColor.white.withAlphaComponent(isDark ? 0.07 : 0.1).setFill()
+        for _ in 0..<26 {
+            seed = seed &* 1_103_515_245 &+ 12_345
+            let fx = CGFloat((seed >> 8) & 0xFFFF) / 65_535
+            seed = seed &* 1_103_515_245 &+ 12_345
+            let fy = CGFloat((seed >> 8) & 0xFFFF) / 65_535
+            let dot = NSRect(x: body.minX + fx * body.width, y: body.minY + fy * body.height,
+                             width: 0.7, height: 0.7)
+            NSBezierPath(ovalIn: dot).fill()
+        }
+        NSGraphicsContext.restoreGraphicsState()
 
         // Windway slit on the mouthpiece.
-        let slit = NSRect(x: mouth.minX + mouth.width * 0.18, y: mouth.midY - 0.6,
-                          width: mouth.width * 0.4, height: 1.2)
+        let slit = NSRect(x: mouth.minX + mouth.width * 0.16, y: mouth.midY - 0.55,
+                          width: mouth.width * 0.38, height: 1.1)
         rim.setFill()
-        NSBezierPath(rect: slit).fill()
+        NSBezierPath(roundedRect: slit, xRadius: 0.55, yRadius: 0.55).fill()
+
+        // Breath: three short strokes leaving the mouthpiece while a note
+        // sounds, in the color of the lowest sounding hole.
+        let sounding = litNotes.union(playbackLitNotes)
+        if let low = sounding.min() {
+            let color = litNotes.contains(low) ? lit(Int(low)) : playbackLit
+            color.withAlphaComponent(0.85).setStroke()
+            for (k, dy) in [-0.32, 0, 0.32].enumerated() {
+                let y = breath.midY + CGFloat(dy) * breath.height
+                let len = breath.width * (k == 1 ? 0.78 : 0.56)
+                let line = NSBezierPath()
+                line.move(to: NSPoint(x: breath.maxX - 1, y: breath.midY + CGFloat(dy) * breath.height * 0.4))
+                line.line(to: NSPoint(x: breath.maxX - 1 - len, y: y))
+                line.lineWidth = 1.1
+                line.lineCapStyle = .round
+                line.stroke()
+            }
+        }
 
         for hole in ocarinaHoles(layout: layout) {
             let m = Int(hole.midi)
@@ -2005,22 +2051,24 @@ enum KeyboardIconRenderer {
                 circle.lineWidth = 1.1
                 circle.stroke()
             } else {
-                NSColor(srgbRed: 8/255, green: 12/255, blue: 30/255, alpha: 0.9).setFill()
-                circle.fill()
-                // Lower lip catches light, so the hole reads as a hole.
+                // A hole: dark inside, shadow at the top edge, light
+                // catching the lower lip.
+                NSGradient(starting: NSColor(srgbRed: 2/255, green: 4/255, blue: 14/255, alpha: 0.98),
+                           ending: NSColor(srgbRed: 16/255, green: 22/255, blue: 48/255, alpha: 0.95))?
+                    .draw(in: circle, angle: -90)
                 let lip = NSBezierPath()
                 lip.appendArc(withCenter: NSPoint(x: hole.circle.midX, y: hole.circle.midY),
-                              radius: hole.circle.width / 2, startAngle: 200, endAngle: 340)
-                NSColor.white.withAlphaComponent(0.28).setStroke()
+                              radius: hole.circle.width / 2 - 0.2, startAngle: 205, endAngle: 335)
+                NSColor.white.withAlphaComponent(0.34).setStroke()
                 lip.lineWidth = 0.6
                 lip.stroke()
             }
             // Every hole wears its key — the Switch button letter — so the
             // instrument teaches itself. Typing brightens it further.
-            let a = max(0.82, letterAlpha?(hole.midi) ?? 0)
+            let a = max(0.85, letterAlpha?(hole.midi) ?? 0)
             if let label = labelByMidiOcarina[m] {
                 let attrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 8, weight: .bold),
+                    .font: NSFont.systemFont(ofSize: max(6, hole.circle.width * 0.56), weight: .heavy),
                     .foregroundColor: NSColor.white.withAlphaComponent(a),
                 ]
                 let str = NSAttributedString(string: label.uppercased(), attributes: attrs)
