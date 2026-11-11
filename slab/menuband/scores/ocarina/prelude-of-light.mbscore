@@ -1,0 +1,17 @@
+{
+  "title": "Prelude of Light",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type x a x a y x on the ocarina \u2014 D' A D' A B D'",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "86:1,81:1,86:1,81:1,83:1,86:2"
+    }
+  ]
+}

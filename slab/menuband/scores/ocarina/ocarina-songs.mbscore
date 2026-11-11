@@ -1,0 +1,102 @@
+{
+  "title": "Ocarina Songs",
+  "description": "Twelve ocarina songs on L R A Y X. Set the instrument to Ocarina; the cards (cards.pdf) show the keys.",
+  "tracks": [
+    {
+      "file": "zeldas-lullaby.mbscore",
+      "title": "Zelda's Lullaby",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "eponas-song.mbscore",
+      "title": "Epona's Song",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "sarias-song.mbscore",
+      "title": "Saria's Song",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "suns-song.mbscore",
+      "title": "Sun's Song",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "song-of-time.mbscore",
+      "title": "Song of Time",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "song-of-storms.mbscore",
+      "title": "Song of Storms",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "minuet-of-forest.mbscore",
+      "title": "Minuet of Forest",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "bolero-of-fire.mbscore",
+      "title": "Bolero of Fire",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 5.6,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "serenade-of-water.mbscore",
+      "title": "Serenade of Water",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 3.8,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "nocturne-of-shadow.mbscore",
+      "title": "Nocturne of Shadow",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 5.0,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "requiem-of-spirit.mbscore",
+      "title": "Requiem of Spirit",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    },
+    {
+      "file": "prelude-of-light.mbscore",
+      "title": "Prelude of Light",
+      "machines": 1,
+      "bpm": 96,
+      "seconds": 4.4,
+      "section": "Ocarina Songs"
+    }
+  ]
+}

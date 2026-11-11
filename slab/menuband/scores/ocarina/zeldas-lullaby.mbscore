@@ -1,0 +1,17 @@
+{
+  "title": "Zelda's Lullaby",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type y x a y x a on the ocarina \u2014 B D' A B D' A",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "83:1,86:1,81:1,83:1,86:1,81:2"
+    }
+  ]
+}

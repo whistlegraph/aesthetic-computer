@@ -1,0 +1,17 @@
+{
+  "title": "Song of Storms",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type l r x l r x on the ocarina \u2014 D F D' D F D'",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "74:1,77:1,86:1,74:1,77:1,86:2"
+    }
+  ]
+}

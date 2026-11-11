@@ -1,0 +1,17 @@
+{
+  "title": "Sun's Song",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type a r x a r x on the ocarina \u2014 A F D' A F D'",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "81:1,77:1,86:1,81:1,77:1,86:2"
+    }
+  ]
+}

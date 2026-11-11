@@ -1,0 +1,17 @@
+{
+  "title": "Bolero of Fire",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type r l r l a r a r on the ocarina \u2014 F D F D A F A F",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "77:1,74:1,77:1,74:1,81:1,77:1,81:1,77:2"
+    }
+  ]
+}

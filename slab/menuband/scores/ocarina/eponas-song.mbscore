@@ -1,0 +1,17 @@
+{
+  "title": "Epona's Song",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type x y a x y a on the ocarina \u2014 D' B A D' B A",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "86:1,83:1,81:1,86:1,83:1,81:2"
+    }
+  ]
+}

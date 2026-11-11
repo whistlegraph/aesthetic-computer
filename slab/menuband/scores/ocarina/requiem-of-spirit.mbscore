@@ -1,0 +1,17 @@
+{
+  "title": "Requiem of Spirit",
+  "composer": "Ocarina Songs for Menu Band's ocarina",
+  "machines": 1,
+  "bpm": 96,
+  "lead": 2.0,
+  "timeSignature": "4/4",
+  "description": "type l r l a r l on the ocarina \u2014 D F D A F D",
+  "voices": [
+    {
+      "name": "ocarina",
+      "program": 79,
+      "velocity": 96,
+      "notes": "74:1,77:1,74:1,81:1,77:1,74:2"
+    }
+  ]
+}
