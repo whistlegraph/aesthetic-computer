@@ -582,6 +582,7 @@ export async function createView(canvas) {
     controller,
     seat = 0,
     third = false,
+    boomLength = 4, // how far back the third-person camera sits
     rockets = [],
     status = '',
     members = [],
@@ -663,7 +664,7 @@ export async function createView(canvas) {
           len = Math.hypot(back.x, back.y, back.z);
         for (const k of ['x', 'y', 'z']) back[k] /= len;
         // Ease the boom in and out rather than snapping as things pass.
-        const want = Math.max(0, wallDistance(origin, back, 4, solidObjects, worldTime) - 0.2);
+        const want = Math.max(0, wallDistance(origin, back, boomLength, solidObjects, worldTime) - 0.2);
         boom = want < boom ? want : boom + (want - boom) * 0.12;
         eye = along(origin, back, boom);
       }

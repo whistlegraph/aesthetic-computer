@@ -1246,6 +1246,24 @@ document.addEventListener('mousedown', (e) => {
   if (e.button === 2 && locked()) chalkMouse = true;
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// 🎥 In third person the wheel (or two fingers on a trackpad) moves the camera
+// in and out along its boom: up is closer. The distance is kept for next time.
+const BOOM_MIN = 1.5, BOOM_MAX = 14;
+let boomLength = 4;
+try {
+  const kept = parseFloat(localStorage.getItem('dool-boom'));
+  if (Number.isFinite(kept)) boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, kept));
+} catch {}
+let boomSaveTimer = 0;
+addEventListener('wheel', (e) => {
+  if (!sheetOpen) return;
+  e.preventDefault(); // The page never scrolls or zooms under the world.
+  if (seat < 0 || !third || typing() || menu) return;
+  const lines = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, boomLength * Math.exp(Math.max(-120, Math.min(120, lines)) * 0.004)));
+  clearTimeout(boomSaveTimer);
+  boomSaveTimer = setTimeout(() => { try { localStorage.setItem('dool-boom', boomLength.toFixed(2)); } catch {} }, 400);
+}, { passive: false });
 // A held thumb is a control, never a selection: iOS starts its loupe and
 // selection from touchstart whatever the CSS says, so the touch is refused
 // there (pointer events still arrive) and nothing can be selected (2026-11-10).
@@ -1734,6 +1752,7 @@ function step(now) {
     controller: controller.id,
     seat,
     third,
+    boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items || [],
     bullets: snapshot?.bullets || [],
