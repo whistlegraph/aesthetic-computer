@@ -149,3 +149,22 @@ test('the preview blends into the live frame and its HUD, then restores clean pi
   r.m.hold(true, r.$.screen);
   assert.ok(r.$.screen.pixels.every(value => value === 100));
 });
+
+test('a fresh flick inside the momentum tail advances without waiting for it to die', async t => {
+  const r = await reel(t);
+  r.m.scroll({y: 60});
+  for (let i = 0; i < 20; i++) {
+    r.step();
+    r.m.scroll({y: Math.max(1, 30 - i * 2)}); // a fading tail
+    if (r.jumps.length === 2) r.loaded(false);
+  }
+  assert.deepEqual(r.jumps, ['$c0', '$c1']);
+  // No rest: the fingers come down again while the tail is still running.
+  r.step(); r.m.scroll({y: 60});
+  for (let i = 0; i < 60; i++) {
+    r.step();
+    r.m.scroll({y: Math.max(1, 30 - i * 2)});
+    if (r.jumps.length === 3) r.loaded(false);
+  }
+  assert.deepEqual(r.jumps, ['$c0', '$c1', '$c2']);
+});

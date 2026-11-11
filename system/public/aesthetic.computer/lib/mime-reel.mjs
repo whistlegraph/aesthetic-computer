@@ -86,6 +86,7 @@ let gesture = null; // { mode: "pending" | "reel" | "piece" | "eat", ... }
 let wheel = null; // { travel, timer }
 let wheelCommitted = false;
 let lastWheelAt = -Infinity;
+let wheelLast = 0, wheelSign = 0; // The stream's last move: how big, and which way.
 let pulling = false; // A downward drag on the first card went to the host.
 
 const frames = new Map(); // card key → { w, h, pixels }, the last frame seen
@@ -458,7 +459,15 @@ export function scroll(content) {
   const dy = content?.y || 0, dx = content?.x || 0;
   if (Math.abs(dx) > Math.abs(dy) || !dy) return false;
   const now = performance.now();
+  const mag = Math.abs(dy), sign = Math.sign(dy);
   if (now - lastWheelAt > WHEEL_REST) wheelCommitted = false;
+  // 🤏 A fresh flick inside the last one's momentum: a tail only ever fades,
+  // so a move well above the one before it, or one that turns round, is the
+  // fingers again. Without this every card forced a wait for the tail to die
+  // (a second or more on a trackpad) before the next flick counted.
+  else if (wheelCommitted && (mag > wheelLast * 1.8 + 4 || sign !== wheelSign)) wheelCommitted = false;
+  wheelLast = mag;
+  wheelSign = sign;
   lastWheelAt = now;
   // One trackpad stream commits one card; momentum must not grab the settle
   // again or spill into the following card after loading completes.
