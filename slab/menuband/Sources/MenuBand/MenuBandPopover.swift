@@ -1231,30 +1231,35 @@ final class MenuBandPopoverViewController: NSViewController {
             ) { [weak self] _ in self?.refreshTapeRecButton() }
         }
 
-        // Listening tools get their own small row above the footer. ABC sits
-        // immediately left of the Juke disc; the input monitor closes the row.
-        let listeningRow = NSStackView()
-        listeningRow.orientation = .horizontal
-        listeningRow.alignment = .centerY
-        listeningRow.spacing = 6
-        // The instrument leads the row: what you're holding, before what
-        // you're listening with. Piano is the default; the voice list above
-        // still picks the sound either one makes.
+        // The instrument gets its own row, the full width of the grid above
+        // it: what you're holding, set apart from what you're listening
+        // with. Piano is the default; the voice grid still picks the sound.
         let instrumentPicker = NSSegmentedControl(
             labels: MenuBandInstrument.allCases.map { $0.rawValue.capitalized },
             trackingMode: .selectOne,
             target: self,
             action: #selector(instrumentChanged(_:)))
         instrumentPicker.controlSize = .small
-        instrumentPicker.font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        instrumentPicker.segmentDistribution = .fillEqually
+        instrumentPicker.font = NSFont.systemFont(ofSize: 11, weight: .medium)
         instrumentPicker.toolTip = "Instrument — what the menu bar draws and which keys play. The voice is separate."
+        instrumentPicker.translatesAutoresizingMaskIntoConstraints = false
         instrumentSegment = instrumentPicker
-        listeningRow.addArrangedSubview(instrumentPicker)
+        stack.addArrangedSubview(instrumentPicker)
+        instrumentPicker.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                                constant: -16).isActive = true
+
+        // Listening tools below it: the two output toggles on the left, the
+        // listening devices (Juke, input monitor, rec) on the right.
+        let listeningRow = NSStackView()
+        listeningRow.orientation = .horizontal
+        listeningRow.alignment = .centerY
+        listeningRow.spacing = 6
+        listeningRow.addArrangedSubview(abcCheckbox)
+        listeningRow.addArrangedSubview(monoCheckbox)
         let listeningSpacer = NSView()
         listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         listeningRow.addArrangedSubview(listeningSpacer)
-        listeningRow.addArrangedSubview(abcCheckbox)
-        listeningRow.addArrangedSubview(monoCheckbox)
 #if !MAC_APP_STORE
         listeningRow.addArrangedSubview(jukeButton)
 #endif
