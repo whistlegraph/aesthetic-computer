@@ -88,3 +88,33 @@ test('a quiet server is a net stall, but only while watched', () => {
   s.begin(clock, true); clock += 16; s.heard();
   assert.equal(s.count, 1);
 });
+
+test('a slow run on the card is one gpu row, its worst frame', () => {
+  const sent = [];
+  let clock = 1000;
+  const s = new Stalls({ send: (m) => (sent.push(m), true), now: () => clock });
+  const frame = (ms, queued) => {
+    s.begin(clock, true, { building: 1 });
+    if (ms) s.gpu(ms, queued);
+    clock += 16;
+  };
+  frame(9, 1); frame(12, 1);
+  assert.equal(s.count, 0);
+  frame(70, 3); frame(180, 9); frame(90, 4);
+  assert.equal(s.count, 0); // Still behind: the row waits for the worst.
+  frame(8, 1);
+  assert.equal(s.count, 1);
+  frame(0); frame(0);
+  assert.deepEqual({ cause: sent[0].cause, gap: sent[0].gap, queued: sent[0].queued, building: sent[0].building },
+    { cause: 'gpu', gap: 180, queued: 9, building: 1 });
+  assert.equal(stallRow(sent[0]).queued, 9);
+  // A card that never catches up still reports, once a second.
+  for (let i = 0; i < 70; i++) frame(120, 6);
+  assert.equal(s.count, 2);
+  frame(8, 0); // And the rest of that run closes when it does.
+  assert.equal(s.count, 3);
+  // Nobody looking: nothing is opened.
+  s.begin(clock, false); s.gpu(400, 20);
+  s.begin(clock + 16, false); s.gpu(5, 0);
+  assert.equal(s.count, 3);
+});

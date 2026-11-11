@@ -177,6 +177,9 @@ const shadowInk = (label) =>
 export async function createView(canvas) {
   let host, backend;
   let lost = false;
+  // 🧊 The card's side of a frame (stalls.mjs): hand-off to finished, the
+  // slowest since the client last read it, and how many are still out.
+  const gpu = { max: 0, queued: 0 };
   try {
     host = await WebGPUOskiewarScene3D.create(canvas, {
       maxTriangles: 49152,
@@ -2391,6 +2394,15 @@ export async function createView(canvas) {
       projector.overlay(m, W, H);
     }
     host.present({ clear: sky });
+    if (backend === 'webgpu' && gpu.queued < 64) {
+      const handed = performance.now();
+      gpu.queued++;
+      const done = () => {
+        gpu.queued--;
+        gpu.max = Math.max(gpu.max, performance.now() - handed);
+      };
+      host.device.queue.onSubmittedWorkDone().then(done, done);
+    }
     // Local inspection only; no telemetry, labels or DOM overlays.
     canvas.doolStats = {
       backend,
@@ -2432,6 +2444,7 @@ export async function createView(canvas) {
       triangles: host.scene.triangleCount,
       drawCalls: 1,
       cpuMs: performance.now() - start,
+      gpu,
     };
   }
   return {

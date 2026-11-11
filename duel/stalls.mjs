@@ -7,9 +7,11 @@
 //   socket:<type>  a message handler ran long (the kind of message is named)
 //   starved        nothing of ours ran long: another script, a collection, the
 //                  compositor, or the machine itself kept the frame away
-// A second kind is not a stopped picture at all: `net` is the server going
-// quiet (no snapshot for a quarter second) while frames kept coming.
-export const QUIET_MS = 250;
+// Two more kinds are not a gap between frames at all; frames kept coming:
+//   net  the server went quiet (no snapshot for a sixth of a second)
+//   gpu  the graphics card fell behind: a frame we handed it took this long
+//        to be finished, with `queued` more waiting behind it
+export const QUIET_MS = 160;
 export const STALL_MS = 50;
 const TYPES = new Set(['welcome', 'role', 'presence', 'handle-history', 'braincells', 'chalk', 'chalk-ops',
   'dev-log', 'pong', 'identity', 'objects', 'build-accepted', 'build-result', 'snapshot']);
@@ -38,6 +40,9 @@ export class Stalls {
     this.unsent = []; // Rows waiting for an open socket and the rate limit.
     this.context = {};
     this.heardAt = 0; // The last snapshot, on our clock.
+    this.gpuWorst = 0; // The slowest frame of a slow run on the card, and when the run began.
+    this.gpuQueued = 0;
+    this.gpuAt = 0;
   }
   // Count a row and queue it: a stall during a dead socket is still reported.
   record(row) {
@@ -63,6 +68,21 @@ export class Stalls {
     if (this.watched && this.quietWatched && quiet >= QUIET_MS)
       this.record({ gap: Math.round(quiet), ...this.context, cause: 'net' });
     this.quietWatched = this.watched;
+  }
+  // The card finished some frames; `ms` is the slowest of them, hand-off to
+  // done. A slow run is one row (its worst), closed when the card catches up
+  // or after a second of it.
+  gpu(ms, queued = 0) {
+    const t = this.now();
+    if (this.watched && ms >= STALL_MS) {
+      if (!this.gpuWorst) this.gpuAt = t;
+      if (ms > this.gpuWorst) this.gpuWorst = ms;
+      this.gpuQueued = Math.max(this.gpuQueued, queued);
+      if (t - this.gpuAt < 1000) return;
+    }
+    if (!this.gpuWorst) return;
+    this.record({ gap: Math.round(this.gpuWorst), queued: this.gpuQueued, ...this.context, cause: 'gpu' });
+    this.gpuWorst = this.gpuQueued = 0;
   }
   // A socket handler finished.
   handled(type, ms) {
@@ -112,8 +132,8 @@ export class Stalls {
 }
 
 // The server's side: a bounded, anonymous ring of what clients reported.
-const NUMBERS = ['ago', 'gap', 'work', 'render', 'predict', 'message', 'late', 'building', 'objects', 'pending', 'rtt'];
-const CAUSE = /^(render|step|starved|net|socket:[a-z-]{1,20})$/;
+const NUMBERS = ['ago', 'gap', 'work', 'render', 'predict', 'message', 'late', 'building', 'objects', 'pending', 'rtt', 'queued'];
+const CAUSE = /^(render|step|starved|net|gpu|socket:[a-z-]{1,20})$/;
 const ENUMS = { backend: ['webgpu', 'webgl2'], agent: ['app', 'safari', 'chrome', 'firefox', 'other'] };
 export function stallRow(data, { at = Date.now(), session = '', revision = '' } = {}) {
   if (!data || !CAUSE.test(data.cause || '')) return null;

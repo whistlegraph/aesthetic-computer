@@ -40,7 +40,7 @@ if (!globalThis.createImageBitmap) globalThis.createImageBitmap = async () => {}
 
 test('neighbors are warmed before the next swipe and decoded posters stay bounded', async t => {
   const r = await reel(t);
-  assert.deepEqual(r.warmed, ['$c1', '$c2']);
+  assert.deepEqual(r.warmed, ['$c1', '$c2', '$c3', '$c4']);
   for (let i = 0; i < 12; i++) {
     r.m.key({name: 'keyboard:down', key: 'PageDown'});
     r.settle(); r.loaded(); await r.flush();

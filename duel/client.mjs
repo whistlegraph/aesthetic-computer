@@ -1366,6 +1366,11 @@ function frame(now) {
     console.error('dool frame', error);
   }
   stalls.end({ work: performance.now() - began, render: canvas.doolStats?.cpuMs || 0, predict: predicted });
+  const gpu = canvas.doolStats?.gpu;
+  if (gpu?.max) {
+    stalls.gpu(gpu.max, gpu.queued);
+    gpu.max = 0;
+  }
   if (diagnostics.enabled) diagnostics.frame({ visible: !document.hidden && sheetOpen,
     workMs: performance.now() - began, renderMs: canvas.doolStats?.cpuMs,
     backend: canvas.doolStats?.backend, objects: objects.length, triangles: canvas.doolStats?.triangles,
