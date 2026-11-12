@@ -1,4 +1,5 @@
 import { HOSTED_MODEL_INFO, OPEN_MODEL_INFO } from './open-models.mjs';
+import { curation } from './curation.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {BACKENDS,hostedModel} from './backends.mjs';
@@ -35,6 +36,9 @@ const openChoices=(info=OPEN_MODEL_INFO)=>Object.values(info).map(m=>({id:m.id,l
 export function pickerModels(p) {
   // Hosted offers the same open models plus Claude, paid in braincells, and Automatic —
   // the relay's own default. Nothing custom: the relay decides what it runs.
+  // A curated account sees only its curator's menu, without Automatic.
+  const menu=curation();
+  if(p.backend==='ac'&&menu)return openChoices(HOSTED_MODEL_INFO).filter(c=>menu.models.includes(c.id)).map(c=>c.id===menu.default?{...c,detail:`${c.detail}  curated${menu.by?` by ${menu.by}`:''}`}:c);
   if(p.backend==='ac')return [{id:'',label:'Automatic',detail:'aesthetic.computer default'},...openChoices(HOSTED_MODEL_INFO)];
   const choices=p.backend==='open'?openChoices()
     // The CLI resolves a family alias to a dated id; a resolved id selects its family row instead of growing a "custom" row.
@@ -56,6 +60,9 @@ export function normalizeSettings(patch,previous) {
     if(patch.effort!==undefined&&patch.effort!=='')throw Error('AC hosted manages effort itself');
     if(patch.model&&!hostedModel(patch.model))throw Error(`AC hosted runs ${Object.values(HOSTED_MODEL_INFO).map(m=>m.label).join(', ')}, or Automatic`);
     next.model=hostedModel(next.model);next.effort='';
+    const menu=curation();
+    if(menu&&!next.model)next.model=menu.default;
+    if(menu&&!menu.models.includes(next.model))throw Error(`Your AC models are curated${menu.by?` by ${menu.by}`:''}: ${menu.models.map(id=>Object.values(HOSTED_MODEL_INFO).find(m=>m.id===id)?.label||id).join(', ')}`);
   }
   if(provider==='claude'&&!['','low','medium','high','xhigh','max'].includes(next.effort))throw Error('Unsupported Claude reasoning effort');
   return next;

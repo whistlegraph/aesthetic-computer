@@ -19,6 +19,7 @@ import {TurnRecovery,CONTINUE_INTERRUPTED_TURN} from './turn-recovery.mjs';
 import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from "./approvals.mjs";
 import {questionFor, questionText, answerQuestion, declineQuestion} from "./questions.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
+import {setCuration,curatedChoice} from './curation.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
 import {API_WORKFLOW} from "./api-context.mjs";
@@ -1246,6 +1247,10 @@ async function refreshBraincells() {
     const body = await response.json();
     const total = (Number(body.remaining) || 0) + (Number(body.purchased) || 0);
     if (Number.isFinite(total)) { state.braincells = total; redraw(); }
+    // A curator's menu: lock the picker to it and move onto its default when
+    // the current model is not on it (Automatic included). Idle only.
+    const menu = setCuration(body.curation);
+    if (menu && backend.id === "ac" && curatedChoice(model) !== model && !state.busy) await restartEngine("Curated model", backend, curatedChoice(model));
   } catch {}
 }
 
@@ -2301,7 +2306,7 @@ function engineLabel() {
 async function restartEngine(note, nextBackend = backend, nextModel = model, nextEffort = nextBackend === backend ? effort : "", {drain=true,recovering=false}={}) {
   if(nextBackend.id==='ac'){
     if(nextModel&&!hostedModel(nextModel)){addEntry("error",`AC hosted runs ${Object.keys(HOSTED_MODEL_INFO).join(", ")}, or Automatic.`);return redraw();}
-    nextModel=hostedModel(nextModel);
+    nextModel=curatedChoice(hostedModel(nextModel));
   }
   if (nextBackend.id !== "ac" && nextBackend.models && !Object.hasOwn(nextBackend.models, nextModel)
       && !Object.values(nextBackend.models).includes(nextModel)) {

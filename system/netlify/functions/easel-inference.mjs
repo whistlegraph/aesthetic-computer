@@ -130,6 +130,15 @@ export const handler = stream(async (event) => {
   let model, maxTokens, reasoning, thinking;
   try { ({ model, maxTokens, reasoning, thinking } = inferenceRequest(body)); }
   catch (error) { return fail(400, error.message); }
+  // A curated account runs only its curator's menu; Automatic means the
+  // curator's default. Workers act for their owner's product, not the menu.
+  if (!asWorker) {
+    let menu = null;
+    try { menu = await (await import("../../backend/aesel-curation.mjs")).readCuration(userSub); }
+    catch (error) { console.log("🧭 curation lookup failed —", error.message); }
+    try { model = (await import("../../backend/aesel-curation.mjs")).curatedModel(menu, body.model === undefined ? undefined : model); }
+    catch (error) { return fail(403, error.message); }
+  }
   // Claude goes straight to Anthropic on AC's credits when we hold them.
   const direct = credits && ANTHROPIC_DIRECT[model];
   if (!direct && !key) return fail(503, "Hosted inference is not configured for that model.");
