@@ -130,59 +130,95 @@ final class MenuBandAmbientAir {
     }
 }
 
-final class MenuBandAirView: NSStackView {
+/// Air in the popover: a wind icon and a level slider. Click the icon to turn
+/// Air off or back on at its last level; right-click it (or the slider) for
+/// noise color and tone. Values live in tooltips, not readouts.
+final class MenuBandAirView: NSStackView, NSMenuDelegate {
+    private let icon = NSButton()
     private let slider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
-    private let color = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let readout = NSTextField(labelWithString: "0%")
-    private let filterSlider = NSSlider(value: 0, minValue: 0, maxValue: 1, target: nil, action: nil)
-    private let filterReadout = NSTextField(labelWithString: "160 Hz")
     private let control: MenuBandAmbientAir
+    private var lastAudibleLevel: Float = 0.3
+    private static let tones: [(title: String, position: Double)] = [
+        ("Deep", 0.15), ("Warm", 0.45), ("Bright", 0.8),
+    ]
 
     init(control: MenuBandAmbientAir) {
         self.control = control
         super.init(frame: .zero)
-        orientation = .vertical; alignment = .leading; spacing = 5
-        let label = NSTextField(labelWithString: "Air")
-        label.font = .systemFont(ofSize: 11)
-        color.addItems(withTitles: MenuBandAirColor.allCases.map(\.title))
-        color.controlSize = .mini; color.target = self; color.action = #selector(changeColor)
-        color.setAccessibilityLabel("Air noise color")
-        color.widthAnchor.constraint(equalToConstant: 62).isActive = true
+        orientation = .horizontal; alignment = .centerY; spacing = 4
+        icon.bezelStyle = .inline; icon.isBordered = false
+        icon.imagePosition = .imageOnly; icon.controlSize = .small
+        icon.image = NSImage(systemSymbolName: "wind", accessibilityDescription: "Air")
+        icon.target = self; icon.action = #selector(toggle)
+        icon.setAccessibilityLabel("Air")
         slider.controlSize = .small; slider.isContinuous = true
         slider.target = self; slider.action = #selector(changeLevel)
         slider.setAccessibilityLabel("Air level")
-        slider.widthAnchor.constraint(equalToConstant: 92).isActive = true
-        slider.toolTip = "Background noise; zero is silent. Plays through Menu Band’s output."
-        readout.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        readout.widthAnchor.constraint(equalToConstant: 32).isActive = true
-        let airRow = NSStackView(views: [label, color, slider, readout])
-        airRow.orientation = .horizontal; airRow.alignment = .centerY; airRow.spacing = 5
-        addArrangedSubview(airRow)
-        let filterLabel = NSTextField(labelWithString: "Filter")
-        filterLabel.font = .systemFont(ofSize: 11)
-        filterLabel.widthAnchor.constraint(equalToConstant: 38).isActive = true
-        filterSlider.controlSize = .small; filterSlider.isContinuous = true
-        filterSlider.target = self; filterSlider.action = #selector(changeFilter)
-        filterSlider.setAccessibilityLabel("Air filter cutoff")
-        filterSlider.widthAnchor.constraint(equalToConstant: 119).isActive = true
-        filterSlider.toolTip = "Left: deeper rumble. Right: brighter air. Filters Air only."
-        filterReadout.font = .monospacedDigitSystemFont(ofSize: 10, weight: .regular)
-        filterReadout.widthAnchor.constraint(equalToConstant: 51).isActive = true
-        let filterRow = NSStackView(views: [filterLabel, filterSlider, filterReadout])
-        filterRow.orientation = .horizontal; filterRow.alignment = .centerY; filterRow.spacing = 5
-        addArrangedSubview(filterRow)
+        slider.widthAnchor.constraint(equalToConstant: 84).isActive = true
+        let menu = NSMenu(); menu.delegate = self
+        icon.menu = menu; slider.menu = menu
+        addArrangedSubview(icon); addArrangedSubview(slider)
         control.onChange = { [weak self] in self?.refresh() }
         refresh()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    @objc private func changeLevel() { control.setLevel(Float(slider.doubleValue)) }
-    @objc private func changeColor() { control.setColor(MenuBandAirColor.allCases[color.indexOfSelectedItem]) }
-    @objc private func changeFilter() { control.setCutoff(MenuBandAirNoise.cutoff(at: filterSlider.doubleValue)) }
+
+    @objc private func toggle() {
+        if control.level > 0 {
+            lastAudibleLevel = control.level
+            control.setLevel(0)
+        } else {
+            control.setLevel(lastAudibleLevel)
+        }
+    }
+    @objc private func changeLevel() {
+        let level = Float(slider.doubleValue)
+        if level > 0 { lastAudibleLevel = level }
+        control.setLevel(level)
+    }
+    @objc private func pickColor(_ sender: NSMenuItem) {
+        guard let color = sender.representedObject as? MenuBandAirColor else { return }
+        control.setColor(color)
+    }
+    @objc private func pickTone(_ sender: NSMenuItem) {
+        guard let position = sender.representedObject as? Double else { return }
+        control.setCutoff(MenuBandAirNoise.cutoff(at: position))
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let colorHeader = NSMenuItem(title: "Color", action: nil, keyEquivalent: "")
+        colorHeader.isEnabled = false
+        menu.addItem(colorHeader)
+        for color in MenuBandAirColor.allCases {
+            let item = NSMenuItem(title: color.title, action: #selector(pickColor(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = color
+            item.state = control.color == color ? .on : .off
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let toneHeader = NSMenuItem(title: "Tone", action: nil, keyEquivalent: "")
+        toneHeader.isEnabled = false
+        menu.addItem(toneHeader)
+        let current = MenuBandAirNoise.position(for: control.cutoff)
+        let nearest = Self.tones.min { abs($0.position - current) < abs($1.position - current) }
+        for tone in Self.tones {
+            let item = NSMenuItem(title: tone.title, action: #selector(pickTone(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = tone.position
+            item.state = nearest?.title == tone.title ? .on : .off
+            menu.addItem(item)
+        }
+    }
+
     private func refresh() {
-        slider.doubleValue = Double(control.level)
-        readout.stringValue = "\(Int(control.level * 100))%"
-        color.selectItem(at: MenuBandAirColor.allCases.firstIndex(of: control.color) ?? 0)
-        filterSlider.doubleValue = MenuBandAirNoise.position(for: control.cutoff)
-        filterReadout.stringValue = "\(Int(control.cutoff.rounded())) Hz"
+        let level = control.level
+        slider.doubleValue = Double(level)
+        if level > 0 { lastAudibleLevel = level }
+        icon.contentTintColor = level > 0 ? .systemTeal : .secondaryLabelColor
+        let percent = "\(Int(level * 100))%"
+        let summary = "Air \(percent) · \(control.color.title) · \(Int(control.cutoff.rounded())) Hz"
+        icon.toolTip = summary + " — click to turn \(level > 0 ? "off" : "on"), right-click for color and tone"
+        slider.toolTip = summary
+        slider.setAccessibilityValueDescription(percent)
     }
 }

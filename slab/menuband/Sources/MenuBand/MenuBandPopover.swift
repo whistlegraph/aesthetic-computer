@@ -421,7 +421,14 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Spotify source; App Store builds use the same deck for radio stations.
     private var cdjRadioView: MenuBandCDJRadioView?
     private var abcLayerCheckbox: NSButton?
-    private var monoOutputCheckbox: NSButton?
+    private let underBoardRow: NSStackView = {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 8
+        row.translatesAutoresizingMaskIntoConstraints = false
+        return row
+    }()
     private var inputMonitorButton: NSButton?
     private var tapeRecButton: NSButton?
     private var tapeChangeToken: NSObjectProtocol?
@@ -585,10 +592,6 @@ final class MenuBandPopoverViewController: NSViewController {
         _ = octaveCaption
         titleRow.addArrangedSubview(octaveStepper)  // hidden, value model only
 
-        #if !MAC_APP_STORE
-        if let menuBand { titleRow.addArrangedSubview(MenuBandAirView(control: menuBand.ambientAir)) }
-        #endif
-
         // Spacer lives in the middle so the octave widget pins LEFT and
         // the MIDI pair pins RIGHT.
         titleRow.addArrangedSubview(titleSpacer)
@@ -676,6 +679,14 @@ final class MenuBandPopoverViewController: NSViewController {
             instrumentCluster = cluster
             stack.addArrangedSubview(cluster)
             stack.setCustomSpacing(8, after: cluster)
+
+            // Under the board: one row. Layers that change the sound on the
+            // left (ABC, Air), listening and the signal chain on the right
+            // (Juke, input monitor, tape). Filled in with those controls below.
+            stack.addArrangedSubview(underBoardRow)
+            stack.setCustomSpacing(8, after: underBoardRow)
+            underBoardRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
+                                                 constant: -16).isActive = true
 
             let cdjRadio = MenuBandCDJRadioView(menuBand: mb)
             cdjRadio.translatesAutoresizingMaskIntoConstraints = false
@@ -1162,29 +1173,24 @@ final class MenuBandPopoverViewController: NSViewController {
         }
 #endif
 
-        let abcCheckbox = NSButton(
-            checkboxWithTitle: "ABC", target: self,
-            action: #selector(toggleABCLayer(_:))
-        )
+        // ABC: a voice layer, so it reads as a toggle icon beside Air rather
+        // than a settings checkbox.
+        let abcCheckbox = HoverFeedbackButton()
+        abcCheckbox.setButtonType(.pushOnPushOff)
+        abcCheckbox.bezelStyle = .inline
+        abcCheckbox.isBordered = false
         abcCheckbox.controlSize = .small
-        abcCheckbox.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
+        abcCheckbox.imagePosition = .imageOnly
+        abcCheckbox.image = NSImage(systemSymbolName: "textformat.abc",
+                                    accessibilityDescription: "Spoken alphabet layer")
+        abcCheckbox.target = self
+        abcCheckbox.action = #selector(toggleABCLayer(_:))
         abcCheckbox.state = menuBand?.abcLayerEnabled == true ? .on : .off
-        abcCheckbox.toolTip = "Layer spoken A–Z key names over the instrument"
+        abcCheckbox.toolTip = "ABC — layer spoken A–Z key names over the instrument"
         abcCheckbox.setAccessibilityLabel("Spoken alphabet layer")
         abcCheckbox.setContentHuggingPriority(.required, for: .horizontal)
         abcLayerCheckbox = abcCheckbox
-
-        let monoCheckbox = NSButton(
-            checkboxWithTitle: "Mono", target: self,
-            action: #selector(toggleMonoOutput(_:))
-        )
-        monoCheckbox.controlSize = .small
-        monoCheckbox.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        monoCheckbox.state = menuBand?.monoOutputEnabled == true ? .on : .off
-        monoCheckbox.toolTip = "Mix the output down to mono"
-        monoCheckbox.setAccessibilityLabel("Mono output")
-        monoCheckbox.setContentHuggingPriority(.required, for: .horizontal)
-        monoOutputCheckbox = monoCheckbox
+        refreshABCButton()
 
         let monitorButton = HoverFeedbackButton()
         monitorButton.bezelStyle = .inline
@@ -1245,29 +1251,30 @@ final class MenuBandPopoverViewController: NSViewController {
         instrumentPicker.toolTip = "Instrument — what the menu bar draws and which keys play. The voice is separate."
         instrumentPicker.translatesAutoresizingMaskIntoConstraints = false
         instrumentSegment = instrumentPicker
-        stack.addArrangedSubview(instrumentPicker)
+        if let i = stack.arrangedSubviews.firstIndex(of: underBoardRow) {
+            stack.insertArrangedSubview(instrumentPicker, at: i)
+            stack.setCustomSpacing(8, after: instrumentPicker)
+        } else {
+            stack.addArrangedSubview(instrumentPicker)
+        }
         instrumentPicker.widthAnchor.constraint(equalTo: stack.widthAnchor,
                                                 constant: -16).isActive = true
 
-        // Listening tools below it: the two output toggles on the left, the
-        // listening devices (Juke, input monitor, rec) on the right.
-        let listeningRow = NSStackView()
-        listeningRow.orientation = .horizontal
-        listeningRow.alignment = .centerY
-        listeningRow.spacing = 6
-        listeningRow.addArrangedSubview(abcCheckbox)
-        listeningRow.addArrangedSubview(monoCheckbox)
-        let listeningSpacer = NSView()
-        listeningSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        listeningRow.addArrangedSubview(listeningSpacer)
+        // Under-board row: [ABC][Air ……]  ·  [Juke][🎧][⏺]
+        underBoardRow.addArrangedSubview(abcCheckbox)
 #if !MAC_APP_STORE
-        listeningRow.addArrangedSubview(jukeButton)
+        if let menuBand {
+            underBoardRow.addArrangedSubview(MenuBandAirView(control: menuBand.ambientAir))
+        }
 #endif
-        listeningRow.addArrangedSubview(monitorButton)
-        listeningRow.addArrangedSubview(recButton)
-        stack.addArrangedSubview(listeningRow)
-        listeningRow.widthAnchor.constraint(equalTo: stack.widthAnchor,
-                                             constant: -16).isActive = true
+        let underBoardSpacer = NSView()
+        underBoardSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        underBoardRow.addArrangedSubview(underBoardSpacer)
+#if !MAC_APP_STORE
+        underBoardRow.addArrangedSubview(jukeButton)
+#endif
+        underBoardRow.addArrangedSubview(monitorButton)
+        underBoardRow.addArrangedSubview(recButton)
 
         // (Gamepad config moved to the full-screen Keymap overlay's bottom-right
         // corner — see ExpandedPianoWaveformView.installGamepadCluster. It lives
@@ -1658,8 +1665,7 @@ final class MenuBandPopoverViewController: NSViewController {
     /// Refresh control state from the controller — call right before showing.
     func syncFromController() {
         guard isViewLoaded, let n = menuBand else { return }
-        abcLayerCheckbox?.state = n.abcLayerEnabled ? .on : .off
-        monoOutputCheckbox?.state = n.monoOutputEnabled ? .on : .off
+        refreshABCButton()
         midiSwitch.state = n.midiMode ? .on : .off
         midiInlineLabel?.isHidden = !n.midiMode
         refreshHeldNotes()
@@ -2757,10 +2763,17 @@ final class MenuBandPopoverViewController: NSViewController {
 
     @objc private func toggleABCLayer(_ sender: NSButton) {
         menuBand?.abcLayerEnabled = sender.state == .on
+        refreshABCButton()
     }
 
-    @objc private func toggleMonoOutput(_ sender: NSButton) {
-        menuBand?.monoOutputEnabled = sender.state == .on
+    private func refreshABCButton() {
+        let on = menuBand?.abcLayerEnabled == true
+        abcLayerCheckbox?.state = on ? .on : .off
+        abcLayerCheckbox?.contentTintColor = on ? .systemBlue : .secondaryLabelColor
+    }
+
+    @objc private func toggleMonoOutput(_ sender: NSMenuItem) {
+        menuBand?.monoOutputEnabled.toggle()
     }
 
     @objc private func toggleInputMonitoring(_ sender: Any?) {
@@ -2989,6 +3002,11 @@ final class MenuBandPopoverViewController: NSViewController {
 
         menu.addItem(.separator())
         menu.addItem(Self.audioMenuHeader("Output"))
+        let mono = NSMenuItem(title: "Mono",
+                              action: #selector(toggleMonoOutput(_:)), keyEquivalent: "")
+        mono.target = self
+        mono.state = menuBand?.monoOutputEnabled == true ? .on : .off
+        menu.addItem(mono)
         let pinnedOutputUID = MenuBandAudioDevices.pinnedOutputUID
         let currentOutputID = MenuBandAudioDevices.systemDefaultOutputID()
         let sysDefault = NSMenuItem(
