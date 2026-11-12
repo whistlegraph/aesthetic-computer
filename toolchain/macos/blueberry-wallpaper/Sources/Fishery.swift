@@ -89,7 +89,6 @@ final class HaloTextLayer: CATextLayer {
             }
             ctx.move(to: CGPoint(x: gridColumnX.rounded() + line / 2, y: isGeometryFlipped ? 0 : 1))
             ctx.addLine(to: CGPoint(x: gridColumnX.rounded() + line / 2, y: isGeometryFlipped ? h : h + 1))
-            ctx.addRect(CGRect(x: line / 2, y: (isGeometryFlipped ? 0 : 1) + line / 2, width: w - line, height: h - line))
             ctx.strokePath()
             ctx.restoreGState()
         }
@@ -759,12 +758,12 @@ final class FisheryLayer: CALayer {
             f.sub.transform = CATransform3DIdentity
             f.sub.anchorPoint = CGPoint(x: 0, y: 1)
             let left = ((f.x - w / 2) / px).rounded() * px - f.x
-            let top = ((f.y - size * 0.28 - 2) / px).rounded() * px - f.y
+            let top = ((f.y - size * 0.3 - Self.subGap * u) / px).rounded() * px - f.y
             f.sub.position = CGPoint(x: left, y: top)
         } else {
             f.sub.anchorPoint = CGPoint(x: 0.5, y: 1)
             f.sub.transform = f.tag.transform
-            f.sub.position = CGPoint(x: 0, y: -size * 0.28 - 2)
+            f.sub.position = CGPoint(x: 0, y: -size * 0.3 - Self.subGap * u)
         }
         updateSub(f, now: t)
         let tilt = sin(tt * 1.1 + f.phase) * 0.06
@@ -784,13 +783,20 @@ final class FisheryLayer: CALayer {
     /// Each fish plus its name tag is a box; overlapping boxes push their
     /// swim depths apart a little every frame, so tags rarely collide and the
     /// school stays between the counters and the hot list.
+    /// Water between a fish's belly and its table, and around each fish.
+    private static let subGap: CGFloat = 8
+    private static let schoolMargin: CGFloat = 14
+
     private func spaceOut(dt: CGFloat) {
         let school = fish.values.filter { !$0.leaving && $0.alpha > 0.05 }
         let box = { (f: Fish) -> CGRect in
             let tagScale = 0.85 + 0.2 * f.depth
-            let half = max(f.size * 0.6, f.tagW * tagScale / 2)
-            let low = f.y - f.size * 0.3 - 18 * self.tu * tagScale
-            let high = f.y + f.size * 0.24 + 4 + 24 * self.tu * tagScale
+            let m = Self.schoolMargin * self.u
+            let half = max(f.size * 0.6, f.tagW * tagScale / 2) + m
+            // The table's real height, so a five-row box keeps its own water.
+            let table = f.sub.isHidden ? 0 : f.sub.bounds.height
+            let low = f.y - f.size * 0.3 - Self.subGap * self.u - table - m
+            let high = f.y + f.size * 0.24 + 4 + 24 * self.tu * tagScale + m
             return CGRect(x: f.x - half, y: low, width: half * 2, height: high - low)
         }
         let boxes = school.map(box)
@@ -840,14 +846,15 @@ final class FisheryLayer: CALayer {
         guard key != f.subKey else { return }
         f.subKey = key
         var rows: [(String, String, NSColor)] = []
-        if !f.place.isEmpty { rows.append(("where", f.place, codeString)) }
+        // One Unifont symbol per key keeps the table narrow.
+        if !f.place.isEmpty { rows.append(("⌖", f.place, codeString)) }
         if f.since > 0 {
             let m = max(0, Int(now - f.since) / 60)
-            rows.append(("time", m < 60 ? "\(m)m" : "\(m / 60)h \(m % 60)m", codeTime))
+            rows.append(("⏱", m < 60 ? "\(m)m" : "\(m / 60)h \(m % 60)m", codeTime))
         }
-        if f.pages > 0 { rows.append(("pages", "\(f.pages)", codeNumber)) }
-        if f.clicks > 0 { rows.append(("clicks", "\(f.clicks)", codeNumber)) }
-        if !f.from.isEmpty { rows.append(("from", f.from, codeSource)) }
+        if f.pages > 0 { rows.append(("☰", "\(f.pages)", codeNumber)) }
+        if f.clicks > 0 { rows.append(("↖", "\(f.clicks)", codeNumber)) }
+        if !f.from.isEmpty { rows.append(("↪", f.from, codeSource)) }
         let text = rows.map { "\($0.0)\t\($0.1)" }.joined(separator: "\n")
         guard text != f.subText else { return }
         f.subText = text
@@ -860,7 +867,7 @@ final class FisheryLayer: CALayer {
         let px = 1 / max(1, scale.rounded())
         let snap = { (v: CGFloat) in pixel == nil ? v : (v / px).rounded() * px }
         let pad = snap(pixel == nil ? 5 * tu : 4 * px)
-        let keyW = ceil(("clicks" as NSString).size(withAttributes: [.font: font]).width)
+        let keyW = ceil(rows.map { ($0.0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 8)
         let gap = snap(pixel == nil ? 5 * tu : 3 * px)
         let ascent = ceil(CTFontGetAscent(font))
         let lineH = ceil(ascent + CTFontGetDescent(font))
@@ -868,7 +875,7 @@ final class FisheryLayer: CALayer {
         f.sub.cells = rows.map { (k, v, color) in
             let value = NSAttributedString(string: v, attributes: [.font: font, .foregroundColor: color])
             valueW = max(valueW, ceil(value.size().width))
-            return (NSAttributedString(string: k, attributes: [.font: font, .foregroundColor: codeKey]), value)
+            return (NSAttributedString(string: k, attributes: [.font: font, .foregroundColor: color]), value)
         }
         let inset = snap(pixel == nil ? gap * 0.9 : 2 * px)
         let step = lineH + gap
@@ -885,7 +892,7 @@ final class FisheryLayer: CALayer {
         f.sub.gridRowStep = step
         f.sub.gridGap = gap
         f.sub.gridColumnX = pad + keyW + gap
-        f.sub.gridColor = f.sub.borderColor.map { $0.copy(alpha: 0.75) ?? $0 }
+        f.sub.gridColor = f.sub.borderColor.map { $0.copy(alpha: 0.45) ?? $0 }
         let nameW = (f.label.string as? NSAttributedString)?.size().width ?? 0
         f.tagW = max(nameW + 34 * tu, width)
     }
@@ -931,9 +938,12 @@ final class FisheryLayer: CALayer {
         let name = fish[id].map { $0.kind == "anon" || $0.name.isEmpty ? "someone" : $0.name } ?? "someone"
         let kind = event["kind"] as? String ?? ""
         let text = event["text"] as? String ?? ""
+        let credits = Int(Self.num(event["credits"]))
+        let cost = credits > 0 ? "  · \(credits) cr" : ""
         let what: String
         switch kind {
-        case "generation": what = text
+        case "generation": what = text + cost
+        case "chat": what = text.isEmpty ? "chat" : "chat  \(text)" + cost
         case "failed": what = "failed  \(text)"
         case "signup": what = "signed up"
         case "publish": what = "published"
@@ -1048,9 +1058,7 @@ final class FisheryLayer: CALayer {
 
         let bandH: CGFloat = 0
         for l in [band, bandRule, bandTag, crawl] as [CALayer] { l.isHidden = true }
-        // In a tank the ticker keeps to the first screen, off the seam.
         let screenW = link == nil ? w : max(1, viewport.width)
-        layoutHot(now: now, width: screenW, dt: dt, shadow: shadow)
         layoutHeat(now: now, width: w, shadow: shadow)
 
         // Lower third over the water: the hour's numbers and its shape.
@@ -1112,14 +1120,13 @@ final class FisheryLayer: CALayer {
         let rowW = max(0, x - 26 * tu - pad)
         let shift = w - pad - rowW - pad
         for tile in shown { tile.root.frame.origin.x += shift }
-        if link != nil, w > screenW * 1.5 {
-            // One reef for the whole tank, straddling the seam.
-            let span = w - screenW * 0.9
-            layoutChart(right: (w + span) / 2, bottom: baseY + tileH + 30 * tu, width: span)
-        } else {
-            layoutChart(right: w - pad, bottom: baseY + tileH + 30 * tu, width: max(rowW, 420 * tu))
-        }
+        // In a tank this lands whole on the last screen, above its tiles.
+        layoutChart(right: w - pad, bottom: baseY + tileH + 30 * tu, width: min(max(rowW, 420 * tu), screenW - 2 * pad))
         layoutReferrers(left: pad, bottom: baseY, shadow: shadow)
+        // The ticker sits along the bottom, left-aligned beside "came from",
+        // so the top of the screen stays clear for MacPal's lanes.
+        let refRight = pad + (150 + 150 + 54) * tu + 6 * tu
+        layoutHot(now: now, left: refRight + 40 * u, bottom: baseY, width: min(900 * tu, screenW * 0.5), dt: dt, shadow: shadow)
     }
 
     /// Sixty minutes of generations, each a stack of its categories' colours,
@@ -1188,8 +1195,7 @@ final class FisheryLayer: CALayer {
             let x: CGFloat
             switch i {
             case 0: x = frame.minX
-            // A tank's seam runs down the middle; keep the label off the bezel.
-            case 1: x = link != nil ? frame.midX + 10 * tu : frame.midX - lw / 2
+            case 1: x = frame.midX - lw / 2
             case 2: x = frame.maxX - lw
             default: x = min(frame.maxX - lw, max(frame.minX, frame.minX + frame.width * CGFloat(peakAt) / 60 - lw / 2))
             }
@@ -1252,15 +1258,15 @@ final class FisheryLayer: CALayer {
 
     /// Newest at the top; a new arrival slides the rest down one row, and
     /// rows thin out with age until five minutes have passed.
-    private func layoutHot(now: Double, width: CGFloat, dt: CGFloat, shadow: (CALayer) -> Void) {
+    private func layoutHot(now: Double, left: CGFloat, bottom: CGFloat, width: CGFloat, dt: CGFloat,
+                           shadow: (CALayer) -> Void) {
         let rowH = 19 * tu
-        let top = bounds.height - 34 * u
         if let newest = ticker.first, newest.at != hotTop {
             if hotTop > 0 { hotSlide = rowH }
             hotTop = newest.at
         }
         hotSlide *= pow(0.5, dt / 0.18)
-        hot.frame = CGRect(x: 0, y: 0, width: width, height: bounds.height)
+        hot.frame = bounds
         for (i, row) in hotRows.enumerated() {
             guard i < ticker.count else { row.isHidden = true; continue }
             let e = ticker[i]
@@ -1280,7 +1286,9 @@ final class FisheryLayer: CALayer {
                 .foregroundColor: color(forEvent: e.kind)]))
             row.string = s
             }
-            row.frame = CGRect(x: 0, y: top - CGFloat(i + 1) * rowH + hotSlide, width: width, height: rowH)
+            // Newest on the bottom line; older lines climb as new ones land.
+            row.alignmentMode = .left
+            row.frame = CGRect(x: left, y: bottom + CGFloat(i) * rowH - hotSlide, width: width, height: rowH)
             // The arriving row fades in; the rest thin with rank and age.
             let entering = i == 0 ? min(1, 1 - hotSlide / rowH + 0.1) : 1
             row.opacity = Float(fade * (1 - CGFloat(i) * 0.11) * entering)

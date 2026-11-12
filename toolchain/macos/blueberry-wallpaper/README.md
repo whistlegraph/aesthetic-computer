@@ -69,7 +69,8 @@ no antialiasing and a hard one-pixel shadow.
 ./tank-install.sh panda chicken   # one tank: panda left, chicken right
 ```
 
-A tank (`Sources/Tank.swift`) makes each screen a pane of one wider world. The
+A tank (`Sources/Tank.swift`) makes each screen a pane of one wider world (the
+hour chart stays whole on the last screen). The
 leader simulates every fish and streams them over loopback; a reverse SSH tunnel
 from the leader carries that port to each follower, so the app never listens
 off-loopback and neither firewall is involved. Followers draw 0.18 s behind,

@@ -17,9 +17,10 @@ REMOVE=0
 [ $# -ge 2 ] || { echo "usage: $0 [--remove] leader follower..." >&2; exit 2; }
 PORT=47390
 SCREEN=2560   # points per screen; every pane must match
+GAP=${TANK_GAP:-320}   # the bezels between panes: unseen water (~3 in at 109 ppi)
 LEADER="$1"; shift
 FOLLOWERS=("$@")
-WIDTH=$(( SCREEN * (1 + ${#FOLLOWERS[@]}) ))
+WIDTH=$(( SCREEN * (1 + ${#FOLLOWERS[@]}) + GAP * ${#FOLLOWERS[@]} ))
 SSH=(ssh -o ConnectTimeout=30 -o BatchMode=yes)
 LABEL=computer.aesthetic.blueberry-tank-tunnel
 
@@ -29,7 +30,7 @@ if [ $REMOVE -eq 1 ]; then
   for h in "$LEADER" "${FOLLOWERS[@]}"; do
     "${SSH[@]}" "$h" "rm -f ~/.config/blueberry-wallpaper/tank.json; $restart"
   done
-  "${SSH[@]}" "$LEADER" "launchctl bootout gui/\$(id -u)/$LABEL 2>/dev/null; rm -f ~/Library/LaunchAgents/$LABEL.plist"
+  "${SSH[@]}" "$LEADER" "launchctl bootout gui/\$(id -u)/$LABEL 2>/dev/null; rm -f ~/Library/LaunchAgents/$LABEL.plist ~/.local/bin/blueberry-tank-tunnel"
   echo "tank removed"; exit 0
 fi
 
@@ -37,18 +38,24 @@ conf() { printf '{ "role": "%s", "width": %d, "offset": %d, "port": %d }\n' "$1"
 "${SSH[@]}" "$LEADER" "mkdir -p ~/.config/blueberry-wallpaper && cat > ~/.config/blueberry-wallpaper/tank.json" <<<"$(conf leader 0)"
 i=1
 for h in "${FOLLOWERS[@]}"; do
-  "${SSH[@]}" "$h" "mkdir -p ~/.config/blueberry-wallpaper && cat > ~/.config/blueberry-wallpaper/tank.json" <<<"$(conf follower $(( SCREEN * i )))"
+  "${SSH[@]}" "$h" "mkdir -p ~/.config/blueberry-wallpaper && cat > ~/.config/blueberry-wallpaper/tank.json" <<<"$(conf follower $(( (SCREEN + GAP) * i )))"
   i=$(( i + 1 ))
 done
 
-# One ssh per follower, each kept alive by its own shell loop.
-forwards=""
+# One ssh per follower, each kept alive by its own loop, in a script on the
+# leader; the LaunchAgent only runs it.
+tunnel="#!/bin/bash
+"
 for h in "${FOLLOWERS[@]}"; do
-  forwards+="(while true; do /usr/bin/ssh -N -o BatchMode=yes -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes -R 127.0.0.1:$PORT:127.0.0.1:$PORT $h; sleep 3; done) & "
+  tunnel+="(while true; do /usr/bin/ssh -N -o BatchMode=yes -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o ExitOnForwardFailure=yes -R 127.0.0.1:$PORT:127.0.0.1:$PORT $h; sleep 3; done) &
+"
 done
-"${SSH[@]}" "$LEADER" bash -s -- "$LABEL" "$forwards wait" <<'REMOTE'
+tunnel+="wait
+"
+"${SSH[@]}" "$LEADER" "mkdir -p ~/.local/bin ~/.local/share/blueberry-wallpaper && cat > ~/.local/bin/blueberry-tank-tunnel && chmod +x ~/.local/bin/blueberry-tank-tunnel" <<<"$tunnel"
+"${SSH[@]}" "$LEADER" "bash -s -- $(printf %q "$LABEL")" <<'REMOTE'
 set -e
-label="$1"; script="$2"
+label="$1"
 plist=~/Library/LaunchAgents/$label.plist
 launchctl bootout gui/$(id -u)/$label 2>/dev/null || true
 rm -f "$plist"
@@ -57,7 +64,7 @@ cat > "$plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>$label</string>
-  <key>ProgramArguments</key><array><string>/bin/bash</string><string>-c</string><string>$script</string></array>
+  <key>ProgramArguments</key><array><string>$HOME/.local/bin/blueberry-tank-tunnel</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardErrorPath</key><string>$HOME/.local/share/blueberry-wallpaper/tank-tunnel.log</string>
