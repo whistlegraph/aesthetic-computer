@@ -32,11 +32,13 @@ swiftc -O \
     -framework AppKit \
     -framework QuartzCore \
     -framework SceneKit \
-    Sources/main.swift \
+    -framework AVFoundation \
+    Sources/*.swift \
     -o "$APP/Contents/MacOS/BlueberryWallpaper"
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/computer.aesthetic.blueberry-wallpaper.plist "$APP/Contents/Resources/"
+cp Resources/unifont.otf "$APP/Contents/Resources/"
 
 codesign --force --options runtime --sign "$SIGN_ID" "$APP"
 echo "✓ built $APP"
