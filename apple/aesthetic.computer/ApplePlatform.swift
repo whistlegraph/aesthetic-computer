@@ -205,6 +205,11 @@ final class ACNativeWebView: WKWebView {
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         applyWindowAppearance()
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        navigation?.appearanceChanged(dark: dark)
+        if let rgb = navigation?.pageColor {
+            underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
+        }
     }
 
     private func applyWindowAppearance() {
@@ -361,7 +366,8 @@ extension Image {
     static func colorWindow(_ rgb: [Double], webView: WKWebView) {
         #if os(macOS)
         guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
-        (webView as? ACNativeWebView)?.navigation?.pageColor = rgb
+        let dark = webView.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        (webView as? ACNativeWebView)?.navigation?.setPageColor(rgb, dark: dark)
         // Match overscroll to the page; native chrome follows macOS appearance.
         webView.underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255,
             green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
@@ -412,7 +418,7 @@ extension Image {
     var bypassCache = false
     /// The page's last colour, painted under the fresh instance so a hard
     /// reload doesn't flash grey.
-    @Published var pageColor: [Double]?
+    @Published var pageColor: [Double]? = AppNavigation.rememberedColor(dark: AppNavigation.systemIsDark)
     /// The last frame, held over a reload until the next page is ready so
     /// nothing flashes between them.
     @Published var handoff: ACImage?
@@ -470,6 +476,31 @@ extension Image {
         DispatchQueue.main.asyncAfter(deadline: .now() + (webView == nil ? 0 : 0.08), execute: once)
         // Never hold it for long if the next page doesn't come up.
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.handoff = nil }
+    }
+
+    // The page's colour is kept per appearance across launches, so a new
+    // window or a theme flip shows the right ground before the page paints.
+    private static func colorKey(dark: Bool) -> String { dark ? "acPageColorDark" : "acPageColorLight" }
+    static func rememberedColor(dark: Bool) -> [Double]? {
+        let rgb = UserDefaults.standard.array(forKey: colorKey(dark: dark)) as? [Double]
+        return rgb?.count == 3 ? rgb : nil
+    }
+    static var systemIsDark: Bool {
+        #if os(macOS)
+        NSApp?.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        #else
+        false
+        #endif
+    }
+
+    func setPageColor(_ rgb: [Double], dark: Bool) {
+        guard rgb != pageColor else { return }
+        pageColor = rgb
+        UserDefaults.standard.set(rgb, forKey: Self.colorKey(dark: dark))
+    }
+
+    func appearanceChanged(dark: Bool) {
+        if let rgb = Self.rememberedColor(dark: dark) { pageColor = rgb }
     }
 
     func committed() {

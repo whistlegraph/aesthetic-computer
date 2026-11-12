@@ -579,6 +579,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var lastBackgroundedAt: Date? = nil
     @State private var lastForceLiveTrigger: Int = 0
+    @State private var wasOffline = false
     @State private var usageScene = UUID()
 
     private var liveURL: String { navigation.url }
@@ -665,7 +666,11 @@ struct ContentView: View {
                 // Re-load when connectivity returns mid-session so the user
                 // doesn't have to tap reload manually after a flaky cell tower
                 // hands them back a connection.
-                if newValue == true {
+                // Only offline → online: the monitor's first report (unknown →
+                // online) at launch used to reload the page mid-load.
+                if newValue == false { wasOffline = true }
+                if newValue == true, wasOffline {
+                    wasOffline = false
                     bootStatus.requestReload()
                 }
             }
