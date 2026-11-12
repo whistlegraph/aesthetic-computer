@@ -6,6 +6,7 @@
 //
 //   swiftc -O bake-fuser-mesh.swift -o bake-fuser-mesh
 //   ./bake-fuser-mesh ../assets/fuser-mesh.obj [--step 0.02]
+//   … --radius 0.43 --blend 0.5 --depth 0.14   a rounder, bubblier mark
 
 import Foundation
 import simd
@@ -16,11 +17,12 @@ guard CommandLine.arguments.count >= 2 else {
 }
 let outputPath = CommandLine.arguments[1]
 let arguments = Array(CommandLine.arguments.dropFirst(2))
-let step: Float = {
-    guard let i = arguments.firstIndex(of: "--step"), arguments.indices.contains(i + 1),
-          let v = Float(arguments[i + 1]), v > 0 else { return 0.02 }
+func option(_ name: String, _ fallback: Float) -> Float {
+    guard let i = arguments.firstIndex(of: name), arguments.indices.contains(i + 1),
+          let v = Float(arguments[i + 1]), v > 0 else { return fallback }
     return v
-}()
+}
+let step = option("--step", 0.02)
 
 // Centers from captutor/assets/fuser-mark.svg (24×24 viewBox), normalized as
 // in render-fuser-metaballs.swift, including its alternating depth.
@@ -31,10 +33,11 @@ let svgCenters: [(Float, Float)] = [
     (15.1507, 15.1369), (21.4201, 15.1369), (21.4201, 8.86312),
 ]
 let centers: [SIMD3<Float>] = svgCenters.enumerated().map { index, point in
-    SIMD3((point.0 - 12) / 7.75, (12 - point.1) / 7.75, sin(Float(index) * 1.71) * 0.055)
+    SIMD3((point.0 - 12) / 7.75, (12 - point.1) / 7.75, sin(Float(index) * 1.71) * option("--depth", 0.055))
 }
-let radius: Float = 0.355
-let blend: Float = 0.30
+// Defaults are the canonical mark; larger radius and blend puff it up.
+let radius = option("--radius", 0.355)
+let blend = option("--blend", 0.30)
 
 @inline(__always) func smoothMin(_ a: Float, _ b: Float, _ k: Float) -> Float {
     let h = max(k - abs(a - b), 0) / k
@@ -54,8 +57,9 @@ func normal(_ p: SIMD3<Float>) -> SIMD3<Float> {
 }
 
 // Grid bounds: the mark plus its radius and blend, with a margin.
-let lo = SIMD3<Float>(-1.75, -1.75, -0.55)
-let hi = SIMD3<Float>(1.75, 1.75, 0.55)
+let reach = radius + blend * 0.5 + 0.1
+let lo = SIMD3<Float>(-1.25 - reach, -1.25 - reach, -option("--depth", 0.055) - reach)
+let hi = SIMD3<Float>(1.25 + reach, 1.25 + reach, option("--depth", 0.055) + reach)
 let nx = Int(((hi.x - lo.x) / step).rounded(.up)) + 1
 let ny = Int(((hi.y - lo.y) / step).rounded(.up)) + 1
 let nz = Int(((hi.z - lo.z) / step).rounded(.up)) + 1

@@ -741,14 +741,18 @@ final class FisheryLayer: CALayer {
         f.root.position = CGPoint(x: f.x, y: f.y)
         f.root.zPosition = f.depth
         f.root.opacity = Float(f.alpha)
+        // Handle under the belly, its table under the handle: one block
+        // beneath each fish, the water above it left clear.
+        let labelH = f.label.isHidden ? 0 : f.label.bounds.height
+        let tagY = -size * 0.3 - Self.subGap * u - labelH
         if PixelFont.available {
             let px = 1 / max(1, scale.rounded())
             f.tag.transform = CATransform3DIdentity
             f.tag.position = CGPoint(x: (f.x / px).rounded() * px - f.x,
-                                     y: ((f.y + size * 0.24 + 4) / px).rounded() * px - f.y)
+                                     y: ((f.y + tagY) / px).rounded() * px - f.y)
         } else {
             f.tag.transform = CATransform3DMakeScale(0.85 + 0.2 * f.depth, 0.85 + 0.2 * f.depth, 1)
-            f.tag.position = CGPoint(x: 0, y: size * 0.24 + 4)
+            f.tag.position = CGPoint(x: 0, y: tagY)
         }
         // Session line rides under the belly.
         // Pixel type is never scaled, and its corner lands on a whole pixel.
@@ -758,12 +762,12 @@ final class FisheryLayer: CALayer {
             f.sub.transform = CATransform3DIdentity
             f.sub.anchorPoint = CGPoint(x: 0, y: 1)
             let left = ((f.x - w / 2) / px).rounded() * px - f.x
-            let top = ((f.y - size * 0.3 - Self.subGap * u) / px).rounded() * px - f.y
+            let top = ((f.y + tagY - 2 * u) / px).rounded() * px - f.y
             f.sub.position = CGPoint(x: left, y: top)
         } else {
             f.sub.anchorPoint = CGPoint(x: 0.5, y: 1)
             f.sub.transform = f.tag.transform
-            f.sub.position = CGPoint(x: 0, y: -size * 0.3 - Self.subGap * u)
+            f.sub.position = CGPoint(x: 0, y: tagY - 2 * u)
         }
         updateSub(f, now: t)
         let tilt = sin(tt * 1.1 + f.phase) * 0.06
@@ -795,8 +799,9 @@ final class FisheryLayer: CALayer {
             let half = max(f.size * 0.6, f.tagW * tagScale / 2) + m
             // The table's real height, so a five-row box keeps its own water.
             let table = f.sub.isHidden ? 0 : f.sub.bounds.height
-            let low = f.y - f.size * 0.3 - Self.subGap * self.u - table - m
-            let high = f.y + f.size * 0.24 + 4 + 24 * self.tu * tagScale + m
+            let labelH = f.label.isHidden ? 0 : f.label.bounds.height
+            let low = f.y - f.size * 0.3 - Self.subGap * self.u - labelH - 2 * self.u - table - m
+            let high = f.y + f.size * 0.24 + m
             return CGRect(x: f.x - half, y: low, width: half * 2, height: high - low)
         }
         let boxes = school.map(box)
