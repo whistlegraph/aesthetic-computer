@@ -15087,23 +15087,23 @@ async function makeFrame({ data: { type, content } }) {
             fpsHud.key = key;
             const GOOD = [90, 235, 140], WARN = [255, 205, 60], BAD = [255, 85, 95];
             const grade = (v, ok, warn) => (v <= ok ? GOOD : v <= warn ? WARN : BAD);
-            const lines = [[[`${fps}`, fpsColor(fps)], ["fps", [150, 150, 170]]]];
+            const lines = [[[`${fps}`, fpsColor(fps)]]]; // The graph fills the rest.
             if (st) {
               const n = st.native;
               const proc = (name, hue, p, okMb, warnMb) => p && lines.push([
                 [name, hue],
-                [`${Math.round(p.mb)}mb`, grade(p.mb, okMb, warnMb)],
+                [`${Math.round(p.mb)}`, grade(p.mb, okMb, warnMb)],
                 [`${Math.round(p.cpu)}%`, grade(p.cpu, 30, 80)],
               ]);
               lines.push([["long", [255, 140, 205]], [`${st.long}`, grade(st.long, 0, 2)],
-                ["max", [150, 150, 170]], [`${st.worstMs}ms`, grade(st.worstMs, 34, 70)]]);
+                [`${st.worstMs}ms`, grade(st.worstMs, 34, 70)]]);
               lines.push([["gc", [90, 200, 255]], [st.gc.toFixed(1), grade(st.gc, 1, 4)],
-                ["wk", [170, 150, 255]], [`${st.workerGc.toFixed(1)}/s`, grade(st.workerGc, 1, 4)]]);
+                ["wk", [170, 150, 255]], [st.workerGc.toFixed(1), grade(st.workerGc, 1, 4)]]);
               if (n) {
                 proc("web", [255, 165, 80], n.web, 300, 600);
                 proc("gpu", [190, 140, 255], n.gpu, 200, 500);
                 proc("app", [80, 220, 210], n.app, 100, 250);
-                if (n.heapMB !== undefined) lines.push([["heap", [255, 165, 80]], [`${n.heapMB}mb`, grade(n.heapMB, 150, 400)]]);
+                if (n.heapMB !== undefined) lines.push([["heap", [255, 165, 80]], [`${n.heapMB}`, grade(n.heapMB, 150, 400)]]);
                 if (n.reloadMs !== undefined) lines.push([["load", [120, 180, 255]], [`${n.reloadMs}ms`, grade(n.reloadMs, 700, 1500)]]);
               }
             }
@@ -15115,31 +15115,33 @@ async function makeFrame({ data: { type, content } }) {
                 seg[2] = x;
                 x += $api.text.box(seg[0], undefined, undefined, undefined, undefined, "MatrixChunky8").box.width + gap;
               }
+              line.end = x - gap;
               width = Math.max(width, x - gap);
             }
-            fpsHud.lines = { lines, width: Math.max(width, 48) };
+            fpsHud.lines = { lines, width: Math.max(width, lines[0].end + 3 + 24) };
           }
           const { lines, width } = fpsHud.lines;
-          const padX = 2, padY = 2, lineH = 9, graphH = 8;
-          const boxW = width + padX * 2, boxH = lines.length * lineH - 2 + padY * 2 + graphH + 2;
+          const pad = 2, lineH = 8;
+          const boxW = width + pad * 2, boxH = lines.length * lineH - 1 + pad * 2;
           const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
-          ink(0, 0, 0, 160).box(bx, by, boxW, boxH);
+          // A soft box: its corner pixels left out.
+          ink(0, 0, 0, 160).box(bx + 1, by, boxW - 2, 1).box(bx, by + 1, boxW, boxH - 2).box(bx + 1, by + boxH - 1, boxW - 2, 1);
           for (let i = 0; i < lines.length; i += 1) {
             for (const [text, color, x] of lines[i]) {
-              ink(...color, 230).write(text, { x: bx + padX + x, y: by + padY + i * lineH },
+              ink(...color, 230).write(text, { x: bx + pad + x, y: by + pad + i * lineH },
                 undefined, undefined, false, "MatrixChunky8");
             }
           }
-          // The graph: bars right-aligned (newest at the right edge), each
-          // as tall as its fps against 60 and coloured like the fps figure.
-          const gy = by + boxH - padY - graphH, history = fpsHud.history;
-          const barW = Math.max(1, Math.floor(width / 48));
+          // The graph rides the fps line: a bar per quarter second, newest at
+          // the right edge, as tall as its fps against 60, coloured like it.
+          const graphH = 6, gx0 = bx + pad + lines[0].end + 3, gy = by + pad;
+          const history = fpsHud.history;
           for (let i = 0; i < history.length; i += 1) {
+            const x = bx + pad + width - 1 - i;
+            if (x < gx0) break;
             const v = history[history.length - 1 - i];
             const h = Math.max(1, Math.round((Math.min(v, 60) / 60) * graphH));
-            const x = bx + padX + width - (i + 1) * barW;
-            if (x < bx + padX) break;
-            ink(...fpsColor(v), 200).box(x, gy + graphH - h, barW, h);
+            ink(...fpsColor(v), 210).box(x, gy + graphH - h, 1, h);
           }
         }
 
