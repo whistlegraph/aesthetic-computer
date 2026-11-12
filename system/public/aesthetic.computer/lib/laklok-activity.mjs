@@ -7,7 +7,7 @@ export const LAKLOK_FEATURES = Object.freeze({
   laklok_filter_changed: ["raster", "vector"],
   laklok_language_changed: ["raster"],
   laklok_mode_switch_requested: ["raster", "vector"],
-  laklok_mail_open_requested: ["raster"],
+  laklok_mail_open_requested: [], // envelope retired 2026-11-12; kept so past counts still read
   laklok_radio_play_requested: ["raster"],
   laklok_radio_pause_requested: ["raster"],
   laklok_message_send_requested: ["raster", "vector"],

@@ -11,7 +11,7 @@
   side) and `sisters.mjs` renders them side by side for the visual half.
 
   The temas themselves, the saved choice, the interface language, the census
-  and the corner chrome (QR, gear, envelope, pane) live in
+  and the corner chrome (QR, gear, pane) live in
   `common/laklok-tema.mjs`, shared with `mail` so the two rooms always wear
   the same dress.
  */
@@ -35,10 +35,6 @@ import {
   paintQR,
   paintGear,
   GEAR,
-  paintEnvelope,
-  ENVELOPE,
-  paintBadge,
-  badgeWidth,
   paintTemaPane,
   temaRow,
   langRow,
@@ -67,60 +63,57 @@ let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
 let lakTV = false; // 📺 `~tv` colon token — broadcast chrome (no input, no gear)
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 
-// 📬 The door to `mail`, beside the gear: an envelope, lit when something is
-// waiting, with a red count of what's unread. Only a signed-in visitor has a
-// box, so only they get the door.
-let mailCount = null; // { unread, total } once asked
-let mailBox = null; // hit area, or null when the door isn't drawn
-let mailAsking = false; // one count request in flight at a time
-let mailAskedAt = 0; // when the last count was asked, ms
-let mailAsks = 0; // how many times, for the test hook
-// People sit in this room all day, so the count is re-asked on a cadence
-// and again when the window comes back into focus. `let` so a test can
-// shorten it (see installLakTestHook).
-let mailPollMs = 60_000;
+// 🕰️ Who was last here — the presence line under the HUD label names the
+// people whose signed-in tab most recently had the room open, and how long
+// ago (/api/laklok-recent). Someone still here reads "now". Re-asked each
+// minute and when the window comes back into focus.
+const RECENT_POLL_MS = 60_000;
+const RECENT_NOW_MS = 2 * 60_000; // a visible tab ticks once a minute
+let recent = []; // [{ handle, at: ms }]
+let recentAsking = false;
+let recentAskedAt = 0;
 
-// 🧪 Test hook — a BroadcastChannel the browser e2e listens on
-// (tests/browser/mail-journey.test.mjs), like chat.mjs' own hook but for the
-// envelope: one snapshot per resolved count. Only when booted with `?test=1`.
-let lakTestChannel = null;
-function installLakTestHook(query) {
-  lakTestChannel?.close();
-  lakTestChannel = null;
-  if (!query?.test || typeof BroadcastChannel === "undefined") return;
-  lakTestChannel = new BroadcastChannel("ac-mail-test");
-  lakTestChannel.onmessage = ({ data }) => {
-    if (data?.type === "mail-poll" && Number.isFinite(data.every)) {
-      mailPollMs = Math.max(1000, data.every);
-    }
-  };
-}
-function tellLakTest() {
-  lakTestChannel?.postMessage({
-    ready: true,
-    piece: "laklok",
-    mail: mailCount ? { unread: mailCount.unread || 0, total: mailCount.total || 0 } : null,
-    asks: mailAsks,
-  });
+function askRecent($) {
+  recentAsking = true;
+  recentAskedAt = Date.now();
+  fetch("/.netlify/functions/laklok-recent") // functions path: `netlify dev` serves only that
+    .then((res) => (res.ok ? res.json() : null))
+    .then((body) => {
+      if (!Array.isArray(body?.recent)) return;
+      // Measure against the server's clock so a skewed device still reads true.
+      const skew = Date.now() - (Date.parse(body.now) || Date.now());
+      recent = body.recent
+        .map((r) => ({ handle: r.handle, at: Date.parse(r.at) + skew }))
+        .filter((r) => r.handle && Number.isFinite(r.at));
+      $.needsPaint?.();
+    })
+    .catch(() => {})
+    .finally(() => { recentAsking = false; });
 }
 
-// 📬 Ask whether there's mail waiting — two counts, not the inbox. The badge
-// repaints when the count moved.
-function askMail($) {
-  mailAsking = true;
-  mailAskedAt = Date.now();
-  mailAsks += 1;
-  const settle = (count) => {
-    mailAsking = false;
-    const moved = count.unread !== mailCount?.unread || count.total !== mailCount?.total;
-    mailCount = count;
-    if (moved) $.needsPaint?.();
-    tellLakTest();
-  };
-  $.net
-    .userRequest("GET", "/api/mail?count=1")
-    .then((res) => settle(res?.status === 200 ? res : { unread: 0, total: 0 }))
-    .catch(() => settle({ unread: 0, total: 0 }));
+function ago(ms) {
+  const m = Math.floor(ms / 60_000);
+  if (m < 60) return `${Math.max(1, m)}m`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+// [{ handle, label }] newest first, without the viewer, with anyone connected
+// to the room right now promoted to "now".
+function recentLine($) {
+  const me = $.handle?.()?.replace(/^@/, "");
+  const online = new Set((client?.system?.onlineHandles || []).map((h) => h.replace(/^@/, "")));
+  const t = Date.now();
+  const rows = recent.map((r) => ({
+    handle: r.handle,
+    at: online.has(r.handle) ? t : r.at,
+  }));
+  for (const h of online) if (!rows.some((r) => r.handle === h)) rows.push({ handle: h, at: t });
+  return rows
+    .filter((r) => r.handle !== me)
+    .sort((a, b) => b.at - a.at)
+    .map((r) => ({ handle: r.handle, label: t - r.at < RECENT_NOW_MS ? "now" : ago(t - r.at) }));
 }
 
 // 🔗 What counts as a media link — hosts that ARE media plus direct files.
@@ -161,12 +154,9 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
   settingsOpen = false;
   lakLinksOnly = false;
   lakTV = false;
-  mailCount = null;
-  mailBox = null;
-  mailAsking = false;
-  mailAskedAt = 0;
-  mailAsks = 0;
-  installLakTestHook(query);
+  recent = [];
+  recentAsking = false;
+  recentAskedAt = 0;
   let colonLinks = false;
   // URL `~` separators land in params, `:` in colon — `laer-klokken~tv`
   // and `laklok:tv` should both reach the same switches, so scan both.
@@ -216,7 +206,7 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
 // name in MatrixChunky8 with every character a different winter color (cool
 // blues and snow with orange between) and its own little bounce, a bobbing
 // pixel snowflake on the left and a drifting flurry of snow on the right. The sign lives in the lane between the HUD label and the corner
-// chrome (envelope, gear, QR) and sheds its trimmings, then itself, before it
+// chrome (gear, QR) and sheds its trimmings, then itself, before it
 // would ever run under either.
 const LAK_SIGN_FONT = "MatrixChunky8";
 const LAK_SIGN_H = 8; // MatrixChunky8 glyph height
@@ -380,8 +370,7 @@ function paintLaerKlokkenSign($, headerHeight = LAK_TOP_MARGIN) {
   }
 }
 
-// 📐 Where the corner chrome lands, right to left: QR, gear, envelope (+ its
-// badge). `left` is the leftmost pixel anything in the corner occupies, so the
+// 📐 Where the corner chrome lands, right to left: QR, gear. `left` is the leftmost pixel anything in the corner occupies, so the
 // sign can keep clear of it. Shared by paintCorner and signLane.
 function cornerLayout($) {
   if (!lakQRCells) return null;
@@ -395,37 +384,18 @@ function cornerLayout($) {
   out.gx = qrX - GEAR - 4;
   out.gy = qrY + Math.floor((qrBoxSize - GEAR) / 2);
   out.left = out.gx;
-  if (!mailCount) return out;
-  const unread = mailCount.unread || 0;
-  out.label = unread > 0 ? `${unread}` : null;
-  // The badge overhangs the envelope's top-right corner, so the cluster is
-  // the envelope plus that overhang.
-  out.cluster = ENVELOPE.w + (out.label ? badgeWidth(out.label) - 3 : 0);
-  out.ex = out.gx - 6 - out.cluster;
-  out.ey = qrY + Math.floor((qrBoxSize - ENVELOPE.h) / 2);
-  out.mailBox = { x: out.ex - 4, y: out.ey - 6, w: out.cluster + 8, h: ENVELOPE.h + 12 };
-  out.left = out.mailBox.x;
   return out;
 }
 
-// 📱 The top-right corner, right to left: the laklok.com QR on white paper,
-// the ⚙ settings toggle, and — for a signed-in visitor — the envelope that
-// opens `mail`, wearing a red count when letters are waiting.
+// 📱 The top-right corner, right to left: the laklok.com QR on white paper
+// and the ⚙ settings toggle.
 function paintCorner($) {
   const c = cornerLayout($);
   if (!c) return;
   paintQR($, lakQRCells, c.qrX, c.qrY);
 
-  if (lakTV) { gearBox = null; mailBox = null; return; }
+  if (lakTV) { gearBox = null; return; }
   gearBox = paintGear($, c.gx, c.gy, settingsOpen);
-
-  if (!c.mailBox) { mailBox = null; return; }
-  mailBox = c.mailBox;
-  const { pen } = $;
-  const hot = !!pen && pen.x >= mailBox.x && pen.x < mailBox.x + mailBox.w &&
-    pen.y >= mailBox.y && pen.y < mailBox.y + mailBox.h;
-  paintEnvelope($, c.ex, c.ey, { lit: (mailCount.unread || 0) > 0, hot });
-  if (c.label) paintBadge($, c.ex + ENVELOPE.w - 3, c.ey - 5, c.label, hot);
 }
 
 // ⚙️ The settings pane — mode / tema / filter / sprog, drawn under the header
@@ -470,8 +440,9 @@ function paint($) {
     otherChat: chatView(),
     inputPlaceholder: "Say hi...",
     hideInput: lakTV, // 📺 broadcast face drops the login/message footer
-    // QR box + gear + breathing room, and the envelope when it's drawn.
-    presenceRightInset: 50 + (mailBox ? mailBox.w + 2 : 0),
+    // QR box + gear + breathing room.
+    presenceRightInset: 50,
+    presenceRecent: recentLine($),
     // 🎪 Circus marquee as the header backdrop — fills the whole chrome panel,
     // painted under the online counter so the counter stays readable on top.
     paintHeader: (api, tm) => paintLaerKlokkenSign(api, tm),
@@ -479,7 +450,7 @@ function paint($) {
 
   // 🎪 The circus marquee is painted as the chat header backdrop (via the
   // paintHeader option above), so it fills the header under the counter.
-  // 📱 QR + ⚙ gear + 📬 envelope, top-right corner (over everything).
+  // 📱 QR + ⚙ gear, top-right corner (over everything).
   paintCorner($);
   paintSettings($);
 }
@@ -499,16 +470,9 @@ function act($) {
     return;
   }
 
-  // 📬 The envelope is the door to mail.
-  if (e.is("touch") && !settingsOpen && hit(mailBox)) {
-    laklokAction($, "mail_open_requested");
-    jump("mail");
-    return;
-  }
-
-  // Back from another tab or window: the count is due now, not next minute.
+  // Back from another tab or window: who was here is due now, not next minute.
   // (bios forwards window focus; a plain visibilitychange never reaches act.)
-  if (e.is("focus")) mailAskedAt = 0;
+  if (e.is("focus")) recentAskedAt = 0;
 
   if (settingsOpen && (e.is("touch") || e.is("draw") || e.is("lift"))) {
     if (e.is("touch")) {
@@ -552,11 +516,8 @@ function sim($) {
   // 🌅 The ambient tema drifts a hair each minute; recolor when it does.
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
 
-  // 📬 Ask whether there's mail waiting — once the signed-in user has settled
-  // (a beat after boot, like the prompt curtain), then every mailPollMs.
-  if ($.user && !lakTV && !mailAsking && Date.now() - mailAskedAt >= mailPollMs) {
-    askMail($);
-  }
+  // 🕰️ Who was last here — on boot, then every minute.
+  if (!recentAsking && Date.now() - recentAskedAt >= RECENT_POLL_MS) askRecent($);
 
   chat.sim($);
 }
@@ -564,8 +525,6 @@ function sim($) {
 function leave() {
   commentCounts?.dispose();
   client.kill();
-  lakTestChannel?.close();
-  lakTestChannel = null;
 }
 
 export { boot, paint, act, sim, leave };

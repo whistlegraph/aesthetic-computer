@@ -1,9 +1,8 @@
 // mail-journey.test, 2026.09.17
 // End-to-end proof of the post: a signed-in @handle opens `mail`, sees the
 // box the API reports, sends a letter to itself whose `<3` survives the
-// server's entity decoding, replies to it from the reply chip, and then
-// `laklok` wears a red unread badge in its corner until the box is marked
-// read — all read off the running pieces and real screenshots.
+// server's entity decoding, and replies to it from the reply chip — all read
+// off the running piece and real screenshots.
 //
 //   npm run test:mail:e2e           # headless, production
 //   npm run test:mail:e2e:local     # against a local `npm run site`
@@ -12,7 +11,7 @@
 //
 // Auth rides ~/.ac-token (`ac-login`); an expired token is refreshed through
 // the standard refresh grant, and a token that cannot be refreshed fails the
-// run up front rather than guessing. `mail?test=1` and `laklok?test=1` publish
+// run up front rather than guessing. `mail?test=1` publishes
 // snapshots on the "ac-mail-test" BroadcastChannel; a target without the
 // hook fails the first scenario, which is the point.
 //
@@ -22,7 +21,6 @@
 // Puppeteer needs a Chrome; with none downloaded, point it at the installed
 // one: PUPPETEER_EXECUTABLE_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome".
 
-import { PNG } from "pngjs";
 import { ACSession, CONFIG, scenario, report } from "./ac-harness.mjs";
 import { loadTokens, UA } from "../../toolchain/mcp/ac-token.mjs";
 
@@ -33,8 +31,6 @@ if (isLocal) process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const READONLY = process.env.AC_MAIL_READONLY === "1";
 const NUDGE_STATUSES = ["sent", "throttled", "pushed", "no_email", "unsubscribed", "failed", "skipped"];
-// paintBadge in disks/common/laklok-tema.mjs: fill [220,30,40], hot [255,60,70].
-const BADGE_REDS = ["220,30,40", "255,60,70"];
 
 // ─── the signed-in user ───────────────────────────────────────────────────
 let tokens;
@@ -107,25 +103,6 @@ async function postSessionUntilSignedIn(piece) {
     await ac.wait(250);
   }
   return state(piece);
-}
-
-// Count badge-red pixels in the top-right corner of the piece canvas, read
-// off a real screenshot. The corner cluster (QR, gear, envelope + badge) sits
-// inside laklok's 34px top margin; 100 CSS px is generous at any density.
-async function badgeReds(name) {
-  const rect = await ac.page.evaluate(() => {
-    const r = document.querySelector("#aesthetic-computer canvas").getBoundingClientRect();
-    return { x: r.x, y: r.y, w: r.width, h: r.height };
-  });
-  const clip = { x: rect.x + rect.w * 0.6, y: rect.y, width: rect.w * 0.4, height: Math.min(100, rect.h) };
-  const bytes = await ac.page.screenshot({ clip, encoding: "binary" });
-  const png = PNG.sync.read(Buffer.from(bytes));
-  let hits = 0;
-  for (let i = 0; i < png.data.length; i += 4) {
-    if (BADGE_REDS.includes(`${png.data[i]},${png.data[i + 1]},${png.data[i + 2]}`)) hits++;
-  }
-  await ac.shot(name);
-  return { hits, clip };
 }
 
 const marker = Date.now();
@@ -207,45 +184,6 @@ try {
     await send({ type: "view", value: "inbox" });
     const back = await waitFor("mail", (s) => s.view === "inbox", { timeout: 10000, label: "inbox view" });
     expect(back.view === "inbox", "back on the inbox");
-  });
-
-  await scenario("laklok wears the unread badge until the box is read", async (expect) => {
-    await ac.boot("laklok?test=1");
-    // The piece may not be listening yet; ask for a fast poll a few times.
-    for (let i = 0; i < 12; i++) {
-      await send({ type: "mail-poll", every: 2000 });
-      await ac.wait(250);
-    }
-    let st = await waitFor("laklok", (s) => s.asks >= 1 && (READONLY ? s.mail : (s.mail?.unread ?? 0) >= 1), {
-      timeout: 45000, label: "laklok to count unread mail (is the piece hooked and signed in?)",
-    });
-    await ac.wait(600); // one more paint so the corner holds the badge
-    const before = await badgeReds("mail-journey/04-laklok-badge");
-    const unread = st.mail.unread;
-    expect(
-      unread > 0 ? before.hits >= 10 : before.hits < 5,
-      `red badge ${unread > 0 ? "painted" : "absent"} top-right for ${unread} unread (${before.hits} badge-red px at ${JSON.stringify(before.clip)})`,
-    );
-    if (READONLY) return expect(true, "mark-read half skipped (AC_MAIL_READONLY)");
-    expect(!!letter?.id, `have the e2e letter's id (${letter?.id})`);
-    if (!letter?.id) return;
-
-    // Only the e2e letter is marked read — real letters in the box stay
-    // unread, so the badge drops by exactly one and vanishes only when the
-    // e2e letter was the last unread one.
-    const asks0 = st.asks;
-    const want = unread - 1;
-    const read = await api("POST", { action: "read", id: letter.id });
-    expect(read.status === 200 && read.read === 1, `POST /api/mail {action:"read", id} → ${read.status}, read ${read.read}`);
-    st = await waitFor("laklok", (s) => s.asks >= asks0 + 2 && s.mail?.unread === want, {
-      timeout: 45000, label: `laklok to re-poll twice (asks ${asks0}) and count ${want} unread`,
-    });
-    await ac.wait(600);
-    const after = await badgeReds("mail-journey/05-laklok-clear");
-    expect(
-      want > 0 ? after.hits >= 10 : after.hits < 5,
-      `badge ${want > 0 ? "still painted" : "gone"} for ${want} unread after reading the e2e letter (${after.hits} badge-red px; asks ${asks0} → ${st.asks})`,
-    );
   });
 
   await scenario("cleanup", async (expect) => {

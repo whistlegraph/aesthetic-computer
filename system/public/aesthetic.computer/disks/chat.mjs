@@ -1248,6 +1248,38 @@ async function fetchNewsHeadlines() {
   return newsFetchPromise;
 }
 
+// 🕰️ The "last here" presence line: [{ handle, label }] → each handle in its
+// own colors (or the theme's handle pink) followed by its label ("now", "12m").
+// Stops with "…" before anything would cross `right`.
+function paintPresenceRecent(entries, { ink, text, theme, x, y, right, fg }) {
+  const font = "MatrixChunky8";
+  const put = (str, at, col) => {
+    ink(0, 0, 0, 180).write(str, { x: at + 1, top: y + 1 }, false, undefined, false, font);
+    (Array.isArray(col) ? ink(...col) : ink(col)).write(str, { x: at, top: y }, false, undefined, false, font);
+    return at + text.width(str, font);
+  };
+  const pink = theme?.handle || [255, 192, 203];
+  for (let i = 0; i < entries.length; i++) {
+    const name = String(entries[i].handle || "").replace(/^@/, "");
+    if (!name) continue;
+    const h = "@" + name;
+    const sep = i > 0 ? " · " : "";
+    const tail = " " + entries[i].label;
+    if (x + text.width(sep + h + tail, font) > right) {
+      if (i > 0 && x + text.width(" …", font) <= right) put(" …", x, fg);
+      break;
+    }
+    if (sep) x = put(sep, x, fg);
+    const colors = handleColorsCache.get(name);
+    if (colors === undefined) fetchHandleColors(name).catch(() => {});
+    for (let c = 0; c < h.length; c++) {
+      const col = colors?.[c];
+      x = put(h[c], x, col ? [col.r, col.g, col.b] : pink);
+    }
+    x = put(tail, x, fg);
+  }
+}
+
 function paint(
   {
     api,
@@ -2715,6 +2747,13 @@ function paint(
       ?? (options?.hideChrome ? 6 : 230);
     const tickerLeftEdge = screen.width - presenceRightInset;
 
+    if (Array.isArray(options?.presenceRecent)) {
+      // 🕰️ Who was last here instead of a head count (laklok): "@prutti now ·
+      // @Hallo 12m · @snakes 3h", newest first, cut with "…" at the ticker.
+      paintPresenceRecent(options.presenceRecent, {
+        ink, text, theme, x: presenceX, y: presenceY, right: tickerLeftEdge, fg: onlineFgColor,
+      });
+    } else {
     // Build count label
     let countLabel;
     if (options?.presenceOnlineOnly) {
@@ -2823,6 +2862,7 @@ function paint(
         handleX += hWidth + 3;
       }
     }
+    } // end presenceRecent else
   }
 
   if (input.canType && !leaving()) {
