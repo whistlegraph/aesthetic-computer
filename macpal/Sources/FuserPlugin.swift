@@ -820,7 +820,7 @@ final class PaneRenderer {
 }
 
 // ── the plugin ───────────────────────────────────────────────────────────
-final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
+final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, TopRail {
     private let home: String       // fuser state dir (== config.supportDir)
     private var repo: String       // repo to read git status from (live-switchable)
     private var repoLabel: String  // the chosen repo's menu label
@@ -887,7 +887,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
     let orrery = LaneOrreryView(frame: NSRect(origin: .zero, size: LaneOrreryView.size))
     var collapsedAccessory: NSView? { orrery.isEmpty ? nil : orrery }
     var showsLanes: Bool { mission?.items.contains(where: { $0.isLaneHeader }) == true }
-    var preferredWidth: CGFloat { showsLanes ? 320 : badgeW }
+    var preferredWidth: CGFloat { showsLanes && !(c?.railMode ?? false) ? 320 : badgeW }
 
     private var tick4 = 0   // git refresh every 4th tick (~4s)
 
@@ -1532,6 +1532,81 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory {
                 card = nil
             }
             my -= showsLanes ? 0 : 8
+        }
+    }
+
+    // ── lanes along the top ───────────────────────────────────────────────
+
+    /// Each lane card's width when the lanes run along the top edge.
+    private let railCardW: CGFloat = 290
+    private let railGap: CGFloat = 8
+
+    var railActive: Bool { showsLanes && mission != nil }
+
+    /// Lanes as index ranges (header … last row), plus rows outside any lane.
+    private func railGroups() -> (lanes: [ClosedRange<Int>], loose: [Int]) {
+        guard let items = mission?.items else { return ([], []) }
+        var lanes: [ClosedRange<Int>] = [], loose: [Int] = []
+        var start: Int?
+        for i in items.indices {
+            if missionLaneCards.indices.contains(i), missionLaneCards[i] != nil { start = i }
+            if items[i].laneID == nil { loose.append(i); start = nil; continue }
+            if let s = start, laneBottomPadding(i) > 0 { lanes.append(s...i); start = nil }
+        }
+        return (lanes, loose)
+    }
+
+    func railSize(in controller: PalController) -> CGSize {
+        let mm = missionMetrics(width: railCardW)
+        let (lanes, loose) = railGroups()
+        let tallest = lanes.map { r in r.reduce(CGFloat(0)) { $0 + mm.items[$1] } }.max() ?? 0
+        let looseH = loose.reduce(CGFloat(0)) { $0 + mm.items[$1] }
+        let n = CGFloat(max(1, lanes.count))
+        return CGSize(width: n * railCardW + (n - 1) * railGap, height: tallest + (looseH > 0 ? looseH + 4 : 0))
+    }
+
+    func layoutRail(in controller: PalController, rect: NSRect) {
+        statusField.isHidden = true
+        overtimeField.isHidden = true; overtimeChip.isHidden = true
+        paneContainer?.isHidden = true
+        missionTitleField.isHidden = true
+        providerChip.isHidden = true
+        let mm = missionMetrics(width: railCardW)
+        let (lanes, loose) = railGroups()
+        missionItemFields.forEach { $0.isHidden = false }
+        missionActivityViews.forEach { $0?.isHidden = false }
+        missionLaneCards.forEach { $0?.isHidden = false }
+        // Same card geometry as the column, one column per lane.
+        for (k, lane) in lanes.enumerated() {
+            let x0 = rect.minX + CGFloat(k) * (railCardW + railGap) - 7
+            var my = rect.maxY
+            var card: MissionLaneCardView?
+            var cardTop: CGFloat = 0
+            for i in lane {
+                if let next = missionLaneCards[i] { card = next; cardTop = my }
+                my -= mm.items[i]
+                let bottom = laneBottomPadding(i)
+                let headingGap = laneHeadingGap(i)
+                let top: CGFloat = missionLaneCards[i] == nil ? 0 : 4
+                let textHeight = mm.items[i] - top - bottom - headingGap
+                missionActivityViews[i]?.frame = NSRect(x: x0 + 15, y: my + bottom + textHeight - 18,
+                                                        width: railCardW - 16, height: 18)
+                missionActivityViews[i]?.needsLayout = true
+                missionItemFields[i].frame = NSRect(x: x0 + 19, y: my + bottom + headingGap,
+                                                    width: railCardW - 24, height: textHeight)
+                if bottom > 0 {
+                    card?.frame = NSRect(x: x0 + 7, y: my, width: railCardW, height: cardTop - my)
+                    card?.needsDisplay = true
+                    card = nil
+                }
+            }
+        }
+        // Rows outside the lanes ("live · just now") sit under the first card.
+        var my = rect.minY + loose.reduce(CGFloat(0)) { $0 + mm.items[$1] }
+        for i in loose {
+            my -= mm.items[i]
+            missionActivityViews[i]?.frame = NSRect(x: rect.minX, y: my, width: railCardW, height: mm.items[i])
+            missionItemFields[i].frame = NSRect(x: rect.minX + 8, y: my, width: railCardW * 2, height: mm.items[i])
         }
     }
 

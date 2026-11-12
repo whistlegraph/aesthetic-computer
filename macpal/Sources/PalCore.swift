@@ -941,6 +941,8 @@ final class PalController: NSObject {
     }
 
     var microChipRect = NSRect.zero
+    /// True while a plugin's row runs along the top edge beside the glyph.
+    private(set) var railMode = false
 
     // The full window width: the star is W; a plugin (the fuser pane) may want
     // more, so plugins can raise it via `preferredWidth`.
@@ -1008,6 +1010,17 @@ final class PalController: NSObject {
         plugins.forEach { $0.setCollapsed(false) }
         if let e = glyphView as? NSTextField { e.font = NSFont.systemFont(ofSize: 60) }
 
+        // In a top corner, a plugin with wide content (the fuser lanes) can lay
+        // it out as a row along the screen's top edge beside the glyph, rather
+        // than a tall column under it. Only when nothing else has rows.
+        if corner.hasPrefix("T"),
+           let rail = plugins.lazy.compactMap({ $0 as? TopRail }).first(where: { $0.railActive }),
+           plugins.allSatisfy({ ($0 as AnyObject) === (rail as AnyObject) || $0.stackHeight(in: self) == 0 }) {
+            layoutRail(rail, screen: f)
+            return
+        }
+        railMode = false
+
         // Stack, bottom-up: [plugin rows] · name · glyph.
         let stackH = plugins.reduce(CGFloat(0)) { $0 + $1.stackHeight(in: self) }
         // No rows (minimal mode) → there's nothing but glyph + name, so hug the
@@ -1059,6 +1072,55 @@ final class PalController: NSObject {
             l.position = CGPoint(x: glyphView.frame.midX, y: glyphView.frame.midY)
         }
     }
+}
+
+extension PalController {
+    /// Glyph and name in a column at the corner; the rail runs from it along
+    /// the top edge, top-aligned with the glyph.
+    fileprivate func layoutRail(_ rail: TopRail, screen f: NSRect) {
+        railMode = true
+        let colW = fullWidth
+        let nameH: CGFloat = 40
+        let nameY0: CGFloat = 8
+        let glyphY0 = nameY0 + nameH + (use3D ? -40 : -4)
+        let colH = glyphY0 + glyphH + 6
+        let size = rail.railSize(in: self)
+        let gap: CGFloat = 6
+        let totalH = max(colH, size.height + 10)
+        let win = colW + gap + size.width
+        let left = corner != "TR"
+        let colX: CGFloat = left ? 0 : win - colW
+        let dy = totalH - colH
+        let o = NSPoint(x: left ? f.minX + marginX : f.maxX - win - marginX, y: f.maxY - totalH - marginY)
+        window.setFrame(NSRect(origin: o, size: NSSize(width: win, height: totalH)), display: true)
+        content.frame = NSRect(x: 0, y: 0, width: win, height: totalH)
+        let gw: CGFloat = (glyphView is NSImageView) ? glyphW : colW
+        glyphView.frame = NSRect(x: colX + (colW - gw) / 2, y: glyphY0 + dy, width: gw, height: glyphH)
+        nameLabel.frame = NSRect(x: colX, y: nameY0 + dy, width: colW, height: nameH)
+        agentChip.isHidden = agentChip.image == nil
+        if agentChip.image != nil {
+            let disc: CGFloat = 30
+            agentChip.frame = NSRect(x: glyphView.frame.maxX - disc + 8, y: glyphView.frame.minY + 2,
+                                     width: disc, height: disc)
+            agentChip.layer?.cornerRadius = disc / 2
+            content.addSubview(agentChip, positioned: .above, relativeTo: glyphView)
+        }
+        clickCatcher.frame = glyphView.frame
+        content.liveRects = [glyphView.frame]
+        rail.layoutRail(in: self, rect: NSRect(x: left ? colW + gap : 0, y: totalH - 4 - size.height,
+                                               width: size.width, height: size.height))
+        if let l = glyphView.layer {
+            l.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            l.position = CGPoint(x: glyphView.frame.midX, y: glyphView.frame.midY)
+        }
+    }
+}
+
+/// A plugin whose content can run along the top edge beside the glyph.
+protocol TopRail: AnyObject {
+    var railActive: Bool { get }
+    func railSize(in c: PalController) -> CGSize
+    func layoutRail(in c: PalController, rect: NSRect)
 }
 
 // A plugin that wants a wider window than the star's default declares it.
