@@ -14,6 +14,7 @@ import {
   updateCode,
 } from "../../public/aesthetic.computer/lib/parse.mjs";
 import { respond } from "../../backend/http.mjs";
+import { deployedCommit } from "../../backend/build-ref.mjs";
 import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { objectMetadata } from "../../backend/object-metadata.mjs";
@@ -2399,6 +2400,7 @@ async function fun(event, context) {
     trackPieceHit(parsed.text, pieceType).catch(() => {});
   }
 
+  const shellCommit = statusCode === 200 ? deployedCommit() : null;
   return {
     statusCode,
     headers: {
@@ -2406,6 +2408,8 @@ async function fun(event, context) {
       // "Cross-Origin-Embedder-Policy": "require-corp",
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Cross-Origin-Resource-Policy": "cross-origin",
+      // The service worker files this shell under the build it belongs to.
+      ...(shellCommit ? { "X-AC-Commit": shellCommit } : {}),
     },
     body,
     ttl: 60,

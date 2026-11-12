@@ -82,10 +82,24 @@ const acIsMenuBand =
   new URLSearchParams(location.search).get('menuband') === 'true' ||
   (window.acElectron && window.acElectron.isMenuBand === true);
 if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top && !acIsMenuBand) {
+  // 📦 A newer deploy finished downloading (sw.js BUILD): it serves the next
+  // launch. The Mac app may also take it quietly while nobody is looking.
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type !== 'ac:build-ready') return;
+    const { commit, copied, fetched, ms } = event.data;
+    console.log(`📦 Build ${commit.slice(0, 7)} ready for next launch (${copied} kept, ${fetched} fetched, ${ms} ms)`);
+    try {
+      window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: 'build:ready', commit }));
+    } catch {}
+  });
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
-      // Check for updates periodically (every 5 minutes)
-      setInterval(() => registration.update(), 5 * 60 * 1000);
+      // Check for updates periodically (every 5 minutes): the worker script
+      // itself, and whether a newer deploy's build is waiting to download.
+      setInterval(() => {
+        registration.update();
+        navigator.serviceWorker.controller?.postMessage({ type: 'ac:build-check' });
+      }, 5 * 60 * 1000);
       
       // Handle updates
       registration.addEventListener('updatefound', () => {

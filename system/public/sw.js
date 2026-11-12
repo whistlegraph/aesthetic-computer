@@ -124,7 +124,7 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) => {
         return Promise.all(
           cacheNames
-            .filter((name) => name !== CACHE_NAME)
+            .filter((name) => name !== CACHE_NAME && name !== BUILD_META && !name.startsWith(BUILD_PREFIX))
             .map((name) => {
               console.log('🔧 SW: Deleting old cache:', name);
               return caches.delete(name);
@@ -132,6 +132,7 @@ self.addEventListener('activate', (event) => {
         );
       })
       .then(() => self.clients.claim())
+      .then(() => checkForBuild())
   );
 });
 
@@ -140,6 +141,9 @@ self.addEventListener('fetch', (event) => {
   
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  // A deployed build answers from its own cache first (see BUILD below).
+  if (buildHandles(event, url)) return;
   
   // A piece's source names the modules its worker is about to import, wave by
   // wave. The shell fetches it at parse time, long before the worker exists:
@@ -432,12 +436,314 @@ function revalidate(cache, cacheKey, request, cachedResponse) {
     });
 }
 
+// 📦 BUILD. A deploy is one build: the page shell, boot, bios, the worker
+// bundle, lib/, pieces and fonts of a single commit. Once a build is
+// installed, a launch is served entirely from its cache — no round trip
+// before the prompt, and it boots offline. Meanwhile /api/build is asked
+// which commit is deployed; a new one is downloaded beside the old (files
+// whose git hash didn't change are copied, the rest fetched and checked
+// against their hash), goes live for the next launch, and open pages hear
+// `ac:build-ready`. Each page keeps the build it booted on, so a piece loaded
+// late never meets a lib from another commit. Local dev has no deploy
+// (/api/build says commit: null) and keeps the network-first path above.
+
+const BUILD_PREFIX = 'ac-build-';
+const BUILD_META = 'ac-meta'; // never under BUILD_PREFIX: installs prune that prefix
+const BUILD_ACTIVE_KEY = '/__ac/build/active';
+const SHELL_KEY = '/__ac/shell'; // + the page's pathname
+// What a build owns: the same roots backend/build-ref.mjs lists.
+const BUILD_SCOPE = /^\/(?:aesthetic\.computer\/|type\/|manifest\.json$)/;
+// The server renders a different shell for these, so they always go out.
+const SHELL_PARAMS = ['boot', 'noboot', 'icon', 'preview', 'menuband'];
+// Pages the server answers itself rather than with a piece's shell.
+const NOT_SHELL = /^\/(?:api|media|\.netlify|session|reload|user|handles?|authorized|run|cdn-cgi|lith|aesthetic\.computer|type)(?:\/|$)/;
+// A build goes live only with all of these.
+const BUILD_CORE = [
+  '/aesthetic.computer/boot.mjs',
+  '/aesthetic.computer/bios.mjs',
+  '/aesthetic.computer/style.css',
+  '/aesthetic.computer/lib/disk-worker-manifest.json',
+];
+const WORKER_BUNDLE = /^\/aesthetic\.computer\/lib\/disk\.worker\.[a-f0-9]+\.mjs$/;
+const SHELLS_KEPT = 12; // visited pages carried into the next build, besides '/'
+const BUILD_MAX_BYTES = 8 * 1024 * 1024;
+const BUILD_CHECK_MS = 20 * 1000;
+const BUILD_CHECK_DELAY_MS = 2000; // let a launch have the link first
+const BUILD_WAIT_MS = 5000; // longest a reload waits on a downloading build
+
+let activeBuild = null; // { commit, files: { path: hash }, hashChars }
+let buildLoadedYet = false;
+const buildLoaded = (async () => {
+  try {
+    const stored = await (await caches.open(BUILD_META)).match(BUILD_ACTIVE_KEY);
+    if (stored) activeBuild = await stored.json();
+  } catch {}
+  buildLoadedYet = true;
+  return activeBuild;
+})();
+const clientBuilds = new Map(); // clientId → the build that client runs on (null: network)
+let lastPageBuild; // the build the newest page booted on; its workers inherit it
+let lastBuildCheck = 0;
+let buildInstall = null;
+const buildMisses = new Map(); // commit + path → in-flight fetch
+
+function buildForClient(clientId) {
+  if (clientId && clientBuilds.has(clientId)) return clientBuilds.get(clientId);
+  const build = lastPageBuild !== undefined ? lastPageBuild : activeBuild;
+  if (clientId) pinClient(clientId, build);
+  return build;
+}
+
+function pinClient(clientId, build) {
+  if (!clientId) return;
+  clientBuilds.delete(clientId);
+  clientBuilds.set(clientId, build);
+  while (clientBuilds.size > 256) clientBuilds.delete(clientBuilds.keys().next().value);
+}
+
+// A URL's path as the manifest spells it (git paths are unescaped UTF-8).
+function filePath(url) {
+  try { return decodeURIComponent(url.pathname); } catch { return url.pathname; }
+}
+
+function shellable(url) {
+  if (url.origin !== self.location.origin || NOT_SHELL.test(url.pathname)) return false;
+  if (/\.[a-z0-9]+$/i.test(url.pathname)) return false; // a file, not a piece
+  return !SHELL_PARAMS.some((param) => url.searchParams.has(param));
+}
+
+// Synchronous: does the build layer answer this request?
+function buildHandles(event, url) {
+  const request = event.request;
+  if (url.origin !== self.location.origin || request.headers.has('range')) return false;
+  if (request.mode === 'navigate') {
+    if (!shellable(url)) return false;
+    event.respondWith(serveShell(event, url));
+    event.waitUntil(new Promise((resolve) => setTimeout(resolve, BUILD_CHECK_DELAY_MS)).then(() => checkForBuild()));
+    return true;
+  }
+  if (!BUILD_SCOPE.test(url.pathname)) return false;
+  if (buildLoadedYet) {
+    const build = buildForClient(event.clientId);
+    if (!build || !build.files[filePath(url)]) return false; // the network-first path
+  }
+  event.respondWith(serveFromBuild(event, url));
+  return true;
+}
+
+async function serveShell(event, url) {
+  await buildLoaded;
+  // A hard reload asks for the newest deploy; any reload waits briefly for a
+  // build that is already downloading (the ↑ badge's reload lands on it).
+  const hard = event.request.cache === 'reload' || event.request.cache === 'no-cache';
+  const pending = hard ? checkForBuild(true) : buildInstall;
+  if (pending) await Promise.race([pending, new Promise((r) => setTimeout(r, BUILD_WAIT_MS))]);
+  const build = activeBuild;
+  const pin = (b) => { pinClient(event.resultingClientId, b); lastPageBuild = b; };
+  const cache = build && (await caches.open(BUILD_PREFIX + build.commit));
+  if (cache) {
+    const cached = await cache.match(SHELL_KEY + url.pathname);
+    if (cached) { pin(build); return cached; }
+  }
+  try {
+    const response = await fetch(event.request);
+    const commit = response.headers.get('x-ac-commit');
+    if (cache && commit === build.commit && response.status === 200 && !response.redirected) {
+      event.waitUntil(cache.put(SHELL_KEY + url.pathname, response.clone()).catch(() => {}));
+      pin(build);
+    } else {
+      pin(null); // a shell from another commit runs on the network
+    }
+    return response;
+  } catch (err) {
+    // Offline and this page was never visited: the prompt's shell boots it.
+    const fallback = cache && (await cache.match(SHELL_KEY + '/'));
+    if (fallback) { pin(build); return fallback; }
+    throw err;
+  }
+}
+
+async function serveFromBuild(event, url) {
+  await buildLoaded;
+  const build = buildForClient(event.clientId);
+  const hash = build?.files[filePath(url)];
+  if (!hash) return fetch(event.request);
+  const cache = await caches.open(BUILD_PREFIX + build.commit);
+  const key = self.location.origin + url.pathname;
+  const cached = await cache.match(key);
+  if (cached) return cached;
+  // First time this build is asked for the file: fetch it once, keep it if
+  // the bytes are this commit's.
+  const id = build.commit + url.pathname;
+  let pending = buildMisses.get(id);
+  if (!pending) {
+    pending = fetch(key, { cache: 'no-cache' }).then(async (response) => {
+      if (response.status === 200 && !response.redirected) {
+        const body = await response.clone().arrayBuffer();
+        if (body.byteLength <= BUILD_MAX_BYTES && (await blobMatches(body, hash, build.hashChars))) {
+          await cache.put(key, response.clone());
+        } else {
+          checkForBuild(); // the server is likely on a newer commit
+        }
+      }
+      return response;
+    });
+    buildMisses.set(id, pending);
+    const drop = () => buildMisses.delete(id);
+    pending.then(drop, drop);
+  }
+  try {
+    return (await pending).clone();
+  } catch (err) {
+    const older = await caches.match(key); // offline: any copy beats none
+    if (older) return older;
+    throw err;
+  }
+}
+
+// Does `body` hash to the git blob `hash` (a hex prefix)?
+async function blobMatches(body, hash, chars) {
+  const header = new TextEncoder().encode(`blob ${body.byteLength}\0`);
+  const bytes = new Uint8Array(header.length + body.byteLength);
+  bytes.set(header);
+  bytes.set(new Uint8Array(body), header.length);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', bytes));
+  let hex = '';
+  for (const b of digest) hex += b.toString(16).padStart(2, '0');
+  return hex.slice(0, chars || hash.length) === hash;
+}
+
+async function checkForBuild(force = false) {
+  await buildLoaded;
+  if (buildInstall) return buildInstall;
+  const now = Date.now();
+  if (!force && now - lastBuildCheck < BUILD_CHECK_MS) return;
+  lastBuildCheck = now;
+  let commit = null;
+  try {
+    ({ commit } = await (await fetch('/api/build', { cache: 'no-store' })).json());
+  } catch {
+    return; // offline: the build we have is the build we run
+  }
+  if (!commit || activeBuild?.commit === commit) return;
+  buildInstall = installBuild(commit)
+    .catch((err) => console.warn('📦 SW: build', commit.slice(0, 7), 'not installed:', err.message))
+    .finally(() => { buildInstall = null; });
+  return buildInstall;
+}
+
+async function installBuild(commit) {
+  const started = Date.now();
+  const origin = self.location.origin;
+  const response = await fetch(`/api/build?commit=${commit}`);
+  if (!response.ok) throw new Error(`manifest ${response.status}`);
+  const next = await response.json();
+  if (next.commit !== commit || !next.files) throw new Error('bad manifest');
+
+  const prev = activeBuild;
+  const prevCache = prev && (await caches.open(BUILD_PREFIX + prev.commit));
+  const cacheName = BUILD_PREFIX + commit;
+  const cache = await caches.open(cacheName);
+
+  // Carry what the last build held, or — the first time — what the module
+  // cache and the root shell already know a launch needs.
+  const paths = new Set(BUILD_CORE);
+  const shells = new Set();
+  for (const source of [prevCache || (await caches.open(CACHE_NAME))]) {
+    for (const request of await source.keys()) {
+      const path = new URL(request.url).pathname;
+      if (path.startsWith(SHELL_KEY)) shells.add(path.slice(SHELL_KEY.length) || '/');
+      else paths.add(path);
+    }
+  }
+  shells.delete('/');
+  const shellPaths = ['/', ...[...shells].slice(-SHELLS_KEPT)];
+
+  // Every shell must be this very commit's; if the root isn't, the server has
+  // already moved on and this install is stale.
+  const shellResponses = await pool(shellPaths, 4, async (path) => {
+    const r = await fetch(origin + path, { cache: 'no-store' });
+    if (r.status !== 200 || r.redirected || r.headers.get('x-ac-commit') !== commit) return null;
+    return r;
+  });
+  if (!shellResponses[0]) throw new Error('root shell is not this commit');
+  const rootHtml = await shellResponses[0].clone().text();
+  for (const [, href] of rootHtml.matchAll(/(?:href|src)="(\/[^"?#]+)/g)) paths.add(href);
+
+  // One worker bundle: the one this commit's manifest names.
+  const store = async (encoded) => {
+    const path = filePath(new URL(encoded, origin));
+    const hash = next.files[path];
+    if (!hash) return false;
+    if (prev && prev.files[path] === hash) {
+      const kept = await prevCache.match(origin + path);
+      if (kept) { await cache.put(origin + path, kept); return 'copied'; }
+    }
+    const r = await fetch(origin + path, { cache: 'no-cache' });
+    if (r.status !== 200 || r.redirected) return false;
+    const body = await r.clone().arrayBuffer();
+    if (body.byteLength > BUILD_MAX_BYTES || !(await blobMatches(body, hash, next.hashChars))) return false;
+    await cache.put(origin + path, r);
+    return 'fetched';
+  };
+  const core = await pool(BUILD_CORE, 4, store);
+  if (core.some((ok) => !ok)) {
+    await caches.delete(cacheName);
+    throw new Error('core files missing or not this commit');
+  }
+  try {
+    const { filename } = await (await cache.match(origin + '/aesthetic.computer/lib/disk-worker-manifest.json')).json();
+    for (const path of paths) if (WORKER_BUNDLE.test(path)) paths.delete(path);
+    paths.add(`/aesthetic.computer/lib/${filename}`);
+  } catch {}
+  for (const path of BUILD_CORE) paths.delete(path);
+  const results = await pool([...paths], 8, store);
+  const copied = results.filter((r) => r === 'copied').length + core.filter((r) => r === 'copied').length;
+  const fetched = results.filter((r) => r === 'fetched').length + core.filter((r) => r === 'fetched').length;
+  await Promise.all(shellPaths.map((path, i) =>
+    shellResponses[i] ? cache.put(origin + SHELL_KEY + path, shellResponses[i]) : null));
+
+  // Go live for the next launch; pages already open keep their own build.
+  await (await caches.open(BUILD_META)).put(BUILD_ACTIVE_KEY, new Response(JSON.stringify(next), {
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  activeBuild = next;
+  const keep = new Set([cacheName, prev && BUILD_PREFIX + prev.commit]);
+  for (const name of await caches.keys()) {
+    if (name.startsWith(BUILD_PREFIX) && !keep.has(name)) await caches.delete(name);
+  }
+  const ms = Date.now() - started;
+  console.log(`📦 SW: build ${commit.slice(0, 7)} ready (${copied} kept, ${fetched} fetched, ${ms} ms)`);
+  for (const client of await self.clients.matchAll({ type: 'window' })) {
+    client.postMessage({ type: 'ac:build-ready', commit, previous: prev?.commit || null, copied, fetched, ms });
+  }
+}
+
+// Run `fn` over `items`, `limit` at a time; a throw counts as a falsy result.
+async function pool(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      try { out[i] = await fn(items[i]); } catch { out[i] = null; }
+    }
+  }));
+  return out;
+}
+
 // Handle messages from main thread
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }
+  if (event.data?.type === 'ac:build-check') {
+    event.waitUntil(checkForBuild(event.data.force === true));
+  }
   if (event.data === 'clearCache') {
+    // The page saw a new deploy (disk.mjs's /api/version poll): fetch its
+    // build now, so the ↑ badge's reload opens on it.
+    event.waitUntil(checkForBuild(true));
     caches.delete(CACHE_NAME).then(() => {
       console.log('🔧 SW: Cache cleared');
     });
