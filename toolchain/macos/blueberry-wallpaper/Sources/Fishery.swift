@@ -1421,6 +1421,9 @@ final class FishSchool {
         /// A solid rim in the tier colour: an inverted hull (a slightly
         /// larger copy, front faces culled, unlit) so it reads at any angle.
         let rim = SCNMaterial()
+        /// Staff only: a wider additive shell around the body that pulses.
+        let glow = SCNMaterial()
+        var glowHull: SCNNode?
         var sphere: SCNGeometry?
         var wearing = ""
         var crown: SCNNode?
@@ -1533,6 +1536,20 @@ final class FishSchool {
         body.position = SCNVector3(0.06, 0, 0)
         body.scale = SCNVector3(0.86, 0.46, 0.42)
         b.turn.addChildNode(body)
+        b.glow.lightingModel = .constant
+        b.glow.cullMode = .front
+        b.glow.blendMode = .add
+        b.glow.writesToDepthBuffer = false
+        b.glow.diffuse.contents = NSColor.black
+        if let g = sphere.copy() as? SCNGeometry {
+            g.materials = [b.glow]
+            let hull = SCNNode(geometry: g)
+            hull.scale = SCNVector3(1 + 0.11 / 0.43, 1 + 0.11 / 0.23, 1 + 0.11 / 0.21)
+            hull.renderingOrder = -2
+            hull.isHidden = true
+            body.addChildNode(hull)
+            b.glowHull = hull
+        }
         // Body is squashed (0.86 × 0.46 × 0.42), so grow each axis by the same
         // absolute amount, not the same ratio, for an even line.
         let line: CGFloat = 0.035
@@ -1615,6 +1632,7 @@ final class FishSchool {
     }
 
     private static let mint = NSColor(srgbRed: 0.40, green: 0.95, blue: 0.72, alpha: 1)
+    private static let staffRim = NSColor(srgbRed: 1.0, green: 0.31, blue: 0.85, alpha: 1)
 
     /// `halfHeight` is the stage's orthographic half-height in scene units.
     /// Runs inside the renderer's update, where scene changes apply at once
@@ -1638,6 +1656,19 @@ final class FishSchool {
                 // The rim stays the pure tier colour, only lightly hazed with depth.
                 b.rim.diffuse.contents = p.color.blended(withFraction: haze * 0.35, of: water) ?? p.color
             }
+            // Fuser staff: a hot-pink rim that blinks, with a glow shell
+            // breathing with it. Wall clock, so every pane of a tank agrees.
+            if p.staff {
+                let t = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 1e5)
+                let wave = 0.5 + 0.5 * sin(t * 2 * .pi * 1.1)
+                let blink = CGFloat(pow(wave, 3))
+                b.rim.diffuse.contents = Self.staffRim.blended(withFraction: 0.55 * (1 - blink), of: water) ?? Self.staffRim
+                b.glow.diffuse.contents = Self.staffRim.withAlphaComponent(1).blended(withFraction: 1 - (0.15 + 0.55 * blink), of: .black)
+                b.glowHull?.isHidden = false
+                b.tier = nil   // re-tint the rim normally if they stop being staff
+            } else if b.glowHull?.isHidden == false {
+                b.glowHull?.isHidden = true
+            }
             // The glow is the tier colour at an intensity, not a new colour.
             var emissive = p.color
             var glow = min(1, p.glow * 0.85)
@@ -1657,21 +1688,8 @@ final class FishSchool {
                 b.skin.emission.intensity = glow
                 b.coat.emission.intensity = glow
             }
-            if p.staff {
-                if b.crown == nil, let badge {
-                    let crown = badge.clone()
-                    // Badge lives in fish units (1 = nose to tail).
-                    let (lo, hi) = badge.boundingBox
-                    let span = max(CGFloat(hi.x - lo.x), CGFloat(hi.y - lo.y), 0.001)
-                    let k = 0.42 / span
-                    crown.scale = SCNVector3(k, k, k)
-                    crown.position = SCNVector3(0.02, 0.52, 0)
-                    let spin = SCNAction.repeatForever(.rotateBy(x: 0, y: .pi * 2, z: 0, duration: 7))
-                    crown.runAction(spin)
-                    b.node.addChildNode(crown)
-                    b.crown = crown
-                }
-            } else if let crown = b.crown {
+            // Staff wear the blinking outline; the old spinning crown is gone.
+            if let crown = b.crown {
                 crown.removeFromParentNode()
                 b.crown = nil
             }
