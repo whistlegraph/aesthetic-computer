@@ -19,8 +19,15 @@ mkdir -p "$contents/MacOS" "$contents/Resources/live"
 object_dir=$(mktemp -d)
 trap 'rm -rf "$object_dir"' EXIT
 clang++ -std=c++17 -O2 -c "$repo_root/xbox/macos-native/PoolDecals.cpp" -o "$object_dir/PoolDecals.o"
-swiftc -swift-version 5 -O -import-objc-header "$repo_root/xbox/macos-native/PoolDecals.h" \
-  "$repo_root/xbox/macos-native/PoolDecals.swift" "$object_dir/PoolDecals.o" -lc++ "$repo_root/xbox/macos-native/main.swift" \
+# sceneApi 4 (xbox/native-bios/SCENE-API-4.md): the shared scene4.hpp behind a
+# C bridge, and its Metal pass. It installs only when MetalSceneView offers
+# the worldPass hook; -D SCENE4 just compiles it in.
+clang++ -std=c++17 -O2 -I "$repo_root/xbox/runtime/include" \
+  -c "$repo_root/xbox/macos-native/Scene4Bridge.cpp" -o "$object_dir/Scene4Bridge.o"
+swiftc -swift-version 5 -O -D SCENE4 -import-objc-header "$repo_root/xbox/macos-native/Bridge.h" \
+  "$repo_root/xbox/macos-native/PoolDecals.swift" "$object_dir/PoolDecals.o" \
+  "$repo_root/xbox/macos-native/Scene4.swift" "$object_dir/Scene4Bridge.o" \
+  -lc++ "$repo_root/xbox/macos-native/main.swift" \
   "$repo_root/apple/oskiewar/Sources/MetalSceneView.swift" \
   "$repo_root/apple/oskiewar/Sources/SdfFigures.swift" \
   "$repo_root/apple/oskiewar/Sources/InkOutlines.swift" \

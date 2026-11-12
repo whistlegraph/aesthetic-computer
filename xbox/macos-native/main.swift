@@ -28,6 +28,10 @@ private final class NativeRenderer {
     /// would spend the whole saving on the heap.
     private var face = [Float](repeating: 0, count: 12)
 
+    /// Called with every fresh frame, so a pass that queues its own draws
+    /// (sceneApi 4) starts over when the triangle list does.
+    var onBeginFrame: (() -> Void)?
+
     init(scene: MetalSceneView) { self.scene = scene }
 
     var logicalSize: CGSize {
@@ -38,6 +42,7 @@ private final class NativeRenderer {
     func beginFrame() {
         scene.beginFrame(red: clear.red, green: clear.green, blue: clear.blue)
         sawFace = false
+        onBeginFrame?()
     }
 
     func wipe(_ red: Double, _ green: Double, _ blue: Double) {
@@ -952,12 +957,23 @@ private final class NativeGameHost {
     private var perfPaintSeconds = 0.0
     private var perfFrames = 0
     private var perfFrameDeltas: [Double] = []
+    #if SCENE4
+    private var scene4: Scene4?
+    #endif
 
     init(view: GameView) {
         self.view = view
         renderer = NativeRenderer(scene: view.scene)
         view.host = self
         installBindings()
+        #if SCENE4
+        // sceneApi 4 (xbox/native-bios/SCENE-API-4.md), when the shared
+        // renderer offers its world-pass hook; otherwise the gpu* calls stay
+        // undefined and a piece takes its older path.
+        scene4 = Scene4.attach(to: view.scene) { [weak self] in self?.renderer.logicalSize ?? .zero }
+        scene4?.install(into: javascript)
+        renderer.onBeginFrame = { [weak self] in self?.scene4?.beginFrame() }
+        #endif
     }
 
     deinit { if let displayLink { CVDisplayLinkStop(displayLink) } }
