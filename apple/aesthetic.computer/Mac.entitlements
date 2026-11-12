@@ -12,5 +12,9 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.security.temporary-exception.sbpl</key>
+	<array>
+		<string>(allow process-info-rusage)</string>
+	</array>
 </dict>
 </plist>
