@@ -1,0 +1,451 @@
+{
+  "seed": 20261111,
+  "bpm": 126,
+  "swing": 0.45,
+  "bars": 140,
+  "tonic": "met",
+  "key": {
+    "root": 9,
+    "quality": "maj"
+  },
+  "chordSet": [
+    "eot",
+    "daw",
+    "one",
+    "wav",
+    "bio",
+    "eat",
+    "win"
+  ],
+  "words": {
+    "title": "handler",
+    "A": "state",
+    "B": "timing",
+    "C": "jump",
+    "D": "client",
+    "final": "cycle"
+  },
+  "rhythms": {
+    "handler": {
+      "n": 32,
+      "steps": [
+        0,
+        5,
+        10,
+        14,
+        19,
+        23,
+        28
+      ],
+      "box": "x....x....x...x....x...x....x..."
+    },
+    "state": {
+      "n": 16,
+      "steps": [
+        0,
+        4,
+        7,
+        10,
+        13
+      ],
+      "box": "x...x..x..x..x.."
+    },
+    "timing": {
+      "n": 32,
+      "steps": [
+        0,
+        6,
+        11,
+        16,
+        22,
+        27
+      ],
+      "box": "x.....x....x....x.....x....x...."
+    },
+    "jump": {
+      "n": 16,
+      "steps": [
+        0,
+        4,
+        8,
+        12
+      ],
+      "box": "x...x...x...x..."
+    },
+    "client": {
+      "n": 32,
+      "steps": [
+        0,
+        6,
+        11,
+        16,
+        22,
+        27
+      ],
+      "box": "x.....x....x....x.....x....x...."
+    },
+    "cycle": {
+      "n": 16,
+      "steps": [
+        0,
+        4,
+        7,
+        10,
+        13
+      ],
+      "box": "x...x..x..x..x.."
+    }
+  },
+  "sections": [
+    {
+      "kind": "intro",
+      "start": 0,
+      "len": 12,
+      "density": 0.14,
+      "layers": {
+        "kick": false,
+        "hats": false,
+        "ups": false,
+        "clap": false,
+        "boom": false,
+        "strum": false,
+        "pad": true,
+        "air": true,
+        "bells": false,
+        "toll": true,
+        "dtmf": false,
+        "clicks": false,
+        "canon2": false,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": false,
+        "choir": false,
+        "ladder": false
+      },
+      "prog": [
+        "met",
+        "daw",
+        "one",
+        "daw"
+      ],
+      "lead": "handler",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "bossa",
+        "box": "x..x..x...x..x.."
+      },
+      "clicks": {
+        "id": "E(5,12)",
+        "box": "x..x.x..x.x."
+      },
+      "blips": {
+        "id": "rumba",
+        "box": "x..x...x..x.x..."
+      },
+      "vowel": "ah",
+      "chordBars": 2
+    },
+    {
+      "kind": "build",
+      "start": 12,
+      "len": 20,
+      "density": 0.46,
+      "layers": {
+        "kick": true,
+        "hats": true,
+        "ups": false,
+        "clap": false,
+        "boom": true,
+        "strum": false,
+        "pad": false,
+        "air": false,
+        "bells": true,
+        "toll": true,
+        "dtmf": false,
+        "clicks": false,
+        "canon2": false,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": true,
+        "choir": false,
+        "ladder": false
+      },
+      "prog": [
+        "eot",
+        "daw",
+        "one",
+        "win"
+      ],
+      "lead": "state",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "bossa",
+        "box": "x..x..x...x..x.."
+      },
+      "clicks": {
+        "id": "E(7,12)",
+        "box": "x.xx.x.xx.x."
+      },
+      "blips": {
+        "id": "soukous",
+        "box": "x..x..x...xx...."
+      },
+      "vowel": "oo",
+      "chordBars": 1
+    },
+    {
+      "kind": "peak",
+      "start": 32,
+      "len": 32,
+      "density": 0.8,
+      "layers": {
+        "kick": true,
+        "hats": true,
+        "ups": false,
+        "clap": true,
+        "boom": true,
+        "strum": true,
+        "pad": true,
+        "air": false,
+        "bells": true,
+        "toll": true,
+        "dtmf": true,
+        "clicks": false,
+        "canon2": true,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": true,
+        "choir": true,
+        "ladder": false
+      },
+      "prog": [
+        "met",
+        "daw",
+        "eat",
+        "daw"
+      ],
+      "lead": "handler",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "rumba",
+        "box": "x..x...x..x.x..."
+      },
+      "clicks": {
+        "id": "E(11,12)",
+        "box": "xxxxxxxxxxx."
+      },
+      "blips": {
+        "id": "bossa",
+        "box": "x..x..x...x..x.."
+      },
+      "vowel": "ah",
+      "chordBars": 1
+    },
+    {
+      "kind": "breakdown",
+      "start": 64,
+      "len": 20,
+      "density": 0.26,
+      "layers": {
+        "kick": false,
+        "hats": false,
+        "ups": false,
+        "clap": false,
+        "boom": false,
+        "strum": false,
+        "pad": true,
+        "air": true,
+        "bells": false,
+        "toll": true,
+        "dtmf": true,
+        "clicks": false,
+        "canon2": false,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": true,
+        "choir": true,
+        "ladder": false
+      },
+      "prog": [
+        "daw",
+        "one",
+        "win",
+        "one"
+      ],
+      "lead": "jump",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "E(5,16)",
+        "box": "x..x..x..x..x..."
+      },
+      "clicks": {
+        "id": "E(11,12)",
+        "box": "xxxxxxxxxxx."
+      },
+      "blips": {
+        "id": "son",
+        "box": "x..x..x...x.x..."
+      },
+      "vowel": "oo",
+      "chordBars": 2
+    },
+    {
+      "kind": "rise",
+      "start": 84,
+      "len": 8,
+      "density": 0.55,
+      "layers": {
+        "kick": true,
+        "hats": true,
+        "ups": false,
+        "clap": false,
+        "boom": false,
+        "strum": false,
+        "pad": false,
+        "air": true,
+        "bells": true,
+        "toll": true,
+        "dtmf": false,
+        "clicks": false,
+        "canon2": false,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": true,
+        "choir": false,
+        "ladder": true
+      },
+      "prog": [
+        "daw",
+        "one",
+        "wav",
+        "win"
+      ],
+      "lead": "state",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "shiko",
+        "box": "x...x.x...x.x..."
+      },
+      "clicks": {
+        "id": "E(5,12)",
+        "box": "x..x.x..x.x."
+      },
+      "blips": {
+        "id": "rumba",
+        "box": "x..x...x..x.x..."
+      },
+      "vowel": "ah",
+      "chordBars": 2
+    },
+    {
+      "kind": "peak2",
+      "start": 92,
+      "len": 36,
+      "density": 0.93,
+      "layers": {
+        "kick": true,
+        "hats": true,
+        "ups": true,
+        "clap": true,
+        "boom": true,
+        "strum": true,
+        "pad": false,
+        "air": false,
+        "bells": true,
+        "toll": true,
+        "dtmf": true,
+        "clicks": true,
+        "canon2": true,
+        "canon4": true,
+        "counter": true,
+        "second": true,
+        "toots": true,
+        "choir": true,
+        "ladder": false
+      },
+      "prog": [
+        "met",
+        "one",
+        "eat",
+        "one"
+      ],
+      "lead": "handler",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "E(7,8)",
+        "box": "xxxxxxx.xxxxxxx."
+      },
+      "clicks": {
+        "id": "E(5,12)",
+        "box": "x..x.x..x.x."
+      },
+      "blips": {
+        "id": "E(5,16)",
+        "box": "x..x..x..x..x..."
+      },
+      "vowel": "ah",
+      "chordBars": 2
+    },
+    {
+      "kind": "outro",
+      "start": 128,
+      "len": 12,
+      "density": 0.45,
+      "layers": {
+        "kick": true,
+        "hats": true,
+        "ups": false,
+        "clap": false,
+        "boom": false,
+        "strum": false,
+        "pad": false,
+        "air": true,
+        "bells": true,
+        "toll": true,
+        "dtmf": true,
+        "clicks": false,
+        "canon2": false,
+        "canon4": false,
+        "counter": false,
+        "second": false,
+        "toots": true,
+        "choir": false,
+        "ladder": false
+      },
+      "prog": [
+        "wav",
+        "daw",
+        "win",
+        "eat"
+      ],
+      "lead": "cycle",
+      "counter": "timing",
+      "second": "client",
+      "hats": {
+        "id": "bossa",
+        "box": "x..x..x...x..x.."
+      },
+      "clicks": {
+        "id": "E(5,12)",
+        "box": "x..x.x..x.x."
+      },
+      "blips": {
+        "id": "cinquillo",
+        "box": "x.xx.xx.x.xx.xx."
+      },
+      "vowel": "ee",
+      "chordBars": 2
+    }
+  ]
+}
