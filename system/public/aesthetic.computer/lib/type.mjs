@@ -19,6 +19,19 @@ import { Aesthetic, Desktop, AestheticIOSApp } from "./platform.mjs";
 // 🗄️ Global Glyph Cache System (IndexedDB-backed)
 // Provides fast glyph loading on subsequent visits
 let glyphDbPromise = null;
+
+// 🔁 Glyphs whose fetch failed on the network come back off the failed list
+// after a backoff (1 s, doubling to 30 s), and a paint is asked for so they
+// are requested again. Glyphs the font lacks stay failed.
+const glyphRetries = new Map();
+function retryGlyphLater(failed, char, needsPaint) {
+  const tries = (glyphRetries.get(char) || 0) + 1;
+  glyphRetries.set(char, tries);
+  setTimeout(() => {
+    failed.delete(char);
+    if (typeof needsPaint === "function") needsPaint();
+  }, Math.min(30000, 1000 * 2 ** (tries - 1)));
+}
 const GLYPH_CACHE_VERSION = 2; // Increment to invalidate all cached glyphs
 const GLYPH_STORE_NAME = "glyphs";
 const META_STORE_NAME = "glyph-meta";
@@ -402,9 +415,11 @@ class Typeface {
               cacheGlyphsBulk(bdfFontName, glyphsToCache);
             }
           } catch (err) {
+            // A network failure isn't a missing glyph: try again shortly.
             for (const item of batch) {
               failedGlyphs.add(item.char);
               loadingGlyphs.delete(item.char);
+              retryGlyphLater(failedGlyphs, item.char, needsPaintCallback);
             }
           }
 
@@ -711,10 +726,13 @@ class Typeface {
           }
         } catch (err) {
           console.warn(`Batch glyph fetch failed:`, err);
-          // Mark all as failed
+          // A network failure isn't a missing glyph: hold these back, then
+          // let the next paint ask again (a jump between pieces or a blip
+          // used to blank them until the page reloaded).
           for (const item of batch) {
             failedGlyphs.add(item.char);
             loadingGlyphs.delete(item.char);
+            retryGlyphLater(failedGlyphs, item.char, needsPaintCallback);
           }
         }
         

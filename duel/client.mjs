@@ -1061,6 +1061,13 @@ document.addEventListener('mousemove', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   void sfx.wake();
+  // ⌘+ / ⌘− / ⌘0 under the prompt: its pixel density is ours (we lay our
+  // pixels on its grid), so hand them up and the new grid comes back down.
+  if (hosted && (e.metaKey || e.ctrlKey) && !e.altKey && ['=', '+', '-', '0'].includes(e.key)) {
+    e.preventDefault();
+    toHost({ type: 'dool:sheet:density', step: e.key === '0' ? 0 : e.key === '-' ? -1 : 1 });
+    return;
+  }
   if (down && e.code !== 'Escape') {
     e.preventDefault();
     return;
@@ -1089,16 +1096,18 @@ document.addEventListener('keydown', (e) => {
     chat.begin();
     return;
   }
-  // Tab: back to the prompt, as Tab there comes in (2026-11-10). R: rooms.
-  // $ (shift 4): the $code list, as the prompt's $ starts a code; not while
-  // typing, where $ and r are letters (2026-11-08).
+  // Tab: back to the prompt, as Tab there comes in (2026-11-10). R or `:
+  // the room menu (clear the room, view, blur…) — ` as on the prompt, where
+  // it toggles the fps readout (2026-11-11). $ (shift 4): the $code list, as
+  // the prompt's $ starts a code; not while typing, where $, r and ` are
+  // letters (2026-11-08).
   if (e.code === 'Tab') {
     e.preventDefault();
     if (!e.repeat && !prompt.open) leave();
     return;
   }
   const dollar = e.key === '$' && !prompt.open;
-  const rooms = e.code === 'KeyR' && !prompt.open && !e.metaKey && !e.ctrlKey && !e.altKey;
+  const rooms = (e.code === 'KeyR' || e.code === 'Backquote') && !prompt.open && !e.metaKey && !e.ctrlKey && !e.altKey;
   if (!e.repeat && (rooms || dollar)) {
     e.preventDefault();
     toggleMenu(rooms ? 'room' : 'history');

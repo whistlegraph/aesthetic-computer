@@ -276,6 +276,9 @@ addEventListener("message", (e) => {
     }
   }
   else if (d.type === "dool:sheet:leave") hide();
+  // ⌘+ / ⌘− / ⌘0 in the world: the prompt's density is the world's pixel
+  // size; the reframe sends the new grid back down (framed).
+  else if (d.type === "dool:sheet:density" && [-1, 0, 1].includes(d.step)) window.acChangeDensity?.(d.step);
 });
 
 // 💤 A window in the background: the world under a parked paper keeps

@@ -4602,6 +4602,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log(`🔍 Density: ${newDensity}`);
   }
 
+  window.acChangeDensity = changeDensity; // dool under the paper hands its ⌘± up here.
+
   // Keyboard listener for density controls (capture phase to intercept early)
   window.addEventListener("keydown", (e) => {
     const isMeta = e.metaKey || e.ctrlKey;
