@@ -264,6 +264,15 @@ class HostGraphics final : public Graphics {
   std::function<void(const ac::xbox::TexturedTriangle&)> on_decal_triangle;
   std::function<bool(const float*,const float*,std::size_t)> on_sdf_figure;
   std::function<bool(int,float,float,float,float,float,float,float)> on_raycast;
+  std::function<bool()> is_gpu_ready;
+  std::function<int(const ac::xbox::scene4::MeshData&)> on_gpu_mesh;
+  std::function<bool(int)> on_gpu_mesh_free;
+  std::function<int(int,int,const std::uint8_t*,unsigned)> on_gpu_texture;
+  std::function<bool(int)> on_gpu_texture_free;
+  std::function<void(const ac::xbox::scene4::Environment&)> on_gpu_environment;
+  std::function<void(const std::vector<ac::xbox::scene4::Light>&)> on_gpu_lights;
+  std::function<std::size_t(const ac::xbox::scene4::Draw&)> on_gpu_draw;
+  std::function<ac::xbox::scene4::Stats()> on_gpu_stats;
   std::function<void(const ac::xbox::Text&)> on_write;
   std::function<void(const ac::xbox::SystemText&)> on_system_write;
   std::function<void(const ac::xbox::SystemGlyph&)> on_system_glyph;
@@ -294,6 +303,17 @@ class HostGraphics final : public Graphics {
   bool raycast(int kind,float x,float y,float radius,float z,float zFront,float roll,float tumble) override {
     return on_raycast && on_raycast(kind,x,y,radius,z,zFront,roll,tumble);
   }
+  bool gpu_ready() const override { return is_gpu_ready && is_gpu_ready(); }
+  int gpu_mesh(const ac::xbox::scene4::MeshData& data) override { return on_gpu_mesh ? on_gpu_mesh(data) : -1; }
+  bool gpu_mesh_free(int handle) override { return on_gpu_mesh_free && on_gpu_mesh_free(handle); }
+  int gpu_texture(int width, int height, const std::uint8_t* rgba, unsigned flags) override {
+    return on_gpu_texture ? on_gpu_texture(width, height, rgba, flags) : -1;
+  }
+  bool gpu_texture_free(int handle) override { return on_gpu_texture_free && on_gpu_texture_free(handle); }
+  void gpu_environment(const ac::xbox::scene4::Environment& env) override { if (on_gpu_environment) on_gpu_environment(env); }
+  void gpu_lights(const std::vector<ac::xbox::scene4::Light>& lights) override { if (on_gpu_lights) on_gpu_lights(lights); }
+  std::size_t gpu_draw(const ac::xbox::scene4::Draw& draw) override { return on_gpu_draw ? on_gpu_draw(draw) : 0; }
+  ac::xbox::scene4::Stats gpu_stats() const override { return on_gpu_stats ? on_gpu_stats() : ac::xbox::scene4::Stats{}; }
   void theme_sprite(const ac::xbox::ThemeSprite& sprite) override {
     const float c = std::cos(sprite.angle), s = std::sin(sprite.angle);
     const float hx = sprite.width * .5f, hy = sprite.height * .5f;
@@ -447,6 +467,17 @@ public:
         float roll,float tumble) {
       return QueueRaycast(kind,x,y,radius,z,zFront,roll,tumble);
     };
+    m_graphics->is_gpu_ready = [this]() { return Mesh4Ready(); };
+    m_graphics->on_gpu_mesh = [this](const ac::xbox::scene4::MeshData& data) { return UploadMesh4(data); };
+    m_graphics->on_gpu_mesh_free = [this](int handle) { return FreeMesh4(handle); };
+    m_graphics->on_gpu_texture = [this](int width, int height, const std::uint8_t* rgba, unsigned flags) {
+      return UploadTexture4(width, height, rgba, flags);
+    };
+    m_graphics->on_gpu_texture_free = [this](int handle) { return FreeTexture4(handle); };
+    m_graphics->on_gpu_environment = [this](const ac::xbox::scene4::Environment& env) { m_env4 = env; };
+    m_graphics->on_gpu_lights = [this](const std::vector<ac::xbox::scene4::Light>& lights) { m_lights4 = lights; };
+    m_graphics->on_gpu_draw = [this](const ac::xbox::scene4::Draw& draw) { return QueueMesh4(draw); };
+    m_graphics->on_gpu_stats = [this]() { return m_stats4; };
     m_graphics->on_write = [this](const ac::xbox::Text& text) { m_frameTexts.push_back(text); };
     m_graphics->on_system_write = [this](const ac::xbox::SystemText& text) {
       if (m_frameSystemTexts.size() + m_frameSystemGlyphs.size() < kMaxSystemDraws)
@@ -663,6 +694,10 @@ public:
       m_frameSdfPrims.clear();
       m_frameSdfCameras.clear();
       m_frameRaycasts.clear();
+      m_stats4.draws = m_frameMesh4s.size(); m_stats4.culled = m_frameMesh4Culled;
+      m_stats4.triangles = m_frameMesh4Triangles; m_stats4.dropped = m_frameMesh4Dropped;
+      m_frameMesh4s.clear(); m_frameInstances4.clear(); m_frameBones4.clear(); m_frameCameras4.clear();
+      m_frameMesh4Culled = m_frameMesh4Triangles = m_frameMesh4Dropped = 0;
       m_frameSprites.clear();
       m_frameThemeQuads.clear();
       m_frameTexts.clear();
@@ -710,7 +745,10 @@ public:
           std::to_string(m_api->screen.height) + " aa=" +
           std::to_string(m_api->system.antialiasing_samples) + "x mode=" +
           m_api->system.antialiasing_mode + " sdfFigures=" +
-          std::to_string(m_lastSdfFigureCount));
+          std::to_string(m_lastSdfFigureCount) + " mesh4Draws=" +
+          std::to_string(m_stats4.draws) + " mesh4Triangles=" +
+          std::to_string(m_stats4.triangles) + " mesh4Bytes=" +
+          std::to_string(m_mesh4Bytes) + " texture4Bytes=" + std::to_string(m_texture4Bytes));
         profileFrames = 0; profileHostJsMs = 0; profileRenderCpuMs = 0;
         profilePresentMs = 0;
       }
@@ -854,6 +892,7 @@ private:
     CreateSpritePipeline();
     CreateSdfPipeline();
     CreateRaycastPipeline();
+    CreateMesh4Pipeline();
     CreatePostPipeline();
   }
 
@@ -1134,6 +1173,400 @@ private:
     ID3D11ShaderResourceView* none[2]{};
     m_context->VSSetShaderResources(0, 2, none);
     m_context->PSSetShaderResources(0, 2, none);
+  }
+
+  // ---- GPU-resident meshes (sceneApi 4, SCENE-API-4.md). Meshes and
+  // textures live in immutable D3D resources from upload to free. A frame
+  // queues draws, culled by bounds on the way in, and DrawGpuMeshes plays
+  // them into the world pass before the triangle list: same target, same
+  // depth convention, same stencil, so the post pass treats them alike.
+  struct Mesh4Gpu {
+    ComPtr<ID3D11Buffer> vertices, skin, indices;
+    DXGI_FORMAT indexFormat = DXGI_FORMAT_R16_UINT;
+    UINT indexCount = 0;
+    float bounds[6]{};
+    bool bounded = true;
+    std::size_t bytes = 0;
+  };
+  struct Texture4Gpu { ComPtr<ID3D11ShaderResourceView> view; unsigned flags = 0; std::size_t bytes = 0; };
+  struct Mesh4Queued {
+    std::shared_ptr<Mesh4Gpu> mesh;           // held, so a free mid-frame is safe
+    std::shared_ptr<Texture4Gpu> texture, lightmap;
+    ac::xbox::scene4::Material material;
+    std::uint32_t camera = 0, firstInstance = 0, instanceCount = 0, firstBone = 0;
+    float box[6]{};                           // world bounds of what survived culling
+  };
+  struct Mesh4ViewConstants {
+    float camPos[4], right[4], up[4], forward[4], proj[4], depthMap[4], stage[4], sunDir[4];
+  };
+  struct Mesh4SceneConstants {
+    float ambient[4], sun[4], fogColor[4], fogRange[4], lightPos[32][4], lightColor[32][4];
+  };
+  struct Mesh4DrawConstants { float tint[4], emissive[4]; std::uint32_t info[4]; float extra[4]; };
+  // World meshes stay out of the HUD band (z <= -1.46) the post pass keeps sharp.
+  static constexpr float kMesh4MinDepth = -1.455f, kMesh4MaxDepth = 1.4f;
+
+  void CreateMesh4Pipeline() {
+    const auto vertexBytes = ReadPackageBytes(L"Mesh4VertexShader.cso");
+    const auto skinBytes = ReadPackageBytes(L"Mesh4SkinVertexShader.cso");
+    const auto pixelBytes = ReadPackageBytes(L"Mesh4PixelShader.cso");
+    if (vertexBytes.empty() || skinBytes.empty() || pixelBytes.empty()) {
+      LogTelemetry("AC_NATIVE_MESH4 unavailable=shader-assets");
+      return;
+    }
+    const D3D11_INPUT_ELEMENT_DESC elements[] = {
+      {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"NORMAL", 0, DXGI_FORMAT_R8G8B8A8_SNORM, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 28, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"BLENDINDICES", 0, DXGI_FORMAT_R8G8B8A8_UINT, 1, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+      {"BLENDWEIGHT", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 1, 4, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    const auto constants = [this](UINT bytes, ComPtr<ID3D11Buffer>& buffer) {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = bytes;
+      desc.Usage = D3D11_USAGE_DYNAMIC;
+      desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+      desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+      return SUCCEEDED(m_device->CreateBuffer(&desc, nullptr, &buffer));
+    };
+    const auto structured = [this](UINT stride, UINT count, ComPtr<ID3D11Buffer>& buffer,
+        ComPtr<ID3D11ShaderResourceView>& view) {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = stride * count;
+      desc.Usage = D3D11_USAGE_DYNAMIC;
+      desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+      desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+      desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+      desc.StructureByteStride = stride;
+      if (FAILED(m_device->CreateBuffer(&desc, nullptr, &buffer))) return false;
+      D3D11_SHADER_RESOURCE_VIEW_DESC srv{};
+      srv.Format = DXGI_FORMAT_UNKNOWN;
+      srv.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+      srv.Buffer.NumElements = count;
+      return SUCCEEDED(m_device->CreateShaderResourceView(buffer.Get(), &srv, &view));
+    };
+    bool ready =
+      SUCCEEDED(m_device->CreateVertexShader(vertexBytes.data(), vertexBytes.size(), nullptr, &m_mesh4VertexShader)) &&
+      SUCCEEDED(m_device->CreateVertexShader(skinBytes.data(), skinBytes.size(), nullptr, &m_mesh4SkinVertexShader)) &&
+      SUCCEEDED(m_device->CreatePixelShader(pixelBytes.data(), pixelBytes.size(), nullptr, &m_mesh4PixelShader)) &&
+      SUCCEEDED(m_device->CreateInputLayout(elements, 5, vertexBytes.data(), vertexBytes.size(), &m_mesh4Layout)) &&
+      SUCCEEDED(m_device->CreateInputLayout(elements, 7, skinBytes.data(), skinBytes.size(), &m_mesh4SkinLayout)) &&
+      constants(sizeof(Mesh4ViewConstants), m_mesh4ViewBuffer) &&
+      constants(sizeof(Mesh4SceneConstants), m_mesh4SceneBuffer) &&
+      constants(sizeof(Mesh4DrawConstants), m_mesh4DrawBuffer) &&
+      structured(sizeof(ac::xbox::scene4::Instance), static_cast<UINT>(ac::xbox::scene4::kMaxInstances),
+        m_mesh4InstanceBuffer, m_mesh4InstanceView) &&
+      structured(4 * sizeof(float), static_cast<UINT>(ac::xbox::scene4::kMaxFrameBones * 3),
+        m_mesh4BoneBuffer, m_mesh4BoneView);
+    if (ready) {
+      // Untextured draws sample this, so the shader never branches on a null view.
+      const std::uint32_t white = 0xffffffffu;
+      D3D11_TEXTURE2D_DESC texture{};
+      texture.Width = texture.Height = texture.MipLevels = texture.ArraySize = 1;
+      texture.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+      texture.SampleDesc.Count = 1;
+      texture.Usage = D3D11_USAGE_IMMUTABLE;
+      texture.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+      const D3D11_SUBRESOURCE_DATA pixels{&white, 4, 0};
+      ComPtr<ID3D11Texture2D> whiteTexture;
+      ready = SUCCEEDED(m_device->CreateTexture2D(&texture, &pixels, &whiteTexture)) &&
+        SUCCEEDED(m_device->CreateShaderResourceView(whiteTexture.Get(), nullptr, &m_mesh4White));
+    }
+    const D3D11_CULL_MODE culls[3]{D3D11_CULL_NONE, D3D11_CULL_BACK, D3D11_CULL_FRONT};
+    for (int i = 0; ready && i < 3; ++i) {
+      D3D11_RASTERIZER_DESC raster{};
+      raster.FillMode = D3D11_FILL_SOLID;
+      raster.CullMode = culls[i];
+      raster.FrontCounterClockwise = TRUE;  // counter-clockwise on screen faces the camera
+      raster.DepthClipEnable = TRUE;
+      raster.ScissorEnable = TRUE;          // the camera's viewport rect (split screen)
+      ready = SUCCEEDED(m_device->CreateRasterizerState(&raster, &m_mesh4Raster[i]));
+    }
+    for (int i = 0; ready && i < 4; ++i) {
+      const bool clamp = i & 2, nearest = i & 1;
+      D3D11_SAMPLER_DESC sampler{};
+      sampler.Filter = nearest ? D3D11_FILTER_MIN_MAG_MIP_POINT : D3D11_FILTER_ANISOTROPIC;
+      sampler.MaxAnisotropy = nearest ? 1 : 4;
+      sampler.AddressU = sampler.AddressV = sampler.AddressW =
+        clamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
+      sampler.ComparisonFunc = D3D11_COMPARISON_NEVER;
+      sampler.MaxLOD = D3D11_FLOAT32_MAX;
+      ready = SUCCEEDED(m_device->CreateSamplerState(&sampler, &m_mesh4Samplers[i]));
+    }
+    if (!ready) {
+      m_mesh4VertexShader.Reset(); m_mesh4SkinVertexShader.Reset(); m_mesh4PixelShader.Reset();
+      LogTelemetry("AC_NATIVE_MESH4 unavailable=device");
+      return;
+    }
+    LogTelemetry("AC_NATIVE_MESH4 ready=1 meshBytes=" + std::to_string(ac::xbox::scene4::kMaxMeshBytes) +
+      " textureBytes=" + std::to_string(ac::xbox::scene4::kMaxTextureBytes) +
+      " draws=" + std::to_string(ac::xbox::scene4::kMaxDraws) +
+      " instances=" + std::to_string(ac::xbox::scene4::kMaxInstances));
+  }
+
+  bool Mesh4Ready() const {
+    return m_mesh4VertexShader && m_mesh4SkinVertexShader && m_mesh4PixelShader &&
+      m_mesh4White && m_triangleDepthView && m_sceneTarget;
+  }
+
+  int UploadMesh4(const ac::xbox::scene4::MeshData& data) {
+    namespace s4 = ac::xbox::scene4;
+    if (!Mesh4Ready()) return -1;
+    const std::size_t bytes = data.bytes();
+    if (m_mesh4Bytes + bytes > s4::kMaxMeshBytes) return -1;
+    std::size_t slot = 0;
+    while (slot < m_mesh4s.size() && m_mesh4s[slot]) ++slot;
+    if (slot >= static_cast<std::size_t>(s4::kMaxMeshes)) return -1;
+    const auto immutable = [this](const void* source, std::size_t size, UINT bind, ComPtr<ID3D11Buffer>& out) {
+      D3D11_BUFFER_DESC desc{};
+      desc.ByteWidth = static_cast<UINT>(size);
+      desc.Usage = D3D11_USAGE_IMMUTABLE;
+      desc.BindFlags = bind;
+      const D3D11_SUBRESOURCE_DATA init{source, 0, 0};
+      return SUCCEEDED(m_device->CreateBuffer(&desc, &init, &out));
+    };
+    auto mesh = std::make_shared<Mesh4Gpu>();
+    std::vector<std::uint16_t> narrow;
+    const void* indexSource = data.indices.data();
+    std::size_t indexBytes = data.indices.size() * 4;
+    if (!data.wide()) {
+      narrow.assign(data.indices.begin(), data.indices.end());
+      indexSource = narrow.data();
+      indexBytes = narrow.size() * 2;
+    }
+    if (!immutable(data.vertices.data(), data.vertices.size() * sizeof(s4::Vertex), D3D11_BIND_VERTEX_BUFFER, mesh->vertices) ||
+        !immutable(indexSource, indexBytes, D3D11_BIND_INDEX_BUFFER, mesh->indices) ||
+        (!data.skin.empty() && !immutable(data.skin.data(), data.skin.size() * sizeof(s4::Skin),
+          D3D11_BIND_VERTEX_BUFFER, mesh->skin))) {
+      LogTelemetry("AC_NATIVE_MESH4 upload=failed bytes=" + std::to_string(bytes));
+      return -1;
+    }
+    mesh->indexFormat = data.wide() ? DXGI_FORMAT_R32_UINT : DXGI_FORMAT_R16_UINT;
+    mesh->indexCount = static_cast<UINT>(data.indices.size());
+    std::copy(data.bounds, data.bounds + 6, mesh->bounds);
+    mesh->bounded = data.bounded;
+    mesh->bytes = bytes;
+    if (slot == m_mesh4s.size()) m_mesh4s.push_back(mesh); else m_mesh4s[slot] = mesh;
+    m_mesh4Bytes += bytes;
+    m_stats4.meshes++; m_stats4.mesh_bytes = m_mesh4Bytes;
+    return static_cast<int>(slot + 1);
+  }
+
+  bool FreeMesh4(int handle) {
+    if (handle < 1 || static_cast<std::size_t>(handle) > m_mesh4s.size() || !m_mesh4s[handle - 1]) return false;
+    m_mesh4Bytes -= m_mesh4s[handle - 1]->bytes;
+    m_mesh4s[handle - 1].reset();
+    m_stats4.meshes--; m_stats4.mesh_bytes = m_mesh4Bytes;
+    return true;
+  }
+
+  int UploadTexture4(int width, int height, const std::uint8_t* rgba, unsigned flags) {
+    namespace s4 = ac::xbox::scene4;
+    if (!Mesh4Ready()) return -1;
+    const bool mips = (flags & s4::kTextureMips) != 0;
+    std::size_t bytes = static_cast<std::size_t>(width) * height * 4;
+    if (mips) bytes = bytes * 4 / 3;
+    if (m_texture4Bytes + bytes > s4::kMaxTextureBytes) return -1;
+    std::size_t slot = 0;
+    while (slot < m_texture4s.size() && m_texture4s[slot]) ++slot;
+    if (slot >= static_cast<std::size_t>(s4::kMaxTextures)) return -1;
+    D3D11_TEXTURE2D_DESC desc{};
+    desc.Width = static_cast<UINT>(width);
+    desc.Height = static_cast<UINT>(height);
+    desc.MipLevels = mips ? 0 : 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | (mips ? D3D11_BIND_RENDER_TARGET : 0);
+    desc.MiscFlags = mips ? D3D11_RESOURCE_MISC_GENERATE_MIPS : 0;
+    auto texture = std::make_shared<Texture4Gpu>();
+    ComPtr<ID3D11Texture2D> resource;
+    const D3D11_SUBRESOURCE_DATA pixels{rgba, static_cast<UINT>(width * 4), 0};
+    if (FAILED(m_device->CreateTexture2D(&desc, mips ? nullptr : &pixels, &resource)) ||
+        FAILED(m_device->CreateShaderResourceView(resource.Get(), nullptr, &texture->view))) return -1;
+    if (mips) {
+      m_context->UpdateSubresource(resource.Get(), 0, nullptr, rgba, static_cast<UINT>(width * 4), 0);
+      m_context->GenerateMips(texture->view.Get());
+    }
+    texture->flags = flags;
+    texture->bytes = bytes;
+    if (slot == m_texture4s.size()) m_texture4s.push_back(texture); else m_texture4s[slot] = texture;
+    m_texture4Bytes += bytes;
+    m_stats4.textures++; m_stats4.texture_bytes = m_texture4Bytes;
+    return static_cast<int>(slot + 1);
+  }
+
+  bool FreeTexture4(int handle) {
+    if (handle < 1 || static_cast<std::size_t>(handle) > m_texture4s.size() || !m_texture4s[handle - 1]) return false;
+    m_texture4Bytes -= m_texture4s[handle - 1]->bytes;
+    m_texture4s[handle - 1].reset();
+    m_stats4.textures--; m_stats4.texture_bytes = m_texture4Bytes;
+    return true;
+  }
+
+  std::size_t QueueMesh4(const ac::xbox::scene4::Draw& draw) {
+    namespace s4 = ac::xbox::scene4;
+    if (!Mesh4Ready() || draw.mesh < 1 || static_cast<std::size_t>(draw.mesh) > m_mesh4s.size() ||
+        !m_mesh4s[draw.mesh - 1]) return 0;
+    if (m_frameMesh4s.size() >= s4::kMaxDraws ||
+        m_frameInstances4.size() + draw.instance_count > s4::kMaxInstances ||
+        m_frameBones4.size() / 12 + draw.bone_count > s4::kMaxFrameBones) {
+      ++m_frameMesh4Dropped;
+      return 0;
+    }
+    const auto& mesh = m_mesh4s[draw.mesh - 1];
+    Mesh4Queued queued;
+    float* box = queued.box;
+    box[0] = box[1] = box[2] = 1e30f; box[3] = box[4] = box[5] = -1e30f;
+    const auto first = m_frameInstances4.size();
+    for (std::size_t i = 0; i < draw.instance_count; ++i) {
+      const auto& instance = draw.instances[i];
+      if (mesh->bounded) {
+        float world[6];
+        if (!s4::visible(draw.camera, instance.rows, mesh->bounds, m_env4.draw_distance, world)) continue;
+        for (int j = 0; j < 3; ++j) { box[j] = (std::min)(box[j], world[j]); box[j + 3] = (std::max)(box[j + 3], world[j + 3]); }
+      }
+      m_frameInstances4.push_back(instance);
+    }
+    const auto kept = m_frameInstances4.size() - first;
+    if (!kept) { ++m_frameMesh4Culled; return 0; }
+    if (!mesh->bounded) { box[0] = box[1] = box[2] = -1e30f; box[3] = box[4] = box[5] = 1e30f; }
+    const auto texture = [this](int handle) {
+      return handle > 0 && static_cast<std::size_t>(handle) <= m_texture4s.size()
+        ? m_texture4s[handle - 1] : std::shared_ptr<Texture4Gpu>{};
+    };
+    queued.mesh = mesh;
+    queued.texture = texture(draw.material.texture);
+    queued.lightmap = texture(draw.material.lightmap);
+    queued.material = draw.material;
+    queued.firstInstance = static_cast<std::uint32_t>(first);
+    queued.instanceCount = static_cast<std::uint32_t>(kept);
+    if (mesh->skin && draw.bone_count) {
+      queued.firstBone = static_cast<std::uint32_t>(m_frameBones4.size() / 12);
+      float rows[12];
+      for (std::size_t b = 0; b < draw.bone_count; ++b) {
+        s4::rows_from_columns(draw.bones + b * 12, rows);
+        m_frameBones4.insert(m_frameBones4.end(), rows, rows + 12);
+      }
+    }
+    std::array<float, 27> view{};
+    std::copy(draw.camera, draw.camera + 27, view.begin());
+    if (m_frameCameras4.empty() || m_frameCameras4.back() != view) m_frameCameras4.push_back(view);
+    queued.camera = static_cast<std::uint32_t>(m_frameCameras4.size() - 1);
+    m_frameMesh4s.push_back(std::move(queued));
+    const auto triangles = kept * (mesh->indexCount / 3);
+    m_frameMesh4Triangles += triangles;
+    return triangles;
+  }
+
+  void DrawGpuMeshes() {
+    namespace s4 = ac::xbox::scene4;
+    if (m_frameMesh4s.empty() || !Mesh4Ready()) return;
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    if (FAILED(m_context->Map(m_mesh4InstanceBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
+    std::memcpy(mapped.pData, m_frameInstances4.data(), m_frameInstances4.size() * sizeof(s4::Instance));
+    m_context->Unmap(m_mesh4InstanceBuffer.Get(), 0);
+    if (!m_frameBones4.empty()) {
+      if (FAILED(m_context->Map(m_mesh4BoneBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
+      std::memcpy(mapped.pData, m_frameBones4.data(), m_frameBones4.size() * sizeof(float));
+      m_context->Unmap(m_mesh4BoneBuffer.Get(), 0);
+    }
+    // The environment and lights as they stand at the end of paint.
+    Mesh4SceneConstants scene{};
+    const auto& env = m_env4;
+    for (int j = 0; j < 3; ++j) {
+      scene.ambient[j] = env.ambient[j]; scene.sun[j] = env.sun[j]; scene.fogColor[j] = env.fog[j];
+    }
+    scene.fogColor[3] = env.fog_max;
+    scene.fogRange[0] = env.fog_start; scene.fogRange[1] = env.fog_end;
+    for (std::size_t i = 0; i < m_lights4.size() && i < 32; ++i) {
+      const auto& light = m_lights4[i];
+      std::copy(light.position, light.position + 3, scene.lightPos[i]);
+      scene.lightPos[i][3] = light.radius;
+      std::copy(light.color, light.color + 3, scene.lightColor[i]);
+    }
+    if (FAILED(m_context->Map(m_mesh4SceneBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
+    std::memcpy(mapped.pData, &scene, sizeof scene);
+    m_context->Unmap(m_mesh4SceneBuffer.Get(), 0);
+
+    ID3D11Buffer* buffers[] = {m_mesh4ViewBuffer.Get(), m_mesh4SceneBuffer.Get(), m_mesh4DrawBuffer.Get()};
+    m_context->VSSetConstantBuffers(0, 3, buffers);
+    m_context->PSSetConstantBuffers(0, 3, buffers);
+    ID3D11ShaderResourceView* vsViews[4] = {m_mesh4InstanceView.Get(), nullptr, nullptr, m_mesh4BoneView.Get()};
+    m_context->VSSetShaderResources(0, 4, vsViews);
+    m_context->PSSetShader(m_mesh4PixelShader.Get(), nullptr, 0);
+    m_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    const D3D11_VIEWPORT viewport{0, 0, static_cast<float>(m_frameWidth),
+      static_cast<float>(m_frameHeight), 0, 1};
+    m_context->RSSetViewports(1, &viewport);
+    m_context->OMSetRenderTargets(1, m_sceneTarget.GetAddressOf(), m_triangleDepthView.Get());
+    const float scaleX = m_frameWidth / 1920.0f, scaleY = m_frameHeight / 1080.0f;
+    std::uint32_t camera = UINT32_MAX;
+    int skinnedBound = -1;
+    for (const auto& q : m_frameMesh4s) {
+      if (q.camera != camera) {
+        camera = q.camera;
+        const auto& m = m_frameCameras4[camera];
+        const Mesh4ViewConstants view{
+          {m[0], m[1], m[2], 0}, {m[3], m[4], m[5], m[12]}, {m[6], m[7], m[8], m[13]},
+          {m[9], m[10], m[11], m[17]}, {m[14], m[15], m[16], s4::perspective(m.data()) ? 1.f : 0.f},
+          {m[22], m[23], kMesh4MinDepth, kMesh4MaxDepth}, {1920, 1080, 0, 0}, {m[24], m[25], m[26], 0}};
+        if (FAILED(m_context->Map(m_mesh4ViewBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
+        std::memcpy(mapped.pData, &view, sizeof view);
+        m_context->Unmap(m_mesh4ViewBuffer.Get(), 0);
+        const auto edge = [](float v, float scale, unsigned limit) {
+          return static_cast<LONG>((std::max)(0.f, (std::min)(static_cast<float>(limit), std::round(v * scale))));
+        };
+        const D3D11_RECT scissor{edge(m[18], scaleX, m_frameWidth), edge(m[19], scaleY, m_frameHeight),
+          edge(m[20], scaleX, m_frameWidth), edge(m[21], scaleY, m_frameHeight)};
+        m_context->RSSetScissorRects(1, &scissor);
+      }
+      const int skinned = q.mesh->skin ? 1 : 0;
+      if (skinned != skinnedBound) {
+        skinnedBound = skinned;
+        m_context->IASetInputLayout(skinned ? m_mesh4SkinLayout.Get() : m_mesh4Layout.Get());
+        m_context->VSSetShader(skinned ? m_mesh4SkinVertexShader.Get() : m_mesh4VertexShader.Get(), nullptr, 0);
+      }
+      ID3D11Buffer* streams[2] = {q.mesh->vertices.Get(), q.mesh->skin.Get()};
+      const UINT strides[2] = {sizeof(s4::Vertex), sizeof(s4::Skin)}, offsets[2] = {0, 0};
+      m_context->IASetVertexBuffers(0, skinned ? 2 : 1, streams, strides, offsets);
+      m_context->IASetIndexBuffer(q.mesh->indices.Get(), q.mesh->indexFormat, 0);
+      m_context->RSSetState(m_mesh4Raster[std::clamp(q.material.cull, 0, 2)].Get());
+      m_context->OMSetDepthStencilState(q.material.depth_write ? m_triangleDepthState.Get()
+        : m_themeSoftDepthState.Get(), 1);
+      ID3D11ShaderResourceView* psViews[3] = {nullptr,
+        q.texture ? q.texture->view.Get() : m_mesh4White.Get(),
+        q.lightmap ? q.lightmap->view.Get() : m_mesh4White.Get()};
+      m_context->PSSetShaderResources(0, 3, psViews);
+      const unsigned texFlags = q.texture ? q.texture->flags : 0;
+      ID3D11SamplerState* samplers[2] = {
+        m_mesh4Samplers[((texFlags & s4::kTextureClamp) ? 2 : 0) + ((texFlags & s4::kTextureNearest) ? 1 : 0)].Get(),
+        m_mesh4Samplers[2].Get()};
+      m_context->PSSetSamplers(0, 2, samplers);
+      const auto& mat = q.material;
+      const std::uint32_t flags = (mat.unlit ? s4::kUnlit : 0) | (mat.fog ? s4::kFog : 0) |
+        (q.texture ? s4::kTextured : 0) | (q.lightmap ? s4::kLightmapped : 0) | (skinned ? s4::kSkinned : 0);
+      // Lights are matched to the draw here, against the frame's final list.
+      const std::uint32_t lightMask = mat.unlit ? 0 : s4::light_mask(m_lights4, q.box);
+      const Mesh4DrawConstants constants{
+        {mat.color[0], mat.color[1], mat.color[2], mat.color[3]},
+        {mat.emissive[0], mat.emissive[1], mat.emissive[2], mat.lightmap_scale},
+        {q.firstInstance, q.firstBone, flags, lightMask}, {mat.alpha_cutoff, 0, 0, 0}};
+      if (FAILED(m_context->Map(m_mesh4DrawBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) continue;
+      std::memcpy(mapped.pData, &constants, sizeof constants);
+      m_context->Unmap(m_mesh4DrawBuffer.Get(), 0);
+      m_context->DrawIndexedInstanced(q.mesh->indexCount, q.instanceCount, 0, 0, 0);
+    }
+    ID3D11ShaderResourceView* none[4]{};
+    m_context->VSSetShaderResources(0, 4, none);
+    m_context->PSSetShaderResources(0, 4, none);
+    ID3D11Buffer* noStreams[2]{};
+    const UINT zero[2]{};
+    m_context->IASetVertexBuffers(0, 2, noStreams, zero, zero);
+    m_context->IASetIndexBuffer(nullptr, DXGI_FORMAT_R16_UINT, 0);
   }
 
   // ---- Raycast sprites (oskiewarRaycast). An object the game would rather
@@ -2992,7 +3425,7 @@ private:
     QueryPerformanceCounter(&renderStart);
     if (!m_frameTexts.empty() || !m_frameRects.empty() || !m_frameLines.empty() ||
         !m_frameTriangles.empty() || !m_frameTexturedTriangles.empty() ||
-        !m_frameSprites.empty() ||
+        !m_frameSprites.empty() || !m_frameMesh4s.empty() ||
         !m_frameImages.empty() || m_frameBlurRadius > 0 ||
         !m_frameSystemTexts.empty() || !m_frameSystemGlyphs.empty()) {
       const float scaleX = m_frameWidth / 1920.0f;
@@ -3145,6 +3578,7 @@ private:
       if (m_triangleDepthView)
         m_context->ClearDepthStencilView(m_triangleDepthView.Get(),
           D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1, 0);
+      DrawGpuMeshes();
       DrawGpuTriangles();
       DrawGpuSdfFigures();
       DrawGpuRaycasts();
@@ -3349,6 +3783,25 @@ private:
   ComPtr<ID3D11Buffer> m_raycastConstants;
   ComPtr<ID3D11BlendState> m_raycastBlendState;
   std::size_t m_lastSdfFigureCount = 0;
+  std::vector<std::shared_ptr<Mesh4Gpu>> m_mesh4s;        // handle - 1
+  std::vector<std::shared_ptr<Texture4Gpu>> m_texture4s;  // handle - 1
+  std::size_t m_mesh4Bytes = 0, m_texture4Bytes = 0;
+  ac::xbox::scene4::Environment m_env4;
+  std::vector<ac::xbox::scene4::Light> m_lights4;
+  std::vector<Mesh4Queued> m_frameMesh4s;
+  std::vector<ac::xbox::scene4::Instance> m_frameInstances4;
+  std::vector<float> m_frameBones4;                        // three rows a bone
+  std::vector<std::array<float, 27>> m_frameCameras4;
+  std::size_t m_frameMesh4Culled = 0, m_frameMesh4Triangles = 0, m_frameMesh4Dropped = 0;
+  ac::xbox::scene4::Stats m_stats4;
+  ComPtr<ID3D11VertexShader> m_mesh4VertexShader, m_mesh4SkinVertexShader;
+  ComPtr<ID3D11PixelShader> m_mesh4PixelShader;
+  ComPtr<ID3D11InputLayout> m_mesh4Layout, m_mesh4SkinLayout;
+  ComPtr<ID3D11Buffer> m_mesh4ViewBuffer, m_mesh4SceneBuffer, m_mesh4DrawBuffer;
+  ComPtr<ID3D11Buffer> m_mesh4InstanceBuffer, m_mesh4BoneBuffer;
+  ComPtr<ID3D11ShaderResourceView> m_mesh4InstanceView, m_mesh4BoneView, m_mesh4White;
+  ComPtr<ID3D11RasterizerState> m_mesh4Raster[3];
+  ComPtr<ID3D11SamplerState> m_mesh4Samplers[4];
   ComPtr<ID3D11VertexShader> m_sdfVertexShader;
   ComPtr<ID3D11PixelShader> m_sdfPixelShader;
   ComPtr<ID3D11Buffer> m_sdfConstants;

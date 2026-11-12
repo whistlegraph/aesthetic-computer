@@ -114,6 +114,9 @@
     <FxCompile Include="..\SdfPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
     <FxCompile Include="..\RaycastVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
     <FxCompile Include="..\RaycastPixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
+    <FxCompile Include="..\Mesh4VertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\Mesh4SkinVertexShader.hlsl"><ShaderType>Vertex</ShaderType></FxCompile>
+    <FxCompile Include="..\Mesh4PixelShader.hlsl"><ShaderType>Pixel</ShaderType></FxCompile>
   </ItemGroup>
 
   <!-- The layout the smoke harness reads back, laid out exactly as the MSIX is:

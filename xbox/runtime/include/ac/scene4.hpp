@@ -132,7 +132,7 @@ inline const char* pack(const MeshInput& in, MeshData& out) {
     out.skin.resize(n);
     for (std::size_t i = 0; i < n; ++i) {
       float w[4];
-      for (int j = 0; j < 4; ++j) w[j] = in.weights ? std::max(0.f, in.weights[i * 4 + j]) : in.weight_bytes[i * 4 + j];
+      for (int j = 0; j < 4; ++j) w[j] = in.weights ? (std::max)(0.f, in.weights[i * 4 + j]) : in.weight_bytes[i * 4 + j];
       const float sum = w[0] + w[1] + w[2] + w[3];
       int given = 0;
       for (int j = 0; j < 4; ++j) {
@@ -142,10 +142,10 @@ inline const char* pack(const MeshInput& in, MeshData& out) {
         const int byte = sum > 0 ? static_cast<int>(std::lround(w[j] / sum * 255.f)) : j == 0 ? 255 : 0;
         out.skin[i].weights[j] = static_cast<std::uint8_t>(std::clamp(byte, 0, 255 - given));
         given += out.skin[i].weights[j];
-        if (out.skin[i].weights[j]) out.max_joint = std::max<int>(out.max_joint, joint);
+        if (out.skin[i].weights[j]) out.max_joint = (std::max<int>)(out.max_joint, joint);
       }
       out.skin[i].weights[0] = static_cast<std::uint8_t>(out.skin[i].weights[0] + (255 - given));
-      if (out.skin[i].weights[0]) out.max_joint = std::max<int>(out.max_joint, out.skin[i].joints[0]);
+      if (out.skin[i].weights[0]) out.max_joint = (std::max<int>)(out.max_joint, out.skin[i].joints[0]);
     }
   }
   if (in.bounds) { std::memcpy(out.bounds, in.bounds, 24); out.bounded = true; }
@@ -154,8 +154,8 @@ inline const char* pack(const MeshInput& in, MeshData& out) {
     float* b = out.bounds;
     b[0] = b[1] = b[2] = 1e30f; b[3] = b[4] = b[5] = -1e30f;
     for (std::size_t i = 0; i < n; ++i) for (int j = 0; j < 3; ++j) {
-      b[j] = std::min(b[j], in.positions[i * 3 + j]);
-      b[j + 3] = std::max(b[j + 3], in.positions[i * 3 + j]);
+      b[j] = (std::min)(b[j], in.positions[i * 3 + j]);
+      b[j + 3] = (std::max)(b[j + 3], in.positions[i * 3 + j]);
     }
   }
   return nullptr;
@@ -186,7 +186,7 @@ inline bool read_environment(const float* v, std::size_t count, Environment& out
   Environment e;
   std::memcpy(e.ambient, v, 12); std::memcpy(e.sun, v + 3, 12); std::memcpy(e.fog, v + 6, 12);
   e.fog_start = v[9]; e.fog_end = v[10]; e.fog_max = std::clamp(v[11], 0.f, 1.f);
-  e.draw_distance = std::max(0.f, v[12]);
+  e.draw_distance = (std::max)(0.f, v[12]);
   out = e;
   return true;
 }
@@ -198,7 +198,7 @@ inline bool read_lights(const float* v, std::size_t count, std::vector<Light>& o
   out.resize(count);
   for (std::size_t i = 0; i < count; ++i) {
     std::memcpy(&out[i], v + i * 8, 32);
-    out[i].radius = std::max(0.f, out[i].radius);
+    out[i].radius = (std::max)(0.f, out[i].radius);
     out[i].pad = 0;
   }
   return true;
@@ -237,7 +237,7 @@ inline bool visible(const float* m, const float* rows, const float* bounds, floa
     const float p[3]{bounds[c & 1 ? 3 : 0], bounds[c & 2 ? 4 : 1], bounds[c & 4 ? 5 : 2]};
     float w[3];
     transform(rows, p, w);
-    for (int j = 0; j < 3; ++j) { lo[j] = std::min(lo[j], w[j]); hi[j] = std::max(hi[j], w[j]); }
+    for (int j = 0; j < 3; ++j) { lo[j] = (std::min)(lo[j], w[j]); hi[j] = (std::max)(hi[j], w[j]); }
     const float d[3]{w[0] - m[0], w[1] - m[1], w[2] - m[2]};
     view[c][0] = d[0] * m[3] + d[1] * m[4] + d[2] * m[5];
     view[c][1] = d[0] * m[6] + d[1] * m[7] + d[2] * m[8];
