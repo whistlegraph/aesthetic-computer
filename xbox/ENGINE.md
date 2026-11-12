@@ -98,6 +98,8 @@ Rules that keep it one game:
   `capabilities().sceneApi = N`; JS resolves the level once at boot (no
   `typeof` on hot paths) and keeps its level-(N−1) path. Level 0 is the JS
   reference, which is what the web, the Mac shell and the tests run.
+  Level 4 (GPU-resident meshes for big maps) is specified in
+  `native-bios/SCENE-API-4.md`.
 - Native changes bump `Package.appxmanifest` Version every time — the Device
   Portal keeps the package it has when the version matches.
 
