@@ -381,6 +381,7 @@ function hideBootLog() {
     return;
   }
   bootLogHidden = true;
+  window.acNativeBootReady?.(); // Tell a native host now, not on its next tick.
   if (bc?.hide) {
     bc.hide();
   }
@@ -525,15 +526,19 @@ window.acBOOT_LOG = bootLog;
     } catch {}
   };
   send("boot:heartbeat");
+  let readySent = false;
+  const ready = () => {
+    if (readySent) return;
+    readySent = true;
+    send("boot:ready");
+    clearInterval(beat);
+    // After ready, fall back to a slow pulse so a deadlocked piece is
+    // still recoverable from the host (every 8s; cheap).
+    setInterval(() => send("boot:heartbeat"), 8000);
+  };
+  window.acNativeBootReady = ready; // hideBootLog calls it the moment boot ends.
   const beat = setInterval(() => {
-    if (bootLogHidden) {
-      send("boot:ready");
-      clearInterval(beat);
-      // After ready, fall back to a slow pulse so a deadlocked piece is
-      // still recoverable from the host (every 8s; cheap).
-      setInterval(() => send("boot:heartbeat"), 8000);
-      return;
-    }
+    if (bootLogHidden) return ready();
     send("boot:heartbeat");
   }, 1000);
   // Safety net: if hideBootLog never fires (catastrophic boot failure),

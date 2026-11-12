@@ -1544,6 +1544,62 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (on === fpsHud.on) return;
     fpsHud.on = on;
     if (persist) try { localStorage.setItem("ac:fps-hud", on ? "1" : "0"); } catch {}
+    hudSampling(on);
+  }
+
+  // 📊 What the readout shows beside fps (2026-11-11), twice a second:
+  // collections on this thread, long display frames, and — from the Mac app,
+  // which can see its processes — memory and CPU (window.acNativeStats).
+  // A collection is counted by its finalizer callbacks: a sentinel is dropped
+  // every 100 ms, only a GC can finalize it, and one GC finalizes a batch.
+  const hudStats = { gc: 0, lastGcAt: 0, long: 0, worst: 0, lastRaf: 0, native: null, nativeAt: 0 };
+  let hudTimer = null, hudSentinel = null, hudRegistry = null;
+  window.acNativeStats = (stats) => {
+    hudStats.native = stats;
+    hudStats.nativeAt = performance.now();
+  };
+  function hudSampling(on) {
+    window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: "fps:hud", body: on }));
+    clearInterval(hudTimer);
+    clearInterval(hudSentinel);
+    hudTimer = hudSentinel = null;
+    if (!on) return;
+    hudRegistry ||= new FinalizationRegistry(() => {
+      const now = performance.now();
+      if (now - hudStats.lastGcAt > 4) hudStats.gc += 1;
+      hudStats.lastGcAt = now;
+    });
+    hudSentinel = setInterval(() => hudRegistry.register({}, 0), 100);
+    hudStats.lastRaf = 0;
+    const frame = (now) => {
+      if (!fpsHud.on) return;
+      if (hudStats.lastRaf && document.visibilityState === "visible") {
+        const gap = now - hudStats.lastRaf;
+        if (gap > 50) hudStats.long += 1; // Three display frames missed.
+        if (gap > hudStats.worst) hudStats.worst = gap;
+      }
+      hudStats.lastRaf = now;
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+    let since = performance.now();
+    hudTimer = setInterval(() => {
+      const now = performance.now(), seconds = (now - since) / 1000;
+      since = now;
+      let native = now - hudStats.nativeAt < 2000 ? hudStats.native : null;
+      const memory = performance.memory; // Chromium only.
+      if (!native && memory) native = { heapMB: Math.round(memory.usedJSHeapSize / 1048576) };
+      try { send({ // The worker may not be up yet at boot.
+        type: "fps:stats",
+        content: {
+          gc: hudStats.gc / seconds,
+          long: hudStats.long,
+          worstMs: Math.round(hudStats.worst),
+          native,
+        },
+      }); } catch {}
+      hudStats.gc = hudStats.long = hudStats.worst = 0;
+    }, 500);
   }
   try { if (localStorage.getItem("ac:fps-hud") === "1") setFpsHud(true, false); } catch {}
   addEventListener("storage", (e) => {

@@ -2721,7 +2721,20 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
-const fpsHud = { on: false, painted: [] }; // The fps readout (bios fps:hud).
+const fpsHud = { on: false, painted: [], stats: null, gc: 0, lastGcAt: 0, sentinel: null, lines: null, key: "" }; // The fps readout (bios fps:hud).
+// This worker's own collections, counted the way bios counts the page's: a
+// sentinel dropped every 100 ms that only a GC can finalize.
+const fpsHudRegistry = typeof FinalizationRegistry === "function"
+  ? new FinalizationRegistry(() => {
+      const now = performance.now();
+      if (now - fpsHud.lastGcAt > 4) fpsHud.gc += 1;
+      fpsHud.lastGcAt = now;
+    })
+  : null;
+function fpsHudSentinel(on) {
+  clearInterval(fpsHud.sentinel);
+  fpsHud.sentinel = on && fpsHudRegistry ? setInterval(() => fpsHudRegistry.register({}, 0), 100) : null;
+}
 let loadFailure;
 
 // 🎄 Piece code cache for merry preloading
@@ -11535,6 +11548,14 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // 📊 Twice a second while the readout is up: the page's collections and
+  // long frames, and memory / CPU when the host can see its processes.
+  if (type === "fps:stats") {
+    fpsHud.stats = { ...content, workerGc: fpsHud.gc * 2 };
+    fpsHud.gc = 0;
+    return;
+  }
+
   if (type === "focus-change") {
     // Remember the window's focus even before the first frame: a window that
     // opens behind another hears it before any piece runs, and dropping it
@@ -14426,6 +14447,8 @@ async function makeFrame({ data: { type, content } }) {
       if ((content.fpsHud === true) !== fpsHud.on) {
         fpsHud.on = content.fpsHud === true;
         fpsHud.painted.length = 0;
+        fpsHud.stats = null;
+        fpsHudSentinel(fpsHud.on);
         $commonApi.needsPaint(); // Show or clear it now.
       }
 
@@ -14965,13 +14988,41 @@ async function makeFrame({ data: { type, content } }) {
           fpsHud.painted.push(now);
           while (fpsHud.painted.length && fpsHud.painted[0] < now - 1000) fpsHud.painted.shift();
           const fps = fpsHud.painted.length;
-          const text = `${fps} fps`;
-          const tw = $api.text.box(text, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
-          const padX = 2, padY = 2, boxW = tw + padX * 2, boxH = 7 + padY * 2;
+          const st = fpsHud.stats;
+          // Lines change at most twice a second (and on the fps count), so
+          // they're built and measured then, not every frame.
+          const key = fps + (st ? "|" + JSON.stringify(st) : "");
+          if (key !== fpsHud.key) {
+            fpsHud.key = key;
+            const lines = [`${fps} fps`];
+            if (st) {
+              const n = st.native;
+              const proc = (name, p) => p && lines.push(`${name} ${Math.round(p.mb)}mb ${Math.round(p.cpu)}%`);
+              lines.push(`long ${st.long} max ${st.worstMs}ms`);
+              lines.push(`gc ${st.gc.toFixed(1)} wk ${st.workerGc.toFixed(1)}/s`);
+              if (n) {
+                proc("web", n.web);
+                proc("gpu", n.gpu);
+                proc("app", n.app);
+                if (n.heapMB !== undefined) lines.push(`heap ${n.heapMB}mb`);
+                if (n.reloadMs !== undefined) lines.push(`load ${n.reloadMs}ms`);
+              }
+            }
+            const widths = lines.map((line) =>
+              $api.text.box(line, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width);
+            fpsHud.lines = { lines, width: Math.max(...widths) };
+          }
+          const { lines, width } = fpsHud.lines;
+          const padX = 2, padY = 2, lineH = 9;
+          const boxW = width + padX * 2, boxH = lines.length * lineH - 2 + padY * 2;
           const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
           ink(0, 0, 0, 150).box(bx, by, boxW, boxH);
           ink(fps >= 55 ? [0, 200, 100, 220] : fps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220])
-            .write(text, { x: bx + padX, y: by + padY }, undefined, undefined, false, "MatrixChunky8");
+            .write(lines[0], { x: bx + padX, y: by + padY }, undefined, undefined, false, "MatrixChunky8");
+          for (let i = 1; i < lines.length; i += 1) {
+            ink(200, 200, 200, 220).write(lines[i], { x: bx + padX, y: by + padY + i * lineH },
+              undefined, undefined, false, "MatrixChunky8");
+          }
         }
 
         // const piece = $api.slug?.split("~")[0];
