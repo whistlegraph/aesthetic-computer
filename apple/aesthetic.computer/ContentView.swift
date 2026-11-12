@@ -112,6 +112,13 @@ final class BootStatus: ObservableObject {
         }
     }
 
+    func clear() {
+        DispatchQueue.main.async {
+            self.stalled = false
+            self.lastError = nil
+        }
+    }
+
     func requestForceLive() {
         stopWatchdog()
         DispatchQueue.main.async {
@@ -219,7 +226,7 @@ final class BootStatus: ObservableObject {
         #endif
         // Come back on our own, in a fresh instance — unless it keeps dying.
         if let last = lastTermination, Date().timeIntervalSince(last) < 10 {
-            bootStatus?.setError("The page stopped. Reload to continue.")
+            bootStatus?.setError("The page stopped.")
         } else {
             navigation.hardReload()
         }
@@ -527,43 +534,6 @@ struct WebView: ACWebViewRepresentable {
     }
 }
 
-// MARK: - Recovery overlay
-
-struct StalledOverlay: View {
-    let message: String
-    let onReload: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            VStack(spacing: 10) {
-                Text(message)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                Button(action: onReload) {
-                    Text("Reload")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 22)
-                        .background(Color.yellow)
-                        .cornerRadius(6)
-                }
-            }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 16)
-            .background(Color.black.opacity(0.85))
-            .cornerRadius(10)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-        .allowsHitTesting(true)
-    }
-}
-
 // MARK: - ContentView
 
 struct ContentView: View {
@@ -580,6 +550,7 @@ struct ContentView: View {
     @State private var lastBackgroundedAt: Date? = nil
     @State private var lastForceLiveTrigger: Int = 0
     @State private var wasOffline = false
+    @State private var lastRecovery = Date.distantPast
     @State private var usageScene = UUID()
 
     private var liveURL: String { navigation.url }
@@ -629,13 +600,6 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
 
-                if bootStatus.stalled || bootStatus.lastError != nil {
-                    StalledOverlay(
-                        message: bootStatus.lastError ?? "This is taking longer than expected."
-                    ) {
-                        bootStatus.requestReload()
-                    }
-                }
             }
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
             .background(backdrop)
@@ -674,6 +638,11 @@ struct ContentView: View {
                     bootStatus.requestReload()
                 }
             }
+            // A stalled boot or a failed load recovers on its own, quietly, in
+            // a fresh instance — no overlay (retired 2026-11-11); at most every
+            // 20 s so a server that's down isn't hammered.
+            .onChange(of: bootStatus.stalled) { stalled in if stalled { recover() } }
+            .onChange(of: bootStatus.lastError) { error in if error != nil { recover() } }
             .onChange(of: bootStatus.forceLiveTrigger) { newValue in
                 // forceLive bumped → cause WebView.updateUIView to refire by
                 // also bumping reloadTrigger (URL alone wouldn't change if we
@@ -684,6 +653,13 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func recover() {
+        bootStatus.clear()
+        guard Date().timeIntervalSince(lastRecovery) > 20 else { return }
+        lastRecovery = Date()
+        navigation.hardReload()
     }
 
     private func handleScenePhase(_ phase: ScenePhase) {
