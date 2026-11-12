@@ -75,6 +75,15 @@ let pageBackground = null;
 export function setPageBackground(rgb) {
   pageBackground = Array.isArray(rgb) && rgb.length === 3 && rgb.every(n=>Number.isFinite(n)&&n>=0&&n<=255) ? rgb : null;
 }
+// The title is the address, so a screenshot says where to go. Its letters
+// take the colours a handle would, held readable against the page; the dot,
+// which makes it a website, takes the highlight.
+export const TITLE = "Aesel.App";
+function paintTitle(text,useColor=true,hover=false){
+  if(!useColor)return text;
+  const rgb=handleCharacterColors(text.toLowerCase());
+  return (hover?bg(palette.block):'')+Array.from(text).map((ch,i)=>ch==='.'?`${color.highlight}\x1b[1m.\x1b[22m`:`${pageInk(rgb[i])}${ch}`).join('')+color.reset+color.ground;
+}
 export function coloredHandle(account,colors,useColor=true,hover=false){
   if(!useColor)return account;
   const rgb=Array.isArray(colors)&&colors.length===Array.from(account).length?colors:handleCharacterColors(account);
@@ -903,7 +912,7 @@ function frameHeader(state, width, useColor) {
   // can be covered without costing anything. Old lines are already read.
   const rockGutter = 0;
   const room = Math.max(0, width - 3 - rightWidth - rockGutter);
-  const title = "Aesel";
+  const title = TITLE;
   let account = state.account || "not signed in";
   // A signed-in piece reads the way the desktop titles it: the route, handle
   // and slug as one name, and the version beside it rather than inside it.
@@ -924,7 +933,7 @@ function frameHeader(state, width, useColor) {
     `${title}${account ? `  ${account}` : ""}${piece ? `${routedNow ? "" : "  "}${piece}` : ""}${tag && routedNow ? `  ${tag}` : ""}`,
     room,
   );
-  const titleInk=text=>!useColor?text:Array.from(text).map((ch,i)=>paint(true, (state.hover==='about'?'block ':'')+['highlight','handle','status','soft','prompt'][i%5],ch)).join('');
+  const titleInk=text=>paintTitle(text,useColor,state.hover==='about');
   const left =
     leftPlain === title || (!account && !focus)
       ? titleInk(leftPlain)
@@ -1688,9 +1697,11 @@ export function headerAction(state, columns, rows, x, y) {
   const mode = state.mode === "local" ? "LOCAL" : "REMOTE";
   const rightWidth = textWidth(`${mode} · ${String(state.status || "ready").toUpperCase()}`);
   const room = Math.max(0, columns - 3 - rightWidth);
-  if (room >= 5 && x >= 2 && x <= 6) return "about";
+  const titleWidth = textWidth(TITLE);
+  if (room >= titleWidth && x >= 2 && x < 2 + titleWidth) return "about";
   const account = state.account || "";
-  if (account.startsWith("@") && textWidth(`aesel  ${account}`) <= room
-      && x >= 9 && x < 9 + textWidth(account)) return "profile";
+  const handleAt = 2 + titleWidth + 2;
+  if (account.startsWith("@") && textWidth(`${TITLE}  ${account}`) <= room
+      && x >= handleAt && x < handleAt + textWidth(account)) return "profile";
   return "";
 }

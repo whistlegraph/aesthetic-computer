@@ -28,9 +28,9 @@ test("only visible header labels are clickable across terminal sizes", () => {
   for (const width of [32, 40, 80, 120]) {
     const header = cleanText(renderFrame(state, width, 24, false)).split("\n")[20];
     assert.equal(headerAction(state, width, 24, 3, 21), "about");
-    assert.equal(headerAction(state, width, 24, 10, 21), header.includes("@jeffrey") ? "profile" : "");
+    assert.equal(headerAction(state, width, 24, 14, 21), header.includes("@jeffrey") ? "profile" : "");
     assert.equal(headerAction(state, width, 24, 3, 20), "");
-    assert.equal(headerAction(state, width, 24, 8, 21), "");
+    assert.equal(headerAction(state, width, 24, 12, 21), "");
   }
 });
 

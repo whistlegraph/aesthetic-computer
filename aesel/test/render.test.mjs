@@ -136,7 +136,7 @@ test("shows the signed-in handle and the current piece in the header", () => {
     12,
     false,
   );
-  assert.match(frame, /Aesel  @tester  smiley/);
+  assert.match(frame, /Aesel\.App  @tester  smiley/);
   assert.match(frame, /REMOTE · READY/);
   assert.match(frame, /PUB  https:\/\/aesthetic\.computer\/@tester\/smiley/);
   assert.match(renderFrame({ workspace: "/p", mode: "remote", status: "ready", entries: [], input: "" }, 60, 12, false), /not signed in/);
@@ -404,7 +404,7 @@ test("custom pro layouts can still request the header and full workspace path", 
     const state = {profile:{name:"pro"},account:"@tester",workspace:"/client/project",mode:"remote",
       status:"ready",entries:[],input:"draft",layout:{bottom:["header","path","bar","status"]}};
     const rows=cleanText(renderFrame(state,80,14,useColor)).split("\n");
-    assert.match(rows[10],/Aesel\s+@tester/);
+    assert.match(rows[10],/Aesel\.App\s+@tester/);
     assert.match(rows[11],/\/client\/project/);
     assert.match(rows[12],/^draft/);
     assert.deepEqual(state.cursorCell,{row:13,col:6});
