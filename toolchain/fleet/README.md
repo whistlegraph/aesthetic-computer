@@ -114,6 +114,13 @@ at utility QoS, supports status and cancellation, and refuses new jobs during
 guard pressure. Inputs are cached by SHA-256; returned artifacts are verified
 before their final local rename.
 
+`--remote-only` excludes the submitting machine, including its tailnet IP.
+The optional performance-guard command `ac-render` always supplies this flag:
+`ac-render --input src=in.wav --output out.wav -- -i @input:src -ar 48000 @output`.
+An unavailable or busy fleet fails without starting a local render. Explicit
+`--host` requests also require the worker to be accepting jobs. The current
+adapter supports FFmpeg only; Demucs and arbitrary shell commands are not jobs.
+
 Worker state lives in `~/.local/share/ac-fleet-worker/`; the shared bearer token
 lives in `~/.config/ac-fleet-worker/token` with mode 0600. The service listens
 on tailnet port 5263, not LAN or public interfaces.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {markdown, tableRows, splitTables, planRows, renderFrame, cleanText} from '../src/render.mjs';
+import {markdown, tableRows, splitTables, planRows, renderFrame, cleanText, cellTone, hostInk, color} from '../src/render.mjs';
 import {beginTurnActivity, recordToolActivity, finishTurnActivity, toolDetail, planFrom} from '../src/turn-activity.mjs';
 
 const TABLE = '| Site | Visits |\n|---|---|\n| aesthetic.computer | 60 |\n| laklok.com | 27 |';
@@ -10,6 +10,26 @@ test('a Markdown table is laid out in columns, numbers set right', () => {
   assert.deepEqual(rows, ['Site                Visits', '──────────────────────────', 'aesthetic.computer      60', 'laklok.com              27']);
   assert.deepEqual(splitTables(`Here.\n${TABLE}\nThat's all.`).map(p => p.table), [false, true, false]);
   assert.equal(splitTables('a | b | c\nno rule here').length, 1, 'pipes without a rule row are prose');
+});
+
+test('table cells take their tone from their value', () => {
+  assert.equal(cellTone('Visits', {header: true}), 'highlight bold');
+  assert.equal(cellTone('93', {max: 93}), 'highlight bold', 'the largest number in a column');
+  assert.equal(cellTone('2', {max: 93}), 'soft', 'a small share of the column');
+  assert.equal(cellTone('40', {max: 93}), 'text');
+  for (const empty of ['0', '0%', '—', '-', '']) assert.equal(cellTone(empty, {max: 93}), 'muted', `${empty || 'blank'} reads as absence`);
+  assert.equal(cellTone('aesthetic.computer', {first: true}), `host${hostInk('aesthetic.computer')} bold`);
+  assert.equal(hostInk('www.nopaint.art'), hostInk('nopaint.art'), 'a site keeps its colour across subdomains');
+  assert.notEqual(hostInk('nopaint.art'), hostInk('notepaint.art'), 'the two paints are two colours');
+  const mains = ['aesthetic.computer', 'nopaint.art', 'sotce.net', 'laklok.com', 'notepaint.art', 'whistlegraph.org', 'notepat.com', 'oskiewar.com', 'mime.ac', 'prompt.ac'];
+  assert.equal(new Set(mains.map(hostInk)).size, mains.length, 'the ten main sites take ten different colours');
+  const rows = tableRows(TABLE, 60, true);
+  assert.ok(rows[2].includes(color.highlight + color.bold + '    60'), 'the column max is painted in the highlight');
+  const totals = tableRows(TABLE + '\n| Total | 87 |', 60, true);
+  assert.ok(totals[2].includes(color.highlight + color.bold + '    60'), 'a total row does not take the highlight from the real max');
+  assert.ok(totals[4].includes(color.bold + '    87'), 'the total is bold');
+  assert.ok(!totals[4].includes(color.highlight), 'but not highlighted');
+  assert.doesNotMatch(cleanText(rows[2]), /\x1b/);
 });
 
 test('a table too wide for the page becomes records', () => {

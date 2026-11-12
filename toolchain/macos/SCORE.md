@@ -229,6 +229,12 @@ The [AC performance guard](PERFORMANCE-GUARD.md) checks disk headroom every
 30 seconds and gates new shell-launched Git worktrees and Swift builds. Install
 it on every fleet Mac; deployment verifies the PATH shims as well as launchd.
 
+On a Menu Band seat, enable the guard's `--playback auto` policy and optional
+`--install-compute` shims. Prox agents must honor exit 75 from guarded commands.
+Use `ac-render` for typed FFmpeg jobs on other fleet workers; use the subsystem's
+remote build workflow for builds. Do not retry deferred jobs through absolute
+binaries or pressure overrides. See [playback protection](PERFORMANCE-GUARD.md#menu-band-and-fleet-rendering).
+
 Keep at least 20 GiB free on Neo for swap and system updates. Its hourly
 `disk-space-watch` checks only filesystem free space and warns at most once
 per day; it never deletes data. Install it with

@@ -3,6 +3,8 @@ import AVFoundation
 
 struct Spec: Codable {
     var title: String
+    // Optional song tempo: the 4-beat count-in runs at this BPM (default 182).
+    var bpm: Double?
     var outDir: String
     var samples: [SampleSpec]
     var trim: TrimSpec?

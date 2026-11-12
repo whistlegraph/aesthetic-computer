@@ -34,3 +34,22 @@ test("shared daemon threads bind by this window's exact name and cwd, never rece
   assert.equal(rolloutFromTitle([...rows, {...rows[0], rollout_path: "/sessions/duplicate.jsonl"}],
     "◌ Fix colors | repo", "/work/repo"), null);
 });
+test("a Slab-decorated window title still binds the thread named inside it", () => {
+  const rows = [
+    { name: "Monitor prox:zamofu", cwd: "/work/repo", rollout_path: "/sessions/monitor.jsonl" },
+    { name: "Design the palette", cwd: "/work/repo", rollout_path: "/sessions/palette.jsonl" },
+  ];
+  // Slab wraps the name in decoration, so it sits in the middle of the title.
+  assert.equal(rolloutFromTitle(rows,
+    "repo — Monitor prox:zamofu | repo — codex ◂ codex-slab — 74×19", "/work/repo"),
+    rows[0].rollout_path);
+  // A title whose only match is part of a longer segment must not bind: the
+  // old suffix rule accepted "codex" inside "codex-slab" and "codex-slab — …".
+  assert.equal(rolloutFromTitle(rows, "repo — codex-slab ◂ peer", "/work/repo"), null);
+  assert.equal(rolloutFromTitle(rows, "repo — codex", "/work/repo"), null);
+  // A different cwd still refuses to bind.
+  assert.equal(rolloutFromTitle(rows, "repo — Monitor prox:zamofu ◂ codex-slab", "/other/repo"), null);
+  // Two matching segments stay unbound rather than guessed.
+  assert.equal(rolloutFromTitle(rows,
+    "repo — Monitor prox:zamofu | repo — Design the palette", "/work/repo"), null);
+});

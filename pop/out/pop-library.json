@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-06T16:44:01.013Z",
+  "generated": "2026-11-12T02:29:09.111Z",
   "count": 85,
   "tracks": [
     {
@@ -297,7 +297,7 @@
       "lane": "eightgigabytes",
       "backend": "JS DSP",
       "status": "UNRELEASED",
-      "updated": "2026-10-12T18:14:39.000Z",
+      "updated": "2026-10-12T18:14:39.166000+00:00",
       "revisions": 7,
       "bytes": 3788265,
       "durationSec": null,
@@ -306,24 +306,7 @@
       "key": null,
       "releaseDate": null,
       "art": null,
-      "media": [
-        {
-          "kind": "video",
-          "path": "/Users/jas/aesthetic-computer/pop/eightgigabytes/out/eightgigabytes-reel-front.mp4"
-        },
-        {
-          "kind": "video",
-          "path": "/Users/jas/aesthetic-computer/pop/eightgigabytes/out/eightgigabytes-reel.mp4"
-        },
-        {
-          "kind": "video",
-          "path": "/Users/jas/aesthetic-computer/pop/eightgigabytes/out/eightgigabytes-strips-front.mp4"
-        },
-        {
-          "kind": "video",
-          "path": "/Users/jas/aesthetic-computer/pop/eightgigabytes/out/eightgigabytes-strips-loop.mp4"
-        }
-      ],
+      "media": [],
       "links": null
     },
     {
@@ -333,7 +316,7 @@
       "lane": "loner",
       "backend": "C engine",
       "status": "UNRELEASED",
-      "updated": "2026-08-31T12:09:56.000Z",
+      "updated": "2026-08-31T12:09:56.103000+00:00",
       "revisions": 83,
       "bytes": 14402024,
       "durationSec": null,
@@ -371,7 +354,7 @@
       "lane": "cult",
       "backend": "C engine",
       "status": "UNRELEASED",
-      "updated": "2026-08-16T20:12:00.000Z",
+      "updated": "2026-08-16T20:12:00.319000+00:00",
       "revisions": 29,
       "bytes": 9090285,
       "durationSec": null,
@@ -390,7 +373,7 @@
       "lane": "wattajetta",
       "backend": "C engine",
       "status": "UNRELEASED",
-      "updated": "2026-08-16T14:49:26.000Z",
+      "updated": "2026-08-16T14:49:26.785000+00:00",
       "revisions": 17,
       "bytes": 16071038,
       "durationSec": null,
@@ -447,7 +430,7 @@
       "lane": "wattajetta",
       "backend": "C engine",
       "status": "UNRELEASED",
-      "updated": "2026-08-16T14:47:56.000Z",
+      "updated": "2026-08-16T14:47:56.489000+00:00",
       "revisions": 17,
       "bytes": 13261936,
       "durationSec": null,

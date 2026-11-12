@@ -1083,5 +1083,278 @@
   "accent": "US",
   "v": 4,
   "fetchedAt": "2026-09-20T20:04:04.423Z"
+ },
+ "can": {
+  "ipa": "/kæn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:00.585Z"
+ },
+ "talk": {
+  "ipa": "/tɔk/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:03.788Z"
+ },
+ "about": {
+  "ipa": "/əˈbaʊ̯t/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:04.048Z"
+ },
+ "it": {
+  "ipa": "/ɪt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:04.344Z"
+ },
+ "'cause": {
+  "ipa": "/kʌz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:05.288Z"
+ },
+ "know": {
+  "ipa": "/noʊ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:05.604Z"
+ },
+ "pretty": {
+  "ipa": "/ˈpɹɪt.i/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:55:07.489Z"
+ },
+ "if": {
+  "ipa": "/ˈɪf/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:15.136Z"
+ },
+ "too": {
+  "ipa": "/tu/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:15.518Z"
+ },
+ "then": {
+  "ipa": "/ðɛn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:15.774Z"
+ },
+ "baby": {
+  "ipa": "/ˈbeɪ.bi/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:20.492Z"
+ },
+ "sing": {
+  "ipa": "/ˈsiŋ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:20.700Z"
+ },
+ "with": {
+  "ipa": "/wɪθ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:20.911Z"
+ },
+ "me": {
+  "ipa": "/mi/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:21.236Z"
+ },
+ "eyes": {
+  "ipa": "/aɪz/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:52.999Z"
+ },
+ "walk": {
+  "ipa": "/wˈɔːk/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:56:56.216Z"
+ },
+ "no": {
+  "ipa": "/noʊ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:57:44.584Z"
+ },
+ "question": {
+  "ipa": "/ˈkwɛs.tʃən/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:57:44.807Z"
+ },
+ "girl's": {
+  "ipa": "/ɡˈɜːlz/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:57:44.971Z"
+ },
+ "ten": {
+  "ipa": "/tɛn/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:57:45.431Z"
+ },
+ "hate": {
+  "ipa": "/heɪt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:58:24.764Z"
+ },
+ "beautiful": {
+  "ipa": "/ˈbju.tɪ.fəl/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T00:58:27.098Z"
+ },
+ "get": {
+  "ipa": "/ɡɛt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:00:32.598Z"
+ },
+ "yourself": {
+  "ipa": "/joːɹsˈɛlf/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:00:34.229Z"
+ },
+ "together": {
+  "ipa": "/tʊˈɡɛðɚ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:00:34.457Z"
+ },
+ "never": {
+  "ipa": "/ˈnɛv.ɚ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:01:31.971Z"
+ },
+ "do": {
+  "ipa": "/doʊ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:01:44.562Z"
+ },
+ "jealousy's": {
+  "ipa": "/dʒˈɛləsiz/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:02:23.043Z"
+ },
+ "ugliest": {
+  "ipa": "/ˈʌɡliəst/",
+  "source": "espeak",
+  "accent": "en-us",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:02:23.372Z"
+ },
+ "trait": {
+  "ipa": "/tɹeɪt/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:02:24.581Z"
+ },
+ "ever": {
+  "ipa": "/ˈɛvə(ɹ)/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:03:09.683Z"
+ },
+ "ladies": {
+  "ipa": "/ˈleɪ.diz/",
+  "source": "wiktionary",
+  "accent": "untagged-usSafe",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:03:59.125Z"
+ },
+ "way": {
+  "ipa": "/weɪ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:10:22.584Z"
+ },
+ "dress": {
+  "ipa": "/dɹɛs/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:10:22.838Z"
+ },
+ "not": {
+  "ipa": "/nɑt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:11:30.639Z"
+ },
+ "fault": {
+  "ipa": "/fɔlt/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:11:33.266Z"
+ },
+ "so": {
+  "ipa": "/soʊ/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:11:33.599Z"
+ },
+ "please": {
+  "ipa": "/pliz/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:11:33.795Z"
+ },
+ "trip": {
+  "ipa": "/tɹɪp/",
+  "source": "wiktionary",
+  "accent": "US",
+  "v": 4,
+  "fetchedAt": "2026-11-07T01:11:34.029Z"
  }
 }

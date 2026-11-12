@@ -3,9 +3,10 @@
 
 import { createHash } from "node:crypto";
 import { createReadStream, createWriteStream, existsSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
-import { homedir, hostname } from "node:os";
+import { homedir, hostname, networkInterfaces } from "node:os";
 import { dirname, resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 const HOME = homedir();
 const PORT = Number(process.env.AC_FLEET_WORKER_PORT || 5263);
@@ -14,7 +15,7 @@ const REGISTRY = process.env.FLEET_MACHINES || `${HOME}/aesthetic-computer-vault
 
 function usage(message) {
   if (message) console.error(`error: ${message}\n`);
-  console.error("usage: node toolchain/fleet/submit.mjs ffmpeg [--host NAME] --input NAME=PATH [--input ...] --output PATH [--duration SECONDS] [--detach] -- ARGS");
+  console.error("usage: node toolchain/fleet/submit.mjs ffmpeg [--host NAME] [--remote-only] --input NAME=PATH [--input ...] --output PATH [--duration SECONDS] [--detach] -- ARGS");
   console.error("args use @input:NAME and @output placeholders; example:");
   console.error("  ... ffmpeg --input src=in.mov --output out.mp4 -- -i @input:src -c:v libx264 @output");
   process.exit(message ? 2 : 0);
@@ -22,7 +23,7 @@ function usage(message) {
 
 function parse(argv) {
   if (argv.shift() !== "ffmpeg") usage("only the ffmpeg adapter exists in v1");
-  const spec = { host: "", inputs: [], output: "", duration: null, detach: false, args: [] };
+  const spec = { host: "", remoteOnly: false, inputs: [], output: "", duration: null, detach: false, args: [] };
   while (argv.length) {
     const arg = argv.shift();
     if (arg === "--") { spec.args = argv.splice(0); break; }
@@ -31,6 +32,7 @@ function parse(argv) {
     else if (arg === "--output") spec.output = argv.shift() || "";
     else if (arg === "--duration") spec.duration = Number(argv.shift());
     else if (arg === "--detach") spec.detach = true;
+    else if (arg === "--remote-only") spec.remoteOnly = true;
     else if (arg === "--help" || arg === "-h") usage();
     else usage(`unknown option: ${arg}`);
   }
@@ -76,12 +78,21 @@ async function workerHealth(candidate) {
   } catch { return null; }
 }
 
-async function chooseWorker(wanted) {
-  const probed = await Promise.all(candidateList(wanted).map(workerHealth));
+export function isLocalCandidate(candidate, localName = hostname(), interfaces = networkInterfaces()) {
+  const names = [candidate.name, candidate.ip].map((x) => x.toLowerCase().split(".")[0]);
+  const addresses = Object.values(interfaces).flat().filter(Boolean).map((x) => x.address);
+  return names.includes(localName.toLowerCase().split(".")[0]) || names.includes("localhost") ||
+    candidate.ip === "::1" || candidate.ip.startsWith("127.") || addresses.includes(candidate.ip);
+}
+
+async function chooseWorker(wanted, remoteOnly = false) {
+  const candidates = candidateList(wanted).filter((x) => !remoteOnly || !isLocalCandidate(x));
+  if (!candidates.length) throw new Error("remote-only rendering excludes this machine; choose another worker");
+  const probed = await Promise.all(candidates.map(workerHealth));
   const online = probed.filter(Boolean);
   if (!online.length) throw new Error(wanted ? `${wanted} worker is unreachable` : "no fleet workers are reachable");
   if (wanted) {
-    if (!online[0].health.headroom) throw new Error(`${wanted} is under pressure and refused new work`);
+    if (!online[0].health.accepting) throw new Error(`${wanted} is busy or under pressure and refused new work`);
     return online[0];
   }
   const priority = { poorslice: 100, chicken: 82, panda: 80, blueberry: 58, neo: 22 };
@@ -174,7 +185,7 @@ async function main() {
   const spec = parse(process.argv.slice(2));
   if (!existsSync(TOKEN_FILE)) throw new Error(`worker token is missing: ${TOKEN_FILE}`);
   const token = readFileSync(TOKEN_FILE, "utf8").trim();
-  const worker = await chooseWorker(spec.host);
+  const worker = await chooseWorker(spec.host, spec.remoteOnly);
   process.stderr.write(`selected ${worker.name}: CPU ${worker.health.cpuPct.toFixed(0)}% · RAM ${worker.health.memoryUsedPct.toFixed(0)}% · ${worker.health.role}\n`);
   const inputs = [];
   for (const input of spec.inputs) inputs.push(await upload(worker, token, input));
@@ -187,4 +198,6 @@ async function main() {
   console.log(`${spec.output}\t${job.outputSha256}\t${worker.name}:${job.id}`);
 }
 
-main().catch((error) => { console.error(`fleet submit: ${error.message || error}`); process.exit(1); });
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch((error) => { console.error(`fleet submit: ${error.message || error}`); process.exit(1); });
+}

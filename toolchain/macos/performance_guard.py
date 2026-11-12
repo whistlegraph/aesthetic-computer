@@ -20,7 +20,7 @@ STATE = Path.home() / ".local/share/slab/performance"
 FLOOR = 20 * 1024**3
 INTERVAL = 30
 MAX_LOG = 5 * 1024**2
-VERSION = "2026-10-01.2"
+VERSION = "2026-11-06.1"
 
 
 def run(args, timeout=2):
@@ -98,7 +98,33 @@ def reasons_for(m):
     return reasons
 
 
+def playback_active(rows=None):
+    """Opt-in protection keeps the always-open instrument ready to play."""
+    mode = read_json(STATE / "playback.json").get("mode", "off")
+    if mode == "on":
+        return True
+    if mode != "auto":
+        return False
+    if rows is None:
+        result = subprocess.run(["/bin/ps", "-A", "-o", "comm="],
+                                capture_output=True, text=True, timeout=2, check=True)
+        return any(Path(line.strip()).name == "MenuBand" for line in result.stdout.splitlines())
+    return any(Path(row["executable"]).name == "MenuBand" for row in rows)
+
+
 def admit(operation, destination=None):
+    # Pressure overrides must not silently disable the user's playback policy.
+    # Menu Band's own updater is the exception: the user asked for the update,
+    # and it restarts Menu Band anyway, so protecting its playback is moot.
+    try:
+        if playback_active() and os.environ.get("MENUBAND_UPDATE") != "1":
+            print(f"AC performance guard: deferred {operation}: Menu Band playback protection. "
+                  "Use ac-render for a fleet FFmpeg job, or a suitable remote build/compute host. "
+                  "Exit 75; nothing launched.", file=sys.stderr)
+            return 75
+    except (OSError, subprocess.SubprocessError):
+        print("AC performance guard: cannot verify playback state; nothing launched.", file=sys.stderr)
+        return 75
     if os.environ.get("AC_PERFORMANCE_ALLOW_PRESSURE") == "1":
         print("AC performance guard: explicit pressure override", file=sys.stderr)
         return 0
@@ -111,7 +137,7 @@ def admit(operation, destination=None):
         age = time.time() - previous.get("epoch", 0)
         if 0 <= age <= 90 and previous.get("boot") == m["boot"]:
             reasons += [r for r in previous.get("reasons", [])
-                        if r not in ("disk", "load", "memory") and r not in reasons]
+                        if r not in ("disk", "load", "memory", "playback") and r not in reasons]
         if not reasons:
             return 0
         detail = (f"{'+'.join(reasons)} pressure; {m['disk_free_bytes']/1024**3:.1f} GiB free "
@@ -321,28 +347,92 @@ def sample(repair=False):
         m["caddy_repaired"] = repair_caddy(rows) if repair else 0
         if m["caddy_repaired"]:
             reasons.append("caddy")
+        pressure_reasons = list(reasons)
+        m["playback"] = int(playback_active(rows))
+        if m["playback"]:
+            reasons.append("playback")
         m.update(pressure=int(bool(reasons)), reasons=reasons, reason="+".join(reasons) or "none")
         recent = 0 < elapsed <= 90 and previous.get("boot") == m["boot"]
-        m["breaches"] = (previous.get("breaches", 0) + 1 if recent else 1) if reasons else 0
+        m["breaches"] = (previous.get("breaches", 0) + 1 if recent else 1) if pressure_reasons else 0
         m["last_alert"] = previous.get("last_alert", 0)
         if reasons:
             # Publish the admission signal before optional incident enrichment.
             atomic(STATE / "pressure-active", m["reason"] + "\n")
             critical = m["disk_free_bytes"] < 5 * 1024**3 or m["free_pct"] < 5
-            if (critical or m["breaches"] >= 3) and m["epoch"] - m["last_alert"] >= 600:
+            if pressure_reasons and (critical or m["breaches"] >= 3) and m["epoch"] - m["last_alert"] >= 600:
                 notify(f"{m['reason']} pressure: {m['disk_free_bytes']/1024**3:.1f} GiB disk free, memory {m['free_pct']}%.")
                 m["last_alert"] = m["epoch"]
         else:
             (STATE / "pressure-active").unlink(missing_ok=True)
         atomic(STATE / "latest.json", json.dumps(m) + "\n")
         keys = ("version", "revision", "timestamp", "load1", "cores", "free_pct", "disk_free_bytes", "processes", "codex", "node",
-                "swift_builds", "caddy", "caddy_repaired", "swapout_pages_delta", "pressure", "reason")
+                "swift_builds", "caddy", "caddy_repaired", "swapout_pages_delta", "playback", "pressure", "reason")
         text = "\n".join(f"{k}={m[k]}" for k in keys)
         atomic(STATE / "latest.txt", text + "\n")
-        if reasons:
+        if pressure_reasons:
             append_log(STATE / "performance-guard.log", text.replace("\n", " "))
             append_log(STATE / "incidents.jsonl", json.dumps({**m, "process_details": incident_processes(rows)}))
         return 0
+
+
+def compute_main(name, args):
+    if name not in ("ffmpeg", "demucs"):
+        raise ValueError("unsupported compute command")
+    real = (HERE / ("real-" + name)).read_text().strip()
+    informational = args in (["-h"], ["--help"], ["-version"], ["--version"])
+    if not informational:
+        if admit(name):
+            return 75
+        # Bound common numerical runtimes even when a tool defaults to all cores.
+        for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                         "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
+            os.environ[variable] = "1"
+        if name == "ffmpeg":
+            # Defaults; explicit per-stream codec options retain their semantics.
+            args = ["-filter_threads", "1", "-filter_complex_threads", "1", "-threads", "1", *args]
+        else:
+            args = [*args, "-j", "1"]
+        os.execv("/usr/sbin/taskpolicy", ["taskpolicy", "-c", "utility", "/usr/bin/nice", "-n", "10", real, *args])
+    else:
+        os.execv(real, [real, *args])
+
+
+def fleet_main(args):
+    repo = Path((HERE / "repo-path").read_text().strip())
+    node = shutil.which("node")
+    if not node:
+        raise RuntimeError("node is required for fleet rendering")
+    os.execv(node, [node, str(repo / "toolchain/fleet/submit.mjs"), "ffmpeg", "--remote-only", *args])
+
+
+def install_compute():
+    """Explicitly preserve existing entrypoints before installing PATH guards."""
+    target = Path.home() / ".local/lib/ac-performance-guard"
+    bindir = Path.home() / ".local/bin"
+    entry = target / "performance-guard.sh"
+    if not entry.exists():
+        raise RuntimeError("Install the performance guard first")
+    plans = []
+    for name in ("ffmpeg", "demucs", "ac-render"):
+        link = bindir / name
+        if link.is_symlink() and link.resolve() == entry.resolve():
+            continue
+        original = shutil.which(name)
+        if name != "ac-render" and not original:
+            continue
+        backup = bindir / (name + ".before-ac-guard")
+        if link.exists() or link.is_symlink():
+            if name == "ac-render" or backup.exists():
+                raise RuntimeError(f"Refusing to overwrite existing command or backup: {link}")
+        plans.append((name, link, backup, original))
+    for name, link, backup, original in plans:
+        if link.exists() or link.is_symlink():
+            os.replace(link, backup)
+            original = str(backup)
+        if name != "ac-render":
+            atomic(target / ("real-" + name), original + "\n")
+        link.symlink_to(entry)
+    print("Installed compute guards and ac-render; original commands preserved as *.before-ac-guard.")
 
 
 def ensure_shell_path():
@@ -407,8 +497,8 @@ def install(preserve_git=False):
             atomic(target / name, source.read_text())
         (target / name).chmod(0o755)
     atomic(real_git_file, real_git + "\n")
-    if (HERE / "revision").exists() and HERE != target:
-        atomic(target / "revision", (HERE / "revision").read_text())
+    if HERE != target:
+        atomic(target / "revision", (HERE / "revision").read_text() if (HERE / "revision").exists() else "source\n")
     for name, source in shims.items():
         link = bindir / name
         replacement = bindir / (name + ".guard-next")
@@ -433,10 +523,24 @@ def main(args):
     action = args[0] if args else "--once"
     if action == "--git":
         return git_main(args[1:])
+    if action == "--compute":
+        return compute_main(args[1], args[2:])
+    if action == "--fleet":
+        return fleet_main(args[1:])
     if action == "--admit":
         return admit(args[1] if len(args) > 1 else "work", args[2] if len(args) > 2 else None)
     if action == "--install":
         install("--preserve-git-wrapper" in args)
+    elif action == "--install-compute":
+        install_compute()
+    elif action == "--playback":
+        mode = args[1] if len(args) == 2 else ""
+        if mode not in ("auto", "on", "off"):
+            raise ValueError("--playback requires auto, on, or off")
+        STATE.mkdir(parents=True, exist_ok=True)
+        atomic(STATE / "playback.json", json.dumps({"mode": mode}) + "\n")
+        print(f"Playback protection: {mode}")
+        return sample()
     elif action == "--status":
         print((STATE / "latest.txt").read_text() if (STATE / "latest.txt").exists() else "no performance sample yet")
     elif action in ("--once", "--watch"):
@@ -457,16 +561,16 @@ def main(args):
     elif action == "--uninstall":
         subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{LABEL}"], capture_output=True)
         (Path.home() / "Library/LaunchAgents" / (LABEL + ".plist")).unlink(missing_ok=True)
-        for name in ("git", "swift", "ac-performance-guard"):
+        for name in ("git", "swift", "ac-performance-guard", "ffmpeg", "demucs", "ac-render"):
             link = Path.home() / ".local/bin" / name
             if link.is_symlink() and link.resolve().parent == HERE:
                 link.unlink()
-                backup = link.with_name("git.before-ac-guard")
-                if name == "git" and backup.exists():
+                backup = link.with_name(name + ".before-ac-guard")
+                if backup.exists() or backup.is_symlink():
                     os.replace(backup, link)
         (STATE / "pressure-active").unlink(missing_ok=True)
     else:
-        print("usage: performance-guard.sh [--once [--repair] | --watch | --status | --install | --uninstall | --admit OPERATION [PATH]]")
+        print("usage: performance-guard.sh [--once [--repair] | --watch | --status | --install | --install-compute | --playback auto|on|off | --uninstall | --admit OPERATION [PATH]]")
         return 0 if action in ("-h", "--help") else 2
     return 0
 

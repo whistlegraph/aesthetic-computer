@@ -15,6 +15,45 @@ Swift builds retain per-package serialization and the existing low-priority,
 two-job default on hosts with at most 16 GiB. Admission is checked again after
 waiting for the package lock. Other Git and Swift commands pass through.
 
+## Menu Band and fleet rendering
+
+On a playing seat, enable protection and install the optional compute shims:
+
+```bash
+ac-performance-guard --install-compute
+ac-performance-guard --playback auto
+ac-render --input src=/path/source.wav --output /path/result.wav -- \
+  -i @input:src -ar 48000 -c:a pcm_s16le @output
+```
+
+`auto` protects whenever the MenuBand process is running, including between
+notes; it does not inspect microphone input or collect playing activity. `on`
+protects unconditionally; `off` restores ordinary pressure checks. The default
+on other hosts is `off`. Each admission checks fresh process state. The sampler
+also publishes `playback` pressure to stop local fleet workers accepting jobs.
+Playback alone creates no incident log or pressure notification.
+
+The optional installer preserves existing `ffmpeg` and `demucs` entrypoints as
+`*.before-ac-guard`. Their PATH shims refuse local jobs during playback, exiting
+75 before launching the tool. When admitted, they run at utility QoS and nice 10,
+set numerical-library thread counts to one, give FFmpeg single-thread decoder
+and filter defaults, and force Demucs to one job. Explicit FFmpeg stream options
+can override codec defaults; this is not a total CPU cap. Standalone help/version
+requests pass through. Uninstall restores the saved entrypoints.
+
+`ac-render` uses the existing typed fleet FFmpeg adapter, excludes this machine
+by hostname and interface addresses, and never falls back to local rendering.
+It uploads only named inputs and verifies the returned artifact hash. Its
+arguments follow `toolchain/fleet/submit.mjs`; they are not ordinary FFmpeg path
+arguments. Inputs must be appropriate to share with the selected personal fleet
+worker. Demucs and general build jobs have no typed fleet adapter yet; run them
+on a suitable compute host using their subsystem's established workflow.
+
+Prox-launched agents share these PATH guards. For other costly utilities, call
+`ac-performance-guard --admit 'job name'` first and honor exit 75. Use `ac-render`
+for supported renders; do not bypass protection with absolute executable paths
+or pressure overrides. Turning protection off is an explicit operator choice.
+
 ```bash
 toolchain/macos/performance-guard.sh --install
 ac-performance-guard --status
@@ -60,6 +99,9 @@ worktrees from the start and keep large builds on compute hosts. An explicit
 `AC_PERFORMANCE_ALLOW_PRESSURE=1` bypass is available for deliberate recovery;
 normal automation must not set it. Failed live measurements defer work. Stale
 sampler files do not keep blocking after live headroom recovers.
+The pressure override does not disable playback protection. Protection is
+launch-time admission, not a reserved CPU core or a latency guarantee; existing
+jobs and software outside these launch paths remain outside its control.
 
 Validation (no compiler or real workload runs):
 

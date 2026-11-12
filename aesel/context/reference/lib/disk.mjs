@@ -2754,6 +2754,7 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
+const fpsHud = { on: false, painted: [] }; // The fps readout (bios fps:hud).
 let loadFailure;
 
 // 🎄 Piece code cache for merry preloading
@@ -7503,6 +7504,22 @@ class Painting {
       // TODO: 😅 Add other state globals like line thickness? 23.1.25
     }
 
+    // One runner per paint function, replaying a deferred call's arguments.
+    const runners = {};
+    for (const k in $paintApiUnwrapped) {
+      if (typeof $paintApiUnwrapped[k] !== "function") continue;
+      runners[k] =
+        k === "ink"
+          ? (callArgs) => {
+              $paintApiUnwrapped[k](...callArgs);
+              p.inkrn = graph.c.slice();
+            }
+          : (callArgs) => {
+              globals(k, callArgs); // Update globals again on chainable calls.
+              $paintApiUnwrapped[k](...callArgs);
+            };
+    }
+
     for (const k in $paintApiUnwrapped) {
       if (typeof $paintApiUnwrapped[k] === "function") {
         // Wrap and then transfer to #api.
@@ -7515,21 +7532,10 @@ class Painting {
           }
           // Create layer if necessary.
           if (notArray(p.#layers[p.#layer])) p.#layers[p.#layer] = [];
-          const callArgs = arguments;
-          // Add each deferred paint api function to the layer, to be run
-          // all at once in `paint` on each frame update.
-          p.#layers[p.#layer].push([
-            k,
-            () => {
-              if (k === "ink") {
-                $paintApiUnwrapped[k](...callArgs);
-                p.inkrn = graph.c.slice();
-              } else {
-                globals(k, callArgs); // Update globals again on chainable calls.
-                $paintApiUnwrapped[k](...callArgs);
-              }
-            },
-          ]);
+          // Add each deferred paint api call to the layer, to be run all at
+          // once in `paint` on each frame update: the name, its arguments and
+          // one shared runner per name (no new closure per call, 2026-11-08).
+          p.#layers[p.#layer].push([k, arguments, runners[k]]);
           return p.api;
         };
       }
@@ -7623,12 +7629,10 @@ class Painting {
     for (let layer of this.#layers) {
       layer ||= []; // Evaporate empty layers.
       for (const paint of layer) {
-        // if (immediate) {
-        // console.log("Label:", paint[0]);
-        paint[1]();
-        // } else {
-        // await paint();
-        // }
+        // [name, args, runner] from the wrapped API, or [name, thunk] from
+        // the fallbacks below the wrapper.
+        if (paint.length === 3) paint[2](paint[1]);
+        else paint[1]();
       }
     }
     this.#layers.length = 0;
@@ -7711,8 +7715,7 @@ $commonApi.resolution = function (width, height = width, gap = 8) {
   screen.height = height;
 
   // Reset / recreate the depth buffer. (This is only used for the 3D software renderer in `graph`)
-  graph.depthBuffer.length = screen.width * screen.height;
-  graph.depthBuffer.fill(Number.MAX_VALUE);
+  graph.resetDepthBuffer(screen.width * screen.height);
   graph.writeBuffer.length = 0; //screen.width * screen.height;
   // graph.writeBuffer.fill(Number.MAX_VALUE);
 
@@ -10136,6 +10139,9 @@ async function load(
         // shellhtml: the host page's DOM layer IS the prompt — never composite
         // the low-res typable input over the stage beneath it.
         const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
+        // A piece that returns nothing keeps repainting, as every piece does;
+        // one that returns false rests, unless the input is typing.
+        if (noPaint === undefined) return undefined;
         return noPaint || promptPainted;
       };
 
@@ -11610,10 +11616,14 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "focus-change") {
+    // Remember the window's focus even before the first frame: a window that
+    // opens behind another hears it before any piece runs, and dropping it
+    // here left that window "focused" for good (2026-11-08).
+    const changed = content !== inFocus;
+    inFocus = content;
     if (!cachedAPI) return; // Hacky... 23.04.21.14.59
     const $api = cachedAPI;
-    if (content !== inFocus) {
-      inFocus = content;
+    if (changed) {
       const data = {};
       Object.assign(data, {
         device: "none",
@@ -11625,6 +11635,9 @@ async function makeFrame({ data: { type, content } }) {
       } catch (e) {
         console.warn("️ ✒ Act failure...", e);
       }
+      // One frame for the change: pieces that rest while the window is in the
+      // background (the prompt's steady caret) redraw as it comes and goes.
+      $commonApi.needsPaint();
     }
   }
 
@@ -14486,7 +14499,15 @@ async function makeFrame({ data: { type, content } }) {
       // This ensures frame-based calculations (like in kidlisp) work correctly with FPS limiting
       $api.paintCount = pieceFrameCount;
 
-      $api.inFocus = content.inFocus;
+      // bios sends no per-frame focus; the window's focus (focus-change) is
+      // what paint sees, as sim and act do (2026-11-08: paint always read
+      // undefined, so nothing could rest in a background window).
+      $api.inFocus = content.inFocus ?? inFocus;
+      if ((content.fpsHud === true) !== fpsHud.on) {
+        fpsHud.on = content.fpsHud === true;
+        fpsHud.painted.length = 0;
+        $commonApi.needsPaint(); // Show or clear it now.
+      }
 
       // Make a screen buffer or resize it automatically if it doesn't exist.
 
@@ -14546,17 +14567,15 @@ async function makeFrame({ data: { type, content } }) {
         // TODO: Add the depth buffer back here.
         // Reset the depth buffer.
         // TODO: I feel like this is causing a memory leak...
-        graph.depthBuffer.length = screen.width * screen.height;
-        graph.depthBuffer.fill(Number.MAX_VALUE);
+        graph.resetDepthBuffer(screen.width * screen.height);
 
         graph.writeBuffer.length = 0; //screen.width * screen.height;
         // graph.writeBuffer.fill(0);
       }
 
-      // TODO: Disable the depth buffer for now... it doesn't need to be
-      //       regenerated on every frame.
-      // TODO: This only needs to run if 'form' is running in a piece. 25.03.20.19.27
-      graph.depthBuffer.fill(Number.MAX_VALUE); // Clear depthbuffer.
+      // The Z-buffer resets only after a frame that wrote depth (3D forms);
+      // a 2D frame leaves it untouched (2026-11-08).
+      graph.resetDepthBuffer(screen.width * screen.height);
       graph.writeBuffer.length = 0; //fill(0); // Clear writebuffer.
 
       $api.screen = screen;
@@ -15017,6 +15036,23 @@ async function makeFrame({ data: { type, content } }) {
         page($api.screen); // Make sure we're on the right bufer.
 
         layer(1000); // Always make sure this stuff draws on top.
+
+        // 📊 FPS readout (bios's fps:hud, 2026-11-08): the frames this piece
+        // painted in the last second, in its own pixels — MatrixChunky8 on a
+        // dark box, top right under the prompt's version badge.
+        if (fpsHud.on) {
+          const now = performance.now();
+          fpsHud.painted.push(now);
+          while (fpsHud.painted.length && fpsHud.painted[0] < now - 1000) fpsHud.painted.shift();
+          const fps = fpsHud.painted.length;
+          const text = `${fps} fps`;
+          const tw = $api.text.box(text, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width;
+          const padX = 2, padY = 2, boxW = tw + padX * 2, boxH = 7 + padY * 2;
+          const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
+          ink(0, 0, 0, 150).box(bx, by, boxW, boxH);
+          ink(fps >= 55 ? [0, 200, 100, 220] : fps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220])
+            .write(text, { x: bx + padX, y: by + padY }, undefined, undefined, false, "MatrixChunky8");
+        }
 
         // const piece = $api.slug?.split("~")[0];
         // if (

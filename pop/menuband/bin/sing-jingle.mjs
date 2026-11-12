@@ -126,7 +126,13 @@ import { decodeAudioMono } from "../../lib/preview-shared.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LANE = resolve(HERE, "..");
-const OUT = `${LANE}/out`;
+// --out <dir>: work somewhere other than the jingle lane (a cover study,
+// say); --spec <json>: an external LYRICS entry for the slug given as the
+// positional, so other lanes can sing without editing the table below.
+const outIdx = process.argv.indexOf("--out");
+const OUT = outIdx > 0 ? resolve(process.argv[outIdx + 1]) : `${LANE}/out`;
+const specIdx = process.argv.indexOf("--spec");
+const EXTERNAL_SPEC = specIdx > 0 ? resolve(process.argv[specIdx + 1]) : null;
 const POP = resolve(LANE, "..");
 const REPO = resolve(POP, "..");
 const SPINGING = `${REPO}/spinging`;
@@ -1470,7 +1476,8 @@ async function singOne(slug) {
 }
 
 const positional = process.argv.slice(2).filter((a, i, all) =>
-  !a.startsWith("--") && all[i - 1] !== "--harmony");
+  !a.startsWith("--") && !["--harmony", "--register", "--out", "--spec"].includes(all[i - 1]));
+if (EXTERNAL_SPEC) LYRICS[positional[0]] = JSON.parse(readFileSync(EXTERNAL_SPEC, "utf8"));
 const arg = positional[0] || "all";
 const slugs = arg === "all" ? Object.keys(LYRICS) : [arg];
 console.log(`harmony lock ${HARMONY} (β = ${(1 - HARMONY).toFixed(3)})`);

@@ -51,9 +51,20 @@ const wrapperAlive = () => {
 // rocks. The wrapper and Codex are parent/child; Codex keeps its own rollout
 // open for writing, giving us an exact, resume-safe association via lsof.
 export function rolloutFromTitle(rows, title, cwd) {
+  const dir = basename(cwd);
+  // A Slab-themed window decorates the title around the thread name:
+  //   aesthetic-computer — Monitor prox:zamofu | aesthetic-computer — codex ◂ codex-slab
+  // so the name can sit in the middle rather than at the end. Split on the
+  // separators Terminal and Slab insert and require a WHOLE segment to equal
+  // the name: a bare substring test would match "codex" inside any title.
+  const dirSuffix = new RegExp(` \\| ${dir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+  const segments = title.split(/\s+[—◂|]\s+/).map((s) => s.trim())
+    .flatMap((s) => [s, s.replace(dirSuffix, "")]);
   const matches = rows.filter(row => typeof row.name === "string" && row.name.length >= 4
     && resolve(row.cwd) === resolve(cwd)
-    && (title === row.name || title.endsWith(`${row.name} | ${basename(row.cwd)}`)));
+    && (title === row.name
+      || title.endsWith(`${row.name} | ${dir}`)
+      || segments.includes(row.name)));
   // Never guess between concurrent windows or similarly named threads.
   return matches.length === 1 ? matches[0].rollout_path : null;
 }

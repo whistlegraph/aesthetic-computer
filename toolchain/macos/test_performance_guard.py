@@ -33,6 +33,77 @@ class GuardTests(unittest.TestCase):
     def test_low_disk_blocks_without_sampler(self):
         self.assertEqual(self.check({**self.healthy, "disk_free_bytes": 4 * 1024**3}), 75)
 
+    def test_playback_blocks_even_with_pressure_override(self):
+        guard.atomic(self.state / "playback.json", '{"mode":"on"}')
+        with patch.dict(os.environ, {"AC_PERFORMANCE_ALLOW_PRESSURE": "1"}):
+            self.assertEqual(self.check(), 75)
+
+    def test_menu_band_updater_passes_playback_but_not_pressure(self):
+        guard.atomic(self.state / "playback.json", '{"mode":"on"}')
+        with patch.dict(os.environ, {"MENUBAND_UPDATE": "1"}):
+            self.assertEqual(self.check(), 0)
+            self.assertEqual(self.check({**self.healthy, "disk_free_bytes": 4 * 1024**3}), 75)
+
+    def test_auto_playback_uses_exact_executable_and_fresh_state(self):
+        guard.atomic(self.state / "playback.json", '{"mode":"auto"}')
+        self.assertTrue(guard.playback_active([{"executable": "/Applications/Menu Band.app/Contents/MacOS/MenuBand"}]))
+        self.assertFalse(guard.playback_active([{"executable": "/tmp/MenuBandTests"}]))
+        guard.atomic(self.state / "latest.json", json.dumps(dict(epoch=time.time(), boot="boot-1", reasons=["playback"])))
+        with patch.object(guard.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "/bin/zsh\n")):
+            self.assertEqual(self.check(), 0)
+
+    def test_playback_probe_failure_defers(self):
+        guard.atomic(self.state / "playback.json", '{"mode":"auto"}')
+        with patch.object(guard.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "ps")):
+            self.assertEqual(self.check(), 75)
+
+    def test_playback_sampler_blocks_workers_without_incident_or_notification(self):
+        guard.atomic(self.state / "playback.json", '{"mode":"on"}')
+        with patch.object(guard, "metrics", return_value=self.healthy), \
+                patch.object(guard, "processes", return_value=[]), \
+                patch.object(guard, "run", return_value="Swapouts: 0."), patch.object(guard, "notify") as notify:
+            for _ in range(4):
+                guard.sample()
+            notify.assert_not_called()
+        self.assertEqual((self.state / "pressure-active").read_text(), "playback\n")
+        self.assertFalse((self.state / "incidents.jsonl").exists())
+
+    def test_compute_refusal_never_executes_and_help_preserves_argv(self):
+        (self.state / "real-ffmpeg").write_text("/tool/ffmpeg")
+        with patch.object(guard, "HERE", self.state), patch.object(guard, "admit", return_value=75) as admission, \
+                patch.object(guard.os, "execv") as execute:
+            self.assertEqual(guard.compute_main("ffmpeg", ["-i", "source.wav", "result.wav"]), 75)
+            execute.assert_not_called()
+            admission.reset_mock()
+            guard.compute_main("ffmpeg", ["-version"])
+            admission.assert_not_called()
+            execute.assert_called_once_with("/tool/ffmpeg", ["/tool/ffmpeg", "-version"])
+
+    def test_demucs_runs_with_bounded_threads_and_utility_priority(self):
+        (self.state / "real-demucs").write_text("/tool/demucs")
+        with patch.object(guard, "HERE", self.state), patch.object(guard, "admit", return_value=0), \
+                patch.object(guard.os, "execv") as execute, patch.dict(os.environ, {}, clear=False):
+            guard.compute_main("demucs", ["track.wav"])
+            self.assertEqual(os.environ["OMP_NUM_THREADS"], "1")
+            self.assertEqual(execute.call_args.args[1],
+                             ["taskpolicy", "-c", "utility", "/usr/bin/nice", "-n", "10", "/tool/demucs", "track.wav", "-j", "1"])
+
+    def test_compute_install_preserves_commands_and_is_idempotent(self):
+        bindir = self.state / ".local/bin"
+        target = self.state / ".local/lib/ac-performance-guard"
+        bindir.mkdir(parents=True)
+        target.mkdir(parents=True)
+        (target / "performance-guard.sh").write_text("entrypoint")
+        for name in ("ffmpeg", "demucs"):
+            (bindir / name).write_text("original " + name)
+        with patch.object(guard.Path, "home", return_value=self.state), \
+                patch.object(guard.shutil, "which", side_effect=lambda name: str(bindir / name)), \
+                contextlib.redirect_stdout(io.StringIO()):
+            guard.install_compute()
+            guard.install_compute()
+        self.assertEqual((bindir / "ffmpeg.before-ac-guard").read_text(), "original ffmpeg")
+        self.assertEqual((bindir / "demucs").resolve(), (target / "performance-guard.sh").resolve())
+
     def test_healthy_host_admitted_without_sampler(self):
         self.assertEqual(self.check(), 0)
 

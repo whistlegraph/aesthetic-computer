@@ -751,7 +751,7 @@ final class WizardController: NSWindowController, NSWindowDelegate, AVAudioPlaye
     // traffic light and plays a short tone (rising pitch). On the 4th
     // beat ("GO" — green) the actual recording starts.
     func runCountin(_ done: @escaping () -> Void) {
-        let bpm: Double = 182
+        let bpm: Double = spec.bpm ?? 182
         let beat = 60.0 / bpm
         let tones: [Int] = [60, 62, 64, 72]      // C4 D4 E4 → high C5 GO
         trafficLights.clear()

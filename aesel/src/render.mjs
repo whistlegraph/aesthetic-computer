@@ -11,7 +11,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { MASCOT_HEIGHT, MASCOT_ROW_WIDTH, TILE, TILE_INKS, mascotAt, mascotRow } from "./mascot.mjs";
 import { rowSpan } from "./selection.mjs";
-import { handleCharacterColors } from "./handle-colors.mjs";
+import { handleCharacterColors, characterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
 import {readableRGB, terminalRGB} from './contrast.mjs';
@@ -309,7 +309,7 @@ export function wrapText(value, width) {
 // Paint a span, then fall back to the purple ground so the row stays filled.
 function paint(enabled, tone, value) {
   if (!enabled) return value;
-  const tones = tone.split(" ").map((name) => color[name] || "").join("");
+  const tones = tone.split(" ").map((name) => /^host\d$/.test(name) ? hostPaint(Number(name.slice(4))) : color[name] || "").join("");
   return `${tones}${value}${color.reset}${color.ground}`;
 }
 
@@ -465,6 +465,51 @@ export function splitTables(text) {
 
 const tableCells = (line) => line.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/).map(cell => markdown(cell.trim().replace(/\\\|/g, "|")).text);
 const NUMERIC = /^[-+~≈$€£]?\d[\d,]*(\.\d+)?\s?(%|[kKmMbB]|ms|s|x|×)?$/;
+const HOSTNAME = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i;
+const EMPTY = /^(0|0\.0+|0%|—|–|-|·|none|n\/a)?$/i;
+const TOTAL = /^(total|totals|sum|all|overall)\b/i;
+
+// What a number weighs: its value, with k/m/b suffixes and thousands commas read.
+function numberOf(cell) {
+  const m = /^[-+~≈$€£]?([\d,]*\.?\d+)\s?([kKmMbB])?/.exec(cell);
+  if (!m) return null;
+  const n = Number(m[1].replace(/,/g, ""));
+  return Number.isFinite(n) ? n * ({ k: 1e3, m: 1e6, b: 1e9 }[(m[2] || "").toLowerCase()] || 1) : null;
+}
+
+// A site keeps one colour from table to table: its root domain picks one of
+// the ten character colours handles are written in, through the same
+// theme-aware ink, so aesthetic.computer is always the same ink and
+// notepaint.art never reads as nopaint.art.
+export function hostInk(host) {
+  const root = host.toLowerCase().split(".").slice(-2).join(".");
+  // FNV-1a with a final mix, seeded so the network's ten main roots —
+  // aesthetic.computer, nopaint.art, sotce.net, laklok.com, notepaint.art,
+  // whistlegraph.org, notepat.com, oskiewar.com, mime.ac, prompt.ac — each
+  // take a different one of the ten colours.
+  let h = (0x811c9dc5 ^ 363237) >>> 0;
+  for (const ch of root) h = Math.imul((h ^ ch.charCodeAt(0)) >>> 0, 0x01000193) >>> 0;
+  h = Math.imul((h ^ (h >>> 13)) >>> 0, 0x5bd1e995) >>> 0;
+  return ((h ^ (h >>> 15)) >>> 0) % characterColors.length;
+}
+const hostPaint = (index) => pageInk(characterColors[index]);
+
+// The tone a cell takes: the header in the highlight; an empty or zero cell
+// muted so absence reads as absence; a column's largest number bold in the
+// highlight and its small ones soft, so the eye finds the weight without
+// reading every digit; a hostname in its own steady colour.
+export function cellTone(cell, { header = false, first = false, max = null, total = false } = {}) {
+  if (header) return "highlight bold";
+  if (EMPTY.test(cell)) return "muted";
+  if (total) return "bold";
+  if (HOSTNAME.test(cell)) return `host${hostInk(cell)}${first ? " bold" : ""}`;
+  const n = numberOf(cell);
+  if (n !== null && max) {
+    if (n >= max) return "highlight bold";
+    if (n / max < 0.2) return "soft";
+  }
+  return first ? "bold" : "text";
+}
 
 // Columns two cells apart, the header in the highlight over a muted rule,
 // numbers set right. Too wide for the page, the widest columns wrap; too many
@@ -488,12 +533,17 @@ export function tableRows(source, width, useColor) {
     if (room[widest] <= 0) break;
     widths[widest] -= 1;
   }
+  // Each numeric column's largest value, the one cell set in the highlight. A
+  // total row is the sum, not the winner, so it stays out of the race and is
+  // set bold instead.
+  const isTotal = (row) => TOTAL.test(row[0] || "");
+  const maxes = Array.from({ length: count }, (_, i) => right[i] ? Math.max(0, ...body.filter(row => !isTotal(row)).map(row => numberOf(row[i] || "") ?? 0)) : null);
   if (total() > width) {
     const label = Math.min(Math.max(...header.map(textWidth)), Math.floor(width / 3));
     return body.flatMap((row, r) => [
       ...(r ? [""] : []),
       ...row.flatMap((cell, i) => wrapText(cell || "", Math.max(1, width - label - 2)).map((piece, k) =>
-        paint(useColor, "muted", (k ? "" : clipText(header[i] || "", label)).padEnd(label) + "  ") + paint(useColor, i ? "text" : "bold", piece))),
+        paint(useColor, "muted", (k ? "" : clipText(header[i] || "", label)).padEnd(label) + "  ") + paint(useColor, cellTone(cell, { first: i === 0, max: maxes[i], total: isTotal(row) }), piece))),
     ]);
   }
   const out = [];
@@ -504,7 +554,7 @@ export function tableRows(source, width, useColor) {
       out.push(wrapped.map((cell, i) => {
         const piece = cell[k] || "", pad = " ".repeat(Math.max(0, widths[i] - textWidth(piece)));
         const set = right[i] ? pad + piece : piece + pad;
-        return paint(useColor, r === 0 ? "highlight bold" : i === 0 ? "bold" : "text", set);
+        return paint(useColor, cellTone(cell.join(" "), { header: r === 0, first: i === 0, max: maxes[i], total: r > 0 && isTotal(row) }), set);
       }).join(" ".repeat(gap)).trimEnd());
     }
     if (r === 0) out.push(paint(useColor, "muted", "─".repeat(Math.min(width, total()))));
