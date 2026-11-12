@@ -2,7 +2,9 @@
 // probe that stands in for the GPU. Runs on any desk (xbox/test-native.sh).
 #include <cassert>
 #include <cstdio>
+#include <fstream>
 #include <map>
+#include <sstream>
 #include <set>
 #include <string>
 #include "QuickJsEngine.hpp"
@@ -58,7 +60,7 @@ void Camera(float* m, float blend = 1) {
 }
 }
 
-int main() {
+int main(int argc, char** argv) {
   // pack: smooth normals, white default colour, 16-bit indices widen, bounds.
   {
     const float p[]{0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0};
@@ -223,6 +225,25 @@ int main() {
       void wipe(Color) override {} void box(const Rect&) override {} void line(const Line&) override {} void write(const Text&) override {} } g;
     Quiet sound; Api api{{}, {}, {}, {}, g, sound, {}};
     try { bare->boot(api); } catch (const std::exception& e) { std::fprintf(stderr, "bare: %s\n", e.what()); return 1; }
+  }
+  // The demo piece, when given: boot and a few frames under QuickJS.
+  if (argc > 1) {
+    std::ifstream file(argv[1]);
+    std::stringstream source; source << file.rdbuf();
+    auto demo = engine.compile({"scene-api-4-demo", "test", source.str(), "test"}, {}, error);
+    if (!demo) { std::fprintf(stderr, "demo: %s\n", error.c_str()); return 1; }
+    GpuProbe gpu; Quiet sound; Api api{{}, {}, {}, {}, gpu, sound, {}};
+    std::vector<std::string> lines;
+    api.telemetry = [&](std::string_view line) { lines.emplace_back(line); };
+    try {
+      demo->boot(api);
+      for (int frame = 0; frame < 40; ++frame) { demo->sim(api); demo->paint(api); }
+    } catch (const std::exception& e) { std::fprintf(stderr, "demo: %s\n", e.what()); return 1; }
+    assert(gpu.draws > 40 && gpu.meshes.size() > 20 && gpu.textures.size() == 4);
+    for (const auto& line : lines) if (line.find("JS SCENE4") == 0) std::printf("%s\n", line.c_str());
+    for (const auto& line : lines) assert(line.find(":silent") == std::string::npos);
+    demo.reset();  // before the probe it holds handles in
+    assert(gpu.meshes.empty() && gpu.textures.empty());
   }
   std::puts("scene4 smoke: ok");
   return 0;
