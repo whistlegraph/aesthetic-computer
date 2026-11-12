@@ -36,5 +36,13 @@ clang++ -std=c++17 -O2 -Wall -Wextra \
   "$build_dir/libregexp.o" "$build_dir/libunicode.o" \
   -lm -lpthread -o "$build_dir/quickjs-smoke"
 "$build_dir/quickjs-smoke"
+clang++ -std=c++17 -O2 -Wall -Wextra \
+  -I "$repo_dir/xbox/native-bios" -I "$repo_dir/xbox/runtime/include" -I "$qjs" \
+  "$repo_dir/xbox/native-bios/QuickJsEngine.cpp" \
+  "$repo_dir/xbox/native-bios/tests/scene4_smoke.cpp" \
+  "$build_dir/quickjs.o" "$build_dir/dtoa.o" \
+  "$build_dir/libregexp.o" "$build_dir/libunicode.o" \
+  -lm -lpthread -o "$build_dir/scene4-smoke"
+"$build_dir/scene4-smoke"
 
 echo "xbox native preflight: all portable tests passed"
