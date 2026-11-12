@@ -43,6 +43,6 @@ clang++ -std=c++17 -O2 -Wall -Wextra \
   "$build_dir/quickjs.o" "$build_dir/dtoa.o" \
   "$build_dir/libregexp.o" "$build_dir/libunicode.o" \
   -lm -lpthread -o "$build_dir/scene4-smoke"
-"$build_dir/scene4-smoke"
+"$build_dir/scene4-smoke" "$repo_dir/xbox/live/scene-api-4-demo.js"
 
 echo "xbox native preflight: all portable tests passed"
