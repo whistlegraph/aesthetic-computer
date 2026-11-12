@@ -27,6 +27,11 @@ if AboutCLI.runIfRequested(CommandLine.arguments) {
     exit(0)
 }
 
+// Headless capture of the real Settings window.
+if SettingsCLI.runIfRequested(CommandLine.arguments) {
+    exit(0)
+}
+
 // Headless capture of the real popover interface for App Store screenshots.
 if PopoverCLI.runIfRequested(CommandLine.arguments) {
     exit(0)

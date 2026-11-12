@@ -44,7 +44,6 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
 
     /// Strong ref so the viewer window stays alive while it's open —
     /// AboutWindowController is the only thing that holds it.
-    private var crashViewer: CrashViewerWindowController?
 
     init(updateInfo: UpdateChecker.VersionInfo?,
          onOpenPlugins: (() -> Void)? = nil,
@@ -496,37 +495,7 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
         // copyright, and rendered ONLY when there are crash logs, so a healthy
         // install closes on version → copyright exactly as before. Clicking it
         // opens the same scroll viewer the old corner ⚠️ did.
-        let logs = CrashLogReader.recentLogs()
-        if !logs.isEmpty {
-            let summary = logs.count == 1
-                ? L("popover.about.crash.summaryOne")
-                : L("popover.about.crash.summaryMany", String(logs.count))
-            let crashFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
-            let crashTitle = NSMutableAttributedString(
-                string: summary,
-                attributes: [
-                    .font: crashFont,
-                    .foregroundColor: acPurple,
-                    .underlineStyle: NSUnderlineStyle.single.rawValue,
-                ])
-            crashTitle.append(NSAttributedString(
-                string: " ⚠️", attributes: [.font: crashFont]))
-            let warn = HoverFeedbackButton(title: "", target: self,
-                                           action: #selector(viewCrashLogs(_:)))
-            warn.attributedTitle = crashTitle
-            warn.isBordered = false
-            warn.bezelStyle = .regularSquare
-            warn.setButtonType(.momentaryChange)
-            warn.toolTip = "Review the crash reports and send them to Aesthetic Computer."
-            stack.setCustomSpacing(10, after: versionLabel)
-            stack.addArrangedSubview(warn)
-            stack.setCustomSpacing(4, after: warn)
-        }
-
-        // Faint copyright line — the quiet footer every macOS About
-        // panel closes with (Terminal: "© 1991–2025 Apple Inc.",
-        // Finder: "™ & © 1983–2025 …"). Tertiary gray so it recedes
-        // beneath the brand chrome.
+        // Crash reports live in Settings → Diagnostics, the one place for them.
         let copyright = NSTextField(labelWithString: "© 2026 Aesthetic, Inc.")
         copyright.font = NSFont.systemFont(ofSize: 11)
         copyright.textColor = .tertiaryLabelColor
@@ -705,19 +674,6 @@ final class AboutWindowController: NSWindowController, NSWindowDelegate {
     @objc private func openSettings(_ sender: Any?) {
         AppDelegate.openSettings()
     }
-
-    /// Open a scroll panel containing the .ips text for every pending
-    /// diagnostic report. Built fresh each time so it always reflects
-    /// the current contents of `~/Library/Logs/DiagnosticReports/`.
-    @objc private func viewCrashLogs(_ sender: NSButton) {
-        let logs = CrashLogReader.recentLogs()
-        guard !logs.isEmpty else { return }
-        crashViewer?.close()
-        let ctrl = CrashViewerWindowController(logs: logs)
-        crashViewer = ctrl
-        ctrl.present()
-    }
-
 
     // MARK: - Accent-color refresh
 

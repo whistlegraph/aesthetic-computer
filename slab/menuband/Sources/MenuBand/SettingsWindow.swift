@@ -87,7 +87,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
-        stack.spacing = 12
+        stack.spacing = 6
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
         stack.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(stack)
@@ -97,11 +97,34 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             stack.topAnchor.constraint(equalTo: content.topAnchor),
         ])
 
+        // Sections, each a small gray header over its own controls. A note
+        // sits directly under the control it explains.
+        func header(_ title: String) {
+            let label = NSTextField(labelWithString: title)
+            label.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            label.textColor = .secondaryLabelColor
+            if let last = stack.arrangedSubviews.last { stack.setCustomSpacing(20, after: last) }
+            stack.addArrangedSubview(label)
+            stack.setCustomSpacing(6, after: label)
+        }
+        func note(_ field: NSTextField, under control: NSView) {
+            field.font = NSFont.systemFont(ofSize: 11)
+            field.textColor = .tertiaryLabelColor
+            field.maximumNumberOfLines = 3
+            field.lineBreakMode = .byWordWrapping
+            field.preferredMaxLayoutWidth = 252
+            stack.setCustomSpacing(2, after: control)
+            stack.addArrangedSubview(field)
+            // Line the note up with the checkbox's title, not its box.
+            field.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: 44).isActive = true
+        }
+
         #if MAC_APP_STORE
         // App Store build only: the direct-download build auto-starts from the
         // LaunchAgent install.sh writes, so it has nothing to toggle. Hidden
         // below macOS 13, where SMAppService doesn't exist.
         if MenuBandLoginItem.isSupported {
+            header("General")
             let login = NSButton(checkboxWithTitle: "Open at Login",
                                  target: self,
                                  action: #selector(toggleOpenAtLogin(_:)))
@@ -111,52 +134,31 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
         #endif
 
-        // Trackpad Force Touch feedback on key taps. Disabled (not hidden) when
-        // the hardware can't do it — a dimmed row explains why the feature is
-        // absent, where a missing row would just look like it doesn't exist.
+        // Input monitoring is not here: it's a live control, and the headphones
+        // button in the popover already owns it.
+        header("Playing")
         let haptics = NSButton(checkboxWithTitle: "Haptics",
                                target: self,
                                action: #selector(toggleHaptics(_:)))
         haptics.state = (menuBand?.hapticsEnabled ?? true) ? .on : .off
         haptics.isEnabled = MenuBandHaptics.isAvailable
-        haptics.toolTip = MenuBandHaptics.isAvailable
-            ? "Force Touch feedback from the trackpad when you play a key."
-            : "This Mac has no Force Touch trackpad."
+        haptics.toolTip = "Force Touch feedback from the trackpad when you play a key."
         stack.addArrangedSubview(haptics)
-
-        let inputMonitor = NSButton(
-            checkboxWithTitle: "Monitor audio input",
-            target: self,
-            action: #selector(toggleInputMonitoring(_:)))
-        inputMonitor.state = (menuBand?.inputMonitoringEnabled ?? false) ? .on : .off
-        inputMonitor.toolTip = "Hear the Mac's selected input (including Focusrite interfaces) through Menu Band. Use headphones to avoid feedback."
-        stack.addArrangedSubview(inputMonitor)
-
-        let inputNote = NSTextField(
-            labelWithString: "Records the selected macOS input as the tape's microphone stem.")
-        inputNote.font = NSFont.systemFont(ofSize: 11)
-        inputNote.textColor = .tertiaryLabelColor
-        inputNote.maximumNumberOfLines = 2
-        stack.addArrangedSubview(inputNote)
-
         if !MenuBandHaptics.isAvailable {
-            let note = NSTextField(labelWithString: "No Force Touch trackpad on this Mac.")
-            note.font = NSFont.systemFont(ofSize: 11)
-            note.textColor = .tertiaryLabelColor
-            stack.addArrangedSubview(note)
+            note(NSTextField(labelWithString: "No Force Touch trackpad on this Mac."), under: haptics)
         }
 
         #if !MAC_APP_STORE
         // Shapedown (double-tap left ⌘) feedback cues — the same flash + bell
         // the right-⌘ focus gesture uses, switchable independently.
-        let sdFlash = NSButton(checkboxWithTitle: "Shapedown flashes",
+        header("Shapedown")
+        let sdFlash = NSButton(checkboxWithTitle: "Flashes",
                                target: self,
                                action: #selector(toggleShapedownFlash(_:)))
         sdFlash.state = Shapedown.flashesEnabled ? .on : .off
         sdFlash.toolTip = "Full-screen flash when the Shapedown wall opens, closes, or stamps."
         stack.addArrangedSubview(sdFlash)
-
-        let sdSound = NSButton(checkboxWithTitle: "Shapedown sounds",
+        let sdSound = NSButton(checkboxWithTitle: "Sounds",
                                target: self,
                                action: #selector(toggleShapedownSound(_:)))
         sdSound.state = Shapedown.soundsEnabled ? .on : .off
@@ -165,19 +167,17 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         // Cloud backup of tape takes to the signed-in AC handle (~/.ac-token,
         // which the sandboxed App Store build can't read).
+        header("Takes")
         cloudToggle.target = self
         cloudToggle.action = #selector(toggleCloudBackup(_:))
         cloudToggle.toolTip = "Upload every take — mix, stems, notes — privately to your Aesthetic Computer account."
         stack.addArrangedSubview(cloudToggle)
-        cloudNote.font = NSFont.systemFont(ofSize: 11)
-        cloudNote.textColor = .tertiaryLabelColor
-        cloudNote.maximumNumberOfLines = 3
-        cloudNote.lineBreakMode = .byWordWrapping
-        cloudNote.preferredMaxLayoutWidth = 272
-        stack.addArrangedSubview(cloudNote)
+        note(cloudNote, under: cloudToggle)
         cloudSignIn.bezelStyle = .rounded
+        cloudSignIn.controlSize = .small
         cloudSignIn.target = self
         cloudSignIn.action = #selector(signInToCloud(_:))
+        stack.setCustomSpacing(8, after: cloudNote)
         stack.addArrangedSubview(cloudSignIn)
         refreshCloud()
         sessionWatch = ACSession.shared.startWatching { [weak self] in self?.refreshCloud() }
@@ -186,17 +186,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         ) { [weak self] _ in self?.refreshCloud() }
         #endif
 
-        // Crashes — conditional. A diagnostics link only earns a row if there
-        // is something to diagnose; on a healthy install Settings shouldn't
-        // advertise a crash viewer at all.
+        // Crashes — conditional. A diagnostics row only appears when there is
+        // something to diagnose; a healthy install never shows it.
         let logs = CrashLogReader.recentLogs()
         if !logs.isEmpty {
-            let sep = NSBox()
-            sep.boxType = .separator
-            sep.translatesAutoresizingMaskIntoConstraints = false
-            stack.addArrangedSubview(sep)
-            sep.widthAnchor.constraint(equalTo: stack.widthAnchor, constant: -48).isActive = true
-
+            header("Diagnostics")
             let title = logs.count == 1
                 ? L("popover.about.crash.summaryOne")
                 : L("popover.about.crash.summaryMany", String(logs.count))
@@ -204,9 +198,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
                                    target: self,
                                    action: #selector(viewCrashLogs(_:)))
             crashes.bezelStyle = .rounded
+            crashes.controlSize = .small
             crashes.toolTip = "Review the crash reports and send them to Aesthetic Computer."
             stack.addArrangedSubview(crashes)
         }
+
+        // Size the window to its content instead of a fixed 320 pt box.
+        stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor).isActive = true
+        content.layoutSubtreeIfNeeded()
+        window?.setContentSize(NSSize(width: 300, height: stack.fittingSize.height))
     }
 
     // MARK: - Actions
@@ -219,10 +219,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func toggleHaptics(_ sender: NSButton) {
         menuBand?.hapticsEnabled = (sender.state == .on)
-    }
-
-    @objc private func toggleInputMonitoring(_ sender: NSButton) {
-        menuBand?.inputMonitoringEnabled = (sender.state == .on)
     }
 
     #if !MAC_APP_STORE
@@ -254,6 +250,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         cloudToggle.isEnabled = state == .signedIn
         cloudSignIn.isHidden = state == .signedIn
         cloudSignIn.title = state == .expired ? "Session expired — sign in with ac-login" : "Sign in with ac-login"
+        if cloudNote.stringValue.isEmpty {
+            cloudNote.stringValue = state == .signedIn
+                ? "Private to your account. Browse them at aesthetic.computer/menuband."
+                : "Sign in to back takes up to your @handle."
+        }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let pending = MenuBandCloud.shared.pendingCount
             DispatchQueue.main.async {
