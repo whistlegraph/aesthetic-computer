@@ -1,6 +1,15 @@
 import AppKit
+import Metal
 import QuartzCore
 import SceneKit
+
+/// `--flag value` on the command line, else the environment variable.
+private func option(_ flag: String, _ env: String) -> String? {
+    let args = CommandLine.arguments
+    if let i = args.firstIndex(of: flag), i + 1 < args.count { return args[i + 1] }
+    let value = ProcessInfo.processInfo.environment[env]
+    return value?.isEmpty == false ? value : nil
+}
 
 private struct PalsSpec {
     let x: CGFloat
@@ -23,11 +32,7 @@ private enum Emblem {
     static let modelExtensions = ["obj", "usdz", "usdc", "usda", "dae", "scn"]
 
     static let path: String? = {
-        let args = CommandLine.arguments
-        if let i = args.firstIndex(of: "--emblem"), i + 1 < args.count { return args[i + 1] }
-        if let env = ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_EMBLEM"], !env.isEmpty {
-            return env
-        }
+        if let given = option("--emblem", "BLUEBERRY_WALLPAPER_EMBLEM") { return given }
         let dir = NSString(string: "~/.config/blueberry-wallpaper").expandingTildeInPath
         for ext in modelExtensions + ["png"] {
             let candidate = "\(dir)/emblem.\(ext)"
@@ -42,16 +47,175 @@ private enum Emblem {
     }
 
     static let scale: CGFloat = {
-        let args = CommandLine.arguments
-        var raw: String?
-        if let i = args.firstIndex(of: "--emblem-scale"), i + 1 < args.count { raw = args[i + 1] }
-        raw = raw ?? ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_EMBLEM_SCALE"]
-        guard let raw, let value = Double(raw), value > 0 else { return 1 }
+        guard let raw = option("--emblem-scale", "BLUEBERRY_WALLPAPER_EMBLEM_SCALE"),
+              let value = Double(raw), value > 0 else { return 1 }
         return CGFloat(value)
+    }()
+
+    /// Glass soap-bubble marks: on for a model emblem (the Fuser mark),
+    /// forced with `--bubbles` or `$BLUEBERRY_WALLPAPER_BUBBLES=1`.
+    static let bubbles: Bool = {
+        if CommandLine.arguments.contains("--no-bubbles") { return false }
+        if CommandLine.arguments.contains("--bubbles") { return true }
+        if ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_BUBBLES"] == "1" { return true }
+        return isModel
     }()
 
     static var renderer: String {
         path == nil ? "live-glb" : (isModel ? "emblem-model" : "emblem-image")
+    }
+}
+
+/// Frame pacing and antialiasing.
+private enum Quality {
+    /// A whole number of refreshes per frame, never under 60 fps when the
+    /// display can do it: 144 Hz → 72, 120 → 60, 60 → 60. Asking a 144 Hz
+    /// display for 60 alternates two- and three-refresh frames, which judders.
+    static func framesPerSecond(for screen: NSScreen?) -> Int {
+        let refresh = max(screen?.maximumFramesPerSecond ?? 60, 1)
+        return refresh / max(1, refresh / 60)
+    }
+
+    /// Full-scene antialiasing on 1× displays: render at twice the backing
+    /// resolution and let the compositor average each 2×2 block down, so
+    /// shader edges, textures and specular glints are smoothed as well as
+    /// silhouettes (which MSAA alone covers). Retina displays already have
+    /// the pixels. `--supersample <factor>` or
+    /// `$BLUEBERRY_WALLPAPER_SUPERSAMPLE` overrides; 1 turns it off.
+    static func supersample(scale: CGFloat, size: CGSize) -> CGFloat {
+        if let raw = option("--supersample", "BLUEBERRY_WALLPAPER_SUPERSAMPLE"),
+           let value = Double(raw), value >= 1, value <= 3 { return CGFloat(value) }
+        // Past ~16 MP (a 1× 4K panel doubled) the render target outweighs it.
+        let doubled = size.width * scale * 2 * size.height * scale * 2
+        return scale < 1.5 && doubled <= 16_000_000 ? 2 : 1
+    }
+
+    /// Multisamples per pixel on top of that: `--msaa <1|2|4>` or
+    /// `$BLUEBERRY_WALLPAPER_MSAA`.
+    static let sampleCount: Int = {
+        if let raw = option("--msaa", "BLUEBERRY_WALLPAPER_MSAA"),
+           let value = Int(raw), [1, 2, 4].contains(value) { return value }
+        return 4
+    }()
+}
+
+/// Counts frames as they finish and says how the pacing went: soon after
+/// launch, again at a minute, then every ten.
+private struct FrameMeter {
+    private var last: Double = 0
+    private var start: Double = 0
+    private var frames = 0
+    private var late = 0
+    private var worst: Double = 0
+    private var reports = 0
+
+    /// A sleep is not a late frame.
+    mutating func rest() { last = 0 }
+
+    mutating func mark(target: Int) -> String? {
+        let now = CACurrentMediaTime()
+        defer { last = now }
+        guard last > 0 else { start = now; return nil }
+        let gap = now - last
+        frames += 1
+        worst = max(worst, gap)
+        if gap > 1.5 / Double(target) { late += 1 }
+        let window = now - start
+        guard window >= (reports == 0 ? 10 : reports == 1 ? 50 : 600) else { return nil }
+        defer { reports += 1; start = now; frames = 0; late = 0; worst = 0 }
+        return String(format: "frames: %.1f fps (target %d) · worst %.1f ms · late %d/%d",
+                      Double(frames) / window, target, worst * 1000, late, frames)
+    }
+}
+
+/// The scene's surface: an SCNRenderer drawing into a Metal layer this view
+/// owns. SCNView picks its own drawable size and redraw cadence; owning the
+/// layer makes the supersampled size, the sample count and the frame clock
+/// explicit — one draw per display-link tick, on the main thread, so the
+/// scene and the Core Animation labels over it are stepped together.
+private final class StageView: NSView {
+    let renderer: SCNRenderer
+    private let device: MTLDevice
+    private let queue: MTLCommandQueue
+    private let metal = CAMetalLayer()
+    private var color: MTLTexture?
+    private var depth: MTLTexture?
+    /// Drawable pixels per backing pixel (see Quality.supersample).
+    var supersample: CGFloat = 1 { didSet { needsLayout = true } }
+    var drawableCount = 3 { didSet { metal.maximumDrawableCount = drawableCount } }
+
+    init?(scene: SCNScene) {
+        guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else { return nil }
+        self.device = device
+        self.queue = queue
+        renderer = SCNRenderer(device: device, options: nil)
+        renderer.scene = scene
+        super.init(frame: .zero)
+        metal.device = device
+        // SceneKit shades in linear light; the sRGB target encodes on write.
+        metal.pixelFormat = .bgra8Unorm_srgb
+        metal.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
+        metal.framebufferOnly = true
+        metal.isOpaque = true
+        metal.contentsGravity = .resize
+        metal.actions = ["bounds": NSNull(), "position": NSNull(), "contents": NSNull()]
+        wantsLayer = true
+        layer = metal
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func layout() {
+        super.layout()
+        let scale = (window?.backingScaleFactor ?? 1) * supersample
+        let size = CGSize(width: (bounds.width * scale).rounded(), height: (bounds.height * scale).rounded())
+        guard size.width > 0, size.height > 0, size != metal.drawableSize else { return }
+        metal.contentsScale = scale
+        metal.drawableSize = size
+        color = nil
+        depth = nil
+    }
+
+    /// Multisample targets live only in tile memory: the pass resolves into
+    /// the drawable and nothing else is kept, so 4× over a doubled 1440p
+    /// frame costs no RAM.
+    private func target(_ format: MTLPixelFormat) -> MTLTexture? {
+        let d = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: format, width: Int(metal.drawableSize.width),
+            height: Int(metal.drawableSize.height), mipmapped: false)
+        d.textureType = Quality.sampleCount > 1 ? .type2DMultisample : .type2D
+        d.sampleCount = Quality.sampleCount
+        d.usage = .renderTarget
+        d.storageMode = device.hasUnifiedMemory ? .memoryless : .private
+        return device.makeTexture(descriptor: d)
+    }
+
+    /// Draw the scene as it stands at `time` and queue it for the display.
+    func draw(at time: CFTimeInterval) {
+        guard metal.drawableSize.width > 0, let drawable = metal.nextDrawable() else { return }
+        let multisampled = Quality.sampleCount > 1
+        if color == nil, multisampled { color = target(metal.pixelFormat) }
+        if depth == nil { depth = target(.depth32Float) }
+        guard let depth, let commands = queue.makeCommandBuffer() else { return }
+        let pass = MTLRenderPassDescriptor()
+        if let color {
+            pass.colorAttachments[0].texture = color
+            pass.colorAttachments[0].resolveTexture = drawable.texture
+            pass.colorAttachments[0].storeAction = .multisampleResolve
+        } else {
+            pass.colorAttachments[0].texture = drawable.texture
+            pass.colorAttachments[0].storeAction = .store
+        }
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+        pass.depthAttachment.texture = depth
+        pass.depthAttachment.loadAction = .clear
+        pass.depthAttachment.storeAction = .dontCare
+        pass.depthAttachment.clearDepth = 1
+        renderer.render(atTime: time, viewport: CGRect(origin: .zero, size: metal.drawableSize),
+                        commandBuffer: commands, passDescriptor: pass)
+        commands.present(drawable)
+        commands.commit()
     }
 }
 
@@ -86,8 +250,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     ]
 
     private let background = CALayer()
-    private let sceneView = SCNView(frame: .zero)
     private let scene = SCNScene()
+    private lazy var stage = StageView(scene: scene)
     private let camera = SCNNode()
     private var models: [SCNNode] = []
     private var materials: [SCNMaterial] = []
@@ -137,7 +301,35 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var cornerFlash: [CGFloat] = [0, 0, 0, 0]
     private var lastBeatAt: Double = 0
     private var beatCount = 0
-    private var vibeTimer: Timer?
+    private let fishery = FisheryLayer()
+    private let school = FishSchool()
+    private let reef = Reef()
+    /// Fish and reef live in tank coordinates; this node slides them so the
+    /// screen shows its own stretch of a tank wider than itself.
+    private let world = SCNNode()
+    private var link: CADisplayLink?
+    private var lastTick: Double?
+    private var glowColor: (r: CGFloat, g: CGFloat, b: CGFloat) = (-1, -1, -1)
+    private var glowDark: Bool?
+    private var water = NSColor.black
+    private var stocked = false
+
+    // ── morphing water ────────────────────────────────────────────────────
+    // A stocked field in the dark is lit water whose colour never sits
+    // still: the hue walks the whole wheel every five minutes, and slow
+    // currents push it a little either way across the screen. The colour is
+    // made in a fragment shader on one plane behind everything, so it costs
+    // the main thread nothing; the haze, the marks' tint and the menu bar's
+    // backing follow the same hue a step at a time.
+    private static let hueLap: Double = 300
+    private let waterPlane = SCNNode()
+    private let waterFilm = SCNMaterial()
+    private var waterHue: CGFloat = 0.75
+    private var appliedHue: CGFloat = -1
+    private var environmentTone: NSColor?
+
+    private var targetFPS = 60
+    private var meter = FrameMeter()
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -147,20 +339,18 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         layer = root
         root.addSublayer(background)
 
-        sceneView.frame = bounds
-        sceneView.autoresizingMask = [.width, .height]
-        sceneView.scene = scene
-        sceneView.delegate = self
         // The backdrop is drawn by SceneKit itself (scene.background), so the
-        // view is opaque and mark edges resolve against the real backdrop
+        // stage is opaque and mark edges resolve against the real backdrop
         // instead of against a transparent surface composited later — the
         // latter left tinted alpha fringes along every silhouette.
-        sceneView.backgroundColor = .black
-        sceneView.antialiasingMode = .multisampling2X
-        sceneView.preferredFramesPerSecond = 30
-        sceneView.rendersContinuously = true
-        sceneView.isPlaying = true
-        addSubview(sceneView)
+        if let stage {
+            stage.frame = bounds
+            stage.autoresizingMask = [.width, .height]
+            stage.renderer.delegate = self
+            addSubview(stage)
+        } else {
+            fputs("no Metal device; the field stays empty\n", stderr)
+        }
         NotificationCenter.default.addObserver(
             self, selector: #selector(systemColorsDidChange),
             name: NSColor.systemColorsDidChangeNotification, object: nil)
@@ -175,36 +365,50 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
         loadModel()
         buildCameraAndLights()
+        buildWater()
         buildCornerGlows()
+        scene.rootNode.addChildNode(world)
+        world.addChildNode(school.root)
+        school.badge = Self.sharedPrototype
+        world.addChildNode(reef.root)
+        fishery.link = TankLink.shared
+        fishery.zPosition = 20
+        layer?.addSublayer(fishery)
         updateAppearance(animated: false)
-        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            self?.vibeTick()
-        }
-        timer.tolerance = 0.01
-        RunLoop.main.add(timer, forMode: .common)
-        vibeTimer = timer
     }
 
     required init?(coder: NSCoder) { nil }
 
     deinit {
-        vibeTimer?.invalidate()
+        link?.invalidate()
         NotificationCenter.default.removeObserver(self)
         DistributedNotificationCenter.default().removeObserver(self)
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        // Tick on the display's own refresh instead of a free-running timer,
+        // so every frame of motion lands on a vsync — no judder.
+        targetFPS = Quality.framesPerSecond(for: window?.screen)
+        if window != nil, link == nil {
+            let link = displayLink(target: self, selector: #selector(step(_:)))
+            let rate = Float(targetFPS)
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: rate, maximum: rate, preferred: rate)
+            link.add(to: .main, forMode: .common)
+            self.link = link
+        }
         updateAppearance(animated: false)
         guard let scale = window?.backingScaleFactor else { return }
-        // Native backing resolution avoids quadrupling render-target memory
-        // on 1× external displays. MSAA still smooths the geometry edges.
-        sceneView.layer?.contentsScale = scale
-        // The slow desktop field needs only a front/back drawable pair.
-        // A third full-screen Retina IOSurface costs ~19 MB on Blueberry.
-        if let metalLayer = sceneView.layer as? CAMetalLayer {
-            metalLayer.maximumDrawableCount = 2
-        }
+        // Retina renders at native backing resolution; a 1× display renders
+        // doubled and is averaged down (see Quality.supersample). 4× MSAA
+        // rides on top for the silhouettes.
+        let supersample = Quality.supersample(scale: scale, size: bounds.size)
+        stage?.supersample = supersample
+        fishery.scale = scale
+        // A front/back drawable pair is enough at 60 Hz and saves a
+        // full-screen IOSurface (~19 MB on Blueberry). Faster displays get
+        // the third so a late composite never stalls the next frame.
+        stage?.drawableCount = targetFPS > 60 || supersample > 1 ? 3 : 2
     }
 
     /// Posted after the system appearance flips. macOS keeps a light/dark
@@ -284,24 +488,27 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
     }
 
-    /// 30 Hz on the main thread: ease toward the published vibe, drive the
-    /// corner glows, and re-tint the backdrop when the color has moved.
-    private func vibeTick() {
-        let now = Date().timeIntervalSince1970
+    /// Once per frame on the main thread: ease toward the published vibe,
+    /// drive the corner glows, swim the fishery, and re-tint the backdrop
+    /// when the color has moved. `now` is the moment the frame is shown.
+    /// Easing constants are per-frame at 60 Hz, rescaled to the real step.
+    private func vibeTick(now: Double) {
+        let dt = CGFloat(min(0.1, max(0, now - (lastTick ?? now))))
+        lastTick = now
+        let ease = { (k: CGFloat) -> CGFloat in 1 - pow(1 - k, dt * 60) }
         var targetLevel: CGFloat = 0
         if let vibe {
             let age = now - vibe.at
-            // Hold for a beat, then let the room go quiet over ~3 s.
             // Hold for a beat, then let the room go quiet over ~2 s.
             targetLevel = CGFloat(vibe.glow) * CGFloat(exp(-max(0, age - 0.3) / 1.6))
             // The color moves fast: a new chord is a new room within a
             // couple of frames, not a slow tide.
             let c = vibe.color
-            vibeColor.r += (c.redComponent - vibeColor.r) * 0.35
-            vibeColor.g += (c.greenComponent - vibeColor.g) * 0.35
-            vibeColor.b += (c.blueComponent - vibeColor.b) * 0.35
+            vibeColor.r += (c.redComponent - vibeColor.r) * ease(0.35)
+            vibeColor.g += (c.greenComponent - vibeColor.g) * ease(0.35)
+            vibeColor.b += (c.blueComponent - vibeColor.b) * ease(0.35)
         }
-        vibeLevel += (targetLevel - vibeLevel) * (targetLevel > vibeLevel ? 0.7 : 0.1)
+        vibeLevel += (targetLevel - vibeLevel) * ease(targetLevel > vibeLevel ? 0.7 : 0.1)
         // Every hit flashes the outline; corners alternate pairs — odd beats
         // bottom-left and top-right hard, even beats the other pair — so
         // the room flickers rather than just pulsing.
@@ -314,31 +521,54 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
                 cornerFlash[i] = max(cornerFlash[i], hit)
             }
         }
-        for i in 0..<4 { cornerFlash[i] *= 0.80 }
+        let fade = pow(0.80, dt * 60)
+        for i in 0..<4 { cornerFlash[i] *= fade }
 
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let color = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
-        // In the dark the glows stay saturated — colored light in blackness,
-        // never a white-out; in the light they lift toward white.
-        let bright = dark ? color : (color.blended(withFraction: 0.35, of: .white) ?? color)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        // Recolor only when the vibe has moved; a quiet room touches nothing.
+        if glowDark != dark || abs(vibeColor.r - glowColor.r) + abs(vibeColor.g - glowColor.g)
+            + abs(vibeColor.b - glowColor.b) > 0.004 {
+            glowDark = dark
+            glowColor = vibeColor
+            let color = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
+            // In the dark the glows stay saturated — colored light in blackness,
+            // never a white-out; in the light they lift toward white.
+            let bright = dark ? color : (color.blended(withFraction: 0.35, of: .white) ?? color)
+            let colors = [bright.withAlphaComponent(dark ? 0.9 : 1.0).cgColor,
+                          color.withAlphaComponent(dark ? 0.5 : 0.6).cgColor,
+                          color.withAlphaComponent(dark ? 0.14 : 0.18).cgColor,
+                          color.withAlphaComponent(0).cgColor]
+            for g in cornerGlows {
+                g.colors = colors
+                g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
+            }
+        }
         for (i, g) in cornerGlows.enumerated() {
-            g.colors = [bright.withAlphaComponent(dark ? 0.9 : 1.0).cgColor,
-                        color.withAlphaComponent(dark ? 0.5 : 0.6).cgColor,
-                        color.withAlphaComponent(dark ? 0.14 : 0.18).cgColor,
-                        color.withAlphaComponent(0).cgColor]
-            g.compositingFilter = dark ? "screenBlendMode" : "multiplyBlendMode"
             // A slow breath per corner so the four never sit at one level.
             let breath = 0.75 + 0.25 * CGFloat(sin(now * 0.7 + Double(i) * 1.6))
             let level = min(1, vibeLevel * 0.9 * breath + cornerFlash[i] * 1.0)
-            g.opacity = Float(level * (dark ? 1.0 : 0.7))
+            // A dark glow leaves the tree, so the compositor skips its
+            // full-screen blend pass entirely.
+            let hidden = level < 0.003
+            if g.isHidden != hidden { g.isHidden = hidden }
+            if !hidden { g.opacity = Float(level * (dark ? 1.0 : 0.7)) }
         }
         CATransaction.commit()
+        fishery.tick(now: now, dark: dark)
+        if fishery.stocked != stocked {
+            stocked = fishery.stocked
+            updateAppearance(animated: true)
+        }
+        // Everything that follows the water re-tints about once a second;
+        // at this pace a step is a 250th of the wheel and cannot be seen.
+        waterHue = CGFloat(now.truncatingRemainder(dividingBy: Self.hueLap) / Self.hueLap)
+        if dark, stocked, abs(waterHue - appliedHue) > 0.004 { updateAppearance(animated: false) }
 
         // Backdrop and Pals follow the color as the level rises — at most a
         // ~70 % pull so the slab tone still shows through underneath.
-        vibeMix += (vibeLevel * (dark ? 0.5 : 0.7) - vibeMix) * 0.3
+        vibeMix += (vibeLevel * (dark ? 0.5 : 0.7) - vibeMix) * ease(0.3)
         let moved = abs(vibeMix - appliedVibeMix) > 0.01
             || abs(vibeColor.r - appliedVibeColor.r) + abs(vibeColor.g - appliedVibeColor.g)
                + abs(vibeColor.b - appliedVibeColor.b) > 0.03
@@ -402,9 +632,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     /// The live backdrop tone: slab's status tint when published, otherwise
     /// the accent-tinted wash.
     private func backdropColor() -> NSColor {
-        let tone = restingBackdropColor()
-        guard vibeMix > 0.005 else { return tone }
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        var tone = restingBackdropColor()
+        // The water's middle tone; the shader paints the field itself.
+        if dark, stocked { tone = NSColor(hue: waterHue, saturation: 0.72, brightness: 0.34, alpha: 1) }
+        guard vibeMix > 0.005 else { return tone }
         var vibe = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
         // Keep the mode. Dark is an abyss: the field itself stays near
         // black and only hints at the color — the color lives in the corner
@@ -432,6 +664,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private func backdropGradient() -> (top: NSColor, bottom: NSColor) {
         let tone = backdropColor().usingColorSpace(.sRGB) ?? backdropColor()
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        if dark, stocked {
+            // Water: dim under the menu bar, opening up toward the floor.
+            return (tone.blended(withFraction: 0.42, of: .black) ?? tone,
+                    tone.blended(withFraction: 0.10, of: .white) ?? tone)
+        }
         if dark {
             // Deeper than before: the bottom no longer lifts toward white,
             // so the whole field reads as depth rather than a lit panel.
@@ -440,6 +677,19 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
         return (tone.blended(withFraction: 0.16, of: .white) ?? tone,
                 tone.blended(withFraction: 0.12, of: .black) ?? tone)
+    }
+
+    private static func waterEnvironment(tone: NSColor) -> NSImage {
+        let size = NSSize(width: 64, height: 32)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        let surface = NSColor(srgbRed: 0.78, green: 0.92, blue: 1.0, alpha: 1)
+        let mid = tone.blended(withFraction: 0.35, of: .white) ?? tone
+        let deep = tone.blended(withFraction: 0.7, of: .black) ?? tone
+        NSGradient(colors: [deep, mid, surface], atLocations: [0, 0.55, 1], colorSpace: .sRGB)?
+            .draw(in: NSRect(origin: .zero, size: size), angle: 90)
+        image.unlockFocus()
+        return image
     }
 
     /// A tall, narrow gradient image; SceneKit stretches it over the view.
@@ -457,25 +707,56 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         super.layout()
         background.frame = bounds
         layoutCornerGlows()
+        // A tank pane: the fishery spans the whole world, shifted so this
+        // screen's stretch of it lands on the glass.
+        let tank = TankConfig.current
+        let worldW = max(tank?.width ?? bounds.width, bounds.width)
+        let offset = tank?.offset ?? 0
+        fishery.viewport = CGRect(x: offset, y: 0, width: bounds.width, height: bounds.height)
+        fishery.frame = CGRect(x: -offset, y: 0, width: worldW, height: bounds.height)
         guard bounds.width > 0, bounds.height > 0 else { return }
+        let k = Self.stageHalfHeight / (bounds.height / 2)
+        world.position = SCNVector3(-(offset + bounds.width / 2 - worldW / 2) * k, 0, 0)
+        waterFilm.setValue(Float(offset / bounds.width), forKey: "paneX")
 
         let aspect = bounds.width / bounds.height
         stageAspect = aspect
         let halfHeight = Self.stageHalfHeight
         camera.camera?.orthographicScale = Double(halfHeight)
+        if let plane = waterPlane.geometry as? SCNPlane {
+            plane.width = halfHeight * aspect * 2
+            plane.height = halfHeight * 2
+        }
+    }
+
+    /// Simulate for the moment this frame reaches the glass, not for
+    /// whenever the callback happened to run.
+    @objc private func step(_ link: CADisplayLink) {
+        vibeTick(now: Date().timeIntervalSince1970 + (link.targetTimestamp - CACurrentMediaTime()))
+        stage?.draw(at: link.targetTimestamp)
+    }
+
+    /// A window being replaced: stop everything this view drives. The
+    /// display link retains its target, so without this every rebuild left
+    /// a whole view behind, still ticking and holding its scene.
+    func retire() {
+        link?.invalidate()
+        link = nil
+        stage?.renderer.delegate = nil
+        stage?.renderer.scene = nil
+        school.retire()
     }
 
     func pauseAnimations() {
+        link?.isPaused = true
         scene.isPaused = true
-        sceneView.rendersContinuously = false
-        vibeTimer?.fireDate = .distantFuture
     }
 
     func resumeAnimations() {
+        lastTick = nil
+        meter.rest()
         scene.isPaused = false
-        sceneView.rendersContinuously = true
-        sceneView.isPlaying = true
-        vibeTimer?.fireDate = Date()
+        link?.isPaused = false
     }
 
     private func loadModel() {
@@ -534,7 +815,24 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
     }
 
+    func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
+        guard let line = meter.mark(target: targetFPS) else { return }
+        let view = renderer.currentViewport
+        print("\(line) · \(Int(view.width))x\(Int(view.height)) \(Quality.sampleCount)xMSAA")
+        fflush(stdout)
+    }
+
     func renderer(_ renderer: SCNSceneRenderer, updateAtTime time: TimeInterval) {
+        waterFilm.setValue(Float(waterHue), forKey: "baseHue")
+        waterFilm.setValue(Float(vibeMix), forKey: "vibeMix")
+        waterFilm.setValue(NSValue(scnVector3: SCNVector3(vibeColor.r, vibeColor.g, vibeColor.b)), forKey: "vibe")
+        // Inside the renderer's own update, scene changes land in this
+        // frame; made outside it they wait a run loop for their transaction.
+        school.water = water
+        school.sync(fishery.poses, size: fishery.bounds.size, halfHeight: Self.stageHalfHeight)
+        reef.sync(fishery.reef, size: fishery.bounds.size, halfHeight: Self.stageHalfHeight)
+        // Wall clock, so the water of every pane in a tank flows as one.
+        waterFilm.setValue(Float(Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 20000)), forKey: "clock")
         if motionEpoch == nil { motionEpoch = time }
         let elapsed = time - (motionEpoch ?? time)
         let halfHeight = Self.stageHalfHeight
@@ -605,6 +903,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         material.metalness.contents = 0.0
         material.roughness.contents = 1.0
         material.specular.contents = NSColor.black
+        if Emblem.bubbles { Self.makeBubble(material) }
         model.enumerateChildNodes { node, _ in
             if let geometry = node.geometry {
                 geometry.materials = [material]
@@ -612,6 +911,34 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
         materials = [material]
         applyAccentColor(animated: false)
+    }
+
+    /// Soap-film glass: clear through the middle, a bright rim, and a
+    /// thin-film rainbow that slides with the viewing angle as the mark turns.
+    /// The accent still tints the film. One-sided and depth-read only, so
+    /// each mark shows its own front shell without fighting its neighbours.
+    private static func makeBubble(_ material: SCNMaterial) {
+        material.lightingModel = .blinn
+        material.specular.contents = NSColor.white
+        material.shininess = 0.92
+        material.isDoubleSided = false
+        material.writesToDepthBuffer = false
+        material.blendMode = .alpha
+        material.transparencyMode = .singleLayer
+        material.shaderModifiers = [.fragment: """
+        float3 n = normalize(_surface.normal);
+        float3 v = normalize(_surface.view);
+        float facing = abs(dot(n, v));
+        float rim = pow(1.0 - facing, 2.0);
+        float t = scn_frame.time;
+        float film = rim * 2.6 + n.y * 0.9 + n.x * 0.5 + t * 0.12;
+        float3 iri = 0.5 + 0.5 * cos(6.28318 * (float3(0.0, 0.33, 0.67) + film));
+        float3 tint = _output.color.rgb;
+        float3 glass = mix(tint * 0.35, iri, 0.55 + 0.45 * rim) * (0.25 + rim * 1.1);
+        float glint = pow(saturate(dot(reflect(-v, n), normalize(float3(-0.4, 0.7, 0.6)))), 48.0);
+        _output.color.rgb = glass + glint * 1.4 + pow(rim, 5.0) * 0.5;
+        _output.color.a = saturate(0.08 + rim * 0.9 + glint);
+        """]
     }
 
     private func applyAccentColor(animated: Bool) {
@@ -631,13 +958,68 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         SCNTransaction.commit()
     }
 
+    /// One plane behind the whole stage, coloured per pixel. Hue: the
+    /// walking base, bent by four slow sines and a little by height.
+    /// Brightness: dim under the menu bar, opening toward the floor. A
+    /// grain of noise breaks the banding an 8-bit dark gradient shows.
+    private func buildWater() {
+        waterFilm.lightingModel = .constant
+        waterFilm.readsFromDepthBuffer = false
+        waterFilm.writesToDepthBuffer = false
+        waterFilm.shaderModifiers = [.fragment: """
+        #pragma arguments
+        float baseHue;
+        float vibeMix;
+        float3 vibe;
+        float paneX;
+        float clock;
+        #pragma body
+        // paneX: this screen's place in a tank, in screen widths, so the
+        // flow carries straight across the seam.
+        float2 uv = _surface.diffuseTexcoord + float2(paneX, 0.0);
+        float t = clock * 0.05;
+        float2 eddy = float2(0.5 + 0.35 * sin(t * 0.7), 0.5 + 0.35 * cos(t * 0.5));
+        float flow = sin(uv.x * 2.3 + t * 1.3) + sin(uv.y * 1.9 - t)
+                   + sin((uv.x + uv.y) * 1.4 + t * 0.6) + sin(length(uv - eddy) * 3.2 - t * 0.8);
+        float hue = fract(baseHue + flow * 0.04 + (uv.y - 0.5) * 0.12);
+        float3 wheel = saturate(abs(fract(hue + float3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0);
+        float value = mix(0.19, 0.40, uv.y) + flow * 0.012;
+        float3 c = value * mix(float3(1.0), wheel, 0.74);
+        // With music on, the room's colour, kept deep, takes its share.
+        c = mix(c, vibe * 0.14, vibeMix);
+        c += (fract(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
+        // Authored in display values; the target wants linear light.
+        _output.color.rgb = pow(max(c, 0.0), float3(2.2));
+        _output.color.a = 1.0;
+        """]
+        let plane = SCNPlane(width: 1, height: 1)
+        plane.materials = [waterFilm]
+        waterPlane.geometry = plane
+        waterPlane.position = SCNVector3(0, 0, -40)
+        waterPlane.renderingOrder = -1000
+        waterPlane.isHidden = true
+        scene.rootNode.addChildNode(waterPlane)
+    }
+
     private func buildCameraAndLights() {
         camera.camera = SCNCamera()
-        camera.camera?.usesOrthographicProjection = true
+        // Glows and specular glints bleed softly, like light in water.
         camera.camera?.wantsHDR = false
+        // HDR is only for bloom: no auto exposure, which would lift the
+        // dark field and blow the fish out to white.
+        camera.camera?.wantsExposureAdaptation = false
+        camera.camera?.exposureOffset = 0
+        camera.camera?.averageGray = 0.18
+        camera.camera?.whitePoint = 1
+        camera.camera?.minimumExposure = 0
+        camera.camera?.maximumExposure = 0
+        camera.camera?.bloomIntensity = 0
+        camera.camera?.bloomThreshold = 0.9
+        camera.camera?.bloomBlurRadius = 8
+        camera.camera?.usesOrthographicProjection = true
         camera.position = SCNVector3(0, 0, 4)
         scene.rootNode.addChildNode(camera)
-        sceneView.pointOfView = camera
+        stage?.renderer.pointOfView = camera
 
         let key = SCNNode()
         key.light = SCNLight()
@@ -658,14 +1040,33 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private func updateAppearance(animated: Bool) {
         applyAccentColor(animated: animated)
+        water = backdropColor()
         let gradient = backdropGradient()
-        scene.background.contents = Self.gradientImage(top: gradient.top, bottom: gradient.bottom)
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        appliedHue = waterHue
+        // The plane covers the gradient, so there is none to redraw then.
+        waterPlane.isHidden = !(dark && stocked)
+        if waterPlane.isHidden {
+            scene.background.contents = Self.gradientImage(top: gradient.top, bottom: gradient.bottom)
+        }
+        // Global light: a lat-long sky the physically based fish and the
+        // bubbles reflect — bright surface water above, the room's tone in
+        // the middle, the deep below.
+        // SceneKit refilters the whole environment whenever it changes, which
+        // drops a frame; morphing water keeps one fixed sky in a hue-less
+        // deep blue rather than refiltering on every step of the wheel.
+        let sky: NSColor? = waterPlane.isHidden ? water : nil
+        if sky != environmentTone || scene.lightingEnvironment.contents == nil {
+            environmentTone = sky
+            scene.lightingEnvironment.contents = Self.waterEnvironment(
+                tone: sky ?? NSColor(srgbRed: 0.10, green: 0.16, blue: 0.34, alpha: 1))
+        }
+        scene.lightingEnvironment.intensity = 0.7
         // macOS uses the opaque desktop window's backing color when choosing
         // menu-bar contrast. Keep it on the top tone, including appearance
         // flips after launch; a stale light backing creates a pale top scrim
         // with black menu text over an otherwise dark desktop.
         window?.backgroundColor = gradient.top
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let flipped = lastDark != nil && lastDark != dark
         lastDark = dark
         // The menu-bar compositor caches contrast for a desktop window even
@@ -732,9 +1133,13 @@ private final class WallpaperDelegate: NSObject, NSApplicationDelegate {
         // desktop picture, and the window coming in plus the one going out
         // each give WindowServer its cue to re-derive the menu bar backdrop.
         let retired = windows
+        let retiredViews = views
         windows.removeAll()
         views.removeAll()
-        defer { retired.forEach { $0.close() } }
+        defer {
+            retiredViews.forEach { $0.retire() }
+            retired.forEach { $0.close() }
+        }
         let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         for screen in NSScreen.screens {
             let window = NSWindow(contentRect: screen.frame, styleMask: [.borderless],
