@@ -25,7 +25,7 @@ if (!token) {
 const headers = { Authorization: `Bearer ${token}` };
 if (token.startsWith("xoxc-")) {
   if (!cookie) { console.error("slack-upload: xoxc token needs SLACK_MCP_XOXD_TOKEN"); process.exit(1); }
-  headers.Cookie = `d=${cookie}`;
+  headers.Cookie = `d=${cookie.includes("%") ? cookie : encodeURIComponent(cookie)}`;
 }
 
 async function api(method, params) {
