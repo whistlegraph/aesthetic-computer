@@ -131,6 +131,54 @@ typealias ACImage = NSImage
     }
 }
 
+// `--ac-launch-probe`: stamp each launch phase in ms since the kernel started
+// this process, add the page's own navigation timing at boot:ready, print one
+// JSON line and quit. Local benchmarking only.
+@MainActor enum LaunchTrace {
+    static let active = ProcessInfo.processInfo.arguments.contains("--ac-launch-probe")
+    private static var marks: [(String, Double)] = []
+    private static var done = false
+    private static let processStart: Double = {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.stride
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        guard sysctl(&mib, 4, &info, &size, nil, 0) == 0 else { return Date().timeIntervalSince1970 }
+        let t = info.kp_proc.p_un.__p_starttime
+        return Double(t.tv_sec) + Double(t.tv_usec) / 1_000_000
+    }()
+    static func sinceStart() -> Double { (Date().timeIntervalSince1970 - processStart) * 1000 }
+
+    static func mark(_ name: String) {
+        guard active, !done, !marks.contains(where: { $0.0 == name }) else { return }
+        marks.append((name, sinceStart()))
+    }
+
+    static func ready(_ webView: WKWebView?) {
+        guard active, !done else { return }
+        mark("boot:ready")
+        done = true
+        let js = """
+        (() => { const n = performance.getEntriesByType('navigation')[0] || {};
+          const r = (k) => Math.round(n[k] || 0);
+          return JSON.stringify({ now: Math.round(performance.now()), responseStart: r('responseStart'),
+            responseEnd: r('responseEnd'), domInteractive: r('domInteractive'),
+            domContentLoaded: r('domContentLoadedEventEnd'), load: r('loadEventEnd'),
+            resources: performance.getEntriesByType('resource').length,
+            list: performance.getEntriesByType('resource').map((e) => [e.name.replace(location.origin, ''), Math.round(e.duration), e.workerStart > 0 ? 1 : 0, e.transferSize]) }); })()
+        """
+        let finish: (Any?) -> Void = { page in
+            var out: [String: Any] = [:]
+            for (name, ms) in marks { out[name] = Int(ms.rounded()) }
+            if let page = page as? String { out["page"] = page }
+            if let data = try? JSONSerialization.data(withJSONObject: out, options: [.sortedKeys]),
+               let line = String(data: data, encoding: .utf8) { print("AC launch probe: " + line) }
+            fflush(stdout)
+            NSApp.terminate(nil)
+        }
+        if let webView { webView.evaluateJavaScript(js) { value, _ in finish(value) } } else { finish(nil) }
+    }
+}
+
 // WebKit can reset AppKit's cursor when the invisible prompt editor gains
 // focus, even while CSS still reports the SVG cursor. Reassert the same image
 // after mouse dispatch so native focus changes cannot replace it.

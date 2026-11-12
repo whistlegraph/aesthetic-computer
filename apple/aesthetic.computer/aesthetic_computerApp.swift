@@ -85,11 +85,15 @@ class AppDelegate: NSObject, ACApplicationDelegate {
 
     override init() {
         super.init()
+        #if os(macOS)
+        LaunchTrace.mark("delegate:init")
+        #endif
         AppDelegate.shared = self
     }
 
     #if os(macOS)
     func applicationDidFinishLaunching(_ notification: Notification) {
+        LaunchTrace.mark("didFinishLaunching")
         startNotifications()
         NSApp.activate(ignoringOtherApps: true)
     }

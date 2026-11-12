@@ -213,6 +213,7 @@ final class BootStatus: ObservableObject {
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         #if os(macOS)
+        LaunchTrace.mark("commit")
         // Give the live document keyboard focus without waiting for every
         // subresource to finish (audio/streams can keep a piece loading).
         webView.window?.makeFirstResponder(webView)
@@ -288,6 +289,9 @@ final class BootStatus: ObservableObject {
             if (dictionary["body"] as? Bool) == true { stats.start(webView) } else { stats.stop() }
         #endif
         case "boot:heartbeat":
+            #if os(macOS)
+            LaunchTrace.mark("firstHeartbeat")
+            #endif
             bootStatus?.heartbeat()
         case "boot:ready":
             bootStatus?.heartbeat(ready: true)
@@ -303,6 +307,7 @@ final class BootStatus: ObservableObject {
                     if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
                 }
                 MacPromptLatencyProbe.run(in: message.webView)
+                LaunchTrace.ready(message.webView)
                 message.webView?.evaluateJavaScript("window.acFrameMeter?.(false)") { _, _ in }
                 #endif
             }
@@ -363,6 +368,7 @@ struct WebView: ACWebViewRepresentable {
     func makeWebView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         #if os(macOS)
+        LaunchTrace.mark("makeWebView")
         MacPromptLatencyProbe.configure(config)
         #endif
         let userScript = WKUserScript(
@@ -530,6 +536,9 @@ struct WebView: ACWebViewRepresentable {
             timeoutInterval: 30
         )
         navigation.bypassCache = false
+        #if os(macOS)
+        LaunchTrace.mark("load")
+        #endif
         webView.load(request)
     }
 }
