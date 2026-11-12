@@ -3469,8 +3469,8 @@ function act(
   // 🔗 Link confirmation modal intercepts all events
   if (linkConfirmModal) {
     const { yesBtn, noBtn, altBtn, alt, action } = linkConfirmModal;
-    const inside = (b) => !!b && pen.x >= b.x && pen.x < b.x + b.w &&
-                          pen.y >= b.y && pen.y < b.y + b.h;
+    const inside = (b) => !!b && e.x >= b.x && e.x < b.x + b.w &&
+                          e.y >= b.y && e.y < b.y + b.h;
 
     // Handle hover states
     if (e.is("move") || e.is("draw")) {
@@ -3528,20 +3528,20 @@ function act(
     if (e.is("move") || e.is("draw")) {
       if (copyBtn && closeBtn) {
         if (heartBtn) {
-          messageCopyModal.hoverHeart = pen.x >= heartBtn.x && pen.x < heartBtn.x + heartBtn.w &&
-                                        pen.y >= heartBtn.y && pen.y < heartBtn.y + heartBtn.h;
+          messageCopyModal.hoverHeart = e.x >= heartBtn.x && e.x < heartBtn.x + heartBtn.w &&
+                                        e.y >= heartBtn.y && e.y < heartBtn.y + heartBtn.h;
         }
-        messageCopyModal.hoverCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
-                                      pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
-        messageCopyModal.hoverClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
-                                       pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
+        messageCopyModal.hoverCopy = e.x >= copyBtn.x && e.x < copyBtn.x + copyBtn.w &&
+                                      e.y >= copyBtn.y && e.y < copyBtn.y + copyBtn.h;
+        messageCopyModal.hoverClose = e.x >= closeBtn.x && e.x < closeBtn.x + closeBtn.w &&
+                                       e.y >= closeBtn.y && e.y < closeBtn.y + closeBtn.h;
         if (deleteBtn) {
-          messageCopyModal.hoverDelete = pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
-                                          pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+          messageCopyModal.hoverDelete = e.x >= deleteBtn.x && e.x < deleteBtn.x + deleteBtn.w &&
+                                          e.y >= deleteBtn.y && e.y < deleteBtn.y + deleteBtn.h;
         }
         if (editBtn) {
-          messageCopyModal.hoverEdit = pen.x >= editBtn.x && pen.x < editBtn.x + editBtn.w &&
-                                        pen.y >= editBtn.y && pen.y < editBtn.y + editBtn.h;
+          messageCopyModal.hoverEdit = e.x >= editBtn.x && e.x < editBtn.x + editBtn.w &&
+                                        e.y >= editBtn.y && e.y < editBtn.y + editBtn.h;
         }
       }
     }
@@ -3551,18 +3551,18 @@ function act(
     if (e.is("lift")) {
       if (copyBtn && closeBtn) {
         const clickedHeart = heartBtn &&
-                             pen.x >= heartBtn.x && pen.x < heartBtn.x + heartBtn.w &&
-                             pen.y >= heartBtn.y && pen.y < heartBtn.y + heartBtn.h;
-        const clickedCopy = pen.x >= copyBtn.x && pen.x < copyBtn.x + copyBtn.w &&
-                            pen.y >= copyBtn.y && pen.y < copyBtn.y + copyBtn.h;
-        const clickedClose = pen.x >= closeBtn.x && pen.x < closeBtn.x + closeBtn.w &&
-                             pen.y >= closeBtn.y && pen.y < closeBtn.y + closeBtn.h;
+                             e.x >= heartBtn.x && e.x < heartBtn.x + heartBtn.w &&
+                             e.y >= heartBtn.y && e.y < heartBtn.y + heartBtn.h;
+        const clickedCopy = e.x >= copyBtn.x && e.x < copyBtn.x + copyBtn.w &&
+                            e.y >= copyBtn.y && e.y < copyBtn.y + copyBtn.h;
+        const clickedClose = e.x >= closeBtn.x && e.x < closeBtn.x + closeBtn.w &&
+                             e.y >= closeBtn.y && e.y < closeBtn.y + closeBtn.h;
         const clickedDelete = deleteBtn &&
-                              pen.x >= deleteBtn.x && pen.x < deleteBtn.x + deleteBtn.w &&
-                              pen.y >= deleteBtn.y && pen.y < deleteBtn.y + deleteBtn.h;
+                              e.x >= deleteBtn.x && e.x < deleteBtn.x + deleteBtn.w &&
+                              e.y >= deleteBtn.y && e.y < deleteBtn.y + deleteBtn.h;
         const clickedEdit = editBtn &&
-                            pen.x >= editBtn.x && pen.x < editBtn.x + editBtn.w &&
-                            pen.y >= editBtn.y && pen.y < editBtn.y + editBtn.h;
+                            e.x >= editBtn.x && e.x < editBtn.x + editBtn.w &&
+                            e.y >= editBtn.y && e.y < editBtn.y + editBtn.h;
 
         if (clickedEdit) {
           beep();
