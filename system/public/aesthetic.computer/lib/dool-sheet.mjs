@@ -63,6 +63,72 @@ function ensure() {
 // The curtain is clear from the start, so the guest goes in at once.
 function warm() {
   ensure();
+  if (!said) loading(true);
+}
+
+// ⏳ Until the guest says hello, the prompt's crosshair is covered by a loader on
+// its exact square (16 prompt pixels, 14 in from the bottom-right): its four
+// corners chase in a dim cyan, and it takes the pointer, so an early tap or
+// hover never reaches the crosshair under it (2026-11-12).
+let loader = null, loaderRaf = 0;
+function placeLoader() {
+  const g = grid();
+  if (!loader || !g) return;
+  const px = g.pixel, side = 16;
+  Object.assign(loader.style, {
+    left: `${g.left + (g.width - 14 - side) * px}px`,
+    top: `${g.top + (g.height - 14 - side) * px}px`,
+    width: `${side * px}px`,
+    height: `${side * px}px`,
+    background: paper(),
+  });
+}
+function loading(on) {
+  if (on && !loader) {
+    loader = document.createElement("canvas");
+    loader.width = loader.height = 16;
+    loader.title = "dool is loading";
+    loader.setAttribute("aria-label", "dool is loading");
+    Object.assign(loader.style, {
+      position: "fixed",
+      zIndex: "10",
+      imageRendering: "pixelated",
+      cursor: "progress",
+      pointerEvents: "auto",
+      transition: "opacity 150ms",
+    });
+    const swallow = (e) => { e.preventDefault(); e.stopPropagation(); };
+    for (const t of ["pointerdown", "pointerup", "click", "touchstart", "touchend", "mousedown", "mouseup"])
+      loader.addEventListener(t, swallow, { passive: false });
+    document.body.append(loader);
+    placeLoader();
+    const ctx = loader.getContext("2d");
+    // The reticle's four L corners (arm 4, one pixel thick) about a dot.
+    const corners = [[0, 0, 1, 1], [15, 0, -1, 1], [15, 15, -1, -1], [0, 15, 1, -1]];
+    const tick = (now) => {
+      if (!loader) return;
+      ctx.clearRect(0, 0, 16, 16);
+      const lit = Math.floor(now / 140) % 4;
+      corners.forEach(([x, y, dx, dy], k) => {
+        ctx.fillStyle = k === lit ? "#00ffff" : k === (lit + 3) % 4 ? "rgba(0,255,255,0.45)" : "rgba(0,255,255,0.18)";
+        for (let i = 0; i < 4; i++) {
+          ctx.fillRect(x + dx * i, y, 1, 1);
+          ctx.fillRect(x, y + dy * i, 1, 1);
+        }
+      });
+      ctx.fillStyle = `rgba(0,255,255,${0.25 + 0.2 * Math.sin(now / 200)})`;
+      ctx.fillRect(7, 7, 2, 2);
+      loaderRaf = requestAnimationFrame(tick);
+    };
+    loaderRaf = requestAnimationFrame(tick);
+  } else if (!on && loader) {
+    const el = loader;
+    loader = null;
+    cancelAnimationFrame(loaderRaf);
+    el.style.opacity = "0";
+    el.style.pointerEvents = "none";
+    setTimeout(() => el.remove(), 160);
+  }
 }
 
 // 🔁 The prompt sleeps while the paper is away.
@@ -259,6 +325,7 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "dool:sheet:hello") {
     said = true;
+    loading(false);
     // This module can load after bios last reported focus: ask the window.
     if (!document.hasFocus() && state === "parked") resting = true;
     post({ type: "dool:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting, ...(dark === null ? {} : { dark }) });
@@ -306,6 +373,7 @@ function nativeCursorHidden(on) {
 
 // bios reframed: pass the new grid down.
 function framed() {
+  placeLoader();
   if (said) post({ type: "dool:sheet", grid: grid() });
 }
 
@@ -314,6 +382,7 @@ function framed() {
 function theme(value) {
   dark = typeof value === "boolean" ? value : null;
   if (frame) frame.style.background = paper();
+  if (loader) loader.style.background = paper();
   if (said && dark !== null) post({ type: "dool:sheet", dark });
 }
 

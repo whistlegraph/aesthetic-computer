@@ -112,7 +112,7 @@ test('presence uses verified AC handles, survives match reset and clears departe
   }
 });
 
-test('duplicate handle spectator cannot send player input, build, or occupy the second player slot', async () => {
+test('duplicate handle: the newest session takes the seat over; the older one watches and cannot play, build, or take a second slot', async () => {
   const app=createDuelServer({verifyIdentity:async token=>({handle:token==='another'?'another':'jeffrey',sub:'unused'}),resolveHandleColors:async()=>null});
   await app.ready;app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
   const url=`ws://127.0.0.1:${app.server.address().port}/play?room=watch&protocol=${PROTOCOL}`;
@@ -120,14 +120,15 @@ test('duplicate handle spectator cannot send player input, build, or occupy the 
   const connect=async token=>{const ws=new WebSocket(url,{headers:{authorization:'Bearer '+token}});ws.messages=[];ws.on('message',raw=>ws.messages.push(JSON.parse(raw)));sockets.push(ws);await once(ws,'open');return ws;};
   try {
     const a=await connect('same');await wait(()=>app.rooms.get('watch').members[0]?.handle==='jeffrey');
-    const b=await connect('same');await wait(()=>b.messages.some(m=>m.type==='presence'&&m.spectators===1));
+    const b=await connect('same');await wait(()=>a.messages.some(m=>m.type==='role'&&m.seat===-1));
+    assert.ok(b.messages.some(m=>m.type==='role'&&m.seat===0),'the newer session holds seat 0');
     assert.equal(app.rooms.get('watch').match.seats.filter(Boolean).length,1);
-    b.send(JSON.stringify({type:'input',commands:[{seq:1,fwd:1,right:1,yaw:90,pitch:0,buttons:1}]}));
-    b.send(JSON.stringify({type:'prompt',prompt:'build something'}));
-    await wait(()=>b.messages.some(m=>m.error==='Spectators cannot build'));
+    a.send(JSON.stringify({type:'input',commands:[{seq:1,fwd:1,right:1,yaw:90,pitch:0,buttons:1}]}));
+    a.send(JSON.stringify({type:'prompt',prompt:'build something'}));
+    await wait(()=>a.messages.some(m=>m.error==='Spectators cannot build'));
     assert.equal(app.rooms.get('watch').match.seats[0].ack,0);
     const c=await connect('another');await wait(()=>app.rooms.get('watch').members[1]?.handle==='another');
     assert.equal(app.rooms.get('watch').match.seats.filter(Boolean).length,2);
-    b.close();await once(b,'close');assert.equal(app.rooms.get('watch').match.seats.filter(Boolean).length,2);
+    a.close();await once(a,'close');assert.equal(app.rooms.get('watch').match.seats.filter(Boolean).length,2);
   } finally {for(const s of sockets)s.terminate();await app.close();}
 });

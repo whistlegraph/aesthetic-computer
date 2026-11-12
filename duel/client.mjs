@@ -526,11 +526,20 @@ function connect() {
         token = localStorage.getItem('dool-owner');
       } catch {}
       send({ type: 'identity', token });
-      void (account || accountToken()).then((accessToken) => {
+      void (async () => {
+        let accessToken = await (account || accountToken());
+        // Signed in here but no token yet (a slow link times the sign-in out):
+        // seat as a guest for now and keep asking; the server names the seat
+        // the moment the handle verifies, so the login is never dropped.
+        for (let i = 0; !accessToken && account && i < 4 && ws === socket; i++) {
+          if (i === 0) send({ type: 'account-none' });
+          await new Promise((r) => setTimeout(r, 2500 * (i + 1)));
+          if (ws === socket) accessToken = await accountToken();
+        }
         if (ws !== socket) return;
         if (accessToken) send({ type: 'account', accessToken });
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
-      });
+      })();
     }
     if (data.type === 'presence') {
       members = data.members;

@@ -2,7 +2,8 @@ import { guestName } from './guest-name.mjs';
 import { Match } from './match.mjs';
 import { MAX_PLAYERS } from './world.mjs';
 
-// Connections are not people. Duplicate verified handles share one player slot.
+// Connections are not people. Duplicate verified handles share one player slot,
+// held by the newest of them.
 export class Room {
   constructor(send) {
     this.send = send;
@@ -26,16 +27,26 @@ export class Room {
     this.assign();
     return record;
   }
+  // One person, one seat: a handle, else the guest's owner token, else the connection.
+  person(r) {
+    return r.handle?.toLowerCase() || r.owner || r;
+  }
   assign() {
-    const selected = [],
-      seen = new Set();
-    for (const r of this.sessions.values()) {
-      if (!r.ready) continue;
-      const key = r.handle?.toLowerCase() || r.owner || r;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      if (selected.length < MAX_PLAYERS) selected.push(r);
+    // The newest ready session of a person holds their seat (2026-11-12): a
+    // reload, or a second window, takes the body over in place, and the older
+    // session (often a socket still dying on a slow link) watches instead.
+    const latest = new Map();
+    for (const r of this.sessions.values()) if (r.ready) latest.set(this.person(r), r);
+    for (const [key, r] of latest) {
+      if (r.seat >= 0) continue;
+      for (const o of this.sessions.values())
+        if (o !== r && o.seat >= 0 && this.person(o) === key) {
+          r.seat = o.seat; // Handed over: same seat, same player, no leave or join.
+          o.seat = -1;
+          break;
+        }
     }
+    const selected = [...latest.values()].slice(0, MAX_PLAYERS);
     for (const r of this.sessions.values())
       if (r.seat >= 0 && !selected.includes(r)) {
         this.match.leave(r.seat);

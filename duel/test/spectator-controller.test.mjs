@@ -6,14 +6,14 @@ import {Controller,stick} from '../controller.mjs';
 import {moveFreecam} from '../freecam.mjs';
 import {parseSource,sourceFrame} from '../object-language.mjs';
 
-test('one handle claims one player; late identity cannot steal the earlier connection',()=>{
+test('one handle claims one player, held by its newest connection; an older one identifying late cannot take it back',()=>{
  const messages=[];const room=new Room((ws,data)=>messages.push({ws,...data}));
  const a={},b={},c={};const first=room.add(a,true),second=room.add(b,true);
  first.welcomed=second.welcomed=true;
  second.handle='Jeffrey';second.ready=true;room.assign();
  assert.equal(second.seat,0);
  first.handle='jeffrey';first.ready=true;room.assign();
- assert.equal(first.seat,0);assert.equal(second.seat,-1);
+ assert.equal(second.seat,0);assert.equal(first.seat,-1);
  assert.equal(room.match.seats.filter(Boolean).length,1);assert.equal(room.match.phase,'waiting');
  const other=room.add(c);other.handle='another';room.assign();assert.equal(other.seat,1);
  assert.equal(messages.filter(m=>m.type==='presence').at(-1).members.length,2);

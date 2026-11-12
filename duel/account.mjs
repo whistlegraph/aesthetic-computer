@@ -30,8 +30,9 @@ export async function accountToken() {
     const h = host();
     if (h) {
       // The host may still be starting its own session: give it a moment
+      // (8 s: on a slow link the prompt's own sign-in takes that long)
       // rather than opening a second one beside it.
-      for (let i = 0; i < 30 && !h.acTOKEN && !h.auth0Client && stored(); i++) await sleep(100);
+      for (let i = 0; i < 80 && !h.acTOKEN && !h.auth0Client && stored(); i++) await sleep(100);
       if (h.acTOKEN) return h.acTOKEN;
       if (h.auth0Client) {
         try {
@@ -50,9 +51,9 @@ export async function accountToken() {
       cacheLocation: 'localstorage',
       useRefreshTokens: true,
       authorizationParams: { redirect_uri: location.origin },
-      httpTimeoutInSeconds: 5,
+      httpTimeoutInSeconds: 15,
     });
-    return await auth.getTokenSilently({ timeoutInSeconds: 5 });
+    return await auth.getTokenSilently({ timeoutInSeconds: 15 });
   } catch {
     return null;
   }
