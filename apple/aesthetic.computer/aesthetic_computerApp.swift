@@ -45,6 +45,8 @@ private struct ComputerWindowCommands: Commands {
                 .keyboardShortcut("l").disabled(navigation == nil)
             Button("Reload") { navigation?.reload() }
                 .keyboardShortcut("r").disabled(navigation == nil)
+            Button("Hard Reload") { navigation?.hardReload() }
+                .keyboardShortcut("r", modifiers: [.command, .shift]).disabled(navigation == nil)
             Button("Open Audio…") {
                 let panel = NSOpenPanel()
                 panel.allowedContentTypes = [.audio]

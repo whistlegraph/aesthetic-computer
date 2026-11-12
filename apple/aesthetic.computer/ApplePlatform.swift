@@ -103,6 +103,34 @@ typealias ACImage = NSImage
     }
 }
 
+// `--ac-reload-probe N`: after boot, alternate N soft and hard reloads, one
+// second apart, print each reload → boot:ready time, then quit. Local
+// benchmarking only; nothing reads it otherwise.
+@MainActor enum MacReloadProbe {
+    private static let active = (Int(MacPromptLatencyProbe.argument("--ac-reload-probe") ?? "") ?? 0) > 0
+    private static var remaining = Int(MacPromptLatencyProbe.argument("--ac-reload-probe") ?? "") ?? 0
+    private static var results: [String] = []
+    private static var pending: String?
+    private static var hard = false
+
+    static func booted(_ navigation: AppNavigation) {
+        guard active else { return }
+        if let label = pending, let ms = navigation.lastReloadMs { results.append("\(label) \(Int(navigation.lastCommitMs ?? -1))/\(Int(ms))ms") }
+        pending = nil
+        guard remaining > 0 else {
+            print("AC reload probe: " + results.joined(separator: ", "))
+            NSApp.terminate(nil)
+            return
+        }
+        remaining -= 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            pending = hard ? "hard" : "soft"
+            if hard { navigation.hardReload() } else { navigation.reload() }
+            hard.toggle()
+        }
+    }
+}
+
 // WebKit can reset AppKit's cursor when the invisible prompt editor gains
 // focus, even while CSS still reports the SVG cursor. Reassert the same image
 // after mouse dispatch so native focus changes cannot replace it.
@@ -121,6 +149,7 @@ final class ACNativeWebView: WKWebView {
     private var colorObserver: NSObjectProtocol?
 
     private var cursorMonitor: Any?
+    private var keyMonitor: Any?
     private var cursorTrackingArea: NSTrackingArea?
     private lazy var acCursor = NSCursor(image: NSImage(named: "ACCursor")!,
                                         hotSpot: NSPoint(x: 12, y: 12))
@@ -142,6 +171,18 @@ final class ACNativeWebView: WKWebView {
         if let pending = AppNavigation.pendingURL {
             AppNavigation.pendingURL = nil
             navigation?.open(pending)
+        }
+        // ⌘R / ⇧⌘R act here, before WebKit hands the key to the page and waits
+        // for its answer: a page busy painting or collecting can't delay them.
+        if keyMonitor == nil {
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, event.window === self.window,
+                      event.charactersIgnoringModifiers?.lowercased() == "r" else { return event }
+                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if mods == .command { self.navigation?.reload(); return nil }
+                if mods == [.command, .shift] { self.navigation?.hardReload(); return nil }
+                return event
+            }
         }
         cursorMonitor = NSEvent.addLocalMonitorForEvents(matching: [
             .mouseMoved, .leftMouseDown, .leftMouseUp, .leftMouseDragged,
@@ -205,6 +246,80 @@ final class ACNativeWebView: WKWebView {
     deinit {
         if let colorObserver { NotificationCenter.default.removeObserver(colorObserver) }
         if let cursorMonitor { NSEvent.removeMonitor(cursorMonitor) }
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+    }
+}
+
+// 📊 Memory and CPU for the page's fps readout, twice a second while it's up:
+// the web content process (where the page and its worker run), the GPU
+// process and this app. The page has no memory API of its own in WebKit.
+@MainActor final class ProcessStatsSampler {
+    private let navigation: AppNavigation
+    private weak var webView: WKWebView?
+    private var timer: Timer?
+    private var previous: [pid_t: (cpu: UInt64, at: UInt64)] = [:]
+
+    init(navigation: AppNavigation) { self.navigation = navigation }
+
+    func start(_ webView: WKWebView) {
+        self.webView = webView
+        guard timer == nil else { return }
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self else { timer.invalidate(); return }
+                self.sample()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+        sample()
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+        previous.removeAll()
+    }
+
+    private func sample() {
+        guard let webView else { stop(); return }
+        var body: [String: Any] = [:]
+        func put(_ name: String, _ pid: pid_t?) {
+            guard let pid, pid > 0, let usage = usage(of: pid) else { return }
+            body[name] = ["mb": (usage.mb * 10).rounded() / 10, "cpu": (usage.cpu * 10).rounded() / 10]
+        }
+        put("web", processID(webView, "_webProcessIdentifier"))
+        put("gpu", processID(webView, "_gpuProcessIdentifier"))
+        put("app", getpid())
+        if let ms = navigation.lastReloadMs { body["reloadMs"] = Int(ms) }
+        guard let data = try? JSONSerialization.data(withJSONObject: body),
+              let json = String(data: data, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.acNativeStats?.(\(json))") { _, _ in }
+    }
+
+    /// WebKit's process identifiers are SPI; read them only if present.
+    private func processID(_ webView: WKWebView, _ key: String) -> pid_t? {
+        guard webView.responds(to: NSSelectorFromString(key)) else { return nil }
+        return (webView.value(forKey: key) as? NSNumber)?.int32Value
+    }
+
+    private func usage(of pid: pid_t) -> (mb: Double, cpu: Double)? {
+        var info = rusage_info_v4()
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
+                proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
+            }
+        }
+        guard result == 0 else { return nil }
+        // Both clocks count in mach ticks, so their ratio is the CPU share
+        // (100 = one core) on Apple silicon and Intel alike.
+        let cpu = info.ri_user_time + info.ri_system_time, now = mach_absolute_time()
+        var share = 0.0
+        if let last = previous[pid], now > last.at, cpu >= last.cpu {
+            share = Double(cpu - last.cpu) / Double(now - last.at) * 100
+        }
+        previous[pid] = (cpu, now)
+        return (Double(info.ri_phys_footprint) / 1_048_576, share)
     }
 }
 
@@ -246,6 +361,7 @@ extension Image {
     static func colorWindow(_ rgb: [Double], webView: WKWebView) {
         #if os(macOS)
         guard rgb.count == 3, rgb.allSatisfy({ $0.isFinite && (0...255).contains($0) }) else { return }
+        (webView as? ACNativeWebView)?.navigation?.pageColor = rgb
         // Match overscroll to the page; native chrome follows macOS appearance.
         webView.underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255,
             green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
@@ -288,7 +404,23 @@ extension Image {
     weak var webView: WKWebView?
     @Published var url = AppRoute.prompt
     @Published var revision = 0
+    /// Bumping this rebuilds the WKWebView itself (SwiftUI `.id`), so the next
+    /// load runs in a fresh web content process rather than a wedged one.
+    @Published var instance = 0
     @Published var windowTitle = "aesthetic.computer"
+    /// The next load skips the HTTP cache for the document (hard reload).
+    var bypassCache = false
+    /// The page's last colour, painted under the fresh instance so a hard
+    /// reload doesn't flash grey.
+    @Published var pageColor: [Double]?
+    /// The last frame, held over a reload until the next page is ready so
+    /// nothing flashes between them.
+    @Published var handoff: ACImage?
+    /// A soft reload that hasn't committed yet; a second ⌘R or a stall
+    /// escalates it to a hard one.
+    private var pendingReload: (id: Int, at: Date)?
+    private(set) var reloadStartedAt: Date?
+    var lastReloadMs: Double?
 
     func open(_ incoming: URL) {
         guard let destination = AppRoute.destination(for: incoming) else { return }
@@ -297,8 +429,62 @@ extension Image {
     }
 
     func reload() {
-        if let current = webView?.url?.absoluteString { url = current }
-        revision += 1
+        if pendingReload != nil { hardReload(); return } // Pressed again: insist.
+        reloadStartedAt = Date()
+        let id = revision + 1
+        pendingReload = (id, Date())
+        holdLastFrame { [weak self] in
+            guard let self, self.pendingReload?.id == id else { return }
+            if let current = self.webView?.url?.absoluteString { self.url = current }
+            self.revision = id
+        }
+        // A web process that can't commit a navigation in time is busy or hung.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self, self.pendingReload?.id == id else { return }
+            self.hardReload()
+        }
+    }
+
+    func hardReload() {
+        pendingReload = nil
+        reloadStartedAt = Date()
+        holdLastFrame { [weak self] in
+            guard let self else { return }
+            if let current = self.webView?.url?.absoluteString { self.url = current }
+            self.bypassCache = true
+            self.instance += 1
+        }
+    }
+
+    /// Snapshot what's on screen, then go — at most 80 ms later, so a wedged
+    /// page that can't answer still reloads at once (with no frame held).
+    private func holdLastFrame(then go: @escaping () -> Void) {
+        var gone = false
+        let once = { if !gone { gone = true; go() } }
+        if let webView, handoff == nil {
+            webView.takeSnapshot(with: nil) { [weak self] image, _ in
+                if !gone, let image { self?.handoff = image }
+                once()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (webView == nil ? 0 : 0.08), execute: once)
+        // Never hold it for long if the next page doesn't come up.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.handoff = nil }
+    }
+
+    func committed() {
+        pendingReload = nil
+        if let start = reloadStartedAt { lastCommitMs = Date().timeIntervalSince(start) * 1000 }
+    }
+    var lastCommitMs: Double?
+
+    func booted() {
+        handoff = nil
+        if let start = reloadStartedAt { lastReloadMs = Date().timeIntervalSince(start) * 1000 }
+        reloadStartedAt = nil
+        #if os(macOS)
+        MacReloadProbe.booted(self)
+        #endif
     }
 
     func prompt() { url = AppRoute.prompt; revision += 1 }

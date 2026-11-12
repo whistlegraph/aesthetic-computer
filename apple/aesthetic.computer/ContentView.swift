@@ -132,8 +132,10 @@ final class BootStatus: ObservableObject {
     weak var bootStatus: BootStatus?
     let navigation: AppNavigation
     private(set) var lastLoadedKey: String? = nil
+    private var lastTermination: Date?
     #if os(macOS)
     private var urlObservation: NSKeyValueObservation?
+    lazy var stats = ProcessStatsSampler(navigation: navigation)
 
     func observePiece(in webView: WKWebView) {
         urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak webView, weak self] _, _ in
@@ -208,13 +210,20 @@ final class BootStatus: ObservableObject {
         // subresource to finish (audio/streams can keep a piece loading).
         webView.window?.makeFirstResponder(webView)
         #endif
+        self.navigation.committed()
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         #if os(macOS)
         PointerLock.release(notifyPage: false)
         #endif
-        bootStatus?.setError("The page stopped. Reload to continue.")
+        // Come back on our own, in a fresh instance — unless it keeps dying.
+        if let last = lastTermination, Date().timeIntervalSince(last) < 10 {
+            bootStatus?.setError("The page stopped. Reload to continue.")
+        } else {
+            navigation.hardReload()
+        }
+        lastTermination = Date()
     }
 
     #if os(iOS)
@@ -265,12 +274,19 @@ final class BootStatus: ObservableObject {
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
                   let webView = message.webView, let rgb = dictionary["body"] as? [Double] else { return }
             ApplePlatform.colorWindow(rgb, webView: webView)
+        #if os(macOS)
+        case "fps:hud":
+            // The fps readout is up: sample memory and CPU for it.
+            guard message.frameInfo.isMainFrame, let webView = message.webView else { return }
+            if (dictionary["body"] as? Bool) == true { stats.start(webView) } else { stats.stop() }
+        #endif
         case "boot:heartbeat":
             bootStatus?.heartbeat()
         case "boot:ready":
             bootStatus?.heartbeat(ready: true)
             if message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                message.frameInfo.securityOrigin.host == "aesthetic.computer" {
+                navigation.booted()
                 LaunchPing.loaded(true)
                 #if os(macOS)
                 // Autoplay is allowed in our native host. Warm the worklet
@@ -438,12 +454,20 @@ struct WebView: ACWebViewRepresentable {
         // Keep WebKit's desktop identity; exact "Aesthetic" means iPhone in AC.
         webView.customUserAgent = nil
         webView.focusRingType = .none
+        // No white sheet of WebKit's own: the page is transparent until its
+        // piece paints (body.nogap), so the backdrop behind shows instead.
+        webView.setValue(false, forKey: "drawsBackground")
         // Safari's Web Inspector can attach to the native app (Develop menu →
         // this Mac → Aesthetic Computer): Timelines, Graphics and Layers for
         // the real WKWebView, which has no CDP (2026-11-08).
         if #available(macOS 13.3, *) { webView.isInspectable = true }
         context.coordinator.observePiece(in: webView)
-        webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
+        if let rgb = navigation.pageColor {
+            webView.underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255,
+                green: rgb[1] / 255, blue: rgb[2] / 255, alpha: 1)
+        } else {
+            webView.underPageBackgroundColor = NSColor(white: grey, alpha: 1)
+        }
         #else
         webView.customUserAgent = "Aesthetic"
 
@@ -480,7 +504,7 @@ struct WebView: ACWebViewRepresentable {
         guard var components = URLComponents(string: url) else { return }
         if components.scheme == "http" || components.scheme == "https" {
             var items = components.queryItems ?? []
-            items.removeAll { $0.name == "nogap" }
+            items.removeAll { $0.name == "nogap" || $0.name == "_iosbust" }
             items.append(URLQueryItem(name: "nogap", value: "true"))
             items.append(URLQueryItem(
                 name: "_iosbust",
@@ -492,11 +516,13 @@ struct WebView: ACWebViewRepresentable {
         // The shell is per-request HTML and _iosbust already makes its URL new;
         // a reload-ignoring-cache policy would also force every module and
         // asset of the page past the cache.
+        // A hard reload skips the cache for the document only.
         let request = URLRequest(
             url: bustedURL,
-            cachePolicy: .useProtocolCachePolicy,
+            cachePolicy: navigation.bypassCache ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy,
             timeoutInterval: 30
         )
+        navigation.bypassCache = false
         webView.load(request)
     }
 }
@@ -558,7 +584,11 @@ struct ContentView: View {
     private var liveURL: String { navigation.url }
     private var backdrop: Color {
         #if os(macOS)
-        Color(nsColor: .windowBackgroundColor)
+        // The page's own last colour, else the runtime's grey.
+        if let rgb = navigation.pageColor {
+            return Color(.sRGB, red: rgb[0] / 255, green: rgb[1] / 255, blue: rgb[2] / 255)
+        }
+        return Color(red: grey, green: grey, blue: grey)
         #else
         Color(red: grey, green: grey, blue: grey)
         #endif
@@ -588,6 +618,14 @@ struct ContentView: View {
                         reloadTrigger: bootStatus.reloadTrigger + navigation.revision,
                         bootStatus: bootStatus, navigation: navigation
                     )
+                    .id(navigation.instance) // A new instance is a new web process.
+                }
+
+                if let frame = navigation.handoff {
+                    Image(acImage: frame)
+                        .resizable()
+                        .interpolation(.none)
+                        .allowsHitTesting(false)
                 }
 
                 if bootStatus.stalled || bootStatus.lastError != nil {
