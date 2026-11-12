@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include "QuickJsEngine.hpp"
 #include "../runtime/include/ac/theme_assets.hpp"
 extern "C" {
@@ -19,9 +21,27 @@ namespace {
 struct RetainedMesh;  // ScenePrimitives.inc
 // Meshes the piece uploads once and draws by handle; owned by the piece, so
 // they live exactly as long as its JS context.
-struct SceneStore { std::vector<std::shared_ptr<RetainedMesh>> meshes; };
+struct SceneStore {
+  std::vector<std::shared_ptr<RetainedMesh>> meshes;
+  // sceneApi 4: what this piece holds on the GPU, handed back with its context.
+  struct GpuMeshInfo { int maxJoint = -1; bool skinned = false; };
+  struct MaterialSlot { scene4::Material value; bool live = false; };
+  Graphics* gpu = nullptr;
+  std::unordered_map<int, GpuMeshInfo> gpuMeshes;
+  std::unordered_set<int> gpuTextures;
+  std::vector<MaterialSlot> materials;
+  std::vector<scene4::Instance> instanceScratch;
+  void release() {
+    if (gpu) {
+      for (const auto& mesh : gpuMeshes) gpu->gpu_mesh_free(mesh.first);
+      for (int texture : gpuTextures) gpu->gpu_texture_free(texture);
+    }
+    *this = SceneStore{};
+  }
+};
 struct CallScope { Api* api; SceneStore scene; bool rebootRequested = false; };
 #include "ScenePrimitives.inc"
+#include "Scene4Bindings.inc"
 
 bool ValidOskiewarMatchId(std::string_view value) {
   if (value.substr(0, 3) != "ow-") return false;
@@ -966,8 +986,11 @@ JSValue Capabilities(JSContext* context, JSValueConst, int, JSValueConst*) {
   JS_SetPropertyStr(context, result, "liveLocalState", JS_NewBool(context, true));
   // The scene API level the piece may assume (xbox/ENGINE.md). Additive only:
   // 1 = triangles3d/disc3d/capsule3d/sceneMesh, 2 = + postEffects and retained
-  // meshes (meshUpload/meshDraw/meshFree), 3 = + raymarched sdfFigure.
-  JS_SetPropertyStr(context, result, "sceneApi", JS_NewInt32(context, 3));
+  // meshes (meshUpload/meshDraw/meshFree), 3 = + raymarched sdfFigure,
+  // 4 = + GPU-resident meshes (gpuMesh/gpuDraw, SCENE-API-4.md), reported
+  // only when the host's pass actually came up.
+  JS_SetPropertyStr(context, result, "sceneApi",
+    JS_NewInt32(context, scope->api->graphics.gpu_ready() ? 4 : 3));
   return result;
 }
 
@@ -1161,6 +1184,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "discShow", JS_NewCFunction(context_, DiscShow, "discShow", 1));
     JS_SetPropertyStr(context_, global, "discCopy", JS_NewCFunction(context_, DiscCopy, "discCopy", 0));
     JS_SetPropertyStr(context_, global, "discPhoto", JS_NewCFunction(context_, DiscPhoto, "discPhoto", 4));
+    Scene4Install(context_, global);
     JS_FreeValue(context_, global);
     JSValue result = JS_Eval(context_, source_.data(), source_.size(),
                              slug_.c_str(), JS_EVAL_TYPE_GLOBAL);
@@ -1170,6 +1194,7 @@ class QuickJsPiece final : public JsPiece {
   }
   ~QuickJsPiece() override { Destroy(); }
   void Destroy() {
+    scope_.scene.release();
     if (context_) JS_FreeContext(context_);
     if (runtime_) JS_FreeRuntime(runtime_);
     context_ = nullptr; runtime_ = nullptr; valid_ = false;

@@ -10,6 +10,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "scene4.hpp"
+
 namespace ac::xbox {
 
 // Keep these spellings aligned with the browser/ac-native piece API.  The
@@ -121,6 +123,20 @@ class Graphics {
   // has no raycast pass and the piece draws the flat ball.
   virtual bool raycast(int /*kind*/, float /*x*/, float /*y*/, float /*radius*/,
       float /*z*/, float /*zFront*/, float /*roll*/, float /*tumble*/) { return false; }
+  // sceneApi 4 (native-bios/SCENE-API-4.md): meshes and textures that live on
+  // the GPU, drawn by handle. Handles are positive; -1 means the host refused
+  // (no GPU path, or over a budget). A host without the pass keeps these.
+  virtual bool gpu_ready() const { return false; }
+  virtual int gpu_mesh(const scene4::MeshData&) { return -1; }
+  virtual bool gpu_mesh_free(int) { return false; }
+  virtual int gpu_texture(int /*width*/, int /*height*/, const std::uint8_t* /*rgba*/, unsigned /*flags*/) { return -1; }
+  virtual bool gpu_texture_free(int) { return false; }
+  virtual void gpu_environment(const scene4::Environment&) {}
+  virtual void gpu_lights(const std::vector<scene4::Light>&) {}
+  // Triangles queued (instances that survived culling × the mesh's), 0 when
+  // culled, a stale handle, or the frame's draw budget is spent.
+  virtual std::size_t gpu_draw(const scene4::Draw&) { return 0; }
+  virtual scene4::Stats gpu_stats() const { return {}; }
   virtual void write(const Text&) = 0;
   virtual void system_write(const SystemText&) {}
   virtual void system_glyph(const SystemGlyph&) {}
