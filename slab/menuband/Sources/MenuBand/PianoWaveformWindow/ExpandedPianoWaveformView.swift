@@ -21,6 +21,8 @@ final class ExpandedPianoWaveformView: NSView {
     /// chosen (it shows the large QWERTY that the choice drives).
     private let modeStack = NSStackView()
     private let keymapPopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+    /// Piano | Ocarina — which instrument the keys play, beside the layout.
+    private let instrumentSegment = NSSegmentedControl()
     private let waveformSection = NSView()
     /// Needle + rolling-buffer scope — the same live "playhead with chunky
     /// min/max columns" the popover shows (`WaveformStripView`), swapped in for
@@ -66,12 +68,6 @@ final class ExpandedPianoWaveformView: NSView {
     /// The popover that hosts the gamepad config, shown from the Gamepad
     /// toggle. Built lazily on first open.
     private var gamepadPopover: NSPopover?
-    /// Direct builds put REC + Squawk behind one intentionally special
-    /// affordance. Store builds retain a ghosted Magic button in the row so
-    /// the product's full silhouette remains visible without exposing
-    /// unavailable sandboxed behavior.
-    private var magicPopover: NSPopover?
-    private weak var magicToggle: NSButton?
     /// The Gamepad toggle button — held so the popover's delegate can reset its
     /// pushOnPushOff state when the popover is dismissed by clicking away.
     private weak var gamepadToggle: NSButton?
@@ -263,22 +259,38 @@ final class ExpandedPianoWaveformView: NSView {
         // Keymap selector, centered under the QWERTY.
         modeStack.orientation = .horizontal
         modeStack.alignment = .centerY
-        modeStack.spacing = 8
+        modeStack.spacing = 6
         modeStack.translatesAutoresizingMaskIntoConstraints = false
         // Record pill leads the row — the fullscreen sample-record affordance.
         // Hidden in the App Store build (the SAMPLE cell + backtick still
         // record); the fullscreen REC pill is direct-download only.
-        let modeSymbol = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+        let modeSymbol = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
         keymapPopUp.addItems(withTitles: ["Menu Band", "AWSED", "MilkyTracker"])
         for (index, tag) in [0, 1, 2].enumerated() {
             keymapPopUp.item(at: index)?.tag = tag
         }
-        keymapPopUp.controlSize = .regular
+        keymapPopUp.controlSize = .small
+        keymapPopUp.setContentCompressionResistancePriority(.required, for: .horizontal)
         keymapPopUp.target = self
         keymapPopUp.action = #selector(keymapPopUpChanged(_:))
         keymapPopUp.toolTip = "Choose the computer-keyboard note layout"
         keymapPopUp.translatesAutoresizingMaskIntoConstraints = false
         modeStack.addArrangedSubview(keymapPopUp)
+        // The strip reads in three groups: how the keys map (layout,
+        // instrument), what you play with (gamepad, voice, sample), and help.
+        instrumentSegment.segmentCount = MenuBandInstrument.allCases.count
+        for (i, inst) in MenuBandInstrument.allCases.enumerated() {
+            instrumentSegment.setLabel(inst.rawValue.capitalized, forSegment: i)
+        }
+        instrumentSegment.trackingMode = .selectOne
+        instrumentSegment.controlSize = .small
+        instrumentSegment.setContentCompressionResistancePriority(.required, for: .horizontal)
+        instrumentSegment.target = self
+        instrumentSegment.action = #selector(instrumentSegmentChanged(_:))
+        instrumentSegment.toolTip = "Instrument — which keys play. The voice is separate."
+        instrumentSegment.translatesAutoresizingMaskIntoConstraints = false
+        modeStack.addArrangedSubview(instrumentSegment)
+        modeStack.setCustomSpacing(14, after: instrumentSegment)
         // Gamepad — toggles the controller-config cluster, which is hidden by
         // default so it doesn't clutter the full-screen keymap view.
         let gamepadToggle = HoverFeedbackButton(
@@ -287,7 +299,8 @@ final class ExpandedPianoWaveformView: NSView {
         gamepadToggle.tag = 2
         gamepadToggle.bezelStyle = .recessed
         gamepadToggle.setButtonType(.pushOnPushOff)
-        gamepadToggle.controlSize = .regular
+        gamepadToggle.controlSize = .small
+        gamepadToggle.setContentCompressionResistancePriority(.required, for: .horizontal)
         gamepadToggle.imagePosition = .imageLeading
         gamepadToggle.imageHugsTitle = true
         gamepadToggle.image = NSImage(systemSymbolName: "gamecontroller",
@@ -298,66 +311,35 @@ final class ExpandedPianoWaveformView: NSView {
         self.gamepadToggle = gamepadToggle
         modeStack.addArrangedSubview(gamepadToggle)
 
-        // REC + Squawk are Menu Band's deliberately magical, system-level
-        // features. Keep their place in the product visible without making
-        // the main layout row read like a control dump.
-        //
-        // The sandboxed build shows nothing here. It used to carry a dimmed
-        // twin pointing at the direct download, which spent a slot in the row
-        // advertising another way to get the app rather than doing anything.
-        // If these come back it will be the way the trackpad did — through the
-        // helper that already holds the event tap the sandbox denies — and the
-        // button returns enabled, keyed to whether that helper is present
-        // rather than to which build this is.
+        // Squawk (voice) and the sample REC sit in the row directly. They used
+        // to hide behind an unlabeled ✨ popover. Direct-download only: the
+        // sandboxed build has no event tap for them.
         #if !MAC_APP_STORE
-        configureMagicPopover(symbolConfiguration: modeSymbol)
-        let magicButton = HoverFeedbackButton(
-            title: "", target: self,
-            action: #selector(toggleMagicPopover(_:)))
-        magicButton.bezelStyle = .recessed
-        magicButton.setButtonType(.pushOnPushOff)
-        magicButton.controlSize = .regular
-        magicButton.imagePosition = .imageOnly
-        magicButton.image = NSImage(systemSymbolName: "sparkles",
-                                    accessibilityDescription: "REC and Squawk")?
-            .withSymbolConfiguration(modeSymbol)
-        magicButton.setAccessibilityLabel("REC and Squawk")
-        magicButton.toolTip = "REC + Squawk"
-        magicButton.translatesAutoresizingMaskIntoConstraints = false
-        configureBottomBarHover(magicButton)
-        magicToggle = magicButton
-        modeStack.addArrangedSubview(magicButton)
+        let squawkButton = makeSquawkButton(symbolConfiguration: modeSymbol)
+        modeStack.addArrangedSubview(squawkButton)
+        configureRecordButton()
+        modeStack.addArrangedSubview(recordButton)
+        modeStack.setCustomSpacing(14, after: recordButton)
+        #else
+        modeStack.setCustomSpacing(14, after: gamepadToggle)
         #endif
-        // LLMs — opens the copy-paste guide that teaches an LLM (Claude, etc.)
-        // to drive Menu Band over its notification hooks: autoplay, the live
-        // engine, speech, and the peer-to-peer fleet. Sits at the right side of
-        // the row, after all the layout buttons. Momentary, not a toggle.
-        let llmButton = HoverFeedbackButton(title: "LLMs", target: self,
-                                            action: #selector(openLLMGuide(_:)))
-        llmButton.bezelStyle = .recessed
-        llmButton.setButtonType(.momentaryPushIn)
-        llmButton.controlSize = .regular
-        llmButton.imagePosition = .imageLeading
-        llmButton.imageHugsTitle = true
-        llmButton.image = NSImage(systemSymbolName: "sparkles",
-                                  accessibilityDescription: "LLMs")?
+        // Help — one "?" that opens a short menu: the LLM guide (teaches an
+        // LLM to drive Menu Band over its notification hooks) and the keymaps
+        // paper (why these layouts). Two help buttons didn't fit the row.
+        let helpButton = HoverFeedbackButton(title: "", target: self,
+                                             action: #selector(showHelpMenu(_:)))
+        helpButton.bezelStyle = .recessed
+        helpButton.setButtonType(.momentaryPushIn)
+        helpButton.controlSize = .small
+        helpButton.imagePosition = .imageOnly
+        helpButton.image = NSImage(systemSymbolName: "questionmark.circle",
+                                   accessibilityDescription: "Help")?
             .withSymbolConfiguration(modeSymbol)
-        llmButton.toolTip = "Play Menu Band with an LLM — copy a guide for Claude"
-        llmButton.translatesAutoresizingMaskIntoConstraints = false
-        configureBottomBarHover(llmButton)
-        modeStack.addArrangedSubview(llmButton)
-        // "?" — why these layouts? Opens the keymaps paper (bundled PDF in
-        // Preview, or the hosted URL). Momentary, small, stays at the very
-        // right end of the row.
-        let whyButton = HoverFeedbackButton(title: "?", target: self,
-                                            action: #selector(openKeymapsPaper(_:)))
-        whyButton.bezelStyle = .recessed
-        whyButton.setButtonType(.momentaryPushIn)
-        whyButton.controlSize = .small
-        whyButton.toolTip = "Why this layout? — open the keymaps paper"
-        whyButton.translatesAutoresizingMaskIntoConstraints = false
-        configureBottomBarHover(whyButton)
-        modeStack.addArrangedSubview(whyButton)
+        helpButton.toolTip = "Help — play with an LLM, or why this layout"
+        helpButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        helpButton.translatesAutoresizingMaskIntoConstraints = false
+        configureBottomBarHover(helpButton)
+        modeStack.addArrangedSubview(helpButton)
         contentStack.addArrangedSubview(modeStack)
         for label in [focusHintLabel, octaveHintLabel, layoutHintLabel] {
             label.font = NSFont.systemFont(ofSize: 10, weight: .bold)
@@ -478,15 +460,14 @@ final class ExpandedPianoWaveformView: NSView {
         button.titleBrightensOnHover(hoverColor: cyan)
     }
 
-    private func configureMagicPopover(symbolConfiguration: NSImage.SymbolConfiguration) {
-        configureRecordButton()
-
+    private func makeSquawkButton(symbolConfiguration: NSImage.SymbolConfiguration) -> HoverFeedbackButton {
         let squawkButton = HoverFeedbackButton(
             title: "Squawk", target: self,
             action: #selector(openSquawkWindow(_:)))
         squawkButton.bezelStyle = .recessed
         squawkButton.setButtonType(.momentaryPushIn)
-        squawkButton.controlSize = .regular
+        squawkButton.controlSize = .small
+        squawkButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         squawkButton.imagePosition = .imageLeading
         squawkButton.imageHugsTitle = true
         squawkButton.image = NSImage(
@@ -494,34 +475,9 @@ final class ExpandedPianoWaveformView: NSView {
             accessibilityDescription: "Squawk")?
             .withSymbolConfiguration(symbolConfiguration)
         squawkButton.toolTip = "Squawk — voice dictation"
+        squawkButton.translatesAutoresizingMaskIntoConstraints = false
         configureBottomBarHover(squawkButton)
-
-        let controls = NSStackView(views: [recordButton, squawkButton])
-        controls.orientation = .horizontal
-        controls.alignment = .centerY
-        controls.spacing = 8
-        controls.translatesAutoresizingMaskIntoConstraints = false
-
-        let content = NSView()
-        content.addSubview(controls)
-        let pad: CGFloat = 12
-        NSLayoutConstraint.activate([
-            controls.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: pad),
-            controls.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -pad),
-            controls.topAnchor.constraint(equalTo: content.topAnchor, constant: pad),
-            controls.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -pad),
-        ])
-        content.layoutSubtreeIfNeeded()
-
-        let vc = NSViewController()
-        vc.view = content
-        vc.preferredContentSize = content.fittingSize
-
-        let popover = NSPopover()
-        popover.contentViewController = vc
-        popover.behavior = .transient
-        popover.delegate = self
-        magicPopover = popover
+        return squawkButton
     }
 
     @available(*, unavailable)
@@ -612,25 +568,27 @@ final class ExpandedPianoWaveformView: NSView {
         }
     }
 
-    @objc private func toggleMagicPopover(_ sender: NSButton) {
-        guard let popover = magicPopover else { return }
-        if popover.isShown {
-            popover.performClose(sender)
-        } else {
-            updateRecordButton()
-            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
-            sender.state = .on
-        }
+    @objc private func showHelpMenu(_ sender: NSButton) {
+        let menu = NSMenu()
+        let llm = NSMenuItem(title: "Play with an LLM…", action: #selector(openLLMGuide(_:)), keyEquivalent: "")
+        llm.target = self
+        llm.image = NSImage(systemSymbolName: "text.bubble", accessibilityDescription: nil)
+        menu.addItem(llm)
+        let why = NSMenuItem(title: "Why this layout?", action: #selector(openKeymapsPaper(_:)), keyEquivalent: "")
+        why.target = self
+        why.image = NSImage(systemSymbolName: "doc.text", accessibilityDescription: nil)
+        menu.addItem(why)
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 4), in: sender)
     }
 
-    @objc private func openLLMGuide(_ sender: NSButton) {
+    @objc private func openLLMGuide(_ sender: Any?) {
         LLMGuideWindowController.show()
     }
 
     /// "Why this layout?" — opens the keymaps paper: the bundled PDF (in
     /// Preview, offline) if present, else the canonical hosted URL in the
     /// browser.
-    @objc private func openKeymapsPaper(_ sender: NSButton) {
+    @objc private func openKeymapsPaper(_ sender: Any?) {
         if let url = Bundle.appResources.url(
             forResource: "keymaps-social-software-26-arxiv", withExtension: "pdf") {
             NSWorkspace.shared.open(url)
@@ -790,9 +748,18 @@ final class ExpandedPianoWaveformView: NSView {
         refresh()
     }
 
+    @objc private func instrumentSegmentChanged(_ sender: NSSegmentedControl) {
+        let all = MenuBandInstrument.allCases
+        guard let menuBand, all.indices.contains(sender.selectedSegment) else { return }
+        menuBand.instrument = all[sender.selectedSegment]
+        refresh()
+    }
+
     /// Sync the toggle + QWERTY to the controller's current keymap.
     private func updateModeToggle() {
         guard let menuBand else { return }
+        instrumentSegment.selectedSegment =
+            MenuBandInstrument.allCases.firstIndex(of: menuBand.instrument) ?? 0
         qwertyView.keymap = menuBand.keymap
         let activeTag: Int
         switch menuBand.keymap {
@@ -811,29 +778,23 @@ final class ExpandedPianoWaveformView: NSView {
     /// local-key path; `updateRecordButton()` keeps its look in sync with the
     /// live recording state (including when the physical ` key drives it).
     private func configureRecordButton() {
-        recordButton.title = "REC"
-        recordButton.bezelStyle = .rounded
-        recordButton.controlSize = .large
+        recordButton.title = "Sample"
+        recordButton.bezelStyle = .recessed
+        recordButton.controlSize = .small
         recordButton.setButtonType(.pushOnPushOff)
         recordButton.imagePosition = .imageLeading
         recordButton.imageHugsTitle = true
-        recordButton.font = NSFont.systemFont(ofSize: 13, weight: .heavy)
-        let dot = NSImage.SymbolConfiguration(pointSize: 11, weight: .black)
-        recordButton.image = NSImage(systemSymbolName: "circle.fill",
+        let dot = NSImage.SymbolConfiguration(pointSize: 11, weight: .regular)
+            .applying(.init(paletteColors: [.systemRed]))
+        recordButton.image = NSImage(systemSymbolName: "record.circle",
                                      accessibilityDescription: "Record sample")?
             .withSymbolConfiguration(dot)
-        recordButton.contentTintColor = .white
-        recordButton.bezelColor = .systemRed
         recordButton.toolTip = "Record a microphone sample — same as the ` key"
         recordButton.target = self
         recordButton.action = #selector(toggleSampleRecording(_:))
         recordButton.wantsLayer = true
         recordButton.translatesAutoresizingMaskIntoConstraints = false
-        recordButton.onHoverChange = { [weak self] hovered in
-            self?.recordButton.bezelColor = hovered ? .systemPink : .systemRed
-        }
-        // Never let the pill get squeezed or stretched by the row — it keeps
-        // its intrinsic width so the leading edge stays a stable primary action.
+        configureBottomBarHover(recordButton)
         recordButton.setContentHuggingPriority(.required, for: .horizontal)
         recordButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         updateRecordButton()
@@ -1195,7 +1156,6 @@ extension ExpandedPianoWaveformView: NSPopoverDelegate {
     func popoverDidClose(_ notification: Notification) {
         guard let popover = notification.object as? NSPopover else { return }
         if popover === gamepadPopover { gamepadToggle?.state = .off }
-        if popover === magicPopover { magicToggle?.state = .off }
     }
 }
 
