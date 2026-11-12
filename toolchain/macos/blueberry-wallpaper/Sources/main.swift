@@ -231,7 +231,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private static let specs = [
         PalsSpec(x: -0.82, scale: 0.62, riseSeconds: 34, turnSeconds: 23, phase: 0.02, sway: 0.030, reverse: false),
         PalsSpec(x: -0.42, scale: 1.00, riseSeconds: 42, turnSeconds: 31, phase: 0.14, sway: 0.044, reverse: true),
-        PalsSpec(x: 0.00, scale: 1.30, riseSeconds: 48, turnSeconds: 38, phase: 0.27, sway: 0.032, reverse: false),
+        // Two giants: big slow bubbles behind the school.
+        PalsSpec(x: 0.00, scale: 3.40, riseSeconds: 96, turnSeconds: 70, phase: 0.27, sway: 0.020, reverse: false),
         PalsSpec(x: 0.42, scale: 0.75, riseSeconds: 36, turnSeconds: 25, phase: 0.39, sway: 0.046, reverse: true),
         PalsSpec(x: 0.82, scale: 1.10, riseSeconds: 44, turnSeconds: 34, phase: 0.51, sway: 0.034, reverse: false),
         PalsSpec(x: -0.62, scale: 1.18, riseSeconds: 46, turnSeconds: 36, phase: 0.63, sway: 0.038, reverse: true),
@@ -242,7 +243,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         PalsSpec(x: -0.72, scale: 0.48, riseSeconds: 29, turnSeconds: 19, phase: 0.20, sway: 0.055, reverse: false),
         PalsSpec(x: -0.52, scale: 0.88, riseSeconds: 43, turnSeconds: 33, phase: 0.32, sway: 0.026, reverse: true),
         PalsSpec(x: -0.08, scale: 0.70, riseSeconds: 37, turnSeconds: 24, phase: 0.45, sway: 0.047, reverse: false),
-        PalsSpec(x: 0.10, scale: 1.08, riseSeconds: 50, turnSeconds: 41, phase: 0.57, sway: 0.024, reverse: true),
+        PalsSpec(x: 0.10, scale: 2.60, riseSeconds: 84, turnSeconds: 62, phase: 0.77, sway: 0.018, reverse: true),
         PalsSpec(x: 0.34, scale: 0.52, riseSeconds: 30, turnSeconds: 18, phase: 0.68, sway: 0.052, reverse: false),
         PalsSpec(x: 0.54, scale: 0.96, riseSeconds: 45, turnSeconds: 35, phase: 0.79, sway: 0.031, reverse: true),
         PalsSpec(x: 0.78, scale: 0.58, riseSeconds: 33, turnSeconds: 21, phase: 0.89, sway: 0.044, reverse: false),
