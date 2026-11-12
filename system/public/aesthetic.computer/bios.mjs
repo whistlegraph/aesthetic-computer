@@ -3996,7 +3996,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           const portPost = speakerProcessor.port.postMessage.bind(speakerProcessor.port);
           speakerProcessor.port.postMessage = (msg, transfer) => {
             const kind = typeof msg?.type === "string" ? msg.type : "";
-            if (audioRested && !kind.startsWith("get-")) wakeAudio(kind || "sound");
+            if (!kind.startsWith("get-")) {
+              // A piece asking for sound is sounding, whatever the sampled
+              // level says: short notes fall between level reads, and a
+              // window woken for a note was re-rested before its next one
+              // (clock went silent and dropped to 10 fps whenever Menu Band
+              // took focus, 2026-11-12).
+              lastAudibleAt = performance.now();
+              if (audioRested) wakeAudio(kind || "sound");
+            }
             return transfer === undefined ? portPost(msg) : portPost(msg, transfer);
           };
         }
@@ -6576,7 +6584,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // jeffrey wants every window smooth; the savings are the still windows,
     // the sleeping mime feed and resting audio).
     const resting = !document.hidden && !focused && now - lastInputAt > 500;
-    const paceMs = resting && now - lastPaintAt > 1000 ? 100 : 0;
+    // A window that is sounding keeps full pace: the paced sim carries its
+    // ticks in 10 Hz bursts, which a piece sequencing notes plays out of time.
+    const sounding = now - lastAudibleAt < 3000 || anythingStreaming();
+    const paceMs = resting && !sounding && now - lastPaintAt > 1000 ? 100 : 0;
     if (paceMs !== pacing.paceMs) Loop.pace(paceMs);
     pacing.paceMs = paceMs;
     pacing.resting = resting;
