@@ -2716,6 +2716,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         return redraw();
       }
       if (state.busy) { flash("wait for this turn to finish, then /update"); return redraw(); }
+      if (autoUpdating) { flash("already updating — the donkey's on it"); return redraw(); }
       try {
         if (installed()) {
           const update = await checkForUpdate({ force: true });
@@ -3541,7 +3542,7 @@ let servedAskedAt = 0;
 async function lookForUpdate(force = false) {
   if (installed()) {
     const update = await checkForUpdate({ force }).catch(() => null);
-    if (update) announceUpdate(update.version, "release");
+    if (update) void autoUpdate(update);
   } else {
     const onDisk = currentVersion();
     if (onDisk && startedVersion && isNewer(onDisk, startedVersion)) announceUpdate(onDisk, "checkout");
@@ -3551,10 +3552,38 @@ async function lookForUpdate(force = false) {
     if (served && onDisk && isNewer(served.version, onDisk)) announceUpdate(served.version, "behind");
   }
 }
-void lookForUpdate();
+// An install updates itself: it waits for a quiet moment (no turn, no upload),
+// downloads with the donkey bouncing over a progress bar, then restarts in
+// place with the thread intact. AESEL_AUTO_UPDATE=0 keeps the old banner and
+// leaves it to /update; so does the desktop shell, which runs its own swap.
+let autoUpdating = false;
+const windowBusy = () => turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending || harnessSettings.pending;
+async function autoUpdate(update) {
+  if (autoUpdating) return;
+  if (process.env.AESEL_AUTO_UPDATE === "0" || desktopSessionPath) return announceUpdate(update.version, "release");
+  autoUpdating = true;
+  while (windowBusy()) { if (closing || finishing) return; await new Promise((resolve) => setTimeout(resolve, 1000)); }
+  state.update = { version: update.version, kind: "installing", progress: 0, dismissed: false };
+  redraw();
+  try {
+    await applyUpdate({ manifest: update, onProgress: (fraction) => { if (state.update?.kind === "installing") { state.update.progress = fraction; redraw(); } } });
+    state.update.progress = 1;
+    redraw();
+    const become = () => { if (closing || finishing) return; if (windowBusy()) return void setTimeout(become, 500); void restartInPlace(); };
+    setTimeout(become, 700);
+  } catch (error) {
+    autoUpdating = false;
+    state.update = null;
+    addEntry("error", `Auto-update to ${update.version} failed: ${errorText(error)} · /update retries`);
+    announceUpdate(update.version, "release");
+  }
+}
+// An install asks at launch (not once a day) so a window opens on news.
+void lookForUpdate(installed());
 setInterval(() => void lookForUpdate(installed()), installed() ? 30 * 60 * 1000 : 60 * 1000).unref();
 // The banner flashes on a slow beat; the beat only runs while it shows.
 setInterval(() => { if (state.update && !state.update.dismissed) { state.nowMs = Date.now(); redraw(); } }, 650).unref();
+setInterval(() => { if (state.update?.kind === "installing") { state.nowMs = Date.now(); redraw(); } }, 160).unref();
 // Every save that reaches the phone is a candidate for the public URL too, and
 // so is the blank. That reverses an earlier rule — an untouched session used to
 // leave nothing behind, out there or in the workspace — because the address on

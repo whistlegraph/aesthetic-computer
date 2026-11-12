@@ -132,3 +132,21 @@ test("the installer is the same script under both names and keeps what it finds"
   assert.equal(readFileSync(join(prefix, "history/abc/v1.json"), "utf8"), "kept");
   for (const name of ["ac", "a", "aes", "aesel", "easel"]) assert.ok(existsSync(join(home, ".local/bin", name)), name);
 });
+
+test("an update reports its progress as the download lands, then unpacks and swaps", async (t) => {
+  const r = release(t);
+  const home = mkdtempSync(join(tmpdir(), "aesel-update-progress-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const root = join(home, "aesel");
+  put(join(root, "install.json"), "{}");
+  put(join(root, "bin/easel"), "old");
+  const half = Math.floor(r.bytes.length / 2);
+  const parts = [r.bytes.subarray(0, half), r.bytes.subarray(half)];
+  const fetch = async () => ({ ok: true, headers: { get: (name) => name === "content-length" ? String(r.bytes.length) : null },
+    body: { getReader: () => ({ read: async () => parts.length ? { done: false, value: new Uint8Array(parts.shift()) } : { done: true } }) } });
+  const seen = [];
+  await applyUpdate({ fetch, site: "https://example.test", root, onProgress: (f) => seen.push(f),
+    manifest: { version: r.version, sha256: r.sha256, tarball: "/aesel.tar.gz" } });
+  assert.deepEqual(seen.map((f) => Math.round(f * 100)), [0, Math.round(85 * half / r.bytes.length), 85, 85, 90, 100]);
+  assert.equal(readFileSync(join(root, "src/tui.mjs"), "utf8"), "// new");
+});

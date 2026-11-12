@@ -1334,6 +1334,7 @@ export function dropdownGeometry(state, width, height, shape = state.layout || {
 function updateBanner(state, width, area) {
   const update = state.update;
   if (!update || update.dismissed) return null;
+  if (update.kind === "installing") return installBanner(update, width, area, state.nowMs ?? Date.now());
   const lines = update.kind === "behind" ? [
     `✦ Aesel ${update.version} is out ✦`,
     "this checkout is behind · git pull, then /update",
@@ -1349,10 +1350,39 @@ function updateBanner(state, width, area) {
   return { lines, inner, x, top, height: lines.length + 2 };
 }
 
+// Installing itself: the donkey hops above a little bar that fills as the
+// release downloads, unpacks and swaps in. Two rows for the hop: he is up on
+// one beat and down on the next, and his face flips to a grin at the top.
+export const INSTALL_BAR = 18;
+export function installBanner(update, width, area, now) {
+  const fraction = Math.max(0, Math.min(1, Number(update.progress) || 0));
+  const filled = Math.round(fraction * INSTALL_BAR);
+  const up = Math.floor(now / 160) % 4 < 2;
+  const donkey = up ? "//(^.^)>" : "//(o.o)>";
+  const lines = [
+    up ? donkey : "",
+    up ? "" : donkey,
+    `updating to Aesel ${update.version}`,
+    `▕${"█".repeat(filled)}${"░".repeat(INSTALL_BAR - filled)}▏ ${String(Math.round(fraction * 100)).padStart(3)}%`,
+  ];
+  const inner = Math.min(width - 4, Math.max(...lines.map((line) => textWidth(line))) + 6);
+  if (inner < 20 || area < lines.length + 2) return null;
+  const x = Math.max(0, Math.floor((width - inner) / 2));
+  const top = Math.max(0, Math.floor((area - lines.length - 2) / 2));
+  return { lines, inner, x, top, height: lines.length + 2, installing: true };
+}
+
 // The banner is also a button: a click on it is /update.
 function paintUpdate(rows, state, width, area, useColor) {
   const banner = updateBanner(state, width, area);
   if (!banner) return rows;
+  if (banner.installing) {
+    const paint = (text) => useColor ? `${bg([40, 34, 60])}${fg([235, 225, 255])}${fit(` ${text}`, banner.inner)}${color.reset}${color.ground}` : fit(` ${text}`, banner.inner);
+    const box = ["", ...banner.lines.map((line) => " ".repeat(Math.max(0, Math.floor((banner.inner - 2 - textWidth(line)) / 2))) + line), ""];
+    const out = [...rows];
+    box.forEach((text, i) => { const y = banner.top + i; if (y < out.length) out[y] = `${fit(out[y], banner.x)}${paint(text)}`; });
+    return out;
+  }
   const { lines, inner, x, top } = banner;
   const red = Math.floor((state.nowMs ?? Date.now()) / 650) % 2 === 0;
   const paintRow = (text) => useColor

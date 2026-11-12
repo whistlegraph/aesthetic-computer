@@ -142,7 +142,11 @@ export async function checkForUpdate({
 // into the new one before the old one goes. Installs made by easel.sh live in
 // ~/.local/share/easel, which is also where history and transcripts were kept,
 // and a swap that dropped the whole folder dropped them with it.
-export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manifest, root = ROOT } = {}) {
+// `onProgress(fraction)` hears the download as it lands (0 → 0.85), then the
+// unpack (0.9) and the swap (1); a server that sends no length reports only
+// the steps.
+export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manifest, root = ROOT, onProgress = () => {} } = {}) {
+  const progress = (fraction) => { try { onProgress(Math.max(0, Math.min(1, fraction))); } catch {} };
   if (!existsSync(join(root, "install.json"))) throw new Error("this aesel is a checkout, not an install — use git");
   const release = manifest || (await fetchManifest({ fetch, site }));
 
@@ -150,7 +154,21 @@ export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manif
     signal: AbortSignal.timeout(60_000),
   });
   if (!response.ok) throw new Error(`download HTTP ${response.status}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
+  progress(0);
+  const length = Number(response.headers?.get?.("content-length")) || 0;
+  let bytes;
+  if (length && response.body?.getReader) {
+    const reader = response.body.getReader(), chunks = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      progress(0.85 * got / length);
+    }
+    bytes = Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  } else bytes = Buffer.from(await response.arrayBuffer());
+  progress(0.85);
 
   const got = createHash("sha256").update(bytes).digest("hex");
   if (got !== release.sha256) {
@@ -164,6 +182,7 @@ export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manif
     const unpacked = join(work, "unpacked");
     mkdirSync(unpacked);
     await run("tar", ["-xzf", archive, "-C", unpacked]);
+    progress(0.9);
     if (!existsSync(join(unpacked, "bin", "easel"))) {
       throw new Error("that archive does not look like aesel");
     }
@@ -185,6 +204,7 @@ export async function applyUpdate({ fetch = globalThis.fetch, site = SITE, manif
       if (!existsSync(join(target, name))) renameSync(join(previous, name), join(target, name));
     }
     rmSync(previous, { recursive: true, force: true });
+    progress(1);
     return release.version;
   } finally {
     rmSync(work, { recursive: true, force: true });
