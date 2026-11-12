@@ -340,6 +340,10 @@ fi
 # signed Resources/Assets directory. Copying source assets explicitly avoids
 # SwiftPM's generated accessor and its embedded local build path.
 JUKE_ASSETS_SRC="${SCRIPT_DIR}/../../juke-wizard/Sources/JukeWizard/Assets"
+# Public mirror: the Juke package ships in Vendor/ (see Package.swift).
+if [[ ! -d "${JUKE_ASSETS_SRC}" ]]; then
+    JUKE_ASSETS_SRC="${SCRIPT_DIR}/Vendor/juke-wizard/Sources/JukeWizard/Assets"
+fi
 if [[ -d "${JUKE_ASSETS_SRC}" ]]; then
     rm -rf "${APP_RES:?}/Assets"
     cp -R "${JUKE_ASSETS_SRC}" "${APP_RES}/Assets"

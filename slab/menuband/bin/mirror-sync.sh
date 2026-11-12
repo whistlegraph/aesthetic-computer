@@ -154,6 +154,28 @@ find "${WORK}" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
 git archive "HEAD:${PREFIX}" | tar -x -C "${WORK}"
 find "${WORK}" -name '.DS_Store' -delete
 
+# Menu Band's Package.swift depends on two sibling packages that live outside
+# the prefix. Vendor them so a fresh clone of the mirror builds; the layout
+# keeps juke-wizard's own `../slab/macos-audio` pointing at the same copy.
+mkdir -p "${WORK}/Vendor/slab/macos-audio" "${WORK}/Vendor/juke-wizard"
+git archive "HEAD:slab/macos-audio" | tar -x -C "${WORK}/Vendor/slab/macos-audio"
+git archive "HEAD:juke-wizard" | tar -x -C "${WORK}/Vendor/juke-wizard"
+
+# Some sources are symlinks into the monorepo (CGMSynth -> fedac/native/src,
+# CSinger -> live/). They would dangle in the mirror, so replace every link
+# that leaves the prefix with a real copy of what it points at. The prefix's
+# working tree is verified clean above, so on-disk content == HEAD.
+PREFIX_ABS="$(cd "${REPO_ROOT}/${PREFIX}" && pwd -P)"
+(cd "${WORK}" && find . -type l -print) | while IFS= read -r link; do
+    rel="${link#./}"
+    target="$(cd "$(dirname "${PREFIX_ABS}/${rel}")" && realpath "$(basename "${rel}")")"
+    case "${target}" in
+        "${PREFIX_ABS}"/*) continue ;;   # internal link — keep it
+    esac
+    rm "${WORK}/${rel}"
+    cp -RL "${PREFIX_ABS}/${rel}" "${WORK}/${rel}"
+done
+
 # Drop in / refresh the README so contributors see the mirror
 # notice and contribution flow. The README lives in the mono so
 # it's editable from the canonical side.

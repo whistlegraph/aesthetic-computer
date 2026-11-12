@@ -1,12 +1,22 @@
 // swift-tools-version:5.9
 import PackageDescription
+import Foundation
+
+// Inside the aesthetic.computer monorepo the audio and Juke packages sit beside
+// this one. The public mirror (github.com/whistlegraph/menuband) carries them in
+// Vendor/ instead, laid out so juke-wizard's own `../slab/macos-audio` resolves
+// to the same copy.
+let here = Context.packageDirectory
+let inMonorepo = FileManager.default.fileExists(atPath: here + "/../macos-audio/Package.swift")
+let macosAudioPath = inMonorepo ? "../macos-audio" : "Vendor/slab/macos-audio"
+let jukeWizardPath = inMonorepo ? "../../juke-wizard" : "Vendor/juke-wizard"
 
 let package = Package(
     name: "MenuBand",
     platforms: [.macOS(.v12)],
     dependencies: [
-        .package(path: "../macos-audio"),
-        .package(path: "../../juke-wizard"),
+        .package(path: macosAudioPath),
+        .package(path: jukeWizardPath),
     ],
     targets: [
         .target(name: "CRealtimeAudio", path: "Sources/CRealtimeAudio", publicHeadersPath: "include"),

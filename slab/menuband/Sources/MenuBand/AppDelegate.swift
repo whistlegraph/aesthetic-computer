@@ -3883,23 +3883,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // the first mapped PHYSICAL key is what promotes that state to
         // keyboard-performance focus. Mouse-only auditions therefore
         // never acquire slide ownership or the red defocus cue.
-        let promoting = !self.keyboardPerformanceFocusActive
+        // Typing after a click is keyboard focus only. It must NOT take the
+        // pointer: promoting it into the full ⌘⌘ surface hid and pinned the
+        // cursor and installed the global click shield, so a player who
+        // clicked a key and typed could no longer click anything else until
+        // they knew to press Escape. The trackpad drum stays behind the
+        // explicit ⌘⌘ gesture; a click in another app resigns the capture
+        // panel and ends this focus the ordinary way.
         self.keyboardPerformanceFocusActive = true
-        if promoting {
-            // Promotion is the SAME focus ⌘⌘ arms, so it owes the same
-            // surface: TrackDrum live, pointer hidden and pinned. The
-            // flag alone left the trackpad dead in a session that
-            // otherwise looked focused. Deferred off the key event for
-            // the reason the quiet-focus tap defers — arming does real
-            // AppKit work (key-window dance, click-shield handshake),
-            // and running it mid-dispatch resigns the very capture it
-            // is promoting.
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.localCapture.isArmed,
-                      self.keyboardPerformanceFocusActive else { return }
-                self.enterFullPerformanceFocus()
-            }
-        }
         // Note plays only — the floating panel is reserved
         // for explicit triggers (LED chip / gear popover).
         // Earlier this called `showIfNeeded()` so a typed
