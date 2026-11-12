@@ -1117,6 +1117,39 @@ function fillExpandedWithFadePixels(screen, width, height, oldWidth, oldHeight, 
 // The worker's own query, typed by the ledger (lib/params.mjs); read by name.
 const workerQuery = parseQuery(location.search);
 const projectionMode = workerQuery.nolabel === true; // Skip loading noise.
+// 🐚 shellhtml mode — the runtime is hosted by an HTML shell (prompt.ac) that
+// owns the prompt + return-to-prompt chrome in crisp DOM above the pixel
+// buffer. The composited typable prompt and corner label stand down here.
+const shellHTMLMode = workerQuery.shellhtml === true;
+
+// Mirror the prompt TextInput out to the shell whenever it changes, so LLM
+// replies, command confirmations, and the thinking state render in DOM even
+// though the composited prompt never paints. Runs from the prompt system's
+// sim in place of prompt_sim.
+let shellLabelLast = null;
+function shellLabelSync() {
+  const text = currentHUDTxt || "";
+  const plain = currentHUDPlainTxt || stripCodes(text) || "";
+  const color = Array.isArray(currentHUDTextColor) ? currentHUDTextColor.slice(0, 4) : null;
+  const state = text + "\0" + plain + "\0" + (color ? color.join(",") : "");
+  if (state === shellLabelLast) return;
+  shellLabelLast = state;
+  send({ type: "hud:label:shell", content: { text, plain, color } });
+}
+
+let shellPromptLast = null;
+function shellPromptSync($) {
+  const input = $.system?.prompt?.input;
+  if (!input) return;
+  const thinking = !!$.system.prompt.thinking;
+  const state = (input.text || "") + "\0" + thinking;
+  if (state === shellPromptLast) return;
+  shellPromptLast = state;
+  send({
+    type: "prompt:text:shell",
+    content: { text: input.text || "", thinking },
+  });
+}
 
 import { setDebug } from "../disks/common/debug.mjs";
 import { customAlphabet } from "../dep/nanoid/nanoid.js";
@@ -2721,7 +2754,8 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
-const fpsHud = { on: false, painted: [], stats: null, gc: 0, lastGcAt: 0, sentinel: null, lines: null, key: "" }; // The fps readout (bios fps:hud).
+const fpsHud = { on: false, painted: [], stats: null, gc: 0, lastGcAt: 0, sentinel: null, lines: null, key: "", history: [], sampledAt: 0 }; // The fps readout (bios fps:hud).
+const fpsColor = (fps) => (fps >= 55 ? [90, 235, 140] : fps >= 30 ? [255, 205, 60] : [255, 85, 95]);
 // This worker's own collections, counted the way bios counts the page's: a
 // sentinel dropped every 100 ms that only a GC can finalize.
 const fpsHudRegistry = typeof FinalizationRegistry === "function"
@@ -3418,6 +3452,11 @@ const $commonApi = {
     const sound = {};
     if (color[0] === "yellow" && color[1] === "red") sound.tone = 300;
     noticeBell(cachedAPI, sound);
+    // The host shell (prompt.ac) covers the pixel buffer with its DOM, so
+    // notices also travel up to render as crisp DOM flashes.
+    if (shellHTMLMode) {
+      send({ type: "notice:shell", content: { text: msg, color } });
+    }
   },
   // 🪟 A crisp vector overlay, drawn on the native UI canvas (uiCtx) above the pixel
   // buffer. Hand it a display-list of ops each frame and bios replays them with
@@ -3942,6 +3981,9 @@ const $commonApi = {
     data: {},
   },
   system: {
+    // 🐚 True when an HTML shell (prompt.ac) hosts the runtime and owns the
+    // prompt / corner chrome in DOM — pieces skip their own low-res chrome.
+    shellhtml: shellHTMLMode,
     // prompt: { input: undefined }, Gets set in `prompt_boot`.
     // 🎵 ac-electron drag-drop: set when a file is dropped onto the app
     // (Dock icon or running window). Pieces (notably `play`) read this on
@@ -10094,7 +10136,8 @@ async function load(
 
       sim = ($) => {
         module.sim?.($);
-        prompt.prompt_sim($);
+        if (!shellHTMLMode) prompt.prompt_sim($);
+        else shellPromptSync($); // mirror reply text / thinking to the shell
       };
 
       paint = ($) => {
@@ -10107,7 +10150,9 @@ async function load(
           noPaint = true;
         }
 
-        const promptPainted = prompt.prompt_paint($);
+        // shellhtml: the host page's DOM layer IS the prompt — never composite
+        // the low-res typable input over the stage beneath it.
+        const promptPainted = shellHTMLMode ? false : prompt.prompt_paint($);
         // A piece that returns nothing keeps repainting, as every piece does;
         // one that returns false rests, unless the input is typing.
         if (noPaint === undefined) return undefined;
@@ -10118,7 +10163,7 @@ async function load(
 
       act = ($) => {
         module.act?.($);
-        prompt.prompt_act($);
+        if (!shellHTMLMode) prompt.prompt_act($); // shell DOM owns typing
       };
 
       leave = ($) => {
@@ -10323,6 +10368,8 @@ async function load(
     if (searchParams.has("nosource")) hideSource = true;
     if (searchParams.has("autoreload")) autoUpdateForFrame = true;
   }
+  if (shellHTMLMode) hideLabel = true; // the shell's DOM corner overlay replaces it
+  shellLabelLast = null; // a fresh piece re-sends its label even if the text repeats
 
     currentColon = colon;
     currentParams = params;
@@ -10695,6 +10742,40 @@ async function makeFrame({ data: { type, content } }) {
     return;
   }
 
+  // Native DOM prompt bridge (prompt.ac). Keep the TextInput and prompt piece
+  // as the source of truth while leaving their low-resolution composition off.
+  if (type === "prompt:dom-input") {
+    const promptInput = $commonApi?.system?.prompt?.input;
+    if (!promptInput || $commonApi?.slug !== "prompt") {
+      // The bridge comes up before the prompt piece is current, so a submit
+      // sent in that window must not vanish — reroute it through an autorun
+      // prompt load, which executes the command once the piece is ready.
+      // Never jump mid-load though: interrupting an in-flight load wedges the
+      // loader ("Already loading"), and the shell re-sends once ac:piece says
+      // the prompt is live.
+      const text = String(content?.text ?? "").trim();
+      if (content?.submit === true && text && !loading && !leaving) {
+        $commonApi?.jump?.(`prompt~${text}~!autorun`);
+      }
+      return;
+    }
+
+    const text = String(content?.text ?? "");
+    promptInput.text = text;
+    promptInput.addUserText?.(text);
+    promptInput.runnable = text.trim().length > 0;
+    promptInput.canType = content?.active !== false;
+    if (promptInput.enter?.btn) {
+      promptInput.enter.btn.disabled = !promptInput.touchButtons || !promptInput.runnable;
+    }
+    promptInput.snap?.();
+    $commonApi.needsPaint?.();
+
+    if (content?.submit === true && promptInput.runnable) {
+      await promptInput.run($commonApi.store);
+    }
+    return;
+  }
 
   // 🎵 ac-electron drag-drop: a file was dropped onto the app icon or
   // window. Stash it on system.droppedFile, fire a dropped:file act event
@@ -14448,6 +14529,7 @@ async function makeFrame({ data: { type, content } }) {
         fpsHud.on = content.fpsHud === true;
         fpsHud.painted.length = 0;
         fpsHud.stats = null;
+        fpsHud.history.length = 0;
         fpsHudSentinel(fpsHud.on);
         $commonApi.needsPaint(); // Show or clear it now.
       }
@@ -14989,39 +15071,75 @@ async function makeFrame({ data: { type, content } }) {
           while (fpsHud.painted.length && fpsHud.painted[0] < now - 1000) fpsHud.painted.shift();
           const fps = fpsHud.painted.length;
           const st = fpsHud.stats;
+          // A short fps history for the graph under the numbers, one bar per
+          // quarter second.
+          if (now - fpsHud.sampledAt >= 250) {
+            fpsHud.sampledAt = now;
+            fpsHud.history.push(fps);
+            if (fpsHud.history.length > 48) fpsHud.history.shift();
+          }
           // Lines change at most twice a second (and on the fps count), so
-          // they're built and measured then, not every frame.
+          // they're built and measured then, not every frame. Each line is
+          // segments: a label in its own hue, values green / yellow / red by
+          // how healthy they are.
           const key = fps + (st ? "|" + JSON.stringify(st) : "");
           if (key !== fpsHud.key) {
             fpsHud.key = key;
-            const lines = [`${fps} fps`];
+            const GOOD = [90, 235, 140], WARN = [255, 205, 60], BAD = [255, 85, 95];
+            const grade = (v, ok, warn) => (v <= ok ? GOOD : v <= warn ? WARN : BAD);
+            const lines = [[[`${fps}`, fpsColor(fps)], ["fps", [150, 150, 170]]]];
             if (st) {
               const n = st.native;
-              const proc = (name, p) => p && lines.push(`${name} ${Math.round(p.mb)}mb ${Math.round(p.cpu)}%`);
-              lines.push(`long ${st.long} max ${st.worstMs}ms`);
-              lines.push(`gc ${st.gc.toFixed(1)} wk ${st.workerGc.toFixed(1)}/s`);
+              const proc = (name, hue, p, okMb, warnMb) => p && lines.push([
+                [name, hue],
+                [`${Math.round(p.mb)}mb`, grade(p.mb, okMb, warnMb)],
+                [`${Math.round(p.cpu)}%`, grade(p.cpu, 30, 80)],
+              ]);
+              lines.push([["long", [255, 140, 205]], [`${st.long}`, grade(st.long, 0, 2)],
+                ["max", [150, 150, 170]], [`${st.worstMs}ms`, grade(st.worstMs, 34, 70)]]);
+              lines.push([["gc", [90, 200, 255]], [st.gc.toFixed(1), grade(st.gc, 1, 4)],
+                ["wk", [170, 150, 255]], [`${st.workerGc.toFixed(1)}/s`, grade(st.workerGc, 1, 4)]]);
               if (n) {
-                proc("web", n.web);
-                proc("gpu", n.gpu);
-                proc("app", n.app);
-                if (n.heapMB !== undefined) lines.push(`heap ${n.heapMB}mb`);
-                if (n.reloadMs !== undefined) lines.push(`load ${n.reloadMs}ms`);
+                proc("web", [255, 165, 80], n.web, 300, 600);
+                proc("gpu", [190, 140, 255], n.gpu, 200, 500);
+                proc("app", [80, 220, 210], n.app, 100, 250);
+                if (n.heapMB !== undefined) lines.push([["heap", [255, 165, 80]], [`${n.heapMB}mb`, grade(n.heapMB, 150, 400)]]);
+                if (n.reloadMs !== undefined) lines.push([["load", [120, 180, 255]], [`${n.reloadMs}ms`, grade(n.reloadMs, 700, 1500)]]);
               }
             }
-            const widths = lines.map((line) =>
-              $api.text.box(line, undefined, undefined, undefined, undefined, "MatrixChunky8").box.width);
-            fpsHud.lines = { lines, width: Math.max(...widths) };
+            const gap = 4; // One MatrixChunky8 space.
+            let width = 0;
+            for (const line of lines) {
+              let x = 0;
+              for (const seg of line) {
+                seg[2] = x;
+                x += $api.text.box(seg[0], undefined, undefined, undefined, undefined, "MatrixChunky8").box.width + gap;
+              }
+              width = Math.max(width, x - gap);
+            }
+            fpsHud.lines = { lines, width: Math.max(width, 48) };
           }
           const { lines, width } = fpsHud.lines;
-          const padX = 2, padY = 2, lineH = 9;
-          const boxW = width + padX * 2, boxH = lines.length * lineH - 2 + padY * 2;
+          const padX = 2, padY = 2, lineH = 9, graphH = 8;
+          const boxW = width + padX * 2, boxH = lines.length * lineH - 2 + padY * 2 + graphH + 2;
           const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
-          ink(0, 0, 0, 150).box(bx, by, boxW, boxH);
-          ink(fps >= 55 ? [0, 200, 100, 220] : fps >= 30 ? [255, 200, 0, 220] : [255, 60, 60, 220])
-            .write(lines[0], { x: bx + padX, y: by + padY }, undefined, undefined, false, "MatrixChunky8");
-          for (let i = 1; i < lines.length; i += 1) {
-            ink(200, 200, 200, 220).write(lines[i], { x: bx + padX, y: by + padY + i * lineH },
-              undefined, undefined, false, "MatrixChunky8");
+          ink(0, 0, 0, 160).box(bx, by, boxW, boxH);
+          for (let i = 0; i < lines.length; i += 1) {
+            for (const [text, color, x] of lines[i]) {
+              ink(...color, 230).write(text, { x: bx + padX + x, y: by + padY + i * lineH },
+                undefined, undefined, false, "MatrixChunky8");
+            }
+          }
+          // The graph: bars right-aligned (newest at the right edge), each
+          // as tall as its fps against 60 and coloured like the fps figure.
+          const gy = by + boxH - padY - graphH, history = fpsHud.history;
+          const barW = Math.max(1, Math.floor(width / 48));
+          for (let i = 0; i < history.length; i += 1) {
+            const v = history[history.length - 1 - i];
+            const h = Math.max(1, Math.round((Math.min(v, 60) / 60) * graphH));
+            const x = bx + padX + width - (i + 1) * barW;
+            if (x < bx + padX) break;
+            ink(...fpsColor(v), 200).box(x, gy + graphH - h, barW, h);
           }
         }
 
@@ -15215,6 +15333,13 @@ async function makeFrame({ data: { type, content } }) {
 
       // TODO: ❤️‍🔥 Why is this being composited by a different thread?
       //       Also... where do I put a scream?
+
+      // 🐚 shellhtml: the composited label stands down, so hand the hosting
+      // shell (prompt.ac) the same string the raster would paint — color
+      // codes and all — whenever it changes. The shell's DOM corner label
+      // then shows exactly what aesthetic.computer shows, kidlisp source
+      // included, instead of re-deriving a label from the slug.
+      if (shellHTMLMode) shellLabelSync();
 
       // System info label (addressability).
       let label;
