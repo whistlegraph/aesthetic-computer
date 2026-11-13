@@ -14,6 +14,7 @@
 #      ~/.local/share/aesel/app
 #   3. links `ac`, `a`, `aes`, `aesel` and `easel` into ~/.local/bin
 #   4. offers to add ~/.local/bin to your PATH, and says how if you decline
+#   5. names the command to run: `ac`, or `aesel` where another `ac` is found first
 #
 # It writes nothing outside your home folder, asks for no privileges, and runs
 # no `sudo`. If you would rather not pipe a script into a shell — a reasonable
@@ -119,7 +120,12 @@ if [ "$ON_PATH" = "0" ]; then
   say "  …or run Aesel by its full path: $BIN/ac"
 fi
 
+# macOS ships an `ac` of its own (login accounting, /usr/sbin/ac). When that,
+# or anything else, answers first, name the command that does reach Aesel.
+START=ac
+[ "$(command -v ac 2>/dev/null)" = "$BIN/ac" ] || START=aesel
+
 say ""
-say "  Run  ac  to start. Inside it, /login connects your Aesthetic Computer"
+say "  Run  $START  to start. Inside it, /login connects your Aesthetic Computer"
 say "  handle — or makes you one — and /help lists everything else."
 say ""
