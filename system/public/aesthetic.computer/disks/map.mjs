@@ -131,10 +131,11 @@ function zoom(f, x = scr.width / 2, y = scr.height / 2) {
 
 const px = (x, z) => [Math.round(scr.width / 2 + (x - view.x) * view.s), Math.round(scr.height / 2 - (z - view.z) * view.s)];
 
-// Neighbours round to the same pixel line, so shared edges draw once.
+// Neighbours round to the same pixel line and an outline covers x through
+// x + w, so shared edges draw once.
 function rect(xMin, zMin, xMax, zMax) {
   const [l, b] = px(xMin, zMin), [r, t] = px(xMax, zMax);
-  return [l, t, r - l + 1, b - t + 1];
+  return [l, t, r - l, b - t];
 }
 
 function hit(x, y) {
