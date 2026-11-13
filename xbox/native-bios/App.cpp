@@ -396,6 +396,20 @@ class CoreWindowSurface final : public ac::xbox::render::SurfaceHost {
   IUnknown* window_;
 };
 
+
+// LocalState\asset-<name> for a name of [a-z0-9._-]{1,64} that does not start
+// with a dot; anything else is refused (empty path), so a piece can never reach
+// outside its own asset files.
+static std::wstring LocalAssetPath(std::string_view name) {
+  if (name.empty() || name.size() > 64 || name[0] == '.') return {};
+  for (const char c : name)
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-')) return {};
+  std::wstring path(ApplicationData::Current->LocalFolder->Path->Data());
+  path += L"\\asset-";
+  for (const char c : name) path += static_cast<wchar_t>(c);
+  return path;
+}
+
 ref class App sealed : public IFrameworkView {
 public:
   virtual void Initialize(CoreApplicationView^ view) {
@@ -596,6 +610,21 @@ public:
     m_api->socket_send = [this](int id, std::string_view text) { m_hostNet->socket_send(id, text); };
     m_api->socket_close = [this](int id) { m_hostNet->socket_close(id); };
     m_api->fetch_get = [this](int id, std::string_view url) { m_hostNet->fetch(id, url); };
+    m_api->local_size = [](std::string_view name) -> long long {
+      const auto path = LocalAssetPath(name);
+      struct _stat64 info{};
+      if (path.empty() || _wstat64(path.c_str(), &info) != 0) return -1;
+      return static_cast<long long>(info.st_size);
+    };
+    m_api->local_read = [](std::string_view name, unsigned long long offset, std::size_t length, std::vector<std::uint8_t>& out) {
+      const auto path = LocalAssetPath(name);
+      FILE* file = nullptr;
+      if (path.empty() || _wfopen_s(&file, path.c_str(), L"rb") != 0 || !file) return false;
+      bool ok = _fseeki64(file, static_cast<long long>(offset), SEEK_SET) == 0;
+      if (ok) { out.resize(length); out.resize(std::fread(out.data(), 1, length, file)); }
+      std::fclose(file);
+      return ok;
+    };
     m_api->udp_open = [this](std::string_view host, int port) { return m_hostNet->udp_open(host, port); };
     m_api->udp_send = [this](int id, std::string_view text) { m_hostNet->udp_send(id, text); };
     m_api->udp_close = [this](int id) { m_hostNet->udp_close(id); };

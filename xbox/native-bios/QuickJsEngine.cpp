@@ -784,6 +784,23 @@ JSValue OskiewarFetch(JSContext* context, JSValueConst, int argc, JSValueConst* 
     scope->api->fetch_get(ArgInt(context, argv[0]), ArgString(context, argv[1], 2048));
   return JS_UNDEFINED;
 }
+// localAsset(name) → bytes in the asset, or -1.
+// localAsset(name, offset, length) → an ArrayBuffer of up to `length` bytes
+// (at most 16 MiB a call), or null.
+JSValue LocalAsset(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
+  auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
+  if (!scope || !scope->api || argc < 1) return argc >= 3 ? JS_NULL : JS_NewInt32(context, -1);
+  const std::string name = ArgString(context, argv[0], 64);
+  if (argc < 3) return JS_NewInt64(context, scope->api->local_size ? scope->api->local_size(name) : -1);
+  double offset = 0, length = 0;
+  if (JS_ToFloat64(context, &offset, argv[1]) || JS_ToFloat64(context, &length, argv[2])) return JS_EXCEPTION;
+  if (!(offset >= 0) || !(length >= 0) || length > 16.0 * 1024 * 1024)
+    return JS_ThrowRangeError(context, "localAsset: offset/length out of range");
+  if (!scope->api->local_read) return JS_NULL;
+  std::vector<std::uint8_t> bytes;
+  if (!scope->api->local_read(name, static_cast<unsigned long long>(offset), static_cast<std::size_t>(length), bytes)) return JS_NULL;
+  return JS_NewArrayBufferCopy(context, bytes.data(), bytes.size());
+}
 JSValue OskiewarUdpOpen(JSContext* context, JSValueConst, int argc, JSValueConst* argv) {
   auto* scope = static_cast<CallScope*>(JS_GetContextOpaque(context));
   if (!scope || !scope->api || !scope->api->udp_open || argc < 2) return JS_NewInt32(context, 0);
@@ -1168,6 +1185,7 @@ class QuickJsPiece final : public JsPiece {
     JS_SetPropertyStr(context_, global, "oskiewarSocketSend", JS_NewCFunction(context_, OskiewarSocketSend, "oskiewarSocketSend", 2));
     JS_SetPropertyStr(context_, global, "oskiewarSocketClose", JS_NewCFunction(context_, OskiewarSocketClose, "oskiewarSocketClose", 3));
     JS_SetPropertyStr(context_, global, "oskiewarFetch", JS_NewCFunction(context_, OskiewarFetch, "oskiewarFetch", 2));
+    JS_SetPropertyStr(context_, global, "localAsset", JS_NewCFunction(context_, LocalAsset, "localAsset", 3));
     JS_SetPropertyStr(context_, global, "oskiewarUdpOpen", JS_NewCFunction(context_, OskiewarUdpOpen, "oskiewarUdpOpen", 2));
     JS_SetPropertyStr(context_, global, "oskiewarUdpSend", JS_NewCFunction(context_, OskiewarUdpSend, "oskiewarUdpSend", 2));
     JS_SetPropertyStr(context_, global, "oskiewarUdpClose", JS_NewCFunction(context_, OskiewarUdpClose, "oskiewarUdpClose", 1));
