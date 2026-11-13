@@ -169,6 +169,9 @@ branches:
   only:
     - main
     - aesel-windows
+    # Native experiments build a sideloadable MSIX from their own branch
+    # (xbox-scene4, …) without landing unbuilt C++ on main first.
+    - /^xbox-.+$/
 
 # Aesel has a separate branch lane so app releases do not build Xbox packages.
 for:
