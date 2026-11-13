@@ -204,8 +204,13 @@ int main(int argc, char** argv) {
 
   // ---- the game, out of the package
   const auto hello = ReadPackageBytes(package, L"oskiewar.js");
-  Report("packaged oskiewar.js", hello.size() > 200 * 1024, true,
-         std::to_string(hello.size()) + " bytes");
+  // oskiewar is a private product: a public checkout (CI) stages no game at all,
+  // and that is reported, not failed. A game that is there but short still fails.
+  if (hello.empty())
+    Report("packaged oskiewar.js", false, false, "not staged (public checkout)");
+  else
+    Report("packaged oskiewar.js", hello.size() > 200 * 1024, true,
+           std::to_string(hello.size()) + " bytes");
 
   // ---- QuickJS. The core, and the fastest real signal: the whole interpreter
   // binding has no WinRT in it, so it should cross untouched.
