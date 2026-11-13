@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -131,6 +131,12 @@ test("the installer is the same script under both names and keeps what it finds"
   assert.equal(readFileSync(join(prefix, "src/tui.mjs"), "utf8"), "// new");
   assert.equal(readFileSync(join(prefix, "history/abc/v1.json"), "utf8"), "kept");
   for (const name of ["ac", "a", "aes", "aesel", "easel"]) assert.ok(existsSync(join(home, ".local/bin", name)), name);
+  // Where another `ac` answers first (macOS has one in /usr/sbin), it says `aesel`.
+  const bin = join(home, ".local/bin"), shadow = join(r.dir, "shadow");
+  put(join(shadow, "ac"), "#!/bin/sh\n"); chmodSync(join(shadow, "ac"), 0o755);
+  const told = (PATH) => execFileSync("sh", [join(REPO, "system/public/aesel.sh")], { env: { ...env, PATH }, encoding: "utf8" });
+  assert.match(told(`${shadow}:${bin}:${process.env.PATH}`), /Run {2}aesel {2}to start/);
+  assert.match(told(`${bin}:${shadow}:${process.env.PATH}`), /Run {2}ac {2}to start/);
 });
 
 test("an update reports its progress as the download lands, then unpacks and swaps", async (t) => {
