@@ -12,17 +12,20 @@ export function createHandler({ authorize, getHandleOrEmail, checkBudget, paidBa
     try {
       const user = await authorize(event.headers);
       if (!user?.sub) return reply(401, { error: "Invalid sign-in" });
+      // The meter waits on this reply, so the three lookups run side by side.
+      // A curator's locked model menu is optional reading: a failed lookup
+      // leaves the menu open, not the meter.
+      const paying = paidBalance(user.sub), curating = curation(user.sub).catch(() => null);
+      paying.catch(() => {});
       const handle = await getHandleOrEmail(user.sub);
       if (typeof handle !== "string" || !handle.startsWith("@")) return reply(403, { error: "A handle is required" });
       const budget = await checkBudget(handle.slice(1));
       if (!budget || budget.unknown || ![budget.used, budget.budget, budget.remaining].every(Number.isFinite)) {
         return reply(503, { error: "Allowance unavailable" });
       }
-      const purchased = await paidBalance(user.sub);
+      const purchased = await paying;
       if (!Number.isFinite(purchased) || purchased < 0) return reply(503, { error: "Allowance unavailable" });
-      // A curator's locked model menu, when the account has one; the lock is
-      // optional reading, so a failed lookup leaves the menu open, not the meter.
-      const curated = await curation(user.sub).catch(() => null);
+      const curated = await curating;
       const valueUSD = cells => Math.round(cells * creditPack.amount / creditPack.credits * 1e6) / 1e8;
       const dollars = { currency: "USD", free: valueUSD(budget.remaining), purchased: valueUSD(purchased),
         total: valueUSD(budget.remaining + purchased) };

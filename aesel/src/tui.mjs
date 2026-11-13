@@ -20,6 +20,7 @@ import {ApprovalQueue, approvalFor, approvalShape, defaultApprovalResponse} from
 import {questionFor, questionText, answerQuestion, declineQuestion} from "./questions.mjs";
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {setCuration,curatedChoice} from './curation.mjs';
+import {rollToward} from './braincell-meter.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
 import {API_WORKFLOW} from "./api-context.mjs";
@@ -1237,16 +1238,29 @@ function notePublished(item) {
 // Read the account's braincells: what is left of today's free allowance plus
 // what was bought. Quietly keeps the last number when the site can't be reached.
 let braincellsAt = 0;
+// The meter rolls to a new balance rather than jumping, so a charge is seen
+// leaving. `state.braincells` is what is drawn; `braincellsHeld` is the truth.
+let braincellsHeld = null, braincellsRoll = null;
+function setBraincells(total) {
+  braincellsHeld = total;
+  if (!Number.isFinite(state.braincells) || !process.stdout.isTTY) { state.braincells = total; return redraw(); }
+  braincellsRoll ||= setInterval(() => {
+    state.braincells = rollToward(state.braincells, braincellsHeld);
+    if (state.braincells === braincellsHeld) { clearInterval(braincellsRoll); braincellsRoll = null; }
+    redraw();
+  }, 60);
+  braincellsRoll.unref?.();
+}
 async function refreshBraincells() {
   if (backend.id !== "ac" || !session.signedIn || Date.now() - braincellsAt < 3000) return;
   braincellsAt = Date.now();
   try {
     const token = await session.token();
-    const response = await fetch(`${SITE}/api/easel-credits`, { headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(6000) });
+    const response = await fetch(`${SITE}/api/easel-credits`, { headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(15000) });
     if (!response.ok) return;
     const body = await response.json();
     const total = (Number(body.remaining) || 0) + (Number(body.purchased) || 0);
-    if (Number.isFinite(total)) { state.braincells = total; redraw(); }
+    if (Number.isFinite(total)) setBraincells(total);
     // A curator's menu: lock the picker to it and move onto its default when
     // the current model is not on it (Automatic included). Idle only.
     const menu = setCuration(body.curation);
@@ -1833,6 +1847,10 @@ function handleNotification({ method, params = {} }) {
       break;
     case "session/close":
       closeAfterTurn = true;
+      break;
+    case "account/braincells":
+      // The relay's own charge for the response that just ended.
+      if (Number.isFinite(braincellsHeld) && Number.isFinite(params.charged)) setBraincells(Math.max(0, braincellsHeld - params.charged));
       break;
     case "turn/usage": {
       state.energy.add(params.model || state.model || model, params.usage);

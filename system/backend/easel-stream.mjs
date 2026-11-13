@@ -2,6 +2,9 @@
 // travels back to fetch instead of leaving a paid generation running unseen.
 // `onUsage(tokens, usage)` fires once: weighted tokens, and the provider's own
 // usage block, whose `cost` (USD) OpenRouter reports in the final message_delta.
+// When it answers with a number — the braincells charged — the stream ends on
+// one more event, `{"type":"braincells","charged":n}`, so a client's meter can
+// drop as each response lands instead of waiting to ask for the balance.
 export function relayInference(body, { onUsage = () => {}, abort = () => {}, onSettlementError = error => console.error("[aesel] usage settlement failed", error?.message || error), onFinish = () => {} } = {}) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -42,7 +45,11 @@ export function relayInference(body, { onUsage = () => {}, abort = () => {}, onS
       try {
         const { done, value } = await reader.read();
         if (finished) return;
-        if (done) { await finish(); controller.close(); return; }
+        if (done) {
+          const charged = await finish();
+          if (Number.isFinite(charged) && charged > 0) controller.enqueue(new TextEncoder().encode(`event: braincells\ndata: ${JSON.stringify({ type: "braincells", charged })}\n\n`));
+          controller.close(); return;
+        }
         meter(value);
         controller.enqueue(value);
       } catch (error) {

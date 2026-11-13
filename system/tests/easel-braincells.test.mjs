@@ -214,3 +214,10 @@ test('stream cancellation aborts upstream and waits for one settlement',async()=
 test('no account has uncapped inference; the owner pays in braincells too',async()=>{
  assert.equal((await import('../backend/easel-policy.mjs')).unlimitedBraincells,undefined);
 });
+test('the relay ends the stream on the charge, when settlement names one',async()=>{
+ const sse='data: {"type":"message_delta","usage":{"output_tokens":3}}\n\n';
+ const charged=await new Response(relayInference(new Response(sse).body,{onUsage:async()=>412})).text();
+ assert.equal(charged,sse+'event: braincells\ndata: {"type":"braincells","charged":412}\n\n');
+ assert.equal(await new Response(relayInference(new Response(sse).body,{onUsage:async()=>{}})).text(),sse);
+ assert.equal(await new Response(relayInference(new Response(sse).body,{onUsage:async()=>0})).text(),sse);
+});

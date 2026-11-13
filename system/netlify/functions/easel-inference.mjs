@@ -210,6 +210,7 @@ export const handler = stream(async (event) => {
       const {recordSpend}=await import("../../backend/braincell-ledger.mjs");
       await recordSpend({product:asWorker?"whistlegraph":"aesel",client:spendClient(event.headers),
         handle,user:userSub,model,braincells,paid:Boolean(paidHold)});
+      return braincells;
     },
   });
 

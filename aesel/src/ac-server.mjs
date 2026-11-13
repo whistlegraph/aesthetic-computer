@@ -552,6 +552,9 @@ export class AcServer extends EventEmitter {
             }
           } else if (event.type === "message_delta") {
             if (event.delta?.stop_reason) { stop = event.delta.stop_reason; finished = true; }
+          } else if (event.type === "braincells") {
+            // What the relay charged for this response, sent as the stream closes.
+            if (Number.isFinite(event.charged)) this.emit("notification", { method: "account/braincells", params: { charged: event.charged } });
           } else if (event.type === "error") {
             throw new Error(event.error?.message || "inference error");
           }
