@@ -158,7 +158,14 @@ function runCli(name, spec, args, { timeoutMs = 20000 } = {}) {
   }
 
   const repo = spec.repo || DEFAULT_REPO;
-  const host = spec.sshHost || name;
+  // A registry `ssh` may be a whole command line ("jas@100.x -i ~/.ssh/key"),
+  // so split it into ssh's own argv rather than passing it as one host.
+  // ControlPath uses ssh's %C hash: a path built from that string would carry
+  // its spaces, and ssh rejects the option ("extra arguments at end of line").
+  const sshArgv = String(spec.sshHost || name)
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.replace(/^~(?=\/)/, HOME));
   const encoded = Buffer.from(JSON.stringify(argv), "utf8").toString("base64");
   const script = [
     `cd ${repo} || exit 3`,
@@ -171,11 +178,11 @@ function runCli(name, spec, args, { timeoutMs = 20000 } = {}) {
     "ssh",
     [
       "-o", "ControlMaster=auto",
-      "-o", `ControlPath=${join(HOME, ".ssh", `cm-${host}`)}`,
+      "-o", `ControlPath=${join(HOME, ".ssh", "cm-%C")}`,
       "-o", "ControlPersist=300",
       "-o", "BatchMode=yes",
       "-o", "ConnectTimeout=6",
-      host,
+      ...sshArgv,
       "bash -s",
     ],
     { input: script, timeoutMs },
