@@ -37,6 +37,10 @@ Automated maintenance system ("AA"). Main score: `SCORE.md`; ant mindset/rules: 
 
 `SCREEN.md` at the repo root governs how a piece *draws* — the corner-label zone the system reserves at `(6, 6)`, `reframed` layout, `ui.Button` + `pens()` multitouch, killing held voices in `leave`. Read it before drawing a piece. HAND covers how the code reads; this covers where the pixels go.
 
+## STE (Procedure Docs)
+
+`STE.md` holds the AC subset of ASD-STE100 Simplified Technical English. Use it for procedures, help and reference pages (`docs/ste/`). Essays and papers still follow `papers/VOICE.md`. Check with `npm run ste -- FILE.md` (`--strict` fails on findings).
+
 ## Development Commands
 
 ### Running the Development Environment

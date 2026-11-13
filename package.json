@@ -25,6 +25,7 @@
     "pop:ddex": "node pop/bin/ddex.mjs",
     "pop:site": "node pop/bin/publish-release-records.mjs",
     "doctor": "node toolchain/doctor.mjs",
+    "ste": "node toolchain/ste/ste-check.mjs",
     "seo:sitemap": "node toolchain/seo/sitemap.mjs",
     "mcp:fleet": "toolchain/mcp/fleet-refresh.sh",
     "pulse": "node toolchain/analytics/pulse.mjs",
