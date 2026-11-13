@@ -6,6 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
+import { GeographyStore, BLOCK, LOTS, lot } from './geography.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
@@ -104,7 +105,8 @@ export function createDuelServer({
   const stallLog = []; // 🧊 The newest stalls clients reported (GET /stalls).
   let stallRevision = 'local';
   const store = new ObjectStore(stateDir),
-    ready = Promise.all([store.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
+    geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
+    ready = Promise.all([store.load(), geography.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
   const handle = async (req, res) => {
     let url;
@@ -184,6 +186,33 @@ export function createDuelServer({
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
         .end(JSON.stringify({ building: builders.jobs.size, stalls: stallLog }));
+      return;
+    }
+    // 🗺️ The map: every open block, who settled it, and the world's size.
+    if (path === '/geography' && req.method === 'GET') {
+      // Who is seated now, and where everyone else's avatar rests.
+      const awake = [];
+      for (const [room, r] of rooms)
+        for (const m of r.sessions.values()) if (m.handle && m.seat >= 0) awake.push({ handle: m.handle.toLowerCase(), room });
+      const up = new Set(awake.map((a) => a.handle));
+      const resting = Object.entries(geography.geography.rests)
+        .filter(([handle]) => !up.has(handle))
+        .map(([handle, r]) => ({ handle, ...r }));
+      res
+        .writeHead(200, {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*', // the map piece reads it from any AC host
+        })
+        .end(
+          JSON.stringify({
+            ...geography.geography.census(),
+            block: BLOCK,
+            lotRects: Array.from({ length: LOTS }, (_, k) => lot(k)),
+            awake,
+            resting,
+          }),
+        );
       return;
     }
     if (path === '/room' && req.method === 'GET') {
@@ -447,6 +476,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle) || handle.length > 16)
           return;
         if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return;
+        // 🗺️ A handle has one home, settled the first time it arrives, and
+        // its avatar wakes where it rested if that was this room. A reload
+        // that takes over a body already here leaves the body where it is.
+        const person = handle.toLowerCase();
+        const takeover = [...room.sessions.values()].some(
+          (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
+        );
+        void geography.change((g) => g.settle(handle)).catch(() => {});
         member.handle = handle;
         member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
@@ -456,6 +493,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         member.token = token;
         void refreshBraincells(ws, member);
         room.assign();
+        const rest = geography.geography.whereabouts(handle),
+          body = room.match.seats[member.seat]?.player;
+        if (!takeover && body && rest?.room === key) {
+          const edge = BLOCK / 2 - 0.4; // inside the walls
+          body.x = Math.max(-edge, Math.min(edge, rest.x));
+          body.z = Math.max(-edge, Math.min(edge, rest.z));
+          body.yaw = rest.yaw;
+        }
         const colors = await resolveHandleColors(handle);
         if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
           member.colors = colors;
@@ -660,6 +705,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       clearTimeout(accountHold);
       for (const timer of creditRefreshes) clearTimeout(timer);
       clearInterval(heartbeat);
+      // 🗺️ The avatar rests where it stood (rooms outside the lattice are refused).
+      const body = member.handle && room.match.seats[member.seat]?.player;
+      if (body)
+        void geography
+          .change((g) => g.rest(member.handle, { room: key, x: body.x, z: body.z, yaw: body.yaw }))
+          .catch(() => {});
       room.remove(ws);
       if (!room.clients.size) rooms.delete(key);
     });
