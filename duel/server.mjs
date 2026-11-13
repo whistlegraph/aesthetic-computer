@@ -193,7 +193,10 @@ export function createDuelServer({
       // Who is seated now, and where everyone else's avatar rests.
       const awake = [];
       for (const [room, r] of rooms)
-        for (const m of r.sessions.values()) if (m.handle && m.seat >= 0) awake.push({ handle: m.handle.toLowerCase(), room });
+        for (const m of r.sessions.values()) {
+          const p = m.handle && r.match.seats[m.seat]?.player;
+          if (p) awake.push({ handle: m.handle.toLowerCase(), room, x: Math.round(p.x * 100) / 100, z: Math.round(p.z * 100) / 100 });
+        }
       const up = new Set(awake.map((a) => a.handle));
       const resting = Object.entries(geography.geography.rests)
         .filter(([handle]) => !up.has(handle))
