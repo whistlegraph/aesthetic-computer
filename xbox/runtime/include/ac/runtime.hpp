@@ -309,6 +309,12 @@ struct Api {
   std::function<void(int, std::string_view)> socket_send = {};
   std::function<void(int)> socket_close = {};
   std::function<void(int, std::string_view)> fetch_get = {};
+  // Binary assets a piece ships beside its source (LocalState\asset-<name>, put
+  // there over the Device Portal), read in slices so a big pack never has to
+  // sit whole in the JS heap. `local_size` is -1 for a missing or invalid name;
+  // `local_read` fills `out` with at most `length` bytes from `offset`.
+  std::function<long long(std::string_view)> local_size = {};
+  std::function<bool(std::string_view, unsigned long long, std::size_t, std::vector<std::uint8_t>&)> local_read = {};
   std::function<int(std::string_view, int)> udp_open = {};
   std::function<void(int, std::string_view)> udp_send = {};
   std::function<void(int)> udp_close = {};
