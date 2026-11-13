@@ -2200,10 +2200,22 @@ async function commandLogin() {
     addEntry("notice", "A sign-in is already waiting on the browser.");
     return redraw();
   }
-  const id = addEntry("notice", "Opening the browser to sign in…");
+  const id = addEntry("notice", "Starting sign-in…");
   redraw();
+  // The piece's code gives up its corner to the sign-in code, and gets it back.
+  const pieceQr = state.qr;
   try {
-    const handle = await session.login({
+    // A link any device can finish: scan it with a phone, or use the browser
+    // it opens here. Where the account service has no such link, the browser
+    // on this machine is the only way in.
+    let handle = await session.loginDevice?.({
+      onCode: ({ url, code }) => {
+        try { state.qr = qrBlock(url); } catch {}
+        updateEntry(id, "notice", `Scan to sign in on your phone, or sign in at ${url}${code ? ` · code ${code}` : ""}`);
+        redraw();
+      },
+    });
+    if (handle === undefined) handle = await session.login({
       onUrl: (url) => {
         updateEntry(id, "notice", `Sign in at ${url}`);
         redraw();
@@ -2219,7 +2231,7 @@ async function commandLogin() {
     );
   } catch (error) {
     updateEntry(id, "error", `Sign-in failed: ${errorText(error)}`);
-  }
+  } finally { state.qr = pieceQr; }
   redraw();
 }
 

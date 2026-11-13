@@ -208,6 +208,67 @@ export class ACSession extends EventEmitter {
     return requireHandle(account);
   }
 
+  // Fresh tokens become the signed-in account: who it is, their @handle, saved.
+  async #adopt(tokens) {
+    const userResponse = await this.fetch(`https://${this.authDomain}/userinfo`, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
+    if (!userResponse.ok) throw new Error(`userinfo failed (HTTP ${userResponse.status})`);
+    const user = await userResponse.json();
+
+    let handle = null;
+    try {
+      const lookup = await this.fetch(`${this.site}/handle?for=${encodeURIComponent(user.sub)}`, {
+        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      });
+      const data = await lookup.json();
+      if (data?.handle) handle = String(data.handle).replace(/^@/, "");
+    } catch {}
+
+    this.#write({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      id_token: tokens.id_token,
+      expires_at: this.now() + (tokens.expires_in || 3600) * 1000,
+      user: { email: user.email, name: user.name, sub: user.sub, picture: user.picture, handle },
+    });
+    this.emit("change", this.label());
+    return handle;
+  }
+
+  // Sign in from any device. Auth0's device flow hands back a link — drawn as
+  // a QR code by the caller — and this waits for it to be approved, on a
+  // phone or in this machine's browser. Resolves to the @handle (null when
+  // the account has none), or undefined when the tenant has the device grant
+  // switched off, so /login can fall back to the loopback flow.
+  async loginDevice({ timeoutMs = 10 * 60_000, onCode, wait = (ms) => new Promise((done) => setTimeout(done, ms)) } = {}) {
+    if (this.signingIn) throw new Error("a sign-in is already waiting on the browser");
+    this.signingIn = true;
+    try {
+      const form = (fields) => ({ method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(fields).toString() });
+      const asked = await this.fetch(`https://${this.authDomain}/oauth/device/code`, form({ client_id: CLIENT_ID, scope: "openid profile email offline_access" }));
+      const grant = await asked.json().catch(() => ({}));
+      if (!asked.ok || !grant.device_code) return undefined;
+      const url = grant.verification_uri_complete || grant.verification_uri;
+      onCode?.({ url, code: grant.user_code });
+      this.openBrowser(url);
+      const until = this.now() + Math.min(timeoutMs, (grant.expires_in || 900) * 1000);
+      let pause = (grant.interval || 5) * 1000;
+      for (;;) {
+        await wait(pause);
+        if (this.now() > until) throw new Error("sign-in timed out");
+        const exchange = await this.fetch(`https://${this.authDomain}/oauth/token`, form({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: grant.device_code, client_id: CLIENT_ID }));
+        if (exchange.ok) return await this.#adopt(await exchange.json());
+        const refusal = await exchange.json().catch(() => ({}));
+        if (refusal.error === "authorization_pending") continue;
+        if (refusal.error === "slow_down") { pause += 5000; continue; }
+        throw new Error(refusal.error === "access_denied" ? "sign-in was declined" : refusal.error === "expired_token" ? "sign-in timed out" : refusal.error_description || `token exchange failed (HTTP ${exchange.status})`);
+      }
+    } finally {
+      this.signingIn = false;
+    }
+  }
+
   // Authorization-Code + PKCE against Auth0 with a loopback callback. Resolves
   // to the @handle (or null when the account has none yet).
   async login({ forcePrompt = false, timeoutMs = 5 * 60_000, onUrl } = {}) {
@@ -300,30 +361,7 @@ export class ACSession extends EventEmitter {
       if (!exchange.ok) throw new Error(`token exchange failed (HTTP ${exchange.status})`);
       const tokens = await exchange.json();
 
-      const userResponse = await this.fetch(`https://${this.authDomain}/userinfo`, {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      });
-      if (!userResponse.ok) throw new Error(`userinfo failed (HTTP ${userResponse.status})`);
-      const user = await userResponse.json();
-
-      let handle = null;
-      try {
-        const lookup = await this.fetch(`${this.site}/handle?for=${encodeURIComponent(user.sub)}`, {
-          headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-        });
-        const data = await lookup.json();
-        if (data?.handle) handle = String(data.handle).replace(/^@/, "");
-      } catch {}
-
-      this.#write({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        id_token: tokens.id_token,
-        expires_at: this.now() + (tokens.expires_in || 3600) * 1000,
-        user: { email: user.email, name: user.name, sub: user.sub, picture: user.picture, handle },
-      });
-      this.emit("change", this.label());
-      return handle;
+      return await this.#adopt(tokens);
     } finally {
       this.signingIn = false;
       server.close();

@@ -149,3 +149,47 @@ test("claiming a handle saves it and emits the new sign-in state", async context
     await assert.rejects(globalThis.fetch(callback,{headers:{Connection:'close'}}));
   }
 });
+
+test("signs in through the device link, waiting while it is pending", async (context) => {
+  const file = await scratch(context);
+  const seen = { polls: 0, waits: [] };
+  const session = new ACSession({
+    file, site: "https://example.test",
+    openBrowser: (url) => { seen.opened = url; },
+    fetch: async (url, options = {}) => {
+      const sent = new URLSearchParams(options.body || "");
+      if (url.endsWith("/oauth/device/code")) {
+        assert.equal(sent.get("client_id"), CLIENT_ID);
+        return jsonResponse({ device_code: "dev", user_code: "WXYZ-1234", verification_uri_complete: "https://hi.example/activate?user_code=WXYZ-1234", interval: 2, expires_in: 600 });
+      }
+      if (url.endsWith("/oauth/token")) {
+        assert.equal(sent.get("device_code"), "dev");
+        seen.polls += 1;
+        if (seen.polls === 1) return new Response(JSON.stringify({ error: "authorization_pending" }), { status: 403 });
+        if (seen.polls === 2) return new Response(JSON.stringify({ error: "slow_down" }), { status: 403 });
+        return jsonResponse({ access_token: "acc", refresh_token: "ref", id_token: "id", expires_in: 86_400 });
+      }
+      if (url.endsWith("/userinfo")) return jsonResponse({ sub: "auth0|123", email: "x@y.z", name: "x" });
+      if (url.startsWith("https://example.test/handle?for=")) return jsonResponse({ handle: "tester" });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  let shown;
+  const handle = await session.loginDevice({ onCode: (code) => { shown = code; }, wait: async (ms) => { seen.waits.push(ms); } });
+  assert.equal(handle, "tester");
+  assert.deepEqual(shown, { url: "https://hi.example/activate?user_code=WXYZ-1234", code: "WXYZ-1234" });
+  assert.equal(seen.opened, shown.url);
+  assert.deepEqual(seen.waits, [2000, 2000, 7000]);
+  assert.equal(session.signedIn, true);
+  assert.equal(session.signingIn, false);
+});
+
+test("the device link answers undefined where the grant is off, and names a refusal", async (context) => {
+  const off = new ACSession({ file: await scratch(context), openBrowser: () => {},
+    fetch: async () => new Response(JSON.stringify({ error: "unauthorized_client" }), { status: 403 }) });
+  assert.equal(await off.loginDevice(), undefined);
+  const declined = new ACSession({ file: await scratch(context), openBrowser: () => {},
+    fetch: async (url) => url.endsWith("/device/code") ? jsonResponse({ device_code: "d", user_code: "c", verification_uri: "https://hi.example/activate" })
+      : new Response(JSON.stringify({ error: "access_denied" }), { status: 403 }) });
+  await assert.rejects(declined.loginDevice({ wait: async () => {} }), /declined/);
+});
