@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>hopalong</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #10131f; overflow: hidden; }
+  canvas { position: fixed; inset: 0; margin: auto; max-width: 100vw; max-height: 100vh; aspect-ratio: 16 / 9;
+    width: min(100vw, 177.78vh); image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<script type="module">
+// The console's bindings in a browser: the same script the Xbox runs, drawn
+// through the depth-tested WebGL scene oskiewar uses. ?level=2 opens on a
+// stage, ?auto hands the pad to the autopilot.
+import WebGLOskiewarScene3D from "./live/scene3d-webgl.mjs";
+
+const W = 1920, H = 1080, canvas = document.querySelector("#scene");
+const scene = new WebGLOskiewarScene3D(canvas);
+scene.setLogicalSize(W, H);
+function fit() {
+  const dpr = Math.min(2, devicePixelRatio || 1), rect = canvas.getBoundingClientRect();
+  scene.resize(Math.max(1, Math.round(rect.width * dpr)), Math.max(1, Math.round(rect.height * dpr)));
+}
+addEventListener("resize", fit); fit();
+
+let audio = null, clear = [0, 0, 0, 1];
+const unlock = () => { audio ||= new AudioContext(); if (audio.state !== "running") audio.resume?.(); };
+for (const type of ["keydown", "pointerdown", "gamepadconnected"]) addEventListener(type, unlock);
+function voice(type, from, to, seconds, level) {
+  if (!audio || audio.state !== "running") return;
+  const at = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+  osc.type = type; osc.frequency.setValueAtTime(from, at); osc.frequency.exponentialRampToValueAtTime(to, at + seconds);
+  gain.gain.setValueAtTime(level, at); gain.gain.exponentialRampToValueAtTime(.0001, at + seconds + .04);
+  osc.connect(gain).connect(audio.destination); osc.start(at); osc.stop(at + seconds + .05);
+}
+const drums = { kick: ["sine", 150, 40, .12, .5], snare: ["square", 320, 90, .08, .18], block: ["triangle", 700, 420, .05, .3] };
+
+const keys = new Set();
+const keyMap = { ArrowLeft: "ArrowLeft", KeyA: "ArrowLeft", ArrowRight: "ArrowRight", KeyD: "ArrowRight",
+  ArrowUp: "ArrowUp", KeyW: "ArrowUp", ArrowDown: "ArrowDown", KeyS: "ArrowDown",
+  Space: "A", KeyZ: "A", KeyK: "A", KeyX: "X", KeyJ: "X", ShiftLeft: "X", ShiftRight: "X",
+  Enter: "Menu", Escape: "Menu", Tab: "View" };
+addEventListener("keydown", (e) => { const k = keyMap[e.code]; if (k) { keys.add(k); e.preventDefault(); } });
+addEventListener("keyup", (e) => { const k = keyMap[e.code]; if (k) keys.delete(k); });
+addEventListener("blur", () => keys.clear());
+const padNames = ["A", "B", "X", "Y", "LeftShoulder", "RightShoulder", "LeftTrigger", "RightTrigger",
+  "View", "Menu", "LeftThumb", "RightThumb", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+
+const host = {
+  wipe: (r, g, b) => { clear = [r / 255, g / 255, b / 255, 1]; },
+  triangle3d: (...a) => scene.triangle3d(...a),
+  runtime: () => ({ width: W, height: H }),
+  synth: (frequency, seconds = .08) => voice("square", frequency, frequency, seconds, .07),
+  drum: (name, amount = 1) => { const d = drums[name]; if (d) voice(d[0], d[1], d[2], d[3], d[4] * amount); },
+  telemetry: () => {},
+  gamepad: () => {
+    const down = new Set(keys), pad = [...(navigator.getGamepads?.() || [])].find((p) => p?.connected);
+    pad?.buttons.forEach((b, i) => { if (b.pressed && padNames[i]) down.add(padNames[i]); });
+    return { connected: true, down: [...down], leftX: pad?.axes[0] || 0, leftY: -(pad?.axes[1] || 0),
+      rightTrigger: pad?.buttons[7]?.value || 0 };
+  },
+};
+
+const source = await (await fetch("./hopalong.js", { cache: "no-store" })).text();
+const names = Object.keys(host);
+const game = new Function(...names, `${source}\nreturn { boot, sim, paint, hopalong };`)(...names.map((n) => host[n]));
+game.boot();
+const params = new URLSearchParams(location.search);
+if (params.has("level") || params.has("auto")) game.hopalong.start(Math.max(0, (Number(params.get("level")) || 1) - 1), params.has("auto"));
+globalThis.__hopalong = game.hopalong;
+
+// The console steps the game once a frame at 60 Hz; a faster display must not speed it up.
+let last = performance.now(), owed = 0;
+function frame(now) {
+  owed = Math.min(owed + (now - last) / (1000 / 60), 4); last = now;
+  while (owed >= 1) { game.sim(); owed -= 1; }
+  scene.beginFrame();
+  game.paint();
+  scene.present({ clear });
+  globalThis.__hopalongFrames = (globalThis.__hopalongFrames || 0) + 1;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
