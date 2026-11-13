@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { curationMenu, curatedModel } from "../backend/aesel-curation.mjs";
+import { curationMenu, curatedModel, readCuration, HOUSE_CURATION } from "../backend/aesel-curation.mjs";
 import { createHandler } from "../netlify/functions/easel-credits.mjs";
 const SONNET = "anthropic/claude-sonnet-5.5", PRO = "deepseek/deepseek-v4-pro";
 test("a curated menu keeps known models and a default among them", () => {
@@ -24,4 +24,13 @@ test("the credits reply carries the curation, and a failed lookup leaves it open
   assert.deepEqual(JSON.parse((await createHandler({ ...base, curation: async () => menu })(event)).body).curation, menu);
   const failed = await createHandler({ ...base, curation: async () => { throw new Error("down"); } })(event);
   assert.equal(failed.statusCode, 200); assert.equal(JSON.parse(failed.body).curation, null);
+});
+test("an account without a menu gets the house menu, which defaults but refuses nothing", async () => {
+  const db = doc => ({ connectTo: async () => ({ db: { collection: () => ({ findOne: async () => doc }) }, disconnect: async () => {} }) });
+  const house = await readCuration("u", db(null));
+  assert.deepEqual(house, { models: [SONNET, PRO], default: SONNET, by: "@jeffrey", note: "", house: true });
+  assert.equal(curatedModel(house, undefined), SONNET);
+  assert.equal(curatedModel(house, "anthropic/claude-opus-5.5"), "anthropic/claude-opus-5.5");
+  assert.equal((await readCuration("u", db({ models: [PRO], by: "@jeffrey" }))).house, undefined);
+  assert.equal(HOUSE_CURATION.house, true);
 });

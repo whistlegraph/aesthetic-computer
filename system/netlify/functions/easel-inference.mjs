@@ -131,7 +131,8 @@ export const handler = stream(async (event) => {
   try { ({ model, maxTokens, reasoning, thinking } = inferenceRequest(body)); }
   catch (error) { return fail(400, error.message); }
   // A curated account runs only its curator's menu; Automatic means the
-  // curator's default. Workers act for their owner's product, not the menu.
+  // curator's default, or the house default for an account without a menu.
+  // Workers act for their owner's product, not the menu.
   if (!asWorker) {
     let menu = null;
     try { menu = await (await import("../../backend/aesel-curation.mjs")).readCuration(userSub); }

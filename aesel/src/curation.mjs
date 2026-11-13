@@ -4,6 +4,7 @@
 // curator has set up (aesel/scripts/curate-models.mjs). While it holds, AC
 // hosted shows only those models and opens on the default; the site refuses
 // any other model too, so this is the picker's half of a lock the server keeps.
+// An account no curator has set up gets the house menu, shown the same way.
 let menu = null;
 
 export function setCuration(value) {
