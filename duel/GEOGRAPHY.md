@@ -23,12 +23,19 @@ The first load of a v1 ledger preserves `geography.v1.json` before writing v2.
 Rollback to a server that only understands v1 requires restoring that backup;
 export later placement changes first.
 
-A pod's exterior occupies the existing 3.5 × 7 m lot. An open frame carries an
+A home is a house on a 7 × 7 m lot, one lot to each quadrant of a block
+(2026-11-14; before that a quadrant held two 3.5 × 7 m lots under open frames).
+The house is 5.2 m square with 3 m walls and no roof, set 0.6 m back from the
+lanes and 1.2 m from the block's edge, with a 1.6 m doorway onto the east-west
+lane. Its walls are solid on the server and in the client's prediction
+(`park.mjs` `houseWalls`). A ledger written with eight lots is set down again
+on the four in founding order when it is first read. The wall over the door carries an
 outside tag with the owner's handle and saved profile colors (default colors
-while the profile service is unavailable). Walk through the tagged entrance or
-choose a pod in the **go** menu to visit. Interior rooms currently use the
-existing 16 × 16 m simulation. The **park** menu action returns visitors to the
-pod's current entrance, even if it was moved during the visit.
+while the profile service is unavailable). A home is its lot (2026-11-14):
+walking through the frame is only walking, so a visitor passes through every
+home on a block without leaving it. The client no longer enters a separate
+interior room; `?pod=pod-…` links still open the old interior, and the
+`enter-pod` and `exit-pod` messages remain on the server for them.
 
 Pod interiors are public to visit. Only their verified owner may build, restore,
 paint, remove, or change screens there. Shared park rooms retain their existing
@@ -61,12 +68,21 @@ read-only service token does not grant curation access.
 
 ## Park travel and future shards
 
-Open blocks connect at the four path ends. The client requests a crossing; the
+Open blocks connect along their whole shared side, the plaza included (it is
+block 0 and its walls stand only where no block is open). The client requests a crossing; the
 server checks its own player position and issues a short-lived, one-use passage
 bound to that player's stored identity. The next room restores the landing
 position and facing. Client-provided coordinates cannot choose the landing.
-Walking currently reconnects between block simulations, so transitions can have
-a short loading pause; neighboring blocks are not drawn through the boundary yet.
+The arrival is set down 7.3 m from the middle, clear of the edge it came through.
+
+`GET /dool/world?room=<block>` answers that block and every open block around
+it — neighbours, lots, standing objects and painted tiles. The client draws
+them in place, asks again every six seconds, keeps the last answers in
+`localStorage` (`dool-world`) so the neighbourhood is there before the socket
+opens, and dresses the next block from it when a crossing begins. Walking still
+reconnects between block simulations: people, chalk and screens of a
+neighbouring block are not seen across the join, and the crossing is a short
+step. One simulation for the whole world is the next stage.
 
 The simulation keys are separate from placement: a park block uses its lattice
 address, and a pod interior uses its permanent ID. Those are the units a future
@@ -128,7 +144,7 @@ The world therefore has to show who lives there, not only who is online.
    the geometry is fixed and only its extent grows.
 4. **Density decides growth.** The next block opens when three quarters of the open lots
    are settled. Nobody chooses to open land and nobody can spread the world thin.
-5. **One pod per account.** A residential block has eight lots of 3.5 × 7 m around two
+5. **One pod per account.** A residential block has four lots of 7 × 7 m around two
    lanes that cross on its axes. Lanes meet the neighbours' lanes at the edges, so the
    lattice is also a street grid. A handle receives a pod on a free lot. Curators may rearrange pods within open blocks. A home is never taken back: there is always room, so
    there is no need for decay.
@@ -160,7 +176,7 @@ that is a later problem and the lattice leaves room for it.
 
 ## Open decisions
 
-- **Lot size.** Eight lots of 3.5 × 7 m is a guess made before measuring what people
+- **Lot size.** Four lots of 7 × 7 m (eight of 3.5 × 7 m until 2026-11-14) is a guess made before measuring what people
   build. Four larger lots a block doubles the world's width.
 - **Travel by name.** Walking keeps distance meaningful. Typing `@handle` to arrive at
   someone's home is the Aesthetic Computer habit and would erase it. Proposed: recall

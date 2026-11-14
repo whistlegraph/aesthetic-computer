@@ -12,7 +12,7 @@ import { createHash, randomBytes } from 'node:crypto';
 
 export const BLOCK = 16; // metres along a block's edge (2 × world.mjs WORLD)
 export const LANE = 2; // width of the two lanes that cross every block
-export const LOTS = 8; // homes in a residential block
+export const LOTS = 4; // homes in a residential block: one to a quadrant
 export const FILL = 0.75; // settled share of open lots that opens the next block
 export const RUN = 10; // metres a second (world.mjs CFG.runSpeed), for crossing times
 
@@ -71,19 +71,17 @@ export function fromWorld({ x, z }) {
 }
 
 // Two lanes cross each block on its axes and meet the neighbours' lanes at the
-// edges, so the lattice is also a street grid. Each quadrant is split into two
-// lots, long side to the north-south lane. Lots count clockwise from the
-// north-east quadrant; local coordinates run -8 … 8.
+// edges, so the lattice is also a street grid. Each quadrant is one 7 × 7 m
+// lot, a house and its yard (park.mjs). Lots count clockwise from the
+// north-east quadrant; local coordinates run -8 … 8. (Until 2026-11-14 a
+// quadrant held two 3.5 × 7 m lots, too narrow to read as a home.)
 export function lot(k) {
   if (!Number.isInteger(k) || k < 0 || k >= LOTS) throw new RangeError('lot');
   const half = BLOCK / 2,
-    inner = LANE / 2,
-    depth = (half - inner) / 2;
-  const east = k < 4,
-    north = k < 2 || k > 5;
-  const outer = k % 2 === (north === east ? 1 : 0); // the lot farther from the lane
-  const x0 = inner + (outer ? depth : 0);
-  const [xMin, xMax] = east ? [x0, x0 + depth] : [-x0 - depth, -x0];
+    inner = LANE / 2;
+  const east = k < 2,
+    north = k === 0 || k === 3;
+  const [xMin, xMax] = east ? [inner, half] : [-half, -inner];
   const [zMin, zMax] = north ? [inner, half] : [-half, -inner];
   return { xMin, xMax, zMin, zMax };
 }
@@ -128,9 +126,19 @@ export class Geography {
       this.pods[id] = { id, handle, at: h.at };
       this.placements[id] = { block: h.block, lot: h.lot };
     }
+    // A ledger from before the quadrant lots (version 3) counted eight lots
+    // to a block. Every pod keeps its identity and is set down again in
+    // founding order, first settler nearest the plaza; blocks never close.
+    if ((data.version || 0) < 3 && Object.keys(this.placements).length) {
+      const order = Object.values(this.pods).sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
+      order.forEach((p, n) => {
+        this.placements[p.id] = { block: 1 + Math.floor(n / LOTS), lot: n % LOTS };
+      });
+      this.opened = Math.max(this.opened, Math.ceil(order.length / LOTS), blocksFor(order.length));
+    }
   }
   toJSON() {
-    return { version: 2, pods: this.pods, placements: this.placements,
+    return { version: 3, pods: this.pods, placements: this.placements,
       rests: this.rests, opened: this.opened, revision: this.revision };
   }
   get homes() {
@@ -236,7 +244,9 @@ export class Geography {
     return Object.entries(this.rests).filter(([, r]) => r.room === room).map(([handle, r]) => ({ handle, ...r }));
   }
   neighbours(room) {
-    const b = parseBlock(room);
+    // The plaza is block 0 of the same lattice: its sides open onto the
+    // blocks beside it like any other.
+    const b = room === LOBBY ? { i: 0, j: 0 } : parseBlock(room);
     if (!b || blockIndex(b) > this.opened) return null;
     const out = {};
     for (const [edge, di, dj] of [['east',1,0],['west',-1,0],['north',0,1],['south',0,-1]]) {

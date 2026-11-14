@@ -1,5 +1,5 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
-import { podFront } from './park.mjs';
+import { podFront, house, houseWalls, HOUSE } from './park.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
@@ -246,7 +246,103 @@ export async function createView(canvas) {
     });
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
-  let parkKey = null, parkModel = null, podModels = [];
+  // 🌍 Per-block models, kept by block id ('here' is the one underfoot) and
+  // rebuilt only when what they show changes.
+  const grounds = new Map(), lotSets = new Map(), tileSets = new Map();
+  // A block's ground: the plaza's floor or a residential block's grass and
+  // lanes. A side with an open neighbour is left open; the world's edge gets
+  // the plaza's wall or the park's hedge.
+  function groundFor(id, neighbours, plaza) {
+    const key = JSON.stringify([neighbours, !!plaza, paletteName]);
+    const kept = grounds.get(id);
+    if (kept?.key === key) return kept.model;
+    const p = PALETTES[paletteName], open = neighbours || {};
+    const made = model(({ quad, box }) => {
+      if (plaza) {
+        quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
+        for (let x = -WORLD + 2; x < WORLD; x += 2)
+          for (let z = -WORLD + 2; z < WORLD; z += 2)
+            box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
+        const h = ROOM_HEIGHT, t = 0.3, outside = 2 * WORLD + 2 * t, inside = 2 * WORLD;
+        if (!open.south) box(0, h / 2, -WORLD - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
+        if (!open.north) box(0, h / 2, WORLD + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
+        if (!open.west) box(-WORLD - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
+        if (!open.east) box(WORLD + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
+        return;
+      }
+      const grass = paletteName === 'day' ? 0xb9d7ac : 0x243d36;
+      const path = paletteName === 'day' ? 0xe5decb : 0x5a6664;
+      quad([-8, 0, -8], [-8, 0, 8], [8, 0, 8], [8, 0, -8], grass);
+      quad([-1, 0.006, -8], [-1, 0.006, 8], [1, 0.006, 8], [1, 0.006, -8], path);
+      quad([-8, 0.007, -1], [-8, 0.007, 1], [8, 0.007, 1], [8, 0.007, -1], path);
+      for (const edge of ['east', 'west', 'north', 'south']) {
+        if (open[edge]) continue;
+        const across = edge === 'north' || edge === 'south';
+        const side = edge === 'east' || edge === 'north' ? 1 : -1;
+        box(across ? 0 : side * 8, 0.3, across ? side * 8 : 0, across ? 16 : 0.2, 0.6, across ? 0.2 : 16, 0x47765d);
+      }
+    });
+    grounds.set(id, { key, model: made });
+    return made;
+  }
+  // A block's lots on its floor: each outlined as its yard, and a settled one
+  // carrying its house — real walls, a doorway onto the lane, the handle
+  // over the door, no roof. Your own yard is outlined in the cursor's pink.
+  function lotsFor(id, lots, home) {
+    const key = JSON.stringify([lots, home, paletteName]);
+    const kept = lotSets.get(id);
+    if (kept?.key === key) return kept;
+    const who = new Map(lots.homes.map((h) => [h.lot, h.handle]));
+    const lotModel = model(({ quad, box }) => {
+      lots.rects.forEach((r, k) => {
+        const col = k === home ? 0xff3296 : who.has(k) ? 0xb56bff : PALETTES[paletteName].dot;
+        const t = who.has(k) ? 0.06 : 0.03, y = 0.012, a = r.xMin + 0.15, b = r.xMax - 0.15, c = r.zMin + 0.15, d = r.zMax - 0.15;
+        const bar = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], col);
+        bar(a, c, b, c + t); bar(a, d - t, b, d); bar(a, c, a + t, d); bar(b - t, c, b, d);
+        if (who.has(k)) {
+          const day = paletteName === 'day';
+          const wall = day ? 0xe8e1f4 : 0x7d748c, side = day ? 0xcfc6e0 : 0x645c73, floor = day ? 0xd9cfc0 : 0x3a3644;
+          const hs = house(r);
+          quad([hs.xMin, 0.009, hs.zMin], [hs.xMin, 0.009, hs.zMax], [hs.xMax, 0.009, hs.zMax], [hs.xMax, 0.009, hs.zMin], floor);
+          for (const s of houseWalls(r))
+            box((s.xMin + s.xMax) / 2, HOUSE.height / 2, (s.zMin + s.zMax) / 2,
+              s.xMax - s.xMin, HOUSE.height, s.zMax - s.zMin, wall, side, wall);
+          // The lintel over the doorway.
+          box(hs.doorX, (HOUSE.doorHeight + HOUSE.height) / 2, hs.frontZ,
+            HOUSE.door, HOUSE.height - HOUSE.doorHeight, HOUSE.wall, wall, side, wall);
+        }
+      });
+    });
+    const podModels = lots.homes.flatMap((h) => {
+      const r = lots.rects[h.lot];
+      if (!r) return [];
+      const front = podFront(r), label = `@${h.handle}`;
+      const unit = Math.min(0.044, 2.7 / (label.length * 6));
+      return [{ ...front, mesh: model(({ box, handleText }) => {
+        // On the wall over the door, proud of its outer face.
+        box(0, 2.6, -0.15, 3, 0.65, 0.09, 0x171d26);
+        handleText(label, 0, 2.78, -0.205, unit, h.colors);
+      }) }];
+    });
+    const made = { key, lotModel, podModels };
+    lotSets.set(id, made);
+    return made;
+  }
+  // A neighbouring block's painted floor squares.
+  function tilesFor(id, tiles) {
+    const key = JSON.stringify(tiles || {});
+    const kept = tileSets.get(id);
+    if (kept?.key === key) return kept.model;
+    const made = key === '{}' ? null : model(({ quad }) => {
+      for (const [at, c] of Object.entries(tiles)) {
+        const [i, j] = at.split(',').map(Number);
+        const x = -18 + i * 2, z = -18 + j * 2, col = TILE_COLORS[(c - 1) % TILE_COLORS.length];
+        quad([x, 0.005, z], [x + 2, 0.005, z], [x + 2, 0.005, z + 2], [x, 0.005, z + 2], col);
+      }
+    });
+    tileSets.set(id, { key, model: made });
+    return made;
+  }
   function dress(name) {
     if (name === paletteName) return;
     const p = PALETTES[name];
@@ -397,7 +493,6 @@ export async function createView(canvas) {
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
-  let lotCacheKey = '', lotModel = null;
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -620,6 +715,7 @@ export async function createView(canvas) {
     tiles = {},
     lots = null,
     park = null,
+    around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, lots, home, objects, tiles }
     home = null,
     floorAim = null,
     chalk = [],
@@ -765,66 +861,75 @@ export async function createView(canvas) {
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
     const tags = [];
-    if (park?.neighbours) {
-      const key = JSON.stringify([park.neighbours, paletteName]);
-      if (parkKey !== key) {
-        parkKey = key;
-        parkModel = model(({ quad, box }) => {
-          const grass = paletteName === 'day' ? 0xb9d7ac : 0x243d36;
-          const path = paletteName === 'day' ? 0xe5decb : 0x5a6664;
-          quad([-8,0,-8],[-8,0,8],[8,0,8],[8,0,-8],grass);
-          quad([-1,0.006,-8],[-1,0.006,8],[1,0.006,8],[1,0.006,-8],path);
-          quad([-8,0.007,-1],[-8,0.007,1],[8,0.007,1],[8,0.007,-1],path);
-          for (const edge of ['east','west','north','south']) {
-            const horizontal = edge === 'north' || edge === 'south';
-            const side = edge === 'east' || edge === 'north' ? 1 : -1;
-            for (const center of [-4.5,4.5]) box(horizontal ? center : side * 8, 0.3, horizontal ? side * 8 : center,
-              horizontal ? 7 : 0.2, 0.6, horizontal ? 0.2 : 7, 0x47765d);
-            if (!park.neighbours[edge]) box(horizontal ? 0 : side * 8, 0.3, horizontal ? side * 8 : 0,
-              horizontal ? 2 : 0.2, 0.6, horizontal ? 0.2 : 2, 0x47765d);
-          }
-        });
-      }
-      draw(parkModel);
-    } else draw(arena);
-    // 🏠 The block's lots, outlined on the floor: settled ones in the home
-    // purple, your own in the cursor's pink, each with its handle at the
-    // lot's inner end. Rebuilt only when they change.
+    // 🌍 The block underfoot, then every open block around it where it
+    // stands: one continuous ground, each home on its lot.
+    if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza));
+    else draw(arena);
     if (lots) {
-      const lotsKey = JSON.stringify([lots, home, paletteName]);
-      if (lotsKey !== lotCacheKey) {
-        lotCacheKey = lotsKey;
-        const who = new Map(lots.homes.map((h) => [h.lot, h.handle]));
-        lotModel = model(({ quad, box }) => {
-          lots.rects.forEach((r, k) => {
-            const col = k === home ? 0xff3296 : who.has(k) ? 0xb56bff : PALETTES[paletteName].dot;
-            const t = who.has(k) ? 0.06 : 0.03, y = 0.012, a = r.xMin + 0.15, b = r.xMax - 0.15, c = r.zMin + 0.15, d = r.zMax - 0.15;
-            const bar = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], col);
-            bar(a, c, b, c + t); bar(a, d - t, b, d); bar(a, c, a + t, d); bar(b - t, c, b, d);
-            if (who.has(k)) {
-              // An open pod frame: the owner can still see the shared park.
-              const frame = paletteName === 'day' ? 0xe8e1f4 : 0x90859f;
-              for (const x of [a,b]) for (const z of [c,d]) box(x,1.35,z,0.09,2.7,0.09,frame);
-              for (const z of [c,d]) box((a+b)/2,2.7,z,b-a+0.09,0.09,0.09,frame);
-              for (const x of [a,b]) box(x,2.7,(c+d)/2,0.09,0.09,d-c,frame);
-            }
-          });
-        });
-        podModels = lots.homes.flatMap(h => {
-          const r = lots.rects[h.lot];
-          if (!r) return [];
-          const front = podFront(r), label = `@${h.handle}`;
-          const unit = Math.min(0.044, 2.7 / (label.length * 6));
-          return [{ ...front, mesh: model(({ box, handleText }) => {
-            box(0, 2.12, 0, 3, 0.65, 0.09, 0x171d26);
-            handleText(label, 0, 2.3, -0.055, unit, h.colors);
-          }) }];
-        });
-      }
-      draw(lotModel, 0, 0, 0);
-      for (const p of podModels) draw(p.mesh, p.x, 0, p.z, p.yaw);
+      const set = lotsFor('here', lots, home);
+      draw(set.lotModel, 0, 0, 0);
+      for (const p of set.podModels) draw(p.mesh, p.x, 0, p.z, p.yaw);
     }
+    for (const b of around) {
+      draw(groundFor(b.id, b.neighbours, b.plaza), b.dx, 0, b.dz);
+      if (b.lots) {
+        const set = lotsFor(b.id, b.lots, b.home);
+        draw(set.lotModel, b.dx, 0, b.dz);
+        for (const p of set.podModels) draw(p.mesh, b.dx + p.x, 0, b.dz + p.z, p.yaw);
+      }
+      const painted = tilesFor(b.id, b.tiles);
+      if (painted) draw(painted, b.dx, 0, b.dz);
+    }
+    for (const id of grounds.keys())
+      if (id !== 'here' && !around.some((b) => b.id === id)) {
+        grounds.delete(id); lotSets.delete(id); tileSets.delete(id);
+      }
+    // A thing standing on the ground, drawn where its block stands.
+    const stand = (object, ox, oz) => {
+      if (object.geometry.format === OBJECT_FORMAT) {
+        draw(
+          sourceFrame(object.geometry, worldTime).vertices,
+          ox + object.x,
+          0,
+          oz + object.z,
+        );
+        drawHair(object.geometry, ox + object.x, 0, oz + object.z);
+        return;
+      }
+      let cached = objectModels.get(object.id);
+      if (!cached || cached.version !== object.version) {
+        cached = {
+          version: object.version,
+          parts: object.geometry.boxes.map((b) =>
+            model(({ box }) =>
+              box(0, 0, 0, b.w, b.h, b.d, b.color, INK, PAPER),
+            ),
+          ),
+          model: model(({ box }) => {
+            for (const b of object.geometry.boxes)
+              box(b.x, b.y, b.z, b.w, b.h, b.d, b.color, INK, PAPER);
+          }),
+        };
+        objectModels.set(object.id, cached);
+      }
+      if (object.geometry.motion) {
+        const pose = poseObject(object, worldTime);
+        pose.geometry.boxes.forEach((b, i) =>
+          draw(
+            cached.parts[i],
+            ox + pose.x + b.x,
+            (pose.y || 0) + b.y,
+            oz + pose.z + b.z,
+            0,
+            0,
+            1,
+            b.roll || 0,
+          ),
+        );
+      } else draw(cached.model, ox + object.x, 0, oz + object.z);
+    };
     const aliveObjects = new Set(objects.map((o) => o.id));
+    for (const b of around) for (const o of b.objects || []) aliveObjects.add(o.id);
     for (const id of objectModels.keys())
       if (!aliveObjects.has(id)) objectModels.delete(id);
     const poses = new Map(items.map((it) => [it.id, it]));
@@ -851,48 +956,11 @@ export async function createView(canvas) {
         draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
         continue;
       }
-      if (object.geometry.format === OBJECT_FORMAT) {
-        draw(
-          sourceFrame(object.geometry, worldTime).vertices,
-          object.x,
-          0,
-          object.z,
-        );
-        drawHair(object.geometry, object.x, 0, object.z);
-        continue;
-      }
-      let cached = objectModels.get(object.id);
-      if (!cached || cached.version !== object.version) {
-        cached = {
-          version: object.version,
-          parts: object.geometry.boxes.map((b) =>
-            model(({ box }) =>
-              box(0, 0, 0, b.w, b.h, b.d, b.color, INK, PAPER),
-            ),
-          ),
-          model: model(({ box }) => {
-            for (const b of object.geometry.boxes)
-              box(b.x, b.y, b.z, b.w, b.h, b.d, b.color, INK, PAPER);
-          }),
-        };
-        objectModels.set(object.id, cached);
-      }
-      if (object.geometry.motion) {
-        const pose = poseObject(object, worldTime);
-        pose.geometry.boxes.forEach((b, i) =>
-          draw(
-            cached.parts[i],
-            pose.x + b.x,
-            (pose.y || 0) + b.y,
-            pose.z + b.z,
-            0,
-            0,
-            1,
-            b.roll || 0,
-          ),
-        );
-      } else draw(cached.model, object.x, 0, object.z);
+      stand(object, 0, 0);
     }
+    for (const b of around)
+      for (const object of b.objects || [])
+        if (!object.item && object.geometry) stand(object, b.dx, b.dz);
     for (const id of previewModels.keys())
       if (!jobs.some((j) => j.id === id)) previewModels.delete(id);
     for (const job of jobs) {

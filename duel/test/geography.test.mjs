@@ -44,7 +44,7 @@ test('world metres and block-local metres convert both ways', () => {
   assert.deepEqual(fromWorld(world), { block, local: { x: -7.5, z: 4 } });
 });
 
-test('eight lots fill a block around its two lanes without overlapping', () => {
+test('four lots fill a block around its two lanes without overlapping', () => {
   let area = 0;
   for (let k = 0; k < LOTS; k++) {
     const r = lot(k);
@@ -61,16 +61,16 @@ test('eight lots fill a block around its two lanes without overlapping', () => {
 test('a handle has one home; the next block opens when the open lots are three quarters full', () => {
   const g = new Geography();
   assert.equal(g.opened, 1);
-  for (let n = 0; n < 5; n++) g.settle(`@p${n}`);
+  for (let n = 0; n < 2; n++) g.settle(`@p${n}`);
   assert.equal(g.opened, 1);
-  const sixth = g.settle('p5');
-  assert.equal(sixth.opened, 2, 'six of eight opens block two');
+  const third = g.settle('p5');
+  assert.equal(third.opened, 2, 'three of four opens block two');
   assert.deepEqual(g.settle('@P5'), { ...g.home('p5'), moved: false, opened: 2 }, 'settling again changes nothing');
-  assert.equal(Object.keys(g.homes).length, 6);
+  assert.equal(Object.keys(g.homes).length, 3);
   // Any free lot in an open block may be chosen; a taken one may not.
   assert.throws(() => g.settle('q', { block: 1, lot: 0 }), /taken/);
   assert.throws(() => g.settle('q', { block: 3, lot: 0 }), /not open/);
-  const far = g.settle('q', { block: 2, lot: 7 });
+  const far = g.settle('q', { block: 2, lot: 3 });
   assert.equal(far.block, 2);
   // Moving frees the old lot and keeps the founding date.
   const moved = g.settle('p0', { block: 2, lot: 0 }, 99);
@@ -86,7 +86,7 @@ test('the settled world stays dense as it grows', () => {
   assert.equal(c.settled, 3076);
   assert.ok(c.settled / c.lots >= 0.74, `fill ${c.settled / c.lots}`);
   assert.equal(c.opened, blocksFor(3076));
-  assert.ok(c.span.seconds <= 40, `crossing takes ${c.span.seconds}s`);
+  assert.ok(c.span.seconds <= 55, `crossing takes ${c.span.seconds}s`); // four house-sized lots to a block
   assert.equal(span(1).metres, 48);
 });
 

@@ -73,7 +73,8 @@ export function spawn(seat, life = 1) {
   };
 }
 
-export function move(player, cmd, objects = [], time = 0) {
+// `fixed` is the place's own solid boxes (a block's house walls).
+export function move(player, cmd, objects = [], time = 0, fixed = []) {
   if (!player.alive) return { ...player };
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
@@ -85,7 +86,7 @@ export function move(player, cmd, objects = [], time = 0) {
   const cfg = {
     ...CFG,
     groundY: support?.yMax || 0,
-    obstacles: [...WALLS, ...boxes.filter((b) => b.yMax > feet + step)],
+    obstacles: [...WALLS, ...fixed, ...boxes.filter((b) => b.yMax > feet + step)],
   };
   const next = pmove(
     { ...player, onGround: grounded },

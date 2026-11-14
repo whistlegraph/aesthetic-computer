@@ -1,4 +1,4 @@
-import { edgeAt, crossedPod } from './park.mjs';
+import { edgeAt, SPAN, blockWalls } from './park.mjs';
 import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
@@ -54,7 +54,54 @@ let room =
     ? requestedRoom
     : (accountExpected() && home?.room) || 'lobby';
 // The block's lots and who settled each ({ rects, homes }), or null in the lobby.
-let lots = null, park = null, passage = null, walkAt = 0, doorIntent = null;
+let lots = null, park = null, passage = null, walkAt = 0;
+// 🌍 The world around this block, streamed from the server and kept between
+// visits: the last answer of /world for each block it was asked about.
+let world = null, worldAt = 0;
+const worlds = new Map();
+try {
+  for (const [id, w] of Object.entries(JSON.parse(localStorage.getItem('dool-world') || '{}')))
+    if (Array.isArray(w?.blocks)) worlds.set(id, w);
+} catch {}
+// The solid walls of this block's houses, rebuilt when its lots change.
+let wallsOf = null, houseBoxes = [];
+function houseWalls() {
+  if (wallsOf !== lots) {
+    wallsOf = lots;
+    houseBoxes = blockWalls(lots);
+  }
+  return houseBoxes;
+}
+// The blocks beside the one underfoot, placed in metres from its middle.
+function around() {
+  if (!world) return [];
+  const here = world.blocks.find((b) => b.id === room);
+  if (!here) return [];
+  return world.blocks
+    .filter((b) => b !== here && Math.abs(b.di - here.di) <= 1 && Math.abs(b.dj - here.dj) <= 1)
+    .map((b) => ({ ...b, dx: (b.di - here.di) * SPAN, dz: (b.dj - here.dj) * SPAN,
+      home: home && home.room === b.id ? home.lot : null }));
+}
+async function streamWorld() {
+  const asked = room;
+  worldAt = performance.now();
+  if (asked.startsWith('pod-')) return void (world = null);
+  try {
+    const r = await fetch(new URL(`./world?room=${encodeURIComponent(asked)}`, import.meta.url), { cache: 'no-store' });
+    if (!r.ok || room !== asked) return;
+    const data = await r.json();
+    if (!Array.isArray(data.blocks)) return;
+    world = data;
+    worlds.delete(asked);
+    worlds.set(asked, data);
+    while (worlds.size > 6) worlds.delete(worlds.keys().next().value);
+    try {
+      localStorage.setItem('dool-world', JSON.stringify(Object.fromEntries(worlds)));
+    } catch {}
+  } catch {}
+}
+world = worlds.get(room) || null;
+void streamWorld();
 // Under the prompt the host may not have said who is signed in when this
 // loads: look again shortly, so the room behind the curtain is home too.
 if (!roamed && home && room !== home.room)
@@ -489,12 +536,21 @@ function travel(to, chosen = true, receipt = null) {
   if (chosen) roamed = true;
   room = to;
   passage = receipt;
-  doorIntent = null;
   park = null;
   lots = null;
   walkAt = performance.now() + 1000;
   objects = [];
   tiles = {};
+  // What the world stream already knows of the place stands there at once:
+  // the ground, lots and things were on screen a block away a moment ago.
+  const known = world?.blocks.find((b) => b.id === to);
+  if (known) {
+    park = { neighbours: known.neighbours, plaza: known.plaza, pod: null };
+    lots = known.lots || null;
+    objects = known.objects || [];
+    tiles = known.tiles || {};
+  }
+  void streamWorld();
   setScreens([]);
   chalkStrokes = [];
   chalkVersion++;
@@ -595,7 +651,7 @@ function connect() {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
-    if (data.type === 'park') park = { neighbours: data.neighbours, pod: data.pod };
+    if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza, pod: data.pod };
     if (data.type === 'travel') travel(data.room, true, data.passage);
     if (data.type === 'arrival') { yaw = data.yaw; pitch = data.pitch || 0; passage = null; }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
@@ -884,12 +940,9 @@ function menuItems() {
   const here = (id) => (room === id ? ' · here' : '');
   const places = [
     home
-      ? { label: `my pod${here(home.pod || home.room)}`, act: () => travel(home.pod || home.room) }
-      : { label: 'sign in for a pod', act: () => {} },
-    { label: `park${here(park?.pod?.room || home?.room || 'lobby')}`, act: () => park?.pod ? send({ type: 'exit-pod' }) : travel(home?.room || 'lobby') },
+      ? { label: `home · ${home.room} lot ${home.lot}${here(home.room)}`, act: () => travel(home.room) }
+      : { label: 'home · sign in for a lot', act: () => {} },
     { label: `plaza${here('lobby')}`, act: () => travel('lobby') },
-    ...(lots?.homes || []).filter(h => h.pod && h.pod !== home?.pod).map(h => ({ label: `visit @${h.handle}`, act: () => travel(h.pod) })),
-    ...Object.entries(park?.neighbours || {}).map(([edge, destination]) => ({ label: `${edge} · park`, act: () => travel(destination) })),
   ];
   const switches = [
     { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
@@ -1435,7 +1488,7 @@ function applyPrediction() {
   const began = performance.now(), data = prediction, own = data.players[seat];
   prediction = null;
   const changedLife = !player || own.life !== player.life;
-  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick);
+  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, houseWalls());
   // How far the server's word moved us from where we thought we were: zero
   // when prediction holds (?debug reads it).
   if (player && !changedLife) {
@@ -1720,7 +1773,6 @@ function step(now) {
   );
   if (probe) send(probe);
   const firstSequence = seq;
-  const walkedFrom = player && { ...player };
   while (debt >= DT) {
     debt -= DT;
     if (
@@ -1765,20 +1817,19 @@ function step(now) {
     jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting')
-      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ);
+      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, houseWalls());
     presentation.step(player);
   }
   // One newest batch per display frame: catch-up steps don't flood a slow link.
   if (seq !== firstSequence)
     send({ type: 'input', commands: pending.slice(-12) }); // match.mjs INPUT_BATCH
+  if (performance.now() - worldAt > 6000 && !document.hidden) void streamWorld();
   if (park?.neighbours && player && seq !== firstSequence) {
-    const crossed = crossedPod(walkedFrom, player, lots);
-    if (crossed) doorIntent = { pod: crossed, until: now + 1500 };
-    if (doorIntent?.until < now) doorIntent = null;
+    // A home is its lot: walking over a front is only walking. Off a side
+    // with a neighbour, the next block takes the walker.
     if (now > walkAt) {
       const edge = edgeAt(player);
       if (edge && park.neighbours[edge]) { send({ type: 'walk', edge }); walkAt = now + 600; }
-      else if (doorIntent) { send({ type: 'enter-pod', pod: doorIntent.pod }); walkAt = now + 200; }
     }
   }
   const seconds = snapshot
@@ -1946,6 +1997,7 @@ function step(now) {
     tiles,
     lots,
     park,
+    around: around(),
     home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen ? null : floorAim,
     chalk: chalkStrokes,

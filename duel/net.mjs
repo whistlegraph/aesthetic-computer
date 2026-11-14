@@ -26,10 +26,10 @@ export function command(raw) {
   };
 }
 
-export function reconcile(authority, pending, ack, objects = [], tick = 0) {
+export function reconcile(authority, pending, ack, objects = [], tick = 0, fixed = []) {
   const remaining = pending.filter((c) => c.seq > ack);
   return {
-    player: remaining.reduce((p, c, i) => move(p, c, objects, (tick + i + 1) / HZ), {
+    player: remaining.reduce((p, c, i) => move(p, c, objects, (tick + i + 1) / HZ, fixed), {
       ...authority,
     }),
     pending: remaining,

@@ -27,6 +27,7 @@ export class Match {
   constructor() {
     this.tick = 0;
     this.objects = [];
+    this.walls = [];
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
@@ -115,6 +116,10 @@ export class Match {
   }
 
   // Solid objects collide; items are carried, thrown and run over instead.
+  // The place's own solid boxes: a block's house walls.
+  setWalls(boxes = []) {
+    this.walls = boxes;
+  }
   setObjects(list = []) {
     this.objects = list.filter((o) => !o.item);
     const ids = new Set();
@@ -489,7 +494,7 @@ export class Match {
         const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
         // Waiting is a movement warmup; the match countdown locks both spawns.
         if (this.phase === 'playing' || this.phase === 'waiting')
-          p = move(p, input, this.objects, this.tick / HZ);
+          p = move(p, input, this.objects, this.tick / HZ, this.walls);
         else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;

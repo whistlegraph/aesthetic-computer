@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
-import { edgeAt, landing, podFront } from './park.mjs';
+import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
@@ -140,10 +140,11 @@ export function createDuelServer({
           colors: profiles.get(handle)?.colors || null })) };
   };
   const parkData = key => ({ neighbours: geography.geography.neighbours(key),
-    pod: geography.geography.publicPod(key) });
+    plaza: key === 'lobby', pod: geography.geography.publicPod(key) });
   const sendLots = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
     const data = lotData(key);
+    rooms.get(key)?.match.setWalls(blockWalls(data)); // the houses are solid
     if (!data) return;
     send(ws, { type: 'lots', ...data });
     void Promise.all(data.homes.map(h => colorsFor(h.handle).promise)).then(() => {
@@ -300,6 +301,33 @@ export function createDuelServer({
             resting,
           }),
         );
+      return;
+    }
+    // 🌍 The world around a block: itself and every open block beside it,
+    // each with its lots and what stands and is painted there, so a client
+    // draws the neighbourhood in place and keeps it between visits.
+    if (path === '/world' && req.method === 'GET') {
+      await ready;
+      const asked = url.searchParams.get('room') || '';
+      const at = asked === 'lobby' ? { i: 0, j: 0 } : parseBlock(asked);
+      const blocks = [];
+      if (at && blockIndex(at) <= geography.geography.opened)
+        for (let dj = -1; dj <= 1; dj++)
+          for (let di = -1; di <= 1; di++) {
+            const b = { i: at.i + di, j: at.j + dj }, n = blockIndex(b);
+            if (n > geography.geography.opened) continue;
+            const id = blockId(b);
+            blocks.push({
+              id, di, dj, plaza: n === 0,
+              neighbours: geography.geography.neighbours(id),
+              lots: lotData(id),
+              objects: store.objects(id).filter((o) => !o.item),
+              tiles: store.tiles(id),
+            });
+          }
+      res
+        .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify({ room: at ? blockId(at) : null, revision: geography.geography.revision, blocks }));
       return;
     }
     if (path === '/room' && req.method === 'GET') {
@@ -553,6 +581,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
     accountHold?.unref?.();
     room.match.setObjects(store.objects(key));
+    room.match.setWalls(blockWalls(lotData(key)));
     let arrived = false;
     const arrive = () => {
       if (arrived || !member.owner || member.seat < 0) return;

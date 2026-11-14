@@ -9,7 +9,8 @@ import { WebSocket } from 'ws';
 import { Geography, GeographyStore } from '../geography.mjs';
 import { createDuelServer } from '../server.mjs';
 import { PROTOCOL } from '../world.mjs';
-import { edgeAt, landing } from '../park.mjs';
+import { edgeAt, landing, podFront } from '../park.mjs';
+import { lot } from '../geography.mjs';
 
 const legacy = () => ({ opened: 1, homes: { jeffrey: { block: 1, lot: 0, at: 10 }, oskie: { block: 1, lot: 1, at: 20 } },
   rests: { jeffrey: { room: 'lobby', x: 1, z: 2, yaw: 90, at: 30 } } });
@@ -28,11 +29,11 @@ test('v1 migration keeps neighbours and rests, writes a backup, and produces per
     assert.deepEqual(a.geography.placements, { [j]: { block: 1, lot: 0 }, [o]: { block: 1, lot: 1 } });
     assert.deepEqual(a.geography.rests, legacy().rests);
     assert.deepEqual(JSON.parse(await readFile(join(dir,'geography.v1.json'))), legacy());
-    await a.change(g => g.curate([{ pod: j, block: 1, lot: 6 }, { pod: o, block: 1, lot: 7 }]));
+    await a.change(g => g.curate([{ pod: j, block: 1, lot: 2 }, { pod: o, block: 1, lot: 3 }]));
     const b = new GeographyStore(dir); await b.load();
     assert.equal(b.geography.forHandle('jeffrey').id, j);
     assert.equal(b.geography.forHandle('oskie').id, o);
-    assert.equal(b.geography.publicPod(o).placement.lot, 7);
+    assert.equal(b.geography.publicPod(o).placement.lot, 3);
     assert.deepEqual(JSON.parse(await readFile(join(dir,'geography.v1.json'))), legacy());
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -68,10 +69,14 @@ test('park paths only connect open adjacent blocks and land inside the opposite 
   assert.deepEqual(g.neighbours('lobby'), { east: 'e1n0' });
   assert.deepEqual(g.neighbours('e1n0'), { west: 'lobby' });
   assert.equal(g.neighbours('studio'), null);
-  assert.equal(edgeAt({x:7.4,y:1.7,z:0}), 'east');
+  assert.equal(edgeAt({x:7.55,y:1.7,z:0}), 'east');
+  assert.equal(edgeAt({x:7.55,y:1.7,z:2}), 'east'); // the whole side is open, not only the lane
   assert.equal(edgeAt({x:7.4,y:1.7,z:2}), null);
-  assert.equal(edgeAt({x:7.4,y:3,z:0}), null);
-  assert.deepEqual(landing({x:7.4,z:0.2,yaw:90,pitch:12},'east'),{x:-6.9,z:0.2,yaw:90,pitch:12});
+  assert.equal(edgeAt({x:7.55,y:3,z:0}), null);
+  // The same spot one block over, set down clear of the edge it came through.
+  const landed = landing({x:7.58,z:0.2,yaw:90,pitch:12},'east');
+  assert.deepEqual(landed,{x:-7.3,z:0.2,yaw:90,pitch:12});
+  assert.equal(edgeAt({...landed,y:1.7}), null);
 });
 
 async function fixture(t) {
@@ -105,14 +110,14 @@ test('live curation is admin-only, keeps pod contents, refreshes tags, and seria
   await wait(()=>c.messages.some(m=>m.type==='lots'&&m.homes[0]?.colors));
   assert.equal(c.messages.find(m=>m.type==='lots').homes[0].pod,j);
   const before=structuredClone(app.store.data);
-  const edit={revision:app.geography.geography.revision,moves:[{pod:j,block:1,lot:6}]};
+  const edit={revision:app.geography.geography.revision,moves:[{pod:j,block:1,lot:2}]};
   const post=auth=>fetch(base+'/park/layout',{method:'POST',headers:{authorization:auth},body:JSON.stringify(edit)});
   assert.equal((await post('')).status,403);
   const results=await Promise.all([post('Bearer curator'),post('Bearer curator')]);
   assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
   assert.deepEqual(app.store.data,before);
-  await wait(()=>c.messages.some(m=>m.type==='lots'&&m.homes.some(h=>h.pod===j&&h.lot===6)));
-  assert.equal((await (await fetch(base+'/pod?id='+j)).json()).placement.lot,6);
+  await wait(()=>c.messages.some(m=>m.type==='lots'&&m.homes.some(h=>h.pod===j&&h.lot===2)));
+  assert.equal((await (await fetch(base+'/pod?id='+j)).json()).placement.lot,2);
   assert.equal((await fetch(base+'/pod?id=pod-missing')).status,404);
 });
 
@@ -133,11 +138,11 @@ test('guests can enter a pod but cannot paint, clear, build, remove, or restore;
 test('walking uses server position and a one-use owner-bound passage, preserving facing', async t => {
   const {app,connect}=await fixture(t);
   const a=await connect('lobby');
-  a.ws.send(JSON.stringify({type:'walk',edge:'east',x:7.4,z:0}));
+  a.ws.send(JSON.stringify({type:'walk',edge:'east',x:7.58,z:0}));
   await delay(40);
   assert.ok(!a.messages.some(m=>m.type==='travel'));
   const member=[...app.rooms.get('lobby').sessions.values()][0];
-  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.4,z:0.2,y:1.7,yaw:90,pitch:12});
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12});
   a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const travel=a.messages.find(m=>m.type==='travel');
@@ -160,19 +165,59 @@ test('a pod doorway admits nearby visitors and exits at its current park placeme
   await delay(40);
   assert.ok(!a.messages.some(m=>m.type==='travel'));
   const member=[...app.rooms.get('e1n0').sessions.values()][0];
-  Object.assign(app.rooms.get('e1n0').match.seats[member.seat].player,{x:6.25,z:1.25,y:1.7});
+  const door=podFront(lot(app.geography.geography.home('oskie').lot));
+  Object.assign(app.rooms.get('e1n0').match.seats[member.seat].player,{x:door.x,z:door.z,y:1.7});
   a.ws.send(JSON.stringify({type:'enter-pod',pod:id}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const enter=a.messages.find(m=>m.type==='travel');
   assert.equal(enter.room,id);
   const inside=await connect(id,null,a.token,enter.passage);
   await wait(()=>inside.messages.some(m=>m.type==='arrival'));
-  await app.curate({revision:app.geography.geography.revision,moves:[{pod:id,block:1,lot:6}]});
+  await app.curate({revision:app.geography.geography.revision,moves:[{pod:id,block:1,lot:2}]});
   inside.ws.send(JSON.stringify({type:'exit-pod'}));
   await wait(()=>inside.messages.some(m=>m.type==='travel'));
   const exit=inside.messages.find(m=>m.type==='travel');
   const outside=await connect(exit.room,null,a.token,exit.passage);
   await wait(()=>outside.messages.some(m=>m.type==='arrival'));
-  const pose=outside.messages.find(m=>m.type==='snapshot'&&m.players.some(p=>p?.x===-6.25));
+  const moved=podFront(lot(2));
+  const pose=outside.messages.find(m=>m.type==='snapshot'&&m.players.some(p=>p&&Math.abs(p.x-moved.x)<0.01));
   assert.ok(pose,'exit follows the relocated pod');
+});
+
+test('an eight-lot ledger is set down again on the four house lots, in founding order', () => {
+  const pods = {}, placements = {};
+  [['jeffrey', 10, 0], ['oskie', 20, 1], ['prutti', 30, 5], ['max', 40, 7], ['fia', 50, 2]].forEach(([handle, at, old]) => {
+    pods['pod-' + handle] = { id: 'pod-' + handle, handle, at };
+    placements['pod-' + handle] = { block: 1, lot: old };
+  });
+  const g = new Geography({ version: 2, pods, placements, opened: 1, revision: 4 });
+  assert.deepEqual(['jeffrey', 'oskie', 'prutti', 'max', 'fia'].map((h) => g.home(h)).map(({ block, lot }) => [block, lot]),
+    [[1, 0], [1, 1], [1, 2], [1, 3], [2, 0]]);
+  assert.equal(g.opened, 2);
+  assert.equal(g.forHandle('jeffrey').id, 'pod-jeffrey', 'identity is kept');
+  // Read back, a version 3 ledger is left exactly where it is.
+  const again = new Geography(JSON.parse(JSON.stringify(g)));
+  assert.deepEqual(again.placements, g.placements);
+});
+
+test('a house is solid except at its door', async () => {
+  const { move, spawn } = await import('../world.mjs');
+  const { houseWalls, house } = await import('../park.mjs');
+  const rect = lot(0), walls = houseWalls(rect), h = house(rect);
+  const walk = (from, yaw, steps = 90) => {
+    let p = { ...spawn(0), x: from.x, z: from.z, yaw };
+    for (let n = 0; n < steps; n++) p = move(p, { yaw, pitch: 0, fwd: 1, right: 0, buttons: 0 }, [], n / 60, walls);
+    return p;
+  };
+  const toward = (from, to) => (Math.atan2(to.x - from.x, to.z - from.z) * 180) / Math.PI;
+  // From the lane, straight at the wall beside the door: stopped outside.
+  const beside = { x: h.xMin + 0.6, z: h.frontZ - 0.55 };
+  const blocked = [0, 180].map((yaw) => walk(beside, yaw, 40)).find((p) => p.z > beside.z) || walk(beside, 0, 40);
+  assert.ok(blocked.z < h.frontZ, `stopped at the wall (z ${blocked.z})`);
+  // Through the doorway: inside.
+  const atDoor = { x: h.doorX, z: h.frontZ - 0.55 };
+  const through = [0, 180].map((yaw) => walk(atDoor, yaw, 40)).find((p) => p.z > h.frontZ + 0.5);
+  assert.ok(through, 'the doorway lets a body in');
+  assert.ok(through.z < h.zMax, 'and the back wall keeps it in');
+  void toward;
 });
