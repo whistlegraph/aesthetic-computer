@@ -6,7 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
-import { GeographyStore, BLOCK, LOTS, lot } from './geography.mjs';
+import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
@@ -108,6 +108,20 @@ export function createDuelServer({
     geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
     ready = Promise.all([store.load(), geography.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
+  // 🏠 A residential block's lots and who settled each, for the floor.
+  const sendLots = (ws, key) => {
+    const block = key === 'lobby' ? null : parseBlock(key);
+    if (!block) return;
+    const n = blockIndex(block);
+    send(ws, {
+      type: 'lots',
+      room: key,
+      rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
+      homes: Object.entries(geography.geography.homes)
+        .filter(([, h]) => h.block === n)
+        .map(([handle, h]) => ({ lot: h.lot, handle })),
+    });
+  };
   const handle = async (req, res) => {
     let url;
     try {
@@ -486,7 +500,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const takeover = [...room.sessions.values()].some(
           (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
         );
-        void geography.change((g) => g.settle(handle)).catch(() => {});
+        void geography.change((g) => g.settle(handle)).then((home) => {
+          // 🏠 Where this handle lives, so its client can go there, and the
+          // block's lots again for everyone standing in it.
+          const at = blockId(blockAt(home.block));
+          send(ws, { type: 'home', room: at, lot: home.lot });
+          for (const client of rooms.get(at)?.clients.keys() || []) sendLots(client, at);
+        }).catch(() => {});
         member.handle = handle;
         member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
@@ -536,6 +556,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (devRoom(key) && devRecent.length)
       send(ws, { type: 'dev-log', entries: devRecent });
     send(ws, { type: 'chalk', strokes: room.match.chalk });
+    sendLots(ws, key);
     send(ws, room.match.snapshot());
     send(ws, builders.state(key, member));
     room.broadcast();
@@ -759,6 +780,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     handle,
     attach,
     store,
+    geography,
     builders,
     ready,
     async close() {

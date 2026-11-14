@@ -39,10 +39,21 @@ function leave() {
     toHost({ type: 'dool:sheet:leave' });
   } else location.href = '/';
 }
-const room =
+// 🏠 A signed-in handle arrives in its own block (the server says which the
+// first time; this browser remembers). A `room` in the address wins, and so
+// does anywhere travelled to since.
+let home = null;
+try {
+  const kept = JSON.parse(localStorage.getItem('dool-home') || 'null');
+  if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, lot: kept.lot };
+} catch {}
+let roamed = !!requestedRoom;
+let room =
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
-    : 'lobby';
+    : (accountExpected() && home?.room) || 'lobby';
+// The block's lots and who settled each ({ rects, homes }), or null in the lobby.
+let lots = null;
 let ws,
   seat = -1,
   player,
@@ -458,6 +469,31 @@ if (query.has('debug'))
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
   });
 
+// 🚪 To another room of the one world: the same page, a new socket. What
+// stood in the old room is put away first so it never shows in the new one.
+function travel(to, chosen = true) {
+  if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
+  if (chosen) roamed = true;
+  room = to;
+  lots = null;
+  objects = [];
+  tiles = {};
+  setScreens([]);
+  chalkStrokes = [];
+  chalkVersion++;
+  if (joinURL) joinURL = new URL(`?room=${room}`, location.href).href;
+  try {
+    const address = new URL(location.href);
+    address.searchParams.set('room', room);
+    window.history.replaceState(window.history.state, '', address);
+  } catch {}
+  if (ws && ws.readyState !== WebSocket.CLOSED) {
+    const old = ws;
+    ws = null; // its close is ours, not an outage
+    old.close();
+    connect();
+  } else void peekRoom();
+}
 function connect() {
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -541,6 +577,14 @@ function connect() {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
+    if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
+      home = { room: data.room, lot: data.lot };
+      try {
+        localStorage.setItem('dool-home', JSON.stringify(home));
+      } catch {}
+      if (!roamed && home.room !== room) travel(home.room, false);
+    }
+    if (data.type === 'lots' && data.room === room && Array.isArray(data.rects)) lots = { rects: data.rects, homes: data.homes || [] };
     if (data.type === 'presence') {
       members = data.members;
       selfMember = data.self || null;
@@ -548,7 +592,7 @@ function connect() {
     if (data.type === 'handle-history' && Array.isArray(data.items)) {
       handleHistory = data.items;
       historyPending = false;
-      if (menu?.kind === 'history') menu.items = menuItems('history');
+      if (menu) menu.items = menuItems();
     }
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -806,27 +850,30 @@ function submitChalk() {
   send({ type: 'prompt', prompt: chalkMode.text, objectId: chalkMode.target?.id, baseVersion: chalkMode.target?.version, chalk: true });
   chalkMode = null;
 }
-function menuItems(kind) {
-  if (kind === 'room')
-    return [
-      { label: 'resume', act: () => {} },
-      { label: 'clear the room', act: () => send({ type: 'clear-room' }) },
-      { label: 'erase my chalk', act: () => send({ type: 'chalk-clear' }) },
-      { label: third ? 'first person' : 'third person', act: () => (third = !third) },
-      {
-        label: motionBlur ? 'motion blur off' : 'motion blur on',
-        act: () => {
-          motionBlur = !motionBlur;
-          try {
-            localStorage.setItem('dool-blur', motionBlur ? 'on' : 'off');
-          } catch {}
-        },
+function menuItems() {
+  // 🚪 Travel first, then everything made, then the view's switches (the old
+  // room menu's rows live here since 2026-11-13; "clear the room" is retired).
+  const places = [
+    ...(home && home.room !== room ? [{ label: `go home · ${home.room} lot ${home.lot}`, act: () => travel(home.room) }] : []),
+    ...(room !== 'lobby' ? [{ label: 'go to the lobby', act: () => travel('lobby') }] : []),
+  ];
+  const switches = [
+    { label: third ? 'first person' : 'third person', act: () => (third = !third) },
+    {
+      label: motionBlur ? 'motion blur off' : 'motion blur on',
+      act: () => {
+        motionBlur = !motionBlur;
+        try {
+          localStorage.setItem('dool-blur', motionBlur ? 'on' : 'off');
+        } catch {}
       },
-      {
-        label: 'fullscreen',
-        act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
-      },
-    ];
+    },
+    {
+      label: 'fullscreen',
+      act: () => (window.doolRig ? window.doolRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
+    },
+    { label: 'erase my chalk', act: () => send({ type: 'chalk-clear' }) },
+  ];
   // Everything your handle has made that fits the space, from any session,
   // with what this room remembers for you; newest first, a code once.
   const time = (at) => (typeof at === 'number' ? at : Date.parse(at) || 0);
@@ -839,17 +886,19 @@ function menuItems(kind) {
     .sort((a, b) => b.at - a.at)
     .filter((h) => !seen.has(h.code) && seen.add(h.code))
     .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
-  return list.length
-    ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
-    : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }];
+  return [
+    ...places,
+    ...(list.length
+      ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
+      : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }]),
+    ...switches,
+  ];
 }
-function toggleMenu(kind) {
-  if (menu?.kind === kind) return closeMenu();
-  if (kind === 'history') {
-    historyPending = !handleHistory.length;
-    send({ type: 'handle-history' });
-  }
-  menu = { kind, title: kind === 'room' ? 'room' : '$ history', items: menuItems(kind), selected: 0 };
+function toggleMenu() {
+  if (menu) return closeMenu();
+  historyPending = !handleHistory.length;
+  send({ type: 'handle-history' });
+  menu = { kind: 'history', title: '$', items: menuItems(), selected: 0 };
   closeBuild();
   releaseInput();
   sfx.ringOpen();
@@ -1105,21 +1154,19 @@ document.addEventListener('keydown', (e) => {
     chat.begin();
     return;
   }
-  // Tab: back to the prompt, as Tab there comes in (2026-11-10). R or `:
-  // the room menu (clear the room, view, blur…) — ` as on the prompt, where
-  // it toggles the fps readout (2026-11-11). $ (shift 4): the $code list, as
-  // the prompt's $ starts a code; not while typing, where $, r and ` are
-  // letters (2026-11-08).
+  // Tab: back to the prompt, as Tab there comes in (2026-11-10). $ (shift
+  // 4): the one menu — travel, the $code list, the view's switches — as the
+  // prompt's $ starts a code; not while typing, where $ is a letter
+  // (2026-11-08). The room menu on R and ` is retired (2026-11-13).
   if (e.code === 'Tab') {
     e.preventDefault();
     if (!e.repeat && !prompt.open) leave();
     return;
   }
   const dollar = e.key === '$' && !prompt.open;
-  const rooms = (e.code === 'KeyR' || e.code === 'Backquote') && !prompt.open && !e.metaKey && !e.ctrlKey && !e.altKey;
-  if (!e.repeat && (rooms || dollar)) {
+  if (!e.repeat && dollar) {
     e.preventDefault();
-    toggleMenu(rooms ? 'room' : 'history');
+    toggleMenu();
     return;
   }
   if (menu) {
@@ -1447,8 +1494,7 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  if (gamepad.start) toggleMenu('room');
-  if (gamepad.swap) toggleMenu('history');
+  if (gamepad.swap) toggleMenu();
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
     let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
@@ -1827,6 +1873,8 @@ function step(now) {
     })(),
     spending: braincells !== null && shownBraincells > braincells + 0.5,
     tiles,
+    lots,
+    home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen ? null : floorAim,
     chalk: chalkStrokes,
     chalkVersion,

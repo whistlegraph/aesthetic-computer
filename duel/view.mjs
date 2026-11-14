@@ -15,7 +15,7 @@ export const LEGEND = {
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
-    [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk / ', ['r', 'KeyR'], ' rooms'],
+    [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk'],
     [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
     [['$', 'Digit4'], ' list / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
@@ -23,7 +23,7 @@ export const LEGEND = {
     '[LS] move / [RS] look',
     '[LT] jump / [Y] camera',
     '[RB] build / [RB] use / [X] drop',
-    '[X] paint / [RT] chalk / [START] rooms',
+    '[X] paint / [RT] chalk',
     '[LB] lock on / [B] remove',
     '[BACK] $ list',
   ],
@@ -395,6 +395,7 @@ export async function createView(canvas) {
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
+  let lotCacheKey = '', lotModel = null;
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -615,6 +616,8 @@ export async function createView(canvas) {
     braincells = null,
     spending = false,
     tiles = {},
+    lots = null,
+    home = null,
     floorAim = null,
     chalk = [],
     chalkLocal = [],
@@ -760,6 +763,30 @@ export async function createView(canvas) {
     lastEye = eye;
     const tags = [];
     draw(arena);
+    // 🏠 The block's lots, outlined on the floor: settled ones in the home
+    // purple, your own in the cursor's pink, each with its handle at the
+    // lot's inner end. Rebuilt only when they change.
+    if (lots) {
+      const lotsKey = JSON.stringify([lots, home, paletteName]);
+      if (lotsKey !== lotCacheKey) {
+        lotCacheKey = lotsKey;
+        const who = new Map(lots.homes.map((h) => [h.lot, h.handle]));
+        lotModel = model(({ quad }) => {
+          lots.rects.forEach((r, k) => {
+            const col = k === home ? 0xff3296 : who.has(k) ? 0xb56bff : PALETTES[paletteName].dot;
+            const t = who.has(k) ? 0.06 : 0.03, y = 0.012, a = r.xMin + 0.15, b = r.xMax - 0.15, c = r.zMin + 0.15, d = r.zMax - 0.15;
+            const bar = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], col);
+            bar(a, c, b, c + t); bar(a, d - t, b, d); bar(a, c, a + t, d); bar(b - t, c, b, d);
+          });
+        });
+      }
+      draw(lotModel, 0, 0, 0);
+      if (!bare)
+        for (const h of lots.homes) {
+          const r = lots.rects[h.lot];
+          if (r) tags.push({ label: `@${h.handle}`, mine: h.lot === home, x: (r.xMin + r.xMax) / 2, y: 0.05, z: r.zMin > 0 ? r.zMin + 1 : r.zMax - 1 });
+        }
+    }
     const aliveObjects = new Set(objects.map((o) => o.id));
     for (const id of objectModels.keys())
       if (!aliveObjects.has(id)) objectModels.delete(id);
@@ -1413,8 +1440,8 @@ export async function createView(canvas) {
           const dx = t.x - eye.x, dy = t.y - eye.y, dz = t.z - eye.z,
             d = Math.hypot(dx, dy, dz);
           if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime) < d - 0.3) continue;
-          const member = members.find((x) => x.seat === t.seat);
-          const label = member?.handle ? `@${member.handle}` : member?.name || `guest ${t.seat + 1}`;
+          const member = t.label ? null : members.find((x) => x.seat === t.seat);
+          const label = t.label || (member?.handle ? `@${member.handle}` : member?.name || `guest ${t.seat + 1}`);
           const x = Math.round((s.x * W) / 2);
           let y = Math.round((s.y * H) / 2) + 10 * unit;
           // 🏷️ A crowd's tags never sit on one another: a tag that would
@@ -1433,7 +1460,7 @@ export async function createView(canvas) {
             handleText(label, x, y, 0, unit, member.colors);
           } else {
             text(label, x + unit, y - unit, 0.000002, unit, INK);
-            text(label, x, y, 0, unit, PAPER);
+            text(label, x, y, 0, unit, t.label ? (t.mine ? 0xff3296 : 0xb56bff) : PAPER);
           }
           if (t.at) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y);
         }
