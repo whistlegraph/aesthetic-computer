@@ -1,6 +1,10 @@
 # dool
 
-Aesthetic Computer's two-player world, developed in `duel/`.
+Aesthetic Computer's shared world, developed in `duel/`.
+The [park and pod geography](GEOGRAPHY.md) separates personal pod identities from
+their park placements. Walk the public paths, enter tagged pods, and return to
+the park through the **go** menu. Pod interiors are public to visit and only
+their owners can arrange them.
 Move through the arena with empty hands and ask Aesel to build or revise objects.
 The original rocket match simulation remains underneath. The scoreboard is hidden.
 

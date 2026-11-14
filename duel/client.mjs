@@ -1,3 +1,4 @@
+import { edgeAt, crossedPod } from './park.mjs';
 import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
@@ -21,7 +22,7 @@ const view = await createView(document.getElementById('game'));
 const canvas = view.canvas,
   keys = new Set();
 const query = new URLSearchParams(location.search);
-const requestedRoom = query.get('room');
+const requestedRoom = query.get('pod') || query.get('room');
 // 🎯 Hosted under the AC prompt (lib/dool-sheet.mjs on aesthetic.computer):
 // the paper over this frame drops on a tap and rises on Escape, Back or a tap
 // on the corner block. Behind the curtain the world keeps drawing, bare of
@@ -45,7 +46,7 @@ function leave() {
 let home = null;
 try {
   const kept = JSON.parse(localStorage.getItem('dool-home') || 'null');
-  if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, lot: kept.lot };
+  if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, lot: kept.lot, pod: kept.pod };
 } catch {}
 let roamed = !!requestedRoom;
 let room =
@@ -53,7 +54,7 @@ let room =
     ? requestedRoom
     : (accountExpected() && home?.room) || 'lobby';
 // The block's lots and who settled each ({ rects, homes }), or null in the lobby.
-let lots = null;
+let lots = null, park = null, passage = null, walkAt = 0, doorIntent = null;
 // Under the prompt the host may not have said who is signed in when this
 // loads: look again shortly, so the room behind the curtain is home too.
 if (!roamed && home && room !== home.room)
@@ -442,10 +443,14 @@ async function capture() {
 // (2026-11-03). The socket's state replaces this when it joins.
 async function peekRoom() {
   try {
+    const peeking = room;
     const r = await fetch(new URL(`./room?room=${encodeURIComponent(room)}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok) return;
     const data = await r.json();
     if (ws && ws.readyState !== WebSocket.CLOSED) return; // Joined meanwhile: the live state wins.
+    if (room !== peeking) return;
+    park = data.park || null;
+    lots = data.lots || null;
     if (Array.isArray(data.objects)) objects = data.objects;
     if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
     if (Array.isArray(data.screens)) setScreens(data.screens);
@@ -461,6 +466,7 @@ if (hosted) void peekRoom();
 if (query.has('debug'))
   window.doolDebug = () => ({
     seat,
+    room, park, lots, home,
     player: player ? { x: player.x, y: player.y, z: player.z } : null,
     yaw,
     pitch,
@@ -478,11 +484,15 @@ if (query.has('debug'))
 
 // 🚪 To another room of the one world: the same page, a new socket. What
 // stood in the old room is put away first so it never shows in the new one.
-function travel(to, chosen = true) {
+function travel(to, chosen = true, receipt = null) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   if (chosen) roamed = true;
   room = to;
+  passage = receipt;
+  doorIntent = null;
+  park = null;
   lots = null;
+  walkAt = performance.now() + 1000;
   objects = [];
   tiles = {};
   setScreens([]);
@@ -491,6 +501,7 @@ function travel(to, chosen = true) {
   if (joinURL) joinURL = new URL(`?room=${room}`, location.href).href;
   try {
     const address = new URL(location.href);
+    address.searchParams.delete('pod');
     address.searchParams.set('room', room);
     window.history.replaceState(window.history.state, '', address);
   } catch {}
@@ -507,7 +518,7 @@ function connect() {
   // 🔐 Signed in on this page: fetch the token while the socket opens, and
   // ask the server to keep the seat for the handle (no guest name first).
   const account = accountExpected() ? accountToken() : null;
-  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(account ? { account: '1' } : {}) });
+  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}) });
   history = [];
   pending = [];
   player = null;
@@ -584,8 +595,11 @@ function connect() {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
+    if (data.type === 'park') park = { neighbours: data.neighbours, pod: data.pod };
+    if (data.type === 'travel') travel(data.room, true, data.passage);
+    if (data.type === 'arrival') { yaw = data.yaw; pitch = data.pitch || 0; passage = null; }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
-      home = { room: data.room, lot: data.lot };
+      home = { room: data.room, lot: data.lot, pod: data.pod };
       try {
         localStorage.setItem('dool-home', JSON.stringify(home));
       } catch {}
@@ -870,9 +884,12 @@ function menuItems() {
   const here = (id) => (room === id ? ' · here' : '');
   const places = [
     home
-      ? { label: `home · ${home.room} lot ${home.lot}${here(home.room)}`, act: () => travel(home.room) }
-      : { label: 'home · log in for a lot', act: () => {} },
-    { label: `lobby${here('lobby')}`, act: () => travel('lobby') },
+      ? { label: `my pod${here(home.pod || home.room)}`, act: () => travel(home.pod || home.room) }
+      : { label: 'sign in for a pod', act: () => {} },
+    { label: `park${here(park?.pod?.room || home?.room || 'lobby')}`, act: () => park?.pod ? send({ type: 'exit-pod' }) : travel(home?.room || 'lobby') },
+    { label: `plaza${here('lobby')}`, act: () => travel('lobby') },
+    ...(lots?.homes || []).filter(h => h.pod && h.pod !== home?.pod).map(h => ({ label: `visit @${h.handle}`, act: () => travel(h.pod) })),
+    ...Object.entries(park?.neighbours || {}).map(([edge, destination]) => ({ label: `${edge} · park`, act: () => travel(destination) })),
   ];
   const switches = [
     { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
@@ -1703,6 +1720,7 @@ function step(now) {
   );
   if (probe) send(probe);
   const firstSequence = seq;
+  const walkedFrom = player && { ...player };
   while (debt >= DT) {
     debt -= DT;
     if (
@@ -1753,6 +1771,16 @@ function step(now) {
   // One newest batch per display frame: catch-up steps don't flood a slow link.
   if (seq !== firstSequence)
     send({ type: 'input', commands: pending.slice(-12) }); // match.mjs INPUT_BATCH
+  if (park?.neighbours && player && seq !== firstSequence) {
+    const crossed = crossedPod(walkedFrom, player, lots);
+    if (crossed) doorIntent = { pod: crossed, until: now + 1500 };
+    if (doorIntent?.until < now) doorIntent = null;
+    if (now > walkAt) {
+      const edge = edgeAt(player);
+      if (edge && park.neighbours[edge]) { send({ type: 'walk', edge }); walkAt = now + 600; }
+      else if (doorIntent) { send({ type: 'enter-pod', pod: doorIntent.pod }); walkAt = now + 200; }
+    }
+  }
   const seconds = snapshot
     ? Math.max(1, Math.ceil((snapshot.until - snapshot.tick) / HZ))
     : 0;
@@ -1917,6 +1945,7 @@ function step(now) {
     spending: braincells !== null && shownBraincells > braincells + 0.5,
     tiles,
     lots,
+    park,
     home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen ? null : floorAim,
     chalk: chalkStrokes,

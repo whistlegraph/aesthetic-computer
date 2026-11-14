@@ -1,4 +1,5 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
+import { podFront } from './park.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
@@ -245,6 +246,7 @@ export async function createView(canvas) {
     });
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
+  let parkKey = null, parkModel = null, podModels = [];
   function dress(name) {
     if (name === paletteName) return;
     const p = PALETTES[name];
@@ -617,6 +619,7 @@ export async function createView(canvas) {
     spending = false,
     tiles = {},
     lots = null,
+    park = null,
     home = null,
     floorAim = null,
     chalk = [],
@@ -762,7 +765,28 @@ export async function createView(canvas) {
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
     const tags = [];
-    draw(arena);
+    if (park?.neighbours) {
+      const key = JSON.stringify([park.neighbours, paletteName]);
+      if (parkKey !== key) {
+        parkKey = key;
+        parkModel = model(({ quad, box }) => {
+          const grass = paletteName === 'day' ? 0xb9d7ac : 0x243d36;
+          const path = paletteName === 'day' ? 0xe5decb : 0x5a6664;
+          quad([-8,0,-8],[-8,0,8],[8,0,8],[8,0,-8],grass);
+          quad([-1,0.006,-8],[-1,0.006,8],[1,0.006,8],[1,0.006,-8],path);
+          quad([-8,0.007,-1],[-8,0.007,1],[8,0.007,1],[8,0.007,-1],path);
+          for (const edge of ['east','west','north','south']) {
+            const horizontal = edge === 'north' || edge === 'south';
+            const side = edge === 'east' || edge === 'north' ? 1 : -1;
+            for (const center of [-4.5,4.5]) box(horizontal ? center : side * 8, 0.3, horizontal ? side * 8 : center,
+              horizontal ? 7 : 0.2, 0.6, horizontal ? 0.2 : 7, 0x47765d);
+            if (!park.neighbours[edge]) box(horizontal ? 0 : side * 8, 0.3, horizontal ? side * 8 : 0,
+              horizontal ? 2 : 0.2, 0.6, horizontal ? 0.2 : 2, 0x47765d);
+          }
+        });
+      }
+      draw(parkModel);
+    } else draw(arena);
     // 🏠 The block's lots, outlined on the floor: settled ones in the home
     // purple, your own in the cursor's pink, each with its handle at the
     // lot's inner end. Rebuilt only when they change.
@@ -771,21 +795,34 @@ export async function createView(canvas) {
       if (lotsKey !== lotCacheKey) {
         lotCacheKey = lotsKey;
         const who = new Map(lots.homes.map((h) => [h.lot, h.handle]));
-        lotModel = model(({ quad }) => {
+        lotModel = model(({ quad, box }) => {
           lots.rects.forEach((r, k) => {
             const col = k === home ? 0xff3296 : who.has(k) ? 0xb56bff : PALETTES[paletteName].dot;
             const t = who.has(k) ? 0.06 : 0.03, y = 0.012, a = r.xMin + 0.15, b = r.xMax - 0.15, c = r.zMin + 0.15, d = r.zMax - 0.15;
             const bar = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], col);
             bar(a, c, b, c + t); bar(a, d - t, b, d); bar(a, c, a + t, d); bar(b - t, c, b, d);
+            if (who.has(k)) {
+              // An open pod frame: the owner can still see the shared park.
+              const frame = paletteName === 'day' ? 0xe8e1f4 : 0x90859f;
+              for (const x of [a,b]) for (const z of [c,d]) box(x,1.35,z,0.09,2.7,0.09,frame);
+              for (const z of [c,d]) box((a+b)/2,2.7,z,b-a+0.09,0.09,0.09,frame);
+              for (const x of [a,b]) box(x,2.7,(c+d)/2,0.09,0.09,d-c,frame);
+            }
           });
+        });
+        podModels = lots.homes.flatMap(h => {
+          const r = lots.rects[h.lot];
+          if (!r) return [];
+          const front = podFront(r), label = `@${h.handle}`;
+          const unit = Math.min(0.044, 2.7 / (label.length * 6));
+          return [{ ...front, mesh: model(({ box, handleText }) => {
+            box(0, 2.12, 0, 3, 0.65, 0.09, 0x171d26);
+            handleText(label, 0, 2.3, -0.055, unit, h.colors);
+          }) }];
         });
       }
       draw(lotModel, 0, 0, 0);
-      if (!bare)
-        for (const h of lots.homes) {
-          const r = lots.rects[h.lot];
-          if (r) tags.push({ label: `@${h.handle}`, mine: h.lot === home, x: (r.xMin + r.xMax) / 2, y: 0.05, z: r.zMin > 0 ? r.zMin + 1 : r.zMax - 1 });
-        }
+      for (const p of podModels) draw(p.mesh, p.x, 0, p.z, p.yaw);
     }
     const aliveObjects = new Set(objects.map((o) => o.id));
     for (const id of objectModels.keys())

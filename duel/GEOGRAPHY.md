@@ -1,12 +1,82 @@
 # dool geography
 
-One world for every Aesthetic Computer handle. Each handle has one avatar, the avatar
-stays where it was left, and the place it stands in has a fixed address that never
-changes. The world has room for everyone and grows only as people settle, so the people
-in it stay within sight of one another.
+Dool is a public park with personal pods. Guests can walk its paths and visit
+pods. Each pod has a permanent ID and content room; its placement in the park
+can change. The first two plots remain where they were when upgraded.
 
-This file is the method. `geography.mjs` is the method in code and
-`test/geography.test.mjs` holds its numbers.
+## Pods and placements
+
+`geography.json` version 2 stores three independent records:
+
+- `pods[id]`: handle, founding date and, after verified sign-in, the private
+  account ID. A handle change preserves the pod ID. Public responses omit the
+  account ID and expose only the handle and its public profile URL.
+- `placements[id]`: block and lot. A curator can move multiple pods in one
+  transaction, including swaps. Identity and contents do not move between stores.
+- `rests[handle]`: where an avatar stopped. A rest inside a pod uses the pod ID;
+  a rest in the park remains at its geographic position.
+
+The object store uses the permanent `pod-…` room key for each interior, including
+objects, screens, paint and history. Existing builds in the plaza, residential
+blocks and other rooms stay there; migration does not guess which pod owns them.
+The first load of a v1 ledger preserves `geography.v1.json` before writing v2.
+Rollback to a server that only understands v1 requires restoring that backup;
+export later placement changes first.
+
+A pod's exterior occupies the existing 3.5 × 7 m lot. An open frame carries an
+outside tag with the owner's handle and saved profile colors (default colors
+while the profile service is unavailable). Walk through the tagged entrance or
+choose a pod in the **go** menu to visit. Interior rooms currently use the
+existing 16 × 16 m simulation. The **park** menu action returns visitors to the
+pod's current entrance, even if it was moved during the visit.
+
+Pod interiors are public to visit. Only their verified owner may build, restore,
+paint, remove, or change screens there. Shared park rooms retain their existing
+public building behavior. Account IDs are never sent to visitors.
+
+## Curation
+
+`GET /dool/geography` includes the layout revision, pod IDs and placements.
+`GET /dool/pod?id=pod-…` resolves a permanent pod address. Share
+`/dool/?pod=pod-…` to visit the same interior after a rearrangement.
+
+`POST /dool/park/layout` requires an AC admin bearer token and a JSON body:
+
+```json
+{
+  "revision": 2,
+  "moves": [
+    {"pod": "pod-example-a", "block": 1, "lot": 6},
+    {"pod": "pod-example-b", "block": 1, "lot": 7}
+  ]
+}
+```
+
+Replace the example IDs and revision with values from the current map. The whole
+plan must fit open, unoccupied lots; lots vacated by this same plan may be used.
+A stale revision or invalid plan changes nothing. Moving friends together means
+including their pods in the same plan. Connected clients receive fresh tags,
+home locations and exit destinations after the write completes. The operational
+read-only service token does not grant curation access.
+
+## Park travel and future shards
+
+Open blocks connect at the four path ends. The client requests a crossing; the
+server checks its own player position and issues a short-lived, one-use passage
+bound to that player's stored identity. The next room restores the landing
+position and facing. Client-provided coordinates cannot choose the landing.
+Walking currently reconnects between block simulations, so transitions can have
+a short loading pause; neighboring blocks are not drawn through the boundary yet.
+
+The simulation keys are separate from placement: a park block uses its lattice
+address, and a pod interior uses its permanent ID. Those are the units a future
+shard router can assign to hosts without moving homes. **This implementation
+still runs on one server.** Cross-host routing, capacity handoff and shared
+storage coordination are not implemented; changing a map is not a shard move.
+
+The lattice rules below still govern park growth. Tests cover migration,
+identity, curation, ownership and travel in `test/pods.test.mjs`; the browser
+check in `test/pods-browser.mjs` renders tags and walks between two blocks.
 
 ## Who the world is for (measured 2026-11-13)
 
@@ -52,16 +122,15 @@ The world therefore has to show who lives there, not only who is online.
    netcode changes to begin.
 2. **A fixed lattice.** Blocks sit on an integer grid. The lobby is block 0 at the
    origin. Every point in the world is a number of metres east and north of the lobby's
-   middle, and that address is permanent.
+   middle, and that block address is permanent. Pods can be placed in different lots.
 3. **Growth in one order.** Blocks open one at a time along a square spiral out of the
    lobby. Block *n* has the same coordinate forever, whether or not it is open yet, so
    the geometry is fixed and only its extent grows.
 4. **Density decides growth.** The next block opens when three quarters of the open lots
    are settled. Nobody chooses to open land and nobody can spread the world thin.
-5. **One home per handle.** A residential block has eight lots of 3.5 × 7 m around two
+5. **One pod per account.** A residential block has eight lots of 3.5 × 7 m around two
    lanes that cross on its axes. Lanes meet the neighbours' lanes at the edges, so the
-   lattice is also a street grid. A handle settles one free lot in any open block, and
-   may move to another free lot. A home is never taken back: there is always room, so
+   lattice is also a street grid. A handle receives a pod on a free lot. Curators may rearrange pods within open blocks. A home is never taken back: there is always room, so
    there is no need for decay.
 6. **The avatar stays.** Leaving saves the avatar's block and position. It wakes there,
    and while its person is away it is drawn where it rests. Eight residents and their
@@ -96,10 +165,10 @@ that is a later problem and the lattice leaves room for it.
 - **Travel by name.** Walking keeps distance meaningful. Typing `@handle` to arrive at
   someone's home is the Aesthetic Computer habit and would erase it. Proposed: recall
   to your own home and to the lobby only.
-- **Who may build where.** Proposed: only the owner builds on a lot; lanes and the lobby
-  stay open to all, as the lobby is now.
-- **Handle changes.** The ledger is keyed by handle. It should move to the account id
-  before homes matter to people.
+- **Park building boundaries.** Pod interiors enforce owner-only editing. Shared park
+  builds still use the existing room permissions; exterior lot permissions need design.
+- **Handle changes.** Verified account IDs now retain pod identity across handle changes.
+  Pre-existing pods bind their account on the next verified sign-in; conflicting claims fail.
 
 ## Build order
 

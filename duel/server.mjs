@@ -7,6 +7,7 @@ import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
+import { edgeAt, landing, podFront } from './park.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
@@ -47,6 +48,7 @@ const assets = new Map([
     'kidlisp-wall',
     'diagnostics-client',
     'stalls',
+    'park',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -83,6 +85,12 @@ export function createDuelServer({
   stateDir,
   builderToken = process.env.DOOL_BUILDER_TOKEN,
   verifyIdentity = verifyAccount,
+  verifyCurator = async (authorization) => {
+    if (!authorization?.startsWith('Bearer ')) return false;
+    const { authorize, hasAdmin } = await import('../system/backend/authorization.mjs');
+    const user = await authorize({ authorization });
+    return !!user && await hasAdmin(user);
+  },
   resolveHandleColors = handleColors,
   publicURL = process.env.DOOL_PUBLIC_URL,
   devLog = process.env.DOOL_DEV_LOG,
@@ -108,20 +116,58 @@ export function createDuelServer({
     geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
     ready = Promise.all([store.load(), geography.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
-  // 🏠 A residential block's lots and who settled each, for the floor.
-  const sendLots = (ws, key) => {
+  const profiles = new Map();
+  const colorsFor = (handle) => {
+    let cached = profiles.get(handle);
+    if (!cached || Date.now() - cached.at > 60000) {
+      cached = { at: Date.now(), colors: null };
+      cached.promise = Promise.resolve().then(() => resolveHandleColors(handle)).then(colors => {
+        cached.colors = colors; return colors;
+      }).catch(() => null);
+      profiles.set(handle, cached);
+      if (profiles.size > 256) profiles.delete(profiles.keys().next().value);
+    }
+    return cached;
+  };
+  const lotData = (key) => {
     const block = key === 'lobby' ? null : parseBlock(key);
-    if (!block) return;
-    const n = blockIndex(block);
-    send(ws, {
-      type: 'lots',
-      room: key,
-      rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
+    if (!block || blockIndex(block) > geography.geography.opened) return null;
+    return { room: key, rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
       homes: Object.entries(geography.geography.homes)
-        .filter(([, h]) => h.block === n)
-        .map(([handle, h]) => ({ lot: h.lot, handle })),
+        .filter(([, h]) => h.block === blockIndex(block))
+        .map(([handle, h]) => ({ lot: h.lot, handle, pod: h.pod,
+          profile: geography.geography.publicPod(h.pod).profile,
+          colors: profiles.get(handle)?.colors || null })) };
+  };
+  const parkData = key => ({ neighbours: geography.geography.neighbours(key),
+    pod: geography.geography.publicPod(key) });
+  const sendLots = (ws, key) => {
+    send(ws, { type: 'park', ...parkData(key) });
+    const data = lotData(key);
+    if (!data) return;
+    send(ws, { type: 'lots', ...data });
+    void Promise.all(data.homes.map(h => colorsFor(h.handle).promise)).then(() => {
+      send(ws, { type: 'lots', ...lotData(key) });
     });
   };
+  const sendHome = (ws, handle) => {
+    const home = geography.geography.home(handle);
+    if (home) send(ws, { type: 'home', room: blockId(blockAt(home.block)), lot: home.lot, pod: home.pod });
+  };
+  // One live mutation queue, including layout edits: never edit the on-disk
+  // ledger beside a running server. The expected revision prevents lost edits.
+  const curate = async ({ moves, revision }) => {
+    await ready;
+    if (!Number.isSafeInteger(revision)) throw Error('A map revision is required');
+    const result = await geography.change(g => g.curate(moves, revision));
+    for (const [key, room] of rooms) for (const [ws, m] of room.sessions) {
+      sendLots(ws, key);
+      if (m.handle) sendHome(ws, m.handle);
+    }
+    return { revision: geography.geography.revision, pods: result };
+  };
+  // Short-lived, one-use travel receipts bind a server position to an owner.
+  const passages = new Map();
   const handle = async (req, res) => {
     let url;
     try {
@@ -163,6 +209,30 @@ export function createDuelServer({
             revision: revision.trim(),
           }),
         );
+      return;
+    }
+    if (path === '/park/layout' && req.method === 'POST') {
+      try {
+        if (!await verifyCurator(req.headers.authorization)) return void res.writeHead(403).end();
+      } catch { return void res.writeHead(503).end(); }
+      let body = '';
+      try {
+        for await (const chunk of req) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 32768) return void res.writeHead(413).end();
+        }
+        const result = await curate(JSON.parse(body));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(result));
+      } catch (error) {
+        res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+    if (path === '/pod' && req.method === 'GET') {
+      await ready;
+      const pod = geography.geography.publicPod(url.searchParams.get('id'));
+      res.writeHead(pod ? 200 : 404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify(pod || { error: 'Pod not found' }));
       return;
     }
     // AC's own libraries, read-only, so a wall can run real KidLisp.
@@ -242,6 +312,8 @@ export function createDuelServer({
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
         .end(
           JSON.stringify({
+            park: parkData(id),
+            lots: lotData(id),
             objects: store.objects(id),
             tiles: store.tiles(id),
             screens: store.screens(id),
@@ -445,6 +517,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       return;
     }
     const key = roomId;
+    if ((key.startsWith('pod-') && !geography.geography.pod(key)) ||
+        (parseBlock(key) && blockIndex(parseBlock(key)) > geography.geography.opened)) {
+      ws.close(1008, 'Place is not open'); return;
+    }
     if (!rooms.has(key)) {
       if (rooms.size >= 32) {
         ws.close(1013, 'Server full');
@@ -477,6 +553,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
     accountHold?.unref?.();
     room.match.setObjects(store.objects(key));
+    let arrived = false;
+    const arrive = () => {
+      if (arrived || !member.owner || member.seat < 0) return;
+      const receipt = url.searchParams.get('passage'), pass = passages.get(receipt);
+      if (!pass || pass.owner !== member.owner || pass.room !== key || pass.until < Date.now()) return;
+      passages.delete(receipt); arrived = true;
+      Object.assign(room.match.seats[member.seat].player, pass.position);
+      send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
+      send(ws, room.match.snapshot());
+    };
     let accountAttempted = false;
     const identifyAccount = async (token) => {
       if (
@@ -500,14 +586,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const takeover = [...room.sessions.values()].some(
           (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
         );
-        void geography.change((g) => g.settle(handle)).then((home) => {
+        void geography.change((g) => g.identify(handle, account.sub)).then((home) => {
           // 🏠 Where this handle lives, so its client can go there, and the
           // block's lots again for everyone standing in it.
           const at = blockId(blockAt(home.block));
-          send(ws, { type: 'home', room: at, lot: home.lot });
+          sendHome(ws, handle);
           for (const client of rooms.get(at)?.clients.keys() || []) sendLots(client, at);
         }).catch(() => {});
         member.handle = handle;
+        member.accountId = account.sub;
         member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
         member.wantsHistory = false;
@@ -518,13 +605,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         room.assign();
         const rest = geography.geography.whereabouts(handle),
           body = room.match.seats[member.seat]?.player;
-        if (!takeover && body && rest?.room === key) {
+        if (!arrived && !takeover && body && rest?.room === key) {
           const edge = BLOCK / 2 - 0.4; // inside the walls
           body.x = Math.max(-edge, Math.min(edge, rest.x));
           body.z = Math.max(-edge, Math.min(edge, rest.z));
           body.yaw = rest.yaw;
         }
-        const colors = await resolveHandleColors(handle);
+        arrive();
+        const colors = await colorsFor(handle).promise;
         if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
           member.colors = colors;
           room.broadcast();
@@ -624,6 +712,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
               member.owner = owner;
               room.assign();
+              arrive();
               void refreshBraincells(ws, member);
             }
             send(ws, { type: 'identity', ...identity });
@@ -655,6 +744,44 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         });
         return;
       }
+      if (['walk', 'enter-pod', 'exit-pod'].includes(data?.type) && member.owner && member.seat >= 0) {
+        const p = room.match.seats[member.seat]?.player;
+        if (!p) return;
+        let destination, position;
+        if (data.type === 'walk') {
+          const edge = edgeAt(p);
+          destination = geography.geography.neighbours(key)?.[edge];
+          if (!destination || edge !== data.edge) return;
+          position = landing(p, edge);
+        } else if (data.type === 'enter-pod') {
+          const pod = geography.geography.publicPod(data.pod);
+          if (!pod || pod.room !== key) return;
+          const front = podFront(lot(pod.placement.lot));
+          if (Math.abs(p.x-front.x) > 0.9 || Math.abs(p.z-front.z) > 0.9 || p.y > 2.3) return;
+          destination = pod.id;
+          position = {x:0,z:-5,yaw:0,pitch:0};
+        } else {
+          const pod = geography.geography.publicPod(key);
+          if (!pod) return;
+          const front = podFront(lot(pod.placement.lot));
+          destination = pod.room;
+          position = {x:front.x,z:front.north ? 0.5 : -0.5,yaw:front.north ? 180 : 0,pitch:0};
+        }
+        for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
+        if (passages.size >= 1024) return;
+        const receipt = randomUUID();
+        passages.set(receipt, { owner: member.owner, room: destination, position, until: Date.now() + 30000 });
+        send(ws, { type: 'travel', room: destination, passage: receipt });
+        return;
+      }
+      // A pod is public to visit, but only its verified owner arranges it.
+      const pod = geography.geography.pod(key);
+      const ownPod = pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
+      if (pod && !ownPod && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+        send(ws, { type: 'build-result', error: 'Only the pod owner can arrange this pod' }); return;
+      }
+      if (pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
+        data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
           const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
@@ -781,6 +908,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     attach,
     store,
     geography,
+    curate,
     builders,
     ready,
     async close() {
@@ -793,6 +921,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await new Promise((resolve) => wss.close(resolve));
       await new Promise((resolve) => builderWss.close(resolve));
       await store.queue;
+      await geography.queue;
       if (server.listening)
         await new Promise((resolve) => server.close(resolve));
     },
