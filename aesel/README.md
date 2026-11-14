@@ -24,9 +24,11 @@ saved code does not copy it. Failed saves show a notice and leave the source or
 shared sketch runnable. These are KidLisp codes, without named-piece version history.
 
 `aesel` opens the native SwiftUI Mac GUI in [`apple/aesel`](../apple/aesel/README.md).
-`a`, `ac` and `easel` open the TUI, which is pro mode: the terminal harness.
+`a` opens the TUI, which is pro mode: the terminal harness. `ac`, `aes` and
+`easel` are the same command; tell people `a`, because macOS ships its own
+`/usr/sbin/ac` and it often answers first.
 The GUI is the ordinary, piece-first Aesel; both run on the same engine bridges.
-`ac piece` (or `--piece FILE` / `--genre`) still opens the older piece TUI.
+`a piece` (or `--piece FILE` / `--genre`) still opens the older piece TUI.
 Install these commands with `cd easel && ./install.sh`. Install the native Mac
 beta from https://aesel.app, or build it with Xcode using `apple/aesel/run.sh mac`.
 
@@ -91,7 +93,7 @@ written again, including by rename; a bare `/preview` lets go. Together with
 `slab/menubar-swift/dev.sh --watch` for the card itself, both halves of the
 preview reload on save.
 
-Bun can host the terminal with `AESEL_JS_RUNTIME=bun ac`. Node remains the default. In a checkout, `bun aesel/bin/build-bun.mjs` builds reusable bytecode; source edits or a different Bun version automatically fall back to current JavaScript until rebuilt. `/reify` keeps the selected runtime and launch options. This setting is separate from the piece’s `/runtime` language. The headless `/perf` command uses a permission-restricted Node helper under Bun; Node 24 or newer must be installed.
+Bun can host the terminal with `AESEL_JS_RUNTIME=bun a`. Node remains the default. In a checkout, `bun aesel/bin/build-bun.mjs` builds reusable bytecode; source edits or a different Bun version automatically fall back to current JavaScript until rebuilt. `/reify` keeps the selected runtime and launch options. This setting is separate from the piece’s `/runtime` language. The headless `/perf` command uses a permission-restricted Node helper under Bun; Node 24 or newer must be installed.
 
 The optional [native terminal host](experiments/c-tui/README.md) accepts an opening draft in C while the complete Bun TUI starts. It retains the existing providers, tools, recovery and terminal features.
 
@@ -102,11 +104,11 @@ Compare both hosts with `python3 aesel/bin/bench-runtimes.py --entry launch --la
 Three bridges can drive a session:
 
 ```sh
-ac                                  # AC hosted (the default), using your handle's budget
-ac --backend claude                 # claude, on claude-opus-5
-ac --backend codex                  # codex app-server
-ac --model claude-opus-5            # a different model on the same bridge
-ac --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
+a                                   # AC hosted (the default), using your handle's budget
+a --backend claude                  # claude, on claude-opus-5
+a --backend codex                   # codex app-server
+a --model claude-opus-5             # a different model on the same bridge
+a --piece path/to/fogozo.mjs        # reopen an existing piece and its versions
 ```
 
 `/backend` and `/model` switch mid-session, preserving the visible conversation,
@@ -278,9 +280,9 @@ already live and told not to ask you to publish.
 aesthetic login
 aesthetic whoami
 aesthetic publish system/public/aesthetic.computer/disks/smiley.mjs
-ac --runtime lisp
-ac --backend codex
-ac --autopublish
+a --runtime lisp
+a --backend codex
+a --autopublish
 ```
 
 ```sh
@@ -434,7 +436,7 @@ token to arrive immediately. Disconnects cancel an active response upstream.
 
 ## Aesel pro
 
-`ac --pro [dir]` is the same terminal, pointed at ordinary work: no piece, no
+`a [dir]` (pro is the default) is the terminal pointed at ordinary work: no piece, no
 QR, nothing published, and the Claude bridge runs with your own settings,
 skills, hooks and MCP servers (`--setting-sources`, `--strict-mcp-config` and
 the withheld tools are dropped; approvals still come back here, and `/ask` is

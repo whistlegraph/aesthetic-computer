@@ -1,5 +1,6 @@
 #!/bin/bash
-# Terminal harness; the GUI is launched with aesel.
+# The terminal Aesel — the same program as `ac` and `easel`, under a name no
+# system command shadows (macOS has its own /usr/sbin/ac). The GUI is aesel.
 set -euo pipefail
 script_path="${BASH_SOURCE[0]}"
 launch_directory="$PWD"
@@ -12,10 +13,6 @@ while [[ -L "$script_path" ]]; do
     else script_path="$script_directory/$link_target"; fi
 done
 cd "$launch_directory"
-case "${1:-}" in
-    --help|-h|help|--version|-V|version|doctor|history) ;;
-    *) set -- --pro "$@" ;;
-esac
 # Stay in this shell until the shared launcher execs the selected runtime.
 # Sourcing also lets the Mac app use its bundled Node without a system install.
 source "${script_path%/*}/easel"

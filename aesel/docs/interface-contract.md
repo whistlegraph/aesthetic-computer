@@ -3,8 +3,8 @@
 | Command | Interface |
 | --- | --- |
 | `aesel` | Open or activate the native SwiftUI Mac app. |
-| `a [directory] [options]` | Open the terminal interface in pro mode. |
-| `ac [directory] [options]` / `easel [directory] [options]` | Open the piece-oriented terminal interface. |
+| `a [directory] [options]` | Open the terminal interface (pro unless `piece`, `--piece` or `--genre` asks for the piece interface). |
+| `ac`, `aes`, `easel` | The same command as `a`. macOS has its own `/usr/sbin/ac`, so `a` is the name to give people. |
 
 The native app manages its own saved threads. Workspace and engine flags are
 TUI options. The GUI launcher checks the bundle identity

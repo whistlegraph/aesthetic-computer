@@ -62,5 +62,6 @@ case ":${PATH}:" in
 esac
 
 printf 'Installed Aesel:\n'
+printf '  %s\n' "$BIN_DIR/a"
 printf '  %s\n' "$BIN_DIR/ac"
 printf '  %s\n' "$BIN_DIR/easel"

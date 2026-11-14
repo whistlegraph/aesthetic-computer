@@ -1,10 +1,11 @@
-Usage: ac [directory] [--runtime mjs|lisp|p5|l5]
+Usage: a [directory] [--runtime mjs|lisp|p5|l5]
                       [--piece FILE] [--resume THREAD_ID]
                       [--genre piece|nopaint]
                       [--backend claude|codex|ac|open] [--model NAME]
                       [--autopublish | --no-autopublish]
                       [--pro] [--private]
        aesthetic [directory]
+       (ac and easel are the same command as a)
        aesthetic doctor
        aesthetic login | logout | whoami
        aesthetic publish <file> [slug]
