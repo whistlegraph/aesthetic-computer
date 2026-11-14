@@ -371,6 +371,8 @@ const STYLES = {
   user: ["YOU", "you"],
   assistant: ["AC", "soft"],
   command: ["RUN", "run"],
+  // A direct command: run by Aesel in the workspace, no model, no braincells.
+  shell: ["$", "run"],
   change: ["EDIT", "edit"],
   publish: ["PUB", "handle"],
   notice: ["·", "muted"],
@@ -380,7 +382,7 @@ const STYLES = {
   typed: ["›", "prompt"],
 };
 
-const BODY_TONES = { notice: "muted", error: "error", inbox: "inbox", typed: "prompt" };
+const BODY_TONES = { shell: "muted", notice: "muted", error: "error", inbox: "inbox", typed: "prompt" };
 
 // The little markdown a reply is written in, read rather than shown: the
 // markers come out and what they marked keeps its meaning as a tone. Bold is

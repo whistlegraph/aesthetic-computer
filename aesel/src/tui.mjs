@@ -8,6 +8,7 @@ import {createSettingsController,serveSettings,isHarnessRequest,HARNESS_INSTRUCT
 import {notebookBindings,bindingRequest,editNotebookBinding} from './notebook-bindings.mjs';
 import {writeFileSync as writeBindingFile,renameSync as renameBindingFile,statSync as statBindingFile} from 'node:fs';
 import {conceptRequest} from './concept-request.mjs';
+import {inferDirect,DirectJobs,jobText} from './direct-command.mjs';
 import {takeSubmittedBatch,inputBatchDelay,trimSubmittedInput} from './input-batch.mjs';
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
@@ -398,7 +399,7 @@ const slabPalette = new SlabPalette({
 });
 process.once('exit', () => slabPalette.close());
 // Older checkpoints included automatic approval notices in the conversation.
-state.entries = state.entries.filter(entry => !['command', 'change'].includes(entry.kind) && !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
+state.entries = state.entries.filter(entry => !['command', 'change', 'shell'].includes(entry.kind) && !(entry.kind === 'notice' && /^Ran: /.test(entry.text)));
 if (desktopRestoreError) state.entries.push({ id: "desktop-restore-error", kind: "error", text: desktopRestoreError });
 
 let transcriptJournal = null;
@@ -998,6 +999,22 @@ function updateEntry(id, kind, text) {
   }
 }
 
+// Direct commands (`!npm start`, or a bare `npm start`): Aesel runs them in
+// the workspace and streams each one's tail into its own entry. Repaints are
+// held to a few a second so a chatty dev server cannot flood the frame.
+let directPaint = null;
+const directJobs = new DirectJobs({ cwd, onUpdate(job) {
+  updateEntry(`job-${job.id}`, 'shell', jobText(job));
+  if (job.code !== null) { clearTimeout(directPaint); directPaint = null; return redraw(); }
+  if (!directPaint) directPaint = setTimeout(() => { directPaint = null; for (const running of directJobs.running()) updateEntry(`job-${running.id}`, 'shell', jobText(running)); redraw(); }, 250);
+} });
+process.on("exit", () => directJobs.kill());
+function runDirect(direct) {
+  if (direct.note) addEntry('notice', `Ran directly · ${direct.note} · ! runs any line yourself`);
+  directJobs.run(direct.command);
+  return redraw();
+}
+
 let danceTimer = null;
 const danceStartedAt = Date.now();
 // While the machine has the floor the footer figure moves, and a turn that is
@@ -1340,6 +1357,7 @@ async function restartInPlace() {
 async function finish(code = 0) {
   if (closing || finishing) return;
   finishing = true;
+  directJobs.kill();
   if(turnRecovery.active)cancelRecovery();
   clearTimeout(reifyTimer); reifyTimer = null;
   clearTimeout(desktopTimer); desktopTimer = null;
@@ -2630,6 +2648,9 @@ async function submitInput(submittedText, submittedMessages = null) {
   }
   if (!text) return redraw();
   if (state.question && !text.startsWith("/")) return answerTypedQuestion(text);
+  // A command line runs here, never through the model.
+  const direct = inferDirect(text, cwd);
+  if (direct) return runDirect(direct);
 
   if (text.startsWith("/")) {
     const [command, ...restWords] = text.split(/\s+/);
@@ -2692,6 +2713,16 @@ async function submitInput(submittedText, submittedMessages = null) {
       return artifactOperation(()=>artifacts.run('generate',{provider:'openai',model:'gpt-image-2',prompt:rest,...(command==='/edit-image'?{reference:'composite.png'}:{})},{paid:true}));
     }
     if (command === "/performance" || command === "/perf") return commandPerformance(rest);
+    if (command === "/jobs") {
+      const list = directJobs.jobs.slice(-8);
+      addEntry("notice", list.length ? list.map(job => jobText(job).split("\n")[0]).join("\n") + "\n/kill N stops one · /kill stops them all" : "No direct commands yet · type !npm start, or just npm start");
+      return redraw();
+    }
+    if (command === "/kill") {
+      const stopped = directJobs.kill(rest.trim());
+      addEntry("notice", stopped.length ? `Stopping ${stopped.map(job => `#${job.id} ${job.command}`).join(", ")}` : "Nothing running · /jobs");
+      return redraw();
+    }
     if (command === "/energy" || command === "/power") {
       addEntry("notice", energyReport(state.energy, state.model || model).join("\n"));
       return redraw();
@@ -2798,7 +2829,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -3087,7 +3118,7 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
       state.activityStage='';redraw();
     }
     if(recoveryRequest)recoveryRequest.submitted=true;
-    await engine.startTurn(text+aboutContext(about)+runtimeFeedbackContext(observed)+pixels.context,{images:pixels.images});
+    await engine.startTurn(text+aboutContext(about)+runtimeFeedbackContext(observed)+directJobs.takeContext()+pixels.context,{images:pixels.images});
   } catch (error) {
     state.busy = false;
     state.status = "failed";

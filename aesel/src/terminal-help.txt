@@ -43,6 +43,14 @@ needs no subscription. claude (on claude-opus-5) and codex each drive that
 vendor's CLI and need a subscription to it. --model names the model on
 that bridge, and /backend and /model change either one mid-session.
 
+Command lines run directly, not through the model, and spend no
+braincells: `!anything` runs that line in the workspace's shell, and a bare
+line that is plainly a command — `npm start`, `rpm start`, `yarn dev`,
+`git status`, "start the server", a package.json script name — is run the
+same way. Long jobs keep going while you talk; /jobs lists them, /kill N
+stops one. When a job fails, the next message carries a short tail of its
+output so the model can read the error.
+
 --autopublish publishes the piece under your @handle a couple of seconds
 after every save, so the session's URL is live the whole time it is being
 worked on. On by default, because the address on the prompt rock is that
