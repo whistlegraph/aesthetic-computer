@@ -17,7 +17,7 @@ export const LEGEND = {
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['c', 'KeyC'], ' chalk'],
     [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
-    [['$', 'Digit4'], ' list / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
+    [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
   pad: [
     '[LS] move / [RS] look',
@@ -25,7 +25,7 @@ export const LEGEND = {
     '[RB] build / [RB] use / [X] drop',
     '[X] paint / [RT] chalk',
     '[LB] lock on / [B] remove',
-    '[BACK] $ list',
+    '[START] $ menu',
   ],
   touch: [
     [['left side', 'left'], ': drag to move'],

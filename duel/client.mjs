@@ -851,7 +851,7 @@ function submitChalk() {
   chalkMode = null;
 }
 function menuItems() {
-  // 🚪 Travel first, then everything made, then the view's switches (the old
+  // 🚪 Travel first, then the view's switches, then everything made (the old
   // room menu's rows live here since 2026-11-13; "clear the room" is retired).
   const places = [
     ...(home && home.room !== room ? [{ label: `go home · ${home.room} lot ${home.lot}`, act: () => travel(home.room) }] : []),
@@ -888,10 +888,10 @@ function menuItems() {
     .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
   return [
     ...places,
+    ...switches,
     ...(list.length
       ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
       : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }]),
-    ...switches,
   ];
 }
 function toggleMenu() {
@@ -1494,7 +1494,7 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  if (gamepad.swap) toggleMenu();
+  if (gamepad.start || gamepad.swap) toggleMenu(); // START, with BACK as before
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
     let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
