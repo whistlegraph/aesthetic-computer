@@ -144,7 +144,12 @@ end
 # Env upload is optional: if the vault has a lith/.env we upload it, otherwise
 # we trust the env already present on the server at /opt/ac/system/.env.
 set UPLOAD_ENV true
-if not test -f $SERVICE_ENV
+# Source-only releases can explicitly retain the working server environment.
+# This uses the existing no-upload path; it never accepts an unverified local env.
+if test "$DEPLOY_PRESERVE_ENV" = "1"
+    echo -e "$GREEN   Preserving the existing production environment (DEPLOY_PRESERVE_ENV=1).$NC"
+    set UPLOAD_ENV false
+else if not test -f $SERVICE_ENV
     echo -e "$YELLOW   Service env not found: $SERVICE_ENV$NC"
     echo -e "$YELLOW   Skipping env upload; preserving existing /opt/ac/system/.env on the server.$NC"
     set UPLOAD_ENV false

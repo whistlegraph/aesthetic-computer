@@ -38,6 +38,12 @@ Recommended workflow:
 3. Re-run `fish vault-tool.fish status` to confirm `lith/.env` is tracked
 4. Deploy with `fish /workspaces/aesthetic-computer/lith/deploy.fish`
 
+For a source-only release that must retain the working production environment,
+run `DEPLOY_PRESERVE_ENV=1 ac-deploy`. This skips uploading the local vault env;
+production must still have its operational credential. Verify database health
+on Lith before and after the release. The deployment rollback snapshot retains
+the previous environment.
+
 ### Easel inference configuration
 
 Production loads `OPENROUTER_API_KEY` from
