@@ -54,6 +54,13 @@ let room =
     : (accountExpected() && home?.room) || 'lobby';
 // The block's lots and who settled each ({ rects, homes }), or null in the lobby.
 let lots = null;
+// Under the prompt the host may not have said who is signed in when this
+// loads: look again shortly, so the room behind the curtain is home too.
+if (!roamed && home && room !== home.room)
+  for (const ms of [800, 2500, 6000])
+    setTimeout(() => {
+      if (!roamed && home && room !== home.room && accountExpected()) travel(home.room, false);
+    }, ms);
 let ws,
   seat = -1,
   player,
@@ -592,7 +599,10 @@ function connect() {
     if (data.type === 'handle-history' && Array.isArray(data.items)) {
       handleHistory = data.items;
       historyPending = false;
-      if (menu) menu.items = menuItems();
+      if (menu) {
+        menu.items = menuItems();
+        menu.selected = Math.min(menu.selected, menu.items.length - 1);
+      }
     }
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -850,16 +860,24 @@ function submitChalk() {
   send({ type: 'prompt', prompt: chalkMode.text, objectId: chalkMode.target?.id, baseVersion: chalkMode.target?.version, chalk: true });
   chalkMode = null;
 }
+// The one menu's tabs: where to go, what you made, how it looks. The tab
+// last open is where it opens next.
+const MENU_TABS = ['go', '$', 'view'];
+let menuTab = 0;
 function menuItems() {
-  // 🚪 Travel first, then the view's switches, then everything made (the old
-  // room menu's rows live here since 2026-11-13; "clear the room" is retired).
+  // 🚪 (The old room menu's rows live here since 2026-11-13; "clear the
+  // room" is retired.) Both places always show; the one you stand in says so.
+  const here = (id) => (room === id ? ' · here' : '');
   const places = [
-    ...(home && home.room !== room ? [{ label: `go home · ${home.room} lot ${home.lot}`, act: () => travel(home.room) }] : []),
-    ...(room !== 'lobby' ? [{ label: 'go to the lobby', act: () => travel('lobby') }] : []),
+    home
+      ? { label: `home · ${home.room} lot ${home.lot}${here(home.room)}`, act: () => travel(home.room) }
+      : { label: 'home · log in for a lot', act: () => {} },
+    { label: `lobby${here('lobby')}`, act: () => travel('lobby') },
   ];
   const switches = [
-    { label: third ? 'first person' : 'third person', act: () => (third = !third) },
+    { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
     {
+      stay: true,
       label: motionBlur ? 'motion blur off' : 'motion blur on',
       act: () => {
         motionBlur = !motionBlur;
@@ -887,18 +905,27 @@ function menuItems() {
     .filter((h) => !seen.has(h.code) && seen.add(h.code))
     .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
   return [
-    ...places,
-    ...switches,
-    ...(list.length
+    places,
+    list.length
       ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
-      : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }]),
-  ];
+      : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }],
+    switches,
+  ][menuTab];
+}
+// Left and right turn the tabs; the list starts at its top.
+function turnMenu(step, to = null) {
+  if (!menu) return;
+  menuTab = to ?? (menuTab + step + MENU_TABS.length) % MENU_TABS.length;
+  menu.tab = menuTab;
+  menu.items = menuItems();
+  menu.selected = 0;
+  sfx.ringMove(menuTab);
 }
 function toggleMenu() {
   if (menu) return closeMenu();
   historyPending = !handleHistory.length;
   send({ type: 'handle-history' });
-  menu = { kind: 'history', title: '$', items: menuItems(), selected: 0 };
+  menu = { kind: 'history', tabs: MENU_TABS, tab: menuTab, items: menuItems(), selected: 0 };
   closeBuild();
   releaseInput();
   sfx.ringOpen();
@@ -909,8 +936,14 @@ function closeMenu() {
 }
 function chooseMenu() {
   const item = menu?.items[menu.selected];
-  menu = null;
   sfx.ringPick(0);
+  if (item?.stay) {
+    // A switch flips where it stands and reads its new state.
+    item.act();
+    menu.items = menuItems();
+    return;
+  }
+  menu = null;
   item?.act();
 }
 function holding() {
@@ -1076,6 +1109,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
     if (row === null) closeMenu();
+    else if (row <= -10) turnMenu(0, -10 - row); // a tab
     else if (row >= 0) {
       menu.selected = row;
       chooseMenu();
@@ -1173,6 +1207,8 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.code === 'ArrowDown' || e.code === 'KeyS') menu.selected = (menu.selected + 1) % menu.items.length;
     if (e.code === 'ArrowUp' || e.code === 'KeyW') menu.selected = (menu.selected - 1 + menu.items.length) % menu.items.length;
+    if (!e.repeat && (e.code === 'ArrowLeft' || e.code === 'KeyA')) turnMenu(-1);
+    if (!e.repeat && (e.code === 'ArrowRight' || e.code === 'KeyD')) turnMenu(1);
     if (e.code === 'Enter') chooseMenu();
     if (e.code === 'Escape') closeMenu();
     return;
@@ -1506,6 +1542,13 @@ function step(now) {
       menu.selected = (menu.selected + step + menu.items.length) % menu.items.length;
       sfx.ringMove(menu.selected);
     }
+    // Tabs: d-pad left and right, the bumpers, or the stick.
+    let turn = (gamepad.dright || gamepad.use ? 1 : 0) - (gamepad.dleft || gamepad.ring ? 1 : 0);
+    if (!turn && !step && Math.abs(gamepad.right) > 0.6 && now - menuStickAt > 260) {
+      turn = gamepad.right > 0 ? 1 : -1;
+      menuStickAt = now;
+    }
+    if (turn) turnMenu(turn);
     if (gamepad.select) chooseMenu();
     if (gamepad.cancel) closeMenu();
     gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };

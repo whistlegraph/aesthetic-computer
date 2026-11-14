@@ -2377,12 +2377,12 @@ export async function createView(canvas) {
       const first = Math.max(0, Math.min(menu.selected - Math.floor(fits / 2), menu.items.length - fits));
       const rows = menu.items.slice(first, first + fits);
       const indent = pictured ? (TINY + 6) * unit : 0;
-      const w = Math.min(W - 40 * unit, Math.max(130, ...rows.map((r) => r.label.length * 6 + 28)) * unit + indent);
+      const w = Math.min(W - 40 * unit, Math.max(170, ...rows.map((r) => r.label.length * 6 + 28)) * unit + indent);
       const titleH = 12 * unit,
         h = rows.length * lineH + titleH + 8 * unit;
       const z = -0.000009;
       const near = z - 0.000004; // text clearly in front of the row highlight
-      menuBox = { w, h, titleH, lineH, first, count: rows.length, unit, W, H };
+      menuBox = { w, h, titleH, lineH, first, count: rows.length, unit, W, H, tabs: [] };
       const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
         rect(-W / 2, -H / 2, z + 0.000004, W, H, 0x0b0c10);
@@ -2390,8 +2390,21 @@ export async function createView(canvas) {
         rect(-w / 2, -h / 2, z + 0.000002, w, h, 0x15171e);
         const left = -w / 2 + 8 * unit;
         const more = menu.items.length > rows.length ? `  ${menu.selected + 1}/${menu.items.length}` : '';
-        const title = [{ text: menu.title, color: THEME.verb }, ...(more ? [{ text: more, color: THEME.text }] : [])];
-        drawSpans({ rect, text }, title, left + spanWidthOf(title, unit) / 2, h / 2 - 5 * unit, unit, { shadow: null, z: near });
+        // The tabs along the top, the open one on the row's yellow; then
+        // the place in a long list.
+        let tx = left;
+        (menu.tabs || []).forEach((name, i) => {
+          const tw = name.length * 6 * unit, on = i === menu.tab;
+          if (on) rect(tx - 3 * unit, h / 2 - 11 * unit, z + 0.000001, tw + 5 * unit, 10 * unit, 0xffe066);
+          const span = [{ text: name, color: on ? INK : THEME.text }];
+          drawSpans({ rect, text }, span, tx + tw / 2, h / 2 - 5 * unit, unit, { shadow: null, z: near });
+          menuBox.tabs.push([tx - 3 * unit, tx + tw + 3 * unit]);
+          tx += tw + 10 * unit;
+        });
+        if (more) {
+          const count = [{ text: more.trim(), color: THEME.text }];
+          drawSpans({ rect, text }, count, w / 2 - 8 * unit - spanWidthOf(count, unit) / 2, h / 2 - 5 * unit, unit, { shadow: null, z: near });
+        }
         rows.forEach((r, k) => {
           const i = first + k;
           const top = h / 2 - titleH - 2 * unit - k * lineH;
@@ -2525,14 +2538,19 @@ export async function createView(canvas) {
       const x = cssX * px, y = cssY * px;
       return x >= qrRect.x && x <= qrRect.x + qrRect.w && y >= qrRect.y && y <= qrRect.y + qrRect.h;
     },
-    // A tap on the open menu: the row under it, -1 on the panel but no row,
-    // or null outside the panel.
+    // A tap on the open menu: the row under it, a tab (-10 and down), -1 on
+    // the panel but neither, or null outside the panel.
     menuHit(cssX, cssY) {
       if (!menuBox) return null;
-      const { w, h, titleH, lineH, first, count, unit, W, H } = menuBox;
+      const { w, h, titleH, lineH, first, count, unit, W, H, tabs } = menuBox;
       const x = (cssX * canvas.width) / (canvas.clientWidth || 1) - W / 2,
         y = H / 2 - (cssY * canvas.height) / (canvas.clientHeight || 1);
       if (Math.abs(x) > w / 2 || Math.abs(y) > h / 2) return null;
+      // The tab strip: -10 for the first tab, -11 the next, and so on.
+      if (y > h / 2 - titleH) {
+        const t = tabs.findIndex(([a, b]) => x >= a && x <= b);
+        return t >= 0 ? -10 - t : -1;
+      }
       const k = Math.floor((h / 2 - titleH - 2 * unit - y) / lineH);
       return k >= 0 && k < count ? first + k : -1;
     },
