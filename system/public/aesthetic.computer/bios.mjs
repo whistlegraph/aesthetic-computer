@@ -1918,6 +1918,72 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const startGap =
     location.host.indexOf("botce") > -1 || AestheticExtension || window.acFORCE_NOGAP === true ? 0 : 8;
 
+  // The frame a window of this size gets: the buffer's size, and the CSS box
+  // that buffer projects into. A piece with a fixed resolution keeps its
+  // buffer and only the box moves.
+  function project(gap) {
+    const gapSize = gap * window.devicePixelRatio;
+    if (fixedWidth === undefined || fixedHeight === undefined) {
+      // Automatically set and frame a reasonable resolution.
+      // Or pull from density.
+      let ratio = density || window.devicePixelRatio;
+      if (!density && window.devicePixelRatio === 1) ratio = 3; // Always force a screen density of 3 on non-retina displays.
+      const width =
+        floor(window.innerWidth / ratio) - floor(gapSize / ratio);
+      let height =
+        floor(window.innerHeight / ratio) - floor(gapSize / ratio);
+      if (TikTok) height -= gap * 3;
+      return {
+        width,
+        height,
+        subdivisions: ratio,
+        projectedWidth: round(width * density),
+        projectedHeight: round(height * density),
+      };
+    }
+    const scale = min(
+      window.innerWidth / fixedWidth,
+      window.innerHeight / fixedHeight,
+    );
+    return {
+      width: fixedWidth,
+      height: fixedHeight,
+      subdivisions: 1,
+      projectedWidth: round(fixedWidth * scale - gapSize),
+      projectedHeight: round(fixedHeight * scale - gapSize),
+    };
+  }
+
+  // Lay the wrapper and every canvas in it over a CSS box of this size. The
+  // resize listener calls this the moment the window moves, so the pixels
+  // already on screen stretch over the new window instead of sitting in the
+  // old box until the next buffer is painted.
+  function place(gap, boxWidth, boxHeight) {
+    const layers = [
+      canvas,
+      webglCompositeCanvas,
+      webgpuCanvas,
+      gpuFrameCanvas,
+      overlayCan,
+      recordingUICan,
+      uiCanvas,
+    ];
+    // In nogap mode, fill the entire viewport to avoid subpixel gaps.
+    const full = gap === 0;
+    wrapper.style.top = full
+      ? "0"
+      : TikTok
+        ? `${8 * 1.5}px`
+        : (window.innerHeight - boxHeight) / 2 + "px";
+    wrapper.style.left = full ? "0" : (window.innerWidth - boxWidth) / 2 + "px";
+    wrapper.style.width = full ? "100%" : boxWidth + "px";
+    wrapper.style.height = full ? "100%" : boxHeight + "px";
+    for (const layer of layers) {
+      layer.style.width = full ? "100%" : boxWidth + "px";
+      layer.style.height = full ? "100%" : boxHeight + "px";
+    }
+  }
+
   // Runs one on boot & every time display resizes to adjust the framebuffer.
   function frame(width, height, gap) {
     // Packed M4L bundles pin gap=0 on every reframe so the nogap CSS class
@@ -2027,40 +2093,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // Find the width and height of our default screen and native projection.
-    width = width || fixedWidth;
-    height = height || fixedHeight;
-
-    const gapSize = gap * window.devicePixelRatio;
-
-    subdivisions = 1;
-
-    if (width === undefined && height === undefined) {
-      // Automatically set and frame a reasonable resolution.
-      // Or pull from density.
-      let ratio = density || window.devicePixelRatio;
-      if (!density && window.devicePixelRatio === 1) ratio = 3; // Always force a screen density of 3 on non-retina displays.
-      subdivisions = ratio;
-
-      width =
-        floor(window.innerWidth / subdivisions) - floor(gapSize / subdivisions);
-      height =
-        floor(window.innerHeight / subdivisions) -
-        floor(gapSize / subdivisions);
-
-      if (TikTok) height -= gap * 3;
-
-      projectedWidth = round(width * density);
-      projectedHeight = round(height * density);
-    } else {
-      // Or do it manually if both width and height are defined.
+    if (width && height) {
       fixedWidth = width;
       fixedHeight = height;
-
-      const scale = min(window.innerWidth / width, window.innerHeight / height);
-
-      projectedWidth = round(width * scale - gapSize);
-      projectedHeight = round(height * scale - gapSize);
     }
+    const fit = project(gap);
+    width = fit.width;
+    height = fit.height;
+    subdivisions = fit.subdivisions;
+    projectedWidth = fit.projectedWidth;
+    projectedHeight = fit.projectedHeight;
 
     if (debug && logs.frame)
       console.info(
@@ -2312,70 +2354,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     uiContextScaled = false;
     currentUiScale = 0;
 
-    // Horizontal and vertical offsetting of the wrapper.
-    // In nogap mode, fill the entire viewport to avoid subpixel gaps
-    if (gap === 0) {
-      wrapper.style.top = "0";
-      wrapper.style.left = "0";
-      wrapper.style.width = "100%";
-      wrapper.style.height = "100%";
-      
-      // Canvases also fill 100% in nogap mode to avoid subpixel rounding gaps
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      webglCompositeCanvas.style.width = "100%";
-      webglCompositeCanvas.style.height = "100%";
-      webgpuCanvas.style.width = "100%";
-      webgpuCanvas.style.height = "100%";
-      gpuFrameCanvas.style.width = "100%";
-      gpuFrameCanvas.style.height = "100%";
-      overlayCan.style.width = "100%";
-      overlayCan.style.height = "100%";
-      recordingUICan.style.width = "100%";
-      recordingUICan.style.height = "100%";
-      uiCanvas.style.width = "100%";
-      uiCanvas.style.height = "100%";
-    } else if (TikTok) {
-      wrapper.style.top = `${8 * 1.5}px`;
-      wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
-      wrapper.style.width = projectedWidth + "px";
-      wrapper.style.height = projectedHeight + "px";
-      
-      canvas.style.width = projectedWidth + "px";
-      canvas.style.height = projectedHeight + "px";
-      webglCompositeCanvas.style.width = projectedWidth + "px";
-      webglCompositeCanvas.style.height = projectedHeight + "px";
-      webgpuCanvas.style.width = projectedWidth + "px";
-      webgpuCanvas.style.height = projectedHeight + "px";
-      gpuFrameCanvas.style.width = projectedWidth + "px";
-      gpuFrameCanvas.style.height = projectedHeight + "px";
-      overlayCan.style.width = projectedWidth + "px";
-      overlayCan.style.height = projectedHeight + "px";
-      recordingUICan.style.width = projectedWidth + "px";
-      recordingUICan.style.height = projectedHeight + "px";
-      uiCanvas.style.width = projectedWidth + "px";
-      uiCanvas.style.height = projectedHeight + "px";
-    } else {
-      wrapper.style.top = (window.innerHeight - projectedHeight) / 2 + "px";
-      wrapper.style.left = (window.innerWidth - projectedWidth) / 2 + "px";
-      wrapper.style.width = projectedWidth + "px";
-      wrapper.style.height = projectedHeight + "px";
-      
-      canvas.style.width = projectedWidth + "px";
-      canvas.style.height = projectedHeight + "px";
-      webglCompositeCanvas.style.width = projectedWidth + "px";
-      webglCompositeCanvas.style.height = projectedHeight + "px";
-      webgpuCanvas.style.width = projectedWidth + "px";
-      webgpuCanvas.style.height = projectedHeight + "px";
-      gpuFrameCanvas.style.width = projectedWidth + "px";
-      gpuFrameCanvas.style.height = projectedHeight + "px";
-      overlayCan.style.width = projectedWidth + "px";
-      overlayCan.style.height = projectedHeight + "px";
-      recordingUICan.style.width = projectedWidth + "px";
-      recordingUICan.style.height = projectedHeight + "px";
-      uiCanvas.style.width = projectedWidth + "px";
-      uiCanvas.style.height = projectedHeight + "px";
-    }
+    place(gap, projectedWidth, projectedHeight);
 
     if (debug) {
       debugCanvas.width = projectedWidth;
@@ -2536,7 +2515,6 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         // });
       }
 
-      let timeout;
       let lastWidth = window.innerWidth;
       let lastHeight = window.innerHeight;
 
@@ -2572,86 +2550,90 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           // wrapper.classList.add("hidden");
         }
 
-        window.clearTimeout(timeout); // Small timer to save on performance.
-        timeout = setTimeout(() => {
-          // Cancel any pending freeze frame removal from a previous resize cycle
-          if (freezeFrameRemovalTimeout !== null) {
-            clearTimeout(freezeFrameRemovalTimeout);
-            freezeFrameRemovalTimeout = null;
+        // Cancel any pending freeze frame removal from a previous resize cycle
+        if (freezeFrameRemovalTimeout !== null) {
+          clearTimeout(freezeFrameRemovalTimeout);
+          freezeFrameRemovalTimeout = null;
+        }
+        // Capture freeze frame before reframing to prevent black flicker
+        // Skip during tape playback — the freeze frame would cover the video
+        // underlay with stale opaque content, causing a black screen.
+        if (!underlayFrame && imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
+          freezeFrame = true;
+          freezeFrameGlaze = glaze.on;
+          
+          // Capture freeze frame content BEFORE resizing (resizing clears canvas)
+          // Only resize if dimensions are different to avoid unnecessary clears
+          if (freezeFrameCan.width !== imageData.width || freezeFrameCan.height !== imageData.height) {
+            freezeFrameCan.width = imageData.width;
+            freezeFrameCan.height = imageData.height;
           }
-          // Capture freeze frame before reframing to prevent black flicker
-          // Skip during tape playback — the freeze frame would cover the video
-          // underlay with stale opaque content, causing a black screen.
-          if (!underlayFrame && imageData && imageData.data && imageData.data.buffer && imageData.data.buffer.byteLength > 0) {
-            freezeFrame = true;
-            freezeFrameGlaze = glaze.on;
-            
-            // Capture freeze frame content BEFORE resizing (resizing clears canvas)
-            // Only resize if dimensions are different to avoid unnecessary clears
-            if (freezeFrameCan.width !== imageData.width || freezeFrameCan.height !== imageData.height) {
-              freezeFrameCan.width = imageData.width;
-              freezeFrameCan.height = imageData.height;
-            }
-            
-            // Capture current frame to freeze frame canvas
-            if (freezeFrameGlaze) {
-              // Try Glaze.freeze, fallback to standard capture if it fails
-              if (!Glaze.freeze(ffCtx)) {
-                // Glaze capture failed, use fallback
-                try {
-                  ffCtx.putImageData(imageData, 0, 0);
-                } catch (e) {
-                  const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
-                  const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
-                  if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
-                }
-              }
-            } else {
+          
+          // Capture current frame to freeze frame canvas
+          if (freezeFrameGlaze) {
+            // Try Glaze.freeze, fallback to standard capture if it fails
+            if (!Glaze.freeze(ffCtx)) {
+              // Glaze capture failed, use fallback
               try {
                 ffCtx.putImageData(imageData, 0, 0);
               } catch (e) {
-                // Fallback to canvas copy
                 const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
                 const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
                 if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
               }
             }
-            
-            // Position freeze frame
-            freezeFrameCan.style.width = "100%";
-            freezeFrameCan.style.height = "100%";
-            freezeFrameCan.style.left = "0";
-            freezeFrameCan.style.top = "0";
-            freezeFrameCan.style.imageRendering = "pixelated";
-            
-            // Ensure freeze frame is visible
-            if (!wrapper.contains(freezeFrameCan)) {
-              wrapper.append(freezeFrameCan);
+          } else {
+            try {
+              ffCtx.putImageData(imageData, 0, 0);
+            } catch (e) {
+              // Fallback to canvas copy
+              const webglCompositeIsActive = webglBlitter?.isReady() && webglCompositeCanvas.style.display !== "none";
+              const freezeSource = webglCompositeIsActive ? webglCompositeCanvas : canvas;
+              if (freezeSource) ffCtx.drawImage(freezeSource, 0, 0);
             }
-            // Disable transition to instantly reset opacity (prevents partial
-            // transparency if a CSS fade-out was in progress from a previous cycle)
-            freezeFrameCan.style.transition = "none";
-            freezeFrameCan.style.opacity = "1";
+          }
+          
+          // Position freeze frame
+          freezeFrameCan.style.width = "100%";
+          freezeFrameCan.style.height = "100%";
+          freezeFrameCan.style.left = "0";
+          freezeFrameCan.style.top = "0";
+          freezeFrameCan.style.imageRendering = "pixelated";
+          
+          // Ensure freeze frame is visible
+          if (!wrapper.contains(freezeFrameCan)) {
+            wrapper.append(freezeFrameCan);
+          }
+          // Disable transition to instantly reset opacity (prevents partial
+          // transparency if a CSS fade-out was in progress from a previous cycle)
+          freezeFrameCan.style.transition = "none";
+          freezeFrameCan.style.opacity = "1";
 
-            // Force paint before continuing
-            freezeFrameCan.offsetHeight;
-            // Re-enable transition for future fade-out
-            freezeFrameCan.style.transition = "opacity 50ms ease-out";
-            freezeFrameFrozen = true;
-          }
-          awaitingReframePixels = true;
-          reframeDrawn = false;
-          reframeDrawnAt = 0;
-          lastReframeTime = performance.now();
-          if (window.acReframeDebug) {
-            console.log("🧊 REFRAME: awaiting pixels", {
-              width: imageData?.width,
-              height: imageData?.height,
-            });
-          }
-          needsReframe = true; // This makes zooming work / not work.
-          curReframeDelay = REFRAME_DELAY;
-        }, curReframeDelay); // Is this needed?
+          // Force paint before continuing
+          freezeFrameCan.offsetHeight;
+          // Re-enable transition for future fade-out
+          freezeFrameCan.style.transition = "opacity 50ms ease-out";
+          freezeFrameFrozen = true;
+        }
+        awaitingReframePixels = true;
+        reframeDrawn = false;
+        reframeDrawnAt = 0;
+        lastReframeTime = performance.now();
+        if (window.acReframeDebug) {
+          console.log("🧊 REFRAME: awaiting pixels", {
+            width: imageData?.width,
+            height: imageData?.height,
+          });
+        }
+        needsReframe = true; // This makes zooming work / not work.
+        curReframeDelay = REFRAME_DELAY;
+        // The box follows the window in this same tick; the buffer follows
+        // a frame or two later, under the freeze frame.
+        if (imageData) {
+          const gap = lastGap ?? startGap;
+          const fit = project(gap);
+          place(gap, fit.projectedWidth, fit.projectedHeight);
+        }
       });
 
       // Prevent canvas touchstart events from triggering magnifying glass on
@@ -21803,9 +21785,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // console.log("Cached...");
     }
 
-    // Hide the freezeFrame - wait for glaze to be ready if it's enabled
-    // Also ensure resize has stabilized by waiting 100ms after last reframe request
-    const reframeStabilized = performance.now() - lastReframeTime > 100;
+    // Hide the freezeFrame the moment the new buffer is on the canvas - wait
+    // for glaze to be ready if it's enabled. Holding it any longer is what
+    // froze the picture for the length of a window drag.
     // Failsafe: force-remove freeze frame if stuck for over 500ms
     const reframeFailsafe = freezeFrame && freezeFrameFrozen && performance.now() - lastReframeTime > 500;
     if (reframeFailsafe && (awaitingReframePixels || !reframeDrawn || (glaze.on && !glazeReady))) {
@@ -21817,19 +21799,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         Glaze.unfreeze();
       }
     }
-    if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && reframeDrawn && reframeStabilized && (!glaze.on || glazeReady)) {
+    if (freezeFrame && freezeFrameFrozen && !awaitingReframePixels && reframeDrawn && (!glaze.on || glazeReady)) {
       if (glaze.on === false) {
         canvas.style.removeProperty("opacity");
       }
-      // Fade out freeze frame smoothly then remove
-      freezeFrameCan.style.opacity = "0";
-      freezeFrameRemovalTimeout = setTimeout(() => {
-        freezeFrameRemovalTimeout = null;
-        if (wrapper.contains(freezeFrameCan)) {
-          freezeFrameCan.remove();
-          freezeFrameCan.style.removeProperty("opacity");
-        }
-      }, 60); // Match CSS transition duration
+      // The canvas beneath already holds the new picture: no fade, which
+      // read as a flash on every step of a drag.
+      if (wrapper.contains(freezeFrameCan)) freezeFrameCan.remove();
       if (window.acReframeDebug) {
         console.log("✅ REFRAME: freeze frame removed");
       }
