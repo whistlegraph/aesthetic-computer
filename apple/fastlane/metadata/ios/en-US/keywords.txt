@@ -1,1 +1,1 @@
-art, games, education, collaborative, drawing, painting, aesthetic
+keyboard,synth,instrument,piano,draw,drawing,pixel,creative,generative,lisp,chat,art,games,jukebox

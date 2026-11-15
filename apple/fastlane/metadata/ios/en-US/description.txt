@@ -1,11 +1,16 @@
-Use aesthetic computer to make paintings and play games or talk to characters.
+Aesthetic.Computer is a computer you play like an instrument. There is one prompt. You type a word and it becomes something to use — a keyboard, a brush, a game, a room with people in it.
 
-Try entering...
- - `line` to paint a line and tap the top left corner to return to the `prompt`.
- - `shape` to paint freehand shapes or `rect blue` for "blue" rectangles.
- - `dl` to save your painting.
- - `liar` to talk to an interesting character.
- - `bleep` for a musical keyboard.
- - `baktok` to learn to talk backward.
- - `camera` to take pictures.
- - `help` to learn more commands.
+The words are called pieces. There are hundreds. You learn them the way you learn chords: a few at first, then by ear.
+
+Some to start with...
+ - `notepat` is a keyboard for ten fingers.
+ - `line`, `shape`, `rect` and `oval` are brushes. `dl` saves the painting.
+ - `juke` plays the pop catalog, songs made here.
+ - `chat` is whoever else is around.
+ - `baktok` teaches you to talk backward.
+ - `camera` takes pictures.
+ - `help` lists the rest.
+
+Pieces are written in JavaScript or in KidLisp, a small language for moving pictures. Each one has a short name you can hand to someone else.
+
+Sign in for a @handle. What you make stays with it.
