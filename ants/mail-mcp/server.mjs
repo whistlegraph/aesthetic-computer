@@ -3,10 +3,15 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { execFile as execFileCb, spawn as spawnCb, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { access, readFile, stat } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
+import {
+  buildMessage, handleColors, newDraftId, planReply, previewHeight, previewPage,
+  sha256, signatureHtml, textToHtml, wrapHtml,
+} from "./compose.mjs";
 
 const execFile = promisify(execFileCb);
 
@@ -52,6 +57,17 @@ const MAILDIR =
   process.env.AC_MAIL_MAILDIR ||
   (REMOTE ? "/home/jas/.mail-all" : join(HOME, ".mail-all"));
 const MU_DB = process.env.AC_MAIL_MU_DB || join(HOME, ".cache", "mu", "xapian");
+// helper.py owns everything that must happen beside the mail: the draft
+// store, the preview render, the send, and the Gmail IMAP verbs. Like mu, it
+// runs on whichever machine holds the maildir.
+const HELPER =
+  process.env.AC_MAIL_HELPER ||
+  (REMOTE
+    ? "/home/jas/services/mail-mcp/helper.py"
+    : join(dirname(fileURLToPath(import.meta.url)), "helper.py"));
+// Preview images are copied here, on the machine the session runs on, so
+// they can be opened and shown.
+const PREVIEW_DIR = process.env.AC_MAIL_PREVIEWS || join(HOME, ".cache", "ac-mail", "previews");
 
 // jasellite's login shell is fish, and ssh hands it one flat string — so every
 // argument we send has to survive a shell re-split on the far side. Single
@@ -159,15 +175,19 @@ function applyEmailStyle({ subject, body, preserveCase, signature }, style) {
     nextBody = lowercasePreservingUrls(nextBody);
   }
 
+  // The text part carries the sign-off as a bare last line; the HTML part
+  // renders it separately, so hand back the body both with and without it.
+  let bodyNoSig = nextBody.trimEnd();
+  let signed = "";
   if (style.appendSignature && finalSignature) {
-    const trimmedBody = nextBody.trimEnd();
-    const endsWithSignature = trimmedBody
-      .toLowerCase()
-      .endsWith(finalSignature.toLowerCase());
-    nextBody = endsWithSignature ? trimmedBody : `${trimmedBody}\n\n${finalSignature}`;
+    signed = finalSignature;
+    if (bodyNoSig.toLowerCase().endsWith(finalSignature.toLowerCase())) {
+      bodyNoSig = bodyNoSig.slice(0, -finalSignature.length).trimEnd();
+    }
+    nextBody = `${bodyNoSig}\n\n${finalSignature}`;
   }
 
-  return { subject: nextSubject, body: nextBody };
+  return { subject: nextSubject, body: nextBody, bodyNoSig, signature: signed };
 }
 
 async function ensureMuIndex() {
@@ -230,6 +250,156 @@ async function run(rawCmd, rawArgs, { input, timeout = 30_000 } = {}) {
   return { stdout: stdout.trim(), stderr: stderr.trim() };
 }
 
+const helper = (args, { input = "", timeout = 60_000 } = {}) =>
+  run("python3", [HELPER, ...args], { input, timeout });
+
+// Saved per-character colours for a handle, from the AC API. Cached for an
+// hour; a miss or an outage falls back to the default palette in compose.
+const colorCache = new Map();
+async function savedHandleColors(handle) {
+  const hit = colorCache.get(handle);
+  if (hit && Date.now() - hit.at < 3_600_000) return hit.colors;
+  try {
+    const name = encodeURIComponent(handle.replace(/^@/, ""));
+    const r = await fetch(`https://aesthetic.computer/api/handle-colors?handle=${name}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    const colors = r.ok ? (await r.json()).colors : null;
+    colorCache.set(handle, { at: Date.now(), colors });
+    return colors;
+  } catch {
+    return null;
+  }
+}
+
+// Every copy mu has of a message (Gmail files one message under several
+// labels), and the copy that best says where it lives.
+async function findCopies(messageId) {
+  const msgid = messageId.replace(/^<|>$/g, "");
+  try {
+    const { stdout } = await run(MU, ["find", "--format=json", `msgid:${msgid}`]);
+    return JSON.parse(stdout || "[]");
+  } catch {
+    return []; // mu exits 4 on no match
+  }
+}
+const pickCopy = (hits) =>
+  hits.find((h) => /\/INBOX$/.test(h[":maildir"] ?? "")) ??
+  hits.find((h) => !(h[":maildir"] ?? "").includes("[Gmail]")) ??
+  hits[0];
+
+function describeDraft(meta, text) {
+  const line = (label, value) => (value ? `${label}: ${value}\n` : "");
+  return (
+    `Draft ${meta.id} · sha ${meta.sha256.slice(0, 8)}\n` +
+    line("From", meta.from) + line("To", meta.to) + line("Cc", meta.cc) + line("Bcc", meta.bcc) +
+    line("Subject", meta.subject) + line("In-Reply-To", meta.inReplyTo) +
+    line("Attachments", meta.attachments?.join(", ")) +
+    `\n${text}`
+  );
+}
+
+// Build a draft: style the text, render the HTML part, assemble the message,
+// and hand the lot to the mail host to store and preview. Sends nothing.
+async function composeDraft({
+  to, cc, bcc, subject, body, in_reply_to, references, preserve_case, keep_subject_case,
+  signature, from_account, attachments, revises,
+}) {
+  if (!to?.trim()) throw new Error("no recipient");
+  if (!body?.trim()) throw new Error("empty body");
+  const style = await loadEmailStyle();
+  const styled = applyEmailStyle({ subject, body, preserveCase: preserve_case, signature }, style);
+  if (keep_subject_case) styled.subject = subject;
+  const account = from_account || DEFAULT_ACCOUNT;
+  const from = ACCOUNTS[account];
+  const files = [];
+  for (const path of attachments ?? []) {
+    files.push({ name: basename(path), data: await readFile(path) });
+  }
+
+  const sig = styled.signature;
+  const isHandle = sig.startsWith("@");
+  const html = wrapHtml(
+    textToHtml(styled.bodyNoSig),
+    signatureHtml(sig, {
+      colors: isHandle ? handleColors(sig, await savedHandleColors(sig)) : undefined,
+      link: isHandle ? `https://aesthetic.computer/${sig}` : undefined,
+    }),
+  );
+
+  const id = newDraftId();
+  const messageId = `${id}@${from.split("@")[1]}`;
+  const eml = buildMessage({
+    from, to, cc, bcc, subject: styled.subject, text: styled.body, html, messageId,
+    inReplyTo: in_reply_to, references, attachments: files,
+  });
+  const meta = {
+    id, status: "pending", account, from, to, cc, bcc, subject: styled.subject, messageId,
+    inReplyTo: in_reply_to, sha256: sha256(eml), created: new Date().toISOString(),
+    attachments: files.map((f) => f.name), revises,
+  };
+  const envelope = { from, to, cc, bcc, subject: styled.subject, attachments: files };
+  const { stdout } = await helper(["draft-store"], {
+    input: JSON.stringify({
+      meta,
+      eml: Buffer.from(eml).toString("base64"),
+      text: styled.body,
+      previewHtml: previewPage(envelope, html),
+      previewHeight: previewHeight(envelope, styled.body),
+    }),
+    timeout: 180_000,
+  });
+  const stored = JSON.parse(stdout);
+
+  const notes = [];
+  const content = [];
+  if (stored.png) {
+    await mkdir(PREVIEW_DIR, { recursive: true });
+    const local = join(PREVIEW_DIR, `${id}.png`);
+    await writeFile(local, Buffer.from(stored.png, "base64"));
+    notes.push(`Preview image: ${local}`);
+    content.push({ type: "image", data: stored.png, mimeType: "image/png" });
+  } else {
+    notes.push(`No preview image (${stored.previewError}).`);
+  }
+  notes.push(
+    stored.gmailDraft
+      ? `Also in Gmail Drafts for ${from}.`
+      : `Not mirrored to Gmail Drafts (${stored.gmailError}).`,
+  );
+  if (revises) notes.push(`Replaces ${revises}, which can no longer be sent.`);
+  notes.push(`NOT SENT. Send with mail_send { draft_id: "${id}" } once @jeffrey has approved this draft.`);
+  content.unshift({ type: "text", text: `${describeDraft(meta, styled.body)}\n\n${notes.join("\n")}` });
+  return { content };
+}
+
+// Start a sync on the mail host. The host's own mail-sync unit does the
+// work (mbsync for every account, then mu index), so by default this only
+// asks for it and returns. Hosts without the unit fall back to running
+// mbsync here, which blocks.
+async function startSync(wait) {
+  try {
+    await run(
+      "systemctl",
+      ["--user", "start", ...(wait ? [] : ["--no-block"]), "mail-sync"],
+      { timeout: wait ? 900_000 : 20_000 },
+    );
+    return wait ? "Sync finished." : "Sync started on the mail host; new mail is searchable when it finishes.";
+  } catch {
+    const results = [];
+    for (const channel of ACCOUNT_NAMES) {
+      try {
+        await run(MBSYNC, [channel], { timeout: 300_000 });
+        results.push(`${channel}: ok`);
+      } catch (err) {
+        results.push(`${channel}: ${err.message}`);
+      }
+    }
+    await run(MU, ["index"], { timeout: 120_000 });
+    return `Sync finished.\n${results.join("\n")}`;
+  }
+}
+
 // Every tool registers on a fresh McpServer from this factory. A factory —
 // not a module-level singleton — because the shared HTTP daemon mode at the
 // bottom builds one server per request (the SDK's stateless pattern):
@@ -240,40 +410,28 @@ async function run(rawCmd, rawArgs, { input, timeout = 30_000 } = {}) {
 function buildServer() {
 const server = new McpServer({
   name: "mail",
-  version: "1.0.0",
+  version: "2.0.0",
 });
 
 // --- mail_sync ---
-server.tool("mail_sync", "Sync mail from Gmail using mbsync", {}, async () => {
-  try {
-    const results = [];
-    for (const channel of ACCOUNT_NAMES) {
-      try {
-        const { stdout, stderr } = await run(MBSYNC, [channel], {
-          timeout: 120_000,
-        });
-        results.push(`${channel}: ok\n${stdout}\n${stderr}`.trim());
-      } catch (err) {
-        results.push(`${channel}: ${err.message}`);
-      }
+server.tool(
+  "mail_sync",
+  "Fetch new mail from Gmail and re-index. Returns at once by default — the sync runs on the mail host and takes from seconds to a few minutes; pass wait=true to block until it has finished.",
+  {
+    wait: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Block until the sync has finished (default false)"),
+  },
+  async ({ wait }) => {
+    try {
+      return { content: [{ type: "text", text: await startSync(wait) }] };
+    } catch (err) {
+      return fail("Sync", err);
     }
-    // Re-index after sync
-    await run(MU, ["index"], { timeout: 60_000 });
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Sync complete.\n${results.join("\n")}`.trim(),
-        },
-      ],
-    };
-  } catch (err) {
-    return {
-      content: [{ type: "text", text: `Sync failed: ${err.message}` }],
-      isError: true,
-    };
-  }
-});
+  },
+);
 
 // --- mail_search ---
 server.tool(
@@ -336,7 +494,13 @@ server.tool(
         }
       }
 
-      const { stdout } = await run(MU, ["view", filePath]);
+      let { stdout } = await run(MU, ["view", filePath]);
+      // A message with only an HTML body reads as nothing through mu view;
+      // give the HTML as text instead.
+      if (stdout.includes("[No text body found]")) {
+        const { stdout: text } = await helper(["html-text", filePath]);
+        stdout = stdout.replace("[No text body found]", text);
+      }
       return { content: [{ type: "text", text: stdout }] };
     } catch (err) {
       return {
@@ -391,140 +555,187 @@ server.tool(
   },
 );
 
-// --- mail_send ---
+// --- drafts ---
+// Nothing is sent in one step. mail_draft / mail_reply build the exact bytes,
+// store them on the mail host, and return what the recipient will see;
+// mail_send takes a draft id and sends those bytes. A change is a new draft.
+const draftFields = {
+  body: z.string().describe("Email body, plain text. Blank lines separate paragraphs; lines starting '- ' become a list. Do not add the sign-off."),
+  bcc: z.string().optional().describe("BCC address(es), comma-separated"),
+  preserve_case: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe("Keep subject/body casing as written; without it both are lowercased"),
+  signature: z
+    .string()
+    .optional()
+    .describe("Sign-off override; defaults to the style guide's @handle, rendered in handle colours and linked to the AC profile"),
+  attachments: z
+    .array(z.string())
+    .optional()
+    .describe("Absolute paths of files to attach"),
+  revises: z
+    .string()
+    .optional()
+    .describe("Id of a pending draft this one replaces; the old one can no longer be sent"),
+};
+
+const fail = (what, err) => ({
+  content: [{ type: "text", text: `${what} failed: ${err.message}` }],
+  isError: true,
+});
+
 server.tool(
-  "mail_send",
-  "Send an email via msmtp. Defaults to mail@aesthetic.computer; use from_account to switch. For replies, set in_reply_to and references for proper threading. Supports file attachments via the attachments parameter (array of absolute paths).",
+  "mail_draft",
+  "Compose a new email as a draft. Nothing is sent. Returns the draft id, the exact headers and text, and a rendered image of the email as the recipient will see it; show that to @jeffrey. To change a draft, call again with `revises`. Use mail_reply to answer an existing message.",
   {
-    to: z.string().describe("Recipient email address"),
-    cc: z.string().optional().describe("CC email address(es), comma-separated"),
+    to: z.string().describe("Recipient address(es), comma-separated"),
+    cc: z.string().optional().describe("CC address(es), comma-separated"),
     subject: z.string().describe("Email subject"),
-    body: z.string().describe("Email body (plain text)"),
-    in_reply_to: z
-      .string()
-      .optional()
-      .describe("Message-ID of the email being replied to (for threading)"),
-    references: z
-      .string()
-      .optional()
-      .describe("Space-separated Message-IDs for the thread (for threading)"),
-    preserve_case: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe("Keep original subject/body casing when true"),
-    signature: z
-      .string()
-      .optional()
-      .describe("Optional sign-off override; defaults to style-guide signature"),
     from_account: z
       .enum(ACCOUNT_NAMES)
       .optional()
-      .default("ac-mail")
-      .describe(`Which msmtp account to send from (${ACCOUNT_NAMES.join(" | ")})`),
-    attachments: z
-      .array(z.string())
-      .optional()
-      .describe("Array of absolute file paths to attach (e.g. [\"/path/to/file.pdf\"])"),
+      .default(DEFAULT_ACCOUNT)
+      .describe(`Account to send from (${ACCOUNT_NAMES.join(" | ")})`),
+    ...draftFields,
   },
-  async ({ to, cc, subject, body, in_reply_to, references, preserve_case, signature, from_account, attachments }) => {
+  async (args) => {
     try {
-      const style = await loadEmailStyle();
-      const styled = applyEmailStyle({
-        subject,
-        body,
-        preserveCase: preserve_case,
-        signature,
-      }, style);
-      const account = from_account || DEFAULT_ACCOUNT;
-      const fromAddr = ACCOUNTS[account] || FROM_ADDRESS;
-      const date = new Date().toUTCString();
-      const headers = [
-        `Date: ${date}`,
-        `From: ${fromAddr}`,
-        `To: ${to}`,
-      ];
-      if (cc) headers.push(`Cc: ${cc}`);
-      if (in_reply_to) {
-        const irt = in_reply_to.startsWith("<") ? in_reply_to : `<${in_reply_to}>`;
-        headers.push(`In-Reply-To: ${irt}`);
-      }
-      if (references) {
-        const refs = references
-          .split(/\s+/)
-          .map((r) => (r.startsWith("<") ? r : `<${r}>`))
-          .join(" ");
-        headers.push(`References: ${refs}`);
-      }
-      headers.push(`Subject: ${styled.subject}`, "MIME-Version: 1.0");
+      return await composeDraft(args);
+    } catch (err) {
+      return fail("Draft", err);
+    }
+  },
+);
 
-      let message;
-      if (attachments && attachments.length > 0) {
-        // MIME multipart with attachments
-        const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-        headers.push(
-          `Content-Type: multipart/mixed; boundary="${boundary}"`,
-        );
-        const parts = [
-          ...headers,
-          "",
-          `--${boundary}`,
-          "Content-Type: text/plain; charset=UTF-8",
-          "Content-Transfer-Encoding: 8bit",
-          "",
-          styled.body,
-        ];
-        for (const filePath of attachments) {
-          await stat(filePath); // throws if missing
-          const fileData = await readFile(filePath);
-          const name = basename(filePath);
-          const ext = name.split(".").pop()?.toLowerCase();
-          const mime = ext === "pdf" ? "application/pdf"
-            : ext === "png" ? "image/png"
-            : ext === "jpg" || ext === "jpeg" ? "image/jpeg"
-            : ext === "html" ? "text/html"
-            : ext === "ai" ? "application/illustrator"
-            : ext === "svg" ? "image/svg+xml"
-            : ext === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            : "application/octet-stream";
-          parts.push(
-            `--${boundary}`,
-            `Content-Type: ${mime}; name="${name}"`,
-            "Content-Transfer-Encoding: base64",
-            `Content-Disposition: attachment; filename="${name}"`,
-            "",
-            fileData.toString("base64").replace(/(.{76})/g, "$1\r\n"),
-          );
-        }
-        parts.push(`--${boundary}--`);
-        message = parts.join("\r\n");
-      } else {
-        // Plain text (no attachments)
-        headers.push(
-          "Content-Type: text/plain; charset=UTF-8",
-          "Content-Transfer-Encoding: 8bit",
-        );
-        message = [...headers, "", styled.body].join("\r\n");
-      }
+server.tool(
+  "mail_reply",
+  "Draft a reply to a message by its Message-ID. Nothing is sent. Threading, subject, recipients (reply-all by default) and the answering account are taken from the original; pass to/cc/from_account only to override them. Returns the same preview as mail_draft.",
+  {
+    message_id: z.string().describe("Message-ID of the email being answered"),
+    reply_all: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Keep the original's other recipients on cc (default true)"),
+    to: z.string().optional().describe("Override the recipient(s)"),
+    cc: z.string().optional().describe("Override the cc list"),
+    from_account: z
+      .enum(ACCOUNT_NAMES)
+      .optional()
+      .describe("Override the account; defaults to the one the original was addressed to"),
+    ...draftFields,
+  },
+  async ({ message_id, reply_all, to, cc, from_account, ...rest }) => {
+    try {
+      await ensureMuIndex();
+      const original = pickCopy(await findCopies(message_id));
+      if (!original) throw new Error(`no message with id ${message_id}`);
+      const plan = planReply(original, { mine: Object.values(ACCOUNTS), replyAll: reply_all });
+      const account =
+        from_account ||
+        ACCOUNT_NAMES.find((a) => ACCOUNTS[a].toLowerCase() === plan.answeredAs) ||
+        ACCOUNT_NAMES.find((a) => original[":maildir"]?.startsWith(`/${a}/`)) ||
+        DEFAULT_ACCOUNT;
+      return await composeDraft({
+        ...rest,
+        to: to ?? plan.to,
+        cc: cc ?? plan.cc,
+        subject: plan.subject,
+        in_reply_to: plan.inReplyTo,
+        references: plan.references,
+        from_account: account,
+        // A reply keeps the thread's subject as its author cased it.
+        keep_subject_case: true,
+      });
+    } catch (err) {
+      return fail("Reply draft", err);
+    }
+  },
+);
 
-      // Larger attachments can take well over the default 30s to upload to the
-      // SMTP relay; scale the timeout with message size (base64-inflated) so big
-      // files don't get SIGTERM'd mid-transfer (which surfaces as "exited null").
-      const sendTimeout = Math.max(30_000, 30_000 + Math.ceil(message.length / (1024 * 1024)) * 15_000);
-      const { stdout, stderr } = await run(MSMTP, ["-a", account, "-t"], { input: message, timeout: sendTimeout });
+server.tool(
+  "mail_send",
+  "Send a draft made by mail_draft or mail_reply. Takes only the draft id: the bytes that were previewed are the bytes that go. Call it only after @jeffrey has seen this exact draft and said to send it — a revised draft has a new id and needs a new yes. Report the returned headers and body afterward.",
+  { draft_id: z.string().describe("Id of a pending draft") },
+  async ({ draft_id }) => {
+    try {
+      const { stdout } = await helper(["draft-send", draft_id], { timeout: 600_000 });
+      const { meta, text } = JSON.parse(stdout);
       return {
-        content: [
-          {
-            type: "text",
-            text: `Email sent from ${fromAddr} to ${to}${cc ? ` (cc: ${cc})` : ""}.\nStyle guide: ${style.source}${style.loadedFromGuide ? "" : " (defaults used)"}\n${stdout}\n${stderr}`.trim(),
-          },
-        ],
+        content: [{ type: "text", text: `SENT ${meta.sentAt}\n${describeDraft(meta, text)}` }],
       };
     } catch (err) {
-      return {
-        content: [{ type: "text", text: `Send failed: ${err.message}` }],
-        isError: true,
-      };
+      return fail("Send", err);
+    }
+  },
+);
+
+server.tool(
+  "mail_drafts",
+  "List drafts that are waiting to be sent or discarded. Pass draft_id to show one in full.",
+  { draft_id: z.string().optional().describe("Show this draft's headers and text") },
+  async ({ draft_id }) => {
+    try {
+      if (draft_id) {
+        const { meta, text } = JSON.parse((await helper(["draft-show", draft_id])).stdout);
+        return { content: [{ type: "text", text: `${meta.status.toUpperCase()}\n${describeDraft(meta, text)}` }] };
+      }
+      const { stdout } = await helper(["draft-list"]);
+      const rows = stdout
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line))
+        .map((m) => `${m.id}  ${m.created.slice(0, 16)}  ${m.from} → ${m.to}  "${m.subject}"`);
+      return { content: [{ type: "text", text: rows.join("\n") || "No pending drafts." }] };
+    } catch (err) {
+      return fail("Drafts", err);
+    }
+  },
+);
+
+server.tool(
+  "mail_discard",
+  "Throw away a pending draft. It can no longer be sent, and its copy in Gmail Drafts is removed.",
+  { draft_id: z.string().describe("Id of a pending draft") },
+  async ({ draft_id }) => {
+    try {
+      await helper(["draft-discard", draft_id]);
+      return { content: [{ type: "text", text: `Discarded ${draft_id}.` }] };
+    } catch (err) {
+      return fail("Discard", err);
+    }
+  },
+);
+
+// --- mail_archive ---
+server.tool(
+  "mail_archive",
+  "Archive inbox messages by Message-ID: removes them from the inbox, keeps them in All Mail. The account is worked out from where each message sits.",
+  { message_ids: z.array(z.string()).describe("Message-IDs to archive") },
+  async ({ message_ids }) => {
+    try {
+      await ensureMuIndex();
+      const byAccount = new Map();
+      const lines = [];
+      for (const id of message_ids) {
+        const inbox = (await findCopies(id)).find((h) => /\/INBOX$/.test(h[":maildir"] ?? ""));
+        if (!inbox) {
+          lines.push(`not in an inbox: ${id}`);
+          continue;
+        }
+        const account = inbox[":maildir"].split("/")[1];
+        byAccount.set(account, [...(byAccount.get(account) ?? []), id.replace(/^<|>$/g, "")]);
+      }
+      for (const [account, ids] of byAccount) {
+        lines.push((await helper(["archive", account, ...ids], { timeout: 120_000 })).stdout);
+      }
+      // Let the local index catch up without holding this call open.
+      if (byAccount.size) lines.push(await startSync(false));
+      return { content: [{ type: "text", text: lines.join("\n") }] };
+    } catch (err) {
+      return fail("Archive", err);
     }
   },
 );
