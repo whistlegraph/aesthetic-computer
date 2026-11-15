@@ -111,7 +111,7 @@ async function census(days) {
   const failed = sends.filter((e) => e.status !== 200);
   for (const e of failed) {
     const retry = sends.find((o) => o.status === 200 && o.when > e.when && o.when - e.when < 10 * 60000);
-    console.log(`${e.when.toISOString().slice(0, 19)}Z ${e.transport} ${e.status ?? e.event} ${e.reason || e.error || ""}${e.shape ? ` (typed a ${e.shape})` : ""}`.trimEnd(),
+    console.log(`${e.when.toISOString().slice(0, 19)}Z ${e.transport} ${e.status ?? e.event} ${e.reason || e.error || ""}${e.shape ? ` · typed: ${e.shape}` : ""}`.trimEnd(),
       retry ? `→ a send succeeded ${Math.round((retry.when - e.when) / 1000)}s later` : "→ no successful send within 10 min");
   }
   if (!failed.length) console.log("    (none)");
