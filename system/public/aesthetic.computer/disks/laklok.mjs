@@ -61,6 +61,7 @@ let lakLinksOnly = false;
 let settingsOpen = false;
 let gearBox = null; // {x, y, w, h} hit area for the ⚙ toggle
 let lakTV = false; // 📺 `~tv` colon token — broadcast chrome (no input, no gear)
+let lakDemo = false; // 🎭 `~demo` colon token — a staged room, never the real one
 let settingsHits = []; // [{x, y, w, h, action}] chips, rebuilt each paint
 
 // 🕰️ Who was last here — the presence line under the HUD label names the
@@ -89,6 +90,50 @@ function askRecent($) {
     })
     .catch(() => {})
     .finally(() => { recentAsking = false; });
+}
+
+// 🎭 `laer-klokken~demo` / `laklok:demo` — the room with invented people in
+// it, for store screenshots and app review. It never connects to the chat
+// server and never asks who was here, so no real message or handle can
+// appear. The handles below are checked to belong to nobody.
+const LAK_DEMO_LINES = [
+  ["@tinybell", "is anyone awake"],
+  ["@lanternfish", "always"],
+  ["@tinybell", "i learned baktok. say something backward"],
+  ["@lanternfish", "olleh"],
+  ["@slowkite", "that's just hello with extra steps"],
+  ["@pondlight", "what did everyone make today"],
+  ["@lanternfish", "a song with four notes"],
+  ["@tinybell", "four is plenty"],
+  ["@pondlight", "good morning everyone"],
+  ["@slowkite", "morning! i made a painting on the train"],
+  ["@tinybell", "show us"],
+  ["@slowkite", "it's mostly yellow"],
+  ["@lanternfish", "notepat sounds so good in headphones"],
+  ["@pondlight", "try holding three keys"],
+  ["@tinybell", "ok that is a chord. i get it now"],
+  ["@lanternfish", "what time is it where you all are"],
+  ["@slowkite", "late. still here"],
+  ["@pondlight", "same. one more painting"],
+];
+
+function stageDemo() {
+  const sys = client.system;
+  const t = Date.now();
+  sys.connecting = false;
+  sys.chatterCount = 4;
+  sys.messages.length = 0;
+  LAK_DEMO_LINES.forEach(([from, text], i) => {
+    sys.messages.push({
+      id: `demo-${i}`,
+      from,
+      text,
+      when: new Date(t - (LAK_DEMO_LINES.length - i) * 95_000).toISOString(),
+    });
+  });
+  sys.hearts.set("demo-3", { count: 2, heartedByMe: false });
+  sys.hearts.set("demo-9", { count: 3, heartedByMe: false });
+  chat.refresh(sys);
 }
 
 function ago(ms) {
@@ -141,8 +186,10 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
   commentCounts = createCommentCounts("clock", () => api.needsPaint?.());
   client.system.commentCounts = commentCounts.counts;
   client.system.commentInstance = "clock";
-  client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
+  lakDemo = [...(colon || []), ...(params || [])].includes("demo");
+  if (!lakDemo) client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
   chat.boot(api, client.system, { onAction: name => laklokAction(api, name) }); // Use default font
+  if (lakDemo) stageDemo();
 
   // 🚫 chat.boot stamps a prompt.ac/chat QR to the LEFT of the HUD label; clear
   // it so laklok shows only its own laklok.com QR in the top-right (paintCorner).
@@ -517,7 +564,7 @@ function sim($) {
   if (lakTheme === "realtime" && realtimeTick()) chat.refresh(client.system);
 
   // 🕰️ Who was last here — on boot, then every minute.
-  if (!recentAsking && Date.now() - recentAskedAt >= RECENT_POLL_MS) askRecent($);
+  if (!lakDemo && !recentAsking && Date.now() - recentAskedAt >= RECENT_POLL_MS) askRecent($);
 
   chat.sim($);
 }
