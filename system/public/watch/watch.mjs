@@ -1,4 +1,4 @@
-import {LiveWatch} from './client.mjs?v=3';
+import {LiveWatch} from './client.mjs?v=4';
 const artifact=document.getElementById('artifact'),label=document.getElementById('label'),status=document.getElementById('status');
 let activeURL=null,player=null,activeCleanup=()=>{};
 function clear(){activeCleanup();activeCleanup=()=>{};player?.pause();player=null;if(activeURL)URL.revokeObjectURL(activeURL);activeURL=null;artifact.replaceChildren();}
@@ -27,10 +27,8 @@ async function display(metadata,bytes,signal){
       const send=event=>{if(event.source===frame.contentWindow&&event.data?.type==='easel-gameboy-ready'){window.removeEventListener('message',send);frame.contentWindow.postMessage({type:'easel-gameboy-rom',bytes},'*');}};
       window.addEventListener('message',send);nextCleanup=()=>window.removeEventListener('message',send);signal.addEventListener('abort',()=>window.removeEventListener('message',send),{once:true});frame.addEventListener('load',()=>{if(signal.aborted)window.removeEventListener('message',send);});fragment.append(frame);
     }else if(metadata.kind==='nes'&&['application/octet-stream','application/x-nes-rom'].includes(mime)){
-      const frame=document.createElement('iframe');frame.title=`Playable NES, version ${metadata.version}`;frame.sandbox='allow-scripts allow-same-origin';frame.src='/nes-player/';
-      // As with Game Boy: the ROM goes only to our own child window, once it asks.
-      const send=event=>{if(event.source===frame.contentWindow&&event.data?.type==='easel-nes-ready'){window.removeEventListener('message',send);frame.contentWindow.postMessage({type:'easel-nes-rom',bytes},'*');}};
-      window.addEventListener('message',send);nextCleanup=()=>window.removeEventListener('message',send);signal.addEventListener('abort',()=>window.removeEventListener('message',send),{once:true});frame.addEventListener('load',()=>{if(signal.aborted)window.removeEventListener('message',send);});fragment.append(frame);
+      // A NES draft plays in AC itself: the `nes` piece follows this same id.
+      location.replace(`/nes~${metadata.id}`);return;
     }else if(['text/plain','text/javascript','application/javascript','text/x-tex','application/x-tex'].includes(mime)){
       const caption=document.createElement('p');caption.className='source-label';caption.textContent=metadata.kind==='piece'?'Piece source — execution is not available in this viewer.':'Source draft — build it to show the artifact.';const pre=document.createElement('pre');pre.textContent=new TextDecoder().decode(bytes);fragment.append(caption,pre);
     }else throw new Error('This preview format is not supported');
