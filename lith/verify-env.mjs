@@ -16,6 +16,12 @@
 // warning when the check cannot be made at all — an unverifiable env is the
 // state every deploy before this one was already in, so it must not become a
 // new way to be unable to deploy.
+//
+// Exit 2 when this machine cannot reach the database at all. silo allowlists
+// the addresses that may open port 27017, so a laptop on a new network times
+// out whatever the password is: that says nothing about the env. deploy.fish
+// answers a 2 by running this same file on the server, the one machine whose
+// reach is the question, with the env on stdin (`/dev/stdin`).
 
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -67,6 +73,23 @@ export function missingKeys(env, manifest) {
   return wanted.filter((key) => !env[key]);
 }
 
+// A connection that never arrived, as opposed to one the database refused.
+export function unreachable(error) {
+  const text = `${error?.name || ""} ${error?.codeName || ""} ${error?.message || ""}`;
+  if (/auth/i.test(text)) return false;
+  return /ServerSelection|timed out|ECONNREFUSED|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|ETIMEDOUT/i.test(text);
+}
+
+// The driver sits beside this file on a workstation, and under system/ on the
+// server, where this file may be run from a scratch path.
+function mongoDriver() {
+  for (const base of [import.meta.url, pathToFileURL(`${process.cwd()}/`).href,
+    new URL("../system/", import.meta.url).href]) {
+    try { return createRequire(base)("mongodb"); } catch {}
+  }
+  return null;
+}
+
 // Only the CLI below runs the check. The pure helpers above are imported by
 // the tests, and importing this file must not open a connection, print
 // anything, or take the importing process down with it.
@@ -112,10 +135,8 @@ async function main(path) {
     return 1;
   }
 
-  let MongoClient;
-  try {
-    ({ MongoClient } = createRequire(import.meta.url)("mongodb"));
-  } catch {
+  const MongoClient = mongoDriver()?.MongoClient;
+  if (!MongoClient) {
     console.warn(yellow("verify-env: mongodb driver not installed here; " +
       "shipping this env unverified."));
     return 0;
@@ -132,6 +153,11 @@ async function main(path) {
     return 0;
   } catch (error) {
     const failure = error?.codeName || error?.message || "unknown error";
+    if (unreachable(error)) {
+      console.error(yellow(`   mongo: ${redactUri(uri)} -> unreachable from ` +
+        `this machine (${failure}); the credential is untested here.`));
+      return 2;
+    }
     console.error(red(`   mongo: ${redactUri(uri)} -> ${failure}`));
     if (/auth/i.test(failure))
       console.error(yellow("   The password in this env is not the one the " +

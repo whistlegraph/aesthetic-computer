@@ -234,7 +234,25 @@ if test $UPLOAD_ENV = true
     # here; a password that will not open the database on this machine will not
     # open it on the server either.
     echo -e "$GREEN-> Verifying environment credentials...$NC"
-    if not node $REPO_ROOT/lith/verify-env.mjs $SERVICE_ENV
+    node $REPO_ROOT/lith/verify-env.mjs $SERVICE_ENV
+    set verify_status $status
+    if test $verify_status -eq 2
+        # This machine cannot reach the database (silo allowlists addresses),
+        # which says nothing about the password. Ask the machine that has to
+        # use it: run this revision's verifier on the server with the env on
+        # stdin, so nothing is written there until the credential has opened
+        # the database. Only the word "authenticates" passes: an unverified
+        # run exits 0 too.
+        echo -e "$YELLOW   Trying the credential from $TARGET_HOST instead...$NC"
+        set remote_verifier /tmp/ac-verify-env.(random).mjs
+        set verify_status 1
+        if ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cat > $remote_verifier" < $REPO_ROOT/lith/verify-env.mjs
+            set remote_verdict (ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "cd $REMOTE_DIR/system && node $remote_verifier /dev/stdin; rm -f $remote_verifier" < $SERVICE_ENV 2>&1)
+            printf '%s\n' $remote_verdict
+            string match -q '*authenticates*' -- $remote_verdict; and set verify_status 0
+        end
+    end
+    if test $verify_status -ne 0
         echo -e "$RED x Refusing to upload an environment that cannot reach its database.$NC"
         echo -e "$YELLOW   $SERVICE_ENV is stale. Production is untouched — the running$NC"
         echo -e "$YELLOW   env on $TARGET_HOST is still whatever last worked.$NC"
