@@ -130,6 +130,46 @@ const rowDrawing = [
   [[[0.19, 0.19], [0.25, 0.19], [0.19, 0.26], [0.25, 0.26]]],
 ];
 
+// Starry Eyes, traced from the chalk whistlegraph (TikTok 7137880776183483694).
+// `chalk` takes pixel pairs read off the 540 x 960 final frame of that video.
+const chalk = (...n) => {
+  const points = [];
+  for (let i = 0; i < n.length; i += 2) points.push([(n[i] + 35) / 640, (n[i + 1] - 160) / 640]);
+  return [points];
+};
+const zig = (i) => chalk(192 + i * 19.75, i % 2 ? 424 : 470, 192 + (i + 1) * 19.75, i % 2 ? 470 : 424);
+
+const kidDrawing = [
+  // did u ev- -er meet the kid with star- -ry eyes: the kid, in white
+  chalk(213, 322, 213, 360), chalk(275, 320, 272, 358), // Body sides
+  chalk(213, 360, 272, 358), chalk(213, 322, 275, 320), // Body bottom, top
+  chalk(213, 322, 175, 243), // Head
+  chalk(175, 243, 240, 226, 290, 226),
+  chalk(290, 226, 322, 245, 328, 275, 310, 305, 278, 320),
+  chalk(222, 302, 240, 293, 258, 296, 268, 306), // Frown
+  chalk(218, 250, 238, 280), chalk(240, 252, 217, 278), chalk(213, 266, 243, 264), // Starry eye
+  // CROSSED OUT EYES! in red
+  chalk(268, 243, 298, 290), chalk(300, 245, 266, 285), chalk(260, 262, 308, 272),
+  // al- -ways thought of life as just one big: arms, legs and ground, in orange
+  chalk(213, 328, 178, 338), chalk(178, 338, 213, 350),
+  chalk(213, 360, 210, 396), chalk(210, 396, 235, 368), chalk(235, 368, 250, 397), chalk(250, 397, 270, 358),
+  chalk(275, 325, 320, 339), chalk(320, 339, 273, 350),
+  chalk(165, 400, 330, 395),
+  // BOX OF LIES! in pink
+  chalk(150, 385, 125, 290, 108, 193), chalk(108, 193, 240, 175, 378, 180), chalk(378, 180, 358, 290, 333, 400),
+  // paths to hope- -ful: two white curls off the box corners
+  chalk(333, 400, 358, 425), chalk(358, 425, 362, 450, 350, 468),
+  chalk(165, 402, 192, 430), chalk(192, 430, 190, 450, 180, 466),
+  // pla- -a- -a- -a- -a- -a- -a- -ces: a red zigzag, one stroke per note
+  zig(0), zig(1), zig(2), zig(3), zig(4), zig(5), zig(6), zig(7),
+  // Bridge- -less like torn: the page, in orange
+  chalk(160, 402, 155, 510), chalk(155, 510, 150, 615), chalk(150, 615, 315, 612), chalk(315, 612, 322, 470),
+  // pa- -a- -a- -ges: the torn flap, in pink
+  chalk(150, 618, 222, 700), chalk(222, 700, 295, 782), chalk(295, 782, 465, 755), chalk(465, 755, 315, 612),
+];
+const WHITE = [245, 245, 240], RED = [240, 60, 90], ORANGE = [255, 150, 60], PINK = [255, 90, 140];
+const runs = (...pairs) => pairs.flatMap(([ink, count]) => Array(count).fill(ink));
+
 // Each song pairs a melody with its lyrics and drawing, one syllable per note.
 // `beats` are note lengths for the guide (one beat each when left out).
 // Pick one with a param: `song twinkle`, `song row`, `song weasel`, `song kid`.
@@ -188,16 +228,31 @@ const songs = {
                    that's the way the mo- -o- -ney goes
                    pop! goes the wea- -sel!`),
   },
-  // 🟡 Loose: 46 notes against 44 syllables, so the words drift by the end.
+  // Melody as first notated; words, timing and strokes read from the videos.
+  // 🟡 The last word is a guess: the tune has four notes there, so "pages"
+  //    is spread as pa- -a- -a- -ges.
   kid: {
     title: "Starry Eyes",
+    ground: [45, 45, 42], // Asphalt.
+    drawing: kidDrawing,
+    inks: runs([WHITE, 11], [RED, 3], [ORANGE, 9], [PINK, 3], [WHITE, 4], [RED, 8], [ORANGE, 4], [PINK, 4]),
+    beats: [
+      0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1, 1, 0.5, 1.5,
+      2, 1, 2,
+      1, 1, 1, 0.5, 1, 1, 1, 1, 1,
+      1.5, 1, 3,
+      1.5, 1.5, 1.5, 1.5,
+      ...Array(8).fill(0.5),
+      2.5, 2, 2, 3.5,
+      1, 1, 1, 2,
+    ],
     notes: words(`E D C E G A B A G F G E E D
                   B A G F G E G E G G B B B G
                   A F E D E D E D E D E G A F
                   G E D C`),
     lyrics: words(`did u ev- -er meet the kid with star- -ry eyes
                    CROSSED OUT EYES! al- -ways thought of life as just
-                   one big BOX OF LIES! paths to hope- -ful pla- -a- -a- -a- -a- -a- -a- -ces. Bridge- -less like torn pa- -ges.`),
+                   one big BOX OF LIES! paths to hope- -ful pla- -a- -a- -a- -a- -a- -a- -ces. Bridge- -less like torn pa- -a- -a- -ges.`),
   },
   mmm: {
     title: "Mmm",
@@ -212,7 +267,7 @@ const names = Object.keys(songs);
 const BPM = 120; // Beats count from Unix epoch zero on the shared clock.
 
 let name = "twinkle";
-let song, lyrics, drawing, beats, starts; // The chosen song, laid out.
+let song, lyrics, drawing, inks, ground, beats, starts; // The chosen song, laid out.
 let index = 0;
 let shown = 0, // How many strokes are finished.
   progress = 0; // How much of the current stroke is drawn, from 0 to 1.
@@ -247,6 +302,8 @@ function select(pick, { store, sound, needsPaint }) {
   song = songs[name].notes;
   lyrics = songs[name].lyrics;
   drawing = songs[name].drawing;
+  inks = songs[name].inks;
+  ground = songs[name].ground;
   beats = songs[name].beats || song.map(() => 1);
   starts = [];
   let total = 0;
@@ -264,7 +321,10 @@ function select(pick, { store, sound, needsPaint }) {
   const chosen = name;
   store?.retrieve?.(`song:${name}`, "local")?.then?.((saved) => {
     if (chosen !== name || mode === "draw") return;
-    if (Array.isArray(saved) && saved.length) drawing = saved;
+    if (Array.isArray(saved) && saved.length) {
+      drawing = saved; // A drawing of your own has no chalk colors.
+      inks = undefined;
+    }
     needsPaint?.();
   });
 }
@@ -298,13 +358,16 @@ function paint($) {
   const place = ([px, py]) => [left + px * size, top + py * size];
 
   $.wipe(127);
-  ink(btn.down ? [245, 220, 50] : [230, 210, 100]).box(btn.box);
+  const paper = ground || [230, 210, 100];
+  ink(btn.down ? paper.map((c) => c + 12) : paper).box(btn.box);
 
   if (drawing) {
-    ink(60, 40, 0);
-    for (let i = 0; i < shown; i += 1) trace(line, drawing[i], 1, place);
+    for (let i = 0; i < shown; i += 1) {
+      ink(inks?.[i] || [60, 40, 0]);
+      trace(line, drawing[i], 1, place);
+    }
     if (btn.down || mode === "guide") {
-      ink(255, 0, 0);
+      ink(inks?.[index] || [255, 0, 0]);
       trace(line, drawing[index], progress, place);
     }
   }
@@ -432,12 +495,14 @@ function act({
         store[key] = null;
         store.persist(key, "local");
         drawing = songs[name].drawing;
-      } else drawing = previous;
+        inks = songs[name].inks;
+      } else ({ drawing, inks } = previous);
       mode = "tap";
       index = shown = 0;
     } else {
-      previous = drawing;
+      previous = { drawing, inks };
       drawing = recorded = [];
+      inks = undefined;
       mode = "draw";
       listOpen = false;
       index = shown = 0;
