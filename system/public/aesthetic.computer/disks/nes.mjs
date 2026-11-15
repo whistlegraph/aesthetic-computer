@@ -99,7 +99,7 @@ function arrange({ width: w, height: h }, geo) {
   const cy = wide ? Math.floor(top + (h - top) / 2) : h - gap - u * 2 - Math.floor(u / 2);
   const dx = gap, dy = cy - Math.floor(u * 1.5); // d-pad corner
   const r = Math.floor(u * 1.4), ax = w - gap - r * 2 - Math.floor(r * 0.8); // A and B share a diagonal
-  const small = { w: Math.max(22, Math.floor(u * 1.6)), h: Math.max(10, Math.floor(u * 0.7)) };
+  const small = { w: Math.max(22, Math.floor(u * 1.6)), h: Math.max(12, Math.floor(u * 0.7)) }; // 12 rows: room for the word
   const sy = wide ? cy + r + u : h - gap - small.h;
   const sx = wide ? w - gap - small.w * 2 - 2 : Math.floor(w / 2) - small.w - 1;
   const boxes = {
@@ -191,7 +191,7 @@ function paint({ wipe, ink, paste, screen, line }) {
   for (const key of [SELECT, START]) {
     const [x, y, w, h] = lay.boxes[key], on = holding(key), word = key === SELECT ? "sel" : "go";
     ink(...TEAL, on ? 255 : 70).box(x, y, w, h, on ? "fill" : "outline");
-    if (h >= 12) ink(...(on ? BG : TEAL)).write(word, { x: Math.floor(x + (w - word.length * 6) / 2), y: Math.floor(y + (h - 10) / 2) });
+    ink(...(on ? BG : TEAL)).write(word, { x: Math.floor(x + (w - word.length * 6) / 2), y: Math.floor(y + (h - 10) / 2) });
   }
 }
 
