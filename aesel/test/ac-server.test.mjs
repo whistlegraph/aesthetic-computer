@@ -454,3 +454,34 @@ test('layered edits reject stale/ambiguous/broken changes and apply small valid 
   await engine.startTurn('make it blue');assert.equal(await readFile(file,'utf8'),kind==='valid'?original.replace('pink','blue'):original);
  }
 });
+
+test("pro offers a selected medium's artifact tools, so an edit becomes a new version instead of a file write", async (t) => {
+  const { Artifacts } = await import("../src/artifacts.mjs");
+  const dir = await mkdtemp(join(tmpdir(), "ac-pro-artifact-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const artifacts = new Artifacts(dir);
+  await artifacts.create("nes", "Cart");
+  const source = (await readFile(new URL("../media/nes/starter.asm", import.meta.url), "utf8")).replace("lda #124", "lda #40");
+  const requests = [];
+  const answer = serving([
+    { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "t1", name: "artifact_write_source" } },
+    { type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json: JSON.stringify({ source }) } },
+    { type: "content_block_stop", index: 0 },
+    { type: "message_delta", delta: { stop_reason: "tool_use" } },
+  ], say("moved"));
+  const engine = new AcServer({
+    fetch: async (url, options) => { requests.push(JSON.parse(options.body)); return answer(); },
+    token: async () => "tok", workspace: true, cwd: dir, artifacts,
+  });
+  await engine.connect();
+  await engine.startTurn("start further left");
+  const offered = requests[0].tools.map((tool) => tool.name);
+  for (const name of ["artifact_write_source", "artifact_build", "bash"]) assert(offered.includes(name), name);
+  assert.match(JSON.stringify(requests[0].system), /Current nes: Cart, v1[\s\S]*main\.asm:/);
+  assert.equal((await artifacts.selected()).version, 2);
+  assert.match(JSON.stringify(requests[1].system), /Current nes: Cart, v2/);
+  // With no medium selected, pro is unchanged: workspace tools only.
+  await artifacts.select("piece");
+  await engine.startTurn("hello");
+  assert(!requests.at(-1).tools.some((tool) => tool.name.startsWith("artifact_")));
+});

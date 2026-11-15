@@ -163,6 +163,9 @@ export class AcServer extends EventEmitter {
     this.settings = settings;
     this.controls = controls;
     this.artifactContext = '';
+    // Pro's own copy: the selected artifact's source, offered beside the
+    // workspace tools without switching the session into piece mode.
+    this.workspaceArtifact = '';
     this.apiMap = loadMap();
     this.token = token;
     this.fetch = fetch;
@@ -235,7 +238,9 @@ export class AcServer extends EventEmitter {
       toolboxInstructions(),
       contextMap(new URL("../context", import.meta.url).pathname),
       harnessText("interface-model", {model: this.model}),
-    ].filter(Boolean).join("\n\n"),cache_control:{type:"ephemeral"}}];
+    ].filter(Boolean).join("\n\n"),cache_control:{type:"ephemeral"}},
+      // After the cached prefix: the artifact's source changes with every version.
+      ...(this.workspaceArtifact ? [{type:"text",text:this.workspaceArtifact}] : [])];
   }
 
   get previewing() {
@@ -386,10 +391,11 @@ export class AcServer extends EventEmitter {
     }
 
     this.artifactContext = this.workspace ? '' : await this.artifacts?.context() || '';
+    this.workspaceArtifact = this.workspace ? await this.artifacts?.context().catch(() => '') || '' : '';
     // The preview tools only when something runs the piece: offered with no
     // preview, they answer "nothing observed" and the model reads that as success.
     const previewing = !this.workspace && this.previewing;
-    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(()=>{const api=TOOLS.find(t=>t.name==='ac_api');return api?[{name:api.name,description:api.description,input_schema:api.inputSchema}]:[];})(), ...(await this.extensions?.tools().catch(() => []) ?? [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE,...(this.layeredEdits?[EDIT_PIECE]:[])]),
+    const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(()=>{const api=TOOLS.find(t=>t.name==='ac_api');return api?[{name:api.name,description:api.description,input_schema:api.inputSchema}]:[];})(), ...(await this.extensions?.tools().catch(() => []) ?? []), ...(this.workspaceArtifact ? await this.artifacts.tools() : [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE,...(this.layeredEdits?[EDIT_PIECE]:[])]),
       ...(previewing ? [{name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}] : [])];
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.controls)tools.push(...await this.controls.tools());

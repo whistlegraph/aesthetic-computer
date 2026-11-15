@@ -36,7 +36,7 @@ import { requireSharing, DISCLOSURE_VERSION, TRANSCRIPT_DISCLOSURE } from "./req
 import { transcriptMessages } from "./transcript-ui.mjs";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { configDir, journalDir, workspaceDir } from "./paths.mjs";
+import { configDir, journalDir, workspaceDir, mediaName } from "./paths.mjs";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { StringDecoder } from "node:string_decoder";
@@ -595,6 +595,8 @@ function proInstructions() {
     harnessText("pro-account"),
     harnessText("pro-reply"),
     harnessText("pro-inbox"),
+    // A medium chosen with /medium: its tools are the only way to a new version.
+    ...(state.medium !== "piece" ? [harnessText("pro-artifact-medium", { medium: state.medium, store: path.join(cwd, mediaName(cwd)) })] : []),
     // Maintainer-only. Named when @jeffrey is working in the monorepo and
     // nowhere else: a piece author has nothing to deploy, and a model that
     // hears of a deploy command reaches for it.
@@ -3689,7 +3691,9 @@ if (!pro) await syncArtifact();
 let artifactStamp='';
 let artifactHeartbeat=0;
 const artifactTimer=setInterval(async()=>{
-  if (pro) return;
+  // Pro has no piece to follow, but a medium it selected still needs each new
+  // version announced and sent to its live page.
+  if (pro && state.medium === 'piece') return;
   try { const data=readFileSync(artifacts.file,'utf8');if(data!==artifactStamp || Date.now()-artifactHeartbeat>30000){artifactStamp=data;artifactHeartbeat=Date.now();await syncArtifact();} }catch{}
 },300);
 artifactTimer.unref();
