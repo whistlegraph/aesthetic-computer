@@ -194,3 +194,13 @@ async function openPostedROM() {
 $('retry').onclick = openPostedROM;
 if (params.has('file')) openPostedROM();
 else { $('notice').hidden = true; $('chooser').hidden = false; ready(); }
+// Aesel's watch page hands a draft ROM to this frame instead of a posted file.
+if (parent !== window && !params.has('file')) {
+  addEventListener('message', event => {
+    if (event.source !== parent || event.data?.type !== 'easel-nes-rom') return;
+    const bytes = new Uint8Array(event.data.bytes);
+    if (bytes.length > MAX_ROM) return fail('ROM over 8 MB.');
+    load(bytes);
+  });
+  parent.postMessage({ type: 'easel-nes-ready' }, '*');
+}

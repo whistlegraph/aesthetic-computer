@@ -51,7 +51,7 @@ test("short pro messages fit their text without white cap rows or minimum-width 
   const frame = cleanText(renderFrame(state, 40, 14, true));
   // The donkey's letterhead tops the thread; a short window shows its feet.
   assert.deepEqual(frame.split("\n").filter(row => row.trim()).map(row => row.trimEnd()).slice(-4), [
-    " ╭────╮", " │ hi │", " ╰────╯", " hi.",
+    " ┌────┐", " │ hi │", " └────┘", " hi.",
   ]);
   assert.match(frame, /[\u2580-\u259f]/);
 });

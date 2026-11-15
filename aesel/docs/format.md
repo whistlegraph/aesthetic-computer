@@ -22,7 +22,7 @@ Record sequence numbers increase monotonically; upload batches can omit earlier
 sequence numbers. The session header has no sequence number. Record timestamps
 are ISO date strings. Session `metadata` permits only `medium`, `projectId` and
 `title`; project IDs are opaque IDs, never filesystem paths. Media are `picture`,
-`sound`, `piece`, `paper`, and `gameboy`.
+`sound`, `piece`, `paper`, `gameboy`, and `nes`.
 
 Message roles are only `user` or `assistant`; text is capped at 32,768 characters.
 Optional `backend` and `model` describe who produced a final message. Token chunks,

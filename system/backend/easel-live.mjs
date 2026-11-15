@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 export const MAX_FRAME_BYTES=8*1024*1024;
 export const LIVE_TTL=3600;
 const ID=/^[a-f0-9]{32}$/;
-const TYPES={picture:['image/png','image/jpeg','image/webp'],sound:['audio/wav','audio/mpeg','audio/ogg'],paper:['application/pdf','text/plain'],gameboy:['application/x-gameboy-rom','text/plain'],piece:['text/javascript','text/plain']};
+const TYPES={picture:['image/png','image/jpeg','image/webp'],sound:['audio/wav','audio/mpeg','audio/ogg'],paper:['application/pdf','text/plain'],gameboy:['application/x-gameboy-rom','text/plain'],nes:['application/x-nes-rom','text/plain'],piece:['text/javascript','text/plain']};
 const FIELDS=['kind','version','mime','sequence','status','updatedAt','expiresAt'];
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET, POST, DELETE, OPTIONS','Access-Control-Allow-Headers':'Content-Type, Authorization','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const reply=(statusCode,value)=>({statusCode,headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify(value)});

@@ -1446,7 +1446,7 @@ function outlineRows(rows, width, painted = false) {
   // the pink is the frame around them, not the words themselves.
   // Painted rows (the shimmer) keep their own inks; plain rows take the page's.
   const words = (row) => `${color.text}${fit(painted ? row : row.replace(new RegExp(ink.replace(/[[\]\\]/g, "\\$&"), "g"), color.text), inner)}`;
-  return [line(`╭${"─".repeat(inner + 2)}╮`), ...rows.map((row) => `${line("│ ")}${words(row)}${line(" │")}`), line(`╰${"─".repeat(inner + 2)}╯`)];
+  return [line(`┌${"─".repeat(inner + 2)}┐`), ...rows.map((row) => `${line("│ ")}${words(row)}${line(" │")}`), line(`└${"─".repeat(inner + 2)}┘`)];
 }
 let LIGHT = false;
 // On a light page the cloud is a light gray, not a white that would vanish.

@@ -26,11 +26,16 @@ async function display(metadata,bytes,signal){
       // Send ROM bytes only to our exact child window; the capability stays here.
       const send=event=>{if(event.source===frame.contentWindow&&event.data?.type==='easel-gameboy-ready'){window.removeEventListener('message',send);frame.contentWindow.postMessage({type:'easel-gameboy-rom',bytes},'*');}};
       window.addEventListener('message',send);nextCleanup=()=>window.removeEventListener('message',send);signal.addEventListener('abort',()=>window.removeEventListener('message',send),{once:true});frame.addEventListener('load',()=>{if(signal.aborted)window.removeEventListener('message',send);});fragment.append(frame);
+    }else if(metadata.kind==='nes'&&['application/octet-stream','application/x-nes-rom'].includes(mime)){
+      const frame=document.createElement('iframe');frame.title=`Playable NES, version ${metadata.version}`;frame.sandbox='allow-scripts allow-same-origin';frame.src='/nes-player/';
+      // As with Game Boy: the ROM goes only to our own child window, once it asks.
+      const send=event=>{if(event.source===frame.contentWindow&&event.data?.type==='easel-nes-ready'){window.removeEventListener('message',send);frame.contentWindow.postMessage({type:'easel-nes-rom',bytes},'*');}};
+      window.addEventListener('message',send);nextCleanup=()=>window.removeEventListener('message',send);signal.addEventListener('abort',()=>window.removeEventListener('message',send),{once:true});frame.addEventListener('load',()=>{if(signal.aborted)window.removeEventListener('message',send);});fragment.append(frame);
     }else if(['text/plain','text/javascript','application/javascript','text/x-tex','application/x-tex'].includes(mime)){
       const caption=document.createElement('p');caption.className='source-label';caption.textContent=metadata.kind==='piece'?'Piece source — execution is not available in this viewer.':'Source draft — build it to show the artifact.';const pre=document.createElement('pre');pre.textContent=new TextDecoder().decode(bytes);fragment.append(caption,pre);
     }else throw new Error('This preview format is not supported');
     if(signal.aborted){nextCleanup();if(nextURL)URL.revokeObjectURL(nextURL);return;}
-    clear();activeCleanup=nextCleanup;activeURL=nextURL;player=nextPlayer;artifact.append(fragment);label.textContent=`${metadata.kind==='gameboy'?'Game Boy':metadata.kind[0].toUpperCase()+metadata.kind.slice(1)} · v${metadata.version}`;
+    clear();activeCleanup=nextCleanup;activeURL=nextURL;player=nextPlayer;artifact.append(fragment);label.textContent=`${metadata.kind==='gameboy'?'Game Boy':metadata.kind==='nes'?'NES':metadata.kind[0].toUpperCase()+metadata.kind.slice(1)} · v${metadata.version}`;
   }catch(error){nextCleanup();if(nextURL)URL.revokeObjectURL(nextURL);throw error;}
 }
 let watch;

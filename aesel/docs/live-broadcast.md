@@ -19,6 +19,7 @@ Metadata and frames use `Cache-Control: no-store`. Viewers poll metadata every 5
 | Sound | `audio/wav`, `audio/mpeg`, `audio/ogg` |
 | Paper | `application/pdf`, `text/plain` before compilation |
 | Game Boy | `application/x-gameboy-rom`, `text/plain` before compilation |
+| NES | `application/x-nes-rom`, `text/plain` while the source does not assemble |
 | Piece | `text/javascript`, `text/plain` |
 
 One Redis Lua transaction enforces ownership, increasing sequence, frame replacement, expiration, and owner limits. Each owner can have 64 active broadcasts, 120 successful writes/stops per minute, and 64 MiB of decoded updates per minute. Client coalescing targets at most 256 KiB/second on average; large frames must update less often. The 8 MiB maximum is a frame-size ceiling, not a promise of that size at two frames per second. Stop and expiration remove frame bytes; stopped metadata also expires. Anonymous reads do not extend retention.

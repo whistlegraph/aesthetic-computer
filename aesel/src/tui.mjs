@@ -22,6 +22,7 @@ import {questionFor, questionText, answerQuestion, declineQuestion} from "./ques
 import {readProviderPreferences,saveProviderPreferences,chooseProviderPreferences} from './provider-preferences.mjs';
 import {setCuration,curatedChoice} from './curation.mjs';
 import {rollToward} from './braincell-meter.mjs';
+import {previewCommand, defaultOpener, installHint, refreshOpened} from './open-preview.mjs';
 import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
 import {API_WORKFLOW} from "./api-context.mjs";
@@ -76,7 +77,7 @@ import { notifyNative, reportDevice } from "./native-notify.mjs";
 import { mediaFile, watchMedia, mediaChanged, madeMedia, namedMedia } from "./media.mjs";
 import { watchSource } from "./source-watch.mjs";
 import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
-import { Artifacts, MEDIA } from './artifacts.mjs';
+import { Artifacts, MEDIA, mediaTypesText, asksMediaTypes } from './artifacts.mjs';
 import { desktopSnapshot, readDesktopSession, writeDesktopSession, restoreDesktopEngine, writeDesktopControl, readDesktopIntent } from "./desktop-session.mjs";
 import { archiveThread, replaceWork } from './new-work.mjs';
 import { FrameDiff } from './frame-diff.mjs';
@@ -1265,7 +1266,7 @@ function setBraincells(total) {
     state.braincells = rollToward(state.braincells, braincellsHeld);
     if (state.braincells === braincellsHeld) { clearInterval(braincellsRoll); braincellsRoll = null; }
     redraw();
-  }, 60);
+  }, 40);
   braincellsRoll.unref?.();
 }
 async function refreshBraincells() {
@@ -2485,6 +2486,8 @@ async function syncArtifact() {
     draftPublication=currentArtifact.kind!=='picture' && session.signedIn && session.handle ? await draftBroadcast.reserve({artifactId:currentArtifact.id,kind:currentArtifact.kind}) : null;
     announceArtifact();
     journalRevision(currentArtifact);
+    // Keep a file the person has open in their own viewer on the newest version.
+    if(currentArtifact.revision.preview)refreshOpened(artifacts.root,currentArtifact,path.join(currentArtifact.root,currentArtifact.revision.preview.path)).catch(()=>{});
     if(draftPublication && currentArtifact.revision.preview){
       const selectedId=currentArtifact.id;
       try {
@@ -2530,7 +2533,7 @@ async function commandNew() {
 }
 
 async function commandMedium(rest) {
-  if (!rest) { addEntry('notice',`Medium: ${state.medium}\n/medium picture · /medium sound · /medium piece · /medium paper · /medium gameboy\nAdd a name to create a new artifact; /artifacts lists existing work.`); return redraw(); }
+  if (!rest) { addEntry('notice',`Medium: ${state.medium}\n/medium picture · /medium sound · /medium piece · /medium paper · /medium gameboy · /medium nes\nAdd a name to create a new artifact; /artifacts lists existing work.`); return redraw(); }
   if(state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending){addEntry('notice','Wait for the current turn and uploads before changing medium.');return redraw();}
   const [kind,...words]=rest.split(/\s+/); const name=words.join(' ');
   if(!MEDIA.includes(kind)){addEntry('error',`Choose ${MEDIA.join(', ')}.`);return redraw();}
@@ -2680,6 +2683,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     if (command === "/sharing") return commandSharing(rest);
     if (command === "/transcript") return commandTranscript(rest);
     if (command === '/medium') return commandMedium(rest);
+    if (command === '/types' || command === '/mimes') { addEntry('notice', mediaTypesText()); return redraw(); }
     if (command === '/select') {
       if(state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending) { addEntry('notice','Wait for the current turn and uploads before selecting an artifact.');return redraw(); }
       state.busy=true; state.status='opening';
@@ -2981,16 +2985,22 @@ async function submitInput(submittedText, submittedMessages = null) {
       if (state.medium !== 'piece' && desktopSessionPath) {
         await syncArtifact();addEntry('notice',`Previewing ${state.medium} v${currentArtifact.version}`);return redraw();
       }
-      const opener = process.platform === "darwin"
-        ? "open"
-        : process.platform === "win32"
-          ? "explorer"
-          : "xdg-open";
+      if (state.medium !== 'piece') {
+        // The machine's own app for this kind of file, on a path that is refreshed
+        // with every version. With no such app, say so; the live page still plays it.
+        try { url = await refreshOpened(artifacts.root, currentArtifact, url, { create: true }); }
+        catch(error) { addEntry('error',errorText(error));return redraw(); }
+        if (await defaultOpener(url) === '') {
+          const live = artifactShareAddress();
+          addEntry('notice', [installHint(url) || `Nothing on this computer opens ${path.extname(url)} files.`, live ? `It plays now at https://${live}` : `The file is ${url}`].join('\n'));
+          return redraw();
+        }
+      }
       try {
         // Detached and fully redirected: a browser launcher that inherits this
         // terminal can print into the frame, and anything printed into the
         // frame scrolls it.
-        const child = spawn(opener, [url], { stdio: "ignore", detached: true });
+        const child = spawn(...previewCommand(url), { stdio: "ignore", detached: true });
         child.on("error", (error) => {
           addEntry("error", `Could not open a browser: ${errorText(error)}`);
           redraw();
@@ -3018,6 +3028,9 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
   }
+
+  // A plain question about what Aesel makes has one answer; give it without a turn.
+  if (fromEditor && asksMediaTypes(text)) { addEntry('user', text); addEntry('notice', mediaTypesText()); return redraw(); }
 
   if(!profile.private && !pro && (!transcriptJournal || !transcriptSharing || session.read()?.user?.sub!==sharingAcknowledgment?.owner)){
     if(fromEditor){state.input=text;state.cursor=Array.from(text).length;}else state.queued.unshift(...(submittedMessages||[text]));

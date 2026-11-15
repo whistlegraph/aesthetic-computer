@@ -5,8 +5,27 @@ import { mkdir, readFile, writeFile, rename, rm, lstat, copyFile, readdir } from
 import { resolve, join, dirname, relative, isAbsolute } from 'node:path';
 import { mediaDir } from './paths.mjs';
 
-export const MEDIA = ['piece', 'picture', 'sound', 'paper', 'gameboy'];
-const modules = { gameboy: () => import('./media/gameboy.mjs'), picture: () => import('./media/picture.mjs'), sound: () => import('./media/sound.mjs'), paper: () => import('./media/paper.mjs') };
+export const MEDIA = ['piece', 'picture', 'sound', 'paper', 'gameboy', 'nes'];
+// What each medium is called, the file it exports and the MIME type of that file.
+export const MEDIA_TYPES = {
+  piece: { label: 'Piece', file: 'NAME.mjs · .lisp · .p5 · .l5', mime: 'application/javascript · text/x-lisp', makes: 'a live, published Aesthetic Computer piece' },
+  picture: { label: 'Picture', file: 'composite.png', mime: 'image/png', makes: 'a layered 512 × 512 picture' },
+  sound: { label: 'Sound', file: 'sound.wav', mime: 'audio/wav', makes: 'a score on a beat grid, synthesized' },
+  paper: { label: 'Paper', file: 'manuscript.pdf', mime: 'application/pdf', makes: 'an archival LaTeX paper' },
+  gameboy: { label: 'Game Boy', file: 'game.gb', mime: 'application/x-gameboy-rom', makes: 'a real Game Boy ROM in C (needs GBDK)' },
+  nes: { label: 'NES', file: 'game.nes', mime: 'application/x-nes-rom', makes: 'a real NES ROM in 6502 assembly, built in' },
+};
+export const mediaLabel = kind => MEDIA_TYPES[kind]?.label || kind;
+// The stock answer to "what can Aesel make": one row a medium.
+export function mediaTypesText() {
+  const rows = MEDIA.map(kind => [`/medium ${kind}`, MEDIA_TYPES[kind].mime, MEDIA_TYPES[kind].makes]);
+  const widths = [0, 1].map(i => Math.max(...rows.map(row => row[i].length)));
+  return [`Aesel makes ${MEDIA.length} kinds of media:`, '', ...rows.map(row => `${row[0].padEnd(widths[0])}  ${row[1].padEnd(widths[1])}  ${row[2]}`), '',
+    'Any file up to 8 MB also posts to mime.ac under your @handle: aesel mime FILE "caption".'].join('\n');
+}
+// Only the bare question, so a sentence that merely mentions types still reaches the model.
+export const asksMediaTypes = text => /^(what|which)\s+(kinds? of\s+|sorts? of\s+)?(mimes?|mime ?types?|media(\s+types?)?|mediums?|file ?types?|types|formats)\s+(does|do|can|will)\s+(aesel|you|this|it)\s+(support|make|create|produce|do|handle|export)\s*\??$/i.test(String(text).trim());
+const modules = { gameboy: () => import('./media/gameboy.mjs'), nes: () => import('./media/nes.mjs'), picture: () => import('./media/picture.mjs'), sound: () => import('./media/sound.mjs'), paper: () => import('./media/paper.mjs') };
 const json = value => `${JSON.stringify(value, null, 2)}\n`;
 async function safe(root, name) {
   if (typeof name !== 'string' || !name || isAbsolute(name)) throw new Error('Artifact paths must be relative.');
@@ -53,7 +72,7 @@ export class Artifacts extends EventEmitter {
     return { ...artifact, root, revision };
   }
   async create(kind, name = '') {
-    if (!modules[kind]) throw new Error('Choose picture, sound, paper or gameboy; /medium piece returns to software.');
+    if (!modules[kind]) throw new Error('Choose picture, sound, paper, gameboy or nes; /medium piece returns to software.');
     return this.locked(async () => {
       const project = await this.read(), id = randomUUID();
       const artifact = { id, kind, name: name.trim().slice(0,80) || `Untitled ${kind}`, version: 0 };
@@ -108,7 +127,7 @@ export class Artifacts extends EventEmitter {
   async run(action, input = {}, { paid = false, reviewed = false } = {}) {
     if (action === 'qa' && !reviewed) throw new Error('Paper QA requires explicit user-reviewed visual inspection.');
     return this.locked(async () => {
-      const current = await this.selected(); if (!current) throw new Error('Select a Picture, Sound, Paper or GameBoy first.');
+      const current = await this.selected(); if (!current) throw new Error('Select a Picture, Sound, Paper, Game Boy or NES first.');
       const project = await this.read();
       let artifact = project.artifacts.find(a => a.id === current.id);
       const sealed = current.kind === 'picture' && await pictureWipRecord(this, current.id);
@@ -159,7 +178,7 @@ export class Artifacts extends EventEmitter {
     return this.locked(async () => {
       const current = await this.selected();
       if (!current) throw new Error('Select a media artifact before exporting.');
-      const name = { picture: 'composite.png', sound: 'sound.wav', paper: 'manuscript.pdf', gameboy: 'game.gb' }[current.kind];
+      const name = MEDIA_TYPES[current.kind].file;
       if (!current.revision.files.includes(name)) throw new Error('Build or render this artifact before exporting it.');
       if (current.kind === 'paper') {
         const status = await (await modules.paper()).run({root:current.root,action:'status',input:{}});
@@ -168,6 +187,10 @@ export class Artifacts extends EventEmitter {
       if (current.kind === 'gameboy') {
         const build = JSON.parse(await readFile(await safe(current.root, 'build.json'),'utf8'));
         if(build.sourceHash !== current.revision.hashes['main.c']) throw new Error('Build the current GameBoy source before exporting its ROM.');
+      }
+      if (current.kind === 'nes') {
+        const build = JSON.parse(await readFile(await safe(current.root, 'build.json'),'utf8'));
+        if(build.sourceHash !== current.revision.hashes['main.asm']) throw new Error('Build the current NES source before exporting its ROM.');
       }
       const source = await safe(current.root, name);
       const bytes = await readFile(source);

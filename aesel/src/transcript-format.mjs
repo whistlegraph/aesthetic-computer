@@ -28,7 +28,7 @@ export function validateHeader(value) {
   object(value,['type','format','version','id','createdAt','metadata','consent','provenance']);
   if(value.type!=='session'||!TRANSCRIPT_FORMATS.includes(value.format)||value.version!==1)throw new Error('Unsupported .easel format');
   const metadata=object(value.metadata??{},['medium','projectId','title']);
-  if(metadata.medium!==undefined&&!['picture','sound','piece','paper','gameboy'].includes(metadata.medium))throw new Error('Invalid medium');
+  if(metadata.medium!==undefined&&!['picture','sound','piece','paper','gameboy','nes'].includes(metadata.medium))throw new Error('Invalid medium');
   if(metadata.projectId!==undefined)id(metadata.projectId);
   if(metadata.title!==undefined)text(metadata.title,160,'title');
   const consent=object(value.consent??{sharing:'private'},['sharing','id','acceptedAt','disclosureVersion']);
@@ -51,7 +51,7 @@ export function validateRecord(value) {
     Object.assign(record,{role:value.role,text:text(value.text,32768,'message text')});
     for(const key of ['model','backend'])if(value[key]!==undefined)record[key]=text(value[key],120,key);
   } else if(value.type==='artifact') {
-    if(!['picture','sound','piece','paper','gameboy'].includes(value.medium))throw new Error('Invalid artifact medium');
+    if(!['picture','sound','piece','paper','gameboy','nes'].includes(value.medium))throw new Error('Invalid artifact medium');
     if(!Number.isSafeInteger(value.revision)||value.revision<1)throw new Error('Invalid artifact revision');
     Object.assign(record,{artifactId:id(value.artifactId),medium:value.medium,revision:value.revision});
   } else {

@@ -10,7 +10,7 @@ test('ordinary launches choose while explicit continuations bypass',()=>{
  assert.equal(needsLaunchChooser([],false),false);
 });
 test('Tab switches high level options; arrows stay within actual choices',()=>{
- assert.equal(NEW_MEDIA.length,5);let state={tab:0,index:4};state=chooserKey(state,'\t',2);assert.deepEqual(state,{tab:1,index:0});state=chooserKey(state,'\x1b[B',2);state=chooserKey(state,'\x1b[B',2);assert.equal(state.index,1);assert.deepEqual(chooserKey(state,'\t',2),{tab:0,index:0});
+ assert.equal(NEW_MEDIA.length,6);let state={tab:0,index:4};state=chooserKey(state,'\t',2);assert.deepEqual(state,{tab:1,index:0});state=chooserKey(state,'\x1b[B',2);state=chooserKey(state,'\x1b[B',2);assert.equal(state.index,1);assert.deepEqual(chooserKey(state,'\t',2),{tab:0,index:0});
 });
 test('thread catalog loads exact private snapshots and skips corrupt or foreign workspaces',async t=>{
  const cwd=await mkdtemp(join(tmpdir(),'easel-choose-'));t.after(()=>rm(cwd,{recursive:true,force:true}));

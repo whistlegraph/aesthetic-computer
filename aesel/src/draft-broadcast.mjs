@@ -17,12 +17,14 @@ import { createHash, randomBytes } from "node:crypto";
 import { SITE, USER_AGENT } from "./ac-session.mjs";
 import { decode } from "../media/picture/png.mjs";
 import { verifyROM } from "../media/gameboy/rom.mjs";
+import { verifyNES } from "../media/nes/rom.mjs";
 const MAX = 8 * 1024 * 1024;
 const MIMES = {
   picture: ["image/png", "image/jpeg", "image/webp"],
   sound: ["audio/wav", "audio/mpeg", "audio/ogg"],
   paper: ["application/pdf", "text/plain"],
   gameboy: ["application/x-gameboy-rom", "text/plain"],
+  nes: ["application/x-nes-rom", "text/plain"],
 };
 const sha = (b) => createHash("sha256").update(b).digest("hex");
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -285,6 +287,15 @@ export class DraftBroadcast {
         throw new Error("Broadcast Game Boy source hash mismatch.");
       return { kind, mime: "text/plain", version: preview.version, hash, data };
     }
+    if (kind === "nes" && revision.sourceAhead) {
+      if (!revision.files?.includes("main.asm") || !/^[a-f0-9]{64}$/.test(revision.hashes?.["main.asm"] || ""))
+        throw new Error("NES draft needs a declared, hashed main.asm source.");
+      const data = await bounded(await safe(versionRoot, "main.asm"), MAX);
+      const hash = sha(data);
+      if (hash !== revision.hashes["main.asm"])
+        throw new Error("Broadcast NES source hash mismatch.");
+      return { kind, mime: "text/plain", version: preview.version, hash, data };
+    }
     if (revision.sourceAhead)
       throw new Error(
         "Build the changed source before broadcasting a new output.",
@@ -295,6 +306,7 @@ export class DraftBroadcast {
       throw new Error("Broadcast preview hash mismatch.");
     if (preview.mime === "image/png") decode(data);
     if (preview.mime === "application/x-gameboy-rom") verifyROM(data);
+    if (preview.mime === "application/x-nes-rom") verifyNES(data);
     if (
       preview.mime === "application/pdf" &&
       data.subarray(0, 5).toString() !== "%PDF-"

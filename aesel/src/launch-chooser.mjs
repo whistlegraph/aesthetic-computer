@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {workspaceDir} from './paths.mjs';
 import {readDesktopSession} from './desktop-session.mjs';
 
-export const NEW_MEDIA=['piece','picture','sound','paper','gameboy'];
+export const NEW_MEDIA=['piece','picture','sound','paper','gameboy','nes'];
 export function needsLaunchChooser(args,tty=true) {
   return tty && !['--continue-session','--resume','--piece','--prompt','--medium'].some(flag=>args.includes(flag));
 }
@@ -34,7 +34,7 @@ export function renderChooser(state,threads,columns=80,rows=24) {
   const ink=(tone,text)=>color[tone]+text+color.reset;
   const title=Array.from('aesel').map((ch,i)=>ink(['highlight','handle','status','soft','prompt'][i],ch)).join('');
   const tab=(text,selected)=>ink(selected?'block':'muted',` ${text} `);
-  const items=state.tab?threads.map(t=>t.label):NEW_MEDIA.map(x=>x==='gameboy'?'Game Boy':x[0].toUpperCase()+x.slice(1));
+  const items=state.tab?threads.map(t=>t.label):NEW_MEDIA.map(x=>x==='gameboy'?'Game Boy':x==='nes'?'NES':x[0].toUpperCase()+x.slice(1));
   const count=Math.max(1,Math.min(10,height-7)),start=Math.max(0,state.index-count+1);
   const lines=[title,'',tab('New media',!state.tab)+'  '+tab('Threads',state.tab),'',
     ...items.slice(start,start+count).map((item,i)=>ink(start+i===state.index?'block':'soft',clipText((start+i===state.index?'› ':'  ')+item,box).padEnd(box))),

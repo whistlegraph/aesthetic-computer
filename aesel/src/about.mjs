@@ -9,7 +9,7 @@ export function aboutMap() {
     "       ├─ Your Claude account · /backend claude",
     "       └─ Your Codex account  · /backend codex",
     "",
-    "MAKE    /medium picture|sound|paper|gameboy|piece",
+    "MAKE    /medium picture|sound|paper|gameboy|nes|piece · /types",
     "MEASURE /performance · headless logic · /energy · estimated electricity",
     "WORK    /artifacts · /select UUID · /artifact",
     "RUN     !npm start · or just npm start · /jobs · /kill · no braincells",
