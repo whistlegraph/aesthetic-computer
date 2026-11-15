@@ -30,6 +30,18 @@ export const NUDGE_EVERY = 6 * 60 * 60 * 1000; // one email nudge per reader per
 const PERMAHANDLE = /^ac\d\d[a-z]{5}$/; // see lib/user-code.mjs
 
 // `@handle`, `ac25namuc`, `jeffrey@mail.aesthetic.computer`, or an email → sub.
+// What kind of thing a "to" was, for telemetry on a send that found no one.
+// A category only: the address itself never leaves the request.
+export function addressShape(address) {
+  const to = typeof address === "string" ? address.trim().toLowerCase() : "";
+  if (!to) return "empty";
+  if (INBOUND_DOMAINS.some((domain) => to.endsWith("@" + domain))) return "our_domain";
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return "email";
+  if (to.indexOf("@") > 0) return "bad_email";
+  if (/\s/.test(to)) return "words";
+  return PERMAHANDLE.test(to.replace(/^@/, "")) ? "code" : "handle";
+}
+
 export async function subFromAddress(address, database) {
   let to = typeof address === "string" ? address.trim() : "";
   if (!to) return undefined;

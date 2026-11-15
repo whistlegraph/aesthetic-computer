@@ -14,6 +14,7 @@ const reasons = new Set([
   "dmarc", "rate_pair", "rate_global", "storage", "smtp", "no_devices",
   "push_limit", "unauthorized", "invalid", "not_found", "method", "request",
 ]);
+const shapes = new Set(["empty", "our_domain", "email", "bad_email", "words", "code", "handle"]); // see addressShape
 const nudges = new Set(["sent", "throttled", "pushed", "no_email", "unsubscribed", "failed", "skipped"]);
 const counts = ["recipients", "duplicates", "attachments", "bytes", "attempted", "succeeded", "failed", "pruned", "durationMs", "status"];
 const uuid = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
@@ -25,6 +26,7 @@ export function mailEvent(fields = {}) {
   if (/^[a-f\d]{24}$/i.test(String(fields.letterId || ""))) row.letterId = String(fields.letterId);
   if (["inbox", "count", "download", "read", "send"].includes(fields.action)) row.action = fields.action;
   if (reasons.has(fields.reason)) row.reason = fields.reason;
+  if (shapes.has(fields.shape)) row.shape = fields.shape;
   if (fields.error) row.error = mailErrorCode({ code: fields.error });
   for (const key of counts) if (Number.isSafeInteger(fields[key]) && fields[key] >= 0) row[key] = fields[key];
   if (nudges.has(fields.status)) row.status = fields.status; // a nudge outcome, beside the HTTP status the counts carry

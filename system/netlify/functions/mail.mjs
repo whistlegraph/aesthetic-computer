@@ -21,6 +21,7 @@ import {
   MAX_SUBJECT_LENGTH,
   sendOutside,
   subFromAddress,
+  addressShape,
 } from "../../backend/mail.mjs";
 import { ObjectId } from "mongodb";
 import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
@@ -43,6 +44,7 @@ export async function handler(event) {
   if (!(event.httpMethod === "GET" && event.queryStringParameters?.count !== undefined && status === 200) && event.httpMethod !== "OPTIONS") {
     recordMailEvent(context.database, { event: "request", transport: "api", trace: context.trace,
       action: context.action, status, durationMs: Date.now() - started,
+      shape: status === 404 ? context.shape : undefined,
       reason: status === 401 ? "unauthorized" : status === 400 ? "invalid" : status === 404 ? "not_found" : status === 405 ? "method" : status >= 500 ? "request" : undefined });
   }
   return { ...response, headers: { ...response.headers, "X-Mail-Trace": context.trace } };
@@ -170,6 +172,7 @@ async function handleMail(event, context) {
       const toEmail = body.to.trim().toLowerCase();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(toEmail) ||
           INBOUND_DOMAINS.some((domain) => toEmail.endsWith("@" + domain))) {
+        context.shape = addressShape(body.to);
         return respond(404, { message: "Recipient not found" });
       }
       const sent = await sendOutside(

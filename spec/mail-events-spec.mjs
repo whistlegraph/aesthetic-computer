@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import nodemailer from "nodemailer";
 import { BlockList } from "node:net";
 import { mailEvent, mailTrace, recordMailEvent, flushMailEvents, observeMail } from "../system/backend/mail-events.mjs";
+import { addressShape } from "../system/backend/mail.mjs";
 import { options, queryFor } from "../system/backend/mail-events-cli.mjs";
 import { createInbound, makeLimiter } from "../lith/mail-inbound.mjs";
 
@@ -12,6 +13,12 @@ const sanitized = mailEvent({ event: "stored", trace, transport: "internal", let
 assert.ok(!JSON.stringify(sanitized).includes(canary));
 assert.equal(sanitized.error, "UNKNOWN");
 assert.equal(mailEvent({ event: canary }), null);
+// A send that found no one records what kind of address it was, never the address.
+assert.equal(mailEvent({ event: "request", shape: "handle" }).shape, "handle");
+assert.equal(mailEvent({ event: "request", shape: canary }).shape, undefined);
+for (const [typed, shape] of [["", "empty"], ["  ", "empty"], [null, "empty"], ["@nobody", "handle"], ["Nobody", "handle"],
+  ["ac26abcde", "code"], ["two words", "words"], ["x@example.com", "email"], ["x@example", "bad_email"],
+  ["nobody@aesthetic.computer", "our_domain"]]) assert.equal(addressShape(typed), shape, `shape of ${JSON.stringify(typed)}`);
 assert.equal(mailEvent({ event: "failed", trace: canary }).trace, undefined);
 const logs = [], saved = [], indexes = [];
 const db = { db: { collection(name) {

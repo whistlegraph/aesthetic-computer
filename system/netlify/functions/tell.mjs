@@ -11,7 +11,7 @@ import { mailTrace, recordMailEvent } from "../../backend/mail-events.mjs";
 import { authorize } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { respond } from "../../backend/http.mjs";
-import { clean, deliver, subFromAddress } from "../../backend/mail.mjs";
+import { addressShape, clean, deliver, subFromAddress } from "../../backend/mail.mjs";
 import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
 
 export async function handler(event) {
@@ -26,6 +26,7 @@ export async function handler(event) {
   const status = response.statusCode;
   recordMailEvent(context.database, { event: "request", transport: "tell", trace: context.trace,
     action: context.action, status, durationMs: Date.now() - started,
+    shape: status === 404 ? context.shape : undefined,
     reason: status === 401 ? "unauthorized" : status === 400 ? "invalid" : status === 404 ? "not_found" : status === 405 ? "method" : status >= 500 ? "request" : undefined });
   return { ...response, headers: { ...response.headers, "X-Mail-Trace": context.trace } };
 }
@@ -53,7 +54,10 @@ async function handleTell(event, context) {
   context.database = database;
   try {
     const to = await subFromAddress(body.to, database);
-    if (!to) return respond(404, { message: "Recipient not found" });
+    if (!to) {
+      context.shape = addressShape(body.to);
+      return respond(404, { message: "Recipient not found" });
+    }
 
     const told = await deliver(
       { trace: context.trace, from: sender.sub, to, text, device: body.device, verb: "told" },
