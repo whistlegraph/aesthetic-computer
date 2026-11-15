@@ -74,7 +74,7 @@ async function start() {
   easel.classList.add("live");
   if (reduced) return;
   await Promise.all(Object.values(tools).map(ready));
-  easel.setAttribute("aria-label", "Aesel the donkey, in colored pencil, at a small wooden easel. The canvas cycles through what Aesel makes, each labelled with its MIME type: a pink heart picture (image/png) painted with a brush, a sound waveform (audio/wav) conducted with a baton, a KidLisp snippet (text/x-lisp) written in pencil, a paper page (application/pdf) in fountain pen, a video frame (video/mp4) with a clapperboard, a Game Boy cartridge (application/x-gameboy-rom) with a game controller, and an Aesthetic Computer piece (application/javascript) with a magic wand.");
+  easel.setAttribute("aria-label", "Aesel the donkey, in colored pencil, at a small wooden easel. The canvas cycles through what Aesel makes, each labelled with its MIME type: a pink heart picture (image/png) painted with a brush, a sound waveform (audio/wav) conducted with a baton, a KidLisp snippet (text/x-lisp) written in pencil, a paper page (application/pdf) in fountain pen, a video frame (video/mp4) with a clapperboard, a Game Boy cartridge (application/x-gameboy-rom) and an NES cartridge (application/x-nes-rom) with a game controller, and an Aesthetic Computer piece (application/javascript) with a magic wand.");
   document.addEventListener("visibilitychange", () => (document.hidden ? pause() : play()));
   play();
 }
