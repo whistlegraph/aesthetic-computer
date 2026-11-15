@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { homedir } from 'node:os';
 import { Radial, THINGS, CATEGORIES, CHANGES, radialSlots } from '../radial.mjs';
 import { devEntries, redact } from '../dev-log.mjs';
-import { TouchPad } from '../touch.mjs';
+import { TouchPad, touchButtons, touchZones, CONTEXT, ICONS } from '../touch.mjs';
 import { hudLayout, joinCode } from '../hud.mjs';
 
 test('the ring composes a new object from a thing and its traits', () => {
@@ -67,7 +67,7 @@ test('dev log keeps notes and tool summaries, redacted', () => {
   assert.ok(!secret.includes('REDACTEDREDACTED'));
 });
 
-test('touch: left thumb moves, right taps jump, right hold opens the ring', () => {
+test('touch: left thumb moves, right thumb looks; a tap or a hold there does nothing', () => {
   const t = new TouchPad();
   t.down({ pointerId: 1, clientX: 100, clientY: 500 }, 800, 600, 0);
   t.move({ pointerId: 1, clientX: 100, clientY: 300 }, 800, 600);
@@ -75,17 +75,45 @@ test('touch: left thumb moves, right taps jump, right hold opens the ring', () =
   assert.ok(moved.fwd > 0.99 && Math.abs(moved.right) < 0.01);
   t.down({ pointerId: 2, clientX: 600, clientY: 300 }, 800, 600, 20);
   t.up({ pointerId: 2, clientX: 600, clientY: 300 }, 120);
-  assert.deepEqual(t.sample(800, 600, 130).events.map((e) => e.type), ['tap']);
+  assert.deepEqual(t.sample(800, 600, 130).events, []);
   t.down({ pointerId: 3, clientX: 600, clientY: 300 }, 800, 600, 200);
-  assert.deepEqual(t.sample(800, 600, 300).events, []);
-  assert.deepEqual(t.sample(800, 600, 700).events.map((e) => e.type), ['hold']);
+  assert.deepEqual(t.sample(800, 600, 700).events, []);
   t.up({ pointerId: 3, clientX: 600, clientY: 300 }, 800);
-  assert.deepEqual(t.sample(800, 600, 810).events, []); // a hold is not also a tap
   t.down({ pointerId: 4, clientX: 600, clientY: 300 }, 800, 600, 900);
   t.move({ pointerId: 4, clientX: 650, clientY: 310 }, 800, 600);
   const look = t.sample(800, 600, 910);
   assert.equal(look.dx, 50);
   assert.equal(look.dy, 10);
+});
+
+test('touch: the $ menu, jump, chat and build sit bottom right; what is in view adds caps above; a button takes its touch', () => {
+  for (const [w, h] of [[390, 844], [844, 390], [1024, 768]]) {
+    const row = touchButtons('play', w, h);
+    assert.deepEqual(row.map((b) => b.name), ['build', 'chat', 'jump', 'menu']);
+    assert.deepEqual(row.map((b) => b.icon), ['cube', 'bubble', 'jump', 'dollar']);
+    for (const b of row) {
+      assert.ok(b.x > w * 0.45 && b.x + b.w <= w && b.y + b.h <= h && b.w >= 44 && b.h >= 44, `${w}x${h} ${b.name}`);
+      assert.ok(ICONS[b.icon].every((line) => line.length === 11), b.icon);
+    }
+    const caps = touchButtons('play', w, h, { context: [CONTEXT.use('throw'), CONTEXT.drop] }).slice(4);
+    assert.deepEqual(caps.map((b) => b.name), ['throw', 'drop']);
+    for (const c of caps) assert.ok(c.y + c.h <= row[0].y && c.x + c.w <= w && c.y > 0, `${w}x${h} ${c.name}`);
+    // The zones stay on the lower half, clear of the icons and of each other.
+    const [move, look] = touchZones(w, h);
+    assert.ok(move.y >= h / 2 - 1 && move.y + move.h <= row[0].y && move.x + move.w <= look.x && look.x + look.w <= w);
+    // With the keyboard up, send and cancel ride above it.
+    for (const b of touchButtons('typing', w, h * 0.55)) assert.ok(b.y + b.h <= h * 0.55 && b.x >= 0);
+  }
+  assert.deepEqual(touchButtons(null, 390, 844, { context: [CONTEXT.paint] }), []);
+  // Typing a build, the ring joins send and cancel; chalk has its own row.
+  assert.deepEqual(touchButtons('typing', 390, 400, { context: [CONTEXT.ring] }).map((b) => b.name), ['send', 'cancel', 'ring']);
+  assert.deepEqual(touchButtons('chalk', 390, 844).map((b) => b.name), ['build', 'cancel', 'draw']);
+  for (const b of touchButtons('typing', 390, 400, { context: [CONTEXT.ring] })) assert.ok(b.x >= 0 && b.x + b.w <= 390);
+  const t = new TouchPad(), buttons = touchButtons('play', 390, 844);
+  const hit = t.down({ pointerId: 1, clientX: buttons[0].x + 5, clientY: buttons[0].y + 5 }, 390, 844, 0, false, buttons);
+  assert.equal(hit.name, 'build');
+  assert.equal(t.look, null);
+  assert.equal(t.up({ pointerId: 1, clientX: 0, clientY: 0 }, 50).name, 'build');
 });
 
 test('the join code is a corner badge that a phone can read', () => {

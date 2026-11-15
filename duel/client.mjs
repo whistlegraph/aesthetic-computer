@@ -13,7 +13,7 @@ import { accountToken, accountExpected } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
-import { TouchPad, touchButtons } from './touch.mjs';
+import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 import { kidlispWall } from './kidlisp-wall.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
@@ -1131,8 +1131,44 @@ function pressKey(type, code, key) {
   document.dispatchEvent(e);
 }
 const typing = () => prompt.open || chat.open;
-const touchMode = () => (seat < 0 || radial.open || chalkMode || menu ? null : typing() ? 'typing' : 'play');
-const shownButtons = () => (touch.active ? touchButtons(touchMode(), canvas.clientWidth, canvas.clientHeight) : []);
+const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : 'play');
+// The home bar's inset, measured once from a probe (env() has no script API).
+const insetProbe = Object.assign(document.createElement('div'), { ariaHidden: 'true' });
+insetProbe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
+document.body.append(insetProbe);
+const bottomInset = () => insetProbe.offsetHeight || 0;
+// What the phone's keyboard leaves in view.
+const visibleHeight = () => {
+  const v = window.visualViewport;
+  return v ? Math.min(canvas.clientHeight, v.height + v.offsetTop) : canvas.clientHeight;
+};
+// 📱 The caps above the icons: what the thing in view offers, and nothing else.
+function touchContext() {
+  if (holding()) {
+    const item = objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat));
+    return [CONTEXT.use({ shoot: 'shoot', poke: 'poke', throw: 'throw' }[item?.item] || 'use'), CONTEXT.drop];
+  }
+  // Locked on, a remove is at once (the lock is the confirmation).
+  if (lockOn) return [CONTEXT.unlock, lockOn.wall ? CONTEXT.change : CONTEXT.remove];
+  if (focusObject?.wall) return [CONTEXT.change, CONTEXT.lock];
+  if (focusObject) {
+    const armed = removeArmed?.id === focusObject.id && performance.now() - removeArmed.at < 2000;
+    return [armed ? { ...CONTEXT.remove, name: 'again?' } : CONTEXT.remove, CONTEXT.lock];
+  }
+  // The floor takes paint; the open air takes chalk.
+  return [floorAim ? CONTEXT.paint : CONTEXT.chalk];
+}
+// The build ring, for a build without typing: a cap beside send and cancel.
+const ringCap = { ...CONTEXT.ring, act: () => { softKeys.blur(); openRadial(); } };
+const shownButtons = () => {
+  if (!touch.active) return [];
+  const mode = touchMode(), keyboardUp = mode === 'typing';
+  return touchButtons(mode, canvas.clientWidth, keyboardUp ? visibleHeight() : canvas.clientHeight, {
+    context: mode === 'play' ? touchContext() : mode === 'typing' && prompt.open && !prompt.busy ? [ringCap] : [],
+    inset: keyboardUp && visibleHeight() < canvas.clientHeight ? 0 : bottomInset(),
+  });
+};
+const shownZones = () => (touch.active && ['play', 'chalk'].includes(touchMode()) ? touchZones(canvas.clientWidth, canvas.clientHeight, bottomInset()) : []);
 const softKeys = Object.assign(document.createElement('input'), {
   type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, enterKeyHint: 'send', tabIndex: -1,
 });
@@ -1163,6 +1199,7 @@ softKeys.addEventListener('input', (e) => {
 });
 function touchButton(button, isDown) {
   if (!button) return;
+  if (button.act) return void (isDown || button.act());
   pressKey(isDown ? 'keydown' : 'keyup', button.code, button.key);
   if (isDown) return;
   // On the lift, inside the gesture, so the phone lets its keyboard up.
@@ -1200,7 +1237,7 @@ canvas.addEventListener('pointerup', (e) => {
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
   const held = touch.cancel(e);
-  if (held) pressKey('keyup', held.code, held.key);
+  if (held && !held.act) pressKey('keyup', held.code, held.key);
 });
 function releaseInput() {
   keys.clear();
@@ -1625,8 +1662,7 @@ function step(now) {
   }
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
   for (const event of pad.events) {
-    if (event.type === 'hold' && !prompt.open) openRadial();
-    else if (event.type === 'tap' && radial.open && event.menu) {
+    if (event.type === 'tap' && radial.open && event.menu) {
       const ring = touchRing();
       const x = (event.x - ring.cx) / ring.r,
         y = (ring.cy - event.y) / ring.r,
@@ -1637,9 +1673,6 @@ function step(now) {
         radial.point(x, y, 0);
         pickRadial(radial.selected);
       } else backRadial();
-    } else if (event.type === 'tap' && !prompt.open && seat >= 0) {
-      jumpQueued = true;
-      sfx.jump();
     }
   }
   // LB toggles a lock on the aimed object; while locked, B removes it (the
@@ -1975,6 +2008,7 @@ function step(now) {
       : null,
     touch: touch.state(),
     touchButtons: shownButtons().map((b) => ({ ...b, held: [...touch.pressed.values()].some((p) => p.name === b.name) })),
+    touchZones: shownZones(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     fps: sheetOpen ? fps : 0,
     stallNote: stalls.note(),

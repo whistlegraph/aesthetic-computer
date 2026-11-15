@@ -28,11 +28,7 @@ export const LEGEND = {
     '[LB] lock on / [B] remove',
     '[START] $ menu',
   ],
-  touch: [
-    [['left side', 'left'], ': drag to move'],
-    [['right side', 'right'], ': drag to look'],
-    [['tap right', 'right'], ' jumps / ', ['hold right', 'right'], ' builds'],
-  ],
+  touch: [], // The thumb areas and the icons name themselves.
 };
 // Each action has its own colour, shared by its words and its key caps, so
 // the eye finds a control by colour (2026-11-08). Separators stay dim.
@@ -82,6 +78,7 @@ function colourRow(spans) {
   return out;
 }
 import { radialSlots, ringGeometry } from './radial.mjs';
+import { ICONS } from './touch.mjs';
 import {
   THEME,
   codeSpans,
@@ -473,6 +470,7 @@ export async function createView(canvas) {
   let promptKey, promptModel;
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
+  let netSince = null; // When the connection went down, for the log's typing.
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
@@ -699,6 +697,7 @@ export async function createView(canvas) {
     holding = null,
     touch = null,
     touchButtons = [],
+    touchZones = [],
     input = 'keys',
     devLog = [],
     fps = 0,
@@ -1185,6 +1184,19 @@ export async function createView(canvas) {
         prompt.text.slice(0, prompt.cursor) +
         (radial ? cursor : CARET) +
         prompt.text.slice(prompt.cursor);
+      // 💬 Chat types on the same top line as a build, with a message bubble
+      // where the build has its cube (2026-11-15).
+      const saying = !bare && !!chat?.open;
+      const said = saying ? chat.text.slice(0, chat.cursor) + CARET + chat.text.slice(chat.cursor) : '';
+      const bubbleSpans = (l) => {
+        const at = l.indexOf(CARET);
+        if (at < 0) return [{ text: l, color: THEME.text }];
+        return [
+          { text: l.slice(0, at), color: THEME.text },
+          { block: true, bubble: 0x9be7a0, beat: Math.floor(now / 300) % 4 },
+          { text: l.slice(at + 1), color: THEME.text },
+        ].filter((x) => x.block || x.text);
+      };
       const caretSpans = (l) => {
         const at = l.indexOf(CARET);
         if (at < 0) return [{ text: l, color: THEME.text }];
@@ -1200,7 +1212,7 @@ export async function createView(canvas) {
         ? pad
           ? `[RB] ${verb} / [X] drop`
           : input === 'touch'
-            ? `tap ${verb}`
+            ? null
             : `f or click ${verb} / q drop`
         : null;
       const drawing = chalkMode
@@ -1214,7 +1226,7 @@ export async function createView(canvas) {
           : o.owner === owner
             ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
             : pad ? '[LB] lock on' : '{z} lock on';
-      const paintHint = !focusObject && floorAim && !holding ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
+      const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
       // Locked on, the top-right controls become the lock's own, row for
       // row in the hand in use (2026-11-08).
@@ -1244,7 +1256,7 @@ export async function createView(canvas) {
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
         : input === 'touch'
-          ? 'hold the right side to build'
+          ? 'tap the cube to build'
           : pad
             ? '[RB] to build'
             : '{enter} to build';
@@ -1278,6 +1290,8 @@ export async function createView(canvas) {
       const showLegend = legend && !moded && !spectator && !wallCode && !prompt.open && !building;
       const rows = bare
         ? []
+        : saying
+        ? wrap(said).map(bubbleSpans)
         : wallCode
         ? [
             [
@@ -1332,15 +1346,16 @@ export async function createView(canvas) {
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
-      const typing = prompt.open && !radial && !prompt.busy;
-      const enterHint = typing ? hintSpans('{enter} build', THEME.dim) : null;
+      // A phone has send and cancel as caps; the key hints are for keys.
+      const typing = (saying || (prompt.open && !radial && !prompt.busy)) && input !== 'touch';
+      const enterHint = typing ? hintSpans(saying ? '{enter} say' : '{enter} build', THEME.dim) : null;
       const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
-      const key = JSON.stringify([visible, width, height, prompt.open, !!radial, !!wallCode, !!enterHint]);
+      const key = JSON.stringify([visible, width, height, prompt.open, saying, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
-          const panel = prompt.open; // A build's status floats over the build itself.
+          const panel = prompt.open || saying; // A build's status floats over the build itself.
           // Nothing here lifts the corners (2026-11-03). The prompt and a
           // build in progress sit top-left on the 2D prompt's own text grid
           // (6, 6; ten-pixel lines) so the typed line is pixel for pixel
@@ -1353,7 +1368,7 @@ export async function createView(canvas) {
             visible.forEach((spans, i) => {
               const y = height / 2 - oy - 2 * unit - i * 10 * unit;
               drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, y, unit, { shadow: INK });
-              if (enterHint && spans.some((x) => x.wire !== undefined)) {
+              if (enterHint && spans.some((x) => x.wire !== undefined || x.bubble !== undefined)) {
                 const hw = smallSpanWidth(enterHint, unit);
                 drawSpans({ rect, text, small }, enterHint, -width / 2 + ox + widths[i] + 4 * unit + hw / 2, y, unit, { shadow: INK, tiny: true });
               }
@@ -1495,8 +1510,7 @@ export async function createView(canvas) {
         };
         if (ownTag) place(me, ownTag.x, ownTag.y);
         // 💬 Chat: the room's last lines up the left side, over the face cam,
-        // newest lowest; the line being typed sits under them with a flat
-        // block for a cursor (the build prompt's is the turning cube).
+        // newest lowest. The line being typed is the top line (above).
         if (chatting) {
           const { safeX, safeY } = hud;
           const rect = (x, y, z, w, h, color) => worldRect(-x - w, y, z, w, h, color);
@@ -1508,17 +1522,8 @@ export async function createView(canvas) {
             (handle ? handleText : text)(s, cx, y, 0, unit, color);
             return x + s.length * 6 * unit;
           };
-          // Bottom up: the typed line, then the log, newest first.
+          // Bottom up, newest first.
           let y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 64 * unit;
-          if (chat.open) {
-            const shown = chat.text.slice(-(columns - 5)), offset = chat.text.length - shown.length;
-            const x = run('say ', left, y, 0x9be7a0);
-            run(shown, x, y, THEME.text);
-            // A flat, steady block where the next letter lands.
-            const cx = x + (chat.cursor - offset) * 6 * unit;
-            rect(cx, y - 8 * unit, 0.000001, 5 * unit, 9 * unit, 0xff3296);
-            y += step;
-          }
           for (const line of [...chat.lines].reverse()) {
             const who = line.handle ? `@${line.handle}` : line.name || `guest ${line.seat + 1}`;
             const room = Math.max(8, columns - who.length - 1);
@@ -1611,7 +1616,7 @@ export async function createView(canvas) {
       }
       projector.overlay(ringModel, W, H);
     }
-    if (touch?.stick || touch?.look?.holding || touchButtons.length) {
+    if (touch?.stick || touchButtons.length || touchZones.length) {
       // Pixel squares, like everything else: a ring for the anchor, a knob for the thumb.
       const { unit } = hud;
       const m = model(({ rect: worldRect, text }) => {
@@ -1625,7 +1630,38 @@ export async function createView(canvas) {
             sink = b.held ? unit : 0;
           rect(x + unit, top - h - unit, 0.000004, w, h, INK);
           rect(x + sink, top - h - sink, 0.000003, w, h, b.held ? 0xffffff : b.color);
-          text(b.name, x + w / 2 + sink, top - h / 2 + 3 * unit - sink, 0.000001, unit, INK);
+          const art = ICONS[b.icon];
+          if (!art) {
+            text(b.name, x + w / 2 + sink, top - h / 2 + 3 * unit - sink, 0.000001, unit, INK);
+            continue;
+          }
+          // An icon: whole units, as large as leaves a margin, centred.
+          const k = Math.max(unit, Math.floor((h * 0.6) / art.length / unit) * unit);
+          const ix = Math.round((x + sink + (w - art[0].length * k) / 2) / unit) * unit,
+            iy = Math.round((top - sink - (h - art.length * k) / 2) / unit) * unit;
+          art.forEach((row, r) => {
+            for (let c = 0; c < row.length;) {
+              if (row[c] !== '#') { c++; continue; }
+              const from = c++;
+              while (row[c] === '#') c++;
+              rect(ix + from * k, iy - (r + 1) * k, 0.000001, (c - from) * k, k, INK);
+            }
+          });
+        }
+        // The two thumb areas: corner brackets and a name, dim until a thumb
+        // is down in one.
+        for (const zone of touchZones) {
+          const [x, top] = at(zone.x, zone.y), w = zone.w * pixel, h = zone.h * pixel;
+          const on = zone.side === 'left' ? !!touch?.stick : !!touch?.look;
+          const color = on ? PAPER : 0x5a6072, arm = 7 * unit, t = unit;
+          for (const [cx, sx] of [[x, 1], [x + w, -1]])
+            for (const [cy, sy] of [[top, -1], [top - h, 1]]) {
+              rect(Math.min(cx, cx + sx * arm), sy < 0 ? cy - t : cy, 0.000004, arm, t, color);
+              rect(sx > 0 ? cx : cx - t, Math.min(cy, cy + sy * arm), 0.000004, t, arm, color);
+            }
+          const tx = x + w / 2, ty = top - 5 * unit;
+          text(zone.name, tx + unit, ty - unit, 0.000004, unit, INK);
+          text(zone.name, tx, ty, 0.000003, unit, color);
         }
         const frame = (cx, cy, size, thick, color, z) => {
           rect(cx - size / 2, cy + size / 2 - thick, z, size, thick, color);
@@ -1633,7 +1669,7 @@ export async function createView(canvas) {
           rect(cx - size / 2, cy - size / 2, z, thick, size, color);
           rect(cx + size / 2 - thick, cy - size / 2, z, thick, size, color);
         };
-        if (touch.stick) {
+        if (touch?.stick) {
           const radius = Math.max(36, Math.min(canvas.clientWidth, canvas.clientHeight) * 0.12) * pixel;
           const [ox, oy] = at(touch.stick.ox, touch.stick.oy),
             [kx, ky] = at(touch.stick.x, touch.stick.y);
@@ -1643,14 +1679,6 @@ export async function createView(canvas) {
           rect(kx - k / 2 + unit, ky - k / 2 - unit, 0.000003, k, k, INK);
           rect(kx - k / 2, ky - k / 2, 0.000002, k, k, PAPER);
         }
-        if (touch.look?.holding) {
-          // The hold fills a bar under the thumb until the ring opens.
-          const t = Math.min(1, (performance.now() - touch.look.at) / 450);
-          const [x, y] = at(touch.look.x, touch.look.y);
-          const w = 30 * unit;
-          rect(x - w / 2, y - 24 * unit, 0.000003, w, 3 * unit, INK);
-          rect(x - w / 2, y - 24 * unit, 0.000002, w * t, 3 * unit, 0xffff00);
-        }
       });
       projector.overlay(m, W, H);
     }
@@ -1658,7 +1686,7 @@ export async function createView(canvas) {
     // where the system label sits on every AC piece (SCREEN.md). A tap on it
     // goes back to the prompt.
     cornerRect = null;
-    if (corner && !prompt?.open && !jobs.some((j) => j.owner === owner)) {
+    if (corner && !prompt?.open && !chat?.open && !jobs.some((j) => j.owner === owner)) {
       const { unit } = hud;
       const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
       const w = 6 * unit,
@@ -1755,31 +1783,47 @@ export async function createView(canvas) {
       });
       projector.overlay(devModel, W, H);
     }
-    // Offline: the connection's log in a panel at the centre, so a restart
-    // or a dropped socket reads as what it is, not an empty room (2026-11-03).
+    // Offline: no panel over the room. The top-left text spits the
+    // connection's log a letter at a time under the corner block, as a
+    // machine going down and coming back up would (2026-11-15).
+    if (!offline) netSince = null;
     if (offline && !menu) {
       const { unit } = hud;
-      const lines = netLog.slice(-8);
-      const key = JSON.stringify([lines, W, H]);
+      netSince ??= now;
+      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
+      const cols = Math.max(12, Math.min(48, Math.floor((W - 2 * safeX) / (6 * unit))));
+      // Only this outage: from the first bad word after the last good one
+      // that came before it.
+      let from = 0;
+      netLog.forEach((l, i) => { if (l.good && netLog.slice(i + 1).some((x) => x.bad)) from = i + 1; });
+      const outage = netLog.slice(from).slice(-8);
+      const back = !!outage.at(-1) && !outage.at(-1).bad;
+      const lines = [
+        { text: 'dool is shutting down', color: 0xff6b6b },
+        ...outage.map((l) => ({ text: `${l.when} ${l.text}`.slice(0, cols), color: l.bad ? 0xff6b6b : l.good ? 0x3fb950 : THEME.text })),
+        { text: back ? 'rebooting' : 'waiting for the server', color: THEME.dim },
+      ];
+      // Sixty letters a second, counted from the first line: a line that
+      // arrives late starts typing when the ones above it are done.
+      let budget = Math.floor((now - netSince) / 16);
+      const shown = [];
+      for (const l of lines) {
+        if (budget <= 0) break;
+        shown.push({ ...l, text: l.text.slice(0, budget), done: budget >= l.text.length });
+        budget -= l.text.length + 6;
+      }
+      const blink = now % 600 < 400;
+      const key = JSON.stringify([shown, blink, W, H]);
       if (key !== netKey) {
         netKey = key;
-        netModel = model(({ rect: worldRect, text, small }) => {
+        netModel = model(({ rect: worldRect, text }) => {
           const rect = flip(worldRect);
-          const cols = Math.min(60, Math.floor((W - 20 * unit) / (4 * unit)));
-          const rows = [
-            [{ text: 'dool is offline', color: 0xff6b6b }],
-            [{ text: 'reconnecting; the room comes back on its own', color: THEME.dim }],
-            ...lines.map((l) => [
-              { text: `${l.when} `, color: THEME.dim },
-              { text: l.text.slice(0, cols - 9), color: l.bad ? 0xff6b6b : l.good ? 0x3fb950 : THEME.text },
-            ]),
-          ];
-          const ph = (rows.length + 1) * 9 * unit + 8 * unit, pw = Math.min(W - 8 * unit, (cols + 2) * 4 * unit);
-          rect(-pw / 2, -ph / 2, 0.000004, pw, ph, LINE);
-          rect(-pw / 2 + unit, -ph / 2 + unit, 0.000003, pw - 2 * unit, ph - 2 * unit, 0x15171e);
-          rows.forEach((spans, i) =>
-            drawSpans({ rect, text, small }, spans, -pw / 2 + 4 * unit + smallSpanWidth(spans, unit) / 2, ph / 2 - 6 * unit - i * 9 * unit, unit, { tiny: true, shadow: null }),
-          );
+          shown.forEach((l, i) => {
+            const last = i === shown.length - 1;
+            const spans = [{ text: l.text, color: l.color }, ...(last && (blink || !l.done) ? [{ block: true }] : [])];
+            const y = H / 2 - safeY - 2 * unit - (i + (cornerRect ? 1 : 0)) * 10 * unit;
+            drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, y, unit, { shadow: INK });
+          });
         });
       }
       projector.overlay(netModel, W, H);

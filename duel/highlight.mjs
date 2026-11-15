@@ -116,7 +116,7 @@ const merge = (spans) =>
   }, []);
 
 export const spanWidth = (spans, unit) =>
-  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? (s.wire !== undefined ? 11 : 7) : s.text.length * 6) * unit, 0);
+  spans.reduce((w, s) => w + (s.badge ? badgeWidth(s.badge) + 1 : s.cap ? capWidth(s.cap) + 1 : s.block ? (s.wire !== undefined || s.bubble !== undefined ? 11 : 7) : s.text.length * 6) * unit, 0);
 
 // Compact (MatrixChunky8) widths: caps and badges are the name plus a
 // two-pixel frame each side.
@@ -256,6 +256,20 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
           dot(px, py, s.wire, z + step);
         }
       }
+      left += 11 * unit;
+      continue;
+    }
+    if (s.block && s.bubble !== undefined) {
+      // Chat's cursor: a message bubble in the cube's cell, its three dots
+      // lighting in turn while the line waits (2026-11-15).
+      const art = ['.#######.', '#.......#', '#.......#', '#.......#', '.#######.', '..##.....', '..#......'];
+      const dot = (c, r, color, zz) => rect(left + (1 + c) * unit, y + (1 - r) * unit, zz, unit, unit, color);
+      art.forEach((row, r) => [...row].forEach((ch, c) => {
+        if (ch !== '#') return;
+        if (shadow !== null) dot(c + 1, r + 1, shadow, z + 2 * step);
+        dot(c, r, s.bubble, z + step);
+      }));
+      [2, 4, 6].forEach((c, i) => dot(c, 2, i === s.beat ? 0xffffff : s.bubble, z));
       left += 11 * unit;
       continue;
     }

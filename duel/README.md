@@ -29,8 +29,11 @@ The renderer follows canvas resizes, adapts portrait camera framing and draws
 without antialiasing. Solid triangle faces, geometric bitmap letters and pixelated canvas
 scaling keep the pixel edges sharp. Resizing is supported.
 
-**Touch:** the left half is a floating move stick; drag the right half to look,
-tap it to jump, and hold it to open the build ring.
+**Touch:** the left half is a floating move stick and the right half drags to look; both
+are outlined on the lower half of the screen. Four icons sit bottom right: the $ menu, jump, chat (a
+message bubble) and build (a cube). What the thing in view offers (paint, chalk, change,
+remove, lock on, use, drop) appears as a cap above them; typing a build, a ring cap opens
+the build ring. Chat types on the top line, as a build does.
 
 **Controller:** left trigger jumps. RB adds: it opens the build ring, or changes the object (or KidLisp wall) you aim at; with an item in hand it uses it. LB removes the object you aim at (it stays in the $ history, Back, to put back). X paints floor squares or drops an item. Start opens the room menu. Point with
 a stick, A adds the highlighted choice, X builds, B undoes the last choice and
