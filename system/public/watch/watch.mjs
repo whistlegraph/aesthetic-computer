@@ -1,4 +1,4 @@
-import {LiveWatch} from './client.mjs';
+import {LiveWatch} from './client.mjs?v=3';
 const artifact=document.getElementById('artifact'),label=document.getElementById('label'),status=document.getElementById('status');
 let activeURL=null,player=null,activeCleanup=()=>{};
 function clear(){activeCleanup();activeCleanup=()=>{};player?.pause();player=null;if(activeURL)URL.revokeObjectURL(activeURL);activeURL=null;artifact.replaceChildren();}
