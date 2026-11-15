@@ -1,6 +1,6 @@
 export const MAX_FRAME_BYTES = 16 * 1024 * 1024;
 export function validateMetadata(value, id) {
-  if (!value || (id.length===12 ? !value.id?.startsWith(id) : value.id !== id) || !['picture','sound','paper','gameboy','piece'].includes(value.kind)
+  if (!value || (id.length===12 ? !value.id?.startsWith(id) : value.id !== id) || !['picture','sound','paper','gameboy','nes','piece'].includes(value.kind)
     || !Number.isSafeInteger(value.sequence) || value.sequence < 1
     || !Number.isSafeInteger(value.version) || value.version < 1
     || !['live','stopped'].includes(value.status) || typeof value.mime !== 'string') throw new Error('Invalid preview metadata');
