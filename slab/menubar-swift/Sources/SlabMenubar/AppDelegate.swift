@@ -37,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var blinkTimer: Timer?
     private var blinkPhase: Bool = false
     private var sharedThemeData: Data?
+    /// The birth page last confirmed in Terminal ("off", or the appearance and
+    /// colors). Set only on success, so a closed Terminal is retried.
+    private var lastTerminalBirth: String?
+    private var terminalBirthBusy = false
     /// Live-updates the pop-render progress bars while the menu is open.
     /// Re-reads ~/.ac-pop-renders/ (cheap — small dir of small JSON files)
     /// and rewrites each tagged row's title in place. Scheduled in
@@ -2510,10 +2514,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } catch { NSLog("Slab theme export failed: %@", error.localizedDescription) }
     }
 
+    /// Keep the profile Terminal opens new windows on at Slab's blank page for
+    /// the seat's appearance, so a window is already styled when it appears
+    /// instead of flashing the user's default until its session registers.
+    /// Theme-by-status off hands the original profiles back.
+    private func syncTerminalBirthPage() {
+        guard !terminalBirthBusy else { return }
+        let fm = FileManager.default
+        let original = Paths.terminalBirthOriginalFile
+        let script: String, key: String
+        if state.themeByStatus {
+            let p = Self.statusDecor(for: .blank, dark: effectiveDark()).palette.readable
+            guard let bg = p.bg, let text = p.text, let bold = p.bold, let cursor = p.cursor,
+                  let url = try? TerminalReadability.writeProfile(in:
+                      URL(fileURLWithPath: "\(Paths.slabHome)/terminal")) else { return }
+            key = "\(bg)|\(text)|\(bold)|\(cursor)"
+            script = TerminalReadability.birthScript(profileURL: url, bg: bg, text: text, bold: bold, cursor: cursor)
+        } else {
+            key = "off"
+            guard lastTerminalBirth != key else { return }
+            guard let names = try? String(contentsOfFile: original, encoding: .utf8) else {
+                lastTerminalBirth = key
+                return
+            }
+            let lines = names.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+            script = TerminalReadability.restoreScript(
+                defaultName: lines.first ?? "", startupName: lines.count > 1 ? lines[1] : lines.first ?? "")
+        }
+        guard lastTerminalBirth != key,
+              !NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.Terminal").isEmpty
+        else { return }
+        terminalBirthBusy = true
+        tileFontQueue.async {
+            let result = ShellRunner.run("/usr/bin/osascript", args: ["-e", script], timeout: 15)
+            let out = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+            DispatchQueue.main.async {
+                self.terminalBirthBusy = false
+                guard result.status == 0, out != "absent" else { return }
+                if key == "off" {
+                    try? fm.removeItem(atPath: original)
+                } else if out != "held", !fm.fileExists(atPath: original) {
+                    try? out.write(toFile: original, atomically: true, encoding: .utf8)
+                }
+                self.lastTerminalBirth = key
+            }
+        }
+    }
+
     private func applyTerminalDecor() {
         // Profile changes restore captured bounds; defer them during a drag.
         guard NSEvent.pressedMouseButtons & 1 == 0 else { return }
         publishSharedTheme()
+        syncTerminalBirthPage()
         guard state.themeByStatus else { return }
         struct Assignment {
             let tty: String; let palette: Palette; let title: String

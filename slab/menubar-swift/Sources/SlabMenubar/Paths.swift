@@ -201,6 +201,10 @@ enum Paths {
     /// has flipped to Dark for the evening.
     static var forceBrightFlag: String { "\(slabHome)/state/force-bright" }
 
+    /// The Terminal profiles (default, startup; one per line) new windows were
+    /// born on before theme-by-status made Slab's page the birth profile.
+    static var terminalBirthOriginalFile: String { "\(slabHome)/state/terminal-birth-original" }
+
     /// When this file exists, each live Claude session's terminal window wears
     /// a per-prompt "sigil" badge (SigilRenderer) in its top-right corner — a
     /// deterministic little star hashed from the prompt, so every prompt has a

@@ -161,6 +161,48 @@ enum TerminalReadability {
         set font name of slabSS to font name of default settings
         """
     }
+
+    private static func quoted(_ v: String) -> String {
+        "\"" + v.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+
+    /// A window is born on Terminal's default profile and Slab can only paint
+    /// it once its session registers, so a black default flashes on a light
+    /// seat. Give Slab's profile the blank page for the seat's appearance and
+    /// make it the profile windows are born on. Returns the names it replaced
+    /// (default, startup; one per line) or nothing when it already held both.
+    static func birthScript(profileURL: URL, bg: RGB, text: RGB, bold: RGB, cursor: RGB) -> String {
+        func rgb(_ c: RGB) -> String { "{\(c.0), \(c.1), \(c.2)}" }
+        return """
+        if application "Terminal" is not running then return "absent"
+        tell application "Terminal"
+        \(bootstrapScript(profileURL: profileURL))
+        set background color of slabSS to \(rgb(bg))
+        set normal text color of slabSS to \(rgb(text))
+        set bold text color of slabSS to \(rgb(bold))
+        set cursor color of slabSS to \(rgb(cursor))
+        set _slabWasDefault to name of default settings
+        set _slabWasStartup to name of startup settings
+        if _slabWasDefault is not "\(profileName)" then set default settings to slabSS
+        if _slabWasStartup is not "\(profileName)" then set startup settings to slabSS
+        if _slabWasDefault is "\(profileName)" and _slabWasStartup is "\(profileName)" then return "held"
+        return _slabWasDefault & linefeed & _slabWasStartup
+        end tell
+        """
+    }
+
+    /// Hand Terminal back the profiles it was born on before Slab took over.
+    static func restoreScript(defaultName: String, startupName: String) -> String {
+        """
+        if application "Terminal" is not running then return "absent"
+        tell application "Terminal"
+        if exists settings set \(quoted(defaultName)) then set default settings to settings set \(quoted(defaultName))
+        if exists settings set \(quoted(startupName)) then set startup settings to settings set \(quoted(startupName))
+        end tell
+        return "restored"
+        """
+    }
 }
 
 /// Claude Code paints its own colors in truecolor on the `auto`, `dark` and
