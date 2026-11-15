@@ -5554,6 +5554,24 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     document.body.appendChild(overlay);
   }
 
+  // 🕹️ The `nes` piece runs its emulator in the worker and streams stereo
+  // sample blocks here, into the speaker everything else plays through.
+  let nesAudioNode, nesAudioLoading;
+  function nesAudio(content) {
+    if (content === "clear") return nesAudioNode?.port.postMessage("clear");
+    if (nesAudioNode && nesAudioNode.context !== audioContext) nesAudioNode = nesAudioLoading = null; // the context was rebuilt
+    if (audioContext?.state !== "running") return; // no sound before a gesture
+    if (nesAudioNode) return nesAudioNode.port.postMessage(content);
+    nesAudioLoading ||= audioContext.audioWorklet
+      .addModule("/nes-player/audio-worklet.mjs")
+      .then(() => {
+        nesAudioNode = new AudioWorkletNode(audioContext, "mime-nes-audio", { outputChannelCount: [2] });
+        nesAudioNode.connect(speakerGain || audioContext.destination);
+        if (sfxStreamGain) nesAudioNode.connect(sfxStreamGain);
+      })
+      .catch(() => { nesAudioLoading = null; });
+  }
+
   // 🎮 Initialize Game Boy emulator in main thread
   // (Placed after worker setup so `send` is properly wired)
   async function initGameboy() {
@@ -7025,6 +7043,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "gameboy:load-rom") {
       console.log("🎮 BIOS received ROM load request:", content);
       loadGameboyROM(content);
+      return;
+    }
+
+    if (type === "nes:audio") {
+      nesAudio(content);
       return;
     }
 
