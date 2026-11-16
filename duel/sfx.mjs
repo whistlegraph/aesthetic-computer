@@ -126,9 +126,14 @@ export class Sfx {
     this.noise(0.1, { volume: 0.04, from: 1200, to: 200 });
   }
   // 🍄 A bop: a rubbery boing for the one who landed it, a flat thud under it.
-  bop(mine) {
-    this.voice(mine ? 330 : 220, 0.16, { slide: 1.9, volume: 0.05, type: 'square' });
+  // Each bop of a chain rings a step higher.
+  bop(mine, combo = 1) {
+    this.voice((mine ? 330 : 220) * 2 ** (Math.min(12, combo - 1) / 12), 0.16, { slide: 1.9, volume: 0.05, type: 'square' });
     this.noise(0.06, { volume: 0.03, from: 300, to: 1800 });
+  }
+  // 🔗 A chain landing: its points counted in, a rising run as long as the chain.
+  bank(combo = 1) {
+    for (let i = 0; i < Math.min(6, combo + 1); i++) this.voice(note(i * 2 + 4), 0.07, { volume: 0.03, at: i * 0.045 });
   }
   pickup(mine) {
     if (!mine) return;

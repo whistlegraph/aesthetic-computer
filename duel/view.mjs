@@ -327,6 +327,8 @@ export async function createView(canvas) {
   }
   // 🍄 hedbop's ledges: slabs lit on top, rebuilt with the palette.
   // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
+  let scoreShown = 0, scoreAt = 0; // the headline score and when it last rose
+  let chainShown = [0, 0], chainAt = 0, flyPoints = 0, flyAt = 0; // 🔗 the chain under it, and its flight up on landing
   let droneMesh = null;
   const droneModel = () =>
     (droneMesh ||= model(({ box }) => {
@@ -714,6 +716,7 @@ export async function createView(canvas) {
     drones = [], // 🤖 the game's dumb robots: { id, x, y, dir }
     game = null, // 🎮 the room's gametype (games.mjs): its ledges, legend and what it hides
     bops = [], // bops landed, by seat
+    combos = [], // 🔗 a chain in the air, by seat: [how many, worth] or 0
     boomLength = 4, // how far back the third-person camera sits
     rockets = [],
     status = '',
@@ -1552,7 +1555,42 @@ export async function createView(canvas) {
           small(t, cx + unit, y - unit, 0.000002, unit, INK);
           small(t, cx, y, 0, unit, THEME.dim);
         };
-        if (ownTag) place(me, ownTag.x, ownTag.y, bops[seat] || 0);
+        if (ownTag && !game) place(me, ownTag.x, ownTag.y, bops[seat] || 0);
+        // 🎮 In a game the score is the headline: top centre, large. A
+        // chain in the air reads under it as +points (and xN from the
+        // second bop); on landing that flies up into the score, which
+        // counts it in and jumps.
+        if (game && seat >= 0) {
+          const n = bops[seat] || 0, chain = combos[seat] || null;
+          if (chain) {
+            if (chain[0] !== chainShown[0]) chainAt = now;
+            chainShown = chain;
+          } else if (chainShown[0]) {
+            // Landed: if the score rose, the chain is on its way up to it.
+            if (n > scoreShown) { flyAt = now; flyPoints = n - scoreShown; }
+            chainShown = [0, 0];
+          }
+          const flying = flyPoints ? Math.min(1, (now - flyAt) / 320) : 1;
+          if (flyPoints && flying >= 1) { flyPoints = 0; scoreAt = now; }
+          if (!flyPoints && n !== scoreShown) { if (n > scoreShown) scoreAt = now; scoreShown = n; }
+          const pop = Math.max(0, 1 - (now - scoreAt) / 260);
+          const big = unit * (5 + Math.round(pop * 3)), top = H / 2 - hud.safeY;
+          const digits = `${scoreShown}`, y = top - 8 * unit - unit * 20;
+          text(digits, unit * 2, y - unit * 2, 0.000002, big, INK);
+          text(digits, 0, y, 0, big, pop > 0 ? 0xff3296 : PAPER);
+          const word = scoreShown === 1 ? 'bop' : 'bops', wy = y - unit * 32;
+          small(word, unit, wy - unit, 0.000002, unit * 2, INK);
+          small(word, 0, wy, 0, unit * 2, THEME.dim);
+          const cy = wy - unit * 26;
+          if (chainShown[0] || flyPoints) {
+            const kick = Math.max(0, 1 - (now - chainAt) / 200);
+            const size = unit * (3 + (flyPoints ? 0 : Math.round(kick * 2)));
+            const label = flyPoints ? `+${flyPoints}` : `+${chainShown[1]}${chainShown[0] > 1 ? ` x${chainShown[0]}` : ''}`;
+            const ease = flying * flying, at = flyPoints ? cy + (y - cy) * ease : cy;
+            text(label, unit, at - unit, 0.000002, size, INK);
+            text(label, 0, at, 0, size, 0xff3296);
+          }
+        }
         // 💬 Chat: the room's last lines up the left side, over the face cam,
         // newest lowest. The line being typed is the top line (above).
         if (chatting) {

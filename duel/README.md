@@ -89,6 +89,10 @@ and a bopped player is set down again a second later somewhere else.
 Five drones walk the floor and the lower ledges: dumb robots, not bots. Landing
 on one is a bop; another rolls out three seconds later.
 
+The score sits top centre. Bops chained without touching down are a combo: the
+first is worth 1, the second 2, the third 3; the chain reads under the score as
+`+6 x3` and is counted in when the feet land. Bopped out of the air, it is lost.
+
 A room like this is a **gametype** (`games.mjs`): one object naming its ledges,
 its camera (hedbop's frames whoever is near enough to bop), its own legend, and
 the parts of dool's interface it does without (the reticle, the face cam, the

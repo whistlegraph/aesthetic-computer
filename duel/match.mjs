@@ -65,21 +65,36 @@ export class Match {
     const p = spawn(seat, life);
     return this.arena ? Object.assign(p, arenaSpawn(seat, life)) : p;
   }
+  // 🔗 One more bop in the air: the k-th of a chain is worth k.
+  chain(s) {
+    s.combo = (s.combo || 0) + 1;
+    s.pending = (s.pending || 0) + s.combo;
+  }
   // 🍄 Whoever `s` is coming down on is bopped: the stomper bounces and
   // counts it. In the arena the bopped body is gone for a second; anywhere
   // else it only feels it.
   bop(s) {
     const a = s.player;
+    // 🔗 Touching down ends the chain and banks what it earned; a body that
+    // is bopped out of the air loses it.
+    if (s.pending && (a.onGround || !a.alive)) {
+      if (a.alive) {
+        s.bops = (s.bops || 0) + s.pending;
+        s.best = Math.max(s.best || 0, s.combo);
+        this.emit('bank', { seat: a.seat, points: s.pending, combo: s.combo, count: s.bops });
+      }
+      s.pending = s.combo = 0;
+    }
     if (!a.alive || a.onGround) return;
     // 🤖 A drone under the feet is a bop too.
     for (const d of this.drones) {
       if (!landsOnDrone(a, d)) continue;
       a.vy = BOP.bounce;
       a.onGround = false;
-      s.bops = (s.bops || 0) + 1;
+      this.chain(s);
       d.alive = false;
       d.backAt = this.tick + DRONE.away;
-      this.emit('bop', { drone: d.id, attacker: a.seat, count: s.bops, at: { x: d.x, y: d.y + DRONE.tall, z: 0 } });
+      this.emit('bop', { drone: d.id, attacker: a.seat, combo: s.combo, points: s.pending, at: { x: d.x, y: d.y + DRONE.tall, z: 0 } });
       return;
     }
     for (const o of this.seats) {
@@ -87,12 +102,13 @@ export class Match {
       const q = o.player;
       a.vy = BOP.bounce;
       a.onGround = false;
-      s.bops = (s.bops || 0) + 1;
+      this.chain(s);
       o.bopRest = this.tick + BOP.rest;
-      this.emit('bop', { seat: q.seat, attacker: a.seat, count: s.bops, at: { x: q.x, y: q.y + 0.2, z: q.z } });
+      this.emit('bop', { seat: q.seat, attacker: a.seat, combo: s.combo, points: s.pending, at: { x: q.x, y: q.y + 0.2, z: q.z } });
       if (this.arena) {
         q.alive = false;
         q.respawnAt = this.tick + HZ;
+        o.pending = o.combo = 0; // bopped out of the air: the chain is lost
       }
       return;
     }
@@ -671,6 +687,8 @@ export class Match {
       players: this.seats.map((s) => s && { ...s.player }),
       acks: this.seats.map((s) => s?.ack || 0),
       bops: this.seats.map((s) => s?.bops || 0),
+      // 🔗 [how many in the chain, what it is worth so far], by seat, while in the air.
+      combos: this.seats.map((s) => (s?.combo ? [s.combo, s.pending] : 0)),
       drones: this.drones.filter((d) => d.alive).map((d) => ({ id: d.id, x: Math.round(d.x * 1000) / 1000, y: d.y, dir: d.dir })),
       rockets: this.rockets.map((r) => ({ ...r })),
       items: [...this.items.values()].map((it) => ({

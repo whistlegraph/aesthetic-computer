@@ -866,8 +866,9 @@ function connect() {
       if (event.type === 'ricochet') sfx.ricochet();
       if (event.type === 'cancel') sfx.ricochet(1.5);
       if (event.type === 'headshot') sfx.headshot();
+      if (event.type === 'bank' && event.seat === seat) sfx.bank(event.combo);
       if (event.type === 'bop') {
-        sfx.bop(event.attacker === seat);
+        sfx.bop(event.attacker === seat, event.combo);
         if (event.attacker === seat) face.grinAt = performance.now();
         if (event.drone !== undefined && event.attacker === seat) sfx.ricochet(0.6);
         if (event.seat === seat) { face.hurtAt = performance.now(); face.hurtSide = 0; }
@@ -2032,6 +2033,7 @@ function step(now) {
     third: third || !!game()?.camera,
     game: game(),
     bops: snapshot?.bops || [],
+    combos: snapshot?.combos || [],
     boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items || [],

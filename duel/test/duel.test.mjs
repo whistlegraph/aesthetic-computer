@@ -339,6 +339,10 @@ test('dool mounts below a prefix and shares HTTP and WebSockets without taking o
 // 🍄 hedbop
 import { BOP, lands, LEDGES, isArena, arenaSpawn } from '../bop.mjs';
 const idle = (m, seat) => m.input(seat, [cmd(m.seats[seat].ack + 1)]);
+function land(m, seat = 0) {
+  for (let i = 0; i < 240 && !m.seats[seat].player.onGround; i++) { for (const s of m.seats.filter(Boolean)) idle(m, s.player.seat); m.step(); }
+  for (const s of m.seats.filter(Boolean)) idle(m, s.player.seat); m.step();
+}
 function over(m, height = 1.9) {
   const [a, q] = [m.seats[0].player, m.seats[1].player];
   Object.assign(a, { x: q.x, z: q.z, y: q.y + height, vy: -3, onGround: false });
@@ -346,13 +350,17 @@ function over(m, height = 1.9) {
 test('hedbop: coming down on a head bops it, bounces the stomper and counts', () => {
   const m = playing();
   over(m);
-  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
-  assert.equal(m.seats[0].bops, 1);
+  for (let i = 0; i < 20 && !m.seats[0].combo && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  assert.deepEqual([m.seats[0].combo, m.seats[0].pending, m.seats[0].bops || 0], [1, 1, 0], 'in the air it is pending');
   assert.ok(m.seats[0].player.vy > 0, 'the stomper leaves upward');
   assert.ok(m.seats[1].player.alive, 'outside the arena the bopped player stays');
   const e = m.events.find((x) => x.type === 'bop');
-  assert.deepEqual([e.seat, e.attacker, e.count], [1, 0, 1]);
+  assert.deepEqual([e.seat, e.attacker, e.combo, e.points], [1, 0, 1, 1]);
+  assert.deepEqual(m.snapshot().combos[0], [1, 1]);
+  land(m);
   assert.deepEqual(m.snapshot().bops.slice(0, 2), [1, 0]);
+  assert.equal(m.snapshot().combos[0], 0);
+  assert.equal(m.events.find((x) => x.type === 'bank').points, 1);
 });
 test('hedbop: no bop from the side, from below, or while the head rests', () => {
   const m = playing();
@@ -362,9 +370,9 @@ test('hedbop: no bop from the side, from below, or while the head rests', () => 
   assert.equal(lands({ ...a, x: q.x, z: q.z, y: q.y + 1.5, vy: 3, onGround: false }, q), false);
   assert.equal(lands({ ...a, x: q.x, z: q.z, y: q.y + 1.5, vy: -3, onGround: false }, q), true);
   over(m);
-  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  for (let i = 0; i < 20 && !m.seats[0].combo && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
   over(m, 1.5); idle(m, 0); idle(m, 1); m.step();
-  assert.equal(m.seats[0].bops, 1, 'a second landing inside the rest does not count');
+  assert.equal(m.seats[0].combo, 1, 'a second landing inside the rest does not count');
   assert.ok(BOP.rest > 1);
 });
 test('hedbop arena: one plane, no countdown, a bopped body comes back elsewhere', () => {
@@ -377,7 +385,7 @@ test('hedbop arena: one plane, no countdown, a bopped body comes back elsewhere'
     assert.equal(m.seats[0].player.z, 0);
   }
   over(m);
-  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  for (let i = 0; i < 20 && !m.seats[0].combo && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
   assert.equal(m.seats[1].player.alive, false);
   const life = m.seats[1].player.life;
   for (let i = 0; i < HZ + 2; i++) { idle(m, 0); idle(m, 1); m.step(); }
@@ -420,8 +428,8 @@ test('hedbop arena: a drone walks its stretch, is bopped for a count, and anothe
   }
   const d = m.drones[0];
   Object.assign(m.seats[0].player, { x: d.x, z: 0, y: d.y + 1.7 + DRONE.tall + 0.2, vy: -3, onGround: false });
-  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); m.step(); }
-  assert.equal(m.seats[0].bops, 1);
+  for (let i = 0; i < 20 && !m.seats[0].combo && !m.seats[0].bops; i++) { idle(m, 0); m.step(); }
+  assert.equal(m.seats[0].combo, 1);
   assert.equal(d.alive, false);
   assert.ok(m.seats[0].player.vy > 0);
   assert.equal(m.snapshot().drones.length, 4);
@@ -429,4 +437,29 @@ test('hedbop arena: a drone walks its stretch, is bopped for a count, and anothe
   for (let i = 0; i < DRONE.away + 2; i++) { idle(m, 0); m.step(); }
   assert.ok(d.alive);
   assert.equal(new Match().snapshot().drones.length, 0, 'no drones outside the arena');
+});
+
+test('hedbop combos: a chain in the air is worth 1 + 2 + 3, banked on landing, lost if bopped', () => {
+  const m = new Match(); m.setArena(LEDGES); m.join(); m.join();
+  const s = m.seats[0];
+  for (let k = 1; k <= 3; k++) {
+    const d = m.drones.find((x) => x.alive);
+    Object.assign(s.player, { x: d.x, z: 0, y: d.y + 1.7 + 1.3, vy: -3, onGround: false });
+    for (let i = 0; i < 20 && (s.combo || 0) < k; i++) { idle(m, 0); idle(m, 1); m.step(); }
+    assert.deepEqual([s.combo, s.pending], [k, (k * (k + 1)) / 2]);
+  }
+  assert.equal(s.bops || 0, 0);
+  Object.assign(s.player, { x: 7, y: 1.7 + 0.5, vy: -1 }); // clear of every drone
+  m.drones.forEach((d) => (d.alive = false, d.backAt = Infinity));
+  land(m);
+  assert.deepEqual([s.bops, s.combo, s.pending, s.best], [6, 0, 0, 3]);
+  // A chain cut short by being bopped is lost.
+  const o = m.seats[1];
+  Object.assign(o, { combo: 2, pending: 3 });
+  Object.assign(o.player, { x: 0, y: 1.7, onGround: true, vy: 0 });
+  o.pending = 3; o.combo = 2; o.player.onGround = false; o.player.y = 1.7 + 0.4; o.player.vy = 2;
+  Object.assign(s.player, { x: o.player.x, y: o.player.y + 1.9, vy: -6, onGround: false });
+  for (let i = 0; i < 20 && o.player.alive; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  assert.equal(o.player.alive, false);
+  assert.deepEqual([o.pending, o.combo, o.bops || 0], [0, 0, 0]);
 });
