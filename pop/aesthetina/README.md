@@ -46,7 +46,8 @@ node pop/aesthetina/bin/master.mjs --arr=radio                 # → out/aesthet
 
 | arrangement | what it is |
 |---|---|
-| `radio` | **the single**: 64 bars, 2:03, bedroom room; typo intro, typed tunes, sung lyrics |
+| `reveal` | **the long cut**: 96 bars, 3:00; piano and synth opening, layers enter one at a time, a different sung line every two bars in a mood arc, guitar and rock kit, spatial impacts |
+| `radio` | the two-minute cut: 64 bars, 2:03, bedroom room; typo intro, typed tunes, sung lyrics |
 | `country` | the 80-bar square-dance version it grew from |
 | `phasing` · `palindrome` · `callresponse` · `generative` | composition studies |
 
@@ -59,7 +60,12 @@ Everything jeffrey sings comes from his ElevenLabs PVC (eleven_v4) through WORLD
 - **syllables**: the permutative phoneme library (`pop/bin/phoneme-library.mjs`; vault
   `voice/jeffrey-phonemes/`), toots, choirs, arpeggios, inflection banks (`--style`), lyric
   syllables (`--words`).
-- **phrases**: `bin/phrases.mjs` speaks whole lyric lines in three cadences with character
+- **lines**: `lyrics.json` (slug → lyric, syllables marked with spaces and hyphens).
+- **recognition**: `bin/recog.py takes` sings every take alone and has whisper.cpp read it back;
+  a score casts only takes that come back whole. `bin/recog.py --arr=reveal` reads each
+  statement back from the dry lyric stem and from the finished master.
+- **phrases**: `bin/phrases.mjs` speaks whole lyric lines in eight moods (plain, excited, deadpan,
+  whisper, sad, tired, shout, curious) with character
   timestamps; `sing_phrase` stretches them onto the hook's notes (unvoiced runs keep their
   spoken length, voiced runs share one ratio, every span fills its slot, one WORLD pass,
   f0 replaced). The lyrics are their own stem, dry and centred in the master.

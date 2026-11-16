@@ -131,6 +131,7 @@ def sing(name, midi, hold, slide_from=None, toot=True, halo=0.2, vib=0.12, rel=0
 # span fills the note's slot. One continuous WORLD synthesis per line, f0 replaced by
 # the notes (monotone 40 ms glides), octave halo on voiced frames only.
 _phr = {}
+PFS = 44100  # phrases are analysed and sung at full rate: the consonants and the air stay
 
 
 def phrase_analysis(voice, slug):
@@ -138,13 +139,21 @@ def phrase_analysis(voice, slug):
     if key in _phr: return _phr[key]
     d = LIB.parents[1] / f"{voice}-phonemes" / "phrases"
     meta = json.load(open(d / f"{slug}.json"))
-    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(d / f"{slug}.mp3"), "-f", "f32le", "-ac", "1", "-ar", str(FS), "-"],
+    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", str(d / f"{slug}.mp3"), "-f", "f32le", "-ac", "1", "-ar", str(PFS), "-"],
                          capture_output=True, check=True).stdout
     x = np.frombuffer(raw, dtype=np.float32).astype(np.float64)
-    f0, t = pw.harvest(x, FS, f0_floor=60, f0_ceil=320, frame_period=FP)
-    f0 = pw.stonemask(x, f0, t, FS)
-    sp = pw.cheaptrick(x, f0, t, FS); ap = pw.d4c(x, f0, t, FS)
+    # pitch is found on a 16 k copy (harvest at full rate is ten times slower) and refined on the original
+    f0, _ = pw.harvest(resample_poly(x, 160, 441), 16000, f0_floor=60, f0_ceil=320, frame_period=FP)
+    nfr = int(len(x) / PFS * 1000 / FP) + 1
+    f0 = np.r_[f0, np.zeros(max(0, nfr - len(f0)))][:nfr]; t = np.arange(nfr) * FP / 1000
+    f0 = pw.stonemask(x, f0, t, PFS)
+    sp = pw.cheaptrick(x, f0, t, PFS); ap = pw.d4c(x, f0, t, PFS)
     v = f0 > 0
+    # the speaker's own pitch, in semitones, carried across unvoiced frames: sing_phrase keeps
+    # part of its movement around each note so the line stays a person and not a held tone
+    idx = np.where(v)[0]
+    st0 = np.interp(np.arange(len(f0)), idx, 12 * np.log2(f0[idx])) if len(idx) else np.zeros(len(f0))
+    st0 = np.convolve(np.pad(st0, 6, mode="edge"), np.hanning(13) / np.hanning(13).sum(), mode="valid")  # the movement, not the jitter
     i = 0  # close voicing holes shorter than 30 ms
     while i < len(v):
         if not v[i]:
@@ -153,12 +162,18 @@ def phrase_analysis(voice, slug):
             if 0 < i and j < len(v) and (j - i) * FP < 30: v[i:j] = True
             i = j
         else: i += 1
-    _phr[key] = dict(sp=sp, ap=ap, v=v, syl=[(FR(a), FR(b)) for a, b in meta["syllables"]], n=len(f0))
+    # how fast the mouth is moving at each frame: the change in the (log) envelope from the frame
+    # before. Steady vowel is near 0; a plosive release, a glide or a consonant transition is high.
+    ls = np.log(sp[:, ::8] + 1e-12); flux = np.r_[0, np.abs(np.diff(ls, axis=0)).mean(1)]
+    flux = np.convolve(flux, np.ones(3) / 3, mode="same"); flux /= np.median(flux[v]) + 1e-9 if v.any() else 1
+    _phr[key] = dict(x=x, flux=flux, sp=sp, ap=ap, v=v, st=st0, syl=[(FR(a), FR(b)) for a, b in meta["syllables"]], n=len(f0))
     return _phr[key]
 
 
-def sing_phrase(voice, slug, starts, midis, end_hold, halo=0.15, vib=0.1):
-    """starts: note times (s, relative to the first); returns (pre-roll s, samples)."""
+def sing_phrase(voice, slug, starts, midis, end_hold, halo=0.0, vib=0.1, nat=0.55, seed=0):
+    """starts: note times (s, relative to the first); returns (pre-roll s, samples at PFS).
+    nat: how much of the speaker's own pitch movement inside each syllable survives (0 = held tones)."""
+    rng = np.random.default_rng(seed)
     A = phrase_analysis(voice, slug); v = A["v"]; n = A["n"]; syl = A["syl"]
     on = []
     for a, b in syl:  # vowel onset = first voiced frame in the syllable
@@ -178,46 +193,69 @@ def sing_phrase(voice, slug, starts, midis, end_hold, halo=0.15, vib=0.1):
         T = max(2, FR(L))
         U = sum(1 for f in frames if not v[f]); V = len(frames) - U
         r = (T - U) / V if V else 1.0
-        if V == 0 or r < 0.35:  # too tight: scale the whole span uniformly
+        if V == 0 or r < 0.35:  # too tight (or a whisper): scale the whole span uniformly
             seg = list(np.linspace(a, b - 1, T))
         else:
-            seg = []
-            j = 0
-            while j < len(frames):
-                k = j
-                while k < len(frames) and v[frames[k]] == v[frames[j]]: k += 1
-                run = frames[j:k]
-                if v[run[0]]: seg += list(np.linspace(run[0], run[-1] + 0.999, max(1, int(round(len(run) * r)))))
-                else: seg += run
-                j = k
-        if len(seg) != T:  # every span lands exactly on its slot, so no drift accumulates
-            seg = list(np.interp(np.linspace(0, len(seg) - 1, T), np.arange(len(seg)), seg))
-        m = midis[i]
+            # each source frame gets a length in output frames. Unvoiced frames (plosive bursts,
+            # fricatives) keep exactly 1: spoken speed. Voiced frames share what is left, and when
+            # the note is longer than the speech the extra goes to the steady vowel, not to the
+            # transitions into and out of the consonants: weight falls with spectral flux.
+            fr = np.array(frames); vo = v[fr]
+            d = np.ones(len(fr))
+            if r >= 1: wgt = 1 / (1 + A["flux"][fr[vo]] ** 2 * 3); d[vo] = 1 + (T - U - V) * wgt / wgt.sum()
+            else: d[vo] = r
+            edges = np.r_[0, np.cumsum(d)]  # sums to T: the span lands exactly on its slot
+            seg = list(np.interp(np.arange(T) + 0.5, edges, np.r_[fr, fr[-1] + 1] - 0.0).clip(a, max(a, b - 1)))
+        m = midis[i] + rng.normal(0, 0.03)  # nobody lands dead centre
+        vf = [f for f in frames if v[f]]
+        ctr = float(np.median(A["st"][vf])) if vf else 0.0
+        glide = 0.085 + 0.016 * abs(m - prev_m)  # legato: each note is slid into, a wider leap takes longer
         for q, src in enumerate(seg):
             tq = q * FP / 1000
-            x = min(1, tq / 0.04); mm = prev_m + (m - prev_m) * (1 - (1 - x) ** 3)
-            mm += vib * min(1, max(0, (tq - 0.2) / 0.2)) * np.sin(2 * np.pi * 5.2 * tq)
+            x = min(1, tq / glide); mm = prev_m + (m - prev_m) * (x * x * (3 - 2 * x))  # eased at both ends
+            mm += nat * float(np.clip(A["st"][min(int(src), n - 1)] - ctr, -2.5, 2.5))
+            mm += vib * min(1, max(0, (tq - 0.28) / 0.25)) * np.sin(2 * np.pi * 5.2 * tq)
             pos.append(src); f0.append(440 * 2 ** ((mm - 69) / 12) if v[min(int(src), n - 1)] else 0.0)
         prev_m = m
     pos = np.clip(np.array(pos, float), 0, n - 1.001)
     lo = np.floor(pos).astype(int); hi = np.minimum(lo + 1, n - 1); w = (pos - lo)[:, None]
     sp = np.exp(np.log(A["sp"][lo] + 1e-16) * (1 - w) + np.log(A["sp"][hi] + 1e-16) * w)
     ap = A["ap"][lo] * (1 - w) + A["ap"][hi] * w
-    f0 = np.array(f0); sp = np.ascontiguousarray(np.maximum(sp, 1e-12)); ap = np.ascontiguousarray(np.clip(ap, 0, 1))
-    y = pw.synthesize(f0, sp, ap, FS, FP)
+    # smooth the envelope in time across the voiced frames (15 ms): the stretch's frame-to-frame
+    # roughness goes, the vowels' own motion stays; consonant frames are left as they are
+    f0 = np.array(f0); ls = np.log(sp + 1e-16); sm = ls.copy(); sm[1:-1] = (ls[:-2] + ls[1:-1] + ls[2:]) / 3
+    sp = np.exp(np.where((f0 > 0)[:, None], sm, ls))
+    sp = np.ascontiguousarray(np.maximum(sp, 1e-12)); ap = np.ascontiguousarray(np.clip(ap, 0, 1))
+    y = pw.synthesize(f0, sp, ap, PFS, FP)
     if halo:
         sph = np.where((f0 > 0)[:, None], sp, sp * 1e-4)
-        y = y + halo * pw.synthesize(f0 * 2, np.ascontiguousarray(sph), np.ascontiguousarray(np.clip(ap + 0.15, 0, 1)), FS, FP)[: len(y)]
-    tail = int(0.08 * FS); y[-tail:] *= np.linspace(1, 0, tail)
+        y = y + halo * pw.synthesize(f0 * 2, np.ascontiguousarray(sph), np.ascontiguousarray(np.clip(ap + 0.15, 0, 1)), PFS, FP)[: len(y)]
+    # the consonants themselves: wherever the unvoiced source runs at spoken speed, the
+    # recording itself is laid in over the resynthesis, so bursts and sibilants keep their edge
+    hop = int(PFS * FP / 1000); xr = A["x"]; q = 0; P = len(pos)
+    while q < P:
+        if f0[q] == 0 and not v[int(pos[q])]:
+            e = q
+            while e + 1 < P and f0[e + 1] == 0 and abs(pos[e + 1] - pos[e] - 1) < 0.02: e += 1
+            if e - q >= 3:
+                o0, s0, L = q * hop, int(round(pos[q] * hop)), (e - q + 1) * hop
+                L = min(L, len(y) - o0, len(xr) - s0)
+                if L > 2 * hop:
+                    w = np.ones(L); w[:hop] = np.linspace(0, 1, hop); w[-hop:] = np.linspace(1, 0, hop)
+                    y[o0:o0 + L] = y[o0:o0 + L] * (1 - w) + 0.8 * xr[s0:s0 + L] * w  # a little under: crisp, not spitting
+            q = e + 1
+        else: q += 1
+    tail = int(0.08 * PFS); y[-tail:] *= np.linspace(1, 0, tail)
     assert np.isfinite(y).all(), slug
     return len(pre) * FP / 1000, y / (np.abs(y).max() + 1e-9)
 
 
-phrases = []  # (t of first note, voice, slug, starts (abs), midis, end_hold, gain, bus, pan)
+phrases = []  # (starts (abs), voice, slug, midis, end_hold, gain, bus, pan, reveal)
 
 
-def phrase_ev(starts, voice, slug, midis, end_hold, gain=1.0, bus="lyric", pan=0.0):
-    phrases.append((starts, voice, slug, midis, end_hold, gain, bus, pan))
+def phrase_ev(starts, voice, slug, midis, end_hold, gain=1.0, bus="lyric", pan=0.0, reveal=None):
+    """reveal: sing only the first n notes of the line (the rest is still to come)."""
+    phrases.append((starts, voice, slug, midis, end_hold, gain, bus, pan, reveal))
 
 
 # ── the score ──────────────────────────────────────────────────────────────
@@ -263,14 +301,18 @@ def main():
         i = int(round((t - pick) * FS)); y = y[: n - i]
         lr = np.array([np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)]) * np.sqrt(2)
         bus[b][i: i + len(y)] += 0.4 * g * y[:, None] * lr
-    for starts, voice, slug, midis, end_hold, g, b, pan in phrases:
+    lyric_hi = np.zeros((2 * n, 2))  # sung phrases, at PFS
+    for k, (starts, voice, slug, midis, end_hold, g, b, pan, reveal) in enumerate(phrases):
         rel = [t - starts[0] for t in starts]
         key = ("phrase", voice, slug, tuple(np.round(rel, 4)), tuple(midis), round(end_hold, 3))
-        if key not in cache: cache[key] = sing_phrase(voice, slug, rel, midis, end_hold)
+        if key not in cache: cache[key] = sing_phrase(voice, slug, rel, midis, end_hold, seed=k)
         pick, y = cache[key]
-        i = int(round((starts[0] - pick) * FS)); y = y[: n - i]
+        if reveal and reveal < len(rel):  # stop before the next word's onset
+            cut = int((pick + rel[reveal] - 0.07) * PFS); fade = int(0.05 * PFS)
+            y = y[:cut].copy(); y[-fade:] *= np.linspace(1, 0, fade)
+        i = int(round((starts[0] - pick) * PFS)); y = y[: 2 * n - i]
         lr = np.array([np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)]) * np.sqrt(2)
-        bus[b][i: i + len(y)] += 0.4 * g * y[:, None] * lr
+        lyric_hi[i: i + len(y)] += 0.4 * g * y[:, None] * lr
     missing = set()
     for t, nm, style, g, pan, b in accents:
         y = raw_clip(nm, style)
@@ -284,12 +326,16 @@ def main():
     toot = st(lambda c: delay(c, 0.93 * BEAT, 0.14 if small else 0.28, 1 if small else 3), bus["toot"])
     chord = st(lambda c: delay(c, 0.75 * BEAT, 0.1 if small else 0.2, 1 if small else 2), bus["chord"])
     choir = st(lambda c: delay(c, 1.5 * BEAT, 0.15 if small else 0.3, 2 if small else 3), bus["choir"])
-    total = bus["dry"] + toot + chord + 0.55 * choir  # the lyric bus is its own stem (…-lyric.wav), dry
+    total = bus["dry"] + toot + chord  # the lyric bus (…-lyric.wav, dry) and the choir (…-choir.wav) are their own stems
     out = resample_poly(total, 2, 1, axis=0)
     OUT.mkdir(exist_ok=True)
     STEM = OUT / ("vocal-stem.wav" if ARR == "country" else f"vocal-{ARR}.wav")
     sf.write(STEM, out.astype(np.float32), 44100)
-    sf.write(STEM.with_name(STEM.stem + "-lyric.wav"), resample_poly(bus["lyric"], 2, 1, axis=0).astype(np.float32), 44100)
+    sf.write(STEM.with_name(STEM.stem + "-lyric.wav"), (resample_poly(bus["lyric"], 2, 1, axis=0) + lyric_hi).astype(np.float32), 44100)
+    sf.write(STEM.with_name(STEM.stem + "-choir.wav"), resample_poly(0.55 * choir, 2, 1, axis=0).astype(np.float32), 44100)
+    # the lyric plan, for bin/recog.py: where each sung line starts and what it should say
+    plan = [dict(t=round(st[0], 3), voice=v, slug=sl, reveal=rv) for st, v, sl, _m, _h, g, *_, rv in phrases if g >= 1]  # leads, not harmonies
+    json.dump(sorted(plan, key=lambda p: p["t"]), open(STEM.with_name(STEM.stem + "-lyrics.json"), "w"), indent=1)
     json.dump({"events": len(events), "unique": len(cache)}, open(STEM.with_suffix(".json"), "w"))
     print(STEM, len(events), "events,", len(phrases), "sung phrases,", len(cache), "unique renders")
 

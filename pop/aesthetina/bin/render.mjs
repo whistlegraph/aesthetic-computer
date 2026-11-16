@@ -56,7 +56,7 @@ const hz = (m) => 440 * 2 ** ((m - 69) / 12);
 
 // ── buses ───────────────────────────────────────────────────────────────
 const bus = () => ({ L: new Float32Array(LEN), R: new Float32Array(LEN) });
-const B = { drums: bus(), keys: bus(), bass: bus(), pad: bus(), lead: bus(), bells: bus(), verb: bus(), hall: bus() };
+const B = { drums: bus(), keys: bus(), bass: bus(), pad: bus(), lead: bus(), bells: bus(), guitar: bus(), synth: bus(), piano: bus(), verb: bus(), hall: bus() };
 function put(b, i, v, pan = 0, send = 0) {
   if (i < 0 || i >= LEN) return;
   const l = Math.cos((pan + 1) * Math.PI / 4), r = Math.sin((pan + 1) * Math.PI / 4);
@@ -232,6 +232,22 @@ function kick(t, vel = 1) {
   // the huff: a hard breath into a big vessel
   const i0 = Math.round(t * SR), n = Math.ceil(0.5 * SR);
   let ph = 0;
+  if (META.kick === "hard") {
+    // the hard kick: a faster, higher drop (a beater's knock), driven into odd harmonics so it
+    // speaks above 180 Hz on small speakers, a longer chest, and a click on the front
+    for (let k = 0; k < n; k++) {
+      const s = k / SR;
+      const f = 47 + 60 * Math.exp(-s / 0.045) + 190 * Math.exp(-s / 0.009);
+      ph += f / SR; if (ph >= 1) ph -= 1;
+      const env = Math.min(1, s / 0.0015) * (0.7 * Math.exp(-s / 0.21) + 0.3 * Math.exp(-s / 0.05));
+      const x = Math.sin(TAU * ph);
+      put(B.drums, i0 + k, vel * 0.92 * Math.tanh(2.6 * env * (x + 0.18 * Math.sin(2 * TAU * ph))));
+    }
+    burst(B.drums, t, 3300, 1.4, 0.34 * vel, 0.0022, 0, 0.02);
+    burst(B.drums, t, 1100, 1.0, 0.22 * vel, 0.006, 0, 0.02);
+    spacebar(B.drums, t, 0.55 * vel);
+    return;
+  }
   for (let k = 0; k < n; k++) {
     const s = k / SR;
     const f = 45 + 95 * Math.exp(-s / 0.028);
@@ -250,6 +266,103 @@ function clap(t, vel = 1) {
   const mash = ["j", "k", "l", ";", "h"];
   mash.forEach((k, i) => keyDown(B.drums, t + i * 0.0028 + rand() * 0.002, k, vel * 0.7, { pan: (i - 2) * 0.12, send: 0.22 }));
   burst(B.drums, t + 0.008, 1800, 1.2, 0.3 * vel, 0.03, 0, 0.3);
+}
+// ── the rock kit and the electric guitar (outside the switch/breath law, by request) ──
+function snare(t, vel = 1) {
+  burst(B.drums, t, 3400, 0.7, 0.55 * vel, 0.045, 0, 0.18); // wires
+  burst(B.drums, t, 7000, 1.2, 0.25 * vel, 0.03, 0, 0.18);
+  mode(B.drums, t, 186, 0.5 * vel, 0.045, 0, 0.1); mode(B.drums, t, 331, 0.28 * vel, 0.03, 0, 0.1); // shell
+}
+function crash(t, vel = 1) {
+  burst(B.drums, t, 5200, 0.5, 0.26 * vel, 0.45, -0.3, 0.3);
+  burst(B.drums, t, 9000, 0.7, 0.2 * vel, 0.65, 0.3, 0.3);
+}
+function tom(t, f, vel = 1, pan = 0) {
+  const i0 = Math.round(t * SR), n = Math.ceil(0.7 * SR); let ph = 0;
+  for (let k = 0; k < n; k++) {
+    const sT = k / SR; ph += (f * (1 + 0.6 * Math.exp(-sT / 0.03))) / SR; if (ph >= 1) ph -= 1;
+    put(B.drums, i0 + k, 0.6 * vel * Math.min(1, sT / 0.002) * Math.exp(-sT / 0.16) * Math.tanh(1.4 * Math.sin(TAU * ph)), pan, 0.12);
+  }
+  burst(B.drums, t, 2200, 1, 0.2 * vel, 0.004, pan, 0.1);
+}
+// a tom fill down the kit over the last n 16ths of a bar
+function tomFill(bar, n16 = 4) {
+  for (let j = 0; j < n16; j++) tom(at(bar, 16 - n16 + j), [196, 165, 131, 98][Math.min(3, Math.floor((j * 4) / n16))], 0.7 + 0.3 * (j / n16), [-0.5, -0.2, 0.2, 0.5][Math.min(3, Math.floor((j * 4) / n16))]);
+}
+// electric guitar: Karplus-Strong strings (root, fifth, octave, twelfth) summed into one
+// overdriven amp, so the chord intermodulates; a cab low-pass rounds it off.
+// o.up: an upstroke (top strings first, quicker). o.mute: palm-muted chug.
+function guitar(t, root, dur, o = {}) {
+  const amp = o.amp ?? 0.11, pan = o.pan ?? 0, drive = o.drive ?? 3.2;
+  const n = Math.ceil((dur + 0.4) * SR), buf = new Float32Array(n);
+  const strings = (o.power ? [0, 7, 12] : [0, 7, 12, 19]).map((d) => root + d); // power: root, fifth, octave
+  (o.up ? strings.slice(1).reverse() : strings).forEach((m, j) => {
+    const f = hz(m), N = Math.round(SR / f), line = new Float32Array(N);
+    let lp = 0; for (let k = 0; k < N; k++) { lp += 0.45 * (rand() * 2 - 1 - lp); line[k] = lp; } // a soft pick
+    const off = Math.round(j * (o.up ? 0.007 : 0.012) * SR), loss = o.mute ? 0.955 : 0.9965;
+    let p = 0, prev = 0;
+    for (let k = off; k < n; k++) { const v = line[p]; const nv = loss * 0.5 * (v + prev); prev = v; line[p] = nv; p = (p + 1) % N; buf[k] += v; }
+  });
+  const i0 = Math.round(t * SR), a = 1 - Math.exp(-TAU * 3800 / SR), h = 1 - Math.exp(-TAU * 95 / SR);
+  let y = 0, dc = 0;
+  for (let k = 0; k < n; k++) {
+    const sT = k / SR, env = sT < dur ? 1 : Math.exp(-(sT - dur) / 0.05);
+    const d = Math.tanh(buf[k] * drive); y += a * (d - y); dc += h * (y - dc);
+    put(B.guitar, i0 + k, amp * env * (y - dc), pan, 0.14);
+  }
+}
+// ── grand piano: the AC grand (Salamander V3, fedac/native/samples/piano: an anchor every
+// three semitones, 48 k stereo s16, 3 s), nearest anchor repitched by playback rate ──
+const PIANO = new Map();
+function piano(t, midi, dur, vel = 0.6, pan = 0) {
+  const anchor = Math.min(96, Math.max(21, 21 + 3 * Math.round((midi - 21) / 3)));
+  if (!PIANO.has(anchor)) {
+    const f = join(HERE, "..", "..", "..", "fedac", "native", "samples", "piano", `${anchor}.raw`);
+    PIANO.set(anchor, existsSync(f) ? readFileSync(f) : null);
+  }
+  const b = PIANO.get(anchor); if (!b) return;
+  const frames = b.length / 4, rate = 2 ** ((midi - anchor) / 12) * 48000 / SR, i0 = Math.round(t * SR);
+  const l = Math.cos((pan + 1) * Math.PI / 4) * Math.SQRT2, r = Math.sin((pan + 1) * Math.PI / 4) * Math.SQRT2, g = 0.5 * vel * (0.4 + 0.6 * vel);
+  for (let k = 0; ; k++) {
+    const src = k * rate, j = Math.floor(src), fr = src - j, sT = k / SR;
+    if (j + 1 >= frames || i0 + k >= LEN) break;
+    const env = (sT < dur ? 1 : Math.exp(-(sT - dur) / 0.18)) * Math.min(1, (frames - j) / 4800); if (sT > dur && env < 1e-3) break;
+    const sl = (b.readInt16LE(j * 4) * (1 - fr) + b.readInt16LE(j * 4 + 4) * fr) / 32768, sr = (b.readInt16LE(j * 4 + 2) * (1 - fr) + b.readInt16LE(j * 4 + 6) * fr) / 32768;
+    const i = i0 + k; if (i < 0) continue;
+    B.piano.L[i] += sl * g * env * l; B.piano.R[i] += sr * g * env * r;
+    B.verb.L[i] += sl * g * env * 0.3; B.verb.R[i] += sr * g * env * 0.3;
+  }
+}
+// ── synths (also outside the law): a detuned saw pad whose filter opens in a straight line,
+// and a plucked square/saw tone for arpeggios ──
+function synthPad(t, midis, dur, o = {}) {
+  const amp = o.amp ?? 0.05, f0 = o.from ?? 220, f1 = o.to ?? 2400, att = o.attack ?? 1.5, rel = o.release ?? 1.2;
+  const i0 = Math.round(t * SR), n = Math.ceil((dur + rel * 4) * SR);
+  for (const [ci, ch] of ["L", "R"].entries()) {
+    const ph = midis.flatMap((m) => [-0.09, 0.02, 0.11].map((d) => ({ p: rand(), inc: hz(m + d * (ci ? 1 : -1) + (ci ? 0.03 : 0)) / SR })));
+    let lp = 0, bp = 0;
+    for (let k = 0; k < n; k++) {
+      const sT = k / SR, env = Math.min(1, sT / att) ** 1.5 * (sT < dur ? 1 : Math.exp(-(sT - dur) / rel));
+      if (sT > dur && env < 1e-4) break;
+      let x = 0; for (const v of ph) { v.p += v.inc; if (v.p >= 1) v.p -= 1; x += 2 * v.p - 1; }
+      const fc = f0 + (f1 - f0) * Math.min(1, sT / dur), fq = 2 * Math.sin(Math.PI * Math.min(fc, SR / 6) / SR);
+      lp += fq * bp; bp += fq * (x / ph.length - lp - 0.7 * bp);
+      const i = i0 + k; if (i < 0 || i >= LEN) continue;
+      const v = amp * env * lp * 3; B.synth[ch][i] += v; B.verb[ch][i] += v * (o.send ?? 0.35);
+    }
+  }
+}
+function pluck(t, midi, dur, o = {}) {
+  const amp = o.amp ?? 0.06, pan = o.pan ?? 0, f = hz(midi), i0 = Math.round(t * SR), n = Math.ceil((dur + 0.25) * SR);
+  let p = rand(), lp = 0, bp = 0;
+  for (let k = 0; k < n; k++) {
+    const sT = k / SR, env = Math.min(1, sT / 0.002) * Math.exp(-sT / (o.decay ?? 0.16)) * (sT < dur ? 1 : Math.exp(-(sT - dur) / 0.04));
+    p += f / SR; if (p >= 1) p -= 1;
+    const x = 0.6 * (2 * p - 1) + 0.4 * (p < 0.5 ? 1 : -1);
+    const fc = f * 2 + (o.bright ?? 3200) * Math.exp(-sT / 0.07), fq = 2 * Math.sin(Math.PI * Math.min(fc, SR / 6) / SR);
+    lp += fq * bp; bp += fq * (x - lp - 0.5 * bp);
+    put(B.synth, i0 + k, amp * env * lp, pan, o.send ?? 0.3);
+  }
 }
 function roll(t0, n16, vel = 0.5) {
   const letters = "asdfjkl;ghqwer";
@@ -414,7 +527,7 @@ function teaPad(bar, bars, amp = 0.05) {
 }
 
 // the arrangement plays every part through the instruments above
-ARR.play({ SR, BPM, BEAT, BAR, S16, BARS, LEN, TAU, at, sw, KEY_MIDI, hz, rand, B, put, mode, burst, keyDown, keyUp, spacebar, ocarina, slideVoice, typeLine, kick, hat, clap, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, chordAt, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, pat, E7_16, E9_16, E3_8, E7_12, E5_8, B1_WORDS, DROP_WORDS });
+ARR.play({ SR, BPM, BEAT, BAR, S16, BARS, LEN, TAU, at, sw, KEY_MIDI, hz, rand, B, put, mode, burst, keyDown, keyUp, spacebar, ocarina, slideVoice, typeLine, kick, hat, clap, snare, crash, tom, tomFill, guitar, synthPad, pluck, piano, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, chordAt, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, pat, E7_16, E9_16, E3_8, E7_12, E5_8, B1_WORDS, DROP_WORDS });
 
 // ── MIX ─────────────────────────────────────────────────────────────────
 // sidechain: the kick is a breath, so everything else inhales around it
@@ -466,14 +579,26 @@ if (existsSync(LYR)) {
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
   for (let i = 0; i < Math.min(LEN, v.length / 2); i++) {
     B.lyric.L[i] += v[2 * i] * 1.6; B.lyric.R[i] += v[2 * i + 1] * 1.6;
-    B.verb.L[i] += v[2 * i] * 0.12; B.verb.R[i] += v[2 * i + 1] * 0.12;
+    B.verb.L[i] += v[2 * i] * 0.2; B.verb.R[i] += v[2 * i + 1] * 0.2;
+  }
+}
+// the choir stem (stretched vowels + vowel arpeggios), when voice.py wrote it apart: bin/master.mjs moves it around the head
+B.choir = bus();
+const CHO = VOX.replace(/\.wav$/, "-choir.wav");
+if (existsSync(CHO)) {
+  const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", CHO, "-f", "f32le", "-ac", "2", "-ar", String(SR), "-"], { maxBuffer: 1 << 30 });
+  const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
+  for (let i = 0; i < Math.min(LEN, v.length / 2); i++) {
+    B.choir.L[i] += v[2 * i] * 1.6; B.choir.R[i] += v[2 * i + 1] * 1.6;
+    B.verb.L[i] += v[2 * i] * ROOM.voxSend; B.verb.R[i] += v[2 * i + 1] * ROOM.voxSend;
+    if (ROOM.plate) { B.plate.L[i] += B.choir.L[i] * 0.5; B.plate.R[i] += B.choir.R[i] * 0.5; }
   }
 }
 const wet = reverb(B.verb, ...ROOM.verb);
 const hall = reverb(B.hall, ...ROOM.hall); // the bells' space (club: a ~5 s hall)
 const plate = ROOM.plate ? reverb(B.plate, 0.86, 0.4, 0.75) : null;
-// stems: the mix in seven groups (out/stems-<arr>/), so bin/master.mjs can place them in space
-const S = Object.fromEntries(["drums", "keys", "low", "lead", "bells", "vox", "lyric", "space"].map((k) => [k, bus()]));
+// stems: the mix in twelve groups (out/stems-<arr>/), so bin/master.mjs can place them in space
+const S = Object.fromEntries(["drums", "keys", "low", "lead", "guitar", "synth", "piano", "bells", "vox", "choir", "lyric", "space"].map((k) => [k, bus()]));
 const G = { drums: 1.0, keys: 0.9, bass: 0.9, pad: 1.0, lead: 1.0 };
 const pump = ROOM.pump ?? 0;
 for (let i = 0; i < LEN; i++) {
@@ -483,8 +608,12 @@ for (let i = 0; i < LEN; i++) {
     S.keys[ch][i] = B.keys[ch][i] * G.keys * (0.6 + 0.4 * d);
     S.low[ch][i] = B.bass[ch][i] * G.bass * d + B.pad[ch][i] * G.pad * d;
     S.lead[ch][i] = B.lead[ch][i] * G.lead * (0.75 + 0.25 * d);
+    S.guitar[ch][i] = B.guitar[ch][i] * (0.7 + 0.3 * d);
+    S.piano[ch][i] = B.piano[ch][i] * (0.75 + 0.25 * d);
+    S.synth[ch][i] = B.synth[ch][i] * (0.6 + 0.4 * d);
     S.bells[ch][i] = B.bells[ch][i] * (0.7 + 0.3 * d) + hall[ch][i] * ROOM.hallWet;
     S.vox[ch][i] = B.vox[ch][i] * (0.8 + 0.2 * d);
+    S.choir[ch][i] = B.choir[ch][i] * (0.8 + 0.2 * d);
     S.lyric[ch][i] = B.lyric[ch][i];
     S.space[ch][i] = wet[ch][i] * ROOM.wet * dp + (plate ? plate[ch][i] * ROOM.plate * d ** 3 : 0);
   }

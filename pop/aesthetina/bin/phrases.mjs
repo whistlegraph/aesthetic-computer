@@ -18,18 +18,21 @@ const FORCE = process.argv.includes("--force");
 const env = readFileSync(join(VAULT, "lith", ".env"), "utf8");
 const envv = (k) => process.env[k] || env.match(new RegExp(`^${k}=(.*)$`, "m"))?.[1].replace(/^"|"$/g, "");
 
-export const LINES = {
-  hand: "will you please hand me that com-pu-ter there?",
-  buy: "i want to buy an-oth-er com-pu-ter",
-  get: "i need to get an-oth-er com-pu-ter",
-  chubby: "pass a chub-by ca-ble for my char-ging please",
-};
+// the lines live in ../lyrics.json (slug → lyric, syllables marked with spaces and hyphens)
+export const LINES = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "lyrics.json"), "utf8"));
 // cadence: v4 audio tag + end punctuation
-const CADENCES = { plain: ["", ""], excited: ["[excited] ", "!"], deadpan: ["[deadpan] ", "."] };
+const CADENCES = {
+  plain: ["", ""], excited: ["[excited] ", "!"], deadpan: ["[deadpan] ", "."],
+  // the wider range of the v4 voice: each line is tried in every mood, and bin/recog.py says which survive
+  whisper: ["[whispers] ", "."], sad: ["[sad] ", "."], tired: ["[tired] [sighs] ", "."], shout: ["[shouting] ", "!"], curious: ["[curious] ", "?"],
+};
+// the lines Prutti sings. "amail" and "gamelan" are his own typed words from the clock chat
+// (2026-11-13/15); "wise" and "chubby" were written for him. All of it is draft until he approves.
+const PRUTTI = ["chubby", "wise", "amail", "gamelan"];
 const TAKES = [
-  ...["hand", "buy", "get", "chubby"].flatMap((l) => Object.keys(CADENCES).map((c) => ["jeffrey", l, c])),
+  ...Object.keys(LINES).filter((l) => !PRUTTI.includes(l) || l === "chubby").flatMap((l) => Object.keys(CADENCES).map((c) => ["jeffrey", l, c])),
   // Prutti (Pruttivox IVC) — DRAFT ONLY until he approves clone + performance (Klokkentales release gate)
-  ...Object.keys(CADENCES).map((c) => ["prutti", "chubby", c]),
+  ...PRUTTI.flatMap((l) => Object.keys(CADENCES).map((c) => ["prutti", l, c])),
 ];
 
 function voiceOf(v) {
