@@ -73,3 +73,4 @@
 @media(max-width:860px){.uses{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.uses{grid-template-columns:1fr}}
 .scene{max-width:720px;margin:0 auto 26px}.scene img{display:block;width:100%;height:auto;mix-blend-mode:multiply}
+.mimes-head{margin:18px 0 10px;text-align:center;font:normal 22px/1 Pixel,monospace;color:var(--purple);text-shadow:1px 2px #e2cdea}.mimes{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:7px 8px;max-width:620px;margin:0 auto 30px;padding:0}.mimes code{display:inline-block;font:11px/1 var(--mono);padding:5px 8px;border-radius:999px;background:#efe3f2;color:var(--purple);box-shadow:0 2px #e2cdea}
