@@ -40,6 +40,7 @@ export const VISIT_ACTIONS = Object.freeze([
   "aesel_signin_completed", "aesel_creation_published", "aesel_source_export_requested",
   "aesel_mac_download_clicked", "aesel_windows_download_clicked",
   "link_followed", "download_clicked", "canvas_interacted", "media_started",
+  "audio_started", "video_started", "live_preview_started",
   "round_started", "round_completed", "match_completed",
   "mime_interact", "mime_scroll_feed", "mime_original_open",
   "note_played", "painting_edited", "recording_started",
@@ -105,6 +106,15 @@ export function notepatVisitContext(hostname, search = "") {
   if (visitProperty(hostname) !== "notepat.com") return {};
   return { notepatVersion: 1, notepatReady: false, notepatPlayVersion: 1, notepatPlaySeconds: 0,
     campaign: new URLSearchParams(search).get("ac_campaign") === "nopaint-music" ? "nopaint-music" : null };
+}
+// Which kind of element began playing, never which file: no source, title or
+// track label is read. A live MediaStream (camera, microphone or screen
+// preview, or a call) is capture, so it is not counted as a media start.
+export function visitMediaStart(element) {
+  const tag = element?.tagName;
+  if (tag !== "AUDIO" && tag !== "VIDEO") return [];
+  if (typeof element.srcObject?.getTracks === "function") return ["live_preview_started"];
+  return ["media_started", tag === "AUDIO" ? "audio_started" : "video_started"];
 }
 export const VISIT_DEPTHS = Object.freeze([30, 60, 180, 600]);
 // Public upload milestones require a returned record code, never a click.

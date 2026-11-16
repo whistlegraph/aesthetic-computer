@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261110-notepat-play";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, visitMediaStart, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261116-media-kind";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -166,7 +166,7 @@ export function startVisitTracker(win = window, doc = document) {
   on(win, "click", followLink, true);
   on(win, "auxclick", followLink, true);
   on(doc, "playing", e => {
-    if (["AUDIO", "VIDEO"].includes(e.target?.tagName)) action("media_started");
+    for (const name of visitMediaStart(e.target)) action(name);
   }, true);
   on(doc, "visibilitychange", tick);
   on(win, "pagehide", tick);

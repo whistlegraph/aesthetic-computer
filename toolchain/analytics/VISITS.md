@@ -36,6 +36,12 @@ prove a saved painting. Media starts count only after interaction.
 
 Common pages record `link_followed`, `download_clicked`, `canvas_interacted`
 and `media_started`, with no destination URL, canvas content or media name.
+A media start also records its kind, `audio_started` or `video_started`, from
+the element's tag alone. A media element playing a live `MediaStream` (a
+camera, microphone or screen preview, or a call) is capture rather than
+playback: it records `live_preview_started` and no media start. Records from
+before 2026-11-16 counted such previews as `media_started` and carry no kind;
+on sotce.net the only media element is the photo editor's camera preview.
 Oskiewar additionally records `round_started`, `round_completed` (successful
 replay upload), and `match_completed` (uploaded final score reaches five).
 These are interaction-qualified, per-visit milestones; the existing replay
@@ -55,6 +61,9 @@ routes, opt-outs and known automation. These hooks do not use PostHog.
 
 | Action | Success condition |
 | --- | --- |
+| `media_started` | An `<audio>` or `<video>` element with a file or streamed source emitted `playing` after interaction; muted and looping elements qualify, so this is not proof anything was heard |
+| `audio_started` / `video_started` | The same event, by element tag; a visit can carry both |
+| `live_preview_started` | A media element whose source is a live `MediaStream` emitted `playing`; no device, label or frame is read |
 | `canvas_interacted` | Trusted pointer/touch contact with a canvas, or inside AC's marked pointer-transparent display; overlaid DOM controls and keyboard input alone do not qualify |
 | `note_played` | Notepat accepts a manual pad, keyboard or MIDI note and triggers its voice path; wrong song notes and Autopat do not qualify; this is not proof of audible output |
 | `painting_edited` | No Paint commits an accepted proposal to the artwork and undo history; generated previews do not qualify |
@@ -170,7 +179,9 @@ possible for the period before installation.
 Reports include `actionVisits` (visits with any reviewed action) and cumulative
 `interacted30`, `interacted60`, `interacted180`, `interacted600` visible-time
 thresholds. The analytics MCP exposes thresholds under `depth`, keyed by seconds.
-Action totals overlap; do not sum them to count visits. Lith's daily rollup
+The MCP also folds each site's actions by landing surface under
+`actionsBySurface`; the surface is where the visit began, not where the action
+happened. Action totals overlap; do not sum them to count visits. Lith's daily rollup
 retains these counts and each action flag for newly folded days. Previously
 written daily rows are unchanged and may lack these fields; missing means
 unavailable, not zero. Raw visit reports can still aggregate retained records.

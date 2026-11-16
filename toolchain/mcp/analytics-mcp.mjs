@@ -90,7 +90,7 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
 
   const sites = {};
   for (const row of report.audience) {
-    const site = sites[row._id.property] ??= { group: row.group, visits: 0, interacted: 0, engaged: 0, actionVisits: 0, depth: {}, visibleMinutes: 0, surfaces: {}, actions: {} };
+    const site = sites[row._id.property] ??= { group: row.group, visits: 0, interacted: 0, engaged: 0, actionVisits: 0, depth: {}, visibleMinutes: 0, surfaces: {}, actions: {}, actionsBySurface: {} };
     site.visits += row.visits;
     site.interacted += row.interacted;
     site.engaged += row.engaged;
@@ -98,7 +98,11 @@ async function visitsReport({ hours = 48, scope = "all", end } = {}) {
     for (const seconds of VISIT_DEPTHS) site.depth[seconds] = (site.depth[seconds] || 0) + (row[`interacted${seconds}`] || 0);
     site.visibleMinutes += row.activeSecondsLowerBound / 60;
     site.surfaces[row._id.surface] = (site.surfaces[row._id.surface] || 0) + row.visits;
-    for (const a of ACTIONS) if (row[a]) site.actions[a] = (site.actions[a] || 0) + row[a];
+    for (const a of ACTIONS) if (row[a]) {
+      site.actions[a] = (site.actions[a] || 0) + row[a];
+      const here = site.actionsBySurface[row._id.surface] ??= {};
+      here[a] = (here[a] || 0) + row[a];
+    }
   }
   for (const site of Object.values(sites)) site.visibleMinutes = Math.round(site.visibleMinutes);
   const automated = {};
@@ -492,7 +496,7 @@ const TOOLS = [
   },
   {
     name: "visits_report",
-    description: "First-party page visits across AC web properties (from lith's network-visits collector), folded per site: visits, interacted, engaged (10s+), visible minutes, actions, automated traffic. Page visits, not unique people. Retention is 35 days; collection began 2026-09-23.",
+    description: "First-party page visits across AC web properties (from lith's network-visits collector), folded per site: visits, interacted, engaged (10s+), visible minutes, actions (also split by landing surface in actionsBySurface; media starts split into audio_started / video_started, with camera or call previews counted apart as live_preview_started), automated traffic. Page visits, not unique people. Retention is 35 days; collection began 2026-09-23.",
     inputSchema: {
       type: "object",
       properties: {

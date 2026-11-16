@@ -140,7 +140,7 @@ const top = sites.slice(0, 5), rest = sites.slice(5);
 const maxSite = top[0]?.[1].visits || 0;
 for (const [site, s] of top) {
   const extra = [s.actions.painting_edited && `${s.actions.painting_edited} edits`, s.actions.painting_saved && `${s.actions.painting_saved} saves`, s.actions.painting_signed && `${s.actions.painting_signed} signed`,
-    s.actions.media_started && `${s.actions.media_started} plays`].filter(Boolean).join(" · ");
+    s.actions.media_started && `${s.actions.media_started} plays`, s.actions.live_preview_started && `${s.actions.live_preview_started} camera`].filter(Boolean).join(" · ");
   line(`  ${site.padEnd(19)} ${cyan(bar(s.visits, maxSite, 24))} ${pad(s.visits, 4)}   ${spark(perSite(site))}${extra ? `  ${dim(extra)}` : ""}`);
 }
 if (rest.length) {

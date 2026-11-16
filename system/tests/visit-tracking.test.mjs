@@ -227,3 +227,38 @@ test("notepaint funnel steps are allowlisted actions and carry no text", () => {
   assert.deepEqual(visit.actions, steps);
   assert.equal(validateVisit({ ...snapshot(), actions: ["note_written:a fox"] }, "https://notepaint.art"), null);
 });
+
+test("media starts record their kind and a camera preview is not a media start", async () => {
+  const { visitMediaStart } = await import("../public/aesthetic.computer/lib/visit-model.mjs");
+  const { startVisitTracker } = await import("../public/aesthetic.computer/lib/visit-tracker.mjs");
+  const live = { tagName: "VIDEO", srcObject: { getTracks: () => [] }, src: "blob:secret", title: "secret" };
+  assert.deepEqual(visitMediaStart({ tagName: "AUDIO", src: "https://example.org/secret.mp3" }), ["media_started", "audio_started"]);
+  assert.deepEqual(visitMediaStart({ tagName: "VIDEO", srcObject: null }), ["media_started", "video_started"]);
+  assert.deepEqual(visitMediaStart(live), ["live_preview_started"]);
+  assert.deepEqual(visitMediaStart({ tagName: "CANVAS" }), []);
+  for (const action of ["audio_started", "video_started", "live_preview_started"]) assert.ok(VISIT_ACTIONS.includes(action));
+
+  const target = () => {
+    const listeners = new Map();
+    return { addEventListener(type, fn) { listeners.set(type, [...(listeners.get(type) || []), fn]); },
+      removeEventListener() {}, emit(type, event) { for (const fn of listeners.get(type) || []) fn(event); } };
+  };
+  const sent = [], doc = { ...target(), visibilityState: "visible", querySelectorAll: () => [], querySelector: () => null,
+    referrer: "", hasFocus: () => true };
+  const win = { ...target(), navigator: {}, crypto: { randomUUID }, performance: { now: () => 0 },
+    location: { hostname: "sotce.net", pathname: "/write", search: "" },
+    fetch: async (_url, options) => { sent.push(options.body); return { ok: true }; },
+    setInterval: () => 1, clearInterval() {} };
+  win.top = win;
+  const api = startVisitTracker(win, doc);
+  doc.emit("playing", { target: live });
+  assert.deepEqual(JSON.parse(sent.at(-1)).actions, [], "nothing counts before interaction");
+  win.emit("keydown", { isTrusted: true, target: {} });
+  doc.emit("playing", { target: live });
+  assert.deepEqual(JSON.parse(sent.at(-1)).actions, ["live_preview_started"]);
+  doc.emit("playing", { target: { tagName: "AUDIO", src: "https://example.org/secret.mp3" } });
+  assert.deepEqual(JSON.parse(sent.at(-1)).actions, ["live_preview_started", "media_started", "audio_started"]);
+  assert.ok(!sent.join("").includes("secret"));
+  assert.ok(validateVisit(JSON.parse(sent.at(-1)), "https://sotce.net"));
+  api.stop();
+});
