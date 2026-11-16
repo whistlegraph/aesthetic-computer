@@ -60,11 +60,14 @@ final class Pal3DView: NSView {
         scnView.allowsCameraControl = false
         scnView.antialiasingMode = .multisampling4X
         scnView.isPlaying = true                    // keep the action loop alive
+        scnView.preferredFramesPerSecond = 30       // a corner pal never needs 60
         scnView.scene = built.scene
         scnView.pointOfView = built.camera
         addSubview(scnView)
 
         startIdle()
+        // Toys keep one fixed light so the fleet's pals match across screens.
+        if PalToy.name(objPath) != nil { return }
         // Light the pal from his surroundings: sample the desktop pixels behind
         // him every ~1.5s and tint the ambient/key lights to match.
         ambientTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
@@ -115,7 +118,9 @@ final class Pal3DView: NSView {
         spin.addChildNode(model)
         scene.rootNode.addChildNode(spin)
 
-        if let p = objPath, FileManager.default.fileExists(atPath: p),
+        if let toy = PalToy.build(objPath) {
+            model.addChildNode(toy)
+        } else if let p = objPath, FileManager.default.fileExists(atPath: p),
            let loaded = loadModel(p, tint: tint) {
             model.addChildNode(loaded)
         } else {
@@ -411,6 +416,7 @@ final class Pal3DView: NSView {
         ])
         pop.timingMode = .easeInEaseOut
         spinNode.runAction(pop, forKey: "singPop")
+        modelHolder.childNodes.forEach(PalToy.sing)
     }
 
     /// A musical note that rises out of the pal and fades — rendered INSIDE the

@@ -103,10 +103,27 @@ struct MissionLanePalette {
     let primary: NSColor
     let secondary: NSColor
     let border: NSColor
+    // The card is glass over the wallpaper: `background` is only the ground the
+    // text colors are checked against (pale water by day, deep water by night);
+    // `glass` is the thin tint actually painted.
+    let glass: NSColor
+    let chip: NSColor
+    let line: NSColor
+    let textShadow: NSShadow
 
     init(color: NSColor, dark: Bool) {
-        let base = dark ? hexColor(0x151B26) : NSColor.white
+        let base = dark ? hexColor(0x1C2147) : hexColor(0xDDF1F4)
         background = base.blended(withFraction: dark ? 0.20 : 0.12, of: color) ?? base
+        glass = ((dark ? hexColor(0x0E1424) : NSColor.white)
+            .blended(withFraction: dark ? 0.30 : 0.22, of: color) ?? color)
+            .withAlphaComponent(dark ? 0.40 : 0.34)
+        chip = color
+        line = (dark ? hexColor(0xEDF2FA) : hexColor(0x182332)).withAlphaComponent(dark ? 0.62 : 0.55)
+        // One hard pixel, the way the wallpaper sets its own type.
+        textShadow = NSShadow()
+        textShadow.shadowColor = dark ? NSColor.black.withAlphaComponent(0.55) : NSColor.white.withAlphaComponent(0.65)
+        textShadow.shadowBlurRadius = 0
+        textShadow.shadowOffset = NSSize(width: 1, height: -1)
         primary = dark ? hexColor(0xEDF2FA) : hexColor(0x182332)
         let proposedAccent = color.blended(withFraction: dark ? 0.58 : 0.42,
             of: dark ? .white : hexColor(0x102030)) ?? color
@@ -119,17 +136,71 @@ struct MissionLanePalette {
         }
         accent = readable(proposedAccent, on: background, toward: primary)
         secondary = readable(dark ? hexColor(0xBAC7D8) : hexColor(0x46566B), on: background, toward: primary)
-        border = (dark ? NSColor.white : hexColor(0x1D3049)).withAlphaComponent(dark ? 0.13 : 0.14)
+        border = accent.withAlphaComponent(dark ? 0.75 : 0.70)
     }
 }
 
-// Each lane is a band tinted with its own color; stacked flush, the lanes
-// read as one brick separated only by color.
+let missionLaneRadius: CGFloat = 8
+
+// Every lane wears the same glass: a thin tint the water shows through, a 1px
+// edge and a solid stripe in the lane's color. Static fills only; no shadows.
 final class MissionLaneCardView: NSView {
     var palette = MissionLanePalette(color: .gray, dark: false)
+    var alert: NSColor?    // blocked, failed, offline: the edge turns to the warning color
+    var quiet = false      // idle: the edge recedes
     override func draw(_ dirtyRect: NSRect) {
-        palette.background.setFill()
-        bounds.fill()
+        let body = bounds.insetBy(dx: 0, dy: 1)
+        let shape = NSBezierPath(roundedRect: body, xRadius: missionLaneRadius, yRadius: missionLaneRadius)
+        NSGraphicsContext.saveGraphicsState()
+        shape.addClip()
+        palette.glass.setFill()
+        body.fill(using: .sourceOver)
+        palette.chip.setFill()
+        NSRect(x: body.minX, y: body.minY, width: 4, height: body.height).fill()
+        NSGraphicsContext.restoreGraphicsState()
+        let width: CGFloat = alert == nil ? 1 : 2
+        let edge = NSBezierPath(roundedRect: body.insetBy(dx: width / 2, dy: width / 2),
+                                xRadius: missionLaneRadius - width / 2, yRadius: missionLaneRadius - width / 2)
+        edge.lineWidth = width
+        (alert ?? palette.border.withAlphaComponent(quiet ? 0.42 : palette.border.alphaComponent)).setStroke()
+        edge.stroke()
+    }
+    override func hitTest(_ p: NSPoint) -> NSView? { nil }
+}
+
+// The lanes grow out of the pal: one thin line leaves the avatar, runs along
+// the top edge, and drops a stem to each card from a node in the lane's color.
+// A second branch carries the "live" pill. Drawn once per layout, never animated.
+final class MissionLaneRailView: NSView {
+    var line = NSColor.gray
+    var trunk: [NSPoint] = []          // avatar → elbow → along the top
+    var branch: [NSPoint] = []         // elbow → the live pill
+    var nodes: [(at: NSPoint, drop: CGFloat, color: NSColor, alert: NSColor?)] = []
+    override func draw(_ dirtyRect: NSRect) {
+        // Half-point centers keep a 1pt stroke on one device pixel at 1x.
+        func snap(_ p: NSPoint) -> NSPoint { NSPoint(x: floor(p.x) + 0.5, y: floor(p.y) + 0.5) }
+        func stroke(_ points: [NSPoint]) {
+            guard points.count > 1 else { return }
+            let path = NSBezierPath()
+            path.move(to: snap(points[0]))
+            for (i, p) in points.enumerated().dropFirst() {
+                if i < points.count - 1 { path.appendArc(from: snap(p), to: snap(points[i + 1]), radius: 3) }
+                else { path.line(to: snap(p)) }
+            }
+            path.lineWidth = 1
+            path.stroke()
+        }
+        line.setStroke()
+        stroke(trunk); stroke(branch)
+        for n in nodes { stroke([n.at, NSPoint(x: n.at.x, y: n.at.y - n.drop)]) }
+        for n in nodes {
+            let c = snap(n.at)
+            let dot = NSBezierPath(ovalIn: NSRect(x: c.x - 4, y: c.y - 4, width: 8, height: 8))
+            n.color.setFill(); dot.fill()
+            (n.alert ?? line.withAlphaComponent(1)).setStroke()
+            dot.lineWidth = n.alert == nil ? 1 : 2
+            dot.stroke()
+        }
     }
     override func hitTest(_ p: NSPoint) -> NSView? { nil }
 }
@@ -548,6 +619,13 @@ final class MissionLaneRowField: NSTextField {
     private let timing = MissionTimeBudgetView()
     private var hasTiming = false
     var lineHeight: CGFloat = 18
+    var ink: NSShadow?   // hard 1px text shadow, so type holds over moving water
+    private func inked(_ text: NSAttributedString) -> NSAttributedString {
+        guard let ink = ink, text.length > 0 else { return text }
+        let m = NSMutableAttributedString(attributedString: text)
+        m.addAttribute(.shadow, value: ink, range: NSRange(location: 0, length: m.length))
+        return m
+    }
     var preferredHeight: CGFloat { lineHeight + CGFloat(details.count) * 15 + (hasTiming ? 17 : 0) + (details.isEmpty && !hasTiming ? 0 : 2) }
     override var isFlipped: Bool { false }
 
@@ -562,7 +640,7 @@ final class MissionLaneRowField: NSTextField {
     }
     required init?(coder: NSCoder) { fatalError("no nib") }
     override var attributedStringValue: NSAttributedString {
-        didSet { marquee.setText(attributedStringValue) }
+        didSet { marquee.setText(inked(attributedStringValue)) }
     }
     func configure(item: MissionItem, palette: MissionLanePalette, now: Date) {
         let lines = item.subitems.isEmpty ? item.detail.map { [$0] } ?? [] : item.subitems
@@ -582,7 +660,7 @@ final class MissionLaneRowField: NSTextField {
             a.append(NSAttributedString(string: "  " + text, attributes: [
                 .font: NSFont.systemFont(ofSize: evidence ? 10.5 : 11, weight: next ? .medium : .regular),
                 .foregroundColor: color]))
-            view.setText(a)
+            view.setText(inked(a))
             details.append(view); addSubview(view)
         }
         timing.track = palette.secondary.withAlphaComponent(0.18)
@@ -609,9 +687,9 @@ final class MissionLaneRowField: NSTextField {
         } else {
             text = missionTimeLabel(item, now: now) ?? ""
         }
-        timing.label = NSAttributedString(string: text, attributes: [
+        timing.label = inked(NSAttributedString(string: text, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9.5, weight: .medium),
-            .foregroundColor: palette.secondary.withAlphaComponent(0.8), .kern: 0.2])
+            .foregroundColor: palette.secondary.withAlphaComponent(0.8), .kern: 0.2]))
         timing.setAccessibilityLabel(text)
         timing.needsDisplay = true
     }
@@ -867,6 +945,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
     var missionActivityViews: [MissionActivityView?] = []
     var missionTimeRanges: [NSRange?] = []
     var missionLaneCards: [MissionLaneCardView?] = []
+    let missionLaneRail = MissionLaneRailView()
     var overtimeOn = false
     var overtimeLines: [String] = []
 
@@ -1190,6 +1269,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
             f.cell?.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             f.wantsLayer = true
             f.shadow = item.laneID == nil ? textShadow : nil
+            (f as? MissionLaneRowField)?.ink = lanePalette?.textShadow
             let ip = NSMutableParagraphStyle()
             ip.alignment = .left; ip.lineBreakMode = inLane ? .byClipping : .byWordWrapping
             if item.isLaneHeader {
@@ -1239,6 +1319,9 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
                 f.setAccessibilityLabel(item.text + (item.detail.map { ", " + $0 } ?? ""))
                 let card = MissionLaneCardView()
                 card.palette = palette
+                let tone = item.laneState.map { missionLaneStateSymbol($0).tone }
+                card.alert = tone == "red" ? red : nil
+                card.quiet = tone == "secondary"
                 c.content.addSubview(card, positioned: .below, relativeTo: nil)
                 c.content.addSubview(f)
                 missionLaneCards.append(card)
@@ -1272,18 +1355,22 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
             default: break
             }
             let a = NSMutableAttributedString()
+            var footerInk: NSShadow?
             if item.isFooter {
                 // Live indicator: radio waves while fresh, a cut link when not.
                 let down = item.flag == "red"
                 a.append(NSAttributedString(string: "  ", attributes: [.font: NSFont.systemFont(ofSize: 11)]))
                 a.append(missionSymbol(down ? "wifi.slash" : "dot.radiowaves.left.and.right",
                                        color: down ? red : green, size: 10))
-                textColor = down ? red : secondary
-                // A pill behind the line so it reads over any window.
-                f.layer?.backgroundColor = (dark ? hexColor(0x151B26) : NSColor.white)
-                    .withAlphaComponent(0.88).cgColor
-                f.layer?.cornerRadius = 9
+                // The pill wears the lanes' glass, uncolored: it speaks for all of them.
+                let glass = MissionLanePalette(color: .gray, dark: dark)
+                textColor = down ? red : glass.secondary
+                f.layer?.backgroundColor = glass.glass.cgColor
+                f.layer?.cornerRadius = missionLaneRadius
+                f.layer?.borderWidth = down ? 2 : 1
+                f.layer?.borderColor = (down ? red : glass.border.withAlphaComponent(0.42)).cgColor
                 f.shadow = nil
+                footerInk = glass.textShadow
             } else if inLane {
                 let (symbol, tone) = missionRowSymbol(item)
                 let toneColor = tone == "green" ? green : tone == "red" ? red
@@ -1351,6 +1438,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
                     .font: monoFont(11), .foregroundColor: barColor,
                     .paragraphStyle: ip]))
             }
+            if let ink = footerInk { a.addAttribute(.shadow, value: ink, range: NSRange(location: 0, length: a.length)) }
             f.attributedStringValue = a
             if let row = f as? MissionLaneRowField, let palette = lanePalette {
                 row.configure(item: item, palette: palette, now: now)
@@ -1507,6 +1595,7 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
         missionItemFields.forEach { $0.isHidden = !missionVisible }
         missionActivityViews.forEach { $0?.isHidden = !missionVisible }
         missionLaneCards.forEach { $0?.isHidden = !missionVisible }
+        missionLaneRail.isHidden = true
         guard missionVisible else { return }
         var my = missionY + mm.total - mm.title
         missionTitleField.frame = NSRect(x: 7, y: my, width: missionW, height: mm.title)
@@ -1540,6 +1629,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
     /// Each lane card's width when the lanes run along the top edge.
     private let railCardW: CGFloat = 290
     private let railGap: CGFloat = 8
+    /// Headroom above the cards for the line they hang from.
+    private let railTop: CGFloat = 12
 
     var railActive: Bool { showsLanes && mission != nil }
 
@@ -1562,7 +1653,8 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
         let tallest = lanes.map { r in r.reduce(CGFloat(0)) { $0 + mm.items[$1] } }.max() ?? 0
         let looseH = loose.reduce(CGFloat(0)) { $0 + mm.items[$1] }
         let n = CGFloat(max(1, lanes.count))
-        return CGSize(width: n * railCardW + (n - 1) * railGap, height: tallest + (looseH > 0 ? looseH + 4 : 0))
+        return CGSize(width: n * railCardW + (n - 1) * railGap,
+                      height: railTop + tallest + (looseH > 0 ? looseH + 4 : 0))
     }
 
     func layoutRail(in controller: PalController, rect: NSRect) {
@@ -1576,10 +1668,16 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
         missionItemFields.forEach { $0.isHidden = false }
         missionActivityViews.forEach { $0?.isHidden = false }
         missionLaneCards.forEach { $0?.isHidden = false }
-        // Same card geometry as the column, one column per lane.
+        // Same card geometry as the column, one column per lane; every card
+        // takes the tallest lane's height so the row reads as one piece.
+        let tallest = lanes.map { r in r.reduce(CGFloat(0)) { $0 + mm.items[$1] } }.max() ?? 0
+        let cardsTop = rect.maxY - railTop
+        let railY = rect.maxY - 5
+        let ink = MissionLanePalette(color: .gray, dark: paneIsDark())
+        var nodes: [(at: NSPoint, drop: CGFloat, color: NSColor, alert: NSColor?)] = []
         for (k, lane) in lanes.enumerated() {
             let x0 = rect.minX + CGFloat(k) * (railCardW + railGap) - 7
-            var my = rect.maxY
+            var my = cardsTop
             var card: MissionLaneCardView?
             var cardTop: CGFloat = 0
             for i in lane {
@@ -1594,24 +1692,52 @@ final class FuserPlugin: NSObject, PalPlugin, WidthHinting, CollapsedAccessory, 
                 missionActivityViews[i]?.needsLayout = true
                 missionItemFields[i].frame = NSRect(x: x0 + 19, y: my + bottom + headingGap,
                                                     width: railCardW - 24, height: textHeight)
-                if bottom > 0 {
-                    card?.frame = NSRect(x: x0 + 7, y: my, width: railCardW, height: cardTop - my)
-                    card?.needsDisplay = true
-                    card = nil
+                if bottom > 0, let card = card {
+                    card.frame = NSRect(x: x0 + 7, y: cardTop - tallest, width: railCardW, height: tallest)
+                    card.needsDisplay = true
+                    nodes.append((NSPoint(x: x0 + 7 + 14, y: railY), railY - cardTop + 1,
+                                  card.palette.chip, card.alert))
                 }
+                if bottom > 0 { card = nil }
             }
         }
-        // Rows outside the lanes ("live · just now") sit under the first card.
+        // Rows outside the lanes ("live · just now") sit under the card nearest
+        // the pal, each a pill hugging its own text.
+        let left = controller.corner != "TR"
         var my = rect.minY + loose.reduce(CGFloat(0)) { $0 + mm.items[$1] }
+        var pill: NSRect?
         for i in loose {
             my -= mm.items[i]
-            missionActivityViews[i]?.frame = NSRect(x: rect.minX, y: my, width: railCardW, height: mm.items[i])
-            missionItemFields[i].frame = NSRect(x: rect.minX + 8, y: my, width: railCardW * 2, height: mm.items[i])
+            let w = min(railCardW, ceil(missionItemFields[i].attributedStringValue.size().width) + 14)
+            let frame = NSRect(x: left ? rect.minX + 8 : rect.maxX - 8 - w, y: my, width: w, height: mm.items[i])
+            missionActivityViews[i]?.frame = frame
+            missionItemFields[i].frame = frame
+            if mission?.items[i].isFooter == true { pill = frame }
         }
+        // The line: out of the avatar's side, up the gap, along the top.
+        let g = controller.glyphView.frame
+        // Start under the art itself (an emoji glyph's frame is far wider than it).
+        let reach = min(g.width, g.height) * 0.3
+        let from = NSPoint(x: g.midX + (left ? reach : -reach), y: g.midY)
+        let tx = left ? rect.minX - 4 : rect.maxX + 3
+        let far = (left ? nodes.map { $0.at.x }.max() : nodes.map { $0.at.x }.min()) ?? tx
+        missionLaneRail.line = ink.line
+        missionLaneRail.trunk = [from, NSPoint(x: tx, y: from.y), NSPoint(x: tx, y: railY), NSPoint(x: far, y: railY)]
+        missionLaneRail.branch = pill.map { [NSPoint(x: tx, y: from.y), NSPoint(x: tx, y: $0.midY),
+                                             NSPoint(x: left ? $0.minX : $0.maxX, y: $0.midY)] } ?? []
+        missionLaneRail.nodes = nodes
+        if missionLaneRail.superview !== controller.content {
+            controller.content.addSubview(missionLaneRail, positioned: .below, relativeTo: nil)
+        }
+        missionLaneRail.frame = controller.content.bounds
+        missionLaneRail.isHidden = false
+        missionLaneRail.needsDisplay = true
     }
 
     func setCollapsed(_ collapsed: Bool) {
         orrery.isHidden = !collapsed || orrery.isEmpty
+        missionLaneRail.isHidden = true   // layoutRail brings it back
+
         if minimal || showsLanes {
             statusField.isHidden = true
             overtimeField.isHidden = true; overtimeChip.isHidden = true

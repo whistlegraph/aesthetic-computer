@@ -177,6 +177,13 @@ if profile == "fuser", want3D {
         config.singPath = { _ in nil }
     }
 }
+// Machines with a procedural toy (PalToys.swift) wear it by default; the
+// right-click 3D ⇄ 2D toggle is the way back to the flat glyph.
+if profile == "fuser", !want3D, PalToy.names.contains((argValue("--name") ?? "").lowercased()) {
+    config.model3D = true
+    config.model3DPath = PalToy.path((argValue("--name") ?? "").lowercased())
+    config.avatarTogglable = true
+}
 
 // Dev: `MacPal --profile fuser --name blueberry --snapshot out.png` renders the
 // 3D model offscreen to a PNG (mid-animation) and exits — for QA without the
