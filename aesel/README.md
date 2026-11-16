@@ -1,6 +1,6 @@
 # Aesel
 
-Make media easily.
+Easily make new media.
 
 Aesel also powers the Aesthetic.Computer prompt's automatic KidLisp sketches through
 `/api/aesel-sketch`: an unknown drawable word becomes a shared drawing with a
