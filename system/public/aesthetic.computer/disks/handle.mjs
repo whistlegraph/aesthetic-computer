@@ -17,7 +17,7 @@ let saving = false; // Guard against concurrent saves
 let supporter = null, supportChecking = false, supportSource = "handle-colors", lifecycle = 0;
 const DRAFT_KEY = "handle:color-preview";
 const SAVE_COOLDOWN = 3000; // Minimum ms between save attempts
-async function boot({ get, net, store, query, help, send }) {
+async function boot({ get, net, store, query, help, send, user, jump }) {
   handleButtons = {}; handleLayout = null; handleMusic = true; handleScroll = 0; handleScrollMax = 0; handleDragSlider = null;
   send?.({ type: "onboarding:audio", content: { action: "enter" } });
   const mine = ++lifecycle;
@@ -29,6 +29,9 @@ async function boot({ get, net, store, query, help, send }) {
   handle = store["handle"];
 
   if (!handle) {
+    // Signed out: apps that sign in by email code send newcomers here to pick
+    // an @name, and this browser has no session. The name page signs them in.
+    if (!user) { jump("/choir/name/"); return; }
     // No handle set - jump to prompt to set one
     return {
       jump: "prompt",
