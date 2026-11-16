@@ -18,12 +18,15 @@ export const BOP = Object.freeze({
   high: 2.0, // and at most
   bounce: 9, // the stomper leaves at this speed, upward
   rest: Math.round(HZ * 0.75), // ticks before the same head can be bopped again
+  duck: 0.45, // how far a ducking head drops
 });
+// How far below standing height `q`'s crown is right now.
+export const ducked = (q) => (q?.duck && q.onGround ? BOP.duck : 0);
 
 // Is `a` coming down onto `q`'s head?
 export function lands(a, q) {
   if (!a?.alive || !q?.alive || a.onGround || a.vy > -0.5 || a.vy - (q.vy || 0) > -0.5) return false;
-  const up = a.y - q.y;
+  const up = a.y - q.y + ducked(q);
   return up >= BOP.low && up <= BOP.high && Math.hypot(a.x - q.x, a.z - q.z) < BOP.reach;
 }
 
@@ -115,11 +118,12 @@ export const GAME = Object.freeze({
   hud: Object.freeze({ reticle: false, face: false, aim: false }),
   legend: Object.freeze({
     keys: [
-      [['a', 'KeyA'], ['d', 'KeyD'], ' move / ', ['space', 'Space'], ' jump'],
+      [['←', ['ArrowLeft', 'KeyA']], ['→', ['ArrowRight', 'KeyD']], ' move'],
+      [['↑', ['ArrowUp', 'KeyW', 'Space']], ' jump / ', ['↓', ['ArrowDown', 'KeyS']], ' duck'],
       ['land on a head'],
-      [['t', 'KeyT'], ' chat / ', ['$', 'Digit4'], ' menu'],
+      [['t', 'KeyT'], ' chat / ', ['$', 'Digit4'], ' menu / ', ['`', 'Backquote'], ' boxes'],
     ],
-    pad: ['[LS] move / [LT] jump', 'land on a head', '[START] $ menu'],
+    pad: ['[LS] move / [LT] jump', '[LS] down to duck', 'land on a head', '[START] $ menu'],
     touch: [],
   }),
 });

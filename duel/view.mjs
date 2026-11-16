@@ -1,4 +1,5 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
+import { BOP, DRONE, ducked } from './bop.mjs';
 import { podFront, house, houseWalls, HOUSE } from './park.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject, objectBoxes } from './objects.mjs';
@@ -717,6 +718,7 @@ export async function createView(canvas) {
     game = null, // 🎮 the room's gametype (games.mjs): its ledges, legend and what it hides
     bops = [], // bops landed, by seat
     combos = [], // 🔗 a chain in the air, by seat: [how many, worth] or 0
+    debug = false, // 🔲 a game's hitboxes and numbers
     boomLength = 4, // how far back the third-person camera sits
     rockets = [],
     status = '',
@@ -1112,12 +1114,35 @@ export async function createView(canvas) {
     }
     for (const d of drones)
       draw(droneModel(), d.x, d.y + Math.abs(Math.sin(now / 90 + d.id)) * 0.03, 0, (d.dir > 0 ? Math.PI : -Math.PI) / 2);
+    // 🔲 Hitboxes (`): every body in green, the band a stomper's feet must
+    // fall through to bop it in pink, drones in cyan, ledge tops in white,
+    // your own feet as a yellow mark. Drawn in front of the plane.
+    if (debug && game) {
+      const all = Array.from({ length: Math.max(players.length, seat + 1) }, (_, i) => (i === seat && me ? me : players[i]));
+      draw(model(({ box }) => {
+        const z = 0.75, t = 0.035;
+        const bar = (x0, y0, x1, y1, c) => box((x0 + x1) / 2, (y0 + y1) / 2, z, Math.max(t, x1 - x0), Math.max(t, y1 - y0), 0.02, c, c, c);
+        const frame = (x0, y0, x1, y1, c) => { bar(x0, y0, x1, y0, c); bar(x0, y1, x1, y1, c); bar(x0, y0, x0, y1, c); bar(x1, y0, x1, y1, c); };
+        for (const p of all) {
+          if (!p?.alive) continue;
+          const feet = p.y - CFG.eyeHeight, low = ducked(p);
+          frame(p.x - 0.4, feet, p.x + 0.4, feet + 1.9 - low, 0x3fb950);
+          frame(p.x - BOP.reach, feet + BOP.low - low, p.x + BOP.reach, feet + BOP.high - low, 0xff3296);
+        }
+        for (const d of drones) {
+          frame(d.x - 0.35, d.y, d.x + 0.35, d.y + DRONE.tall, 0x3fe0d0);
+          frame(d.x - BOP.reach, d.y + DRONE.tall - 0.5, d.x + BOP.reach, d.y + DRONE.tall + 0.25, 0xff3296);
+        }
+        for (const b of ledges || []) bar(b.xMin, b.yMax, b.xMax, b.yMax, 0xffffff);
+        if (me?.alive) { const feet = me.y - CFG.eyeHeight; bar(me.x - 0.12, feet - 0.02, me.x + 0.12, feet + 0.02, 0xffe066); }
+      }));
+    }
     for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
       const p = i === seat && me ? me : players[i];
       if (!p?.alive) continue;
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
-        base = p.y - CFG.eyeHeight;
+        base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
       if (i !== seat || third || !me) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
@@ -1581,6 +1606,11 @@ export async function createView(canvas) {
           const word = scoreShown === 1 ? 'bop' : 'bops', wy = y - unit * 32;
           small(word, unit, wy - unit, 0.000002, unit * 2, INK);
           small(word, 0, wy, 0, unit * 2, THEME.dim);
+          if (debug && me) {
+            const info = `feet ${(me.y - CFG.eyeHeight).toFixed(2)}  vy ${(me.vy || 0).toFixed(1)}  ${me.onGround ? 'ground' : 'air'}${me.duck ? '  duck' : ''}  x ${me.x.toFixed(2)}`;
+            small(info, unit, -H / 2 + hud.safeY + 22 * unit - unit, 0.000002, unit, INK);
+            small(info, 0, -H / 2 + hud.safeY + 22 * unit, 0, unit, 0xffe066);
+          }
           const cy = wy - unit * 26;
           if (chainShown[0] || flyPoints) {
             const kick = Math.max(0, 1 - (now - chainAt) / 200);

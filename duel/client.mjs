@@ -76,7 +76,8 @@ function game() {
   return gameOf;
 }
 const flat = () => !!game()?.flat;
-let flatYaw = 90;
+let flatYaw = 90, flatJumpHeld = false;
+let debugBoxes = false; // 🔲 ` in a game: hitboxes and numbers
 // Its camera, eased toward where the game wants it so framing never snaps.
 let gameCam = null;
 function gameCamera(me, players, elapsed) {
@@ -1399,6 +1400,12 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
+  // 🔲 ` in a game shows its hitboxes, whether or not the keys are engaged.
+  if (game() && e.code === 'Backquote' && !e.repeat) {
+    debugBoxes = !debugBoxes;
+    e.preventDefault();
+    return;
+  }
   if (!locked() && !keyboardMode && !synthetic.has(e)) {
     if (touch.active || !CONTROL_KEYS.includes(e.code)) return;
     keyboardMode = true;
@@ -1879,11 +1886,18 @@ function step(now) {
     };
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
-      const along = c.right || 0;
+      // Up jumps and down ducks (the arrows as well as WASD; the stick too).
+      const typingNow = prompt.open || chat.open;
+      const arrows = typingNow ? 0 : Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft'));
+      const along = clamp((c.right || 0) + arrows, -1, 1), lift = c.fwd || 0;
       if (along) flatYaw = along > 0 ? 90 : 270;
       yaw = flatYaw;
       pitch = 0;
-      Object.assign(c, { yaw, pitch, fwd: Math.abs(along), right: 0, fire: false });
+      const up = !typingNow && (keys.has('ArrowUp') || keys.has('KeyW')), down = !typingNow && (keys.has('ArrowDown') || keys.has('KeyS'));
+      // A held key jumps once: it must come up before it jumps again, as space does.
+      const jump = (up || lift > 0.6) && !flatJumpHeld;
+      flatJumpHeld = up || lift > 0.6;
+      Object.assign(c, { yaw, pitch, fwd: Math.abs(along), right: 0, fire: false, buttons: c.buttons || jump ? 1 : 0, duck: down || lift < -0.6 });
     }
     jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
@@ -2025,7 +2039,8 @@ function step(now) {
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two.
     players: shownPlayers,
-    me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
+    me: seat < 0 ? null : player ? { ...displayed, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy } : spawn(seat),
+    debug: !!game() && debugBoxes,
     camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0 && !joining(),
     controller: controller.id,

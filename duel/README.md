@@ -93,6 +93,12 @@ The score sits top centre. Bops chained without touching down are a combo: the
 first is worth 1, the second 2, the third 3; the chain reads under the score as
 `+6 x3` and is counted in when the feet land. Bopped out of the air, it is lost.
 
+Up (W, the up arrow, space, the stick) jumps and down ducks: on a ledge it drops
+through, in the air it dives, on the ground the head sits lower and is harder to
+land on. The left and right arrows walk as A and D do. `` ` `` shows the hitboxes:
+bodies in green, the band a stomper's feet must fall through in pink, drones in
+cyan, your feet in yellow, and a line of numbers.
+
 A room like this is a **gametype** (`games.mjs`): one object naming its ledges,
 its camera (botbop's frames whoever is near enough to bop), its own legend, and
 the parts of dool's interface it does without (the reticle, the face cam, the

@@ -463,3 +463,26 @@ test('botbop combos: a chain in the air is worth 1 + 2 + 3, banked on landing, l
   assert.equal(o.player.alive, false);
   assert.deepEqual([o.pending, o.combo, o.bops || 0], [0, 0, 0]);
 });
+test('botbop duck: drops through a ledge, falls faster, and lowers the head', async () => {
+  const { ducked, BOP: B } = await import('../bop.mjs');
+  const l = LEDGES[0], x = (l.xMin + l.xMax) / 2;
+  let p = { ...spawn(0), x, z: 0, y: l.yMax + 1.7, onGround: true };
+  for (let i = 0; i < 30; i++) p = move(p, cmd(i + 1), [], i / HZ, LEDGES, true);
+  assert.ok(Math.abs(p.y - 1.7 - l.yMax) < 1e-6, 'stands on the ledge');
+  for (let i = 0; i < 60; i++) p = move(p, cmd(i + 1, { duck: true }), [], i / HZ, LEDGES, true);
+  assert.ok(Math.abs(p.y - 1.7) < 1e-6 && p.onGround && p.duck, 'ducking drops through to the floor');
+  assert.equal(command({ ...cmd(1), duck: true }).duck, true);
+  // A dive lands sooner than a fall.
+  const fall = (duck) => { let q = { ...spawn(0), x: 7, z: 0, y: 1.7 + 4, onGround: false }, n = 0; while (!q.onGround && n < 300) { q = move(q, cmd(n + 1, { duck }), [], n / HZ, LEDGES, true); n++; } return n; };
+  assert.ok(fall(true) < fall(false));
+  // A ducked head is lower: feet that would bop a standing head pass over it.
+  const q = { ...spawn(1), x: 0, z: 0, onGround: true, duck: true };
+  const a = { ...spawn(0), x: 0, z: 0, y: q.y + 1.9, vy: -3, onGround: false };
+  assert.equal(ducked(q), B.duck);
+  assert.equal(lands(a, { ...q, duck: false }), true);
+  assert.equal(lands({ ...a, y: q.y + 1.9 }, q), false, 'too high over a ducked head');
+  assert.equal(lands({ ...a, y: q.y + 1.0 }, q), true, 'lower feet still bop it');
+  // Outside a flat room the flag does nothing.
+  const open = move({ ...spawn(0) }, cmd(1, { duck: true }));
+  assert.ok(!open.duck);
+});

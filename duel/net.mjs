@@ -19,6 +19,7 @@ export function command(raw) {
     fire: raw.fire === true,
     use: raw.use === true,
     drop: raw.drop === true,
+    duck: raw.duck === true,
     chalk:
       raw.chalk && ['x', 'y', 'z'].every((k) => Number.isFinite(raw.chalk[k]))
         ? { x: clamp(raw.chalk.x, -WORLD, WORLD), y: clamp(raw.chalk.y, 0, 30), z: clamp(raw.chalk.z, -WORLD, WORLD) }

@@ -49,6 +49,7 @@ export const CFG = Object.freeze({
   obstacles: WALLS,
 });
 export const FIRE_COOLDOWN = 42;
+const DIVE = 30; // extra fall, m/s², while ducking in the air
 export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
 // Stand back from the middle along the seat's yaw, so every spawn faces in.
@@ -82,8 +83,11 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   const boxes = objectBoxes(objects, time),
     feet = player.y - CFG.eyeHeight;
   const under = (b, p) => p.x >= b.xMin && p.x <= b.xMax && p.z >= b.zMin && p.z <= b.zMax;
-  const ledges = fixed.filter((b) => b.platform),
-    solid = ledges.length ? fixed.filter((b) => !b.platform) : fixed;
+  // 🦆 Ducking (flat rooms): ledges let the body through, a fall is faster,
+  // and on the ground the head is lower (bop.mjs).
+  const duck = flat && !!cmd.duck;
+  const solid = fixed.some((b) => b.platform) ? fixed.filter((b) => !b.platform) : fixed,
+    ledges = duck ? [] : fixed.filter((b) => b.platform);
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
   const grounded = player.onGround && (feet < 0.02 || !!support);
   const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
@@ -125,7 +129,11 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   }
   next.x = clamp(next.x, -WORLD + 0.4, WORLD - 0.4);
   next.z = clamp(next.z, -WORLD + 0.4, WORLD - 0.4);
-  if (flat) next.z = next.vz = 0;
+  if (flat) {
+    next.z = next.vz = 0;
+    next.duck = duck;
+    if (duck && !next.onGround) next.vy -= DIVE * DT;
+  }
   return next;
 }
 
