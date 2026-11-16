@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "paper": "Who Is Still No Painting?",
+  "pdf": "who-is-still-no-painting.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "pdfSha256": "5cbb8abfb377d6ad9fb73731934332158fa11115fa00ad6b77cd3bfaceef63c5",
+  "reviewedAt": "2026-11-16T22:56:41Z",
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Pink period confirmed at 300 dpi in the byline; the name is boxed so it never hyphenates. Also in section 6 and reference 2."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "saves-per-day",
+      "page": 2,
+      "crop": [
+        0.5,
+        0.05,
+        0.46,
+        0.3
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Bar chart of saves per UTC day, 19 October to 16 November. Pink for Lima-morning days, purple for the 00:41-07:37 UTC days, gray otherwise; values labelled on the five class days only; gridlines at 50; axis dates at 19 Oct, 2 Nov, 9 Nov and 16. The 139 and 196 labels sit on adjacent bars without touching."
+    }
+  ],
+  "pages": {
+    "count": 3,
+    "notes": "Two-column arXiv lane after the keymaps title block, with a cover (an empty school desk-chair with a laptop showing a No Paint painting; variant v1b of two, v1a crowded the left edge; corner vignette, no people). All three pages inspected at 90 dpi; page 3 ends at about 70% with references and the source bundle. Three coloured grid tables with vertical rules; no overfull boxes. Retitled Who Is Still No Painting? and rebuilt; the question mark is set in the sans face because YWFT has no reliable one. Page 1 re-inspected at 110 dpi; layout of pages 2 and 3 unchanged (one added sentence in section 1)."
+  }
+}

@@ -414,6 +414,11 @@ const PAPER_MAP = {
     siteName: "who-is-painting-26-arxiv",
     title: "Who Is Painting",
   },
+  "arxiv-who-is-still-no-painting": {
+    base: "who-is-still-no-painting",
+    siteName: "who-is-still-no-painting-26-arxiv",
+    title: "Who Is Still No Painting?",
+  },
   "arxiv-traffic": {
     base: "traffic",
     siteName: "aesthetic-network-traffic-26-arxiv",
@@ -648,6 +653,7 @@ const CATEGORIES = [
       "arxiv-hand-and-loop",
       "arxiv-traffic",
       "arxiv-who-is-painting",
+      "arxiv-who-is-still-no-painting",
       "arxiv-network-audit",
       "arxiv-diversity",
       "arxiv-open-schools",
