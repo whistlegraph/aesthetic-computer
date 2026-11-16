@@ -16,7 +16,7 @@ import {
   WORLD,
 } from './world.mjs';
 import { command } from './net.mjs';
-import { BOP, lands, arenaSpawn } from './bop.mjs';
+import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from './bop.mjs';
 
 // Input from a real network arrives late and in bursts. A batch carries the
 // newest commands again so a dropped message costs nothing; the queue holds
@@ -49,6 +49,7 @@ export class Match {
     this.chalkWhole = new Set();
     // 🍄 hedbop's arena (setArena): its ledges, or null in any other room.
     this.arena = null;
+    this.drones = [];
   }
 
   // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
@@ -56,6 +57,7 @@ export class Match {
   setArena(ledges) {
     this.arena = ledges;
     this.walls = ledges;
+    this.drones = drones(ledges);
     this.phase = 'playing';
   }
   // A fresh body for a seat, set down where this room sets bodies down.
@@ -69,6 +71,17 @@ export class Match {
   bop(s) {
     const a = s.player;
     if (!a.alive || a.onGround) return;
+    // 🤖 A drone under the feet is a bop too.
+    for (const d of this.drones) {
+      if (!landsOnDrone(a, d)) continue;
+      a.vy = BOP.bounce;
+      a.onGround = false;
+      s.bops = (s.bops || 0) + 1;
+      d.alive = false;
+      d.backAt = this.tick + DRONE.away;
+      this.emit('bop', { drone: d.id, attacker: a.seat, count: s.bops, at: { x: d.x, y: d.y + DRONE.tall, z: 0 } });
+      return;
+    }
     for (const o of this.seats) {
       if (!o || o === s || this.tick < (o.bopRest || 0) || !lands(a, o.player)) continue;
       const q = o.player;
@@ -553,6 +566,7 @@ export class Match {
       )
         shots.push(s);
     }
+    for (const d of this.drones) stepDrone(d, this.tick);
     for (const s of shots) this.shoot(s);
     if (this.phase === 'playing' || this.phase === 'waiting') {
       this.stepRockets();
@@ -657,6 +671,7 @@ export class Match {
       players: this.seats.map((s) => s && { ...s.player }),
       acks: this.seats.map((s) => s?.ack || 0),
       bops: this.seats.map((s) => s?.bops || 0),
+      drones: this.drones.filter((d) => d.alive).map((d) => ({ id: d.id, x: Math.round(d.x * 1000) / 1000, y: d.y, dir: d.dir })),
       rockets: this.rockets.map((r) => ({ ...r })),
       items: [...this.items.values()].map((it) => ({
         id: it.id, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,

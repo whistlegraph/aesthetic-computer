@@ -401,6 +401,7 @@ test('hedbop arena: a ledge is jumped through from below and stood on from above
   assert.ok(Math.abs(p.y - 1.7) < 1e-6 && p.onGround);
   // Prediction and authority agree in the arena.
   const m = new Match(); m.setArena(LEDGES); m.join();
+  m.drones = []; // a bop is the server's doing, as a blast is
   prediction = { ...m.seats[0].player };
   for (let seq = 1; seq <= 300; seq++) {
     const c = cmd(seq, { fwd: 1, yaw: seq % 140 < 70 ? 90 : 270, buttons: seq % 23 === 0 ? 1 : 0 });
@@ -408,4 +409,24 @@ test('hedbop arena: a ledge is jumped through from below and stood on from above
     m.input(0, [c]); m.step();
     assert.deepEqual([prediction.x, prediction.y, prediction.z], [m.seats[0].player.x, m.seats[0].player.y, m.seats[0].player.z]);
   }
+});
+test('hedbop arena: a drone walks its stretch, is bopped for a count, and another rolls out', async () => {
+  const { DRONE } = await import('../bop.mjs');
+  const m = new Match(); m.setArena(LEDGES); m.join();
+  assert.equal(m.drones.length, 5);
+  for (let i = 0; i < HZ * 20; i++) {
+    idle(m, 0); m.step();
+    for (const d of m.drones) assert.ok(d.x >= d.lo && d.x <= d.hi);
+  }
+  const d = m.drones[0];
+  Object.assign(m.seats[0].player, { x: d.x, z: 0, y: d.y + 1.7 + DRONE.tall + 0.2, vy: -3, onGround: false });
+  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); m.step(); }
+  assert.equal(m.seats[0].bops, 1);
+  assert.equal(d.alive, false);
+  assert.ok(m.seats[0].player.vy > 0);
+  assert.equal(m.snapshot().drones.length, 4);
+  assert.equal(m.events.find((e) => e.type === 'bop').drone, 0);
+  for (let i = 0; i < DRONE.away + 2; i++) { idle(m, 0); m.step(); }
+  assert.ok(d.alive);
+  assert.equal(new Match().snapshot().drones.length, 0, 'no drones outside the arena');
 });

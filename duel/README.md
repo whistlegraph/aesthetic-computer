@@ -86,6 +86,13 @@ the server in `match.mjs`) holds in every room. `?room=hedbop` (the **go** menu'
 where bodies keep to one plane, A/D walk, space jumps, pink ledges are jumped
 through from below and stood on from above, play never stops for a countdown,
 and a bopped player is set down again a second later somewhere else.
+Five drones walk the floor and the lower ledges: dumb robots, not bots. Landing
+on one is a bop; another rolls out three seconds later.
+
+A room like this is a **gametype** (`games.mjs`): one object naming its ledges,
+its camera (hedbop's frames whoever is near enough to bop), its own legend, and
+the parts of dool's interface it does without (the reticle, the face cam, the
+floor aim, the build hint). Add a game there and the client and view follow.
 
 ## Game
 

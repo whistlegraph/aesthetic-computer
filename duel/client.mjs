@@ -1,5 +1,6 @@
 import { edgeAt, SPAN, blockWalls } from './park.mjs';
-import { NAME as BOP_NAME, isArena, LEDGES, arenaCamera } from './bop.mjs';
+import { NAME as BOP_NAME } from './bop.mjs';
+import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
@@ -68,10 +69,25 @@ try {
 let wallsOf = null, houseBoxes = [];
 // 🍄 In hedbop's arena the view is side-on: left and right walk, the body
 // faces the way it last went, and the ledges are the room's fixed boxes.
-const flat = () => isArena(room);
+// 🎮 The room's gametype (games.mjs), or null in dool's own rooms.
+let gameOf = null, gameRoom = null;
+function game() {
+  if (gameRoom !== room) { gameRoom = room; gameOf = gameFor(room); gameCam = null; }
+  return gameOf;
+}
+const flat = () => !!game()?.flat;
 let flatYaw = 90;
+// Its camera, eased toward where the game wants it so framing never snaps.
+let gameCam = null;
+function gameCamera(me, players, elapsed) {
+  const want = game().camera(me, players, canvas.width / Math.max(1, canvas.height));
+  if (!gameCam) return (gameCam = want);
+  const k = 1 - Math.exp(-Math.min(0.1, elapsed) * 5);
+  for (const key of ['x', 'y', 'zoom']) gameCam[key] += (want[key] - gameCam[key]) * k;
+  return (gameCam = { ...want, x: gameCam.x, y: gameCam.y, zoom: gameCam.zoom });
+}
 function houseWalls() {
-  if (flat()) return LEDGES;
+  if (game()?.ledges) return game().ledges;
   if (wallsOf !== lots) {
     wallsOf = lots;
     houseBoxes = blockWalls(lots);
@@ -853,6 +869,7 @@ function connect() {
       if (event.type === 'bop') {
         sfx.bop(event.attacker === seat);
         if (event.attacker === seat) face.grinAt = performance.now();
+        if (event.drone !== undefined && event.attacker === seat) sfx.ricochet(0.6);
         if (event.seat === seat) { face.hurtAt = performance.now(); face.hurtSide = 0; }
       }
     }
@@ -1988,16 +2005,32 @@ function step(now) {
       tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
     }
   }
+  const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => interpolate(history, tick, i)) : [];
+  // 🤖 Drones glide between the two snapshots around the playback tick.
+  const shownDrones = (() => {
+    if (!connected || !snapshot.drones?.length) return [];
+    let a = history[0], b = history.at(-1);
+    for (const snap of history) {
+      if (snap.tick <= tick) a = snap;
+      if (snap.tick >= tick) { b = snap; break; }
+    }
+    const t = a.tick === b.tick ? 0 : clamp((tick - a.tick) / (b.tick - a.tick), 0, 1);
+    return (b.drones || []).map((d) => {
+      const p = a.drones?.find((o) => o.id === d.id);
+      return p && Math.abs(p.x - d.x) < 1 ? { ...d, x: p.x + (d.x - p.x) * t } : d;
+    });
+  })();
   view.render({
+    drones: shownDrones,
     // Every seat the room holds, not only the original duel's two.
-    players: connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => interpolate(history, tick, i)) : [],
+    players: shownPlayers,
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
-    camera: flat() ? arenaCamera(displayed || player) : seat < 0 ? { ...freecam, yaw, pitch } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0 && !joining(),
     controller: controller.id,
     seat,
-    third: third || flat(),
-    ledges: flat() ? LEDGES : null,
+    third: third || !!game()?.camera,
+    game: game(),
     bops: snapshot?.bops || [],
     boomLength,
     rockets: snapshot?.rockets || [],
@@ -2055,12 +2088,12 @@ function step(now) {
     park,
     around: around(),
     home: home && home.room === room ? home.lot : null,
-    floorAim: focusObject || !sheetOpen ? null : floorAim,
+    floorAim: focusObject || !sheetOpen || game()?.hud?.aim === false ? null : floorAim,
     chalk: chalkStrokes,
     chalkVersion,
     chalkLocal,
     chalkMode,
-    face: seat >= 0 && player ? { ...face, health: player.health, alive: player.alive, seat, pitch, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
+    face: seat >= 0 && player && game()?.hud?.face !== false ? { ...face, health: player.health, alive: player.alive, seat, pitch, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
     devLog: sheetOpen ? devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })) : [],
     owner,
     focusObject,

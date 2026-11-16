@@ -50,10 +50,10 @@ const colourWords = (s) =>
     return { ...s, text: t, color: c ?? s.color };
   });
 // held: { keys: [codes], pad: [badges], touch: ['left' | 'right'] } from the client.
-function legendRows(input, held = {}) {
+function legendRows(input, held = {}, table = LEGEND) {
   const down = new Set(held[input === 'keys' ? 'keys' : input] || []);
   const lit = (code) => (Array.isArray(code) ? code.some((c) => down.has(c)) : down.has(code));
-  return (LEGEND[input] || LEGEND.keys).map((line) => {
+  return (table[input] || table.keys).map((line) => {
     const spans =
       typeof line === 'string'
         ? hintSpans(line, THEME.dim).map((s) => (s.badge && down.has(s.badge) ? { ...s, lit: true } : s))
@@ -326,6 +326,16 @@ export async function createView(canvas) {
     return made;
   }
   // 🍄 hedbop's ledges: slabs lit on top, rebuilt with the palette.
+  // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
+  let droneMesh = null;
+  const droneModel = () =>
+    (droneMesh ||= model(({ box }) => {
+      box(0, 0.09, 0, 0.62, 0.18, 0.52, 0x2c3038, 0x23262d, 0x23262d);
+      box(0, 0.48, 0, 0.7, 0.6, 0.6, 0xa9b2c4, 0x7d869a, 0x8f98ac);
+      box(0, 0.93, 0, 0.5, 0.3, 0.5, 0xc4ccdb, 0x8f98ac, 0xa9b2c4);
+      box(0, 0.94, 0.26, 0.3, 0.1, 0.04, 0x3fe0d0, 0x3fe0d0, 0x3fe0d0);
+      box(0, 1.17, 0, 0.05, 0.18, 0.05, 0xff3296, 0xff3296, 0xff3296);
+    }));
   // The stage is the studio with its near wall away, so the camera looks in.
   let ledgeSet = null;
   function ledgesFor(ledges) {
@@ -701,7 +711,8 @@ export async function createView(canvas) {
     controller,
     seat = 0,
     third = false,
-    ledges = null, // 🍄 hedbop's arena: the ledges to stand on
+    drones = [], // 🤖 the game's dumb robots: { id, x, y, dir }
+    game = null, // 🎮 the room's gametype (games.mjs): its ledges, legend and what it hides
     bops = [], // bops landed, by seat
     boomLength = 4, // how far back the third-person camera sits
     rockets = [],
@@ -770,6 +781,7 @@ export async function createView(canvas) {
       location.reload();
       return;
     }
+    const ledges = game?.ledges || null;
     const start = performance.now(),
       now = start;
     const solidObjects = objects.filter((o) => !o.item);
@@ -1095,6 +1107,8 @@ export async function createView(canvas) {
       // (The object's code tree is no longer drawn in the room; the lingering
       // window still times the landing burst above.)
     }
+    for (const d of drones)
+      draw(droneModel(), d.x, d.y + Math.abs(Math.sin(now / 90 + d.id)) * 0.03, 0, (d.dir > 0 ? Math.PI : -Math.PI) / 2);
     for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
       const p = i === seat && me ? me : players[i];
       if (!p?.alive) continue;
@@ -1356,7 +1370,7 @@ export async function createView(canvas) {
         : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
-              ...(showLegend ? legendRows(input, held) : []),
+              ...(showLegend ? legendRows(input, held, game?.legend || LEGEND) : []),
               ...(spectator
                 ? [
                     hintSpans(
@@ -1364,6 +1378,7 @@ export async function createView(canvas) {
                       THEME.text,
                     ),
                   ]
+                : game && !moded ? [] // a game's legend is its whole hint
                 : hint.split('\n').map((l, i) =>
                     i === 0 && moded && hint.includes('\n')
                       ? [{ text: l, color: THEME.verb }]
@@ -1484,7 +1499,7 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
           });
-          if ((meter || (SHOW_FPS && fps)) && !face && !bare) {
+          if ((meter || (SHOW_FPS && fps)) && !face && !bare && !game) {
             // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
@@ -1866,7 +1881,7 @@ export async function createView(canvas) {
     // On the floor the cursor is laid on the aimed square in 3D (below);
     // facing a wall, an object or the sky it is this 2D reticle.
     const onFloor = floorAim && !focusObject && !lockedOn && !radial && !menu && !bare && orbit <= 0 && !cursor;
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor) {
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
