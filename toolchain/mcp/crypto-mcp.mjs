@@ -20,7 +20,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const TZKT = "https://api.tzkt.io/v1";
 const OBJKT = "https://data.objkt.com/v3/graphql";
 
-import { TEZOS, KEEPS, HEN } from "./tezos-wallets.mjs";
+import { TEZOS, KEEPS } from "./tezos-wallets.mjs";
+import { market, tokens as mintedTokens } from "./aesthetez.mjs";
 const EVM = {
   "4esthetic.eth": "0x5e6758C96A4cB5E2A1FE2E2772020dc8ad753b08",
   "citizen idx1": "0xF637C4E11072C46A3bF7cF70ef32470562B5a479",
@@ -111,74 +112,7 @@ const runway = (xtz) => ({ xtz, daysLeft: Math.max(0, Math.floor((xtz - DAILY_FL
 
 // 📈 Market
 
-async function market({ days = 7, top = 15 } = {}) {
-  days = Number(days);
-  if (!(days > 0 && days <= 30)) throw new Error("days must be 1..30");
-  const since = new Date(Date.now() - days * 864e5).toISOString();
-  const fields = "price buyer_address seller_address token{ token_id name creators{creator_address holder{alias}} fa{name contract} }";
-  const sales = [];
-  for (const table of ["listing_sale", "offer_sale"]) {
-    for (let offset = 0; offset < 40_000; offset += 500) {
-      const batch = (await objkt(`{ ${table}(where:{timestamp:{_gte:"${since}"}}, order_by:{id:asc}, limit:500, offset:${offset}){ ${fields} } }`))[table];
-      sales.push(...batch);
-      if (batch.length < 500) break;
-    }
-  }
-
-  // Wash filter: a creator whose repeated sales (3+, 500+ XTZ together) all
-  // go to one buyer, or a sale where buyer and seller are the same wallet. A
-  // collector buying a few cheap pieces from one artist is not wash.
-  const byCreator = {};
-  for (const s of sales) {
-    const c = s.token?.creators?.[0]?.creator_address;
-    if (!c) continue;
-    (byCreator[c] ??= new Set()).add(s.buyer_address);
-    byCreator[c].n = (byCreator[c].n || 0) + 1;
-    byCreator[c].xtz = (byCreator[c].xtz || 0) + tez(s.price);
-  }
-  const wash = new Set(Object.entries(byCreator).filter(([, b]) => b.size === 1 && b.n >= 3 && b.xtz >= 500).map(([c]) => c));
-  const isWash = (s) => s.buyer_address === s.seller_address || wash.has(s.token?.creators?.[0]?.creator_address);
-  const clean = sales.filter((s) => !isWash(s));
-  const washed = sales.filter(isWash);
-
-  const bands = [[0, 1], [1, 5], [5, 20], [20, 100], [100, 1000], [1000, Infinity]].map(([lo, hi]) => {
-    const x = clean.filter((s) => tez(s.price) >= lo && tez(s.price) < hi);
-    return { xtz: hi === Infinity ? `${lo}+` : `${lo}-${hi}`, sales: x.length, volume: round(x.reduce((a, s) => a + tez(s.price), 0), 0) };
-  });
-  const rank = (key) => {
-    const m = {};
-    for (const s of clean) {
-      const k = key(s);
-      if (!k) continue;
-      const g = (m[k] ??= { sales: 0, volume: 0, buyers: new Set() });
-      g.sales++; g.volume += tez(s.price); g.buyers.add(s.buyer_address);
-    }
-    return Object.entries(m).sort((a, b) => b[1].volume - a[1].volume).slice(0, top)
-      .map(([name, g]) => ({ name, sales: g.sales, volume: round(g.volume, 0), buyers: g.buyers.size, avg: round(g.volume / g.sales, 1) }));
-  };
-  const ours = new Set(Object.values(TEZOS));
-  const mine = {};
-  for (const s of clean) {
-    if (!s.token?.creators?.some((c) => ours.has(c.creator_address))) continue;
-    const g = (mine[s.token.fa?.name || s.token.fa?.contract] ??= { sales: 0, volume: 0 });
-    g.sales++; g.volume = round(g.volume + tez(s.price), 2);
-  }
-  const volume = clean.reduce((a, s) => a + tez(s.price), 0);
-  const { xtz } = await prices();
-  return {
-    days, sales: clean.length, volumeXtz: round(volume, 0), volumeUsd: xtz && round(volume * xtz, 0),
-    buyers: new Set(clean.map((s) => s.buyer_address)).size,
-    excludedAsWash: { sales: washed.length, volumeXtz: round(washed.reduce((a, s) => a + tez(s.price), 0), 0) },
-    priceBands: bands,
-    topCollections: rank((s) => s.token?.fa?.name || s.token?.fa?.contract),
-    topCreators: rank((s) => { const c = s.token?.creators?.[0]; return c && (c.holder?.alias || c.creator_address); }),
-    topSales: [...clean].sort((a, b) => b.price - a.price).slice(0, 10).map((s) => ({
-      xtz: tez(s.price), token: s.token?.name, collection: s.token?.fa?.name,
-      creator: s.token?.creators?.[0]?.holder?.alias || s.token?.creators?.[0]?.creator_address,
-    })),
-    ourSalesByCollection: mine,
-  };
-}
+// market() lives in aesthetez.mjs, where every sale is valued in tez.
 
 // 🗓️ The daily token
 
@@ -192,17 +126,13 @@ function sshScript(script, timeout) {
 }
 
 async function dailyStatus({ limit = 14 } = {}) {
-  const tokens = await get(`${TZKT}/tokens?contract=${HEN}&firstMinter=${TEZOS.aesthetic}&firstTime.ge=${DAILY_SINCE}&sort.desc=id&limit=${Number(limit) || 14}&select=tokenId,metadata.name%20as%20name,totalSupply,firstTime`);
-  const rows = [];
-  for (const t of tokens) {
-    // objkt asks don't escrow, so every edition that left aesthetic.tez sold.
-    const out = await get(`${TZKT}/tokens/transfers?token.contract=${HEN}&token.tokenId=${t.tokenId}&from=${TEZOS.aesthetic}&select=amount,to.address%20as%20to,timestamp&limit=100`);
-    rows.push({
-      objkt: Number(t.tokenId), name: t.name, minted: t.firstTime, editions: Number(t.totalSupply),
-      sold: out.reduce((a, x) => a + Number(x.amount), 0), buyers: new Set(out.map((x) => x.to)).size,
-      url: `https://teia.art/objkt/${t.tokenId}`,
-    });
-  }
+  // A Teia swap moves the edition into the market's escrow, so leaving
+  // aesthetic.tez is not a sale; aesthetez counts only what reached a buyer.
+  const { tokens } = await mintedTokens({ limit: Number(limit) || 14, since: DAILY_SINCE });
+  const rows = tokens.map((t) => ({
+    objkt: t.objkt, name: t.name, minted: t.minted, editions: t.editions, status: t.status,
+    sold: t.sold, buyers: t.buyers?.length || 0, ...(t.listed ? { listed: t.listed } : {}), url: t.url,
+  }));
   const balance = tez(await get(`${TZKT}/accounts/${TEZOS.aesthetic}/balance`));
   const log = await settle(sshScript("tail -40 ~/.podcast-daily.log; echo; ls -t ~/aesthetic-computer/marketing/podcast/out/daily/*.token.json 2>/dev/null | head -3 | xargs -r tail -n +1", 20_000));
   return {
@@ -283,7 +213,7 @@ const TOOLS = [
   },
   {
     name: "daily_token_status",
-    description: "The daily token (each night's podcast update, set in AC's pixel font and minted as a 1/1 on Teia by jasellite): recent OBJKTs with editions sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
+    description: "The daily token (each night's podcast update, set in AC's pixel font and minted as a 1/1 on Teia by jasellite): recent OBJKTs with whether each is listed or sold, days of gas left on aesthetic.tez, and jasellite's latest log and receipts when it's reachable. Read-only.",
     inputSchema: { type: "object", properties: { limit: { type: "number", description: "How many recent tokens (default 14)" } } },
   },
   {

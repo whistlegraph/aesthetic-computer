@@ -22,6 +22,13 @@
         "toolchain/mcp/crypto-mcp.mjs"
       ]
     },
+    "aesthetez": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/aesthetez-mcp.mjs"
+      ]
+    },
     "analytics": {
       "type": "stdio",
       "command": "node",
