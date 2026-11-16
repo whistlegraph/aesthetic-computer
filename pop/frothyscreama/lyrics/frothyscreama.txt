@@ -1,0 +1,45 @@
+# frothyscreama
+# every line is something jeffrey typed to his coding agents, mined from the
+# typed corpus (vault voice/jeffrey-typed/). one line = one take. the tag
+# picks the delivery. the text is spelt the way it is said — capitals and
+# held vowels for the screams — and the line as he typed it sits above it.
+
+# quiet
+#    tiny inaudible air at all times
+w1   whisper  tiny inaudible air at all times.
+#    so i hear it better
+w2   whisper  so i hear it better.
+
+# explosion
+#    try now... / now? / and now?
+s1   scream   TRY NOOOW... NOOOOW? AND NOOOOOOW?
+#    i dont see it / cant hear it
+s2   scream   I DONT SEEEE IT, CANT HEEEEAR IT
+#    damn still not working
+s3   scream   DAAAAMN STIIIILL NOT WOOOORKING
+#    they are wayyyyy tooo loud
+s4   scream   THEY ARE WAAAAAYYYYY TOOOOO LOOOOOUD
+
+# collapse
+#    no it crashed again
+s6   scream   NOOOO IT CRAAAASHED AGAAAAIN
+#    now?
+s9   scream   NOOOOOOOOOOOOW?
+
+# bridge
+#    and blend into the screen like a puddle and blend in liek it's soaking up the pixels beneath if that's possible?
+w3   whisper  and blend into the screen like a puddle, and blend in like it's soaking up the pixels beneath, if that's possible?
+#    like we are caught drowning
+w4   whisper  like we are caught drowning.
+
+# out
+#    YIKES WHAT I JUST HEARD WAS SEEEERING
+s5   scream   YIKES WHAT I JUST HEARD WAS SEEEEEERING
+#    write ALLT HIS CODE NOW!
+s7   scream   WRITE AAAALL THIS COOOODE NOOOOW
+#    this machine is about to die
+s8   scream   THIS MACHIIIINE IS ABOUT TO DIIIIIIIIIE
+
+# steam
+#    and lower tones its bedtime
+w5   whisper  and lower tones, its bedtime.
