@@ -72,3 +72,4 @@
 #use+.uses+.privacy-note,.uses+.privacy-note{max-width:640px;margin:22px auto 0;text-align:center}
 @media(max-width:860px){.uses{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.uses{grid-template-columns:1fr}}
+.scene{max-width:720px;margin:0 auto 26px}.scene img{display:block;width:100%;height:auto;mix-blend-mode:multiply}
