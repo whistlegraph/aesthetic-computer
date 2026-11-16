@@ -99,8 +99,8 @@ explained.
   line: `~` is a space, so `aesthetic.computer/dool~botbop` runs `dool botbop`.
   A feature is a piece or prompt command, `~` params are its words, and `:`
   params are its options (`notepat:piano`). A prompt command that loads no
-  piece gets a forwarding piece that jumps to `prompt~<line>~!autorun`
-  (`mo.mjs`, `botbop.mjs`). Query params are only the runtime and view flags
+  piece gets a forwarding piece that jumps to `prompt~<line>~!autorun`; the
+  line is one parameter, so its words take spaces (`mo.mjs`, `botbop.mjs`). Query params are only the runtime and view flags
   in `system/public/aesthetic.computer/lib/params.mjs`.
 - Arena client and server physics must match. Commits on `main` touching the
   arena deployment paths or `shared/` can trigger paired deployment. Read the

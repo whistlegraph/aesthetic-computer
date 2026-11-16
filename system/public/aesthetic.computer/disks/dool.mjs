@@ -3,7 +3,8 @@
 // The prompt runs `dool <room>` (prompt.mjs); bare /dool is lith's own page.
 
 export function boot({ params, jump }) {
-  jump(["prompt", "dool", ...params.slice(0, 1), "!autorun"].join("~"));
+  // Everything after `prompt~` is one prompt line: its words take spaces.
+  jump(`prompt~${["dool", ...params.slice(0, 1)].join(" ")}~!autorun`);
 }
 
 export function meta() {
