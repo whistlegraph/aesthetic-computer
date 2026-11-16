@@ -336,7 +336,7 @@ test('dool mounts below a prefix and shares HTTP and WebSockets without taking o
   await once(rejected, 'error');
 });
 
-// 🍄 hedbop
+// 🍄 botbop
 import { BOP, lands, LEDGES, isArena, arenaSpawn } from '../bop.mjs';
 const idle = (m, seat) => m.input(seat, [cmd(m.seats[seat].ack + 1)]);
 function land(m, seat = 0) {
@@ -347,7 +347,7 @@ function over(m, height = 1.9) {
   const [a, q] = [m.seats[0].player, m.seats[1].player];
   Object.assign(a, { x: q.x, z: q.z, y: q.y + height, vy: -3, onGround: false });
 }
-test('hedbop: coming down on a head bops it, bounces the stomper and counts', () => {
+test('botbop: coming down on a head bops it, bounces the stomper and counts', () => {
   const m = playing();
   over(m);
   for (let i = 0; i < 20 && !m.seats[0].combo && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
@@ -362,7 +362,7 @@ test('hedbop: coming down on a head bops it, bounces the stomper and counts', ()
   assert.equal(m.snapshot().combos[0], 0);
   assert.equal(m.events.find((x) => x.type === 'bank').points, 1);
 });
-test('hedbop: no bop from the side, from below, or while the head rests', () => {
+test('botbop: no bop from the side, from below, or while the head rests', () => {
   const m = playing();
   const [a, q] = [m.seats[0].player, m.seats[1].player];
   assert.equal(lands({ ...a, x: q.x + 2, z: q.z, y: q.y + 1.5, vy: -3, onGround: false }, q), false);
@@ -375,8 +375,8 @@ test('hedbop: no bop from the side, from below, or while the head rests', () => 
   assert.equal(m.seats[0].combo, 1, 'a second landing inside the rest does not count');
   assert.ok(BOP.rest > 1);
 });
-test('hedbop arena: one plane, no countdown, a bopped body comes back elsewhere', () => {
-  assert.ok(isArena('hedbop') && isArena('hedbop-2') && !isArena('lobby'));
+test('botbop arena: one plane, no countdown, a bopped body comes back elsewhere', () => {
+  assert.ok(isArena('botbop') && isArena('botbop-2') && isArena('hedbop') && !isArena('lobby'));
   const m = new Match(); m.setArena(LEDGES); m.join(); m.join();
   assert.equal(m.phase, 'playing');
   for (let i = 0; i < 90; i++) {
@@ -395,7 +395,7 @@ test('hedbop arena: one plane, no countdown, a bopped body comes back elsewhere'
   m.leave(1);
   assert.equal(m.phase, 'playing', 'alone in the arena is still play');
 });
-test('hedbop arena: a ledge is jumped through from below and stood on from above', () => {
+test('botbop arena: a ledge is jumped through from below and stood on from above', () => {
   const l = LEDGES[0], x = (l.xMin + l.xMax) / 2;
   let p = { ...spawn(0), x, z: 0 }, top = 0, prediction;
   for (let i = 0; i < 200; i++) {
@@ -418,7 +418,7 @@ test('hedbop arena: a ledge is jumped through from below and stood on from above
     assert.deepEqual([prediction.x, prediction.y, prediction.z], [m.seats[0].player.x, m.seats[0].player.y, m.seats[0].player.z]);
   }
 });
-test('hedbop arena: a drone walks its stretch, is bopped for a count, and another rolls out', async () => {
+test('botbop arena: a drone walks its stretch, is bopped for a count, and another rolls out', async () => {
   const { DRONE } = await import('../bop.mjs');
   const m = new Match(); m.setArena(LEDGES); m.join();
   assert.equal(m.drones.length, 5);
@@ -439,7 +439,7 @@ test('hedbop arena: a drone walks its stretch, is bopped for a count, and anothe
   assert.equal(new Match().snapshot().drones.length, 0, 'no drones outside the arena');
 });
 
-test('hedbop combos: a chain in the air is worth 1 + 2 + 3, banked on landing, lost if bopped', () => {
+test('botbop combos: a chain in the air is worth 1 + 2 + 3, banked on landing, lost if bopped', () => {
   const m = new Match(); m.setArena(LEDGES); m.join(); m.join();
   const s = m.seats[0];
   for (let k = 1; k <= 3; k++) {

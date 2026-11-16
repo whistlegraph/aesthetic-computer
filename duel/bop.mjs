@@ -1,11 +1,13 @@
-// 🍄 hedbop: land on a head. The one rule runs in every room of dool; a
-// room named `hedbop` is its arena, a side-on stage where bodies keep to
+// 🍄 botbop: land on a head. The one rule runs in every room of dool; a
+// room named `botbop` is its arena, a side-on stage where bodies keep to
 // one plane, ledges are stood on from above and jumped through from below,
 // and a bopped player is set down again somewhere else.
 import { CFG, HZ, WORLD } from './world.mjs';
 
-export const NAME = 'hedbop';
-export const isArena = (room) => room === NAME || String(room || '').startsWith(`${NAME}-`);
+export const NAME = 'botbop';
+// (It opened as `hedbop` on 2026-11-16; that address still leads here.)
+const NAMES = [NAME, 'hedbop'];
+export const isArena = (room) => NAMES.some((n) => room === n || String(room || '').startsWith(`${n}-`));
 
 // A body is 1.9 m from feet to crown and a standing jump lifts the feet
 // 1.79 m, so the band reaches a little below the crown: timed at the top of

@@ -4,7 +4,7 @@
 // aspect)`, `legend` ({ keys, pad, touch } rows, as view.mjs's LEGEND) and
 // `hud` (false for the parts of dool's own interface it does without:
 // reticle, face, aim). Add a game here and the client and view follow.
-import { GAME as hedbop } from './bop.mjs';
+import { GAME as botbop } from './bop.mjs';
 
-export const GAMES = [hedbop];
+export const GAMES = [botbop];
 export const gameFor = (room) => GAMES.find((g) => g.at(room)) || null;

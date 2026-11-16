@@ -47,7 +47,7 @@ export class Match {
     // whose old points were trimmed or cleared is re-sent whole instead.
     this.chalkOps = [];
     this.chalkWhole = new Set();
-    // 🍄 hedbop's arena (setArena): its ledges, or null in any other room.
+    // 🍄 botbop's arena (setArena): its ledges, or null in any other room.
     this.arena = null;
     this.drones = [];
   }

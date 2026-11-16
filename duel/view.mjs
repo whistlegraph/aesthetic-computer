@@ -325,7 +325,7 @@ export async function createView(canvas) {
     lotSets.set(id, made);
     return made;
   }
-  // 🍄 hedbop's ledges: slabs lit on top, rebuilt with the palette.
+  // 🍄 botbop's ledges: slabs lit on top, rebuilt with the palette.
   // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
   let scoreShown = 0, scoreAt = 0; // the headline score and when it last rose
   let chainShown = [0, 0], chainAt = 0, flyPoints = 0, flyAt = 0; // 🔗 the chain under it, and its flight up on landing

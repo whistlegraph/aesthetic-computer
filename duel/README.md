@@ -77,12 +77,12 @@ includes File → Dool Test Rig; installed releases need a rebuild to get it.
 For a LAN session, run `HOST=0.0.0.0 npm run duel` and use the host's LAN address
 on both machines. `PORT` overrides 8787.
 
-## hedbop
+## botbop
 
 Land on a head. Coming down onto another player's crown bops them: the stomper
 bounces and the count beside their handle goes up. The rule (`bop.mjs`, run by
-the server in `match.mjs`) holds in every room. `?room=hedbop` (the **go** menu's
-`hedbop` row; `hedbop-anything` makes a private one) is its arena: a side-on stage
+the server in `match.mjs`) holds in every room. `?room=botbop` (the **go** menu's
+`botbop` row; `botbop-anything` makes a private one) is its arena: a side-on stage
 where bodies keep to one plane, A/D walk, space jumps, pink ledges are jumped
 through from below and stood on from above, play never stops for a countdown,
 and a bopped player is set down again a second later somewhere else.
@@ -94,7 +94,7 @@ first is worth 1, the second 2, the third 3; the chain reads under the score as
 `+6 x3` and is counted in when the feet land. Bopped out of the air, it is lost.
 
 A room like this is a **gametype** (`games.mjs`): one object naming its ledges,
-its camera (hedbop's frames whoever is near enough to bop), its own legend, and
+its camera (botbop's frames whoever is near enough to bop), its own legend, and
 the parts of dool's interface it does without (the reticle, the face cam, the
 floor aim, the build hint). Add a game there and the client and view follow.
 

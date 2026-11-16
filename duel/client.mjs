@@ -67,7 +67,7 @@ try {
 } catch {}
 // The solid walls of this block's houses, rebuilt when its lots change.
 let wallsOf = null, houseBoxes = [];
-// 🍄 In hedbop's arena the view is side-on: left and right walk, the body
+// 🍄 In botbop's arena the view is side-on: left and right walk, the body
 // faces the way it last went, and the ledges are the room's fixed boxes.
 // 🎮 The room's gametype (games.mjs), or null in dool's own rooms.
 let gameOf = null, gameRoom = null;
