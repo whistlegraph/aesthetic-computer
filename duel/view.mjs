@@ -325,6 +325,25 @@ export async function createView(canvas) {
     lotSets.set(id, made);
     return made;
   }
+  // 🍄 hedbop's ledges: slabs lit on top, rebuilt with the palette.
+  // The stage is the studio with its near wall away, so the camera looks in.
+  let ledgeSet = null;
+  function ledgesFor(ledges) {
+    if (ledgeSet?.key === paletteName && ledgeSet.ledges === ledges) return ledgeSet.model;
+    const p = PALETTES[paletteName];
+    const made = model(({ box, quad }) => {
+      quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
+      const h = 7, t = 0.3;
+      box(0, h / 2, -WORLD - t / 2, 2 * WORLD + 2 * t, h, t, p.walls.south, p.wallSide, p.walls.south);
+      box(-WORLD - t / 2, h / 2, 0, t, h, 2 * WORLD, p.walls.west, p.walls.west, p.wallSide);
+      box(WORLD + t / 2, h / 2, 0, t, h, 2 * WORLD, p.walls.east, p.walls.east, p.wallSide);
+      for (const b of ledges)
+        box((b.xMin + b.xMax) / 2, (b.yMin + b.yMax) / 2, (b.zMin + b.zMax) / 2,
+          b.xMax - b.xMin, b.yMax - b.yMin, b.zMax - b.zMin, 0xff3296, p.wallSide, p.walls.north);
+    });
+    ledgeSet = { key: paletteName, ledges, model: made };
+    return made;
+  }
   // A neighbouring block's painted floor squares.
   function tilesFor(id, tiles) {
     const key = JSON.stringify(tiles || {});
@@ -665,6 +684,7 @@ export async function createView(canvas) {
     if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
+    if (e.at && e.type === 'bop') burst(e.at.x, e.at.y, e.at.z, 14, 0.8);
     if (e.at && e.type === 'removed') burst(e.at.x, e.at.y, e.at.z, 24, 1.3);
     if (e.at && e.type === 'dust') burst(e.at.x, e.at.y, e.at.z, 3, 0.25);
     if (e.type === 'blast') {
@@ -681,6 +701,8 @@ export async function createView(canvas) {
     controller,
     seat = 0,
     third = false,
+    ledges = null, // 🍄 hedbop's arena: the ledges to stand on
+    bops = [], // bops landed, by seat
     boomLength = 4, // how far back the third-person camera sits
     rockets = [],
     status = '',
@@ -852,6 +874,10 @@ export async function createView(canvas) {
       aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
     }
     projector.camera(eye, aim, aspect, roll);
+    if (camera?.zoom) {
+      projector.sx *= camera.zoom;
+      projector.sy *= camera.zoom;
+    }
     if (orbit > 0 && orbitZoom !== 1) {
       projector.sx *= orbitZoom;
       projector.sy *= orbitZoom;
@@ -862,7 +888,8 @@ export async function createView(canvas) {
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground, each home on its lot.
-    if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza));
+    if (ledges) draw(ledgesFor(ledges));
+    else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza));
     else draw(arena);
     if (lots) {
       const set = lotsFor('here', lots, home);
@@ -1503,12 +1530,14 @@ export async function createView(canvas) {
       // bottom left, everyone else's over their head.
       const where = (p) => `${p.x.toFixed(1)} ${(p.y || 0).toFixed(1)} ${p.z.toFixed(1)}`;
       const m = model(({ rect: worldRect, text, handleText, small }) => {
-        const place = (p, left, y) => {
-          const t = where(p), cx = left + (smallWidth(t) / 2) * unit;
+        const place = (p, left, y, n = 0) => {
+          // 🍄 In the arena the count is the point; elsewhere it follows the position.
+          const count = `${n} bop${n === 1 ? '' : 's'}`;
+          const t = ledges ? count : n ? `${where(p)} ${count}` : where(p), cx = left + (smallWidth(t) / 2) * unit;
           small(t, cx + unit, y - unit, 0.000002, unit, INK);
           small(t, cx, y, 0, unit, THEME.dim);
         };
-        if (ownTag) place(me, ownTag.x, ownTag.y);
+        if (ownTag) place(me, ownTag.x, ownTag.y, bops[seat] || 0);
         // 💬 Chat: the room's last lines up the left side, over the face cam,
         // newest lowest. The line being typed is the top line (above).
         if (chatting) {
@@ -1572,7 +1601,7 @@ export async function createView(canvas) {
             text(label, x + unit, y - unit, 0.000002, unit, INK);
             text(label, x, y, 0, unit, t.label ? (t.mine ? 0xff3296 : 0xb56bff) : PAPER);
           }
-          if (t.at) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y);
+          if (t.at) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y, bops[t.seat] || 0);
         }
       });
       projector.overlay(m, W, H);

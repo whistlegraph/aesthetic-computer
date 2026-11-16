@@ -1,4 +1,5 @@
 import { edgeAt, SPAN, blockWalls } from './park.mjs';
+import { NAME as BOP_NAME, isArena, LEDGES, arenaCamera } from './bop.mjs';
 import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
@@ -65,7 +66,12 @@ try {
 } catch {}
 // The solid walls of this block's houses, rebuilt when its lots change.
 let wallsOf = null, houseBoxes = [];
+// 🍄 In hedbop's arena the view is side-on: left and right walk, the body
+// faces the way it last went, and the ledges are the room's fixed boxes.
+const flat = () => isArena(room);
+let flatYaw = 90;
 function houseWalls() {
+  if (flat()) return LEDGES;
   if (wallsOf !== lots) {
     wallsOf = lots;
     houseBoxes = blockWalls(lots);
@@ -844,6 +850,11 @@ function connect() {
       if (event.type === 'ricochet') sfx.ricochet();
       if (event.type === 'cancel') sfx.ricochet(1.5);
       if (event.type === 'headshot') sfx.headshot();
+      if (event.type === 'bop') {
+        sfx.bop(event.attacker === seat);
+        if (event.attacker === seat) face.grinAt = performance.now();
+        if (event.seat === seat) { face.hurtAt = performance.now(); face.hurtSide = 0; }
+      }
     }
     diagnostics.max('messageMaxMs', performance.now() - messageAt);
     stalls.handled(data.type, performance.now() - messageAt);
@@ -943,6 +954,7 @@ function menuItems() {
       ? { label: `home · ${home.room} lot ${home.lot}${here(home.room)}`, act: () => travel(home.room) }
       : { label: 'home · sign in for a lot', act: () => {} },
     { label: `plaza${here('lobby')}`, act: () => travel('lobby') },
+    { label: `${BOP_NAME}${here(BOP_NAME)}`, act: () => travel(BOP_NAME) },
   ];
   const switches = [
     { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
@@ -1525,7 +1537,7 @@ function applyPrediction() {
   const began = performance.now(), data = prediction, own = data.players[seat];
   prediction = null;
   const changedLife = !player || own.life !== player.life;
-  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, houseWalls());
+  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, houseWalls(), flat());
   // How far the server's word moved us from where we thought we were: zero
   // when prediction holds (?debug reads it).
   if (player && !changedLife) {
@@ -1847,10 +1859,18 @@ function step(now) {
       })(),
       fire: (firing || fireQueued) && locked(),
     };
+    if (flat()) {
+      // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
+      const along = c.right || 0;
+      if (along) flatYaw = along > 0 ? 90 : 270;
+      yaw = flatYaw;
+      pitch = 0;
+      Object.assign(c, { yaw, pitch, fwd: Math.abs(along), right: 0, fire: false });
+    }
     jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting')
-      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, houseWalls());
+      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, houseWalls(), flat());
     presentation.step(player);
   }
   // One newest batch per display frame: catch-up steps don't flood a slow link.
@@ -1972,11 +1992,13 @@ function step(now) {
     // Every seat the room holds, not only the original duel's two.
     players: connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => interpolate(history, tick, i)) : [],
     me: seat < 0 ? null : player ? { ...displayed, yaw, pitch } : spawn(seat),
-    camera: seat < 0 ? { ...freecam, yaw, pitch } : null,
+    camera: flat() ? arenaCamera(displayed || player) : seat < 0 ? { ...freecam, yaw, pitch } : null,
     spectator: seat < 0 && !joining(),
     controller: controller.id,
     seat,
-    third,
+    third: third || flat(),
+    ledges: flat() ? LEDGES : null,
+    bops: snapshot?.bops || [],
     boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items || [],

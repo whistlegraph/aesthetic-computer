@@ -74,19 +74,23 @@ export function spawn(seat, life = 1) {
 }
 
 // `fixed` is the place's own solid boxes (a block's house walls).
-export function move(player, cmd, objects = [], time = 0, fixed = []) {
+// A `platform` among them is a ledge: stood on from above, never a wall.
+// `flat` keeps the body on the z = 0 plane (a side-on arena).
+export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false) {
   if (!player.alive) return { ...player };
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
     feet = player.y - CFG.eyeHeight;
   const under = (b, p) => p.x >= b.xMin && p.x <= b.xMax && p.z >= b.zMin && p.z <= b.zMax;
-  const support = boxes.find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
+  const ledges = fixed.filter((b) => b.platform),
+    solid = ledges.length ? fixed.filter((b) => !b.platform) : fixed;
+  const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
   const grounded = player.onGround && (feet < 0.02 || !!support);
   const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
   const cfg = {
     ...CFG,
     groundY: support?.yMax || 0,
-    obstacles: [...WALLS, ...fixed, ...boxes.filter((b) => b.yMax > feet + step)],
+    obstacles: [...WALLS, ...solid, ...boxes.filter((b) => b.yMax > feet + step)],
   };
   const next = pmove(
     { ...player, onGround: grounded },
@@ -105,6 +109,9 @@ export function move(player, cmd, objects = [], time = 0, fixed = []) {
       next.vy = 0;
     }
   }
+  // A ledge catches only what was above it.
+  for (const b of ledges)
+    if (under(b, next) && feet >= b.yMax - 0.02 && nextFeet <= b.yMax) floor = Math.max(floor, b.yMax);
   if (next.vy <= 0 && next.y - CFG.eyeHeight <= floor + (grounded ? step : 0.001)) {
     next.y = floor + CFG.eyeHeight;
     next.vy = 0;
@@ -118,6 +125,7 @@ export function move(player, cmd, objects = [], time = 0, fixed = []) {
   }
   next.x = clamp(next.x, -WORLD + 0.4, WORLD - 0.4);
   next.z = clamp(next.z, -WORLD + 0.4, WORLD - 0.4);
+  if (flat) next.z = next.vz = 0;
   return next;
 }
 

@@ -77,6 +77,16 @@ includes File → Dool Test Rig; installed releases need a rebuild to get it.
 For a LAN session, run `HOST=0.0.0.0 npm run duel` and use the host's LAN address
 on both machines. `PORT` overrides 8787.
 
+## hedbop
+
+Land on a head. Coming down onto another player's crown bops them: the stomper
+bounces and the count beside their handle goes up. The rule (`bop.mjs`, run by
+the server in `match.mjs`) holds in every room. `?room=hedbop` (the **go** menu's
+`hedbop` row; `hedbop-anything` makes a private one) is its arena: a side-on stage
+where bodies keep to one plane, A/D walk, space jumps, pink ledges are jumped
+through from below and stood on from above, play never stops for a countdown,
+and a bopped player is set down again a second later somewhere else.
+
 ## Game
 
 - **Rockets:** 100 HP, lethal direct hits, distance-based splash with cover

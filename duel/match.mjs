@@ -16,6 +16,7 @@ import {
   WORLD,
 } from './world.mjs';
 import { command } from './net.mjs';
+import { BOP, lands, arenaSpawn } from './bop.mjs';
 
 // Input from a real network arrives late and in bursts. A batch carries the
 // newest commands again so a dropped message costs nothing; the queue holds
@@ -46,6 +47,42 @@ export class Match {
     // whose old points were trimmed or cleared is re-sent whole instead.
     this.chalkOps = [];
     this.chalkWhole = new Set();
+    // 🍄 hedbop's arena (setArena): its ledges, or null in any other room.
+    this.arena = null;
+  }
+
+  // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
+  // and play never stops for a countdown or a round.
+  setArena(ledges) {
+    this.arena = ledges;
+    this.walls = ledges;
+    this.phase = 'playing';
+  }
+  // A fresh body for a seat, set down where this room sets bodies down.
+  fresh(seat, life = 1) {
+    const p = spawn(seat, life);
+    return this.arena ? Object.assign(p, arenaSpawn(seat, life)) : p;
+  }
+  // 🍄 Whoever `s` is coming down on is bopped: the stomper bounces and
+  // counts it. In the arena the bopped body is gone for a second; anywhere
+  // else it only feels it.
+  bop(s) {
+    const a = s.player;
+    if (!a.alive || a.onGround) return;
+    for (const o of this.seats) {
+      if (!o || o === s || this.tick < (o.bopRest || 0) || !lands(a, o.player)) continue;
+      const q = o.player;
+      a.vy = BOP.bounce;
+      a.onGround = false;
+      s.bops = (s.bops || 0) + 1;
+      o.bopRest = this.tick + BOP.rest;
+      this.emit('bop', { seat: q.seat, attacker: a.seat, count: s.bops, at: { x: q.x, y: q.y + 0.2, z: q.z } });
+      if (this.arena) {
+        q.alive = false;
+        q.respawnAt = this.tick + HZ;
+      }
+      return;
+    }
   }
 
   addChalk(seat, at) {
@@ -118,7 +155,7 @@ export class Match {
   // Solid objects collide; items are carried, thrown and run over instead.
   // The place's own solid boxes: a block's house walls.
   setWalls(boxes = []) {
-    this.walls = boxes;
+    this.walls = this.arena ? [...this.arena, ...boxes] : boxes;
   }
   setObjects(list = []) {
     this.objects = list.filter((o) => !o.item);
@@ -389,7 +426,7 @@ export class Match {
   join() {
     const seat = this.seats.indexOf(null);
     if (seat < 0) return -1;
-    this.seats[seat] = { player: spawn(seat), ack: 0, queue: [], last: {} };
+    this.seats[seat] = { player: this.fresh(seat), ack: 0, queue: [], last: {} };
     if (this.count === 2 && this.phase === 'waiting') this.reset();
     return seat;
   }
@@ -399,12 +436,12 @@ export class Match {
     this.seats[seat] = null;
     this.rockets = this.rockets.filter((r) => r.owner !== seat);
     for (const it of this.items.values()) if (it.holder === seat) it.holder = -1;
-    if (this.count >= 2) return;
+    if (this.count >= 2 || this.arena) return;
     this.phase = 'waiting';
     this.winner = null;
     this.rockets = [];
     for (const s of this.seats.filter(Boolean)) {
-      s.player = spawn(s.player.seat, s.player.life + 1);
+      s.player = this.fresh(s.player.seat, s.player.life + 1);
       s.queue = [];
     }
   }
@@ -415,7 +452,7 @@ export class Match {
     this.winner = null;
     this.rockets = [];
     for (const s of this.seats.filter(Boolean)) {
-      s.player = spawn(s.player.seat, s.player.life + 1);
+      s.player = this.fresh(s.player.seat, s.player.life + 1);
       // Consume already received input so it cannot fire in the new round.
       s.ack = Math.max(s.ack, ...s.queue.map((c) => c.seq));
       s.queue = [];
@@ -481,7 +518,7 @@ export class Match {
       while (s.queue.length > INPUT_SLACK) s.ack = s.queue.shift().seq;
       let p = s.player;
       if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
-        p = { ...spawn(p.seat, p.life + 1), score: p.score };
+        p = { ...this.fresh(p.seat, p.life + 1), score: p.score };
         s.last = {};
       }
       p.cooldown = Math.max(0, p.cooldown - 1);
@@ -494,12 +531,14 @@ export class Match {
         const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
         // Waiting is a movement warmup; the match countdown locks both spawns.
         if (this.phase === 'playing' || this.phase === 'waiting')
-          p = move(p, input, this.objects, this.tick / HZ, this.walls);
+          p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena);
         else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;
         }
         s.player = p;
+        // Checked after every command, so a late burst cannot fall through a head.
+        if (this.phase === 'playing' || this.phase === 'waiting') this.bop(s);
         if (c && (c.use || c.drop)) this.useItem(s, c);
         if (c?.chalk) this.addChalk(p.seat, c.chalk);
         if (c) this.chalking[p.seat] = !!c.chalk;
@@ -617,6 +656,7 @@ export class Match {
       winner: this.winner,
       players: this.seats.map((s) => s && { ...s.player }),
       acks: this.seats.map((s) => s?.ack || 0),
+      bops: this.seats.map((s) => s?.bops || 0),
       rockets: this.rockets.map((r) => ({ ...r })),
       items: [...this.items.values()].map((it) => ({
         id: it.id, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,

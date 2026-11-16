@@ -335,3 +335,77 @@ test('dool mounts below a prefix and shares HTTP and WebSockets without taking o
   const rejected = new WebSocket(`${wsBase}/dool/play?room=mount&protocol=${PROTOCOL}`, { origin: 'https://unrelated.example' });
   await once(rejected, 'error');
 });
+
+// 🍄 hedbop
+import { BOP, lands, LEDGES, isArena, arenaSpawn } from '../bop.mjs';
+const idle = (m, seat) => m.input(seat, [cmd(m.seats[seat].ack + 1)]);
+function over(m, height = 1.9) {
+  const [a, q] = [m.seats[0].player, m.seats[1].player];
+  Object.assign(a, { x: q.x, z: q.z, y: q.y + height, vy: -3, onGround: false });
+}
+test('hedbop: coming down on a head bops it, bounces the stomper and counts', () => {
+  const m = playing();
+  over(m);
+  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  assert.equal(m.seats[0].bops, 1);
+  assert.ok(m.seats[0].player.vy > 0, 'the stomper leaves upward');
+  assert.ok(m.seats[1].player.alive, 'outside the arena the bopped player stays');
+  const e = m.events.find((x) => x.type === 'bop');
+  assert.deepEqual([e.seat, e.attacker, e.count], [1, 0, 1]);
+  assert.deepEqual(m.snapshot().bops.slice(0, 2), [1, 0]);
+});
+test('hedbop: no bop from the side, from below, or while the head rests', () => {
+  const m = playing();
+  const [a, q] = [m.seats[0].player, m.seats[1].player];
+  assert.equal(lands({ ...a, x: q.x + 2, z: q.z, y: q.y + 1.5, vy: -3, onGround: false }, q), false);
+  assert.equal(lands({ ...a, x: q.x, z: q.z, y: q.y + 0.5, vy: -3, onGround: false }, q), false);
+  assert.equal(lands({ ...a, x: q.x, z: q.z, y: q.y + 1.5, vy: 3, onGround: false }, q), false);
+  assert.equal(lands({ ...a, x: q.x, z: q.z, y: q.y + 1.5, vy: -3, onGround: false }, q), true);
+  over(m);
+  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  over(m, 1.5); idle(m, 0); idle(m, 1); m.step();
+  assert.equal(m.seats[0].bops, 1, 'a second landing inside the rest does not count');
+  assert.ok(BOP.rest > 1);
+});
+test('hedbop arena: one plane, no countdown, a bopped body comes back elsewhere', () => {
+  assert.ok(isArena('hedbop') && isArena('hedbop-2') && !isArena('lobby'));
+  const m = new Match(); m.setArena(LEDGES); m.join(); m.join();
+  assert.equal(m.phase, 'playing');
+  for (let i = 0; i < 90; i++) {
+    m.input(0, [cmd(m.seats[0].ack + 1, { fwd: 1, yaw: 37, buttons: i % 20 === 0 ? 1 : 0 })]);
+    idle(m, 1); m.step();
+    assert.equal(m.seats[0].player.z, 0);
+  }
+  over(m);
+  for (let i = 0; i < 20 && !m.seats[0].bops; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  assert.equal(m.seats[1].player.alive, false);
+  const life = m.seats[1].player.life;
+  for (let i = 0; i < HZ + 2; i++) { idle(m, 0); idle(m, 1); m.step(); }
+  assert.ok(m.seats[1].player.alive);
+  assert.equal(m.seats[1].player.life, life + 1);
+  assert.deepEqual(arenaSpawn(1, life + 1).z, 0);
+  m.leave(1);
+  assert.equal(m.phase, 'playing', 'alone in the arena is still play');
+});
+test('hedbop arena: a ledge is jumped through from below and stood on from above', () => {
+  const l = LEDGES[0], x = (l.xMin + l.xMax) / 2;
+  let p = { ...spawn(0), x, z: 0 }, top = 0, prediction;
+  for (let i = 0; i < 200; i++) {
+    p = move(p, cmd(i + 1, { buttons: i === 0 || (p.onGround && i < 60) ? 1 : 0 }), [], i / HZ, LEDGES, true);
+    top = Math.max(top, p.y - 1.7);
+  }
+  assert.ok(top > l.yMax, 'the jump passes up through the ledge');
+  assert.ok(Math.abs(p.y - 1.7 - l.yMax) < 1e-6 && p.onGround, `rests on the ledge (${p.y - 1.7})`);
+  // Walking off the end falls to the floor.
+  for (let i = 0; i < 240; i++) p = move(p, cmd(i + 1, { fwd: 1, yaw: 270 }), [], i / HZ, LEDGES, true);
+  assert.ok(Math.abs(p.y - 1.7) < 1e-6 && p.onGround);
+  // Prediction and authority agree in the arena.
+  const m = new Match(); m.setArena(LEDGES); m.join();
+  prediction = { ...m.seats[0].player };
+  for (let seq = 1; seq <= 300; seq++) {
+    const c = cmd(seq, { fwd: 1, yaw: seq % 140 < 70 ? 90 : 270, buttons: seq % 23 === 0 ? 1 : 0 });
+    prediction = move(prediction, c, [], seq / HZ, LEDGES, true);
+    m.input(0, [c]); m.step();
+    assert.deepEqual([prediction.x, prediction.y, prediction.z], [m.seats[0].player.x, m.seats[0].player.y, m.seats[0].player.z]);
+  }
+});

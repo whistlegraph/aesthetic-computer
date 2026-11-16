@@ -8,6 +8,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
 import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
+import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
@@ -49,6 +50,7 @@ const assets = new Map([
     'diagnostics-client',
     'stalls',
     'park',
+    'bop',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -555,6 +557,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       rooms.set(key, new Room(send));
+      if (isArena(key)) rooms.get(key).match.setArena(LEDGES);
     }
     const room = rooms.get(key);
     if (room.clients.size >= ROOM_CONNECTIONS) {

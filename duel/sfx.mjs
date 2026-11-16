@@ -125,6 +125,11 @@ export class Sfx {
     this.voice(mine ? 120 : 180, 0.16, { slide: 0.6, volume: 0.05, type: 'square' });
     this.noise(0.1, { volume: 0.04, from: 1200, to: 200 });
   }
+  // 🍄 A bop: a rubbery boing for the one who landed it, a flat thud under it.
+  bop(mine) {
+    this.voice(mine ? 330 : 220, 0.16, { slide: 1.9, volume: 0.05, type: 'square' });
+    this.noise(0.06, { volume: 0.03, from: 300, to: 1800 });
+  }
   pickup(mine) {
     if (!mine) return;
     this.voice(note(4), 0.07, { volume: 0.03 });
