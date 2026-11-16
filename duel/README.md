@@ -79,13 +79,17 @@ on both machines. `PORT` overrides 8787.
 
 ## botbop
 
-Land on a head. Coming down onto another player's crown bops them: the stomper
-bounces and the count beside their handle goes up. The rule (`bop.mjs`, run by
-the server in `match.mjs`) holds in every room. `?room=botbop` (the **go** menu's
-`botbop` row; `botbop-anything` makes a private one) is its arena: a side-on stage
-where bodies keep to one plane, A/D walk, space jumps, pink ledges are jumped
+**aesthetic.computer/botbop** opens it: the prompt's `botbop`, which drops the
+paper into dool's arena. `botbop~name` is an arena of its own, and `dool~room`
+reaches any room; the address bar follows you as you move. (Inside, the guest is
+still `/dool/?room=…`; that is transport, not an address to hand out.)
+
+Land on a head. Coming down onto another player's crown bops them and bounces
+you. The rule (`bop.mjs`, run by the server in `match.mjs`) holds in every room;
+the arena is a side-on stage where bodies keep to one plane, ledges are jumped
 through from below and stood on from above, play never stops for a countdown,
 and a bopped player is set down again a second later somewhere else.
+
 Five drones walk the floor and the lower ledges: dumb robots, not bots. Landing
 on one is a bop; another rolls out three seconds later.
 

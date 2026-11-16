@@ -554,6 +554,13 @@ if (query.has('debug'))
 
 // 🚪 To another room of the one world: the same page, a new socket. What
 // stood in the old room is put away first so it never shows in the new one.
+// 🧭 This place's AC address, for the host's address bar: a game's own word
+// (botbop, botbop~name), else dool~room; the lobby and your home are dool.
+function placePath() {
+  const g = game();
+  if (g?.at(room)) return room.startsWith(`${g.name}-`) ? `/${g.name}~${room.slice(g.name.length + 1)}` : `/${g.name}`;
+  return room === 'lobby' || room === home?.room ? '/dool/' : `/dool~${room}`;
+}
 function travel(to, chosen = true, receipt = null) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   if (chosen) roamed = true;
@@ -584,6 +591,7 @@ function travel(to, chosen = true, receipt = null) {
     address.searchParams.set('room', room);
     window.history.replaceState(window.history.state, '', address);
   } catch {}
+  toHost({ type: 'dool:sheet:place', path: placePath() });
   if (ws && ws.readyState !== WebSocket.CLOSED) {
     const old = ws;
     ws = null; // its close is ours, not an outage
@@ -2160,6 +2168,8 @@ if (hosted) {
     if ('grid' in e.data) view.grid(e.data.grid);
     // And its theme: a light prompt sits over the day room, a dark one over the night.
     if ('dark' in e.data) view.theme(e.data.dark);
+    // A room asked for by address (aesthetic.computer/botbop, dool~room).
+    if (typeof e.data.room === 'string') travel(e.data.room);
     if ('rest' in e.data && resting !== (e.data.rest === true)) {
       resting = e.data.rest === true;
       if (!resting) {
@@ -2217,5 +2227,6 @@ if (hosted) {
     }
   });
   toHost({ type: 'dool:sheet:hello' });
+  toHost({ type: 'dool:sheet:place', path: placePath() });
 } else connect();
 requestAnimationFrame(frame);

@@ -30,6 +30,10 @@ let historyEntry = false; // We pushed a /dool/ entry for the open sheet.
 let swallowPop = false;
 let said = false; // The guest has run to the end of its script and said hello.
 let pendingShow = 0; // A show asked for before the guest was ready.
+let asked = null; // A room asked for before the guest was ready to go there.
+// 🧭 The open world's address, as the guest reports it on hello and on every
+// move: a game's own word (/botbop, /botbop~name), /dool~room, or /dool/.
+let here = "/dool/";
 
 const post = (message) =>
   frame?.contentWindow?.postMessage(message, location.origin);
@@ -146,7 +150,7 @@ function resumePrompt() {
 // 🧭 History: an open world is one entry; Back closes it.
 function enterHistory() {
   if (historyEntry) return;
-  history.pushState({ acDoolSheet: true }, "", "/dool/");
+  history.pushState({ acDoolSheet: true }, "", here);
   historyEntry = true;
 }
 function leaveHistory() {
@@ -220,14 +224,22 @@ function step(now) {
   target === "open" ? opened() : home();
 }
 
-function show() {
+function show(room) {
   const f = ensure();
+  // An address like /botbop arrives through the prompt as
+  // /prompt~botbop~!autorun; Back from the world returns to the plain prompt.
+  if (/~!autorun$/.test(location.pathname)) history.replaceState(history.state, "", "/");
+  if (room) {
+    if (said) post({ type: "dool:sheet", room });
+    else asked = room;
+  }
   if (state === "open" || toward === "open") return;
   rest(false); // Dropping in wakes the world.
   if (!said) {
-    // Nothing to drop onto yet: wait a little for the guest, then let it go.
+    // Nothing to drop onto yet: wait for the guest, then let it go. A room
+    // asked for by address waits longer: the page and the world load together.
     clearTimeout(pendingShow);
-    pendingShow = setTimeout(() => (pendingShow = 0), 4000);
+    pendingShow = setTimeout(() => (pendingShow = 0), room ? 20000 : 4000);
     return;
   }
   if (state === "parked") post({ type: "dool:sheet", open: true });
@@ -336,6 +348,10 @@ addEventListener("message", (e) => {
       post({ type: "dool:sheet", phase: "opened" });
       meterGuest();
     }
+    if (asked) {
+      post({ type: "dool:sheet", room: asked });
+      asked = null;
+    }
     if (pendingShow) {
       clearTimeout(pendingShow);
       pendingShow = 0;
@@ -343,6 +359,10 @@ addEventListener("message", (e) => {
     }
   }
   else if (d.type === "dool:sheet:leave") hide();
+  else if (d.type === "dool:sheet:place" && /^\/[a-z0-9~/-]{1,48}$/.test(d.path || "")) {
+    here = d.path;
+    if (historyEntry && location.pathname !== here) history.replaceState(history.state, "", here);
+  }
   // ⌘+ / ⌘− / ⌘0 in the world: the prompt's density is the world's pixel
   // size; the reframe sends the new grid back down (framed).
   else if (d.type === "dool:sheet:density" && [-1, 0, 1].includes(d.step)) window.acChangeDensity?.(d.step);
@@ -390,12 +410,12 @@ window.acDoolSheet = { popstate, framed, windowFocus };
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle
-//   { action: "show" }   drop the paper into the world
+//   { action: "show" }   drop the paper into the world (value: a room to go to)
 //   { action: "hide" }   bring the paper back
 //   { action: "theme" }  the prompt is dark (true) or light (false)
 export function doolSheet({ action, value } = {}) {
   if (action === "warm") warm();
-  else if (action === "show") show();
+  else if (action === "show") show(value);
   else if (action === "hide") hide();
   else if (action === "theme") theme(value);
   // The crosshair's breadth as the pointer nears: the room scales with it.

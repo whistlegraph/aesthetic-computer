@@ -171,7 +171,7 @@ Minimal Lisp dialect for generative art (118 built-ins across 12 categories). **
 
 ### Routing and URLs
 
-Pieces are URL-addressable: `aesthetic.computer/piece-name`, params `piece-name:p1:p2`, user pieces `@handle/piece-name`, QR via `share piece-name`.
+Pieces are URL-addressable: `aesthetic.computer/piece-name`, words `piece-name~a~b` (a `~` is a space: the prompt line `piece-name a b`), options `piece-name:opt`, user pieces `@handle/piece-name`, QR via `share piece-name`. Address features this way, not with `?query` strings; see `SCORE.md`.
 
 ## Development Workflow
 

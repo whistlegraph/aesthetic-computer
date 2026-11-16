@@ -95,6 +95,13 @@ explained.
 - `compushloy` means commit, push, deploy from the intended branch, and verify
   production serves that revision. For lith, use `ac-deploy`, which deploys
   pushed `main`; `ac-deploy --verify` checks the served revision.
+- Give a feature an AC address, not a query string. Every address is a prompt
+  line: `~` is a space, so `aesthetic.computer/dool~botbop` runs `dool botbop`.
+  A feature is a piece or prompt command, `~` params are its words, and `:`
+  params are its options (`notepat:piano`). A prompt command that loads no
+  piece gets a forwarding piece that jumps to `prompt~<line>~!autorun`
+  (`mo.mjs`, `botbop.mjs`). Query params are only the runtime and view flags
+  in `system/public/aesthetic.computer/lib/params.mjs`.
 - Arena client and server physics must match. Commits on `main` touching the
   arena deployment paths or `shared/` can trigger paired deployment. Read the
   [deployment details](docs/development-reference.md#architecture) first;

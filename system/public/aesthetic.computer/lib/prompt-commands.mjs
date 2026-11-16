@@ -142,6 +142,10 @@ export const commandDescriptions = {
   
   // 🤖 Admin Commands
   patch: "Spawn a PR agent (admin only)",
+
+  // 🎯 Dool
+  dool: "Drop into dool, the world under the prompt (dool <room> for a room)",
+  botbop: "Land on heads in dool's side-on arena (botbop <name> for your own)",
 };
 
 // Get a description for a command, with fallback

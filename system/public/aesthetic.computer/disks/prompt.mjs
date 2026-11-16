@@ -289,10 +289,11 @@ let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it 
 // curtain; a tap flies it to the centre, then bios drops the paper into dool.
 let doolBtn;
 let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
-function openDool(send) {
+// `room` drops into that room of dool rather than wherever it was.
+function openDool(send, room) {
   const now = performance.now();
   doolFlight = { at: now, phase: "held", awayAt: now };
-  send({ type: "dool:sheet", content: { action: "show" } });
+  send({ type: "dool:sheet", content: { action: "show", value: room } });
 }
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
@@ -2147,7 +2148,15 @@ async function route($, text) {
     jump("https://aesthetic.computer/mime/");
     return true;
   } else if (slug === "dool") {
-    openDool(send);
+    // `dool <room>` (aesthetic.computer/dool~room) drops into that room.
+    const room = /^[a-z0-9-]{1,32}$/.test(params[0] || "") ? params[0] : undefined;
+    openDool(send, room);
+    return true;
+  } else if (slug === "botbop") {
+    // 🤖 dool's side-on arena (duel/bop.mjs); `botbop <name>`
+    // (aesthetic.computer/botbop~name) is a room of its own.
+    const name = /^[a-z0-9-]{1,24}$/.test(params[0] || "") ? params[0] : "";
+    openDool(send, name ? `botbop-${name}` : "botbop");
     return true;
   } else if (slug === "bills") {
     // 💸 Jump to billing dashboard
