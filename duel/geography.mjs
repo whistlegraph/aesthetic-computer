@@ -233,7 +233,7 @@ export class Geography {
   }
   rest(handle, { room, x, z, yaw = 0 }, now = Date.now()) {
     const who = key(handle);
-    if (!who || !(room === LOBBY || parseBlock(room) || this.pod(room))) return null;
+    if (!who || !(room === LOBBY || parseBlock(room) || this.pod(room) || /^floor-[a-f0-9]{8}$/.test(room))) return null;
     const half = BLOCK / 2;
     const clamp = n => Math.round(Math.min(half, Math.max(-half, Number(n) || 0)) * 100) / 100;
     this.rests[who] = { room, x: clamp(x), z: clamp(z), yaw: Math.round(Number(yaw) || 0), at: now };

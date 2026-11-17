@@ -1,6 +1,7 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { podFront, house, houseWalls, HOUSE } from './park.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, STOREY, ATRIUM, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
@@ -325,6 +326,289 @@ export async function createView(canvas) {
     const made = { key, lotModel, podModels };
     lotSets.set(id, made);
     return made;
+  }
+  // 🛗 The elevator car against the north edge of the plaza and of every
+  // floor: a glass box (posts, a sill, a roof) with its door to the south and
+  // the world behind its back. The floor's number and handle are over the
+  // door, outside and in.
+  let carSet = null;
+  function carFor(tower) {
+    const here = tower?.here, key = JSON.stringify([here, tower?.count, paletteName]);
+    if (carSet?.key === key) return carSet.model;
+    const day = paletteName === 'day';
+    const frame = day ? 0x8f98ac : 0x59607a, sill = day ? 0xdfe3ee : 0x3d4357, pad = day ? 0xffd9ec : 0x5a2244;
+    const number = here ? (here.number ? `${here.number}` : 'G') : '';
+    const who = here?.handle ? `@${here.handle}` : here ? 'AC TOWER' : '';
+    const under = here?.handle ? '' : tower?.count ? `${tower.count} floors` : '';
+    const made = model(({ quad, box, text, handleText }) => {
+      const o = CAR + CAR_WALL, z0 = CAR_Z, t = CAR_WALL, H = CAR_HEIGHT;
+      box(0, 0.03, z0, 2 * o, 0.06, 2 * o, pad, frame, pad); // the car's floor
+      box(0, H + 0.1, z0, 2 * o, 0.2, 2 * o, sill, frame, sill); // roof
+      // Glass on three sides: a sill to the knee, a post at each corner, a rail at the top.
+      for (const [x, z, w, d] of [[0, z0 + CAR + t / 2, 2 * o, t], [-CAR - t / 2, z0, t, 2 * CAR], [CAR + t / 2, z0, t, 2 * CAR]]) {
+        box(x, 0.3, z, w, 0.6, d, sill, frame, sill);
+        box(x, H - 0.1, z, w, 0.2, d, frame, frame, frame);
+      }
+      for (const x of [-o + t / 2, o - t / 2])
+        for (const z of [z0 - CAR + t / 2 - t, z0 + CAR + t / 2])
+          box(x, H / 2, z, t, H, t, frame, frame, frame);
+      box(0, H / 2, z0 + CAR + t / 2, 0.08, H, 0.08, frame, frame, frame); // one mullion in the back pane
+      // The sign over the door, read from outside and (its other face) from inside.
+      const door = z0 - CAR - t / 2;
+      box(0, 2.6, door, 2 * o, 0.8, t, 0x27324a, 0x171d26, 0x171d26);
+      const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
+      const line = (label, top, z, width, most, color) => {
+        const unit = fit(label, width, most);
+        text(label, unit, top - 2 * unit, z + 0.004, unit, 0x000000); // a hard shadow, one pixel down and across
+        if (color === 'handle') handleText(label, 0, top - unit, z, unit, here.colors);
+        else text(label, 0, top - unit, z, unit, color);
+      };
+      if (number) line(number, 2.95, door - t / 2 - 0.012, 1.6, 0.035, 0xff3296);
+      if (who) line(who, 2.55, door - t / 2 - 0.012, 2.6, 0.028, here?.handle ? 'handle' : PAPER);
+      if (under) line(under, 2.3, door - t / 2 - 0.012, 2.6, 0.012, 0x9aa3b5);
+    });
+    carSet = { key, model: made };
+    return made;
+  }
+  // 📟 The screen inside the car, over the door: the floor passing now, whose
+  // it is, and where the car is going. Built facing -z; drawn turned round.
+  let carScreen = null;
+  function carScreenFor(screen) {
+    const key = JSON.stringify(screen);
+    if (carScreen?.key === key) return carScreen.model;
+    const made = model(({ box, text }) => {
+      // A bezel plate with the dark screen proud of it: no two faces share a plane.
+      box(0, 2.6, 0.05, 2.78, 0.86, 0.06, 0x59607a, 0x59607a, 0x59607a);
+      box(0, 2.6, 0.01, 2.7, 0.78, 0.02, 0x1d2536, 0x1d2536, 0x1d2536);
+      const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
+      const line = (label, x, top, width, most, color) => {
+        const unit = fit(label, width, most);
+        text(label, x + unit, top - 2 * unit, -0.003, unit, 0x000000);
+        text(label, x, top - unit, -0.006, unit, color);
+      };
+      // The number large on the left; the name and the trip beside it.
+      line(screen.number, -0.85, 2.93, 0.9, 0.06, screen.moving ? 0xf4f1ea : 0xff3296);
+      if (screen.handle) line(screen.handle, 0.45, 2.9, 1.6, 0.03, 0x9be7a0);
+      if (screen.note) line(screen.note, 0.45, 2.55, 1.6, 0.022, 0x9aa3b5);
+    });
+    carScreen = { key, model: made };
+    return made;
+  }
+  // 🏢 The tower itself, in pieces drawn at their real heights: a storey's
+  // glass edge (a sill and mullions, open where the car runs), a storey's
+  // slab, its four corner columns, and the legs that carry it over the plaza.
+  let towerSet = null;
+  function towerParts() {
+    if (towerSet?.key === paletteName) return towerSet;
+    const day = paletteName === 'day', p = PALETTES[paletteName];
+    const slab = day ? 0xd9dde8 : 0x30354a, edge = day ? 0xb9c0d2 : 0x232738, under = day ? 0xc9cedb : 0x262a3c;
+    const post = day ? 0x9aa3b5 : 0x4b526b, sill = day ? 0xe9edf5 : 0x3a4056, column = day ? 0xaab2c6 : 0x3f455c;
+    const W = WORLD, E = W + 0.15;
+    // The shaft: the bay of every floor the car passes through, left open.
+    const S = W + 0.35, bayX = CAR + CAR_WALL + 0.25, bayZ = CAR_Z - CAR - CAR_WALL - 0.05;
+    // A floor-sized sheet at height y with the shaft cut out of it, as three pieces.
+    const sheet = (piece) => {
+      piece(-S, S, -S, bayZ);
+      piece(-S, -bayX, bayZ, S);
+      piece(bayX, S, bayZ, S);
+    };
+    const slabModel = model(({ box }) =>
+      sheet((x0, x1, z0, z1) => box((x0 + x1) / 2, -0.21, (z0 + z1) / 2, x1 - x0, 0.4, z1 - z0, edge, edge, slab)));
+    // Columns for one storey and, to save drawing, for ten at once.
+    const columns = (storeys) => model(({ box }) => {
+      for (const x of [-E, E]) for (const z of [-E, E])
+        box(x, (storeys * STOREY) / 2 - 0.4, z, 0.5, storeys * STOREY, 0.5, column, column, column);
+    });
+    const glass = model(({ box }) => {
+      const run = (along, at, from, to) => {
+        const mid = (from + to) / 2, len = to - from;
+        const b = (y, h, w, color) => along === 'x'
+          ? box(mid, y, at, len, h, w, color, color, color)
+          : box(at, y, mid, w, h, len, color, color, color);
+        b(0.5, 1, 0.12, sill); // the sill, to the hip
+        b(1.04, 0.08, 0.2, post); // its rail
+        b(STOREY - 0.5, 0.2, 0.12, post); // the head, under the next slab
+        for (let s = from + 4; s < to - 0.5; s += 4)
+          along === 'x' ? box(s, STOREY / 2 - 0.2, at, 0.1, STOREY - 0.4, 0.1, post, post, post)
+            : box(at, STOREY / 2 - 0.2, s, 0.1, STOREY - 0.4, 0.1, post, post, post);
+      };
+      run('x', -E, -W, W);
+      run('z', -E, -W, W);
+      run('z', E, -W, W);
+      // North, either side of the shaft: the car's glass back is the window there.
+      run('x', E, -W, -CAR - 0.3);
+      run('x', E, CAR + 0.3, W);
+    });
+    // Two rails the car runs on, a storey tall.
+    const rails = model(({ box }) => {
+      for (const x of [-CAR - 0.3, CAR + 0.3]) box(x, STOREY / 2 - 0.2, E, 0.14, STOREY, 0.14, post, post, post);
+    });
+    const legs = model(({ box }) => {
+      for (const x of [-E, E]) for (const z of [-E, E]) box(x, ATRIUM / 2 - 0.2, z, 0.7, ATRIUM - 0.4, 0.7, column, column, column);
+      for (const x of [-CAR - 0.3, CAR + 0.3]) box(x, ATRIUM / 2, E, 0.14, ATRIUM, 0.14, post, post, post);
+    });
+    // The floor you stand on: the room's own floor and dots, no walls.
+    const floor = model(({ quad, box }) => {
+      const cut = (x0, x1, z0, z1) => [Math.max(-W, x0), Math.min(W, x1), Math.max(-W, z0), Math.min(W, z1)];
+      sheet((...r) => { const [a, b, c, d] = cut(...r); quad([a, 0, c], [a, 0, d], [b, 0, d], [b, 0, c], p.floor); });
+      for (let x = -W + 2; x < W; x += 2)
+        for (let z = -W + 2; z < W; z += 2)
+          if (!(Math.abs(x) < bayX && z > bayZ)) box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
+      // The underside of the floor above is this floor's ceiling.
+      const top = STOREY - 0.42;
+      sheet((...r) => { const [a, b, c, d] = cut(...r); quad([a, top, c], [b, top, c], [b, top, d], [a, top, d], under); });
+    });
+    // The land around the plaza and its blocks, out to the horizon: four
+    // fields around the middle 48 m, which the blocks themselves fill.
+    const grass = day ? 0xb9d7ac : 0x243d36;
+    const land = model(({ quad }) => {
+      const far = 2200, n = 24, y = -0.02;
+      quad([-far, y, n], [-far, y, far], [far, y, far], [far, y, n], grass);
+      quad([-far, y, -far], [-far, y, -n], [far, y, -n], [far, y, -far], grass);
+      quad([-far, y, -n], [-far, y, n], [-n, y, n], [-n, y, -n], grass);
+      quad([n, y, -n], [n, y, n], [far, y, n], [far, y, -n], grass);
+    });
+    const lawn = model(({ quad }) => quad([-8, -0.02, -8], [-8, -0.02, 8], [8, -0.02, 8], [8, -0.02, -8], grass));
+    towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, land, lawn };
+    return towerSet;
+  }
+  // 🚪 Automatic doors: two glass leaves that slide apart when someone comes
+  // near. `width` is one leaf's; the entrance's are DOOR wide, the car's CAR.
+  const leaves = new Map();
+  function leafFor(width, height) {
+    const key = `${width}:${height}:${paletteName}`;
+    if (leaves.has(key)) return leaves.get(key);
+    const post = paletteName === 'day' ? 0x8f98ac : 0x59607a, pane = paletteName === 'day' ? 0xdfeaf6 : 0x2c3550;
+    const made = model(({ box }) => {
+      const t = 0.07;
+      box(0, t / 2, 0, width, t, t, post, post, post);
+      box(0, height - t / 2, 0, width, t, t, post, post, post);
+      for (const x of [-width / 2 + t / 2, width / 2 - t / 2]) box(x, height / 2, 0, t, height, t, post, post, post);
+      box(0, height * 0.42, 0, width, 0.05, 0.05, post, post, post); // the push rail
+      box(0, 0.22, 0, width - 2 * t, 0.3, 0.03, pane, pane, pane); // a kick plate, so the glass reads
+    });
+    leaves.set(key, made);
+    return made;
+  }
+  // How open each door is, 0 shut … 1 open, eased frame to frame.
+  const doorAt = { entrance: 0, car: 0 };
+  let doorTime = performance.now();
+  // 🚪 The lobby: a glass hall the height of the tower's legs, across the
+  // north half of the plaza. A canopy and the tower's name over the entrance;
+  // inside, a pale floor, a desk, benches and the directory board.
+  let lobbySet = null;
+  function lobbyFor(count, board) {
+    const key = JSON.stringify([paletteName, count, board]);
+    if (lobbySet?.key === key) return lobbySet.model;
+    const day = paletteName === 'day';
+    const post = day ? 0x8f98ac : 0x59607a, sill = day ? 0xe9edf5 : 0x3a4056, stone = day ? 0xf3eee6 : 0x34313f;
+    const dark = 0x171d26, wood = day ? 0xc9a37a : 0x6b5440, cushion = 0xff7ac8;
+    const made = model(({ quad, box, text, handleText }) => {
+      const f = LOBBY_FRONT, H = ATRIUM - 0.4, W = WORLD;
+      // The hall's own floor, clear of the car's bay.
+      quad([-W, 0.011, f], [-W, 0.011, W], [W, 0.011, W], [W, 0.011, f], stone);
+      // The front: a sill and glass to the first floor, open at the entrance.
+      for (const [a, b] of [[-W, -DOOR], [DOOR, W]]) {
+        box((a + b) / 2, 0.25, f, b - a, 0.5, 0.2, sill, post, sill);
+        for (const y of [3.2, 6.2, 9.2]) box((a + b) / 2, y, f, b - a, 0.12, 0.12, post, post, post);
+        for (let x = a; x <= b + 0.01; x += (b - a) / 3) box(x, H / 2, f, 0.12, H, 0.12, post, post, post);
+      }
+      box(0, H - 0.1, f, 2 * W, 0.2, 0.14, post, post, post);
+      // The entrance: a frame, glass over it, and a canopy out over the plaza.
+      box(0, DOOR_HEIGHT + 0.08, f, 2 * DOOR + 0.24, 0.16, 0.22, post, post, post);
+      for (const y of [6.2, 9.2]) box(0, y, f, 2 * DOOR, 0.12, 0.12, post, post, post);
+      box(0, 3.25, f - 0.9, 6.4, 0.16, 2, sill, post, sill);
+      // The name over the door, facing the plaza.
+      box(0, 4.15, f - 0.12, 6, 1.3, 0.12, 0x27324a, dark, dark);
+      const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
+      // Sign text with a hard shadow one pixel down and across, just behind it.
+      const inked = (label, x, y, z, unit, color) => {
+        text(label, x + unit, y - unit, z + 0.004, unit, 0x000000);
+        text(label, x, y, z, unit, color);
+      };
+      const line = (label, x, top, z, width, most, color) => {
+        const unit = fit(label, width, most);
+        inked(label, x, top - unit, z, unit, color);
+      };
+      line('AC TOWER', 0, 4.72, f - 0.19, 5, 0.085, 0xff3296);
+      if (count) line(`${count} floors`, 0, 3.86, f - 0.19, 4, 0.026, 0xc9cedb);
+      // The two ends, glass like the front.
+      for (const x of [-W + 0.05, W - 0.05]) {
+        box(x, 0.25, (f + W) / 2, 0.2, 0.5, W - f, sill, sill, post);
+        for (const y of [3.2, 6.2, 9.2]) box(x, y, (f + W) / 2, 0.12, 0.12, W - f, post, post, post);
+        for (let z = f; z <= W + 0.01; z += (W - f) / 3) box(x, H / 2, z, 0.12, H, 0.12, post, post, post);
+      }
+      // Inside: the desk, two benches, a runner from the door to the car.
+      box(DESK.x, DESK.h / 2, DESK.z, DESK.w, DESK.h, DESK.d, wood, tint(wood, 0.8), tint(wood, 1.08));
+      box(DESK.x, DESK.h + 0.02, DESK.z, DESK.w + 0.16, 0.05, DESK.d + 0.16, stone, stone, stone);
+      for (const z of [3, 6]) {
+        box(5.6, 0.22, z, 0.7, 0.44, 1.9, post, post, post);
+        box(5.6, 0.48, z, 0.74, 0.1, 1.94, cushion, cushion, cushion);
+      }
+      quad([-1.3, 0.016, f + 0.1], [-1.3, 0.016, CAR_Z - CAR - 0.3], [1.3, 0.016, CAR_Z - CAR - 0.3], [1.3, 0.016, f + 0.1], day ? 0xffd9ec : 0x5a2244);
+      // 🌳 The courtyard, on the plaza's side of the glass: a paved walk to
+      // the door, a cross walk, two planters with trees, lamps, benches.
+      const paving = day ? 0xefe7da : 0x3a3644, leaf = day ? 0x6fb26a : 0x2f5a44, leaf2 = day ? 0x8cc97f : 0x3b6e52;
+      quad([-DOOR, 0.008, -W], [-DOOR, 0.008, f], [DOOR, 0.008, f], [DOOR, 0.008, -W], paving);
+      quad([-W, 0.008, -1.2], [-W, 0.008, 0.2], [-DOOR, 0.008, 0.2], [-DOOR, 0.008, -1.2], paving);
+      quad([DOOR, 0.008, -1.2], [DOOR, 0.008, 0.2], [W, 0.008, 0.2], [W, 0.008, -1.2], paving);
+      for (const p of PLANTERS) {
+        box(p.x, 0.275, p.z, PLANTER, 0.55, PLANTER, sill, post, leaf);
+        box(p.x, 1.5, p.z, 0.28, 1.9, 0.28, wood, tint(wood, 0.8), wood);
+        box(p.x, 3.1, p.z, 1.9, 1.5, 1.9, leaf, tint(leaf, 0.82), leaf2);
+        box(p.x + 0.25, 4.1, p.z - 0.2, 1.2, 0.9, 1.2, leaf2, leaf, leaf2);
+      }
+      for (const x of [-2.3, 2.3])
+        for (const z of [-2.2, -6.2]) {
+          box(x, 1.4, z, 0.1, 2.8, 0.1, post, post, post);
+          box(x, 2.9, z, 0.34, 0.34, 0.34, 0xffe9a8, 0xffd27a, 0xffe9a8);
+        }
+      for (const x of [-3.6, 3.6]) {
+        box(x, 0.22, -6.4, 1.9, 0.44, 0.7, post, post, post);
+        box(x, 0.48, -6.4, 1.94, 0.1, 0.74, cushion, cushion, cushion);
+      }
+      // The board by the desk, read from the door: your floor, how tall the
+      // tower is, and the floors with someone on them right now.
+      if (board) {
+        const bx = DESK.x, bz = DESK.z + 1.5, z = bz - 0.012;
+        box(bx, 1.75, bz + 0.05, 3, 2.9, 0.1, 0x27324a, dark, dark); // a lighter face, so the shadows read
+        box(bx, 0.15, bz + 0.05, 3.2, 0.3, 0.3, post, post, post);
+        // (Text is laid out with x running the other way from boxes: a
+        // viewer facing north has +x on the left. `tx` is the board's middle.)
+        const tx = -bx;
+        line('ac tower', tx, 3.08, z, 2.4, 0.034, 0xff3296);
+        line(`${count} floors`, tx, 2.7, z, 2.4, 0.022, 0xc9cedb);
+        line(board.yours ? `your floor: ${board.yours}` : 'sign in for a floor', tx, 2.36, z, 2.6, 0.026, board.yours ? 0xff3296 : 0x9aa3b5);
+        line(board.in.length ? 'in now' : 'nobody is upstairs', tx, 1.92, z, 2.4, 0.02, 0x9aa3b5);
+        board.in.slice(0, 4).forEach(([n, handle], k) => {
+          const top = 1.66 - k * 0.27, unit = 0.02, label = `${n}  @${handle}`.slice(0, 22);
+          inked(label, tx - 1.2 + ((label.length * 6 - 1) * unit) / 2, top - unit, z, unit, 0x9be7a0);
+        });
+        line('ride: a number or @handle', tx, 0.56, z, 2.6, 0.016, 0x9aa3b5);
+      }
+    });
+    lobbySet = { key, model: made };
+    return made;
+  }
+  // Draw the tower standing at (ox, oy, oz), `top` floors tall, as seen from
+  // a height: full storeys near the eye, slabs further off, columns to the
+  // limit of sight.
+  function drawTower(top, ox, oy, oz, eyeY) {
+    const t = towerParts();
+    if (!top) return;
+    draw(t.legs, ox, oy, oz);
+    const near = 9, mid = 70, sight = 2300;
+    const at = Math.max(1, Math.min(top, floorAt(eyeY - oy) || 1));
+    const lo = Math.max(1, floorAt(eyeY - oy - sight) || 1), hi = Math.min(top, Math.max(1, floorAt(eyeY - oy + sight)));
+    for (let n = lo; n <= hi; ) {
+      const y = oy + altitude(n);
+      if (n + 9 <= hi && (n > at + mid || n + 9 < at - mid)) { draw(t.columns10, ox, y, oz); n += 10; continue; }
+      draw(t.columns1, ox, y, oz);
+      if (Math.abs(n - at) <= mid) draw(t.slabModel, ox, y, oz);
+      if (Math.abs(n - at) <= near) { draw(t.glass, ox, y, oz); draw(t.rails, ox, y, oz); }
+      n++;
+    }
+    if (hi === top) draw(t.slabModel, ox, oy + altitude(top + 1), oz); // the roof
   }
   // 🍄 botbop's ledges: slabs lit on top, rebuilt with the palette.
   // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
@@ -741,6 +1025,11 @@ export async function createView(canvas) {
     fps = 0,
     stallNote = '',
     chat = null,
+    tower = null, // 🏢 { count, top, here: { number, handle, colors }, lift } where a car stands
+    skyline = null, // 🏢 the tower seen from this room: { top, dx, dy, dz } (dy is the plaza's height from here)
+    car = false, // standing in the elevator
+    plainTags = false, // 🎬 a film: names over heads, no positions after them
+    ride = null, // { from, to, handle, age } while the elevator runs
     walls = [],
     cube = [],
     menu = null,
@@ -906,37 +1195,73 @@ export async function createView(canvas) {
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground, each home on its lot.
     if (ledges) draw(ledgesFor(ledges));
+    else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza));
     else draw(arena);
+    if (tower && !ledges) {
+      draw(carFor(tower), 0, tower.lift || 0, 0);
+      if (tower.screen) draw(carScreenFor(tower.screen), 0, tower.lift || 0, CAR_Z - CAR + 0.12, Math.PI); // hung clear of the door's sign
+      // 🚪 The doors answer whoever is near: the car's stay shut while it
+      // runs, the lobby's entrance opens from either side.
+      const bodies = [me, ...players].filter(Boolean), dtDoor = Math.min(0.1, (now - doorTime) / 1000);
+      doorTime = now;
+      const near = (x, z, reach) => bodies.some((b) => Math.hypot(b.x - x, b.z - z) < reach);
+      const ease = (name, open) => (doorAt[name] += ((open ? 1 : 0) - doorAt[name]) * (1 - Math.exp(-dtDoor * 7)));
+      const carDoor = CAR_Z - CAR - CAR_WALL / 2 + 0.16;
+      const c = ease('car', !ride?.moving && !tower.lift && near(0, carDoor, 3.2));
+      const carLeaf = leafFor(CAR, 2.18);
+      for (const side of [-1, 1]) draw(carLeaf, side * (CAR / 2 + c * (CAR - 0.1)), tower.lift || 0, carDoor);
+      if (tower.here && !tower.here.number) {
+        const e = ease('entrance', near(0, LOBBY_FRONT, 3.4));
+        const leaf = leafFor(DOOR, DOOR_HEIGHT);
+        for (const side of [-1, 1]) draw(leaf, side * (DOOR / 2 + e * (DOOR - 0.12)), 0, LOBBY_FRONT + 0.14);
+      }
+    }
+    if (skyline && !ledges) {
+      drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y);
+      draw(lobbyFor(skyline.count, skyline.board), skyline.dx, skyline.dy, skyline.dz);
+      // The land the tower stands on, seen from the plaza and from every floor:
+      // fields to the horizon, and a lawn wherever a block around the plaza is
+      // not open yet.
+      if (skyline.dx === 0 && skyline.dz === 0) {
+        const t = towerParts();
+        draw(t.land, skyline.dx, skyline.dy, skyline.dz);
+        for (let i = -1; i <= 1; i++)
+          for (let j = -1; j <= 1; j++)
+            if (!around.some((b) => b.dx === skyline.dx + i * 16 && b.dz === skyline.dz + j * 16))
+              draw(t.lawn, skyline.dx + i * 16, skyline.dy, skyline.dz + j * 16);
+      }
+    }
     if (lots) {
       const set = lotsFor('here', lots, home);
       draw(set.lotModel, 0, 0, 0);
       for (const p of set.podModels) draw(p.mesh, p.x, 0, p.z, p.yaw);
     }
     for (const b of around) {
-      draw(groundFor(b.id, b.neighbours, b.plaza), b.dx, 0, b.dz);
+      const by = b.dy || 0; // a block seen from up the tower lies below
+      draw(groundFor(b.id, b.neighbours, b.plaza), b.dx, by, b.dz);
       if (b.lots) {
         const set = lotsFor(b.id, b.lots, b.home);
-        draw(set.lotModel, b.dx, 0, b.dz);
-        for (const p of set.podModels) draw(p.mesh, b.dx + p.x, 0, b.dz + p.z, p.yaw);
+        draw(set.lotModel, b.dx, by, b.dz);
+        for (const p of set.podModels) draw(p.mesh, b.dx + p.x, by, b.dz + p.z, p.yaw);
       }
       const painted = tilesFor(b.id, b.tiles);
-      if (painted) draw(painted, b.dx, 0, b.dz);
+      if (painted) draw(painted, b.dx, by, b.dz);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !around.some((b) => b.id === id)) {
         grounds.delete(id); lotSets.delete(id); tileSets.delete(id);
       }
     // A thing standing on the ground, drawn where its block stands.
-    const stand = (object, ox, oz) => {
+    const stand = (object, ox, oz, oy = 0) => {
       if (object.geometry.format === OBJECT_FORMAT) {
         draw(
           sourceFrame(object.geometry, worldTime).vertices,
           ox + object.x,
-          0,
+          oy,
           oz + object.z,
         );
-        drawHair(object.geometry, ox + object.x, 0, oz + object.z);
+        drawHair(object.geometry, ox + object.x, oy, oz + object.z);
         return;
       }
       let cached = objectModels.get(object.id);
@@ -961,7 +1286,7 @@ export async function createView(canvas) {
           draw(
             cached.parts[i],
             ox + pose.x + b.x,
-            (pose.y || 0) + b.y,
+            oy + (pose.y || 0) + b.y,
             oz + pose.z + b.z,
             0,
             0,
@@ -969,7 +1294,7 @@ export async function createView(canvas) {
             b.roll || 0,
           ),
         );
-      } else draw(cached.model, ox + object.x, 0, oz + object.z);
+      } else draw(cached.model, ox + object.x, oy, oz + object.z);
     };
     const aliveObjects = new Set(objects.map((o) => o.id));
     for (const b of around) for (const o of b.objects || []) aliveObjects.add(o.id);
@@ -1003,7 +1328,7 @@ export async function createView(canvas) {
     }
     for (const b of around)
       for (const object of b.objects || [])
-        if (!object.item && object.geometry) stand(object, b.dx, b.dz);
+        if (!object.item && object.geometry) stand(object, b.dx, b.dz, b.dy || 0);
     for (const id of previewModels.keys())
       if (!jobs.some((j) => j.id === id)) previewModels.delete(id);
     for (const job of jobs) {
@@ -1326,6 +1651,8 @@ export async function createView(canvas) {
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
+          : car
+            ? pad ? '$ menu: pick a floor' : '{enter} pick a floor'
           : pad
             ? '[RB] to build'
             : '{enter} to build';
@@ -1418,9 +1745,9 @@ export async function createView(canvas) {
       ).map((r) => clipSpans(r, columns));
       // A phone has send and cancel as caps; the key hints are for keys.
       const typing = (saying || (prompt.open && !radial && !prompt.busy)) && input !== 'touch';
-      const enterHint = typing ? hintSpans(saying ? '{enter} say' : '{enter} build', THEME.dim) : null;
+      const enterHint = typing ? hintSpans(chat?.lift ? '{enter} ride / {up} {down} a floor' : saying ? '{enter} say' : '{enter} build', THEME.dim) : null;
       const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
-      const key = JSON.stringify([visible, width, height, prompt.open, saying, !!radial, !!wallCode, !!enterHint]);
+      const key = JSON.stringify([visible, width, height, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
@@ -1567,7 +1894,7 @@ export async function createView(canvas) {
       H = canvas.height,
       pixel = W / Math.max(1, canvas.clientWidth);
     const chatting = !bare && chat && (chat.open || chat.lines.length);
-    if ((tags.length || ownTag || chatting) && !menu) {
+    if ((tags.length || ownTag || chatting || ride) && !menu) {
       const { unit } = hud;
       // 📍 World position in metres (x y z), small, after a handle: yours
       // bottom left, everyone else's over their head.
@@ -1620,6 +1947,17 @@ export async function createView(canvas) {
             text(label, unit, at - unit, 0.000002, size, INK);
             text(label, 0, at, 0, size, 0xff3296);
           }
+        }
+        // 🛗 The ride: the floor counter runs from where you were to where
+        // you are going, then the floor's handle sits under it.
+        if (ride && !bare) {
+          const digits = ride.floor ? `${ride.floor}` : 'G', big = unit * 5, y = H / 2 - hud.safeY - 28 * unit;
+          text(digits, unit * 2, y - unit * 2, 0.000002, big, INK);
+          text(digits, 0, y, 0, big, ride.moving ? PAPER : 0xff3296);
+          const word = ride.moving ? (ride.to > ride.from ? 'going up' : 'going down') : ride.handle ? `@${ride.handle}` : 'ground';
+          const wy = y - unit * 32;
+          small(word, unit, wy - unit, 0.000002, unit * 2, INK);
+          small(word, 0, wy, 0, unit * 2, THEME.dim);
         }
         // 💬 Chat: the room's last lines up the left side, over the face cam,
         // newest lowest. The line being typed is the top line (above).
@@ -1684,7 +2022,7 @@ export async function createView(canvas) {
             text(label, x + unit, y - unit, 0.000002, unit, INK);
             text(label, x, y, 0, unit, t.label ? (t.mine ? 0xff3296 : 0xb56bff) : PAPER);
           }
-          if (t.at) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y, bops[t.seat] || 0);
+          if (t.at && !plainTags) place(t.at, x + ((label.length * 6) / 2 + 3) * unit, y, bops[t.seat] || 0);
         }
       });
       projector.overlay(m, W, H);

@@ -1,5 +1,6 @@
 import { edgeAt, SPAN, blockWalls } from './park.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
+import { carWalls, lobbyWalls, inCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
@@ -42,21 +43,102 @@ function leave() {
     toHost({ type: 'dool:sheet:leave' });
   } else location.href = '/';
 }
-// 🏠 A signed-in handle arrives in its own block (the server says which the
-// first time; this browser remembers). A `room` in the address wins, and so
-// does anywhere travelled to since.
-let home = null;
+// 🌍 dool is one persistent world: you come back where you last stood. This
+// browser remembers the place so the right room is up before the socket is;
+// the server, which keeps where every handle rests, has the last word. A
+// `room` in the address wins, and so does anywhere travelled to since.
+// (`home` is the handle's floor of the tower, for the go menu.)
+let home = null, lastPlace = null;
+try {
+  const kept = localStorage.getItem('dool-place');
+  if (kept && /^[a-z0-9-]{1,32}$/.test(kept)) lastPlace = kept;
+} catch {}
 try {
   const kept = JSON.parse(localStorage.getItem('dool-home') || 'null');
-  if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, lot: kept.lot, pod: kept.pod };
+  if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, floor: kept.floor };
 } catch {}
 let roamed = !!requestedRoom;
 let room =
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
-    : (accountExpected() && home?.room) || 'lobby';
+    : (accountExpected() && lastPlace) || 'lobby';
 // The block's lots and who settled each ({ rects, homes }), or null in the lobby.
 let lots = null, park = null, passage = null, walkAt = 0;
+// 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
+// ride in progress ({ from, to, handle, at }), and whether the top line is
+// the elevator's (typed in the car) rather than chat.
+let tower = null, ride = null, liftLine = false;
+// The tower's height in floors, as last heard: it stands on every skyline.
+let towerTop = 0;
+try { towerTop = Number(localStorage.getItem('dool-tower-top')) || 0; } catch {}
+// 🛗 While the car runs, how far it still is from the floor it is going to
+// (metres; below it going up, above it coming down), and whether it moves.
+const rideMoving = (now) => !!ride && now - ride.at < ride.seconds * 1000;
+const liftAt = (now) => (ride ? ride.span * (1 - rideEase((now - ride.at) / 1000 / ride.seconds)) : 0);
+// 📟 Who lives on which floor, for the car's screen: asked of the directory
+// when a car is first near and again when the tower grows.
+let directory = new Map(), directoryFor = -1;
+async function readDirectory(count) {
+  if (directoryFor === count) return;
+  directoryFor = count;
+  try {
+    const r = await fetch(new URL('./tower', import.meta.url), { cache: 'no-store' });
+    const data = r.ok ? await r.json() : null;
+    if (Array.isArray(data?.floors)) directory = new Map(data.floors.map(([n, handle]) => [n, handle]));
+  } catch { directoryFor = -1; }
+}
+// What the typed line would reach, said on the screen before Enter.
+function floorAsked(text) {
+  const q = text.trim().toLowerCase().replace(/^(?:floor|go)\s+/, '');
+  if (!q) return 'a number or @handle';
+  if (/^(take|claim)\b/.test(q)) return /^(?:take|claim)\s+#?\d{1,4}$/.test(q) ? 'enter: make it yours' : 'take which number?';
+  if (['g', '0', 'ground', 'plaza', 'lobby'].includes(q)) return 'the plaza';
+  if (q === 'home') return home?.floor ? `your floor, ${home.floor}` : 'sign in for a floor';
+  if (/^#?\d{1,4}$/.test(q)) {
+    const who = directory.get(Number(q.replace('#', '')));
+    return who ? `@${who}` : 'nobody lives there';
+  }
+  const name = q.replace(/^@/, '');
+  for (const [n, handle] of directory) if (handle === name) return `floor ${n}`;
+  for (const [n, handle] of directory) if (name && handle.startsWith(name)) return `@${handle}? floor ${n}`;
+  return 'nobody by that name';
+}
+// 🪧 The lobby's board: your floor and the floors with someone on them now.
+const lobbyBoard = () => ({ yours: tower?.yours?.number || home?.floor || 0, in: tower?.inside || [] });
+function carScreen(rideNow) {
+  // Asked where to: the line being typed is on the screen itself.
+  if (liftLine && chat.open) {
+    const blink = Math.floor(performance.now() / 400) % 2 ? '_' : ' ';
+    return { number: '?', moving: true, handle: `${chat.text.slice(0, 22)}${blink}`, note: floorAsked(chat.text), entry: true };
+  }
+  const moving = !!rideNow?.moving, n = moving ? rideNow.floor : tower?.here?.number ?? 0;
+  const who = n ? directory.get(n) || (n === tower?.here?.number ? tower.here.handle : null) : null;
+  return {
+    number: n ? `${n}` : 'G',
+    moving,
+    handle: n ? (who ? `@${who}` : 'empty') : 'plaza',
+    note: moving ? `${rideNow.to > rideNow.from ? 'up' : 'down'} to ${rideNow.to || 'G'}${rideNow.handle ? ` @${rideNow.handle}` : ''}`
+      : n ? `${altitude(n)} m up` : tower?.count ? `${tower.count} floors` : '',
+  };
+}
+// Where the plaza (and the tower on it) stands from this room, in metres.
+function plazaFrom() {
+  if (room === 'lobby') return { dx: 0, dy: 0, dz: 0 };
+  if (room.startsWith('floor-')) return tower?.here?.number ? { dx: 0, dy: -altitude(tower.here.number), dz: 0 } : null;
+  const m = /^([ew])(\d{1,4})([ns])(\d{1,4})$/.exec(room);
+  return m ? { dx: (m[1] === 'w' ? 1 : -1) * Number(m[2]) * SPAN, dy: 0, dz: (m[3] === 's' ? 1 : -1) * Number(m[4]) * SPAN } : null;
+}
+// 🎬 Filming (?film, served only by film/shoot.mjs): this page watches without
+// a body and the director's camera is the view. Null everywhere else.
+let film = null;
+if (query.has('film'))
+  void import('./film/stage.mjs').then((m) => {
+    film = m.stage({ canvas, travel: (to, riding) => travel(to, true, null, riding || null),
+      world: () => ({ room, members, players: filmPlayers, connected: ws?.readyState === WebSocket.OPEN, ride: filmRide }) });
+  }).catch(() => {});
+let filmPlayers = [], filmRide = null;
+const hasCar = () => room === 'lobby' || room.startsWith('floor-');
+const CAR_BOXES = carWalls(), LOBBY_BOXES = lobbyWalls();
 // 🌍 The world around this block, streamed from the server and kept between
 // visits: the last answer of /world for each block it was asked about.
 let world = null, worldAt = 0;
@@ -66,7 +148,7 @@ try {
     if (Array.isArray(w?.blocks)) worlds.set(id, w);
 } catch {}
 // The solid walls of this block's houses, rebuilt when its lots change.
-let wallsOf = null, houseBoxes = [];
+let wallsOf = null, houseBoxes = [], carBoxes = null, carBoxesFor = null;
 // 🍄 In botbop's arena the view is side-on: left and right walk, the body
 // faces the way it last went, and the ledges are the room's fixed boxes.
 // 🎮 The room's gametype (games.mjs), or null in dool's own rooms.
@@ -92,12 +174,22 @@ function houseWalls() {
   if (wallsOf !== lots) {
     wallsOf = lots;
     houseBoxes = blockWalls(lots);
+    carBoxes = null;
   }
-  return houseBoxes;
+  if (!hasCar()) return houseBoxes;
+  // (Rebuilt when the room changes: only the plaza has the lobby.)
+  if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
+  return (carBoxes ||= [...houseBoxes, ...CAR_BOXES, ...(room === 'lobby' ? LOBBY_BOXES : [])]);
 }
 // The blocks beside the one underfoot, placed in metres from its middle.
 function around() {
   if (!world) return [];
+  // 🏢 From a floor of the tower the plaza and its blocks lie below.
+  if (room.startsWith('floor-')) {
+    const at = plazaFrom();
+    return at ? world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
+      home: null })) : [];
+  }
   const here = world.blocks.find((b) => b.id === room);
   if (!here) return [];
   return world.blocks
@@ -109,28 +201,30 @@ async function streamWorld() {
   const asked = room;
   worldAt = performance.now();
   if (asked.startsWith('pod-')) return void (world = null);
+  // A floor of the tower looks down on the plaza's neighbourhood.
+  const about = asked.startsWith('floor-') ? 'lobby' : asked;
   try {
-    const r = await fetch(new URL(`./world?room=${encodeURIComponent(asked)}`, import.meta.url), { cache: 'no-store' });
+    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok || room !== asked) return;
     const data = await r.json();
     if (!Array.isArray(data.blocks)) return;
     world = data;
-    worlds.delete(asked);
-    worlds.set(asked, data);
+    worlds.delete(about);
+    worlds.set(about, data);
     while (worlds.size > 6) worlds.delete(worlds.keys().next().value);
     try {
       localStorage.setItem('dool-world', JSON.stringify(Object.fromEntries(worlds)));
     } catch {}
   } catch {}
 }
-world = worlds.get(room) || null;
+world = worlds.get(room.startsWith('floor-') ? 'lobby' : room) || null;
 void streamWorld();
 // Under the prompt the host may not have said who is signed in when this
-// loads: look again shortly, so the room behind the curtain is home too.
-if (!roamed && home && room !== home.room)
+// loads: look again shortly, so the room behind the curtain is theirs too.
+if (!roamed && lastPlace && room !== lastPlace)
   for (const ms of [800, 2500, 6000])
     setTimeout(() => {
-      if (!roamed && home && room !== home.room && accountExpected()) travel(home.room, false);
+      if (!roamed && room !== lastPlace && accountExpected()) travel(lastPlace, false);
     }, ms);
 let ws,
   seat = -1,
@@ -536,7 +630,7 @@ if (hosted) void peekRoom();
 if (query.has('debug'))
   window.doolDebug = () => ({
     seat,
-    room, park, lots, home,
+    room, park, lots, home, tower, ride,
     player: player ? { x: player.x, y: player.y, z: player.z } : null,
     yaw,
     pitch,
@@ -554,17 +648,33 @@ if (query.has('debug'))
 
 // 🚪 To another room of the one world: the same page, a new socket. What
 // stood in the old room is put away first so it never shows in the new one.
+// A place in the one world (the plaza, a block of the park, a floor of the
+// tower), as against an instance: a game's arena or a named room.
+const inWorld = (id) => id === 'lobby' || id.startsWith('floor-') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
 // 🧭 This place's AC address, for the host's address bar: a game's own word
 // (botbop, botbop~name), else dool~room; the lobby and your home are dool.
 function placePath() {
   const g = game();
   if (g?.at(room)) return room.startsWith(`${g.name}-`) ? `/${g.name}~${room.slice(g.name.length + 1)}` : `/${g.name}`;
-  return room === 'lobby' || room === home?.room ? '/dool/' : `/dool~${room}`;
+  // The world has one address: the plaza, a block and a floor of the tower
+  // are all dool. Only a room outside the world has a word of its own.
+  return inWorld(room) ? '/dool/' : `/dool~${room}`;
 }
-function travel(to, chosen = true, receipt = null) {
+function travel(to, chosen = true, receipt = null, riding = null) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   if (chosen) roamed = true;
   room = to;
+  if (riding) {
+    // 🛗 The car leaves at once and the next floor is already known: the
+    // ride is the distance between the two, travelled for real.
+    const span = altitude(riding.from) - altitude(riding.to);
+    ride = { ...riding, at: performance.now(), span, seconds: rideSeconds(span), rung: false };
+    tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null } : { room: 'lobby', number: 0 }, owner: false };
+    sfx.ringMove(ride.to > ride.from ? 9 : 4);
+  } else {
+    tower = null;
+    ride = null;
+  }
   passage = receipt;
   park = null;
   lots = null;
@@ -592,6 +702,10 @@ function travel(to, chosen = true, receipt = null) {
     window.history.replaceState(window.history.state, '', address);
   } catch {}
   toHost({ type: 'dool:sheet:place', path: placePath() });
+  if (inWorld(room)) {
+    lastPlace = room;
+    try { localStorage.setItem('dool-place', room); } catch {}
+  }
   if (ws && ws.readyState !== WebSocket.CLOSED) {
     const old = ws;
     ws = null; // its close is ours, not an outage
@@ -605,7 +719,7 @@ function connect() {
   // 🔐 Signed in on this page: fetch the token while the socket opens, and
   // ask the server to keep the seat for the handle (no guest name first).
   const account = accountExpected() ? accountToken() : null;
-  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}) });
+  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}), ...(query.has('film') ? { watch: '1' } : {}) });
   history = [];
   pending = [];
   player = null;
@@ -683,15 +797,31 @@ function connect() {
       })();
     }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza, pod: data.pod };
-    if (data.type === 'travel') travel(data.room, true, data.passage);
+    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null);
+    if (data.type === 'tower') {
+      tower = data;
+      if (hasCar()) void readDirectory(data.count);
+      if (data.top) {
+        towerTop = data.top;
+        try { localStorage.setItem('dool-tower-top', String(towerTop)); } catch {}
+      }
+      toHost({ type: 'dool:sheet:place', path: placePath() });
+    }
+    // The elevator answers in the room's own lines.
+    if (data.type === 'elevator-result')
+      chatLog = [...chatLog, { at: performance.now(), handle: null, name: 'elevator', colors: null, seat: -1,
+        text: String(data.error || data.note || '').slice(0, CHAT_MAX) }].slice(-8);
     if (data.type === 'arrival') { yaw = data.yaw; pitch = data.pitch || 0; passage = null; }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
-      home = { room: data.room, lot: data.lot, pod: data.pod };
+      home = { room: data.room, floor: data.floor };
       try {
         localStorage.setItem('dool-home', JSON.stringify(home));
       } catch {}
-      if (!roamed && home.room !== room) travel(home.room, false);
     }
+    // 🌍 Where this handle last stood in the world: go there, unless this
+    // visit has already gone somewhere of its own.
+    if (data.type === 'whereabouts' && /^[a-z0-9-]{1,32}$/.test(data.room || '') && !roamed && data.room !== room)
+      travel(data.room, false);
     if (data.type === 'lots' && data.room === room && Array.isArray(data.rects)) lots = { rects: data.rects, homes: data.homes || [] };
     if (data.type === 'presence') {
       members = data.members;
@@ -978,11 +1108,19 @@ function menuItems() {
   const here = (id) => (room === id ? ' · here' : '');
   const places = [
     home
-      ? { label: `home · ${home.room} lot ${home.lot}${here(home.room)}`, act: () => travel(home.room) }
-      : { label: 'home · sign in for a lot', act: () => {} },
+      ? { label: `home · floor ${home.floor ?? ''}${here(home.room)}`, act: () => travel(home.room) }
+      : { label: 'home · sign in for a floor', act: () => {} },
     { label: `plaza${here('lobby')}`, act: () => travel('lobby') },
     { label: `${BOP_NAME}${here(BOP_NAME)}`, act: () => travel(BOP_NAME) },
   ];
+  // 🛗 In the car the elevator's buttons come first.
+  if (hasCar() && inCar(player))
+    places.unshift(
+      { label: 'elevator · up a floor', act: () => send({ type: 'elevator', to: 'up' }) },
+      { label: 'elevator · down a floor', act: () => send({ type: 'elevator', to: 'down' }) },
+      { label: 'elevator · my floor', act: () => send({ type: 'elevator', to: 'home' }) },
+      { label: 'elevator · ground', act: () => send({ type: 'elevator', to: 'g' }) },
+    );
   const switches = [
     { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
     {
@@ -1312,9 +1450,17 @@ document.addEventListener('keydown', (e) => {
   }
   // 💬 Chat takes the keys while its line is open.
   if (chat.open) {
-    if (e.code === 'Enter' && !e.repeat) {
+    // 🛗 In the car the line is the elevator's: a number, a handle, home, g,
+    // or "take 89" to make a number yours; up and down ride one floor.
+    const step = liftLine && !chat.text && !e.repeat && (e.code === 'ArrowUp' ? 'up' : e.code === 'ArrowDown' ? 'down' : null);
+    if (step) {
+      send({ type: 'elevator', to: step });
+      chat.open = false;
+    } else if (e.code === 'Enter' && !e.repeat) {
       const text = chat.text.trim();
-      if (text) send({ type: 'say', text });
+      const taking = liftLine && /^(?:take|claim)\s+#?(\d{1,6})$/i.exec(text);
+      if (taking) send({ type: 'take-floor', number: Number(taking[1]) });
+      else if (text) send(liftLine ? { type: 'elevator', to: text.replace(/^(?:floor|go)\s+/i, '') } : { type: 'say', text });
       chat.text = '';
       chat.cursor = 0;
       chat.open = false;
@@ -1331,6 +1477,7 @@ document.addEventListener('keydown', (e) => {
     !prompt.open && !menu && !radial.open && !chalkMode) {
     e.preventDefault();
     releaseInput();
+    liftLine = false;
     chat.begin();
     return;
   }
@@ -1393,6 +1540,17 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
     if (seat < 0) return;
+    // 🛗 Standing in the car, Enter asks where to.
+    if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
+      releaseInput();
+      liftLine = true;
+      chat.text = '';
+      chat.begin();
+      // Turn to the screen over the door: that is where the floor is typed.
+      yaw = 180;
+      pitch = 24;
+      return;
+    }
     if (!prompt.open) {
       releaseInput();
       document.exitPointerLock();
@@ -1892,6 +2050,8 @@ function step(now) {
       })(),
       fire: (firing || fireQueued) && locked(),
     };
+    // 🛗 The car is moving: stand still and look out.
+    if (rideMoving(performance.now())) Object.assign(c, { fwd: 0, right: 0, buttons: 0 });
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
       // Up jumps and down ducks (the arrows as well as WASD; the stick too).
@@ -2043,13 +2203,25 @@ function step(now) {
       return p && Math.abs(p.x - d.x) < 1 ? { ...d, x: p.x + (d.x - p.x) * t } : d;
     });
   })();
+  // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
+  const lift = liftAt(now), sky = plazaFrom();
+  if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
+  const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
+    ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
+  // 🎬 The director's camera, when a film is being shot. A shot that `rides`
+  // is in the car's frame: it goes up and down with it.
+  filmPlayers = shownPlayers;
+  filmRide = rideNow;
+  const filmShot = film?.camera(now) || null;
+  if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
   view.render({
     drones: shownDrones,
-    // Every seat the room holds, not only the original duel's two.
-    players: shownPlayers,
-    me: seat < 0 ? null : player ? { ...displayed, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy } : spawn(seat),
+    // Every seat the room holds, not only the original duel's two. Whoever
+    // stands in the car while it runs rides with it.
+    players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
+    me: seat < 0 ? null : player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy } : spawn(seat),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     controller: controller.id,
     seat,
@@ -2073,11 +2245,18 @@ function step(now) {
     objects,
     prompt,
     chat: {
-      open: chat.open,
+      // The elevator's line is typed on the car's screen, not the top line.
+      open: chat.open && !liftLine,
       text: chat.text,
       cursor: chat.cursor,
       lines: chatLog.filter((l) => chat.open || now - l.at < CHAT_SHOWN_MS),
+      lift: liftLine && chat.open,
     },
+    tower: hasCar() ? { ...(tower || { here: null }), lift, screen: carScreen(rideNow) } : null,
+    skyline: sky && towerTop ? { top: towerTop, ...sky, count: tower?.count || towerTop, board: room === 'lobby' ? lobbyBoard() : null } : null,
+    car: hasCar() && seat >= 0 && inCar(player) && !rideMoving(now),
+    plainTags: !!film,
+    ride: rideNow,
     radial: radial.open
       ? {
           items: radial.items,
@@ -2137,10 +2316,10 @@ function step(now) {
     worldTime,
     locked: locked(),
     legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
-    corner: sheetOpen && !down,
+    corner: sheetOpen && !down && !film,
     screens,
     screenPrograms,
-    bare: !sheetOpen || !sheetShown || down,
+    bare: !sheetOpen || !sheetShown || down || !!film,
     held: {
       keys: [...keys],
       pad: [
@@ -2152,6 +2331,7 @@ function step(now) {
     },
   });
   postProcess(elapsed);
+  film?.frame(now);
 }
 // 📊 AC's fps switch, shared through localStorage with the prompt (and every
 // other AC window), live through the storage event.

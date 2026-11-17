@@ -9,7 +9,10 @@ export async function handler(event) {
     return respond(405, { error: "Method not allowed" });
   }
 
-  const { search, limit = "100", tenant = "aesthetic" } = event.queryStringParameters || {};
+  // order=created lists handles oldest first (dool gives the tower's floors
+  // out in that order); the default is alphabetical.
+  const { search, limit = "100", tenant = "aesthetic", order } = event.queryStringParameters || {};
+  const created = order === "created";
 
   try {
     const database = await connect();
@@ -29,11 +32,32 @@ export async function handler(event) {
       query.handle = { $regex: `^${search}`, $options: "i" };
     }
 
-    const handles = await collection
-      .find(query, { projection: { handle: 1, _id: 0 } })
-      .limit(parseInt(limit))
-      .sort({ handle: 1 })
-      .toArray();
+    let handles;
+    if (created) {
+      // Records from before 2026-10-03 carry no createdAt. An Auth0 database
+      // account's id holds the second it was made (the first eight hex digits
+      // after "auth0|"), which stands in; accounts with neither follow the
+      // dated old ones, by name, ahead of everything stamped since.
+      const STAMPED = Date.UTC(2026, 9, 3);
+      const born = (doc) => {
+        if (doc.createdAt) return new Date(doc.createdAt).getTime();
+        const id = /auth0\|([0-9a-f]{8})[0-9a-f]{16}$/.exec(String(doc._id));
+        const at = id ? parseInt(id[1], 16) * 1000 : NaN;
+        return at > Date.UTC(2015, 0, 1) && at < STAMPED ? at : STAMPED - 1;
+      };
+      const name = (doc) => (typeof doc.handle === "string" ? doc.handle : doc.handle?.handle || "");
+      handles = (await collection.find(query, { projection: { handle: 1, createdAt: 1 } }).toArray())
+        .map((doc) => ({ doc, at: born(doc) }))
+        .sort((a, b) => a.at - b.at || (name(a.doc) < name(b.doc) ? -1 : 1))
+        .slice(0, parseInt(limit))
+        .map((x) => x.doc);
+    } else {
+      handles = await collection
+        .find(query, { projection: { handle: 1, _id: 0 } })
+        .limit(parseInt(limit))
+        .sort({ handle: 1 })
+        .toArray();
+    }
 
     await database.disconnect();
 
@@ -45,6 +69,7 @@ export async function handler(event) {
         })
         .filter((h) => h && typeof h === "string"), // Filter out null/undefined/non-strings
       count: handles.length,
+      ...(created ? { order: "created" } : {}),
     });
   } catch (error) {
     console.error("Error fetching handles:", error);

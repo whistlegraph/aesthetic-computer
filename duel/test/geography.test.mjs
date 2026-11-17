@@ -112,9 +112,9 @@ test('the ledger survives a restart', async () => {
   assert.ok(JSON.parse(await readFile(join(dir, 'geography.json'), 'utf8')).opened >= 1);
 });
 
-test('the server settles a handle on arrival, rests it on leaving, and serves the map', async () => {
+test('the server rests a handle on leaving and serves the map; its home is a floor, not a lot', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'dool-geo-srv-'));
-  const app = createDuelServer({ stateDir: dir, verifyIdentity: async () => ({ handle: 'mapper' }) });
+  const app = createDuelServer({ stateDir: dir, verifyIdentity: async () => ({ handle: 'mapper' }), listHandles: async () => [] });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
   await once(app.server, 'listening');
@@ -141,9 +141,9 @@ test('the server settles a handle on arrival, rests it on leaving, and serves th
     ws.send(JSON.stringify({ type: 'identity' }));
     ws.send(JSON.stringify({ type: 'account', accessToken: 'valid-test-token' }));
     await wait(async () => (await map()).awake.some((a) => a.handle === 'mapper' && a.room === LOBBY));
-    await wait(async () => (await map()).settled === 1); // the ledger write is queued
-    const during = await map();
-    assert.deepEqual(during.blocks[1].homes.map((h) => [h.handle, h.lot]), [['mapper', 0]]);
+    // 🏢 Homes are floors of the tower now: arriving settles no lot.
+    await wait(async () => (await (await fetch(`http://127.0.0.1:${port}/tower`)).json()).count === 1);
+    assert.equal((await map()).settled, 0);
     ws.close();
     await wait(async () => (await map()).resting.some((r) => r.handle === 'mapper' && r.room === LOBBY));
     assert.deepEqual((await map()).awake, []);

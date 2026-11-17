@@ -8,6 +8,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
 import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
+import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
@@ -52,6 +53,7 @@ const assets = new Map([
     'park',
     'bop',
     'games',
+    'elevator',
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -95,6 +97,13 @@ export function createDuelServer({
     return !!user && await hasAdmin(user);
   },
   resolveHandleColors = handleColors,
+  // 🏢 Every handle on the network, oldest first, for the tower's floors.
+  listHandles = async () => {
+    const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
+    const data = await r.json();
+    if (data.order !== 'created' || !Array.isArray(data.handles)) throw Error('handles are not in founding order');
+    return data.handles;
+  },
   publicURL = process.env.DOOL_PUBLIC_URL,
   devLog = process.env.DOOL_DEV_LOG,
   publishKidlisp = null,
@@ -117,7 +126,8 @@ export function createDuelServer({
   let stallRevision = 'local';
   const store = new ObjectStore(stateDir),
     geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
-    ready = Promise.all([store.load(), geography.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
+    tower = new TowerStore(stateDir), // 🏢 who holds which floor (tower.mjs)
+    ready = Promise.all([store.load(), geography.load(), tower.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
   const profiles = new Map();
   const colorsFor = (handle) => {
@@ -147,17 +157,64 @@ export function createDuelServer({
   const sendLots = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
     const data = lotData(key);
-    rooms.get(key)?.match.setWalls(blockWalls(data)); // the houses are solid
+    rooms.get(key)?.match.setWalls(wallsFor(key)); // the houses and the elevator are solid
     if (!data) return;
     send(ws, { type: 'lots', ...data });
     void Promise.all(data.homes.map(h => colorsFor(h.handle).promise)).then(() => {
       send(ws, { type: 'lots', ...lotData(key) });
     });
   };
+  // 🏠 Home is the handle's floor of the tower.
   const sendHome = (ws, handle) => {
-    const home = geography.geography.home(handle);
-    if (home) send(ws, { type: 'home', room: blockId(blockAt(home.block)), lot: home.lot, pod: home.pod });
+    const f = tower.tower.forHandle(handle);
+    if (f) send(ws, { type: 'home', room: floorRoom(f.id), floor: f.number });
   };
+  // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
+  // which floor is theirs.
+  const hasCar = (key) => key === GROUND || isFloorRoom(key);
+  // The elevator is solid on every floor; the lobby's glass and desk on the ground.
+  const wallsFor = (key) => [...blockWalls(lotData(key)), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
+  const sendTower = (ws, key, member) => {
+    const t = tower.tower, here = t.forRoom(key);
+    // Every room hears how tall the tower is: it stands on the skyline.
+    if (!hasCar(key)) return void send(ws, { type: 'tower', count: t.count, top: t.top, here: null, yours: null, owner: false });
+    const mine = member?.handle ? t.forHandle(member.handle) : null;
+    // The floors with someone on them now, lowest first: [number, whose, how many].
+    const inside = [];
+    for (const [id, r] of rooms) {
+      const f = t.forRoom(id), people = f ? r.members.filter(Boolean).length : 0;
+      if (people) inside.push([f.number, f.handle, people]);
+    }
+    inside.sort((a, b) => a[0] - b[0]);
+    send(ws, { type: 'tower', count: t.count, top: t.top, inside: inside.slice(0, 8),
+      here: here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
+      yours: t.public(mine), owner: !!here && t.owns(here, member) });
+    if (here && !profiles.get(here.handle)?.colors)
+      void colorsFor(here.handle).promise.then((colors) => {
+        if (colors && rooms.get(key)?.sessions.has(ws)) sendTower(ws, key, member);
+      });
+  };
+  const towerChanged = () => {
+    for (const [key, room] of rooms) for (const [ws, m] of room.sessions) {
+      sendTower(ws, key, m);
+      if (m.handle) sendHome(ws, m.handle);
+    }
+  };
+  // New handles are given floors as the network grows.
+  // (At start the handles API may not be answering yet — on lith it is this
+  // same process — so a failed read is tried again soon, a few times.)
+  const admitHandles = async (triesLeft = 0) => {
+    try {
+      const handles = await listHandles();
+      if (await tower.change((t) => t.admit(handles))) towerChanged();
+    } catch {
+      // The tower keeps the floors it has.
+      if (triesLeft > 0) setTimeout(() => admitHandles(triesLeft - 1), 20000).unref?.();
+    }
+  };
+  void ready.then(() => admitHandles(6), () => {});
+  const admitTimer = setInterval(() => admitHandles(), 10 * 60 * 1000);
+  admitTimer.unref?.();
   // One live mutation queue, including layout edits: never edit the on-disk
   // ledger beside a running server. The expected revision prevents lost edits.
   const curate = async ({ moves, revision }) => {
@@ -230,6 +287,18 @@ export function createDuelServer({
       } catch (error) {
         res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ error: error.message }));
       }
+      return;
+    }
+    // 🏢 The tower's directory: [number, handle, held] from the ground up,
+    // or one floor by number or handle (?q=89, ?q=@jeffrey).
+    if (path === '/tower' && req.method === 'GET') {
+      await ready;
+      const t = tower.tower, q = url.searchParams.get('q');
+      const found = q === null ? null : t.public(t.resolve(q));
+      res.writeHead(q !== null && !found ? 404 : 200, { 'Content-Type': 'application/json',
+        'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
+        .end(JSON.stringify(q !== null ? found || { error: 'No such floor' }
+          : { revision: t.revision, count: t.count, top: t.top, floors: t.directory() }));
       return;
     }
     if (path === '/pod' && req.method === 'GET') {
@@ -549,6 +618,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     }
     const key = roomId;
     if ((key.startsWith('pod-') && !geography.geography.pod(key)) ||
+        (key.startsWith('floor-') && !tower.tower.forRoom(key)) ||
         (parseBlock(key) && blockIndex(parseBlock(key)) > geography.geography.opened)) {
       ws.close(1008, 'Place is not open'); return;
     }
@@ -574,10 +644,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // A page that says it is signed in waits for its handle before it is
     // seated or named, for a few seconds at most.
     const webAccount = !nativeAccount && url.searchParams.get('account') === '1';
-    const member = room.add(ws, nativeAccount || webAccount);
+    // 🎬 watch=1 looks on without ever taking a seat (a film's camera).
+    const watching = url.searchParams.get('watch') === '1';
+    const member = room.add(ws, nativeAccount || webAccount || watching);
     const seatGuest = () => {
       clearTimeout(accountHold);
-      if (room.sessions.has(ws) && !member.ready) {
+      if (room.sessions.has(ws) && !member.ready && !watching) {
         member.ready = true;
         room.assign();
       }
@@ -585,7 +657,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
     accountHold?.unref?.();
     room.match.setObjects(store.objects(key));
-    room.match.setWalls(blockWalls(lotData(key)));
+    room.match.setWalls(wallsFor(key));
     let arrived = false;
     const arrive = () => {
       if (arrived || !member.owner || member.seat < 0) return;
@@ -619,15 +691,21 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const takeover = [...room.sessions.values()].some(
           (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
         );
-        void geography.change((g) => g.identify(handle, account.sub)).then((home) => {
-          // 🏠 Where this handle lives, so its client can go there, and the
-          // block's lots again for everyone standing in it.
-          const at = blockId(blockAt(home.block));
-          sendHome(ws, handle);
-          for (const client of rooms.get(at)?.clients.keys() || []) sendLots(client, at);
-        }).catch(() => {});
         member.handle = handle;
         member.accountId = account.sub;
+        // 🏢 Its floor of the tower is its home, held for good from now on.
+        // (Homes on the park's lots stay where they stand; none are added.)
+        void tower.change((t) => t.arrive(handle, account.sub)).then(() => {
+          sendHome(ws, handle);
+          sendTower(ws, key, member);
+          // 🌍 One persistent world: say where this handle last stood, so a
+          // visit that has not gone anywhere yet picks up there. A first
+          // visit starts on the plaza, at the foot of the tower.
+          const last = geography.geography.whereabouts(handle)?.room;
+          const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
+            (parseBlock(last) && blockIndex(parseBlock(last)) <= geography.geography.opened));
+          send(ws, { type: 'whereabouts', room: open ? last : 'lobby' });
+        }).catch(() => {});
         member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
         member.wantsHistory = false;
@@ -678,6 +756,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, { type: 'dev-log', entries: devRecent });
     send(ws, { type: 'chalk', strokes: room.match.chalk });
     sendLots(ws, key);
+    sendTower(ws, key, member);
     send(ws, room.match.snapshot());
     send(ws, builders.state(key, member));
     room.broadcast();
@@ -807,11 +886,47 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         send(ws, { type: 'travel', room: destination, passage: receipt });
         return;
       }
-      // A pod is public to visit, but only its verified owner arranges it.
-      const pod = geography.geography.pod(key);
-      const ownPod = pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
+      // 🛗 The elevator: from the car, to a floor by number or handle, to
+      // the ground, or one floor up or down.
+      if (data?.type === 'elevator' && member.owner && member.seat >= 0 && hasCar(key)) {
+        const p = room.match.seats[member.seat]?.player, t = tower.tower;
+        if (!inCar(p)) return;
+        const to = String(data.to ?? '').trim().toLowerCase().slice(0, 24), here = t.forRoom(key);
+        let destination = null, found = null;
+        if (['0', 'g', 'ground', 'plaza', 'lobby'].includes(to)) destination = GROUND;
+        else {
+          found = to === 'up' ? t.step(here ? here.number : 0, 1)
+            : to === 'down' ? (here ? t.step(here.number, -1) : null)
+            : to === 'home' ? (member.handle ? t.forHandle(member.handle) : null) : t.resolve(to);
+          if (to === 'down' && here && !found) destination = GROUND;
+          else if (found) destination = floorRoom(found.id);
+        }
+        if (!destination) return void send(ws, { type: 'elevator-result',
+          error: to === 'home' ? 'sign in for a floor' : to === 'up' ? 'this is the top' : `no floor ${to}` });
+        if (destination === key) return void send(ws, { type: 'elevator-result', error: 'you are here' });
+        for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
+        if (passages.size >= 1024) return;
+        const receipt = randomUUID();
+        passages.set(receipt, { owner: member.owner, room: destination, position: { ...CAR_ARRIVAL }, until: Date.now() + 30000 });
+        send(ws, { type: 'travel', room: destination, passage: receipt,
+          ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } });
+        return;
+      }
+      // Ask for a floor number, the way a name is registered.
+      if (data?.type === 'take-floor') {
+        if (!member.handle) return void send(ws, { type: 'elevator-result', error: 'sign in to take a floor' });
+        void tower.change((t) => t.take(member.handle, Number(data.number)))
+          .then((f) => { towerChanged(); send(ws, { type: 'elevator-result', note: `floor ${f.number} is yours` }); })
+          .catch((e) => send(ws, { type: 'elevator-result', error: e.message.toLowerCase() }));
+        return;
+      }
+      // A pod or a floor is public to visit, but only its verified owner arranges it.
+      const floor = tower.tower.forRoom(key);
+      const pod = geography.geography.pod(key) || floor;
+      const ownPod = floor ? tower.tower.owns(floor, member)
+        : pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
       if (pod && !ownPod && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
-        send(ws, { type: 'build-result', error: 'Only the pod owner can arrange this pod' }); return;
+        send(ws, { type: 'build-result', error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' }); return;
       }
       if (pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
         data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
@@ -941,6 +1056,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     attach,
     store,
     geography,
+    tower,
     curate,
     builders,
     ready,
@@ -949,12 +1065,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       stopDevLog();
       clearInterval(braincellTimer);
       clearInterval(timer);
+      clearInterval(admitTimer);
       for (const remove of detach) remove();
       for (const ws of wss.clients) ws.terminate();
       await new Promise((resolve) => wss.close(resolve));
       await new Promise((resolve) => builderWss.close(resolve));
       await store.queue;
       await geography.queue;
+      await tower.queue;
       if (server.listening)
         await new Promise((resolve) => server.close(resolve));
     },

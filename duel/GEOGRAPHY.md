@@ -4,6 +4,39 @@ Dool is a public park with personal pods. Guests can walk its paths and visit
 pods. Each pod has a permanent ID and content room; its placement in the park
 can change. The first two plots remain where they were when upgraded.
 
+## AC Tower (2026-11-16)
+
+Home is a floor of the tower, not a lot. The tower stands on the plaza and has
+one floor for every handle on the network (`tower.mjs`, ledger `tower.json`).
+Floors are given out oldest handle first, read from
+`/api/handles?order=created` at start and every ten minutes after.
+
+- **A number is an address, like a domain name.** One holder at a time.
+  `take 89` in the elevator makes 89 yours if it is free. If it was only
+  pencilled in for a handle that has never come to dool, you trade numbers
+  with them. Once a handle has arrived or has taken a number, it is theirs.
+- **A floor's room follows its permanent id** (`floor-xxxxxxxx`), never its
+  number, so what is built there moves with its owner.
+- **The elevator** is a glass car on the north edge of the plaza and of every
+  floor (`elevator.mjs`), open to the south. Stand in it and press Enter: a number,
+  a handle, `home`, `g` for the ground, or the up and down arrows for the
+  next floor. The server checks that the rider stands in the car.
+- **A floor is public to visit; only its handle arranges it.**
+- **One world, one address.** The plaza, the park and every floor are all
+  `aesthetic.computer/dool`. Entering dool sets a handle down where it last
+  stood (the server keeps each avatar's rest; a first visit starts on the
+  plaza at the foot of the tower). Only instances, such as a game's arena,
+  have addresses of their own. `GET /dool/tower` is the directory and
+  `GET /dool/tower?q=89` one floor.
+- **Real heights.** The tower stands over the plaza on four legs; the first
+  floor is 12 m up and each floor 4 m above the last. A ride travels that
+  distance in a glass car on the north edge, and the car's screen over the
+  door names each floor as it passes and is where the floor is typed.
+
+Houses already standing on the park's lots stay; arriving no longer settles a
+new one, so `/dool/geography` (the `map` piece, the wallpaper) lists only the
+homes from before the tower.
+
 ## Pods and placements
 
 `geography.json` version 2 stores three independent records:
