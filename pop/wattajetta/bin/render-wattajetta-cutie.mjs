@@ -10,11 +10,15 @@
 //   node pop/wattajetta/bin/render-wattajetta-cutie.mjs --form   print the form and exit
 //   node pop/wattajetta/bin/render-wattajetta-cutie.mjs --stems  also write per-bus premaster wavs
 //   node pop/wattajetta/bin/render-wattajetta-cutie.mjs --material none   skip the plastic tape (pop/lib/material.mjs)
+//   node pop/wattajetta/bin/render-wattajetta-cutie.mjs --bake out/wattajetta-cutie.score.txt
+//        write every note for the C engine (c/wattajetta-cutie.c) and the
+//        premaster to hold it against; stops before the master
 //
 // The feel lives in CFG and the form in ROWS: twenty-one eight-bar rows,
 // one line each. Retune there; the voices below only read them.
 
-import { mkdirSync, writeFileSync, readFileSync, existsSync, openSync, writeSync, closeSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, openSync, writeSync, closeSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -36,6 +40,28 @@ const MATERIAL_AMOUNT = Number(flag("--amount", 1));
 // The jeffrey phoneme library (jeffrey-pvc, eleven_v4 syllables) lives in the vault.
 const PHONEMES = resolve(process.env.AC_VAULT ?? resolve(HERE, "../../../../aesthetic-computer-vault"), "voice/jeffrey-phonemes");
 const PYTHON = resolve(HERE, "../../.venv/bin/python");
+
+// ── bake ────────────────────────────────────────────────────────────────
+// The score the C engine reads: one line per note, in the order played here
+// (the spray voices share one noise stream, so the order is part of the sound).
+const BAKE = flag("--bake", null), baked = [], bakeIds = new Map();
+const BAKE_DIR = BAKE && resolve(dirname(resolve(BAKE)), ".cutie-c-bake");
+if (BAKE) mkdirSync(BAKE_DIR, { recursive: true });
+const ev = BAKE ? (...a) => baked.push(a.join(" ")) : () => {};
+// A sample's id in the score. With `data`, the decoded floats are written out
+// once (named by the key's hash); without, `key` is a raw f32 file already on disk.
+function bakeSmp(key, data) {
+  if (!bakeIds.has(key)) {
+    let path = key;
+    if (data) {
+      path = resolve(BAKE_DIR, `${createHash("sha1").update(key).digest("hex").slice(0, 12)}.f32`);
+      if (!existsSync(path) || statSync(path).size !== data.byteLength) writeFileSync(path, Buffer.from(data.buffer, data.byteOffset, data.byteLength));
+    }
+    bakeIds.set(key, bakeIds.size);
+    baked.push(`smp ${bakeIds.get(key)} ${path}`);
+  }
+  return bakeIds.get(key);
+}
 
 // ── feel ────────────────────────────────────────────────────────────────
 const CFG = {
@@ -217,6 +243,7 @@ const six = (pos) => pos * SIX + (pos % 2 ? CFG.swing * SIX : 0);
 function kick(t, g = 1, tight = false) {
   const K = CFG.kick, i0 = Math.round(t * SR), n = Math.floor((tight ? 0.26 : 0.55) * SR);
   const dec = tight ? 0.09 : K.decay;
+  ev("kick", t, g, tight ? 1 : 0);
   let ph = 0;
   for (let k = 0; k < n && i0 + k < N; k++) {
     const x = k / SR;
@@ -229,6 +256,7 @@ function kick(t, g = 1, tight = false) {
 // Spray: white noise through one state-variable filter. type 0 band, 1 high.
 function spray(t, { fc, q = 1, type = 0, att = 0.001, dec = 0.05, len, gain, pan = 0, wet = 0 }) {
   const i0 = Math.round(t * SR), n = Math.floor((len ?? dec * 6 + att) * SR);
+  ev("spray", t, fc, q, type, att, dec, len ?? dec * 6 + att, gain, pan, wet);
   const f = 2 * Math.sin(Math.PI * Math.min(fc, 7600) / SR), damp = 1 / q;
   const gl = gain * panL(pan), gr = gain * panR(pan);
   let lo = 0, bd = 0;
@@ -248,6 +276,7 @@ function clap(t, g) {
 const hat = (t, g, open) => spray(t, { fc: 7200, q: 0.9, type: 1, dec: open ? 0.11 : 0.022, gain: CFG.gain.hat * g, pan: 0.25 });
 const shaker = (t, g, pan) => spray(t, { fc: 5200, q: 2.2, att: 0.008, dec: 0.028, gain: CFG.gain.shaker * g, pan });
 function tick(t, hz, g, pan) {
+  ev("tick", t, hz, g, pan);
   const i0 = Math.round(t * SR), n = Math.floor(0.05 * SR), gl = g * panL(pan), gr = g * panR(pan);
   let ph = 0;
   for (let k = 0; k < n && i0 + k < N; k++) {
@@ -259,6 +288,7 @@ function tick(t, hz, g, pan) {
 
 // Bloop: a sine that rises into its note — a drip. The lane's signature percussion.
 function bloop(t, midi, g, pan, len = 0.2) {
+  ev("bloop", t, midi, g, pan, len);
   const f = mtof(midi), i0 = Math.round(t * SR), n = Math.floor(len * 4 * SR);
   const a = g * CFG.gain.bloop, gl = a * panL(pan), gr = a * panR(pan);
   let ph = 0;
@@ -274,6 +304,7 @@ function bloop(t, midi, g, pan, len = 0.2) {
 }
 
 function bassNote(t, dur, midi, g, soft = false) {
+  ev("bass", t, dur, midi, g, soft ? 1 : 0);
   const f = mtof(midi), i0 = Math.round(t * SR), n = Math.floor((dur + 0.12) * SR);
   const att = soft ? 0.12 : 0.006;
   let ph = 0;
@@ -300,6 +331,7 @@ const ACID_ORDER = [0, 2, 1, 2];
 // Acid strings: the chord itself as long notes — two detuned saws a tone
 // through the same kind of ladder, opening slowly instead of snapping.
 function acidChord(t, dur, notes, level, cut0, cut1) {
+  ev("acidchord", t, dur, level, cut0, cut1, notes.length, ...notes);
   const i0 = Math.round(t * SR), rel = 0.5, n = Math.floor((dur + rel) * SR), k = 0.5 * 3.8;
   const inc = notes.flatMap((m) => [mtof(m) * 2 ** (-7 / 1200) / SR, mtof(m) * 2 ** (7 / 1200) / SR]);
   const ph = inc.map((_, i) => (i * 0.37) % 1);
@@ -324,6 +356,8 @@ function acidChord(t, dur, notes, level, cut0, cut1) {
   }
 }
 function acidRow(t0, evs, level, cut0, cut1, reso = 0.78) {
+  ev("acidrow", t0, level, cut0, cut1, reso, evs.length);
+  for (const e of evs) ev(".", e.t, e.midi, e.acc, e.slide);
   const i0 = Math.round(t0 * SR), n = Math.round(8 * BAR * SR), k = reso * 3.8;
   let ph = 0, f = 0, ft = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0, fenv = 0, aenv = 0, gateEnd = 0, acc = 0, e = 0, tied = false;
   for (let i = 0; i < n && i0 + i < N; i++) {
@@ -358,6 +392,7 @@ function acidRow(t0, evs, level, cut0, cut1, reso = 0.78) {
 // eighths, triplets, sixteenths — so the bass talks.
 const WUB_RATES = [1, 1, 2, 1, 2, 2, 3, 4];     // wobbles per beat, by bar of the row
 function wubRow(t0, chords, level, dropLast) {
+  ev("wub", t0, level, dropLast ? 1 : 0, ...Array.from({ length: 8 }, (_, bar) => chordAt(chords, bar).bass));
   const i0 = Math.round(t0 * SR), bars = dropLast ? 7 : 8, n = Math.round(bars * BAR * SR), k = 0.55 * 3.8;
   const barN = BAR * SR, beatN = BEAT * SR;
   let ph = 0, f = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0;
@@ -382,6 +417,7 @@ function wubRow(t0, chords, level, dropLast) {
 }
 
 function padNote(t, dur, midi, g, pan, bright) {
+  ev("pad", t, dur, midi, g, pan, bright);
   const f = mtof(midi), i0 = Math.round(t * SR), rel = 1.6, n = Math.floor((dur + rel) * SR);
   const gl = g * panL(pan), gr = g * panR(pan);
   let ph = 0;
@@ -400,6 +436,7 @@ function padNote(t, dur, midi, g, pan, bright) {
 // Air: breath with a pitch — noise through a narrow band at the note, a
 // different noise in each ear. This is the layer that keeps the room open.
 function airNote(t, dur, midi, g, pan = 0) {
+  ev("air", t, dur, midi, g, pan);
   const fc = Math.min(mtof(midi), 6000), i0 = Math.round(t * SR), rel = 1.8, n = Math.floor((dur + rel) * SR);
   const f = 2 * Math.sin(Math.PI * fc / SR), damp = 1 / 22, a = g * CFG.gain.air * 0.05;
   const gl = a * panL(pan * 0.45), gr = a * panR(pan * 0.45);
@@ -418,6 +455,7 @@ function airNote(t, dur, midi, g, pan = 0) {
 
 // Pluck: a hollow little square whose upper partials close fast.
 function pluck(t, midi, g, pan, decay = 0.22) {
+  ev("pluck", t, midi, g, pan, decay);
   const f = mtof(midi), i0 = Math.round(t * SR), n = Math.floor(decay * 5 * SR);
   const a = g * CFG.gain.arp, gl = a * panL(pan), gr = a * panR(pan);
   let ph = 0;
@@ -435,6 +473,7 @@ function pluck(t, midi, g, pan, decay = 0.22) {
 
 // Lead: the hook's voice — a bloop that stays, with a late soft vibrato.
 function lead(t, dur, midi, vel, g = CFG.gain.lead, pan = 0) {
+  ev("lead", t, dur, midi, vel, g, pan);
   const f = mtof(midi), i0 = Math.round(t * SR), rel = 0.45, n = Math.floor((dur + rel) * SR);
   const a = vel * g, gl = a * panL(pan), gr = a * panR(pan);
   let ph = 0;
@@ -454,6 +493,7 @@ function lead(t, dur, midi, vel, g = CFG.gain.lead, pan = 0) {
 
 // Flyby: the jet, as one sine passing overhead.
 function flyby(t, dir) {
+  ev("flyby", t, dir);
   const dur = 2.5 * BAR, i0 = Math.round(t * SR), n = Math.floor(dur * SR);
   let ph = 0;
   for (let k = 0; k < n && i0 + k < N; k++) {
@@ -468,6 +508,7 @@ function flyby(t, dir) {
 
 // Riser: spray climbing through a moving band, into a seam.
 function riser(t, dur, g) {
+  ev("riser", t, dur, g);
   const i0 = Math.round(t * SR), n = Math.floor(dur * SR);
   let lo = 0, bd = 0, lo2 = 0, bd2 = 0;
   for (let k = 0; k < n && i0 + k < N; k++) {
@@ -510,6 +551,7 @@ function bell(t, midi, vel, { material = "stone", geometry = "handbell", dur = 2
   }
   const i0 = Math.round(t * SR), n = Math.min(b.L.length, Math.floor(dur * SR)), fade = Math.floor(0.08 * SR);
   const a = vel * gain * 0.3, gl = a * Math.min(1, 1 - pan), gr = a * Math.min(1, 1 + pan);
+  ev("bell", BAKE && bakeSmp(resolve(BELL_CACHE, `${key}.f32`)), t, dur, a, pan, wet);
   for (let k = 0; k < n && i0 + k < N; k++) {
     const e = k > n - fade ? (n - k) / fade : 1, j = (i0 + k) * 2;
     const l = b.L[k] * gl * e, r = b.R[k] * gr * e;
@@ -536,6 +578,7 @@ function vox(t, name, { rate = 1, gain = 1, pan = 0, from = 0, to = 1, wet = 0.4
   const src = loadVox(name), s0 = from * src.length, s1 = to * src.length;
   const n = Math.floor((s1 - s0) / rate), i0 = Math.round(t * SR), fade = Math.min(400, n >> 2);
   const a = gain * CFG.gain.vox, gl = a * panL(pan), gr = a * panR(pan);
+  ev("vox", BAKE && bakeSmp(`vox:${name}`, src), t, rate, gain, pan, from, to, wet, echo);
   for (let k = 0; k < n && i0 + k < N; k++) {
     const p = s0 + k * rate, q = Math.floor(p), fr = p - q;
     const v = ((src[q] ?? 0) * (1 - fr) + (src[q + 1] ?? 0) * fr) * Math.min(1, k / fade, (n - k) / fade);
@@ -729,6 +772,7 @@ if (sung.length) {
     }
     const src = loaded.get(n.key);
     if (!src) { missing++; continue; }
+    ev("sung", BAKE && bakeSmp(resolve(cache, `${n.key}.f32`)), n.t, n.hold, n.gain, n.pan, n.attack, n.wet, n.echo);
     const i0 = Math.round(n.t * SR), len = Math.min(src.length, Math.floor((n.hold + 0.12) * SR)), fade = Math.floor(0.1 * SR);
     const att = Math.max(1, Math.floor(n.attack * SR)), gl = n.gain * panL(n.pan), gr = n.gain * panR(n.pan);
     for (let k = 0; k < len && i0 + k < N; k++) {
@@ -746,6 +790,7 @@ if (sung.length) {
 // opens again as the heartbeat returns.
 ROWS.forEach((row, ri) => {
   if (!row.under) return;
+  ev("under", ri);
   const a = Math.round(ri * 8 * BAR * SR), z = Math.round((ri + 1) * 8 * BAR * SR), ramp = BAR * SR;
   let l = 0, r = 0;
   for (let i = a; i < z + ramp && i < N; i++) {
@@ -823,6 +868,12 @@ progress.update(70);
   }
 }
 
+if (BAKE) {
+  const flat = (o, at = "") => Object.entries(o).flatMap(([k, v]) => (typeof v === "object" ? flat(v, `${at}${k}.`) : [`cfg ${at}${k} ${v}`]));
+  writeFileSync(resolve(BAKE), [`sr ${SR}`, `frames ${N}`, `material ${MATERIAL} ${MATERIAL_AMOUNT}`, ...flat(CFG), ...baked].join("\n") + "\n");
+  console.log(`baked ${baked.length} events → ${resolve(BAKE)}`);
+}
+
 // Sum. The kick opens a hole in everything that isn't the kick.
 const stems = process.argv.includes("--stems");
 const mix = music;      // summed in place
@@ -887,6 +938,11 @@ if (stems) {
   writeWav(resolve(dir, "03-drums.wav"), drums, 2);
   writeWav(resolve(dir, "04-bells-vox.wav"), bells, 2);
   writeWav(resolve(dir, "05-room.wav"), rev, 2);
+}
+
+if (BAKE) {       // the score and the premaster are the whole job; the master on disk stays as it was
+  progress.end();
+  console.log(`premaster ${pre}`); process.exit(0);
 }
 
 // Master: gentle glue, a little weight at 54 Hz, a limiter. No treble lift —

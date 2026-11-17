@@ -3,16 +3,26 @@
 // then everything at once, then quiet again, then the long scream out.
 // The voice is jeffrey-pvc screaming whole lines (bin/scream.mjs renders and
 // caches the takes); the guitars are the physical strum engine
-// (pop/guitar/c/strum) clean and then through a wall of tanh; bass and drums
-// are synthesized here. No samples.
+// (pop/guitar/c/strum) clean and then through a wall of tanh; the bass and
+// the kit are sampled (bin/fetch-samples.mjs).
+//
+// This file is the composition. The sound is made by the C engine
+// (c/frothyscreama.c): the arrangement below is written out as a score, every
+// random choice already made, and the engine renders it. The voices here are
+// the engine's reference — the same DSP in JS, kept so c/compare.mjs can hold
+// the two to each other sample for sample.
 //
 //   node pop/frothyscreama/bin/scream.mjs                    the takes (billable, cached)
-//   node pop/frothyscreama/bin/render-frothyscreama.mjs      → out/frothyscreama.mp3
+//   node pop/frothyscreama/bin/render-frothyscreama.mjs      score → C engine → out/frothyscreama.mp3
 //   node pop/frothyscreama/bin/render-frothyscreama.mjs --form    print the form
-//   node pop/frothyscreama/bin/render-frothyscreama.mjs --stems   also write per-bus wavs
 //   node pop/frothyscreama/bin/render-frothyscreama.mjs --material none
+//   node pop/frothyscreama/bin/render-frothyscreama.mjs --bake <score.txt>   write the score and stop
+//   node pop/frothyscreama/bin/render-frothyscreama.mjs --js           render with the JS reference instead
+//   node pop/frothyscreama/bin/render-frothyscreama.mjs --js --stems   …and write per-bus wavs
+//   node pop/frothyscreama/bin/render-frothyscreama.mjs --js --bake <score.txt>
+//        the score plus the JS premaster to hold the engine against; stops before the master
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, openSync, writeSync, closeSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, statSync, openSync, writeSync, closeSync, mkdtempSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
@@ -33,6 +43,31 @@ const flag = (n, d) => { const i = process.argv.indexOf(n); return i > 0 ? proce
 const MATERIAL = flag("--material", "tape");
 const TARGET_LUFS = -10.5;
 
+// ── bake ────────────────────────────────────────────────────────────────
+// The score the C engine reads: one line per event, in the order played here,
+// every random choice already made. Decoded samples go beside it as raw f32.
+// Without --js nothing is synthesized here: the voices only write their events.
+const JS = process.argv.includes("--js");
+const CANON = !JS && !flag("--bake", null);                  // the plain run: score, engine, master
+const BAKE = flag("--bake", JS ? null : resolve(OUT, "frothyscreama.score.txt")), baked = [], bakeIds = new Map();
+const BAKE_DIR = BAKE && resolve(dirname(resolve(BAKE)), ".c-bake");
+if (BAKE) mkdirSync(BAKE_DIR, { recursive: true });
+const ev = BAKE ? (...a) => baked.push(a.join(" ")) : () => {};
+// A sample's id in the score. With `data`, the decoded floats are written out
+// once (named by the source's hash); without, `key` is a file the engine reads as is.
+function bakeSmp(key, data) {
+  if (!bakeIds.has(key)) {
+    let path = key;
+    if (data) {
+      path = join(BAKE_DIR, `${createHash("sha1").update(key).digest("hex").slice(0, 12)}.f32`);
+      if (!existsSync(path) || statSync(path).size !== data.byteLength) writeFileSync(path, Buffer.from(data.buffer, data.byteOffset, data.byteLength));
+    }
+    bakeIds.set(key, bakeIds.size);
+    baked.push(`smp ${bakeIds.get(key)} ${path}`);
+  }
+  return bakeIds.get(key);
+}
+
 const SR = 48_000, TAU = Math.PI * 2;
 const BPM = 180, BEAT = 60 / BPM, BAR = 4 * BEAT;
 
@@ -50,23 +85,28 @@ const TWINKLE = {       // eight notes a bar, picked one at a time
 
 // ── form ────────────────────────────────────────────────────────────────
 // drums: quiet | dbeat | blast | slow (half-time triplets) | build | 0
+// vox: [bar, line, { bars, arp, back }] — the bar is a whole number (it picks
+// the chord the scream is tuned to). `back: pan` is a second screamer
+// answering from one side, quieter, while the lead line is still going.
 const FORM = [
   { name: "kettle",    bars: 16, chords: QUIET, drums: "quiet", drumsFrom: 4, twinkle: 1, clean: 0.7, bass: "long", bassFrom: 8,
-    vox: [[4, "w1"], [10, "w2"]] },
+    vox: [[4, "w1"], [10, "w2"], [14, "s17", { bars: 2 }]] },
   { name: "boil over", bars: 16, chords: LOUD, colour: COLOUR, drums: "dbeat", loud: 1, bass: "eighths", crash: true,
-    vox: [[0, "s1", { bars: 4 }], [5, "s2", { bars: 4 }], [10, "s3", { bars: 5.5 }]] },
-  { name: "blast",     bars: 8,  chords: LOUD, colour: COLOUR, drums: "blast", loud: 1, bass: "eighths", crash: true, fill: true,
-    vox: [[1, "s4", { bars: 6.5 }]] },
+    vox: [[0, "s1", { bars: 4 }], [3, "s16", { bars: 2, back: -0.7 }], [5, "s2", { bars: 4 }], [8, "s15", { bars: 2, back: 0.7 }], [10, "s3", { bars: 5.5 }], [13, "s14", { bars: 2.5, back: -0.7 }]] },
+  { name: "blast",     bars: 12, chords: LOUD, colour: COLOUR, drums: "blast", loud: 1, bass: "eighths", crash: true, fill: true,
+    vox: [[0, "s13", { bars: 3.8 }], [4, "s4", { bars: 6.5 }], [9, "s16", { bars: 3, back: 0.7 }]] },
   { name: "collapse",  bars: 12, chords: SLOW, drums: "slow", loud: 1, slow: true, bass: "slow", crash: true,
-    vox: [[1, "s6", { bars: 4.5 }], [6, "s9", { bars: 5.5 }]] },
+    vox: [[1, "s6", { bars: 4.5 }], [4, "s14", { bars: 2.5, back: 0.7 }], [6, "s9", { bars: 5.5 }], [9, "s15", { bars: 3, back: -0.7 }]] },
   { name: "the house", bars: 16, chords: QUIET, drums: "quiet", twinkle: 1, clean: 0.6, bass: "long", build: 4,
-    vox: [[1, "w3"], [9, "w4"]] },
-  { name: "foam",      bars: 8,  chords: LOUD, colour: COLOUR, drums: "blast", loud: 1, bass: "eighths", crash: true,
-    vox: [[0, "s5", { bars: 3.8 }], [4, "s2", { bars: 3.8 }]] },
+    vox: [[1, "w3"], [9, "w4"], [12, "s10", { bars: 4 }]] },
+  { name: "foam",      bars: 12, chords: LOUD, colour: COLOUR, drums: "blast", loud: 1, bass: "eighths", crash: true,
+    vox: [[0, "s5", { bars: 3.8 }], [3, "s17", { bars: 2, back: -0.7 }], [4, "s2", { bars: 3.8 }], [8, "s11", { bars: 3.8 }], [10, "s14", { bars: 2, back: 0.7 }]] },
   { name: "froth",     bars: 8,  chords: LOUD, colour: COLOUR, drums: "dbeat", loud: 1, bass: "eighths", crash: true, fill: true,
-    vox: [[0, "s7", { bars: 4.8 }], [5, "s6", { bars: 3 }]] },
+    vox: [[0, "s7", { bars: 4.8 }], [3, "s16", { bars: 2, back: 0.7 }], [5, "s6", { bars: 3 }], [6, "s15", { bars: 2, back: -0.7 }]] },
+  { name: "more",      bars: 8,  chords: LOUD, colour: COLOUR, drums: "blast", loud: 1, bass: "eighths", crash: true, fill: true,
+    vox: [[0, "s12", { bars: 3.8 }], [2, "s13", { bars: 2.5, back: -0.7 }], [4, "s10", { bars: 3.8, arp: true }], [6, "s17", { bars: 2, back: 0.7 }]] },
   { name: "scream out", bars: 10, chords: SLOW, drums: "slow", loud: 1, slow: true, bass: "slow", crash: true,
-    vox: [[0, "s8", { bars: 4.8 }], [5, "s9", { bars: 6, arp: true }]] },
+    vox: [[0, "s8", { bars: 4.8 }], [3, "s11", { bars: 3, back: -0.7 }], [5, "s9", { bars: 6, arp: true }], [7, "s10", { bars: 3.5, back: 0.7 }]] },
   { name: "steam",     bars: 6,  chords: ["Bm9"], twinkle: 0.7, clean: 0.6, ring: true, vox: [[2, "w5"]] },
 ];
 let _b = 0;
@@ -112,15 +152,15 @@ const tmp = mkdtempSync(join(tmpdir(), "froth-"));
 
 // ── guitars ─────────────────────────────────────────────────────────────
 function strum(args) {
-  const out = join(tmp, `g${Math.floor(rnd() * 1e9)}.wav`);
+  const out = join(BAKE ? BAKE_DIR : tmp, `g${Math.floor(rnd() * 1e9)}.wav`);
   const r = spawnSync(STRUM, [...args.map(String), "--bpm", BPM, "--out", out], { stdio: ["ignore", "ignore", "ignore"] });
   if (r.status !== 0) throw new Error(`strum failed: ${args.join(" ")}`);
-  return readWav(out);
+  return Object.assign(readWav(out), { path: out });
 }
 // The wall: the engine's amp, then two more tanh stages and a cabinet. One
 // performance per ear, different seeds, so the two never line up.
 function wall(g, drive) {
-  for (const ch of [g.L, g.R]) {
+  for (const ch of JS ? [g.L, g.R] : []) {
     let hp = 0, lp1 = 0, lp2 = 0;
     for (let i = 0; i < ch.length; i++) {
       hp += 0.012 * (ch[i] - hp);
@@ -130,9 +170,12 @@ function wall(g, drive) {
       ch[i] = lp2;
     }
   }
+  g.drive = drive;
   return g;
 }
 function place(bus, g, t, gain, pan) {
+  ev("place", bus === gtr ? "gtr" : "clean", t, gain, pan, g.drive ?? 0, g.path);
+  if (!JS) return;
   const i0 = Math.round(t * SR), gl = gain * panL(pan), gr = gain * panR(pan);
   for (let k = 0; k < g.L.length && i0 + k < N; k++) {
     const m = 0.5 * (g.L[k] + g.R[k]), j = (i0 + k) * 2;
@@ -142,6 +185,8 @@ function place(bus, g, t, gain, pan) {
 }
 // Twinkle: one Karplus-Strong string per note, picked clean.
 function pick(t, midi, gain, pan) {
+  ev("pick", t, midi, gain, pan);
+  if (!JS) return;
   const f = mtof(midi), len = Math.round(SR / f), line = new Float32Array(len);
   let lp = 0;
   for (let i = 0; i < len; i++) { lp += 0.45 * (noise() - lp); line[i] = lp; }
@@ -183,8 +228,10 @@ const BASS_TRUE = { db2: 25, e2: 28, gb2: 30, a2: 33, c3: 36 };
 let bassRR = 0;
 function bassNote(t, dur, midi, gain, grit) {
   const [name, nominal] = Object.entries(BASS_TRUE).reduce((a, b) => (Math.abs(b[1] - midi) < Math.abs(a[1] - midi) ? b : a));
-  const src = smp(bassPath(`sustain/${name}_${grit > 0.4 ? "ff" : "f"}_rr${grit > 0.4 ? 1 + (bassRR++ % 2) : 1}.wav`), 1);
+  const file = bassPath(`sustain/${name}_${grit > 0.4 ? "ff" : "f"}_rr${grit > 0.4 ? 1 + (bassRR++ % 2) : 1}.wav`), src = smp(file, 1);
   const rate = 2 ** ((midi - nominal) / 12), i0 = Math.round((t + human(5)) * SR), n = Math.floor((dur + 0.06) * SR), drive = 1 + 3 * grit;
+  ev("bass", BAKE && bakeSmp(`${file}|1`, src), i0, n, rate, drive, gain);
+  if (!JS) return;
   for (let k = 0; k < n && i0 + k < N; k++) {
     const p = k * rate, q = Math.floor(p), fr = p - q;
     if (q + 1 >= src.length) break;
@@ -207,8 +254,10 @@ function drum(piece, t, g, { rate = 1, lay = 0, jit = 4, wet = 0.04, max = 6 } =
     : Math.max(0, Math.min(n - 1, Math.round(Math.min(1, g) * (n - 1)) - robin[piece] % 2));
   const at = t + lay / 1000 + human(jit), i0 = Math.round(at * SR), vel = g * (0.92 + 0.16 * hrnd()) * PIECE[piece] * 1.45;
   for (const mic of K.mics) {
-    const src = smp(kitPath(mic, K.files[idx])), frames = Math.min(src.length >> 1, Math.floor(max * SR * rate)), a = vel * MIC[mic], fade = 0.3 * SR;
+    const file = kitPath(mic, K.files[idx]), src = smp(file), frames = Math.min(src.length >> 1, Math.floor(max * SR * rate)), a = vel * MIC[mic], fade = 0.3 * SR;
     const len = Math.floor(frames / rate), w = mic === "room" ? 0.1 : wet;
+    ev("drum", BAKE && bakeSmp(`${file}|2`, src), i0, a, rate, max, w);
+    if (!JS) continue;
     for (let k = 0; k < len && i0 + k < N; k++) {
       const q = rate === 1 ? k : Math.floor(k * rate), e = Math.min(1, (len - k) / fade), j = (i0 + k) * 2;
       const l = src[q * 2] * a * e, r = src[q * 2 + 1] * a * e;
@@ -291,7 +340,8 @@ FORM.forEach((s, si) => {
 {
   const s = FORM[4], t0 = (s.at + s.bars - 4) * BAR, n = Math.floor(4 * BAR * SR), i0 = Math.round(t0 * SR);
   let ph = 0;
-  for (let k = 0; k < n; k++) {
+  ev("feedback", i0, n);
+  for (let k = 0; JS && k < n; k++) {
     const u = k / n; ph += mtof(78 + 0.3 * Math.sin(TAU * 5 * k / SR)) / SR; if (ph >= 1) ph -= 1;
     const v = Math.tanh(3 * Math.sin(TAU * ph)) * u * u * 0.09, j = (i0 + k) * 2;
     gtr[j] += v; gtr[j + 1] += v * 0.7; rev[j] += v * 0.5; rev[j + 1] += v * 0.5;
@@ -381,6 +431,8 @@ function modem(t, dur) {
   if (!existsSync(MODEM)) { console.log("modem sample not in the vault cache — skipped"); return; }
   const src = smp(MODEM, 1), rate = 1.0289, i0 = Math.round(t * SR), n = Math.floor(dur * SR), off = Math.floor(modemAt * SR);
   modemAt = (modemAt + dur * rate) % 12;
+  ev("modem", BAKE && bakeSmp(`${MODEM}|1`, src), i0, n, off, rate);
+  if (!JS) return;
   for (let k = 0; k < n && i0 + k < N; k++) {
     const p = off + k * rate, q = Math.floor(p), v = (src[q] ?? 0) * Math.min(1, k / 2400, (n - k) / 9600) * 0.07, j = (i0 + k) * 2;
     vox[j] += v * (k % 9600 < 4800 ? 1 : 0.4); vox[j + 1] += v * (k % 9600 < 4800 ? 0.4 : 1);
@@ -390,12 +442,15 @@ function sing(t, id, o = {}, files) {
   t += human(14) - 0.008;                                // he comes in a hair early, never on the grid
   const line = LINES[id], scream = line.kind === "scream";
   const layers = scream
-    ? [[loadF32(files[0]), 0.7, 0, 0], [loadF32(files[1]), 0.12, -0.75, 0.015], [loadF32(files[1]), 0.12, 0.75, 0.024], [loadF32(files[2]), 0.34, 0, 0.008]]
-    : [[shapeVocal(take(id)), 2.9, 0, 0]];
+    ? [[loadF32(files[0]), 0.7, 0, 0, files[0], 1], [loadF32(files[1]), 0.12, -0.75, 0.015, files[1], 0], [loadF32(files[1]), 0.12, 0.75, 0.024, files[1], 0], [loadF32(files[2]), 0.34, 0, 0.008, files[2], 0]]
+    : [[shapeVocal(take(id)), 2.9, 0, 0, resolve(VOX, `${id}.wav`), 1]];
   if (scream) layers[0][0] = shapeVocal(layers[0][0]);
+  if (o.back != null) for (const l of layers) { l[1] *= 0.5; l[2] = Math.max(-1, Math.min(1, l[2] * 0.3 + o.back)); }
   if (o.arp) modem(t, layers[0][0].length / SR);
-  for (const [src, gain, pan, late] of layers) {
+  for (const [src, gain, pan, late, file, shaped] of layers) {
     const i0 = Math.round((t + late) * SR), gl = gain * panL(pan), gr = gain * panR(pan);
+    ev("vox", i0, gain, pan, scream ? 1 : 0, shaped, file);
+    if (!JS) continue;
     let pk = 1e-9, hp = 0;
     for (let k = 0; k < src.length; k++) if (Math.abs(src[k]) > pk) pk = Math.abs(src[k]);
     for (let k = 0; k < src.length && i0 + k < N; k++) {
@@ -425,6 +480,26 @@ if (avoxJobs.length) {
 }
 for (const [t, id, o, files] of placed) sing(t, id, o, files);
 progress.update(55);
+
+const G = { gtr: 0.85, clean: 1.0, drums: 1.1, bass: 0.85, vox: 1.8, rev: 1.0 };
+const report = () => { for (const v of vocalLog) console.log(`${clock(v.at).padEnd(5)} ${v.id} ${v.len.toFixed(1)}s  ${v.text}`); };
+if (BAKE) {
+  const head = [`sr ${SR}`, `frames ${N}`, `bpm ${BPM}`, `material ${MATERIAL}`, ...Object.entries(G).map(([k, v]) => `gain ${k} ${v}`)];
+  writeFileSync(resolve(BAKE), [...head, ...baked].join("\n") + "\n");
+  console.log(`baked ${baked.length} events → ${resolve(BAKE)}`);
+}
+if (!JS) {        // the engine makes the sound from here
+  rmSync(tmp, { recursive: true, force: true });
+  if (CANON) {
+    progress.update(60);
+    const r = spawnSync("node", [resolve(HERE, "../c/run-c.mjs"), resolve(BAKE)], { stdio: "inherit" });
+    if (r.status !== 0) throw new Error("the C engine failed");
+    report();
+    console.log(`material ${MATERIAL}\n${BARS} bars · ${BPM} BPM · ${clock(DUR)}`);
+  }
+  progress.update(100); progress.end();
+  process.exit(0);
+}
 
 // ── post ────────────────────────────────────────────────────────────────
 { // dotted-eighth ping-pong for the quiet things
@@ -457,7 +532,6 @@ for (const [name, b] of Object.entries({ gtr, clean, drums, vox, rev, bass, dly 
   let first = -1; for (let i = 0; i < b.length; i++) if (!Number.isFinite(b[i])) { first = i; break; }
   if (first >= 0) console.error(`non-finite in ${name} from ${(first / (b.length / N) / SR).toFixed(2)} s`);
 }
-const G = { gtr: 0.85, clean: 1.0, drums: 1.1, bass: 0.85, vox: 1.8, rev: 1.0 };
 const mix = new Float32Array(N * 2);
 let peak = 0, bad = 0, env = 0;
 for (let i = 0; i < N; i++) for (let ch = 0; ch < 2; ch++) {
@@ -494,6 +568,10 @@ if (process.argv.includes("--stems")) {
   writeWav(resolve(OUT, "stem-guitars.wav"), gtr, 2); writeWav(resolve(OUT, "stem-clean.wav"), clean, 2);
   writeWav(resolve(OUT, "stem-drums.wav"), drums, 2); writeWav(resolve(OUT, "stem-bass.wav"), bass, 1);
 }
+if (BAKE) {       // the score and the premaster are the whole job; the master on disk stays as it was
+  rmSync(tmp, { recursive: true, force: true }); progress.end();
+  console.log(`premaster ${pre}`); process.exit(0);
+}
 // Master: glue, then measured static gain into a limiter (pop/MASTERING.md) — no loudness rider.
 const glue = "highpass=f=32,acompressor=threshold=-16dB:ratio=2.2:attack=12:release=140:makeup=1.5:knee=6";
 const probe = spawnSync(FFMPEG, ["-hide_banner", "-nostats", "-i", pre, "-af", `${glue},ebur128`, "-f", "null", "-"], { encoding: "utf8" });
@@ -505,5 +583,5 @@ run(["-i", pre, "-af", chain, "-ar", SR, "-c:a", "pcm_s24le", wav].map(String));
 run(["-i", wav, "-c:a", "libmp3lame", "-b:a", "320k", "-metadata", "title=frothyscreama", "-metadata", "artist=Whistlegraph Dot Org", "-metadata", "album=pixsies", mp3]);
 rmSync(tmp, { recursive: true, force: true });
 progress.update(100); progress.end();
-for (const v of vocalLog) console.log(`${clock(v.at).padEnd(5)} ${v.id} ${v.len.toFixed(1)}s  ${v.text}`);
+report();
 console.log(`glue ${lufs} LUFS → ${gain.toFixed(1)} dB into the limiter · material ${MATERIAL}\n${mp3}\n${BARS} bars · ${BPM} BPM · ${clock(DUR)}`);

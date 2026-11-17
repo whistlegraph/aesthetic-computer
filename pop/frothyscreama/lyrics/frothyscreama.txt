@@ -40,6 +40,24 @@ s7   scream   WRITE AAAALL THIS COOOODE NOOOOW
 #    this machine is about to die
 s8   scream   THIS MACHIIIINE IS ABOUT TO DIIIIIIIIIE
 
+# more screaming
+#    i want more screaming
+s10  scream   I WANT MOOOORE SCREEEEEAMING
+#    its killing my ram stop it
+s11  scream   ITS KIIIILLING MY RAAAAM, STOP IIIIIT
+#    THAT SHOULD NOT HAVE HAPPENED
+s12  scream   THAT SHOULD NOOOOT HAVE HAAAAAPPENED
+#    EVERYTHING BLAST THERE!
+s13  scream   EEEEVERYTHING BLAAAAAST THEEEERE
+#    SHRILLLL!
+s14  scream   SHRIIIIIIIIILL
+#    NEVER LOOPS!
+s15  scream   NEVER LOOOOOOOPS
+#    do it again
+s16  scream   DO IT AGAAAAAAAIN
+#    SHOW ME NOW
+s17  scream   SHOW ME NOOOOOOOW
+
 # steam
 #    and lower tones its bedtime
 w5   whisper  and lower tones, its bedtime.
