@@ -41,18 +41,74 @@ export const escapeHtml = (text) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
-// Escape a line and turn bare URLs into links. Trailing sentence punctuation
-// stays outside the link so "see https://x.y/z." doesn't link the full stop.
-function inlineHtml(line) {
+// The inline markup a body may carry, in the order it is matched:
+//   [label](https://…) or [label](mailto:…)   a link that reads as its label
+//   `code`   **bold**   *italic*   and a bare URL, which links itself.
+// Emphasis only opens at a word edge, so "2 * 3 * 4" and "a*b*c" stay as typed.
+const LINK = /\[([^\]\n]+)\]\(((?:https?:\/\/|mailto:)[^\s<>)]+)\)/;
+const INLINE = new RegExp(
+  "(" +
+    [
+      "\\[[^\\]\\n]+\\]\\((?:https?:\\/\\/|mailto:)[^\\s<>)]+\\)",
+      "`[^`\\n]+`",
+      "(?<![\\w*])\\*\\*[^*\\s](?:[^*\\n]*[^*\\s])?\\*\\*(?![\\w*])",
+      "(?<![\\w*])\\*[^*\\s](?:[^*\\n]*[^*\\s])?\\*(?![\\w*])",
+      "https?:\\/\\/[^\\s<>]+",
+    ].join("|") +
+    ")",
+  "g",
+);
+
+// Escape a line and render its inline markup. Trailing sentence punctuation
+// stays outside a bare link so "see https://x.y/z." doesn't link the full stop.
+// A link's label takes emphasis but never another link.
+function inlineHtml(line, { links = true } = {}) {
   return line
-    .split(/(https?:\/\/[^\s<>]+)/g)
+    .split(INLINE)
     .map((part, i) => {
       if (i % 2 === 0) return escapeHtml(part);
+      const link = part.match(LINK);
+      if (link && part.startsWith("[")) {
+        if (!links) return escapeHtml(part);
+        return `<a href="${escapeHtml(link[2])}">${inlineHtml(link[1], { links: false })}</a>`;
+      }
+      if (part.startsWith("`")) {
+        return `<code style="font-family:Menlo,Consolas,'DejaVu Sans Mono',monospace;font-size:0.92em;">${escapeHtml(part.slice(1, -1))}</code>`;
+      }
+      if (part.startsWith("**")) return `<strong>${inlineHtml(part.slice(2, -2), { links })}</strong>`;
+      if (part.startsWith("*")) return `<em>${inlineHtml(part.slice(1, -1), { links })}</em>`;
+      if (!links) return escapeHtml(part);
       const trail = part.match(/[.,;:!?)\]]+$/)?.[0] ?? "";
       const url = trail ? part.slice(0, -trail.length) : part;
       return `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>${escapeHtml(trail)}`;
     })
     .join("");
+}
+
+// The same body for the plain-text part, where markup would read as noise:
+// a link becomes "label (url)", emphasis loses its asterisks, code keeps its
+// backticks. A reader in a text-only client still gets every address.
+export function markupToText(text) {
+  return text
+    .split("\n")
+    .map((line) =>
+      line
+        .split(INLINE)
+        .map((part, i) => {
+          if (i % 2 === 0) return part;
+          const link = part.match(LINK);
+          if (link && part.startsWith("[")) {
+            const label = markupToText(link[1]);
+            const url = link[2].replace(/^mailto:/, "");
+            return label === url || label === link[2] ? url : `${label} (${url})`;
+          }
+          if (part.startsWith("**")) return markupToText(part.slice(2, -2));
+          if (part.startsWith("*")) return markupToText(part.slice(1, -1));
+          return part;
+        })
+        .join(""),
+    )
+    .join("\n");
 }
 
 const P = 'style="margin:0 0 1em 0;"';

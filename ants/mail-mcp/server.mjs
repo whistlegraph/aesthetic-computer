@@ -10,7 +10,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import {
   buildMessage, handleColors, newDraftId, planReply, previewHeight, previewPage,
-  sha256, signatureHtml, textToHtml, wrapHtml,
+  markupToText, sha256, signatureHtml, textToHtml, wrapHtml,
 } from "./compose.mjs";
 
 const execFile = promisify(execFileCb);
@@ -317,6 +317,9 @@ async function composeDraft({
     files.push({ name: basename(path), data: await readFile(path) });
   }
 
+  // The HTML part renders the inline markup; every plain-text surface (the
+  // text part, the stored draft, what the tool reports) reads without it.
+  const plain = markupToText(styled.body);
   const sig = styled.signature;
   const isHandle = sig.startsWith("@");
   const html = wrapHtml(
@@ -330,7 +333,7 @@ async function composeDraft({
   const id = newDraftId();
   const messageId = `${id}@${from.split("@")[1]}`;
   const eml = buildMessage({
-    from, to, cc, bcc, subject: styled.subject, text: styled.body, html, messageId,
+    from, to, cc, bcc, subject: styled.subject, text: plain, html, messageId,
     inReplyTo: in_reply_to, references, attachments: files,
   });
   const meta = {
@@ -343,9 +346,9 @@ async function composeDraft({
     input: JSON.stringify({
       meta,
       eml: Buffer.from(eml).toString("base64"),
-      text: styled.body,
+      text: plain,
       previewHtml: previewPage(envelope, html),
-      previewHeight: previewHeight(envelope, styled.body),
+      previewHeight: previewHeight(envelope, plain),
     }),
     timeout: 180_000,
   });
@@ -369,7 +372,7 @@ async function composeDraft({
   );
   if (revises) notes.push(`Replaces ${revises}, which can no longer be sent.`);
   notes.push(`NOT SENT. Send with mail_send { draft_id: "${id}" } once @jeffrey has approved this draft.`);
-  content.unshift({ type: "text", text: `${describeDraft(meta, styled.body)}\n\n${notes.join("\n")}` });
+  content.unshift({ type: "text", text: `${describeDraft(meta, plain)}\n\n${notes.join("\n")}` });
   return { content };
 }
 
@@ -560,7 +563,7 @@ server.tool(
 // store them on the mail host, and return what the recipient will see;
 // mail_send takes a draft id and sends those bytes. A change is a new draft.
 const draftFields = {
-  body: z.string().describe("Email body, plain text. Blank lines separate paragraphs; lines starting '- ' become a list. Do not add the sign-off."),
+  body: z.string().describe("Email body. Blank lines separate paragraphs; lines starting '- ' become a list, '> ' a quote. Inline: [label](https://url) makes a link that reads as its label, **bold**, *italic*, `code`; a bare URL links itself. The plain-text part gets 'label (url)'. Do not add the sign-off."),
   bcc: z.string().optional().describe("BCC address(es), comma-separated"),
   preserve_case: z
     .boolean()
