@@ -12,6 +12,10 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
+	<array>
+		<string>/.local/share/slab/wallpaper/desktop/current-color.json</string>
+	</array>
 	<key>com.apple.security.temporary-exception.sbpl</key>
 	<array>
 		<string>(allow process-info-rusage)</string>

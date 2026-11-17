@@ -32,7 +32,13 @@
 		ACAC2026101200000000000F = {isa = PBXBuildFile; fileRef = AC1250000000000000000002; };
 		ACAC20261012000000000010 = {isa = PBXBuildFile; fileRef = 41F5CDCA2B2931B000F7FF87; };
 		ACAC20261012000000000011 = {isa = PBXBuildFile; fileRef = ACAC20261012000000000005; };
-		ACAC20261012000000000012 = {isa = PBXBuildFile; fileRef = ACAC20261012000000000007; };
+		ACAC20261117000000000010 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000001; };
+		ACAC20261117000000000011 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000002; };
+		ACAC20261117000000000012 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000004; };
+		ACAC20261117000000000013 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000006; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		ACAC20261117000000000014 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000002; };
+		ACAC20261117000000000015 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000003; };
+		ACAC20261117000000000016 = {isa = PBXBuildFile; fileRef = ACAC20261117000000000004; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -43,6 +49,7 @@
 			remoteGlobalIDString = 41F5CDE52B29356F00F7FF87;
 			remoteInfo = aesthetic;
 		};
+		ACAC20261117000000000029 = {isa = PBXContainerItemProxy; containerPortal = 41F5CDBB2B2931AF00F7FF87; proxyType = 1; remoteGlobalIDString = ACAC20261117000000000024; remoteInfo = AestheticComputerDockTile; };
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -57,6 +64,7 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		ACAC20261117000000000023 = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (ACAC20261117000000000013,); name = "Embed Dock Tile"; runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -81,8 +89,13 @@
 		ACAC20261012000000000001 /* ApplePlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatform.swift; sourceTree = "<group>"; };
 		ACAC20261012000000000003 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
 		ACAC20261012000000000005 /* html */ = {isa = PBXFileReference; lastKnownFileType = folder; path = html; sourceTree = "<group>"; };
-		ACAC20261012000000000007 /* MacIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = MacIcon.icns; sourceTree = "<group>"; };
 		ACAC20261012000000000018 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Aesthetic Computer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		ACAC20261117000000000001 /* MacAppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = MacAppIcon.icon; sourceTree = "<group>"; };
+		ACAC20261117000000000002 /* DockIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIcon.swift; sourceTree = "<group>"; };
+		ACAC20261117000000000003 /* DockTilePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DockTilePlugin.swift; path = DockTile/DockTilePlugin.swift; sourceTree = "<group>"; };
+		ACAC20261117000000000004 /* pals.svg */ = {isa = PBXFileReference; lastKnownFileType = text; name = pals.svg; path = DockTile/pals.svg; sourceTree = "<group>"; };
+		ACAC20261117000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = DockTile/Info.plist; sourceTree = "<group>"; };
+		ACAC20261117000000000006 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AestheticComputerDockTile.docktileplugin; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -102,6 +115,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		ACAC20261012000000000014 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC20261117000000000022 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -119,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				ACAC20261012000000000018,
+				ACAC20261117000000000006,
 				41F5CDC32B2931AF00F7FF87 /* aesthetic.computer.app */,
 				41F5CDE62B29356F00F7FF87 /* aesthetic.appex */,
 			);
@@ -128,7 +143,11 @@
 		41F5CDC52B2931AF00F7FF87 /* aesthetic.computer */ = {
 			isa = PBXGroup;
 			children = (
-				ACAC20261012000000000007 /* MacIcon.icns */,
+				ACAC20261117000000000001 /* MacAppIcon.icon */,
+				ACAC20261117000000000002 /* DockIcon.swift */,
+				ACAC20261117000000000003 /* DockTilePlugin.swift */,
+				ACAC20261117000000000004 /* pals.svg */,
+				ACAC20261117000000000005 /* Info.plist */,
 				ACAC20261012000000000005 /* html */,
 				ACAC20261012000000000003 /* AppRoute.swift */,
 				ACAC20261012000000000001 /* ApplePlatform.swift */,
@@ -215,7 +234,8 @@
 			productReference = 41F5CDE62B29356F00F7FF87 /* aesthetic.appex */;
 			productType = "com.apple.product-type.app-extension.messages";
 		};
-		ACAC20261012000000000019 /* AestheticComputerMac */ = {isa = PBXNativeTarget; buildConfigurationList = ACAC20261012000000000017; buildPhases = (ACAC2026101200000000000E, ACAC20261012000000000013, ACAC20261012000000000014,); buildRules = (); dependencies = (); name = AestheticComputerMac; productName = "Aesthetic Computer"; productReference = ACAC20261012000000000018; productType = "com.apple.product-type.application"; };
+		ACAC20261012000000000019 /* AestheticComputerMac */ = {isa = PBXNativeTarget; buildConfigurationList = ACAC20261012000000000017; buildPhases = (ACAC2026101200000000000E, ACAC20261012000000000013, ACAC20261012000000000014, ACAC20261117000000000023,); buildRules = (); dependencies = (ACAC20261117000000000028,); name = AestheticComputerMac; productName = "Aesthetic Computer"; productReference = ACAC20261012000000000018; productType = "com.apple.product-type.application"; };
+		ACAC20261117000000000024 /* AestheticComputerDockTile */ = {isa = PBXNativeTarget; buildConfigurationList = ACAC20261117000000000025; buildPhases = (ACAC20261117000000000020, ACAC20261117000000000021, ACAC20261117000000000022,); buildRules = (); dependencies = (); name = AestheticComputerDockTile; productName = AestheticComputerDockTile; productReference = ACAC20261117000000000006; productType = "com.apple.product-type.bundle"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -250,6 +270,7 @@
 			projectRoot = "";
 			targets = (
 				ACAC20261012000000000019 /* AestheticComputerMac */,
+				ACAC20261117000000000024 /* AestheticComputerDockTile */,
 				41F5CDC22B2931AF00F7FF87 /* aesthetic.computer */,
 				41F5CDE52B29356F00F7FF87 /* aesthetic */,
 			);
@@ -278,7 +299,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ACAC20261012000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC2026101200000000000F, ACAC20261012000000000010, ACAC20261012000000000011, ACAC20261012000000000012,); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC20261012000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC2026101200000000000F, ACAC20261012000000000010, ACAC20261012000000000011, ACAC20261117000000000010, ACAC20261117000000000012,); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC20261117000000000021 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC20261117000000000016,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -303,7 +325,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ACAC2026101200000000000E = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC20261012000000000008, ACAC20261012000000000009, ACAC2026101200000000000A, ACAC2026101200000000000B, ACAC2026101200000000000C, ACAC2026101200000000000D,); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC2026101200000000000E = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC20261012000000000008, ACAC20261012000000000009, ACAC2026101200000000000A, ACAC2026101200000000000B, ACAC2026101200000000000C, ACAC2026101200000000000D, ACAC20261117000000000011,); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC20261117000000000020 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC20261117000000000014, ACAC20261117000000000015,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -312,6 +335,7 @@
 			target = 41F5CDE52B29356F00F7FF87 /* aesthetic */;
 			targetProxy = 41F5CDF22B29356F00F7FF87 /* PBXContainerItemProxy */;
 		};
+		ACAC20261117000000000028 = {isa = PBXTargetDependency; target = ACAC20261117000000000024; targetProxy = ACAC20261117000000000029; };
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -583,6 +607,7 @@
 			ENABLE_HARDENED_RUNTIME = YES;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_FILE = "aesthetic.computer/MacInfo.plist";
+			ASSETCATALOG_COMPILER_APPICON_NAME = MacAppIcon;
 			CODE_SIGN_ENTITLEMENTS = "aesthetic.computer/Mac.entitlements";
 			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 			SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -602,9 +627,46 @@
 			ENABLE_HARDENED_RUNTIME = YES;
 			GENERATE_INFOPLIST_FILE = YES;
 			INFOPLIST_FILE = "aesthetic.computer/MacInfo.plist";
+			ASSETCATALOG_COMPILER_APPICON_NAME = MacAppIcon;
 			CODE_SIGN_ENTITLEMENTS = "aesthetic.computer/Mac.entitlements";
 			LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 			SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+			SWIFT_OPTIMIZATION_LEVEL = "-O";
+		}; name = Release; };
+		ACAC20261117000000000026 = {isa = XCBuildConfiguration; buildSettings = {
+			SDKROOT = macosx;
+			SUPPORTED_PLATFORMS = macosx;
+			MACOSX_DEPLOYMENT_TARGET = 14.0;
+			PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.docktile;
+			PRODUCT_NAME = AestheticComputerDockTile;
+			WRAPPER_EXTENSION = docktileplugin;
+			SWIFT_VERSION = 5.0;
+			MARKETING_VERSION = 1.3;
+			CURRENT_PROJECT_VERSION = 6;
+			DEVELOPMENT_TEAM = FB5948YR3S;
+			CODE_SIGN_STYLE = Automatic;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = "aesthetic.computer/DockTile/Info.plist";
+			SKIP_INSTALL = YES;
+			SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+		}; name = Debug; };
+		ACAC20261117000000000027 = {isa = XCBuildConfiguration; buildSettings = {
+			SDKROOT = macosx;
+			SUPPORTED_PLATFORMS = macosx;
+			MACOSX_DEPLOYMENT_TARGET = 14.0;
+			PRODUCT_BUNDLE_IDENTIFIER = aesthetic.computer.docktile;
+			PRODUCT_NAME = AestheticComputerDockTile;
+			WRAPPER_EXTENSION = docktileplugin;
+			SWIFT_VERSION = 5.0;
+			MARKETING_VERSION = 1.3;
+			CURRENT_PROJECT_VERSION = 6;
+			DEVELOPMENT_TEAM = FB5948YR3S;
+			CODE_SIGN_STYLE = Automatic;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = YES;
+			INFOPLIST_FILE = "aesthetic.computer/DockTile/Info.plist";
+			SKIP_INSTALL = YES;
 			SWIFT_OPTIMIZATION_LEVEL = "-O";
 		}; name = Release; };
 /* End XCBuildConfiguration section */
@@ -638,6 +700,7 @@
 			defaultConfigurationName = Release;
 		};
 		ACAC20261012000000000017 = {isa = XCConfigurationList; buildConfigurations = (ACAC20261012000000000015, ACAC20261012000000000016,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		ACAC20261117000000000025 = {isa = XCConfigurationList; buildConfigurations = (ACAC20261117000000000026, ACAC20261117000000000027,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 
 	};

@@ -19,15 +19,15 @@ tile = {
         "bundle-identifier": bundle,
         "file-label": "Aesthetic Computer",
         "file-type": 41,
+        "dock-extra": True,
         "file-data": {"_CFURLString": url, "_CFURLStringType": 15},
     },
 }
 matches = [i for i, entry in enumerate(apps)
            if entry.get("tile-data", {}).get("file-data", {}).get("_CFURLString", "").rstrip("/") == url.rstrip("/")
            or entry.get("tile-data", {}).get("bundle-identifier") == bundle]
-if matches and apps[matches[0]].get("tile-data", {}).get("file-data") == tile["tile-data"]["file-data"] and apps[matches[0]].get("tile-data", {}).get("bundle-identifier") == bundle:
-    print("Aesthetic Computer is already pinned.")
-    sys.exit(0)
+# Always write a fresh tile. The Dock keeps a bookmark in the old one, and a bookmark
+# follows the previous build into its backup folder, so the Dock would show that build.
 if matches:
     apps[matches[0]] = tile
     for index in reversed(matches[1:]):

@@ -19,8 +19,8 @@
 			</array>
 		</dict>
 	</array>
-	<key>CFBundleIconFile</key>
-	<string>MacIcon</string>
+	<key>NSDockTilePlugIn</key>
+	<string>AestheticComputerDockTile.docktileplugin</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

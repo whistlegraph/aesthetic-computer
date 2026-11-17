@@ -67,6 +67,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     weak var appWebView: WKWebView?
     #if os(macOS)
     var openPromptWindow: (() -> Void)?
+    private var dockIcon: DockIconWatcher?
     #endif
     private let webViews = NSHashTable<WKWebView>.weakObjects()
     private let optedInKey = "acNotificationsOptedIn"
@@ -95,6 +96,8 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("didFinishLaunching")
         startNotifications()
+        let pals = DockIcon.pals(in: .main)
+        dockIcon = DockIconWatcher { NSApp.applicationIconImage = DockIcon.image(look: $0, pals: pals) }
         NSApp.activate(ignoringOtherApps: true)
     }
 
