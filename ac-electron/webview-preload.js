@@ -10,7 +10,7 @@
 const { ipcRenderer } = require('electron');
 
 // 🔐 acDESKTOP.login — boot.mjs hands a page's `hi` / `login` here. The app
-// signs in through ac-login (system browser, ~/.ac-token) and returns the
+// signs in through ac-login (hosted page inside the pane, ~/.ac-token) and returns the
 // session; the page reboots with it as `session-aesthetic`.
 window.acDESKTOP = {
   login: async (mode) => {

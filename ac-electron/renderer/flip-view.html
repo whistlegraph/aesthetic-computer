@@ -123,6 +123,32 @@
       height: 100%;
       border: none;
     }
+
+    /* 🔐 Sign-in: the hosted login page over the piece, in the same view. */
+    .login-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      background: var(--ac-front-bg);
+      -webkit-app-region: no-drag;
+    }
+    .login-overlay .login-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 1;
+      width: 26px;
+      height: 26px;
+      border: none;
+      border-radius: 13px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font: 16px/26px system-ui, sans-serif;
+      text-align: center;
+      padding: 0;
+      cursor: pointer;
+    }
+    .login-overlay .login-close:hover { background: rgba(0, 0, 0, 0.8); }
     
     /* Back face - dark gray backdrop, ghost ON TOP when not flipped */
     .card-back {
@@ -556,6 +582,44 @@
     ipcRenderer.on('ac-reload', () => {
       const wv = document.getElementById('front-webview');
       try { wv?.reload(); } catch (e) { console.warn('[flip-view] reload failed', e); }
+    });
+
+    // 🔐 Sign-in inside the view. Main runs ac-login (which owns the OAuth
+    // callback on localhost) and sends the hosted page's address here; it
+    // loads in a second webview over the piece and goes away when main says
+    // the sign-in ended. The close button and Escape cancel it.
+    let loginOverlay = null;
+    function closeLoginOverlay() {
+      loginOverlay?.remove();
+      loginOverlay = null;
+      try { document.getElementById('front-webview')?.focus(); } catch (_) {}
+    }
+    function cancelLogin() {
+      ipcRenderer.invoke('ac:desktop-login-cancel');
+      closeLoginOverlay();
+    }
+    ipcRenderer.on('ac-login-open', (_e, url) => {
+      closeLoginOverlay();
+      const overlay = document.createElement('div');
+      overlay.className = 'login-overlay';
+      const view = document.createElement('webview');
+      view.setAttribute('allowpopups', '');
+      view.src = url;
+      const close = document.createElement('button');
+      close.className = 'login-close';
+      close.title = 'Cancel sign-in';
+      close.textContent = '×';
+      close.addEventListener('click', cancelLogin);
+      view.addEventListener('dom-ready', () => { try { view.focus(); } catch (_) {} });
+      // The callback page asks to close itself once the token is stored.
+      view.addEventListener('close', closeLoginOverlay);
+      overlay.append(view, close);
+      document.querySelector('.card-front').append(overlay);
+      loginOverlay = overlay;
+    });
+    ipcRenderer.on('ac-login-close', closeLoginOverlay);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && loginOverlay) cancelLogin();
     });
 
     const flipCard = document.querySelector('.flip-card');

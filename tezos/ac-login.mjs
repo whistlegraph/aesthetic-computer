@@ -49,6 +49,12 @@ function generateCodeChallenge(verifier) {
 
 // Open browser (devcontainer-aware)
 function openBrowser(url) {
+  // A host app that shows the page in its own view (ac-electron) sets
+  // AC_LOGIN_NO_BROWSER and reads this line from stdout instead.
+  if (process.env.AC_LOGIN_NO_BROWSER) {
+    console.log(`AC_LOGIN_URL ${url}`);
+    return;
+  }
   const browserCmd = process.env.BROWSER;
   if (browserCmd) {
     exec(`${browserCmd} "${url}"`, (err) => {

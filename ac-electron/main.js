@@ -1307,13 +1307,93 @@ function acSessionParam() {
 }
 
 // A page's `hi` / `login` inside the app (boot.mjs → window.acDESKTOP.login).
-// Auth0 only returns to allow-listed origins, so instead of an in-app
-// redirect the app signs in the way every AC Mac app does — ac-login in the
-// system browser, landing in ~/.ac-token — and hands the session back for the
-// page to boot with.
-ipcMain.handle('ac:desktop-login', async () => {
-  await runAcLogin(['fresh']);
-  return acSessionParam();
+// Auth0 only returns to allow-listed origins, so the page itself cannot
+// redirect. ac-login still runs the OAuth + PKCE flow and its localhost
+// callback, landing in ~/.ac-token, but the hosted page loads inside the pane
+// that asked (flip-view's login overlay) instead of the system browser. A
+// caller with no pane shell around it falls back to the system browser.
+let acPaneLogin = null; // { child, host, promise } — one sign-in at a time.
+
+function endAcPaneLogin() {
+  const login = acPaneLogin;
+  acPaneLogin = null;
+  try {
+    if (login?.host && !login.host.isDestroyed()) login.host.send('ac-login-close');
+  } catch (_) {}
+}
+
+function runAcLoginInPane(host) {
+  if (acPaneLogin) return acPaneLogin.promise;
+  const login = { child: null, host, promise: null };
+  login.promise = new Promise((resolve) => {
+    let child;
+    try {
+      console.log('[ac-creds] running ac-login fresh (in pane)');
+      child = spawn(process.execPath, [acLoginPath, 'fresh'], {
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', AC_LOGIN_NO_BROWSER: '1' },
+        stdio: ['ignore', 'pipe', 'ignore'],
+        detached: false,
+      });
+    } catch (err) {
+      console.warn('[ac-creds] failed to run ac-login:', err?.message || err);
+      acPaneLogin = null;
+      resolve(null);
+      return;
+    }
+    login.child = child;
+    let out = '';
+    let shown = false;
+    child.stdout.on('data', (chunk) => {
+      if (shown) return;
+      out += chunk.toString();
+      const found = out.match(/^AC_LOGIN_URL (\S+)$/m);
+      if (!found) return;
+      shown = true;
+      if (host.isDestroyed()) return child.kill();
+      host.send('ac-login-open', found[1]);
+    });
+    child.on('error', (err) => {
+      console.warn('[ac-creds] ac-login spawn error:', err?.message || err);
+      endAcPaneLogin();
+      resolve(null);
+    });
+    child.on('exit', (code) => {
+      console.log('[ac-creds] ac-login exited with code', code);
+      endAcPaneLogin();
+      rebuildTrayMenu();
+      broadcastCredentialsChanged();
+      resolve(code);
+    });
+    // The pane closing mid-sign-in frees the callback port for the next try.
+    host.once('destroyed', () => { try { child.kill(); } catch (_) {} });
+    // Escape cancels even while the login page holds the keyboard.
+    const onAttach = (_e, guest) => {
+      guest.on('before-input-event', (inputEvent, input) => {
+        if (input.type !== 'keyDown' || input.key !== 'Escape' || acPaneLogin !== login) return;
+        inputEvent.preventDefault();
+        try { child.kill(); } catch (_) {}
+      });
+    };
+    host.once('did-attach-webview', onAttach);
+    child.once('exit', () => host.isDestroyed() || host.removeListener('did-attach-webview', onAttach));
+  });
+  acPaneLogin = login;
+  return login.promise;
+}
+
+ipcMain.handle('ac:desktop-login', async (event) => {
+  const host = event.sender.hostWebContents;
+  if (!host || host.isDestroyed() || !fs.existsSync(acLoginPath)) {
+    await runAcLogin(['fresh']);
+    return acSessionParam();
+  }
+  const code = await runAcLoginInPane(host);
+  return code === 0 ? acSessionParam() : null; // Cancelled or failed: stay put.
+});
+
+// The overlay's close button or Escape.
+ipcMain.handle('ac:desktop-login-cancel', () => {
+  try { acPaneLogin?.child?.kill(); } catch (_) {}
 });
 
 // Signal the rest of the AC suite that the shared token changed.
