@@ -1,4 +1,4 @@
-import { edgeAt, SPAN, blockWalls } from './park.mjs';
+import { edgeAt, SPAN, blockWalls, groundsOf } from './park.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
@@ -2299,6 +2299,7 @@ function step(now) {
     lots,
     park,
     around: around(),
+    field: groundsOf(room),
     home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen || game()?.hud?.aim === false ? null : floorAim,
     chalk: chalkStrokes,

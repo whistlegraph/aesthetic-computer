@@ -66,8 +66,9 @@ test('verified handle changes retain pod identity; private account IDs never ent
 
 test('park paths only connect open adjacent blocks and land inside the opposite edge', () => {
   const g = new Geography();
-  assert.deepEqual(g.neighbours('lobby'), { east: 'e1n0' });
-  assert.deepEqual(g.neighbours('e1n0'), { west: 'lobby' });
+  // Housing to the east; the tower's grounds to the west and south (no way through its back).
+  assert.deepEqual(g.neighbours('lobby'), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
+  assert.deepEqual(g.neighbours('e1n0'), { west: 'lobby', south: 'e1s1' });
   assert.equal(g.neighbours('studio'), null);
   assert.equal(edgeAt({x:7.55,y:1.7,z:0}), 'east');
   assert.equal(edgeAt({x:7.55,y:1.7,z:2}), 'east'); // the whole side is open, not only the lane

@@ -4,10 +4,11 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  BLOCK, LANE, LOTS, LOBBY, blockAt, blockIndex, blockId, parseBlock, toWorld, fromWorld,
+  BLOCK, LANE, LOTS, LOBBY, blockAt, blockIndex, spiralAt, spiralIndex, isGrounds, blockId, parseBlock, toWorld, fromWorld,
   lot, lotAt, blocksFor, span, Geography, GeographyStore,
 } from '../geography.mjs';
 import { WORLD, PROTOCOL } from '../world.mjs';
+import { GROUNDS } from '../park.mjs';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
@@ -17,24 +18,50 @@ test('a block is the room the server already runs', () => {
   assert.equal(BLOCK, WORLD * 2);
 });
 
-test('the spiral gives every block one place, and neighbours in order touch', () => {
+test('the spiral gives every cell one place, and neighbours in order touch', () => {
   const seen = new Set();
-  let last = blockAt(0);
+  let last = spiralAt(0);
   for (let n = 0; n < 2000; n++) {
-    const b = blockAt(n);
-    assert.equal(blockIndex(b), n);
+    const b = spiralAt(n);
+    assert.equal(spiralIndex(b), n);
     const id = blockId(b);
-    assert.ok(!seen.has(id), `block ${n} repeats ${id}`);
+    assert.ok(!seen.has(id), `cell ${n} repeats ${id}`);
     seen.add(id);
     assert.deepEqual(parseBlock(id), b);
     assert.match(id, /^[a-z0-9-]{1,32}$/);
-    if (n > 0) assert.equal(Math.abs(b.i - last.i) + Math.abs(b.j - last.j), 1, `block ${n} touches ${n - 1}`);
+    if (n > 0) assert.equal(Math.abs(b.i - last.i) + Math.abs(b.j - last.j), 1, `cell ${n} touches ${n - 1}`);
     last = b;
   }
-  assert.equal(blockId(blockAt(0)), LOBBY);
-  assert.equal(blockId(blockAt(1)), 'e1n0');
+  assert.equal(blockId(spiralAt(0)), LOBBY);
   assert.equal(parseBlock('e0n0'), null, 'the lobby has one spelling');
   assert.equal(parseBlock('studio'), null);
+});
+
+test('housing blocks keep one place each and are never laid on the tower\'s grounds', () => {
+  const seen = new Set();
+  for (let n = 0; n < 2000; n++) {
+    const b = blockAt(n);
+    assert.equal(blockIndex(b), n);
+    assert.ok(n === 0 || !isGrounds(b), `block ${n} is on the grounds`);
+    assert.ok(!seen.has(blockId(b)), `block ${n} repeats`);
+    seen.add(blockId(b));
+  }
+  // The two blocks settled before the grounds were laid out stay where they were.
+  assert.deepEqual([blockId(blockAt(1)), blockId(blockAt(2))], ['e1n0', 'e1n1']);
+  for (const [i, j] of GROUNDS) {
+    assert.equal(isGrounds({ i, j }), true);
+    assert.equal(blockIndex({ i, j }), 0, 'the grounds are open like the plaza');
+  }
+  assert.equal(isGrounds({ i: 0, j: 0 }), false);
+});
+
+test('the grounds open off the plaza on every side but the tower\'s back, two blocks south', () => {
+  const g = new Geography({ opened: 2 });
+  assert.deepEqual(g.neighbours(LOBBY), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
+  assert.equal(g.neighbours('e0n1').south, undefined, 'no way in through the back of the tower');
+  assert.equal(g.neighbours('e0s1').south, 'e0s2');
+  assert.equal(g.neighbours('e0s2').south, undefined, 'the promenade ends at the terrace');
+  assert.equal(g.neighbours('e1s1').east, undefined, 'housing beyond the grounds opens in its turn');
 });
 
 test('world metres and block-local metres convert both ways', () => {

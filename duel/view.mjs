@@ -1,6 +1,6 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { podFront, house, houseWalls, HOUSE } from './park.mjs';
+import { podFront, house, houseWalls, HOUSE, groundsOf, promenade, GROUNDS } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { model, INK, PAPER, rgb, tint, audit } from './paint.mjs';
 import { describeCrossing } from './solids.mjs';
@@ -269,8 +269,8 @@ export async function createView(canvas) {
   // A block's ground: the plaza's floor or a residential block's grass and
   // lanes. A side with an open neighbour is left open; the world's edge gets
   // the plaza's wall or the park's hedge.
-  function groundFor(id, neighbours, plaza) {
-    const key = JSON.stringify([neighbours, !!plaza, paletteName]);
+  function groundFor(id, neighbours, plaza, field = null) {
+    const key = JSON.stringify([neighbours, !!plaza, paletteName, field]);
     const kept = grounds.get(id);
     if (kept?.key === key) return kept.model;
     const p = PALETTES[paletteName], open = neighbours || {};
@@ -287,11 +287,34 @@ export async function createView(canvas) {
         if (!open.east) box(WORLD + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
         return;
       }
-      const grass = paletteName === 'day' ? 0xb9d7ac : 0x243d36;
-      const path = paletteName === 'day' ? 0xe5decb : 0x5a6664;
+      const day = paletteName === 'day';
+      const grass = day ? 0xb9d7ac : 0x243d36;
+      const path = day ? 0xe5decb : 0x5a6664;
       quad([-8, 0, -8], [-8, 0, 8], [8, 0, 8], [8, 0, -8], grass);
-      quad([-1, 0.006, -8], [-1, 0.006, 8], [1, 0.006, 8], [1, 0.006, -8], path);
-      quad([-8, 0.007, -1], [-8, 0.007, 1], [8, 0.007, 1], [8, 0.007, -1], path);
+      if (field) {
+        // 🌳 The tower's grounds: open grass, and south of the door the
+        // promenade (park.mjs): a reflecting pool between two rose beds.
+        const inks = day
+          ? { paving: 0xefe7da, stone: 0xdcd6c8, water: 0x8fc7e0, soil: 0x6b4a3a, leaf: 0x4f9a5b, post: 0x8f98ac, lamp: 0xffe9a8, cushion: 0xff7ac8,
+              rose0: 0xff5c8a, rose1: 0xe63462, rose2: 0xff86b5, rose3: 0xffd1dc }
+          : { paving: 0x3a3644, stone: 0x4a4e5c, water: 0x1b2c4a, soil: 0x2e2422, leaf: 0x244a38, post: 0x59607a, lamp: 0xffe9a8, cushion: 0x8a3a6c,
+              rose0: 0xb8405f, rose1: 0x9c2444, rose2: 0xb86080, rose3: 0xc09aa4 };
+        const laid = promenade(field);
+        if (laid) {
+          for (const f of laid.flats) quad([f.x0, f.y, f.z0], [f.x0, f.y, f.z1], [f.x1, f.y, f.z1], [f.x1, f.y, f.z0], inks[f.ink]);
+          for (const s of laid.solids) box(s.x, s.y, s.z, s.w, s.h, s.d, inks[s.ink], tint(inks[s.ink], 0.8), inks[s.ink]);
+        } else {
+          // A field beside the tower: two trees, set by where the field lies.
+          const wood = day ? 0xc9a37a : 0x6b5440, leaf2 = day ? 0x8cc97f : 0x3b6e52;
+          for (const [x, z] of [[3.5 * Math.sign(field.i || 1), -3 + field.j], [-4 + field.i, 4.5 * Math.sign(field.j || -1)]]) {
+            box(x, 1.1, z, 0.3, 2.2, 0.3, wood, tint(wood, 0.8), wood);
+            box(x, 3, z, 2.2, 1.6, 2.2, inks.leaf, tint(inks.leaf, 0.82), leaf2);
+          }
+        }
+      } else {
+        quad([-1, 0.006, -8], [-1, 0.006, 8], [1, 0.006, 8], [1, 0.006, -8], path);
+        quad([-8, 0.007, -1], [-8, 0.007, 1], [8, 0.007, 1], [8, 0.007, -1], path);
+      }
       for (const edge of ['east', 'west', 'north', 'south']) {
         if (open[edge]) continue;
         const across = edge === 'north' || edge === 'south';
@@ -1054,6 +1077,7 @@ export async function createView(canvas) {
     tiles = {},
     lots = null,
     park = null,
+    field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, lots, home, objects, tiles }
     home = null,
     floorAim = null,
@@ -1209,7 +1233,7 @@ export async function createView(canvas) {
     // stands: one continuous ground, each home on its lot.
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
-    else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza));
+    else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza, field));
     else draw(arena);
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
@@ -1240,13 +1264,20 @@ export async function createView(canvas) {
       // The land the tower stands on, seen from the plaza and from every floor:
       // fields to the horizon, and a lawn wherever a block around the plaza is
       // not open yet.
-      if (skyline.dx === 0 && skyline.dz === 0) {
+      // The grounds too stand wherever they are seen from, so the pool and
+      // its beds do not appear only on stepping into the block before them.
+      {
         const t = towerParts();
+        const shown = (dx, dz) => (dx === 0 && dz === 0 && !skyline.dy) || around.some((b) => b.dx === dx && b.dz === dz);
         draw(t.land, skyline.dx, skyline.dy, skyline.dz);
         for (let i = -1; i <= 1; i++)
           for (let j = -1; j <= 1; j++)
-            if (!around.some((b) => b.dx === skyline.dx + i * 16 && b.dz === skyline.dz + j * 16))
+            if (!shown(skyline.dx + i * 16, skyline.dz + j * 16))
               draw(t.lawn, skyline.dx + i * 16, skyline.dy, skyline.dz + j * 16);
+        for (const [i, j] of GROUNDS) {
+          const dx = skyline.dx + i * 16, dz = skyline.dz + j * 16;
+          if (!shown(dx, dz)) draw(groundFor(`grounds ${i} ${j}`, { east: 1, west: 1, north: 1, south: 1 }, false, { i, j }), dx, skyline.dy, dz);
+        }
       }
     }
     if (lots) {
@@ -1256,7 +1287,7 @@ export async function createView(canvas) {
     }
     for (const b of around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
-      draw(groundFor(b.id, b.neighbours, b.plaza), b.dx, by, b.dz);
+      draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz);
       if (b.lots) {
         const set = lotsFor(b.id, b.lots, b.home);
         draw(set.lotModel, b.dx, by, b.dz);
@@ -1266,7 +1297,7 @@ export async function createView(canvas) {
       if (painted) draw(painted, b.dx, by, b.dz);
     }
     for (const id of grounds.keys())
-      if (id !== 'here' && !around.some((b) => b.id === id)) {
+      if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
         grounds.delete(id); lotSets.delete(id); tileSets.delete(id);
       }
     // A thing standing on the ground, drawn where its block stands.

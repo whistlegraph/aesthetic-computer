@@ -6,7 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
-import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
+import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
 import { worldMap } from './map.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
@@ -148,7 +148,8 @@ export function createDuelServer({
   };
   const lotData = (key) => {
     const block = key === 'lobby' ? null : parseBlock(key);
-    if (!block || blockIndex(block) > geography.geography.opened) return null;
+    // The tower's grounds are open field: no lots, nobody's home.
+    if (!block || isGrounds(block) || blockIndex(block) > geography.geography.opened) return null;
     return { room: key, rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
       homes: Object.entries(geography.geography.homes)
         .filter(([, h]) => h.block === blockIndex(block))
@@ -415,7 +416,7 @@ export function createDuelServer({
             if (n > geography.geography.opened) continue;
             const id = blockId(b);
             blocks.push({
-              id, di, dj, plaza: n === 0,
+              id, di, dj, plaza: id === 'lobby',
               neighbours: geography.geography.neighbours(id),
               lots: lotData(id),
               objects: store.objects(id).filter((o) => !o.item),

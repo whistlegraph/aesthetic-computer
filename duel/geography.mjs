@@ -9,6 +9,7 @@ import { mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
+import { GROUNDS } from './park.mjs';
 
 export const BLOCK = 16; // metres along a block's edge (2 × world.mjs WORLD)
 export const LANE = 2; // width of the two lanes that cross every block
@@ -22,7 +23,7 @@ export const LOBBY = 'lobby';
 // Square spiral from the middle: 0 is (0,0), ring r holds 8r blocks, each ring
 // starting just north of its east corner and running counter-clockwise.
 // East is +x, north is +z.
-export function blockAt(n) {
+export function spiralAt(n) {
   if (!Number.isInteger(n) || n < 0) throw new RangeError('block index');
   if (n === 0) return { i: 0, j: 0 };
   const r = Math.ceil((Math.sqrt(n + 1) - 1) / 2); // ring
@@ -37,7 +38,7 @@ export function blockAt(n) {
   return { i: -r + 1 + k, j: -r };
 }
 
-export function blockIndex({ i, j }) {
+export function spiralIndex({ i, j }) {
   const r = Math.max(Math.abs(i), Math.abs(j));
   if (r === 0) return 0;
   const base = (2 * r - 1) ** 2,
@@ -46,6 +47,28 @@ export function blockIndex({ i, j }) {
   if (j === r) return base + side + (r - 1 - i);
   if (i === -r) return base + 2 * side + (r - 1 - j);
   return base + 3 * side + (i + r - 1);
+}
+
+// 🌳 Some cells of the lattice are the tower's grounds (park.mjs): open field
+// and the promenade, never housing. Housing blocks are numbered along the
+// spiral past them, so block n keeps one place for good and the grounds are
+// simply never handed out. Blocks 1 and 2 were settled before the grounds
+// were laid out and keep their places.
+const GROUND_STEPS = GROUNDS.map(([i, j]) => spiralIndex({ i, j })).sort((a, b) => a - b);
+export const isGrounds = (cell) => GROUND_STEPS.includes(spiralIndex(cell)) && !(cell.i === 0 && cell.j === 0);
+// Housing block n's cell (0 is the plaza).
+export function blockAt(n) {
+  if (!Number.isInteger(n) || n < 0) throw new RangeError('block index');
+  let step = n;
+  for (const g of GROUND_STEPS) if (g <= step) step++;
+  return spiralAt(step);
+}
+// A cell's housing block number. The grounds answer 0 like the plaza: always
+// open, and nobody's block.
+export function blockIndex(cell) {
+  const step = spiralIndex(cell);
+  if (GROUND_STEPS.includes(step)) return 0;
+  return step - GROUND_STEPS.filter((g) => g < step).length;
 }
 
 // A block's room id, in the room grammar the server accepts ([a-z0-9-]):
@@ -251,6 +274,8 @@ export class Geography {
     const out = {};
     for (const [edge, di, dj] of [['east',1,0],['west',-1,0],['north',0,1],['south',0,-1]]) {
       const n = { i: b.i + di, j: b.j + dj };
+      // The tower's back stands on the plaza's north edge: no way through it.
+      if (b.i === 0 && n.i === 0 && b.j + n.j === 1) continue;
       if (blockIndex(n) <= this.opened) out[edge] = blockId(n);
     }
     return out;
