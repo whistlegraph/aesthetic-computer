@@ -60,7 +60,7 @@ import { GpuFrame } from "./gpu-frame.mjs";
 const KIDLISP_FUNCTIONS = new Set([
   // Core drawing
   "wipe", "ink", "line", "box", "flood", "circle", "write", "paste", "stamp", "point", "poly", "embed", "tape",
-  "tri", "plot", "shape", "lines", "rect", "ellipse", "arc", "curve", "bezier",
+  "tri", "plot", "shape", "mark", "lines", "rect", "ellipse", "arc", "curve", "bezier",
   // Arithmetic
   "abs", "sqrt", "tan", "exp", "sign", "pow", "atan2", "hypot", "clamp",
   // Pools, hums, console input (kidlisp/PIECE-IL.md)
@@ -5581,6 +5581,23 @@ class KidLisp {
       return Number.isFinite(n) ? n : fallback;
     };
 
+    // A thick line through points: one quad per segment, a disc at each joint.
+    // Here rather than in the graphics library, whose own thick outlines fill
+    // the whole shape (circle, tri, shape) or draw nothing (box).
+    const thickPath = (api, pts, t, closed) => {
+      const n = pts.length, r = t / 2;
+      for (let i = 0; i < (closed ? n : n - 1); i++) {
+        const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n];
+        const m = Math.hypot(bx - ax, by - ay) || 1, nx = (-(by - ay) / m) * r, ny = ((bx - ax) / m) * r;
+        api.shape({ points: [ax + nx, ay + ny, bx + nx, by + ny, bx - nx, by - ny, ax - nx, ay - ny], filled: true, thickness: 1 });
+        if (t >= 3) api.circle(ax, ay, r, true);
+      }
+      if (!closed && t >= 3) api.circle(pts[n - 1][0], pts[n - 1][1], r, true);
+    };
+    // The pixel width a mode word like "outline:3" asks for, or 0.
+    const edge = (m) => (typeof m === "string" && m.includes("outline:") ? parseInt(m.split(":")[1]) || 0 : 0);
+    const nums = (api, list) => list.map((a) => (typeof a === "number" ? a : this.evaluate(a, api, this.localEnv)));
+
     this.globalEnvCache = {
       // once: (api, args) => {
       //   console.log("Oncing...", args);
@@ -6757,6 +6774,10 @@ class KidLisp {
       },
       box: (api, args = []) => {
         // console.log('📦 BOX called with args:', args, 'length:', args.length);
+        if (Array.isArray(args) && edge(args[4]) > 1) {
+          const [x, y, w, h] = nums(api, args.slice(0, 4));
+          return thickPath(api, [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], edge(args[4]), true);
+        }
         
         // Handle non-array args
         if (!Array.isArray(args)) {
@@ -6829,6 +6850,11 @@ class KidLisp {
         drawBox();
       },
       circle: (api, args = []) => {
+        if (edge(args[3]) > 1) {
+          const [x, y, r] = nums(api, args.slice(0, 3)), k = Math.max(12, Math.min(48, Math.ceil(r / 2)));
+          const ring = Array.from({ length: k }, (_, i) => [x + Math.cos((i / k) * 2 * Math.PI) * r, y + Math.sin((i / k) * 2 * Math.PI) * r]);
+          return thickPath(api, ring, edge(args[3]), true);
+        }
         // Circle function with optional mode parameter
         // Usage: (circle x y radius) - uses global fillMode
         // Usage: (circle x y radius "fill") - explicit fill
@@ -6952,6 +6978,10 @@ class KidLisp {
         drawPoint();
       },
       tri: (api, args = []) => {
+        if (edge(args[6]) > 1) {
+          const v = nums(api, args.slice(0, 6));
+          return thickPath(api, [[v[0], v[1]], [v[2], v[3]], [v[4], v[5]]], edge(args[6]), true);
+        }
         // Triangle function with 6 coordinates and optional mode
         // Usage: (tri x1 y1 x2 y2 x3 y3) - uses global fillMode
         // Usage: (tri x1 y1 x2 y2 x3 y3 mode) - explicit mode override
@@ -7141,8 +7171,46 @@ class KidLisp {
           }
         }
 
+        if (!filled && thickness > 1) {
+          const v = nums(api, points), pairs = [];
+          for (let i = 0; i + 1 < v.length; i += 2) pairs.push([v[i], v[i + 1]]);
+          return thickPath(api, pairs, thickness, true);
+        }
         // Pass the arguments to the API shape function
         api.shape({ points, filled, thickness });
+      },
+      // (mark x y t  x y t ...) a brush stroke: a smooth curve through the
+      // points, each carrying its own thickness in pixels, like pen pressure.
+      mark: (api, args = []) => {
+        const v = args.map((a) => (typeof a === "number" ? a : this.evaluate(a, api, this.localEnv)));
+        if (v.length < 6 || v.length % 3 || v.some((n) => !Number.isFinite(n))) return;
+        const P = [];
+        for (let i = 0; i < v.length; i += 3) P.push([v[i], v[i + 1], Math.max(1, Math.abs(v[i + 2]))]);
+        const at = (i) => P[Math.max(0, Math.min(P.length - 1, i))];
+        const C = []; // the centre line: Catmull-Rom through P, width eased between
+        for (let i = 0; i < P.length - 1; i++) {
+          const [a, b, c, d] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+          const steps = Math.max(4, Math.min(12, Math.ceil(Math.hypot(c[0] - b[0], c[1] - b[1]) / 8)));
+          for (let k = 0; k < steps; k++) {
+            const t = k / steps, t2 = t * t, t3 = t2 * t;
+            const q = (j) => 0.5 * (2 * b[j] + (c[j] - a[j]) * t + (2 * a[j] - 5 * b[j] + 4 * c[j] - d[j]) * t2 + (3 * b[j] - a[j] - 3 * c[j] + d[j]) * t3);
+            C.push([q(0), q(1), b[2] + (c[2] - b[2]) * t2 * (3 - 2 * t)]);
+          }
+        }
+        C.push(P[P.length - 1]);
+        const S = C.map((c, i) => { // both sides of the ribbon at each sample
+          const p = C[Math.max(0, i - 1)], n = C[Math.min(C.length - 1, i + 1)];
+          const m = Math.hypot(n[0] - p[0], n[1] - p[1]) || 1, h = c[2] / 2;
+          const nx = (-(n[1] - p[1]) / m) * h, ny = ((n[0] - p[0]) / m) * h;
+          return [c[0] + nx, c[1] + ny, c[0] - nx, c[1] - ny];
+        });
+        // Quads, not one outline: a thick mark folds over itself on the inside
+        // of a bend, and an even-odd fill would punch a hole there.
+        for (let i = 0; i < S.length - 1; i++) {
+          const a = S[i], b = S[i + 1];
+          api.shape({ points: [a[0], a[1], b[0], b[1], b[2], b[3], a[2], a[3]], filled: true, thickness: 1 });
+        }
+        for (const e of [C[0], C[C.length - 1]]) if (e[2] >= 3) api.circle(e[0], e[1], e[2] / 2, true);
       },
       // 🐢 Turtle Graphics
       crawl: (api, args = []) => {
