@@ -1957,7 +1957,7 @@ if (!sandboxed && !skipAuth) {
             const timeout = setTimeout(() => controller.abort(), 8000);
             const res = await fetch(
               `/user?from=${encodeURIComponent(userProfile.email)}&tenant=aesthetic&withHandle=true`,
-              { signal: controller.signal },
+              { signal: controller.signal, headers: { Authorization: `Bearer ${await auth0Client.getTokenSilently()}` } }, // 🔒 /user answers an email only for its owner.
             );
             clearTimeout(timeout);
             const u = await res.json();

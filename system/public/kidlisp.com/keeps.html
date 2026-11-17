@@ -5760,7 +5760,7 @@
           acUser = await acAuth0Client.getUser();
           acToken = await acAuth0Client.getTokenSilently();
           try {
-            const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true&withTezos=true`);
+            const userRes = await fetch(`${AC_BASE}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true&withTezos=true`, { headers: { Authorization: `Bearer ${acToken}` } });
             const userData = await userRes.json();
             if (userData.handle) acHandle = String(userData.handle).replace(/^@+/, '').trim();
             if (userData.tezos?.address) linkedWalletAddress = userData.tezos.address;

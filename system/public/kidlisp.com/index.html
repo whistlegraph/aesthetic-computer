@@ -20504,7 +20504,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
             acUser = await acAuth0Client.getUser();
             acToken = await acAuth0Client.getTokenSilently();
             try {
-              const userRes = await fetch(`${aestheticUrl}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`);
+              const userRes = await fetch(`${aestheticUrl}/user?from=${encodeURIComponent(acUser.email)}&withHandle=true`, { headers: { Authorization: `Bearer ${acToken}` } });
               const userData = await userRes.json();
               if (userData.handle) acHandle = userData.handle;
             } catch (e) { /* could not fetch handle */ }

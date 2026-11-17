@@ -10,11 +10,26 @@ const CLAUDE_OAUTH_URL = "https://claude.ai/oauth/authorize";
 const CLAUDE_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 const SCOPES = "org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
 
+// Everything this page prints from the request is escaped: the page is served
+// from the main origin, so a reflected tag would run there.
+const esc = (text) =>
+  String(text ?? "").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const CODE_SHAPE = /^[A-Z]{4}-\d{4}$/;
+
+// device-auth answers status checks and approvals only for this server.
+const internalHeaders = () => ({
+  "Content-Type": "application/json",
+  "x-ac-device-secret": process.env.AC_DEVICE_SECRET || "",
+});
+
 export async function handler(event) {
-  const params = new URLSearchParams(event.rawQuery || "");
-  const code = params.get("code");
-  const oauthCode = params.get("oauth_code");
-  const error = params.get("error");
+  // lith hands over a parsed query; Netlify handed over the raw string.
+  const raw = new URLSearchParams(event.rawQuery || "");
+  const query = event.queryStringParameters || {};
+  const param = (name) => query[name] ?? raw.get(name);
+  const code = param("code");
+  const oauthCode = param("oauth_code");
+  const error = param("error");
 
   const baseUrl = process.env.URL || "https://aesthetic.computer";
   const callbackUrl = `${baseUrl}/api/device-login`;
@@ -26,7 +41,7 @@ export async function handler(event) {
 
   // Error from OAuth
   if (error) {
-    return servePage("Auth Failed", `<p class="err">Error: ${error}</p><p>Close this page and try again on the device.</p>`);
+    return servePage("Auth Failed", `<p class="err">Error: ${esc(error)}</p><p>Close this page and try again on the device.</p>`);
   }
 
   // Step 1: Show device code confirmation page with "Login with Claude" button
@@ -34,9 +49,15 @@ export async function handler(event) {
     return servePage("Missing Code", `<p class="err">No device code provided.</p><p>Scan the QR code on your device to start.</p>`);
   }
 
+  if (!CODE_SHAPE.test(code)) {
+    return servePage("Invalid Code", `<p class="err">That device code is not valid.</p><p>Try again on the device.</p>`);
+  }
+
   // Verify code exists and is pending
   try {
-    const checkRes = await fetch(`${baseUrl}/api/device-auth?action=poll&code=${code}`);
+    const checkRes = await fetch(`${baseUrl}/api/device-auth?action=poll&code=${code}`, {
+      headers: internalHeaders(),
+    });
     const checkData = await checkRes.json();
     if (checkData.error) {
       return servePage("Invalid Code", `<p class="err">Code <strong>${code}</strong> not found or expired.</p><p>Try again on the device.</p>`);
@@ -122,7 +143,7 @@ async function handleOAuthCallback(oauthCode, stateB64, callbackUrl, baseUrl) {
     // Approve the device code
     const approveRes = await fetch(`${baseUrl}/api/device-auth`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: internalHeaders(),
       body: JSON.stringify({
         action: "approve",
         code: deviceCode,
@@ -138,13 +159,13 @@ async function handleOAuthCallback(oauthCode, stateB64, callbackUrl, baseUrl) {
 
     return servePage("Success!", `
       <p class="ok">Your device is now logged in!</p>
-      <div class="code">${deviceCode}</div>
+      <div class="code">${esc(deviceCode)}</div>
       <p>You can close this page. The device will pick up the login automatically.</p>
     `);
 
   } catch (err) {
     console.error("OAuth callback error:", err);
-    return servePage("Error", `<p class="err">Authentication failed: ${err.message}</p>`);
+    return servePage("Error", `<p class="err">Authentication failed.</p><p>Try again on the device.</p>`);
   }
 }
 
@@ -160,7 +181,7 @@ function servePage(title, bodyContent) {
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} — AC Native</title>
+<title>${esc(title)} — AC Native</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,system-ui,sans-serif;background:#111;color:#eee;

@@ -10371,7 +10371,14 @@ function fetchUser() {
   const { api, ui, user, handle, screen, store, jump, beep, broadcast } =
     fetchUserAPI;
   fetchingUser = true;
-  fetch(`/user?from=${encodeURIComponent(user.email)}&withHandle=true`)
+  // 🔒 /user answers an email only for its signed-in owner.
+  api
+    .authorize()
+    .then((token) =>
+      fetch(`/user?from=${encodeURIComponent(user.email)}&withHandle=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    )
     .then((res) => res.json())
     .then((u) => {
       if (u.email_verified) {

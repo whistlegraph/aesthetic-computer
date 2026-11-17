@@ -3,6 +3,8 @@
 // 🚀 Redis caching added 2026.01.28 to speed up boot time
 
 import {
+  authorize,
+  hasAdmin,
   userIDFromHandle,
   userIDFromEmail,
   handleFor
@@ -16,6 +18,9 @@ import * as KeyValue from "../../backend/kv.mjs";
 const CACHE_TTL_SECONDS = 300;
 
 // GET A user's `sub` id from either their handle or email address.
+// 🔒 A handle, user code or sub is public and answers anyone. An email
+// answers only its signed-in owner (or an admin): open, it told anyone
+// whether an address had an account, and which handle and wallet went with it.
 export async function handler(event, context) {
   // Make sure this is a GET request
   if (event.httpMethod !== "GET") {
@@ -34,6 +39,23 @@ export async function handler(event, context) {
       statusCode: 400,
       body: JSON.stringify({ error: "Malformed request. Provide 'from' or 'code' parameter." }),
     };
+  }
+
+  if (!userCode && !handleOrEmail.startsWith("@")) {
+    const isSub = handleOrEmail.includes("|") && !handleOrEmail.includes("@");
+    if (!isSub && !handleOrEmail.includes("@")) {
+      return respond(400, { message: "User not found." }); // Not an address.
+    }
+    if (!isSub) {
+      const asker = await authorize(event.headers, tenant);
+      if (!asker) return respond(401, { message: "Sign in to look up an email." });
+      const own =
+        typeof asker.email === "string" &&
+        asker.email.toLowerCase() === handleOrEmail.toLowerCase();
+      if (!own && !(await hasAdmin(asker, tenant))) {
+        return respond(403, { message: "That is not your email." });
+      }
+    }
   }
 
   // 🚀 Check Redis cache first (skip for code lookups which are rare)

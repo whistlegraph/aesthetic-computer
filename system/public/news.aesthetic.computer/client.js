@@ -199,7 +199,9 @@ async function hydrateHandleFromEmail(email) {
   if (!email) return;
   try {
     // Use full URL to main API since we're on news.aesthetic.computer subdomain
-    const res = await fetch(`https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`);
+    const res = await fetch(`https://aesthetic.computer/user?from=${encodeURIComponent(email)}&withHandle=true`, {
+      headers: acToken ? { Authorization: `Bearer ${acToken}` } : {}, // /user answers an email only for its owner.
+    });
     const data = await res.json();
     if (data.handle) {
       acHandle = data.handle;

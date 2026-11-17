@@ -93,14 +93,15 @@ export class AestheticAuthenticationProvider
     }
   }
 
-  private async getTenantHandleByEmail(email: string): Promise<string | undefined> {
+  private async getTenantHandleByEmail(email: string, accessToken: string): Promise<string | undefined> {
     if (!email) return undefined;
 
     // This is a Netlify function on the public site.
     const host = this.env.AUTH_TYPE === "sotce" ? "https://sotce.net" : "https://aesthetic.computer";
     const url = `${host}/user?from=${encodeURIComponent(email)}&withHandle=true&tenant=${encodeURIComponent(this.env.AUTH_TYPE)}`;
 
-    const response = await fetch(url);
+    // /user answers an email only for its signed-in owner.
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
     if (!response.ok) return undefined;
     const data = (await response.json()) as { handle?: unknown };
     return typeof data.handle === "string" && data.handle.trim() ? data.handle.trim() : undefined;
@@ -118,7 +119,7 @@ export class AestheticAuthenticationProvider
     const email = typeof userinfo.email === "string" ? userinfo.email : undefined;
 
     const tenantHandle = email
-      ? await this.getTenantHandleByEmail(email).catch(() => undefined)
+      ? await this.getTenantHandleByEmail(email, accessToken).catch(() => undefined)
       : undefined;
 
     const handle = tenantHandle || directHandle;
