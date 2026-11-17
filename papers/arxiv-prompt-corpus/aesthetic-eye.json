@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "prompt-corpus.tex",
+  "pdf": "prompt-corpus.pdf",
+  "pdfSha256": "e5f66e9b8ba0b78a10d0ee50326fa1ef4e735fa2d5491e56f17c1ab0565c9425",
+  "visualInference": true,
+  "reviewer": { "kind": "visual-inference", "name": "Claude" },
+  "reviewedAt": "2026-10-27T05:05:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": { "period": "pass", "dotColor": "pass" },
+    "notes": "Inspected page 1 at full resolution and the contact sheet. Every visible wordmark uses the \\ac macro: running header, subtitle, date line, abstract, body and the bibliography entries built from {\\ac} titles all carry the period, set in AC pink (in the all-pink subtitle and header the period matches its line). The bare URL https://aesthetic.computer is a link, not a wordmark."
+  },
+  "expectedDiagrams": 2,
+  "diagrams": [
+    {
+      "id": "flow",
+      "page": 2,
+      "crop": [0.13, 0.06, 0.36, 0.2],
+      "design": "pass",
+      "checks": { "tangents": "pass", "type": "pass", "balance": "pass", "spaceUse": "pass", "hierarchy": "pass", "edgeRouting": "pass" },
+      "notes": "Inspected at crop resolution after the fix that shortened the right lane's top node to 'open tab'. Two parallel lanes of four equal nodes each, aligned on shared baselines with an even gutter; the two stores are the only filled nodes, which marks them as the records the caption names. Every arrow is vertical, ends on a node border and carries a small grey label beside it; nothing crosses. Sans labels and mono paths legible at print size."
+    },
+    {
+      "id": "daily",
+      "page": 3,
+      "crop": [0.08, 0.06, 0.84, 0.2],
+      "design": "pass",
+      "checks": { "tangents": "pass", "type": "pass", "balance": "pass", "spaceUse": "pass", "hierarchy": "pass", "edgeRouting": "pass" },
+      "notes": "pgfplots bar chart, inspected at crop resolution. Fifty-four daily bars with the unresolved share overlaid in the darker purple; light grid, axis and tick labels legible. The clipped 19 September bar is flagged by a tick and a label set above the 200 gridline, clear of the bars and of the legend at top right; the caption repeats that the bar is cut. Full text width, caption directly beneath."
+    }
+  ],
+  "expectedFigures": 0,
+  "figures": [],
+  "tables": [
+    { "id": "kinds", "page": 2, "design": "pass", "notes": "Column-width booktabs table; four columns right-aligned with thousands separators, total set off by a rule, every row on one line." },
+    { "id": "pieces", "page": 3, "design": "pass", "notes": "Two side-by-side ranked lists of twelve piece names in mono with right-aligned counts; equal row count, no wrapping, headers span their pairs." },
+    { "id": "misses", "page": 3, "design": "pass", "notes": "Six classes then a ruled summary block (logged, genuine, share) across three windows; numbers align, the indented share row reads as subordinate." }
+  ],
+  "pageReview": {
+    "pages": [1, 2, 3, 4],
+    "design": "pass",
+    "notes": "Inspected all four page rasters at full resolution plus the contact sheet. Page 1 title block and abstract, two full columns. Page 2 the flow diagram top-left and Table 1 top-right near the system and results text, columns full. Page 3 the daily chart as a full-width top float, Tables 2 and 3 side by side beneath, then two full columns. Page 4 balanced short columns (\\balance) ending with references and the source bundle. Log has no missing characters, undefined references or errors."
+  }
+}

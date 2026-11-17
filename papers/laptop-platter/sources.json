@@ -18,7 +18,8 @@
   "liveness": "The laptop-performance liveness critique and its empirical follow-ups.",
   "rhythm-latency": "Tapped rhythm entry, timing studies, latency budgets, rollover and velocity limits of keyboards.",
   "instrument-os": "Computers booted into instruments or media studios: embedded boxes and live distributions.",
-  "theory": "Design theory for digital instruments that the positioning leans on."
+  "theory": "Design theory for digital instruments that the positioning leans on.",
+  "keystroke-timing": "How a message is typed: interstroke intervals, hold and flight times, pauses and bursts, and systems that carry that timing to a language model."
  },
  "sources": [
   {
@@ -632,6 +633,195 @@
    "cite": "Kim Cascone (ed.). The Laptop and Electronic Music: Shapeshifting Tool or Musical Instrument? Contemporary Music Review 22(4), December 2003.",
    "url": "https://www.ingentaconnect.com/content/routledg/gcmr/2003/00000022/00000004",
    "note": "The genre's founding special issue: Bach, Reddell, Ashline, Monroe, Vanhanen, Jaeger, Stuart, Collins, Turner, Whitelaw, Cascone."
+  },
+  {
+   "id": "gentner-1983-keystroke",
+   "shelf": "keystroke-timing",
+   "kind": "chapter",
+   "checked": true,
+   "cite": "Donald R. Gentner, \"Keystroke Timing in Transcription Typing,\" in W. E. Cooper (ed.), Cognitive Aspects of Skilled Typewriting, Springer, 1983.",
+   "url": "https://link.springer.com/chapter/10.1007/978-1-4612-5470-6_5",
+   "note": "LNR typing group corpus of over half a million keystrokes; context, not a stored word profile, sets each interval."
+  },
+  {
+   "id": "gentner-1982-development",
+   "shelf": "keystroke-timing",
+   "kind": "report",
+   "checked": true,
+   "cite": "Donald R. Gentner, The Development of Typewriting Skill, UCSD CHIP report (DTIC ADA123644), 1982.",
+   "url": "https://doi.org/10.21236/ada123644",
+   "note": "18 typists from ~1 to ~20 keystrokes/s. Relative interval variability falls with skill; double letters go from fastest (students) to among the slowest (experts)."
+  },
+  {
+   "id": "lnr-1982-typing",
+   "shelf": "keystroke-timing",
+   "kind": "report",
+   "checked": true,
+   "cite": "LNR Typing Research Group, Studies of Typing from the LNR Typing Research Group, UCSD (DTIC ADA122448), 1982.",
+   "url": "https://apps.dtic.mil/sti/html/tr/ADA122448/index.html",
+   "note": "Six skilled typists: movement start times six times as variable as end times, so it is the keypress, not the reach, that is timed."
+  },
+  {
+   "id": "rumelhart-norman-1982-typist",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": false,
+   "cite": "David E. Rumelhart and Donald A. Norman, \"Simulating a Skilled Typist: A Study of Skilled Cognitive-Motor Performance,\" Cognitive Science 6(1), 1982.",
+   "url": "https://escholarship.org/content/qt24s6s4mk/qt24s6s4mk_noSplash_e04fdd5698b778754cd975ccd1cb5de2.pdf",
+   "note": "Retrieved the CogSci proceedings version. No internal metronome, yet successive intervals correlate negatively and words get characteristic time profiles."
+  },
+  {
+   "id": "salthouse-1984-age-skill",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Timothy A. Salthouse, \"Effects of Age and Skill in Typing,\" Journal of Experimental Psychology: General 113(3), 345-371, 1984.",
+   "url": "https://doi.org/10.1037//0096-3445.113.3.345",
+   "note": "Skill tracks the consistency of the same keystroke and the overlap of successive ones; older typists keep speed by looking further ahead."
+  },
+  {
+   "id": "salthouse-1986-transcription",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": false,
+   "cite": "Timothy A. Salthouse, \"Perceptual, Cognitive, and Motoric Aspects of Transcription Typing,\" Psychological Bulletin 99(3), 1986.",
+   "url": "https://uva.theopenscholar.com/files/vcap/files/perceptual_cognitive_and_motoric_aspects_of_transcription_typing_8.pdf",
+   "note": "29 phenomena. Median interkey interval 177 ms against a 560 ms choice reaction time; alternate-hand strokes 30-60 ms faster; the interquartile range falls ~1.5 ms per wpm."
+  },
+  {
+   "id": "dhakal-2018-136m",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Vivek Dhakal, Anna Maria Feit, Per Ola Kristensson and Antti Oulasvirta, \"Observations on Typing from 136 Million Keystrokes,\" CHI 2018, paper 646.",
+   "url": "https://dl.acm.org/doi/10.1145/3173574.3174220",
+   "note": "168,960 typists. Mean IKI 238.7 ms (SD 111.6) with a ~60 ms floor; keypress 116 ms and nearly constant across speeds; fast typists roll over on 40-70% of keys."
+  },
+  {
+   "id": "killourhy-maxion-2009-dsn",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Kevin S. Killourhy and Roy A. Maxion, \"Comparing Anomaly-Detection Algorithms for Keystroke Dynamics,\" DSN 2009.",
+   "url": "https://www.cs.cmu.edu/~keystroke/",
+   "note": "Benchmark: 51 typists × 400 entries of .tie5Roanl; defines hold (H), down-down (DD) and up-down (UD, can be negative) times. Notes USB polling artifacts in field data."
+  },
+  {
+   "id": "chenoweth-hayes-2001-fluency",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": false,
+   "cite": "Norman A. Chenoweth and John R. Hayes, \"Fluency in Writing: Generating Text in L1 and L2,\" Written Communication 18(1), 2001.",
+   "url": "https://repository.uantwerpen.be/docman/irua/e8d12b/b39f88f0.pdf",
+   "note": "The P-burst: text produced between pauses of 2 s or more; burst length tracks language skill and working memory. Cited via Leijten & Van Waes."
+  },
+  {
+   "id": "leijten-vanwaes-2013-inputlog",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Mariëlle Leijten and Luuk Van Waes, \"Keystroke Logging in Writing Research: Using Inputlog to Analyze and Visualize Writing Processes,\" Written Communication 30(3), 2013.",
+   "url": "http://ecole-ecriture-2013.conference.univ-poitiers.fr/Keystroke_WrittenCom_2013.pdf",
+   "note": "Pause analysis at any threshold (default 200 ms; 2 s for planning), located within/between words, sentences, paragraphs."
+  },
+  {
+   "id": "repp-2005-sms",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Bruno H. Repp, \"Sensorimotor Synchronization: A Review of the Tapping Literature,\" Psychonomic Bulletin & Review 12(6), 2005.",
+   "url": "https://doi.org/10.3758/bf03206433",
+   "note": "Negative mean asynchrony and SD of asynchrony as the stability index: the measure a typed beat should be scored with."
+  },
+  {
+   "id": "repp-su-2013-sms",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Bruno H. Repp and Yi-Huang Su, \"Sensorimotor Synchronization: A Review of Recent Research (2006-2012),\" Psychonomic Bulletin & Review 20(3), 2013.",
+   "url": "https://link.springer.com/article/10.3758/s13423-012-0371-2",
+   "note": "Extends Repp 2005 to ensembles and groove."
+  },
+  {
+   "id": "senn-2016-microtiming",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Olivier Senn, Lorenz Kilchenmann, Richard von Georgi and Claudia Bullerjahn, \"The Effect of Expert Performance Microtiming on Listeners' Experience of Groove in Swing or Funk Music,\" Frontiers in Psychology 7:1487, 2016.",
+   "url": "https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2016.01487/full",
+   "note": "Quantized and as-performed microtiming rated equally grooving; exaggerated deviations rated worse. Microtiming of ±50 ms is the scale at stake."
+  },
+  {
+   "id": "belman-2020-melody-typing",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Amith K. Belman et al., \"Authentication by Mapping Keystrokes to Music: The Melody of Typing,\" AISP 2020.",
+   "url": "https://doi.org/10.1109/aisp48273.2020.9073125",
+   "note": "Keystroke-dynamics features mapped to melody, rhythm and tempo; 30 users told apart by classifiers and by listeners."
+  },
+  {
+   "id": "lee-essl-2016-livewriting",
+   "shelf": "keystroke-timing",
+   "kind": "paper",
+   "checked": true,
+   "cite": "Sang Won Lee and Georg Essl, \"Live Writing: Writing as a Real-time Audiovisual Performance,\" NIME 2016.",
+   "url": "https://nime.org/proceedings/2016/nime2016_paper0043.pdf",
+   "note": "Replays the writing process with its timing; typing pace (bursts, pauses, corrections) as a compositional metric. The word choice composes the melody."
+  },
+  {
+   "id": "openai-forum-2026-timing",
+   "shelf": "keystroke-timing",
+   "kind": "practice",
+   "checked": true,
+   "cite": "\"Feature Proposal: Conversational Timing as Context,\" OpenAI Developer Community, 3 Sept 2026.",
+   "url": "https://community.openai.com/t/feature-proposal-conversational-timing-as-context/1394621/1",
+   "note": "Evidence of demand: opt-in, coarse, per-user baseline, pre-typing interval; model should not diagnose. Not implemented."
+  },
+  {
+   "id": "fingertips-2026",
+   "shelf": "keystroke-timing",
+   "kind": "software",
+   "checked": true,
+   "cite": "eveacla11, fingertips (GitHub), 2026.",
+   "url": "https://github.com/eveacla11/fingertips",
+   "note": "Timing-only typing probe for a chat backend: hands the LLM one sentence (\"typed for 47 s, paused twice\") plus typed-but-unsent drafts. Closest prior to Aesel's cadence."
+  },
+  {
+   "id": "chen-2026-crpl",
+   "shelf": "keystroke-timing",
+   "kind": "demo",
+   "checked": true,
+   "cite": "Aria Chen, \"Seeing Thought in Typing: A Live Demo of Real-Time Keystroke Rhythm Perception,\" FAIA 2026, doi:10.3233/faia260534.",
+   "url": "https://doi.org/10.3233/faia260534",
+   "note": "24 features from live keystrokes, including a two-layer model for Pinyin input; frames rhythm as a perceptual signal for cognition-aware agents."
+  },
+  {
+   "id": "potato-keystroke-logging",
+   "shelf": "keystroke-timing",
+   "kind": "software",
+   "checked": true,
+   "cite": "Potato annotation tool, \"Keystroke Logging\" documentation, University of Michigan.",
+   "url": "https://www.potatoannotator.com/docs/features/keystroke-logging",
+   "note": "Content-free logging from beforeinput: IKI quantiles, log-SD, pauses by location, paste detection, first-keystroke latency. Same privacy line as Aesel."
+  },
+  {
+   "id": "persam-2018-scratch-keyboard",
+   "shelf": "vernacular",
+   "kind": "practice",
+   "checked": true,
+   "cite": "per_sam, \"Keyboard on Scratch,\" Scratch project 248342290, 26 Sept 2018.",
+   "url": "https://scratch.mit.edu/projects/248342290",
+   "note": "KILLS claim 1 as a priority claim: \"Press the note letters to play the notes\"; a chromatic octave with sharps on h, i, j, k, l. A class project (credits a teacher)."
+  },
+  {
+   "id": "sienna-scratched-piano",
+   "shelf": "vernacular",
+   "kind": "tutorial",
+   "checked": true,
+   "cite": "Sienna, \"How to Make a Piano in Scratch,\" ScratchEd (Harvard Graduate School of Education), undated.",
+   "url": "https://scratched.gse.harvard.edu/sites/default/files/how_to_make_a_piano_in_scratch.pdf",
+   "note": "Classroom tutorial: one letter sprite per note, \"press the C key and the note will play\" (MIDI 60). The letter-named mapping is what children reach for first."
   }
  ]
 }

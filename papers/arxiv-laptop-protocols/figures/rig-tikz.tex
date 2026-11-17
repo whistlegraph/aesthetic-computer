@@ -1,0 +1,30 @@
+% Measurement rig for Studies 3 and 4: a tapper strikes a laptop key, a piezo
+% on the keycap marks the strike, and the laptop's audio output is recorded on
+% a second channel of the same interface, so both onsets share one clock.
+\begin{tikzpicture}[
+  every node/.style={font=\sffamily},
+  box/.style={draw=acgray!55, fill=acgray!7, rounded corners=2pt, align=center,
+    minimum height=1.3cm, text width=3.3cm, font=\scriptsize\sffamily, inner sep=3pt},
+  dut/.style={box, draw=acpink, line width=1.0pt, fill=acpink!9},
+  sink/.style={box, fill=white},
+  arr/.style={-{Stealth[length=4pt]}, draw=acdark!75, line width=0.6pt},
+  lab/.style={font=\tiny\sffamily, text=acgray, fill=white, inner sep=1.5pt}
+]
+  % top row: the action path
+  \node[box] (tap) at (0,0) {\textbf{tapper}\\solenoid, one strike\\every 250\,ms};
+  \node[box] (key) at (4.55,0) {\textbf{laptop key}\\\key{c} (note $C$)};
+  \node[dut] (sys) at (9.1,0) {\textbf{system under test}\\\acos{}\\browser \np{}\\GarageBand};
+  \node[box] (jack) at (13.65,0) {\textbf{audio out}\\headphone or line jack};
+  % bottom row: the measuring path
+  \node[box] (piezo) at (4.55,-2.1) {\textbf{piezo on keycap}\\marks the strike};
+  \node[box] (iface) at (9.1,-2.1) {\textbf{audio interface}\\2 channels, 96\,kHz,\\one clock};
+  \node[sink] (ana) at (13.65,-2.1) {\textbf{analysis}\\latency $= t_2 - t_1$\\jitter = range of\\middle 95\%};
+
+  \draw[arr] (tap) -- (key);
+  \draw[arr] (key) -- (sys);
+  \draw[arr] (sys) -- (jack);
+  \draw[arr] (key) -- (piezo);
+  \draw[arr] (piezo) -- node[lab, above] {ch\,1 $\cdot$ $t_1$} (iface);
+  \draw[arr] (jack.south) -- ++(0,-0.4) -| node[lab, pos=0.25, above] {ch\,2 $\cdot$ $t_2$} ($(iface.north)+(0.75,0)$);
+  \draw[arr] (iface) -- (ana);
+\end{tikzpicture}

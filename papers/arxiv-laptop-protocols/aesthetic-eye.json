@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "paper": "Tests It Could Fail",
+  "pdf": "laptop-protocols.pdf",
+  "pdfSha256": "38ef23898adb8bdef8e9cdbb5762fd74a962a2c9649518a8e58d7fa167542269",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-11-03T01:55:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every wordmark goes through the \\ac macro. Pink period confirmed at full resolution in the byline, Study 1 (Exa search service), Limitations and Conclusion, and the self-citations in the references."
+  },
+  "expectedDiagrams": 1,
+  "diagrams": [
+    {
+      "id": "rig",
+      "page": 2,
+      "crop": [
+        0.08,
+        0.4,
+        0.84,
+        0.165
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Two rows of equal boxes on a common grid: the action path on top (tapper, key, system under test, audio out) and the measuring path below (piezo, interface, analysis). Gutters are even and nothing touches. The ch2 return is routed down from audio out, along the gap between rows, and into the interface's top; it never crosses a box, and the analysis box below audio out stays clear. Edge labels (ch1 t1, ch2 t2) sit on white chips beside their wires. The pink outline marks only the system under test. The first render's dangling separator in the pink box was fixed by stacking the three systems one per line. Type: bold sans heads and scriptsize body, legible at page size."
+    }
+  ],
+  "expectedFigures": 0,
+  "figures": []
+}

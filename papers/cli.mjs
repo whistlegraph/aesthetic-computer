@@ -282,6 +282,11 @@ const PAPER_MAP = {
     siteName: "laptop-performance-26-arxiv",
     title: "Don't Forget the Keyboard",
   },
+  "arxiv-laptop-protocols": {
+    base: "laptop-protocols",
+    siteName: "laptop-protocols-26-arxiv",
+    title: "Tests It Could Fail",
+  },
   "arxiv-gaming-education": {
     base: "gaming-education",
     siteName: "gaming-education-26-arxiv",
@@ -622,6 +627,7 @@ const CATEGORIES = [
     dirs: [
       "arxiv-plork",
       "arxiv-laptop-performance",
+      "arxiv-laptop-protocols",
       "arxiv-sustainability",
       "arxiv-goodiepal",
       "arxiv-whistlegraph",
@@ -1164,6 +1170,7 @@ function updateIndex(entries) {
     "five-years-from-now-26-arxiv": 19,
     "free-vs-open-26-arxiv": 19.1,
     "laptop-performance-26-arxiv": 19.15,
+    "laptop-protocols-26-arxiv": 19.16,
     "gaming-education-26-arxiv": 19.2,
     "aesthetic-may-26-essay": 19.5,
     "aesthetic-june-26-essay": 19.6,
@@ -1376,9 +1383,14 @@ function updateIndex(entries) {
         "Get Closed Source Out of Schools makes the case that creative computing should be teachable, inspectable, and modifiable. The paper argues for open tools as infrastructure for learning.",
     },
     "laptop-performance-26-arxiv": {
-      detail: "Laptop performance, typed music, and where notepat and AC Native OS stand &middot; 68-source platter",
+      detail: "Laptop performance, typed music, keystroke timing, and where notepat and AC Native OS stand &middot; 89-source platter",
       abstract:
-        "Don't Forget the Keyboard maps twenty years of laptop performance and forty of QWERTY note entry: typewriter percussion, tracker piano rows, Roblox letter sheets, PLOrk and the native-input program, six key-mapping logics, typing as the gesture, the liveness critique, and computers booted into instruments. It tests four claims about Aesthetic.Computer against that map. Two survive narrowly, one is measured, one is argued, and each comes with the study that would settle it.",
+        "Don't Forget the Keyboard maps twenty years of laptop performance and forty of QWERTY note entry: typewriter percussion, tracker piano rows, Roblox letter sheets, PLOrk and the native-input program, six key-mapping logics, typing as the gesture, the timing and gaps between keystrokes, the liveness critique, and computers booted into instruments. It tests four claims about Aesthetic.Computer against that map. The letter-named mapping fails (children's Scratch pianos got there first); boot-to-instrument survives narrowly; latency is measured; liveness is argued. It also describes how Aesel now sends each message's key timing, never the keys, to the model.",
+    },
+    "laptop-protocols-26-arxiv": {
+      detail: "Pre-registered study protocols for notepat, AC Native OS and Aesel's typing cadence &middot; one already run, and failed",
+      abstract:
+        "Tests It Could Fail writes down, before any data, the studies that would settle the claims in Don't Forget the Keyboard: a prior-art search (run, and it falsified the letter-named-key claim), a 24-hour recall test of letter-named keys against AWSED, boot-to-first-note timing, a latency and jitter rig with a tapping task, a liveness listening test, and a test of whether a model uses keystroke timing, with a privacy audit whose decision rule is fixed in advance.",
     },
     "free-vs-open-26-arxiv": {
       detail: "Stallman's licensing map and where Aesthetic.Computer stands &middot; 6pp",

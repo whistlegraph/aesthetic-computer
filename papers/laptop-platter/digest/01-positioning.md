@@ -16,11 +16,14 @@ notepat's `c d e f g a b` keys play C D E F G A B; the next octave runs
   (`ETAOINSR` become the scale). US6444888B1 (2001) assigns pitches by how
   often they are played. Virtual Piano sheets write music as letters, but the
   letters name keys, not pitches.
-- **Status.** No orthographic prior found in two targeted searches.
-  Provisional.
-- **Settle it.** A wider search (patents, Japanese and German web pianos,
-  pre-web shareware), then a learnability study: novices learn AWSED vs.
-  notepat, scored on unprompted recall after 24 hours.
+- **Status.** **Killed on the third pass (2026-11-02).** Scratch class pianos
+  already use the mapping: per_sam's *Keyboard on Scratch* (2018) is a chromatic
+  letter-named octave with sharps on `h`–`l`, and a ScratchEd tutorial teaches
+  "press the C key and the note will play". It is what a child builds first.
+- **What survives.** The second octave on `h`–`n`, and the mapping used as a
+  performance instrument and an OS, not a class exercise. The learnability
+  question stands: the recall study (AWSED vs. notepat, 24 h) is still worth
+  running, and Scratch's popularity is weak evidence that the mapping is easy.
 
 ## 2. The instrument is the laptop's own keys, on a laptop that boots into it
 

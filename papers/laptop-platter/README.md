@@ -38,7 +38,7 @@ a pass before a paper leans on them.
 |---|---|---|
 | **typewriter** | Typing was percussion before it was input: Anderson 1950, the Boston Typewriter Orchestra | 3 |
 | **note-entry** | Where QWERTY-as-piano came from: Soundmonitor 1986 → Ultimate Soundtracker 1987 → every tracker and DAW | 7 |
-| **vernacular** | A large, unstudied community already writes music as typed letters (Virtual Piano / Roblox sheets) | 3 |
+| **vernacular** | A large, unstudied community already writes music as typed letters (Virtual Piano / Roblox sheets); children's Scratch pianos already name keys by note | 5 |
 | **ensembles** | PLOrk, CliX, the ABC Song, SMELT, SLOrk, Taptop, Laptap, MoPhO | 10 |
 | **mappings** | The named mapping logics: harmonic (aQWERTYon), isomorphic, ASCII, letter-frequency, use-frequency | 6 |
 | **typing-music** | Text as the gesture: Waite 2015, Vyping (NIME 2026), Typedrummer, Orca, the Stenophone | 8 |
@@ -46,8 +46,9 @@ a pass before a paper leans on them.
 | **rhythm-latency** | Tapped-rhythm entry, latency and jitter budgets, rollover, velocity | 10 |
 | **instrument-os** | Boxes (Satellite CCRMA, Bela, norns, Organelle) and live distros (dyne:bolic, Puredyne, MOD live-USB) | 8 |
 | **theory** | Magnusson's epistemic tools, Gurevich on constraint, Jordà on learning curves | 4 |
+| **keystroke-timing** | The gaps between keys: Gentner, Salthouse, LNR, Dhakal's 136M keystrokes, Killourhy & Maxion, P-bursts and Inputlog, Repp, microtiming; and systems that carry typing timing to an LLM (fingertips, CRPL, Potato, the OpenAI forum proposal) | 19 |
 
-Machine-readable index: [`sources.json`](sources.json) (68 entries, 66 checked).
+Machine-readable index: [`sources.json`](sources.json) (89 entries, 84 checked).
 
 ## Negative searches (recorded, not proven)
 
@@ -56,9 +57,10 @@ kill-checks run on 2026-11-02 and what they returned.
 
 | Claim under test | Queries | Result |
 |---|---|---|
-| A prior QWERTY instrument maps letter keys to **their own note names** (`c`→C) | 2 targeted Exa queries ("letter keys play their note names", "pressing C plays note C") plus every mapping found incidentally | **None found.** Every web piano, tracker, DAW and toy found is positional (AWSED or Z-row), harmonic, isomorphic, ASCII, or frequency-based. Virtual Piano sheets use letters as *key labels*, not note names. |
+| A prior QWERTY instrument maps letter keys to **their own note names** (`c`→C) | Pass 1: 2 targeted queries. Pass 3: 7 queries (Japanese and German web pianos, patents, GitHub, DOS shareware, Scratch ×2) + 1 fetch | **Found — claim killed.** Pass 1 found none (all positional, harmonic, isomorphic, ASCII or frequency-based). Pass 3 found Scratch class pianos: per_sam's *Keyboard on Scratch* (2018), a chromatic letter-named octave, and a ScratchEd classroom tutorial. JP/DE pianos, patents and DOS shareware were all positional. notepat's remaining distinction is the second octave on `h`–`n` and use as a performance instrument. |
 | A prior system **boots an ordinary laptop into a single instrument** | 3 queries (live distros for artists; bootable USB synth; dyne:bolic) | **Partial priors found.** dyne:bolic (2001) and Puredyne boot old PCs into *media studios*; MOD live-USB boots a PC into a *pedalboard host* that needs an audio interface; Indamixx boots into a DAW desktop. None found boots into one instrument played on the laptop's own keys. |
 | Typing-to-LLM as music | 1 query | Found and current: Encinas & Jensenius, NIME 2026 ("vyping"). |
+| A prior system passes **keystroke timing to a language model** with the message | 1 query | **Priors found.** fingertips (2026) sends one timing sentence to a chat backend; CRPL (FAIA 2026) is a live demo; an OpenAI forum proposal (Sept 2026) asks for it. None found in a coding harness or across several engines. Aesel's `keystroke-timing.mjs` is the instance, not the first. |
 
 ## Query log (Exa, 2026-11-02)
 
@@ -76,8 +78,23 @@ aQWERTYon write-ups · pure:dyne · bootable instrument USB · dyne:bolic ·
 Contemporary Music Review 22(4) contents. Plus one direct fetch of five
 proceedings PDFs to verify author lists.
 
+Second pass, same day (keystroke-timing shelf, 8 queries): interstroke
+interval studies (Salthouse, Gentner, Rumelhart & Norman) · keystroke dynamics
+dwell/flight datasets · sonified typing timing · sensorimotor synchronization
+and microtiming · Dhakal 136M keystrokes · Inputlog pause thresholds and
+P-bursts · keystroke timing passed to an LLM · Killourhy & Maxion DSN 2009.
+
+Third pass, same day (claim-1 kill-check, 7 queries + 1 fetch): Japanese web
+pianos (キーボード ピアノ 音名) · German (Tastatur Klavier Notennamen) · patents for
+letter-named keys · GitHub letter-key pianos · 1990s DOS shareware · Scratch
+letter pianos · Scratch "when c key pressed" tutorials. Fetched the two Scratch
+hits and the ScratchEd PDF to confirm.
+
 ## Digest
 
 - [`digest/01-positioning.md`](digest/01-positioning.md) — the four claims the
   paper makes about notepat and AC Native OS, each with its nearest prior and
   the study that would settle it.
+- [`digest/02-timing-and-gaps.md`](digest/02-timing-and-gaps.md) — what the
+  gaps between keys measure, on a musical scale, and how Aesel now carries them
+  to the model.
