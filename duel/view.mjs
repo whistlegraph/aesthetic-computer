@@ -4,6 +4,7 @@ import { podFront, house, houseWalls, HOUSE, groundsOf, promenade, GROUNDS } fro
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { model, INK, PAPER, rgb, tint, audit } from './paint.mjs';
 import { describeCrossing } from './solids.mjs';
+import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
 // 🧱 `localStorage["dool:solids"] = "on"` audits every model as it is built:
 // solids that share volume are named once in the console, and the ones that
 // would flicker are drawn magenta.
@@ -261,6 +262,45 @@ export async function createView(canvas) {
           quad(q(t0, a), q(t1, a), q(t1, b), q(t0, b), c);
         }
     });
+  // 🌞 The sky over the world (sky.mjs): a dome of bands from the horizon's
+  // colour up to overhead, the sun and the moon as squares on it, and the
+  // stars at night. Drawn at the eye and far behind everything, so it never
+  // comes closer; rebuilt only when the world's clock steps on.
+  const starField = fixedStars();
+  let domeKept = null;
+  function skyDome(step) {
+    if (domeKept?.step === step) return domeKept.model;
+    const s = skyAt(step / STEPS), R = 2350, n = 24;
+    const made = model(({ quad }) => {
+      const edges = [-0.12, 0, 0.06, 0.16, 0.34, 0.65, 1.1, Math.PI / 2];
+      const at = (turn, e, r = R) => [Math.cos(turn) * r * Math.cos(e), r * Math.sin(e), Math.sin(turn) * r * Math.cos(e)];
+      for (let b = 0; b < edges.length - 1; b++) {
+        const lo = edges[b], hi = edges[b + 1], color = skyColor(s, lo < 0 ? 0 : (lo + hi) / 2);
+        for (let k = 0; k < n; k++) {
+          const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
+          quad(at(t0, lo), at(t1, lo), at(t1, hi), at(t0, hi), color);
+        }
+      }
+      // A square on the sky, facing the middle: `d` is where it stands.
+      const square = (d, r, size, color) => {
+        const flat = Math.hypot(d.x, d.z) || 1;
+        const right = [d.z / flat, 0, -d.x / flat];
+        const up = [d.y * right[2], d.z * right[0] - d.x * right[2], -d.y * right[0]];
+        const corner = (a, b) => [0, 1, 2].map((i) => [d.x, d.y, d.z][i] * r + (right[i] * a + up[i] * b) * size / 2);
+        quad(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1), color);
+      };
+      if (s.stars > 0.3)
+        for (const star of starField) square(star, R - 10, star.size, star.bright ? 0xffffff : 0xa9b8e6);
+      if (s.sun.y > -0.12) {
+        const around = skyColor(s, Math.max(0, Math.asin(s.sun.y)));
+        square(s.sun, R - 30, 250, blendInk(around, s.sunColor, 0.35)); // its glow
+        square(s.sun, R - 50, 150, s.sunColor);
+      }
+      if (s.moon.y > -0.12) square(s.moon, R - 50, 110, 0xe9edf6);
+    });
+    domeKept = { step, model: made };
+    return made;
+  }
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
   // 🌍 Per-block models, kept by block id ('here' is the one underfoot) and
@@ -1120,7 +1160,13 @@ export async function createView(canvas) {
     // The corner join code is retired for now: dool is joining the AC homepage.
     const cells = null;
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale, grid ? 1 : 0);
-    dress(paletteFor());
+    // 🌞 In the world the room follows the world's own day (sky.mjs), the
+    // same for everyone; behind the prompt's curtain it keeps the page's
+    // theme, and a game arena its own.
+    const skyStep = !ledges && orbit < 1 ? stepOf(phase()) : -1;
+    const today = skyStep >= 0 ? skyAt(skyStep / STEPS) : null;
+    dress(today ? (today.day ? 'day' : 'night') : paletteFor());
+    sky = [...rgb(today ? today.horizon : PALETTES[paletteName].sky), 1];
     host.beginFrame();
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
@@ -1231,6 +1277,7 @@ export async function createView(canvas) {
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground, each home on its lot.
+    if (today) draw(skyDome(skyStep), eye.x, eye.y, eye.z);
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza, field));
