@@ -1230,7 +1230,11 @@ export async function createView(canvas) {
         for (const side of [-1, 1]) draw(leaf, side * (DOOR / 2 + e * (DOOR - 0.12)), 0, LOBBY_FRONT + 0.14);
       }
     }
-    if (skyline && !ledges) {
+    // Behind the curtain the room is a small square under the crosshair, seen
+    // from 25 m straight up: the tower's storeys, the lobby's glass and the
+    // land around would stand between that camera and the floor and fill the
+    // screen. They come in once the drop is most of the way down.
+    if (skyline && !ledges && orbit < 0.6) {
       drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y);
       draw(lobbyFor(skyline.count, skyline.board), skyline.dx, skyline.dy, skyline.dz);
       // The land the tower stands on, seen from the plaza and from every floor:
