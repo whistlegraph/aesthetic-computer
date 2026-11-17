@@ -1748,6 +1748,19 @@ static inline double bass_biquad_run(BassBiquad *f, double x) {
 }
 
 static unsigned long xrun_count = 0;
+
+// Mic latency check (touch /run/mic-latency-test with the mic open): the
+// audio thread puts a 5 ms click on the speaker and stamps when it leaves,
+// the capture thread stamps when the mic hears it, and the gap is logged
+// and written to /run/mic-latency (ms).
+static volatile int miclat_state = 0;   // 0 idle, 1 inject next period, 2 listening
+static volatile double miclat_click_at = 0.0;
+
+static double mono_now(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec + t.tv_nsec / 1e9;
+}
 static unsigned long short_write_count = 0;
 
 static void mix_sample_voice(SampleVoice *sv, const float *buf, int slen, int smax,
@@ -2073,6 +2086,11 @@ static void *audio_thread_fn(void *arg) {
 
         if ((bass_poll_frames += period_frames) >= (unsigned int)rate) {
             bass_poll_frames = 0;
+            if (access("/run/mic-latency-test", F_OK) == 0) {
+                unlink("/run/mic-latency-test");
+                if (!audio->mic_hot) fprintf(stderr, "[mic] latency test: open the mic first (sample mode)\n");
+                else if (miclat_state == 0) miclat_state = 1;
+            }
             FILE *bf = fopen("/run/speaker-bass", "r");
             if (bf) {
                 double amt = bass_amount, cut = bass_cut, keep = bass_keep;
@@ -2094,6 +2112,9 @@ static void *audio_thread_fn(void *arg) {
                 fclose(bf);
             }
         }
+
+        const int miclat_inject = miclat_state == 1;
+        const unsigned int miclat_len = period_frames < 240 ? period_frames : 240;
 
         pthread_mutex_lock(&audio->lock);
 
@@ -2508,6 +2529,11 @@ static void *audio_thread_fn(void *arg) {
                 mix_l = late_l * lim_gain;
                 mix_r = late_r * lim_gain;
             }
+            if (miclat_inject && i < miclat_len) {
+                double b = 0.5 * sin(2.0 * M_PI * 1500.0 * i / rate) * (1.0 - (double)i / miclat_len);
+                mix_l += b;
+                mix_r += b;
+            }
 
             // Wobble / flange — modulated short-delay blend. Writes every
             // sample into the ring regardless of wet mix (so the ring
@@ -2858,6 +2884,15 @@ static void *audio_thread_fn(void *arg) {
             }
             remaining -= frames;
             offset += frames;
+        }
+        if (miclat_inject) {
+            // The period just queued starts playing once the frames ahead of
+            // it have: delay counts this period too.
+            snd_pcm_sframes_t qd = 0;
+            if (snd_pcm_delay(pcm, &qd) < 0) qd = (snd_pcm_sframes_t)period_frames;
+            miclat_click_at = mono_now() + (double)(qd - (snd_pcm_sframes_t)period_frames) / rate;
+            __sync_synchronize();
+            miclat_state = 2;
         }
 
         /* Per-period jitter measurement (AC_LATENCY_BENCH=1).
@@ -4531,7 +4566,11 @@ static void *capture_thread_func(void *arg) {
     ACAudio *audio = (ACAudio *)arg;
     snd_pcm_t *cap = NULL;
 
-    const char *devices[] = {"hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
+    // AC_MIC_DEVICE names the mic outright: on the MacBook Neo hw:0,0 is the
+    // AOP's low-power mic and the real one is hw:0,1 (High-Quality).
+    const char *mic_env = getenv("AC_MIC_DEVICE");
+    const char *devices[] = {mic_env && *mic_env ? mic_env : "hw:0,0",
+                             "hw:0,0", "hw:1,0", "hw:0,6", "hw:0,7",
                              "plughw:0,0", "plughw:1,0", "default", NULL};
     for (int i = 0; devices[i]; i++) {
         if (snd_pcm_open(&cap, devices[i], SND_PCM_STREAM_CAPTURE, 0) == 0) {
@@ -4551,7 +4590,9 @@ static void *capture_thread_func(void *arg) {
 
     // Enable capture mixer switches now that capture PCM is open.
     // (Safe to do after snd_pcm_open — avoids the pre-open EIO bug on some HDA.)
-    {
+    // A named mic (AC_MIC_DEVICE) leaves the output card alone: on the Neo
+    // that card carries Speaker Sense, which speakerguardd owns.
+    if (!(mic_env && *mic_env)) {
         char mixer_card[16];
         snprintf(mixer_card, sizeof(mixer_card), "hw:%d", audio->card_index);
         snd_mixer_t *cmix = NULL;
@@ -4581,7 +4622,13 @@ static void *capture_thread_func(void *arg) {
     snd_pcm_hw_params_alloca(&hw);
     snd_pcm_hw_params_any(cap, hw);
     snd_pcm_hw_params_set_access(cap, hw, SND_PCM_ACCESS_RW_INTERLEAVED);
-    snd_pcm_hw_params_set_format(cap, hw, SND_PCM_FORMAT_S16_LE);
+    // S16 where the device has it; the Neo's AOP mics are float only.
+    snd_pcm_format_t cap_fmt = SND_PCM_FORMAT_S16_LE;
+    const snd_pcm_format_t cap_fmts[] = {SND_PCM_FORMAT_S16_LE, SND_PCM_FORMAT_FLOAT_LE,
+                                         SND_PCM_FORMAT_S32_LE};
+    for (int i = 0; i < 3; i++)
+        if (snd_pcm_hw_params_test_format(cap, hw, cap_fmts[i]) == 0) { cap_fmt = cap_fmts[i]; break; }
+    snd_pcm_hw_params_set_format(cap, hw, cap_fmt);
 
     unsigned int channels = 1;
     if (snd_pcm_hw_params_set_channels(cap, hw, 1) < 0) {
@@ -4645,11 +4692,17 @@ static void *capture_thread_func(void *arg) {
 
     audio->sample_rate = rate;
     audio->mic_connected = 1;
-    ac_log("[mic] hot-mic running at %u Hz, %u ch\n", rate, channels);
+    // AC_MIC_GAIN: a quiet mic (the Neo's sits ~30 dB under a USB one)
+    // comes up before the compressor.
+    const char *mic_gain_env = getenv("AC_MIC_GAIN");
+    const float mic_gain = mic_gain_env && atof(mic_gain_env) > 0 ? (float)atof(mic_gain_env) : 1.0f;
+    ac_log("[mic] hot-mic running at %u Hz, %u ch, %s, gain x%.1f\n", rate, channels,
+           snd_pcm_format_name(cap_fmt), mic_gain);
 
     int16_t buf[1024 * 2];
+    int32_t wbuf[1024 * 2];  // 32-bit formats (float or S32)
     while (audio->mic_hot) {
-        int n = snd_pcm_readi(cap, buf, 512);
+        int n = snd_pcm_readi(cap, cap_fmt == SND_PCM_FORMAT_S16_LE ? (void *)buf : (void *)wbuf, 512);
         if (n < 0) {
             n = snd_pcm_recover(cap, n, 0);
             if (n < 0) {
@@ -4659,6 +4712,16 @@ static void *capture_thread_func(void *arg) {
                 break;
             }
             continue;
+        }
+
+        // Stamp this block for the latency check: sample s was captured
+        // (n - s + queued) frames before now.
+        double cap_now = 0.0;
+        snd_pcm_sframes_t cap_queued = 0;
+        static float miclat_noise = 0.0f;
+        if (miclat_state == 2) {
+            cap_now = mono_now();
+            if (snd_pcm_delay(cap, &cap_queued) < 0) cap_queued = 0;
         }
 
         float peak = 0.0f;
@@ -4673,11 +4736,32 @@ static void *capture_thread_func(void *arg) {
         const float limiter = 0.9f;      // hard limiter ceiling
 
         for (int s = 0; s < n; s++) {
-            float sample;
-            if (channels == 1) {
-                sample = buf[s] / 32768.0f;
-            } else {
-                sample = (buf[s * 2] + buf[s * 2 + 1]) / 65536.0f;
+            float sample = 0.0f;
+            for (unsigned int c = 0; c < channels; c++) {
+                int k = s * (int)channels + (int)c;
+                if (cap_fmt == SND_PCM_FORMAT_FLOAT_LE) {
+                    float f; memcpy(&f, &wbuf[k], sizeof f); sample += f;
+                } else if (cap_fmt == SND_PCM_FORMAT_S32_LE) {
+                    sample += wbuf[k] / 2147483648.0f;
+                } else {
+                    sample += buf[k] / 32768.0f;
+                }
+            }
+            sample = sample / (float)channels * mic_gain;
+
+            if (miclat_state == 2) {
+                double ts = cap_now - (double)(n - s + cap_queued) / rate;
+                float a = fabsf(sample);
+                if (ts < miclat_click_at - 0.02) {
+                    miclat_noise = a > miclat_noise ? a : miclat_noise * 0.9999f;
+                } else if (a > 0.01f && a > miclat_noise * 4.0f) {
+                    double ms = (ts - miclat_click_at) * 1000.0;
+                    ac_log("[mic] latency: %.1f ms (click %.4f over noise %.4f)\n", ms, a, miclat_noise);
+                    FILE *lf = fopen("/run/mic-latency", "w");
+                    if (lf) { fprintf(lf, "%.1f\n", ms); fclose(lf); }
+                    miclat_state = 0;
+                    miclat_noise = 0.0f;
+                }
             }
 
             // Envelope follower
@@ -4716,6 +4800,11 @@ static void *capture_thread_func(void *arg) {
         // If we skipped the first chunk, mark that we've consumed it
         // by writing at least 0 (sample_write_pos stays 0, next chunk writes)
         audio->mic_level = peak;
+        if (miclat_state == 2 && mono_now() - miclat_click_at > 3.0) {
+            ac_log("[mic] latency: click not heard within 3 s\n");
+            miclat_state = 0;
+            miclat_noise = 0.0f;
+        }
 
         if (audio->recording && audio->sample_write_pos >= audio->sample_max_len) {
             audio->sample_len = audio->sample_write_pos;
@@ -4805,20 +4894,40 @@ int audio_mic_stop(ACAudio *audio) {
         ac_log("[mic] recording stopped (ring), sample_len=%d ring_span=%d sample_rate=%u\n",
                audio->sample_len, end - start, audio->sample_rate);
     }
-    // Auto-trim silence from start (threshold: ~0.01 = -40dB)
+    // Trim and level the take. The trim threshold follows the take's own
+    // peak (a fixed -40 dB ate the attack of anything a quiet mic caught —
+    // the Neo's sits near -30 dB) and keeps 10 ms before the first sound so
+    // the onset stays whole. Then the take is normalized to a 0.9 peak, with
+    // the boost capped so a near-silent take doesn't come back as hiss.
     if (audio->sample_len > 0) {
-        const float trim_threshold = 0.01f;
+        float take_peak = 0.0f;
+        for (int i = 0; i < audio->sample_len; i++) {
+            float a = fabsf(audio->sample_buf[i]);
+            if (a > take_peak) take_peak = a;
+        }
+        float trim_threshold = take_peak * 0.05f;
+        if (trim_threshold < 0.002f) trim_threshold = 0.002f;
         int trim_start = 0;
         while (trim_start < audio->sample_len &&
                fabsf(audio->sample_buf[trim_start]) < trim_threshold) {
             trim_start++;
         }
+        int preroll = (int)(0.010 * (audio->sample_rate ? audio->sample_rate : 48000));
+        trim_start = trim_start > preroll ? trim_start - preroll : 0;
         if (trim_start > 0 && trim_start < audio->sample_len) {
             int new_len = audio->sample_len - trim_start;
             memmove(audio->sample_buf, audio->sample_buf + trim_start,
                     new_len * sizeof(float));
             audio->sample_len = new_len;
             ac_log("[mic] auto-trimmed %d silent samples from start\n", trim_start);
+        }
+        if (take_peak > 0.0f) {
+            float g = 0.9f / take_peak;
+            if (g > 40.0f) g = 40.0f;
+            if (g > 1.0f) {
+                for (int i = 0; i < audio->sample_len; i++) audio->sample_buf[i] *= g;
+                ac_log("[mic] take peak %.4f, normalized x%.1f\n", take_peak, g);
+            }
         }
     }
 
