@@ -3779,9 +3779,15 @@ function act(
     computeMessagesLayout(api, client, typefaceName, currentRowHeight, bottomMargin);
     chatHeight = computeScrollbarHeight(api, bottomMargin);
 
-    scroll = (lastScroll / lastScrollHeight) * totalScrollHeight;
-    store["chat:scroll"] = scroll;
+    // Keep the reader's place in proportion — but a window that is resized
+    // before the first layout has no height to be in proportion to, and
+    // 0 / 0 here once left `scroll` NaN for the rest of the session.
+    scroll = lastScrollHeight > 0
+      ? (lastScroll / lastScrollHeight) * totalScrollHeight
+      : lastScroll;
     boundScroll();
+    store["chat:scroll"] = scroll;
+    messagesNeedLayout = true; // Lay out again from the bounded scroll.
   }
 
   // TODO: ChatToDisk: The chat module will need some kind of "focus" in order
@@ -5213,7 +5219,15 @@ function maxScroll() {
   return Math.max(0, totalScrollHeight - chatHeight + 5 || 0);
 }
 
+// A NaN scroll passes every comparison below untouched and makes every
+// message's `y` NaN — and graph draws a box with a NaN coordinate at a random
+// spot, so the room turns to confetti. Nothing unbounded gets past here.
+function finiteScroll() {
+  if (!Number.isFinite(scroll)) scroll = 0;
+}
+
 function boundScroll() {
+  finiteScroll();
   if (scroll < 0) scroll = 0;
   const max = maxScroll();
   if (scroll > max) scroll = max;
@@ -5221,6 +5235,7 @@ function boundScroll() {
 
 // Soft bound allows overscroll up to MAX_OVERSCROLL (for bounce feel while dragging)
 function boundScrollSoft() {
+  finiteScroll();
   if (scroll < -MAX_OVERSCROLL) scroll = -MAX_OVERSCROLL;
   const max = maxScroll();
   if (scroll > max + MAX_OVERSCROLL) scroll = max + MAX_OVERSCROLL;
@@ -5746,6 +5761,7 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
   // Start from bottom, but use the first message's row height for initial positioning
   const lastMsg = chat.messages[chat.messages.length - 1];
   const lastMsgRowHeight = lastMsg ? (lastMsg.computedRowHeight ?? systemDefaultRowHeight) : systemDefaultRowHeight;
+  finiteScroll(); // Every `y` below starts from `scroll`.
   let y = screen.height - lastMsgRowHeight - bottomMargin + scroll;
 
   // Delete all layouts and invalidate color line caches.
