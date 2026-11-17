@@ -5,11 +5,15 @@ that delegates to `lib/pop.mjs`, plus a JSON manifest in this folder. Same
 pattern as `chat.mjs` ↔ `laer-klokken.mjs` — all the player code lives in the
 shared lib, the wrapper just names a manifest.
 
-The player is a **static slideshow**: the active section's illy fills the
-screen, a per-section colour-arc progress bar + timecode run along the
-bottom, and the only gesture is tap = play/pause. Frames are cached
-(`paint` returns `false`) and the backdrop is pre-scaled once per
-section/resize, so the piece idles at roughly one repaint per second.
+The player is a **slideshow with a camera**: the active section's illy fills
+the screen at any aspect ratio, cropped around the section's `focus` point,
+and the camera eases onto that point over the section. A live waveform, a
+colour-arc progress bar that keeps the loudness of what has played, and a
+timecode run along the bottom. Tap = play/pause; drag the bar (or use the
+arrow keys) to scrub. Frames are cached (`paint` returns `false`) and the
+backdrop is pre-scaled once per section/resize into a buffer a little larger
+than the screen, so every frame is an unscaled blit. The waveform asks for
+about 30 repaints a second while audio plays; paused, the piece is still.
 `<slug> <code-or-number>` (params or colon) starts playback at a section.
 
 Two hard-won constraints (violating either stalls the page on long tracks):
@@ -61,6 +65,11 @@ Two hard-won constraints (violating either stalls the page on long tracks):
   syncs to the CDN.
 - `sections[].t` — start-second of each section. Pulled from the track's
   `out/<slug>.struct.json` so it matches the audio bake exactly.
+- `sections[].focus` — optional `[x, y]`, each 0..1 across the illy: the
+  point the camera keeps in frame and settles on (faces, the instrument).
+  Centre when absent; a top-level `focus` sets the default for every section.
+  Portrait art on a wide screen shows about a quarter of its height, so set
+  `y` where the subject is.
 - `sections[].illy` — per-section illustration JPG (1024² is plenty). For
   `marimbaba` these came from `pop/marimba/out/marimbaba-p-sec-*.png` via
   `magick … -resize '1024x1024>' -quality 82`.

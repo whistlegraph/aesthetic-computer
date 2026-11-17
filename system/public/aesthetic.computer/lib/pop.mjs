@@ -5,20 +5,31 @@
 // `cover`, `sections[].illy`, BPM/key. Wrappers must forward `receive` in
 // addition to the usual lifecycle exports (stream events arrive there).
 //
-// This is a *static slideshow*: the active section's illustration fills the
-// screen, a per-section colour-arc progress bar and a timecode run along the
-// bottom, and the only gesture is tap = play/pause (browsers require a user
-// gesture before audio anyway). No gallery, no scrubbing, no per-frame
-// visualizers. Frames are cached (`paint` returns false) and repainted via
-// `needsPaint()` only when the timecode second, progress pixel, or section
-// changes — so the piece idles at ~1 repaint per second.
+// This is a *slideshow with a camera*: the active section's illustration
+// fills the screen at any aspect ratio, cropped around the section's `focus`
+// point, and the camera settles onto that point over the section. A live
+// waveform, a colour-arc progress bar that remembers how loud each moment was,
+// and a timecode run along the bottom. Tap = play/pause (browsers require a
+// user gesture before audio anyway); drag the bar to scrub; space and the
+// arrow keys do the same from a keyboard.
+//
+// Cost stays flat: the art is scaled once per section into an oversize buffer
+// and each frame is an unscaled blit of it at the camera's offset. Frames are
+// cached (`paint` returns false). While audio plays the waveform asks for
+// ~30 repaints a second; paused, or with no analyser (a no-CORS stream), the
+// piece falls back to repainting only when the camera or the timecode moves.
 //
 // Audio rides the `stream:*` HTML-audio path (same as `dj.mjs`), NOT the
 // worklet sample engine — sample playback decodes the whole track and clones
 // ~130MB of PCM into the worklet for a 6-minute song, which stalls the page.
 // Streaming starts instantly and costs nothing at boot.
 
-const { floor, min, max, abs } = Math;
+const { floor, ceil, round, min, max, abs, sqrt } = Math;
+
+const ZOOM = 1.12; // the backdrop is scaled this far past cover-fit: room for the camera to move
+const PEAKS = 256; // slices of loudness history the progress bar keeps
+const FLASH_MS = 600; // section-change wash
+const BAR_ZONE = 44; // px above the bottom edge where a touch scrubs instead of toggling
 
 // — module state (one track plays at a time per piece) —
 let manifest = null;
@@ -33,8 +44,16 @@ let activeSection = 0;
 let pendingSeekSec = null; // set by boot section-jump, applied once playing
 let repaint = null; // stashed $.needsPaint, for async load / stream events
 let sendToBios = null; // stashed $.send for stream control
-let backdrop = null; // cached screen-sized pre-scaled backdrop buffer
+let backdrop = null; // cached pre-scaled backdrop buffer, a little larger than the screen
 let backdropKey = ""; // art identity + screen dims the cache was built for
+let stampAt = 0; // performance.now() when currentSec was last reported
+let wave = []; // latest time-domain frame from the stream's analyser (bytes, 128 = silence)
+let waveLive = false; // false until the analyser answers with data
+let level = 0; // smoothed loudness 0..1, from the waveform
+let peaks = new Float32Array(PEAKS); // loudest level heard in each slice of the track
+let flashAt = -Infinity; // performance.now() of the last section change
+let scrubSec = null; // where a drag on the bar is pointing, or null
+let screenSize = { width: 0, height: 0 };
 let paintedStamp = ""; // what the last painted frame showed
 let pollTick = 0;
 let netRef = null; // stashed $.net for on-demand illy loading
@@ -54,6 +73,8 @@ async function boot($, m) {
   backdropKey = "";
   paintedStamp = "";
   pollTick = 0;
+  wave = []; waveLive = false; level = 0; peaks = new Float32Array(PEAKS);
+  flashAt = -Infinity; scrubSec = null; stampAt = performance.now();
 
   const { net, hud, params, colon, needsPaint, send } = $;
   repaint = needsPaint;
@@ -136,12 +157,27 @@ function evictIllysOutside(lo, hi) {
 
 function sim($) {
   if (!manifest) return;
-  if (mode !== "playing" && mode !== "loading") return;
-  // Poll stream time ~8×/sec instead of every sim tick — a 1px progress-bar
-  // step on a minutes-long track moves far slower than that.
   pollTick += 1;
+  // A section-change wash fades out on its own clock, playing or not.
+  if (performance.now() - flashAt < FLASH_MS && pollTick % 4 === 0) repaint?.();
+  if (mode !== "playing" && mode !== "loading") return;
+  // The waveform sets the frame rate while there is sound (~30/sec). Until
+  // the analyser answers, ask only twice a second.
+  if (pollTick % (waveLive ? 4 : 60) === 0) sendToBios?.({ type: "stream:waveform", content: { id: streamId } });
+  // Without a waveform the camera and the timecode still have to move.
+  if (!waveLive && pollTick % 8 === 0 && stampNow() !== paintedStamp) repaint?.();
+  // Poll stream time ~8×/sec; between answers the clock is extrapolated.
   if (pollTick % 15 !== 0) return;
   sendToBios?.({ type: "stream:time", content: { id: streamId } });
+}
+
+// The playback position right now: the last reported time, run forward on the
+// local clock while playing, so the camera glides instead of stepping at 8 Hz.
+function nowSec() {
+  if (scrubSec !== null) return scrubSec;
+  if (mode !== "playing") return currentSec;
+  const total = duration > 0 ? duration : manifest.duration || Infinity;
+  return min(total, currentSec + (performance.now() - stampAt) / 1000);
 }
 
 // Stream events pushed back from bios (HTML-audio element lifecycle).
@@ -164,14 +200,31 @@ function receive({ type, content }) {
     mode = "idle";
     console.warn("pop: stream error", content?.error);
     repaint?.();
+  } else if (type === "stream:waveform-data") {
+    const data = content.data || [];
+    if (!data.length) { waveLive = false; return; }
+    waveLive = true;
+    wave = data;
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+    const rms = min(1, sqrt(sum / data.length) * 2.2);
+    level = max(rms, level * 0.86); // fast up, slow down
+    const total = duration > 0 ? duration : manifest.duration || 0;
+    if (total > 0) {
+      const slot = min(PEAKS - 1, floor((nowSec() / total) * PEAKS));
+      if (level > peaks[slot]) peaks[slot] = level;
+    }
+    repaint?.();
   } else if (type === "stream:time-data") {
     currentSec = content.currentTime || 0;
+    stampAt = performance.now();
     if (content.duration && isFinite(content.duration)) duration = content.duration;
     setActiveSection(sectionForTime(currentSec));
     if (content.ended) mode = "ended";
     if (stampNow() !== paintedStamp) repaint?.();
   } else if (type === "stream:seeked") {
     currentSec = content.time || 0;
+    stampAt = performance.now();
     setActiveSection(sectionForTime(currentSec));
     repaint?.();
   }
@@ -182,6 +235,7 @@ function receive({ type, content }) {
 function setActiveSection(idx) {
   if (idx === activeSection) return;
   activeSection = idx;
+  flashAt = performance.now();
   ensureIlly(idx);
   ensureIlly(idx + 1);
   evictIllysOutside(idx, idx + 1);
@@ -201,12 +255,17 @@ function paint($) {
       backdrop = buildBackdrop($, art, w, h);
       backdropKey = key;
     }
-    paste(backdrop, 0, 0); // 1:1 blit — the per-frame cost
+    const cam = camera(w, h);
+    if (backdrop.width - w < cam.x || backdrop.height - h < cam.y) wipe(8, 6, 12);
+    paste(backdrop, -cam.x, -cam.y); // 1:1 blit — the per-frame cost
   } else {
     wipe(8, 6, 12);
   }
+  screenSize = { width: w, height: h };
 
+  paintEffects($);
   paintTitle($);
+  paintWave($);
   paintProgress($);
   if (mode !== "playing" && mode !== "loading") paintPlayPrompt($);
 
@@ -224,8 +283,43 @@ function act($) {
     return;
   }
 
-  // The one gesture: tap anywhere toggles play/pause.
-  if (e.is("touch")) togglePlayback();
+  if (e.is("keyboard:down:space")) return togglePlayback();
+  if (e.is("keyboard:down:arrowright")) return seekTo(nowSec() + 5);
+  if (e.is("keyboard:down:arrowleft")) return seekTo(nowSec() - 5);
+
+  // A touch on the bar scrubs; a tap anywhere else toggles play/pause.
+  const { width: w, height: h } = screenSize;
+  const total = duration > 0 ? duration : manifest.duration || 0;
+  const barTime = () => total * max(0, min(1, (e.x - 6) / max(1, w - 12)));
+  if (e.is("touch")) {
+    if (h && total && e.y >= h - BAR_ZONE) scrubSec = barTime();
+    else togglePlayback();
+    repaint?.();
+  } else if (e.is("draw") && scrubSec !== null) {
+    scrubSec = barTime();
+    repaint?.();
+  } else if (e.is("lift") && scrubSec !== null) {
+    const to = scrubSec;
+    scrubSec = null;
+    seekTo(to);
+  }
+}
+
+// Move the playhead. A track that hasn't started yet starts from there.
+function seekTo(sec) {
+  if (!sendToBios) return;
+  const total = duration > 0 ? duration : manifest.duration || 0;
+  sec = max(0, min(max(0, total - 0.25), sec));
+  currentSec = sec;
+  stampAt = performance.now();
+  setActiveSection(sectionForTime(sec));
+  if (mode === "playing" || mode === "paused" || mode === "loading") {
+    sendToBios({ type: "stream:seek", content: { id: streamId, time: sec } });
+  } else {
+    pendingSeekSec = sec;
+    togglePlayback();
+  }
+  repaint?.();
 }
 
 function leave() {
@@ -280,33 +374,104 @@ function sectionForTime(sec) {
 // What the current frame would display — timecode second, progress-bar
 // pixel bucket, section, play state. When this changes, repaint.
 function stampNow() {
-  const px = duration > 0 ? floor((currentSec / duration) * 512) : 0;
-  return `${activeSection}|${fmtTime(currentSec)}|${px}|${mode}`;
+  const t = nowSec();
+  const px = duration > 0 ? floor((t / duration) * 512) : 0;
+  const cam = backdrop ? camera(screenSize.width, screenSize.height) : { x: 0, y: 0 };
+  return `${activeSection}|${fmtTime(t)}|${px}|${mode}|${cam.x},${cam.y}`;
+}
+
+// Where the screen sits inside the oversize backdrop. Each section opens a
+// little off to one side (alternating) and eases onto its `focus` point —
+// `[x, y]` in 0..1 of the art, centre by default — so a square illustration
+// keeps its subject in frame on a tall phone and on a wide desktop alike.
+function camera(w, h) {
+  if (!backdrop) return { x: 0, y: 0 };
+  const slackX = max(0, backdrop.width - w);
+  const slackY = max(0, backdrop.height - h);
+  const sec = manifest.sections[activeSection] || {};
+  const [fx, fy] = Array.isArray(sec.focus) ? sec.focus : manifest.focus || [0.5, 0.5];
+  const restX = max(0, min(slackX, fx * backdrop.width - w / 2));
+  const restY = max(0, min(slackY, fy * backdrop.height - h / 2));
+  const next = manifest.sections[activeSection + 1];
+  const start = sec.t || 0;
+  const end = next ? next.t : duration > 0 ? duration : manifest.duration || start + 1;
+  const p = max(0, min(1, (nowSec() - start) / max(0.001, end - start)));
+  const settle = 1 - (1 - p) ** 2; // a steady push that slows as it arrives
+  const side = activeSection % 2 ? 1 : -1;
+  const fromX = max(0, min(slackX, restX + side * slackX * 0.35));
+  const fromY = max(0, min(slackY, restY - side * slackY * 0.35));
+  return {
+    x: round(fromX + (restX - fromX) * settle),
+    y: round(fromY + (restY - fromY) * settle),
+  };
 }
 
 // — painters —
 
-// Cover-fit the art into a screen-sized offscreen buffer (scale so the
-// smaller axis fills, then crop), with the legibility vignettes baked in.
-// Built once per section/resize so the per-frame paste is unscaled.
+// Scale the whole art once into an offscreen buffer a little larger than
+// cover-fit (the smaller axis fills the screen with ZOOM to spare), so each
+// frame is an unscaled paste at the camera's offset and nothing is cropped
+// away for good. Built once per section/resize.
 function buildBackdrop($, img, w, h) {
   const { painting } = $;
   const iw = img.width || 1024;
   const ih = img.height || 1024;
-  const scale = max(w / iw, h / ih);
-  const dx = floor((w - iw * scale) / 2);
-  const dy = floor((h - ih * scale) / 2);
-  return painting(w, h, ({ wipe, paste, ink }) => {
+  const scale = max(w / iw, h / ih) * ZOOM;
+  return painting(ceil(iw * scale), ceil(ih * scale), ({ wipe, paste }) => {
     wipe(8, 6, 12);
-    paste(img, dx, dy, scale);
-    ink(0, 0, 0, 70).box(0, 0, w, 30, "fill");
-    ink(0, 0, 0, 90).box(0, h - 34, w, 34, "fill");
+    paste(img, 0, 0, scale);
   });
+}
+
+// Legibility bands, a wash of the new section's colour when the section
+// turns, and a frame that breathes with the loudness.
+function paintEffects($) {
+  const { ink, screen } = $;
+  const w = screen.width;
+  const h = screen.height;
+  const [r, g, b] = sectionRgbs[activeSection] || [200, 200, 200];
+  const flash = 1 - (performance.now() - flashAt) / FLASH_MS;
+  if (flash > 0) ink(r, g, b, floor(110 * flash * flash)).box(0, 0, w, h, "fill");
+  ink(0, 0, 0, 70).box(0, 0, w, 30, "fill");
+  ink(0, 0, 0, 90).box(0, h - 58, w, 58, "fill");
+  if (waveLive && mode === "playing") {
+    const a = floor(40 + 170 * level);
+    const t = 1 + round(level * 2);
+    ink(r, g, b, a).box(0, 0, w, t, "fill");
+    ink(r, g, b, a).box(0, h - t, w, t, "fill");
+    ink(r, g, b, a).box(0, t, t, h - 2 * t, "fill");
+    ink(r, g, b, a).box(w - t, t, t, h - 2 * t, "fill");
+  }
+}
+
+// The live waveform, in the section's colour, above the timecode.
+function paintWave($) {
+  if (!waveLive || mode !== "playing" || wave.length < 2) return;
+  const { ink, screen } = $;
+  const w = screen.width;
+  const mid = screen.height - 44;
+  const amp = 11;
+  const [r, g, b] = sectionRgbs[activeSection] || [200, 200, 200];
+  const n = wave.length;
+  const step = max(1, floor(n / max(2, floor((w - 12) / 3)))); // a point every ~3px at most
+  let px = 6;
+  let py = mid + round(((wave[0] - 128) / 128) * amp);
+  for (let i = step; i < n; i += step) {
+    const x = 6 + round((i / (n - 1)) * (w - 12));
+    const y = mid + round(max(-1, min(1, ((wave[i] - 128) / 128) * 1.6)) * amp);
+    ink(0, 0, 0, 120).line(px, py + 1, x, y + 1);
+    ink(min(255, r + 60), min(255, g + 60), min(255, b + 60), 235).line(px, py, x, y);
+    px = x;
+    py = y;
+  }
 }
 
 function paintTitle($) {
   const { ink } = $;
-  const sub = `${manifest.artist} · ${manifest.bpm} BPM · ${manifest.key}`;
+  // As much of the credit line as the screen is wide.
+  const parts = [manifest.artist, `${manifest.bpm} BPM`, manifest.key];
+  while (parts.length > 1 && parts.join(" · ").length * 6 > $.screen.width - 12) parts.pop();
+  const sub = parts.join(" · ");
   ink(0, 0, 0, 140).write(manifest.title, { x: 7, y: 7 });
   ink(255, 240, 200).write(manifest.title, { x: 6, y: 6 });
   ink(0, 0, 0, 140).write(sub, { x: 7, y: 18 });
@@ -322,7 +487,8 @@ function paintProgress($) {
   const barY = h - margin - barH;
   const barW = w - margin * 2;
   const total = duration > 0 ? duration : manifest.duration || 1;
-  const frac = max(0, min(1, currentSec / total));
+  const at = nowSec();
+  const frac = max(0, min(1, at / total));
 
   // Per-section coloured blocks — dim base, bright across the played part.
   ink(0, 0, 0, 180).box(margin, barY, barW, barH, "fill");
@@ -339,16 +505,23 @@ function paintProgress($) {
     if (fx1 > x0) ink(r, g, b, 230).box(x0, barY, fx1 - x0, barH, "fill");
     if (i > 0) ink(0, 0, 0, 200).box(x0, barY, 1, barH, "fill");
   }
-  ink(255, 230, 170).box(playedX - 1, barY - 1, 2, barH + 2, "fill"); // playhead
+  // What was heard so far stands up out of the bar: one column per slice of
+  // loudness history, tallest where the track was loudest.
+  for (let x = margin; x < playedX; x += 2) {
+    const peak = peaks[min(PEAKS - 1, floor(((x - margin) / barW) * PEAKS))];
+    if (peak > 0.02) ink(255, 240, 200, 150).box(x, barY - round(peak * 7), 1, round(peak * 7), "fill");
+  }
+  if (scrubSec !== null) ink(255, 112, 190).box(playedX - 1, barY - 9, 3, barH + 10, "fill"); // scrubbing
+  else ink(255, 230, 170).box(playedX - 1, barY - 1, 2, barH + 2, "fill"); // playhead
   ink(255, 240, 200, 60).box(margin, barY, barW, barH, "outline");
 
   // Timecode (left) + active section name (right) on the line above.
-  const textY = barY - 11;
-  const tStr = `${fmtTime(currentSec)} / ${fmtTime(total)}`;
+  const textY = barY - 20;
+  const tStr = `${fmtTime(at)} / ${fmtTime(total)}`;
   ink(0, 0, 0, 140).write(tStr, { x: margin + 1, y: textY + 1 });
   ink(255, 240, 200).write(tStr, { x: margin, y: textY });
   const sec = manifest.sections[activeSection];
-  if (sec) {
+  if (sec && (tStr.length + sec.name.length + 2) * 6 <= barW) { // a narrow screen keeps the timecode
     const sx = w - margin - sec.name.length * 6;
     ink(0, 0, 0, 140).write(sec.name, { x: sx + 1, y: textY + 1 });
     ink(255, 220, 160).write(sec.name, { x: sx, y: textY });

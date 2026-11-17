@@ -16,55 +16,64 @@
       "name": "tide-in",
       "t": 0,
       "illy": "/assets/pop/helpabeach/sec-0.jpg",
-      "code": "a"
+      "code": "a",
+      "focus": [0.35, 0.42]
     },
     {
       "name": "drift 1",
       "t": 15.7143,
       "illy": "/assets/pop/helpabeach/sec-1.jpg",
-      "code": "b"
+      "code": "b",
+      "focus": [0.5, 0.42]
     },
     {
       "name": "swell 1",
       "t": 35.7143,
       "illy": "/assets/pop/helpabeach/sec-2.jpg",
-      "code": "c"
+      "code": "c",
+      "focus": [0.55, 0.42]
     },
     {
       "name": "deep-current",
       "t": 47.1429,
       "illy": "/assets/pop/helpabeach/sec-3.jpg",
-      "code": "d"
+      "code": "d",
+      "focus": [0.45, 0.42]
     },
     {
       "name": "drift 2",
       "t": 65.7143,
       "illy": "/assets/pop/helpabeach/sec-4.jpg",
-      "code": "e"
+      "code": "e",
+      "focus": [0.5, 0.42]
     },
     {
       "name": "undertow",
       "t": 84.2857,
       "illy": "/assets/pop/helpabeach/sec-5.jpg",
-      "code": "f"
+      "code": "f",
+      "focus": [0.55, 0.42]
     },
     {
       "name": "swell 2",
       "t": 102.857,
       "illy": "/assets/pop/helpabeach/sec-6.jpg",
-      "code": "g"
+      "code": "g",
+      "focus": [0.4, 0.4]
     },
     {
       "name": "tide-out",
       "t": 115.714,
       "illy": "/assets/pop/helpabeach/sec-7.jpg",
-      "code": "h"
+      "code": "h",
+      "focus": [0.5, 0.42]
     },
     {
       "name": "ebb",
       "t": 132.857,
       "illy": "/assets/pop/helpabeach/sec-8.jpg",
-      "code": "i"
+      "code": "i",
+      "focus": [0.5, 0.4]
     }
   ],
   "links": {
