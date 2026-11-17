@@ -9,13 +9,16 @@ append_signature_if_missing: true
 - keep subjects and body copy all lowercase by default
 - URLs are never lowercased — Drive file ids and similar are
   case-sensitive, and a lowercased link is a dead link
-- sign emails as `@jeffrey`
-- append signature automatically if missing
+- sign every email `@jeffrey`, in every register — the mail tool renders it
+  in the handle's per-character colours and links it to the AC profile; the
+  plain-text part carries the bare handle
+- never type the sign-off into the body; the tool appends it
 
 ## Overrides
 
-- set `preserve_case: true` in `mail_send` when casing must be preserved
-- set `signature` in `mail_send` to override the default sign-off for a specific email
+- set `preserve_case: true` on the draft when casing must be preserved
+- set `signature` on the draft to override the sign-off for a specific email;
+  an override that is not an `@handle` goes out as plain text
 
 ## Register — when to override the lowercase default
 
@@ -32,10 +35,10 @@ In the proper-caps register:
   atlas.roi — software stays as its authors style it).
 - Acronyms uppercase (MIPs, ROI, OME-XML, AP/ML/DV).
 - Code identifiers in backticks stay verbatim.
-- Sign with the capitalized first name ("Jeffrey"), not the lowercase
-  handle, unless the thread has already established the lowercase voice.
+- The sign-off is still `@jeffrey` (revised by @jeffrey 2026-11-13; the
+  earlier rule signed these threads "Jeffrey").
 
-Set `preserve_case: true` in `mail_send` for these.
+Set `preserve_case: true` on the draft for these.
 
 ## Closers — no motivation, no hype
 
@@ -58,39 +61,27 @@ and undercuts the work.
 
 ## Drafts and authorization
 
-Sending is the irreversible step, so it has two lanes. Revised by
-@jeffrey 2026-09-11: the previous rule demanded a second "send it" for
-every email, including ones he had just asked for by name, which turned
-a one-line request into three messages.
+Every email is a draft first. Revised by @jeffrey 2026-11-13: the earlier
+"send it if he asked for it by name" lane let an email leave while he was
+still editing it, and he never saw the wrapped form before it went.
 
-### Send it — when all of these hold
+1. **Draft.** `mail_draft` for a new thread, `mail_reply` to answer a
+   message (it fills in threading, reply-all recipients and the answering
+   account). Nothing is sent. The draft also appears in Gmail Drafts.
+2. **Show it.** Give @jeffrey the headers and body, and open the preview
+   image the tool returns — that image is the email as the recipient will
+   see it.
+3. **Change it.** Any edit is a new draft made with `revises`, with a new
+   id and a new preview. The old id can no longer be sent.
+4. **Send.** `mail_send` takes the draft id and nothing else, and only
+   after @jeffrey has said to send that draft. A yes for one draft does not
+   carry to its revision.
 
-- @jeffrey asked for **this** email in this conversation, naming the
-  recipient and the purpose ("email Cody about the workshop").
-- It is ordinary correspondence: an invitation, an announcement, a
-  logistics note, a reply on a thread already underway, a one-liner.
-- No attachments.
-- Nothing that commits money, accepts or negotiates terms, carries an
-  apology or bad news, or speaks for anyone other than @jeffrey.
-- One recipient group — not a list, not a blast.
-
-Then send, and print the full headers and body in the reply. A send you
-cannot show afterward is a send you should not have made.
-
-### Draft and wait for explicit authorization ("send it" / "go ahead")
-
-- **You thought of the email.** @jeffrey did not ask for it.
-- First contact with a person or organization he has no prior thread
-  with — the opening line of a relationship is his to write.
-- Anything with an attachment.
-- Money, contracts, legal terms, apologies, bad news, or a negotiation.
-- Any list or mass send.
-
-When unsure which lane applies, draft. Drafting costs one message; a
-wrong send costs a relationship.
+Clear out drafts that will not be sent with `mail_discard`; `mail_drafts`
+lists what is waiting.
 
 ### Always
 
-Report what was sent — recipients, subject, body — whichever lane it
-took. Never invent a commitment on @jeffrey's behalf: a date, a price,
-a deliverable, or a yes he has not actually given.
+Report what was sent — recipients, subject, body. Never invent a commitment
+on @jeffrey's behalf: a date, a price, a deliverable, or a yes he has not
+actually given. If the draft needs one, leave it marked and ask.
