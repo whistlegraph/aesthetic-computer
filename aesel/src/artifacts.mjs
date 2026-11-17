@@ -212,6 +212,7 @@ export class Artifacts extends EventEmitter {
     const names=current.revision.files.filter(n=>/\.(json|tex|bib|md|c|h|asm|s)$/.test(n) && !/provenance|analysis/.test(n));
     let text=`Current ${current.kind}: ${current.name}, v${current.version}. Use artifact tools to edit it. Do not edit piece source for this medium.\n`;
     if(current.kind==='picture')text+='Use artifact_draw for AC line, fill, shapes, and filters. Fill is a real connected-region flood fill. Use artifact_generate only when the user asks for remote image generation/editing. For image edits, use composite.png as reference; preserve their picture unless instructed otherwise. Each draw/generate previews the change; accept commits it.\n';
+    if(current.kind==='nes')text+=`After a build, run the cartridge with ac_core on ${relative(resolve(this.root,'..'),join(current.root,'game.nes'))}: step frames, hold buttons, and look at the frame it returns before saying the game works.\n`;
     for(const name of names){const data=await readFile(await safe(current.root,name),'utf8');text+=`\n${name}:\n${data.slice(0,16000)}\n`;if(text.length>40000)break;}
     return text;
   }

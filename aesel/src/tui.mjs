@@ -79,6 +79,9 @@ import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
 import { notifyNative, reportDevice } from "./native-notify.mjs";
 import { mediaFile, watchMedia, mediaChanged, madeMedia, namedMedia } from "./media.mjs";
+import { coreFor } from "./cores.mjs";
+import { playersFor, playerNamed, pickPlayer, choose, launch } from "./players.mjs";
+import { screenBlock, screenSize } from "./core-video.mjs";
 import { watchSource } from "./source-watch.mjs";
 import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
 import { Artifacts, MEDIA, mediaTypesText, asksMediaTypes } from './artifacts.mjs';
@@ -1723,6 +1726,67 @@ function pinMedia(media) {
     redraw();
   });
 }
+// `/play` runs a built file in its core and draws the screen in the column
+// the scan code uses. The core is loaded on first use, so a session that
+// never plays pays nothing. The machine runs at its own frame rate and the
+// terminal is drawn a third as often; a build that rewrites the file starts
+// a fresh machine.
+const PLAY_DRAW_MS = 50;
+let playing = null;
+function stopPlaying() {
+  if (!playing) return false;
+  if (playing.timer) clearInterval(playing.timer);
+  playing.unwatch();
+  playing = null;
+  state.screen = null;
+  return true;
+}
+async function startPlaying(file) {
+  stopPlaying();
+  const { Console } = await import("./cores.mjs");
+  const machine = await Console.open(file);
+  const { core } = machine;
+  let last = Date.now(), owed = 0;
+  const draw = () => {
+    // The transcript keeps at least 24 columns; the screen takes what is left, up to its own width.
+    const room = screenSize(core.width, core.height, Math.min(core.width, Math.floor((process.stdout.columns || 80) * 0.5)), Math.max(1, (process.stdout.rows || 24) - 8));
+    state.screen = screenBlock(machine.frame(), core.width, core.height, room.columns, room.rows);
+    redraw();
+  };
+  const tick = () => {
+    const now = Date.now();
+    owed += ((now - last) / 1000) * core.fps;
+    last = now;
+    // After a stall the machine skips ahead no further than a tenth of a second.
+    const frames = Math.min(Math.floor(owed), Math.ceil(core.fps / 10));
+    owed = Math.min(owed - frames, 1);
+    if (frames > 0) { machine.step(frames); draw(); }
+  };
+  const watched = { path: machine.file, name: path.basename(machine.file), mtimeMs: 0 };
+  const unwatch = watchMedia(watched, () => {
+    machine.reload().then((fresh) => { if (fresh && playing?.machine === machine) draw(); })
+      .catch((error) => { addEntry("error", `Play: ${errorText(error)}`); stopPlaying(); redraw(); });
+  });
+  const timer = setInterval(tick, PLAY_DRAW_MS);
+  timer.unref?.();
+  playing = { machine, timer, unwatch };
+  draw();
+  return machine;
+}
+
+// A kind with no core here plays in an app the machine has: a video in
+// QuickTime or VLC. The app is opened once in front, then again behind the
+// terminal each time the file is written, which is how a new render is shown.
+async function startPlayingOutside(media, wanted) {
+  stopPlaying();
+  const player = await pickPlayer(media.kind, wanted);
+  if (wanted) await choose(media.kind, player.id);
+  launch(player, media.path);
+  const unwatch = watchMedia(media, (next) => { if (playing?.file === media.path) launch(player, next.path, { quiet: true }); });
+  playing = { file: media.path, unwatch };
+  return player;
+}
+
 // The files this session's card has shown, newest first, for the list the
 // media name opens on the status line.
 function rememberMedia(media) {
@@ -2848,7 +2912,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -2926,6 +2990,39 @@ async function submitInput(submittedText, submittedMessages = null) {
     // `/preview` hands the card back to the piece being written here.
     // A media file — `/preview out/track.mp3` — is pinned and followed: the
     // card reloads each time the file is written again.
+    // `/play` runs the selected artifact's built file, or `/play FILE`, in
+    // its core, here in the terminal. `/play off`, or `/play` again, stops it.
+    if (command === "/play") {
+      if (rest === "off" || (!rest && playing)) {
+        addEntry("notice", stopPlaying() ? "Stopped playing" : "Nothing is playing");
+        return redraw();
+      }
+      // A last word that names a player picks it: `/play clip.mp4 vlc`.
+      const words = rest.split(/\s+/).filter(Boolean);
+      const wanted = words.length && playerNamed(words.at(-1)) ? words.pop().toLowerCase() : "";
+      const named = words.join(" ");
+      let file = named ? path.resolve(cwd, named.startsWith("~/") ? path.join(homedir(), named.slice(2)) : named) : "";
+      if (!file && state.media) file = state.media.path;
+      if (!file && state.medium !== "piece") { try { file = (await artifacts.preview()).path; } catch {} }
+      const outside = file && !coreFor(file) ? mediaFile(file, cwd) : null;
+      if (outside && playersFor(outside.kind).length) {
+        try {
+          const player = await startPlayingOutside(outside, wanted);
+          const others = playersFor(outside.kind).filter((other) => other.id !== player.id).map((other) => other.id).join(", ");
+          addEntry("notice", `Playing ${outside.name} in ${player.name} · reopens on every write · /play to stop${others ? ` · other players: ${others}` : ""}`);
+        } catch (error) { addEntry("error", `Play: ${errorText(error)}`); }
+        return redraw();
+      }
+      if (!file || !coreFor(file)) {
+        addEntry("notice", file ? `No core plays ${path.basename(file)} yet. Cores: nes. Players: video.` : "Nothing to play. /play FILE.nes, /play FILE.mp4, or build an NES artifact first.");
+        return redraw();
+      }
+      try {
+        const machine = await startPlaying(file);
+        addEntry("notice", `Playing ${path.basename(file)} in the ${machine.core.name} core · restarts on every build · /play to stop`);
+      } catch (error) { addEntry("error", `Play: ${errorText(error)}`); }
+      return redraw();
+    }
     if (command === "/preview") {
       const media = rest && mediaFile(rest, cwd);
       if (media) {

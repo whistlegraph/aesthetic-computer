@@ -1056,9 +1056,12 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   // The code needs the rows it occupies and not one more. An earlier `+ 2`
   // asked for breathing room it never used, which put the cliff at 24 rows and
   // hid the code from a 23-row window for no reason a reader could see.
+  // A running core's screen takes the same column, ahead of the code: one
+  // picture at a time, and the one that is moving wins.
+  const side = state.screen || state.qr;
   const qr =
-    !state.about && useColor && state.qr && width >= state.qr.width + 24 && transcriptRows >= state.qr.height
-      ? state.qr
+    !state.about && useColor && side && width >= side.width + 24 && transcriptRows >= side.height
+      ? side
       : null;
   const contentWidth = qr ? width - qr.width - 2 : width - 2;
   const unruled = new Set();
@@ -1691,7 +1694,8 @@ function spendText(state, width) {
 
 export function transcriptLineCount(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns), height = Math.max(10, rows);
-  const qr = useColor && state.qr && width >= state.qr.width + 24 && height - 5 >= state.qr.height ? state.qr : null;
+  const side = state.screen || state.qr;
+  const qr = useColor && side && width >= side.width + 24 && height - 5 >= side.height ? side : null;
   return state.entries.reduce((count, entry) => count + entryLines(entry, qr ? width - qr.width - 2 : width - 2, false).length, 0);
 }
 
