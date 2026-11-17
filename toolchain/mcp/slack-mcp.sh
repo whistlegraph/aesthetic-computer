@@ -31,4 +31,8 @@ if [ -z "$BIN" ]; then
   exit 1
 fi
 
+# Screenshots are half of a bug report: attachment_get_data reads a message's
+# file by id. Off in the server by default; set to false to turn it back off.
+export SLACK_MCP_ATTACHMENT_TOOL="${SLACK_MCP_ATTACHMENT_TOOL:-true}"
+
 exec node "$REPO/toolchain/vault/launch.mjs" slack "$BIN" --transport stdio "$@"
