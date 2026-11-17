@@ -82,6 +82,7 @@ import { mediaFile, watchMedia, mediaChanged, madeMedia, namedMedia } from "./me
 import { coreFor } from "./cores.mjs";
 import { playersFor, playerNamed, pickPlayer, choose, launch } from "./players.mjs";
 import { screenBlock, screenSize } from "./core-video.mjs";
+import { Pad, watchGamepad } from "./core-pad.mjs";
 import { watchSource } from "./source-watch.mjs";
 import { planMime, postMime, MAX_BYTES } from "./mime.mjs";
 import { Artifacts, MEDIA, mediaTypesText, asksMediaTypes } from './artifacts.mjs';
@@ -1737,6 +1738,8 @@ function stopPlaying() {
   if (!playing) return false;
   if (playing.timer) clearInterval(playing.timer);
   playing.unwatch();
+  playing.unpad?.();
+  playing.stream?.stop();
   playing = null;
   state.screen = null;
   return true;
@@ -1760,8 +1763,14 @@ async function startPlaying(file) {
     // After a stall the machine skips ahead no further than a tenth of a second.
     const frames = Math.min(Math.floor(owed), Math.ceil(core.fps / 10));
     owed = Math.min(owed - frames, 1);
-    if (frames > 0) { machine.step(frames); draw(); }
+    if (frames > 0) {
+      // Buttons are settled a frame at a time, so a tap ends on its frame.
+      for (let i = 0; i < frames; i++) { machine.hold(pad.held(machine.frames)); machine.step(1); }
+      draw();
+    }
   };
+  const pad = new Pad(core.buttons);
+  const unpad = watchGamepad((pads) => pad.report(pads));
   const watched = { path: machine.file, name: path.basename(machine.file), mtimeMs: 0 };
   const unwatch = watchMedia(watched, () => {
     machine.reload().then((fresh) => { if (fresh && playing?.machine === machine) draw(); })
@@ -1769,7 +1778,8 @@ async function startPlaying(file) {
   });
   const timer = setInterval(tick, PLAY_DRAW_MS);
   timer.unref?.();
-  playing = { machine, timer, unwatch };
+  // Keys go to the machine from the start; Esc gives them back to the prompt.
+  playing = { machine, timer, unwatch, pad, unpad, keys: true };
   draw();
   return machine;
 }
@@ -1781,6 +1791,27 @@ async function startPlayingOutside(media, wanted) {
   stopPlaying();
   const player = await pickPlayer(media.kind, wanted);
   if (wanted) await choose(media.kind, player.id);
+  if (player.here) {
+    // The film loops in the side column. A new render starts the stream over.
+    const { openStream } = await import("./core-stream.mjs");
+    const session = { file: media.path, unwatch: () => {}, stream: null, timer: null };
+    const open = async () => {
+      session.stream?.stop();
+      session.stream = await openStream(media.path, { onEnd: () => { if (playing === session) { stopPlaying(); addEntry("notice", `${media.name} stopped playing`); redraw(); } } });
+    };
+    await open();
+    session.timer = setInterval(() => {
+      const { stream } = session, frame = stream.next();
+      if (!frame) return;
+      const room = screenSize(stream.width, stream.height, Math.min(stream.width, Math.floor((process.stdout.columns || 80) * 0.5)), Math.max(1, (process.stdout.rows || 24) - 8));
+      state.screen = screenBlock(frame, stream.width, stream.height, room.columns, room.rows);
+      redraw();
+    }, 1000 / session.stream.fps);
+    session.timer.unref?.();
+    session.unwatch = watchMedia(media, () => { if (playing === session) open().catch((error) => { addEntry("error", `Play: ${errorText(error)}`); stopPlaying(); redraw(); }); });
+    playing = session;
+    return player;
+  }
   launch(player, media.path);
   const unwatch = watchMedia(media, (next) => { if (playing?.file === media.path) launch(player, next.path, { quiet: true }); });
   playing = { file: media.path, unwatch };
@@ -3009,7 +3040,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         try {
           const player = await startPlayingOutside(outside, wanted);
           const others = playersFor(outside.kind).filter((other) => other.id !== player.id).map((other) => other.id).join(", ");
-          addEntry("notice", `Playing ${outside.name} in ${player.name} · reopens on every write · /play to stop${others ? ` · other players: ${others}` : ""}`);
+          addEntry("notice", `Playing ${outside.name} in ${player.name} · on a loop · starts over on every write · /play to stop${others ? ` · other players: ${others}` : ""}`);
         } catch (error) { addEntry("error", `Play: ${errorText(error)}`); }
         return redraw();
       }
@@ -3019,7 +3050,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       }
       try {
         const machine = await startPlaying(file);
-        addEntry("notice", `Playing ${path.basename(file)} in the ${machine.core.name} core · restarts on every build · /play to stop`);
+        addEntry("notice", `Playing ${path.basename(file)} in the ${machine.core.name} core · arrows or wasd, z and x, enter, tab, or a gamepad · esc to type · /play to stop`);
       } catch (error) { addEntry("error", `Play: ${errorText(error)}`); }
       return redraw();
     }
@@ -3379,6 +3410,16 @@ function copySelection() {
 }
 
 function handleKey(input) {
+  // A playing core has the keys until Esc; Ctrl-G hands them back to it.
+  if (playing?.pad && !state.approval && !state.settings && !state.about) {
+    if (input === "\x07") { playing.keys = !playing.keys; addEntry("notice", playing.keys ? "Keys go to the game · esc to type" : "Keys go to the prompt · ctrl-g to play"); return redraw(); }
+    if (playing.keys) {
+      if (input === "\x1b") { playing.keys = false; addEntry("notice", "Keys go to the prompt · ctrl-g to play"); return redraw(); }
+      // Every plain key belongs to the game here, button or not, so a stray
+      // letter never lands half a word in the prompt. Control keys pass.
+      if (playing.pad.key(input, playing.machine.frames) || (input.length === 1 && input >= " ")) return;
+    }
+  }
   // A held selection: Enter with nothing typed copies it, Esc lets it go,
   // and any other key is the next thing, not part of it.
   if (state.selection && !state.selection.active) {

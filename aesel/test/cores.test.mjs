@@ -6,6 +6,10 @@ import { join } from "node:path";
 import { assemble } from "../media/nes/asm.mjs";
 import { Console, coreFor, play, CORES, MAX_FRAMES } from "../src/cores.mjs";
 import { screenBlock, screenSize } from "../src/core-video.mjs";
+import { Pad, TAP_FRAMES, REPEAT_FRAMES } from "../src/core-pad.mjs";
+import { videoSize, fitSize, openStream, ffmpegPath } from "../src/core-stream.mjs";
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { runCore, handle, CORE_TOOL } from "../src/tools.mjs";
 import { decode } from "../media/picture/png.mjs";
 
@@ -48,6 +52,8 @@ test("the NES core boots the starter, answers the D-pad and A, and repeats itsel
   assert.ok(left(machine.frame()) > 140, "diamond moved right");
   assert.ok(ran.changedPixels > 0);
   assert.equal(ran.sound, false, "silent until A");
+  const fresh = await Console.open(file);
+  assert.equal(play(fresh, [{ frames: 3 }]).changedPixels, null, "a first run has no earlier picture to compare");
   assert.equal(play(machine, [{ frames: 5, hold: ["a"] }]).sound, true, "A makes a sound");
   assert.equal(machine.held.size, 0, "buttons come up when the sitting ends");
 
@@ -116,4 +122,54 @@ test("ac_core runs a file, carries on between calls, and stays inside the workin
   assert.equal(CORE_TOOL.inputSchema.properties.steps.items.properties.frames.maximum, MAX_FRAMES);
   const called = await handle({ id: 2, method: "tools/call", params: { name: "ac_core", arguments: { file: "game.nes", steps: [{ frames: 2 }], image: false } } }, { cwd: dir });
   assert.equal(JSON.parse(called.result.content[0].text).untrustedCoreEvidence.frame, 3);
+});
+
+test("a key press is a tap, a repeating key is a held button, and a gamepad is exact", () => {
+  const pad = new Pad(["up", "down", "left", "right", "a", "b", "start", "select"]);
+  assert.equal(pad.key("\x1b[C", 100, 0), "right");
+  assert.deepEqual(pad.held(100), ["right"]);
+  assert.deepEqual(pad.held(100 + TAP_FRAMES - 1), ["right"]);
+  assert.deepEqual(pad.held(100 + TAP_FRAMES), [], "a tap ends");
+  assert.equal(pad.key("\x1b[C", 200, 5000), "right");
+  assert.equal(pad.key("\x1b[C", 230, 5500), "right", "the keyboard's repeat");
+  assert.deepEqual(pad.held(230 + REPEAT_FRAMES - 1), ["right"]);
+  assert.deepEqual(pad.held(230 + REPEAT_FRAMES), []);
+  assert.equal(pad.key("X", 0, 9000), "a");
+  assert.equal(pad.key("\r", 0, 9000), "start");
+  assert.equal(pad.key("q", 0, 9000), "", "not a button");
+  assert.equal(new Pad(["a"]).key("\x1b[C", 0), "", "a button the core lacks");
+  pad.held(1000);
+  pad.report([{ buttons: Object.assign(Array(16).fill(0), { 14: 1, 1: 1 }), axes: [0, 0.9, 0, 0] }]);
+  assert.deepEqual(pad.held(1000).sort(), ["a", "down", "left"]);
+  pad.report([]);
+  assert.deepEqual(pad.held(1000), []);
+});
+
+test("a film's size is read from ffmpeg's report and fitted to an even, narrower one", () => {
+  assert.deepEqual(videoSize("  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(progressive), 640x360 [SAR 1:1 DAR 16:9], 30 fps"), { width: 640, height: 360 });
+  assert.equal(videoSize("  Stream #0:0: Audio: aac, 44100 Hz"), null);
+  assert.deepEqual(fitSize({ width: 640, height: 360 }), { width: 256, height: 144 });
+  assert.deepEqual(fitSize({ width: 1080, height: 1920 }, 100), { width: 100, height: 178 });
+  assert.deepEqual(fitSize({ width: 120, height: 91 }), { width: 120, height: 92 });
+});
+
+test("a film loops as frames past its own end", { skip: !(await ffmpegPath()) && "ffmpeg not installed" }, async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "aesel-stream-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const film = join(dir, "half.mp4");
+  execFileSync(await ffmpegPath(), ["-v", "error", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=20:duration=0.5", "-pix_fmt", "yuv420p", film]);
+  const stream = await openStream(film);
+  t.after(() => stream.stop());
+  assert.deepEqual([stream.width, stream.height], [64, 48]);
+  const frames = [];
+  for (const started = Date.now(); frames.length < 25 && Date.now() - started < 8000;) {
+    const frame = stream.next();
+    if (frame) frames.push(createHash("sha1").update(frame).digest("hex")); else await new Promise((done) => setTimeout(done, 10));
+  }
+  assert.equal(frames.length, 25, "frames kept coming past the end");
+  assert.equal(frames[0].length, 40);
+  // A half-second film has about ten pictures; twenty-five frames of it must repeat some.
+  const different = new Set(frames).size;
+  assert.ok(different >= 5 && different <= 12, `${different} different pictures in 25 frames`);
+  await assert.rejects(openStream(join(dir, "none.mp4")), /no picture/);
 });

@@ -110,5 +110,6 @@ export function play(machine, steps = []) {
   for (let i = 0; i < after.length; i += 4) {
     if (after[i] !== before[i] || after[i + 1] !== before[i + 1] || after[i + 2] !== before[i + 2]) changed++;
   }
-  return { framesRun: total, changedPixels: changed, sound: machine.loudness() === null ? null : loudest > 0.01 };
+  // A machine that has never run has no picture yet, so nothing to compare with.
+  return { framesRun: total, changedPixels: machine.frames === total ? null : changed, sound: machine.loudness() === null ? null : loudest > 0.01 };
 }
