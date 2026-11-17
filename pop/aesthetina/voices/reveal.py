@@ -74,7 +74,6 @@ def sung(bar, line, want=(), voice="jeffrey", gain=1.3, oct=-1, pan=0.0):
 # last of the second drop): the lead should stay smooth
 J, P = "jeffrey", "prutti"
 STATEMENTS = [
-    (4, "name", ("whisper",), J),  # before the kick: whispered, once
     (8, "name", ("plain", "excited"), J), (10, "hand", ("plain",), J), (12, "chubby", ("curious", "plain"), J), (14, "plug", ("plain",), J),
     (16, "borrow", ("curious",), J), (18, "buy", ("plain",), J), (20, "get", ("plain",), J), (22, "typing", ("excited",), J),
     (24, "sounds", ("curious", "plain"), J), (26, "letter", ("excited",), J), (28, "cables", ("curious", "excited"), J), (30, "sleep", ("tired", "deadpan"), J),
@@ -91,7 +90,7 @@ STATEMENTS = [
 # ── Prutti (Pruttivox IVC, eleven_v4) — DRAFT: his clone + performance need his approval before release ──
 for bar, line, want, who in STATEMENTS:
     if who == P: sung(bar, line, want, voice=P, gain=1.5, pan=0.3)
-    else: sung(bar, line, want, gain={4: 0.5, 94: 1.0}.get(bar, 1.3))  # the opening whisper sits inside the music box, not over it
+    else: sung(bar, line, want, gain={94: 1.0}.get(bar, 1.3))
 
 
 def prutti_echo(bar, gain=0.9):  # lands on the statement's ringing last note
