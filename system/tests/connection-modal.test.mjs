@@ -1,59 +1,57 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createConnectionModal, connectionLayout } from "../public/aesthetic.computer/lib/connection-modal.mjs";
+import { createConnectionModal } from "../public/aesthetic.computer/lib/connection-modal.mjs";
 import { watchConnection } from "../public/aesthetic.computer/lib/connection-status.mjs";
 
 function fixture() {
-  const modal = createConnectionModal(), sent = [];
-  const $ = { screen: { width: 320, height: 180 }, needsPaint() {}, send: message => sent.push(message) };
-  const event = (name, extra = {}) => modal.act({ ...$, event: { ...extra, is: n => n === name } });
-  return { modal, $, sent, event };
+  let clock = 1000;
+  const modal = createConnectionModal(() => clock);
+  return { modal, tick: ms => { clock += ms; } };
 }
 
-test("disconnect preserves the piece, dismisses without reloading, and reopens only for a new outage", () => {
+test("a lost connection never takes an event from the piece", () => {
   const f = fixture();
-  assert.equal(f.event("keyboard:down:enter"), false);
   f.modal.update("offline");
   assert.equal(f.modal.visible, true);
-  assert.equal(f.event("keyboard:down:escape"), true);
-  assert.equal(f.modal.visible, false);
+  assert.equal(f.modal.act({ event: { is: () => true } }), false);
+});
+
+test("the notice types itself out, counts retries, and says goodbye before it leaves", () => {
+  const f = fixture();
   f.modal.update("offline");
+  assert.deepEqual(f.modal.lines(), []);
+  f.tick(16 * 4);
+  assert.deepEqual(f.modal.lines().map(l => l.text), ["conn"]);
+  f.tick(5000);
+  assert.deepEqual(f.modal.lines().map(l => l.text), ["connection lost", "waiting to retry"]);
+  f.modal.update("checking");
+  assert.equal(f.modal.lines()[1].text, "retrying");
+  f.modal.update("offline");
+  assert.equal(f.modal.lines()[1].text, "no answer, retry 2 soon");
+  f.modal.update("checking"); f.modal.update("online");
+  assert.equal(f.modal.visible, true);
+  assert.equal(f.modal.lines()[1].text, "back online");
+  f.tick(2000);
   assert.equal(f.modal.visible, false);
-  assert.deepEqual(f.sent, []);
-  f.modal.update("online");
+});
+
+test("a later outage starts its own notice from the first letter", () => {
+  const f = fixture();
+  f.modal.update("offline"); f.tick(5000); f.modal.update("online"); f.tick(5000);
   f.modal.update("offline");
   assert.equal(f.modal.visible, true);
+  assert.deepEqual(f.modal.lines(), []);
 });
 
-test("retry cannot submit twice, failure allows another attempt, and recovery closes the modal", () => {
-  const f = fixture(); f.modal.update("offline");
-  f.event("keyboard:down:enter"); f.event("keyboard:down:enter");
-  assert.deepEqual(f.sent, [{ type: "connection:retry" }]);
-  f.modal.update("offline"); f.event("keyboard:down:enter");
-  assert.equal(f.sent.length, 2);
-  f.modal.update("online"); assert.equal(f.modal.visible, false);
-});
-
-test("pointer releases outside their button do nothing; Tab and Enter can keep playing", () => {
-  const f = fixture(); f.modal.update("offline");
-  const b = connectionLayout(320, 180).buttons[0];
-  f.event("touch", { x: b.x + 1, y: b.y + 1 });
-  f.event("lift", { x: 0, y: 0 });
-  assert.equal(f.sent.length, 0);
-  f.event("keyboard:down:tab"); f.event("keyboard:down:enter");
-  assert.equal(f.modal.visible, false);
-  assert.equal(f.sent.length, 0);
-});
-
-test("connection controls fit phone, landscape, and short Mac windows", () => {
-  for (const [w, h] of [[152, 100], [187, 212], [320, 120], [700, 248]]) {
-    const layout = connectionLayout(w, h);
-    assert.ok(layout.y + layout.h <= h);
-    for (const b of layout.buttons) {
-      assert.ok(b.x >= 0 && b.x + b.w <= w);
-      assert.ok(b.y >= 0 && b.y + b.h <= h);
-    }
-  }
+test("the notice stays in the corner and paints nothing once it has gone", () => {
+  const f = fixture(), boxes = [];
+  const $ = { ink: () => ({ box: (...b) => boxes.push(b), write() {} }) };
+  f.modal.paint($);
+  assert.equal(boxes.length, 0);
+  f.modal.update("offline"); f.tick(5000);
+  f.modal.paint($);
+  assert.ok(boxes.length >= 2);
+  for (const [x, y, w, h] of boxes) assert.ok(x >= 0 && y >= 0 && x + w <= 152 && y + h <= 100);
 });
 
 test("the modal restores an accumulating drawing and never copies it into another piece", () => {
@@ -70,9 +68,28 @@ test("the modal restores an accumulating drawing and never copies it into anothe
   assert.deepEqual([...screen.pixels], [1, 1, 1, 1]);
 });
 
+test("a lost host is asked again without anyone pressing a button", async () => {
+  const events = {}, states = [], timers = [];
+  const win = { navigator: { onLine: true }, clearTimeout() {},
+    setTimeout: (fn, ms) => timers.push({ fn, ms }),
+    addEventListener: (name, fn) => events[name] = fn,
+    fetch: async () => { throw new Error("unreachable"); },
+  };
+  watchConnection(win, m => states.push(m.content.status));
+  events.offline();
+  const waits = [];
+  for (let i = 0; i < 5; i++) {
+    const retry = timers.filter(t => t.ms !== 5000).at(-1); // 5000 is the probe's own timeout.
+    waits.push(retry.ms);
+    await retry.fn();
+  }
+  assert.deepEqual(waits, [2000, 4000, 8000, 15000, 15000]);
+  assert.deepEqual(states.slice(0, 5), ["offline", "checking", "offline", "checking", "offline"]);
+});
+
 test("a stale successful probe cannot hide a later disconnect", async () => {
   const events = {}, states = [], requests = [];
-  const win = { navigator: { onLine: true }, setTimeout, clearTimeout,
+  const win = { navigator: { onLine: true }, setTimeout: () => 0, clearTimeout() {},
     addEventListener: (name, fn) => events[name] = fn,
     fetch: (url, options) => new Promise(resolve => requests.push({ resolve, options })),
   };
@@ -90,7 +107,7 @@ test("a stale successful probe cannot hide a later disconnect", async () => {
 
 test("native disconnects and failed retries reach disk without replacing the document", async () => {
   const events = {}, states = [];
-  const win = { acNativeOnline: false, navigator: { onLine: true }, setTimeout, clearTimeout,
+  const win = { acNativeOnline: false, navigator: { onLine: true }, setTimeout: () => 0, clearTimeout() {},
     addEventListener: (name, fn) => events[name] = fn,
     fetch: async () => { throw new Error("offline"); },
   };
@@ -99,18 +116,13 @@ test("native disconnects and failed retries reach disk without replacing the doc
   assert.deepEqual(states, ["offline", "checking", "offline"]);
 });
 
-test("modal keys bypass prompt text entry while native command shortcuts remain available", () => {
-  const events = {}, sent = [];
-  const win = { navigator: { onLine: true }, setTimeout, clearTimeout,
-    addEventListener: (name, fn, capture) => { events[name] = fn; if (name === "keydown") assert.equal(capture, true); },
+test("the keyboard is left alone while the connection is down", () => {
+  const events = {};
+  const win = { navigator: { onLine: true }, setTimeout: () => 0, clearTimeout() {},
+    addEventListener: (name, fn) => events[name] = fn,
   };
-  const monitor = watchConnection(win, message => sent.push(message));
-  let prevented = 0, stopped = 0;
-  const e = { key: "Enter", preventDefault: () => prevented++, stopImmediatePropagation: () => stopped++ };
-  events.keydown(e); assert.equal(sent.length, 0);
-  monitor.setModal(true); events.keydown(e);
-  assert.deepEqual(sent, [{ type: "connection:key", content: { key: "enter" } }]);
-  assert.equal(prevented, 1); assert.equal(stopped, 1);
-  events.keydown({ ...e, metaKey: true }); assert.equal(sent.length, 1);
-  monitor.setModal(false); events.keydown(e); assert.equal(sent.length, 1);
+  const monitor = watchConnection(win, () => {});
+  events.offline();
+  monitor.setModal(true);
+  assert.equal(events.keydown, undefined);
 });

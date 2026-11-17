@@ -1,9 +1,17 @@
 // Host reachability only: no navigation, piece reset, or analytics.
+// A lost host is asked again by itself, sooner at first and then every
+// fifteen seconds, until it answers.
+const RETRY_DELAYS = [2000, 4000, 8000, 15000];
 export function watchConnection(win, send) {
   if (win.acPACK_MODE) return { retry() {}, setModal() {} };
   let attempt = 0, controller;
-  let modalVisible = false;
   let announcement, lastStatus;
+  let failures = 0, retryTimer;
+  const scheduleRetry = () => {
+    win.clearTimeout(retryTimer);
+    retryTimer = win.setTimeout(retry, RETRY_DELAYS[Math.min(failures, RETRY_DELAYS.length - 1)]);
+    failures++;
+  };
   const report = status => {
     send({ type: "connection:status", content: { status } });
     if (status === lastStatus) return;
@@ -15,10 +23,12 @@ export function watchConnection(win, send) {
         win.document.body.append(announcement);
       }
       announcement.textContent = status === "offline"
-        ? "Connection lost. Press Enter to retry or Escape to keep playing."
+        ? "Connection lost. Retrying."
         : status === "checking" ? "Checking connection." : "Connected.";
     }
     lastStatus = status;
+    if (status === "offline") scheduleRetry();
+    else if (status === "online") { failures = 0; win.clearTimeout(retryTimer); }
   };
   const offline = () => {
     attempt++;
@@ -43,15 +53,7 @@ export function watchConnection(win, send) {
   }
   win.addEventListener("offline", offline);
   win.addEventListener("online", retry);
-  // Capture before the prompt's hidden text input can consume Enter or Tab.
-  win.addEventListener("keydown", event => {
-    if (!modalVisible || event.metaKey || event.ctrlKey) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const key = event.key === " " ? "space" : event.key.toLowerCase();
-    send({ type: "connection:key", content: { key } });
-  }, true);
   win.addEventListener("ac:native-network", () => win.acNativeOnline === false ? offline() : retry());
   if (win.acNativeOnline === false || win.navigator.onLine === false) offline();
-  return { retry, setModal(visible) { modalVisible = visible; } };
+  return { retry, setModal() {} }; // setModal: kept for a bios that still calls it.
 }
