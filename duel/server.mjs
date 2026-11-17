@@ -8,6 +8,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
 import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
+import { worldMap } from './map.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -373,6 +374,27 @@ export function createDuelServer({
             resting,
           }),
         );
+      return;
+    }
+    // 🗺️ The world as a drawing (map.mjs): every block, house, the tower
+    // and what stands in the rooms as plain shapes in world metres, with
+    // everyone who is in dool now. Readers outside dool draw from this.
+    if (path === '/map' && req.method === 'GET') {
+      await ready;
+      const seated = [];
+      for (const [room, r] of rooms)
+        for (const m of r.sessions.values()) {
+          const p = m.handle && r.match.seats[m.seat]?.player;
+          if (p) seated.push({ handle: m.handle, room, x: p.x, y: p.y, z: p.z });
+        }
+      res
+        .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
+        .end(JSON.stringify(worldMap({
+          geography: geography.geography,
+          tower: tower.tower,
+          seated,
+          contents: (id) => ({ tiles: store.tiles(id), objects: store.objects(id), screens: store.screens(id) }),
+        })));
       return;
     }
     // 🌍 The world around a block: itself and every open block beside it,

@@ -10,6 +10,11 @@ export const altitude = (number) => (number > 0 ? ATRIUM + (number - 1) * STOREY
 // The floor a height falls in (0 below the first).
 export const floorAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / STOREY));
 
+// The tower's frame, around the 16 m room every floor is: SLAB is a floor
+// slab's half-width, and LEG is where the four legs (and every storey's
+// corner columns) stand from the middle and how thick a leg is.
+export const SLAB = 8.35, LEG = { at: 8.15, wide: 0.7 };
+
 // The car: a glass box against the north edge of the plaza and of every
 // floor, its door to the south and the world behind its back wall. CAR is
 // its half-width inside the walls; CAR_Z is where its middle stands.

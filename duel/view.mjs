@@ -1,7 +1,7 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { podFront, house, houseWalls, HOUSE } from './park.mjs';
-import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, STOREY, ATRIUM, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { model, INK, PAPER, rgb, tint } from './paint.mjs';
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
@@ -97,7 +97,6 @@ import { spanWidth as spanWidthOf } from './highlight.mjs';
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
 // Floor paint, cycled with X: red, yellow, green, blue, purple, pink.
-const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
 // Braincells are magical purple.
 const BRAIN = 0xb46bff;
 // West, east, south, north.
@@ -143,6 +142,7 @@ import {
   seatColor,
   WORLD,
   SCREEN,
+  TILE_COLORS,
   CFG,
   direction,
   wallDistance,
@@ -403,9 +403,9 @@ export async function createView(canvas) {
     const day = paletteName === 'day', p = PALETTES[paletteName];
     const slab = day ? 0xd9dde8 : 0x30354a, edge = day ? 0xb9c0d2 : 0x232738, under = day ? 0xc9cedb : 0x262a3c;
     const post = day ? 0x9aa3b5 : 0x4b526b, sill = day ? 0xe9edf5 : 0x3a4056, column = day ? 0xaab2c6 : 0x3f455c;
-    const W = WORLD, E = W + 0.15;
+    const W = WORLD, E = LEG.at;
     // The shaft: the bay of every floor the car passes through, left open.
-    const S = W + 0.35, bayX = CAR + CAR_WALL + 0.25, bayZ = CAR_Z - CAR - CAR_WALL - 0.05;
+    const S = SLAB, bayX = CAR + CAR_WALL + 0.25, bayZ = CAR_Z - CAR - CAR_WALL - 0.05;
     // A floor-sized sheet at height y with the shaft cut out of it, as three pieces.
     const sheet = (piece) => {
       piece(-S, S, -S, bayZ);
@@ -444,7 +444,7 @@ export async function createView(canvas) {
       for (const x of [-CAR - 0.3, CAR + 0.3]) box(x, STOREY / 2 - 0.2, E, 0.14, STOREY, 0.14, post, post, post);
     });
     const legs = model(({ box }) => {
-      for (const x of [-E, E]) for (const z of [-E, E]) box(x, ATRIUM / 2 - 0.2, z, 0.7, ATRIUM - 0.4, 0.7, column, column, column);
+      for (const x of [-E, E]) for (const z of [-E, E]) box(x, ATRIUM / 2 - 0.2, z, LEG.wide, ATRIUM - 0.4, LEG.wide, column, column, column);
       for (const x of [-CAR - 0.3, CAR + 0.3]) box(x, ATRIUM / 2, E, 0.14, ATRIUM, 0.14, post, post, post);
     });
     // The floor you stand on: the room's own floor and dots, no walls.

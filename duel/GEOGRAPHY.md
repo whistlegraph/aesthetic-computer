@@ -34,8 +34,19 @@ Floors are given out oldest handle first, read from
   door names each floor as it passes and is where the floor is typed.
 
 Houses already standing on the park's lots stay; arriving no longer settles a
-new one, so `/dool/geography` (the `map` piece, the wallpaper) lists only the
-homes from before the tower.
+new one, so `/dool/geography` (the `map` piece) lists only the homes from
+before the tower.
+
+## The map
+
+`GET /dool/map` (`map.mjs`) is the world as a drawing: every block, lot and
+house, the tower, what stands in the rooms and who is there now, as plain
+shapes in world metres (`flat`, `box`, `stack`, `panel`, each with a `role`).
+Anything that shows dool from outside draws from it and keeps no geometry of
+its own; the desktop wallpaper's model does. The shapes are worked out from
+the same measurements the server and the page use, and `test/map.test.mjs`
+fails when a solid is missing. Something new that stands in the world gets
+its shapes in `map.mjs`.
 
 ## Pods and placements
 

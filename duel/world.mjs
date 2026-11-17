@@ -15,6 +15,8 @@ export const seatColor = (seat) => COLORS[((seat % COLORS.length) + COLORS.lengt
 // Half the width of the room in metres: a small studio for now, not a world.
 export const WORLD = 8;
 export const SCREEN = 40;
+// The floor's paints, by the number a painted square stores (1 to 6).
+export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
 
 const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
   type: 'box',
