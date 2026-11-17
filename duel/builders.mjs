@@ -361,11 +361,11 @@ export class Builders {
   }
   // The asking player's AC sign-in, if they have one (kept in memory only).
   handleOf(job) {
-    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === job.owner && member.handle) return member.handle;
+    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === (job.asker || job.owner) && member.handle) return member.handle;
     return null;
   }
   tokenOf(job) {
-    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === job.owner && member.token) return member.token;
+    for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === (job.asker || job.owner) && member.token) return member.token;
     return null;
   }
   // Results go to the player who asked, found by identity: their socket may
@@ -376,7 +376,7 @@ export class Builders {
     let to = open(job.client) ? job.client : null;
     if (!to && room)
       for (const [ws, member] of room.sessions || [])
-        if (member?.owner === job.owner && open(ws)) to = ws;
+        if (member?.owner === (job.asker || job.owner) && open(ws)) to = ws;
     if (to) this.send(to, message);
   }
   finish(job) {
@@ -403,7 +403,9 @@ export class Builders {
     const used = this.guestBuilds.get(owner);
     this.guestBuilds.set(owner, { day, count: (used?.day === day ? used.count : 0) + 1 });
   }
-  request(client, room, owner, seat, input, { guest = false } = {}) {
+  // `keeper`: the world's keeper may revise an object they do not own. It
+  // stays its maker's; the new version is signed and published by the keeper.
+  request(client, room, owner, seat, input, { guest = false, keeper = false } = {}) {
     const requestId = randomUUID(), startedAt = Date.now();
     try {
       if (!owner) throw Error('Identity is not ready');
@@ -413,12 +415,12 @@ export class Builders {
         typeof input.prompt === 'string' ? input.prompt.trim() : '';
       if (!prompt || prompt.length > 280 || /[\x00-\x1f]/.test(prompt))
         throw Error('Use 1–280 characters');
-      if ([...this.jobs.values()].filter((j) => j.owner === owner).length >= PER_PLAYER)
+      if ([...this.jobs.values()].filter((j) => (j.asker || j.owner) === owner).length >= PER_PLAYER)
         throw Error(`Aesel is already making ${PER_PLAYER} things for you`);
       const existing = input.objectId
         ? this.store.get(room, input.objectId)
         : null;
-      if (input.objectId && (!existing || existing.owner !== owner))
+      if (input.objectId && (!existing || (existing.owner !== owner && !keeper)))
         throw Error('Only the owner can revise this object');
       if (existing && input.baseVersion !== existing.version)
         throw Error('Object changed; reopen the prompt');
@@ -465,7 +467,8 @@ export class Builders {
       const job = {
         id: requestId,
         objectId: existing?.id || randomUUID(),
-        owner,
+        owner: existing?.owner || owner,
+        asker: owner,
         room,
         prompt,
         item,
@@ -526,8 +529,8 @@ export class Builders {
     }
   }
   static meta(job) {
-    const { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code } = job;
-    return { id, objectId, owner, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code };
+    const { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code } = job;
+    return { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code };
   }
   // Change a wall's KidLisp: a job of its own kind, handed to a builder.
   async requestKidlisp(client, room, owner, input) {
@@ -536,7 +539,7 @@ export class Builders {
       const face = ['north', 'west'].includes(input.face) ? input.face : null;
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 280) : '';
       if (!owner || !face || !prompt) throw Error('Choose a change for the wall');
-      if ([...this.jobs.values()].filter((j) => j.owner === owner).length >= PER_PLAYER)
+      if ([...this.jobs.values()].filter((j) => (j.asker || j.owner) === owner).length >= PER_PLAYER)
         throw Error(`Aesel is already making ${PER_PLAYER} things for you`);
       const worker = [...this.workers].filter(([, w]) => w.size < PER_WORKER).sort((a, b) => a[1].size - b[1].size)[0]?.[0];
       if (!worker) throw Error(this.workers.size ? 'Aesel is busy. Try again shortly.' : 'Aesel is offline');
@@ -584,7 +587,7 @@ export class Builders {
   cancel(owner, room) {
     // The newest of this player's builds.
     const job = [...this.jobs.values()].reverse().find(
-      (j) => j.owner === owner && j.room === room,
+      (j) => (j.asker || j.owner) === owner && j.room === room,
     );
     if (!job || job.finishing) return;
     this.send(job.worker, { type: 'cancel', id: job.id });

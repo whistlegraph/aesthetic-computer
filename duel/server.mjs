@@ -970,7 +970,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const pod = geography.geography.pod(key) || floor;
       const ownPod = floor ? tower.tower.owns(floor, member)
         : pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
-      if (pod && !ownPod && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+      // 🧹 The keeper may revise an object where it stands, in anyone's pod.
+      const keeping = data?.type === 'prompt' && typeof data.objectId === 'string' && !!member.handle && member.handle.toLowerCase() === keeper;
+      if (pod && !ownPod && !keeping && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
         send(ws, { type: 'build-result', error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' });
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
         return;
@@ -993,7 +995,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
-          const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token });
+          const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token, keeper: keeping });
           void refreshBraincells(ws, member);
           if (accepted) for (const ms of [20000, 90000, 180000]) {
             const timer = setTimeout(() => {
