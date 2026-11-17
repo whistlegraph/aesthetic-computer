@@ -22,6 +22,8 @@ html.preview-open { overflow: hidden; }
 .preview-zoom button, .preview-actions a { display: inline-block; border: 0; background: none; padding: 10px 12px; min-height: 40px; color: white; font: 14px/20px system-ui, sans-serif; text-decoration: none; cursor: pointer; border-radius: 5px; }
 .preview-zoom button:hover, .preview-actions a:hover { background: #ffffff20; }
 .preview-zoom button:disabled { opacity: .35; cursor: default; }
+.preview-count { padding: 0 12px 0 8px; color: #bbb; font: 13px/20px system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.preview-count:empty { display: none; }
 .preview-zoom button:focus-visible, .preview-actions a:focus-visible { outline: 2px solid white; outline-offset: -2px; }
 @media (max-width: 600px) {
   .preview-pages { margin-top: 16px; gap: 14px; }
@@ -37,3 +39,28 @@ html.preview-open { overflow: hidden; }
 .preview-formats button:hover { background: #ffffff25; }
 .preview-formats button[aria-pressed="true"]:hover { background: #eee; }
 .preview-formats button:focus-visible { outline: 2px solid #ff69b4; outline-offset: 2px; }
+.preview-formats { max-width: calc(100vw - 16px); overflow-x: auto; scrollbar-width: none; }
+.preview-formats button { flex: none; }
+/* DOM over the rendered page: selectable words, then links above them. */
+.preview-card .textLayer {
+  position: absolute; inset: 0; width: auto !important; height: auto !important; overflow: clip; line-height: 1;
+  text-align: initial; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText;
+  --min-font-size: 1; --min-font-size-inv: calc(1 / var(--min-font-size));
+  --text-scale-factor: calc(var(--total-scale-factor, 1) * var(--min-font-size));
+}
+.preview-card .textLayer :is(span, br) { position: absolute; color: transparent; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.preview-card .textLayer > :not(.markedContent), .preview-card .textLayer .markedContent span:not(.markedContent) {
+  --font-height: 0; --scale-x: 1; --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+.preview-card .textLayer .markedContent { display: contents; }
+.preview-card .textLayer ::selection { background: #ff69b455; }
+.preview-card .textLayer br::selection { background: transparent; }
+.preview-card .textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; cursor: default; user-select: none; }
+.preview-links { position: absolute; inset: 0; pointer-events: none; }
+.preview-link { position: absolute; pointer-events: auto; border-radius: 3px; cursor: pointer; transition: background .12s, box-shadow .12s; }
+.preview-link:hover, .preview-link:focus-visible { background: #ff69b430; box-shadow: 0 0 0 2px #ff69b4aa; outline: none; }
+.preview-card[data-found] { animation: preview-found 1.8s ease-out; }
+@keyframes preview-found { 0%, 40% { box-shadow: 0 0 0 5px #ff69b4, 0 3px 20px #0006; } 100% { box-shadow: 0 0 0 0 #ff69b400, 0 3px 20px #0006; } }
+@media (max-width: 600px) { .preview-count { padding: 0 8px 0 4px; font-size: 12px; } }
