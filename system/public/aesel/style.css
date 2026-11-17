@@ -74,3 +74,10 @@
 @media(max-width:600px){.uses{grid-template-columns:1fr}}
 .scene{max-width:720px;margin:0 auto 26px}.scene img{display:block;width:100%;height:auto;mix-blend-mode:multiply}
 .mimes-head{margin:18px 0 10px;text-align:center;font:normal 22px/1 Pixel,monospace;color:var(--purple);text-shadow:1px 2px #e2cdea}.mimes{list-style:none;display:flex;flex-wrap:wrap;justify-content:center;gap:7px 8px;max-width:620px;margin:0 auto 30px;padding:0}.mimes code{display:inline-block;font:11px/1 var(--mono);padding:5px 8px;border-radius:999px;background:#efe3f2;color:var(--purple);box-shadow:0 2px #e2cdea}
+/* One-pager: the landing ends at the screenshots; the rest lives at /using/. */
+.more{margin:26px 0 0;font-size:15px;color:var(--soft)}.more a{color:var(--purple)}
+.shots{padding-bottom:36px}
+footer{gap:22px}
+.page-head{text-align:center;padding:34px 0 0}.page-head .home{display:inline-flex;align-items:center;gap:10px;font:normal 26px/1 Pixel,monospace;color:var(--purple);text-decoration:none}.page-head .home img{border-radius:10px}.page-head h1{font-size:64px;margin:18px 0 20px}.page-head nav{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 10px}.page-head nav a{font:12px/1 var(--mono);padding:7px 11px;border-radius:999px;background:#efe3f2;color:var(--purple);text-decoration:none;box-shadow:0 2px #e2cdea}
+.using .band:first-of-type{margin-top:56px}.using .band{scroll-margin-top:20px}
+@media(max-width:600px){.page-head h1{font-size:46px}}
