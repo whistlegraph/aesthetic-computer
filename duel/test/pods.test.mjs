@@ -159,6 +159,31 @@ test('walking uses server position and a one-use owner-bound passage, preserving
   assert.ok(!replay.messages.some(m=>m.type==='arrival'));
 });
 
+test('a visitor walks out of the plaza and down the promenade, two blocks south, and no further', async t => {
+  const {app,connect}=await fixture(t);
+  let at=await connect('lobby'), here='lobby';
+  for(const next of ['e0s1','e0s2']){
+    const member=[...app.rooms.get(here).sessions.values()].find(m=>m.owner);
+    Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0.3,z:-7.58,y:1.7,yaw:180,pitch:0});
+    at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
+    await wait(()=>at.messages.some(m=>m.type==='travel'));
+    const travel=at.messages.find(m=>m.type==='travel');
+    assert.equal(travel.room,next);
+    const token=at.token;
+    at=await connect(next,null,token,travel.passage);
+    await wait(()=>at.messages.some(m=>m.type==='arrival'));
+    const landed=app.rooms.get(next).match.seats[[...app.rooms.get(next).sessions.values()].find(m=>m.owner).seat].player;
+    assert.ok(landed.z>7&&landed.z<7.5,'set down just inside the edge it came through');
+    assert.equal(at.messages.find(m=>m.type==='lots'),undefined,'the grounds have no lots');
+    here=next;
+  }
+  const member=[...app.rooms.get(here).sessions.values()].find(m=>m.owner);
+  Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0,z:-7.58,y:1.7});
+  at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
+  await delay(60);
+  assert.ok(!at.messages.some(m=>m.type==='travel'),'the terrace is the end of the grounds');
+});
+
 test('a pod doorway admits nearby visitors and exits at its current park placement after curation', async t => {
   const {app,connect}=await fixture(t), id=app.geography.geography.forHandle('oskie').id;
   const a=await connect('e1n0');
