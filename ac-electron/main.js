@@ -3505,9 +3505,10 @@ app.whenReady().then(async () => {
   const acDropColdLaunchFile = process.argv.slice(1).find(acDropIsAudio);
 
   // Create initial window(s).
-  // Default is menubar-daemon mode for EVERY launch — no AC window pops on its
-  // own. The user opens pieces explicitly from the tray or File menu. We only
-  // auto-open for a slab preview, deep link, or file opened onto the app.
+  // Opened by hand (the Dock, Finder, Spotlight), the app comes up with a
+  // pane. Opened by macOS at login it stays in the menu bar, and the user
+  // opens pieces from the tray or File menu. A slab preview, a deep link or
+  // a file opened onto the app brings its own window instead.
   // 🔗 Cold-launch via an aesthetic:// deep link (Windows/Linux pass it in argv;
   // macOS delivers it through the 'open-url' event instead, handled above).
   const coldLaunchLink = findDeepLinkArg(process.argv.slice(1));
@@ -3518,6 +3519,8 @@ app.whenReady().then(async () => {
     openDeepLink(coldLaunchLink);           // opened via aesthetic:// deep link
   } else if (acDropColdLaunchFile) {
     openAcPaneWindow({ piece: initialPiece }); // opened with a file argument
+  } else if (!launchedSilently) {
+    acOpenPaneIfNone(); // opened by hand: after a beat, so a deep link's own pane wins
   }
 
   if (acDropColdLaunchFile) {
@@ -3717,13 +3720,16 @@ app.on('web-contents-created', (event, contents) => {
 // wait lets a deep link or a dropped file open its own pane first, so the
 // click never makes a second one.
 let acQuietLaunch = false;
-app.on('activate', () => {
-  if (acQuietLaunch) return;
+function acOpenPaneIfNone() {
   setTimeout(() => {
     if (BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.isVisible())) return;
     if ([...windows.values()].some((w) => w.mode === 'ac-pane')) return; // a pane is on its way up
     openAcPaneWindow();
   }, 400);
+}
+app.on('activate', () => {
+  if (acQuietLaunch || !app.isReady()) return; // a cold launch opens its pane at startup, below
+  acOpenPaneIfNone();
 });
 
 app.on('window-all-closed', () => {
