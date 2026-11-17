@@ -52,6 +52,13 @@ private enum Emblem {
         return CGFloat(value)
     }()
 
+    /// Translucent cut-diamond Pals: on whenever the marks aren't bubbles;
+    /// `--no-diamonds` or `$BLUEBERRY_WALLPAPER_DIAMONDS=0` for the old matte.
+    static var diamonds: Bool {
+        if bubbles || CommandLine.arguments.contains("--no-diamonds") { return false }
+        return ProcessInfo.processInfo.environment["BLUEBERRY_WALLPAPER_DIAMONDS"] != "0"
+    }
+
     /// Glass soap-bubble marks: on for a model emblem (the Fuser mark),
     /// forced with `--bubbles` or `$BLUEBERRY_WALLPAPER_BUBBLES=1`.
     static let bubbles: Bool = {
@@ -323,6 +330,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     // the main thread nothing; the haze, the marks' tint and the menu bar's
     // backing follow the same hue a step at a time.
     private static let hueLap: Double = 300
+    private static let darkWaterSky = NSColor(srgbRed: 0.10, green: 0.16, blue: 0.34, alpha: 1)
+    private static let lightWaterSky = NSColor(srgbRed: 0.42, green: 0.62, blue: 0.98, alpha: 1)
     private let waterPlane = SCNNode()
     private let waterFilm = SCNMaterial()
     private var waterHue: CGFloat = 0.75
@@ -557,6 +566,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             if !hidden { g.opacity = Float(level * (dark ? 1.0 : 0.7)) }
         }
         CATransaction.commit()
+        if now - badgeCheckedAt > 2 {
+            badgeCheckedAt = now
+            fishery.badgeInset = badgeInset()
+            if let screen = window?.screen { fishery.topInset = max(0, screen.frame.maxY - screen.visibleFrame.maxY) }
+        }
         fishery.tick(now: now, dark: dark)
         if fishery.stocked != stocked {
             stocked = fishery.stocked
@@ -565,7 +579,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // Everything that follows the water re-tints about once a second;
         // at this pace a step is a 250th of the wheel and cannot be seen.
         waterHue = CGFloat(now.truncatingRemainder(dividingBy: Self.hueLap) / Self.hueLap)
-        if dark, stocked, abs(waterHue - appliedHue) > 0.004 { updateAppearance(animated: false) }
+        if stocked, abs(waterHue - appliedHue) > 0.004 { updateAppearance(animated: false) }
 
         // Backdrop and Pals follow the color as the level rises — at most a
         // ~70 % pull so the slab tone still shows through underneath.
@@ -637,6 +651,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         var tone = restingBackdropColor()
         // The water's middle tone; the shader paints the field itself.
         if dark, stocked { tone = NSColor(hue: waterHue, saturation: 0.72, brightness: 0.34, alpha: 1) }
+        // In the light a stocked field is daylit water: blue, leaning to
+        // aqua and to violet as the same slow wheel turns.
+        if !dark, stocked { tone = NSColor(hue: lightWaterHue, saturation: 0.50, brightness: 0.95, alpha: 1) }
         guard vibeMix > 0.005 else { return tone }
         var vibe = NSColor(srgbRed: vibeColor.r, green: vibeColor.g, blue: vibeColor.b, alpha: 1)
         // Keep the mode. Dark is an abyss: the field itself stays near
@@ -647,6 +664,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
                      : vibe.blended(withFraction: 0.55, of: .white)) ?? vibe
         return tone.blended(withFraction: vibeMix, of: vibe) ?? tone
     }
+
+    /// The light water's hue: blue, swung a little either way by the wheel.
+    private var lightWaterHue: CGFloat { 0.585 + 0.04 * sin(waterHue * 2 * .pi) }
 
     private func restingBackdropColor() -> NSColor {
         if let tint = statusTint { return tint }
@@ -669,6 +689,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             // Water: dim under the menu bar, opening up toward the floor.
             return (tone.blended(withFraction: 0.42, of: .black) ?? tone,
                     tone.blended(withFraction: 0.10, of: .white) ?? tone)
+        }
+        if stocked {
+            // Daylit water: pale under the menu bar, fuller toward the floor.
+            return (tone.blended(withFraction: 0.45, of: .white) ?? tone,
+                    tone.blended(withFraction: 0.08, of: .black) ?? tone)
         }
         if dark {
             // Deeper than before: the bottom no longer lifts toward white,
@@ -702,6 +727,28 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             .draw(in: NSRect(origin: .zero, size: size), angle: 90)
         image.unlockFocus()
         return image
+    }
+
+    private var badgeCheckedAt = 0.0
+
+    /// How far a MacPal badge parked in this screen's bottom-right corner
+    /// reaches in from the right edge, so the fishery's numbers stop short of
+    /// it. Window bounds need no screen-recording grant.
+    private func badgeInset() -> CGFloat {
+        guard let screen = window?.screen, let primary = NSScreen.screens.first,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
+        else { return 0 }
+        // CG window bounds count down from the primary screen's top-left.
+        let frame = CGRect(x: screen.frame.minX, y: primary.frame.maxY - screen.frame.maxY,
+                           width: screen.frame.width, height: screen.frame.height)
+        var inset: CGFloat = 0
+        for w in list where w[kCGWindowOwnerName as String] as? String == "MacPal" {
+            guard let b = w[kCGWindowBounds as String] as? NSDictionary,
+                  let r = CGRect(dictionaryRepresentation: b), r.intersects(frame),
+                  r.midX > frame.midX, r.maxY > frame.maxY - 200, r.width < frame.width / 3 else { continue }
+            inset = max(inset, frame.maxX - r.minX)
+        }
+        return inset
     }
 
     override func layout() {
@@ -814,6 +861,56 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             scene.rootNode.addChildNode(model)
             models.append(model)
         }
+        if Emblem.bubbles { inflateBubbles(lo: lo, hi: hi) }
+    }
+
+    /// How far each bubble has blown out from the mark: 0 clings to the
+    /// mark's own surface, the middle levels swell it, and from
+    /// `ballLevel` up it is a plain round bubble.
+    private static let balloonLevels: [Float] = [0.0, 0.22, 0.46, 0.70, 0.90]
+    private static let ballLevel: Float = 0.6
+
+    /// Give every bubble its own fit. A swollen mark gets a copy of the
+    /// mesh (the vertex data stays shared) whose surface is pushed out
+    /// along its own normals, breathing a little. Pushing it toward a ball
+    /// instead tears holes where the mark has one, so the roundest levels
+    /// are a real sphere in the mark's place.
+    private func inflateBubbles(lo: SCNVector3, hi: SCNVector3) {
+        let centre = SCNVector3((lo.x + hi.x) * 0.5, (lo.y + hi.y) * 0.5, (lo.z + hi.z) * 0.5)
+        let span = max(hi.x - lo.x, hi.y - lo.y)
+        guard let film = materials.first else { return }
+        let modifier = """
+        #pragma arguments
+        float puff;
+        float puffSeed;
+        #pragma body
+        float swell = puff * (1.0 + 0.15 * sin(scn_frame.time * 0.5 + puffSeed));
+        _geometry.position.xyz += normalize(_geometry.normal) * swell;
+        """
+        for (i, model) in models.enumerated() {
+            let level = Self.balloonLevels[(i * 3) % Self.balloonLevels.count]
+            guard level > 0 else { continue }
+            if level >= Self.ballLevel {
+                // Small: tiny bubbles drifting among the larger marks.
+                let ball = SCNSphere(radius: span * CGFloat(0.10 + 0.08 * (level - Self.ballLevel) / (1 - Self.ballLevel)))
+                ball.segmentCount = 64
+                ball.materials = [film]
+                // The ball stands in for the mark; both together read as
+                // two things stacked.
+                model.enumerateChildNodes { child, _ in child.isHidden = true }
+                let node = SCNNode(geometry: ball)
+                node.position = centre
+                model.addChildNode(node)
+                continue
+            }
+            model.enumerateChildNodes { node, _ in
+                guard let copy = node.geometry?.copy() as? SCNGeometry else { return }
+                copy.shaderModifiers = [.geometry: modifier]
+                copy.setValue(Float(span) * level * 0.10, forKey: "puff")
+                copy.setValue(Float(i) * 1.7, forKey: "puffSeed")
+                node.geometry = copy
+            }
+        }
     }
 
     func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
@@ -830,6 +927,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // Inside the renderer's own update, scene changes land in this
         // frame; made outside it they wait a run loop for their transaction.
         school.water = water
+        school.walkers = fishery.walkers
         school.sync(fishery.poses, size: fishery.bounds.size, halfHeight: Self.stageHalfHeight)
         reef.sync(fishery.reef, size: fishery.bounds.size, halfHeight: Self.stageHalfHeight)
         // Wall clock, so the water of every pane in a tank flows as one.
@@ -904,7 +1002,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         material.metalness.contents = 0.0
         material.roughness.contents = 1.0
         material.specular.contents = NSColor.black
-        if Emblem.bubbles { Self.makeBubble(material) }
+        if Emblem.bubbles { Self.makeBubble(material) } else if Emblem.diamonds { Self.makeDiamond(material) }
         model.enumerateChildNodes { node, _ in
             if let geometry = node.geometry {
                 geometry.materials = [material]
@@ -926,7 +1024,12 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         material.writesToDepthBuffer = false
         material.blendMode = .alpha
         material.transparencyMode = .singleLayer
+        // SceneKit draws a material opaque, whatever alpha its shader
+        // writes, until the material itself says it is not.
+        material.transparency = 0.999
         material.shaderModifiers = [.fragment: """
+        #pragma transparent
+        #pragma body
         float3 n = normalize(_surface.normal);
         float3 v = normalize(_surface.view);
         float facing = abs(dot(n, v));
@@ -937,8 +1040,51 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         float3 tint = _output.color.rgb;
         float3 glass = mix(tint * 0.35, iri, 0.55 + 0.45 * rim) * (0.25 + rim * 1.1);
         float glint = pow(saturate(dot(reflect(-v, n), normalize(float3(-0.4, 0.7, 0.6)))), 48.0);
-        _output.color.rgb = glass + glint * 1.4 + pow(rim, 5.0) * 0.5;
-        _output.color.a = saturate(0.08 + rim * 0.9 + glint);
+        // A thin film: almost nothing through the middle, the rim and the
+        // glint carry the shape. The target is premultiplied, so the film's
+        // colour is scaled by its own alpha; only the glint is added whole.
+        float film_a = saturate(0.05 + rim * 0.62);
+        _output.color.rgb = (glass + pow(rim, 5.0) * 0.5) * film_a + glint * 1.2;
+        _output.color.a = saturate(film_a + glint);
+        """]
+    }
+
+    /// A translucent cut stone. The smooth mesh's normals are snapped to a
+    /// coarse lattice so light breaks into flat facets; each facet throws a
+    /// sharp glint from three key lights, rainbow fire from the reflected
+    /// direction, and a bright girdle at grazing angles, while the body
+    /// stays clear enough to see the water through. Facets twinkle slowly as
+    /// the marks turn, and on the wall clock as they rest.
+    private static func makeDiamond(_ material: SCNMaterial) {
+        material.lightingModel = .constant
+        material.isDoubleSided = false
+        material.writesToDepthBuffer = false
+        material.blendMode = .alpha
+        material.transparencyMode = .singleLayer
+        material.shaderModifiers = [.fragment: """
+        float3 n0 = normalize(_surface.normal);
+        float3 v = normalize(_surface.view);
+        float3 n = normalize(floor(n0 * 2.6 + 0.5) / 2.6 + n0 * 0.08);
+        float facing = saturate(dot(n, v));
+        float rim = pow(1.0 - facing, 2.2);
+        float3 r = reflect(-v, n);
+        float t = scn_frame.time;
+        float3 tint = _output.color.rgb;
+        float3 fire = 0.5 + 0.5 * cos(6.28318 * (float3(0.0, 0.33, 0.67) + dot(r, float3(1.7, 2.3, 1.1)) + t * 0.05));
+        float g1 = pow(saturate(dot(r, normalize(float3(-0.4, 0.75, 0.55)))), 90.0);
+        float g2 = pow(saturate(dot(r, normalize(float3(0.6, 0.35, 0.7)))), 140.0);
+        float g3 = pow(saturate(dot(r, normalize(float3(0.1, -0.5, 0.85)))), 160.0);
+        float seed = fract(sin(dot(floor(n0 * 2.6 + 0.5), float3(12.9898, 78.233, 37.719))) * 43758.5453);
+        float twinkle = 0.55 + 0.45 * sin(t * (1.3 + seed * 2.2) + seed * 40.0);
+        float glint = (g1 + g2 * 0.8 + g3 * 0.6) * twinkle;
+        // Each facet catches the room differently: a checker of bright and
+        // dark windows, the way a cut stone reads.
+        float seed2 = fract(seed * 7.13 + 0.37);
+        float window = 0.18 + 0.95 * pow(seed2, 1.6) * (0.75 + 0.25 * twinkle);
+        float3 ice = mix(tint, float3(1.0), 0.55);
+        float3 col = ice * window * 0.8 + fire * (0.08 + rim * 0.55) + glint * 3.2 + pow(rim, 4.0) * 0.7;
+        _output.color.rgb = col;
+        _output.color.a = saturate(0.1 + window * 0.3 + rim * 0.55 + glint);
         """]
     }
 
@@ -974,6 +1120,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         float3 vibe;
         float paneX;
         float clock;
+        float light;
         #pragma body
         // paneX: this screen's place in a tank, in screen widths, so the
         // flow carries straight across the seam.
@@ -988,6 +1135,15 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         float3 c = value * mix(float3(1.0), wheel, 0.74);
         // With music on, the room's colour, kept deep, takes its share.
         c = mix(c, vibe * 0.14, vibeMix);
+        // Light mode: daylit water. The hue stays round blue and the
+        // currents carry it out to aqua and violet; pale under the menu
+        // bar, fuller in colour toward the floor.
+        float lhue = fract(0.585 + 0.04 * sin(baseHue * 6.28318) + flow * 0.016 + (uv.y - 0.5) * 0.07);
+        float3 lwheel = saturate(abs(fract(lhue + float3(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0);
+        float lsat = saturate(mix(0.30, 0.68, uv.y) + flow * 0.025);
+        float3 lc = mix(1.0, 0.93, uv.y) * mix(float3(1.0), lwheel, lsat);
+        lc = mix(lc, mix(vibe, float3(1.0), 0.45), vibeMix * 0.6);
+        c = mix(c, lc, light);
         c += (fract(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0;
         // Authored in display values; the target wants linear light.
         _output.color.rgb = pow(max(c, 0.0), float3(2.2));
@@ -1046,7 +1202,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         appliedHue = waterHue
         // The plane covers the gradient, so there is none to redraw then.
-        waterPlane.isHidden = !(dark && stocked)
+        waterPlane.isHidden = !stocked
+        waterFilm.setValue(Float(dark ? 0 : 1), forKey: "light")
+        school.light = !dark
         if waterPlane.isHidden {
             scene.background.contents = Self.gradientImage(top: gradient.top, bottom: gradient.bottom)
         }
@@ -1056,11 +1214,11 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         // SceneKit refilters the whole environment whenever it changes, which
         // drops a frame; morphing water keeps one fixed sky in a hue-less
         // deep blue rather than refiltering on every step of the wheel.
-        let sky: NSColor? = waterPlane.isHidden ? water : nil
+        let sky: NSColor = waterPlane.isHidden ? water
+            : (dark ? Self.darkWaterSky : Self.lightWaterSky)
         if sky != environmentTone || scene.lightingEnvironment.contents == nil {
             environmentTone = sky
-            scene.lightingEnvironment.contents = Self.waterEnvironment(
-                tone: sky ?? NSColor(srgbRed: 0.10, green: 0.16, blue: 0.34, alpha: 1))
+            scene.lightingEnvironment.contents = Self.waterEnvironment(tone: sky)
         }
         scene.lightingEnvironment.intensity = 0.7
         // macOS uses the opaque desktop window's backing color when choosing

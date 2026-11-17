@@ -38,7 +38,7 @@ swiftc -O \
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/computer.aesthetic.blueberry-wallpaper.plist "$APP/Contents/Resources/"
-cp Resources/unifont.otf "$APP/Contents/Resources/"
+cp Resources/unifont.otf Resources/chunky8.ttf "$APP/Contents/Resources/"
 
 codesign --force --options runtime --sign "$SIGN_ID" "$APP"
 echo "✓ built $APP"

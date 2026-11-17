@@ -120,26 +120,365 @@ final class HaloTextLayer: CATextLayer {
     }
 }
 
-/// GNU Unifont, the 8×16 bitmap face, for the small stats tables. It only
-/// looks right at whole multiples of 16 device pixels. Looked for beside the
-/// binary's app (Resources/) and in ~/.config/blueberry-wallpaper/.
+/// 🔭 The infra constellation, top left: every public host and tailnet machine
+/// as a star round its hub, fed by toolchain/analytics/ac-infra-probe.mjs.
+/// Vocabulary from the old three.js process tree (vscode-extension/views/
+/// process-tree.js): a ringed kernel in the middle, grey connection lines, a
+/// hot-pink pulse on a live one, the dead left dim with how long ago.
+/// Twinkles and pulses are Core Animations; nothing here runs per frame.
+final class ConstellationLayer: CALayer {
+    struct Star {
+        var id = ""
+        var name = ""
+        /// The dim half of the label: round-trip ms, or how long away.
+        var tail = ""
+        /// up | slow | late | down | away
+        var state = "up"
+        /// A tailnet machine draws as a dot; a host as a four-point star.
+        var machine = false
+        var tint = NSColor.white
+        /// Round trip in ms, 0 when there was none: paces the pulse.
+        var ms: Double = 0
+    }
+    struct Cluster { var hub = Star(); var left: [Star] = []; var right: [Star] = [] }
+    struct Style { var font: NSFont; var ink: NSColor; var halo: CGColor; var number: NSColor; var dark: Bool; var u: CGFloat; var scale: CGFloat }
+
+    /// Rebuilt when this changes.
+    var key = ""
+    private let links = CAShapeLayer()
+    private let rings = CAShapeLayer()
+    private var stars: [String: CAShapeLayer] = [:]
+    private var labels: [String: HaloTextLayer] = [:]
+    /// Each star's link, star end first, for the pulse to ride.
+    private var spokes: [(id: String, from: CGPoint, to: CGPoint, ms: Double)] = []
+    private var hubs: [(at: CGPoint, radius: CGFloat, ms: Double)] = []
+    private var unit: CGFloat = 1
+
+    static let amber = NSColor(srgbRed: 1.00, green: 0.72, blue: 0.30, alpha: 1)
+    static let red = NSColor(srgbRed: 1.00, green: 0.36, blue: 0.30, alpha: 1)
+    static let pulse = NSColor(srgbRed: 1.00, green: 0.41, blue: 0.71, alpha: 1)
+
+    private static let still: [String: CAAction] = [
+        "position": NSNull(), "bounds": NSNull(), "opacity": NSNull(), "contents": NSNull(), "hidden": NSNull(),
+        "path": NSNull(), "fillColor": NSNull(), "strokeColor": NSNull(), "sublayers": NSNull(), "lineWidth": NSNull(),
+    ]
+
+    override init() {
+        super.init()
+        actions = Self.still
+        anchorPoint = CGPoint(x: 0, y: 1)
+        for l in [links, rings] {
+            l.actions = Self.still
+            l.fillColor = nil
+            l.lineCap = .round
+            addSublayer(l)
+        }
+    }
+    override init(layer: Any) { super.init(layer: layer) }
+    required init?(coder: NSCoder) { nil }
+
+    private struct Placed {
+        var star: Star
+        var at: CGPoint
+        var label: CGRect
+        var text: NSAttributedString
+        var radius: CGFloat
+        var hub = false
+    }
+
+    private static func hash(_ s: String) -> CGFloat {
+        var h: UInt32 = 2166136261
+        for b in s.utf8 { h = (h ^ UInt32(b)) &* 16777619 }
+        return CGFloat(h % 1000) / 1000
+    }
+
+    private func words(_ s: Star, _ style: Style) -> NSAttributedString {
+        let (main, dim): (NSColor, NSColor) = {
+            switch s.state {
+            case "down": return (Self.red, Self.red.withAlphaComponent(0.85))
+            case "slow", "late": return (Self.amber, Self.amber.withAlphaComponent(0.8))
+            case "away": return (style.ink.withAlphaComponent(0.42), style.ink.withAlphaComponent(0.30))
+            default: return (style.ink.withAlphaComponent(0.92), style.number.withAlphaComponent(0.85))
+            }
+        }()
+        let name = s.name.count > 11 ? String(s.name.prefix(10)) + "…" : s.name
+        let out = NSMutableAttributedString(string: name, attributes: [.font: style.font, .foregroundColor: main])
+        if !s.tail.isEmpty {
+            out.append(NSAttributedString(string: " " + s.tail, attributes: [.font: style.font, .foregroundColor: dim]))
+        }
+        return out
+    }
+
+    /// One hub and its fan of stars, in points from the hub's centre (y up).
+    /// Stars sit on an ellipse and their names read outward from it, so a
+    /// link from the hub never runs under a name.
+    private func place(_ c: Cluster, _ style: Style, cell: CGFloat, rowH: CGFloat) -> (items: [Placed], lines: [(Int, CGPoint, CGPoint)]) {
+        let u = style.u, r = 4 * u, hubR = 6 * u, gap = 5 * u
+        let width = { (t: NSAttributedString) in ceil(t.size().width) + 2 }
+        let hubText = words(c.hub, style)
+        let hubW = width(hubText)
+        var items = [Placed(star: c.hub, at: .zero,
+                            label: CGRect(x: (-hubW / 2).rounded(), y: (-hubR - 4 * u - cell).rounded(), width: hubW, height: cell),
+                            text: hubText, radius: hubR, hub: true)]
+        let a = max(hubW / 2 + 24 * u, 54 * u)
+        let b = CGFloat(max(c.left.count, c.right.count) + 1) * rowH
+        // The fan opens upward from the hub's own row, so the hub's name
+        // underneath is clear of every link.
+        for (side, list) in [(CGFloat(-1), c.left), (1, c.right)] {
+            for (i, s) in list.enumerated() {
+                let y = (CGFloat(list.count - 1 - i) * rowH).rounded()
+                let x = (a * (1 - (y / b) * (y / b)).squareRoot() + (i % 2 == 1 ? 9 * u : 0)).rounded()
+                let text = words(s, style), w = width(text)
+                let left = side < 0 ? -x - r - gap - w : x + r + gap
+                items.append(Placed(star: s, at: CGPoint(x: side * x, y: y),
+                                    label: CGRect(x: left.rounded(), y: (y - cell / 2).rounded(), width: w, height: cell),
+                                    text: text, radius: s.machine ? r * 0.62 : r))
+            }
+        }
+        // Links start where they leave the hub's name and stop short of the star.
+        let clear = items[0].label.insetBy(dx: -4 * u, dy: -3 * u)
+        var lines: [(Int, CGPoint, CGPoint)] = []
+        for (i, p) in items.enumerated() where !p.hub {
+            let len = max(1, hypot(p.at.x, p.at.y))
+            var t0 = (hubR + 5 * u) / len
+            for step in 1...40 {
+                let t = CGFloat(step) / 40
+                if clear.contains(CGPoint(x: p.at.x * t, y: p.at.y * t)) { t0 = max(t0, t + 3 * u / len) }
+            }
+            let t1 = 1 - (p.radius + 4 * u) / len
+            guard t1 - t0 > 3 * u / len else { continue }
+            let from = CGPoint(x: p.at.x * t1, y: p.at.y * t1), to = CGPoint(x: p.at.x * t0, y: p.at.y * t0)
+            lines.append((i, from, to))
+            for (j, other) in items.enumerated() where j != i {
+                for step in 0...20 {
+                    let k = CGFloat(step) / 20
+                    if other.label.contains(CGPoint(x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k)) {
+                        print("constellation: link to \(p.star.id) runs under \(other.star.id)")
+                        break
+                    }
+                }
+            }
+        }
+        return (items, lines)
+    }
+
+    func show(_ clusters: [Cluster], style: Style) {
+        unit = style.u
+        let cell = ceil(style.font.ascender - style.font.descender)
+        let rowH = cell + 2 * style.u
+        var live = Set<String>()
+        var cursor: CGFloat = 0
+        var placed: [(items: [Placed], lines: [(Int, CGPoint, CGPoint)], box: CGRect)] = []
+        for c in clusters {
+            let p = place(c, style, cell: cell, rowH: rowH)
+            var box = CGRect.null
+            for i in p.items {
+                box = box.union(i.label).union(CGRect(x: i.at.x - i.radius, y: i.at.y - i.radius, width: i.radius * 2, height: i.radius * 2))
+            }
+            placed.append((p.items, p.lines, box.insetBy(dx: -2, dy: -2)))
+        }
+        let height = ceil(placed.map { $0.box.height }.max() ?? 0)
+        let path = CGMutablePath(), ringPath = CGMutablePath()
+        spokes.removeAll()
+        hubs.removeAll()
+        for p in placed {
+            // Hang each cluster from the top edge.
+            let dx = (cursor - p.box.minX).rounded(), dy = (height - p.box.maxY).rounded()
+            let move = { (q: CGPoint) in CGPoint(x: q.x + dx, y: q.y + dy) }
+            for (i, from, to) in p.lines {
+                path.move(to: move(from))
+                path.addLine(to: move(to))
+                spokes.append((p.items[i].star.id, move(from), move(to), p.items[i].star.ms))
+            }
+            for item in p.items {
+                let s = item.star
+                live.insert(s.id)
+                let at = move(item.at)
+                if item.hub {
+                    let ring = item.radius + 2.5 * style.u
+                    ringPath.addEllipse(in: CGRect(x: at.x - ring, y: at.y - ring, width: ring * 2, height: ring * 2))
+                    hubs.append((at, ring, s.ms))
+                }
+                let star = stars[s.id] ?? {
+                    let l = CAShapeLayer()
+                    l.actions = Self.still
+                    addSublayer(l)
+                    stars[s.id] = l
+                    return l
+                }()
+                let look = "\(s.state)\(s.machine)\(Int(item.radius * 10))\(style.dark)"
+                if star.name != look {
+                    star.name = look
+                    dress(star, s, radius: item.radius, style: style)
+                }
+                star.position = at
+                let label = labels[s.id] ?? {
+                    let l = HaloTextLayer()
+                    l.actions = Self.still
+                    l.pixelated = PixelFont.available
+                    l.isWrapped = false
+                    l.alignmentMode = .left
+                    addSublayer(l)
+                    labels[s.id] = l
+                    return l
+                }()
+                label.contentsScale = style.scale
+                let said = "\(item.text.string)\(s.state)\(style.dark)\(style.font.pointSize)"
+                if label.name != said {
+                    label.name = said
+                    label.string = item.text
+                }
+                label.halo = style.halo
+                // A pixel right and below for the hard shadow.
+                label.frame = CGRect(x: item.label.minX + dx, y: item.label.minY + dy - 2, width: item.label.width + 2, height: item.label.height + 2)
+            }
+            cursor += p.box.width + 22 * style.u
+        }
+        for (id, l) in stars where !live.contains(id) { l.removeFromSuperlayer(); stars[id] = nil }
+        for (id, l) in labels where !live.contains(id) { l.removeFromSuperlayer(); labels[id] = nil }
+        bounds = CGRect(x: 0, y: 0, width: max(0, cursor - 22 * style.u), height: height)
+        links.frame = bounds
+        links.path = path
+        links.lineWidth = max(1, style.u)
+        links.strokeColor = style.ink.withAlphaComponent(style.dark ? 0.26 : 0.34).cgColor
+        rings.frame = bounds
+        rings.path = ringPath
+        rings.lineWidth = max(1, style.u)
+        rings.strokeColor = style.ink.withAlphaComponent(0.42).cgColor
+    }
+
+    private func dress(_ layer: CAShapeLayer, _ s: Star, radius r: CGFloat, style: Style) {
+        let path = CGMutablePath()
+        if s.machine {
+            path.addEllipse(in: CGRect(x: -r, y: -r, width: r * 2, height: r * 2))
+        } else {
+            for k in 0..<8 {
+                let d = k % 2 == 0 ? r : r * 0.36, a = CGFloat(k) * .pi / 4 + .pi / 2
+                let p = CGPoint(x: cos(a) * d, y: sin(a) * d)
+                if k == 0 { path.move(to: p) } else { path.addLine(to: p) }
+            }
+            path.closeSubpath()
+        }
+        layer.path = path
+        let base = style.dark ? s.tint : (s.tint.blended(withFraction: 0.5, of: .black) ?? s.tint)
+        let color: NSColor = s.state == "down" ? Self.red : s.state == "slow" || s.state == "late" ? Self.amber
+            : s.state == "away" ? style.ink.withAlphaComponent(0.45) : base
+        // Away is a hollow dot: there, but not here.
+        layer.fillColor = s.state == "away" ? nil : color.cgColor
+        layer.strokeColor = s.state == "away" ? color.cgColor : NSColor.black.withAlphaComponent(style.dark ? 0.55 : 0.2).cgColor
+        layer.lineWidth = s.state == "away" ? max(1, style.u) : 0.5
+        layer.removeAnimation(forKey: "twinkle")
+        let (low, half): (Float, Double)
+        switch s.state {
+        case "down": (low, half) = (0.12, 0.9)                         // a slow red blink
+        case "slow", "late": (low, half) = (0.45, 2.6)
+        case "away": layer.opacity = 1; return
+        default: (low, half) = (0.62, 1.7 + Double(Self.hash(s.id)) * 1.9)
+        }
+        layer.opacity = 1
+        let twinkle = CABasicAnimation(keyPath: "opacity")
+        twinkle.fromValue = 1
+        twinkle.toValue = low
+        twinkle.duration = half
+        twinkle.autoreverses = true
+        twinkle.repeatCount = .infinity
+        twinkle.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        // Begun in the past at a phase of its own, so a rebuild never restarts it.
+        twinkle.beginTime = 1 + Double(Self.hash(s.id + "phase")) * half * 2
+        layer.add(twinkle, forKey: "twinkle")
+    }
+
+    /// A probe came back: a dot runs each answered link from the star to its
+    /// hub, taking as long as the answer did, and each hub's ring breathes out.
+    func pulse() {
+        let now = CACurrentMediaTime()
+        let run = { (layer: CALayer, parts: [CAAnimation], duration: Double) in
+            let group = CAAnimationGroup()
+            group.animations = parts
+            group.duration = duration
+            group.beginTime = now
+            group.fillMode = .both
+            group.isRemovedOnCompletion = false
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { layer.removeFromSuperlayer() }
+            layer.add(group, forKey: "life")
+            CATransaction.commit()
+        }
+        for s in spokes where s.ms > 0 {
+            let r = 1.8 * unit
+            let dot = CAShapeLayer()
+            dot.actions = Self.still
+            dot.path = CGPath(ellipseIn: CGRect(x: -r, y: -r, width: r * 2, height: r * 2), transform: nil)
+            dot.fillColor = Self.pulse.cgColor
+            dot.position = s.to
+            dot.opacity = 0
+            addSublayer(dot)
+            let move = CABasicAnimation(keyPath: "position")
+            move.fromValue = NSValue(point: s.from)
+            move.toValue = NSValue(point: s.to)
+            move.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 1, 1, 0]
+            fade.keyTimes = [0, 0.15, 0.8, 1]
+            run(dot, [move, fade], min(3.2, max(0.5, s.ms / 350)))
+        }
+        for h in hubs where h.ms > 0 {
+            let ring = CAShapeLayer()
+            ring.actions = Self.still
+            ring.path = CGPath(ellipseIn: CGRect(x: -h.radius, y: -h.radius, width: h.radius * 2, height: h.radius * 2), transform: nil)
+            ring.fillColor = nil
+            ring.strokeColor = Self.pulse.cgColor
+            ring.lineWidth = max(1, unit)
+            ring.position = h.at
+            ring.opacity = 0
+            addSublayer(ring)
+            let grow = CABasicAnimation(keyPath: "transform.scale")
+            grow.fromValue = 1
+            grow.toValue = 1.9
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0.9, 0.4, 0]
+            fade.keyTimes = [0, 0.5, 1]
+            run(ring, [grow, fade], 1.6)
+        }
+    }
+}
+
+/// MatrixChunky8, the 8-pixel bitmap face (Resources/chunky8.ttf, baked by
+/// bake-chunky8.py), with GNU Unifont behind it for the symbols it lacks.
+/// Exact at whole multiples of 8 device pixels; Unifont alone, when the
+/// chunky file is missing, at multiples of 16. Looked for beside the binary's
+/// app (Resources/) and in ~/.config/blueberry-wallpaper/.
 enum PixelFont {
-    private static let descriptor: CTFontDescriptor? = {
-        let paths = [Bundle.main.path(forResource: "unifont", ofType: "otf"),
-                     NSHomeDirectory() + "/.config/blueberry-wallpaper/unifont.otf"].compactMap { $0 }
+    private static func load(_ name: String, _ ext: String) -> CTFontDescriptor? {
+        let paths = [Bundle.main.path(forResource: name, ofType: ext),
+                     NSHomeDirectory() + "/.config/blueberry-wallpaper/\(name).\(ext)"].compactMap { $0 }
         for path in paths where FileManager.default.fileExists(atPath: path) {
             let url = URL(fileURLWithPath: path) as CFURL
+            CTFontManagerRegisterFontsForURL(url, .process, nil)
             if let list = CTFontManagerCreateFontDescriptorsFromURL(url) as? [CTFontDescriptor], let d = list.first {
                 return d
             }
         }
         return nil
+    }
+    private static let unifont = load("unifont", "otf")
+    private static let chunky = load("chunky8", "ttf")
+    private static let descriptor: CTFontDescriptor? = {
+        guard let chunky else { return unifont }
+        guard let unifont else { return chunky }
+        return CTFontDescriptorCreateCopyWithAttributes(
+            chunky, [kCTFontCascadeListAttribute: [unifont]] as CFDictionary)
     }()
     static var available: Bool { descriptor != nil }
-    /// One 16-pixel cell at this backing scale, or nil when the file is missing.
+    /// Device pixels in one cell of the face at text scale 1.
+    static var cell: CGFloat { chunky != nil ? 8 : 16 }
+    /// Type size against a 16-pixel cell: the feeder's `textScale` (1–4)
+    /// times `cell / 16`. Boxes that hold type grow by it too.
+    static var boost: CGFloat = cell / 16
+    /// One cell (times the text scale) at this backing scale, or nil when no file is there.
     static func font(scale: CGFloat) -> NSFont? {
         guard let descriptor else { return nil }
-        return CTFontCreateWithFontDescriptor(descriptor, 16 / max(1, scale.rounded()), nil) as NSFont
+        return CTFontCreateWithFontDescriptor(descriptor, 16 * boost / max(1, scale.rounded()), nil) as NSFont
     }
 }
 
@@ -174,6 +513,8 @@ final class FisheryLayer: CALayer {
         var events: [[String: Any]] = []
         var totals: [String: Any] = [:]
         var heatmaps: [[String: Any]] = []
+        /// "walkers" draws dool's little people instead of fish.
+        var school = ""
     }
 
     private struct Pending { let playAt: Double; let event: [String: Any] }
@@ -184,6 +525,17 @@ final class FisheryLayer: CALayer {
         let key: String, label: String
         let count: Double
         let spark: [CGFloat]
+        /// The feeder may bring its own glyph and colour, and say whether the
+        /// category stacks into the hour chart.
+        let style: (glyph: String, color: NSColor)?
+        let chart: Bool
+        /// Shown even at zero (e.g. "online now").
+        let keep: Bool
+    }
+    private static let chartKeys: Set<String> = ["image", "video", "model", "touchup", "audio", "other"]
+    private static func hex(_ s: String?) -> NSColor? {
+        guard let s, s.count == 7, s.hasPrefix("#"), let v = UInt32(s.dropFirst(), radix: 16) else { return nil }
+        return NSColor(srgbRed: CGFloat(v >> 16 & 255) / 255, green: CGFloat(v >> 8 & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: 1)
     }
     private var categories: [Category] = []
     private var referrers: [(String, Double)] = []
@@ -215,6 +567,8 @@ final class FisheryLayer: CALayer {
 
     /// A feeder is writing: the field is an aquarium, not an empty desktop.
     var stocked: Bool { snapshot.observedAt > 0 }
+    /// The feeder asked for walkers (aesthetic.computer) instead of fish.
+    var walkers: Bool { snapshot.school == "walkers" }
 
     private final class Fish {
         let id: String
@@ -229,6 +583,9 @@ final class FisheryLayer: CALayer {
         let sub = HaloTextLayer()
         let face = CALayer()
         var avatar = ""
+        /// The avatar as loaded, and what the baked circle was made for.
+        var faceSource: CGImage?
+        var faceKey = ""
         var skins: [String] = []
         var since: Double = 0
         var pages = 0
@@ -237,6 +594,9 @@ final class FisheryLayer: CALayer {
         var from = ""
         var subText = ""
         var subKey = -1
+        /// Ghosts: how long they were on, and when they left (Unix seconds).
+        var stayed: Double = 0
+        var leftAt: Double = 0
         var tagW: CGFloat = 0
         var size: CGFloat = 0
         var kind = "free"
@@ -280,6 +640,8 @@ final class FisheryLayer: CALayer {
     private var linkDataVersion = -1
     /// Where this screen sits in the world, and how wide one screen is.
     var viewport: CGRect = .zero
+    /// Room kept clear at the bottom-right for a MacPal badge parked there.
+    var badgeInset: CGFloat = 0
     private var fish: [String: Fish] = [:]
     private var seen = Set<String>()
     private var pending: [Pending] = []
@@ -329,7 +691,27 @@ final class FisheryLayer: CALayer {
     /// The hour as one chart, bottom right: stacked categories per minute.
     /// Where people came from (24 h), bottom left: site, bar, people.
     private let refHead = HaloTextLayer()
+    /// 🗺️ The world panel above "came from", and the feeder's `world`.
+    private var world: [String: Any] = [:]
+    private let worldFly = WorldFlyLayer()
+    private var worldVersion = ""
+    private var worldLive: [String: Any] = [:]
+    private var worldLiveStamp: Date?
+    private var worldLivePolled: CFTimeInterval = 0
+    private var worldLiveVersion = 0
+    private static let liveFile = NSHomeDirectory() + "/.local/share/blueberry-wallpaper/world.json"
+    private var worldCensus = ""
+    private let worldHead = HaloTextLayer()
+    /// 🔭 The feeder's `infra` probe and the constellation it draws, top left.
+    private var infra: [String: Any] = [:]
+    private var infraVersion = 0
+    private var infraPulsed: Double = 0
+    private let constellation = ConstellationLayer()
+    /// The menu bar's height on this screen; the constellation hangs below it.
+    var topInset: CGFloat = 0
     private var refRows: [(name: CATextLayer, bar: CALayer, count: CATextLayer)] = []
+    /// Measured text widths per row, so the columns shrink to their content.
+    private var refWidths = [(name: CGFloat, count: CGFloat)](repeating: (0, 0), count: 7)
     private let chartLabels = (0..<4).map { _ in HaloTextLayer() }
     private var chartKey = ""
 
@@ -366,6 +748,11 @@ final class FisheryLayer: CALayer {
     private var u: CGFloat { max(1, bounds.height / 850) }
     /// Type runs smaller than the fish so the school has room.
     private var tu: CGFloat { u * 0.7 }
+    /// Box and row heights that hold type: `tu` grown by the feeder's text scale.
+    private var ts: CGFloat { tu * PixelFont.boost }
+    /// Top of the bottom HUD (tiles, chart, came-from, hot list): walkers and
+    /// their tables stay above it.
+    private var hudTop: CGFloat = 0
 
     var scale: CGFloat = 2 {
         didSet { sublayersNeedScale(self) }
@@ -376,6 +763,7 @@ final class FisheryLayer: CALayer {
         actions = Self.still
         hud.actions = Self.still
         hud.isHidden = true
+        addSublayer(worldFly)
         addSublayer(hud)
         for l in [liveChip, band, bandRule, bandTag, crawl] { l.actions = Self.still }
         hud.addSublayer(band)
@@ -408,6 +796,7 @@ final class FisheryLayer: CALayer {
             hotRows.append(row)
         }
         hud.addSublayer(Self.text(refHead))
+        hud.addSublayer(Self.text(worldHead))
         for _ in 0..<7 {
             let row = (Self.text(HaloTextLayer()), CALayer(), Self.text(HaloTextLayer()))
             row.1.actions = Self.still
@@ -416,13 +805,16 @@ final class FisheryLayer: CALayer {
             refRows.append(row)
         }
         for l in chartLabels { hud.addSublayer(Self.text(l)) }
+        constellation.isHidden = true
+        addSublayer(constellation)
     }
 
     override init(layer: Any) { super.init(layer: layer) }
     required init?(coder: NSCoder) { nil }
 
     private static let darkHalo = NSColor.black.cgColor
-    private static let lightHalo = NSColor.white.cgColor
+    /// In the light, type is dark ink on a hard coloured shadow.
+    private static let lightHalo = NSColor(srgbRed: 1.0, green: 0.42, blue: 0.78, alpha: 1).cgColor
 
     private static let still: [String: CAAction] = [
         "position": NSNull(), "bounds": NSNull(), "opacity": NSNull(), "transform": NSNull(),
@@ -458,6 +850,7 @@ final class FisheryLayer: CALayer {
     private static let staffColor = NSColor(srgbRed: 0.40, green: 0.95, blue: 0.72, alpha: 1)
     private static let paidColor = NSColor(srgbRed: 1.00, green: 0.80, blue: 0.30, alpha: 1)
     private static let anonColor = NSColor(srgbRed: 0.66, green: 0.70, blue: 0.84, alpha: 1)
+    private static let ghostColor = NSColor(srgbRed: 0.86, green: 0.90, blue: 1.00, alpha: 1)
     private static let freeColor = NSColor(srgbRed: 0.52, green: 0.82, blue: 1.00, alpha: 1)
 
     private func color(for kind: String) -> NSColor {
@@ -465,6 +858,7 @@ final class FisheryLayer: CALayer {
         case "staff": return Self.staffColor
         case "paid": return Self.paidColor
         case "anon": return Self.anonColor
+        case "ghost": return Self.ghostColor
         default: return Self.freeColor
         }
     }
@@ -512,17 +906,35 @@ final class FisheryLayer: CALayer {
             fish: obj["fish"] as? [[String: Any]] ?? [],
             events: obj["events"] as? [[String: Any]] ?? [],
             totals: obj["totals"] as? [String: Any] ?? [:],
-            heatmaps: obj["heatmaps"] as? [[String: Any]] ?? [])
+            heatmaps: obj["heatmaps"] as? [[String: Any]] ?? [],
+            school: obj["school"] as? String ?? "")
+        world = obj["world"] as? [String: Any] ?? [:]
+        infra = obj["infra"] as? [String: Any] ?? [:]
+        infraVersion += 1
         let totals = snapshot.totals
         categories = (totals["categories"] as? [[String: Any]] ?? []).compactMap { row in
             guard let key = row["key"] as? String else { return nil }
+            let own = Self.hex(row["color"] as? String).map { (glyph: row["glyph"] as? String ?? "•", color: $0) }
             return Category(key: key, label: row["label"] as? String ?? key, count: Self.num(row["count"]),
-                            spark: (row["spark"] as? [NSNumber])?.map { CGFloat($0.doubleValue) } ?? [])
+                            spark: (row["spark"] as? [NSNumber])?.map { CGFloat($0.doubleValue) } ?? [],
+                            style: own ?? Self.categoryStyle[key],
+                            chart: row["chart"] as? Bool ?? Self.chartKeys.contains(key),
+                            keep: row["keep"] as? Bool ?? false)
         }
         referrers = (totals["referrers"] as? [[String: Any]] ?? []).map {
             ($0["domain"] as? String ?? "", Self.num($0["people"])) }
         let direct = Self.num(totals["directPeople"])
         if direct > 0 { referrers.insert(("direct", direct), at: 0) }
+        let boost = CGFloat(max(1, min(4, Self.num(obj["textScale"], 1).rounded()))) * PixelFont.cell / 16
+        if boost != PixelFont.boost {
+            PixelFont.boost = boost
+            for f in fish.values { dress(f) }
+            for t in tiles.values { t.number.name = nil; t.caption.name = nil }
+            for r in refRows { r.name.name = nil }
+            for r in hotRows { r.name = nil }
+            refHead.name = nil
+            chartKey = ""
+        }
         dataVersion += 1
         absorb(now: now)
         return true
@@ -545,13 +957,17 @@ final class FisheryLayer: CALayer {
             f.clicks = Int(Self.num(row["clicks"]))
             f.place = row["where"] as? String ?? ""
             f.from = row["from"] as? String ?? ""
+            f.stayed = Self.num(row["stayed"])
+            f.leftAt = Self.num(row["leftAt"])
             f.skins = row["skins"] as? [String] ?? []
             let avatar = row["avatar"] as? String ?? ""
             if avatar != f.avatar {
                 f.avatar = avatar
                 let image = avatar.isEmpty ? nil : NSImage(contentsOfFile: avatar)
-                f.face.contents = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
-                f.face.isHidden = f.face.contents == nil
+                f.faceSource = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                f.faceKey = ""
+                f.face.contents = nil
+                f.face.isHidden = f.faceSource == nil
             }
             f.generations = Int(Self.num(row["generations"]))
             f.lastAt = Self.num(row["lastAt"])
@@ -613,8 +1029,11 @@ final class FisheryLayer: CALayer {
         f.root.addSublayer(f.body)
         f.tag.actions = Self.still
         f.face.actions = Self.still
-        f.face.masksToBounds = true
-        f.face.contentsGravity = .resizeAspectFill
+        // The circle, its edge and its ring are baked into the bitmap at
+        // device pixels (see `faceBitmap`), so the layer only places it.
+        f.face.contentsGravity = .resize
+        f.face.magnificationFilter = .linear
+        f.face.minificationFilter = .trilinear
         f.face.isHidden = true
         f.root.addSublayer(f.tag)
         f.tag.addSublayer(Self.text(f.label))
@@ -629,7 +1048,8 @@ final class FisheryLayer: CALayer {
 
     private func dress(_ f: Fish) {
         let anon = f.kind == "anon"
-        let len: CGFloat = (anon ? 22 : 40 + CGFloat(min(f.generations, 12)) * 3) * u
+        let len: CGFloat = walkers ? (anon ? 34 : 50 + CGFloat(min(f.generations, 12)) * 2) * u
+                                   : (anon ? 22 : 40 + CGFloat(min(f.generations, 12)) * 3) * u
         let c = color(for: f.kind)
         if len != f.length {
             f.length = len
@@ -661,10 +1081,12 @@ final class FisheryLayer: CALayer {
                         : face(NSFont.systemFont(ofSize: max(11, 15 * tu), weight: .heavy)),
             .foregroundColor: NSColor(cgColor: ink(anon ? 0.7 : 0.95)) ?? .white,
         ])
-        f.label.halo = dark ? Self.darkHalo : Self.lightHalo
+        // In the light each fish's type sits on a shadow of its own colour.
+        f.label.halo = dark ? Self.darkHalo
+            : (c.blended(withFraction: 0.35, of: .white) ?? c).withAlphaComponent(1).cgColor
         f.sub.halo = f.label.halo
         // Even whole widths, so a centred label starts on a pixel.
-        f.label.bounds = CGRect(x: 0, y: 0, width: (((anon ? 600 : 240) * u) / 2).rounded() * 2,
+        f.label.bounds = CGRect(x: 0, y: 0, width: (((anon ? 600 : 240) * u * PixelFont.boost) / 2).rounded() * 2,
                                 height: PixelFont.available ? ceil(((f.label.string as? NSAttributedString)?.size().height ?? 16) + 2) : 21 * tu)
         f.label.anchorPoint = CGPoint(x: 0.5, y: 0)
         f.label.alignmentMode = .center
@@ -678,15 +1100,60 @@ final class FisheryLayer: CALayer {
         f.sub.borderColor = c.cgColor
         // Avatar sits just left of the name, a circle as tall as the type.
         let nameW = (f.label.string as? NSAttributedString)?.size().width ?? 0
-        f.tagW = nameW + 34 * tu
-        let side = 22 * tu
+        // Whole device pixels, so the baked bitmap maps one to one.
+        let side = (28 * tu * scale).rounded() / scale
+        f.tagW = nameW + side + 12 * tu
         f.face.bounds = CGRect(x: 0, y: 0, width: side, height: side)
-        f.face.cornerRadius = side / 2
-        f.face.borderWidth = 1.2 * u
-        f.face.borderColor = c.cgColor
-        f.face.position = CGPoint(x: -nameW / 2 - side / 2 - 6 * tu, y: 10.5 * tu)
+        f.face.contentsScale = scale
+        let facePixels = Int((side * scale).rounded())
+        let faceKey = "\(f.avatar)|\(facePixels)|\(f.kind)|\(dark)"
+        if faceKey != f.faceKey, let source = f.faceSource {
+            f.faceKey = faceKey
+            f.face.contents = Self.faceBitmap(source, pixels: facePixels, ring: c.cgColor,
+                                              ringWidth: max(1, (1.2 * u * scale).rounded()))
+        }
+        let faceX = ((-nameW / 2 - side / 2 - 6 * tu) * scale).rounded() / scale
+        f.face.position = CGPoint(x: faceX, y: (10.5 * tu * scale).rounded() / scale)
         f.subText = "" // redraw the sub-line in the new appearance
         f.subKey = -1
+    }
+
+    /// A round avatar at exact device pixels. A profile picture is some ten
+    /// times the size it is shown at; left to the compositor that reduction
+    /// comes out coarse and jagged. Here it is halved step by step with
+    /// smooth interpolation, then clipped to an antialiased circle with its
+    /// tier ring drawn on.
+    private static func faceBitmap(_ image: CGImage, pixels: Int, ring: CGColor, ringWidth: CGFloat) -> CGImage? {
+        guard pixels > 0, let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        func canvas(_ w: Int, _ h: Int) -> CGContext? {
+            let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            ctx?.interpolationQuality = .high
+            ctx?.setShouldAntialias(true)
+            return ctx
+        }
+        var current = image
+        while current.width >= pixels * 4, current.height >= pixels * 4 {
+            let w = current.width / 2, h = current.height / 2
+            guard let ctx = canvas(w, h) else { break }
+            ctx.draw(current, in: CGRect(x: 0, y: 0, width: w, height: h))
+            guard let half = ctx.makeImage() else { break }
+            current = half
+        }
+        guard let ctx = canvas(pixels, pixels) else { return nil }
+        let p = CGFloat(pixels)
+        let disc = CGRect(x: 0, y: 0, width: p, height: p).insetBy(dx: 0.5, dy: 0.5)
+        ctx.saveGState()
+        ctx.addEllipse(in: disc)
+        ctx.clip()
+        let fill = max(p / CGFloat(current.width), p / CGFloat(current.height))
+        let w = CGFloat(current.width) * fill, h = CGFloat(current.height) * fill
+        ctx.draw(current, in: CGRect(x: (p - w) / 2, y: (p - h) / 2, width: w, height: h))
+        ctx.restoreGState()
+        ctx.setStrokeColor(ring)
+        ctx.setLineWidth(ringWidth)
+        ctx.strokeEllipse(in: disc.insetBy(dx: ringWidth / 2, dy: ringWidth / 2))
+        return ctx.makeImage()
     }
 
     private func swim(_ f: Fish, t: Double, dt: CGFloat, remote: RemoteFish? = nil) {
@@ -702,15 +1169,16 @@ final class FisheryLayer: CALayer {
             f.x = r.x; f.homeY = r.homeY; f.dir = r.dir; f.facing = r.facing
             f.alpha = r.alpha; f.glow = r.glow; f.boost = r.boost; f.lunge = r.lunge
             f.leaving = r.leaving
-            f.y = f.homeY + (sin(tt * 0.55 + f.phase) * 9 + sin(tt * 1.7 + f.phase * 2) * 2) * u
+            f.y = walkers ? f.homeY : f.homeY + (sin(tt * 0.55 + f.phase) * 9 + sin(tt * 1.7 + f.phase * 2) * 2) * u
             f.depth = r.depth
         } else {
         let w = bounds.width
-        let target: CGFloat = f.leaving ? 0 : 1
+        let ghost = f.kind == "ghost"
+        let target: CGFloat = f.leaving ? 0 : ghost ? 0.3 : 1
         f.alpha += (target - f.alpha) * min(1, dt * (f.leaving ? 0.6 : 1.5))
         // Leaving fish speed up toward the edge they're facing.
         // Far fish cover less screen: parallax.
-        let pace = f.speed * (0.45 + 0.85 * f.depth) * (1 + f.boost * 2.2) * (f.leaving ? 2.4 : 1)
+        let pace = f.speed * (0.45 + 0.85 * f.depth) * (1 + f.boost * 2.2) * (f.leaving ? 2.4 : 1) * (ghost ? 0.45 : 1)
         f.x += f.dir * pace * dt
         if !f.leaving {
             // Off one side, back in on the other.
@@ -727,7 +1195,7 @@ final class FisheryLayer: CALayer {
             f.homeY += (f.targetY - f.homeY) * min(1, dt * 0.07)
         }
         f.facing += (f.dir - f.facing) * min(1, dt * 4)
-        f.y = f.homeY + (sin(tt * 0.55 + f.phase) * 9 + sin(tt * 1.7 + f.phase * 2) * 2) * u
+        f.y = walkers ? f.homeY : f.homeY + (sin(tt * 0.55 + f.phase) * 9 + sin(tt * 1.7 + f.phase * 2) * 2) * u
         f.boost *= pow(0.5, dt / 1.2)
         f.glow *= pow(0.5, dt / 0.9)
         f.lunge *= pow(0.5, dt / 3)
@@ -770,13 +1238,13 @@ final class FisheryLayer: CALayer {
             f.sub.position = CGPoint(x: 0, y: tagY - 2 * u)
         }
         updateSub(f, now: t)
-        let tilt = sin(tt * 1.1 + f.phase) * 0.06
+        let tilt = walkers ? 0 : sin(tt * 1.1 + f.phase) * 0.06
         f.body.transform = CATransform3DRotate(CATransform3DMakeScale(f.facing, 1, 1), tilt, 0, 0, 1)
         let wag = sin(tt * (4 + f.boost * 10) + f.phase) * (0.22 + f.boost * 0.3)
         f.tail.transform = CATransform3DMakeRotation(wag, 0, 0, 1)
         f.body.shadowRadius = (2 + f.glow * 10) * u
         // Facing +x is yaw 0, -x is π; a slow sway shows the body's volume.
-        let yaw = (1 - f.facing) * 0.5 * .pi + sin(tt * 0.8 + f.phase) * 0.32
+        let yaw = (1 - f.facing) * 0.5 * .pi + sin(tt * 0.8 + f.phase) * (walkers ? 0.12 : 0.32)
         poses.append(Pose(id: f.id, x: f.x, y: f.y, length: size, depth: f.depth, yaw: yaw, tilt: tilt * 2,
                           wag: wag * 1.6, color: color(for: f.kind), alpha: f.alpha,
                           glow: f.glow,
@@ -801,7 +1269,7 @@ final class FisheryLayer: CALayer {
             let table = f.sub.isHidden ? 0 : f.sub.bounds.height
             let labelH = f.label.isHidden ? 0 : f.label.bounds.height
             let low = f.y - f.size * 0.3 - Self.subGap * self.u - labelH - 2 * self.u - table - m
-            let high = f.y + f.size * 0.24 + m
+            let high = f.y + f.size * (self.walkers ? 0.72 : 0.24) + m
             return CGRect(x: f.x - half, y: low, width: half * 2, height: high - low)
         }
         let boxes = school.map(box)
@@ -815,20 +1283,24 @@ final class FisheryLayer: CALayer {
                 lower.homeY -= push * 0.5
             }
         }
-        let floor = 112 * u, ceiling = bounds.height - 34 * u - 7 * 19 * u
+        let floor = max(112 * u, hudTop + 10 * u), ceiling = bounds.height - 34 * u - 7 * 19 * u
         for f in school {
-            let low = floor + f.size * 0.3
-            let high = ceiling - f.size * 0.24 - 44 * u
+            // The name and table hang below the body; they clear the HUD too.
+            let labelH = f.label.isHidden ? 0 : f.label.bounds.height
+            let table = f.sub.isHidden ? 0 : f.sub.bounds.height
+            let low = floor + f.size * 0.3 + Self.subGap * u + labelH + 2 * u + table
+            let high = ceiling - f.size * (walkers ? 0.72 : 0.24) - 44 * u
             f.homeY = min(max(f.homeY, low), max(low, high))
         }
     }
 
-    /// Unifont at the whole multiple of 16 device pixels nearest the size the
-    /// system face would have had; the system face when the file is missing.
+    /// The pixel face at the whole multiple of its cell that stands in for
+    /// the system face's size; the system face when the file is missing.
     func face(_ system: NSFont) -> NSFont {
         guard let base = PixelFont.font(scale: scale) else { return system }
         let px = system.pointSize * scale
         let cells = max(1, min(3, (px / 16 + 0.25).rounded(.down)))
+        // `base` already carries the boost.
         return NSFont(descriptor: base.fontDescriptor, size: base.pointSize * cells) ?? base
     }
 
@@ -847,13 +1319,19 @@ final class FisheryLayer: CALayer {
     /// keys dim, values coloured by type. Redrawn only when it changes.
     private func updateSub(_ f: Fish, now: Double) {
         // Everything in the box moves at most once a minute or per file.
-        let key = (f.since > 0 ? max(0, Int(now - f.since) / 60) : 0) &* 31 &+ dataVersion
+        let clockFrom = f.leftAt > 0 ? f.leftAt : f.since
+        let key = (clockFrom > 0 ? max(0, Int(now - clockFrom) / 60) : 0) &* 31 &+ dataVersion
         guard key != f.subKey else { return }
         f.subKey = key
         var rows: [(String, String, NSColor)] = []
         // One Unifont symbol per key keeps the table narrow.
+        let span = { (s: Int) -> String in let m = s / 60; return m < 1 ? "<1m" : m < 60 ? "\(m)m" : "\(m / 60)h \(m % 60)m" }
+        if f.leftAt > 0 {
+            rows.append(("⏱", "stayed " + span(Int(f.stayed)), codeTime))
+            rows.append(("↩", "left " + span(Int(now - f.leftAt)) + " ago", codeKey))
+        }
         if !f.place.isEmpty { rows.append(("⌖", f.place, codeString)) }
-        if f.since > 0 {
+        if f.since > 0, f.leftAt == 0 {
             let m = max(0, Int(now - f.since) / 60)
             rows.append(("⏱", m < 60 ? "\(m)m" : "\(m / 60)h \(m % 60)m", codeTime))
         }
@@ -929,7 +1407,7 @@ final class FisheryLayer: CALayer {
         case "generation": words = credits > 0 ? "\(text)  \(credits)cr" : text
         case "failed": words = "✕ \(text)"
         case "signup": words = "new"
-        default: words = kind
+        default: words = text.isEmpty ? kind : text
         }
         bubble(words, at: at, color: c, big: kind == "generation")
         if kind == "generation" || kind == "signup" {
@@ -953,7 +1431,7 @@ final class FisheryLayer: CALayer {
         case "signup": what = "signed up"
         case "publish": what = "published"
         case "workflow": what = "new workflow"
-        default: what = kind
+        default: what = text.isEmpty ? kind : text
         }
         ticker.insert((at, name, what, kind), at: 0)
         if ticker.count > 24 { ticker.removeLast(ticker.count - 24) }
@@ -1052,6 +1530,18 @@ final class FisheryLayer: CALayer {
             .font: font, .foregroundColor: NSColor(cgColor: ink(alpha)) ?? .white])
     }
 
+    /// Trims to `width` with an ellipsis set in the same face. CATextLayer's
+    /// own truncation token comes from another font and knocks a Unifont row
+    /// off its baseline.
+    private func fitted(_ s: String, size: CGFloat, weight: NSFont.Weight, width: CGFloat) -> String {
+        let font = face(NSFont.systemFont(ofSize: size, weight: weight))
+        let measure = { (t: String) in ceil((t as NSString).size(withAttributes: [.font: font]).width) }
+        guard measure(s) > width else { return s }
+        var cut = s
+        while !cut.isEmpty, measure(cut + "…") > width { cut.removeLast() }
+        return cut + "…"
+    }
+
     private func layoutHUD(now: Double, dt: CGFloat) {
         hud.isHidden = snapshot.observedAt == 0
         guard !hud.isHidden else { return }
@@ -1075,9 +1565,17 @@ final class FisheryLayer: CALayer {
         tallyText.forEach { $0.number.isHidden = true; $0.caption.isHidden = true }
         var x = pad
         var shown: [Tile] = []
-        let tileH = 26 * tu
+        let tileH = 26 * ts
+        hudTop = baseY + tileH + 16 * ts
+        // A site that fell out of the feed has no row to lay it out again:
+        // put its tile away, or it stays where it last stood, under the others.
+        let live = Set(categories.map(\.key))
+        for (key, tile) in tiles where !live.contains(key) {
+            tile.root.isHidden = true
+            tile.feed = -1; tile.target = 0; tile.shown = 0
+        }
         for row in categories {
-            guard let style = Self.categoryStyle[row.key] else { continue }
+            guard let style = row.style else { continue }
             let key = row.key
             let count = row.count
             let tile = tiles[key] ?? {
@@ -1093,7 +1591,7 @@ final class FisheryLayer: CALayer {
             let gap = tile.target - tile.shown
             tile.shown += gap * Double(min(1, dt * 2.2))
             if abs(gap) < 0.5 { tile.shown = tile.target }
-            tile.root.isHidden = tile.target < 0.5 && tile.shown < 0.5
+            tile.root.isHidden = !row.keep && tile.target < 0.5 && tile.shown < 0.5
             guard !tile.root.isHidden else { continue }
             let digits = Int(tile.shown.rounded()).formatted()
             if tile.number.name != digits + (dark ? "d" : "l") {
@@ -1112,69 +1610,222 @@ final class FisheryLayer: CALayer {
                 tile.capW = ceil(tile.caption.preferredFrameSize().width)
             }
             let headW = tile.headW, capW = tile.capW
-            let tileW = max(headW, capW, 64 * tu)
-            tile.root.frame = CGRect(x: x, y: baseY, width: tileW, height: tileH + 16 * tu)
-            tile.caption.frame = CGRect(x: 0, y: 0, width: tileW, height: 13 * tu)
-            tile.number.frame = CGRect(x: 0, y: 12 * tu, width: headW + 4, height: tileH)
+            let tileW = max(headW, capW, 64 * ts)
+            tile.root.frame = CGRect(x: x, y: baseY, width: tileW, height: tileH + 16 * ts)
+            tile.caption.frame = CGRect(x: 0, y: 0, width: tileW, height: 13 * ts)
+            tile.number.frame = CGRect(x: 0, y: 12 * ts, width: headW + 4, height: tileH)
             shadow(tile.number)
             shadow(tile.caption)
-            x += tileW + 26 * tu
+            x += tileW + 26 * ts
             shown.append(tile)
         }
         // Right-align the row against the screen's bottom-right corner.
-        let rowW = max(0, x - 26 * tu - pad)
-        let shift = w - pad - rowW - pad
+        let rowW = max(0, x - 26 * ts - pad)
+        let right = w - pad - (badgeInset > 0 ? badgeInset + 4 * ts : 0)
+        let shift = right - rowW - pad
         for tile in shown { tile.root.frame.origin.x += shift }
         // In a tank this lands whole on the last screen, above its tiles.
-        layoutChart(right: w - pad, bottom: baseY + tileH + 30 * tu, width: min(max(rowW, 420 * tu), screenW - 2 * pad))
-        layoutReferrers(left: pad, bottom: baseY, shadow: shadow)
-        // The ticker sits along the bottom, left-aligned beside "came from",
-        // so the top of the screen stays clear for MacPal's lanes.
-        let refRight = pad + (150 + 150 + 54) * tu + 6 * tu
-        layoutHot(now: now, left: refRight + 40 * u, bottom: baseY, width: min(900 * tu, screenW * 0.5), dt: dt, shadow: shadow)
+        let chartW = min(max(rowW, 320 * ts), screenW - 2 * pad)
+        layoutChart(right: right, bottom: baseY + tileH + 30 * ts, width: chartW)
+        if let chart = reef?.frame, chart.width > 0 { hudTop = max(hudTop, chart.maxY + 16 * ts) }
+        let refRight = layoutReferrers(left: pad, bottom: baseY, shadow: shadow)
+        if !refHead.isHidden { hudTop = max(hudTop, refHead.frame.maxY) }
+        layoutWorld(left: pad, bottom: (refHead.isHidden ? baseY : refHead.frame.maxY) + 14 * ts, shadow: shadow)
+        // Three columns along the bottom: came-from, the ticker, then the
+        // tiles under their chart. The ticker takes what the other two leave,
+        // so it never runs under the numbers or the chart's axis.
+        let gutter = 28 * ts
+        let hotLeft = refRight + gutter
+        let hotRoom = right - chartW - gutter - hotLeft
+        layoutHot(now: now, left: hotLeft, bottom: baseY, width: min(900 * ts, screenW * 0.5, hotRoom), dt: dt, shadow: shadow)
     }
 
     /// Sixty minutes of generations, each a stack of its categories' colours,
     /// with a time axis and the busiest minute marked. Redrawn only when the
     /// feeder's numbers change.
-    private func layoutReferrers(left: CGFloat, bottom: CGFloat, shadow: (CALayer) -> Void) {
+    /// Name, bar, count — each column as wide as its content. Returns the
+    /// block's right edge.
+    private func layoutReferrers(left: CGFloat, bottom: CGFloat, shadow: (CALayer) -> Void) -> CGFloat {
         let rows = Array(referrers.prefix(refRows.count))
-        let rowH = 17 * tu
-        let nameW = 150 * tu, barW = 150 * tu, countW = 54 * tu
-        // Scale to the biggest real source; direct would flatten the rest.
-        let top = rows.filter { $0.0 != "direct" }.map { $0.1 }.max() ?? 1
+        let rowH = 17 * ts
+        let nameMax = 150 * ts, barW = 96 * ts, gap = 8 * ts
+        let size = max(11, 12 * tu)
         refHead.isHidden = rows.isEmpty
+        guard !rows.isEmpty else {
+            for row in refRows { for l in [row.name, row.bar, row.count] as [CALayer] { l.isHidden = true } }
+            return left
+        }
         let headKey = "came from · 24h\(dark)"
         if refHead.name != headKey {
             refHead.name = headKey
             refHead.string = attributed("came from · last 24h", size: max(11, 10 * tu), weight: .heavy, alpha: 0.55)
         }
-        refHead.frame = CGRect(x: left, y: bottom + CGFloat(rows.count) * rowH + 4 * tu, width: 300 * tu, height: 14 * tu)
+        refHead.frame = CGRect(x: left, y: bottom + CGFloat(rows.count) * rowH + 4 * ts, width: 300 * ts, height: 14 * ts)
         shadow(refHead)
+        for (i, row) in refRows.enumerated() where i < rows.count {
+            let (domain, people) = rows[i]
+            let key = "\(domain)\(Int(people))\(dark)\(Int(nameMax))"
+            guard row.name.name != key else { continue }
+            row.name.name = key
+            let direct = domain == "direct"
+            row.name.string = attributed(fitted(domain, size: size, weight: .bold, width: nameMax), size: size,
+                                         weight: direct ? .semibold : .bold, alpha: direct ? 0.6 : 0.92)
+            row.count.string = attributed(Int(people).formatted(), size: size, weight: .heavy, alpha: direct ? 0.6 : 0.9, mono: true)
+            refWidths[i] = (min(nameMax, ceil(row.name.preferredFrameSize().width)), ceil(row.count.preferredFrameSize().width))
+        }
+        let nameW = refWidths.prefix(rows.count).map { $0.name }.max() ?? 0
+        let countW = refWidths.prefix(rows.count).map { $0.count }.max() ?? 0
+        // One square-root scale for every row: direct can dwarf the sources
+        // without flattening them to nothing.
+        let top = max(rows.map { $0.1 }.max() ?? 1, 1)
+        let barX = left + nameW + gap
         for (i, row) in refRows.enumerated() {
             let visible = i < rows.count
             for l in [row.name, row.bar, row.count] as [CALayer] { l.isHidden = !visible }
             guard visible else { continue }
             let (domain, people) = rows[i]
             let y = bottom + CGFloat(rows.count - 1 - i) * rowH
-            let key = "\(domain)\(Int(people))\(dark)"
-            if row.name.name != key {
-                row.name.name = key
-                row.name.string = attributed(domain, size: max(11, 12 * tu), weight: domain == "direct" ? .semibold : .bold,
-                                             alpha: domain == "direct" ? 0.6 : 0.92)
-                row.count.string = attributed(Int(people).formatted(), size: max(11, 12 * tu), weight: .heavy, alpha: 0.9, mono: true)
-            }
-            row.name.frame = CGRect(x: left, y: y, width: nameW, height: rowH)
-            row.count.frame = CGRect(x: left + nameW + barW + 6 * tu, y: y, width: countW, height: rowH)
-            // Bars share one scale; direct is drawn quieter so the sources stand out.
-            let fill = min(1, CGFloat(people / max(top, 1)))
-            row.bar.frame = CGRect(x: left + nameW, y: y + rowH * 0.3, width: max(2, barW * fill), height: rowH * 0.42)
+            let barLen = max(3 * ts, barW * CGFloat((people / top).squareRoot()))
+            row.name.frame = CGRect(x: left, y: y, width: nameW + 2, height: rowH)
+            row.bar.frame = CGRect(x: barX, y: y + rowH * 0.3, width: barLen, height: rowH * 0.42)
             row.bar.cornerRadius = rowH * 0.21
             row.bar.backgroundColor = (domain == "direct" ? NSColor(cgColor: ink(0.25)) ?? .gray
                                                           : NSColor(srgbRed: 0.45, green: 0.80, blue: 1.0, alpha: 0.85)).cgColor
+            // The count rides the end of its own bar.
+            row.count.alignmentMode = .left
+            row.count.frame = CGRect(x: barX + barLen + gap * 0.75, y: y, width: countW + 2, height: rowH)
             shadow(row.name)
             shadow(row.count)
         }
+        return barX + barW + gap * 0.75 + countW
+    }
+
+    /// The world from the air (FlyBy.swift), a small wireframe model in the
+    /// bottom left corner above "came from", and the census under it.
+    private func layoutWorld(left: CGFloat, bottom: CGFloat, shadow: (CALayer) -> Void) {
+        // ⚡ The feeder's fast lane (world.json): dool's map again, written
+        // whenever it changes and looked for twice a second. It wins over
+        // the snapshot's copy.
+        let clock = CACurrentMediaTime()
+        if clock - worldLivePolled > 0.5 {
+            worldLivePolled = clock
+            let stamp = (try? FileManager.default.attributesOfItem(atPath: Self.liveFile))?[.modificationDate] as? Date
+            if stamp != worldLiveStamp {
+                worldLiveStamp = stamp
+                worldLive = FileManager.default.contents(atPath: Self.liveFile)
+                    .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+                worldLiveVersion += 1
+            }
+        }
+        let map = worldLive["structure"] != nil ? worldLive : world
+        let empty = (map["structure"] as? [Any] ?? []).isEmpty
+        worldFly.isHidden = empty
+        worldHead.isHidden = empty
+        guard !empty else { return }
+        let panel = CGRect(x: left, y: bottom + 18 * ts, width: (250 * u).rounded(), height: (156 * u).rounded())
+        let version = "\(worldLiveVersion)\(dataVersion)\(dark)\(Int(ts * 100))\(scale)\(panel.size)"
+        if worldVersion != version {
+            worldVersion = version
+            let drawn = WorldFlyLayer.World(map)
+            worldCensus = drawn.census
+            worldFly.show(drawn, size: panel.size,
+                          style: .init(font: face(NSFont.systemFont(ofSize: max(11, 10 * tu), weight: .heavy)),
+                                       ink: NSColor(cgColor: ink()) ?? .white,
+                                       halo: dark ? Self.darkHalo : Self.lightHalo, scale: scale))
+        }
+        let title = worldCensus
+        if worldHead.name != title + (dark ? "d" : "l") {
+            worldHead.name = title + (dark ? "d" : "l")
+            worldHead.string = attributed(title, size: max(11, 10 * tu), weight: .heavy, alpha: 0.55)
+        }
+        worldFly.anchorPoint = .zero
+        worldFly.position = panel.origin
+        worldHead.frame = CGRect(x: left, y: bottom, width: 420 * ts, height: 14 * ts)
+        shadow(worldHead)
+    }
+
+    /// Hosts round lith, tailnet machines round this Mac, hung from the top
+    /// left of the first screen in the strip the walkers keep out of.
+    /// Rebuilt when the probe, the appearance or the type changes.
+    private func layoutConstellation(now: Double) {
+        let nodes = infra["nodes"] as? [[String: Any]] ?? []
+        let at = Self.num(infra["observedAt"])
+        let fresh = !nodes.isEmpty && now - at < 300
+        constellation.isHidden = !fresh
+        guard fresh else { return }
+        let top = bounds.height - topInset - 10 * u
+        let font = face(NSFont.systemFont(ofSize: max(11, 12 * tu), weight: .bold))
+        let cell = ceil(font.ascender - font.descender)
+        // Walkers stop 167 units from the top (see spaceOut); the hub's name
+        // takes a row and a half under the fan.
+        let rows = max(3, Int((top - (bounds.height - 167 * u) - cell * 1.5 - 12 * u) / (cell + 2 * u)) + 1)
+        let key = "\(infraVersion)\(dark)\(PixelFont.boost)\(rows)\(scale)\(Int(u * 100))"
+        if constellation.key != key {
+            constellation.key = key
+            constellation.contentsScale = scale
+            constellation.show(clusters(nodes, rows: rows, now: now),
+                               style: .init(font: font, ink: NSColor(cgColor: ink()) ?? .white,
+                                            halo: dark ? Self.darkHalo : Self.lightHalo, number: codeNumber,
+                                            dark: dark, u: u, scale: scale))
+        }
+        constellation.position = CGPoint(x: (16 * u).rounded(), y: top.rounded())
+        if at != infraPulsed {
+            infraPulsed = at
+            constellation.pulse()
+        }
+    }
+
+    /// Tints from the old process tree's categories.
+    private static let infraTint: [String: NSColor] = [
+        "kernel": NSColor(srgbRed: 0.53, green: 0.80, blue: 1.00, alpha: 1),
+        "proxy": NSColor(srgbRed: 0.42, green: 0.62, blue: 1.00, alpha: 1),
+        "db": NSColor(srgbRed: 1.00, green: 0.92, blue: 0.42, alpha: 1),
+        "dev": NSColor(srgbRed: 0.42, green: 1.00, blue: 0.62, alpha: 1),
+        "bridge": NSColor(srgbRed: 1.00, green: 0.66, blue: 0.42, alpha: 1),
+    ]
+
+    private func clusters(_ nodes: [[String: Any]], rows: Int, now: Double) -> [ConstellationLayer.Cluster] {
+        typealias Star = ConstellationLayer.Star
+        let white = NSColor(white: 0.97, alpha: 1)
+        let host = { (n: [String: Any]) -> Star in
+            let state = n["state"] as? String ?? "up", ms = Self.num(n["ms"])
+            let tail = state == "down" || state == "late" ? state
+                : "\(Int(ms))" + (n["note"] as? String == "baking" ? " ⚒" : "")
+            return Star(id: "h:" + (n["id"] as? String ?? ""), name: n["id"] as? String ?? "", tail: tail, state: state,
+                        tint: Self.infraTint[n["kind"] as? String ?? ""] ?? white, ms: state == "up" || state == "slow" ? ms : 0)
+        }
+        // The hub is whatever most hosts hang off (lith).
+        var counts: [String: Int] = [:]
+        for n in nodes { counts[n["parent"] as? String ?? "", default: 0] += 1 }
+        let hubID = counts.filter { !$0.key.isEmpty }.max { $0.value < $1.value }?.key ?? ""
+        var out: [ConstellationLayer.Cluster] = []
+        if let hub = nodes.first(where: { $0["id"] as? String == hubID }) {
+            let up = nodes.first { $0["id"] as? String == hub["parent"] as? String }
+            let around = Array(nodes.filter { $0["parent"] as? String == hubID }.prefix(rows * 2 - (up == nil ? 0 : 1)))
+            let leftCount = (around.count + (up == nil ? 0 : 1) + 1) / 2 - (up == nil ? 0 : 1)
+            // The edge sits on lith's own row, straight to its left.
+            let left = around.prefix(leftCount).map(host) + (up.map { [host($0)] } ?? [])
+            out.append(.init(hub: host(hub), left: left, right: around.dropFirst(leftCount).map(host)))
+        }
+        guard let tailnet = infra["tailnet"] as? [String: Any], let me = tailnet["self"] as? [String: Any] else { return out }
+        let ago = { (seen: Double) -> String in
+            guard seen > 0 else { return "" }
+            let s = max(0, now - seen)
+            return s < 5400 ? "\(Int(s / 60))m" : s < 172800 ? "\(Int(s / 3600))h" : "\(Int(s / 86400))d"
+        }
+        // Machines that are already a host star above are not drawn twice.
+        let peers = (tailnet["peers"] as? [[String: Any]] ?? []).filter { ($0["node"] as? String ?? "").isEmpty }.prefix(rows * 2)
+        let machines = peers.map { p -> Star in
+            let online = p["online"] as? Bool ?? false
+            return Star(id: "m:" + (p["name"] as? String ?? ""), name: p["name"] as? String ?? "",
+                        tail: online ? "" : ago(Self.num(p["lastSeen"])), state: online ? "up" : "away", machine: true, tint: white)
+        }
+        let slowLink = infra["uplink"] as? String == "slow"
+        let leftCount = (machines.count + 1) / 2
+        out.append(.init(hub: Star(id: "m:self", name: me["name"] as? String ?? "this mac", tail: slowLink ? "slow link" : "",
+                                   state: slowLink ? "slow" : "up", tint: Self.infraTint["kernel"] ?? white),
+                         left: Array(machines.prefix(leftCount)), right: Array(machines.dropFirst(leftCount))))
+        return out
     }
 
     private func layoutChart(right: CGFloat, bottom: CGFloat, width: CGFloat) {
@@ -1184,8 +1835,8 @@ final class FisheryLayer: CALayer {
         guard key != chartKey else { return }
         chartKey = key
         var stacks = [[(NSColor, CGFloat)]](repeating: [], count: 60)
-        for row in categories where ["image", "video", "model", "touchup", "audio", "other"].contains(row.key) {
-            guard let c = Self.categoryStyle[row.key]?.color else { continue }
+        for row in categories where row.chart {
+            guard let c = row.style?.color else { continue }
             for (i, v) in row.spark.prefix(60).enumerated() where v > 0 { stacks[i].append((c, v)) }
         }
         let totalsPerMinute = stacks.map { $0.reduce(0) { $0 + $1.1 } }
@@ -1193,7 +1844,9 @@ final class FisheryLayer: CALayer {
         // The columns themselves are drawn in 3D by Reef.
         reef = ReefData(frame: frame, stacks: stacks, peak: peak, version: (reef?.version ?? 0) + 1)
         let peakAt = totalsPerMinute.firstIndex(of: peak) ?? 0
-        let words = ["60 min ago", "30", "now", "peak \(Int(peak))/min"]
+        // The peak rides the axis line with "now"; floating over the columns it
+        // collided with the tallest ones.
+        let words = ["60 min ago", "30", "now · peak \(Int(peak))/min", ""]
         for (i, label) in chartLabels.enumerated() {
             label.string = attributed(words[i], size: max(11, 9 * tu), weight: i == 3 ? .bold : .semibold, alpha: 0.55)
             let lw = ceil(label.preferredFrameSize().width)
@@ -1204,7 +1857,8 @@ final class FisheryLayer: CALayer {
             case 2: x = frame.maxX - lw
             default: x = min(frame.maxX - lw, max(frame.minX, frame.minX + frame.width * CGFloat(peakAt) / 60 - lw / 2))
             }
-            label.frame = CGRect(x: x, y: i == 3 ? frame.maxY + 2 * tu : frame.minY - 13 * tu, width: lw + 2, height: 12 * tu)
+            label.isHidden = words[i].isEmpty
+            label.frame = CGRect(x: x, y: frame.minY - 13 * ts, width: lw + 2, height: 12 * ts)
         }
     }
 
@@ -1265,29 +1919,35 @@ final class FisheryLayer: CALayer {
     /// rows thin out with age until five minutes have passed.
     private func layoutHot(now: Double, left: CGFloat, bottom: CGFloat, width: CGFloat, dt: CGFloat,
                            shadow: (CALayer) -> Void) {
-        let rowH = 19 * tu
+        let rowH = 19 * ts
         if let newest = ticker.first, newest.at != hotTop {
             if hotTop > 0 { hotSlide = rowH }
             hotTop = newest.at
         }
         hotSlide *= pow(0.5, dt / 0.18)
         hot.frame = bounds
+        let shownRows = min(hotRows.count, max(3, Int(7 / PixelFont.boost)))
+        hudTop = max(hudTop, bottom + CGFloat(shownRows) * rowH)
         for (i, row) in hotRows.enumerated() {
-            guard i < ticker.count else { row.isHidden = true; continue }
+            guard i < ticker.count, i < shownRows else { row.isHidden = true; continue }
             let e = ticker[i]
             let age = max(0, now - e.at)
-            let fade = CGFloat(max(0, 1 - age / 300))
-            row.isHidden = fade <= 0
+            // Eased, so a line stays readable for most of its five minutes.
+            let fade = pow(CGFloat(max(0, 1 - age / 300)), 0.4)
+            row.isHidden = fade <= 0 || width < 120 * ts
             guard !row.isHidden else { continue }
-            let key = "\(e.at)\(e.who)\(e.what)\(dark)"
+            let key = "\(e.at)\(e.who)\(e.what)\(dark)\(Int(width))"
             if row.name != key {
             row.name = key
+            // Hours and minutes only: the row's place and fade carry the rest.
             let s = NSMutableAttributedString(attributedString:
-                attributed(Self.clock.string(from: Date(timeIntervalSince1970: e.at)) + "   ",
+                attributed(String(Self.clock.string(from: Date(timeIntervalSince1970: e.at)).dropLast(3)) + "  ",
                            size: max(11, 11 * tu), weight: .semibold, alpha: 0.5, mono: true))
             s.append(attributed(e.who + "  ", size: max(11, 13 * tu), weight: .heavy))
-            s.append(NSAttributedString(string: e.what, attributes: [
-                .font: face(NSFont.systemFont(ofSize: max(11, 13 * tu), weight: .bold)),
+            let size = max(11, 13 * tu)
+            let room = max(0, width - ceil(s.size().width))
+            s.append(NSAttributedString(string: fitted(e.what, size: size, weight: .bold, width: room), attributes: [
+                .font: face(NSFont.systemFont(ofSize: size, weight: .bold)),
                 .foregroundColor: color(forEvent: e.kind)]))
             row.string = s
             }
@@ -1399,6 +2059,7 @@ final class FisheryLayer: CALayer {
             fish[id] = nil
         }
         layoutHUD(now: now, dt: dt)
+        layoutConstellation(now: now)
         CATransaction.commit()
     }
 }
@@ -1410,6 +2071,8 @@ final class FishSchool {
     let root = SCNNode()
     /// The wallpaper's emblem (the Fuser mark); employees wear a small one.
     var badge: SCNNode?
+    /// Draw dool's little people (aesthetic.computer) instead of fish.
+    var walkers = false
 
     private final class Body {
         let node = SCNNode()
@@ -1433,11 +2096,31 @@ final class FishSchool {
         // when something actually moved.
         var tier: NSColor?
         var water: NSColor?
+        var light = false
         var hazeStep = -1
         var emissive: NSColor?
         var glowStep = -1
+        // Walkers only: hinged legs and arms, a white head and hands, and
+        // the shirt colour dool gives each seat.
+        var walker = false
+        let paper = SCNMaterial()
+        var cloth: NSColor?
+        var legs: [SCNNode] = []
+        var arms: [SCNNode] = []
+        var stride: CGFloat = 0
+        var lastX: CGFloat?
+        var blinkAt: Double = 0
+        var eyes: [SCNNode] = []
     }
     private var bodies: [String: Body] = [:]
+
+    /// dool's seat colours (duel/world.mjs COLORS) and its purple brain.
+    private static let doolColors: [UInt32] = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40]
+    private static let brain: UInt32 = 0xb46bff
+    private static func rgb(_ v: UInt32, _ k: CGFloat = 1) -> NSColor {
+        NSColor(srgbRed: min(1, CGFloat(v >> 16 & 255) / 255 * k), green: min(1, CGFloat(v >> 8 & 255) / 255 * k),
+                blue: min(1, CGFloat(v & 255) / 255 * k), alpha: 1)
+    }
 
     // Generation stills decode on a background queue; a frame only ever
     // picks up finished images. `nil` marks a file that failed.
@@ -1476,6 +2159,9 @@ final class FishSchool {
 
     /// The colour far fish fade into; the wallpaper keeps it on its backdrop.
     var water = NSColor(srgbRed: 0.03, green: 0.03, blue: 0.08, alpha: 1)
+    /// Light appearance: rims deepen toward this so bodies hold on pale water.
+    var light = false
+    private static let lightEdge = NSColor(srgbRed: 0.04, green: 0.06, blue: 0.30, alpha: 1)
 
     init() {
         root.position = SCNVector3(0, 0, 0.8)
@@ -1490,6 +2176,7 @@ final class FishSchool {
     }
 
     private func build(_ id: String) -> Body {
+        if walkers { return buildWalker(id) }
         let b = Body()
         // Physically based so the scene's environment light wraps each
         // body; a clear coat gives the wet sheen.
@@ -1596,6 +2283,106 @@ final class FishSchool {
         return b
     }
 
+    /// One of dool's people (duel/view.mjs `fighters`): a shirt-coloured torso
+    /// and limbs, a white head under a purple brain cap, white hands, two
+    /// dark eyes. Built in dool's metres facing +z, then fitted to the fish's
+    /// unit: one unit tall, feet at -0.3 so the name hangs just below them,
+    /// turned to face +x like a fish.
+    private func buildWalker(_ id: String) -> Body {
+        let b = Body()
+        b.walker = true
+        var h: UInt64 = 1469598103934665603
+        for c in id.utf8 { h = (h ^ UInt64(c)) &* 1099511628211 }
+        b.cloth = Self.rgb(Self.doolColors[Int(h % UInt64(Self.doolColors.count))])
+        for m in [b.skin, b.paper] {
+            m.lightingModel = .physicallyBased
+            m.metalness.contents = 0.0
+            m.roughness.contents = 0.55
+        }
+        b.paper.diffuse.contents = NSColor.white
+        b.rim.lightingModel = .constant
+        b.rim.cullMode = .front
+        b.rim.diffuse.contents = NSColor.white
+        b.glow.lightingModel = .constant
+        b.glow.cullMode = .front
+        b.glow.blendMode = .add
+        b.glow.writesToDepthBuffer = false
+        b.glow.diffuse.contents = NSColor.black
+        let flat = { (c: NSColor) -> SCNMaterial in
+            let m = SCNMaterial()
+            m.lightingModel = .physicallyBased
+            m.metalness.contents = 0.0
+            m.roughness.contents = 0.5
+            m.diffuse.contents = c
+            return m
+        }
+        let brain = flat(Self.rgb(Self.brain)), lobe = flat(Self.rgb(Self.brain, 1.1)), fold = flat(Self.rgb(Self.brain, 0.55))
+        let ink = SCNMaterial()
+        ink.lightingModel = .constant
+        ink.diffuse.contents = NSColor(white: 0.07, alpha: 1)
+
+        let line: CGFloat = 0.045 // metres of rim around each block
+        @discardableResult
+        func box(_ parent: SCNNode, _ x: CGFloat, _ y: CGFloat, _ z: CGFloat,
+                 _ w: CGFloat, _ hh: CGFloat, _ d: CGFloat, _ m: SCNMaterial, rim: Bool = true) -> SCNNode {
+            let g = SCNBox(width: w, height: hh, length: d, chamferRadius: 0)
+            g.materials = [m]
+            let n = SCNNode(geometry: g)
+            n.position = SCNVector3(x, y, z)
+            parent.addChildNode(n)
+            if rim, let hull = g.copy() as? SCNGeometry {
+                hull.materials = [b.rim]
+                let o = SCNNode(geometry: hull)
+                o.scale = SCNVector3(1 + 2 * line / w, 1 + 2 * line / hh, 1 + 2 * line / d)
+                o.renderingOrder = -1
+                n.addChildNode(o)
+            }
+            return n
+        }
+        // dool's figure spans 0.22 m (sole) to 1.925 m (brain top).
+        let fit = SCNNode()
+        let k: CGFloat = 1 / 1.705
+        fit.scale = SCNVector3(k, k, k)
+        fit.position = SCNVector3(0, -0.3 - 0.22 * k, 0)
+        fit.eulerAngles = SCNVector3(0, CGFloat.pi / 2, 0)
+        b.turn.addChildNode(fit)
+
+        let torso = box(fit, 0, 1.02, 0, 0.42, 0.62, 0.26, b.skin)
+        if let g = torso.geometry?.copy() as? SCNGeometry {
+            g.materials = [b.glow]
+            let hull = SCNNode(geometry: g)
+            hull.scale = SCNVector3(1 + 0.3 / 0.42, 1 + 0.3 / 0.62, 1 + 0.3 / 0.26)
+            hull.renderingOrder = -2
+            hull.isHidden = true
+            torso.addChildNode(hull)
+            b.glowHull = hull
+        }
+        box(fit, 0, 1.59, 0, 0.44, 0.42, 0.36, b.paper)
+        box(fit, 0, 1.835, 0, 0.36, 0.09, 0.3, brain)
+        box(fit, -0.09, 1.89, 0, 0.15, 0.06, 0.26, lobe, rim: false)
+        box(fit, 0.09, 1.89, 0, 0.15, 0.06, 0.26, lobe, rim: false)
+        box(fit, 0, 1.88, 0, 0.012, 0.07, 0.27, fold, rim: false)
+        for side: CGFloat in [-1, 1] {
+            b.eyes.append(box(fit, side * 0.095, 1.6, 0.181, 0.07, 0.07, 0.012, ink, rim: false))
+            // Legs hinge at the hip, arms at the shoulder (dool's heights).
+            let hip = SCNNode()
+            hip.position = SCNVector3(side * 0.15, 0.68, 0)
+            box(hip, 0, -0.23, 0, 0.13, 0.46, 0.16, b.skin)
+            fit.addChildNode(hip)
+            b.legs.append(hip)
+            let shoulder = SCNNode()
+            shoulder.position = SCNVector3(side * 0.3, 1.27, 0)
+            box(shoulder, 0, -0.23, 0, 0.13, 0.46, 0.16, b.skin)
+            box(shoulder, 0, -0.5, 0, 0.16, 0.17, 0.2, b.paper)
+            fit.addChildNode(shoulder)
+            b.arms.append(shoulder)
+        }
+        b.node.addChildNode(b.turn)
+        root.addChildNode(b.node)
+        bodies[id] = b
+        return b
+    }
+
     /// Put a generation on the body: stills as textures, videos as muted
     /// loops. An empty path goes back to the plain tier colour.
     private func wear(_ b: Body, _ path: String) {
@@ -1643,18 +2430,29 @@ final class FishSchool {
         var live = Set<String>()
         for p in poses {
             live.insert(p.id)
-            let b = bodies[p.id] ?? build(p.id)
+            var found = bodies[p.id]
+            if let old = found, old.walker != walkers {
+                old.player?.pause()
+                old.node.removeFromParentNode()
+                found = nil
+            }
+            let b = found ?? build(p.id)
             // Haze: far fish sink toward the water's colour, in 48 steps so
             // a slow drift in depth is not a new material every frame.
             let hazeStep = Int(((1 - p.depth) * 48).rounded())
-            if b.hazeStep != hazeStep || b.tier !== p.color || b.water !== water {
+            if b.hazeStep != hazeStep || b.tier !== p.color || b.water !== water || b.light != light {
                 b.hazeStep = hazeStep
+                b.light = light
                 b.tier = p.color
                 b.water = water
                 let haze = CGFloat(hazeStep) / 48 * 0.22
-                b.skin.diffuse.contents = p.color.blended(withFraction: haze, of: water) ?? p.color
+                let base = b.cloth ?? p.color
+                b.skin.diffuse.contents = base.blended(withFraction: haze, of: water) ?? base
+                if b.walker { b.paper.diffuse.contents = NSColor.white.blended(withFraction: haze, of: water) ?? .white }
                 // The rim stays the pure tier colour, only lightly hazed with depth.
-                b.rim.diffuse.contents = p.color.blended(withFraction: haze * 0.35, of: water) ?? p.color
+                // In the light it is deepened, so a body reads against pale water.
+                let edge = light ? (p.color.blended(withFraction: 0.42, of: Self.lightEdge) ?? p.color) : p.color
+                b.rim.diffuse.contents = edge.blended(withFraction: haze * 0.35, of: water) ?? edge
             }
             // Fuser staff: a hot-pink rim that blinks, with a glow shell
             // breathing with it. Wall clock, so every pane of a tank agrees.
@@ -1693,14 +2491,34 @@ final class FishSchool {
                 crown.removeFromParentNode()
                 b.crown = nil
             }
-            if p.skin != b.wearing { wear(b, p.skin) }
+            if !b.walker, p.skin != b.wearing { wear(b, p.skin) }
             let s = p.length * k
             // The drifting marks sit at z 0 (root +1.2): far fish pass behind them.
             b.node.position = SCNVector3((p.x - size.width / 2) * k, (p.y - size.height / 2) * k, p.depth * 2.4 - 2)
             b.node.scale = SCNVector3(s, s, s)
             b.node.opacity = p.alpha
-            b.turn.eulerAngles = SCNVector3(0, p.yaw, p.tilt)
-            b.tail.eulerAngles = SCNVector3(0, p.wag, 0)
+            if b.walker {
+                // Steps follow the ground actually covered, so feet never
+                // skate: about one stride per body length.
+                let moved = b.lastX.map { abs(p.x - $0) } ?? 0
+                b.lastX = p.x
+                if moved < p.length { b.stride += moved / max(1, p.length * 0.16) }
+                let swing = sin(b.stride)
+                for (i, leg) in b.legs.enumerated() { leg.eulerAngles = SCNVector3((i == 0 ? swing : -swing) * 0.6, 0, 0) }
+                for (i, arm) in b.arms.enumerated() { arm.eulerAngles = SCNVector3((i == 0 ? -swing : swing) * 0.45, 0, 0) }
+                // Three-quarter view: the walk leans toward the glass, and a
+                // turn swings round through facing it.
+                let yaw = -p.yaw - 0.6 * cos(p.yaw)
+                b.turn.eulerAngles = SCNVector3(0, yaw, 0)
+                b.turn.position = SCNVector3(0, abs(swing) * 0.025, 0)
+                let now = Date().timeIntervalSince1970
+                if now > b.blinkAt + 0.14 { b.blinkAt = now + Double.random(in: 2...5) }
+                let shut = now > b.blinkAt && now < b.blinkAt + 0.14
+                for e in b.eyes { e.scale = SCNVector3(1, shut ? 0.18 : 1, 1) }
+            } else {
+                b.turn.eulerAngles = SCNVector3(0, p.yaw, p.tilt)
+                b.tail.eulerAngles = SCNVector3(0, p.wag, 0)
+            }
         }
         for (id, b) in bodies where !live.contains(id) {
             b.player?.pause()

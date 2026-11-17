@@ -58,9 +58,11 @@ app bundle to the Trash before replacing it.
 ## Fuser minis: fishery, one push, one tank
 
 On panda and chicken the field carries a live fishery (`Sources/Fishery.swift`)
-fed by the vault's `fuser-fishery` agent. All of its type is GNU Unifont
-(`Resources/unifont.otf`, 17.0.03), at whole multiples of 16 device pixels with
-no antialiasing and a hard one-pixel shadow.
+fed by the vault's `fuser-fishery` agent. All of its type is MatrixChunky8
+(`Resources/chunky8.ttf`, baked from `duel/chunky-font.mjs` by
+`bake-chunky8.py`) at whole multiples of 8 device pixels, with GNU Unifont
+(`Resources/unifont.otf`, 17.0.03) behind it for symbols, no antialiasing and
+a hard one-pixel shadow. dool is a small isometric model in the bottom left corner.
 
 ```bash
 ./push-minis.sh               # compile + swap on panda and chicken at once
@@ -75,3 +77,73 @@ leader simulates every fish and streams them over loopback; a reverse SSH tunnel
 from the leader carries that port to each follower, so the app never listens
 off-loopback and neither firewall is involved. Followers draw 0.18 s behind,
 interpolated, and fall back to their own feed when the stream stops.
+
+## aesthetic.computer: walkers
+
+`toolchain/analytics/ac-fishery-wallpaper.mjs` feeds the same layer from Lith
+(signed-in handles from `account-activity`, anonymous interacted visits from
+`network-visits`, an hour of visits per site, 24 h of referrers) and asks for
+`school: "walkers"`: everyone is drawn as one of dool's people (shirt in a dool
+seat colour, white head, purple brain cap, legs stepping with the ground they
+cover) instead of a fish. Feeder categories may bring their own `glyph`,
+`color` and `chart`. Agent: `computer.aesthetic.ac-fishery.plist`.
+
+## dool from the air
+
+In the bottom left corner, above "came from", sits dool as a small wireframe
+model (`Sources/FlyBy.swift`): the plaza with the tower over it (legs, glass
+lobby, the car and its shaft, a slab a floor), every open block with its lots
+and houses, the next six blocks of the spiral drawn faint, and what stands in
+each room. It is seen whole from an isometric angle, with no perspective and
+no frame, and swings slowly side to side; the census sits under it.
+
+The model is drawn from dool's own map and from nothing else:
+
+    dool server  GET /dool/map (duel/map.mjs)
+      → feeder   ac-fishery-wallpaper.mjs passes it through as `world`,
+                 and again as world.json whenever it changes
+      → FlyBy    draws the shapes it is given
+
+`duel/map.mjs` works every shape out from the measurements the server walks
+people against and the page draws from, and `duel/test/map.test.mjs` fails
+when a solid is missing from it. The feeder imports nothing from `duel/` and
+FlyBy holds none of dool's measurements, so neither can fall out of step.
+A shape is a `flat`, `box`, `stack` or `panel` with a `role`; FlyBy colours
+the roles it knows and draws any other in plain ink. To put something new on
+the wallpaper, add its shapes to `duel/map.mjs` and deploy dool.
+
+The ground is to scale. The tower is to scale for as many floors as fit
+(`rise` in FlyBy), then broken: three dots, its top two slabs, and the number
+of the top floor. Someone on a floor above the break stands on the top slab
+with their floor number after their handle.
+
+The fast lane asks for the map every second while someone is in dool and
+every five otherwise; the wallpaper looks for world.json twice a second. The
+swing starts over only when what stands for good changes, or the rooms gain
+their first thing or lose their last.
+
+## Infra constellation
+
+Top left, in the strip the walkers keep out of: every public host as a star
+fanned round lith, and every tailnet machine as a dot round this Mac.
+`toolchain/analytics/ac-infra-probe.mjs` runs beside each feeder tick and rides
+the feed as `infra`:
+
+    { observedAt, medianMs, uplink: ok|slow,
+      nodes:   [{ id, parent, kind, state: up|slow|late|down, ms, coldMs, status, note }],
+      tailnet: { state, self: { name, online },
+                 peers: [{ name, os, online, lastSeen, direct, node }] } }
+
+Per host it makes one HTTPS GET (up or not, by the doctor's rule) and one HEAD
+down the same warm connection (`ms`, the round trip). No SSH. `late` is one
+lost request, `down` two in a row; `slow` is over 600 ms and twice the median.
+Tailnet names come from the local `tailscale status --json` at run time; a
+peer whose name carries a host's id rides on that host's star. When Lith's
+SSH call fails the last snapshot is rewritten with the fresh probe, so the
+outage shows.
+
+Up twinkles, slow and late are amber, down is red and blinks, away machines
+are hollow with how long ago. A pink dot runs each link when a probe answers,
+taking as long as the answer did. `⚒` beside the oven means it is baking.
+Peers past what the strip holds (two columns of rows) are dropped, longest
+away first.

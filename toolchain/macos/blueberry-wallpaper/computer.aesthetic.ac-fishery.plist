@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- AC fishery feeder: writes ~/.local/share/blueberry-wallpaper/fishery.json
+     for the wallpaper's walkers. Install: copy to ~/Library/LaunchAgents and
+     launchctl bootstrap gui/$(id -u) it. Paths are neo's. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>computer.aesthetic.ac-fishery</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/jas/.local/share/fnm/node-versions/v24.18.1/installation/bin/node</string>
+    <string>/Users/jas/aesthetic-computer/toolchain/analytics/ac-fishery-wallpaper.mjs</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/jas/aesthetic-computer</string>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>Nice</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/jas/.local/share/blueberry-wallpaper/ac-fishery.log</string>
+  <key>StandardErrorPath</key><string>/Users/jas/.local/share/blueberry-wallpaper/ac-fishery.log</string>
+</dict>
+</plist>
