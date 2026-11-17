@@ -519,3 +519,10 @@ export async function generateBlendSequence({
   if (r.status !== 0) return { ok: false, error: `concat ffmpeg exit ${r.status}`, segments: segPaths };
   return { ok: true, outPath, segments: segPaths, seconds: (Date.now() - t0) / 1000 };
 }
+
+// Any fal queue endpoint that answers { video: { url } }: the same submit,
+// resume, poll and download as the Seedance entry points, for models this
+// file has no wrapper for yet (Seedance 2.5, MiniMax H3 Max, …).
+export function generateModelShot({ endpoint, input, outPath, label = "shot", log = console.log }) {
+  return runQueueJob({ endpoint, input, outPath, label, log });
+}
