@@ -11,7 +11,6 @@
     clock melody_string
 
   Base octave is 4 unless first note specifies octave (e.g., 5cdefg uses octave 5)
-  Use Up/Down arrow keys to change base octave during playback
   
   🎵 NEW: Notepat Keyboard Notation Support!
   Use notepat keyboard characters for compact sharp and octave notation:
@@ -563,6 +562,10 @@ const stampleCache = new Map();
 let netPreload = null;
 let soundRef = null;
 
+// The octave switcher (bottom-left - 4 + buttons and the Up/Down arrow keys)
+// is switched off for now: it read as confusing. A melody still sets its own
+// octave with a leading digit (`5cdefg`). Flip this to bring the switcher back.
+const OCTAVE_SWITCHER = false;
 // UI Buttons for octave control
 let octaveMinusBtn, octavePlusBtn;
 // `?nolabel` is how the reel farm (capture-av) loads a piece: a clean frame
@@ -1331,7 +1334,7 @@ function paint({
     clockDrawn = true;
 
     // Paint octave control buttons (only if typeface is loaded)
-    if (!hideOctave && typeface?.glyphs?.["0"]?.resolution) {
+    if (OCTAVE_SWITCHER && !hideOctave && typeface?.glyphs?.["0"]?.resolution) {
       const octaveText = `${octave}`;
       const glyphWidth = typeface.glyphs["0"].resolution[0];
       const padding = 4; // Padding on left and right of octave number
@@ -1529,6 +1532,7 @@ function paint({
     const tapingOffset = api.system?.taping ? 1 : 0; // Move up 1 pixel when taping
     const startY = screen.height - buttonHeight - tapingOffset;
 
+    if (OCTAVE_SWITCHER) {
     // Paint minus button with proper state handling
     octaveMinusBtn?.paint((btn) => {
       const disabled = octave <= 1;
@@ -1577,6 +1581,8 @@ function paint({
       });
     });
 
+    } // OCTAVE_SWITCHER
+
     // Paint sequence indicator for sequential melodies (next to octave controls)
     if (melodyState && melodyState.type === "sequential" && melodyState.sequences) {
       const currentSeq = melodyState.sequences[melodyState.currentSequence];
@@ -1585,8 +1591,8 @@ function paint({
       const loopNum = (currentSeq?.currentLoop || 0);
       const totalLoops = currentSeq?.loopCount || 1;
       
-      // Position to the right of the octave buttons
-      const seqX = startX + totalWidth + 4;
+      // Position to the right of the octave buttons (or flush left without them)
+      const seqX = OCTAVE_SWITCHER ? startX + totalWidth + 4 : startX;
       const seqY = startY;
       
       // Visual block-based indicator - SQUARE blocks
@@ -1646,7 +1652,7 @@ function paint({
     const octaveTextWidth = `${octave}`.length * glyphWidth + padding * 2;
     const buttonWidth = 16;
     const buttonHeight = 16;
-    const octaveEndX = buttonWidth + octaveTextWidth + buttonWidth;
+    const octaveEndX = OCTAVE_SWITCHER ? buttonWidth + octaveTextWidth + buttonWidth : 0;
     const badgeY = screen.height - buttonHeight + 2;
     sound.paint.audioEngineBadge(
       { ink, screen },
@@ -4506,7 +4512,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
   }
 
   // Handle keyboard input for octave changes
-  if (e.is("keyboard:down:arrowup")) {
+  if (OCTAVE_SWITCHER && e.is("keyboard:down:arrowup")) {
     // Increase octave (max 8)
     if (octave < 8) {
       const oldOctave = octave;
@@ -4524,7 +4530,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
     }
   }
 
-  if (e.is("keyboard:down:arrowdown")) {
+  if (OCTAVE_SWITCHER && e.is("keyboard:down:arrowdown")) {
     // Decrease octave (min 1)
     if (octave > 1) {
       const oldOctave = octave;
@@ -4567,7 +4573,10 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
       triggeredAsteriskPositions = [];
 
       // Re-parse the original melody to reset all mutations
-      melodyTracks = parseSimultaneousMelody(originalMelodyString, octave);
+      melodyTracks = parseSimultaneousMelody(
+        convertNotepatNotation(originalMelodyString, octave),
+        octave,
+      );
       
       // Reset melody state based on track structure (same logic as in boot())
       if (melodyTracks.isSingleTrack) {
@@ -4646,7 +4655,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
   }
 
   // Handle octave button interactions
-  if (!hideOctave) octavePlusBtn?.act(e, {
+  if (OCTAVE_SWITCHER && !hideOctave) octavePlusBtn?.act(e, {
     down: () => {
       // No feedback sound on down to keep it simple
     },
@@ -4669,7 +4678,7 @@ function act({ event: e, clock, sound, screen, ui, typeface, api }) {
     },
   });
 
-  if (!hideOctave) octaveMinusBtn?.act(e, {
+  if (OCTAVE_SWITCHER && !hideOctave) octaveMinusBtn?.act(e, {
     down: () => {
       // No feedback sound on down to keep it simple
     },

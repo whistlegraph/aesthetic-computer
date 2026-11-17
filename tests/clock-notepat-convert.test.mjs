@@ -36,11 +36,19 @@ function testSpeechIsPreserved() {
   assert.equal(converted, '"ty" 4cs', "Speech text should remain unchanged while notepat after quotes converts");
 }
 
+function testBAfterNoteIsNoteNotFlat() {
+  // `b` is always the note B in notepat notation: `gb` is G then B, not G♭.
+  const converted = convertNotepatNotation("fgbijk");
+  const notes = parseSimultaneousMelody(converted, 4).tracks[0].map((n) => `${n.note}${n.octave}`);
+  assert.deepEqual(notes, ["f4", "g4", "b4", "d5", "e5", "f5"], "b after a note letter should stay the note B");
+}
+
 function run() {
   testPreservesWaveSpecifier();
   testPreservesNoiseSpecifier();
   testDigitsInsideBracesDoNotAffectOctave();
   testSpeechIsPreserved();
+  testBAfterNoteIsNoteNotFlat();
   console.log("✅ clock-notepat-convert tests passed");
 }
 

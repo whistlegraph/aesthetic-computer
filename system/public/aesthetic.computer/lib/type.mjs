@@ -631,6 +631,25 @@ class Typeface {
         ],
       };
 
+      // MatrixChunky8's own `*` is a 4x4 blob in the top half of the cell.
+      // Clock codes (`*losa`) lead with it in the corner QR label, so draw a
+      // five-armed 5x5 asterisk centered on the cap height instead.
+      if (fontName === "MatrixChunky8") {
+        this.glyphs["*"] = {
+          resolution: [5, 5],
+          offset: [0, 2],
+          baselineOffset: [0, 1],
+          advance: 6,
+          pixels: [
+            [0, 0, 1, 0, 0],
+            [1, 0, 1, 0, 1],
+            [0, 1, 1, 1, 0],
+            [1, 0, 1, 0, 1],
+            [0, 0, 1, 0, 0],
+          ],
+        };
+      }
+
       // Add a better fallback for emoji - a simple smiley
       this.glyphs["☺"] = {
         resolution: [6, 9],

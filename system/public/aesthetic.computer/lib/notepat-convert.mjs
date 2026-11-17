@@ -91,6 +91,12 @@ export function convertNotepatNotation(melodyString, startingOctave = 4) {
     } else if (char === 'p') {
       result += `${currentOctave + 1}as`;
     }
+    // In notepat notation `b` is always the note B, never a flat. The melody
+    // parser reads a lowercase `b` after a note letter as a flat (`gb` → G♭),
+    // and only lowercase, so write that B in uppercase to keep it a note.
+    else if (char === 'b' && i > 0 && /[a-g]/i.test(melodyString[i - 1])) {
+      result += 'B';
+    }
     // All other characters pass through unchanged
     else {
       result += char;
