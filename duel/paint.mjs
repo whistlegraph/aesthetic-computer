@@ -11,6 +11,14 @@ const glyphRows = {
   '↓': [0, 4, 4, 4, 4, 21, 14, 4, 0, 0],
 };
 import { glyphs as chunky } from './chunky-font.mjs';
+import { crossings } from './solids.mjs';
+
+// 🧱 The construction audit, off unless someone turns it on (the view does
+// for `localStorage["dool:solids"] = "on"`). With it on, every model's boxes
+// are checked for solids that share volume: `report` hears each crossing,
+// and a pair that would flicker is wrapped in magenta where it stands.
+export const audit = { on: false, report: null };
+const AUDIT_INK = 0xff00ff;
 
 // MatrixChunky8 width of a string, in pixels (proportional).
 export const smallWidth = (value) =>
@@ -98,7 +106,9 @@ export function model(build) {
     vertex(X, Y, z, ink);
     vertex(x, Y, z, ink);
   };
+  let solids = audit.on ? [] : null;
   const box = (x, y, z, w, h, d, color, side = color, top = PAPER) => {
+    solids?.push({ x, y, z, w, h, d, color });
     // Broad ambient light keeps color on shadow faces; tops retain their material.
     if (side === INK && color !== INK) side = tint(color, 0.72);
     if (top === PAPER) top = color;
@@ -209,5 +219,12 @@ export function model(build) {
     }
   };
   build({ tri, quad, rect, box, text, handleText, small });
+  if (solids && solids.length > 1) {
+    const found = crossings(solids);
+    if (found.length) audit.report?.(found);
+    const marked = new Set(found.filter((c) => c.flickers).flatMap((c) => [c.a, c.b]));
+    solids = null; // the marks are not themselves audited
+    for (const s of marked) box(s.x, s.y, s.z, s.w + 0.01, s.h + 0.01, s.d + 0.01, AUDIT_INK, AUDIT_INK, AUDIT_INK);
+  }
   return data.slice(0, n);
 }

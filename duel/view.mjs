@@ -1,8 +1,26 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { podFront, house, houseWalls, HOUSE } from './park.mjs';
-import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
-import { model, INK, PAPER, rgb, tint } from './paint.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
+import { model, INK, PAPER, rgb, tint, audit } from './paint.mjs';
+import { describeCrossing } from './solids.mjs';
+// 🧱 `localStorage["dool:solids"] = "on"` audits every model as it is built:
+// solids that share volume are named once in the console, and the ones that
+// would flicker are drawn magenta.
+try {
+  if (globalThis.localStorage?.getItem('dool:solids') === 'on') {
+    const said = new Set();
+    audit.on = true;
+    audit.report = (found) => {
+      for (const crossing of found) {
+        const line = describeCrossing(crossing);
+        if (said.has(line) || said.size > 200) continue;
+        said.add(line);
+        console.warn('🧱', line);
+      }
+    };
+  }
+} catch {}
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { Projector } from './project.mjs';
@@ -341,21 +359,16 @@ export async function createView(canvas) {
     const who = here?.handle ? `@${here.handle}` : here ? 'AC TOWER' : '';
     const under = here?.handle ? '' : tower?.count ? `${tower.count} floors` : '';
     const made = model(({ quad, box, text, handleText }) => {
-      const o = CAR + CAR_WALL, z0 = CAR_Z, t = CAR_WALL, H = CAR_HEIGHT;
-      box(0, 0.03, z0, 2 * o, 0.06, 2 * o, pad, frame, pad); // the car's floor
-      box(0, H + 0.1, z0, 2 * o, 0.2, 2 * o, sill, frame, sill); // roof
-      // Glass on three sides: a sill to the knee, a post at each corner, a rail at the top.
-      for (const [x, z, w, d] of [[0, z0 + CAR + t / 2, 2 * o, t], [-CAR - t / 2, z0, t, 2 * CAR], [CAR + t / 2, z0, t, 2 * CAR]]) {
-        box(x, 0.3, z, w, 0.6, d, sill, frame, sill);
-        box(x, H - 0.1, z, w, 0.2, d, frame, frame, frame);
-      }
-      for (const x of [-o + t / 2, o - t / 2])
-        for (const z of [z0 - CAR + t / 2 - t, z0 + CAR + t / 2])
-          box(x, H / 2, z, t, H, t, frame, frame, frame);
-      box(0, H / 2, z0 + CAR + t / 2, 0.08, H, 0.08, frame, frame, frame); // one mullion in the back pane
-      // The sign over the door, read from outside and (its other face) from inside.
+      const z0 = CAR_Z, t = CAR_WALL;
+      // The car's solids (elevator.mjs): a floor, a roof, glass on three
+      // sides, a post at each corner and the sign over the door, none of
+      // them sharing volume with another.
+      const inks = {
+        pad: [pad, frame, pad], roof: [sill, frame, sill], sill: [sill, frame, sill],
+        frame: [frame, frame, frame], sign: [0x27324a, 0x171d26, 0x171d26],
+      };
+      for (const s of carSolids()) box(s.x, s.y, s.z, s.w, s.h, s.d, ...inks[s.ink]);
       const door = z0 - CAR - t / 2;
-      box(0, 2.6, door, 2 * o, 0.8, t, 0x27324a, 0x171d26, 0x171d26);
       const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
       const line = (label, top, z, width, most, color) => {
         const unit = fit(label, width, most);
@@ -378,8 +391,8 @@ export async function createView(canvas) {
     if (carScreen?.key === key) return carScreen.model;
     const made = model(({ box, text }) => {
       // A bezel plate with the dark screen proud of it: no two faces share a plane.
-      box(0, 2.6, 0.05, 2.78, 0.86, 0.06, 0x59607a, 0x59607a, 0x59607a);
-      box(0, 2.6, 0.01, 2.7, 0.78, 0.02, 0x1d2536, 0x1d2536, 0x1d2536);
+      const inks = { bezel: 0x59607a, screen: 0x1d2536 };
+      for (const s of carScreenSolids()) box(s.x, s.y, s.z, s.w, s.h, s.d, inks[s.ink], inks[s.ink], inks[s.ink]);
       const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
       const line = (label, x, top, width, most, color) => {
         const unit = fit(label, width, most);
@@ -511,7 +524,7 @@ export async function createView(canvas) {
       for (const [a, b] of [[-W, -DOOR], [DOOR, W]]) {
         box((a + b) / 2, 0.25, f, b - a, 0.5, 0.2, sill, post, sill);
         for (const y of [3.2, 6.2, 9.2]) box((a + b) / 2, y, f, b - a, 0.12, 0.12, post, post, post);
-        for (let x = a; x <= b + 0.01; x += (b - a) / 3) box(x, H / 2, f, 0.12, H, 0.12, post, post, post);
+        for (let x = a; x <= b + 0.01; x += (b - a) / 3) box(x, (H + 0.5) / 2, f, 0.12, H - 0.5, 0.12, post, post, post); // standing on the sill
       }
       box(0, H - 0.1, f, 2 * W, 0.2, 0.14, post, post, post);
       // The entrance: a frame, glass over it, and a canopy out over the plaza.
@@ -536,7 +549,7 @@ export async function createView(canvas) {
       for (const x of [-W + 0.05, W - 0.05]) {
         box(x, 0.25, (f + W) / 2, 0.2, 0.5, W - f, sill, sill, post);
         for (const y of [3.2, 6.2, 9.2]) box(x, y, (f + W) / 2, 0.12, 0.12, W - f, post, post, post);
-        for (let z = f; z <= W + 0.01; z += (W - f) / 3) box(x, H / 2, z, 0.12, H, 0.12, post, post, post);
+        for (let z = f; z <= W + 0.01; z += (W - f) / 3) box(x, (H + 0.5) / 2, z, 0.12, H - 0.5, 0.12, post, post, post); // standing on the sill
       }
       // Inside: the desk, two benches, a runner from the door to the car.
       box(DESK.x, DESK.h / 2, DESK.z, DESK.w, DESK.h, DESK.d, wood, tint(wood, 0.8), tint(wood, 1.08));
@@ -1200,7 +1213,7 @@ export async function createView(canvas) {
     else draw(arena);
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
-      if (tower.screen) draw(carScreenFor(tower.screen), 0, tower.lift || 0, CAR_Z - CAR + 0.12, Math.PI); // hung clear of the door's sign
+      if (tower.screen) draw(carScreenFor(tower.screen), 0, tower.lift || 0, CAR_SCREEN_Z, Math.PI); // hung clear of the door's sign
       // 🚪 The doors answer whoever is near: the car's stay shut while it
       // runs, the lobby's entrance opens from either side.
       const bodies = [me, ...players].filter(Boolean), dtDoor = Math.min(0.1, (now - doorTime) / 1000);

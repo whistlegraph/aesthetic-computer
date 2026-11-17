@@ -20,6 +20,41 @@ export const SLAB = 8.35, LEG = { at: 8.15, wide: 0.7 };
 // its half-width inside the walls; CAR_Z is where its middle stands.
 export const CAR = 1.5, CAR_HEIGHT = 3, CAR_WALL = 0.2, CAR_Z = 6.1;
 
+// The car as solids, for the view to draw and the tests to check: nothing
+// here shares volume with anything else (see solids.mjs). The sign and the
+// walls stop at the corner posts, the floor lies inside the walls, and the
+// back pane's mullion stands between its sill and its rail. `ink` names the
+// material; the view chooses its colours.
+export function carSolids() {
+  const o = CAR + CAR_WALL, z0 = CAR_Z, t = CAR_WALL, H = CAR_HEIGHT;
+  const back = z0 + CAR + t / 2, door = z0 - CAR - t / 2;
+  const solids = [];
+  const add = (name, ink, x, y, z, w, h, d) => solids.push({ name, ink, color: ink, x, y, z, w, h, d });
+  add('floor', 'pad', 0, 0.03, z0 - t / 2, 2 * CAR, 0.06, 2 * CAR + t);
+  add('roof', 'roof', 0, H + 0.1, z0, 2 * o, 0.2, 2 * o);
+  // Glass on three sides: a sill to the knee and a rail at the top, between the posts.
+  for (const [side, x, z, w, d] of [['back', 0, back, 2 * CAR, t], ['west', -CAR - t / 2, z0, t, 2 * CAR], ['east', CAR + t / 2, z0, t, 2 * CAR]]) {
+    add(`${side} sill`, 'sill', x, 0.3, z, w, 0.6, d);
+    add(`${side} rail`, 'frame', x, H - 0.1, z, w, 0.2, d);
+  }
+  for (const x of [-o + t / 2, o - t / 2])
+    for (const z of [door, back]) add('post', 'frame', x, H / 2, z, t, H, t);
+  add('mullion', 'frame', 0, (0.6 + H - 0.2) / 2, back, 0.08, H - 0.8, 0.08);
+  // The sign over the door, read from outside and (its other face) from inside.
+  add('sign', 'sign', 0, 2.6, door, 2 * CAR, 0.8, t);
+  return solids;
+}
+// 📟 The screen inside the car, over the door: a bezel plate with the dark
+// screen proud of it. Built facing -z; the view hangs it turned round at
+// CAR_SCREEN_Z, clear of the sign and under the roof.
+export const CAR_SCREEN_Z = CAR_Z - CAR + 0.12;
+export function carScreenSolids() {
+  return [
+    { name: 'bezel', ink: 'bezel', color: 'bezel', x: 0, y: 2.59, z: 0.05, w: 2.78, h: 0.8, d: 0.06 },
+    { name: 'screen', ink: 'screen', color: 'screen', x: 0, y: 2.59, z: 0.01, w: 2.7, h: 0.72, d: 0.02 },
+  ];
+}
+
 // The car's three solid walls (the fourth side is the door).
 export function carWalls() {
   const t = CAR_WALL, o = CAR + t, z = CAR_Z;
