@@ -3432,7 +3432,11 @@ app.whenReady().then(async () => {
   }
   // Hide the dock immediately so launch-at-login has zero visible footprint
   // until the user clicks a tray icon.
-  if (launchedSilently) syncDockVisibility();
+  acQuietLaunch = launchedSilently;
+  if (launchedSilently) {
+    syncDockVisibility();
+    setTimeout(() => { acQuietLaunch = false; }, 5000); // later Dock clicks count
+  }
 
   // Allow clipboard read/write for AC content loaded over https/http or in
   // webviews. `navigator.clipboard.readText()` in bios.mjs (paste button +
@@ -3706,6 +3710,20 @@ app.on('web-contents-created', (event, contents) => {
       return { action: 'deny' }; // We handle it ourselves
     });
   }
+});
+
+// A click on the Dock icon, or opening the app by hand, with no window on
+// screen opens a pane. A launch at login stays in the menu bar. The short
+// wait lets a deep link or a dropped file open its own pane first, so the
+// click never makes a second one.
+let acQuietLaunch = false;
+app.on('activate', () => {
+  if (acQuietLaunch) return;
+  setTimeout(() => {
+    if (BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.isVisible())) return;
+    if ([...windows.values()].some((w) => w.mode === 'ac-pane')) return; // a pane is on its way up
+    openAcPaneWindow();
+  }, 400);
 });
 
 app.on('window-all-closed', () => {
