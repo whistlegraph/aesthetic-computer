@@ -1,252 +1,274 @@
 % !TEX program = xelatex
-\documentclass[10pt,letterpaper,twocolumn]{article}
-\usepackage[margin=0.75in]{geometry}
+% Aesthetic Spells (first cut as the AC '26 Magician's Manual), second edition: a half-letter booklet.
+% Its page borrows from the books in ../manual-platter: one narrow column and
+% marginal drawings (Wells 1913), margin side-heads (Topsell 1658, War Office
+% 1896), dictionary cues in the running head (Collin de Plancy 1863), a fixed
+% entry shape (the open rulebooks), one instruction per line (OSS 1944), and
+% the tables gathered at the back (War Office 1896).
+\documentclass[10pt,twoside]{article}
+\usepackage[paperwidth=5.5in,paperheight=8.5in,inner=0.5in,outer=1.5in,top=0.72in,bottom=0.78in,marginparwidth=1.05in,marginparsep=0.16in,headsep=0.2in,footskip=0.34in]{geometry}
 \usepackage{fontspec}
-\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic]
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic,SmallCapsFont=lmromancaps10-regular]
 \setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique]
-\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,Scale=0.9]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,BoldFont=lmmonolt10-bold,Scale=0.92]
 \newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
-\usepackage{xcolor,titlesec,booktabs,tabularx,enumitem,fancyhdr,microtype,tikz,balance}
+\usepackage{xcolor,titlesec,booktabs,tabularx,enumitem,fancyhdr,extramarks,microtype,tikz,multicol}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage{hyperref,xurl}
 \usepackage{../ac-source-bundle}
 \usetikzlibrary{positioning,arrows.meta}
 \definecolor{acpink}{RGB}{180,72,135}
-\definecolor{acpurple}{RGB}{120,80,180}
 \definecolor{acdark}{RGB}{64,56,74}
 \definecolor{acgray}{RGB}{119,119,119}
-\definecolor{aclightgray}{RGB}{244,243,246}
-\newcommand{\acdot}{{\color{acpink}.}}
-\newcommand{\ac}{Aesthetic{\acdot}Computer}
-% A spell: something you type at the prompt.
-\newcommand{\spl}[1]{\textcolor{acpurple}{\texttt{#1}}}
-\hypersetup{colorlinks=true,linkcolor=acpurple,urlcolor=acpurple,citecolor=acpurple,pdftitle={AC '26 Magician's Manual},pdfauthor={@jeffrey}}
-\titleformat{\section}{\normalfont\bfseries\normalsize\uppercase}{\thesection.}{0.5em}{}
-\titlespacing{\section}{0pt}{0.8em}{0.2em}
-\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
-\fancyfoot[C]{\footnotesize\thepage}
-\setlength{\columnsep}{1.8em}\setlength{\parskip}{0.25em}
-\setlist[enumerate]{nosep,leftmargin=1.4em}
-\setlist[itemize]{nosep,leftmargin=1.2em}
-\newcolumntype{L}{>{\raggedright\arraybackslash}X}
-\renewcommand{\dbltopfraction}{0.9}\renewcommand{\topfraction}{0.9}
-\renewcommand{\textfraction}{0.08}
-\emergencystretch=1.4em
-\setlength{\bibsep}{2pt}
-% One spell table: spell on the left, what it does on the right.
-\newenvironment{spells}{\par\vspace{0.3em}\noindent\small
- \tabularx{\columnwidth}{@{}>{\raggedright\arraybackslash}p{2.75cm} L@{}}\toprule}{\bottomrule\endtabularx\par\vspace{0.3em}}
-\begin{document}
-\twocolumn[{
-\begin{center}
-{\acbold\fontsize{26}{30}\selectfont\color{acdark} AC {\normalfont\bfseries '}26 Magician{\normalfont\bfseries '}s Manual}\par
-\vspace{0.9em}
-% --- Primary illustration: the prompt, and the ways out of it ---
-% Screen colours are the interface's own, from the dark scheme in
-% disks/prompt.mjs: background, block, login, signup, and the reticle's cyan.
+% The interface's own colours, from the dark scheme in disks/prompt.mjs.
 \definecolor{uinight}{RGB}{34,50,112}
 \definecolor{uiblock}{RGB}{255,50,150}
 \definecolor{uilogin}{RGB}{0,0,64}
 \definecolor{uisignup}{RGB}{0,64,0}
 \definecolor{uicyan}{RGB}{0,255,255}
 \definecolor{uishadow}{RGB}{24,24,24}
+\definecolor{uihandle}{RGB}{255,0,255}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+\hypersetup{colorlinks=true,linkcolor=acdark,urlcolor=acdark,citecolor=acdark,pdftitle={Aesthetic Spells (and other typings for use on prompt.ac)},pdfauthor={@jeffrey}}
+
+% --- A spell: something you type at the prompt. Bold mono, black.
+\newcommand{\spl}[1]{\texttt{\bfseries #1}}
+% One spell, one line. The mark feeds the running-head cue.
+\newlength{\spellcol}\setlength{\spellcol}{2.55cm}
+\newcommand{\spell}[3][]{\par\extramarks{#2}{#2}\noindent\hangindent=\spellcol\hangafter=1%
+ \makebox[\spellcol][l]{\spl{#2}\ifx\relax#1\relax\else\ \textit{\small #1}\fi}#3\par}
+\newenvironment{spells}{\par\vspace{0.35em}\small\setlength{\parskip}{0.12em}}{\par\vspace{0.5em}}
+% A margin side-head names the paragraph beside it.
+\newcommand{\sideup}{\vspace*{-0.5\baselineskip}}
+\newcommand{\side}[1]{\leavevmode\marginpar[\sideup\raggedleft\footnotesize\itshape\color{acdark}#1]{\sideup\raggedright\footnotesize\itshape\color{acdark}#1}}
+% A side-head with a drawing under it, as one margin block.
+\newcommand{\sidevig}[2]{\leavevmode\marginpar[{\sideup\raggedleft{\footnotesize\itshape\color{acdark}#1}\par\vspace{3pt}#2\par}]{\sideup\raggedright{\footnotesize\itshape\color{acdark}#1}\par\vspace{3pt}#2\par}}
+% A margin drawing.
+\newcommand{\vig}[1]{\leavevmode\marginpar[\raggedleft #1]{\raggedright #1}}
+% A bestiary entry: name, kind, four fixed fields, then prose.
+\newcommand{\entry}[6]{\par\vspace{0.9em}\extramarks{#1}{#1}\noindent
+ {\large\spl{#1}}\hfill{\small\itshape #2}\par\vspace{0.15em}
+ \noindent{\footnotesize\begin{tabularx}{\linewidth}{@{}l X@{}}\toprule
+ Type & #3 \\ Needs & #4 \\ Leave by & #5 \\ Opened by & #6 \\ \bottomrule\end{tabularx}}\par\vspace{0.35em}\noindent\ignorespaces}
+
+% --- The A to Z: one unbreakable block per spell.
+\newcommand{\field}[2]{\par\noindent\hangindent=1.45cm\hangafter=1\makebox[1.45cm][l]{\scriptsize\scshape #1}{\footnotesize #2}}
+\newcommand{\spellentry}[7]{\par\addvspace{0.7em}\noindent\extramarks{#1}{#1}%
+ \ifx\relax#5\relax\else\marginpar[\sideup\raggedleft #5]{\sideup\raggedright #5}\fi%
+ \begin{minipage}[t]{\linewidth}\setlength{\parskip}{0pt}\phantomsection\label{#4}%
+ {\large\spl{#1}}\ifx\relax#2\relax\else\ \textit{#2}\fi\hfill{\footnotesize\itshape #3}\par\vspace{0.12em}
+ \noindent #6\par\vspace{0.2em}#7\end{minipage}\par}
+\newcommand{\letterhead}[1]{\par\addvspace{1.1em}\vbox{\centering{\large #1}\par\vspace{-0.25em}\rule{1.2cm}{0.4pt}\par}\nobreak\vspace{-0.3em}\nobreak}
+\newcommand{\indexhead}[1]{\par\addvspace{0.8em}\noindent{\small\scshape #1}\par\nopagebreak\vspace{0.1em}}
+\newcommand{\indexrow}[2]{\noindent{\footnotesize\spl{#1}\ {\color{acgray}\dotfill}\ \pageref{#2}}\par}
+\newcommand{\backhead}[1]{\par\addvspace{1.1em}\noindent{\small\scshape #1}\par\nopagebreak\vspace{0.25em}}
+\InputIfFileExists{tally}{}{}
+
+% --- Chapter heads, after the War Office pamphlet: number, title, short rule.
+\renewcommand{\thesection}{\Roman{section}}
+\titleformat{\section}[display]{\normalfont\centering}{\footnotesize\scshape chapter \thesection}{0.05em}{\normalsize\scshape\MakeLowercase}[\vspace{0.05em}\centering\rule{1.6cm}{0.4pt}]
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\newcommand{\chapter}[1]{\section{#1}\markboth{#1}{#1}}
+
+% --- Running head: chapter inside, first and last spell on the page outside.
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+\newcommand{\cue}{\begingroup\edef\cuetmp{\firstxmark}\ifx\cuetmp\empty\else{\footnotesize\ttfamily\color{acgray}\firstxmark\ \textendash\ \lastxmark}\fi\endgroup}
+\newcommand{\chaphead}{{\footnotesize\scshape\ifodd\value{page}\MakeLowercase{\leftmark}\else\MakeLowercase{\rightmark}\fi}}
+\fancyheadoffset[LE,RO]{\dimexpr\marginparwidth+\marginparsep\relax}
+\fancyhead[LE,RO]{\cue}
+\fancyhead[RE,LO]{\chaphead}
+\fancyfoot[C]{\footnotesize\thepage}
+\setlength{\headheight}{12pt}
+\setlength{\parskip}{0.3em}\setlength{\parindent}{1em}
+\setlist[enumerate]{nosep,leftmargin=1.4em}
+\setlist[itemize]{nosep,leftmargin=1.2em}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\emergencystretch=2em
+\raggedbottom\linespread{1.04}
+\renewcommand{\bibsection}{\par\noindent{\small\scshape Sources}\par\vspace{0.2em}}\setlength{\bibsep}{2pt}
+
+% --- Margin drawings. Each is a small piece of the real screen.
+\newcommand{\chip}[2][2.3cm]{\tikz[baseline]{\node[fill=uinight,minimum width=#1,minimum height=0.62cm,inner sep=2pt,rounded corners=1.5pt]{#2};}}
+\newcommand{\vigcursor}{\chip{\texttt{\color{white}list}\hspace{2pt}{\color{uiblock}\rule[-1.5pt]{4.5pt}{8.5pt}}}}
+\newcommand{\vigcorner}{\tikz{\fill[uinight,rounded corners=1.5pt] (0,0) rectangle (2.3,1.1);
+ \node[draw=white,dashed,line width=0.4pt,inner sep=3pt,text height=1.3ex,text depth=0.4ex,anchor=north west,font=\ttfamily\scriptsize,text=white] at (0.12,0.98) {notepat};
+ \draw[white,line width=0.6pt,-{Stealth[length=3.5pt]}] (1.95,0.25) -- (1.5,0.6);}}
+\newcommand{\vigreply}{\tikz{\node[fill=uinight,text width=2.05cm,inner sep=4pt,rounded corners=1.5pt,font=\ttfamily\scriptsize,text=white,align=left]{Did you mean\\ 'notifs'?};}}
+\newcommand{\vighandle}{\chip{\texttt{\color{uihandle}@you}}}
+\newcommand{\vigdoors}{\tikz{\fill[uinight,rounded corners=1.5pt] (0,0) rectangle (2.3,0.9);
+ \node[draw=white,line width=0.4pt,fill=uilogin,minimum width=0.98cm,inner xsep=0pt,inner ysep=2.5pt,text height=1.4ex,text depth=0.4ex,font=\sffamily\scriptsize,text=white,anchor=east] at (1.1,0.45) {Log in};
+ \node[draw=white,line width=0.4pt,fill=uisignup,minimum width=0.98cm,inner xsep=0pt,inner ysep=2.5pt,text height=1.4ex,text depth=0.4ex,font=\sffamily\scriptsize,text=white,anchor=west] at (1.2,0.45) {I'm new};}}
+\newcommand{\reticle}[2]{\foreach \dx/\dy/\col in {0.03/-0.03/uishadow,0/0/uicyan}{
+  \begin{scope}[shift={(#1+\dx,#2+\dy)}]
+   \foreach \sx in {-1,1}{\foreach \sy in {-1,1}{
+    \draw[\col,line width=1.1pt] (\sx*0.11,\sy*0.24) -- (\sx*0.24,\sy*0.24) -- (\sx*0.24,\sy*0.11);}}
+   \fill[\col] (-0.04,-0.04) rectangle (0.04,0.04);
+  \end{scope}}}
+\newcommand{\vigreticle}{\tikz{\fill[uinight,rounded corners=1.5pt] (0,0) rectangle (2.3,1.1);\reticle{1.75}{0.55}}}
+\newcommand{\vigswipe}{\tikz{\fill[uinight,rounded corners=1.5pt] (0,0) rectangle (2.3,1.1);
+ \draw[white,line width=0.8pt,-{Stealth[length=4.5pt]}] (1.15,0.2) -- (1.15,0.9);}}
+\newcommand{\vigrect}{\tikz{\fill[white] (0,0) rectangle (2.3,1.3);\draw[acgray,line width=0.4pt] (0,0) rectangle (2.3,1.3);
+ \fill[red] (0.35,0.35) rectangle (1.45,1.0);
+ \draw[acdark,line width=0.6pt] (1.45,0.2) -- (1.45,0.5) (1.3,0.35) -- (1.6,0.35);}}
+
+\begin{document}
+% ====================== COVER ======================
+\newgeometry{left=0.6in,right=0.6in,top=0.9in,bottom=0.7in}
+\thispagestyle{empty}
+\begin{center}
+{\acbold\fontsize{36}{40}\selectfont\color{acdark} Aesthetic Spells}\par
+\vspace{0.7em}{\large\itshape\color{acdark} (and other typings for use on prompt.ac)}\par
+\vspace{2.2em}
 \begin{tikzpicture}[x=1cm,y=1cm,
- lab/.style={font=\sffamily\footnotesize,text=acdark,inner sep=0pt},
  badge/.style={circle,fill=acpink,text=white,font=\sffamily\bfseries\scriptsize,inner sep=0pt,minimum size=0.36cm},
  lead/.style={draw=acgray,line width=0.4pt},
  leadin/.style={draw=white,line width=0.4pt,opacity=0.75},
  btn/.style={draw=white,line width=0.5pt,inner xsep=5pt,inner ysep=3.5pt,text height=1.5ex,text depth=0.45ex,font=\sffamily\footnotesize,text=white}]
- % the screen
- \draw[draw=acdark,line width=0.9pt,fill=uinight,rounded corners=3pt] (0,0) rectangle (6.4,3.9);
- % 1: the corner, where a piece shows its name
- \node[draw=white,dashed,line width=0.4pt,inner sep=3pt,text height=1.4ex,text depth=0.45ex,anchor=north west,font=\ttfamily\footnotesize,text=white] (corner) at (0.28,3.62) {notepat};
- % 2: a typed spell and the cursor block
- \node[anchor=west,inner sep=0pt,text height=1.6ex,text depth=0.45ex,font=\ttfamily\large,text=white] (typed) at (0.6,2.5) {list};
+ \draw[draw=acdark,line width=0.9pt,fill=uinight,rounded corners=3pt] (0,0) rectangle (8.2,5.0);
+ \node[draw=white,dashed,line width=0.4pt,inner sep=3pt,text height=1.4ex,text depth=0.45ex,anchor=north west,font=\ttfamily\footnotesize,text=white] (corner) at (0.3,4.7) {notepat};
+ \node[anchor=west,inner sep=0pt,text height=1.6ex,text depth=0.45ex,font=\ttfamily\large,text=white] (typed) at (0.7,3.4) {list};
  \fill[uiblock] ([xshift=2.5pt]typed.south east) rectangle ([xshift=8.5pt]typed.north east);
- % 3: swipe up for the feed below
- \draw[white,line width=0.8pt,-{Stealth[length=5pt]}] (0.8,0.3) -- (0.8,0.95);
- % 4: the two doors for people
- \node[btn,fill=uilogin,anchor=east] (login) at (3.1,1.6) {Log in};
- \node[btn,fill=uisignup,anchor=west] (new) at (3.3,1.6) {I'm new};
- % 5: the reticle: four corner brackets and a centre dot, shadow first
- \foreach \dx/\dy/\col in {0.03/-0.03/uishadow,0/0/uicyan}{
-  \begin{scope}[shift={(5.85+\dx,0.55+\dy)}]
-   \foreach \sx in {-1,1}{\foreach \sy in {-1,1}{
-    \draw[\col,line width=1.1pt] (\sx*0.11,\sy*0.24) -- (\sx*0.24,\sy*0.24) -- (\sx*0.24,\sy*0.11);}}
-   \fill[\col] (-0.04,-0.04) rectangle (0.04,0.04);
-  \end{scope}}
- % callouts, left
- \node[badge] (b1) at (-0.4,3.4) {1};
- \draw[lead] (b1.east) -- (0,3.4);
- \draw[leadin] (0,3.4) -- (0.14,3.4);
- \node[lab,anchor=east,text width=3.2cm,align=right] at (-0.75,3.4) {Inside a piece, tap its name here to come back.};
- \node[badge] (b2) at (-0.4,2.5) {2};
- \draw[lead] (b2.east) -- (0,2.5);
- \draw[leadin] (0,2.5) -- (0.46,2.5);
- \node[lab,anchor=east,text width=3.2cm,align=right] at (-0.75,2.5) {Type a spell, then press Enter.};
- \node[badge] (b3) at (-0.4,0.62) {3};
- \draw[lead] (b3.east) -- (0,0.62);
- \draw[leadin] (0,0.62) -- (0.6,0.62);
- \node[lab,anchor=east,text width=3.2cm,align=right] at (-0.75,0.62) {Swipe up for the mime feed.};
- % callouts, right
- \node[badge] (b4) at (6.8,1.6) {4};
- \draw[lead] (b4.west) -- (6.4,1.6);
- \draw[leadin] (6.4,1.6) -- ([xshift=4pt]new.east);
- \node[lab,anchor=west,text width=3.2cm,align=left] at (7.15,1.6) {New here? Claim an \mbox{@handle}.};
- \node[badge] (b5) at (6.8,0.55) {5};
- \draw[lead] (b5.west) -- (6.4,0.55);
- \draw[leadin] (6.4,0.55) -- (6.24,0.55);
- \node[lab,anchor=west,text width=3.2cm,align=left] at (7.15,0.55) {Tap the crosshair to walk into dool.};
+ \draw[white,line width=0.8pt,-{Stealth[length=5pt]}] (0.9,0.35) -- (0.9,1.05);
+ \node[btn,fill=uilogin,anchor=east] (login) at (4.0,2.1) {Log in};
+ \node[btn,fill=uisignup,anchor=west] (new) at (4.2,2.1) {I'm new};
+ \reticle{7.65}{0.55}
+ \node[badge] (b1) at (-0.42,4.45) {1}; \draw[lead] (b1.east) -- (0,4.45); \draw[leadin] (0,4.45) -- (0.16,4.45);
+ \node[badge] (b2) at (-0.42,3.4) {2}; \draw[lead] (b2.east) -- (0,3.4); \draw[leadin] (0,3.4) -- (0.5,3.4);
+ \node[badge] (b3) at (-0.42,0.7) {3}; \draw[lead] (b3.east) -- (0,0.7); \draw[leadin] (0,0.7) -- (0.68,0.7);
+ \node[badge] (b4) at (8.62,2.1) {4}; \draw[lead] (b4.west) -- (8.2,2.1); \draw[leadin] (8.2,2.1) -- ([xshift=4pt]new.east);
+ \node[badge] (b5) at (8.62,0.55) {5}; \draw[lead] (b5.west) -- (8.2,0.55); \draw[leadin] (8.2,0.55) -- (8.05,0.55);
 \end{tikzpicture}\par
-\vspace{0.7em}
-{\large\itshape\color{acpurple} Spells for the prompt at \ac{}}\par
-\vspace{0.5em}
-{\small\color{acgray} \href{https://prompt.ac/@jeffrey}{@jeffrey} · \ac{} · November 16, 2026}\par
-\vspace{0.4em}
-\rule{0.6\textwidth}{0.35pt}
+\vspace{1.1em}
+{\footnotesize\sffamily\color{acdark}
+\begin{tabular}{@{}r@{\ \ }l@{\qquad}r@{\ \ }l@{}}
+\textbf{1} & A piece's name. Tap it to come back. & \textbf{4} & New here? Claim an @handle. \\
+\textbf{2} & Type a spell, then press Enter. & \textbf{5} & The crosshair. Walk into dool. \\
+\textbf{3} & Swipe up for the mime feed. & & \\
+\end{tabular}}\par
+\vfill
+\begin{minipage}{0.78\linewidth}\centering\itshape\color{acdark}
+``I am trying my best to learn this platform, it is very confusing but I kinda like that. Is there a tutorial somewhere?''\par
+\smallskip{\upshape\footnotesize\color{acgray} a new handle, in chat, November 2026}
+\end{minipage}\par
+\vfill
+{\small\color{acgray} \href{https://prompt.ac/@jeffrey}{@jeffrey} · \ac{} · Second edition, November 16, 2026}\par
 \end{center}
-\begin{quote}\small\noindent\textbf{Abstract.}
-\ac{} has no menus. It has a prompt, and everything on the network is a word you type into it. That is fun once you know some words and confusing before then. This manual is the words: how to cast one, what happens when you get one wrong, how to become a handle, find the other people, paint, play, and write a spell of your own. It is ordered by what people open, counted over five weeks, and every spell was checked against the command table the site serves on November 16, 2026.
-\end{quote}\vspace{0.5em}
-}]
+\clearpage
+\restoregeometry
 
-\section{Why a manual}\label{sec:why}
-A new handle wrote this in chat in November 2026: \emph{``I am trying my best to learn this platform, it is very confusing but I kinda like that. Is there a tutorial somewhere?''} There wasn't. The old user guide \citep{userguide} is three recipes long, \spl{list} gives 230 words in no order \citep{docs}, and the system paper \citep{ac26} is about how it is built.
+% ====================== FRONT MATTER ======================
+\thispagestyle{empty}
+\vspace*{0.6em}
+\noindent\textbf{Abstract.} \ac{} has no menus. It has a prompt, and everything on the network is a word you type into it. That is fun once you know some words and confusing before then. This book is the words: \spellcount{} spells from A to Z, each with what it does, what it needs, and what happened when a browser cast it on \testdate{}. Its page is borrowed from older manuals: a demon dictionary, a bestiary, H.~G. Wells's \emph{Little Wars}, a War Office pamphlet and a saboteur's pocket guide \citep{platter}.
 
-The first draft followed the command table: paint, play, then people. Then I counted what people open (Section~\ref{sec:typed}) and turned it around.
+\vspace{0.7em}
+\noindent\textbf{How to read it.} Words set like \spl{this} are spells: type them at the prompt and press Enter. The spells run in alphabetical order, signs first. The top corner of each page shows the first and last spell on it. The index at the back sorts them by what you want to do.
 
-\section{The prompt}\label{sec:prompt}
-Go to \url{https://aesthetic.computer}. The page you land on is the prompt, drawn above. Type a word and press Enter. That word is a \emph{spell}, and what it opens is a \emph{piece}: a small program that takes the whole screen.
-\begin{enumerate}
-\item \textbf{Getting back.} Inside a piece, its name sits in the top left corner. Tap it. On a keyboard, Esc, Backspace or the backtick key does the same.
-\item \textbf{Every piece is an address.} \spl{notepat} is also \url{https://aesthetic.computer/notepat}.
-\item \textbf{Words can take words.} A space adds a parameter and a colon adds an option: \spl{rect red}, \spl{tone:sine 440}.
-\end{enumerate}
+\vspace{0.7em}
+\noindent\textbf{Every entry has a line marked \textsc{cast}.} It says what a real browser saw when it typed that spell into the live site, signed out. Of \spellcount{} spells, \tallyworks{} did what this book says, \tallydiffers{} did something else and the entry now says what, and \tallyuntested{} are not confirmed yet.
 
-\begin{spells}
-\spl{list} & Every spell, scrollable. \\
-\spl{prompt} & Back to the prompt, from anywhere. \\
-\spl{+} & Open a second window. \\
-\spl{dark}, \spl{light} & Change the theme. \\
-\end{spells}
+\vspace{0.9em}
+{\small\noindent\begin{tabularx}{\linewidth}{@{}L@{}r@{}}
+How to cast & \pageref{ch:cast} \\
+The spells, A to Z & \pageref{ch:spells} \\
+Index, by what you want to do & \pageref{ch:index} \\
+Tables & \pageref{ch:tables} \\
+\end{tabularx}}
+\clearpage
 
-\section{Wrong words}\label{sec:wrong}
-Nothing breaks. Type a word the site does not know and a helper reads it and answers in a line: \emph{Did you mean `notepat'?} It only suggests spells that exist.
+% ====================== HOW TO CAST ======================
+\chapter{How to cast}\label{ch:cast}
+\sidevig{Casting.}{\vigcursor}Go to \url{https://aesthetic.computer}. The page you land on is the prompt, drawn on the cover. Type a word and press Enter. That word is a \emph{spell}, and what it opens is a \emph{piece}: a small program that takes the whole screen.
 
-So you can also ask. Type \spl{how do i draw} and it answers in a sentence and names a spell. When it has nothing, it sends you to \spl{list} or \spl{chat}.
+\sidevig{Getting back.}{\vigcorner}Inside a piece, its name sits in the top left corner. Tap it and you are at the prompt again. On a keyboard, Esc does the same in most pieces. A few keep the keyboard for themselves: \spl{notepat} plays notes with it, and \spl{laklok} and \spl{chat} type with it.
 
-\section{What people type}\label{sec:typed}
-Table~\ref{tab:typed} counts signed-in handles by what they opened in five weeks. Most people come for each other. Painting and instruments are what the site was built on, and two handles in 113 opened \spl{notepat}.
+\side{Addresses.}Every piece is an address. \spl{notepat} is also \url{https://aesthetic.computer/notepat}, and you can send that to someone or keep it as a bookmark.
 
-\par\vspace{0.3em}\noindent{\small
-\begin{tabularx}{\columnwidth}{@{}L r@{}}
-\toprule
-opened & handles \\
-\midrule
+\side{Words take words.}A space adds a parameter and a colon adds an option. \spl{rect red} is the rectangle brush in red. \spl{tone:sine 440} is a sine tone at 440.
+
+\sidevig{Wrong words.}{\vigreply}Nothing breaks. Type a word the site does not know and a helper answers in a line. It guesses, and it can guess wrong: in the test, \spl{notepta} got back \emph{Did you mean `notifs'?} You can also ask it a question in plain words. When it has nothing, \spl{list} shows every spell and \spl{chat} has people in it.
+
+\side{In the address bar.}A wrong address opens a teal page that says \emph{Piece Not Found}.
+
+\sidevig{Two doors with no word.}{\vigreticle}Tap the crosshair at the bottom right of the prompt, or press Tab, and the prompt lifts off \emph{dool}, the room underneath. Esc comes back. Swipe up and the prompt slides away over the \emph{mime} feed, a stream of pieces people have published. The down arrow is meant to do the same and did not in the test.
+
+\side{People first.}Most people come here for each other. Of 113 signed-in handles counted over five weeks, 47 opened \spl{laklok}, the conversation, and two opened \spl{notepat}. Each entry that was counted says how many.
+
+% ====================== THE SPELLS ======================
+\clearpage
+\chapter{The spells}\label{ch:spells}
+\input{entries}
+
+% ====================== INDEX ======================
+\clearpage
+\markboth{Index}{Index}\extramarks{}{}
+\begin{center}{\footnotesize\scshape index, by what you want to do}\par\vspace{0.3em}\rule{1.6cm}{0.4pt}\end{center}\label{ch:index}
+\begin{multicols}{2}
+\input{index}
+\end{multicols}
+
+% ====================== TABLES ======================
+\clearpage
+\markboth{Tables}{Tables}
+\begin{center}{\footnotesize\scshape tables}\par\vspace{0.3em}\rule{1.6cm}{0.4pt}\end{center}\label{ch:tables}
+
+\backhead{Table A. Keys}
+{\footnotesize\noindent\begin{tabularx}{\linewidth}{@{}l L@{}}\toprule
+key & what it does \\ \midrule
+Enter & At the prompt, casts what you typed. \\
+Esc & In most pieces, back to the prompt. Not in \spl{notepat}. \\
+Tab & At the empty prompt, walks into dool. Tested. \\
+Esc & In dool, back to the prompt. Tested. \\
+Down arrow & At the empty prompt, opens the mime feed. It did not open in three test runs. \\
+\bottomrule\end{tabularx}}
+
+\backhead{Table B. What 113 handles opened}
+{\footnotesize\noindent\begin{tabularx}{\linewidth}{@{}L r@{}}\toprule
+opened at least once & handles \\ \midrule
 \spl{prompt} & 74 \\
-\spl{laklok} (31 by its other name, \spl{laer-klokken}) & 47 \\
+\spl{laklok} (31 as \spl{laer-klokken}) & 47 \\
 \spl{profile} & 27 \\
 \spl{commits} & 18 \\
-\spl{join} & 18 \\
+\spl{join}, the sign-up page & 18 \\
 a \spl{\$code} or \spl{\#code} & 17 \\
 the mime feed & 14 \\
 \spl{list} & 12 \\
 \spl{give} & 12 \\
+\spl{handle} & 11 \\
 \spl{r8dio} & 8 \\
 \spl{juke} & 6 \\
-\spl{notepat}, \spl{rect}, \spl{smear} & 2 each \\
-\bottomrule
-\end{tabularx}}\par\vspace{0.3em}
-\refstepcounter{table}\label{tab:typed}%
-\noindent{\footnotesize Table~\thetable. Of 113 handles with recorded activity, October 13 to November 17, 2026, how many opened each piece at least once.}\par
+\spl{camera} & 4 \\
+dool & 4 \\
+\spl{notepat}, \spl{rect}, \spl{smear}, \spl{moods} & 2 each \\
+\bottomrule\end{tabularx}}\par\vspace{0.3em}
+{\footnotesize\noindent Signed-in handles with recorded activity, October 13 to November 17, 2026. Counts only; no names. A visitor who paints without an account is not in it.\par}
 
-\section{Become a handle}\label{sec:handle}
-Most of \ac{} works without an account. To post, publish or chat you need an @handle.
+\backhead{Table C. How the spells were cast}
+{\footnotesize\noindent A script opened the live site in a browser with no account, typed each spell, pressed Enter, and wrote down where the address went and whether Esc came home \citep{e2e}. It did not cast the six spells that publish, charge, notify or delete. It ran three times with the same results. It could not read the prompt's own words, so the helper's replies and the painting steps were read off screenshots and clips by eye. Nothing that needs a login was tried.\par}
 
-\begin{spells}
-\spl{imnew} & Sign up. Email, then a six-digit code. \\
-\spl{hi} & Log in. \\
-\spl{handle name} & Set or change your handle. \\
-\spl{me} & Your profile. \\
-\spl{mood} & Say how you are. \\
-\spl{bye} & Log out. \\
-\end{spells}
+\backhead{Table D. Where the page came from}
+{\footnotesize\noindent\begin{tabularx}{\linewidth}{@{}L L@{}}\toprule
+this book & borrowed from \\ \midrule
+One narrow column, drawings in the margin & Wells, \emph{Little Wars}, 1913 \\
+Slanted side-heads in the margin & Topsell, 1658; War Office, 1896 \\
+First and last spell in the page corner & Collin de Plancy, 1863 \\
+The same lines in every entry & the open rulebooks \\
+Alphabetical, one being to an entry & Collin de Plancy, 1863 \\
+Tables together at the back & War Office, 1896 \\
+\bottomrule\end{tabularx}}
 
-A handle is up to 16 letters and digits, with single dots or underscores allowed between them. Accented letters do not pass: \emph{m\"usli} has to be \emph{muesli}. \spl{handles} lists everyone, and \spl{@name} opens anyone's profile.
+\backhead{Catches}
+{\footnotesize\noindent The site changes most days and this is one day's snapshot; \spl{list} is always the truth. Old phones struggle: one newcomer found Firefox smoother than Chrome on theirs.\par}
 
-\section{Other people}\label{sec:people}
-\begin{spells}
-\spl{laklok} & The community conversation. Also \url{https://laklok.com}. \\
-\spl{chat} & The help room. @jeffrey reads it. \\
-\spl{r8dio} & Live radio from r8dio.dk. \\
-\spl{juke} & A jukebox of the pop tracks. \\
-\spl{commits} & The site changing, as it happens. \\
-\spl{danish} & Translate anything into Danish. \\
-\end{spells}
-
-In \spl{laklok} and \spl{chat} the keyboard types, so leave by the corner. \spl{danish} has sisters, from \spl{english} to \spl{russian}.
-
-Two more rooms open from the prompt without a word. Swipe up, scroll down, or press the down arrow, and the prompt slides away over the \emph{mime} feed, a stream of pieces people have published. Tap the crosshair at the bottom right and the prompt lifts off \emph{dool}, the room underneath. Back brings the prompt home from either.
-
-\section{Sigils}\label{sec:sigils}
-Four characters at the front of a word say what it names. Typed alone, each offers recent ones.
-
-\begin{spells}
-\spl{@handle} & A person. \\
-\spl{@handle/piece} & A piece that person published. \\
-\spl{\$code} & A KidLisp piece. \\
-\spl{\#code} & A painting. \\
-\spl{!code} & A tape. \\
-\end{spells}
-
-\section{Paint}\label{sec:paint}
-The prompt keeps one painting for you. Brushes are spells: cast one, drag, come back, cast another.
-
-\begin{spells}
-\spl{new} & Start a new painting. \\
-\spl{rect red} & Rectangles, in any named color. \\
-\spl{line}, \spl{oval}, \spl{shape} & Lines, ovals, freehand polygons. \\
-\spl{smear}, \spl{blur} & Push the pixels around. \\
-\spl{no}, \spl{yes} & Undo, redo. \\
-\spl{dl} & Download it as a PNG. \\
-\spl{done} & Finish and publish it. \\
-\end{spells}
-
-\section{Play}\label{sec:play}
-Sound needs one tap or key press first; browsers insist.
-
-\begin{spells}
-\spl{notepat} & A keyboard. Letter keys are notes. \\
-\spl{bleep} & A grid of notes to tap. \\
-\spl{metronome 120} & Keep time at 120. \\
-\spl{tape}, \spl{cut} & Record the screen; stop and keep it. \\
-\spl{share notepat} & A QR code for any piece. \\
-\end{spells}
-
-\section{Write your own}\label{sec:write}
-The shortest spell you can write is a line of KidLisp typed straight into the prompt:
-\begin{quote}
-\spl{(wipe blue) (ink yellow) (circle 64 64 30)}
-\end{quote}
-KidLisp is a small language for pictures that move; the reference lists its 118 words \citep{kidlispref}, and \url{https://kidlisp.com} is an editor for it. A KidLisp piece you keep gets a \spl{\$code}.
-
-\begin{spells}
-\spl{code name} & Start writing a piece. \\
-\spl{edit piece} & Open a piece to change it. \\
-\spl{publish} & Publish the piece you last ran. \\
-\spl{docs} & The reference for writing pieces. \\
-\end{spells}
-
-\section{Catches}\label{sec:catches}
-The site changes most days and this is one day's snapshot; \spl{list} is always the truth. It covers about 50 of 230 words.
-
-Table~\ref{tab:typed} counts signed-in handles only. A visitor who paints without an account is not in it.
-
-Nobody has followed this manual from first line to last. The spells were checked against the site's table and code. The KidLisp line and the wrong-word helper were read, not run.
-
-Old phones struggle; one newcomer found Firefox smoother than Chrome on theirs. To leave for good, \spl{delete-erase-and-forget-me} removes your account.
-
-\balance
+\vspace{0.8em}
+{\footnotesize
 \bibliographystyle{unsrtnat}
 \bibliography{references}
+}
+\clearpage
+\markboth{Colophon}{Colophon}
+\vspace*{2em}
+\noindent{\small\scshape Colophon}\par\vspace{0.4em}
+{\small\noindent Pages are 5.5 by 8.5 inches. Print two-up on letter paper as a booklet, fold, and staple the spine.\par\smallskip\noindent Set in Latin Modern, with the title in YWFT Processing. The drawings are TikZ and take their colors from the dark scheme in the prompt's own source. The entries are generated from one data file joined with the browser test's results. Built by the papers mill.\par\smallskip\noindent The first edition, one sheet titled \emph{AC '26 Magician's Manual}, is in the repository's history.\par}
 \end{document}

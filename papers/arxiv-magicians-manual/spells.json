@@ -1,0 +1,977 @@
+{
+ "note": "One row per spell in Aesthetic Spells. gen-entries.py joins this with e2e/results.json and writes entries.tex. opened = how many of 113 signed-in handles opened the piece, 2026-10-13 to 2026-11-17 (null where the spell is not a piece or was not counted). test = the case id in tests/browser/spellbook.e2e.mjs, or a reason it was not cast.",
+ "spells": [
+  {
+   "name": "+",
+   "kind": "window",
+   "desc": "Open a second window with its own prompt.",
+   "for": [
+    "start"
+   ],
+   "test": "cast:+",
+   "cast": "A second window opened."
+  },
+  {
+   "name": "@handle",
+   "kind": "sigil",
+   "desc": "A person. Opens their profile.",
+   "for": [
+    "people",
+    "sigils"
+   ],
+   "test": "cast:@jeffrey",
+   "also": [
+    "profile",
+    "handles"
+   ],
+   "cast": "@jeffrey opened. Esc came back."
+  },
+  {
+   "name": "@handle/piece",
+   "kind": "sigil",
+   "desc": "A piece that person published.",
+   "for": [
+    "sigils",
+    "write"
+   ],
+   "test": "cast:@jeffrey/vili",
+   "also": [
+    "publish"
+   ],
+   "cast": "@jeffrey/vili opened. Esc came back."
+  },
+  {
+   "name": "#code",
+   "kind": "sigil",
+   "desc": "A painting. Typed alone, # offers recent ones.",
+   "for": [
+    "sigils",
+    "paint"
+   ],
+   "test": "cast:#jzg",
+   "opened": 17,
+   "openedNote": "with $code",
+   "also": [
+    "done"
+   ],
+   "cast": "#jzg opened the painting, with Download, Comment and Print buttons."
+  },
+  {
+   "name": "$code",
+   "kind": "sigil",
+   "desc": "A KidLisp piece. Typed alone, $ offers recent ones.",
+   "for": [
+    "sigils",
+    "write"
+   ],
+   "test": "cast:$nz7",
+   "opened": 17,
+   "openedNote": "with #code",
+   "cast": "$nz7 opened. Esc came back."
+  },
+  {
+   "name": "!code",
+   "kind": "sigil",
+   "desc": "A tape.",
+   "for": [
+    "sigils",
+    "record"
+   ],
+   "test": "not cast: no known code to try",
+   "also": [
+    "tape",
+    "cut"
+   ]
+  },
+  {
+   "name": "bgm",
+   "kind": "sound",
+   "desc": "Background music, with a picture.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:bgm",
+   "needs": "One tap, for sound."
+  },
+  {
+   "name": "bleep",
+   "kind": "instrument",
+   "desc": "A grid of notes to tap.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:bleep",
+   "needs": "One tap, for sound."
+  },
+  {
+   "name": "blur",
+   "kind": "brush",
+   "desc": "Blur the painting.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:blur",
+   "also": [
+    "smear"
+   ]
+  },
+  {
+   "name": "bye",
+   "kind": "account",
+   "desc": "Log out.",
+   "for": [
+    "account"
+   ],
+   "test": "cast:bye",
+   "also": [
+    "hi"
+   ],
+   "cast": "Signed out, nothing visible happened."
+  },
+  {
+   "name": "cam",
+   "kind": "camera",
+   "desc": "The back camera. Take a picture.",
+   "for": [
+    "record"
+   ],
+   "test": "cast:cam",
+   "needs": "Camera permission.",
+   "opened": 4,
+   "openedNote": "as camera",
+   "also": [
+    "selfie"
+   ]
+  },
+  {
+   "name": "chat",
+   "kind": "room",
+   "desc": "The help room. @jeffrey answers here, in public.",
+   "for": [
+    "people",
+    "start"
+   ],
+   "test": "cast:chat",
+   "needs": "A handle, to post.",
+   "leave": "The corner. The keyboard types here.",
+   "also": [
+    "help",
+    "laklok"
+   ],
+   "cast": "Opened /chat. Posting was not tried."
+  },
+  {
+   "name": "chinese",
+   "kind": "translator",
+   "desc": "Turn what you type into Chinese.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:chinese",
+   "also": [
+    "danish"
+   ]
+  },
+  {
+   "name": "clock",
+   "kind": "instrument",
+   "desc": "A clock that plays melodies.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:clock",
+   "needs": "One tap, for sound."
+  },
+  {
+   "name": "code",
+   "arg": "name",
+   "kind": "writing",
+   "desc": "Start writing a piece.",
+   "for": [
+    "write"
+   ],
+   "test": "cast:code spelltest",
+   "also": [
+    "edit",
+    "publish"
+   ],
+   "cast": "Opened /code~spelltest."
+  },
+  {
+   "name": "colors",
+   "kind": "reference",
+   "desc": "Every color name that works.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:colors"
+  },
+  {
+   "name": "commits",
+   "kind": "room",
+   "desc": "A live feed of every change to the site's code as it lands.",
+   "for": [
+    "people"
+   ],
+   "test": "cast:commits",
+   "opened": 18
+  },
+  {
+   "name": "crop",
+   "kind": "painting",
+   "desc": "Crop the painting.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:crop",
+   "also": [
+    "resize"
+   ]
+  },
+  {
+   "name": "cut",
+   "kind": "tape",
+   "desc": "Stop the tape and keep the clip.",
+   "for": [
+    "record"
+   ],
+   "test": "flow:tape",
+   "also": [
+    "tape"
+   ],
+   "cast": "Opened /video."
+  },
+  {
+   "name": "danish",
+   "kind": "translator",
+   "desc": "Turn what you type into Danish.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:danish",
+   "also": [
+    "english",
+    "spanish",
+    "chinese",
+    "japanese",
+    "russian"
+   ]
+  },
+  {
+   "name": "dark",
+   "kind": "theme",
+   "desc": "The dark theme.",
+   "for": [
+    "start"
+   ],
+   "test": "cast:dark",
+   "also": [
+    "light"
+   ],
+   "cast": "Stayed at the prompt. The change of theme was not checked."
+  },
+  {
+   "name": "delete-erase-and-forget-me",
+   "kind": "account",
+   "desc": "Delete your account.",
+   "for": [
+    "account"
+   ],
+   "test": "not cast: it deletes"
+  },
+  {
+   "name": "dl",
+   "kind": "painting",
+   "desc": "Download the painting as a PNG.",
+   "for": [
+    "paint",
+    "record"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "done"
+   ],
+   "cast": "Downloaded painting-2026.11.16….png."
+  },
+  {
+   "name": "docs",
+   "kind": "reference",
+   "desc": "The reference for writing pieces.",
+   "for": [
+    "write"
+   ],
+   "test": "cast:docs"
+  },
+  {
+   "name": "done",
+   "kind": "painting",
+   "desc": "Finish the painting and publish it. It gets a #code.",
+   "for": [
+    "paint"
+   ],
+   "test": "not cast: it publishes",
+   "also": [
+    "dl",
+    "no!"
+   ]
+  },
+  {
+   "name": "edit",
+   "arg": "piece",
+   "kind": "writing",
+   "desc": "Edit a piece in VS Code. It sends you to the site's extension.",
+   "for": [
+    "write"
+   ],
+   "test": "cast:edit notepat",
+   "also": [
+    "code",
+    "source"
+   ],
+   "cast": "Left the site for the extension's page on the Visual Studio Marketplace."
+  },
+  {
+   "name": "english",
+   "kind": "translator",
+   "desc": "Turn what you type into English.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:english",
+   "also": [
+    "danish"
+   ]
+  },
+  {
+   "name": "fill",
+   "arg": "blue",
+   "kind": "brush",
+   "desc": "Fill the painting with one color.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:fill blue",
+   "also": [
+    "colors"
+   ]
+  },
+  {
+   "name": "flip",
+   "kind": "painting",
+   "desc": "Mirror the painting top to bottom.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "flop"
+   ],
+   "cast": "The rectangle moved to the mirrored spot."
+  },
+  {
+   "name": "flop",
+   "kind": "painting",
+   "desc": "Mirror the painting side to side.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "flip"
+   ],
+   "cast": "The rectangle moved to the mirrored spot."
+  },
+  {
+   "name": "give",
+   "kind": "support",
+   "desc": "Keep the site online and free.",
+   "for": [
+    "account"
+   ],
+   "test": "cast:give",
+   "opened": 12
+  },
+  {
+   "name": "handle",
+   "arg": "name",
+   "kind": "account",
+   "desc": "Set or change your handle: up to 16 letters and digits, with single dots or underscores between. No accents.",
+   "for": [
+    "account"
+   ],
+   "test": "cast:handle spelltest",
+   "needs": "A login.",
+   "opened": 11,
+   "also": [
+    "imnew",
+    "handles"
+   ],
+   "cast": "Signed out, nothing visible happened."
+  },
+  {
+   "name": "handles",
+   "kind": "room",
+   "desc": "Everyone's handle, in a list.",
+   "for": [
+    "people"
+   ],
+   "test": "cast:handles",
+   "also": [
+    "@handle"
+   ]
+  },
+  {
+   "name": "help",
+   "kind": "room",
+   "desc": "The same room as chat.",
+   "for": [
+    "start",
+    "people"
+   ],
+   "test": "cast:help",
+   "leave": "The corner. The keyboard types here.",
+   "also": [
+    "chat"
+   ],
+   "cast": "Opened /chat."
+  },
+  {
+   "name": "hi",
+   "kind": "account",
+   "desc": "Log in.",
+   "for": [
+    "account"
+   ],
+   "test": "cast:hi",
+   "also": [
+    "imnew",
+    "bye"
+   ],
+   "cast": "Went to the login page at hi.aesthetic.computer."
+  },
+  {
+   "name": "imnew",
+   "kind": "account",
+   "desc": "Sign up. Email, then a six-digit code.",
+   "for": [
+    "account",
+    "start"
+   ],
+   "test": "cast:imnew",
+   "opened": 18,
+   "openedNote": "as join, the sign-up page",
+   "also": [
+    "hi",
+    "handle"
+   ],
+   "cast": "Went to the sign-up page at hi.aesthetic.computer."
+  },
+  {
+   "name": "japanese",
+   "kind": "translator",
+   "desc": "Turn what you type into Japanese.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:japanese",
+   "also": [
+    "danish"
+   ]
+  },
+  {
+   "name": "juke",
+   "kind": "room",
+   "desc": "A jukebox of the pop tracks made here.",
+   "for": [
+    "sound",
+    "people"
+   ],
+   "test": "cast:juke",
+   "needs": "One tap, for sound.",
+   "opened": 6
+  },
+  {
+   "name": "laklok",
+   "kind": "room",
+   "desc": "The conversation. Where the people are. Also laer-klokken, and laklok.com.",
+   "for": [
+    "people",
+    "start"
+   ],
+   "test": "cast:laklok",
+   "needs": "A handle, to post. Anyone can read.",
+   "leave": "The corner. The keyboard types here.",
+   "opened": 47,
+   "also": [
+    "chat",
+    "moods"
+   ],
+   "cast": "Opened /laklok, and /laer-klokken by its other name. Posting was not tried."
+  },
+  {
+   "name": "left",
+   "kind": "painting",
+   "desc": "Rotate the painting left.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "right"
+   ],
+   "cast": "The painting turned on its side."
+  },
+  {
+   "name": "light",
+   "kind": "theme",
+   "desc": "The light theme.",
+   "for": [
+    "start"
+   ],
+   "test": "cast:light",
+   "also": [
+    "dark"
+   ],
+   "cast": "Stayed at the prompt. The change of theme was not checked."
+  },
+  {
+   "name": "line",
+   "kind": "brush",
+   "desc": "Draw lines.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:line",
+   "also": [
+    "oval",
+    "shape",
+    "rect"
+   ]
+  },
+  {
+   "name": "list",
+   "kind": "reference",
+   "desc": "Every spell, scrollable. Always the truth.",
+   "for": [
+    "start"
+   ],
+   "test": "cast:list",
+   "opened": 12
+  },
+  {
+   "name": "me",
+   "kind": "account",
+   "desc": "Your profile.",
+   "for": [
+    "account",
+    "people"
+   ],
+   "test": "cast:me",
+   "needs": "A login.",
+   "also": [
+    "profile"
+   ],
+   "cast": "Signed out, nothing visible happened."
+  },
+  {
+   "name": "merry",
+   "arg": "a b c",
+   "kind": "sequence",
+   "desc": "Run pieces one after another. A number and a dash in front sets seconds: 2-bleep.",
+   "for": [
+    "write",
+    "sound"
+   ],
+   "test": "cast:merry 2-bleep 2-clock",
+   "cast": "Ran bleep, then clock, then came back to the prompt."
+  },
+  {
+   "name": "metronome",
+   "arg": "120",
+   "kind": "instrument",
+   "desc": "Keep time at 120.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:metronome 120",
+   "needs": "One tap, for sound.",
+   "also": [
+    "+"
+   ]
+  },
+  {
+   "name": "mood",
+   "kind": "account",
+   "desc": "Say how you are.",
+   "for": [
+    "account",
+    "people"
+   ],
+   "test": "cast:mood",
+   "needs": "A login.",
+   "also": [
+    "moods"
+   ],
+   "cast": "Signed out, nothing visible happened."
+  },
+  {
+   "name": "moods",
+   "kind": "room",
+   "desc": "Everyone's moods, newest first.",
+   "for": [
+    "people"
+   ],
+   "test": "cast:moods",
+   "opened": 2,
+   "also": [
+    "mood"
+   ]
+  },
+  {
+   "name": "new",
+   "kind": "painting",
+   "desc": "Start a new painting.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "rect",
+    "no!"
+   ],
+   "cast": "Stayed at the prompt with an empty painting."
+  },
+  {
+   "name": "no",
+   "kind": "painting",
+   "desc": "Undo the last mark.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "yes"
+   ],
+   "cast": "The rectangle went away."
+  },
+  {
+   "name": "no!",
+   "kind": "painting",
+   "desc": "Throw the painting away.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "new"
+   ],
+   "cast": "The painting was gone."
+  },
+  {
+   "name": "notepat",
+   "kind": "instrument",
+   "desc": "A keyboard. Letter keys are notes.",
+   "for": [
+    "sound",
+    "start"
+   ],
+   "test": "cast:notepat",
+   "needs": "One tap, for sound.",
+   "opened": 2,
+   "cast": "Opened /notepat. Esc, Backspace and backtick did not leave.",
+   "leave": "The corner (not tested). The keyboard plays notes here."
+  },
+  {
+   "name": "oval",
+   "kind": "brush",
+   "desc": "Draw ovals.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:oval",
+   "also": [
+    "line"
+   ]
+  },
+  {
+   "name": "pack",
+   "arg": "piece",
+   "kind": "export",
+   "desc": "Download one piece as a single HTML file.",
+   "for": [
+    "record",
+    "write"
+   ],
+   "test": "cast:pack notepat",
+   "cast": "Began packing: fetch, resolve, minify. The download was not waited for."
+  },
+  {
+   "name": "pp",
+   "kind": "reference",
+   "desc": "The privacy policy.",
+   "for": [
+    "account"
+   ],
+   "test": "cast:pp"
+  },
+  {
+   "name": "profile",
+   "kind": "room",
+   "desc": "Your own page. For someone else's, cast @name.",
+   "for": [
+    "people"
+   ],
+   "test": "cast:profile",
+   "opened": 27,
+   "also": [
+    "me",
+    "@handle"
+   ],
+   "cast": "Signed out, nothing visible happened.",
+   "needs": "A login, for your own page."
+  },
+  {
+   "name": "prompt",
+   "kind": "home",
+   "desc": "Back to the prompt, from anywhere.",
+   "for": [
+    "start"
+   ],
+   "test": "cast:prompt",
+   "opened": 74
+  },
+  {
+   "name": "publish",
+   "kind": "writing",
+   "desc": "Publish the piece you last ran, under your handle.",
+   "for": [
+    "write"
+   ],
+   "test": "not cast: it publishes",
+   "needs": "A login.",
+   "also": [
+    "@handle/piece"
+   ]
+  },
+  {
+   "name": "r8dio",
+   "kind": "room",
+   "desc": "Live radio from r8dio.dk.",
+   "for": [
+    "sound",
+    "people"
+   ],
+   "test": "cast:r8dio",
+   "needs": "One tap, for sound.",
+   "opened": 8
+  },
+  {
+   "name": "rect",
+   "arg": "red",
+   "kind": "brush",
+   "desc": "Drag out rectangles, in any named color. The piece calls itself box.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "opened": 2,
+   "also": [
+    "colors",
+    "line"
+   ],
+   "cast": "Opened /rect~red, which names itself box red. A drag drew a red rectangle. Esc came back."
+  },
+  {
+   "name": "resize",
+   "arg": "128",
+   "kind": "painting",
+   "desc": "Change the painting's size.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "crop"
+   ],
+   "cast": "The painting became a small square."
+  },
+  {
+   "name": "right",
+   "kind": "painting",
+   "desc": "Rotate the painting right.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "left"
+   ],
+   "cast": "The painting turned back."
+  },
+  {
+   "name": "russian",
+   "kind": "translator",
+   "desc": "Turn what you type into Russian.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:russian",
+   "also": [
+    "danish"
+   ]
+  },
+  {
+   "name": "selfie",
+   "kind": "camera",
+   "desc": "The front camera.",
+   "for": [
+    "record"
+   ],
+   "test": "cast:selfie",
+   "needs": "Camera permission.",
+   "also": [
+    "cam"
+   ]
+  },
+  {
+   "name": "shape",
+   "kind": "brush",
+   "desc": "Draw a freehand polygon.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:shape",
+   "also": [
+    "line"
+   ]
+  },
+  {
+   "name": "share",
+   "arg": "piece",
+   "kind": "export",
+   "desc": "A QR code for any piece.",
+   "for": [
+    "record",
+    "people"
+   ],
+   "test": "cast:share notepat"
+  },
+  {
+   "name": "smear",
+   "kind": "brush",
+   "desc": "Push the pixels around.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:smear",
+   "opened": 2,
+   "also": [
+    "blur"
+   ]
+  },
+  {
+   "name": "source",
+   "arg": "piece",
+   "kind": "writing",
+   "desc": "Download a piece's code.",
+   "for": [
+    "write"
+   ],
+   "test": "cast:source notepat",
+   "also": [
+    "edit"
+   ],
+   "cast": "Downloaded notepat.mjs."
+  },
+  {
+   "name": "spanish",
+   "kind": "translator",
+   "desc": "Turn what you type into Spanish.",
+   "for": [
+    "words"
+   ],
+   "test": "cast:spanish",
+   "also": [
+    "danish"
+   ]
+  },
+  {
+   "name": "sparkle",
+   "kind": "brush",
+   "desc": "@maya's brush.",
+   "for": [
+    "paint"
+   ],
+   "test": "cast:sparkle"
+  },
+  {
+   "name": "stample",
+   "kind": "instrument",
+   "desc": "Record a sound, then play it.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:stample",
+   "needs": "Microphone permission."
+  },
+  {
+   "name": "tape",
+   "kind": "tape",
+   "desc": "Record the screen. It ends in the video piece, where Done keeps the clip. To tape a piece, name it: tape notepat.",
+   "for": [
+    "record"
+   ],
+   "test": "flow:tape",
+   "also": [
+    "cut",
+    "!code"
+   ],
+   "cast": "Recorded the prompt, then opened /video with Back and Done buttons."
+  },
+  {
+   "name": "tone",
+   "arg": "440",
+   "kind": "instrument",
+   "desc": "One tone. tone:sine 440 picks the wave.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:tone 440",
+   "needs": "One tap, for sound."
+  },
+  {
+   "name": "whistle",
+   "kind": "instrument",
+   "desc": "Whistle in, sine waves out.",
+   "for": [
+    "sound"
+   ],
+   "test": "cast:whistle",
+   "needs": "Microphone permission."
+  },
+  {
+   "name": "word",
+   "arg": "hello",
+   "kind": "brush",
+   "desc": "Put text on the painting.",
+   "for": [
+    "paint",
+    "words"
+   ],
+   "test": "cast:word hello"
+  },
+  {
+   "name": "yes",
+   "kind": "painting",
+   "desc": "Redo.",
+   "for": [
+    "paint"
+   ],
+   "test": "flow:paint",
+   "also": [
+    "no"
+   ],
+   "cast": "The rectangle came back."
+  }
+ ]
+}

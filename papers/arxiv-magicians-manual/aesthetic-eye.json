@@ -1,9 +1,9 @@
 {
   "schema": 1,
-  "paper": "AC '26 Magician's Manual",
+  "paper": "Aesthetic Spells (and other typings for use on prompt.ac)",
   "pdf": "magicians-manual.pdf",
   "expectedFigures": 0,
-  "expectedDiagrams": 1,
+  "expectedDiagrams": 8,
   "visualInference": true,
   "reviewer": {
     "kind": "visual-inference",
@@ -17,18 +17,18 @@
       "period": "pass",
       "dotColor": "pass"
     },
-    "notes": "Subtitle, byline, abstract, sections 4 and 6 and references 2 and 3 checked; byline dot confirmed pink in a 400 dpi crop."
+    "notes": "Cover byline, abstract, chapters III, IV, V and VIII and source 3 checked on the contact sheet and at 150 dpi; the dot is pink."
   },
   "figures": [],
   "diagrams": [
     {
-      "id": "prompt",
+      "id": "cover-prompt",
       "page": 1,
       "crop": [
-        0.15,
-        0.115,
-        0.7,
-        0.16
+        0.13,
+        0.22,
+        0.74,
+        0.34
       ],
       "design": "pass",
       "checks": {
@@ -39,20 +39,178 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "Inspected at page size and in a 300 dpi crop. The screen wears the interface's dark scheme from disks/prompt.mjs. Second pass fixed spacing the first pass missed: Log in and I'm new had different heights (descender in one label) and sat off-centre with a loose gap, and now share one box height, one gap, and the centre line of the screen as prompt.mjs places them; the reticle and the corner label are each inset equally from their two edges; the cursor block is exactly the height of the typed line; leaders stop short of their targets."
+      "notes": "Inspected in the prepared crop. Cover screen in the dark scheme with five numbered badges and a legend beneath; unchanged since its last inspection."
+    },
+    {
+      "id": "cursor",
+      "page": 3,
+      "crop": [
+        0.72,
+        0.16,
+        0.26,
+        0.09
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. Typed word and pink block on a night-blue chip, under the Casting side-head."
+    },
+    {
+      "id": "corner",
+      "page": 3,
+      "crop": [
+        0.72,
+        0.25,
+        0.26,
+        0.1
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. Dashed corner label with an arrow pointing at it; label padded clear of its dashes."
+    },
+    {
+      "id": "reply",
+      "page": 3,
+      "crop": [
+        0.72,
+        0.48,
+        0.26,
+        0.1
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. The helper's reply in white mono. It now reads 'notifs', the reply the test actually got, where it used to show the reply the book hoped for."
+    },
+    {
+      "id": "reticle",
+      "page": 3,
+      "crop": [
+        0.72,
+        0.66,
+        0.26,
+        0.13
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. The cyan reticle with its shadow, equally inset from three edges, under its side-head."
+    },
+    {
+      "id": "handle",
+      "page": 8,
+      "crop": [
+        0.02,
+        0.63,
+        0.26,
+        0.1
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. A handle in the interface's magenta, beside the handle entry."
+    },
+    {
+      "id": "doors",
+      "page": 9,
+      "crop": [
+        0.72,
+        0.2,
+        0.26,
+        0.09
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. Log in and I'm new at one shared width, symmetric in the chip, beside the hi entry."
+    },
+    {
+      "id": "rect",
+      "page": 13,
+      "crop": [
+        0.72,
+        0.37,
+        0.26,
+        0.13
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected in the prepared crop. Red rectangle on a white painting with a cross where the drag ends, beside the rect entry."
     }
   ],
-  "pdfSha256": "b8f474e2c1601daf4b112dce036831208945699f9d9330dc4005b0a409f8e68b",
-  "reviewedAt": "2026-11-17T03:05:00.000Z",
+  "pdfSha256": "d8f9441ddb1f87aed8b6c6056c544bc1b43c310bd3101b454e7bbf563ba461ea",
+  "reviewedAt": "2026-11-17T06:30:00.000Z",
   "pageReview": {
     "pages": [
       1,
-      2
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
     ],
     "table": {
-      "page": 1,
+      "page": 18,
       "design": "pass"
     },
-    "notes": "Both pages inspected at reading size after the reorder (pdftocairo 110 dpi). Title block, abstract, eleven sections, eight spell tables sharing one left-column width, the usage table set inline under its section with a footnote-size caption, four references and the source-bundle paperclip fit on one two-sided sheet; columns end within a few lines of each other; no overfull boxes. The title diagram is unchanged since its 300 dpi inspection."
+    "notes": "Twenty pages after the entries were regenerated from the third test run. All eight drawings re-inspected in their crops on this build; page count and breaks unchanged; no overfull boxes."
   }
 }

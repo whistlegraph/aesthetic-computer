@@ -55,3 +55,41 @@ and no handle attached.
 - lib/disk.mjs ~12897: backtick, Enter, Backspace and Escape return to the prompt,
   except in chat, laklok, laer-klokken, mail and a few others.
 - disks/danish.mjs and sisters: translator pieces.
+
+## Second edition: Aesthetic Spells (2026-11-17 UTC)
+- @jeffrey asked for a new manual built on the manual-platter research and retitled it
+  "Aesthetic Spells (and other typings for use on prompt.ac)" after trying "AC Spells"
+  and "the Aesthetic Spellbook".
+- Form: 12 pages at 5.5 x 8.5 in, one column with an outer margin. Borrowings are
+  listed in the book's own table and in ../manual-platter/digest.md.
+- New facts read in code for this edition: Tab at the empty prompt opens dool
+  (prompt.mjs, `keyboard:down:tab`); Escape stops a tape before leaving (disk.mjs);
+  404.mjs paints "Piece Not Found" on teal; laklok began as the Danish room
+  (docs: "Learn the 'clock'!"), stated from the room's own chat.
+- From working knowledge, not checked: that chat needs a handle to post; that tape
+  clips and finished paintings get a `!code` / `#code`; that `profile` shows "what a
+  handle has made and said"; juke as "every pop track".
+- The directory and site name keep `magicians-manual`; renaming them moves the
+  published URL.
+- Not committed. The one-sheet first edition is what is live.
+
+## A to Z edition and the browser test (2026-11-17 UTC)
+- @jeffrey: "the spellbook now should be organized by spell", "with an index", "we should be
+  testing all these flows", "e2e", clips to watch, pixel density lower, audio recorded,
+  a spells listing "so we can approve them".
+- spells.json is the source; gen-entries.mjs writes entries.tex, index.tex, tally.tex and
+  review.html. e2e-summary.json is the trimmed result of tests/browser/spellbook.e2e.mjs.
+- Three runs on panda (poorslice was down), signed out, against production:
+  two at 1100 x 760 and one at 660 x 460 at 2x with video and Web Audio taped. All three
+  agreed on every address and return key.
+- Read by eye from screenshots and the paint clip, not by the script: the helper's
+  replies, every painting step, the tape landing in /video, the 404 page.
+- Findings the book now states: notepat keeps Esc, Backspace and backtick; edit leaves
+  for the VS Code Marketplace; signed out, profile, me, mood, handle and bye show nothing;
+  rect opens as "box"; tape ends in the video piece; the helper answered notepta with
+  'notifs'; the down arrow did not open the mime feed in any run.
+- Not cast: done, publish, delete-erase-and-forget-me (they publish or delete), !code
+  (no code known). print, mug and scream are not in the book.
+- Not tested at all: anything signed in; dark and light (no visible check); the corner
+  tap as the way out of notepat.
+- clips/ (72 mp4, 18 MB) and review.html are local and gitignored.

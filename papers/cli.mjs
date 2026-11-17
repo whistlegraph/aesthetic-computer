@@ -104,7 +104,7 @@ const PAPER_MAP = {
   "arxiv-magicians-manual": {
     base: "magicians-manual",
     siteName: "magicians-manual-26-arxiv",
-    title: "AC '26 Magician's Manual",
+    title: "Aesthetic Spells",
   },
   "arxiv-relay-rollback": {
     base: "relay-rollback",
