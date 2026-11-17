@@ -23,10 +23,14 @@ const corners = new Float64Array(24), lit = new Array(6);
 // behind the lit skin the volume begins, `far` how far it runs.
 export function shadowVolume(out, at, box, px, py, pz, yaw, scale, light, near, far) {
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  // A box given a negative size is the same solid: without this its volume
+  // would be inside out and cancel the shadows it overlaps.
+  const w = Math.abs(box.w), h = Math.abs(box.h), d = Math.abs(box.d);
+  scale = Math.abs(scale);
   for (let i = 0; i < 8; i++) {
-    const lx = (box.x + (i & 1 ? box.w : -box.w) / 2) * scale;
-    const ly = (box.y + (i & 2 ? box.h : -box.h) / 2) * scale;
-    const lz = (box.z + (i & 4 ? box.d : -box.d) / 2) * scale;
+    const lx = (box.x + (i & 1 ? w : -w) / 2) * scale;
+    const ly = (box.y + (i & 2 ? h : -h) / 2) * scale;
+    const lz = (box.z + (i & 4 ? d : -d) / 2) * scale;
     corners[i * 3] = lx * cy + lz * sy + px;
     corners[i * 3 + 1] = ly + py;
     corners[i * 3 + 2] = -lx * sy + lz * cy + pz;

@@ -10,8 +10,8 @@ import { OskiewarScene3D } from './scene3d.mjs';
 // drawing them: it counts them where they fall behind what is on screen
 // (depth-fail, so an eye inside a shadow reads right) and multiplies the
 // pixels inside by `shade`. Depths at or nearer than SHADOW_NEAR are left
-// alone, so a HUD drawn at the front of the stream is never darkened.
-const SHADOW_NEAR = 0.0005;
+// alone, so a HUD drawn at the front of the depth range is never darkened.
+const SHADOW_NEAR = 0.002;
 const shader = `
 struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 @vertex fn vertex(@location(0) position: vec3f, @location(1) color: vec3f) -> Vertex {

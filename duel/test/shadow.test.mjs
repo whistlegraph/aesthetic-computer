@@ -43,6 +43,16 @@ test('a box\'s shadow is one closed solid, faces outward, whatever the sun and h
       }
 });
 
+test('a box written with a negative size casts the same shadow, not one inside out', () => {
+  const light = unit(0.4, -0.8, 0.3);
+  const plain = volume({ x: 1, y: 1, z: 2, w: 2, h: 2, d: 3 }, light);
+  for (const box of [{ x: 1, y: 1, z: 2, w: -2, h: 2, d: 3 }, { x: 1, y: 1, z: 2, w: 2, h: 2, d: -3 }, { x: 1, y: 1, z: 2, w: -2, h: -2, d: -3 }]) {
+    const tris = volume(box, light);
+    assert.equal(open(tris), 0);
+    assert.ok(Math.abs(signed(tris) - signed(plain)) < 1e-3);
+  }
+});
+
 test('the volume starts just behind the lit skin and runs the asked length along the light', () => {
   const light = unit(0, -1, 0), tris = volume({ x: 0, y: 1, z: 0, w: 2, h: 2, d: 2 }, light, { near: 0.02, far: 10 });
   const ys = tris.flat().map((p) => p[1]);
