@@ -1,0 +1,92 @@
+#!/bin/bash
+# agent-latest: run the newest installed copy of an agent CLI.
+#
+# Install as a symlink named for the agent:
+#   ln -sfn ~/.local/share/slab/bin/agent-latest ~/.local/bin/claude
+#   ln -sfn ~/.local/share/slab/bin/agent-latest ~/.local/bin/codex
+#
+# prox_launch execs the fixed path ~/.local/bin/claude, and codex-slab runs
+# `codex` from PATH. A plain symlink into one fnm node version goes stale
+# when a newer node version gets its own global install (2026-11-16: neo
+# launched claude 2.1.281 while 2.1.322 sat in the next node version, and the
+# model refused the old client). This shim compares every install it can find
+# at each launch and execs the highest version, so no single path is pinned.
+#
+#   AGENT_LATEST_NAME=codex agent-latest --which   chosen binary + version
+#   AGENT_LATEST_NAME=codex agent-latest --list    every candidate + version
+# (--which/--list only apply when run as agent-latest, so they never shadow
+# the agent's own flags.)
+set -u
+
+self_real=$(realpath "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")
+name=$(basename "$0")
+direct=0
+if [[ "$name" == "agent-latest" ]]; then
+    direct=1
+    name=${AGENT_LATEST_NAME:-claude}
+fi
+
+candidates=()
+case "$name" in
+    claude)
+        candidates+=("$HOME"/.local/share/claude/versions/*)
+        candidates+=("$HOME"/.local/share/fnm/node-versions/*/installation/bin/claude)
+        candidates+=(/opt/homebrew/bin/claude /usr/local/bin/claude
+                     "$HOME/.npm-global/bin/claude" "$HOME/.bun/bin/claude")
+        pkg="@anthropic-ai/claude-code" ;;
+    codex)
+        candidates+=("$HOME"/.local/share/fnm/node-versions/*/installation/bin/codex)
+        candidates+=(/opt/homebrew/bin/codex /usr/local/bin/codex
+                     "$HOME/.npm-global/bin/codex" "$HOME/.bun/bin/codex")
+        pkg="@openai/codex" ;;
+    *)
+        echo "agent-latest: unknown agent '$name' (use claude or codex)" >&2
+        exit 64 ;;
+esac
+
+# Version of one install, cheapest source first: npm package.json, a
+# version-named path (native installer, Homebrew Caskroom), then --version.
+version_of() {
+    local bin=$1 real dir v
+    real=$(realpath "$bin" 2>/dev/null) || return 1
+    dir=$(dirname "$bin")
+    if [[ -f "$dir/../lib/node_modules/$pkg/package.json" ]]; then
+        v=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' \
+            "$dir/../lib/node_modules/$pkg/package.json" | head -1)
+    fi
+    if [[ -z "${v:-}" ]]; then
+        v=$(printf '%s\n' "$real" | grep -oE '/[0-9]+\.[0-9]+\.[0-9]+(/|$)' \
+            | tail -1 | tr -d /)
+    fi
+    if [[ -z "${v:-}" ]]; then
+        v=$("$bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    fi
+    [[ -n "${v:-}" ]] && printf '%s\n' "$v"
+}
+
+rows=""
+seen=" "
+for c in "${candidates[@]}"; do
+    [[ -x "$c" && ! -d "$c" ]] || continue
+    real=$(realpath "$c" 2>/dev/null) || continue
+    [[ "$real" == "$self_real" ]] && continue
+    [[ "$seen" == *" $real "* ]] && continue
+    seen+="$real "
+    v=$(version_of "$c") || continue
+    [[ -n "$v" ]] && rows+="$v"$'\t'"$c"$'\n'
+done
+
+if [[ -z "$rows" ]]; then
+    echo "agent-latest: no $name install found" >&2
+    exit 127
+fi
+
+sorted=$(printf '%s' "$rows" | sort -t $'\t' -k1,1V)
+best=$(printf '%s\n' "$sorted" | tail -1)
+
+[[ $direct == 1 ]] && case "${1:-}" in
+    --list)  printf '%s\n' "$sorted"; exit 0 ;;
+    --which) printf '%s\n' "$best"; exit 0 ;;
+esac
+
+exec "${best#*$'\t'}" "$@"

@@ -22,14 +22,19 @@ AWAITING_DIR="$SLAB_HOME/state/awaiting-prompts"
 RUNNING_DIR="$SLAB_HOME/state/running-tools"
 mkdir -p "$ACTIVE_DIR" "$AWAITING_DIR" "$RUNNING_DIR"
 
+# Prefer the agent-latest shim ($SLAB_BIN/codex -> agent-latest), which runs
+# the newest installed codex; PATH order alone can pick a stale fnm copy.
+codex=codex
+[[ -x "$SLAB_BIN/codex" ]] && codex="$SLAB_BIN/codex"
+
 # No jq or codex? Fall back to a plain, untracked codex so the shortcut never
 # breaks the user's ability to launch it.
-if ! command -v codex >/dev/null 2>&1; then
+if ! command -v "$codex" >/dev/null 2>&1; then
     echo "codex not found on PATH" >&2
     exit 127
 fi
 if ! command -v jq >/dev/null 2>&1; then
-    exec codex "$@"
+    exec "$codex" "$@"
 fi
 
 sid=$(uuidgen)
@@ -120,9 +125,9 @@ fi
 # raises "unbound variable". Keep the guarded and ordinary launch forms
 # explicit so the everyday `co` path never touches an empty array expansion.
 if (( ${#codex_guard_args[@]} )); then
-    codex "${codex_guard_args[@]}" "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+    "$codex" "${codex_guard_args[@]}" "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
 else
-    codex "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
+    "$codex" "$@" < "/dev/$tty" > "/dev/$tty" 2>&1 &
 fi
 agent_pid=$!
 # From this point on, lifecycle managers must signal the actual Codex process,
