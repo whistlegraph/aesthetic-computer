@@ -4,12 +4,18 @@ The build recipe used for the October 3, 2026 deployment. It overlays the
 compiled frontend on the pinned Outline 1.9.2 image, preserving the backend and
 old hashed assets for browser tabs opened before the update.
 
+Since patch 0002 (Open Graph previews), `build.sh` also compiles `server/` with
+SWC as upstream `build.js` does, and the Dockerfile copies `build/server` as
+well as `build/app`. The image tag is now `nela-outline:1.9.2-nela-og`.
+
 Before running `build.sh`, prepare these local inputs beside it:
 
 - `source/`: Outline v1.9.2 with `../patches/v1.9.2/` applied.
 - `build-deps/`: expanded npm packages `browserslist-to-esbuild@1.2.0`,
   `rollup-plugin-webpack-stats@3.1.3`, and `rollup-plugin-stats@2.1.3`, each in
   a directory matching its package name. These match the v1.9.2 lockfile.
+  If the base image lacks `@swc/cli` and `@swc/core`, add them here at the
+  lockfile's versions as well.
 - Docker image `nela-outline-base:1.9.2`: the base image and digest named in
   `Dockerfile`, pulled and tagged locally.
 

@@ -15,6 +15,17 @@ docker run --rm --name nela-theme-build \
     ln -sfn /opt/outline/node_modules /src/node_modules
     cp -R /build-deps/* /opt/outline/node_modules/
     node /opt/outline/node_modules/vite/bin/vite.js build
+    # 0002 (Open Graph previews) changes server code, so compile server/
+    # the way upstream build.js does. @swc/cli and @swc/core come from
+    # build-deps when the base image lacks them.
+    SWC=/opt/outline/node_modules/@swc/cli/bin/swc.js
+    test -f "$SWC" || { echo "missing @swc/cli in build-deps" >&2; exit 1; }
+    rm -rf build/server
+    node "$SWC" server -d build/server --strip-leading-paths \
+      --extensions .ts,.tsx \
+      --ignore "**/*.test.ts,**/*.test.tsx,**/__mocks__/**" --quiet
+    cp server/collaboration/Procfile build/server/collaboration/Procfile
+    cp server/static/error.dev.html server/static/error.prod.html build/server/
   '
 docker build --build-arg BASE_IMAGE=nela-outline-base:1.9.2 \
-  -t nela-outline:1.9.2-nela-20261003 .
+  -t nela-outline:1.9.2-nela-og .

@@ -1,0 +1,534 @@
+From 04658cd8483f7e42b39924af40df56587f30acc7 Mon Sep 17 00:00:00 2001
+From: "prompt.ac/@jeffrey" <mail@aesthetic.computer>
+Date: Thu, 12 Nov 2026 09:34:48 -0800
+Subject: [PATCH] NELA Open Graph link previews
+
+Outline v1.9.2 sends a <title> and description but no Open Graph tags,
+so Signal, iMessage and Slack show "Outline" and the stock blurb for
+every link.
+
+- renderApp emits og:* and twitter:* tags on every page: site name from
+  OG_SITE_NAME (APP_NAME is fixed and names the product in the UI),
+  description from OG_DESCRIPTION (falling back to the stock text, no
+  longer double-escaped), and a 1200x630 card image.
+- /og/default.png draws the site card; /og/s/:shareId.png and
+  /og/s/:shareId/doc/:documentSlug.png draw a card titled with the
+  published document. Titles come only from loadPublicShare, so private
+  documents never appear on a card; unknown shares get the site card.
+- server/utils/openGraph.ts draws cards with no image dependencies: the
+  public-domain 6x10 Misc-Fixed font, NELA's dark palette, an indexed
+  PNG written with zlib, and a small LRU.
+---
+ server/routes/app.ts           |  39 ++++-
+ server/routes/index.ts         |   7 +
+ server/routes/openGraph.ts     |  38 +++++
+ server/utils/openGraph.test.ts |  43 +++++
+ server/utils/openGraph.ts      | 292 +++++++++++++++++++++++++++++++++
+ 5 files changed, 417 insertions(+), 2 deletions(-)
+ create mode 100644 server/routes/openGraph.ts
+ create mode 100644 server/utils/openGraph.test.ts
+ create mode 100644 server/utils/openGraph.ts
+
+diff --git a/server/routes/app.ts b/server/routes/app.ts
+index 0c03789..901cdff 100644
+--- a/server/routes/app.ts
++++ b/server/routes/app.ts
+@@ -19,6 +19,7 @@ import { getTeamFromContext } from "@server/utils/passport";
+ import prefetchTags from "@server/utils/prefetchTags";
+ import readManifestFile from "@server/utils/readManifestFile";
+ import { loadPublicShare } from "@server/commands/shareLoader";
++import { CardHeight, CardWidth, siteName } from "@server/utils/openGraph";
+ 
+ const readFile = util.promisify(fs.readFile);
+ const entry = "app/index.tsx";
+@@ -71,6 +72,14 @@ const readIndexFile = async (): Promise<Buffer> => {
+   ));
+ };
+ 
++/**
++ * The origin crawlers should fetch cards from: the share's own domain when
++ * serving a custom share domain, otherwise the configured app URL (the
++ * request origin can be the internal address behind the proxy).
++ */
++const ogOrigin = (ctx: Context) =>
++  ctx.state?.rootShare ? `https://${ctx.hostname}` : env.URL;
++
+ export const renderApp = async (
+   ctx: Context,
+   next: Next,
+@@ -84,15 +93,19 @@ export const renderApp = async (
+     isShare?: boolean;
+     analytics?: Integration<IntegrationType.Analytics>[];
+     allowIndexing?: boolean;
++    /** Absolute URL of the Open Graph card for this page. */
++    image?: string;
+   } = {}
+ ) => {
+   const {
+-    title = env.APP_NAME,
+-    description = "A modern team knowledge base for your internal documentation, product specs, support answers, meeting notes, onboarding, &amp; more…",
++    title = siteName(),
++    description = process.env.OG_DESCRIPTION ||
++      "A modern team knowledge base for your internal documentation, product specs, support answers, meeting notes, onboarding, & more…",
+     canonical = "",
+     content = "",
+     shortcutIcon = `${env.CDN_URL || ""}/images/favicon-32.png`,
+     allowIndexing = true,
++    image = `${ogOrigin(ctx)}/og/default.png`,
+   } = options;
+ 
+   if (ctx.request.path === "/realtime/") {
+@@ -141,6 +154,20 @@ export const renderApp = async (
+   let headTags = `
+     <meta name="robots" content="${allowIndexing ? "index, follow" : "noindex, nofollow"}" />
+     <link rel="canonical" href="${escape(canonical)}" />
++    <meta property="og:type" content="website" />
++    <meta property="og:site_name" content="${escape(siteName())}" />
++    <meta property="og:title" content="${escape(title)}" />
++    <meta property="og:description" content="${escape(description)}" />
++    <meta property="og:url" content="${escape(canonical || ogOrigin(ctx) + ctx.request.path)}" />
++    <meta property="og:image" content="${escape(image)}" />
++    <meta property="og:image:type" content="image/png" />
++    <meta property="og:image:width" content="${CardWidth}" />
++    <meta property="og:image:height" content="${CardHeight}" />
++    <meta property="og:image:alt" content="${escape(title)}" />
++    <meta name="twitter:card" content="summary_large_image" />
++    <meta name="twitter:title" content="${escape(title)}" />
++    <meta name="twitter:description" content="${escape(description)}" />
++    <meta name="twitter:image" content="${escape(image)}" />
+     <link
+       rel="shortcut icon"
+       type="image/png"
+@@ -348,5 +375,13 @@ export const renderShare = async (ctx: Context, next: Next) => {
+     rootShareId,
+     canonical: canonicalUrl,
+     allowIndexing: share?.allowIndexing,
++    image:
++      share && (document || collection)
++        ? `${ogOrigin(ctx)}/og/s/${encodeURIComponent(share.urlId || share.id)}${
++            documentSlug && document
++              ? `/doc/${encodeURIComponent(documentSlug)}`
++              : ""
++          }.png`
++        : undefined,
+   });
+ };
+diff --git a/server/routes/index.ts b/server/routes/index.ts
+index ccd300d..795475f 100644
+--- a/server/routes/index.ts
++++ b/server/routes/index.ts
+@@ -18,6 +18,7 @@ import { robotsResponse } from "@server/utils/robots";
+ import { isInvalidAppPath } from "@server/utils/url";
+ import apexRedirect from "../middlewares/apexRedirect";
+ import { renderApp, renderShare } from "./app";
++import { renderOpenGraphCard } from "./openGraph";
+ import { renderEmbed } from "./embeds";
+ import errors from "./errors";
+ 
+@@ -184,6 +185,12 @@ router.get("/opensearch.xml", (ctx) => {
+   ctx.body = opensearchResponse(ctx.request.URL.origin);
+ });
+ 
++// Open Graph link-preview cards. Share cards only ever reveal the title of
++// a published share; everything else gets the site card.
++router.get("/og/default.png", renderOpenGraphCard);
++router.get("/og/s/:shareId.png", renderOpenGraphCard);
++router.get("/og/s/:shareId/doc/:documentSlug.png", renderOpenGraphCard);
++
+ router.get("/s/:shareId.:format", shareDomains(), renderShare);
+ router.get("/s/:shareId", shareDomains(), renderShare);
+ router.get(
+diff --git a/server/routes/openGraph.ts b/server/routes/openGraph.ts
+new file mode 100644
+index 0000000..2ad8ee2
+--- /dev/null
++++ b/server/routes/openGraph.ts
+@@ -0,0 +1,38 @@
++import type { Context } from "koa";
++import env from "@server/env";
++import { loadPublicShare } from "@server/commands/shareLoader";
++import { cachedCard, siteName } from "@server/utils/openGraph";
++import { getTeamFromContext } from "@server/utils/passport";
++
++/**
++ * Serve the Open Graph card for a published share, or the site card.
++ *
++ * A card for a share is drawn only when loadPublicShare finds a published
++ * share containing the document, so private titles never reach a card.
++ * Missing or private shares fall back to the site card rather than a 404,
++ * keeping previews tidy without saying whether a share exists.
++ */
++export const renderOpenGraphCard = async (ctx: Context) => {
++  const site = siteName();
++  const host = ctx.state?.rootShare ? ctx.hostname : new URL(env.URL).host;
++  let title = process.env.OG_CARD_TITLE || "Wiki";
++
++  const { shareId, documentSlug } = ctx.params;
++  if (shareId) {
++    try {
++      const team = await getTeamFromContext(ctx, { includeOAuthState: false });
++      const { document, collection } = await loadPublicShare({
++        id: shareId,
++        documentId: documentSlug,
++        teamId: team?.id,
++      });
++      title = document?.title || collection?.name || title;
++    } catch (_err) {
++      // Not a published share: fall through to the site card.
++    }
++  }
++
++  ctx.type = "image/png";
++  ctx.set("Cache-Control", "public, max-age=3600");
++  ctx.body = cachedCard({ title, site, host });
++};
+diff --git a/server/utils/openGraph.test.ts b/server/utils/openGraph.test.ts
+new file mode 100644
+index 0000000..522203f
+--- /dev/null
++++ b/server/utils/openGraph.test.ts
+@@ -0,0 +1,43 @@
++import zlib from "node:zlib";
++import {
++  CardHeight,
++  CardWidth,
++  layoutTitle,
++  renderCard,
++  toFontText,
++  wrap,
++} from "./openGraph";
++
++describe("openGraph", () => {
++  it("renders a valid indexed PNG at card size", () => {
++    const png = renderCard({
++      title: "Past Meetings",
++      site: "NELA Computer Club",
++      host: "wiki.nela.computer",
++    });
++    expect(png.subarray(1, 4).toString("ascii")).toBe("PNG");
++    expect(png.readUInt32BE(16)).toBe(CardWidth);
++    expect(png.readUInt32BE(20)).toBe(CardHeight);
++    const idat = png.indexOf("IDAT");
++    const length = png.readUInt32BE(idat - 4);
++    const raw = zlib.inflateSync(png.subarray(idat + 4, idat + 4 + length));
++    expect(raw.length).toBe((CardWidth + 1) * CardHeight);
++  });
++
++  it("folds text to what the bitmap font can draw", () => {
++    expect(toFontText("Café “night” — 2…")).toBe('Cafe "night" - 2...');
++    expect(toFontText("🎉 Party")).toBe("Party");
++  });
++
++  it("wraps words and breaks words longer than a line", () => {
++    expect(wrap("one two three", 7)).toEqual(["one two", "three"]);
++    expect(wrap("abcdefghij", 4)).toEqual(["abcd", "efgh", "ij"]);
++  });
++
++  it("shrinks long titles and ellipsises what still does not fit", () => {
++    expect(layoutTitle("Past Meetings").scale).toBe(12);
++    const { scale, lines } = layoutTitle("word ".repeat(200).trim());
++    expect(scale).toBe(6);
++    expect(lines[lines.length - 1].endsWith("...")).toBe(true);
++  });
++});
+diff --git a/server/utils/openGraph.ts b/server/utils/openGraph.ts
+new file mode 100644
+index 0000000..dbef99c
+--- /dev/null
++++ b/server/utils/openGraph.ts
+@@ -0,0 +1,292 @@
++import zlib from "node:zlib";
++
++/**
++ * Open Graph cards for link previews (Signal, Slack, iMessage, Discord…).
++ *
++ * Draws a 1200×630 PNG with no image dependencies: a public-domain 6×10
++ * Misc-Fixed bitmap font, a four-colour palette, and zlib for the PNG
++ * stream. The palette is NELA's dark scheme (shared/styles/nela.ts).
++ */
++
++/**
++ * The site name for previews. Separate from APP_NAME, which is fixed and
++ * also names the product throughout the UI.
++ */
++export const siteName = () => process.env.OG_SITE_NAME || "Outline";
++
++export const CardWidth = 1200;
++export const CardHeight = 630;
++
++const Background = 0;
++const Green = 1;
++const Cyan = 2;
++const Muted = 3;
++
++// background, green, cyan, secondary text
++const Palette = [
++  0x02, 0x2f, 0x18, 0x00, 0xd0, 0x80, 0x00, 0xc4, 0xfd, 0x8a, 0xb4, 0xa2,
++];
++
++const GlyphWidth = 6;
++const GlyphHeight = 10;
++
++// ASCII 32–126, ten row bytes per glyph, high bit = leftmost pixel.
++const Font = Buffer.from(
++  "000000000000000000000020202020200020000000505050000000000000005050f850f85050" +
++  "0000002070a07028702000000048a8502050a89000000040a0a040a890680000002020200000" +
++  "00000000001020404040201000000040201010102040000000008850f8508800000000002020" +
++  "f820200000000000000000003020400000000000f80000000000000000000000207020000008" +
++  "081020408080000000205088888850200000002060a0202020f8000000708808304080f80000" +
++  "00f808103008887000000010305090f81010000000f880b0c8088870000000304080b0c88870" +
++  "000000f808101020404000000070888870888870000000708898680810600000000020702000" +
++  "207020000000207020003020400000081020402010080000000000f800f80000000000402010" +
++  "0810204000000070881020200020000000708898a8b0807000000020508888f88888000000f0" +
++  "4848704848f000000070888080808870000000f04848484848f0000000f88080f08080f80000" +
++  "00f88080f080808000000070888080988870000000888888f888888800000070202020202070" +
++  "000000381010101090600000008890a0c0a09088000000808080808080f80000008888d8a888" +
++  "88880000008888c8a898888800000070888888888870000000f08888f0808080000000708888" +
++  "8888a870080000f08888f0a0908800000070888070088870000000f820202020202000000088" +
++  "88888888887000000088888850505020000000888888a8a8d888000000888850205088880000" +
++  "0088885020202020000000f80810204080f80000007040404040407000000080804020100808" +
++  "000000701010101010700000002050880000000000000000000000000000f800201000000000" +
++  "0000000000000070087888780000008080b0c888c8b000000000007088808870000000080868" +
++  "9888986800000000007088f88070000000304840f04040400000000000788888780888700080" +
++  "80b0c8888888000000200060202020700000000800180808084848300080808890e090880000" +
++  "00602020202020700000000000d0a8a8a8880000000000b0c888888800000000007088888870" +
++  "0000000000b0c888c8b0808000000068988898680808000000b0c88080800000000000708070" +
++  "08f00000004040f0404048300000000000888888986800000000008888505020000000000088" +
++  "88a8a85000000000008850205088000000000088889868088870000000f8102040f800000018" +
++  "201060102018000000202020202020200000006010201820106000000048a890000000000000",
++  "hex"
++);
++
++// Misc-Fixed's period and colon are small diamonds that read as "+" when
++// scaled up; square dots read better on a card.
++Font.set([0, 0, 0, 0, 0, 0, 0x60, 0x60, 0, 0], (".".charCodeAt(0) - 32) * 10);
++Font.set([0, 0, 0, 0x60, 0x60, 0, 0x60, 0x60, 0, 0], (":".charCodeAt(0) - 32) * 10);
++
++class Canvas {
++  readonly pixels = new Uint8Array(CardWidth * CardHeight);
++
++  rect(x: number, y: number, w: number, h: number, colour: number) {
++    const x0 = Math.max(0, x);
++    const x1 = Math.min(CardWidth, x + w);
++    const y0 = Math.max(0, y);
++    const y1 = Math.min(CardHeight, y + h);
++    for (let row = y0; row < y1; row++) {
++      this.pixels.fill(colour, row * CardWidth + x0, row * CardWidth + x1);
++    }
++  }
++
++  text(line: string, x: number, y: number, scale: number, colour: number) {
++    let cx = x;
++    for (const char of line) {
++      const code = char.charCodeAt(0);
++      const glyph = code >= 32 && code <= 126 ? code - 32 : 31; // "?"
++      for (let row = 0; row < GlyphHeight; row++) {
++        const bits = Font[glyph * GlyphHeight + row];
++        for (let col = 0; col < GlyphWidth; col++) {
++          if (bits & (0x80 >> col)) {
++            this.rect(cx + col * scale, y + row * scale, scale, scale, colour);
++          }
++        }
++      }
++      cx += GlyphWidth * scale;
++    }
++  }
++
++  png(): Buffer {
++    const raw = Buffer.alloc((CardWidth + 1) * CardHeight);
++    for (let row = 0; row < CardHeight; row++) {
++      raw[row * (CardWidth + 1)] = 0; // filter: none
++      raw.set(
++        this.pixels.subarray(row * CardWidth, (row + 1) * CardWidth),
++        row * (CardWidth + 1) + 1
++      );
++    }
++    const header = Buffer.alloc(13);
++    header.writeUInt32BE(CardWidth, 0);
++    header.writeUInt32BE(CardHeight, 4);
++    header[8] = 8; // bit depth
++    header[9] = 3; // indexed colour
++    return Buffer.concat([
++      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
++      chunk("IHDR", header),
++      chunk("PLTE", Buffer.from(Palette)),
++      chunk("IDAT", zlib.deflateSync(raw, { level: 9 })),
++      chunk("IEND", Buffer.alloc(0)),
++    ]);
++  }
++}
++
++const CrcTable = Array.from({ length: 256 }, (_, n) => {
++  let c = n;
++  for (let k = 0; k < 8; k++) {
++    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
++  }
++  return c >>> 0;
++});
++
++function crc32(data: Buffer): number {
++  let c = 0xffffffff;
++  for (const byte of data) {
++    c = CrcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
++  }
++  return (c ^ 0xffffffff) >>> 0;
++}
++
++function chunk(type: string, data: Buffer): Buffer {
++  const length = Buffer.alloc(4);
++  length.writeUInt32BE(data.length);
++  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
++  const crc = Buffer.alloc(4);
++  crc.writeUInt32BE(crc32(body));
++  return Buffer.concat([length, body, crc]);
++}
++
++/**
++ * Reduce text to what the bitmap font can draw: accents are folded,
++ * typographic punctuation is straightened, and anything else is dropped.
++ */
++export function toFontText(text: string): string {
++  return text
++    .normalize("NFKD")
++    .replace(/[̀-ͯ]/g, "")
++    .replace(/[‘’]/g, "'")
++    .replace(/[“”]/g, '"')
++    .replace(/[–—]/g, "-")
++    .replace(/…/g, "...")
++    .replace(/[^\x20-\x7e]/g, "")
++    .replace(/\s+/g, " ")
++    .trim();
++}
++
++/**
++ * Word-wrap text to a column count, breaking words longer than a line.
++ */
++export function wrap(text: string, columns: number): string[] {
++  const lines: string[] = [];
++  let line = "";
++  for (let word of text.split(" ")) {
++    while (word.length > columns) {
++      if (line) {
++        lines.push(line);
++        line = "";
++      }
++      lines.push(word.slice(0, columns));
++      word = word.slice(columns);
++    }
++    if (!line) {
++      line = word;
++    } else if (line.length + 1 + word.length <= columns) {
++      line += " " + word;
++    } else {
++      lines.push(line);
++      line = word;
++    }
++  }
++  if (line) {
++    lines.push(line);
++  }
++  return lines;
++}
++
++const Margin = 72;
++const TitleTop = 190;
++const TitleBottom = 520;
++
++/**
++ * Pick the largest title scale whose wrapped lines fit the title area,
++ * ellipsising the last line if even the smallest scale overflows.
++ */
++export function layoutTitle(title: string): {
++  scale: number;
++  lines: string[];
++} {
++  const width = CardWidth - Margin * 2;
++  const height = TitleBottom - TitleTop;
++  for (const scale of [12, 10, 8, 7, 6]) {
++    const columns = Math.floor(width / (GlyphWidth * scale));
++    const lineHeight = Math.round(GlyphHeight * scale * 1.15);
++    const lines = wrap(title, columns);
++    if (lines.length * lineHeight <= height) {
++      return { scale, lines };
++    }
++  }
++  const scale = 6;
++  const columns = Math.floor(width / (GlyphWidth * scale));
++  const max = Math.floor(height / Math.round(GlyphHeight * scale * 1.15));
++  const lines = wrap(title, columns).slice(0, max);
++  lines[max - 1] = lines[max - 1].slice(0, columns - 3).trimEnd() + "...";
++  return { scale, lines };
++}
++
++/**
++ * Render a link-preview card.
++ *
++ * @param options.title the page title, drawn large in green.
++ * @param options.site the site name, drawn small in cyan above the title.
++ * @param options.host the hostname, drawn at the foot of the card.
++ * @returns a PNG buffer.
++ */
++export function renderCard(options: {
++  title: string;
++  site: string;
++  host: string;
++}): Buffer {
++  const canvas = new Canvas();
++  const title = toFontText(options.title) || toFontText(options.site);
++  const site = toFontText(options.site).toUpperCase();
++  const host = toFontText(options.host);
++
++  // A frame with a cyan rule beneath the site name, like the NELA sidebar.
++  canvas.rect(24, 24, CardWidth - 48, 4, Muted);
++  canvas.rect(24, CardHeight - 28, CardWidth - 48, 4, Muted);
++  canvas.rect(24, 24, 4, CardHeight - 48, Muted);
++  canvas.rect(CardWidth - 28, 24, 4, CardHeight - 48, Muted);
++
++  canvas.text(site, Margin, 72, 5, Cyan);
++  canvas.rect(
++    Margin,
++    140,
++    Math.min(site.length * GlyphWidth * 5, CardWidth - Margin * 2),
++    5,
++    Cyan
++  );
++
++  const { scale, lines } = layoutTitle(title);
++  const lineHeight = Math.round(GlyphHeight * scale * 1.15);
++  lines.forEach((line, i) => {
++    canvas.text(line, Margin, TitleTop + i * lineHeight, scale, Green);
++  });
++
++  canvas.text(host, Margin, CardHeight - 100, 4, Muted);
++  return canvas.png();
++}
++
++const cache = new Map<string, Buffer>();
++const CacheSize = 256;
++
++/**
++ * renderCard with a small in-memory LRU, since crawlers fetch the same
++ * card repeatedly.
++ */
++export function cachedCard(options: {
++  title: string;
++  site: string;
++  host: string;
++}): Buffer {
++  const key = JSON.stringify(options);
++  const hit = cache.get(key);
++  if (hit) {
++    cache.delete(key);
++    cache.set(key, hit);
++    return hit;
++  }
++  const png = renderCard(options);
++  cache.set(key, png);
++  if (cache.size > CacheSize) {
++    cache.delete(cache.keys().next().value as string);
++  }
++  return png;
++}
+-- 
+2.54.0 (Apple Git-157)
+

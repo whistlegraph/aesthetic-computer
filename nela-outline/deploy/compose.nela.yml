@@ -1,3 +1,8 @@
 services:
   app:
-    image: nela-outline:1.9.2-nela-20261003
+    image: nela-outline:1.9.2-nela-og
+    environment:
+      # Link previews (patch 0002): og:site_name, the card's top line, and
+      # the default <title>. APP_NAME is fixed in Outline and left alone.
+      OG_SITE_NAME: NELA Computer Club
+      OG_DESCRIPTION: The Northeast LA Computer Club wiki — meetings, projects and how-tos.

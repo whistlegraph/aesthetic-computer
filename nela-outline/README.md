@@ -13,6 +13,14 @@ The v1.9.2 theme was deployed on October 3, 2026. NELA is the default skin;
 Outline remains selectable in Preferences. Each account's skin choice is stored
 in its browser, separately from Light / Dark / System appearance.
 
+`patches/v1.9.2/0002` adds Open Graph link previews, so wiki links shared in
+Signal, iMessage or Slack show a NELA card instead of "Outline" and the stock
+blurb. Every page gets `og:` and `twitter:` tags; published shares get a
+1200×630 card drawn with the share's title, and everything else gets the site
+card. Private document titles are never put on a card. Set `OG_SITE_NAME` and
+`OG_DESCRIPTION` in the deployment environment. Unlike the theme, this patch
+changes server code.
+
 | Patch | Applies to |
 |---|---|
 | `patches/v1.9.2/` | the `v1.9.2` release tag |
