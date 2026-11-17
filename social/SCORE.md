@@ -79,6 +79,17 @@ Everything below already exists in the monorepo. This is the map; `/social` is t
 **Credentials live in the encrypted vault, never here** — `aesthetic-computer-vault/`, unlock with
 `fish vault-tool.fish unlock`.
 
+### Pulse: what a circle is saying
+| Path | What it does |
+|---|---|
+| `social/lib/pulse.mjs` | Shared module: reads a saved group of people across Bluesky, Mastodon (public APIs, no login) and X (paid search via `toolchain/x/x.mjs`), keeps posts matching the terms, collapses threads and cross-posts, marks what is new since the last look. `find` proposes members from profile search, the week's best-liked posts and Bluesky starter packs |
+| `social/bin/pulse.mjs` | CLI: `groups`, `find <topic>`, `find --pack <uri>`, `run <group> [question] --terms a,b --hours 24 --no-x`, `save <group> --add '[…]'` |
+| `slab/bin/x-mcp.mjs` | The same four verbs as `x` MCP tools: `pulse`, `pulse_groups`, `pulse_find`, `pulse_group_save` |
+
+Groups, questions and saved runs are private research: they live in the vault under
+`research/social/` (`groups/`, `state/`, `runs/`), never in this repo. Test with
+`node --test social/lib/pulse.test.mjs`.
+
 ### Instagram
 | Path | What it does |
 |---|---|

@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { httpPort, serveHttp, serveStdio } from "../../toolchain/mcp/http-front.mjs";
 import { credentialStatus, X_ACCOUNTS } from "../../toolchain/vault/credentials.mjs";
+import { find, findReport, listGroups, pulse, readGroup, report, saveGroup } from "../../social/lib/pulse.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const x = resolve(root, "toolchain/x/x.mjs");
@@ -98,6 +99,10 @@ const TOOLS = [
   { name: "x_reply", description: "Publish a public reply when the original author has mentioned or quoted this account. X self-serve API restriction: other replies must be made manually in X. SIDE EFFECT: creates a live public post. Requires confirm:true.", inputSchema: { type: "object", properties: { account: { type: "string", enum: Object.keys(accounts), default: "promptdotac" }, target: { type: "string", description: "X post id or x.com status URL." }, text: { type: "string" }, mediaPath: { type: "string", description: "Local image path; requires alt." }, alt: { type: "string", description: "Alt text, required whenever mediaPath is given." }, confirm: { type: "boolean" } }, required: ["target", "text", "confirm"] } },
   { name: "bluesky_profile", description: "Read a Bluesky profile's public counts (default @aesthetic.computer).", inputSchema: { type: "object", properties: { handle: { type: "string", default: "aesthetic.computer" } } } },
   { name: "bluesky_post", description: "Publish a post to Bluesky as @aesthetic.computer, with link facets detected so URLs are clickable. SIDE EFFECT: creates a live public post. Requires confirm:true.", inputSchema: { type: "object", properties: { text: { type: "string" }, imagePath: { type: "string" }, alt: { type: "string" }, confirm: { type: "boolean" } }, required: ["text", "confirm"] } },
+  { name: "pulse", description: "What is a named group of people saying right now? Reads the recent posts of every member of a saved group across Bluesky, Mastodon and X, keeps the ones matching `terms`, and returns a dated table (UTC + LA time, who, where, post, link) plus who stayed quiet. Marks posts that are new since the last look and saves the run to the vault. Bluesky and Mastodon are free; X is one paid, budgeted search per ~20 members. Use this when jeffrey asks what a community (security people, Tezos artists) makes of something.", inputSchema: { type: "object", properties: { group: { type: "string", description: "Group slug from pulse_groups." }, question: { type: "string", description: "The question being asked, in plain words. Stored with the run." }, terms: { type: "array", items: { type: "string" }, description: "Words or phrases a post must contain. Omit to use the group's own keywords." }, hours: { type: "number", default: 24 }, platforms: { type: "array", items: { type: "string", enum: ["bluesky", "x", "mastodon"] }, description: "Default: all three." }, all: { type: "boolean", description: "Every post in the window, no term filter." } }, required: ["group"] } },
+  { name: "pulse_groups", description: "List the saved groups of people (slug, title, size, keywords, last look and its question), or show one group's members with `group`. Groups are private research kept in the vault.", inputSchema: { type: "object", properties: { group: { type: "string" } } } },
+  { name: "pulse_find", description: "Find who belongs in a group: accounts whose profile matches a topic, authors of the best-liked posts on it this week, and Bluesky starter packs (other people's hand-made lists). Pass a starter pack uri as `pack` to list its members. Reads Bluesky and Mastodon for free; set x:true to also spend one X search. Returns candidates only; save the chosen ones with pulse_group_save.", inputSchema: { type: "object", properties: { topic: { type: "string" }, pack: { type: "string", description: "at:// uri of a Bluesky starter pack to expand." }, x: { type: "boolean" }, limit: { type: "integer", minimum: 1, maximum: 60, default: 20 } } } },
+  { name: "pulse_group_save", description: "Create or update a group in the vault. `add` members are matched by name, so saving a person again updates their handles. Handles: bluesky (handle or custom domain), x (username), mastodon (user@instance).", inputSchema: { type: "object", properties: { slug: { type: "string" }, title: { type: "string" }, about: { type: "string" }, keywords: { type: "array", items: { type: "string" } }, add: { type: "array", items: { type: "object", properties: { name: { type: "string" }, role: { type: "string" }, bluesky: { type: "string" }, x: { type: "string" }, mastodon: { type: "string" } }, required: ["name"] } }, remove: { type: "array", items: { type: "string" }, description: "Member names to drop." } }, required: ["slug"] } },
 ];
 
 async function callTool(name, args = {}) {
@@ -174,6 +179,21 @@ async function callTool(name, args = {}) {
     // at/cli.mjs loads its .env from the working directory, so run it there.
     return text(await run(at, argv, resolve(root, "at"), 300_000));
   }
+  if (name === "pulse") return text(report(await pulse(args)));
+  if (name === "pulse_groups") {
+    if (args.group) {
+      const g = readGroup(args.group);
+      return text([`${g.slug} — ${g.title}`, g.about, `keywords: ${(g.keywords || []).join(", ") || "none"}`, "",
+        ...g.members.map((m) => `- ${m.name}${m.role ? ` (${m.role})` : ""} · ${["bluesky", "x", "mastodon"].filter((p) => m[p]).map((p) => `${p}: ${m[p]}`).join(" · ")}`)].join("\n"));
+    }
+    const groups = listGroups();
+    return text(groups.length ? groups.map((g) => `${g.slug} — ${g.title} · ${g.members} people · keywords: ${g.keywords.join(", ") || "none"} · last look ${g.lastRun || "never"}${g.lastQuestion ? ` · "${g.lastQuestion}"` : ""}`).join("\n") : "no groups yet; find people with pulse_find, then pulse_group_save");
+  }
+  if (name === "pulse_find") return text(findReport(await find(args)));
+  if (name === "pulse_group_save") {
+    const g = saveGroup(args);
+    return text(`saved ${g.slug}: ${g.members.length} people`);
+  }
   throw new Error(`unknown tool ${name}`);
 }
 
@@ -182,8 +202,8 @@ async function handleMessage(message) {
   try {
     if (method === "initialize") return { jsonrpc: "2.0", id, result: {
       protocolVersion: "2024-11-05", capabilities: { tools: {} },
-      serverInfo: { name: "x-mcp", version: "1.2.0" },
-      instructions: "Official X API v2 (OAuth 1.0a) and Bluesky. Account-scoped credentials resolve automatically through the shared aesthetic-computer-vault registry (AC_VAULT overrides its location) and are never returned. X search is pay-per-use and locally budgeted. Draft before posting; public post/reply tools require confirm:true. Nightly, jasellite drafts the Aesthetic network's news (social_drafts); when jeffrey asks for network news, show the pending drafts and post only the ones he approves, via social_draft_post with confirm:true." } };
+      serverInfo: { name: "x-mcp", version: "1.3.0" },
+      instructions: "Official X API v2 (OAuth 1.0a) and Bluesky. Account-scoped credentials resolve automatically through the shared aesthetic-computer-vault registry (AC_VAULT overrides its location) and are never returned. X search is pay-per-use and locally budgeted. Draft before posting; public post/reply tools require confirm:true. Nightly, jasellite drafts the Aesthetic network's news (social_drafts); when jeffrey asks for network news, show the pending drafts and post only the ones he approves, via social_draft_post with confirm:true. To learn what a community is saying, use pulse on a saved group (pulse_groups lists them; pulse_find and pulse_group_save build new ones); show the table it returns." } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
