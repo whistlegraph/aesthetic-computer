@@ -139,6 +139,86 @@ const boxOf = (b) => ({
   color: 0xc0c0c0,
 });
 
+// Lettering for (text "..."): capitals three cells wide and five tall, rows
+// top first. A wider or taller glyph says so by its row length and count.
+const LETTERS = {
+  A: '010 101 111 101 101', B: '110 101 110 101 110', C: '011 100 100 100 011',
+  D: '110 101 101 101 110', E: '111 100 110 100 111', F: '111 100 110 100 100',
+  G: '011 100 101 101 011', H: '101 101 111 101 101', I: '111 010 010 010 111',
+  J: '001 001 001 101 010', K: '101 101 110 101 101', L: '100 100 100 100 111',
+  M: '10001 11011 10101 10001 10001', N: '1001 1101 1011 1001 1001',
+  O: '111 101 101 101 111', P: '110 101 110 100 100', Q: '010 101 101 110 011',
+  R: '110 101 110 101 101', S: '011 100 010 001 110', T: '111 010 010 010 010',
+  U: '101 101 101 101 111', V: '101 101 101 101 010',
+  W: '10001 10001 10101 11011 10001', X: '101 101 010 101 101',
+  Y: '101 101 010 010 010', Z: '111 001 010 100 111',
+  Æ: '01111 10100 11111 10100 10111', Ø: '01101 10010 10101 01001 10110',
+  Å: '010 000 010 101 111 101 101',
+  0: '010 101 101 101 010', 1: '010 110 010 010 111', 2: '110 001 010 100 111',
+  3: '110 001 010 001 110', 4: '101 101 111 001 001', 5: '111 100 110 001 110',
+  6: '011 100 110 101 010', 7: '111 001 010 010 010', 8: '010 101 010 101 010',
+  9: '010 101 011 001 110',
+  '.': '0 0 0 0 1', ',': '00 00 00 01 10', '!': '1 1 1 0 1',
+  '?': '110 001 010 000 010', '-': '000 000 111 000 000',
+  '+': '000 010 111 010 000', ':': '0 1 0 1 0', "'": '1 1 0 0 0',
+  '/': '001 001 010 100 100', ' ': '00 00 00 00 00',
+};
+const letterCache = new Map();
+// One glyph as few rectangles: runs along each row, joined to the same run
+// in the row beneath. [x0, y0, x1, y1] in cells, y up from the baseline.
+function letterRects(ch) {
+  if (letterCache.has(ch)) return letterCache.get(ch);
+  const rows = LETTERS[ch].split(' '),
+    open = new Map(),
+    rects = [];
+  rows.forEach((row, r) => {
+    const top = rows.length - r,
+      seen = new Set();
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] !== '1') continue;
+      let e = c;
+      while (row[e + 1] === '1') e++;
+      const key = `${c}-${e}`;
+      seen.add(key);
+      if (open.has(key)) open.get(key)[1] = top - 1;
+      else {
+        const rect = [c, top - 1, e + 1, top];
+        open.set(key, rect);
+        rects.push(rect);
+      }
+      c = e;
+    }
+    for (const key of [...open.keys()]) if (!seen.has(key)) open.delete(key);
+  });
+  const out = { rects, width: rows[0].length, rows: rows.length };
+  letterCache.set(ch, out);
+  return out;
+}
+// A line of lettering as flat quads on z=0: centred on x, standing on y=0,
+// read left to right along +x from the -z side.
+function lettering(words, height) {
+  const cell = height / 5,
+    quads = [];
+  let width = -1,
+    tall = 5;
+  const placed = [...words].map((ch) => {
+    const g = letterRects(ch),
+      at = width + 1;
+    width = at + g.width;
+    tall = Math.max(tall, g.rows);
+    return [g, at];
+  });
+  const left = -(width * cell) / 2,
+    r = (n) => Math.round(n * 10000) / 10000;
+  for (const [g, at] of placed)
+    for (const [x0, y0, x1, y1] of g.rects) {
+      const a = r(left + (at + x0) * cell), b = r(left + (at + x1) * cell),
+        lo = r(y0 * cell), hi = r(y1 * cell);
+      quads.push(['quad', a, lo, 0, b, lo, 0, b, hi, 0, a, hi, 0]);
+    }
+  return { quads, bounds: [[left, -left], [0, tall * cell], [0, 0]] };
+}
+
 // A bounded admission pass, not a second evaluator. Accepted forms retain the
 // shared dialect's semantics. Loops unroll here; only transforms can animate.
 function admit(source, lenient = false) {
@@ -204,7 +284,7 @@ function admit(source, lenient = false) {
       // (fur length [density] forms...): strands grow from the surfaces of
       // the shapes inside, along their outward normals. Visual only.
       if (op === 'fur') {
-        const numeric = args.filter((a) => typeof a === 'number' || (Array.isArray(a) && !['slab', 'orb', 'capsule', 'tri', 'quad', 'move', 'rotate', 'scale', 'ink', 'repeat', 'let', 'def', 'fur', 'tone'].includes(a[0])));
+        const numeric = args.filter((a) => typeof a === 'number' || (Array.isArray(a) && !['slab', 'orb', 'capsule', 'tri', 'quad', 'move', 'rotate', 'scale', 'ink', 'repeat', 'let', 'def', 'fur', 'tone', 'text'].includes(a[0])));
         const n = Math.min(2, numeric.length);
         const values = args.slice(0, n).map((a) => expression(a, local));
         if (!n || values.some((v) => !exact(v.range)))
@@ -270,6 +350,7 @@ function admit(source, lenient = false) {
                   'let',
                   'def',
                   'repeat',
+                  'text',
                 ].includes(args[1][0])
               ? 1
               : 3;
@@ -350,6 +431,53 @@ function admit(source, lenient = false) {
           at: placed.map(([lo, hi]) => (lo + hi) / 2),
         });
         node(parent, print(f));
+        continue;
+      }
+      // (text "WORDS" [height]): a line of flat lettering, one shape. The
+      // letters are quads, so a sign can carry its words inside the budget.
+      if (op === 'text') {
+        const quoted = typeof args[0] === 'string' && /^"[^"\\]*"$/.test(args[0]);
+        if (!quoted || args.length > 2)
+          fail('text needs words in double quotes, then an optional height: (text "OPEN" .4)');
+        const words = args[0].slice(1, -1).toUpperCase();
+        if (!words.trim() || [...words].length > 24)
+          fail('text needs 1 to 24 characters; use another text for a second line');
+        const odd = [...words].find((ch) => !Object.hasOwn(LETTERS, ch));
+        if (odd) fail(`text cannot letter ${odd}; use A-Z ÆØÅ 0-9 . , ! ? - + : ' /`);
+        let height = 0.3;
+        if (args.length === 2) {
+          const e = expression(args[1], local);
+          if (!exact(e.range)) fail('Keep shapes constant; animate with move or rotate');
+          height = e.range[0];
+        }
+        if (height < 0.05 || height > 4) fail('text height must be .05..4');
+        if (++count > 32) fail('Use at most 32 shapes');
+        const { quads, bounds } = lettering(words, height);
+        const placed = transformed(bounds, transforms);
+        if (placed.some((r) => !finite(r))) fail('Expression is not finite');
+        placed.forEach(([lo, hi], i) => {
+          extent[i][0] = Math.min(extent[i][0], lo);
+          extent[i][1] = Math.max(extent[i][1], hi);
+        });
+        if (
+          !lenient &&
+          (placed[0][0] < -6.001 || placed[0][1] > 6.001 ||
+            placed[2][0] < -6.001 || placed[2][1] > 6.001 ||
+            placed[1][0] < -0.001 || placed[1][1] > 10.001)
+        )
+          fail(
+            'Keep the entire animation inside x/z -6..6 and y 0..10; move rotating wings higher',
+          );
+        const leaf = node(parent, print(f));
+        for (let k = leaf; k > 0; k = nodes[k].parent) nodes[k].boxes.push(boxes.length);
+        nodes[0].boxes.push(boxes.length);
+        furs.push(fur);
+        boxes.push(boxOf(placed));
+        animated ||= transforms.some((t) =>
+          (t.args || [t.angle]).some((r) => !exact(r)),
+        );
+        // Every letter in one retained part, as one shape is elsewhere.
+        out.push(['move', ['*', 'time', 0], 0, 0, ...quads]);
         continue;
       }
       const arities = {

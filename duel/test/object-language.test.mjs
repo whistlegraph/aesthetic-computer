@@ -159,3 +159,19 @@ test('tones keep time on a shared 120 BPM beat', async () => {
   assert.ok(t.gain(0, 4.5) < 0.05, 'a strike decays within the beat');
   assert.throws(() => parseSource('(move (pulse time) 0 0 (orb 0 1 0 .4))'), /tones only/);
 });
+
+test('text letters a sign as one shape', () => {
+  const g = parseSource(
+    '; Sign\n(ink 222 196 150)\n(slab -2 1.4 -.05 2 2.75 .05)\n(ink black)\n(move 0 2.14 -.06 (text "Prutti er" .36))\n(move 0 1.62 -.06 (text "MORSOM" .36))',
+  );
+  // One collision box and one retained part per line, however many letters.
+  assert.equal(g.boxes.length, 3);
+  const frame = sourceFrame(g, 0);
+  assert.equal(frame.boxes.length, 3);
+  assert.ok(Math.abs(g.boxes[1].h - 0.36) < 1e-9 && g.boxes[1].w < 4);
+  assert.ok(frame.vertices.length / 18 < 512);
+  assert.equal(parseSource('; A\n(text "blåbærgrød")').boxes.length, 1);
+  assert.throws(() => parseSource('; A\n(text hello)'), /double quotes/);
+  assert.throws(() => parseSource('; A\n(text "héllo")'), /cannot letter/);
+  assert.throws(() => parseSource('; A\n(text "HI" (sin time))'), /constant/);
+});

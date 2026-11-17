@@ -241,6 +241,11 @@ Use explicit balanced parentheses. Units metres, x sideways, y up, z forward; gr
 Shapes: (slab xMin yMin zMin xMax yMax zMax), (orb x y z radius [sides]),
 (capsule x1 y1 z1 x2 y2 z2 width [sides]), (tri 9 coordinates), (quad 12 coordinates).
 Slabs use opposite corners, NOT centers/dimensions. Thin wings may be .02 thick. Sides 3..8.
+Words: (text "WORDS" [height]) is one shape: a flat line of capitals, centred on x, standing on y=0 at z=0,
+read from the -z side. height .05..4 (default .3), 1..24 characters of A-Z ÆØÅ 0-9 . , ! ? - + : ' / and spaces.
+Signs, labels, shop fronts, name plates and anything asked to SAY something ALWAYS use text for the words,
+never blank tiles: (ink black) (move 0 1.9 -.06 (text "OPEN" .4)) letters a board whose front is at z -.05.
+Put text .01 in front of its surface, one text per line of words, and keep each line narrower than the surface.
 (ink white|black|gray|red|orange|yellow|green|cyan|blue|purple|pink|brown) or (ink r g b) with channels 0..255.
 Transforms: (move x y z forms...), (rotate x|y|z radians forms...), (scale x y z forms...).
 Bindings: (def name constant), (let name expression). (repeat N i forms...) repeats 1..16 times.

@@ -326,7 +326,8 @@ export class Builders {
         });
       } catch (e) {
         job.reason = buildReason(e);
-        console.warn(`dool build failed: ${job.reason}`);
+        // The category alone could not say why; the compiler's own words can.
+        console.warn(`dool build failed: ${job.reason}: ${String(e.message).replace(/[^\x20-\x7e]/g, '').slice(0, 220)}`);
         this.deliver(job, {
           type: 'build-result',
           id: job.id,
