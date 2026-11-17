@@ -154,7 +154,9 @@ final class MenuBandRewindVoice {
     /// Wire the rewind player into the engine. Called from
     /// `MenuBandSynth.start()` alongside the other `.attach` calls. Plays
     /// DRY into `mainMixerNode` (see class doc) — NOT through preLimiterMixer.
-    func attach(to engine: AVAudioEngine) {
+    /// `capture` (the synth's tape bus) also receives the reverse playback, so
+    /// a reverse thrown during a take lands on the recording.
+    func attach(to engine: AVAudioEngine, capture: AVAudioMixerNode? = nil) {
         guard !attached else { return }
         self.engine = engine
         engine.attach(player)
@@ -186,7 +188,15 @@ final class MenuBandRewindVoice {
         engine.connect(echo, to: echoSendMixer, format: nil)
         engine.connect(echoSendMixer, to: mixer,
                        fromBus: 0, toBus: 1, format: nil)
-        engine.connect(mixer, to: engine.mainMixerNode, format: nil)
+        if let capture {
+            engine.connect(mixer, to: [
+                AVAudioConnectionPoint(node: engine.mainMixerNode,
+                                       bus: engine.mainMixerNode.nextAvailableInputBus),
+                AVAudioConnectionPoint(node: capture, bus: capture.nextAvailableInputBus),
+            ], fromBus: 0, format: nil)
+        } else {
+            engine.connect(mixer, to: engine.mainMixerNode, format: nil)
+        }
         entryMixer.outputVolume = 1.0
         dryMixer.outputVolume = 1.0
         echoSendMixer.outputVolume = 0

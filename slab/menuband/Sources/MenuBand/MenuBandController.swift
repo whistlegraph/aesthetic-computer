@@ -2788,8 +2788,23 @@ final class MenuBandController {
         // already lands in the buffer.
         synth.addWaveformTapPin(tapeWaveformPinReason)
         synth.pinHotMic(reason: tapeMicPinReason)
-        tape.record(micAlreadyInMix: inputMonitoringEnabled, mix: currentMixSnapshot())
+        // The tape's mix bus never carries the monitored voice, so the mic
+        // always joins the take from its own stem — at full level, whatever
+        // the Mic (monitor) fader says.
+        tape.record(mix: currentMixSnapshot())
         FocusCueBeep.shared.recordStart()
+    }
+
+    /// The record-mode gesture: the instrument plus the room. Opens the mic
+    /// only when permission was already granted, so the gesture never
+    /// raises a prompt; without it the take is instrument-only.
+    func startPerformanceRecording() {
+        guard tape.state != .recording else { return }
+        guard MenuBandSampleVoice.micAuthorizationStatus() == .authorized else {
+            startSynthOnlyRecording()
+            return
+        }
+        beginTapeRecording()
     }
 
     func stopTape() { tape.stop() }

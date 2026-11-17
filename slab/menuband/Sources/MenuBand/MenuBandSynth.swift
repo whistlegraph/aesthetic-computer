@@ -166,6 +166,15 @@ final class MenuBandSynth {
     /// path (which must not pay the limiter's lookahead). The reverse tape
     /// is fed from here, so a rewind carries the voice too.
     private let postBus = AVAudioMixerNode()
+    /// What the tape and the visualizer hear: the mastered instruments
+    /// (limiter out) plus the reverse playback, but NOT the live voice's dry
+    /// monitor. The voice reaches the tape as its own raw stem instead, so
+    /// the Mic fader sets only what the player hears in the room or the
+    /// headphones and never how loud the room is on the recording.
+    /// `tapeBus` sums the branches; `tapeSink` (silent) keeps it pulled
+    /// without sounding the instruments a second time.
+    private let tapeBus = AVAudioMixerNode()
+    private let tapeSink = AVAudioMixerNode()
     /// Apple PeakLimiter on the master path. Catches transient peaks from
     /// chords or stacked sustains and holds output below 0 dBFS regardless
     /// of how many notes are pressed simultaneously. Parameters tuned for
@@ -626,7 +635,8 @@ final class MenuBandSynth {
             } else {
                 // Straight to the output mixer: the master chain's limiter
                 // alone looks ahead ~12 ms, which a live voice can't afford.
-                // The tape still hears it (its mix tap sits on mainMixer).
+                // The tape does NOT hear this dry path (its mix tap sits on
+                // tapeBus); it records the voice from the raw stem instead.
                 inputMonitor.attach(to: engine, output: postBus,
                                     wet: [echoInMixer, reverbInMixer])
             }
@@ -878,7 +888,7 @@ final class MenuBandSynth {
         // reverse player joins (mainMixerNode), so the reverse playback is
         // NOT recaptured and the ring can keep recording continuously
         // (including notes played WHILE reversing) without a feedback loop.
-        rewindVoice.attach(to: engine)
+        rewindVoice.attach(to: engine, capture: tapeBus)
         outputGuard.telemetry = audioTelemetry
         outputGuard.attach(to: engine)
         // Bind before starting IO so a Scarlett starts on its actual output,
@@ -1311,8 +1321,17 @@ final class MenuBandSynth {
         engine.connect(melodicDuckMixer, to: postFxMixer, format: nil)
         engine.connect(postFxMixer, to: limiter, format: nil)
         engine.attach(postBus)
-        engine.connect(limiter, to: postBus, format: nil)
+        engine.attach(tapeBus)
+        engine.attach(tapeSink)
+        engine.connect(limiter, to: [
+            AVAudioConnectionPoint(node: postBus, bus: 0),
+            AVAudioConnectionPoint(node: tapeBus, bus: 0),
+        ], fromBus: 0, format: nil)
         engine.connect(postBus, to: engine.mainMixerNode, format: nil)
+        engine.connect(tapeBus, to: tapeSink, format: nil)
+        engine.connect(tapeSink, to: engine.mainMixerNode, format: nil)
+        tapeBus.outputVolume = 1
+        tapeSink.outputVolume = 0
         dryFxMixer.outputVolume = 1
         echoSendMixer.outputVolume = 0
         reverbSendMixer.outputVolume = 0
@@ -2470,7 +2489,7 @@ final class MenuBandSynth {
 
     private func installWaveformTapIfNeeded() {
         guard !waveformTapInstalled else { return }
-        let mixer = engine.mainMixerNode
+        let mixer = tapeBus
         // 256 frames ≈ 5.8 ms at 44.1 kHz — small buffer = fresh samples
         // for the visualizer without burning the audio thread.
         mixer.installTap(onBus: 0, bufferSize: 256, format: nil) { [weak self] buffer, _ in
@@ -2485,7 +2504,7 @@ final class MenuBandSynth {
 
     private func removeWaveformTapIfNeeded() {
         guard waveformTapInstalled else { return }
-        engine.mainMixerNode.removeTap(onBus: 0)
+        tapeBus.removeTap(onBus: 0)
         waveformTapInstalled = false
         removeStemTapsIfNeeded()
     }

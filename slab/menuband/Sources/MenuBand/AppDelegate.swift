@@ -4706,9 +4706,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         var args = ["-y", "-threads", "1", "-i", wav.path]
         if let cleanVoice { args += ["-i", cleanVoice.path] }
         let coverIndex = cleanVoice == nil ? 1 : 2
-        let voiceGain = max(0.1, menuBand.monitorGain)
-        // The heard mix is channels 1–2 exactly. With the voice never in it,
-        // add the (cancelled) mic stem at the Mic fader's level.
+        // The room goes on the record at full level; the Mic fader only sets
+        // how loud the monitor is, so turning it down against feedback never
+        // thins the take.
+        let voiceGain: Float = 1.0
+        // Channels 1–2 are the instruments only (the monitor never reaches
+        // the tape's mix bus); add the (cancelled) mic stem on top.
         let graph: String
         if micWasInMix {
             graph = "[0:a]pan=stereo|c0=c0|c1=c1[out]"
@@ -6802,7 +6805,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             beginFocusCaptureFromShortcut(keepPopoverOpen: true, reason: .recordingAction)
         }
         recordModeActive = true
-        menuBand.startSynthOnlyRecording()
+        menuBand.startPerformanceRecording()
         NSSound(named: "Ping")?.play()
         updateIcon()
         NSLog("MenuBand: RECORDING started")
