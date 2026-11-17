@@ -101,6 +101,11 @@ function translationKey(dir) {
 
 // Map paper dir → tex base name + site PDF name
 const PAPER_MAP = {
+  "arxiv-magicians-manual": {
+    base: "magicians-manual",
+    siteName: "magicians-manual-26-arxiv",
+    title: "AC '26 Magician's Manual",
+  },
   "arxiv-relay-rollback": {
     base: "relay-rollback",
     siteName: "rollback-over-a-relay-26-arxiv",
@@ -588,6 +593,7 @@ const CATEGORIES = [
     dirs: [
       "arxiv-stack-summer-26",
       "arxiv-ac",
+      "arxiv-magicians-manual",
       "arxiv-kidlisp",
       "arxiv-hott-kidlisp",
       "arxiv-os",

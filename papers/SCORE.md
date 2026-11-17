@@ -257,6 +257,7 @@ Sorted by most recently edited/added.
 
 | Paper | Format | PDF | Source |
 |-------|--------|-----|--------|
+| AC '26 Magician's Manual: Spells for the Prompt (a newcomer's manual ordered by what signed-in handles open) | arXiv (LaTeX, 2pp, one sheet) | `arxiv-magicians-manual/magicians-manual.pdf` | `arxiv-magicians-manual/magicians-manual.tex` |
 | Don't Forget the Keyboard: Laptop Performance, Typed Music, and Where notepat and AC Native OS Stand | arXiv (LaTeX, 6pp first-pass, 68-source `laptop-platter`) | `arxiv-laptop-performance/laptop-performance.pdf` | `arxiv-laptop-performance/laptop-performance.tex` |
 | Free Versus Nonfree: Stallman's Licensing Map, the 1998 Split, and Where Aesthetic.Computer Stands | arXiv (LaTeX, 6pp first-pass, illy cover) | `arxiv-free-vs-open/free-vs-open.pdf` | `arxiv-free-vs-open/free-vs-open.tex` |
 | iOS So Far: Ten Years of Aesthetic.Computer on Apple's Store (six app records, one demand event, the last mile; eight ranked openings) | arXiv (LaTeX, 6pp first-pass) | `arxiv-ios-so-far/ios-so-far.pdf` | `arxiv-ios-so-far/ios-so-far.tex` |

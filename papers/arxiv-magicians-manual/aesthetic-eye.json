@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "paper": "AC '26 Magician's Manual",
+  "pdf": "magicians-manual.pdf",
+  "expectedFigures": 0,
+  "expectedDiagrams": 1,
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Subtitle, byline, abstract, sections 4 and 6 and references 2 and 3 checked; byline dot confirmed pink in a 400 dpi crop."
+  },
+  "figures": [],
+  "diagrams": [
+    {
+      "id": "prompt",
+      "page": 1,
+      "crop": [
+        0.15,
+        0.115,
+        0.7,
+        0.16
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Inspected at page size and in a 300 dpi crop. The screen wears the interface's dark scheme from disks/prompt.mjs. Second pass fixed spacing the first pass missed: Log in and I'm new had different heights (descender in one label) and sat off-centre with a loose gap, and now share one box height, one gap, and the centre line of the screen as prompt.mjs places them; the reticle and the corner label are each inset equally from their two edges; the cursor block is exactly the height of the typed line; leaders stop short of their targets."
+    }
+  ],
+  "pdfSha256": "b8f474e2c1601daf4b112dce036831208945699f9d9330dc4005b0a409f8e68b",
+  "reviewedAt": "2026-11-17T03:05:00.000Z",
+  "pageReview": {
+    "pages": [
+      1,
+      2
+    ],
+    "table": {
+      "page": 1,
+      "design": "pass"
+    },
+    "notes": "Both pages inspected at reading size after the reorder (pdftocairo 110 dpi). Title block, abstract, eleven sections, eight spell tables sharing one left-column width, the usage table set inline under its section with a footnote-size caption, four references and the source-bundle paperclip fit on one two-sided sheet; columns end within a few lines of each other; no overfull boxes. The title diagram is unchanged since its 300 dpi inspection."
+  }
+}
