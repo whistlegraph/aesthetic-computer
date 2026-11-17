@@ -1,0 +1,238 @@
+{
+ "platter": "manual-platter",
+ "purpose": "Design references for manuals: bestiaries, rulebooks and pocket field manuals, read for how a page teaches. Opened 2026-11-16 beside the AC '26 Magician's Manual (papers/arxiv-magicians-manual).",
+ "posture": "Index and citation only. Public-domain and openly licensed PDFs are fetched into sources/ (gitignored) by fetch-sources.mjs from the Internet Archive and the publisher; nothing is mirrored into the repo. In-copyright commercial books (the TSR and GDW originals) are cited and never fetched, though unlicensed scans of them are easy to find.",
+ "checked_key": {
+  "true": "title, date, host and rights line read from the host's own record during the 2026-11-16 pass",
+  "false": "written from working knowledge; wants a verification pass before it is cited in a paper"
+ },
+ "last_verification_pass": "2026-11-16",
+ "shelves": {
+  "ancestor": "Public-domain books the game manual descends from: demon dictionaries, bestiaries, war-game rules, field manuals.",
+  "open": "Modern role-playing rulebooks under open licences or given away by their authors.",
+  "cite-only": "The in-copyright originals. Named so the lineage is complete; not fetched."
+ },
+ "sources": [
+  {
+   "id": "plancy-1863-dictionnaire-infernal",
+   "shelf": "ancestor",
+   "authors": [
+    "Collin de Plancy, Jacques"
+   ],
+   "year": 1863,
+   "title": "Dictionnaire infernal: répertoire universel des êtres, des personnages, des livres, des faits et des choses qui tiennent aux esprits",
+   "venue": "Paris: Henri Plon (sixth edition, illustrated)",
+   "open_access": true,
+   "rights": "Public domain. Library of Congress scan.",
+   "pdf": "https://archive.org/download/dictionnaireinfe00coll_1/dictionnaireinfe00coll_1.pdf",
+   "url": "https://archive.org/details/dictionnaireinfe00coll_1",
+   "checked": true,
+   "why": "The monster manual before the monster manual: an alphabetical dictionary of demons, one entry per being, with a wood-engraved portrait dropped into the column beside the name. The entry-plus-portrait unit is the same one the 1977 Monster Manual uses."
+  },
+  {
+   "id": "topsell-1658-four-footed-beasts",
+   "shelf": "ancestor",
+   "authors": [
+    "Topsell, Edward"
+   ],
+   "year": 1658,
+   "title": "The History of Four-footed Beasts and Serpents",
+   "venue": "London: E. Cotes",
+   "open_access": true,
+   "rights": "Public domain. Duke University Libraries scan.",
+   "pdf": "https://archive.org/download/historyoffourfoo00tops/historyoffourfoo00tops.pdf",
+   "url": "https://archive.org/details/historyoffourfoo00tops",
+   "checked": true,
+   "why": "An English bestiary where real and fabulous animals get the same treatment: a woodcut, then names, habitat, habits and uses under running heads. A stat block in prose, 320 years early."
+  },
+  {
+   "id": "wells-1913-little-wars",
+   "shelf": "ancestor",
+   "authors": [
+    "Wells, H. G."
+   ],
+   "year": 1913,
+   "title": "Little Wars: a game for boys from twelve years of age to one hundred and fifty and for that more intelligent sort of girl who likes boys' games and books",
+   "venue": "London: Frank Palmer",
+   "open_access": true,
+   "rights": "Public domain. New York Public Library scan.",
+   "pdf": "https://archive.org/download/littlewarsgamefo00well/littlewarsgamefo00well.pdf",
+   "url": "https://archive.org/details/littlewarsgamefo00well",
+   "checked": true,
+   "why": "A rulebook written as a story of how the rules were found, with marginal drawings and photographs of play. The voice a manual can have when one person wrote it for friends."
+  },
+  {
+   "id": "waroffice-1896-war-game-on-a-map",
+   "shelf": "ancestor",
+   "authors": [
+    "Great Britain. War Office"
+   ],
+   "year": 1896,
+   "title": "Rules for the Conduct of the War-Game on a Map",
+   "venue": "London: Her Majesty's Stationery Office",
+   "open_access": true,
+   "rights": "Public domain. California Digital Library scan.",
+   "pdf": "https://archive.org/download/rulesforconducto00grearich/rulesforconducto00grearich.pdf",
+   "url": "https://archive.org/details/rulesforconducto00grearich",
+   "checked": true,
+   "why": "The institutional rulebook: numbered paragraphs, tables, an umpire. The dry register tabletop rules inherited and the form Traveller's little black books look most like."
+  },
+  {
+   "id": "oss-1944-simple-sabotage",
+   "shelf": "ancestor",
+   "authors": [
+    "United States. Office of Strategic Services"
+   ],
+   "year": 1944,
+   "title": "Simple Sabotage Field Manual: Strategic Services (Provisional)",
+   "venue": "Washington, D.C.: Office of Strategic Services, Strategic Services Field Manual No. 3",
+   "open_access": true,
+   "rights": "Public domain (US government work).",
+   "pdf": "https://archive.org/download/SimpleSabotageFieldManualStrategicServicesProvisional/SimpleSabotageFieldManualStrategicServicesProvisional.pdf",
+   "url": "https://archive.org/details/SimpleSabotageFieldManualStrategicServicesProvisional",
+   "checked": true,
+   "why": "A pocket manual: typewritten, numbered to three levels, no pictures, meant to be carried and acted on. The opposite pole from the illustrated bestiary."
+  },
+  {
+   "id": "wotc-2023-srd-5-1",
+   "shelf": "open",
+   "authors": [
+    "Wizards of the Coast"
+   ],
+   "year": 2023,
+   "title": "System Reference Document 5.1",
+   "venue": "Renton, WA: Wizards of the Coast",
+   "open_access": true,
+   "rights": "CC BY 4.0.",
+   "pdf": "https://media.wizards.com/2023/downloads/dnd/SRD_CC_v5.1.pdf",
+   "url": "https://www.dndbeyond.com/srd",
+   "checked": true,
+   "why": "Current Dungeons & Dragons rules and monsters under an open licence, straight from the publisher. Two columns, stat blocks, no art: the skeleton of the commercial books."
+  },
+  {
+   "id": "gonnerman-bfrpg-core-rules-r97",
+   "shelf": "open",
+   "authors": [
+    "Gonnerman, Chris"
+   ],
+   "year": 2014,
+   "title": "Basic Fantasy Role-Playing Game Core Rules, 3rd Edition (Release 97)",
+   "venue": "basicfantasy.org",
+   "open_access": true,
+   "rights": "Distributed free by its author; open game content. Internet Archive mirror.",
+   "pdf": "https://archive.org/download/Basic-Fantasy-RPG-Rules-r97/Basic-Fantasy-RPG-Rules-r97-lite.pdf",
+   "url": "https://archive.org/details/Basic-Fantasy-RPG-Rules-r97",
+   "checked": false,
+   "why": "A free game laid out on purpose like the early-1980s boxed rules: one typeface, line art, tables set in the text column. The closest legal stand-in for the look of the old books."
+  },
+  {
+   "id": "bfrpg-field-guide-r22",
+   "shelf": "open",
+   "authors": [
+    "Gonnerman, Chris (ed.)",
+    "Basic Fantasy Project contributors"
+   ],
+   "year": 2014,
+   "title": "The Basic Fantasy Field Guide of Creatures Malevolent and Benign (Release 22)",
+   "venue": "basicfantasy.org",
+   "open_access": true,
+   "rights": "Distributed free by its authors; open game content. Internet Archive mirror.",
+   "pdf": "https://archive.org/download/Basic-Fantasy-Field-Guide-r20/Basic-Fantasy-Field-Guide-r22.pdf",
+   "url": "https://archive.org/details/Basic-Fantasy-Field-Guide-r20",
+   "checked": false,
+   "why": "A community-made monster book in the classic form: name, stat table, paragraph, drawing."
+  },
+  {
+   "id": "osric-2-2",
+   "shelf": "open",
+   "authors": [
+    "Marshall, Stuart",
+    "Finch, Matthew J."
+   ],
+   "year": 2013,
+   "title": "OSRIC: Old School Reference and Index Compilation, Core Rules v2.2",
+   "venue": "Knights & Knaves / Black Blade Publishing",
+   "open_access": true,
+   "rights": "Free PDF from its authors under the Open Game License. Internet Archive mirror.",
+   "pdf": "https://archive.org/download/osric-core-rules-v-2.2/OSRIC%20-%20Core%20Rules%20%5Bv2.2%5D.pdf",
+   "url": "https://archive.org/details/osric-core-rules-v-2.2",
+   "checked": false,
+   "why": "A restatement of first-edition Advanced D&D, monsters and all, that can be read and shared freely."
+  },
+  {
+   "id": "gygax-1977-monster-manual",
+   "shelf": "cite-only",
+   "authors": [
+    "Gygax, Gary"
+   ],
+   "year": 1977,
+   "title": "Advanced Dungeons & Dragons Monster Manual",
+   "venue": "Lake Geneva, WI: TSR",
+   "open_access": false,
+   "rights": "In copyright and sold today. Cite it; never mirror it. Scans circulate on the Internet Archive without the rights holder's licence and this platter does not fetch them.",
+   "url": "https://www.drivethrurpg.com",
+   "checked": false,
+   "why": "The book the request named. Alphabetical monsters, each a block of statistics, a paragraph and a small ink drawing."
+  },
+  {
+   "id": "gygax-1979-dungeon-masters-guide",
+   "shelf": "cite-only",
+   "authors": [
+    "Gygax, Gary"
+   ],
+   "year": 1979,
+   "title": "Advanced Dungeons & Dragons Dungeon Masters Guide",
+   "venue": "Lake Geneva, WI: TSR",
+   "open_access": false,
+   "rights": "In copyright and sold today. Cite it; never mirror it. Scans circulate on the Internet Archive without the rights holder's licence and this platter does not fetch them.",
+   "url": "https://www.drivethrurpg.com",
+   "checked": false,
+   "why": "The dense one: tables on nearly every page, appendices, an author talking to the reader throughout."
+  },
+  {
+   "id": "moldvay-1981-basic-rulebook",
+   "shelf": "cite-only",
+   "authors": [
+    "Moldvay, Tom (ed.)"
+   ],
+   "year": 1981,
+   "title": "Dungeons & Dragons Basic Rulebook",
+   "venue": "Lake Geneva, WI: TSR",
+   "open_access": false,
+   "rights": "In copyright and sold today. Cite it; never mirror it. Scans circulate on the Internet Archive without the rights holder's licence and this platter does not fetch them.",
+   "url": "https://www.drivethrurpg.com",
+   "checked": false,
+   "why": "Sixty-four pages meant to teach a newcomer from nothing. The nearest precedent for a short manual that orders rules by what a player does first."
+  },
+  {
+   "id": "miller-1977-traveller-books-1-3",
+   "shelf": "cite-only",
+   "authors": [
+    "Miller, Marc W."
+   ],
+   "year": 1977,
+   "title": "Traveller, Books 1 to 3: Characters and Combat; Starships; Worlds and Adventures",
+   "venue": "Normal, IL: Game Designers' Workshop",
+   "open_access": false,
+   "rights": "In copyright and sold today. Cite it; never mirror it. Scans circulate on the Internet Archive without the rights holder's licence and this platter does not fetch them. Far Future Enterprises has offered a facsimile edition; whether it is free was not checked.",
+   "url": "https://www.farfuture.net",
+   "checked": false,
+   "why": "The little black books: digest size, black covers with one line of type, no illustration, numbered procedures and tables."
+  },
+  {
+   "id": "kemp-2016-cepheus-engine-srd",
+   "shelf": "cite-only",
+   "authors": [
+    "Kemp, Jason"
+   ],
+   "year": 2016,
+   "title": "Cepheus Engine System Reference Document",
+   "venue": "Samardan Press",
+   "open_access": false,
+   "rights": "Open Game License, sold pay-what-you-want behind a storefront login. Free to fetch by hand into sources/; not fetched by the script.",
+   "url": "https://www.drivethrurpg.com",
+   "checked": false,
+   "why": "The open restatement of classic Traveller, for when the rules themselves are wanted."
+  }
+ ]
+}
