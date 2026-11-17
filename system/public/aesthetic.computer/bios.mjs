@@ -19799,8 +19799,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // Cache-bust the stream URL to force a fresh connection and avoid stale
       // buffered data. Matches the approach used by kpbj.fm's own navbar player.
-      // (blob: object urls — dropped local files — don't take query strings.)
-      const bustedUrl = url.startsWith("blob:")
+      // (blob: object urls — dropped local files — don't take query strings,
+      // and a signed link stops matching its signature if one is added.)
+      const bustedUrl = url.startsWith("blob:") || url.includes("X-Amz-Signature=")
         ? url
         : url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
 

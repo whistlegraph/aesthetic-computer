@@ -40,6 +40,13 @@ if git diff-tree --no-commit-id --name-only -r HEAD | grep -qE "^($AT_FRONTEND_F
   bash "$REPO_ROOT/at/scripts/deploy-at-frontend.sh" 2>&1 | tail -3 &
 fi
 
+# 🎵 A commit that touches pop/ sends the mp3s rendered lately to the
+# committer's Juke cloud (out/ is not in git), where the `juke` piece lists
+# them under `mine`. Private, incremental, never blocks or fails the commit.
+if git diff-tree --no-commit-id --name-only -r HEAD | grep -q "^pop/" && [ -f "$HOME/.ac-token" ]; then
+  ( "$NODE_BIN" "$REPO_ROOT/pop/bin/juke-recent.mjs" --quiet >> /tmp/juke-recent.log 2>&1 </dev/null & ) 2>/dev/null
+fi
+
 # 🏟️ Auto-deploy arena: lith (client) + session-server (multiplayer authority)
 # when any arena-touching file changes on main. Set AC_NO_AUTO_DEPLOY=1 in the
 # env to skip (e.g. while bisecting / hotfixing without going live).

@@ -149,6 +149,16 @@ export async function handler(event) {
       return respond(200, { url });
     }
 
+    // A private track plays through a signed link; nothing is made public.
+    if (input.action === "listen") {
+      if (!ownsKey(user.sub, input.key)) return respond(403, { error: "Track is outside your cloud library." });
+      const url = await getSignedUrl(client(), new GetObjectCommand({
+        Bucket: bucket,
+        Key: input.key,
+      }), { expiresIn: 6 * 60 * 60 });
+      return respond(200, { url });
+    }
+
     if (input.action === "delete") {
       if (!ownsKey(user.sub, input.key)) return respond(403, { error: "Track is outside your cloud library." });
       await client().send(new DeleteObjectCommand({ Bucket: bucket, Key: input.key }));
