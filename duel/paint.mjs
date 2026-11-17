@@ -19,6 +19,10 @@ import { crossings } from './solids.mjs';
 // and a pair that would flicker is wrapped in magenta where it stands.
 export const audit = { on: false, report: null };
 const AUDIT_INK = 0xff00ff;
+// 🌑 The boxes each model was built from, for whoever casts their shadows
+// (shadow.mjs): kept beside the model, and let go with it.
+const BOXES = new WeakMap();
+export const boxesOf = (made) => BOXES.get(made) || null;
 
 // MatrixChunky8 width of a string, in pixels (proportional).
 export const smallWidth = (value) =>
@@ -107,8 +111,10 @@ export function model(build) {
     vertex(x, Y, z, ink);
   };
   let solids = audit.on ? [] : null;
+  const built = [];
   const box = (x, y, z, w, h, d, color, side = color, top = PAPER) => {
     solids?.push({ x, y, z, w, h, d, color });
+    if (solids !== false) built.push({ x, y, z, w, h, d });
     // Broad ambient light keeps color on shadow faces; tops retain their material.
     if (side === INK && color !== INK) side = tint(color, 0.72);
     if (top === PAPER) top = color;
@@ -223,8 +229,10 @@ export function model(build) {
     const found = crossings(solids);
     if (found.length) audit.report?.(found);
     const marked = new Set(found.filter((c) => c.flickers).flatMap((c) => [c.a, c.b]));
-    solids = null; // the marks are not themselves audited
+    solids = false; // the marks are not themselves audited, and cast nothing
     for (const s of marked) box(s.x, s.y, s.z, s.w + 0.01, s.h + 0.01, s.d + 0.01, AUDIT_INK, AUDIT_INK, AUDIT_INK);
   }
-  return data.slice(0, n);
+  const made = data.slice(0, n);
+  if (built.length) BOXES.set(made, built);
+  return made;
 }

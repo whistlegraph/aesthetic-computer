@@ -2,7 +2,8 @@ import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { podFront, house, houseWalls, HOUSE, groundsOf, promenade, GROUNDS } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
-import { model, INK, PAPER, rgb, tint, audit } from './paint.mjs';
+import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
+import { shadowVolume, VOLUME_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
 import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
 // 🧱 `localStorage["dool:solids"] = "on"` audits every model as it is built:
@@ -202,6 +203,7 @@ export async function createView(canvas) {
   try {
     host = await WebGPUOskiewarScene3D.create(canvas, {
       maxTriangles: 49152,
+      shadows: true, // 🌑 the sun's shadows, as stencil volumes (shadow.mjs)
       onDeviceLost: () => {
         lost = true;
         canvas.dataset.engine = 'lost';
@@ -1065,7 +1067,18 @@ export async function createView(canvas) {
       effects.push({ at: e.at, born: performance.now() });
     }
   }
-  const draw = (...args) => projector.draw(...args);
+  // 🌑 While the sun is up, every model drawn standing in the world is also
+  // noted with where it stands, so its boxes can cast shadows at the end of
+  // the frame: the model, then x, y, z, yaw and scale, flat in one list.
+  const casters = [];
+  let casting = false;
+  const SHADOW_BUDGET = 9000; // triangles of shadow volume in a frame, at most
+  const SHADOW_SIGHT = 45; // metres from the eye a box still casts
+  const volumeFloats = new Float32Array(SHADOW_BUDGET * 18);
+  const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
+    projector.draw(made, x, y, z, yaw, pitch, scale, roll);
+    if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
+  };
   function render({
     players = [],
     me,
@@ -1168,6 +1181,11 @@ export async function createView(canvas) {
     dress(today ? (today.day ? 'day' : 'night') : paletteFor());
     sky = [...rgb(today ? today.horizon : PALETTES[paletteName].sky), 1];
     host.beginFrame();
+    // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
+    const sunNow = today ? skyAt(phase()).sun : null;
+    const shade = sunNow && host.shadows ? shadeFor(sunNow.y) : null;
+    casters.length = 0;
+    casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
     if (me) {
@@ -3129,7 +3147,39 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    host.present({ clear: sky });
+    // 🌑 The shadow volumes go last in the stream; the host counts them in
+    // its stencil and shades what lies inside (scene3d-webgpu.mjs).
+    let shadow = null;
+    if (casting && casters.length) {
+      const first = host.scene.triangleCount;
+      const room = Math.min(SHADOW_BUDGET, host.scene.maxTriangles - first - 64);
+      const light = { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
+      let at = 0;
+      cast: for (let i = 0; i < casters.length; i += 6) {
+        const x = casters[i + 1], y = casters[i + 2], z = casters[i + 3], yaw = casters[i + 4], scale = casters[i + 5];
+        const cy = Math.cos(yaw), sy = Math.sin(yaw);
+        for (const b of boxesOf(casters[i])) {
+          if (at / 18 + VOLUME_TRIANGLES > room) break cast;
+          // Not the floor's dots and marks, nothing underground, nothing far overhead or far off.
+          if (b.h * scale < 0.06 || Math.max(b.w, b.d) * scale < 0.06) continue;
+          const top = (b.y + b.h / 2) * scale + y, foot = (b.y - b.h / 2) * scale + y;
+          if (top < 0.05 || foot > eye.y + 40) continue;
+          const wx = (b.x * cy + b.z * sy) * scale + x, wz = (-b.x * sy + b.z * cy) * scale + z;
+          if (Math.hypot(wx - eye.x, wz - eye.z) > SHADOW_SIGHT + Math.max(b.w, b.d) * scale) continue;
+          at = shadowVolume(volumeFloats, at, b, x, y, z, yaw, scale, light, 0.02, reach(top, light));
+        }
+      }
+      if (at) {
+        projector.overflow = false;
+        projector.draw(volumeFloats.subarray(0, at), 0, 0, 0);
+        const count = host.scene.triangleCount - first;
+        // A volume cut short by the triangle budget would shade wrongly: cast none.
+        if (count > 0 && !projector.overflow) shadow = { first, count, shade };
+        else host.scene.triangleCount = first;
+      }
+    }
+    casting = false;
+    host.present({ clear: sky, shadow });
     if (backend === 'webgpu' && gpu.queued < 64) {
       const handed = performance.now();
       gpu.queued++;
