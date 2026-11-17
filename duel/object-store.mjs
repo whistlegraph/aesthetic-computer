@@ -18,6 +18,15 @@ export function fitRoom(list, limit = WORLD - 1.5) {
   }
   return true;
 }
+// Nothing taken out of a room is thrown away at once: the last 64 of each
+// room wait in data.removed, with who took them out and when.
+function keep(data, room, gone, by) {
+  if (!gone.length) return;
+  const bin = ((data.removed ||= {})[room] ||= []);
+  bin.unshift(...gone.map((o) => ({ ...o, removedAt: Date.now(), removedBy: by })));
+  bin.length = Math.min(bin.length, 64);
+}
+
 export class ObjectStore {
   constructor(directory) {
     this.directory = directory;
@@ -118,17 +127,43 @@ export class ObjectStore {
     }
     return null;
   }
-  removeObject(room, id) {
+  removeObject(room, id, by = null) {
     return this.transact((data) => {
       const list = data.rooms[room] || [];
       const i = list.findIndex((o) => o.id === id);
       if (i < 0) return null;
       const [gone] = list.splice(i, 1);
+      keep(data, room, [gone], by);
       return { id: gone.id, x: gone.x, z: gone.z };
     });
   }
-  clearRoom(room) {
+  // What was taken out of a room, newest first, to put back (putBack).
+  removed(room) {
+    return (this.data.removed?.[room] || []).map((o) => ({ ...o }));
+  }
+  putBack(room, id) {
     return this.transact((data) => {
+      const bin = data.removed?.[room] || [], i = bin.findIndex((o) => o.id === id);
+      if (i < 0) return null;
+      const [{ removedAt, removedBy, ...back }] = bin.splice(i, 1);
+      (data.rooms[room] ||= []).push(back);
+      return back;
+    });
+  }
+  // Stand a build somewhere else in its room.
+  moveObject(room, id, x, z) {
+    return this.transact((data) => {
+      const o = (data.rooms[room] || []).find((o) => o.id === id);
+      if (o) Object.assign(o, { x, z });
+      return !!o;
+    });
+  }
+  clearRoom(room, by = null) {
+    return this.transact((data) => {
+      keep(data, room, data.rooms[room] || [], by);
+      // The floor's paint and screens as they were, once, beside the builds.
+      if (data.tiles?.[room] || data.screens?.[room])
+        ((data.cleared ||= {})[room] = { at: Date.now(), by, tiles: data.tiles?.[room] || {}, screens: data.screens?.[room] || [] });
       data.rooms[room] = [];
       if (data.tiles) delete data.tiles[room];
       if (data.screens) delete data.screens[room];

@@ -83,9 +83,25 @@ function scaleShape(shape, k) {
 export const PER_PLAYER = 3;
 export const PER_WORKER = 3;
 
+// The middle of the 2 m floor square a player's view lands on, as the page
+// works its highlight out (client.mjs floorAim): null when they look at no
+// floor, or past the room.
+export function aimedSquare(player) {
+  const pitch = ((player.pitch || 0) * Math.PI) / 180, yaw = (player.yaw * Math.PI) / 180;
+  const down = -Math.sin(pitch);
+  if (!(down > 0.02)) return null;
+  const t = player.y / down, flat = Math.cos(pitch);
+  if (!(t > 0 && t < 60)) return null;
+  const x = player.x + Math.sin(yaw) * flat * t, z = player.z + Math.cos(yaw) * flat * t;
+  if (Math.abs(x) >= WORLD || Math.abs(z) >= WORLD) return null;
+  return { x: Math.floor(x / 2) * 2 + 1, z: Math.floor(z / 2) * 2 + 1 };
+}
+
 export class Builders {
-  constructor({ token, store, rooms, send, publish = null, diagnostics }) {
-    Object.assign(this, { token, store, rooms, send, publish, diagnostics });
+  // solids(room): what stands in a room besides builds and bodies (the
+  // elevator, the lobby), plus the ways through that must stay clear.
+  constructor({ token, store, rooms, send, publish = null, diagnostics, solids = () => [] }) {
+    Object.assign(this, { token, store, rooms, send, publish, diagnostics, solids });
 
     this.workers = new Map();
     this.names = new Map(); // Each builder's name, from its hello.
@@ -429,6 +445,7 @@ export class Builders {
           ? 'explode'
           : null;
       const yaw = (player.yaw * Math.PI) / 180;
+      const aimed = aimedSquare(player);
       // Build from chalk: the player's strokes become a sketch to follow,
       // and the object goes where they were drawn.
       const strokes = input.chalk ? this.rooms.get(room)?.match.chalk[seat] || [] : [];
@@ -453,8 +470,10 @@ export class Builders {
         item,
         effect,
         baseVersion: existing?.version ?? -1,
-        x: existing?.x ?? sketch?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
-        z: existing?.z ?? sketch?.z ?? Math.round(player.z + Math.cos(yaw) * 6),
+        // A new build stands on the floor square the builder is looking at
+        // (the one the page highlights); looking at no floor, 6 m ahead.
+        x: existing?.x ?? sketch?.x ?? aimed?.x ?? Math.round(player.x + Math.sin(yaw) * 6),
+        z: existing?.z ?? sketch?.z ?? aimed?.z ?? Math.round(player.z + Math.cos(yaw) * 6),
         sketch: sketch?.text || null,
         client,
         worker,
@@ -576,6 +595,22 @@ export class Builders {
     job.outcome = 'cancelled';
     this.finish(job);
   }
+  // Builds standing where the room must stay clear (left there before the
+  // tower came, say) are stood aside, nearest free spot first.
+  async tidy(room) {
+    const solids = this.solids(room);
+    let moved = 0;
+    for (const o of this.store.objects(room)) {
+      if (o.item) continue;
+      if (!envelope([o]).some((b) => solids.some((s) => intersection(b, s) > 1e-6))) continue;
+      const job = { room, objectId: o.id, x: o.x, z: o.z };
+      this.place(job, o.geometry);
+      if (job.x === o.x && job.z === o.z) continue;
+      await this.store.moveObject(room, o.id, job.x, job.z);
+      moved++;
+    }
+    return moved;
+  }
   place(job, shape) {
     const players =
       this.rooms
@@ -588,27 +623,22 @@ export class Builders {
         this.store.objects(job.room).filter((o) => o.id !== job.objectId),
       ),
       ...players,
-      ...[-12, 12].map((z) => ({
-        xMin: -1.5,
-        xMax: 1.5,
-        yMin: 0,
-        yMax: 3,
-        zMin: z - 1.5,
-        zMax: z + 1.5,
-      })),
+      ...this.solids(job.room),
     ];
     // Keep looking until it fits: the asked-for spot, then every metre of the
     // court nearest first, then the same at smaller scales. If the room is
     // truly full, take the spot with the least overlap. Never refuse.
-    const positions = [[job.x, job.z]];
-    for (let x = Math.round(job.x) - 16; x <= Math.round(job.x) + 16; x++)
-      for (let z = Math.round(job.z) - 16; z <= Math.round(job.z) + 16; z++)
-        if (Math.abs(x) < WORLD - 2 && Math.abs(z) < WORLD - 2) positions.push([x, z]);
-    positions.sort(
-      (a, b) =>
-        Math.hypot(a[0] - job.x, a[1] - job.z) -
-        Math.hypot(b[0] - job.x, b[1] - job.z),
-    );
+    // Measured from where the build was asked for, every time: the first
+    // footprint's spot must not drag the finished shape further away.
+    // Every half metre, so a build asked for at the room's edge or beside
+    // its builder lands next to the spot, not across the room.
+    job.asked ??= { x: job.x, z: job.z };
+    const { x: ax, z: az } = job.asked;
+    const positions = [[ax, az]];
+    for (let x = Math.round(ax) - 16; x <= Math.round(ax) + 16; x += 0.5)
+      for (let z = Math.round(az) - 16; z <= Math.round(az) + 16; z += 0.5)
+        if (Math.abs(x) <= WORLD - 2 && Math.abs(z) <= WORLD - 2) positions.push([x, z]);
+    positions.sort((a, b) => Math.hypot(a[0] - ax, a[1] - az) - Math.hypot(b[0] - ax, b[1] - az));
     const scalable = shape.format !== OBJECT_FORMAT;
     let best = null;
     for (const k of scalable ? [1, 0.85, 0.7, 0.55, 0.4] : [1]) {

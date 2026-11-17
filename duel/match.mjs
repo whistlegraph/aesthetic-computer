@@ -63,6 +63,8 @@ export class Match {
   // A fresh body for a seat, set down where this room sets bodies down.
   fresh(seat, life = 1) {
     const p = spawn(seat, life);
+    // A room with fixed things in it (the tower's car) says where bodies land.
+    if (this.spawnAt) Object.assign(p, this.spawnAt(seat));
     return this.arena ? Object.assign(p, arenaSpawn(seat, life)) : p;
   }
   // 🔗 One more bop in the air: the k-th of a chain is worth k.

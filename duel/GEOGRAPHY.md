@@ -29,7 +29,7 @@ Floors are given out oldest handle first, read from
   have addresses of their own. `GET /dool/tower` is the directory and
   `GET /dool/tower?q=89` one floor.
 - **Real heights.** The tower stands over the plaza on four legs; the first
-  floor is 12 m up and each floor 4 m above the last. A ride travels that
+  floor is 12 m up and each floor 7 m above the last (a build can stand 6 m). A ride travels that
   distance in a glass car on the north edge, and the car's screen over the
   door names each floor as it passes and is where the floor is typed.
 

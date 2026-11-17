@@ -1648,11 +1648,13 @@ export async function createView(canvas) {
             ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`}\n${whose(focusObject)}`
             : null;
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
-      const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry : paintHint ? paintHint
+      // In the car the floor comes first: before paint, and on touch too.
+      const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry
+        : car
+          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '$ menu: pick a floor' : '{enter} pick a floor'
+        : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
-          : car
-            ? pad ? '$ menu: pick a floor' : '{enter} pick a floor'
           : pad
             ? '[RB] to build'
             : '{enter} to build';

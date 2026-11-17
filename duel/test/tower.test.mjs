@@ -116,8 +116,8 @@ test('the lobby is entered by its door', () => {
 test('a floor is a height', () => {
   assert.equal(altitude(0), 0);
   assert.equal(altitude(1), 12);
-  assert.equal(altitude(89), 364);
-  assert.deepEqual([0, 11.9, 12, 15.9, 16, 364, 367.9].map(floorAt), [0, 0, 1, 1, 2, 89, 89]);
+  assert.equal(altitude(89), 628);
+  assert.deepEqual([0, 11.9, 12, 18.9, 19, 628, 634.9].map(floorAt), [0, 0, 1, 1, 2, 89, 89]);
 });
 
 test('the elevator rides from the ground to a floor, and only its owner builds there', async () => {
@@ -156,10 +156,11 @@ test('the elevator rides from the ground to a floor, and only its owner builds t
     const dir = await (await fetch(`http://127.0.0.1:${port}/tower`)).json();
     assert.deepEqual(dir.floors, [[1, 'jeffrey', 0], [2, 'oskie', 0], [3, 'rider', 1]]);
     assert.equal((await (await fetch(`http://127.0.0.1:${port}/tower?q=@oskie`)).json()).number, 2);
-    // Outside the car the elevator does not answer.
+    // Outside the car the elevator stays put and says why.
     ws.send(JSON.stringify({ type: 'elevator', to: '1' }));
-    await delay(60);
+    assert.match((await until(ws, (d) => d.type === 'elevator-result')).error, /step into the car/);
     assert.ok(!ws.got.some((d) => d.type === 'travel'));
+    ws.got = ws.got.filter((d) => d.type !== 'elevator-result');
     // Step into the car and ask for floor 1.
     const room = app.rooms.get('lobby'), seat = [...room.sessions.values()][0].seat;
     Object.assign(room.match.seats[seat].player, { x: 0, z: CAR_Z });

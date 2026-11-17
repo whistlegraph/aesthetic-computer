@@ -9,7 +9,7 @@ import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock } from './geography.mjs';
 import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
 import { worldMap } from './map.mjs';
-import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL } from './tower.mjs';
+import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
@@ -98,6 +98,8 @@ export function createDuelServer({
     return !!user && await hasAdmin(user);
   },
   resolveHandleColors = handleColors,
+  // 🧹 Who keeps the ground nobody owns: the plaza and the blocks' commons.
+  keeper = process.env.DOOL_KEEPER || 'jeffrey',
   // 🏢 Every handle on the network, oldest first, for the tower's floors.
   listHandles = async () => {
     const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
@@ -178,7 +180,7 @@ export function createDuelServer({
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
-    if (!hasCar(key)) return void send(ws, { type: 'tower', count: t.count, top: t.top, here: null, yours: null, owner: false });
+    if (!hasCar(key)) return void send(ws, { type: 'tower', count: t.count, top: t.top, revision: t.revision, here: null, yours: null, owner: false });
     const mine = member?.handle ? t.forHandle(member.handle) : null;
     // The floors with someone on them now, lowest first: [number, whose, how many].
     const inside = [];
@@ -187,7 +189,7 @@ export function createDuelServer({
       if (people) inside.push([f.number, f.handle, people]);
     }
     inside.sort((a, b) => a[0] - b[0]);
-    send(ws, { type: 'tower', count: t.count, top: t.top, inside: inside.slice(0, 8),
+    send(ws, { type: 'tower', count: t.count, top: t.top, revision: t.revision, inside: inside.slice(0, 8),
       here: here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
       yours: t.public(mine), owner: !!here && t.owns(here, member) });
     if (here && !profiles.get(here.handle)?.colors)
@@ -607,7 +609,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (busy || braincellTick % 15 === 0) void refreshBraincells(ws, member);
       }
   }, 4000);
-  const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp, diagnostics });
+  // 🚧 Where a build may not stand: in the room's own solids, in the car, in
+  // front of its door, in the lobby's entrance or on the walk that leads to it.
+  const clear = (xMin, xMax, zMin, zMax) => ({ type: 'box', xMin, xMax, yMin: 0, yMax: 12, zMin, zMax });
+  const keepClear = (key) => [
+    ...wallsFor(key),
+    // The car, and an aisle from its door to the middle of the room.
+    ...(hasCar(key) ? [clear(-CAR, CAR, -1, CAR_Z + CAR)] : []),
+    ...(key === GROUND ? [clear(-DOOR, DOOR, LOBBY_FRONT - 2, LOBBY_FRONT + 2), clear(-1.2, 1.2, -WORLD, CAR_Z - CAR)] : []),
+  ];
+  const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp, diagnostics, solids: keepClear });
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
   const devRoom = (key) => !!devLog && devLogRooms.includes(key);
@@ -650,6 +661,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       rooms.set(key, new Room(send));
+      // 🛗 In a room with the car, bodies land in a row south of the middle,
+      // facing the car: never inside it, never against a planter.
+      if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
+        : { x: (seat % 2 ? -1 : 1) * 1.5 * Math.ceil((seat % 8 || 8) / 2), z: seat < 9 ? -6.3 : -7.2, yaw: 0 };
       if (isArena(key)) rooms.get(key).match.setArena(LEDGES);
     }
     const room = rooms.get(key);
@@ -680,6 +695,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     accountHold?.unref?.();
     room.match.setObjects(store.objects(key));
     room.match.setWalls(wallsFor(key));
+    // An old build in the way of the car or the entrance is stood aside.
+    if (hasCar(key)) void builders.tidy(key).then((moved) => {
+      if (!moved) return;
+      room.match.setObjects(store.objects(key));
+      builders.broadcast(key);
+    }).catch(() => {});
     let arrived = false;
     const arrive = () => {
       if (arrived || !member.owner || member.seat < 0) return;
@@ -912,8 +933,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // the ground, or one floor up or down.
       if (data?.type === 'elevator' && member.owner && member.seat >= 0 && hasCar(key)) {
         const p = room.match.seats[member.seat]?.player, t = tower.tower;
-        if (!inCar(p)) return;
-        const to = String(data.to ?? '').trim().toLowerCase().slice(0, 24), here = t.forRoom(key);
+        // Asked from outside the car: say so, rather than nothing.
+        if (!inCar(p)) return void send(ws, { type: 'elevator-result', error: 'step into the car' });
+        const asked = String(data.to ?? '').trim().toLowerCase().slice(0, 24), here = t.forRoom(key);
+        const to = ['my floor', 'my', 'mine'].includes(asked) ? 'home' : asked;
         let destination = null, found = null;
         if (['0', 'g', 'ground', 'plaza', 'lobby'].includes(to)) destination = GROUND;
         else {
@@ -948,7 +971,23 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const ownPod = floor ? tower.tower.owns(floor, member)
         : pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
       if (pod && !ownPod && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
-        send(ws, { type: 'build-result', error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' }); return;
+        send(ws, { type: 'build-result', error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' });
+        if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
+        return;
+      }
+      // 🧹 The plaza and the blocks belong to the world, not to whoever walks
+      // in: only the keeper arranges them, or (in a block) someone who lives
+      // there. A visitor builds on their own floor. Rooms outside the world
+      // (a game, a room made by name) stay open to whoever is in them.
+      const block = !pod && parseBlock(key);
+      if (block && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore'].includes(data?.type)) {
+        const handle = member.handle?.toLowerCase();
+        const lives = key !== GROUND && handle && geography.geography.home(handle)?.block === blockIndex(block);
+        if (handle !== keeper && !lives) {
+          send(ws, { type: 'build-result', error: key === GROUND ? 'The plaza is kept as it is: build on your floor' : 'Only someone who lives on this block arranges it' });
+          if (data.type === 'paint') builders.broadcast(key);
+          return;
+        }
       }
       if (pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
         data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
@@ -976,7 +1015,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (data?.type === 'clear-room' && member.seat >= 0) void builders.clearRoom(key);
       // LB: take an object out of the room (it stays in the $ history).
       if (data?.type === 'remove' && member.seat >= 0 && typeof data.objectId === 'string')
-        void store.removeObject(key, data.objectId).then((gone) => {
+        void store.removeObject(key, data.objectId, member.handle || owner).then((gone) => {
           if (!gone) return;
           room.match.emit('removed', { at: { x: gone.x, y: 1, z: gone.z } });
           builders.broadcast(key);

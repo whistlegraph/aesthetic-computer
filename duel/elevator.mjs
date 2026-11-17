@@ -4,8 +4,8 @@
 // The tower stands over the plaza on four legs. Its first floor is ATRIUM
 // metres up, so the plaza keeps its sky, and every floor after that is one
 // STOREY higher. A floor is a real place at a real height: floor 89 is
-// 364 m above the plaza.
-export const STOREY = 4, ATRIUM = 12;
+// 628 m above the plaza.
+export const STOREY = 7, ATRIUM = 12;
 export const altitude = (number) => (number > 0 ? ATRIUM + (number - 1) * STOREY : 0);
 // The floor a height falls in (0 below the first).
 export const floorAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / STOREY));

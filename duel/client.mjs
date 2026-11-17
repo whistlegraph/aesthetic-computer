@@ -76,27 +76,33 @@ try { towerTop = Number(localStorage.getItem('dool-tower-top')) || 0; } catch {}
 const rideMoving = (now) => !!ride && now - ride.at < ride.seconds * 1000;
 const liftAt = (now) => (ride ? ride.span * (1 - rideEase((now - ride.at) / 1000 / ride.seconds)) : 0);
 // 📟 Who lives on which floor, for the car's screen: asked of the directory
-// when a car is first near and again when the tower grows.
-let directory = new Map(), directoryFor = -1;
-async function readDirectory(count) {
-  if (directoryFor === count) return;
-  directoryFor = count;
+// when a car is first near and again whenever the ledger changes (a floor
+// added, a number taken or traded). `pencilled` is the numbers set aside for
+// a handle that has not come to dool yet: those can still be taken.
+let directory = new Map(), pencilled = new Set(), directoryFor = -1;
+async function readDirectory(revision) {
+  if (directoryFor === revision) return;
+  directoryFor = revision;
   try {
     const r = await fetch(new URL('./tower', import.meta.url), { cache: 'no-store' });
     const data = r.ok ? await r.json() : null;
-    if (Array.isArray(data?.floors)) directory = new Map(data.floors.map(([n, handle]) => [n, handle]));
+    if (Array.isArray(data?.floors)) {
+      directory = new Map(data.floors.map(([n, handle]) => [n, handle]));
+      pencilled = new Set(data.floors.filter(([, , held]) => !held).map(([n]) => n));
+    }
   } catch { directoryFor = -1; }
 }
 // What the typed line would reach, said on the screen before Enter.
 function floorAsked(text) {
   const q = text.trim().toLowerCase().replace(/^(?:floor|go)\s+/, '');
-  if (!q) return 'a number or @handle';
+  if (!q) return 'number, @handle or take N';
   if (/^(take|claim)\b/.test(q)) return /^(?:take|claim)\s+#?\d{1,4}$/.test(q) ? 'enter: make it yours' : 'take which number?';
   if (['g', '0', 'ground', 'plaza', 'lobby'].includes(q)) return 'the plaza';
   if (q === 'home') return home?.floor ? `your floor, ${home.floor}` : 'sign in for a floor';
   if (/^#?\d{1,4}$/.test(q)) {
-    const who = directory.get(Number(q.replace('#', '')));
-    return who ? `@${who}` : 'nobody lives there';
+    const n = Number(q.replace('#', '')), who = directory.get(n);
+    if (who && pencilled.has(n) && n !== home?.floor) return `@${who}, not here yet: take ${n}`;
+    return who ? `@${who}` : `nobody lives there: take ${n}`;
   }
   const name = q.replace(/^@/, '');
   for (const [n, handle] of directory) if (handle === name) return `floor ${n}`;
@@ -112,7 +118,8 @@ function carScreen(rideNow) {
     return { number: '?', moving: true, handle: `${chat.text.slice(0, 22)}${blink}`, note: floorAsked(chat.text), entry: true };
   }
   const moving = !!rideNow?.moving, n = moving ? rideNow.floor : tower?.here?.number ?? 0;
-  const who = n ? directory.get(n) || (n === tower?.here?.number ? tower.here.handle : null) : null;
+  // The floor you stand on is named by the server's last word, not the directory.
+  const who = n ? (n === tower?.here?.number && tower.here.handle) || directory.get(n) : null;
   return {
     number: n ? `${n}` : 'G',
     moving,
@@ -800,7 +807,7 @@ function connect() {
     if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null);
     if (data.type === 'tower') {
       tower = data;
-      if (hasCar()) void readDirectory(data.count);
+      if (hasCar()) void readDirectory(data.revision ?? data.count);
       if (data.top) {
         towerTop = data.top;
         try { localStorage.setItem('dool-tower-top', String(towerTop)); } catch {}
@@ -2246,7 +2253,8 @@ function step(now) {
     prompt,
     chat: {
       // The elevator's line is typed on the car's screen, not the top line.
-      open: chat.open && !liftLine,
+      // The elevator's line shows up here too: the car's screen can be out of frame.
+      open: chat.open,
       text: chat.text,
       cursor: chat.cursor,
       lines: chatLog.filter((l) => chat.open || now - l.at < CHAT_SHOWN_MS),
