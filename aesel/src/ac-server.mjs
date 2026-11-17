@@ -49,6 +49,7 @@ const SITE = process.env.AESEL_SITE || "https://aesthetic.computer";
 // decides in the end; these exist so `/model glm` works. The open models are
 // the same list the OpenRouter bridge offers; the rest are older hosted names.
 import {AC_MODELS,DEFAULT_AC_MODEL} from './provider-defaults.mjs';
+import {withCadence} from './keystroke-timing.mjs';
 export {AC_MODELS,DEFAULT_AC_MODEL};
 
 
@@ -327,7 +328,8 @@ export class AcServer extends EventEmitter {
     return this.editRevision;
   }
 
-  async startTurn(text) {
+  async startTurn(text, {cadence=null}={}) {
+    text = withCadence(text, cadence);
     this.jev?.beginTurn();
     this.pendingTriage = null;
     this.imageRequested = false;

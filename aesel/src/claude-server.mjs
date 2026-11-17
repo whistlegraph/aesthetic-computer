@@ -50,6 +50,7 @@ import { bothNames } from "./env.mjs";
 // every session with a red error line is not a default. Opus until the credits
 // come back, then this goes straight back to "claude-fable-5-1".
 import {DEFAULT_CLAUDE_MODEL} from './provider-defaults.mjs';
+import {withCadence} from './keystroke-timing.mjs';
 export {DEFAULT_CLAUDE_MODEL};
 
 // Tools whose work is a file change, and the input field naming the file. The
@@ -145,9 +146,9 @@ export class ClaudeServer extends EventEmitter {
     return this.#launch(threadId);
   }
 
-  async startTurn(text, {images=[]}={}) {
+  async startTurn(text, {images=[],cadence=null}={}) {
     if (!this.child) throw new Error("thread is not ready");
-    this.#sendUser(text, images);
+    this.#sendUser(withCadence(text, cadence), images);
     return { turn: this.#openTurn() };
   }
 
@@ -155,9 +156,9 @@ export class ClaudeServer extends EventEmitter {
   // CLI folds it into the running turn at the next tool boundary, which is
   // how people talk to Claude Code. If the turn ends before the CLI reads it,
   // the CLI answers it as a turn of its own, and #streamEvent opens one for it.
-  async steer(text, {images=[]}={}) {
+  async steer(text, {images=[],cadence=null}={}) {
     if (!this.child || !this.turnId) return false;
-    this.#sendUser(text, images);
+    this.#sendUser(withCadence(text, cadence), images);
     return true;
   }
 

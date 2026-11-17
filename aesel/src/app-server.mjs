@@ -5,6 +5,7 @@ import { createInterface } from "node:readline";
 import { codexMcpArgs } from "./tool-config.mjs";
 import { VERSION } from "./version.mjs";
 import { bothNames } from "./env.mjs";
+import {withCadence} from './keystroke-timing.mjs';
 
 
 export class AppServer extends EventEmitter {
@@ -147,7 +148,8 @@ export class AppServer extends EventEmitter {
     return result;
   }
 
-  async startTurn(text, {images=[]}={}) {
+  async startTurn(text, {images=[],cadence=null}={}) {
+    text = withCadence(text, cadence);
     if (!this.threadId) throw new Error("thread is not ready");
     const result = await this.request("turn/start", {
       threadId: this.threadId,
@@ -159,8 +161,9 @@ export class AppServer extends EventEmitter {
   }
 
   // A message typed while Codex works joins the running turn.
-  async steer(text, {images=[]}={}) {
+  async steer(text, {images=[],cadence=null}={}) {
     if (!this.threadId || !this.turnId) return false;
+    text = withCadence(text, cadence);
     await this.request("turn/steer", {
       threadId: this.threadId,
       expectedTurnId: this.turnId,

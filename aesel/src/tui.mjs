@@ -10,6 +10,10 @@ import {writeFileSync as writeBindingFile,renameSync as renameBindingFile,statSy
 import {conceptRequest} from './concept-request.mjs';
 import {inferDirect,DirectJobs,jobText} from './direct-command.mjs';
 import {takeSubmittedBatch,inputBatchDelay,trimSubmittedInput} from './input-batch.mjs';
+import {KeystrokeClock,cadenceEnabled,cadenceContext} from './keystroke-timing.mjs';
+// Key timing for the next message; see keystroke-timing.mjs. Messages typed
+// since the last turn began wait in pendingCadence and travel with it.
+const keyClock=new KeystrokeClock();let pendingCadence=[],lastCadence=null,cadenceOn=cadenceEnabled();
 import {startNativeGamepad} from './native-gamepad.mjs';
 import {requestFeedback} from './request-feedback.mjs';
 import {publicActivity,observeToolActivity} from './public-activity.mjs';
@@ -1945,6 +1949,7 @@ function handleNotification({ method, params = {} }) {
       state.plan = planFrom(params.plan, state.plan);
       break;
     case "turn/completed": {
+      keyClock.ready();
       state.question = null;
       // A finished plan has said what it had to; an unfinished one stays pinned.
       if (state.plan?.every(step => step.status === 'done')) state.plan = null;
@@ -2652,6 +2657,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     state.historyIndex = state.history.length;
   }
   if (!text) return redraw();
+  const typed = fromEditor ? keyClock.take() : null;
   if (state.question && !text.startsWith("/")) return answerTypedQuestion(text);
   // A command line runs here, never through the model.
   const direct = inferDirect(text, cwd);
@@ -2719,6 +2725,13 @@ async function submitInput(submittedText, submittedMessages = null) {
       return artifactOperation(()=>artifacts.run('generate',{provider:'openai',model:'gpt-image-2',prompt:rest,...(command==='/edit-image'?{reference:'composite.png'}:{})},{paid:true}));
     }
     if (command === "/performance" || command === "/perf") return commandPerformance(rest);
+    if (command === "/cadence") {
+      if (rest === "on" || rest === "off") cadenceOn = rest === "on";
+      if (!cadenceOn) pendingCadence = [];
+      addEntry("notice", `Typing cadence ${cadenceOn ? "on · each message carries its key timing, never which keys" : "off · messages go without timing"} · /cadence on|off`
+        + (lastCadence ? `\nLast sent: ${JSON.stringify(lastCadence.length === 1 ? lastCadence[0] : lastCadence)}` : ""));
+      return redraw();
+    }
     if (command === "/jobs") {
       const list = directJobs.jobs.slice(-8);
       addEntry("notice", list.length ? list.map(job => jobText(job).split("\n")[0]).join("\n") + "\n/kill N stops one · /kill stops them all" : "No direct commands yet · type !npm start, or just npm start");
@@ -3039,6 +3052,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     addEntry('error','Required transcript sharing is unavailable. Sign back into the accepted account, or restart aesel to review the policy for another account.');return redraw();
   }
   if (fromEditor) {
+    if (typed && cadenceOn) pendingCadence.push(typed);
     return enqueueUserMessage(text);
   }
   if(state.busy&&await steerTurn(text,submittedMessages))return redraw();
@@ -3100,6 +3114,10 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
   }
   // A typed message carries the file it is about; a retry carries it again.
   const about = recovery ? recoveryRequest?.about : !from ? state.subject : null;
+  // Timing belongs to typed messages; an inbox message carries none.
+  const cadence = recovery ? recoveryRequest?.cadence : !from ? pendingCadence.splice(0) : null;
+  if (!recovery && recoveryRequest) recoveryRequest.cadence = cadence;
+  if (cadence?.length) lastCadence = cadence;
   if (!from && !recovery) {
     state.subject = null;
     noteNamedMedia(text);
@@ -3133,7 +3151,7 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
       state.activityStage='';redraw();
     }
     if(recoveryRequest)recoveryRequest.submitted=true;
-    await engine.startTurn(text+aboutContext(about)+runtimeFeedbackContext(observed)+directJobs.takeContext()+pixels.context,{images:pixels.images});
+    await engine.startTurn(text+aboutContext(about)+runtimeFeedbackContext(observed)+directJobs.takeContext()+pixels.context,{images:pixels.images,cadence:cadence?.length?cadence:null});
   } catch (error) {
     state.busy = false;
     state.status = "failed";
@@ -3152,8 +3170,10 @@ async function startTurn(text, { from = "", recovery = false } = {}) {
 // waits in the queue for the next turn when it cannot.
 async function steerTurn(text, submittedMessages) {
   if (typeof engine.steer !== 'function' || !engine.turnId || turnRecovery.active || state.approval) return false;
-  try { if (!await engine.steer(text)) return false; }
+  const cadence = pendingCadence.length ? [...pendingCadence] : null;
+  try { if (!await engine.steer(text, {cadence})) return false; }
   catch (error) { transcript.event('engine', {text:`steer refused: ${errorText(error)}`}); return false; }
+  if (cadence) { pendingCadence.splice(0, cadence.length); lastCadence = cadence; }
   for(const line of submittedMessages||[text]){
     const entry=state.entries.find(entry=>entry.kind==='user'&&entry.awaitingTurn&&entry.text===line);
     if(entry)delete entry.awaitingTurn;else addEntry('user',line);
@@ -3363,7 +3383,7 @@ function handleKey(input) {
   if (input === "\u000c") { frameDiff.reset(); return redraw(); }
   if (input === "\u0001") state.cursor = 0;
   else if (input === "\u0005") state.cursor = Array.from(state.input).length;
-  else if (input === "\u0015") replaceInput("");
+  else if (input === "\u0015") { if (state.input) keyClock.erase(); replaceInput(""); }
   else if (input === "\u000b") state.input = Array.from(state.input).slice(0, state.cursor).join("");
   else if (input === "\r" || input === "\n") return void submitInput();
   else if (input === "\x1b[A") {
@@ -3377,6 +3397,7 @@ function handleKey(input) {
   } else if (input === "\x1b[D") state.cursor = Math.max(0, state.cursor - 1);
   else if (input === "\x1b[C") state.cursor = Math.min(Array.from(state.input).length, state.cursor + 1);
   else if (input === "\x7f" || input === "\b") {
+    if (state.cursor > 0) keyClock.erase();
     if (state.cursor === 0 && state.subject) state.subject = null;
     else if (state.cursor > 0) {
       const characters = Array.from(state.input);
@@ -3388,6 +3409,7 @@ function handleKey(input) {
     characters.splice(state.cursor, 1);
     state.input = characters.join("");
   } else if (!input.startsWith("\x1b")) {
+    keyClock.type(Array.from(cleanText(input.replace(/\x1b\[20[01]~/g, ""))).length);
     insertText(input);
   }
   redraw(true);

@@ -1,6 +1,7 @@
 // Closing a client detaches; accepted turns and their output stay on the relay.
 import {EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
+import {withCadence} from './keystroke-timing.mjs';
 export class RemoteServer extends EventEmitter {
   constructor({token,resumeThreadId='',model='',effort='',developerInstructions='',
     url=process.env.AESEL_RELAY_URL||'https://help.aesthetic.computer',
@@ -49,8 +50,8 @@ export class RemoteServer extends EventEmitter {
     }
     if(!this.closed)this.timer=setTimeout(()=>void this.poll(),this.failed?2000:this.pollMs);
   }
-  async startTurn(text,{images=[],requestId=randomUUID()}={}) {
-    const input={text,images,requestId};
+  async startTurn(text,{images=[],requestId=randomUUID(),cadence=null}={}) {
+    const input={text:withCadence(text,cadence),images,requestId};
     let request;
     try {request=await this.call(`/${this.threadId}/turn`,input);}
     catch(error){
