@@ -165,6 +165,7 @@ export function createDuelServer({
     send(ws, { type: 'park', ...parkData(key) });
     const data = lotData(key);
     rooms.get(key)?.match.setWalls(wallsFor(key)); // the houses and the elevator are solid
+    if (rooms.has(key)) rooms.get(key).match.open = Object.keys(geography.geography.neighbours(key) || {});
     if (!data) return;
     send(ws, { type: 'lots', ...data });
     void Promise.all(data.homes.map(h => colorsFor(h.handle).promise)).then(() => {
@@ -721,6 +722,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       builders.broadcast(key);
     }).catch(() => {});
     let arrived = false;
+    // 👀 Told its place is another room, and not yet walked a step in this
+    // one: a look in on the way, which leaves the avatar's rest where it was.
+    let passing = false;
     // 🎟️ A passage is the visitor themself, known a moment ago in the room
     // they left: it seats them where it leads as soon as the page says whose
     // it is, with the handle they wore, and the account is checked after.
@@ -734,7 +738,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const body = room.match.seats[member.seat]?.player;
       if (!body) return;
       arrived = true;
+      passing = false;
       Object.assign(body, pass.position);
+      // The time on the way was lived: the commands given in it are owed a run.
+      room.match.owe(member.seat, Math.round(((Date.now() - pass.at) * HZ) / 1000));
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
     };
@@ -774,7 +781,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           const last = geography.geography.whereabouts(handle)?.room;
           const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
             (parseBlock(last) && blockIndex(parseBlock(last)) <= geography.geography.opened));
-          send(ws, { type: 'whereabouts', room: open ? last : 'lobby' });
+          const place = open ? last : 'lobby';
+          passing = place !== key && !arrived;
+          send(ws, { type: 'whereabouts', room: place });
         }).catch(() => {});
         member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
@@ -851,7 +860,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         windowAt = now;
         messages = 0;
       }
-      if (++messages > 180) {
+      // (A link that held its messages back delivers seconds of them at once: that is not a flood.)
+      if (++messages > 600) {
         ws.close(1008, 'Input rate exceeded');
         return;
       }
@@ -929,12 +939,26 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (['walk', 'enter-pod', 'exit-pod'].includes(data?.type) && member.owner && member.seat >= 0) {
         const p = room.match.seats[member.seat]?.player;
         if (!p) return;
-        let destination, position;
+        let destination, position, walked;
         if (data.type === 'walk') {
           const edge = edgeAt(p);
           destination = geography.geography.neighbours(key)?.[edge];
-          if (!destination || edge !== data.edge) return;
-          position = landing(p, edge);
+          // Asked a moment early (the commands that carry the body over the
+          // line are still queued): the world's clock asks again each tick.
+          if (!destination || edge !== data.edge) {
+            if (!data.again) member.walk = { until: Date.now() + 1500,
+              ask: () => { messages--; ws.emit('message', JSON.stringify({ type: 'walk', edge: data.edge, again: true })); } };
+            return;
+          }
+          member.walk = null;
+          // The whole motion crosses, not only the place: speed and a jump carry over.
+          // (A body that walked on past the line lands that much further in,
+          // unless a house stands there: then in the yard, as from the line.)
+          let spot = landing(p, edge);
+          const inWall = (q) => wallsFor(destination).some((b) => q.x + 0.4 > b.xMin && q.x - 0.4 < b.xMax && q.z + 0.4 > b.zMin && q.z - 0.4 < b.zMax);
+          if (inWall(spot)) spot = landing({ ...p, x: clamp(p.x, -WORLD + 0.4, WORLD - 0.4), z: clamp(p.z, -WORLD + 0.4, WORLD - 0.4) }, edge);
+          position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
+          walked = room.match.seats[member.seat].ack;
         } else if (data.type === 'enter-pod') {
           const pod = geography.geography.publicPod(data.pod);
           if (!pod || pod.room !== key) return;
@@ -952,8 +976,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position, until: Date.now() + 30000 });
-        send(ws, { type: 'travel', room: destination, passage: receipt, at: position });
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position, at: Date.now(), until: Date.now() + 30000 });
+        // `ack` is the last command this room ran: the walker's later ones go with them.
+        send(ws, { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) });
         return;
       }
       // 🛗 The elevator: from the car, to a floor by number or handle, to
@@ -979,7 +1004,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, until: Date.now() + 30000 });
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, at: Date.now(), until: Date.now() + 30000 });
         send(ws, { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
           ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } });
         return;
@@ -1084,8 +1109,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         void store.paintTile(key, data.i, data.j, data.c).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
         void builders.restore(ws, key, owner, member.seat, data.code);
-      if (data?.type === 'input' && member.seat >= 0)
+      if (data?.type === 'input' && member.seat >= 0) {
+        if (passing && Array.isArray(data.commands) && data.commands.some((c) => c?.fwd || c?.right || c?.buttons)) passing = false;
         room.match.input(member.seat, data.commands);
+      }
       if (data?.type === 'ping' && Number.isFinite(data.at))
         send(ws, { type: 'pong', at: data.at });
     });
@@ -1096,7 +1123,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       clearInterval(heartbeat);
       // 🗺️ The avatar rests where it stood (rooms outside the lattice are refused).
       const body = member.handle && room.match.seats[member.seat]?.player;
-      if (body)
+      if (body && !passing)
         void geography
           .change((g) => g.rest(member.handle, { room: key, x: body.x, z: body.z, yaw: body.yaw }))
           .catch(() => {});
@@ -1119,6 +1146,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       debt -= 1000 / HZ;
       for (const room of rooms.values()) {
         room.match.step();
+        for (const m of room.sessions.values())
+          if (m.walk) { if (m.walk.until < Date.now()) m.walk = null; else m.walk.ask(); }
         if (room.match.chalkDirty && room.match.tick % 3 === 0)
           for (const msg of room.match.takeChalk())
             for (const ws of room.clients.keys()) send(ws, msg);

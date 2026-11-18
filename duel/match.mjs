@@ -14,7 +14,7 @@ import {
   surfaceHit,
   reflect,
   WORLD,
-} from './world.mjs';
+ HORIZON } from './world.mjs';
 import { command } from './net.mjs';
 import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from './bop.mjs';
 
@@ -23,12 +23,13 @@ import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from '
 // what a burst can bring; the grace is how long a silent player is held
 // still and owed their time before the body runs on without them.
 // (INPUT_SLACK: how many may wait once the budget is spent.)
-export const INPUT_BATCH = 12, INPUT_QUEUE = 60, INPUT_GRACE = 30, INPUT_SLACK = 3;
+export const INPUT_BATCH = 12, INPUT_QUEUE = HORIZON, INPUT_GRACE = HORIZON, INPUT_SLACK = 3;
 export class Match {
   constructor() {
     this.tick = 0;
     this.objects = [];
     this.walls = [];
+    this.open = null; // The sides that lead to a neighbour (world.mjs move).
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
@@ -458,7 +459,9 @@ export class Match {
     const seat = this.seats.indexOf(null);
     if (seat < 0) return -1;
     this.seats[seat] = { player: this.fresh(seat), ack: 0, queue: [], last: {} };
-    if (this.count === 2 && this.phase === 'waiting') this.reset();
+    // Someone arriving never moves or stops whoever is already here: the
+    // match is simply on (a round that ends still resets, with its countdown).
+    if (this.count === 2 && this.phase === 'waiting') this.phase = 'playing';
     return seat;
   }
 
@@ -471,10 +474,8 @@ export class Match {
     this.phase = 'waiting';
     this.winner = null;
     this.rockets = [];
-    for (const s of this.seats.filter(Boolean)) {
-      s.player = this.fresh(s.player.seat, s.player.life + 1);
-      s.queue = [];
-    }
+    // Whoever is left keeps walking where they stand; only the score goes.
+    for (const s of this.seats.filter(Boolean)) Object.assign(s.player, { score: 0, health: 100 });
   }
 
   reset() {
@@ -499,7 +500,7 @@ export class Match {
       if (
         !c ||
         c.seq <= s.ack ||
-        c.seq > s.ack + 120 ||
+        c.seq > s.ack + HORIZON ||
         s.queue.length >= INPUT_QUEUE ||
         s.queue.some((q) => q.seq === c.seq)
       )
@@ -507,6 +508,16 @@ export class Match {
       s.queue.push(c);
     }
     s.queue.sort((a, b) => a.seq - b.seq);
+  }
+
+  // 🚶 A body set down from another room lived `ticks` on the way, steered
+  // by commands that are still to come: they are run when they arrive.
+  owe(seat, ticks) {
+    const s = this.seats[seat];
+    if (!s) return;
+    s.owed = true;
+    s.quiet = 0;
+    s.budget = Math.max(s.budget || 0, Math.min(INPUT_GRACE + 1, Math.max(0, ticks)));
   }
 
   emit(type, fields) {
@@ -525,7 +536,7 @@ export class Match {
       // order sent, so the server ends where the client predicted and a
       // jittery link never drags anyone back. The budget is real time: every
       // tick adds one command's worth, a tick with nothing to run keeps it
-      // (up to INPUT_GRACE, half a second), and a late burst spends it all at
+      // (up to INPUT_GRACE, the HORIZON), and a late burst spends it all at
       // once. Nobody gains time by it, and nothing waits in the queue after:
       // a backlog would be latency on every input for the rest of the visit.
       s.budget = Math.min(INPUT_GRACE + 1, (s.budget || 0) + 1);
@@ -534,7 +545,7 @@ export class Match {
       if (take) {
         s.budget -= take;
         s.quiet = 0;
-      } else if (s.ack && (s.quiet || 0) < INPUT_GRACE) {
+      } else if ((s.ack || s.owed) && (s.quiet || 0) < INPUT_GRACE) {
         s.quiet = (s.quiet || 0) + 1; // Late, not gone: hold still, keep the time.
       } else {
         // Nothing for a while (or never): the body runs on with no input,
@@ -562,7 +573,7 @@ export class Match {
         const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
         // Waiting is a movement warmup; the match countdown locks both spawns.
         if (this.phase === 'playing' || this.phase === 'waiting')
-          p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena);
+          p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open);
         else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;

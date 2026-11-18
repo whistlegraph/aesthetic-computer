@@ -8,6 +8,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
 import { Geography, GeographyStore } from '../geography.mjs';
 import { createDuelServer } from '../server.mjs';
+import { move } from '../world.mjs';
 import { PROTOCOL } from '../world.mjs';
 import { edgeAt, landing, podFront } from '../park.mjs';
 import { lot } from '../geography.mjs';
@@ -143,10 +144,14 @@ test('walking uses server position and a one-use owner-bound passage, preserving
   await delay(40);
   assert.ok(!a.messages.some(m=>m.type==='travel'));
   const member=[...app.rooms.get('lobby').sessions.values()][0];
-  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12});
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
   a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const travel=a.messages.find(m=>m.type==='travel');
+  // The motion crosses with the body, and the walker is told which commands the plaza ran.
+  // (A tick or two of friction may pass before the plaza answers.)
+  assert.ok(travel.at.vx>4&&travel.at.vx<=6);
+  assert.equal(travel.ack,0);
   const stranger=await connect('e1n0',null,null,travel.passage);
   await delay(40);
   assert.ok(!stranger.messages.some(m=>m.type==='arrival'));
@@ -154,6 +159,20 @@ test('walking uses server position and a one-use owner-bound passage, preserving
   await wait(()=>b.messages.some(m=>m.type==='arrival'));
   assert.equal(b.messages.find(m=>m.type==='arrival').yaw,90);
   assert.equal(b.messages.find(m=>m.type==='arrival').pitch,12);
+  // 🏃 The walker kept walking on the way: the commands given between the two
+  // rooms are run when they arrive, and the body ends where they lead.
+  const next=app.rooms.get('e1n0'), seat=[...next.sessions.values()].filter(s=>s.seat>=0).at(-1).seat;
+  const landed={...next.match.seats[seat].player};
+  assert.equal(landed.vx,travel.at.vx);
+  await delay(450);
+  assert.equal(next.match.seats[seat].player.x,landed.x); // waiting for them, not drifting
+  const cmds=Array.from({length:24},(_,i)=>({seq:i+1,fwd:1,right:0,yaw:90,pitch:12,buttons:0}));
+  const led=cmds.reduce((p,c)=>move(p,c,[],0,next.match.walls,false),landed);
+  b.ws.send(JSON.stringify({type:'input',commands:cmds.slice(0,12)}));
+  b.ws.send(JSON.stringify({type:'input',commands:cmds.slice(12)}));
+  await wait(()=>next.match.seats[seat].ack===24);
+  assert.ok(Math.abs(next.match.seats[seat].player.x-led.x)<1e-9);
+  assert.ok(led.x-landed.x>1);
   const replay=await connect('e1n0',null,a.token,travel.passage);
   await delay(40);
   assert.ok(!replay.messages.some(m=>m.type==='arrival'));
@@ -253,10 +272,14 @@ test('a passage seats a signed-in walker with their handle before the account is
   const a=await connect('lobby','jeffrey');
   await wait(()=>[...app.rooms.get('lobby').sessions.values()].some(m=>m.handle==='jeffrey'&&m.seat>=0));
   const member=[...app.rooms.get('lobby').sessions.values()][0];
-  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12});
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
   a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const travel=a.messages.find(m=>m.type==='travel');
+  // The motion crosses with the body, and the walker is told which commands the plaza ran.
+  // (A tick or two of friction may pass before the plaza answers.)
+  assert.ok(travel.at.vx>4&&travel.at.vx<=6);
+  assert.equal(travel.ack,0);
   assert.equal(typeof travel.at.x,'number');
   // The page says it is signed in (account=1) and never sends the token:
   // the passage alone must seat it, as the handle that walked.

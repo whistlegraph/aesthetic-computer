@@ -219,11 +219,15 @@ test('interpolation uses shortest yaw, freezes on starvation and never lerps acr
   assert.equal(interpolate([a, b], 20, 0).x, 10);
 });
 
-test('the last rival leaving resets the one left behind and frees the seat', () => {
+test('the last rival leaving clears the score of the one left behind and frees the seat; nobody is moved by a coming or a going', () => {
   const m = playing();
-  shoot(m); m.leave(1);
+  shoot(m);
+  Object.assign(m.seats[0].player, { x: 3.3, z: -2.2 });
+  const life = m.seats[0].player.life;
+  m.leave(1);
   assert.equal(m.phase, 'waiting'); assert.equal(m.seats[0].player.score, 0);
-  assert.equal(m.join(), 1); assert.equal(m.phase, 'countdown');
+  assert.equal(m.join(), 1); assert.equal(m.phase, 'playing');
+  assert.deepEqual([m.seats[0].player.x, m.seats[0].player.z, m.seats[0].player.life], [3.3, -2.2, life]);
 });
 
 test('a room holds many players; late arrivals join the running match', () => {
@@ -283,7 +287,7 @@ test('HTTP allowlist, actual two-socket match, full room, room isolation and cle
   };
   const a = connect(); assert.equal((await waitFor(a, d => d.type === 'welcome')).seat, 0);
   const b = connect(); assert.equal((await waitFor(b, d => d.type === 'welcome')).seat, 1);
-  await waitFor(a, d => d.phase === 'countdown');
+  await waitFor(a, d => d.phase === 'playing');
   const c = connect('test', 'instagib'); assert.equal((await waitFor(c, d => d.type === 'welcome')).seat, 2, 'a third socket plays too'); c.close(); await once(c, 'close');
   const other = connect('other-room'); assert.equal((await waitFor(other, d => d.type === 'welcome')).seat, 0);
   a.send(JSON.stringify({ type: 'input', commands: [cmd(1)] }));
