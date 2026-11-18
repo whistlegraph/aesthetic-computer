@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
-import { edgeAt, landing, podFront, blockWalls } from './park.mjs';
+import { edgeAt, landing } from './park.mjs';
 import { worldMap } from './map.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
@@ -94,12 +94,6 @@ export function createDuelServer({
   stateDir,
   builderToken = process.env.DOOL_BUILDER_TOKEN,
   verifyIdentity = verifyAccount,
-  verifyCurator = async (authorization) => {
-    if (!authorization?.startsWith('Bearer ')) return false;
-    const { authorize, hasAdmin } = await import('../system/backend/authorization.mjs');
-    const user = await authorize({ authorization });
-    return !!user && await hasAdmin(user);
-  },
   resolveHandleColors = handleColors,
   // 🧹 Who keeps the ground nobody owns: the plaza and the blocks' commons.
   keeper = process.env.DOOL_KEEPER || 'jeffrey',
@@ -168,31 +162,13 @@ export function createDuelServer({
     }
     return cached;
   };
-  const lotData = (key) => {
-    const block = key === 'lobby' ? null : parseBlock(key);
-    // The tower's grounds are open field: no lots, nobody's home.
-    if (!block || isGrounds(block) || blockIndex(block) > geography.geography.opened) return null;
-    // A block nobody lives on is open field too: no lots are marked out.
-    if (!Object.values(geography.geography.homes).some((h) => h.block === blockIndex(block))) return null;
-    return { room: key, rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
-      homes: Object.entries(geography.geography.homes)
-        .filter(([, h]) => h.block === blockIndex(block))
-        .map(([handle, h]) => ({ lot: h.lot, handle, pod: h.pod,
-          profile: geography.geography.publicPod(h.pod).profile,
-          colors: profiles.get(handle)?.colors || null })) };
-  };
-  const parkData = key => ({ neighbours: geography.geography.neighbours(key),
-    plaza: key === 'lobby', pod: geography.geography.publicPod(key) });
-  const sendLots = (ws, key) => {
+  const parkData = key => ({ neighbours: geography.geography.neighbours(key), plaza: key === 'lobby' });
+  // What a socket hears of the place (its neighbours), and what the room
+  // keeps of it: its solids and the sides that lead on.
+  const sendPark = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
-    const data = lotData(key);
-    rooms.get(key)?.match.setWalls(wallsFor(key)); // the houses and the elevator are solid
+    rooms.get(key)?.match.setWalls(wallsFor(key)); // the elevator and the lobby are solid
     if (rooms.has(key)) rooms.get(key).match.open = Object.keys(geography.geography.neighbours(key) || {});
-    if (!data) return;
-    send(ws, { type: 'lots', ...data });
-    void Promise.all(data.homes.map(h => colorsFor(h.handle).promise)).then(() => {
-      send(ws, { type: 'lots', ...lotData(key) });
-    });
   };
   // 🏠 Home is the handle's floor of the tower.
   const sendHome = (ws, handle) => {
@@ -203,7 +179,7 @@ export function createDuelServer({
   // which floor is theirs.
   const hasCar = (key) => key === GROUND || isFloorRoom(key);
   // The elevator is solid on every floor; the lobby's glass and desk on the ground.
-  const wallsFor = (key) => [...blockWalls(lotData(key)), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
+  const wallsFor = (key) => [...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
@@ -245,18 +221,6 @@ export function createDuelServer({
   void ready.then(() => admitHandles(6), () => {});
   const admitTimer = setInterval(() => admitHandles(), 10 * 60 * 1000);
   admitTimer.unref?.();
-  // One live mutation queue, including layout edits: never edit the on-disk
-  // ledger beside a running server. The expected revision prevents lost edits.
-  const curate = async ({ moves, revision }) => {
-    await ready;
-    if (!Number.isSafeInteger(revision)) throw Error('A map revision is required');
-    const result = await geography.change(g => g.curate(moves, revision));
-    for (const [key, room] of rooms) for (const [ws, m] of room.sessions) {
-      sendLots(ws, key);
-      if (m.handle) sendHome(ws, m.handle);
-    }
-    return { revision: geography.geography.revision, pods: result };
-  };
   // Short-lived, one-use travel receipts bind a server position to an owner.
   const passages = new Map();
   // What a passage carries besides the place: who walked through it. The
@@ -317,23 +281,6 @@ export function createDuelServer({
         );
       return;
     }
-    if (path === '/park/layout' && req.method === 'POST') {
-      try {
-        if (!await verifyCurator(req.headers.authorization)) return void res.writeHead(403).end();
-      } catch { return void res.writeHead(503).end(); }
-      let body = '';
-      try {
-        for await (const chunk of req) {
-          body += chunk;
-          if (Buffer.byteLength(body) > 32768) return void res.writeHead(413).end();
-        }
-        const result = await curate(JSON.parse(body));
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(result));
-      } catch (error) {
-        res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify({ error: error.message }));
-      }
-      return;
-    }
     // 🏢 The tower's directory: [number, handle, held] from the ground up,
     // or one floor by number or handle (?q=89, ?q=@jeffrey).
     if (path === '/tower' && req.method === 'GET') {
@@ -344,13 +291,6 @@ export function createDuelServer({
         'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
         .end(JSON.stringify(q !== null ? found || { error: 'No such floor' }
           : { revision: t.revision, count: t.count, top: t.top, floors: t.directory() }));
-      return;
-    }
-    if (path === '/pod' && req.method === 'GET') {
-      await ready;
-      const pod = geography.geography.publicPod(url.searchParams.get('id'));
-      res.writeHead(pod ? 200 : 404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-        .end(JSON.stringify(pod || { error: 'Pod not found' }));
       return;
     }
     // AC's own libraries, read-only, so a wall can run real KidLisp.
@@ -458,7 +398,6 @@ export function createDuelServer({
             blocks.push({
               id, di, dj, plaza: id === 'lobby',
               neighbours: geography.geography.neighbours(id),
-              lots: lotData(id),
               objects: store.objects(id).filter((o) => !o.item),
               tiles: store.tiles(id),
             });
@@ -479,7 +418,6 @@ export function createDuelServer({
         .end(
           JSON.stringify({
             park: parkData(id),
-            lots: lotData(id),
             objects: store.objects(id),
             tiles: store.tiles(id),
             screens: store.screens(id),
@@ -856,7 +794,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (devRoom(key) && devRecent.length)
       send(ws, { type: 'dev-log', entries: devRecent });
     send(ws, { type: 'chalk', strokes: room.match.chalk });
-    sendLots(ws, key);
+    sendPark(ws, key);
     sendTower(ws, key, member);
     send(ws, room.match.snapshot());
     send(ws, builders.state(key, member));
@@ -958,7 +896,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         });
         return;
       }
-      if (['walk', 'enter-pod', 'exit-pod'].includes(data?.type) && member.owner && member.seat >= 0) {
+      if (data?.type === 'walk' && member.owner && member.seat >= 0) {
         const p = room.match.seats[member.seat]?.player;
         if (!p) return;
         let destination, position, walked;
@@ -981,19 +919,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           if (inWall(spot)) spot = landing({ ...p, x: clamp(p.x, -WORLD + 0.4, WORLD - 0.4), z: clamp(p.z, -WORLD + 0.4, WORLD - 0.4) }, edge);
           position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
           walked = room.match.seats[member.seat].ack;
-        } else if (data.type === 'enter-pod') {
-          const pod = geography.geography.publicPod(data.pod);
-          if (!pod || pod.room !== key) return;
-          const front = podFront(lot(pod.placement.lot));
-          if (Math.abs(p.x-front.x) > 0.9 || Math.abs(p.z-front.z) > 0.9 || p.y > 2.3) return;
-          destination = pod.id;
-          position = {x:0,z:-5,yaw:0,pitch:0};
-        } else {
-          const pod = geography.geography.publicPod(key);
-          if (!pod) return;
-          const front = podFront(lot(pod.placement.lot));
-          destination = pod.room;
-          position = {x:front.x,z:front.north ? 0.5 : -0.5,yaw:front.north ? 180 : 0,pitch:0};
         }
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
@@ -1198,7 +1123,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     store,
     geography,
     tower,
-    curate,
     builders,
     ready,
     async close() {

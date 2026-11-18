@@ -1,6 +1,6 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { podFront, house, houseWalls, HOUSE, groundsOf, promenade, GROUNDS } from './park.mjs';
+import { groundsOf, promenade, GROUNDS } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, VOLUME_TRIANGLES, reach, shadeFor } from './shadow.mjs';
@@ -307,7 +307,7 @@ export async function createView(canvas) {
   let paletteName = null, arena, skyModel, sky;
   // 🌍 Per-block models, kept by block id ('here' is the one underfoot) and
   // rebuilt only when what they show changes.
-  const grounds = new Map(), lotSets = new Map(), tileSets = new Map();
+  const grounds = new Map(), tileSets = new Map();
   // A block's ground: the plaza's floor or a residential block's grass and
   // lanes. A side with an open neighbour is left open; the world's edge gets
   // the plaza's wall or the park's hedge.
@@ -365,49 +365,6 @@ export async function createView(canvas) {
       }
     });
     grounds.set(id, { key, model: made });
-    return made;
-  }
-  // A block's lots on its floor: each outlined as its yard, and a settled one
-  // carrying its house — real walls, a doorway onto the lane, the handle
-  // over the door, no roof. Your own yard is outlined in the cursor's pink.
-  function lotsFor(id, lots, home) {
-    const key = JSON.stringify([lots, home, paletteName]);
-    const kept = lotSets.get(id);
-    if (kept?.key === key) return kept;
-    const who = new Map(lots.homes.map((h) => [h.lot, h.handle]));
-    const lotModel = model(({ quad, box }) => {
-      lots.rects.forEach((r, k) => {
-        const col = k === home ? 0xff3296 : who.has(k) ? 0xb56bff : PALETTES[paletteName].dot;
-        const t = who.has(k) ? 0.06 : 0.03, y = 0.012, a = r.xMin + 0.15, b = r.xMax - 0.15, c = r.zMin + 0.15, d = r.zMax - 0.15;
-        const bar = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], col);
-        bar(a, c, b, c + t); bar(a, d - t, b, d); bar(a, c, a + t, d); bar(b - t, c, b, d);
-        if (who.has(k)) {
-          const day = paletteName === 'day';
-          const wall = day ? 0xe8e1f4 : 0x7d748c, side = day ? 0xcfc6e0 : 0x645c73, floor = day ? 0xd9cfc0 : 0x3a3644;
-          const hs = house(r);
-          quad([hs.xMin, 0.009, hs.zMin], [hs.xMin, 0.009, hs.zMax], [hs.xMax, 0.009, hs.zMax], [hs.xMax, 0.009, hs.zMin], floor);
-          for (const s of houseWalls(r))
-            box((s.xMin + s.xMax) / 2, HOUSE.height / 2, (s.zMin + s.zMax) / 2,
-              s.xMax - s.xMin, HOUSE.height, s.zMax - s.zMin, wall, side, wall);
-          // The lintel over the doorway.
-          box(hs.doorX, (HOUSE.doorHeight + HOUSE.height) / 2, hs.frontZ,
-            HOUSE.door, HOUSE.height - HOUSE.doorHeight, HOUSE.wall, wall, side, wall);
-        }
-      });
-    });
-    const podModels = lots.homes.flatMap((h) => {
-      const r = lots.rects[h.lot];
-      if (!r) return [];
-      const front = podFront(r), label = `@${h.handle}`;
-      const unit = Math.min(0.044, 2.7 / (label.length * 6));
-      return [{ ...front, mesh: model(({ box, handleText }) => {
-        // On the wall over the door, proud of its outer face.
-        box(0, 2.6, -0.15, 3, 0.65, 0.09, 0x171d26);
-        handleText(label, 0, 2.78, -0.205, unit, h.colors);
-      }) }];
-    });
-    const made = { key, lotModel, podModels };
-    lotSets.set(id, made);
     return made;
   }
   // 🛗 The elevator car against the north edge of the plaza and of every
@@ -1128,10 +1085,9 @@ export async function createView(canvas) {
     braincells = null,
     spending = false,
     tiles = {},
-    lots = null,
     park = null,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
-    around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, lots, home, objects, tiles }
+    around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     home = null,
     floorAim = null,
     chalk = [],
@@ -1294,7 +1250,7 @@ export async function createView(canvas) {
     lastEye = eye;
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
-    // stands: one continuous ground, each home on its lot.
+    // stands: one continuous ground.
     if (today) draw(skyDome(skyStep), eye.x, eye.y, eye.z);
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
@@ -1345,25 +1301,15 @@ export async function createView(canvas) {
         }
       }
     }
-    if (lots) {
-      const set = lotsFor('here', lots, home);
-      draw(set.lotModel, 0, 0, 0);
-      for (const p of set.podModels) draw(p.mesh, p.x, 0, p.z, p.yaw);
-    }
     for (const b of around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
       draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz);
-      if (b.lots) {
-        const set = lotsFor(b.id, b.lots, b.home);
-        draw(set.lotModel, b.dx, by, b.dz);
-        for (const p of set.podModels) draw(p.mesh, b.dx + p.x, by, b.dz + p.z, p.yaw);
-      }
       const painted = tilesFor(b.id, b.tiles);
       if (painted) draw(painted, b.dx, by, b.dz);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
-        grounds.delete(id); lotSets.delete(id); tileSets.delete(id);
+        grounds.delete(id); tileSets.delete(id);
       }
     // A thing standing on the ground, drawn where its block stands.
     const stand = (object, ox, oz, oy = 0) => {

@@ -15,8 +15,7 @@
 //   stack  the same flat every `step` metres up:    x0 z0 x1 z1 y step count
 //   panel  an upright rectangle, turned by `yaw`:   x z yaw w h y
 // A shape may carry a `color` (0xrrggbb) and a `label`.
-import { BLOCK, LOTS, LOBBY, lot, blockAt, parseBlock, toWorld } from './geography.mjs';
-import { HOUSE, house } from './park.mjs';
+import { BLOCK, LOBBY, blockAt, parseBlock, toWorld } from './geography.mjs';
 import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, carWalls, lobbyWalls } from './elevator.mjs';
 import { TILE_COLORS } from './world.mjs';
 
@@ -47,8 +46,7 @@ export function towerShapes(top) {
   return out;
 }
 
-// The lattice: the plaza, every open block with its lots and houses, and the
-// blocks that open next.
+// The lattice: the plaza, every open block, and the blocks that open next.
 export function landShapes(geography, ahead = 6) {
   const out = [], half = BLOCK / 2, census = geography.census();
   const square = (role, b) =>
@@ -56,16 +54,6 @@ export function landShapes(geography, ahead = 6) {
   for (let k = 1; k <= ahead; k++) out.push(square('next', blockAt(census.opened + k)));
   for (const b of census.blocks) {
     out.push(Object.assign(square(b.n === 0 ? 'plaza' : 'block', b), { id: b.id }));
-    if (b.n === 0 || !b.homes.length) continue; // open field: no lots are marked out
-    const settled = new Map(b.homes.map((h) => [h.lot, h.handle])), at = toWorld(b, { x: 0, z: 0 });
-    for (let k = 0; k < LOTS; k++) {
-      const r = lot(k), handle = settled.get(k);
-      out.push(shape('flat', handle ? 'home' : 'lot',
-        { x0: at.x + r.xMin, z0: at.z + r.zMin, x1: at.x + r.xMax, z1: at.z + r.zMax }, handle ? { label: `@${handle}` } : {}));
-      if (!handle) continue;
-      const h = house(r);
-      out.push(shape('box', 'house', { x0: at.x + h.xMin, z0: at.z + h.zMin, x1: at.x + h.xMax, z1: at.z + h.zMax, y0: 0, y1: HOUSE.height }));
-    }
   }
   return out;
 }
@@ -93,21 +81,14 @@ export function contentShapes(block, room = {}) {
 }
 
 // Where a body in `room` at its own (x, y, z) stands in the world, or null
-// for a room that is not a place in it (a game, a studio). Someone inside a
-// house stands at the middle of it.
+// for a room that is not a place in it (a game, a studio).
 export function place(room, p, { geography, tower }) {
   const f = tower?.forRoom(room);
   if (f) return { x: round(p.x), y: round(altitude(f.number) + (p.y || 0)), z: round(p.z), floor: f.number };
-  const pod = geography.publicPod(room);
-  const block = room === LOBBY ? { i: 0, j: 0 } : pod ? blockAt(pod.placement.block) : parseBlock(room);
+  const block = room === LOBBY ? { i: 0, j: 0 } : parseBlock(room);
   if (!block) return null;
-  let local = { x: p.x, z: p.z };
-  if (pod) {
-    const h = house(lot(pod.placement.lot));
-    local = { x: (h.xMin + h.xMax) / 2, z: (h.zMin + h.zMax) / 2 };
-  }
-  const at = toWorld(block, local);
-  return { x: round(at.x), y: round(pod ? 0 : p.y || 0), z: round(at.z), floor: 0 };
+  const at = toWorld(block, { x: p.x, z: p.z });
+  return { x: round(at.x), y: round(p.y || 0), z: round(at.z), floor: 0 };
 }
 
 // The whole map. `contents(id)` gives a block's { tiles, objects, screens };
