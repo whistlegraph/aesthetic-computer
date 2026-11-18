@@ -1,10 +1,12 @@
 // Wiki.swift — the club wiki (Outline) beside the circles.
 //
 // Each circle gets the pages of the wiki collection that carries its name;
-// a circle with no collection of its own shows the whole wiki's recent pages.
-// The member's wiki API key lives in the login Keychain.
+// a circle with no collection of its own shows the whole wiki. The wiki is
+// opened by the NCC login (Login.swift): the token is the wiki session that
+// login leaves, kept in the login Keychain. An API key set by hand
+// (menu → Set Wiki Key…) works in its place.
 
-import Foundation
+import AppKit
 import Security
 
 // One line of the wiki column: a collection heading (no id) or a page at a depth.
@@ -24,6 +26,7 @@ final class Wiki {
     init() { base = Config.shared.conf.wikiURL ?? "https://wiki.nela.computer" }
 
     var token: String? {
+        if ["1", "ncc"].contains(ProcessInfo.processInfo.environment["NCC_LOGGED_OUT"] ?? "") { return nil }   // test aid
         if let t = ProcessInfo.processInfo.environment["NCC_WIKI_TOKEN"], !t.isEmpty { return t }
         var q: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service,
                                   kSecAttrAccount: base, kSecReturnData: true]
@@ -49,7 +52,7 @@ final class Wiki {
         req.timeoutInterval = 20
         req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue("ncc-circles", forHTTPHeaderField: "User-Agent")
+        req.setValue("nccd", forHTTPHeaderField: "User-Agent")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         URLSession.shared.dataTask(with: req) { data, _, _ in
             let j = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
@@ -74,6 +77,13 @@ final class Wiki {
                 }
                 done(true)
             }
+        }
+    }
+
+    // Who the wiki says is signed in.
+    func me(done: @escaping (String?) -> Void) {
+        call("auth.info", [:]) { j in
+            done(((j?["data"] as? [String: Any])?["user"] as? [String: Any])?["name"] as? String)
         }
     }
 
@@ -125,10 +135,36 @@ final class Wiki {
     }
 
     // A page by its UUID or by the slug at the end of its address.
-    func page(_ id: String, done: @escaping ((title: String, text: String, path: String)?) -> Void) {
+    func page(_ id: String, done: @escaping ((id: String, title: String, text: String, path: String)?) -> Void) {
         call("documents.info", ["id": id]) { j in
             guard let d = j?["data"] as? [String: Any], let text = d["text"] as? String else { return done(nil) }
-            done(((d["title"] as? String) ?? "", text, (d["url"] as? String) ?? ""))
+            done(((d["id"] as? String) ?? id, (d["title"] as? String) ?? "", text, (d["url"] as? String) ?? ""))
+        }
+    }
+
+    // Pictures on wiki pages, by the address the page gives them. One of the
+    // wiki's own (a path, or an address on the wiki's host) is asked for with
+    // the member's key; any other is fetched bare, so the key never leaves the wiki.
+    private var pictures: [String: NSImage] = [:]
+    private var asked: Set<String> = []
+    func picture(_ address: String) -> NSImage? { pictures[address] }
+
+    func fetchPictures(_ addresses: [String], each: @escaping () -> Void) {
+        for address in addresses where !asked.contains(address) {
+            asked.insert(address)
+            let own = address.hasPrefix("/") || address.hasPrefix(base + "/")
+            guard let url = URL(string: address.hasPrefix("/") ? base + address : address),
+                  url.scheme == "https" else { continue }
+            var req = URLRequest(url: url)
+            req.timeoutInterval = 30
+            if own, let token { req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
+            URLSession.shared.dataTask(with: req) { data, _, _ in
+                guard let data, let img = NSImage(data: data), img.size.width > 0 else { return }
+                DispatchQueue.main.async {
+                    self.pictures[address] = img
+                    each()
+                }
+            }.resume()
         }
     }
 

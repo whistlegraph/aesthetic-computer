@@ -1,0 +1,1003 @@
+// main.swift — NCCd: a Signal client for the computer club's circles.
+// The d is for donut: the club's circles are peers on one ring, so the home
+// screen is a donut with the circles spread out on it.
+//
+// There are two logins, and neither waits for the other. Signal (a linked
+// device) opens the circles. NCC (the club's login page, in the wiki pane)
+// opens the wiki. With neither, the app still opens: the donut, a button to
+// link Signal, and the club's login in the wiki pane.
+// (The app was first "NCC Circles". Its bundle id, data folder and config path
+// keep that name, so a Mac that ran the old build carries on with its link,
+// its logs and its keys.)
+
+import AppKit
+import WebKit
+
+struct Circle {
+    var conf: CircleConf
+    var log: CircleLog
+    var members = 0
+    var memberIds: [String] = []     // their Signal ids, for the "@" list
+    var canSend = true
+}
+
+final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    var window: NSWindow!
+    let shell = Shell()
+    let main = MainView()
+    var login: WikiLogin?                                    // the NCC sign-in, while it shows
+    var nccName: String?                                     // who the wiki says is signed in
+    let engine = SignalEngine()
+    let people = People()
+    let wiki = Wiki()
+    let updater = Updater()
+    let radio = Radio()
+    // The zoom of the whole interface, kept between launches.
+    var zoom: CGFloat = 1 {
+        didSet {
+            zoom = min(2.4, max(0.6, (zoom * 20).rounded() / 20))
+            UserDefaults.standard.set(Double(zoom), forKey: "zoom")
+            shell.zoom = zoom
+            satellites.forEach { $0.shell.zoom = zoom }
+        }
+    }
+    var wikiReady = false
+    typealias Doc = (id: String, title: String, text: String, url: URL?)
+    var openDoc: Doc?                                        // the page in the wiki pane (nil: its page tree)
+    var startDoc: Doc?                                       // the wiki's start page, when it has one
+    var wikiTree: (heading: String, rows: [WikiRow])?        // the page tree of the wiki pane
+    var wikiTouched = false                                  // the member has moved in the wiki pane
+    var lastDocId: String?                                   // the page last read, marked in the tree
+    var satellites: [Satellite] = []                         // circles open in windows of their own
+    var pending: [String: [Msg]] = [:]                       // by group: messages sent, not yet landed
+    var onStart = true                                       // the donut (home) is open, not a circle
+    var picked = false                                       // the member has chosen something on the rail
+    var account: SignalAccount?
+    var circles: [Circle] = []
+    var selected = 0
+    var linking = false
+    var resumeDraft: String?
+
+    // A snapshot run (NCC_SNAPSHOT) is a test: no Dock icon, no focus, no window on any screen.
+    static let snapshotRun = ProcessInfo.processInfo.environment["NCC_SNAPSHOT"] != nil
+
+    func applicationDidFinishLaunching(_ n: Notification) {
+        buildMenu()
+        Theme.apply(UserDefaults.standard.string(forKey: "appearance") ?? "system")
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1040, height: 700),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          backing: .buffered, defer: false)
+        window.title = "NCCd"                              // the standard macOS title bar
+        window.backgroundColor = Theme.mint
+        window.minSize = NSSize(width: 300, height: 220)   // small enough for a cell of the slab tiler
+        window.delegate = self
+        shell.set(main)
+        window.contentView = shell
+        if let z = UserDefaults.standard.object(forKey: "zoom") as? Double { zoom = CGFloat(z) }
+        radio.onChange = { [weak self] in
+            guard let self else { return }
+            self.main.setRadio(playing: self.radio.playing, now: self.radio.title)
+        }
+        main.onRadio = { [weak self] in self?.radio.toggle() }
+        if Self.snapshotRun {
+            // A test run stays out of the way: far off every screen, never key.
+            window.setFrameOrigin(NSPoint(x: -30_000, y: -30_000))
+            window.orderBack(nil)
+        } else {
+            window.center()
+            window.setFrameAutosaveName("ncc-circles")
+            window.makeKeyAndOrderFront(nil)
+        }
+
+        main.link.button.target = self
+        main.link.button.action = #selector(linkSignal)
+        // A login badge at the foot of the rail goes to where that login happens.
+        main.onAccount = { [weak self] which in
+            guard let self else { return }
+            if which == "NCC" { self.main.wikiOpen = true; if self.wiki.token == nil, self.login == nil { self.showLogin() } }
+            else if self.account == nil { self.showStart() }
+        }
+        main.onSelect = { [weak self] i in
+            guard let self else { return }
+            if i == -2 { return self.main.wikiOpen.toggle() }       // the Wiki tab: the wiki takes the sheet, or gives it back
+            self.go(i)
+        }
+        main.onSend = { [weak self] s, marks in
+            guard let self else { return }
+            if self.onStart { if let a = self.announce { self.send(s, mentions: marks, to: a, from: self.main) } }   // home writes to Announce
+            else { self.send(s, mentions: marks, to: self.selected, from: self.main) }
+        }
+        main.onDoc = { [weak self] id in self?.showDoc(id) }
+        main.onBack = { [weak self] in self?.openDoc = nil; self?.wikiTouched = true; self?.drawWiki() }
+        main.menuFor = { [weak self] i in self?.circleMenu(i) }
+        engine.onEnvelope = { [weak self] e in self?.handle(e) }
+        engine.onExit = { [weak self] why in
+            self?.main.setStatus("signal-cli stopped" + (why.isEmpty ? "" : ": " + String(why.suffix(160))))
+        }
+
+        // Updates: the status row says what happens; the restart waits for a
+        // pause in the typing and comes back to the same circle and draft.
+        updater.onStatus = { [weak self] s in self?.main.setStatus(s) }
+        updater.readyToRestart = { [weak self] in self?.main.quiet ?? true }
+        updater.willRestart = { [weak self] in
+            guard let self else { return }
+            UserDefaults.standard.set(self.main.draft, forKey: "resume.draft")
+            UserDefaults.standard.set(self.onStart ? -1 : self.selected, forKey: "resume.circle")
+        }
+        updater.start()
+
+        // Signal and NCC start side by side; neither waits for the other.
+        if !["1", "signal"].contains(ProcessInfo.processInfo.environment["NCC_LOGGED_OUT"] ?? "") {   // test aid
+            account = SignalEngine.account()
+        }
+        buildRail()
+        showStart()
+        refreshAccounts()
+        if account != nil { startSignal() } else { refreshLink() }
+        loadWiki()
+        scheduleSnapshot()
+    }
+
+    // Test aid: NCC_SNAPSHOT=<file.png> draws the window into that file after
+    // NCC_SNAPSHOT_AFTER seconds (default 10) and quits. It needs no screen
+    // capture and no clicks, so a check can run while someone uses the Mac.
+    func scheduleSnapshot() {
+        let env = ProcessInfo.processInfo.environment
+        guard let path = env["NCC_SNAPSHOT"] else { return }
+        // NCC_SNAPSHOT_WINDOW=<n> gives the nth circle a window of its own, and
+        // the picture is of that window.
+        if let n = env["NCC_SNAPSHOT_WINDOW"].flatMap({ Int($0) }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.openWindow(n) }
+        }
+        // NCC_SNAPSHOT_PICK=1 picks the first circle on the donut, with its transition.
+        if env["NCC_SNAPSHOT_PICK"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.picked = true; self.main.testPick() }
+        }
+        // NCC_SNAPSHOT_PENDING=<words> shows those words as a message on its way
+        // (in the open circle, or in Announce on the donut). Nothing is sent.
+        if let words = env["NCC_SNAPSHOT_PENDING"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) {
+                guard let i = self.onStart ? self.announce : self.selected, self.circles.indices.contains(i) else { return }
+                var m = Msg(ts: Int64(Date().timeIntervalSince1970 * 1000), author: self.account?.uuid ?? "", name: nil, body: words)
+                m.kind = "pending"
+                self.pending[self.circles[i].conf.groupId, default: []].append(m)
+                self.refresh()
+            }
+        }
+        // NCC_SNAPSHOT_ZOOM=<factor> zooms the interface for the picture (not kept).
+        if let z = env["NCC_SNAPSHOT_ZOOM"].flatMap({ Double($0) }) { shell.zoom = CGFloat(z) }
+        // NCC_SNAPSHOT_CIRCLE=<n> opens the nth circle of the rail first.
+        if let n = env["NCC_SNAPSHOT_CIRCLE"].flatMap({ Int($0) }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.picked = true; self.select(n) }
+        }
+        // NCC_SNAPSHOT_SIZE=<width>x<height> sizes the window for the picture.
+        if let size = env["NCC_SNAPSHOT_SIZE"]?.split(separator: "x").compactMap({ Double($0) }), size.count == 2 {
+            window.setContentSize(NSSize(width: size[0], height: size[1]))
+            window.setFrameOrigin(NSPoint(x: -30_000, y: -30_000))
+        }
+        // NCC_SNAPSHOT_DOC=<page title, id or address slug> opens that wiki page first,
+        // and writes its markdown beside the picture (<file>.md).
+        if let doc = env["NCC_SNAPSHOT_DOC"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                self.wiki.startPage(titled: doc) { id in self.showDoc(id ?? doc) }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    try? self.openDoc?.text.write(toFile: path + ".md", atomically: true, encoding: .utf8)
+                }
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["NCC_SNAPSHOT_AFTER"] ?? "") ?? 10)) {
+            guard let view = (self.satellites.first?.window ?? self.window).contentView,
+                  let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return NSApp.terminate(nil) }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            // Two things are drawn outside AppKit, and this picture cannot see
+            // them: the 3D donut (Metal) and the login page (WebKit). Lay their
+            // own snapshots in, then the names and chips over the donut.
+            func write(_ web: NSImage?) {
+                let img = NSImage(size: view.bounds.size)
+                img.lockFocus()
+                rep.draw(in: view.bounds)
+                if self.satellites.isEmpty, let (donut, overlays, pane) = self.main.donutShot() {
+                    donut.draw(in: pane.convert(pane.bounds, to: view))
+                    for v in overlays {
+                        guard let r = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { continue }
+                        v.cacheDisplay(in: v.bounds, to: r)
+                        r.draw(in: v.convert(v.bounds, to: view))
+                    }
+                }
+                if let web, let pane = self.main.wikiLoginView, !pane.isHiddenOrHasHiddenAncestor {
+                    web.draw(in: pane.convert(pane.bounds, to: view))
+                }
+                img.unlockFocus()
+                if let tiff = img.tiffRepresentation, let out = NSBitmapImageRep(data: tiff) {
+                    try? out.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+                }
+                NSApp.terminate(nil)
+            }
+            if self.satellites.isEmpty, let web = self.main.wikiLoginView as? WKWebView {
+                web.takeSnapshot(with: nil) { img, _ in write(img) }
+            } else {
+                write(nil)
+            }
+        }
+    }
+
+    func applicationWillTerminate(_ n: Notification) {
+        radio.stop()
+        engine.cancelLink()
+        engine.stop()
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ a: NSApplication) -> Bool { true }
+    func windowDidBecomeKey(_ n: Notification) { if !circles.isEmpty { markRead() } }
+
+    // ─── the two logins ──────────────────────────────────────────────────────
+
+    // The foot of the rail has one line for each: the name, and the end of the number.
+    func refreshAccounts() {
+        main.setAccounts(ncc: nccName.map { String($0.split(separator: " ").first ?? "") },
+                         signal: account.map { "…" + $0.number.suffix(4) })
+    }
+
+    // The link panel under the donut, while no Signal account is linked.
+    func refreshLink() {
+        main.showLink(account == nil)
+        guard account == nil else { return }
+        let panel = main.link
+        if Config.shared.signalCli == nil {
+            panel.button.isEnabled = false
+            panel.status.stringValue = "signal-cli is missing"
+            panel.note.stringValue = "Install the Signal engine first: brew install signal-cli"
+        } else {
+            panel.button.isEnabled = !linking
+            panel.status.stringValue = linking ? "scan the code with your phone" : "Signal opens your circles"
+        }
+    }
+
+    @objc func linkSignal() {
+        linking = true
+        main.link.note.stringValue = "On your phone: Signal → Settings → Linked devices → Link new device."
+        refreshLink()
+        engine.link(deviceName: "NCCd", onURI: { [weak self] uri in self?.main.link.showQR(uri) }) { [weak self] r in
+            guard let self else { return }
+            self.linking = false
+            self.main.link.showQR(nil)
+            switch r {
+            case .success:
+                self.account = SignalEngine.account()
+                self.main.link.note.stringValue = ""
+            case .failure(let e):
+                self.main.link.note.stringValue = "Signal: \(e.message)"
+            }
+            self.refreshAccounts()
+            self.refreshLink()
+            if self.account != nil { self.startSignal() }
+        }
+    }
+
+    // The club's login page, in the wiki pane. When the wiki has its session, the wiki opens.
+    func showLogin() {
+        let l = WikiLogin(base: wiki.base)
+        l.onToken = { [weak self] token in
+            guard let self else { return }
+            self.wiki.setToken(token)
+            self.login = nil
+            self.main.showWikiLogin(nil)
+            self.loadWiki()
+        }
+        login = l
+        main.showWikiLogin(l.web)
+        l.start()
+    }
+
+    @objc func signOut() {
+        wiki.setToken("")
+        wikiReady = false
+        nccName = nil
+        openDoc = nil
+        startDoc = nil
+        wikiTree = nil
+        wikiTouched = false
+        refreshAccounts()
+        buildRail()
+        refresh()
+        WikiLogin.forget { [weak self] in self?.showLogin() }
+    }
+
+    // ─── Signal ──────────────────────────────────────────────────────────────
+
+    func startSignal() {
+        guard let account else { return }
+        main.setStatus("starting Signal…")
+        loadCircles()
+        do { try engine.start(account: account) } catch {
+            main.setStatus((error as? SignalEngine.EngineError)?.message ?? error.localizedDescription)
+            return
+        }
+        engine.call("listContacts") { [weak self] r in
+            if case .success(let v) = r, let list = v as? [[String: Any]] { self?.people.setContacts(list) }
+            self?.refresh()
+        }
+        engine.call("listGroups") { [weak self] r in
+            guard let self else { return }
+            switch r {
+            case .failure(let e): self.main.setStatus("Signal: \(e.message)")
+            case .success(let v):
+                self.adoptGroups((v as? [[String: Any]]) ?? [])
+                // A first run starts with empty sheets; fill them when the bridge is there.
+                if !self.circles.isEmpty, self.circles.allSatisfy({ $0.log.msgs.isEmpty }),
+                   Config.shared.bridge != nil {
+                    return self.importHistory()
+                }
+                self.main.setStatus(self.circles.isEmpty
+                    ? "No club groups on this Signal account yet. A new link can take a minute to sync." : "")
+            }
+        }
+    }
+
+    func loadCircles() {
+        circles = Config.shared.conf.circles.map { Circle(conf: $0, log: CircleLog(groupId: $0.groupId)) }
+        buildRail()
+        // After an update the app comes back where it was: the circle, and the draft.
+        let d = UserDefaults.standard
+        if let at = d.object(forKey: "resume.circle") as? Int {
+            d.removeObject(forKey: "resume.circle")
+            if at >= 0 { selected = at; picked = true }
+            resumeDraft = d.string(forKey: "resume.draft")
+            d.removeObject(forKey: "resume.draft")
+        }
+        if picked, !circles.isEmpty { select(min(selected, circles.count - 1)) } else { showStart() }
+        if let draft = resumeDraft, picked { main.draft = draft; resumeDraft = nil }
+    }
+
+    // Match the account's groups against the club patterns; remember new ones.
+    func adoptGroups(_ groups: [[String: Any]]) {
+        var conf = Config.shared.conf
+        var changed = false
+        for g in groups {
+            guard let id = g["id"] as? String, let name = g["name"] as? String,
+                  (g["isMember"] as? Bool) ?? true else { continue }
+            let lower = name.lowercased()
+            if !conf.circles.contains(where: { $0.groupId == id }) {
+                guard conf.match.contains(where: { lower.contains($0.lowercased()) }) else { continue }
+                conf.circles.append(Self.describe(id: id, name: name))
+                changed = true
+            }
+        }
+        if changed {
+            conf.circles.sort { ($0.kind, $0.title) < ($1.kind, $1.title) }
+            Config.shared.conf = conf
+            Config.shared.save()
+            loadCircles()
+        }
+        for i in circles.indices {
+            guard let g = groups.first(where: { ($0["id"] as? String) == circles[i].conf.groupId }) else { continue }
+            circles[i].members = (g["members"] as? [Any])?.count ?? 0
+            circles[i].memberIds = ((g["members"] as? [[String: Any]]) ?? []).compactMap { $0["uuid"] as? String }
+            let adminsOnly = (g["permissionSendMessage"] as? String) == "ONLY_ADMINS"
+            let admins = (g["admins"] as? [[String: Any]]) ?? []
+            let iAmAdmin = admins.contains { ($0["uuid"] as? String) == account?.uuid || ($0["number"] as? String) == account?.number }
+            circles[i].canSend = !adminsOnly || iAmAdmin
+        }
+        refresh()
+    }
+
+    // "📢 [Announce] Computer Club" → Announce (commons);
+    // "NCC Infrastructure Subcommittee" → Infra (circle).
+    static func describe(id: String, name: String) -> CircleConf {
+        if let a = name.firstIndex(of: "["), let b = name.firstIndex(of: "]"), a < b {
+            let t = name[name.index(after: a)..<b].trimmingCharacters(in: .whitespaces).capitalized
+            return CircleConf(groupId: id, name: name, title: t, kind: "commons", roleKey: nil)
+        }
+        let drop: Set<String> = ["ncc", "nela", "computer", "club", "committee", "subcommittee", "circle", "the"]
+        let words = name.split(whereSeparator: { !$0.isLetter }).map(String.init).filter { !drop.contains($0.lowercased()) }
+        var t = (words.first ?? name).capitalized
+        if t.lowercased().hasPrefix("infra") { t = "Infra" }
+        return CircleConf(groupId: id, name: name, title: t, kind: "circle", roleKey: t)
+    }
+
+    // Announce is not a tab: its messages are on the donut screen, under the donut.
+    var announce: Int? { circles.firstIndex { $0.conf.title.lowercased().contains("announce") } }
+
+    // The rail: the commons first, then the circles, then the wiki. No headings,
+    // and no row for the donut (the wordmark is the way to it) or for Announce.
+    func buildRail() {
+        let pick = { (kind: String) -> [(Int, String, NSColor?)] in
+            self.circles.enumerated().filter { $0.element.conf.kind == kind && $0.offset != self.announce }
+                .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
+        }
+        main.setRail([("", pick("commons")), ("", pick("circle")), ("", [(-2, "Wiki", Theme.wikiBand)])])
+        updateUnread()
+    }
+
+    // A circle's colour: its wiki collection's, else one of the club's own.
+    func color(of i: Int) -> NSColor {
+        let title = circles[i].conf.title
+        return Theme.circleColor(title, wiki: wikiReady ? wiki.color(for: title) : nil)
+    }
+
+    func diagramItems() -> [DiagramItem] {
+        // the circles only: the commons are a tab (Chat) and the home screen itself (Announce)
+        circles.enumerated().filter { $0.element.conf.kind == "circle" }.map { i, c in
+            let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
+            return DiagramItem(index: i, title: c.conf.title, commons: c.conf.kind != "circle", color: color(of: i),
+                               members: c.members, unread: c.log.unread(since: since, me: account?.uuid ?? ""),
+                               lastActive: c.log.msgs.last?.ts ?? 0)
+        }
+    }
+
+    func select(_ i: Int) {
+        guard circles.indices.contains(i) else { return }
+        selected = i
+        onStart = false
+        markRead()
+        refresh()
+        refreshWiki()
+        main.focusField()
+    }
+
+    // Draw the sheet: the donut, or the open circle's messages. The wiki pane
+    // is its own (drawWiki), so a page stays open while the circles change.
+    func refresh() {
+        defer {
+            satellites.forEach(draw)
+            // the rail marks the circles that have windows of their own
+            main.setWindowed(Set(satellites.compactMap { s in circles.firstIndex { $0.conf.groupId == s.groupId } }))
+        }
+        if onStart {
+            window.title = "NCCd: donut"                  // the title bar says where we are
+            // Home: the donut, and under it the club's announcements.
+            if let a = announce {
+                let c = circles[a]
+                main.donutShare = 0.56
+                main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: c.canSend,
+                          placeholder: c.canSend ? "write to \(c.conf.title)" : "")
+                main.mentionable = mentionable(c)
+                main.render(ledger(c, last: 300), reactions: c.log.reactions, people: people, me: account?.uuid ?? "")
+            } else {
+                main.donutShare = 1
+                main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
+                main.renderBlank()
+            }
+            return updateUnread()
+        }
+        main.donutShare = 1
+        guard circles.indices.contains(selected) else { return }
+        let c = circles[selected]
+        window.title = "NCCd: " + c.conf.title + (c.members > 0 ? " · \(c.members) members" : "")
+        main.show(index: selected, heading: heading(c), color: color(of: selected),
+                  roleLine: c.conf.roleKey.map { people.roles(forKey: $0) } ?? [],
+                  canSend: c.canSend,
+                  placeholder: c.canSend ? "write to \(c.conf.title)" : "only admins write here")
+        main.mentionable = mentionable(c)
+        main.render(ledger(c), reactions: c.log.reactions, people: people, me: account?.uuid ?? "")
+        updateUnread()
+    }
+
+    // A circle's ledger: its log, then the messages still on their way.
+    func ledger(_ c: Circle, last: Int = 600) -> [Msg] {
+        Array(c.log.msgs.suffix(last)) + (pending[c.conf.groupId] ?? [])
+    }
+    // Who "@" can name in a circle: its members, but not the member themself.
+    func mentionable(_ c: Circle) -> [(name: String, id: String)] {
+        c.memberIds.filter { $0 != account?.uuid }.map { (people.person($0, fallback: nil).name, $0) }
+            .filter { !$0.0.isEmpty && $0.0 != $0.1 }.sorted { $0.0.lowercased() < $1.0.lowercased() }
+    }
+
+    func heading(_ c: Circle) -> String {
+        c.conf.title.uppercased() + (c.members > 0 ? " · \(c.members) members" : "") + " · " + c.conf.name
+    }
+
+    // ─── a circle in a window of its own ─────────────────────────────────────
+
+    final class Satellite: NSObject, NSWindowDelegate {
+        let groupId: String
+        let view = MainView(solo: true)
+        let shell = Shell()
+        let window: NSWindow
+        var onClose: (() -> Void)?
+        var onKey: (() -> Void)?
+        init(groupId: String) {
+            self.groupId = groupId
+            window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
+                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            super.init()
+            window.isReleasedWhenClosed = false
+            window.minSize = NSSize(width: 300, height: 220)
+            shell.set(view)
+            window.contentView = shell
+            window.delegate = self
+        }
+        func windowWillClose(_ n: Notification) { onClose?() }
+        func windowDidBecomeKey(_ n: Notification) { onKey?() }
+    }
+
+    func openWindow(_ i: Int) {
+        guard circles.indices.contains(i) else { return }
+        let gid = circles[i].conf.groupId
+        if let s = satellites.first(where: { $0.groupId == gid }) { return s.window.makeKeyAndOrderFront(nil) }
+        let s = Satellite(groupId: gid)
+        s.shell.zoom = zoom
+        s.view.onSend = { [weak self, weak s] text, marks in
+            guard let self, let s, let at = self.circles.firstIndex(where: { $0.conf.groupId == gid }) else { return }
+            self.send(text, mentions: marks, to: at, from: s.view)
+        }
+        s.onClose = { [weak self, weak s] in self?.satellites.removeAll { $0 === s }; self?.refresh() }
+        s.onKey = { [weak self] in
+            guard let self, let at = self.circles.firstIndex(where: { $0.conf.groupId == gid }) else { return }
+            self.markRead(at)
+        }
+        satellites.append(s)
+        refresh()
+        s.window.setFrameAutosaveName("ncc-circle-" + gid)
+        if s.window.frame.origin == .zero { s.window.cascadeTopLeft(from: NSPoint(x: window.frame.minX + 40, y: window.frame.maxY - 40)) }
+        draw(s)
+        if Self.snapshotRun {
+            s.window.setFrameOrigin(NSPoint(x: -30_000, y: -28_000))
+            s.window.orderBack(nil)
+        } else {
+            s.window.makeKeyAndOrderFront(nil)
+            s.view.focusField()
+        }
+    }
+
+    func draw(_ s: Satellite) {
+        guard let account, let i = circles.firstIndex(where: { $0.conf.groupId == s.groupId }) else { return }
+        let c = circles[i]
+        s.window.title = "NCCd: " + c.conf.title + (c.members > 0 ? " · \(c.members) members" : "")
+        s.window.backgroundColor = Theme.wash(color(of: i))
+        s.view.show(index: i, heading: heading(c), color: color(of: i),
+                    roleLine: c.conf.roleKey.map { people.roles(forKey: $0) } ?? [],
+                    canSend: c.canSend, placeholder: c.canSend ? "write to \(c.conf.title)" : "only admins write here")
+        s.view.mentionable = mentionable(c)
+        s.view.render(ledger(c), reactions: c.log.reactions, people: people, me: account.uuid)
+    }
+
+    // The menu on a circle's row of the rail (right-click).
+    func circleMenu(_ i: Int) -> NSMenu? {
+        guard circles.indices.contains(i) else { return nil }
+        let menu = NSMenu()
+        for (title, action) in [("Open", #selector(menuOpen(_:))), ("Open in New Window", #selector(menuOpenWindow(_:))),
+                                ("Mark as Read", #selector(menuMarkRead(_:)))] {
+            let item = menu.addItem(withTitle: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.tag = i
+        }
+        return menu
+    }
+    @objc func menuOpen(_ sender: NSMenuItem) { picked = true; select(sender.tag) }
+    @objc func menuOpenWindow(_ sender: NSMenuItem) { openWindow(sender.tag) }
+    @objc func menuMarkRead(_ sender: NSMenuItem) { markRead(sender.tag) }
+    @objc func openSelectedInWindow() { if !onStart { openWindow(selected) } }
+
+    // ─── wiki ────────────────────────────────────────────────────────────────
+
+    func loadWiki() {
+        // No session yet: the club's login page shows in the wiki pane.
+        guard wiki.token != nil else { return showLogin() }
+        wiki.load { [weak self] ok in
+            guard let self else { return }
+            self.wikiReady = ok
+            self.people.wikiColors = self.wiki.userColors
+            guard ok else {
+                return self.main.renderWiki(heading: "wiki", rows: [], note: "The wiki did not answer.\nMenu → Sign Out of NCC, then sign in again.")
+            }
+            self.wiki.me { name in
+                self.nccName = name ?? "signed in"
+                self.refreshAccounts()
+            }
+            self.buildRail()        // the wiki's collection colours are in now
+            self.refresh()
+            self.refreshWiki()
+            // The club's start page is the first thing in the wiki pane.
+            self.wiki.startPage(titled: Config.shared.conf.wikiStart ?? "STARTING PAGE") { id in
+                guard let id else { return }
+                self.wiki.page(id) { page in
+                    guard let page else { return }
+                    self.startDoc = (page.id, page.title, page.text, URL(string: self.wiki.base + page.path))
+                    self.fetchPictures(page.text)
+                    if !self.wikiTouched, self.openDoc == nil { self.openDoc = self.startDoc; self.drawWiki() }
+                }
+            }
+        }
+    }
+
+    func showStart() {
+        onStart = true
+        refresh()
+        refreshWiki()
+    }
+
+    // The page tree of the wiki pane: the open circle's collection, or on the
+    // donut (and for a circle with no collection) the whole wiki.
+    func refreshWiki() {
+        guard wikiReady else { return }
+        let i = selected, start = onStart
+        let own = start || !circles.indices.contains(i) ? [] : wiki.collections(for: circles[i].conf.title)
+        let cols = own.isEmpty ? wiki.allCollections : own
+        let heading = own.isEmpty ? "wiki" : "wiki · " + own.map { $0.name }.joined(separator: " + ")
+        wiki.tree(cols) { [weak self] rows in
+            guard let self, self.selected == i, self.onStart == start else { return }
+            self.wikiTree = (heading, rows)
+            if self.openDoc == nil { self.drawWiki() }      // a page being read stays where it is
+        }
+    }
+
+    // Draw the wiki pane: the open page, or the page tree with the page last read marked.
+    func drawWiki() {
+        if let d = openDoc {
+            lastDocId = d.id
+            return main.renderWikiDoc(title: d.title, markdown: d.text, url: d.url, wikiBase: wiki.base, image: wiki.picture)
+        }
+        guard let t = wikiTree else { return }
+        main.renderWiki(heading: t.heading, rows: t.rows, note: t.rows.isEmpty ? "No pages." : nil, open: lastDocId)
+    }
+
+    func showDoc(_ id: String) {
+        wikiTouched = true
+        main.wikiOpen = true
+        wiki.page(id) { [weak self] page in
+            guard let self else { return }
+            self.openDoc = page.map { ($0.id, $0.title, $0.text, URL(string: self.wiki.base + $0.path)) }
+                ?? ("", "Not found", "This page could not be read. The wiki key may not reach it.", nil)
+            if let page { self.fetchPictures(page.text) }
+            self.drawWiki()
+        }
+    }
+
+    // Fetch a page's pictures; each one that arrives draws the page again, in place.
+    func fetchPictures(_ markdown: String) {
+        wiki.fetchPictures(Markdown.images(in: markdown)) { [weak self] in
+            guard let self, self.openDoc != nil else { return }
+            self.drawWiki()
+        }
+    }
+
+    @objc func setWikiKey() {
+        let alert = NSAlert()
+        alert.messageText = "Wiki API key"
+        alert.informativeText = "Make one at \(wiki.base) → Settings → API keys. It is kept in your login Keychain."
+        let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 22))
+        alert.accessoryView = input
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        wiki.setToken(input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
+        loadWiki()
+    }
+
+    // ─── unread ──────────────────────────────────────────────────────────────
+
+    func readKey(_ c: Circle) -> String { "read." + c.conf.groupId }
+
+    func markRead() { if onStart { if let a = announce { markRead(a) } } else { markRead(selected) } }
+    func markRead(_ i: Int) {
+        guard circles.indices.contains(i), let last = circles[i].log.msgs.last else { return }
+        UserDefaults.standard.set(last.ts, forKey: readKey(circles[i]))
+        updateUnread()
+    }
+
+    func updateUnread() {
+        var total = 0
+        for (i, c) in circles.enumerated() {
+            let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
+            let n = c.log.unread(since: since, me: account?.uuid ?? "")
+            main.setUnread(i, n)
+            total += n
+        }
+        NSApp.dockTile.badgeLabel = total > 0 ? "\(total)" : nil
+    }
+
+    // ─── Signal in ───────────────────────────────────────────────────────────
+
+    func handle(_ env: [String: Any]) {
+        guard let account else { return }
+        let src = (env["sourceUuid"] as? String) ?? ""
+        if let dm = env["dataMessage"] as? [String: Any] {
+            ingest(dm, author: src, name: env["sourceName"] as? String)
+        }
+        // What this account sent from another device (the phone) comes as a sync.
+        if let sent = (env["syncMessage"] as? [String: Any])?["sentMessage"] as? [String: Any] {
+            ingest(sent, author: account.uuid, name: nil)
+        }
+    }
+
+    func ingest(_ dm: [String: Any], author: String, name: String?) {
+        guard let gid = (dm["groupInfo"] as? [String: Any])?["groupId"] as? String,
+              let i = circles.firstIndex(where: { $0.conf.groupId == gid }),
+              let ts = (dm["timestamp"] as? NSNumber)?.int64Value else { return }
+        var m = Msg(ts: ts, author: author, name: name)
+        if let r = dm["reaction"] as? [String: Any] {
+            m.kind = "reaction"
+            m.target = (r["targetSentTimestamp"] as? NSNumber)?.int64Value
+            m.emoji = r["emoji"] as? String
+            m.remove = r["isRemove"] as? Bool
+        } else {
+            let body = NSMutableString(string: (dm["message"] as? String) ?? "")
+            let mentions = ((dm["mentions"] as? [[String: Any]]) ?? [])
+                .sorted { (($0["start"] as? Int) ?? 0) > (($1["start"] as? Int) ?? 0) }
+            for mention in mentions {
+                guard let start = mention["start"] as? Int, let len = mention["length"] as? Int,
+                      start + len <= body.length else { continue }
+                let who = people.person((mention["uuid"] as? String) ?? "", fallback: mention["name"] as? String).name
+                body.replaceCharacters(in: NSRange(location: start, length: len), with: "@" + who)
+            }
+            m.body = body as String
+            let dir = Config.shared.signalConfigDir.appendingPathComponent("attachments")
+            let atts = ((dm["attachments"] as? [[String: Any]]) ?? []).filter { $0["id"] is String }
+            if !atts.isEmpty {
+                m.files = atts.map { dir.appendingPathComponent($0["id"] as! String).path }
+                m.fileNames = atts.map { ($0["filename"] as? String) ?? ($0["id"] as! String) }
+            }
+            let previews = ((dm["previews"] as? [[String: Any]]) ?? []).compactMap { p -> Preview? in
+                guard let url = p["url"] as? String else { return nil }
+                let image = ((p["image"] as? [String: Any])?["id"] as? String).map { dir.appendingPathComponent($0).path }
+                return Preview(url: url, title: (p["title"] as? String) ?? "",
+                               description: (p["description"] as? String) ?? "", image: image)
+            }
+            if !previews.isEmpty { m.previews = previews }
+            m.quote = (dm["quote"] as? [String: Any])?["text"] as? String
+            if m.body.isEmpty, m.files == nil { return }
+        }
+        guard circles[i].log.add(m) else { return }
+        if i == selected, !onStart {
+            refresh()
+            if window.isKeyWindow { markRead() }
+        } else if onStart {
+            refresh()                       // the donut shows who spoke
+        }
+        for s in satellites where s.groupId == gid {
+            draw(s)
+            if s.window.isKeyWindow { markRead(i) }
+        }
+        updateUnread()
+    }
+
+    // ─── Signal out ──────────────────────────────────────────────────────────
+
+    // `view` is where the words were typed: the main window, or the circle's own.
+    // The message goes into the ledger at once, glimmering, and leaves the
+    // composer. When Signal has it, it lands (it is logged, and stops
+    // glimmering). If Signal refuses it, or says nothing for 40 seconds, it
+    // comes out of the ledger and goes back into the composer as a draft.
+    final class Sending { var settled = false, gaveUp = false }
+
+    func send(_ text: String, mentions: [String], to i: Int, from view: MainView) {
+        guard circles.indices.contains(i), let account else { return }
+        let gid = circles[i].conf.groupId
+        let temp = Int64(Date().timeIntervalSince1970 * 1000)
+        var waiting = Msg(ts: temp, author: account.uuid, name: nil, body: text)
+        waiting.kind = "pending"
+        pending[gid, default: []].append(waiting)
+        view.clearField()
+        view.setStatus("")
+        refresh()
+
+        let state = Sending()
+        let back: (String) -> Void = { [weak self, weak view] why in
+            guard let self else { return }
+            self.pending[gid]?.removeAll { $0.ts == temp }
+            if let view, view.draft.isEmpty { view.draft = text }       // back to the composer, unless new words are there
+            view?.setStatus("not sent (\(why)); your words are back in the composer")
+            self.refresh()
+        }
+        var params: [String: Any] = ["groupId": gid, "message": text]
+        if !mentions.isEmpty { params["mention"] = mentions }
+        engine.call("send", params) { [weak self, weak view] r in
+            guard let self else { return }
+            state.settled = true
+            switch r {
+            case .failure(let e):
+                if !state.gaveUp { back(e.message) }
+            case .success(let v):
+                let ts = ((v as? [String: Any])?["timestamp"] as? NSNumber)?.int64Value ?? temp
+                self.pending[gid]?.removeAll { $0.ts == temp }
+                guard let at = self.circles.firstIndex(where: { $0.conf.groupId == gid }) else { return }
+                self.circles[at].log.add(Msg(ts: ts, author: account.uuid, name: nil, body: text))
+                // it landed after all, after it was given up: take the copy out of the composer again
+                if state.gaveUp, let view, view.draft == text { view.clearField() }
+                view?.setStatus("")
+                self.markRead(at)
+                self.refresh()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 40) {
+            guard !state.settled else { return }
+            state.gaveUp = true
+            back("Signal did not answer")
+        }
+    }
+
+    // ─── history ─────────────────────────────────────────────────────────────
+    // signal-cli starts with an empty past. On a Mac that also runs Signal
+    // Desktop, the slab bridge can read each circle's history out of it.
+
+    // node has no fixed home (Homebrew, fnm, nvm), so ask the login shell last.
+    static func findNode() -> String? {
+        let fm = FileManager.default
+        let home = NSHomeDirectory()
+        let fixed = ["/opt/homebrew/bin/node", "/usr/local/bin/node",
+                     home + "/.local/share/fnm/aliases/default/bin/node",
+                     home + "/Library/Application Support/fnm/aliases/default/bin/node"]
+        if let hit = fixed.first(where: { fm.isExecutableFile(atPath: $0) }) { return hit }
+        let shell = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: shell)
+        p.arguments = ["-l", "-c", "command -v node"]
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = Pipe()
+        guard (try? p.run()) != nil else { return nil }
+        let d = out.fileHandleForReading.readDataToEndOfFile()
+        p.waitUntilExit()
+        let path = String(data: d, encoding: .utf8)?.split(separator: "\n").last.map(String.init) ?? ""
+        return fm.isExecutableFile(atPath: path) ? path : nil
+    }
+
+    @objc func importHistory() {
+        guard let account, let bridge = Config.shared.bridge,
+              let node = Self.findNode() else {
+            return main.setStatus("history import needs node on this Mac")
+        }
+        main.setStatus("reading history from Signal Desktop…")
+        let ids = circles.map { $0.conf.groupId }
+        let media = Paths.root.appendingPathComponent("media").path
+        DispatchQueue.global().async {
+            var found: [String: [[String: Any]]] = [:]
+            for id in ids {
+                let p = Process()
+                p.executableURL = URL(fileURLWithPath: node)
+                p.arguments = [bridge, "export", "400", "--to", id, "--media", media]
+                let out = Pipe()
+                p.standardOutput = out
+                p.standardError = Pipe()
+                guard (try? p.run()) != nil else { continue }
+                let d = out.fileHandleForReading.readDataToEndOfFile()
+                p.waitUntilExit()
+                if let rows = try? JSONSerialization.jsonObject(with: d) as? [[String: Any]] { found[id] = rows }
+            }
+            DispatchQueue.main.async {
+                var added = 0
+                for i in self.circles.indices {
+                    for r in found[self.circles[i].conf.groupId] ?? [] {
+                        guard let ts = (r["ts"] as? NSNumber)?.int64Value, let body = r["body"] as? String else { continue }
+                        let mine = (r["outgoing"] as? Bool) == true
+                        let author = mine ? account.uuid : ((r["author"] as? String) ?? "")
+                        var m = Msg(ts: ts, author: author, name: r["name"] as? String, body: body)
+                        let files = (r["files"] as? [[String: Any]]) ?? []
+                        if !files.isEmpty {
+                            m.files = files.compactMap { $0["path"] as? String }
+                            m.fileNames = files.map { ($0["name"] as? String) ?? "" }
+                        }
+                        let previews = ((r["previews"] as? [[String: Any]]) ?? []).compactMap { p -> Preview? in
+                            guard let url = p["url"] as? String else { return nil }
+                            let image = (p["image"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                            return Preview(url: url, title: (p["title"] as? String) ?? "",
+                                           description: (p["description"] as? String) ?? "", image: image)
+                        }
+                        if !previews.isEmpty { m.previews = previews }
+                        if self.circles[i].log.add(m) { added += 1 }
+                    }
+                }
+                // Imported history is the past, not news: start each sheet as read.
+                for c in self.circles where UserDefaults.standard.object(forKey: self.readKey(c)) == nil {
+                    if let last = c.log.msgs.last { UserDefaults.standard.set(last.ts, forKey: self.readKey(c)) }
+                }
+                self.main.setStatus(found.isEmpty ? "Signal Desktop history could not be read" : "imported \(added) messages")
+                self.refresh()
+            }
+        }
+    }
+
+    @objc func checkForUpdates() { updater.check(asked: true) }
+    // ─── tabs, as a browser moves through them ───────────────────────────────
+
+    // Open a tab: the donut (-1), a circle, or the wiki (-2).
+    func go(_ i: Int) {
+        if i == -2 { main.wikiOpen = true; return }
+        main.wikiOpen = false                 // a circle or the donut: the wiki steps aside
+        picked = true
+        i < 0 ? showStart() : select(i)
+    }
+    // The donut first, then the tabs of the rail in their order.
+    var tabs: [Int] { [-1] + main.tabOrder }
+    var currentTab: Int { main.wikiOpen ? -2 : onStart ? -1 : selected }
+    func stepTab(_ by: Int) {
+        let all = tabs
+        guard !all.isEmpty else { return }
+        let at = all.firstIndex(of: currentTab) ?? 0
+        go(all[(at + by + all.count) % all.count])
+    }
+    @objc func nextTab() { stepTab(1) }
+    @objc func previousTab() { stepTab(-1) }
+    // ⌘1 to ⌘8 open that tab; ⌘9 opens the last one, as in a browser.
+    @objc func numberedTab(_ sender: NSMenuItem) {
+        let all = tabs
+        guard !all.isEmpty else { return }
+        go(sender.tag == 9 ? all[all.count - 1] : all[min(sender.tag - 1, all.count - 1)])
+    }
+
+    @objc func zoomIn() { zoom += 0.1 }
+    @objc func zoomOut() { zoom -= 0.1 }
+    @objc func zoomReset() { zoom = 1 }
+    @objc func toggleRadio() { radio.toggle() }
+
+    @objc func setAppearance(_ sender: NSMenuItem) {
+        let mode = (sender.representedObject as? String) ?? "system"
+        UserDefaults.standard.set(mode, forKey: "appearance")
+        Theme.apply(mode)
+        buildRail()
+        refresh()
+        drawWiki()
+    }
+
+    // ─── menu ────────────────────────────────────────────────────────────────
+
+    func buildMenu() {
+        let bar = NSMenu()
+        let app = NSMenu()
+        app.addItem(withTitle: "Import History from Signal Desktop", action: #selector(importHistory), keyEquivalent: "i")
+        app.addItem(withTitle: "Set Wiki Key…", action: #selector(setWikiKey), keyEquivalent: "k")
+        app.addItem(withTitle: "Sign Out of NCC", action: #selector(signOut), keyEquivalent: "")
+        app.addItem(.separator())
+        app.addItem(withTitle: "About NCCd", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        app.addItem(.separator())
+        app.addItem(withTitle: "Quit NCCd", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let view = NSMenu(title: "View")
+        for (title, mode) in [("System Appearance", "system"), ("Light", "light"), ("Dark", "dark")] {
+            let item = view.addItem(withTitle: title, action: #selector(setAppearance(_:)), keyEquivalent: "")
+            item.representedObject = mode
+        }
+        let win = NSMenu(title: "Window")
+        // The tab shortcuts of Safari and Chrome.
+        func key(_ title: String, _ action: Selector, _ key: String, _ mods: NSEvent.ModifierFlags, hidden: Bool = false, tag: Int = 0) {
+            let item = win.addItem(withTitle: title, action: action, keyEquivalent: key)
+            item.keyEquivalentModifierMask = mods
+            item.tag = tag
+            if hidden { item.isHidden = true; item.allowsKeyEquivalentWhenHidden = true }
+        }
+        key("Show Next Tab", #selector(nextTab), "\t", [.control])
+        key("Show Previous Tab", #selector(previousTab), "\t", [.control, .shift])
+        key("Show Next Tab", #selector(nextTab), "]", [.command, .shift], hidden: true)
+        key("Show Previous Tab", #selector(previousTab), "[", [.command, .shift], hidden: true)
+        key("Show Next Tab", #selector(nextTab), "}", [.command], hidden: true)
+        key("Show Previous Tab", #selector(previousTab), "{", [.command], hidden: true)
+        for n in 1...9 { key("Tab \(n)", #selector(numberedTab(_:)), "\(n)", [.command], hidden: true, tag: n) }
+        win.addItem(.separator())
+        win.addItem(withTitle: "Open Circle in New Window", action: #selector(openSelectedInWindow), keyEquivalent: "n")
+        win.addItem(.separator())
+        win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        win.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        NSApp.windowsMenu = win
+        view.addItem(.separator())
+        view.addItem(withTitle: "Zoom In", action: #selector(zoomIn), keyEquivalent: "+")
+        let also = view.addItem(withTitle: "Zoom In", action: #selector(zoomIn), keyEquivalent: "=")   // ⌘= with no Shift
+        also.isAlternate = false
+        also.isHidden = true
+        also.allowsKeyEquivalentWhenHidden = true
+        view.addItem(withTitle: "Zoom Out", action: #selector(zoomOut), keyEquivalent: "-")
+        view.addItem(withTitle: "Actual Size", action: #selector(zoomReset), keyEquivalent: "0")
+        view.addItem(.separator())
+        view.addItem(withTitle: "Play or Stop \(Radio.name)", action: #selector(toggleRadio), keyEquivalent: "")
+        for m in [app, edit, view, win] {
+            let item = NSMenuItem()
+            item.submenu = m
+            bar.addItem(item)
+        }
+        NSApp.mainMenu = bar
+    }
+}
+
+// An exception that nothing catches says what it was before the app goes down.
+NSSetUncaughtExceptionHandler { e in
+    FileHandle.standardError.write(Data("NCCd: \(e.name.rawValue): \(e.reason ?? "")\n\(e.callStackSymbols.prefix(14).joined(separator: "\n"))\n".utf8))
+}
+let app = NSApplication.shared
+let delegate = App()
+app.delegate = delegate
+app.setActivationPolicy(App.snapshotRun ? .accessory : .regular)
+app.run()

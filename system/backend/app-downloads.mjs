@@ -1,6 +1,7 @@
 // Fixed release hosts and exact filenames only; never redirect an arbitrary URL.
 const releases = [
   ['slab', /^Slab-(\d+(?:\.\d+){1,2})\.dmg$/, 'https://assets.aesthetic.computer/slab/'],
+  ['nccd', /^NCCd-(\d+(?:\.\d+){1,2})\.dmg$/, 'https://assets.aesthetic.computer/nccd/'],
   ['aesel', /^aesel-(\d+(?:\.\d+){1,2})-arm64\.dmg$/, 'https://releases.aesthetic.computer/aesel/mac/'],
   ['aesel', /^aesel-(\d+(?:\.\d+){1,2})-windows-x64-setup\.exe$/, 'https://releases.aesthetic.computer/aesel/windows/'],
 ];

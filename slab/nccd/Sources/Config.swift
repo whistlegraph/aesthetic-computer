@@ -1,8 +1,9 @@
-// Config.swift — where NCC Circles keeps its settings and its data.
+// Config.swift — where NCCd keeps its settings and its data.
 //
-// This file ships in a PUBLIC repo, so it carries no club data: group ids,
-// member names and the OIDC client id all live in the untracked config at
-// ~/.config/ncc-circles/config.json, written on first run.
+// This file ships in a PUBLIC repo, so it carries no club data: group ids and
+// member names live in the untracked config at ~/.config/ncc-circles/config.json,
+// written on first run. The folder and config names keep the app's first name,
+// "NCC Circles".
 
 import Foundation
 
@@ -14,16 +15,7 @@ struct CircleConf: Codable {
     var roleKey: String?      // matches "<roleKey> Circle: Role" in the people ledger
 }
 
-struct AuthConf: Codable {
-    var required = true
-    var issuer = "https://auth.nela.computer/application/o/circles/"
-    var clientId = ""         // the public OIDC client the Auth DRI registers
-    var redirectPort = 47823  // redirect URI: http://127.0.0.1:47823/callback
-    var scopes = "openid profile email offline_access"
-}
-
 struct AppConf: Codable {
-    var auth = AuthConf()
     var signalCli: String?        // default: Homebrew's signal-cli
     var signalConfigDir: String?  // default: this app's own linked device
     var peopleLedger: String?     // optional people.json (names, colours, roles, badges)
