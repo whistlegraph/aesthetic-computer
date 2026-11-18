@@ -6474,11 +6474,53 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } catch (_e) { /* no keyboard yet; nothing to protect */ }
     return false;
   }
+  // An update reload must not lead straight to another. A browser that hands
+  // back a stale /api/version after the reload (Meta's crawler does) sees the
+  // same "new deploy" on every load, and each page then reloaded itself every
+  // 2.5 s for as long as the visitor stayed: about 10,000 boots in three days.
+  // So a page that just reloaded sits out a minute before the next, and after
+  // three in ten minutes it stops asking; the update stays on offer in the
+  // label for a person to take. The stored stamp covers a reload from here,
+  // and the navigation entry covers a browser with no storage to keep it in
+  // (there the worst case is one reload a minute, not one every 2.5 s).
+  const UPDATE_RELOAD_STAMP = "ac:update-reloads"; // "<last ms>:<count>"
+  const UPDATE_RELOAD_REST_MS = 60000;
+  const UPDATE_RELOAD_RUN_MS = 600000;
+  const UPDATE_RELOAD_RUN_MAX = 3;
+  function updateReloadRun() {
+    try {
+      const [at, count] = (sessionStorage.getItem(UPDATE_RELOAD_STAMP) || "").split(":").map(Number);
+      if (at > 0 && Date.now() - at < UPDATE_RELOAD_RUN_MS) return { at, count: count || 1 };
+    } catch (_e) { /* no storage; the navigation entry answers instead */ }
+    return { at: 0, count: 0 };
+  }
+  // "wait" = sit out the rest, "stop" = leave it to the person, null = go.
+  function updateReloadHold() {
+    const run = updateReloadRun();
+    if (run.count >= UPDATE_RELOAD_RUN_MAX) return "stop";
+    if (run.at && Date.now() - run.at < UPDATE_RELOAD_REST_MS) return "wait";
+    try {
+      const entry = performance.getEntriesByType("navigation")[0];
+      if (entry?.type === "reload" && performance.now() < UPDATE_RELOAD_REST_MS) return "wait";
+    } catch (_e) { /* no navigation timing; nothing more to go on */ }
+    return null;
+  }
   function reloadForUpdate() {
     if (updateReloadBusy()) {
       window.acUpdateReloadTimer = setTimeout(reloadForUpdate, 4000);
       return;
     }
+    const hold = updateReloadHold();
+    // Either way the timer handle stays set, so the next frame's badge does
+    // not arm a second reload behind this one.
+    if (hold === "stop") return;
+    if (hold === "wait") {
+      window.acUpdateReloadTimer = setTimeout(reloadForUpdate, UPDATE_RELOAD_REST_MS);
+      return;
+    }
+    try {
+      sessionStorage.setItem(UPDATE_RELOAD_STAMP, `${Date.now()}:${updateReloadRun().count + 1}`);
+    } catch (_e) { /* the navigation entry guards the next page */ }
     stashReloadFrame();
     window.location.reload();
   }
