@@ -28,18 +28,21 @@ const checks = [];
 const check = (name, ok, detail = "") => { checks.push({ name, ok: !!ok, detail }); console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? `  (${detail})` : ""}`); };
 
 // The painting service, played: one painting, kept in memory.
-const calls = [];
+const calls = [], signins = [], mailed = [];
 let stored = null;
 function service(body) {
   calls.push(body);
   if (body.action === "create") { stored ||= { id: body.id, key: body.key, code: "t3st", revision: 0, state: null }; return { code: stored.code, revision: stored.revision, steps: 0, status: "wip" }; }
   if (!stored || body.code !== stored.code || body.key !== stored.key) return { http: 403, error: "This painting belongs to another editor" };
+  const steps = () => stored.state ? decode(stored.state).layers.length - 1 : 0;
   if (body.action === "save") {
+    // As the real service: the same state again is not a new revision.
+    if (body.state === stored.state) return { code: stored.code, revision: stored.revision, steps: steps(), status: "wip" };
     if (body.revision !== stored.revision) return { http: 409, error: "This painting changed in another tab" };
     stored.revision++; stored.state = body.state;
-    return { code: stored.code, revision: stored.revision, status: "wip" };
+    return { code: stored.code, revision: stored.revision, steps: steps(), status: "wip" };
   }
-  if (body.action === "read") return { code: stored.code, revision: stored.revision, status: "wip", canEdit: true, state: body.state ? stored.state : undefined };
+  if (body.action === "read") return { code: stored.code, revision: stored.revision, steps: steps(), status: "wip", canEdit: true, state: body.state ? stored.state : undefined };
   return { http: 400, error: "Unknown painting action" };
 }
 const decode = (state) => JSON.parse(gunzipSync(Buffer.from(state, "base64")).toString("utf8")).piece;
@@ -49,16 +52,32 @@ const browser = await launch(VIEW);
 const context = await browser.createBrowserContext();
 async function open() {
   const { page, log } = await openPage(browser, VIEW, { context, consoleTypes: ["error"] });
+  if (process.env.DEBUG) page.on("pageerror", (error) => console.log("PAGE ERROR", String(error?.stack || error).slice(0, 600)));
   await page.setRequestInterception(true);
   page.on("request", (request) => {
     const url = request.url();
-    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type" };
+    const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type, Authorization" };
+    // Sign-in, played: the link is "opened" on the third poll.
+    if (url === site.url + "/api/nopaint-signin") {
+      const body = JSON.parse(request.postData() || "{}");
+      signins.push(body.action);
+      const value = body.action === "create" ? { code: "ABC123", pollSecret: "s".repeat(43) }
+        : body.action === "email" ? { client_id: "test", authParams: { state: "x" } }
+        : signins.filter((a) => a === "poll").length < 3 ? { status: "pending" }
+        : { status: "claimed", session: { accessToken: "test-token", account: { label: "@tester", id: "auth0|test" } } };
+      return request.respond({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    }
+    if (url === "https://hi.aesthetic.computer/passwordless/start") {
+      if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
+      mailed.push(JSON.parse(request.postData() || "{}").email);
+      return request.respond({ status: 200, contentType: "application/json", headers: cors, body: "{}" });
+    }
     if (url.startsWith(site.url) || url.startsWith("data:") || url.startsWith("blob:")) return request.continue();
     const lib = /^https:\/\/aesthetic\.computer\/aesthetic\.computer\/lib\/(nopaint-pieces|painting-state)\.mjs$/.exec(url);
     if (lib) return request.respond({ status: 200, contentType: "text/javascript", headers: cors, body: readFileSync(join(LIB, `${lib[1]}.mjs`)) });
     if (url === "https://aesthetic.computer/api/painting-wip") {
       if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
-      const { http: status = 200, ...value } = service(JSON.parse(request.postData() || "{}"));
+      const { http: status = 200, ...value } = service({ ...JSON.parse(request.postData() || "{}"), ...(request.headers().authorization ? { _as: request.headers().authorization } : {}) });
       return request.respond({ status, contentType: "application/json", headers: cors, body: JSON.stringify(value) });
     }
     request.abort();
@@ -75,7 +94,7 @@ async function open() {
   await ask("goto", { layout: "Index" });
   await wait(900);
   const steps = () => page.evaluate(() => ({ code: window.nopaintSteps?.code, version: window.nopaintSteps?.version, saved: window.nopaintSteps?.saved,
-    error: window.nopaintSteps?.error, chip: document.querySelector("#nopaint-steps")?.textContent }));
+    error: window.nopaintSteps?.error, chip: document.querySelector("#nopaint-steps")?.textContent, who: document.querySelector("#nopaint-who")?.textContent }));
   // Ask for a brush, watch it, answer it, and wait until the game has
   // reported that answer and the page has taken the step.
   const play = async (line, answer) => {
@@ -131,6 +150,25 @@ try {
   seen = await game.steps();
   check("after a reload the same #code goes on", seen.code === "t3st" && seen.version > before && seen.saved === seen.version, `${seen.chip}, was v${before}`);
   check("still one painting", calls.filter((c) => c.action === "create").length === 1);
+
+  // Sign in with a handle: the dialog, the link, and the painting saved as them.
+  check("a guest is offered sign-in", seen.who === "sign in", seen.who);
+  const prompt = (await game.ask("state")).prompt;
+  await game.page.click("#nopaint-who");
+  await game.page.type("#nopaint-signin input[name=email]", "tester@example.com", { delay: 15 });
+  check("typing in the dialog does not reach the game's prompt", (await game.ask("state")).prompt === prompt);
+  await game.page.click("#nopaint-signin button[type=submit]");
+  await game.page.waitForFunction(() => window.nopaintSteps.account === "@tester", { timeout: 20000, polling: 200 }).catch(() => {});
+  await wait(1500);
+  seen = await game.steps();
+  check("the link was asked for once, for that address", mailed.length === 1 && mailed[0] === "tester@example.com", mailed.join(","));
+  check("the page shows the handle once the link is opened", seen.who === "@tester", `${seen.who}; ${signins.join(" ")}`);
+  check("the dialog closed itself", await game.page.evaluate(() => !document.querySelector("#nopaint-signin").open));
+  await game.play("Flip: V", "Paint");
+  await wait(4500);
+  seen = await game.steps();
+  const asHandle = calls.filter((c) => c.action === "save" && c._as === "Bearer test-token").length;
+  check("steps after sign-in are saved as the handle", asHandle >= 1 && seen.saved === seen.version && !seen.error, `${asHandle} saves as @tester, ${seen.chip}${seen.error ? `, ${seen.error}` : ""}`);
   check("no page errors", game.log.errors.length === 0, game.log.errors.join(" | ").slice(0, 160));
 } catch (error) {
   check("the run finished", false, String(error?.message || error).slice(0, 200));
