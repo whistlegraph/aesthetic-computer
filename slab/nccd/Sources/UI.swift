@@ -40,6 +40,8 @@ enum Theme {
     // A link must not pass for text on any wash: deep blue, or in the dark theme a warm yellow.
     static let link = pair("0030B0", "FFE066")
     static let search = pair("F2A93B", "E0932A")       // the search tab: amber
+    static let login = pair("9FB2C8", "5B6E86")        // the login tab: slate
+    static let edge: CGFloat = 12                      // the one margin: every plane's contents stand this far in
     static let yellow = NSColor(hex: "F3D34A")!
     static let onYellow = NSColor(hex: "1B2B22")!
     static let faint = pair("1B2B22", "D2F3E1", alpha: 0.62)
@@ -86,7 +88,7 @@ enum Theme {
     static func tabIcon(_ title: String, size: CGFloat = 13) -> NSImage? {
         let t = title.lowercased()
         let name = t == "home" ? "house.fill" : t == "window" ? "macwindow" : t == "wiki" ? "book.fill"
-            : t == "search" ? "magnifyingglass"
+            : t == "search" ? "magnifyingglass" : t == "login" ? "key.fill"
             : t.contains("steer") ? "steeringwheel" : t.contains("infra") ? "desktopcomputer"
             : t.contains("announce") ? "megaphone.fill" : t.contains("chat") ? "bubble.left.and.bubble.right.fill"
             : t.contains("event") ? "calendar" : t.contains("label") || t.contains("music") ? "music.note" : "circle.dashed"
@@ -554,6 +556,12 @@ final class LinkPanel: NSView {
         nccButton.bezelStyle = .rounded
         nccButton.font = Theme.mono(12, bold: true)
         nccButton.bezelColor = NSColor(hex: "006888")
+        // each button wears its service's mark, as the badges in the task bar do
+        for (b, mark) in [(button, "signal"), (nccButton, "n")] {
+            b.image = Pixel.icon(mark, size: 12)
+            b.imagePosition = .imageLeading
+            b.imageHugsTitle = true
+        }
         button.bezelStyle = .rounded
         button.font = Theme.mono(12, bold: true)
         button.bezelColor = NSColor(hex: "3A76F0")
@@ -569,6 +577,8 @@ final class LinkPanel: NSView {
         note.preferredMaxLayoutWidth = 300
         note.widthAnchor.constraint(equalToConstant: 300).isActive = true
         let stack = NSStackView(views: [button, status, qr, note, nccButton, nccStatus])
+        status.alignment = .center
+        nccStatus.alignment = .center
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 8
@@ -829,7 +839,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
     private let searchField = NSTextField()
     private let barSearch = NSTextField()          // on top: the search is in the task bar, at its left
-    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.7), radius: 6)
+    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.8), radius: 11)
+    private let barGlass = NSImageView()
     var onSearchText: ((String) -> Void)?
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
     private var wikiPane: NSView!
@@ -1070,7 +1081,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         rail.alignment = .leading
         rail.spacing = 1                   // a hairline of the rail's own plane between the bands
         rail.translatesAutoresizingMaskIntoConstraints = false
-        foot.orientation = .vertical
+        foot.orientation = .horizontal
         foot.alignment = .leading
         foot.spacing = 6
         foot.translatesAutoresizingMaskIntoConstraints = false
@@ -1178,17 +1189,25 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barSearch.isBordered = false
         barSearch.drawsBackground = false
         barSearch.focusRingType = .none
-        barSearch.placeholderString = "search NCC"
+        barSearch.placeholderString = "search"
         barSearch.delegate = self
         barSearch.translatesAutoresizingMaskIntoConstraints = false
         barSearch.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         barSearchBox.addSubview(barSearch)
+        barGlass.image = Theme.tabIcon("search", size: 10)
+        barGlass.imageScaling = .scaleNone
+        barGlass.contentTintColor = Theme.faint
+        barGlass.translatesAutoresizingMaskIntoConstraints = false
+        barSearchBox.addSubview(barGlass)
         let wide = barSearchBox.widthAnchor.constraint(equalToConstant: 220)
         wide.priority = .init(600)
         NSLayoutConstraint.activate([
             wide, barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
-            barSearchBox.heightAnchor.constraint(equalToConstant: 20),
-            barSearch.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: 7),
+            barSearchBox.heightAnchor.constraint(equalToConstant: 22),
+            barGlass.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: 8),
+            barGlass.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
+            barGlass.widthAnchor.constraint(equalToConstant: 12),
+            barSearch.leadingAnchor.constraint(equalTo: barGlass.trailingAnchor, constant: 5),
             barSearch.trailingAnchor.constraint(equalTo: barSearchBox.trailingAnchor, constant: -5),
             barSearch.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
         ])
@@ -1246,8 +1265,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             rail.leadingAnchor.constraint(equalTo: railBox.leadingAnchor),
             rail.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
             railTop,
-            foot.leadingAnchor.constraint(equalTo: railBox.leadingAnchor, constant: 12),
-            foot.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -8),
+            foot.leadingAnchor.constraint(equalTo: railBox.leadingAnchor, constant: Theme.edge),
+            foot.trailingAnchor.constraint(lessThanOrEqualTo: railBox.trailingAnchor, constant: -Theme.edge),
             foot.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: -10),
             sheet.topAnchor.constraint(equalTo: topAnchor),
             wiki.topAnchor.constraint(equalTo: topAnchor),
@@ -1264,8 +1283,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             unibar.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
             unibar.topAnchor.constraint(equalTo: railBox.topAnchor),
             unibar.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
-            foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: 10),
-            foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -10),
+            foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: Theme.edge),
+            foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -Theme.edge),
             foot.centerYAnchor.constraint(equalTo: taskBar.centerYAnchor),
             sheet.topAnchor.constraint(equalTo: railBox.bottomAnchor),
             wiki.topAnchor.constraint(equalTo: railBox.bottomAnchor),
@@ -1284,8 +1303,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             band.trailingAnchor.constraint(equalTo: sheet.trailingAnchor),
             band.topAnchor.constraint(equalTo: sheet.topAnchor),
             band.heightAnchor.constraint(equalToConstant: 0),      // no title strip: the window's title says where we are
-            col.leadingAnchor.constraint(equalTo: sheet.leadingAnchor, constant: 8),
-            col.trailingAnchor.constraint(equalTo: sheet.trailingAnchor, constant: -6),
+            col.leadingAnchor.constraint(equalTo: sheet.leadingAnchor, constant: Theme.edge),
+            col.trailingAnchor.constraint(equalTo: sheet.trailingAnchor, constant: -Theme.edge),
             col.topAnchor.constraint(equalTo: band.bottomAnchor, constant: 7),
             col.bottomAnchor.constraint(equalTo: sheet.bottomAnchor, constant: -5),
             wiki.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -1337,7 +1356,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             if self.top { self.dropOpen.toggle() } else { self.onSelect?(-1) }       // on top the wordmark is part of the bar
         }
         if !lastSections.isEmpty { setRail(lastSections) }      // the tabs are made again where they now stand
-        foot.orientation = top ? .horizontal : .vertical
+        foot.orientation = .horizontal
         foot.alignment = top ? .centerY : .leading
         foot.spacing = top ? 12 : 6
         taskBar.isHidden = !top
@@ -1391,20 +1410,15 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             glyph.image = Pixel.icon(logo, size: 8)
             glyph.imageScaling = .scaleNone
             glyph.contentTintColor = .white
-            let word = label(name, Theme.mono(9, bold: true), .white)
-            badgeNames.append(word)
-            let row = NSStackView(views: [glyph, word])
-            row.spacing = 4
-            row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 6)
+            let row = NSStackView(views: [glyph])         // small: the mark alone (the Login tab has the words)
+            row.edgeInsets = NSEdgeInsets(top: 3, left: 4, bottom: 3, right: 4)
             pin(row, to: chip)
             let tick = NSImageView()
             tick.image = Pixel.icon(who == nil ? "box" : "check", size: 8)
             tick.imageScaling = .scaleNone
             tick.contentTintColor = who == nil ? Theme.faint : Theme.me
-            let detail = label(who ?? ask, Theme.mono(10, bold: who == nil), who == nil ? Theme.teal : Theme.ink)
-            if who != nil { whoLabels.append(detail) }      // a name gives way in a short window; "sign in" stays
-            let line = Press(views: [chip, tick, detail])
-            line.spacing = 5
+            let line = Press(views: [chip, tick])
+            line.spacing = 3
             line.toolTip = who.map { name + " · " + $0 } ?? ask
             line.onClick = { [weak self] in self?.onAccount?(name) }
             return line

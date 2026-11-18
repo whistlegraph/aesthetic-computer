@@ -54,6 +54,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var pending: [String: [Msg]] = [:]                       // by group: messages sent, not yet landed
     var onStart = true                                       // the donut (home) is open, not a circle
     var onSearch = false                                     // the Search tab is open
+    var onLogin = false                                      // the Login tab is open
     var searchWork: DispatchWorkItem?
     var picked = false                                       // the member has chosen something on the rail
     var account: SignalAccount?
@@ -123,8 +124,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // A login badge at the foot of the rail goes to where that login happens.
         main.onAccount = { [weak self] which in
             guard let self else { return }
-            if which == "NCC" { self.main.wikiOpen = true; if self.wiki.token == nil, self.login == nil { self.showLogin() } }
-            else if self.account == nil { self.showStart() }
+            self.go(-4)                    // a badge goes to the Login tab
         }
         main.onSelect = { [weak self] i in
             guard let self else { return }
@@ -170,7 +170,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildRail()
         showStart()
         refreshAccounts()
-        if account != nil { startSignal() } else { refreshLink() }
+        if account != nil { startSignal() } else { go(-4) }      // not linked: the Login tab is the first thing shown
         loadWiki()
         scheduleSnapshot()
     }
@@ -280,7 +280,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func teardown() {
         leaving = true
         UserDefaults.standard.set(main.draft, forKey: "resume.draft")
-        UserDefaults.standard.set(onStart || onSearch ? -1 : selected, forKey: "resume.circle")
+        UserDefaults.standard.set(onStart || onSearch || onLogin ? -1 : selected, forKey: "resume.circle")
         searchWork?.cancel()
         updater.stop()
         radio.stop()
@@ -320,14 +320,29 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     // The link panel under the donut, while no Signal account is linked.
+    // The Login tab: the two logins, each with what it opens, and the way out of each.
     func refreshLink() {
-        main.showLink(account == nil)
-        guard account == nil else { return }
         let panel = main.link
-        panel.nccButton.isHidden = nccName != nil            // the NCC line shows until that login is done
-        panel.nccStatus.isHidden = nccName != nil
         panel.nccButton.target = self
-        panel.nccButton.action = #selector(openWikiLogin)
+        if let name = nccName {
+            panel.nccButton.title = " Sign out of NCC"
+            panel.nccButton.action = #selector(signOut)
+            panel.nccStatus.stringValue = "signed in as \(name)"
+        } else {
+            panel.nccButton.title = " Sign into NCC"
+            panel.nccButton.action = #selector(openWikiLogin)
+            panel.nccStatus.stringValue = "to access wiki"
+        }
+        if let account {
+            panel.button.title = " Unlink Signal"
+            panel.button.action = #selector(unlinkSignal)
+            panel.button.isEnabled = true
+            let me = people.person(account.uuid, fallback: nil).name
+            panel.status.stringValue = "linked as " + (me.isEmpty || me == account.uuid || me == "me" ? account.number : me)
+            return
+        }
+        panel.button.title = " Link Signal"
+        panel.button.action = #selector(linkSignal)
         if Config.shared.signalCli == nil {
             // The Signal engine (signal-cli) is not on this Mac. With Homebrew
             // here, the app installs it itself, as soon as it opens.
@@ -411,6 +426,36 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    // Unlink: NCCd stops being a Signal device on this Mac. Its own keys are
+    // deleted; a link that other tools on this Mac share is left where it is,
+    // and NCCd only stops using it.
+    @objc func unlinkSignal() {
+        let own = Config.shared.conf.signalConfigDir == nil && ProcessInfo.processInfo.environment["NCC_SIGNAL_CONFIG"] == nil
+        let alert = NSAlert()
+        alert.messageText = "Unlink Signal from NCCd?"
+        alert.informativeText = own
+            ? "This deletes NCCd's Signal keys from this Mac. Then remove NCCd under Linked devices in Signal on your phone. The messages already kept on this Mac stay."
+            : "NCCd stops using the Signal link that other tools on this Mac share. That link stays as it is."
+        alert.addButton(withTitle: "Unlink")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        engine.stop()
+        if own {
+            try? FileManager.default.removeItem(at: Config.shared.signalConfigDir)
+        } else {
+            Config.shared.conf.signalConfigDir = nil
+            Config.shared.save()
+        }
+        satellites.forEach { $0.window.close() }
+        account = nil
+        circles = []
+        pending = [:]
+        main.setStatus("")
+        buildRail()
+        refreshAccounts()
+        go(-4)
+    }
+
     @objc func openWikiLogin() { go(-2); if wiki.token == nil, login == nil { showLogin() } }
 
     @objc func linkSignal() {
@@ -430,7 +475,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             self.refreshAccounts()
             self.refreshLink()
-            if self.account != nil { self.startSignal() }
+            if self.account != nil { self.startSignal(); self.showStart() }      // linked: on to the donut
         }
     }
 
@@ -573,7 +618,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
         }
         main.setRail([("", pick("commons")), ("", pick("circle")),
-                      ("", [(-2, "Wiki", Theme.wikiBand), (-3, "Search", Theme.search)])])
+                      ("", [(-2, "Wiki", Theme.wikiBand), (-3, "Search", Theme.search), (-4, "Login", Theme.login)])])
         updateUnread()
     }
 
@@ -607,6 +652,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         selected = i
         onStart = false
         onSearch = false
+        onLogin = false
         markRead()
         refresh()
         refreshWiki()
@@ -621,9 +667,19 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // the rail marks the circles that have windows of their own
             main.setWindowed(Set(satellites.compactMap { s in circles.firstIndex { $0.conf.groupId == s.groupId } }))
         }
+        main.showLink(onLogin)                        // the logins have a tab of their own
+        if onLogin {
+            window.title = "NCCd: login"
+            main.showSearch(false)
+            main.showRadio(false)
+            main.show(index: -4, heading: "login", color: Theme.login, roleLine: [], canSend: false, placeholder: "")
+            main.renderBlank()
+            main.showLink(true)
+            refreshLink()
+            return updateUnread()
+        }
         if onSearch {
             window.title = "NCCd: search"
-            main.showLink(false)
             main.showRadio(false)
             main.show(index: -3, heading: "search", color: Theme.search, roleLine: [], canSend: false, placeholder: "")
             main.showSearch(true)
@@ -631,7 +687,6 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return updateUnread()
         }
         main.showSearch(false)
-        main.showLink(onStart && account == nil)      // the way in shows on the donut page only
         if onStart {
             main.showRadio(false)
             window.title = "NCCd: donut"                  // the title bar says where we are
@@ -835,6 +890,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func showStart() {
         onStart = true
         onSearch = false
+        onLogin = false
         refresh()
         refreshWiki()
     }
@@ -1128,6 +1184,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func go(_ i: Int) {
         if i == -2 { main.wikiOpen = true; return }
         main.wikiOpen = false                 // a circle, the donut or the search: the wiki steps aside
+        if i == -4 { onLogin = true; onSearch = false; onStart = false; refresh(); return }
+        onLogin = false
         if i == -3 { onSearch = true; onStart = false; refresh(); return }
         onSearch = false
         picked = true
@@ -1135,7 +1193,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     // The donut first, then the tabs of the rail in their order.
     var tabs: [Int] { [-1] + main.tabOrder.filter { $0 != -1 } }
-    var currentTab: Int { main.wikiOpen ? -2 : onSearch ? -3 : onStart ? -1 : selected }
+    var currentTab: Int { main.wikiOpen ? -2 : onLogin ? -4 : onSearch ? -3 : onStart ? -1 : selected }
     func stepTab(_ by: Int) {
         let all = tabs
         guard !all.isEmpty else { return }
