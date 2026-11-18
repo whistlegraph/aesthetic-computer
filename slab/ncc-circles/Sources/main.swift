@@ -198,7 +198,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.adoptGroups((v as? [[String: Any]]) ?? [])
                 // A first run starts with empty sheets; fill them when the bridge is there.
                 if !self.circles.isEmpty, self.circles.allSatisfy({ $0.log.msgs.isEmpty }),
-                   Config.shared.conf.desktopBridge != nil {
+                   Config.shared.bridge != nil {
                     return self.importHistory()
                 }
                 self.main.setStatus(self.circles.isEmpty
@@ -524,9 +524,9 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func importHistory() {
-        guard let account, let bridge = Config.shared.conf.desktopBridge.map({ Paths.expand($0).path }),
+        guard let account, let bridge = Config.shared.bridge,
               let node = Self.findNode() else {
-            return main.setStatus("history import needs node and the Signal Desktop bridge (desktopBridge in the config)")
+            return main.setStatus("history import needs node on this Mac")
         }
         main.setStatus("reading history from Signal Desktop…")
         let ids = circles.map { $0.conf.groupId }

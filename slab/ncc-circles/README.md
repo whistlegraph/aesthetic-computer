@@ -51,7 +51,7 @@ club ships in this repo.
 | `peopleLedger` | optional `people.json`: names, colours, roles, badges |
 | `assetsDir` | optional club artwork for the rail icons |
 | `wikiURL` | the wiki, default `https://wiki.nela.computer` |
-| `desktopBridge` | optional `slab/bin/signal.mjs`; fills a first run with history from Signal Desktop |
+| `desktopBridge` | optional path to `signal.mjs`, the Signal Desktop bridge that fills a first run with history; default is the copy in the app bundle |
 
 ## Parts
 

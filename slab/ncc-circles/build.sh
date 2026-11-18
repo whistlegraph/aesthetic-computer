@@ -21,6 +21,10 @@ swiftc -O -swift-version 5 \
     Sources/*.swift -o "$APP/Contents/MacOS/NCCCircles"
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/"
+# The Signal Desktop bridge rides in the bundle, so the history import works
+# on a Mac whose checkout is elsewhere or older.
+cp ../bin/signal.mjs "$APP/Contents/Resources/signal.mjs"
 SIGN_ID="${DEV_ID:-$(security find-identity -v -p codesigning 2>/dev/null |
     sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -1)}"
 codesign --force --sign "${SIGN_ID:--}" "$APP" 2>/dev/null

@@ -88,6 +88,15 @@ final class Config {
         return Paths.root.appendingPathComponent("signal")
     }
 
+    // The Signal Desktop bridge: the config's own, else the copy in the bundle.
+    var bridge: String? {
+        if let p = conf.desktopBridge {
+            let path = Paths.expand(p).path
+            if FileManager.default.fileExists(atPath: path) { return path }
+        }
+        return Bundle.main.path(forResource: "signal", ofType: "mjs")
+    }
+
     var signalCli: String? {
         let fm = FileManager.default
         for p in [conf.signalCli, "/opt/homebrew/bin/signal-cli", "/usr/local/bin/signal-cli"] {
