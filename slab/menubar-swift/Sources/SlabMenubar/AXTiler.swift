@@ -151,6 +151,9 @@ enum AXTiler {
                 // The oskiewar Mac app is a pane like the others: an equal
                 // grid cell beside the terminals, as small as the grid asks.
                 + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows)
+                // NCC Circles (slab/ncc-circles) is a pane too; its columns fold
+                // away as the cell narrows.
+                + windowRefs(bundleId: "computer.aesthetic.ncc-circles", liveWindows: liveWindows)
                 + easelWindowRefs(liveWindows: liveWindows),
             chrome: windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows),
             messengers: messengerBundleIDs.flatMap {
@@ -187,6 +190,8 @@ enum AXTiler {
             + windowRefs(bundleId: "computer.aesthetic.airbrush", liveWindows: liveWindows,
                          requireGeometry: false)
             + windowRefs(bundleId: "computer.aesthetic.oskiewar", liveWindows: liveWindows,
+                         requireGeometry: false)
+            + windowRefs(bundleId: "computer.aesthetic.ncc-circles", liveWindows: liveWindows,
                          requireGeometry: false)
             + windowRefs(bundleId: "com.google.Chrome", liveWindows: liveWindows,
                          requireGeometry: false)
