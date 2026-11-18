@@ -84,7 +84,7 @@ test('park paths only connect open adjacent blocks and land inside the opposite 
 
 async function fixture(t) {
   const dir = await mkdtemp(join(tmpdir(), 'dool-pod-server-'));
-  const app = createDuelServer({ guests: true, stateDir:dir, resolveHandleColors:async h => Array.from({length:h.length+1},()=>({r:20,g:200,b:240})),
+  const app = createDuelServer({stateDir:dir, resolveHandleColors:async h => Array.from({length:h.length+1},()=>({r:20,g:200,b:240})),
     verifyIdentity:async token=>({handle:token,sub:`account:${token}`})});
   await app.ready;
   await app.geography.change(g=>{g.identify('jeffrey','account:jeffrey');g.identify('oskie','account:oskie');});
@@ -238,7 +238,10 @@ test('the houses come down when the server starts: what stood inside goes up to 
   assert.deepEqual(app.store.data.tiles[floor], { '1,1': 2 });
   assert.deepEqual(app.store.data.history[floor], [{ code: 'abc' }]);
   assert.ok(!(j in app.store.data.rooms) && !(o in app.store.data.rooms));
-  assert.deepEqual(app.store.data.rooms.lobby.map(x => x.id), ['fountain']);
+  // 🧹 The ground is cleared once, the same start: the plaza's build is put away, where it can be put back.
+  assert.deepEqual(app.store.data.rooms.lobby, []);
+  assert.deepEqual(app.store.data.removed.lobby.map(x => x.id), ['fountain']);
+  assert.ok(app.store.data.marks.groundCleared);
   assert.deepEqual(app.geography.geography.homes, {});
   assert.equal(app.geography.geography.whereabouts('jeffrey'), null);
   assert.equal(app.geography.geography.whereabouts('oskie').room, 'lobby');
@@ -249,5 +252,11 @@ test('the houses come down when the server starts: what stood inside goes up to 
   t.after(() => again.close?.());
   await again.ready;
   assert.deepEqual(again.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
+  // A build made on the ground afterwards stays: the clearing is once.
+  await again.store.transact((d) => { d.rooms.lobby = [{ id: 'bench', owner: 'owner', x: 0, z: 0, versions: [{ version: 1, code: null, geometry: [] }] }]; });
+  const third = createDuelServer({ stateDir: dir });
+  t.after(() => third.close?.());
+  await third.ready;
+  assert.deepEqual(third.store.data.rooms.lobby.map(x => x.id), ['bench']);
   assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
 });

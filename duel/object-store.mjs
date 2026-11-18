@@ -71,6 +71,23 @@ export class ObjectStore {
       return moved;
     });
   }
+  // 🧹 Once: every build standing on the ground (the rooms `ground` says
+  // yes to) is put away, as a removal is (it can be put back); the floor's
+  // paint stays. A mark is left so it never runs again.
+  async clearGround(ground, by = null) {
+    if (this.data.marks?.groundCleared) return 0;
+    return this.transact((d) => {
+      let gone = 0;
+      for (const room of Object.keys(d.rooms || {})) {
+        if (!ground(room) || !d.rooms[room].length) continue;
+        gone += d.rooms[room].length;
+        keep(d, room, d.rooms[room], by);
+        d.rooms[room] = [];
+      }
+      (d.marks ||= {}).groundCleared = Date.now();
+      return gone;
+    });
+  }
   transact(fn) {
     const task = this.queue.then(async () => {
       const next = structuredClone(this.data),

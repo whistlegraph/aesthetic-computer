@@ -110,10 +110,6 @@ export function createDuelServer({
   diagnosticsEnabled = process.env.DOOL_DIAGNOSTICS === '1',
   diagnosticWrite,
   devLogRooms = (process.env.DOOL_DEV_LOG_ROOMS || 'studio').split(','),
-  // 🪪 A body, a seat and a floor belong to a handle. Without one a visitor
-  // flies over and looks (2026-11-17); DOOL_GUESTS=1 seats anyone, for a
-  // private or local server with no accounts.
-  guests = process.env.DOOL_GUESTS === '1',
 } = {}) {
   if (prefix && !/^\/[a-z0-9-]+$/.test(prefix))
     throw new Error('Invalid mount path');
@@ -152,7 +148,13 @@ export function createDuelServer({
     const moved = await store.moveRooms(pairs);
     await geography.change((g) => g.retire());
     console.log(`dool: ${pods.length} houses retired, ${moved} builds moved to ${pairs.length} floors`);
-  }).catch((e) => console.error('dool: houses not retired:', e?.message || e));
+  }).catch((e) => console.error('dool: houses not retired:', e?.message || e))
+    // 🧹 The ground is cleared once (2026-11-17): the plaza and the blocks
+    // start empty; what stood there is kept with the removals.
+    .then(async () => {
+      const swept = await store.clearGround((room) => room === GROUND || !!parseBlock(room), 'keeper');
+      if (swept) console.log(`dool: ${swept} builds cleared from the ground`);
+    }).catch((e) => console.error('dool: ground not cleared:', e?.message || e));
   const profiles = new Map();
   const colorsFor = (handle) => {
     let cached = profiles.get(handle);
@@ -644,7 +646,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         ws.close(1013, 'Server full');
         return;
       }
-      rooms.set(key, new Room(send, { guests }));
+      rooms.set(key, new Room(send));
       // 🛗 In a room with the car, bodies land in a row south of the middle,
       // facing the car: never inside it, never against a planter.
       if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
@@ -668,19 +670,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // 🎬 watch=1 looks on without ever taking a seat (a film's camera).
     const watching = url.searchParams.get('watch') === '1';
     const member = room.add(ws, nativeAccount || webAccount || watching);
-    // Nobody with a handle is here: say what the seat waits for, so the
-    // page can ask for it (an account, or a handle on the account).
-    const gate = () => {
-      if (guests || watching || member.handle || !room.sessions.has(ws)) return;
-      send(ws, { type: 'gate', needs: member.signedIn ? 'handle' : 'account' });
-    };
     const seatGuest = () => {
       clearTimeout(accountHold);
       if (room.sessions.has(ws) && !member.ready && !watching) {
         member.ready = true;
         room.assign();
       }
-      gate();
     };
     const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
     accountHold?.unref?.();
@@ -728,7 +723,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       accountAttempted = true;
       try {
         const account = await verifyOnce(token);
-        member.signedIn = true; // An account, with or without a handle yet.
         const handle = String(account.handle || '').replace(/^@/, '');
         if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle) || handle.length > 16)
           return;
@@ -793,7 +787,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       seat: member.seat,
       role: member.seat < 0 ? 'spectator' : 'player',
       protocol: PROTOCOL,
-      guests,
       diagnostics: diagnostics.enabled,
       room: roomId,
       joinURL: publicURL ? (() => {
@@ -812,8 +805,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     send(ws, room.match.snapshot());
     send(ws, builders.state(key, member));
     room.broadcast();
-    if (nativeAccount) void identifyAccount(authorization.slice(7)).finally(gate);
-    else if (!webAccount) gate();
+    if (nativeAccount) void identifyAccount(authorization.slice(7));
     let owner = null,
       identifying = false;
     let windowAt = performance.now(),
@@ -1174,9 +1166,6 @@ if (
     stateDir:
       process.env.DOOL_STATE_DIR ||
       resolve(process.env.HOME || '.', '.local/share/dool'),
-    // On its own (a laptop, a private server) there is no AC session to
-    // sign in with: anyone is seated unless DOOL_GUESTS=0.
-    guests: process.env.DOOL_GUESTS !== '0',
   });
   await app.ready;
   const port = Number(process.env.PORT || 8787),
