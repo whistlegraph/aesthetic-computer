@@ -348,7 +348,9 @@ final class PromptRockInteractionView: NSView {
         // WindowServer passes fully transparent pixels through to Terminal,
         // even with ignoresMouseEvents=false. Keep the whole hit area present
         // between glyphs so AppKit owns both the cursor and the first click.
-        NSColor.black.withAlphaComponent(0.01).setFill()
+        // One step of mid-grey alpha is the least that still counts as present:
+        // black at 1% read as a faint dark box behind every creature.
+        NSColor(deviceWhite: 0.5, alpha: 1.5 / 255).setFill()
         bounds.fill()
     }
 

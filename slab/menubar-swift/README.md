@@ -89,6 +89,11 @@ motion while working. Awaiting creatures look expectant; idle ones settle.
 Loopboy adds a glow to the same character. QR surfaces and Aesel title strips
 keep their existing layouts.
 
+The seed also picks one of six species (pip, chick, spike, ghost, bug, frog).
+It is derived, never stored, so saved creatures keep their identity. The egg's
+markings, height and taper tell which species is inside; hatching adds that
+species' fixed parts (beak, crest, hem, antennae, eye mounds) to the shared body.
+
 `ProxCreatures.swift` saves a versioned appearance under
 `~/.config/slab/creatures/<seed>.json`. Only observed working/rendering time
 counts toward growth: stirring after 30 minutes, hatchling after two hours,

@@ -29,7 +29,13 @@ struct ProxCreature: Codable, Equatable {
     }
 
     var numericSeed: UInt64 { UInt64(seed, radix: 16) ?? 0 }
-    var appearanceKey: String { "v1:\(seed):\(stage.rawValue):\(traits.map { $0.feature.rawValue }.joined(separator: ","))" }
+    /// Derived from the seed, never stored: the egg already knows what it
+    /// will hatch into, and any consumer can recompute it from the hex seed.
+    enum Species: String, CaseIterable { case pip, chick, spike, ghost, bug, frog }
+    var species: Species {
+        Species.allCases[Int((numericSeed >> 40) % UInt64(Species.allCases.count))]
+    }
+    var appearanceKey: String { "v2:\(seed):\(stage.rawValue):\(traits.map { $0.feature.rawValue }.joined(separator: ","))" }
     var canAcquireFeature: Bool {
         traits.count < 3 && activeSeconds - (traits.last?.activeSeconds ?? 0) >= 2 * 3600
     }
