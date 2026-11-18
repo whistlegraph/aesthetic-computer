@@ -1,0 +1,25 @@
+{
+  "name": "Pick your handle",
+  "languages": { "primary": "en" },
+  "nodes": [
+    {
+      "id": "step_handle", "type": "STEP", "coordinates": { "x": 300, "y": 0 }, "alias": "Pick your handle",
+      "config": {
+        "components": [
+          { "id": "rich_text_title", "category": "BLOCK", "type": "RICH_TEXT",
+            "config": { "content": "<h3><strong>Pick your @handle</strong></h3><p>Your name in Laklok and on everything you make.</p>" } },
+          { "id": "handle", "category": "FIELD", "type": "TEXT", "label": "Handle", "required": true, "sensitive": false,
+            "config": { "multiline": false, "placeholder": "letters, numbers, dots, underscores", "min_length": 1, "max_length": 16 } },
+          { "id": "next_button_go", "category": "BLOCK", "type": "NEXT_BUTTON", "config": { "text": "Continue" } }
+        ],
+        "next_node": "flow_claim"
+      }
+    },
+    {
+      "id": "flow_claim", "type": "FLOW", "coordinates": { "x": 900, "y": 0 }, "alias": "Claim handle",
+      "config": { "flow_id": "__FLOW_ID__", "next_node": "$ending" }
+    }
+  ],
+  "start": { "next_node": "step_handle", "coordinates": { "x": 0, "y": 0 } },
+  "ending": { "resume_flow": true, "coordinates": { "x": 1500, "y": 0 } }
+}
