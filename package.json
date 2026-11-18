@@ -12,6 +12,7 @@
     "duel:studio": "node duel/studio.mjs",
     "duel:builder": "node duel/aesel.mjs",
     "duel:rig": "node duel/rig.mjs",
+    "dool:walks": "node duel/walks-cli.mjs",
     "test:duel": "node --test duel/test/*.test.mjs",
     "test:duel:browser": "node duel/test/browser.mjs",
     "test:duel:render": "node duel/test/render.mjs",

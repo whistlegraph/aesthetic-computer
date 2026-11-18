@@ -16,6 +16,7 @@ import { ObjectStore } from './object-store.mjs';
 import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
+import { createWalks } from './walks.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, WORLD, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
@@ -128,6 +129,8 @@ export function createDuelServer({
     .catch(() => (text) => text));
   const stallLog = []; // 🧊 The newest stalls clients reported (GET /stalls).
   let stallRevision = 'local';
+  // 👣 Who came in and how they moved, kept beside the stores (walks.mjs).
+  const walks = createWalks({ directory: stateDir && resolve(stateDir, 'walks') });
   const store = new ObjectStore(stateDir),
     geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
     tower = new TowerStore(stateDir), // 🏢 who holds which floor (tower.mjs)
@@ -1102,6 +1105,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         void geography
           .change((g) => g.rest(member.handle, { room: key, x: body.x, z: body.z, yaw: body.yaw }))
           .catch(() => {});
+      walks.leave(member);
       room.remove(ws);
       if (!room.clients.size) rooms.delete(key);
     });
@@ -1119,8 +1123,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     previous = now;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;
-      for (const room of rooms.values()) {
+      for (const [key, room] of rooms) {
         room.match.step();
+        walks.tick(key, room);
         for (const m of room.sessions.values())
           if (m.walk) { if (m.walk.until < Date.now()) m.walk = null; else m.walk.ask(); }
         if (room.match.chalkDirty && room.match.tick % 3 === 0)
@@ -1152,6 +1157,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     geography,
     tower,
     builders,
+    walks,
     ready,
     async close() {
       builders.close();
@@ -1166,6 +1172,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await store.queue;
       await geography.queue;
       await tower.queue;
+      await walks.close();
       if (server.listening)
         await new Promise((resolve) => server.close(resolve));
     },
