@@ -3,7 +3,12 @@
 // It runs where the game runs (a worker when the browser has OffscreenCanvas)
 // and speaks to the page over the BroadcastChannel "nopaint-classic".
 //
-// The game says:   {to:"page", event:"ready" | "layout" | "painting" | "painted", ...state}
+// The game says:   {to:"page", event, ...state}, where event is one of
+//   ready, layout             the game started; it changed layout
+//   proposed {step, tool}     a brush began to show a proposal
+//   painting {step, tool}               Paint was pressed
+//   painted {step, tool, options}       the proposal is over and is in the painting
+//   refused {step, tool, options}       the proposal was left without Paint (No)
 // The page asks:   {to:"game", id, op, ...}  →  {to:"page", id, result} or {to:"page", id, error}
 //
 //   state                        where the game is
@@ -80,14 +85,33 @@ runOnStartup(async (runtime) => {
     try { say({ id: data.id, result: await ops[data.op](data) }); }
     catch (error) { say({ id: data.id, error: String(error?.message || error) }); }
   };
-  // One "painted" per Paint: the game raises its Painting flag while a brush
-  // commits and lowers it when the painting is stored.
-  let layout = null, painting = false;
+  // Every proposal is a step, and every step ends one of two ways. The game
+  // raises its Painting flag while a brush commits. A proposal that is left
+  // after the flag was raised was painted; one that is left with the flag
+  // never raised was answered No (or abandoned) and is "refused".
+  // Both carry the brush and the options it ran with.
+  const NOT_BRUSHES = /^(Index|Splash|Load|Playlist)$|Profile|PainterStories/;
+  const hint = () => String(vars.parameterHint || "").replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "").trim();
+  let layout = null, painting = false, proposal = null, steps = 0;
   runtime.addEventListener("tick", () => {
     const now = runtime.layout.name;
-    if (now !== layout) { layout = now; say({ event: "layout", ...state() }); }
     const flag = !!vars.Painting;
-    if (flag !== painting) { painting = flag; say({ event: flag ? "painting" : "painted", ...state() }); }
+    // The options are chosen a moment after the layout starts; keep the latest.
+    if (proposal && now === proposal.tool && !flag) proposal.options = hint() || vars.Params || proposal.options;
+    if (flag !== painting) {
+      painting = flag;
+      if (flag && proposal) proposal.painted = true;
+      if (flag) say({ event: "painting", ...state(), ...(proposal ? { step: proposal.step, tool: proposal.tool } : {}) });
+    }
+    if (now !== layout) {
+      // The proposal is over. The painting holds a Paint only once the game
+      // has left the brush, so "painted" is said here and not when the flag falls.
+      if (proposal) say({ event: proposal.painted ? "painted" : "refused", ...state(), step: proposal.step, tool: proposal.tool, options: proposal.options });
+      layout = now;
+      proposal = NOT_BRUSHES.test(now) ? null : { step: ++steps, tool: now, options: "", painted: false };
+      say({ event: "layout", ...state() });
+      if (proposal) say({ event: "proposed", step: proposal.step, tool: proposal.tool });
+    }
   });
   runtime.addEventListener("afterprojectstart", () => say({ event: "ready", ...state() }));
 });

@@ -7,6 +7,8 @@
 //   node toolchain/nopaint/brush-test.mjs Flip         brushes whose name contains "Flip" ("Flip,Turn" for several)
 //   node toolchain/nopaint/brush-test.mjs --video      keep a clip of every Paint
 //   node toolchain/nopaint/brush-test.mjs --book       then regenerate the brushbook's entries and strips
+//   node toolchain/nopaint/brush-test.mjs --steps      the step test instead: a few answers become a #painting,
+//                                                      then the real painting service checks what the page sent
 //
 // Steps: check the build against its patches (patch-classic.mjs --check),
 // copy the build, the test and brushes.json to the host, run the test there,
@@ -25,7 +27,7 @@ const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const HOST = process.env.AC_CAPTURE_HOST || "panda";
 const DIR = "scratch/brushes";
 const args = process.argv.slice(2);
-const video = args.includes("--video"), book = args.includes("--book");
+const video = args.includes("--video"), book = args.includes("--book"), steps = args.includes("--steps");
 const only = args.find((arg) => !arg.startsWith("--")) || "";
 if (only && !/^[\w ,-]+$/.test(only)) throw new Error("brush names are letters, digits and spaces, with commas between them");
 const run = (command, list, options = {}) => {
@@ -41,6 +43,15 @@ must("rsync", ["-az", "--delete", "--exclude", "gallery", "--exclude", "ai", "--
   "system/public/nopaint.art/", `${HOST}:${DIR}/site/`]);
 must("rsync", ["-az", "tests/browser/book-kit.mjs", "tests/browser/brushbook.e2e.mjs",
   "papers/arxiv-nopaint-brushbook/brushes.json", `${HOST}:${DIR}/`]);
+if (steps) {
+  must("rsync", ["-az", "tests/browser/classic-steps.e2e.mjs", "system/public/aesthetic.computer/lib/nopaint-pieces.mjs",
+    "system/public/aesthetic.computer/lib/painting-state.mjs", `${HOST}:${DIR}/`]);
+  const played = run("ssh", [HOST, `cd ${DIR} && rm -rf out-steps && zsh -lic 'OUT=out-steps node classic-steps.e2e.mjs'`]);
+  mkdirSync(new URL("tmp/nopaint-steps-test", `file://${ROOT}`), { recursive: true });
+  must("rsync", ["-az", "--delete", `${HOST}:${DIR}/out-steps/`, "tmp/nopaint-steps-test/"]);
+  const replayed = run("node", ["toolchain/nopaint/steps-replay.mjs"]);
+  process.exit(played || replayed || 0);
+}
 const status = run("ssh", [HOST, `cd ${DIR} && zsh -lic '${video ? "VIDEO=1 " : ""}OUT=out node brushbook.e2e.mjs ${JSON.stringify(only)}'`]);
 // A run of a few brushes does not replace the last full run.
 const home = only ? "tmp/nopaint-brush-test-partial" : "tmp/nopaint-brush-test";

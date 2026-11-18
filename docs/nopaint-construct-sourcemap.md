@@ -338,8 +338,9 @@ things keep that true.
 
 To make a change:
 
-1. Add a patch to `PATCHES` (a `replace` of one literal, or an `append`).
-   Name its target by a literal that occurs once.
+1. Add a patch to `PATCHES`: a `replace` of one literal that occurs once, an
+   `append`, or a `json` patch on `data.json` that names its target by name,
+   SID or UID.
 2. `npm run nopaint:classic:patch`.
 3. `npm run test:nopaint:brushes`, then `node --test lith/nopaint-routing.test.mjs`.
 4. Make the same change in `nopaint/construct/` (edit the vault path) so a
@@ -349,9 +350,17 @@ To make a change:
 The brushbook (`papers/arxiv-nopaint-brushbook/`) prints the test's pictures.
 `npm run nopaint:brushbook` runs the test and regenerates its entries.
 
-Not built yet: `data.json` patches (the helpers handle text files; a JSON
-patch by name / SID / UID is the next kind to add), and the Caddy
-`Cache-Control: no-cache` line for the Construct files (section 6, step 3).
+`data.json` patches (added 2026-11-18): `json("data.json", name, [ops])` with
+`set`, `insert` and `remove`. An operation finds its row with a locator from
+`at` (`at.layout`, `at.layer`, `at.instance`, `at.objectType`, `at.sheet`,
+`at.variable`, `at.block`, `at.function`, `at.action`, `at.condition`) and
+then steps to a position inside the row. It states what is there before it
+runs, so it can be taken away. The worked example of section 6 is the first
+test in `toolchain/nopaint/patch-classic.test.mjs`
+(`node --test toolchain/nopaint/patch-classic.test.mjs`).
+
+Not built yet: the Caddy `Cache-Control: no-cache` line for the Construct
+files (section 6, step 3).
 
 ## 8. Hooks into the current world (added 2026-11-18)
 

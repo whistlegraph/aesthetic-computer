@@ -27,6 +27,7 @@
 //   LINE="Softy: 128 128 S ?" node brushbook.e2e.mjs Softy   # one brush, with options
 //
 // Env: SITE (the build folder, default ./site or the checkout's),
+//      SITE_URL (a served site to test in place of the folder),
 //      BRUSHES (brushes.json), LOOK (ms to watch a proposal, default 2600),
 //      plus book-kit's CHROME, OUT, VIDEO, W, H, DSF.
 
@@ -224,7 +225,10 @@ async function decide(browser, base, brush, decision) {
   return r;
 }
 
-const site = await serveFolder(SITE);
+// SITE_URL runs the same test against a served site (https://nopaint.art).
+// Only that origin is reachable, so the visit tracker and the save server
+// are still blocked.
+const site = process.env.SITE_URL ? { url: process.env.SITE_URL.replace(/\/$/, ""), close() {} } : await serveFolder(SITE);
 const browser = await launch(VIEW);
 const results = [];
 const wanted = only ? only.toLowerCase().split(",").map((name) => name.trim()).filter(Boolean) : null;
@@ -239,10 +243,10 @@ for (const [i, brush] of list.entries()) {
     const r = await decide(browser, site.url, brush, decision);
     results.push(r);
     console.log(`${String(i + 1).padStart(2)}/${list.length} ${brush.name.padEnd(12)} ${decision.padEnd(5)} ${r.pass ? "ok  " : "FAIL"} ${(r.said || "").padEnd(34).slice(0, 34)} ${r.error || `${r.before?.hash} → ${r.after?.hash}`}`);
-    saveResults(site.url, results, { build: "No Paint classic, served from a folder", view: VIEW, look: LOOK });
+    saveResults(site.url, results, { build: process.env.SITE_URL ? "No Paint classic, as served" : "No Paint classic, served from a folder", view: VIEW, look: LOOK });
   }
 }
-saveResults(site.url, results, { build: "No Paint classic, served from a folder", view: VIEW, look: LOOK });
+saveResults(site.url, results, { build: process.env.SITE_URL ? "No Paint classic, as served" : "No Paint classic, served from a folder", view: VIEW, look: LOOK });
 await browser.close();
 site.close();
 const failed = results.filter((r) => r.pass === false);
