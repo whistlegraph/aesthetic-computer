@@ -167,7 +167,8 @@ enum Grain {
                 seed = seed &* 6364136223846793005 &+ 1442695040888963407
                 let v = CGFloat((seed >> 40) % 1000) / 1000
                 // a speck of light or of dark, most of them very faint
-                rep.setColor(NSColor(white: v > 0.5 ? 1 : 0, alpha: abs(v - 0.5) * 0.11), atX: x, y: y)
+                let w: CGFloat = v > 0.5 ? 1 : 0
+                rep.setColor(NSColor(deviceRed: w, green: w, blue: w, alpha: abs(v - 0.5) * 0.11), atX: x, y: y)
             }
         }
         let img = NSImage(size: NSSize(width: n / 2, height: n / 2))
@@ -410,6 +411,63 @@ enum Tab {
     }
 }
 
+// The unibar: with the tabs "on top", the top of the window is one bar. It
+// says where you are (the open place's mark and name, in that place's colour)
+// and how much is unread elsewhere. Tap it anywhere and the list of every
+// place drops down under it; tap a place to go there.
+final class Unibar: NSView {
+    var onClick: (() -> Void)?
+    var title = "donut" { didSet { needsDisplay = true } }
+    var glyph: NSImage? { didSet { needsDisplay = true } }
+    var color: NSColor = Donut.icing { didSet { needsDisplay = true } }
+    var unread = 0 { didSet { needsDisplay = true } }
+    var open = false { didSet { needsDisplay = true } }
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+
+    override func draw(_ dirty: NSRect) {
+        Tab.draw(in: NSRect(x: -6, y: 0, width: bounds.width + 6, height: bounds.height + 3), fill: color, open: true, top: true)
+        if hover || open {
+            NSColor(white: 1, alpha: 0.16).setFill()
+            bounds.fill(using: .sourceOver)
+        }
+        let on = Theme.ink
+        var x: CGFloat = 12
+        let mid = bounds.midY
+        if let glyph {
+            let size = glyph.size
+            let tinted = NSImage(size: size, flipped: false) { r in
+                glyph.draw(in: r)
+                on.set()
+                r.fill(using: .sourceAtop)
+                return true
+            }
+            tinted.draw(in: NSRect(x: x, y: mid - size.height / 2, width: size.width, height: size.height))
+            x += size.width + 8
+        }
+        let name = NSAttributedString(string: title, attributes: [.font: Theme.mono(weight: .heavy), .foregroundColor: on])
+        name.draw(at: NSPoint(x: x, y: mid - name.size().height / 2))
+        x += name.size().width + 8
+        let arrow = NSAttributedString(string: open ? "▴" : "▾", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: on])
+        arrow.draw(at: NSPoint(x: x, y: mid - arrow.size().height / 2))
+        if unread > 0 {
+            let n = NSAttributedString(string: "\(unread)", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: Theme.onYellow])
+            let pill = NSRect(x: bounds.maxX - n.size().width - 26, y: mid - 9, width: n.size().width + 16, height: 18)
+            Theme.yellow.setFill()
+            NSBezierPath(roundedRect: pill, xRadius: 9, yRadius: 9).fill()
+            n.draw(at: NSPoint(x: pill.minX + 8, y: pill.midY - n.size().height / 2))
+        }
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+}
+
 // The first tab of the rail: the wordmark, with a house to its left. It is the
 // way to the donut, and when the donut is open it is the donut's own tab, in
 // the colour of the donut's pane.
@@ -420,6 +478,7 @@ final class LogoTab: NSView {
     var selected = false { didSet { needsDisplay = true; home.contentTintColor = selected ? Theme.ink : Theme.faint } }
     var onTop = false { didSet { tallness.constant = onTop ? 36 : Self.tall; needsDisplay = true } }
     var small = false { didSet { word.isHidden = small } }      // no room for the word: the house alone
+    var barColor: NSColor? { didSet { needsDisplay = true } }   // on top: the wordmark's end of the unibar
     private var tallness: NSLayoutConstraint!
     static let tall: CGFloat = 46
 
@@ -444,7 +503,8 @@ final class LogoTab: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3), open: selected, top: onTop, hover: hover)
+        Tab.draw(in: bounds, fill: barColor ?? (selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3)),
+                 open: selected, top: onTop, hover: hover)
     }
     // The pointer over the tab.
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
@@ -534,62 +594,6 @@ final class Shell: NSView {
     }
 }
 
-// On the donut page: the newest message of every chat, a line each, in the
-// chat's colour. A click goes into that conversation.
-final class LatestView: NSView {
-    struct Item { let index: Int; let title: String; let color: NSColor; let who: String; let text: String; let when: String; let unread: Int }
-    var items: [Item] = [] { didSet { needsDisplay = true } }
-    var onPick: ((Int) -> Void)?
-    static let row: CGFloat = 20
-    override var isFlipped: Bool { true }
-    private var over = -1 { didSet { if over != oldValue { needsDisplay = true } } }
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect], owner: self))
-    }
-    override func mouseMoved(with event: NSEvent) { over = Int(convert(event.locationInWindow, from: nil).y / Self.row) }
-    override func mouseExited(with event: NSEvent) { over = -1 }
-
-    override func draw(_ dirty: NSRect) {
-        // smaller than the one text size: these are a glance, not the reading
-        let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular), bold = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
-        let nameW = (items.map { ($0.title as NSString).size(withAttributes: [.font: bold]).width }.max() ?? 60) + 18
-        for (i, it) in items.enumerated() {
-            let r = NSRect(x: 0, y: CGFloat(i) * Self.row, width: bounds.width, height: Self.row - 2)
-            Theme.wash(it.color).setFill()
-            NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
-            if i == over {                           // under the pointer: the line lights up in its chat's colour
-                it.color.withAlphaComponent(0.3).setFill()
-                NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
-            }
-            let tag = NSRect(x: r.minX, y: r.minY, width: nameW, height: r.height)
-            it.color.setFill()
-            NSBezierPath(roundedRect: tag, xRadius: 5, yRadius: 5).fill()
-            (it.title as NSString).draw(at: NSPoint(x: tag.minX + 8, y: tag.minY + 2), withAttributes: [.font: bold, .foregroundColor: Theme.on(it.color)])
-            let when = NSAttributedString(string: it.when, attributes: [.font: font, .foregroundColor: Theme.faint])
-            var right = r.maxX - 8 - when.size().width
-            when.draw(at: NSPoint(x: right, y: r.minY + 2))
-            if it.unread > 0 {
-                let n = NSAttributedString(string: " \(it.unread) ", attributes: [.font: bold, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow])
-                right -= n.size().width + 8
-                n.draw(at: NSPoint(x: right, y: r.minY + 2))
-            }
-            let line = NSMutableAttributedString(string: it.who.isEmpty ? "" : it.who + "  ", attributes: [.font: bold, .foregroundColor: Theme.ink])
-            line.append(NSAttributedString(string: it.text.replacingOccurrences(of: "\n", with: " "), attributes: [.font: font, .foregroundColor: Theme.ink]))
-            let para = NSMutableParagraphStyle()
-            para.lineBreakMode = .byTruncatingTail
-            line.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: line.length))
-            line.draw(in: NSRect(x: tag.maxX + 8, y: r.minY + 2, width: max(10, right - tag.maxX - 16), height: r.height - 2))
-        }
-    }
-    override func mouseDown(with event: NSEvent) {
-        let i = Int(convert(event.locationInWindow, from: nil).y / Self.row)
-        if items.indices.contains(i) { onPick?(items[i].index) }
-    }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
-}
-
 // The list that "@" opens over the composer: the circle's members, a name a row.
 final class MentionList: NSView {
     private var items: [(name: String, id: String)] = []
@@ -676,8 +680,10 @@ final class RailRow: NSView {
     private let mark = NSImageView()
     private let count = label("", Theme.mono(9, bold: true), Theme.onYellow)
     private let countBg = Fill(Theme.yellow, radius: 8)
-    private let wash: NSColor          // the circle's colour
-    private let pane: NSColor          // the colour of the pane this tab opens
+    let wash: NSColor                  // the circle's colour
+    let pane: NSColor                  // the colour of the pane this tab opens
+    let title: String
+    var glyph: NSImage? { icon.image }
     private var height: NSLayoutConstraint!
     var onClick: (() -> Void)?
     var menuProvider: (() -> NSMenu?)?
@@ -713,6 +719,7 @@ final class RailRow: NSView {
     init(title: String, icon image: NSImage?, color: NSColor, pane: NSColor) {
         wash = color
         self.pane = pane
+        self.title = title
         name = label(title, Theme.mono(11))           // as it is written, not in capitals
         super.init(frame: .zero)
         icon.image = image
@@ -796,25 +803,13 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var radioRow: Press!
     var onRadio: (() -> Void)?
     let link = LinkPanel()                // shown on the sheet while Signal is not linked
-    private let latest = LatestView()     // on the donut page: the newest message of every chat
     private let radioBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.55), radius: 6)    // in the Netlabel tab: the station
     private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
     private let searchField = NSTextField()
     var onSearchText: ((String) -> Void)?
-    private var latestTall: NSLayoutConstraint!
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
     private var wikiPane: NSView!
     private var linkShown = false
-    // How much of the sheet's height the donut takes (1: all of it; less when
-    // the announcements show under it).
-    // The newest message of every chat, under the donut (nil: not on the donut page).
-    func showLatest(_ items: [LatestView.Item]?) {
-        latest.isHidden = items == nil || items!.isEmpty
-        latest.items = items ?? []
-        latestTall.constant = CGFloat((items ?? []).count) * LatestView.row
-        scroll.isHidden = linkShown || !latest.isHidden
-        needsLayout = true
-    }
     // The zoom (⌘+, ⌘−, ⌘0), as in a browser: what is in the pane, the
     // messages and the wiki with their pictures, is drawn larger or smaller
     // and wraps again to fit. The tabs and the bars stay as they are.
@@ -850,7 +845,17 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var sideSet: [NSLayoutConstraint] = [], topSet: [NSLayoutConstraint] = []
     private var logoWide: NSLayoutConstraint!
     private var topHeight: NSLayoutConstraint!
-    private let flow = NSView()                // along the top: where the tabs stand, on one line or more
+    private let unibar = Unibar()              // on top: the one bar
+    private let drop = Fill(Theme.mint)        // the list of places that drops down from it
+    private let dropStack = NSStackView()
+    private let scrim = PressFill(NSColor(white: 0, alpha: 0.28), radius: 0)     // behind the list: a tap on it shuts the list
+    private var dropOpen = false {
+        didSet {
+            drop.isHidden = !dropOpen
+            scrim.isHidden = !dropOpen
+            unibar.open = dropOpen
+        }
+    }
     private var lastSections: [(String, [(Int, String, NSColor?)])] = []
     private let taskBar = Fill(Theme.mint)     // along the bottom, when the tabs are along the top
     private let footGap = NSView()             // pushes the logins to the right end of the task bar
@@ -921,44 +926,18 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         paintTabs()
     }
 
-    // Along the top, the bar holds the tabs alone (the radio and the logins
-    // are in the task bar along the bottom). Every tab shows its name, always:
-    // when the window is too narrow for them on one line, the wordmark's tab
-    // becomes its house alone, and then the tabs go on to a second line, and a
-    // third. Nothing is squeezed, cut short or laid over another thing.
+    // On top: the wordmark gives way to its house in a narrow window, and the
+    // task bar along the bottom keeps its words while there is room for them.
     private func fitTop(width w: CGFloat) {
         guard top else {
             if topLevel != -1 { topLevel = -1; logo.small = false; applyFoot(words: true, names: true) }
             return
         }
-        let line: CGFloat = 36, gap: CGFloat = 3, sectionGap: CGFloat = 9
-        func lines(room: CGFloat) -> [[(RailRow, CGFloat, CGFloat)]] {         // each line: its tabs, their x and width
-            var out: [[(RailRow, CGFloat, CGFloat)]] = [[]]
-            var x: CGFloat = 0
-            for r in rows {
-                let width = min(r.width(named: true), max(60, room))
-                if x > 0, x + width > room { out.append([]); x = 0 }
-                out[out.count - 1].append((r, x, width))
-                x += width + gap + (railEnds.contains { $0 === r } ? sectionGap : 0)
-            }
-            return out
-        }
-        // the wordmark stays whole when the tabs then still fit on one line
-        var small = false
-        var placed = lines(room: w - 146 - 3 - 4)
-        if placed.count > 1 { small = true; placed = lines(room: w - 46 - 3 - 4) }
-        topLevel = placed.count
+        topLevel = 1
+        let small = w < 380
         logo.small = small
         logoWide.constant = small ? 46 : 146
-        let high = CGFloat(placed.count) * line
-        topHeight.constant = 6 + high
-        for (n, tabs) in placed.enumerated() {
-            for (r, x, width) in tabs {
-                r.compact = 0
-                r.frame = NSRect(x: x, y: high - CGFloat(n + 1) * line, width: width, height: line)
-            }
-        }
-        // the task bar: words while there is room, who is signed in while there is more
+        topHeight.constant = 42
         applyFoot(words: w >= 330, names: w >= 520)
     }
 
@@ -973,7 +952,17 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let wiki = !solo && wikiOpen
         for r in rows { r.selected = wiki ? r.tag_ == -2 : r.tag_ == shownIndex }
         logo.selected = !wiki && shownIndex == -1
-        if top { fitTop(width: bounds.width) }
+        if top {                                    // the bar says where we are, in that place's colour
+            let here = rows.first { $0.selected }
+            unibar.title = here?.title ?? "donut"
+            unibar.glyph = here?.glyph ?? Theme.tabIcon("home")
+            unibar.color = here?.pane ?? Theme.wash(Donut.icing)
+            unibar.unread = rows.filter { !$0.selected }.reduce(0) { $0 + $1.unread }
+            logo.selected = true                    // the wordmark's end of the bar is the bar's colour too
+            logo.barColor = unibar.color
+        } else {
+            logo.barColor = nil
+        }
     }
 
     // The size that counts is the bounds' (the zoom gives the view bounds that are not its frame's).
@@ -1025,7 +1014,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // The donut has the sheet to itself.
         // the donut has the sheet to itself, or shares it with what is under it
         let tall = linkShown ? max(120, (bounds.height * 0.48).rounded())
-            : max(120, bounds.height - (top ? topHeight.constant + 28 : 0) - (latest.isHidden ? 0 : latestTall.constant + 8) - 24)
+            : max(120, bounds.height - (top ? topHeight.constant + 28 : 0) - 24)
         if diagramHeight.constant != tall { diagramHeight.constant = tall }
         super.layout()
         let sheetMoved = lastRender != nil && abs((text.textContainer?.size.width ?? 0) - renderedWidth) > 24
@@ -1064,8 +1053,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         logo.onClick = { [weak self] in self?.onSelect?(-1) }
         railBox.addSubview(logo)
         railBox.addSubview(rail)
-        flow.translatesAutoresizingMaskIntoConstraints = false
-        railBox.addSubview(flow)
+        unibar.translatesAutoresizingMaskIntoConstraints = false
+        unibar.onClick = { [weak self] in self?.dropOpen.toggle() }
+        railBox.addSubview(unibar)
         // The radio and the logins. Down the side they are the foot of the rail;
         // with the tabs along the top they are a task bar along the bottom.
         taskBar.grain = true
@@ -1146,11 +1136,6 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         diagram.isHidden = true
         diagram.onPick = { [weak self] i, at in self?.pick(i, at: at) }
         link.isHidden = true
-        latest.isHidden = true
-        latest.translatesAutoresizingMaskIntoConstraints = false
-        latestTall = latest.heightAnchor.constraint(equalToConstant: 0)
-        latestTall.isActive = true
-        latest.onPick = { [weak self] i in self?.onSelect?(i) }
         // the radio, in a bar of its own (shown in the Netlabel tab)
         radioBar.isHidden = true
         radioRow.translatesAutoresizingMaskIntoConstraints = false
@@ -1175,13 +1160,13 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             searchField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -11),
             searchField.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
         ])
-        let col = NSStackView(views: [searchBar, radioBar, roles, diagram, link, latest, scroll, status, composer])
+        let col = NSStackView(views: [searchBar, radioBar, roles, diagram, link, scroll, status, composer])
         col.orientation = .vertical
         col.alignment = .leading
         col.spacing = 2
         col.translatesAutoresizingMaskIntoConstraints = false
         sheet.addSubview(col)
-        for v in [searchBar, radioBar, diagram, link, latest, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
+        for v in [searchBar, radioBar, diagram, link, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
         col.setCustomSpacing(5, after: scroll)
         scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
 
@@ -1233,10 +1218,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             { topHeight = railBox.heightAnchor.constraint(equalToConstant: 42); return topHeight }(),
             { logoWide = logo.widthAnchor.constraint(equalToConstant: 146); return logoWide }(),
             logo.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
-            flow.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
-            flow.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -4),
-            flow.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
-            flow.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
+            unibar.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
+            unibar.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
+            unibar.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
+            unibar.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
             foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: 10),
             foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -10),
             foot.centerYAnchor.constraint(equalTo: taskBar.centerYAnchor),
@@ -1272,6 +1257,28 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             wikiScroll.topAnchor.constraint(equalTo: wikiBand.bottomAnchor, constant: 3),
             wikiScroll.bottomAnchor.constraint(equalTo: wiki.bottomAnchor, constant: -4),
         ])
+        // the dropdown: over everything under the bar, with a scrim behind it
+        scrim.wantsLayer = true            // layers, so that they lie over the 3D donut (which is one)
+        drop.wantsLayer = true
+        scrim.translatesAutoresizingMaskIntoConstraints = false
+        scrim.onClick = { [weak self] in self?.dropOpen = false }
+        addSubview(scrim)
+        drop.grain = true
+        addSubview(drop)
+        dropStack.orientation = .vertical
+        dropStack.alignment = .leading
+        dropStack.spacing = 1
+        dropStack.translatesAutoresizingMaskIntoConstraints = false
+        drop.addSubview(dropStack)
+        NSLayoutConstraint.activate([
+            scrim.leadingAnchor.constraint(equalTo: leadingAnchor), scrim.trailingAnchor.constraint(equalTo: trailingAnchor),
+            scrim.topAnchor.constraint(equalTo: railBox.bottomAnchor), scrim.bottomAnchor.constraint(equalTo: bottomAnchor),
+            drop.leadingAnchor.constraint(equalTo: leadingAnchor), drop.trailingAnchor.constraint(equalTo: trailingAnchor),
+            drop.topAnchor.constraint(equalTo: railBox.bottomAnchor),
+            dropStack.leadingAnchor.constraint(equalTo: drop.leadingAnchor), dropStack.trailingAnchor.constraint(equalTo: drop.trailingAnchor, constant: -8),
+            dropStack.topAnchor.constraint(equalTo: drop.topAnchor, constant: 8), dropStack.bottomAnchor.constraint(equalTo: drop.bottomAnchor, constant: -10),
+        ])
+        dropOpen = false
         applyTabs()
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -1281,7 +1288,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         NSLayoutConstraint.deactivate(sideSet + topSet + rowWide)
         NSLayoutConstraint.activate(top ? topSet : sideSet)
         rail.isHidden = top
-        flow.isHidden = !top
+        unibar.isHidden = !top
+        dropOpen = false
+        logo.onClick = { [weak self] in
+            guard let self else { return }
+            if self.top { self.dropOpen.toggle() } else { self.onSelect?(-1) }       // on top the wordmark is part of the bar
+        }
         if !lastSections.isEmpty { setRail(lastSections) }      // the tabs are made again where they now stand
         foot.orientation = top ? .horizontal : .vertical
         foot.alignment = top ? .centerY : .leading
@@ -1532,8 +1544,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     // sections: [(heading, [(index, title, colour)])]
     func setRail(_ sections: [(String, [(Int, String, NSColor?)])]) {
         lastSections = sections
+        // In the dropdown the donut is a place like any other, and it comes first.
+        let sections = top ? [("", [(-1, "donut", Optional(Donut.icing))])] + sections : sections
         rail.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        flow.subviews.forEach { $0.removeFromSuperview() }
+        dropStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows = []
         rowWide = []
         railHeads = []
@@ -1554,17 +1568,17 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             }
             for (index, title, color) in items {
                 let hue = color ?? Donut.icing
-                let row = RailRow(title: title, icon: Theme.tabIcon(title), color: hue,
+                let row = RailRow(title: title, icon: Theme.tabIcon(index == -1 ? "home" : title), color: hue,
                                   pane: index == -2 ? Theme.wikiPaper : Theme.wash(hue))
-                row.onClick = { [weak self] in self?.onSelect?(index) }
+                row.unread = unreadBy[index] ?? 0
+                row.onClick = { [weak self] in self?.dropOpen = false; self?.onSelect?(index) }
                 row.menuProvider = { [weak self] in self?.menuFor?(index) }
                 row.tag_ = index
                 row.tall = density > 0 ? 20 : 24
-                row.onTop = top
-                if top {                                     // along the top a tab is placed by fitTop, on its line
-                    row.translatesAutoresizingMaskIntoConstraints = true
-                    row.tall = 36
-                    flow.addSubview(row)
+                if top {                                     // on top the places are a list that drops down from the bar
+                    row.tall = 30
+                    dropStack.addArrangedSubview(row)
+                    row.widthAnchor.constraint(equalTo: dropStack.widthAnchor).isActive = true
                 } else {
                     rail.addArrangedSubview(row)
                     let wide = row.widthAnchor.constraint(equalTo: rail.widthAnchor)     // down the side, as wide as the rail
@@ -1579,10 +1593,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         paintTabs()
     }
 
+    private var unreadBy: [Int: Int] = [:]      // kept here too, so tabs that are made again keep their counts
     func setUnread(_ index: Int, _ n: Int) {
+        unreadBy[index] = n
         guard let row = rows.first(where: { $0.tag_ == index }), row.unread != n else { return }
         row.unread = n
-        if top { fitTop(width: bounds.width) }        // a count makes its tab wider
+        if top { paintTabs() }                        // the bar's count of what is unread elsewhere
     }
     // The tabs in the order they stand, by index (the wiki's is -2).
     var tabOrder: [Int] { rows.map { $0.tag_ } }
@@ -1932,7 +1948,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         return true
     }
 
-    override func cancelOperation(_ sender: Any?) { onBack?() }
+    override func cancelOperation(_ sender: Any?) {
+        if dropOpen { dropOpen = false } else { onBack?() }
+    }
 
     @objc private func send() {
         if !mentions.isHidden, let pick = mentions.picked { return choose(pick) }     // Return takes the name in the list
@@ -2008,6 +2026,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     func clearField() { field.stringValue = ""; chosen = []; mentions.isHidden = true }
+
+    // Test aid: open the unibar's dropdown.
+    func testDrop() { dropOpen = true }
 
     // Test aid: pick the first circle on the donut, as a click on its token would.
     func testPick() { diagram.testPick() }

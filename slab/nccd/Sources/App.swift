@@ -1,4 +1,4 @@
-// main.swift — NCCd: a Signal client for the computer club's circles.
+// App.swift — NCCd: a Signal client for the computer club's circles.
 // The d is for donut: the club's circles are peers on one ring, so the home
 // screen is a donut with the circles spread out on it.
 //
@@ -61,6 +61,11 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var linking = false
     var resumeDraft: String?
 
+    // Development (NCC_DEV, set by dev.sh): the app shows what is on this Mac
+    // and starts no Signal engine, so it never competes with the installed
+    // copy for the account, and nothing can be sent from a build in progress.
+    static let dev = ProcessInfo.processInfo.environment["NCC_DEV"] != nil
+
     // A snapshot run (NCC_SNAPSHOT) is a test: no Dock icon, no focus, no window on any screen.
     static let snapshotRun = ProcessInfo.processInfo.environment["NCC_SNAPSHOT"] != nil
 
@@ -71,6 +76,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                           styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
         window.title = "NCCd"                              // the standard macOS title bar
+        window.isReleasedWhenClosed = false
         window.backgroundColor = Theme.mint
         window.minSize = NSSize(width: 300, height: 220)   // small enough for a cell of the slab tiler
         window.delegate = self
@@ -187,6 +193,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self.search()
             }
         }
+        // NCC_SNAPSHOT_DROP=1 opens the unibar's dropdown for the picture.
+        if env["NCC_SNAPSHOT_DROP"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.main.testDrop() }
+        }
         // NCC_SNAPSHOT_CIRCLE=<n> opens the nth circle of the rail first.
         if let n = env["NCC_SNAPSHOT_CIRCLE"].flatMap({ Int($0) }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.picked = true; self.select(n) }
@@ -207,6 +217,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["NCC_SNAPSHOT_AFTER"] ?? "") ?? 10)) {
+            guard !self.leaving else { return }         // a build that was replaced takes no picture
             guard let view = (self.satellites.first?.window ?? self.window).contentView,
                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return NSApp.terminate(nil) }
             view.cacheDisplay(in: view.bounds, to: rep)
@@ -242,12 +253,31 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    // Development reload: this build's app leaves, and says where it was, so
+    // that the next build's app comes back to the same tab and the same draft.
+    var leaving = false
+    func teardown() {
+        leaving = true
+        UserDefaults.standard.set(main.draft, forKey: "resume.draft")
+        UserDefaults.standard.set(onStart || onSearch ? -1 : selected, forKey: "resume.circle")
+        searchWork?.cancel()
+        updater.stop()
+        radio.stop()
+        engine.cancelLink()
+        engine.stop()
+        satellites.forEach { $0.window.delegate = nil; $0.window.close() }
+        satellites = []
+        window.delegate = nil
+        window.contentView = nil
+        window.close()
+    }
+
     func applicationWillTerminate(_ n: Notification) {
         radio.stop()
         engine.cancelLink()
         engine.stop()
     }
-    func applicationShouldTerminateAfterLastWindowClosed(_ a: NSApplication) -> Bool { true }
+    func applicationShouldTerminateAfterLastWindowClosed(_ a: NSApplication) -> Bool { !leaving && !Self.dev }
     func windowDidBecomeKey(_ n: Notification) { if !circles.isEmpty { markRead() } }
 
     // ─── the two logins ──────────────────────────────────────────────────────
@@ -332,8 +362,9 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func startSignal() {
         guard let account else { return }
-        main.setStatus("starting Signal…")
         loadCircles()
+        if Self.dev { return main.setStatus("development: Signal is not started; this is what is on this Mac") }
+        main.setStatus("starting Signal…")
         do { try engine.start(account: account) } catch {
             main.setStatus((error as? SignalEngine.EngineError)?.message ?? error.localizedDescription)
             return
@@ -433,35 +464,28 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateUnread()
     }
 
-    // The newest message of every chat, for the donut page: newest chat first.
-    func latestItems() -> [LatestView.Item] {
-        let now = Date().timeIntervalSince1970
-        return circles.enumerated().compactMap { i, c -> (Int64, LatestView.Item)? in
-            guard let m = c.log.msgs.last else { return nil }
-            let age = now - Double(m.ts) / 1000
-            let when = age < 90 ? "now" : age < 3600 ? "\(Int(age / 60))m" : age < 86400 ? "\(Int(age / 3600))h" : "\(Int(age / 86400))d"
-            let who = m.author == account?.uuid ? "me" : people.person(m.author, fallback: m.name).name
-            let words = m.body.replacingOccurrences(of: "\u{FFFC}", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-            let text = words.isEmpty ? ((m.files ?? []).isEmpty ? "" : "[picture or file]") : words
-            let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
-            return (m.ts, LatestView.Item(index: i, title: c.conf.title, color: color(of: i), who: String(who.prefix(14)), text: text,
-                                          when: when, unread: c.log.unread(since: since, me: account?.uuid ?? "")))
-        }.sorted { $0.0 > $1.0 }.map { $0.1 }
-    }
-
     // A circle's colour: its wiki collection's, else one of the club's own.
     func color(of i: Int) -> NSColor {
         let title = circles[i].conf.title
         return Theme.circleColor(title, wiki: wikiReady ? wiki.color(for: title) : nil)
     }
 
+    // The donut page: every chat is a token, and its newest message floats off it.
     func diagramItems() -> [DiagramItem] {
-        // the circles only: the commons are a tab (Chat) and the home screen itself (Announce)
-        circles.enumerated().filter { $0.element.conf.kind == "circle" }.map { i, c in
+        let now = Date().timeIntervalSince1970
+        return circles.enumerated().map { i, c in
             let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
-            return DiagramItem(index: i, title: c.conf.title, commons: c.conf.kind != "circle", color: color(of: i),
-                               members: c.members, unread: c.log.unread(since: since, me: account?.uuid ?? ""),
-                               lastActive: c.log.msgs.last?.ts ?? 0)
+            var it = DiagramItem(index: i, title: c.conf.title, commons: c.conf.kind != "circle", color: color(of: i),
+                                 members: c.members, unread: c.log.unread(since: since, me: account?.uuid ?? ""),
+                                 lastActive: c.log.msgs.last?.ts ?? 0)
+            if let m = c.log.msgs.last {
+                let age = now - Double(m.ts) / 1000
+                it.when = age < 90 ? "now" : age < 3600 ? "\(Int(age / 60))m" : age < 86400 ? "\(Int(age / 3600))h" : "\(Int(age / 86400))d"
+                it.who = m.author == account?.uuid ? "me" : String(people.person(m.author, fallback: m.name).name.prefix(16))
+                let words = m.body.replacingOccurrences(of: "\u{FFFC}", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                it.text = words.isEmpty ? ((m.files ?? []).isEmpty ? "" : "[picture or file]") : words
+            }
+            return it
         }
     }
 
@@ -486,7 +510,6 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if onSearch {
             window.title = "NCCd: search"
-            main.showLatest(nil)
             main.showRadio(false)
             main.show(index: -3, heading: "search", color: Theme.search, roleLine: [], canSend: false, placeholder: "")
             main.showSearch(true)
@@ -497,13 +520,11 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if onStart {
             main.showRadio(false)
             window.title = "NCCd: donut"                  // the title bar says where we are
-            // Home: the donut, and floating under it the newest message of every chat.
+            // Home is one image: the donut, a token on it for every chat, and the newest message of each floating off its token.
             main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
             main.renderBlank()
-            main.showLatest(account == nil ? nil : latestItems())
             return updateUnread()
         }
-        main.showLatest(nil)
         guard circles.indices.contains(selected) else { return }
         let c = circles[selected]
         window.title = "NCCd: " + c.conf.title + (c.members > 0 ? " · \(c.members) members" : "")
@@ -857,6 +878,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     final class Sending { var settled = false, gaveUp = false }
 
     func send(_ text: String, mentions: [String], to i: Int, from view: MainView) {
+        if Self.dev { return view.setStatus("development: nothing is sent from a build in progress") }
         guard circles.indices.contains(i), let account else { return }
         let gid = circles[i].conf.groupId
         let temp = Int64(Date().timeIntervalSince1970 * 1000)
@@ -996,7 +1018,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         i < 0 ? showStart() : select(i)
     }
     // The donut first, then the tabs of the rail in their order.
-    var tabs: [Int] { [-1] + main.tabOrder }
+    var tabs: [Int] { [-1] + main.tabOrder.filter { $0 != -1 } }
     var currentTab: Int { main.wikiOpen ? -2 : onSearch ? -3 : onStart ? -1 : selected }
     func stepTab(_ by: Int) {
         let all = tabs
@@ -1100,12 +1122,40 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-// An exception that nothing catches says what it was before the app goes down.
-NSSetUncaughtExceptionHandler { e in
-    FileHandle.standardError.write(Data("NCCd: \(e.name.rawValue): \(e.reason ?? "")\n\(e.callStackSymbols.prefix(14).joined(separator: "\n"))\n".utf8))
+// ─── entry points ────────────────────────────────────────────────────────────
+// The app's code has no top-level statements, so the same sources build two
+// ways: into the release executable (Launch/main.swift calls nccdRun), and
+// into a dynamic library that the development host loads, and loads again
+// each time it is rebuilt (Dev/host.swift calls nccd_boot and nccd_teardown).
+
+var live: App?
+
+// The release build: make the application and run it.
+public func nccdRun() {
+    // An exception that nothing catches says what it was before the app goes down.
+    NSSetUncaughtExceptionHandler { e in
+        FileHandle.standardError.write(Data("NCCd: \(e.name.rawValue): \(e.reason ?? "")\n\(e.callStackSymbols.prefix(14).joined(separator: "\n"))\n".utf8))
+    }
+    let app = NSApplication.shared
+    let delegate = App()
+    live = delegate
+    app.delegate = delegate
+    app.setActivationPolicy(App.snapshotRun ? .accessory : .regular)
+    app.run()
 }
-let app = NSApplication.shared
-let delegate = App()
-app.delegate = delegate
-app.setActivationPolicy(App.snapshotRun ? .accessory : .regular)
-app.run()
+
+// The development host: the application is already running; put this build's app in it.
+@_cdecl("nccd_boot")
+public func nccdBoot() {
+    let delegate = App()
+    live = delegate
+    NSApp.delegate = delegate
+    delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
+}
+
+// The development host: this build is being replaced; take its app out, remembering where it was.
+@_cdecl("nccd_teardown")
+public func nccdTeardown() {
+    live?.teardown()
+    live = nil
+}

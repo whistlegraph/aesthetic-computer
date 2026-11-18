@@ -2,7 +2,7 @@
 //
 // The club's circles are peers. They sit evenly on one ring, none above
 // another, so the ring is shown as what it looks like: a donut, in three
-// dimensions (SceneKit), turning slowly. Each circle is a flat token lying on
+// dimensions (SceneKit), rocking gently. Each chat is a flat token lying on
 // the icing, with its name on it:
 //   - its size is the circle's members;
 //   - its colour and its beat are how recently the circle spoke: a circle with
@@ -50,9 +50,12 @@ struct DiagramItem {
     let members: Int
     let unread: Int
     let lastActive: Int64        // unix ms of the newest message, 0 when there is none
+    var who = ""                 // the newest message: who, what, how long ago
+    var text = ""
+    var when = ""
 }
 
-// A name beside a ball, or a commons chip: flat colour, click to open.
+// A name on a token: flat colour, click to open.
 private final class Tag: NSView {
     var onClick: (() -> Void)?
     private let text = NSTextField(labelWithString: "")
@@ -72,18 +75,67 @@ private final class Tag: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
+// The newest message of a chat, floating off its token: who and how long ago,
+// then the words, on a wash of the chat's colour. Click to go into the chat.
+private final class Bubble: NSView {
+    var onClick: (() -> Void)?
+    let item: DiagramItem
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    override var isFlipped: Bool { true }
+    init(_ item: DiagramItem) {
+        self.item = item
+        super.init(frame: .zero)
+        wantsLayer = true
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    static let tall: CGFloat = 36
+    override func draw(_ dirty: NSRect) {
+        let small = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular), bold = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
+        Theme.wash(item.color).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+        (hover ? item.color.withAlphaComponent(0.35) : NSColor.clear).setFill()
+        NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+        item.color.setFill()                    // the chat's colour down the side that faces its token
+        NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: 4, height: bounds.height), xRadius: 2, yRadius: 2).fill()
+        let cut = NSMutableParagraphStyle()
+        cut.lineBreakMode = .byTruncatingTail
+        let top = NSMutableAttributedString(string: item.who, attributes: [.font: bold, .foregroundColor: Theme.ink, .paragraphStyle: cut])
+        top.append(NSAttributedString(string: "  " + item.when, attributes: [.font: small, .foregroundColor: Theme.faint, .paragraphStyle: cut]))
+        var room = bounds.width - 16
+        if item.unread > 0 {
+            let n = NSAttributedString(string: " \(item.unread) ", attributes: [.font: bold, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow])
+            n.draw(at: NSPoint(x: bounds.maxX - n.size().width - 6, y: 4))
+            room -= n.size().width + 6
+        }
+        top.draw(in: NSRect(x: 10, y: 4, width: max(10, room), height: 14))
+        NSAttributedString(string: item.text.replacingOccurrences(of: "\n", with: " "), attributes: [
+            .font: small, .foregroundColor: Theme.ink, .paragraphStyle: cut]).draw(in: NSRect(x: 10, y: 18, width: bounds.width - 16, height: 14))
+    }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false }
+    override func mouseDown(with event: NSEvent) { onClick?() }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+}
+
 final class CircleDiagram: NSView {
     var onPick: ((Int, NSPoint?) -> Void)?       // which, and where it was picked (in this view), when it has a place
     var items: [DiagramItem] = [] { didSet { if signature(items) != signature(oldValue) { build() } } }
 
     private let scn = SCNView()
-    private let turning = SCNNode()                 // the donut and its balls; this is what turns
-    private var balls: [(node: SCNNode, tag: Tag, radius: CGFloat)] = []
-    private var chips: [Tag] = []
+    private let rocking = SCNNode()                 // the donut and its tokens; this is what rocks
+    private let camera = SCNNode()
+    private let strings = CAShapeLayer()            // the lines from the tokens to their bubbles
+    private var balls: [(node: SCNNode, tag: Tag, bubble: Bubble?, radius: CGFloat)] = []
     private var timer: Timer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
+        wantsLayer = true
         scn.backgroundColor = .clear
         scn.antialiasingMode = .multisampling4X
         scn.preferredFramesPerSecond = 30
@@ -91,12 +143,16 @@ final class CircleDiagram: NSView {
         scn.frame = bounds
         scn.scene = makeScene()
         addSubview(scn)
+        strings.fillColor = nil
+        strings.lineWidth = 1.5
+        strings.lineDashPattern = [3, 3]
+        layer?.addSublayer(strings)
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    // What a rebuild depends on (unread counts and recency included).
+    // What a rebuild depends on (unread counts, recency and the newest words included).
     private func signature(_ items: [DiagramItem]) -> String {
-        items.map { "\($0.index)\($0.title)\($0.members)\($0.unread)\($0.lastActive / 600_000)\($0.color.description)" }.joined(separator: "|")
+        items.map { "\($0.index)\($0.title)\($0.members)\($0.unread)\($0.lastActive / 600_000)\($0.color.description)\($0.who)\($0.text.prefix(60))\($0.when)" }.joined(separator: "|")
     }
 
     // ─── the scene ───────────────────────────────────────────────────────────
@@ -114,12 +170,11 @@ final class CircleDiagram: NSView {
 
     private func makeScene() -> SCNScene {
         let scene = SCNScene()
-        let cam = SCNNode()
-        cam.camera = SCNCamera()
-        cam.camera?.fieldOfView = 30
-        cam.position = SCNVector3(0, 4.1, 4.5)
-        cam.look(at: SCNVector3(0, 0.08, 0))
-        scene.rootNode.addChildNode(cam)
+        camera.camera = SCNCamera()
+        camera.camera?.fieldOfView = 30
+        camera.position = SCNVector3(0, 4.1, 4.5)
+        camera.look(at: SCNVector3(0, 0.08, 0))
+        scene.rootNode.addChildNode(camera)
 
         let ambient = SCNNode()
         ambient.light = SCNLight()
@@ -138,7 +193,7 @@ final class CircleDiagram: NSView {
         dough.ringSegmentCount = 96
         dough.pipeSegmentCount = 48
         dough.materials = [material(Donut.dough, shine: 0.08)]
-        turning.addChildNode(SCNNode(geometry: dough))
+        rocking.addChildNode(SCNNode(geometry: dough))
         let icing = SCNTorus(ringRadius: Self.ring, pipeRadius: Self.pipe * 1.05)
         icing.ringSegmentCount = 96
         icing.pipeSegmentCount = 48
@@ -146,7 +201,7 @@ final class CircleDiagram: NSView {
         let icingNode = SCNNode(geometry: icing)
         icingNode.scale = SCNVector3(1, 0.62, 1)
         icingNode.position = SCNVector3(0, Self.pipe * 0.42, 0)
-        turning.addChildNode(icingNode)
+        rocking.addChildNode(icingNode)
 
         // sprinkles on the icing, in the club's colours
         var seed: UInt64 = 0x00C0FFEE
@@ -162,37 +217,34 @@ final class CircleDiagram: NSView {
             let reach = Self.ring + Self.pipe * 1.02 * sin(tilt)
             node.position = SCNVector3(reach * cos(a), Self.pipe * 0.42 + Self.pipe * 0.655 * cos(tilt), reach * sin(a))
             node.eulerAngles = SCNVector3(.pi / 2 + (rnd() - 0.5) * 0.5, rnd() * .pi, tilt)
-            turning.addChildNode(node)
+            rocking.addChildNode(node)
         }
 
-        scene.rootNode.addChildNode(turning)
-        turning.runAction(.repeatForever(.rotateBy(x: 0, y: -2 * .pi, z: 0, duration: 70)))
-        let rock = SCNAction.sequence([.rotateBy(x: 0.07, y: 0, z: 0.03, duration: 3.2), .rotateBy(x: -0.07, y: 0, z: -0.03, duration: 3.2)])
+        scene.rootNode.addChildNode(rocking)
+        // It does not spin (the messages that float off it must stay readable): it rocks a little, like a thing afloat.
+        let rock = SCNAction.sequence([.rotateBy(x: 0.06, y: 0.1, z: 0.03, duration: 3.4), .rotateBy(x: -0.06, y: -0.1, z: -0.03, duration: 3.4)])
         rock.timingMode = .easeInEaseOut
-        scene.rootNode.childNodes.last?.parent?.runAction(.repeatForever(rock))
+        rocking.runAction(.repeatForever(rock))
         return scene
     }
 
-    // ─── the balls, their names, the commons ─────────────────────────────────
+    // ─── the tokens, their names, the messages that float off them ───────────
 
     private func build() {
-        balls.forEach { $0.node.removeFromParentNode(); $0.tag.removeFromSuperview() }
-        chips.forEach { $0.removeFromSuperview() }
+        balls.forEach { $0.node.removeFromParentNode(); $0.tag.removeFromSuperview(); $0.bubble?.removeFromSuperview() }
         balls = []
-        chips = []
-        let circles = items.filter { !$0.commons }
-        let most = CGFloat(max(circles.map { $0.members }.max() ?? 1, 1))
-        let n = CGFloat(max(circles.count, 1))
+        let most = CGFloat(max(items.map { $0.members }.max() ?? 1, 1))
+        let n = CGFloat(max(items.count, 1))
         let now = Int64(Date().timeIntervalSince1970 * 1000)
 
-        for (i, it) in circles.enumerated() {
+        for (i, it) in items.enumerated() {
             // size: members. No wider than its share of the ring.
             let r = min(0.2 + 0.2 * sqrt(CGFloat(max(it.members, 1)) / most), Self.ring * sin(.pi / max(n, 2)) * 0.8)
-            // light: recency.
+            // colour and beat: recency.
             let age = it.lastActive > 0 ? Double(now - it.lastActive) / 3_600_000 : 1e6       // hours
             let stale = CGFloat(min(1, max(0, (age - 24) / (24 * 13))))
             let shown = (it.color.usingColorSpace(.sRGB) ?? it.color).blended(withFraction: 0.72 * stale, of: NSColor(white: 0.62, alpha: 1)) ?? it.color
-            // A token, not a ball: a thin flat disc in one colour, on a white one a little wider.
+            // A token: a thin flat disc in one colour, on a white one a little wider.
             let flat = SCNMaterial()
             flat.lightingModel = .constant
             flat.diffuse.contents = shown
@@ -219,83 +271,96 @@ final class CircleDiagram: NSView {
                 beat.timingMode = .easeInEaseOut
                 node.runAction(.repeatForever(beat))
             }
-            turning.addChildNode(node)
+            rocking.addChildNode(node)
 
-            // its name, small, on the token: a chip of the same colour
-            let on = Theme.on(shown)
             // The names grow and shrink with the donut, so they stay on their tokens
-            // and off each other (this is the one text that is not the one size).
+            // and off each other (one of the texts that is not the one size).
             let small = NSFont.monospacedSystemFont(ofSize: nameSize, weight: .bold)
-            let words = NSMutableAttributedString(string: it.title.uppercased(), attributes: [.font: small, .foregroundColor: on])
-            if it.unread > 0 {
-                words.append(NSAttributedString(string: " "))
-                words.append(NSAttributedString(string: " \(it.unread) ", attributes: [
-                    .font: small, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow]))
-            }
+            let words = NSAttributedString(string: it.title.uppercased(), attributes: [.font: small, .foregroundColor: Theme.on(shown)])
             let tag = Tag(words, wash: shown, tight: true)
             tag.onClick = { [weak self, weak tag] in
                 guard let self else { return }
                 self.onPick?(it.index, tag.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) })
             }
             addSubview(tag)
-            balls.append((node, tag, r))
-        }
-
-        // the commons: flat chips down the side
-        for it in items.filter({ $0.commons }) {
-            let on = Theme.on(it.color)
-            let words = NSMutableAttributedString(string: it.title.uppercased(), attributes: [
-                .font: Theme.mono(11, bold: true), .foregroundColor: on])
-            if it.members > 0 {
-                words.append(NSAttributedString(string: " \(it.members)", attributes: [.font: Theme.mono(10), .foregroundColor: on.withAlphaComponent(0.7)]))
+            var bubble: Bubble?
+            if !it.text.isEmpty || !it.who.isEmpty {
+                let b = Bubble(it)
+                b.onClick = { [weak self, weak tag] in
+                    guard let self else { return }
+                    self.onPick?(it.index, tag.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) })
+                }
+                addSubview(b)
+                bubble = b
             }
-            if it.unread > 0 {
-                words.append(NSAttributedString(string: " "))
-                words.append(NSAttributedString(string: " \(it.unread) ", attributes: [
-                    .font: Theme.mono(10, bold: true), .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow]))
-            }
-            let chip = Tag(words, wash: it.color)
-            chip.onClick = { [weak self, weak chip] in
-                guard let self else { return }
-                self.onPick?(it.index, chip.map { NSPoint(x: $0.frame.midX, y: $0.frame.midY) })
-            }
-            addSubview(chip)
-            chips.append(chip)
+            balls.append((node, tag, bubble, r))
         }
         needsLayout = true
         place()
     }
 
     // The size of the names on the tokens, by the donut's own size.
-    private var nameSize: CGFloat { max(7, min(12, (min(bounds.height, bounds.width * 0.7) / 26).rounded())) }
+    private var nameSize: CGFloat { max(7, min(12, (min(bounds.height, bounds.width * 0.5) / 30).rounded())) }
     private var builtAt: CGFloat = 0
 
     override func layout() {
         super.layout()
+        strings.frame = bounds
+        // The donut keeps to the middle half of the view's width, so the messages have the sides.
+        // (SceneKit sizes the scene by the view's height; a view that is tall for its width moves the camera back.)
+        let wide = 1.12 * bounds.height, room = max(120, bounds.width * 0.46)
+        let back = max(1, wide / room)
+        camera.position = SCNVector3(0, 4.1 * back, 4.5 * back)
         if builtAt != nameSize, !items.isEmpty { builtAt = nameSize; build() }
-        // The commons stand to the right of the donut, one above the other.
-        let wide = chips.map { $0.frame.width }.max() ?? 0
-        var y = bounds.midY + (CGFloat(chips.count) * 24 - 4) / 2 - 20
-        for chip in chips {
-            chip.frame.size.width = wide
-            chip.frame.origin = NSPoint(x: bounds.maxX - wide - 10, y: y)
-            y -= 24
-        }
         place()
     }
 
-    // Keep each name on its token as the donut turns.
+    // Keep each name on its token, and float each message off its token: to the
+    // right of the donut for a token on its right half, to the left for one on
+    // its left, one under another, with a dashed string back to the token.
     private func place() {
         guard !balls.isEmpty, bounds.width > 0 else { return }
-        for (node, tag, _) in balls {
+        let centre = scn.projectPoint(SCNVector3(0, 0, 0))
+        var left: [(Bubble, NSPoint)] = [], right: [(Bubble, NSPoint)] = []
+        var reachX: CGFloat = 0
+        for (node, tag, bubble, _) in balls {
             let p = scn.projectPoint(node.presentation.worldPosition)
             let size = tag.frame.size
             tag.frame.origin = NSPoint(x: min(max(2, p.x - size.width / 2), bounds.width - size.width - 2),
                                        y: min(max(2, p.y - size.height / 2), bounds.height - size.height - 2))
+            reachX = max(reachX, abs(p.x - centre.x))
+            if let bubble { p.x >= centre.x ? right.append((bubble, NSPoint(x: p.x, y: p.y))) : left.append((bubble, NSPoint(x: p.x, y: p.y))) }
         }
+        let edge = reachX * 1.42 + 18                          // clear of the donut's side
+        let path = CGMutablePath()
+        for (side, list) in [(-1.0, left), (1.0, right)] as [(CGFloat, [(Bubble, NSPoint)])] {
+            let space = side < 0 ? centre.x - edge - 6 : bounds.width - (centre.x + edge) - 6
+            let width = min(250, space)
+            let sorted = list.sorted { $0.1.y > $1.1.y }       // top to bottom
+            // one under another, about their tokens' heights, never overlapping and never off the view
+            var ys = sorted.map { $0.1.y - Bubble.tall / 2 }
+            for i in ys.indices.dropFirst() { ys[i] = min(ys[i], ys[i - 1] - Bubble.tall - 5) }
+            if let low = ys.last, low < 4 { let up = 4 - low; ys = ys.map { $0 + up } }
+            if let high = ys.first, high + Bubble.tall > bounds.height - 4 { let down = high + Bubble.tall - bounds.height + 4; ys = ys.map { $0 - down } }
+            for (i, (bubble, token)) in sorted.enumerated() {
+                bubble.isHidden = width < 84                   // no room at the side: the tokens stand alone
+                guard !bubble.isHidden else { continue }
+                let x = side < 0 ? centre.x - edge - width : centre.x + edge
+                bubble.frame = NSRect(x: x, y: ys[i], width: width, height: Bubble.tall)
+                path.move(to: token)
+                path.addLine(to: NSPoint(x: side < 0 ? x + width : x, y: ys[i] + Bubble.tall / 2))
+            }
+        }
+        var ink = Theme.faint
+        effectiveAppearance.performAsCurrentDrawingAppearance { ink = Theme.faint.usingColorSpace(.sRGB) ?? ink }
+        strings.strokeColor = ink.cgColor
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        strings.path = path
+        CATransaction.commit()
     }
 
-    // The donut turns only while it is on screen.
+    // The donut moves only while it is on screen.
     private func run() {
         let on = window != nil && !isHiddenOrHasHiddenAncestor
         scn.isPlaying = on
@@ -321,11 +386,11 @@ final class CircleDiagram: NSView {
 
     // Test aid: pick the first token, as a click on it would.
     func testPick() {
-        guard let first = items.first(where: { !$0.commons }), let tag = balls.first?.tag else { return }
+        guard let first = items.first, let tag = balls.first?.tag else { return }
         onPick?(first.index, NSPoint(x: tag.frame.midX, y: tag.frame.midY))
     }
 
     // Test aid: the scene as a picture (a window snapshot cannot see Metal), and the views drawn over it.
     func shot() -> NSImage { scn.snapshot() }
-    var overlays: [NSView] { balls.map { $0.tag } + chips }
+    var overlays: [NSView] { balls.map { $0.tag } + balls.compactMap { $0.bubble }.filter { !$0.isHidden } }
 }

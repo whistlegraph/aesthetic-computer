@@ -44,6 +44,8 @@ final class Updater {
         }
     }
 
+    func stop() { timer?.invalidate(); timer = nil }
+
     private func say(_ s: String) { DispatchQueue.main.async { self.onStatus?(s) } }
 
     // `asked` = the member chose Check for Updates, so every outcome gets a line.

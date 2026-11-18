@@ -27,14 +27,14 @@ if [[ -n "${DONUT_ARCHS:-}" ]]; then
     for arch in $DONUT_ARCHS; do
         echo "› compiling Sources/*.swift ($arch)"
         xcrun swiftc -O -swift-version 5 -suppress-warnings -sdk "$SDK" -target "$arch-apple-macosx13.0" \
-            "${FRAMEWORKS[@]}" Sources/*.swift -o "build/NCCd-$arch"
+            "${FRAMEWORKS[@]}" Sources/*.swift Launch/main.swift -o "build/NCCd-$arch"
         SLICES+=("build/NCCd-$arch")
     done
     lipo -create -output "$APP/Contents/MacOS/NCCd" "${SLICES[@]}"
     rm -f "${SLICES[@]}"
 else
     echo "› compiling Sources/*.swift"
-    swiftc -O -swift-version 5 -suppress-warnings "${FRAMEWORKS[@]}" Sources/*.swift -o "$APP/Contents/MacOS/NCCd"
+    swiftc -O -swift-version 5 -suppress-warnings "${FRAMEWORKS[@]}" Sources/*.swift Launch/main.swift -o "$APP/Contents/MacOS/NCCd"
 fi
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
