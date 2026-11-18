@@ -51,7 +51,10 @@ if (flowID) api("patch", `flows/${flowID}`, flow); else flowID = api("post", "fl
 console.log(`→ flow   ${flow.name} (${flowID})`);
 
 // 2. The form, pointed at the flow.
+// form.css carries the sign-in page's typeface, logo and plain red errors
+// into the form, which otherwise falls back to Auth0's stock look.
 const form = JSON.parse(readFileSync(join(HERE, "form.json"), "utf8").replace("__FLOW_ID__", flowID));
+form.style = { css: readFileSync(join(HERE, "form.css"), "utf8").replace(/\s*\n\s*/g, "") };
 let formID = listed(api("get", "forms"), "forms").find((f) => f.name === form.name)?.id;
 if (formID) api("patch", `forms/${formID}`, form); else formID = api("post", "forms", form).id;
 console.log(`→ form   ${form.name} (${formID})`);

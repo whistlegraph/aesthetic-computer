@@ -51,6 +51,20 @@ mkdirSync(join(OUT, "reel"), { recursive: true });
 const ac = await ACSession.open(); // a fresh profile: the incognito case
 const page = ac.page;
 const shot = (name) => ac.shot(`${NAME}/${name}`);
+// The harness turns on acDEBUG for the prompt's test hook, which this journey
+// doesn't read. Debug also points Laklok's chat at a local dev port, so the
+// newcomer's first room would sit on "Connecting…". A stranger has no flag.
+await page.evaluateOnNewDocument(() => { window.acDEBUG = false; });
+// Laklok's conversation runs in the piece's worker, out of reach of the
+// page's network events, so read what the chat library says: which server it
+// asked for, and whether it has been failing to reach it.
+const chat = { host: null, failures: 0 };
+page.on("console", (message) => {
+  const text = message.text();
+  const asked = text.match(/Chat connect: chat-clock → (\S+)/);
+  if (asked) { chat.host = asked[1]; chat.failures = 0; }
+  else if (chat.host && /connection failed, retrying/.test(text)) chat.failures++;
+});
 
 // ─── the film ────────────────────────────────────────────────────────────
 // Chrome's screencast hands over a JPEG whenever the tab repaints. Frames are
@@ -172,7 +186,7 @@ const step = (name, fn) => scenario(name, async (expect) => {
 const drawn = [];
 const noteScreen = async (form) => drawn.push({ form, path: await page.evaluate(() => location.pathname).catch(() => "?") });
 
-let sub = null;
+let sub = null, hosted = false; // hosted: the handle was picked on the sign-in page
 const t0 = Date.now();
 const elapsed = () => `${((Date.now() - t0) / 1000).toFixed(1)}s`;
 console.log(`\n🧪 onboarding journey · ${email} · @${handle}\n`);
@@ -209,12 +223,36 @@ await step("a new email + password comes back to AC and asks for verification", 
   await page.type("#password", password, { delay: 15 });
   await shot("03-hosted-password");
   await Promise.all([
-    page.waitForFunction((host) => location.host === host, { timeout: 45_000 }, base.host),
+    page.waitForFunction((host) => location.host === host || /\/u\/custom-prompt\//.test(location.pathname), { timeout: 45_000 }, base.host),
     page.click("button[type=submit]"),
   ]).catch(async (error) => {
     const why = await auth0Complaint();
     throw new Error(why ? `Auth0 refused: ${why}` : error.message);
   });
+  // The hosted page asks for the handle itself once ask-handle is bound
+  // (backend/auth0-forms). A taken name is refused in AC's words, there.
+  if (new URL(page.url()).host !== base.host) {
+    hosted = true;
+    const field = "input[name=handle]";
+    await page.waitForSelector(field, { visible: true, timeout: 20_000 });
+    await ac.wait(800);
+    await shot("03b-hosted-handle");
+    await page.type(field, "jeffrey", { delay: 40 });
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => /@jeffrey is taken/.test(document.body.innerText), { timeout: 20_000 })
+      .catch(() => { throw new Error("the hosted form did not refuse @jeffrey"); });
+    await ac.wait(1200);
+    await shot("03c-hosted-handle-taken");
+    await page.click(field, { clickCount: 3 });
+    await page.keyboard.press("Backspace");
+    await page.type(field, handle, { delay: 40 });
+    await ac.wait(500);
+    await shot("03d-hosted-handle-free");
+    await Promise.all([
+      page.waitForFunction((host) => location.host === host, { timeout: 45_000 }, base.host),
+      page.keyboard.press("Enter"),
+    ]).catch(async () => { throw new Error(`the hosted form kept @${handle}: ${(await page.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").slice(0, 160)}`); });
+  }
   await reached("auth_returned");
   await reached("verification_shown");
   await dialogTitled(/Check your email/);
@@ -222,7 +260,7 @@ await step("a new email + password comes back to AC and asks for verification", 
   await ac.wait(2000); // let the join piece draw
   await noteScreen("Check your email");
   await shot("04-check-your-email");
-  return `${sub || "?"} on ${new URL(page.url()).pathname} at ${elapsed()}`;
+  return `${sub || "?"}${hosted ? `, @${handle} picked on the hosted page,` : ""} on ${new URL(page.url()).pathname} at ${elapsed()}`;
 });
 
 await step("the verification letter arrives and its link verifies", async () => {
@@ -246,13 +284,18 @@ await step("the verification letter arrives and its link verifies", async () => 
   return `letter at ${elapsed()} · "${landed.searchParams.get("message")}"`;
 });
 
-await step("back on the first tab, the verified account is asked for a handle", async () => {
+await step("back on the first tab, the verified account moves on", async () => {
   await page.bringToFront();
   await roll(page);
   await ac.wait(800);
   // The page checks every fifteen seconds while it is visible, so a slow
   // letter can find the handle form already open and the button gone.
   const pressed = await press("I’ve verified my email");
+  if (hosted) {
+    // Already named: verifying is all that was left, and AC moves on.
+    await reached("completed", 30_000);
+    return `${pressed ? "pressed “I’ve verified my email”" : "the page noticed by itself"}; no handle form, at ${elapsed()}`;
+  }
   if (!pressed && !stages.includes("handle_shown")) throw new Error("no verified button in the dialog, and no handle form either");
   await reached("handle_shown", 20_000);
   await dialogTitled(/Choose your @handle/);
@@ -261,6 +304,7 @@ await step("back on the first tab, the verified account is asked for a handle", 
 });
 
 await step(`@${handle} checks free and is claimed`, async () => {
+  if (hosted) return "already claimed on the hosted page";
   await page.type("#ac-signup-handle", handle, { delay: 40 });
   await page.waitForFunction(() => /is free/.test(document.querySelector("#ac-signup-check")?.textContent || ""), { timeout: 10_000 });
   await ac.wait(600);
@@ -313,9 +357,13 @@ await scenario("the newcomer lands in Laklok, signed in", async (expect) => {
   await page.waitForFunction(() => location.pathname === "/laklok", { timeout: 20_000 });
   await page.waitForFunction(() => window.acUSER?.sub, { timeout: 45_000 });
   const who = await signedIn();
-  await ac.wait(8000); // let the conversation connect and draw
-  await shot("08-laklok");
   expect(who.sub === sub, `/laklok as ${who.sub} at ${elapsed()}`);
+  const deadline = Date.now() + 20_000;
+  while (!chat.host && Date.now() < deadline) await ac.wait(250);
+  await ac.wait(6000); // time to connect, or to fail and retry
+  await shot("08-laklok");
+  const live = chat.host === "chat-clock.aesthetic.computer" && chat.failures === 0;
+  expect(live, live ? `the conversation reached ${chat.host}` : `the conversation asked ${chat.host || "no server"} and failed ${chat.failures} time(s)`);
 });
 
 await step("the handle API knows the new account", async () => {
