@@ -62,7 +62,9 @@ test('the lattice: plaza, blocks, lots, homes and the blocks that open next', ()
   const census = geography.census();
   assert.equal(count('plaza'), 1);
   assert.equal(count('block'), census.opened);
-  assert.equal(count('home') + count('lot'), census.opened * LOTS);
+  // Lots are marked out only on a block somebody lives on; the rest is open field.
+  const lived = census.blocks.filter((b) => b.n > 0 && b.homes.length).length;
+  assert.equal(count('home') + count('lot'), lived * LOTS);
   assert.equal(count('home'), 3);
   assert.equal(count('house'), 3);
   assert.equal(count('next'), 6);
@@ -126,4 +128,16 @@ test('GET /map serves the drawing', async () => {
   } finally {
     await app.close();
   }
+});
+
+test('with the houses retired the map has no lots, homes or houses: only the plaza, the open blocks and the tower', () => {
+  const { geography, tower } = world();
+  const gone = geography.retire();
+  assert.equal(gone.length, 3);
+  assert.ok(gone.every((p) => p.id.startsWith('pod-') && p.handle));
+  const map = worldMap({ geography, tower });
+  const count = (role) => map.structure.filter((s) => s.role === role).length;
+  assert.deepEqual([count('home'), count('lot'), count('house')], [0, 0, 0]);
+  assert.equal(count('block'), geography.census().opened);
+  assert.equal(geography.retire().length, 0);
 });

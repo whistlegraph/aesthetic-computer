@@ -56,7 +56,7 @@ export function landShapes(geography, ahead = 6) {
   for (let k = 1; k <= ahead; k++) out.push(square('next', blockAt(census.opened + k)));
   for (const b of census.blocks) {
     out.push(Object.assign(square(b.n === 0 ? 'plaza' : 'block', b), { id: b.id }));
-    if (b.n === 0) continue;
+    if (b.n === 0 || !b.homes.length) continue; // open field: no lots are marked out
     const settled = new Map(b.homes.map((h) => [h.lot, h.handle])), at = toWorld(b, { x: 0, z: 0 });
     for (let k = 0; k < LOTS; k++) {
       const r = lot(k), handle = settled.get(k);

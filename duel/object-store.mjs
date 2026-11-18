@@ -1,5 +1,6 @@
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { geometry, MAX_OBJECTS, MAX_VERSIONS } from './objects.mjs';
 import { WORLD } from './world.mjs';
@@ -45,6 +46,30 @@ export class ObjectStore {
     let moved = false;
     for (const list of Object.values(this.data.rooms || {})) moved = fitRoom(list) || moved;
     if (moved) await this.transact(() => true);
+  }
+  // 🏢 Everything a room holds goes to another: builds, screens, painted
+  // squares (where the other has none), history and what was put away.
+  // A copy of the file as it stood is kept first, once.
+  async moveRooms(pairs) {
+    if (!pairs.length) return 0;
+    if (this.directory)
+      await copyFile(join(this.directory, 'objects.json'), join(this.directory, 'objects.before-houses.json'), constants.COPYFILE_EXCL)
+        .catch((e) => { if (e.code !== 'EEXIST' && e.code !== 'ENOENT') throw e; });
+    return this.transact((d) => {
+      let moved = 0;
+      for (const [from, to] of pairs) {
+        if (d.rooms?.[from]?.length) { d.rooms[to] = [...(d.rooms[to] || []), ...d.rooms[from]]; moved += d.rooms[from].length; }
+        delete d.rooms?.[from];
+        for (const part of ['screens', 'history', 'removed']) {
+          if (d[part]?.[from]?.length) d[part][to] = [...(d[part][to] || []), ...d[part][from]];
+          delete d[part]?.[from];
+        }
+        if (d.tiles?.[from] && !Object.keys(d.tiles[to] || {}).length) d.tiles[to] = d.tiles[from];
+        for (const part of ['tiles', 'walls', 'wallRes']) delete d[part]?.[from];
+      }
+      for (const [, to] of pairs) if (d.rooms?.[to]) fitRoom(d.rooms[to]);
+      return moved;
+    });
   }
   transact(fn) {
     const task = this.queue.then(async () => {

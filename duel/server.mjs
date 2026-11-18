@@ -133,8 +133,28 @@ export function createDuelServer({
   const store = new ObjectStore(stateDir),
     geography = new GeographyStore(stateDir), // 🗺️ who lives where (GEOGRAPHY.md)
     tower = new TowerStore(stateDir), // 🏢 who holds which floor (tower.mjs)
-    ready = Promise.all([store.load(), geography.load(), tower.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
+    loaded = Promise.all([store.load(), geography.load(), tower.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
+  // 🏢 The houses beside the tower come down (2026-11-17): a home is a floor
+  // of the tower. What stood inside each goes up to its handle's floor; both
+  // ledgers are kept as they stood (geography.before-houses.json,
+  // objects.before-houses.json). Runs once: after it there are no houses.
+  const ready = loaded.then(async () => {
+    const pods = Object.values(geography.geography.pods);
+    if (!pods.length) return;
+    await geography.keep('geography.before-houses.json');
+    const pairs = [];
+    for (const p of pods) {
+      const f = await tower.change((t) => {
+        try { return t.arrive(p.handle, p.accountId || null); } catch { return t.forHandle(p.handle); }
+      }).catch(() => null);
+      if (f) pairs.push([p.id, floorRoom(f.id)]);
+    }
+    // (A house whose handle has no floor keeps its things in the store, under its old name.)
+    const moved = await store.moveRooms(pairs);
+    await geography.change((g) => g.retire());
+    console.log(`dool: ${pods.length} houses retired, ${moved} builds moved to ${pairs.length} floors`);
+  }).catch((e) => console.error('dool: houses not retired:', e?.message || e));
   const profiles = new Map();
   const colorsFor = (handle) => {
     let cached = profiles.get(handle);
@@ -152,6 +172,8 @@ export function createDuelServer({
     const block = key === 'lobby' ? null : parseBlock(key);
     // The tower's grounds are open field: no lots, nobody's home.
     if (!block || isGrounds(block) || blockIndex(block) > geography.geography.opened) return null;
+    // A block nobody lives on is open field too: no lots are marked out.
+    if (!Object.values(geography.geography.homes).some((h) => h.block === blockIndex(block))) return null;
     return { room: key, rects: Array.from({ length: LOTS }, (_, k) => lot(k)),
       homes: Object.entries(geography.geography.homes)
         .filter(([, h]) => h.block === blockIndex(block))

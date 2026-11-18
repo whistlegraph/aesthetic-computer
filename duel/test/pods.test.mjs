@@ -294,3 +294,37 @@ test('a passage seats a signed-in walker with their handle before the account is
   assert.ok(landed&&landed.seat>=0);
   assert.equal(app.rooms.get('e1n0').match.seats[landed.seat].player.x,travel.at.x);
 });
+
+test('the houses come down when the server starts: what stood inside goes up to the handle\'s floor, both ledgers are kept, and nobody is left resting in a house', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'dool-retire-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const seed = new GeographyStore(dir);
+  await seed.change(g => { g.settle('jeffrey'); g.settle('oskie'); });
+  const j = seed.geography.forHandle('jeffrey').id, o = seed.geography.forHandle('oskie').id;
+  await seed.change(g => { g.rest('jeffrey', { room: j, x: 1, z: 1 }); g.rest('oskie', { room: 'lobby', x: 2, z: 2 }); });
+  const thing = (id, x) => ({ id, owner: 'owner', x, z: 1, versions: [{ version: 1, code: null, geometry: [] }] });
+  await writeFile(join(dir, 'objects.json'), JSON.stringify({ owners: {},
+    rooms: { [j]: [thing('chair', 1), thing('lamp', 2)], [o]: [], lobby: [thing('fountain', 0)] },
+    tiles: { [j]: { '1,1': 2 } }, history: { [j]: [{ code: 'abc' }] } }));
+  const before = await readFile(join(dir, 'objects.json'), 'utf8'), ledger = await readFile(join(dir, 'geography.json'), 'utf8');
+  const app = createDuelServer({ stateDir: dir });
+  t.after(() => app.close?.());
+  await app.ready;
+  const floor = 'floor-' + app.tower.tower.forHandle('jeffrey').id;
+  assert.deepEqual(app.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
+  assert.deepEqual(app.store.data.tiles[floor], { '1,1': 2 });
+  assert.deepEqual(app.store.data.history[floor], [{ code: 'abc' }]);
+  assert.ok(!(j in app.store.data.rooms) && !(o in app.store.data.rooms));
+  assert.deepEqual(app.store.data.rooms.lobby.map(x => x.id), ['fountain']);
+  assert.deepEqual(app.geography.geography.homes, {});
+  assert.equal(app.geography.geography.whereabouts('jeffrey'), null);
+  assert.equal(app.geography.geography.whereabouts('oskie').room, 'lobby');
+  assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
+  assert.equal(await readFile(join(dir, 'geography.before-houses.json'), 'utf8'), ledger);
+  // A second start finds nothing to do and keeps the copies as they were.
+  const again = createDuelServer({ stateDir: dir });
+  t.after(() => again.close?.());
+  await again.ready;
+  assert.deepEqual(again.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
+  assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
+});
