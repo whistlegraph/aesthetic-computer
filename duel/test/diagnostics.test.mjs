@@ -55,7 +55,7 @@ test('visible sampling records recovered stalls, resets on hiding, and sends at 
 
 test('two players share build IDs, rejection/cancellation survive, and hostile samples cannot leak content', async (t) => {
   const rows = [], token = 'd'.repeat(64);
-  const app = createDuelServer({ builderToken: token, diagnosticsEnabled: true, diagnosticWrite: (r) => rows.push(r) });
+  const app = createDuelServer({ guests: true, builderToken: token, diagnosticsEnabled: true, diagnosticWrite: (r) => rows.push(r) });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
   await once(app.server, 'listening');

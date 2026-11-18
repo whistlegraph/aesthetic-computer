@@ -270,7 +270,7 @@ test('a third player\'s rocket frags under the free-for-all score', () => {
 });
 
 test('HTTP allowlist, actual two-socket match, full room, room isolation and cleanup', async t => {
-  const app = createDuelServer(); t.after(() => app.close());
+  const app = createDuelServer({ guests: true }); t.after(() => app.close());
   app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
   const base = `http://127.0.0.1:${app.server.address().port}`;
   assert.equal((await fetch(base)).status, 200);
@@ -298,7 +298,7 @@ test('HTTP allowlist, actual two-socket match, full room, room isolation and cle
 });
 
 test('dool mounts below a prefix and shares HTTP and WebSockets without taking over other routes', async t => {
-  const app = createDuelServer({ prefix: '/dool' });
+  const app = createDuelServer({ guests: true, prefix: '/dool' });
   const server = createServer((req, res) => {
     if (req.url.startsWith('/dool')) return app.handle(req, res);
     res.end('host application');

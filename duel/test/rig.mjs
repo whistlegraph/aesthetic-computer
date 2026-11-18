@@ -10,7 +10,7 @@ import { _electron as electron } from 'playwright';
 import { createDuelServer } from '../server.mjs';
 
 const accounts = process.argv.includes('--accounts');
-const server = createDuelServer({
+const server = createDuelServer({ guests: true,
   prefix: '/dool',
   ...(accounts
     ? {}

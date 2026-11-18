@@ -9,7 +9,7 @@ import { populatedRoom } from './load-fixture.mjs';
 
 // Local only: four populated rooms, two players and two spectators per room.
 const rows = [], clients = [], timers = [];
-const app = createDuelServer({ diagnosticsEnabled: true, diagnosticWrite: r => rows.push(r) });
+const app = createDuelServer({ guests: true, diagnosticsEnabled: true, diagnosticWrite: r => rows.push(r) });
 await app.ready;
 for (let i = 0; i < 4; i++) app.store.data.rooms[`load-${i}`] = populatedRoom();
 app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');

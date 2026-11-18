@@ -1041,6 +1041,7 @@ export async function createView(canvas) {
     me,
     camera,
     spectator = false,
+    gate = null, // 'account' | 'handle': what a visitor needs before a seat.
     controller,
     seat = 0,
     third = false,
@@ -1790,10 +1791,20 @@ export async function createView(canvas) {
               ...(spectator
                 ? [
                     hintSpans(
-                      controller ? 'freecam / [LB] down / [RB] up' : 'freecam / {wasd} / {space} up / {shift} down',
+                      input === 'touch' ? 'flying over' : controller ? 'flying over / [LB] down / [RB] up' : 'flying over / {wasd} / {space} up / {shift} down',
                       THEME.text,
                     ),
+                    // 🪪 A body and a floor come with a handle.
+                    ...(gate
+                      ? [
+                          hintSpans(
+                            `${input === 'touch' ? 'tap' : controller ? '[A]' : '{enter}'} ${gate === 'handle' ? 'get a handle to walk' : 'sign up to walk'}`,
+                            THEME.verb,
+                          ),
+                        ]
+                      : []),
                   ]
+                : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint
                 : hint.split('\n').map((l, i) =>
                     i === 0 && moded && hint.includes('\n')

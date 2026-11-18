@@ -84,7 +84,7 @@ test('park paths only connect open adjacent blocks and land inside the opposite 
 
 async function fixture(t) {
   const dir = await mkdtemp(join(tmpdir(), 'dool-pod-server-'));
-  const app = createDuelServer({stateDir:dir, resolveHandleColors:async h => Array.from({length:h.length+1},()=>({r:20,g:200,b:240})),
+  const app = createDuelServer({ guests: true, stateDir:dir, resolveHandleColors:async h => Array.from({length:h.length+1},()=>({r:20,g:200,b:240})),
     verifyIdentity:async token=>({handle:token,sub:`account:${token}`})});
   await app.ready;
   await app.geography.change(g=>{g.identify('jeffrey','account:jeffrey');g.identify('oskie','account:oskie');});

@@ -31,7 +31,7 @@ const old = (id, x, z, geometry, code = null) => ({
 async function dool(seed = null) {
   const stateDir = await mkdtemp(join(tmpdir(), 'dool-spell-walk-in-'));
   if (seed) await writeFile(join(stateDir, 'objects.json'), JSON.stringify({ owners: {}, rooms: {}, ...seed }));
-  const app = createDuelServer({
+  const app = createDuelServer({ guests: true,
     stateDir,
     builderToken: BUILDER_TOKEN,
     // The cast signs in by name; a token starting "guest" is nobody's.

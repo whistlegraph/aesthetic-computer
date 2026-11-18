@@ -12,7 +12,7 @@ import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
-import { accountToken, accountExpected } from './account.mjs';
+import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -458,6 +458,17 @@ let freecamPlaced = false;
 // that is joining, not watching, so none of the spectator's mode shows.
 let joiningUntil = 0;
 const joining = () => seat < 0 && performance.now() < joiningUntil;
+// 🪪 What the seat waits for: 'account' (nobody is signed in) or 'handle'
+// (signed in, no handle yet). Until then the visitor flies over and looks.
+let gate = null;
+// The way in: sign up, or back to the prompt where a handle is claimed.
+function askIn() {
+  if (!gate) return false;
+  if (locked()) document.exitPointerLock();
+  if (gate === 'handle' && hosted) leave();
+  else askAccount(gate);
+  return true;
+}
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -763,6 +774,7 @@ function connect() {
   members = [];
   selfMember = null;
   freecamPlaced = false;
+  gate = null;
   joiningUntil = performance.now() + 7000;
   connectAttempts++;
   logNet(`connecting to room ${room} (try ${connectAttempts})`);
@@ -778,7 +790,10 @@ function connect() {
     if (data.type === 'welcome' || data.type === 'role') {
       const old = player;
       seat = data.seat;
-      if (seat >= 0) lastSeat = seat;
+      if (seat >= 0) {
+        lastSeat = seat;
+        gate = null;
+      }
       if (seat < 0 && !held) {
         freecam = old
           ? { x: old.x + 2, y: old.y + 2, z: old.z - 3, yaw, pitch }
@@ -804,7 +819,16 @@ function connect() {
         presentation.reset(null);
       }
     }
+    if (data.type === 'gate' && seat < 0) {
+      gate = data.needs === 'handle' ? 'handle' : 'account';
+      joiningUntil = 0; // Not joining: looking.
+    }
     if (data.type === 'welcome') {
+      // Nobody signed in on this page and the room seats handles only.
+      if (data.guests === false && seat < 0 && !account && !query.has('film')) {
+        gate = 'account';
+        joiningUntil = 0;
+      }
       configureDiagnostics(data.diagnostics === true);
       logNet(seat >= 0 ? `joined as player ${seat + 1}` : account ? 'signing in' : 'joined as a spectator', { good: true });
       if (data.joinURL) joinURL = data.joinURL;
@@ -1424,10 +1448,12 @@ function touchButton(button, isDown) {
     softKeys.focus({ preventScroll: true });
   } else syncSoftKeys();
 }
+let gateTap = null; // A quick tap while looking on asks the way in.
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  gateTap = seat < 0 && gate ? { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() } : null;
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
@@ -1448,7 +1474,11 @@ canvas.addEventListener('pointermove', (e) => {
   if (touchy(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
 });
 canvas.addEventListener('pointerup', (e) => {
-  if (touchy(e)) touchButton(touch.up(e, performance.now()), false);
+  if (!touchy(e)) return;
+  touchButton(touch.up(e, performance.now()), false);
+  const tap = gateTap;
+  gateTap = null;
+  if (tap && tap.id === e.pointerId && performance.now() - tap.at < 350 && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 12) askIn();
 });
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
@@ -1578,7 +1608,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
-    if (seat < 0) return;
+    if (seat < 0) return void askIn();
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
       releaseInput();
@@ -1998,6 +2028,7 @@ function step(now) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+    if (seat < 0 && gate && gamepad.select) askIn(); // [A]: the way in.
   }
   if (lockOn && player) {
     const target = spotOf(lockOn.id);
@@ -2275,6 +2306,7 @@ function step(now) {
     debug: !!game() && debugBoxes,
     camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
+    gate: seat < 0 ? gate : null,
     controller: controller.id,
     seat,
     third: third || !!game()?.camera,
@@ -2364,7 +2396,7 @@ function step(now) {
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
     cornerScale,
-    flyTo: seat < 0 && hosted && sheetOpen ? spawn(lastSeat >= 0 ? lastSeat : 0) : null,
+    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : spawn(lastSeat >= 0 ? lastSeat : 0) : null,
     jobs,
     worldTime,
     locked: locked(),

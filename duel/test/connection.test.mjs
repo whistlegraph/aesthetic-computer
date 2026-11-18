@@ -42,7 +42,7 @@ test('probes stay bounded under loss and queue congestion', () => {
   assert.ok(c.arrivalJitter > 3);
 });
 test('presence uses verified AC handles, survives match reset and clears departed seats', async () => {
-  const app = createDuelServer({
+  const app = createDuelServer({ guests: true, 
     resolveHandleColors: async () => null,
     verifyIdentity: async (token) => {
       if (token === 'valid-test-token')
