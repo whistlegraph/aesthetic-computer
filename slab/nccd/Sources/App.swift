@@ -38,7 +38,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             zoom = min(2.4, max(0.6, (zoom * 20).rounded() / 20))
             UserDefaults.standard.set(Double(zoom), forKey: "zoom")
             main.zoom = zoom
-            login?.web.pageZoom = zoom
+            login?.zoom = zoom
             satellites.forEach { $0.view.zoom = zoom }
         }
     }
@@ -298,12 +298,80 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard account == nil else { return }
         let panel = main.link
         if Config.shared.signalCli == nil {
+            // The Signal engine (signal-cli) is not on this Mac. With Homebrew
+            // here, the app installs it itself, as soon as it opens.
             panel.button.isEnabled = false
-            panel.status.stringValue = "signal-cli is missing"
-            panel.note.stringValue = "Install the Signal engine first: brew install signal-cli"
+            if installing {
+                panel.status.stringValue = "installing the Signal engine…"
+            } else if Config.brew != nil, !triedInstall {
+                installEngine()
+            } else if Config.brew == nil {
+                panel.status.stringValue = "the Signal engine is missing"
+                panel.note.stringValue = "NCCd installs its Signal engine with Homebrew. Install Homebrew (brew.sh), then open NCCd again."
+            }
         } else {
             panel.button.isEnabled = !linking
             panel.status.stringValue = linking ? "scan the code with your phone" : "Signal opens your circles"
+        }
+    }
+
+    // ─── the Signal engine ───────────────────────────────────────────────────
+    // signal-cli is a Homebrew package. The app installs it when it is missing
+    // and updates it when asked (menu), and says what Homebrew is doing.
+    var installing = false, triedInstall = false
+
+    func brew(_ args: [String], line: @escaping (String) -> Void, done: @escaping (Bool, String) -> Void) {
+        guard let brew = Config.brew else { return done(false, "Homebrew is not installed") }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: brew)
+        p.arguments = args
+        var env = ProcessInfo.processInfo.environment
+        env["HOMEBREW_NO_ENV_HINTS"] = "1"
+        env["NONINTERACTIVE"] = "1"
+        env["PATH"] = (brew as NSString).deletingLastPathComponent + ":/usr/bin:/bin:/usr/sbin:/sbin"
+        p.environment = env
+        let out = Pipe()
+        p.standardOutput = out
+        p.standardError = out
+        var tail = ""
+        out.fileHandleForReading.readabilityHandler = { h in
+            guard let s = String(data: h.availableData, encoding: .utf8), !s.isEmpty else { return }
+            tail = String((tail + s).suffix(400))
+            if let last = s.split(separator: "\n").last { DispatchQueue.main.async { line(String(last.prefix(90))) } }
+        }
+        p.terminationHandler = { p in
+            out.fileHandleForReading.readabilityHandler = nil
+            DispatchQueue.main.async { done(p.terminationStatus == 0, tail) }
+        }
+        do { try p.run() } catch { done(false, error.localizedDescription) }
+    }
+
+    func installEngine() {
+        installing = true
+        triedInstall = true
+        main.link.status.stringValue = "installing the Signal engine…"
+        main.link.note.stringValue = "Homebrew is installing signal-cli. This takes a minute or two, the first time."
+        brew(["install", "signal-cli"], line: { [weak self] s in self?.main.link.note.stringValue = s }) { [weak self] ok, tail in
+            guard let self else { return }
+            self.installing = false
+            Config.shared.hideEngine = false
+            self.main.link.note.stringValue = ok && Config.shared.signalCli != nil ? ""
+                : "The Signal engine was not installed: " + String(tail.replacingOccurrences(of: "\n", with: " ").suffix(160))
+            self.refreshLink()
+        }
+    }
+
+    @objc func updateEngine() {
+        guard Config.brew != nil else { return main.setStatus("the Signal engine is updated with Homebrew, which is not on this Mac") }
+        main.setStatus("updating the Signal engine…")
+        brew(["upgrade", "signal-cli"], line: { [weak self] s in self?.main.setStatus("Signal engine: " + s) }) { [weak self] ok, tail in
+            guard let self else { return }
+            guard ok else { return self.main.setStatus("Signal engine not updated: " + String(tail.replacingOccurrences(of: "\n", with: " ").suffix(120))) }
+            self.main.setStatus("the Signal engine is up to date")
+            if self.account != nil, !Self.dev {            // start again on the new engine
+                self.engine.stop()
+                self.startSignal()
+            }
         }
     }
 
@@ -330,7 +398,14 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // The club's login page, in the wiki pane. When the wiki has its session, the wiki opens.
     func showLogin() {
-        let l = WikiLogin(base: wiki.base)
+        // the login page wears this theme's colours
+        func css(_ c: NSColor) -> String {
+            var out = c
+            window.effectiveAppearance.performAsCurrentDrawingAppearance { out = c.usingColorSpace(.sRGB) ?? c }
+            return String(format: "rgba(%d,%d,%d,%.2f)", Int(out.redComponent * 255), Int(out.greenComponent * 255), Int(out.blueComponent * 255), out.alphaComponent)
+        }
+        let l = WikiLogin(base: wiki.base, ink: css(Theme.ink), field: css(Theme.pair("FFFFFF", "061820", alpha: 0.8)),
+                          accent: css(Donut.icing), onAccent: css(Theme.on(Donut.icing)))
         l.onToken = { [weak self] token in
             guard let self else { return }
             self.wiki.setToken(token)
@@ -339,7 +414,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.loadWiki()
         }
         login = l
-        l.web.pageZoom = zoom
+        l.zoom = zoom
         main.showWikiLogin(l.web)
         l.start()
     }
@@ -1067,6 +1142,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         app.addItem(.separator())
         app.addItem(withTitle: "About NCCd", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        app.addItem(withTitle: "Update Signal Engine", action: #selector(updateEngine), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Quit NCCd", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let edit = NSMenu(title: "Edit")

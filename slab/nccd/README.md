@@ -57,7 +57,10 @@ its logs and its keys.
 state, how a change moves through it. `dev.sh` says at its top how the fast
 loop works (per-file compilation, a dynamic library, a host that reloads it).
 
-The app needs `signal-cli` (`brew install signal-cli`).
+The app needs `signal-cli`. When it is missing and this Mac has Homebrew, the
+app installs it itself as it opens (`brew install signal-cli`), and the menu's
+Update Signal Engine runs `brew upgrade signal-cli`. With no Homebrew it says
+what to do.
 
 ## Release
 
@@ -151,6 +154,7 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_SNAPSHOT_SEARCH=<words>` | open the Search tab and search for them |
 | `NCC_SNAPSHOT_WINDOW=<n>` | give the nth circle its own window, and picture that window |
 | `NCC_SNAPSHOT_DOC=<title, id or slug>` | open that wiki page first; its markdown is written to `<file.png>.md` |
+| `NCC_NO_SIGNAL_CLI=1` | as if signal-cli were not installed, to see the engine install |
 | `NCC_LOGGED_OUT=1` | no Signal account and no wiki session, to see the logged-out screen (`signal` or `ncc` for one of them) |
 | `-appearance dark` (argument) | the theme |
 

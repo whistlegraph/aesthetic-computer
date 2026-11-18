@@ -89,7 +89,14 @@ final class Config {
         return Bundle.main.path(forResource: "signal", ofType: "mjs")
     }
 
+    // Homebrew, when this Mac has it: the app uses it to install and update its Signal engine.
+    static var brew: String? {
+        ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+    var hideEngine = ProcessInfo.processInfo.environment["NCC_NO_SIGNAL_CLI"] != nil     // test aid: as if signal-cli were not installed
+
     var signalCli: String? {
+        if hideEngine { return nil }
         let fm = FileManager.default
         for p in [conf.signalCli, "/opt/homebrew/bin/signal-cli", "/usr/local/bin/signal-cli"] {
             if let p, fm.isExecutableFile(atPath: p) { return p }

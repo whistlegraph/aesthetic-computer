@@ -2035,7 +2035,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     // Test aid: the 3D donut as a picture with the views over it, and where it sits (nil when hidden).
     func donutShot() -> (NSImage, [NSView], NSView)? {
-        diagram.isHidden || diagram.window == nil ? nil : (diagram.shot(), diagram.overlays, diagram)
+        diagram.isHiddenOrHasHiddenAncestor || diagram.window == nil ? nil : (diagram.shot(), diagram.overlays, diagram)
     }
 
     // The words in the composer, and whether the member has stopped typing
