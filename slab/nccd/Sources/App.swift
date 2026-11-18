@@ -479,6 +479,12 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if codeWeb == nil {
             let w = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
             w.allowsBackForwardNavigationGestures = true
+            w.setValue(false, forKey: "drawsBackground")
+            // when the forge sends the member to the club's login, that page is dressed as in the wiki's sign-in
+            let c = loginColours()
+            w.configuration.userContentController.addUserScript(WKUserScript(
+                source: WikiLogin.dress(ink: c.ink, field: c.field, accent: c.accent, onAccent: c.onAccent),
+                injectionTime: .atDocumentEnd, forMainFrameOnly: true))
             if let url = URL(string: Config.shared.conf.forgeURL ?? "https://git.nela.computer") { w.load(URLRequest(url: url)) }
             codeWeb = w
         }
@@ -513,16 +519,20 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    // The club's login page, in the wiki pane. When the wiki has its session, the wiki opens.
-    func showLogin() {
-        // the login page wears this theme's colours
+    // This theme's colours as CSS, for the club's login page.
+    func loginColours() -> (ink: String, field: String, accent: String, onAccent: String) {
         func css(_ c: NSColor) -> String {
             var out = c
             window.effectiveAppearance.performAsCurrentDrawingAppearance { out = c.usingColorSpace(.sRGB) ?? c }
             return String(format: "rgba(%d,%d,%d,%.2f)", Int(out.redComponent * 255), Int(out.greenComponent * 255), Int(out.blueComponent * 255), out.alphaComponent)
         }
-        let l = WikiLogin(base: wiki.base, ink: css(Theme.ink), field: css(Theme.pair("FFFFFF", "061820", alpha: 0.8)),
-                          accent: css(Donut.icing), onAccent: css(Theme.on(Donut.icing)))
+        return (css(Theme.ink), css(Theme.pair("FFFFFF", "061820", alpha: 0.8)), css(Donut.icing), css(Theme.on(Donut.icing)))
+    }
+
+    // The club's login page, in the wiki pane. When the wiki has its session, the wiki opens.
+    func showLogin() {
+        let c = loginColours()
+        let l = WikiLogin(base: wiki.base, ink: c.ink, field: c.field, accent: c.accent, onAccent: c.onAccent)
         l.onToken = { [weak self] token in
             guard let self else { return }
             self.wiki.setToken(token)
@@ -729,7 +739,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         main.showSearch(false)
         if onStart {
             main.showRadio(false)
-            window.title = "NCCd: donut"                  // the title bar says where we are
+            window.title = "NCCd"                         // the donut is NCCd itself; elsewhere the title adds where
             // Home is one image: the donut, a token on it for every chat, and the newest message of each floating off its token.
             main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
             main.renderBlank()

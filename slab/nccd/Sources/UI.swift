@@ -465,9 +465,11 @@ final class Unibar: NSView {
             tinted.draw(in: NSRect(x: x, y: mid - size.height / 2, width: size.width, height: size.height))
             x += size.width + 8
         }
-        let name = NSAttributedString(string: title, attributes: [.font: Theme.mono(weight: .heavy), .foregroundColor: on])
-        name.draw(at: NSPoint(x: x, y: mid - name.size().height / 2))
-        x += name.size().width + 8
+        if !title.isEmpty {
+            let name = NSAttributedString(string: title, attributes: [.font: Theme.mono(weight: .heavy), .foregroundColor: on])
+            name.draw(at: NSPoint(x: x, y: mid - name.size().height / 2))
+            x += name.size().width + 8
+        }
         let arrow = NSAttributedString(string: open ? "▴" : "▾", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: on])
         arrow.draw(at: NSPoint(x: x, y: mid - arrow.size().height / 2))
         if unread > 0 {
@@ -503,8 +505,8 @@ final class LogoTab: NSView {
     // Down the side the house stands left of the word. On top the word stands alone
     // (the bar beside it says where you are), and in a narrow window the house stands for it.
     private func arrange() {
-        word.isHidden = small
-        home.isHidden = onTop && !small
+        word.isHidden = false
+        home.isHidden = true                 // no house: the wordmark itself is the way home
         afterHome.isActive = false
         atEdge.isActive = false
         (home.isHidden ? atEdge : afterHome)?.isActive = true
@@ -1015,7 +1017,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             return
         }
         topLevel = 1
-        let small = w < 380
+        let small = false                    // the wordmark always shows: it is the donut's own name
         logo.small = small
         logoWide.constant = small ? 46 : 118
         topHeight.constant = 36
@@ -1034,10 +1036,19 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         for r in rows { r.selected = wiki ? r.tag_ == paneTab : r.tag_ == shownIndex }
         logo.selected = !wiki && shownIndex == -1
         if top {                                    // the bar says where we are, in that place's colour
-            let here = rows.first { $0.selected }
-            unibar.title = here?.title ?? "donut"
-            unibar.glyph = here?.glyph ?? Theme.tabIcon("home")
-            unibar.color = here?.pane ?? Theme.wash(Donut.icing)
+            // You are in NCCd (the donut: the wordmark alone), or in NCCd and one more place.
+            let here = rows.first { $0.selected && $0.tag_ != -1 }
+            if let here {
+                unibar.title = here.title
+                unibar.glyph = here.glyph
+            } else if wiki {                    // the wiki's plane with no tab of its own yet (the login)
+                unibar.title = paneTab == -5 ? "Code" : "Wiki"
+                unibar.glyph = Theme.tabIcon(unibar.title)
+            } else {
+                unibar.title = ""
+                unibar.glyph = nil
+            }
+            unibar.color = here?.pane ?? (wiki ? Theme.wikiPaper : Theme.wash(Donut.icing))
             unibar.unread = rows.filter { !$0.selected }.reduce(0) { $0 + $1.unread }
             logo.selected = true                    // the wordmark's end of the bar is the bar's colour too
             logo.barColor = unibar.color
@@ -1659,7 +1670,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     func setRail(_ sections: [(String, [(Int, String, NSColor?)])]) {
         lastSections = sections
         // In the dropdown the donut is a place like any other, and it comes first.
-        let sections = top ? [("", [(-1, "donut", Optional(Donut.icing))])] + sections : sections
+        let sections = top ? [("", [(-1, "NCCd", Optional(Donut.icing))])] + sections : sections
         rail.arrangedSubviews.forEach { $0.removeFromSuperview() }
         dropStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows = []
@@ -1682,7 +1693,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             }
             for (index, title, color) in items {
                 let hue = color ?? Donut.icing
-                let row = RailRow(title: title, icon: Theme.tabIcon(index == -1 ? "home" : title), color: hue,
+                let row = RailRow(title: title, icon: index == -1 ? nil : Theme.tabIcon(title), color: hue,
                                   pane: index == -2 ? Theme.wikiPaper : Theme.wash(hue))
                 row.unread = unreadBy[index] ?? 0
                 row.onClick = { [weak self] in self?.dropOpen = false; self?.onSelect?(index) }

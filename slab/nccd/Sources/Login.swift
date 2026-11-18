@@ -38,9 +38,13 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
     // background, no language picker or footer, a small logo, the app's
     // monospace face, and fields and a button in the app's colours. Nothing
     // of the form's working is touched.
-    private static func dress(ink: String, field: String, accent: String, onAccent: String) -> String {
+    static func dress(ink: String, field: String, accent: String, onAccent: String) -> String {
         let css = """
-        html, body { background: transparent !important; background-image: none !important; }
+        html, body { background: transparent !important; background-image: none !important;
+          height: auto !important; min-height: 0 !important; overflow: hidden !important; }
+        ak-flow-executor, .ak-v2-c-drawer, .ak-v2-c-drawer__main, .ak-v2-c-drawer__content, .ak-v2-c-drawer__body {
+          height: auto !important; min-height: 0 !important; }
+        form.pf-c-form > p { display: none !important; }
         .pf-c-login { min-height: 0 !important; padding: 12px 16px !important; background: transparent !important; display: block !important; }
         ak-locale-select, .pf-c-login__header, .pf-c-login__footer, ak-brand-links, ak-flow-inspector-button,
         .pf-c-brand, img.branding-logo, .pf-c-login__main-header, h1.pf-c-title { display: none !important; }
@@ -55,15 +59,16 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         p, label, span, a, legend { font: 12px ui-monospace, "SF Mono", Menlo, monospace !important; color: \(ink) !important; }
         .pf-c-form { gap: 8px !important; }
         .pf-c-form__group { margin: 0 !important; }
-        input.pf-c-form-control { font: 13px ui-monospace, "SF Mono", Menlo, monospace !important; height: auto !important;
-          padding: 8px 10px !important; border: 0 !important; border-radius: 7px !important; background: \(field) !important; color: \(ink) !important; }
+        input.pf-c-form-control { font: 16px ui-monospace, "SF Mono", Menlo, monospace !important; height: auto !important;
+          padding: 12px 13px !important; border: 0 !important; border-radius: 7px !important; background: \(field) !important; color: \(ink) !important; }
         input.pf-c-form-control::placeholder { color: \(ink) !important; opacity: 0.5; }
-        button.pf-c-button.pf-m-primary { font: 700 13px ui-monospace, "SF Mono", Menlo, monospace !important; padding: 9px !important;
+        button.pf-c-button.pf-m-primary { font: 700 16px ui-monospace, "SF Mono", Menlo, monospace !important; padding: 12px !important;
           border-radius: 7px !important; background: \(accent) !important; color: \(onAccent) !important; }
         button.pf-c-button.pf-m-primary::after { border: 0 !important; }
         """
         return """
         (function () {
+          if (!/^auth\\./.test(location.host)) return;      // the club's login page only, not the sites it signs in to
           var css = \(String(reflecting: css));
           function dress(root) {
             if (!root || root.__nccd) return;
