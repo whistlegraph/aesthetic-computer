@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "paper": "The No Paint Brushbook",
+  "pdf": "brushbook.pdf",
+  "expectedDiagrams": 3,
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "agent": "Claude"
+  },
+  "diagrams": [
+    {
+      "id": "two-buttons",
+      "page": 3,
+      "crop": [
+        0.755,
+        0.165,
+        0.2,
+        0.065
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "No and Paint in two equal cells under their side-head; type centred, nothing touches the rule."
+    },
+    {
+      "id": "the-prompt",
+      "page": 3,
+      "crop": [
+        0.755,
+        0.4,
+        0.2,
+        0.07
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "White mono on the prompt green, one line, clear of the side-head above."
+    },
+    {
+      "id": "a-code",
+      "page": 3,
+      "crop": [
+        0.755,
+        0.775,
+        0.2,
+        0.09
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Grey corner with the eight-character code at bottom right; shortened after the first build so it clears the next side-head."
+    }
+  ],
+  "reviewedAt": "2026-11-18T21:11:34.623Z",
+  "pdfSha256": "40d824cabd73eee790b71fa8be31e0cc4deb64d7e4e2cbd48032406e888e1feb",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Cover byline checked at 500 dpi: the period is pink. The second use, in Sources on the last page, was read at 110 dpi."
+  },
+  "notes": "The gate counts pictures only inside figure environments, and this book has none, so the 37 strips and the cover are not listed. They were looked at anyway: every strip on a contact sheet of the source images (two sheets, then the seven that were rerun), all 21 pages on the page contact sheet, and pages 1, 3, 4, 16, 19, 20 and 21 at reading size. The last build changed one file name in the Sources paragraph on page 21; that paragraph was re-read at 110 dpi and the page count is unchanged."
+}

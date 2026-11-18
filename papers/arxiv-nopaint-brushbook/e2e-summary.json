@@ -1,0 +1,978 @@
+{
+ "at": "2026-11-18T20:52:57.026Z",
+ "script": "tests/browser/brushbook.e2e.mjs",
+ "build": "No Paint classic (2021 Construct export plus toolchain/nopaint/patch-classic.mjs), served from a folder, network blocked",
+ "browser": "headless Chrome on a fleet Mac mini",
+ "view": {
+  "W": 512,
+  "H": 704,
+  "DSF": 1
+ },
+ "lookMs": 2600,
+ "cover": {
+  "cols": 6,
+  "rows": 6
+ },
+ "cases": [
+  {
+   "brush": "Aura",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Aura",
+   "paint": {
+    "pass": true,
+    "said": "Aura 93 150",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Aura 189 111",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Aura.jpg"
+  },
+  {
+   "brush": "Banner",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Banner",
+   "paint": {
+    "pass": true,
+    "said": "Banner 189 62 328",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Banner 79 177 224",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Banner.jpg"
+  },
+  {
+   "brush": "Blur",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Blur",
+   "paint": {
+    "pass": true,
+    "said": "Blur",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Blur",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Blur.jpg"
+  },
+  {
+   "brush": "Box",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Box",
+   "paint": {
+    "pass": true,
+    "said": "Box 94 172 40 251 5AADB9",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Box 3 163 28 12 D37340",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Box.jpg"
+  },
+  {
+   "brush": "Breathe",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Breathe: 128 128 5",
+   "paint": {
+    "pass": true,
+    "said": "Breathe 128 128 5",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Breathe 128 128 5",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Breathe.jpg"
+  },
+  {
+   "brush": "Bubbles",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Bubbles",
+   "paint": {
+    "pass": true,
+    "said": "Bubbles",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Bubbles",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Bubbles.jpg"
+  },
+  {
+   "brush": "Build",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Build",
+   "paint": {
+    "pass": true,
+    "said": "Build 212 107",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Build 195 102",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Build.jpg"
+  },
+  {
+   "brush": "Camera",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Camera",
+   "paint": {
+    "pass": true,
+    "said": "Camera 1 10",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Camera 1 9",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Camera.jpg"
+  },
+  {
+   "brush": "Caterpillar",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Caterpillar: 32",
+   "paint": {
+    "pass": true,
+    "said": "Caterpillar 32",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Caterpillar 32",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Caterpillar.jpg"
+  },
+  {
+   "brush": "Contrast",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Contrast",
+   "paint": {
+    "pass": true,
+    "said": "Contrast More",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Contrast More",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Contrast.jpg"
+  },
+  {
+   "brush": "Dark Window",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Dark Window: 128 128",
+   "paint": {
+    "pass": true,
+    "said": "Dark Window 128 128",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Dark Window 128 128",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Dark-Window.jpg"
+  },
+  {
+   "brush": "Ellipse",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Ellipse",
+   "paint": {
+    "pass": true,
+    "said": "Ellipse 181 227 26 70 4C1780",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Ellipse 149 128 90 140 9763E2",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Ellipse.jpg"
+  },
+  {
+   "brush": "Flip",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Flip",
+   "paint": {
+    "pass": true,
+    "said": "Flip H",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Flip H",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Flip.jpg"
+  },
+  {
+   "brush": "Frame",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Frame",
+   "paint": {
+    "pass": true,
+    "said": "Frame",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Frame",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Frame.jpg"
+  },
+  {
+   "brush": "Grid Worm",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Grid Worm",
+   "paint": {
+    "pass": true,
+    "said": "Grid Worm 119 125",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Grid Worm 208 90",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Grid-Worm.jpg"
+  },
+  {
+   "brush": "Invert",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Invert",
+   "paint": {
+    "pass": true,
+    "said": "Invert",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Invert",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Invert.jpg"
+  },
+  {
+   "brush": "Light Bump",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Light Bump",
+   "paint": {
+    "pass": true,
+    "said": "Light Bump More",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Light Bump Less",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Light-Bump.jpg"
+  },
+  {
+   "brush": "Line",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Line",
+   "paint": {
+    "pass": true,
+    "said": "Line 110 221 118 164 16 3C9E83",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Line 175 162 255 27 14 96D92B",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Line.jpg"
+  },
+  {
+   "brush": "Load",
+   "start": null,
+   "skipped": "opens a file picker, or fetches a painting from the save server",
+   "watched": false,
+   "line": null
+  },
+  {
+   "brush": "Mirror",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Mirror",
+   "paint": {
+    "pass": true,
+    "said": "Mirror Left",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Mirror Left",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Mirror.jpg"
+  },
+  {
+   "brush": "Noise",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Noise",
+   "paint": {
+    "pass": true,
+    "said": "Noise",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Noise",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Noise.jpg"
+  },
+  {
+   "brush": "Playlist",
+   "start": "blank",
+   "skipped": null,
+   "watched": true,
+   "line": "Playlist: Smiley",
+   "paint": {
+    "pass": true,
+    "said": null,
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Playlist.jpg"
+  },
+  {
+   "brush": "Quicksand",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Quicksand",
+   "paint": {
+    "pass": true,
+    "said": "Quicksand 114 130 4",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Quicksand 31 34 4",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Quicksand.jpg"
+  },
+  {
+   "brush": "Rainbow",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Rainbow",
+   "paint": {
+    "pass": true,
+    "said": "Rainbow",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Rainbow",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Rainbow.jpg"
+  },
+  {
+   "brush": "Recurse",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Recurse",
+   "paint": {
+    "pass": true,
+    "said": "Recurse 100 198",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Recurse 64 142",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Recurse.jpg"
+  },
+  {
+   "brush": "Saturate",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Saturate",
+   "paint": {
+    "pass": true,
+    "said": "Saturate Less",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Saturate More",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Saturate.jpg"
+  },
+  {
+   "brush": "Scroll",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Scroll",
+   "paint": {
+    "pass": true,
+    "said": "Scroll Left",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Scroll Left",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Scroll.jpg"
+  },
+  {
+   "brush": "Sharpen",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Sharpen",
+   "paint": {
+    "pass": true,
+    "said": "Sharpen",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Sharpen",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Sharpen.jpg"
+  },
+  {
+   "brush": "Softy",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Softy: 128 128 L ?",
+   "paint": {
+    "pass": true,
+    "said": "Softy 128 128 L BDD9C9",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Softy 128 128 L 91724A",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Softy.jpg"
+  },
+  {
+   "brush": "Spin",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Spin",
+   "paint": {
+    "pass": true,
+    "said": "Spin",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Spin",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Spin.jpg"
+  },
+  {
+   "brush": "Stamp",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Stamp",
+   "paint": {
+    "pass": true,
+    "said": "Stamp @aaron 1 167 103 D 2 Y",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Stamp @alex 3 97 55 U 1 N",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Stamp.jpg"
+  },
+  {
+   "brush": "Triangle",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Triangle",
+   "paint": {
+    "pass": true,
+    "said": "Triangle 60 78 8 0 24 216 C572F4",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Triangle 50 26 19 26 27 40 34F557",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Triangle.jpg"
+  },
+  {
+   "brush": "Turn",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Turn",
+   "paint": {
+    "pass": true,
+    "said": "Turn",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Turn",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Turn.jpg"
+  },
+  {
+   "brush": "Vignette",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Vignette",
+   "paint": {
+    "pass": true,
+    "said": "Vignette 97 190 5",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Vignette 168 123 4",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Vignette.jpg"
+  },
+  {
+   "brush": "Wafer",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Wafer: 128 128",
+   "paint": {
+    "pass": true,
+    "said": "Wafer 128 128",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Wafer 128 128",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Wafer.jpg"
+  },
+  {
+   "brush": "Walker",
+   "start": "blank",
+   "skipped": null,
+   "watched": false,
+   "line": "Walker",
+   "paint": {
+    "pass": true,
+    "said": "Walker",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Walker",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Walker.jpg"
+  },
+  {
+   "brush": "Wipe",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Wipe",
+   "paint": {
+    "pass": true,
+    "said": "Wipe E",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Wipe NE",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Wipe.jpg"
+  },
+  {
+   "brush": "Zoom",
+   "start": "card",
+   "skipped": null,
+   "watched": false,
+   "line": "Zoom",
+   "paint": {
+    "pass": true,
+    "said": "Zoom 173 143",
+    "opens": true,
+    "home": true,
+    "changed": true,
+    "error": null,
+    "errors": 0
+   },
+   "no": {
+    "pass": true,
+    "said": "Zoom 30 182",
+    "opens": true,
+    "home": true,
+    "changed": false,
+    "error": null,
+    "errors": 0
+   },
+   "strip": "shots/Zoom.jpg"
+  }
+ ]
+}

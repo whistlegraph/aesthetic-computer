@@ -1,0 +1,71 @@
+% ac-booklet.sty — the half-letter handbook page shared by the Aesthetic
+% Computer "books": one narrow column, an outer margin for side-heads and
+% small drawings, dictionary cues in the running head, one unbreakable block
+% per entry, and the tables gathered at the back.
+%
+% The design was worked out for Aesthetic Spells (arxiv-magicians-manual,
+% which still carries its own copy of these macros) from the books in
+% manual-platter/. The No Paint Brushbook (arxiv-nopaint-brushbook) is the
+% first book set from this file. A book adds its own entry macro on top.
+%
+% Use from papers/<book>/ with XeLaTeX:  \usepackage{../ac-booklet}
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-booklet}[2026/11/18 Aesthetic Computer half-letter booklet]
+\RequirePackage[paperwidth=5.5in,paperheight=8.5in,inner=0.5in,outer=1.5in,top=0.72in,bottom=0.78in,marginparwidth=1.05in,marginparsep=0.16in,headsep=0.2in,footskip=0.34in]{geometry}
+\RequirePackage{fontspec}
+\setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic,SmallCapsFont=lmromancaps10-regular]
+\setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique]
+\setmonofont{Latin Modern Mono}[Extension=.otf,UprightFont=lmmono10-regular,BoldFont=lmmonolt10-bold,Scale=0.92]
+\newfontfamily\acbold{ywft-processing-bold}[Path=../../system/public/type/webfonts/,Extension=.ttf]
+\RequirePackage{xcolor,titlesec,booktabs,tabularx,enumitem,fancyhdr,extramarks,microtype,tikz,multicol,graphicx}
+\RequirePackage{hyperref,xurl}
+\definecolor{acpink}{RGB}{180,72,135}
+\definecolor{acdark}{RGB}{64,56,74}
+\definecolor{acgray}{RGB}{119,119,119}
+\newcommand{\acdot}{{\color{acpink}.}}
+\newcommand{\ac}{Aesthetic{\acdot}Computer}
+\hypersetup{colorlinks=true,linkcolor=acdark,urlcolor=acdark,citecolor=acdark}
+
+% Something you type. Bold mono, black.
+\newcommand{\spl}[1]{\texttt{\bfseries #1}}
+% A margin side-head names the paragraph beside it.
+\newcommand{\sideup}{\vspace*{-0.5\baselineskip}}
+\newcommand{\side}[1]{\leavevmode\marginpar[\sideup\raggedleft\footnotesize\itshape\color{acdark}#1]{\sideup\raggedright\footnotesize\itshape\color{acdark}#1}}
+% A side-head with a drawing under it, as one margin block.
+\newcommand{\sidevig}[2]{\leavevmode\marginpar[{\sideup\raggedleft{\footnotesize\itshape\color{acdark}#1}\par\vspace{3pt}#2\par}]{\sideup\raggedright{\footnotesize\itshape\color{acdark}#1}\par\vspace{3pt}#2\par}}
+% A margin drawing.
+\newcommand{\vig}[1]{\leavevmode\marginpar[\raggedleft #1]{\raggedright #1}}
+% One labelled line inside an entry.
+\newlength{\fieldcol}\setlength{\fieldcol}{1.45cm}
+\newcommand{\field}[2]{\par\noindent\hangindent=\fieldcol\hangafter=1\makebox[\fieldcol][l]{\scriptsize\scshape #1}{\footnotesize #2}}
+% Heads for the A to Z, the index and the back tables.
+\newcommand{\letterhead}[1]{\par\addvspace{1.1em}\vbox{\centering{\large #1}\par\vspace{-0.25em}\rule{1.2cm}{0.4pt}\par}\nobreak\vspace{-0.3em}\nobreak}
+\newcommand{\indexhead}[1]{\par\addvspace{0.8em}\noindent{\small\scshape #1}\par\nopagebreak\vspace{0.1em}}
+\newcommand{\indexrow}[2]{\noindent{\footnotesize\spl{#1}\ {\color{acgray}\dotfill}\ \pageref{#2}}\par}
+\newcommand{\backhead}[1]{\par\addvspace{1.1em}\noindent{\small\scshape #1}\par\nopagebreak\vspace{0.25em}}
+
+% Chapter heads: number, title, short rule.
+\renewcommand{\thesection}{\Roman{section}}
+\titleformat{\section}[display]{\normalfont\centering}{\footnotesize\scshape chapter \thesection}{0.05em}{\normalsize\scshape\MakeLowercase}[\vspace{0.05em}\centering\rule{1.6cm}{0.4pt}]
+\titlespacing{\section}{0pt}{1.2em}{0.3em}
+\newcommand{\chapter}[1]{\section{#1}\markboth{#1}{#1}}
+
+% Running head: chapter inside, first and last entry on the page outside.
+% An entry feeds the cue with \extramarks{name}{name}.
+\pagestyle{fancy}\fancyhf{}\renewcommand{\headrulewidth}{0pt}
+% \extramarks{}{} after the last entry ends the cues: a page whose last mark
+% is empty shows none.
+\newcommand{\cue}{\begingroup\edef\cuetmp{\lastxmark}\ifx\cuetmp\empty\else{\footnotesize\ttfamily\color{acgray}\firstxmark\ \textendash\ \lastxmark}\fi\endgroup}
+\newcommand{\chaphead}{{\footnotesize\scshape\ifodd\value{page}\MakeLowercase{\leftmark}\else\MakeLowercase{\rightmark}\fi}}
+\fancyheadoffset[LE,RO]{\dimexpr\marginparwidth+\marginparsep\relax}
+\fancyhead[LE,RO]{\cue}
+\fancyhead[RE,LO]{\chaphead}
+\fancyfoot[C]{\footnotesize\thepage}
+\setlength{\headheight}{12pt}
+\setlength{\parskip}{0.3em}\setlength{\parindent}{1em}
+\setlist[enumerate]{nosep,leftmargin=1.4em}
+\setlist[itemize]{nosep,leftmargin=1.2em}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\emergencystretch=2em
+\raggedbottom\linespread{1.04}
+\endinput

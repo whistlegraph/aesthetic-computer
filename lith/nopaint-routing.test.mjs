@@ -17,7 +17,7 @@ test('No Paint classic serves the complete archived export without crossing stud
   const root = fileURLToPath(new URL('../system/public', import.meta.url));
   const source = await readFile(new URL('./Caddyfile', import.meta.url), 'utf8');
   const routes = source.split('\nnopaint.art {\n')[1].split('\n}\n')[0]
-    .replace(/^    import (?:machine_discovery|lith_access_log)\n/gm, '')
+    .replace(/^    import (?:machine_discovery|lith_access_log|security_headers)\n/gm, '')
     .replace(/^    tls \{[\s\S]*?^    \}\n/m, '')
     .replace(/\/opt\/ac\/system\/public(\/[^\s]+)?/g, (_, suffix = '') => JSON.stringify(root + suffix))
     .replaceAll('import lith_proxy', 'respond "proxy fallback"');
@@ -59,7 +59,9 @@ test('No Paint classic serves the complete archived export without crossing stud
     const response = await fetch(base + path);
     assert.equal(response.status, 200, path);
     const bytes = Buffer.from(await response.arrayBuffer());
-    assert.equal(createHash('sha256').update(bytes).digest('hex'), file.sha256, path);
+    // A patched file is served as "served"; "sha256" stays the 2021 export
+    // (toolchain/nopaint/patch-classic.mjs).
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), file.served || file.sha256, path);
   }
   for (const path of ['/media/example.webm', '/api/nopaint', '/nopaint:123']) {
     assert.equal(await (await fetch(base + path)).text(), 'proxy fallback', path);
@@ -76,7 +78,7 @@ test('the original save hostname maps only its three legacy endpoints to AC', {t
   const root = fileURLToPath(new URL('../system/public', import.meta.url));
   const source = await readFile(new URL('./Caddyfile', import.meta.url), 'utf8');
   const routes = source.split('\nserver.nopaint.art {\n')[1].split('\n}\n')[0]
-    .replace(/^    import (?:machine_discovery|lith_access_log)\n/gm, '')
+    .replace(/^    import (?:machine_discovery|lith_access_log|security_headers)\n/gm, '')
     .replace(/^    tls \{[\s\S]*?^    \}\n/m, '')
     .replace(/\/opt\/ac\/system\/public(\/[^\s]+)?/g, (_, suffix = '') => JSON.stringify(root + suffix))
     .replaceAll('import lith_proxy', 'respond "{method} {uri}"');

@@ -741,7 +741,8 @@
     },
     {
       "path": "scripts/c3runtime.js",
-      "sha256": "4c627e8ec1d166843f0c2e7a8e644de98e5bf54c080fc821a7a0ee25ed6df633"
+      "sha256": "4c627e8ec1d166843f0c2e7a8e644de98e5bf54c080fc821a7a0ee25ed6df633",
+      "served": "293b3fd1a6d8e92b68e667b92b47925f909dde8cac8f48722488cd8639dc71c0"
     },
     {
       "path": "scripts/dispatchworker.js",

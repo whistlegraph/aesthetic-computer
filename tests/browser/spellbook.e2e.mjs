@@ -5,8 +5,10 @@
 // it home, and a screenshot. It judges nothing; the report is the evidence
 // the book's entries cite.
 //
-// It is standalone so it can run on a fleet machine that has no checkout:
+// It needs only puppeteer-core and book-kit.mjs (the parts shared with the
+// other book tests), so it can run on a fleet machine that has no checkout:
 //   mkdir -p ~/scratch/spells && cd ~/scratch/spells && npm i puppeteer-core
+//   copy book-kit.mjs and this file there
 //   node spellbook.e2e.mjs            # all cases
 //   node spellbook.e2e.mjs notepat    # cases whose id contains "notepat"
 //
@@ -21,22 +23,13 @@
 // Not cast, on purpose: done, publish, print, mug, scream, and
 // delete-erase-and-forget-me. They publish, charge, notify or delete.
 
-import puppeteer from "puppeteer-core";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { launch, openPage, shot, startClip, trimLog, saveResults, viewport, wait } from "./book-kit.mjs";
 
 const BASE = process.env.AC_TEST_URL || "https://aesthetic.computer";
-const CHROME = process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const OUT = process.env.OUT || "out";
 const only = process.argv[2] || null;
-const VIDEO = process.env.VIDEO === "1";
-const FFMPEG = process.env.FFMPEG || "/opt/homebrew/bin/ffmpeg";
-if (VIDEO) { mkdirSync(join(OUT, "video"), { recursive: true }); mkdirSync(join(OUT, "audio"), { recursive: true }); }
-const W = parseInt(process.env.W || "660", 10), H = parseInt(process.env.H || "460", 10), DSF = parseFloat(process.env.DSF || "2");
+const VIEW = viewport(660, 460, 2);
+const { W, H } = VIEW;
 const px = (fx) => Math.round(W * fx), py = (fy) => Math.round(H * fy);
-mkdirSync(OUT, { recursive: true });
-
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const slug = (s) => s.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").slice(0, 40) || "x";
 
 // ---- cases -----------------------------------------------------------------
@@ -91,48 +84,8 @@ const CASES = [
 
 // ---- one page per case -----------------------------------------------------
 async function open(browser, { hook = true } = {}) {
-  const page = await browser.newPage();
-  await page.setViewport({ width: W, height: H, deviceScaleFactor: DSF });
-  const log = { errors: [], console: [], popups: [], downloads: [], navs: [] };
+  const { page, log } = await openPage(browser, VIEW);
   if (hook) await page.evaluateOnNewDocument(() => { window.acDEBUG = true; });
-  // Tape whatever reaches a Web Audio destination. Media elements that play
-  // on their own (a radio stream) are not caught.
-  if (VIDEO) await page.evaluateOnNewDocument(() => {
-    if (window.top !== window || !window.AudioNode || !window.MediaRecorder) return;
-    // The site opens more than one context (media elements get their own),
-    // so each gets a tape and the loudest one is kept.
-    const state = (window.__spellAudio = { tapes: [], error: null });
-    const taps = new WeakMap();
-    const connect = AudioNode.prototype.connect;
-    AudioNode.prototype.connect = function (dest, ...rest) {
-      try {
-        if (dest instanceof AudioDestinationNode) {
-          const ctx = dest.context;
-          let tap = taps.get(ctx);
-          if (!tap) {
-            tap = ctx.createMediaStreamDestination();
-            taps.set(ctx, tap);
-            const tape = { blobs: [], started: Date.now() };
-            tape.rec = new MediaRecorder(tap.stream, { mimeType: "audio/webm;codecs=opus", audioBitsPerSecond: 96000 });
-            tape.rec.ondataavailable = (e) => { if (e.data.size) tape.blobs.push(e.data); };
-            tape.rec.start(400);
-            state.tapes.push(tape);
-          }
-          connect.call(this, tap);
-        }
-      } catch (e) { state.error = String(e); }
-      return connect.call(this, dest, ...rest);
-    };
-  });
-  page.on("pageerror", (e) => log.errors.push(String(e?.message || e).slice(0, 200)));
-  page.on("console", (m) => {
-    if (m.type() === "error") log.console.push(m.text().slice(0, 200));
-  });
-  page.on("popup", (p) => log.popups.push(p?.url?.() || "popup"));
-  page.on("framenavigated", (f) => { if (f === page.mainFrame()) log.navs.push(f.url()); });
-  const client = await page.createCDPSession();
-  await client.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: join(process.cwd(), OUT, "downloads"), eventsEnabled: true }).catch(() => {});
-  client.on("Browser.downloadWillBegin", (e) => log.downloads.push(e.suggestedFilename));
   return { page, log };
 }
 
@@ -151,12 +104,6 @@ const where = (page) => page.evaluate(() => ({
   input: typeof window.__acPromptTest === "function" ? window.__acPromptTest()?.input ?? null : undefined,
   frames: [...document.querySelectorAll("iframe")].map((f) => f.getAttribute("src")).filter(Boolean).slice(0, 4),
 })).catch((e) => ({ error: String(e).slice(0, 120) }));
-
-async function shot(page, name) {
-  const file = join(OUT, `${name}.jpg`);
-  await page.screenshot({ path: file, type: "jpeg", quality: 55 }).catch(() => {});
-  return `${name}.jpg`;
-}
 
 // Wake the prompt (once per page: a second tap on the backdrop puts it back
 // to sleep and the next key is spent waking it), then type.
@@ -186,14 +133,7 @@ async function run(browser, c) {
   const { page, log } = await open(browser, c);
   const r = { id: c.id, kind: c.kind, text: c.text ?? c.path ?? c.key ?? null, hook: c.hook !== false };
   const t0 = Date.now();
-  let rec = null;
-  if (VIDEO) {
-    try {
-      rec = await page.screencast({ path: join(OUT, "video", `${slug(c.id)}.webm`), ffmpegPath: FFMPEG });
-      r.video = `video/${slug(c.id)}.webm`;
-      r.videoStarted = Date.now();
-    } catch (e) { r.videoError = String(e?.message || e).slice(0, 160); }
-  }
+  const clip = await startClip(page, c.id);
   try {
     if (c.kind === "address") {
       await boot(page, c.path);
@@ -260,34 +200,14 @@ async function run(browser, c) {
   } catch (e) {
     r.error = String(e?.message || e).slice(0, 240);
   }
-  if (rec) {
-    // Pull the audio tape out of the page before it closes.
-    try {
-      const a = await page.evaluate(async () => {
-        const s = window.__spellAudio;
-        if (!s || !s.tapes.length) return { started: null, error: s?.error || null };
-        await Promise.all(s.tapes.map((t) => new Promise((done) => { t.rec.onstop = done; try { t.rec.stop(); } catch { done(); } setTimeout(done, 1500); })));
-        let best = null;
-        for (const t of s.tapes) { const size = t.blobs.reduce((n, b) => n + b.size, 0); if (!best || size > best.size) best = { t, size }; }
-        const buf = new Uint8Array(await new Blob(best.t.blobs).arrayBuffer());
-        let bin = ""; for (let i = 0; i < buf.length; i += 32768) bin += String.fromCharCode(...buf.subarray(i, i + 32768));
-        return { started: best.t.started, error: s.error, tapes: s.tapes.length, b64: btoa(bin) };
-      });
-      if (a?.b64) {
-        writeFileSync(join(OUT, "audio", `${slug(c.id)}.webm`), Buffer.from(a.b64, "base64"));
-        r.audio = `audio/${slug(c.id)}.webm`;
-        r.audioOffsetMs = a.started - r.videoStarted;
-      } else r.audioNote = a?.error || "no Web Audio output was connected";
-    } catch (e) { r.audioNote = "page was gone: " + String(e?.message || e).slice(0, 80); }
-    await rec.stop().catch(() => {});
-  }
+  Object.assign(r, await clip.stop());
   r.ms = Date.now() - t0;
-  r.log = { errors: log.errors.slice(0, 5), console: log.console.slice(0, 5), popups: log.popups, downloads: log.downloads, navs: log.navs.slice(-4) };
+  r.log = trimLog(log);
   await page.close().catch(() => {});
   return r;
 }
 
-const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", `--window-size=${W},${H}`] });
+const browser = await launch(VIEW);
 const results = [];
 const list = CASES.filter((c) => !only || c.id.includes(only));
 for (const [i, c] of list.entries()) {
@@ -295,7 +215,7 @@ for (const [i, c] of list.entries()) {
   results.push(r);
   const a = r.after || {};
   console.log(`${String(i + 1).padStart(2)}/${list.length} ${c.id.padEnd(36)} → ${(a.path ?? a.error ?? "(flow)").toString().slice(0, 40).padEnd(40)} ${r.back ? "back:" + (r.back.path ?? r.back.error) : ""} ${r.error ? "ERR " + r.error : ""}`);
-  writeFileSync(join(OUT, "results.json"), JSON.stringify({ base: BASE, at: new Date().toISOString(), results }, null, 1));
+  saveResults(BASE, results);
 }
 await browser.close();
 console.log("done", results.length);
