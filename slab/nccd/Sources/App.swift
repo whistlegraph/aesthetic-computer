@@ -230,6 +230,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if env["NCC_SNAPSHOT_DROP"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.main.testDrop() }
         }
+        // NCC_SNAPSHOT_NCC=1 starts the NCC login in its pane.
+        if env["NCC_SNAPSHOT_NCC"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.openWikiLogin() } }
         // NCC_SNAPSHOT_TAB=<index> opens that place first (-2 wiki, -3 search, -4 login, -5 code).
         if let t = env["NCC_SNAPSHOT_TAB"].flatMap({ Int($0) }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) { self.go(t) }
@@ -497,7 +499,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.title = "NCCd: code"
     }
 
-    @objc func openWikiLogin() { go(-2); if wiki.token == nil, login == nil { showLogin() } }
+    @objc func openWikiLogin() { go(-4); if wiki.token == nil, login == nil { showLogin() } }
 
     @objc func linkSignal() {
         linking = true
@@ -532,19 +534,22 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // The club's login page, in the wiki pane. When the wiki has its session, the wiki opens.
     func showLogin() {
-        let c = loginColours()
-        let l = WikiLogin(base: wiki.base, ink: c.ink, field: c.field, accent: c.accent, onAccent: c.onAccent)
+        // The club's login form runs inside NCC's own pane of the Login page, in
+        // that pane's colours; Signal's link runs in Signal's. Each on its own.
+        let l = WikiLogin(base: wiki.base, ink: "rgba(255,255,255,1)", field: "rgba(0,0,0,0.28)",
+                          accent: "rgba(0,208,128,1)", onAccent: "rgba(6,34,24,1)")
         l.onToken = { [weak self] token in
             guard let self else { return }
             self.wiki.setToken(token)
             self.buildRail()                 // the wiki has its tab now
             self.login = nil
-            self.main.showWikiLogin(nil)
+            self.main.link.showNCC(nil)
             self.loadWiki()
+            self.refreshLink()
         }
         login = l
         l.zoom = zoom
-        main.showWikiLogin(l.web)
+        main.link.showNCC(l.web)
         l.start()
     }
 
@@ -559,7 +564,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshAccounts()
         buildRail()
         refresh()
-        WikiLogin.forget { [weak self] in self?.showLogin() }
+        WikiLogin.forget { [weak self] in self?.refreshLink(); self?.go(-4) }
     }
 
     // ─── Signal ──────────────────────────────────────────────────────────────
@@ -733,7 +738,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         main.showLink(onLogin)                        // the logins have a tab of their own
         if onLogin {
-            window.title = "NCCd: login"
+            window.title = "NCCd"
             main.showSearch(false)
             main.showRadio(false)
             main.show(index: -4, heading: "login", color: Theme.login, roleLine: [], canSend: false, placeholder: "")
@@ -921,8 +926,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // ─── wiki ────────────────────────────────────────────────────────────────
 
     func loadWiki() {
-        // No session yet: the club's login page shows in the wiki pane.
-        guard wiki.token != nil else { return showLogin() }
+        // No session yet: the Login page has the way in.
+        guard wiki.token != nil else { return }
         wiki.load { [weak self] ok in
             guard let self else { return }
             self.wikiReady = ok
@@ -1257,7 +1262,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         onCode = false
         main.wikiOpen = false                 // a circle, the donut or the search: the wiki steps aside
-        if i == -4 { onLogin = true; onSearch = false; onStart = false; refresh(); return }
+        // With Signal not linked, NCCd's own page is the logins.
+        if i == -4 || (i == -1 && account == nil) { onLogin = true; onSearch = false; onStart = false; refresh(); return }
         onLogin = false
         if i == -3 { onSearch = true; onStart = false; refresh(); return }
         onSearch = false

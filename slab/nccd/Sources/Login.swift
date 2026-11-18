@@ -57,6 +57,9 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         .pf-c-login__main-body, .pf-c-login__main-footer, .pf-c-login__main-footer-band { padding: 4px 0 !important; background: transparent !important; border: 0 !important; }
         h1.pf-c-title { font: 700 14px ui-monospace, "SF Mono", Menlo, monospace !important; margin: 0 !important; color: \(ink) !important; }
         p, label, span, a, legend { font: 12px ui-monospace, "SF Mono", Menlo, monospace !important; color: \(ink) !important; }
+        .pf-c-form .pf-c-form__label .pf-c-form__label-text, .pf-c-form .pf-c-form__label, .pf-c-form label span { color: \(ink) !important; }
+        .pf-c-input-group, .pf-c-form__group-control { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+        .pf-c-form-control::before, .pf-c-form-control::after, .pf-c-input-group::before, .pf-c-input-group::after { border: 0 !important; }
         .pf-c-form { gap: 8px !important; }
         .pf-c-form__group { margin: 0 !important; }
         input.pf-c-form-control { font: 16px ui-monospace, "SF Mono", Menlo, monospace !important; height: auto !important;

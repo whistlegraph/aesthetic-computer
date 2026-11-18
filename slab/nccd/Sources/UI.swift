@@ -505,7 +505,7 @@ final class LogoTab: NSView {
     private let home = NSImageView()
     var onClick: (() -> Void)?
     var selected = false { didSet { needsDisplay = true; home.contentTintColor = selected ? Theme.ink : Theme.faint } }
-    var onTop = false { didSet { tallness.constant = onTop ? 39 : Self.tall; arrange() } }
+    var onTop = false { didSet { tallness.constant = onTop ? 48 : Self.tall; arrange() } }
     var small = false { didSet { arrange() } }                  // no room for the word: the house alone
     private var afterHome: NSLayoutConstraint!, atEdge: NSLayoutConstraint!
     // Down the side the house stands left of the word. On top the word stands alone
@@ -592,14 +592,32 @@ final class BigButton: NSView {
     var enabled = true { didSet { needsDisplay = true } }
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
     private var down = false { didSet { needsDisplay = true } }
+    private var shift: NSLayoutConstraint!
+    private let logo = NSImageView()
+    private(set) var hosted: NSView?
+
+    // The login itself, inside this pane (nil: the button again). While it is
+    // here the pane is not a button: what is in it takes the presses.
+    func host(_ v: NSView?) {
+        hosted?.removeFromSuperview()
+        hosted = v
+        logo.isHidden = v != nil
+        stack.isHidden = v != nil
+        needsDisplay = true
+        guard let v else { return }
+        v.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(v)
+        NSLayoutConstraint.activate([
+            v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            v.topAnchor.constraint(equalTo: topAnchor, constant: 8), v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(lip + 8)),
+        ])
+    }
 
     init(color: NSColor, mark: NSImage?, under: [NSView]) {
         fill = color
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 8
         layer?.masksToBounds = true                  // in a very small pane the contents are cut, never squeezed
-        let logo = NSImageView()
         logo.image = mark
         logo.imageScaling = .scaleNone
         logo.contentTintColor = .white
@@ -618,7 +636,7 @@ final class BigButton: NSView {
         NSLayoutConstraint.activate([
             logo.widthAnchor.constraint(equalToConstant: 48), logo.heightAnchor.constraint(equalToConstant: 48),
             logo.centerXAnchor.constraint(equalTo: centerXAnchor),
-            logo.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -26),
+            { shift = logo.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -26); return shift }(),
             stack.centerXAnchor.constraint(equalTo: centerXAnchor),
             stack.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 12),
         ])
@@ -634,17 +652,44 @@ final class BigButton: NSView {
         line.attributedStringValue = s
     }
 
+    // A raised key: a face that is lighter at the top than at the foot, a line
+    // of light along its upper edge, and a thick dark lip under it. Pressed, the
+    // face goes down on to the lip and the light goes out.
+    private let lip: CGFloat = 7
     override func draw(_ dirty: NSRect) {
+        let r: CGFloat = 8
+        let sunk = (down && enabled) || hosted != nil       // with its login in it, the key stays down
+        (fill.blended(withFraction: 0.5, of: .black) ?? fill).setFill()          // the lip
+        NSBezierPath(roundedRect: bounds, xRadius: r, yRadius: r).fill()
+        let face = NSRect(x: 0, y: sunk ? 2 : lip, width: bounds.width, height: bounds.height - lip)
+        let shape = NSBezierPath(roundedRect: face, xRadius: r, yRadius: r)
         fill.setFill()
-        bounds.fill()
-        Grain.draw(in: bounds)
-        // under the pointer the pane lights up; pressed, it darkens
-        if down { NSColor(white: 0, alpha: 0.16).setFill(); bounds.fill(using: .sourceOver) }
-        else if hover && enabled { NSColor(white: 1, alpha: 0.14).setFill(); bounds.fill(using: .sourceOver) }
-        if !enabled { NSColor(white: 0, alpha: 0.25).setFill(); bounds.fill(using: .sourceOver) }
+        shape.fill()
+        NSGraphicsContext.saveGraphicsState()
+        shape.addClip()
+        Grain.draw(in: face)
+        NSGradient(colors: [NSColor(white: 0, alpha: sunk ? 0.2 : 0.16), NSColor(white: 1, alpha: sunk ? 0 : 0.16)])?.draw(in: face, angle: 90)
+        if hover && enabled && !sunk && hosted == nil { NSColor(white: 1, alpha: 0.12).setFill(); face.fill(using: .sourceOver) }
+        if !enabled { NSColor(white: 0, alpha: 0.25).setFill(); face.fill(using: .sourceOver) }
+        NSGraphicsContext.restoreGraphicsState()
+        if !sunk {                                                                // the light along the upper edge
+            NSColor(white: 1, alpha: 0.45).setStroke()
+            let edge = NSBezierPath(roundedRect: face.insetBy(dx: 1, dy: 1), xRadius: r - 1, yRadius: r - 1)
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(rect: NSRect(x: 0, y: face.maxY - r, width: bounds.width, height: r)).addClip()
+            edge.lineWidth = 1.5
+            edge.stroke()
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        // what is on the key goes down with it
+        let dy: CGFloat = sunk ? -(lip - 2) / 2 : 0
+        if shift?.constant != dy - 26 + lip / 2 { shift?.constant = dy - 26 + lip / 2 }
     }
     // The whole pane is the button: a press anywhere in it, on the mark or the words too, is the pane's.
-    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if hosted != nil { return super.hitTest(point) }
+        return frame.contains(point) ? self : nil
+    }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
@@ -652,7 +697,7 @@ final class BigButton: NSView {
     }
     override func mouseEntered(with event: NSEvent) { hover = true }
     override func mouseExited(with event: NSEvent) { hover = false; down = false }
-    override func mouseDown(with event: NSEvent) { if enabled { down = true } }
+    override func mouseDown(with event: NSEvent) { if enabled, hosted == nil { down = true } }
     override func mouseUp(with event: NSEvent) {
         let was = down
         down = false
@@ -703,11 +748,15 @@ final class LinkPanel: NSView {
         NSLayoutConstraint.activate([
             panes.leadingAnchor.constraint(equalTo: leadingAnchor), panes.trailingAnchor.constraint(equalTo: trailingAnchor),
             // as far from the bar above as from the bar below, and as from the sides
-            panes.topAnchor.constraint(equalTo: topAnchor, constant: 5), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
+            panes.topAnchor.constraint(equalTo: topAnchor, constant: 5), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
         ])
         sync()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // The NCC login runs in NCC's own pane (nil: the button again).
+    func showNCC(_ web: NSView?) { nccPane.host(web) }
+    var nccWeb: NSView? { nccPane.hosted }
 
     private func press(_ b: NSButton?) {
         guard let b, b.isEnabled, let action = b.action else { return }
@@ -1143,7 +1192,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let small = false                    // the wordmark always shows: it is the donut's own name
         logo.small = small
         logoWide.constant = small ? 46 : 118
-        topHeight.constant = 36
+        topHeight.constant = 48
         applyFoot(words: w >= 330, names: w >= 520)
     }
 
@@ -1160,7 +1209,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         logo.selected = !wiki && shownIndex == -1
         if top {                                    // the bar says where we are, in that place's colour
             // You are in NCCd (the donut: the wordmark alone), or in NCCd and one more place.
-            let here = rows.first { $0.selected && $0.tag_ != -1 }
+            // (The logins are NCCd's own first page, so there the bar is blank too.)
+            let here = rows.first { $0.selected && $0.tag_ != -1 && $0.tag_ != -4 }
             if let here {
                 unibar.title = here.title
                 unibar.glyph = here.glyph
@@ -1171,7 +1221,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 unibar.title = ""
                 unibar.glyph = nil
             }
-            unibar.color = here?.pane ?? (wiki ? Theme.wikiPaper : Theme.wash(Donut.icing))
+            unibar.color = here?.pane ?? (wiki ? Theme.wikiPaper : shownIndex == -4 ? Theme.wash(Theme.login) : Theme.wash(Donut.icing))
             unibar.unread = rows.filter { !$0.selected }.reduce(0) { $0 + $1.unread }
             logo.selected = true                    // the wordmark's end of the bar is the bar's colour too
             logo.barColor = unibar.color
@@ -1406,6 +1456,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             searchField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -11),
             searchField.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
         ])
+        status.isHidden = true
         let col = NSStackView(views: [searchBar, radioBar, roles, diagram, link, scroll, status, composer])
         col.orientation = .vertical
         col.alignment = .leading
@@ -1461,7 +1512,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // the tabs along the top: the wordmark's tab, the tabs in a row, the radio and the logins at the right
         topSet = [
             railBox.trailingAnchor.constraint(equalTo: trailingAnchor),
-            { topHeight = railBox.heightAnchor.constraint(equalToConstant: 36); return topHeight }(),
+            { topHeight = railBox.heightAnchor.constraint(equalToConstant: 48); return topHeight }(),
             { logoWide = logo.widthAnchor.constraint(equalToConstant: 146); return logoWide }(),
             logo.topAnchor.constraint(equalTo: railBox.topAnchor),
             unibar.leadingAnchor.constraint(equalTo: logo.trailingAnchor),
@@ -1538,7 +1589,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         dropOpen = false
         logo.onClick = { [weak self] in
             guard let self else { return }
-            if self.top { self.dropOpen.toggle() } else { self.onSelect?(-1) }       // on top the wordmark is part of the bar
+            self.dropOpen = false
+            self.onSelect?(-1)                  // the wordmark is the way home, in either arrangement
         }
         if !lastSections.isEmpty { setRail(lastSections) }      // the tabs are made again where they now stand
         foot.orientation = .horizontal
@@ -1792,13 +1844,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             web.leadingAnchor.constraint(equalTo: wikiPane.leadingAnchor), web.trailingAnchor.constraint(equalTo: wikiPane.trailingAnchor),
             web.topAnchor.constraint(equalTo: wikiBand.bottomAnchor), web.bottomAnchor.constraint(equalTo: wikiPane.bottomAnchor)])
     }
-    var wikiLoginView: NSView? { loginWeb }
+    var wikiLoginView: NSView? { loginWeb ?? (link.isHiddenOrHasHiddenAncestor ? nil : link.nccWeb) }
 
     // sections: [(heading, [(index, title, colour)])]
     func setRail(_ sections: [(String, [(Int, String, NSColor?)])]) {
         lastSections = sections
         // In the dropdown the donut is a place like any other, and it comes first.
-        let sections = top ? [("", [(-1, "NCCd", Optional(Donut.icing))])] + sections : sections
         rail.arrangedSubviews.forEach { $0.removeFromSuperview() }
         dropStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows = []
