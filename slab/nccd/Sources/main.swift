@@ -104,8 +104,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         main.onSend = { [weak self] s, marks in
             guard let self else { return }
-            if self.onStart { if let a = self.announce { self.send(s, mentions: marks, to: a, from: self.main) } }   // home writes to Announce
-            else { self.send(s, mentions: marks, to: self.selected, from: self.main) }
+            if !self.onStart { self.send(s, mentions: marks, to: self.selected, from: self.main) }
         }
         main.onDoc = { [weak self] id in self?.showDoc(id) }
         main.onBack = { [weak self] in self?.openDoc = nil; self?.wikiTouched = true; self?.drawWiki() }
@@ -154,16 +153,19 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.picked = true; self.main.testPick() }
         }
         // NCC_SNAPSHOT_PENDING=<words> shows those words as a message on its way
-        // (in the open circle, or in Announce on the donut). Nothing is sent.
+        // (in the open circle). Nothing is sent.
         if let words = env["NCC_SNAPSHOT_PENDING"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6.5) {
-                guard let i = self.onStart ? self.announce : self.selected, self.circles.indices.contains(i) else { return }
+                guard !self.onStart, self.circles.indices.contains(self.selected) else { return }
+                let i = self.selected
                 var m = Msg(ts: Int64(Date().timeIntervalSince1970 * 1000), author: self.account?.uuid ?? "", name: nil, body: words)
                 m.kind = "pending"
                 self.pending[self.circles[i].conf.groupId, default: []].append(m)
                 self.refresh()
             }
         }
+        // NCC_SNAPSHOT_TOP=1 or 0 puts the tabs along the top, or down the side, for the picture (not kept).
+        if let t = env["NCC_SNAPSHOT_TOP"] { main.tabsOnTop = t == "1" }
         // NCC_SNAPSHOT_ZOOM=<factor> zooms the interface for the picture (not kept).
         if let z = env["NCC_SNAPSHOT_ZOOM"].flatMap({ Double($0) }) { shell.zoom = CGFloat(z) }
         // NCC_SNAPSHOT_CIRCLE=<n> opens the nth circle of the rail first.
@@ -394,18 +396,31 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return CircleConf(groupId: id, name: name, title: t, kind: "circle", roleKey: t)
     }
 
-    // Announce is not a tab: its messages are on the donut screen, under the donut.
-    var announce: Int? { circles.firstIndex { $0.conf.title.lowercased().contains("announce") } }
-
     // The rail: the commons first, then the circles, then the wiki. No headings,
-    // and no row for the donut (the wordmark is the way to it) or for Announce.
+    // and no row for the donut (the wordmark's tab is the way to it).
     func buildRail() {
         let pick = { (kind: String) -> [(Int, String, NSColor?)] in
-            self.circles.enumerated().filter { $0.element.conf.kind == kind && $0.offset != self.announce }
+            self.circles.enumerated().filter { $0.element.conf.kind == kind }
                 .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
         }
         main.setRail([("", pick("commons")), ("", pick("circle")), ("", [(-2, "Wiki", Theme.wikiBand)])])
         updateUnread()
+    }
+
+    // The newest message of every chat, for the donut page: newest chat first.
+    func latestItems() -> [LatestView.Item] {
+        let now = Date().timeIntervalSince1970
+        return circles.enumerated().compactMap { i, c -> (Int64, LatestView.Item)? in
+            guard let m = c.log.msgs.last else { return nil }
+            let age = now - Double(m.ts) / 1000
+            let when = age < 90 ? "now" : age < 3600 ? "\(Int(age / 60))m" : age < 86400 ? "\(Int(age / 3600))h" : "\(Int(age / 86400))d"
+            let who = m.author == account?.uuid ? "me" : people.person(m.author, fallback: m.name).name
+            let words = m.body.replacingOccurrences(of: "\u{FFFC}", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = words.isEmpty ? ((m.files ?? []).isEmpty ? "" : "[picture or file]") : words
+            let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
+            return (m.ts, LatestView.Item(index: i, title: c.conf.title, color: color(of: i), who: String(who.prefix(14)), text: text,
+                                          when: when, unread: c.log.unread(since: since, me: account?.uuid ?? "")))
+        }.sorted { $0.0 > $1.0 }.map { $0.1 }
     }
 
     // A circle's colour: its wiki collection's, else one of the club's own.
@@ -444,22 +459,13 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if onStart {
             window.title = "NCCd: donut"                  // the title bar says where we are
-            // Home: the donut, and under it the club's announcements.
-            if let a = announce {
-                let c = circles[a]
-                main.donutShare = 0.56
-                main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: c.canSend,
-                          placeholder: c.canSend ? "write to \(c.conf.title)" : "")
-                main.mentionable = mentionable(c)
-                main.render(ledger(c, last: 300), reactions: c.log.reactions, people: people, me: account?.uuid ?? "")
-            } else {
-                main.donutShare = 1
-                main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
-                main.renderBlank()
-            }
+            // Home: the donut, and floating under it the newest message of every chat.
+            main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
+            main.renderBlank()
+            main.showLatest(account == nil ? nil : latestItems())
             return updateUnread()
         }
-        main.donutShare = 1
+        main.showLatest(nil)
         guard circles.indices.contains(selected) else { return }
         let c = circles[selected]
         window.title = "NCCd: " + c.conf.title + (c.members > 0 ? " · \(c.members) members" : "")
@@ -668,7 +674,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func readKey(_ c: Circle) -> String { "read." + c.conf.groupId }
 
-    func markRead() { if onStart { if let a = announce { markRead(a) } } else { markRead(selected) } }
+    func markRead() { if !onStart { markRead(selected) } }
     func markRead(_ i: Int) {
         guard circles.indices.contains(i), let last = circles[i].log.msgs.last else { return }
         UserDefaults.standard.set(last.ts, forKey: readKey(circles[i]))
@@ -915,6 +921,13 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         go(sender.tag == 9 ? all[all.count - 1] : all[min(sender.tag - 1, all.count - 1)])
     }
 
+    // The tabs down the side, or along the top like a browser's.
+    @objc func toggleTabsOnTop(_ sender: NSMenuItem) {
+        let on = !UserDefaults.standard.bool(forKey: "tabsOnTop")
+        UserDefaults.standard.set(on, forKey: "tabsOnTop")
+        main.tabsOnTop = on
+        sender.state = on ? .on : .off
+    }
     @objc func zoomIn() { zoom += 0.1 }
     @objc func zoomOut() { zoom -= 0.1 }
     @objc func zoomReset() { zoom = 1 }
@@ -973,6 +986,9 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         win.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
         win.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
         NSApp.windowsMenu = win
+        view.addItem(.separator())
+        let onTop = view.addItem(withTitle: "Tabs on Top", action: #selector(toggleTabsOnTop(_:)), keyEquivalent: "")
+        onTop.state = UserDefaults.standard.bool(forKey: "tabsOnTop") ? .on : .off
         view.addItem(.separator())
         view.addItem(withTitle: "Zoom In", action: #selector(zoomIn), keyEquivalent: "+")
         let also = view.addItem(withTitle: "Zoom In", action: #selector(zoomIn), keyEquivalent: "=")   // ⌘= with no Shift

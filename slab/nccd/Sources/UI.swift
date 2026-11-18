@@ -354,16 +354,29 @@ final class NCCLogo: NSView {
 // proud, like a button: lighter at the top, darker at the foot, and in the
 // pane's shadow at its right end.
 enum Tab {
-    static func draw(in bounds: NSRect, fill: NSColor, open: Bool) {
-        let body = NSRect(x: 6, y: 0, width: bounds.width - 6, height: bounds.height)
-        let r: CGFloat = 5
+    // `top`: the tabs stand in a row along the top of the window, like a
+    // browser's or a file folder's: rounded at their upper corners, flush
+    // with the pane at their foot. Otherwise they stand down the side.
+    static func draw(in bounds: NSRect, fill: NSColor, open: Bool, top: Bool = false) {
+        let r: CGFloat = top ? 7 : 5
+        let body = top ? NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - 3)
+                       : NSRect(x: 6, y: 0, width: bounds.width - 6, height: bounds.height)
         let path = NSBezierPath()
-        path.move(to: NSPoint(x: body.maxX, y: body.minY))
-        path.line(to: NSPoint(x: body.minX + r, y: body.minY))
-        path.appendArc(withCenter: NSPoint(x: body.minX + r, y: body.minY + r), radius: r, startAngle: 270, endAngle: 180, clockwise: true)
-        path.line(to: NSPoint(x: body.minX, y: body.maxY - r))
-        path.appendArc(withCenter: NSPoint(x: body.minX + r, y: body.maxY - r), radius: r, startAngle: 180, endAngle: 90, clockwise: true)
-        path.line(to: NSPoint(x: body.maxX, y: body.maxY))
+        if top {
+            path.move(to: NSPoint(x: body.minX, y: body.minY))
+            path.line(to: NSPoint(x: body.minX, y: body.maxY - r))
+            path.appendArc(withCenter: NSPoint(x: body.minX + r, y: body.maxY - r), radius: r, startAngle: 180, endAngle: 90, clockwise: true)
+            path.line(to: NSPoint(x: body.maxX - r, y: body.maxY))
+            path.appendArc(withCenter: NSPoint(x: body.maxX - r, y: body.maxY - r), radius: r, startAngle: 90, endAngle: 0, clockwise: true)
+            path.line(to: NSPoint(x: body.maxX, y: body.minY))
+        } else {
+            path.move(to: NSPoint(x: body.maxX, y: body.minY))
+            path.line(to: NSPoint(x: body.minX + r, y: body.minY))
+            path.appendArc(withCenter: NSPoint(x: body.minX + r, y: body.minY + r), radius: r, startAngle: 270, endAngle: 180, clockwise: true)
+            path.line(to: NSPoint(x: body.minX, y: body.maxY - r))
+            path.appendArc(withCenter: NSPoint(x: body.minX + r, y: body.maxY - r), radius: r, startAngle: 180, endAngle: 90, clockwise: true)
+            path.line(to: NSPoint(x: body.maxX, y: body.maxY))
+        }
         path.close()
         fill.setFill()
         path.fill()
@@ -372,13 +385,21 @@ enum Tab {
         Grain.draw(in: body)
         if !open {
             NSGradient(colors: [NSColor(white: 0, alpha: 0.14), NSColor(white: 1, alpha: 0.12)])?.draw(in: body, angle: 90)
-            NSGradient(colors: [NSColor(white: 0, alpha: 0), NSColor(white: 0, alpha: 0.2)])?
-                .draw(in: NSRect(x: body.maxX - 10, y: body.minY, width: 10, height: body.height), angle: 0)
+            // a tab that is not open lies in the pane's shadow, at the edge where it meets the pane
+            if top {
+                NSGradient(colors: [NSColor(white: 0, alpha: 0.22), NSColor(white: 0, alpha: 0)])?
+                    .draw(in: NSRect(x: body.minX, y: body.minY, width: body.width, height: 8), angle: 90)
+            } else {
+                NSGradient(colors: [NSColor(white: 0, alpha: 0), NSColor(white: 0, alpha: 0.2)])?
+                    .draw(in: NSRect(x: body.maxX - 10, y: body.minY, width: 10, height: body.height), angle: 0)
+            }
         }
         NSColor(white: 1, alpha: open ? 0.5 : 0.34).setFill()
         NSRect(x: body.minX, y: body.maxY - 1, width: body.width, height: 1).fill()
-        NSColor(white: 0, alpha: open ? 0.08 : 0.26).setFill()
-        NSRect(x: body.minX, y: body.minY, width: body.width, height: 1).fill()
+        if !top {
+            NSColor(white: 0, alpha: open ? 0.08 : 0.26).setFill()
+            NSRect(x: body.minX, y: body.minY, width: body.width, height: 1).fill()
+        }
         NSGraphicsContext.restoreGraphicsState()
     }
 }
@@ -391,6 +412,8 @@ final class LogoTab: NSView {
     private let home = NSImageView()
     var onClick: (() -> Void)?
     var selected = false { didSet { needsDisplay = true; home.contentTintColor = selected ? Theme.ink : Theme.faint } }
+    var onTop = false { didSet { tallness.constant = onTop ? 36 : Self.tall; needsDisplay = true } }
+    private var tallness: NSLayoutConstraint!
     static let tall: CGFloat = 46
 
     init() {
@@ -401,8 +424,9 @@ final class LogoTab: NSView {
         home.translatesAutoresizingMaskIntoConstraints = false
         addSubview(home)
         addSubview(word)
+        tallness = heightAnchor.constraint(equalToConstant: Self.tall)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Self.tall),
+            tallness,
             home.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 15),
             home.centerYAnchor.constraint(equalTo: centerYAnchor),
             home.widthAnchor.constraint(equalToConstant: 15), home.heightAnchor.constraint(equalToConstant: 14),
@@ -413,7 +437,7 @@ final class LogoTab: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3), open: selected)
+        Tab.draw(in: bounds, fill: selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3), open: selected, top: onTop)
     }
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
@@ -498,6 +522,49 @@ final class Shell: NSView {
         screen.frame = bounds
         screen.setBoundsSize(NSSize(width: (bounds.width / zoom).rounded(), height: (bounds.height / zoom).rounded()))
     }
+}
+
+// On the donut page: the newest message of every chat, a line each, in the
+// chat's colour. A click goes into that conversation.
+final class LatestView: NSView {
+    struct Item { let index: Int; let title: String; let color: NSColor; let who: String; let text: String; let when: String; let unread: Int }
+    var items: [Item] = [] { didSet { needsDisplay = true } }
+    var onPick: ((Int) -> Void)?
+    static let row: CGFloat = 26
+    override var isFlipped: Bool { true }
+
+    override func draw(_ dirty: NSRect) {
+        let font = Theme.mono(11), bold = Theme.mono(11, bold: true)
+        let nameW = (items.map { ($0.title as NSString).size(withAttributes: [.font: bold]).width }.max() ?? 60) + 18
+        for (i, it) in items.enumerated() {
+            let r = NSRect(x: 0, y: CGFloat(i) * Self.row, width: bounds.width, height: Self.row - 3)
+            Theme.wash(it.color).setFill()
+            NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
+            let tag = NSRect(x: r.minX, y: r.minY, width: nameW, height: r.height)
+            it.color.setFill()
+            NSBezierPath(roundedRect: tag, xRadius: 5, yRadius: 5).fill()
+            (it.title as NSString).draw(at: NSPoint(x: tag.minX + 9, y: tag.minY + 4), withAttributes: [.font: bold, .foregroundColor: Theme.on(it.color)])
+            let when = NSAttributedString(string: it.when, attributes: [.font: font, .foregroundColor: Theme.faint])
+            var right = r.maxX - 8 - when.size().width
+            when.draw(at: NSPoint(x: right, y: r.minY + 4))
+            if it.unread > 0 {
+                let n = NSAttributedString(string: " \(it.unread) ", attributes: [.font: bold, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow])
+                right -= n.size().width + 8
+                n.draw(at: NSPoint(x: right, y: r.minY + 4))
+            }
+            let line = NSMutableAttributedString(string: it.who.isEmpty ? "" : it.who + "  ", attributes: [.font: bold, .foregroundColor: Theme.ink])
+            line.append(NSAttributedString(string: it.text.replacingOccurrences(of: "\n", with: " "), attributes: [.font: font, .foregroundColor: Theme.ink]))
+            let para = NSMutableParagraphStyle()
+            para.lineBreakMode = .byTruncatingTail
+            line.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: line.length))
+            line.draw(in: NSRect(x: tag.maxX + 9, y: r.minY + 4, width: max(10, right - tag.maxX - 18), height: r.height - 4))
+        }
+    }
+    override func mouseDown(with event: NSEvent) {
+        let i = Int(convert(event.locationInWindow, from: nil).y / Self.row)
+        if items.indices.contains(i) { onPick?(items[i].index) }
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
 // The list that "@" opens over the composer: the circle's members, a name a row.
@@ -596,6 +663,8 @@ final class RailRow: NSView {
     var windowed = false { didSet { paint() } }
     var unread = 0 { didSet { count.stringValue = "\(unread)"; countBg.isHidden = unread == 0 } }
     var tall: CGFloat = 24 { didSet { height.constant = tall } }
+    var onTop = false { didSet { needsDisplay = true } }       // the tabs are along the top of the window
+    var compact = false { didSet { paint() } }                 // no room: only the open tab shows its name
 
     init(title: String, icon image: NSImage?, color: NSColor, pane: NSColor) {
         wash = color
@@ -632,11 +701,12 @@ final class RailRow: NSView {
         icon.contentTintColor = on
         mark.contentTintColor = on
         mark.isHidden = !windowed
+        name.isHidden = compact && !selected
         needsDisplay = true
     }
 
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42), open: selected)
+        Tab.draw(in: bounds, fill: selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42), open: selected, top: onTop)
     }
     override func viewDidChangeEffectiveAppearance() { paint() }
     override func mouseDown(with event: NSEvent) { onClick?() }
@@ -668,12 +738,26 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var radioRow: Press!
     var onRadio: (() -> Void)?
     let link = LinkPanel()                // shown on the sheet while Signal is not linked
+    private let latest = LatestView()     // on the donut page: the newest message of every chat
+    private var latestTall: NSLayoutConstraint!
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
     private var wikiPane: NSView!
     private var linkShown = false
     // How much of the sheet's height the donut takes (1: all of it; less when
     // the announcements show under it).
-    var donutShare: CGFloat = 1 { didSet { if donutShare != oldValue { needsLayout = true } } }
+    // The newest message of every chat, under the donut (nil: not on the donut page).
+    func showLatest(_ items: [LatestView.Item]?) {
+        latest.isHidden = items == nil || items!.isEmpty
+        latest.items = items ?? []
+        latestTall.constant = CGFloat((items ?? []).count) * LatestView.row
+        scroll.isHidden = linkShown || !latest.isHidden
+        needsLayout = true
+    }
+    // Where the tabs are: down the side, or along the top like a browser's (View menu).
+    var tabsOnTop = UserDefaults.standard.bool(forKey: "tabsOnTop") { didSet { if tabsOnTop != oldValue { applyTabs() } } }
+    private var top: Bool { tabsOnTop && !solo }
+    private var sideSet: [NSLayoutConstraint] = [], topSet: [NSLayoutConstraint] = []
+    private var rowWide: [NSLayoutConstraint] = []
     private var railHeads: [NSView] = []       // the section headings of the rail
     private var railEnds: [NSView] = []        // the last row of each section
     private var railTop: NSLayoutConstraint!
@@ -722,14 +806,18 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     // out in nothing (AppKit then goes round until it stops the app).
     private func fold(width w: CGFloat) {
         guard w > 0 else { return }
-        let showRail = !solo && w >= 470
+        let showRail = !solo && (top || w >= 470)
         let showWiki = !solo && wikiOpen
-        let railW: CGFloat = showRail ? 158 : 0
+        let beside = showRail && !top               // the rail stands beside the sheet (not over it)
+        let railW: CGFloat = beside ? 158 : 0
         railView.isHidden = !showRail
         wikiView.isHidden = !showWiki
         sheet.isHidden = showWiki
-        sheetFromRail.isActive = showRail
-        sheetFromEdge.isActive = !showRail
+        if beside { sheetFromEdge.isActive = false; sheetFromRail.isActive = true }
+        else { sheetFromRail.isActive = false; sheetFromEdge.isActive = true }
+        // along the top, when the tabs have no room for their names, only the open one keeps its name
+        let roomy = !top || w >= 150 + CGFloat(rows.count) * 112 + 250
+        rows.forEach { $0.compact = !roomy }
         sheetToWiki.isActive = false
         sheetToEdge.isActive = true
         if showWiki { wikiWidth.constant = w - railW }
@@ -769,6 +857,16 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         func need(_ d: Int) -> CGFloat {
             (d < 2 ? 8 + logoH + 8 : 6) + n * (d == 0 ? 25 : 21) + (d == 0 ? heads * 17 + ends * 10 : ends * 4) + 3 * 19 + 12 + 22
         }
+        if top {                                    // along the top: one height, no headings, no names by the logins
+            guard density != 9 else { return }
+            density = 9
+            rows.forEach { $0.tall = 36 }
+            railHeads.forEach { $0.isHidden = true }
+            railEnds.forEach { rail.setCustomSpacing(10, after: $0) }
+            logo.isHidden = false
+            whoLabels.forEach { $0.isHidden = true }
+            return
+        }
         let d = need(0) <= h ? 0 : need(1) <= h ? 1 : 2
         guard d != density else { return }
         density = d
@@ -784,7 +882,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // The donut has the sheet to itself.
         // the donut has the sheet to itself, or shares it with what is under it
         let tall = linkShown ? max(120, (bounds.height * 0.48).rounded())
-            : donutShare < 1 ? max(120, (bounds.height * donutShare).rounded()) : max(120, bounds.height - 60)
+            : max(120, bounds.height - (top ? 42 : 0) - (latest.isHidden ? 0 : latestTall.constant + 8) - 24)
         if diagramHeight.constant != tall { diagramHeight.constant = tall }
         super.layout()
         let sheetMoved = lastRender != nil && abs((text.textContainer?.size.width ?? 0) - renderedWidth) > 24
@@ -897,13 +995,18 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         diagram.isHidden = true
         diagram.onPick = { [weak self] i, at in self?.pick(i, at: at) }
         link.isHidden = true
-        let col = NSStackView(views: [roles, diagram, link, scroll, status, composer])
+        latest.isHidden = true
+        latest.translatesAutoresizingMaskIntoConstraints = false
+        latestTall = latest.heightAnchor.constraint(equalToConstant: 0)
+        latestTall.isActive = true
+        latest.onPick = { [weak self] i in self?.onSelect?(i) }
+        let col = NSStackView(views: [roles, diagram, link, latest, scroll, status, composer])
         col.orientation = .vertical
         col.alignment = .leading
         col.spacing = 2
         col.translatesAutoresizingMaskIntoConstraints = false
         sheet.addSubview(col)
-        for v in [diagram, link, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
+        for v in [diagram, link, latest, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
         col.setCustomSpacing(5, after: scroll)
         scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
 
@@ -931,21 +1034,40 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         sheetToEdge.isActive = true
         railBox.isHidden = solo
         wiki.isHidden = true
-        NSLayoutConstraint.activate([
-            railBox.leadingAnchor.constraint(equalTo: leadingAnchor),
-            railBox.topAnchor.constraint(equalTo: topAnchor),
+        railTop = rail.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 56)
+        // the tabs down the side
+        sideSet = [
             railBox.bottomAnchor.constraint(equalTo: bottomAnchor),
             railWidth,
-            logo.leadingAnchor.constraint(equalTo: railBox.leadingAnchor),
             logo.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
             logo.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 8),
             rail.leadingAnchor.constraint(equalTo: railBox.leadingAnchor),
             rail.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
-            { railTop = rail.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 56); return railTop }(),
+            railTop,
             foot.leadingAnchor.constraint(equalTo: railBox.leadingAnchor, constant: 12),
             foot.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -8),
             foot.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: -10),
             sheet.topAnchor.constraint(equalTo: topAnchor),
+            wiki.topAnchor.constraint(equalTo: topAnchor),
+        ]
+        // the tabs along the top: the wordmark's tab, the tabs in a row, the radio and the logins at the right
+        topSet = [
+            railBox.trailingAnchor.constraint(equalTo: trailingAnchor),
+            railBox.heightAnchor.constraint(equalToConstant: 42),
+            logo.widthAnchor.constraint(equalToConstant: 146),
+            logo.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: 3),
+            rail.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
+            rail.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: 3),
+            foot.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -10),
+            foot.centerYAnchor.constraint(equalTo: railBox.centerYAnchor),
+            foot.leadingAnchor.constraint(greaterThanOrEqualTo: rail.trailingAnchor, constant: 8),
+            sheet.topAnchor.constraint(equalTo: railBox.bottomAnchor),
+            wiki.topAnchor.constraint(equalTo: railBox.bottomAnchor),
+        ]
+        NSLayoutConstraint.activate([
+            railBox.leadingAnchor.constraint(equalTo: leadingAnchor),
+            railBox.topAnchor.constraint(equalTo: topAnchor),
+            logo.leadingAnchor.constraint(equalTo: railBox.leadingAnchor),
             sheet.bottomAnchor.constraint(equalTo: bottomAnchor),
             band.leadingAnchor.constraint(equalTo: sheet.leadingAnchor),
             band.trailingAnchor.constraint(equalTo: sheet.trailingAnchor),
@@ -956,7 +1078,6 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             col.topAnchor.constraint(equalTo: band.bottomAnchor, constant: 7),
             col.bottomAnchor.constraint(equalTo: sheet.bottomAnchor, constant: -5),
             wiki.trailingAnchor.constraint(equalTo: trailingAnchor),
-            wiki.topAnchor.constraint(equalTo: topAnchor),
             wiki.bottomAnchor.constraint(equalTo: bottomAnchor),
             wikiWidth,
             wikiBand.leadingAnchor.constraint(equalTo: wiki.leadingAnchor),
@@ -968,8 +1089,27 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             wikiScroll.topAnchor.constraint(equalTo: wikiBand.bottomAnchor, constant: 3),
             wikiScroll.bottomAnchor.constraint(equalTo: wiki.bottomAnchor, constant: -4),
         ])
+        applyTabs()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // Put the tabs where the member wants them: down the side, or along the top.
+    private func applyTabs() {
+        NSLayoutConstraint.deactivate(sideSet + topSet + rowWide)
+        NSLayoutConstraint.activate(top ? topSet : sideSet + rowWide)
+        rail.orientation = top ? .horizontal : .vertical
+        rail.alignment = top ? .bottom : .leading
+        rail.spacing = top ? 3 : 1
+        foot.orientation = top ? .horizontal : .vertical
+        foot.alignment = top ? .centerY : .leading
+        foot.spacing = top ? 12 : 6
+        logo.onTop = top
+        rows.forEach { $0.onTop = top }
+        density = -1
+        fitRail(height: bounds.height)
+        fold(width: bounds.width)
+        needsLayout = true
+    }
 
     private static func dress(_ t: NSTextView, _ s: NSScrollView) {
         t.isEditable = false
@@ -1154,6 +1294,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     func setRail(_ sections: [(String, [(Int, String, NSColor?)])]) {
         rail.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rows = []
+        rowWide = []
         railHeads = []
         railEnds = []
         density = -1
@@ -1179,7 +1320,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 row.tag_ = index
                 row.tall = density > 0 ? 20 : 24
                 rail.addArrangedSubview(row)
-                row.widthAnchor.constraint(equalTo: rail.widthAnchor).isActive = true
+                let wide = row.widthAnchor.constraint(equalTo: rail.widthAnchor)     // down the side, a tab is as wide as the rail
+                rowWide.append(wide)
+                wide.isActive = !top
+                row.onTop = top
                 rows.append(row)
             }
             railEnds.append(rail.arrangedSubviews.last!)

@@ -8,12 +8,15 @@ and its colour and beat are how recently the circle spoke. The commons stand
 beside it.
 
 The window is flat planes of colour in one monospace face, with a fine grain.
-Left, the rail, all folder tabs that run flush to the pane. The first is the
-wordmark with a small house: it is the donut's tab. Then the chat, each circle,
-and the wiki, with no headings. Announce has no tab: its messages are on the
-donut screen, under the donut. The open tab is the colour of the pane it opens;
-a tab that is not open is faded and shaded like a button; a circle with a
-window of its own shows a window mark. Middle, the open circle's messages with its roles on
+The tabs are folder tabs that run flush to the pane, down the left side or
+(View → Tabs on Top) in a row along the top like a browser's. The first is the
+wordmark with a small house: it is the donut's tab. Then the commons, each
+circle, and the wiki, with no headings. The open tab is the colour of the pane
+it opens; a tab that is not open is faded and shaded like a button; a circle
+with a window of its own shows a window mark. Along the top, when there is no
+room for every name, only the open tab keeps its name. Under the donut, the
+newest message of every chat floats, a line each: a click goes into that
+conversation. Middle, the open circle's messages with its roles on
 top as colour-coded blocks (the sheet is a wash of the circle's colour);
 pictures, videos, files and link previews show there. The wiki is a tab too: when it is
 open it has the whole sheet. Picking a
@@ -134,6 +137,7 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_SNAPSHOT_PICK=1` | pick the first circle on the donut, as a click would (runs the transition) |
 | `NCC_SNAPSHOT_PENDING=<words>` | show those words as a message on its way; nothing is sent |
 | `NCC_SNAPSHOT_ZOOM=<factor>` | zoom the interface for the picture |
+| `NCC_SNAPSHOT_TOP=1` or `0` | tabs along the top, or down the side, for the picture |
 | `NCC_SNAPSHOT_WINDOW=<n>` | give the nth circle its own window, and picture that window |
 | `NCC_SNAPSHOT_DOC=<title, id or slug>` | open that wiki page first; its markdown is written to `<file.png>.md` |
 | `NCC_LOGGED_OUT=1` | no Signal account and no wiki session, to see the logged-out screen (`signal` or `ncc` for one of them) |
