@@ -64,7 +64,7 @@ build.sh  dev.sh  dist.sh  release.sh  make-icon.swift
 | kept between launches | `UserDefaults`: `read.<groupId>`, `appearance`, `zoom`, `tabsOnTop`, `resume.*` | |
 
 Places have an index: a circle is its index in `circles`; the donut is `-1`,
-the wiki `-2`, the search `-3`, the login `-4`.
+the wiki `-2`, the search `-3`, the login `-4`, the code `-5`.
 
 ## How a change moves
 
@@ -121,7 +121,7 @@ or hidden for the place that is open.
 
 ## To add a thing
 
-- **A place (a tab).** Give it an index below `-4`; add it to `buildRail`,
+- **A place (a tab).** Give it an index below `-5`; add it to `buildRail`,
   `go`, `currentTab` and a branch of `refresh()`; an icon in `Theme.tabIcon`.
 - **Something in the sheet.** A view in `MainView`'s column and a `show…`
   method; call it from the right branches of `refresh()`.

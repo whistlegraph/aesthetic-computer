@@ -21,6 +21,7 @@ struct AppConf: Codable {
     var peopleLedger: String?     // optional people.json (names, colours, roles, badges)
     var assetsDir: String?        // optional club artwork
     var wikiURL: String?          // default: https://wiki.nela.computer
+    var forgeURL: String?         // the club's code (Forgejo), default: https://git.nela.computer
     var wikiStart: String?        // title of the wiki's start page, default "STARTING PAGE"
     var desktopBridge: String?    // optional slab/bin/signal.mjs, for history import
     var match = ["nela computer club", "computer club", "ncc"]

@@ -42,6 +42,7 @@ enum Theme {
     static let word = pair("006888", "00D080")         // the wordmark's NCC: never the donut's cyan (teal, or in the dark the club green)
     static let search = pair("F2A93B", "E0932A")       // the search tab: amber
     static let login = pair("9FB2C8", "5B6E86")        // the login tab: slate
+    static let code = pair("F2924A", "C96A22")         // the code tab: the forge's orange
     static let edge: CGFloat = 12                      // the one margin: every plane's contents stand this far in
     static let yellow = NSColor(hex: "F3D34A")!
     static let onYellow = NSColor(hex: "1B2B22")!
@@ -89,7 +90,7 @@ enum Theme {
     static func tabIcon(_ title: String, size: CGFloat = 13) -> NSImage? {
         let t = title.lowercased()
         let name = t == "home" ? "house.fill" : t == "window" ? "macwindow" : t == "wiki" ? "book.fill"
-            : t == "search" ? "magnifyingglass" : t == "login" ? "key.fill"
+            : t == "search" ? "magnifyingglass" : t == "login" ? "key.fill" : t == "code" ? "chevron.left.forwardslash.chevron.right"
             : t.contains("steer") ? "steeringwheel" : t.contains("infra") ? "desktopcomputer"
             : t.contains("announce") ? "megaphone.fill" : t.contains("chat") ? "bubble.left.and.bubble.right.fill"
             : t.contains("event") ? "calendar" : t.contains("label") || t.contains("music") ? "music.note" : "circle.dashed"
@@ -568,7 +569,7 @@ final class LinkPanel: NSView {
     let qr = NSImageView()
     let note = label("", Theme.mono(11), NSColor(white: 1, alpha: 0.8))
     let nccButton = NSButton(title: "Sign into NCC", target: nil, action: nil)
-    let nccStatus = label("to access wiki", Theme.mono(11), .white)
+    let nccStatus = label("for wiki & code", Theme.mono(11), .white)
     private let panes = NSStackView()
 
     init() {
@@ -867,6 +868,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     // The wiki pane is the member's to open and shut (the WIKI row of the rail).
     // The wiki tab: open, or not. Picking a circle or the donut shuts it.
     private var shownIndex = -1
+    var paneTab = -2 { didSet { paintTabs() } }       // which tab has the wiki's plane: the wiki (-2) or the code (-5)
     var wikiOpen = false { didSet { if wikiOpen != oldValue { fold(width: bounds.width); needsLayout = true } } }
     private var sheetFromRail: NSLayoutConstraint!, sheetFromEdge: NSLayoutConstraint!
     private var sheetToWiki: NSLayoutConstraint!, sheetToEdge: NSLayoutConstraint!
@@ -882,7 +884,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
     private let searchField = NSTextField()
     private let barSearch = NSTextField()          // on top: the search is in the task bar, at its left
-    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.8), radius: 11)
+    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.8), radius: 0)      // full bleed: it is the bar
     private let barGlass = NSImageView()
     var onSearchText: ((String) -> Void)?
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
@@ -1029,7 +1031,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     // Which tab is the open one: the wiki's when the wiki is open, else the sheet's.
     private func paintTabs() {
         let wiki = !solo && wikiOpen
-        for r in rows { r.selected = wiki ? r.tag_ == -2 : r.tag_ == shownIndex }
+        for r in rows { r.selected = wiki ? r.tag_ == paneTab : r.tag_ == shownIndex }
         logo.selected = !wiki && shownIndex == -1
         if top {                                    // the bar says where we are, in that place's colour
             let here = rows.first { $0.selected }
@@ -1250,8 +1252,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barSearchBox.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         NSLayoutConstraint.activate([
             barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
-            barSearchBox.heightAnchor.constraint(equalToConstant: 22),
-            barGlass.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: 8),
+            barSearchBox.heightAnchor.constraint(equalToConstant: 28),
+            barGlass.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: Theme.edge),
             barGlass.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
             barGlass.widthAnchor.constraint(equalToConstant: 12),
             barSearch.leadingAnchor.constraint(equalTo: barGlass.trailingAnchor, constant: 5),
@@ -1330,7 +1332,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             unibar.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
             unibar.topAnchor.constraint(equalTo: railBox.topAnchor),
             unibar.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
-            foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: Theme.edge),
+            foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor),
             foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -Theme.edge),
             foot.centerYAnchor.constraint(equalTo: taskBar.centerYAnchor),
             sheet.topAnchor.constraint(equalTo: railBox.bottomAnchor),
@@ -1460,11 +1462,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             let row = NSStackView(views: [glyph])         // small: the mark alone (the Login tab has the words)
             row.edgeInsets = NSEdgeInsets(top: 3, left: 4, bottom: 3, right: 4)
             pin(row, to: chip)
-            let tick = NSImageView()
-            tick.image = Pixel.icon(who == nil ? "box" : "check", size: 8)
-            tick.imageScaling = .scaleNone
-            tick.contentTintColor = who == nil ? Theme.faint : Theme.me
-            let line = Press(views: [chip, tick])
+            // no tick beside it: a badge is full colour when its login is done, faded when it is not
+            let line = Press(views: [chip])
             line.spacing = 3
             line.toolTip = who.map { name + " · " + $0 } ?? ask
             line.onClick = { [weak self] in self?.onAccount?(name) }
@@ -1491,6 +1490,13 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         guard on else { return }
         if !top { window?.makeFirstResponder(searchField) }
         else if barSearch.currentEditor() == nil { window?.makeFirstResponder(barSearch) }
+    }
+    // The search is greyed out until there is something to search: one login, at least.
+    func setSearchEnabled(_ on: Bool) {
+        barSearch.isEnabled = on
+        searchField.isEnabled = on
+        barSearchBox.alphaValue = on ? 1 : 0.4
+        barSearch.placeholderString = on ? "search" : "search (log in first)"
     }
     var searchText: String {
         get { top ? barSearch.stringValue : searchField.stringValue }

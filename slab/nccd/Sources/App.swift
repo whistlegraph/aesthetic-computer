@@ -40,6 +40,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             UserDefaults.standard.set(Double(zoom), forKey: "zoom")
             main.zoom = zoom
             login?.zoom = zoom
+            codeWeb?.pageZoom = zoom
             satellites.forEach { $0.view.zoom = zoom }
         }
     }
@@ -55,6 +56,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var onStart = true                                       // the donut (home) is open, not a circle
     var onSearch = false                                     // the Search tab is open
     var onLogin = false                                      // the Login tab is open
+    var onCode = false                                       // the Code tab is open
+    var codeWeb: WKWebView?
     var searchWork: DispatchWorkItem?
     var picked = false                                       // the member has chosen something on the rail
     var account: SignalAccount?
@@ -136,7 +139,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         main.onSelect = { [weak self] i in
             guard let self else { return }
-            if i == -2 { return self.main.wikiOpen.toggle() }       // the Wiki tab: the wiki takes the sheet, or gives it back
+            if i == -2, self.main.wikiOpen, !self.onCode { self.main.wikiOpen = false; return }   // the open Wiki tab, picked again: back to the sheet
             self.go(i)
         }
         main.onSend = { [weak self] s, marks in
@@ -225,6 +228,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // NCC_SNAPSHOT_DROP=1 opens the unibar's dropdown for the picture.
         if env["NCC_SNAPSHOT_DROP"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.main.testDrop() }
+        }
+        // NCC_SNAPSHOT_TAB=<index> opens that place first (-2 wiki, -3 search, -4 login, -5 code).
+        if let t = env["NCC_SNAPSHOT_TAB"].flatMap({ Int($0) }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { self.go(t) }
         }
         // NCC_SNAPSHOT_CIRCLE=<n> opens the nth circle of the rail first.
         if let n = env["NCC_SNAPSHOT_CIRCLE"].flatMap({ Int($0) }) {
@@ -325,6 +332,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return name.isEmpty || name == a.uuid || name == "me" ? "…" + a.number.suffix(4) : name
         }
         main.setAccounts(ncc: nccName, signal: me)
+        main.setSearchEnabled(account != nil || wikiReady)
     }
 
     // The link panel under the donut, while no Signal account is linked.
@@ -339,7 +347,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else {
             panel.nccButton.title = " Sign into NCC"
             panel.nccButton.action = #selector(openWikiLogin)
-            panel.nccStatus.stringValue = "to access wiki"
+            panel.nccStatus.stringValue = "for wiki & code"
         }
         if let account {
             panel.button.title = " Unlink Signal"
@@ -365,7 +373,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         } else {
             panel.button.isEnabled = !linking
-            panel.status.stringValue = linking ? "scan the code with your phone" : "to access announcements, chat, and circles"
+            panel.status.stringValue = linking ? "scan the code with your phone" : "to chat"
         }
     }
 
@@ -462,6 +470,24 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildRail()
         refreshAccounts()
         go(-4)
+    }
+
+    // The Code tab: the club's forge (Forgejo), in the app. It shares the web
+    // session of the NCC login, so the forge's own "sign in with NCC" goes
+    // through without the password again.
+    func showCode() {
+        if codeWeb == nil {
+            let w = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+            w.allowsBackForwardNavigationGestures = true
+            if let url = URL(string: Config.shared.conf.forgeURL ?? "https://git.nela.computer") { w.load(URLRequest(url: url)) }
+            codeWeb = w
+        }
+        codeWeb?.pageZoom = zoom
+        onCode = true
+        main.paneTab = -5
+        main.showWikiLogin(codeWeb)
+        main.wikiOpen = true
+        window.title = "NCCd: code"
     }
 
     @objc func openWikiLogin() { go(-2); if wiki.token == nil, login == nil { showLogin() } }
@@ -628,7 +654,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // A tab is there only when its login is: the chats and circles with Signal, the wiki with NCC.
         var last: [(Int, String, NSColor?)] = [(-3, "Search", Theme.search), (-4, "Login", Theme.login)]
-        if wiki.token != nil { last.insert((-2, "Wiki", Theme.wikiBand), at: 0) }
+        if wiki.token != nil {              // the NCC login opens the wiki and the code
+            last.insert((-5, "Code", Theme.code), at: 0)
+            last.insert((-2, "Wiki", Theme.wikiBand), at: 0)
+        }
         main.setRail([("", pick("commons")), ("", pick("circle")), ("", last)])
         updateUnread()
     }
@@ -1193,7 +1222,16 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // Open a tab: the donut (-1), a circle, or the wiki (-2).
     func go(_ i: Int) {
-        if i == -2 { main.wikiOpen = true; return }
+        if i == -5 { return showCode() }
+        if i == -2 {                          // the wiki has its plane back from the code
+            onCode = false
+            main.paneTab = -2
+            main.showWikiLogin(login?.web)
+            if login == nil { drawWiki() }
+            main.wikiOpen = true
+            return
+        }
+        onCode = false
         main.wikiOpen = false                 // a circle, the donut or the search: the wiki steps aside
         if i == -4 { onLogin = true; onSearch = false; onStart = false; refresh(); return }
         onLogin = false
@@ -1204,7 +1242,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     // The donut first, then the tabs of the rail in their order.
     var tabs: [Int] { [-1] + main.tabOrder.filter { $0 != -1 } }
-    var currentTab: Int { main.wikiOpen ? -2 : onLogin ? -4 : onSearch ? -3 : onStart ? -1 : selected }
+    var currentTab: Int { main.wikiOpen ? (onCode ? -5 : -2) : onLogin ? -4 : onSearch ? -3 : onStart ? -1 : selected }
     func stepTab(_ by: Int) {
         let all = tabs
         guard !all.isEmpty else { return }
