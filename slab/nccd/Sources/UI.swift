@@ -425,7 +425,7 @@ final class Unibar: NSView {
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
 
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: NSRect(x: -6, y: 0, width: bounds.width + 6, height: bounds.height + 3), fill: color, open: true, top: true)
+        Tab.draw(in: NSRect(x: -10, y: 0, width: bounds.width + 20, height: bounds.height + 13), fill: color, open: true, top: true)
         if hover || open {
             NSColor(white: 1, alpha: 0.16).setFill()
             bounds.fill(using: .sourceOver)
@@ -476,8 +476,19 @@ final class LogoTab: NSView {
     private let home = NSImageView()
     var onClick: (() -> Void)?
     var selected = false { didSet { needsDisplay = true; home.contentTintColor = selected ? Theme.ink : Theme.faint } }
-    var onTop = false { didSet { tallness.constant = onTop ? 36 : Self.tall; needsDisplay = true } }
-    var small = false { didSet { word.isHidden = small } }      // no room for the word: the house alone
+    var onTop = false { didSet { tallness.constant = onTop ? 39 : Self.tall; arrange() } }
+    var small = false { didSet { arrange() } }                  // no room for the word: the house alone
+    private var afterHome: NSLayoutConstraint!, atEdge: NSLayoutConstraint!
+    // Down the side the house stands left of the word. On top the word stands alone
+    // (the bar beside it says where you are), and in a narrow window the house stands for it.
+    private func arrange() {
+        word.isHidden = small
+        home.isHidden = onTop && !small
+        afterHome.isActive = false
+        atEdge.isActive = false
+        (home.isHidden ? atEdge : afterHome)?.isActive = true
+        needsDisplay = true
+    }
     var barColor: NSColor? { didSet { needsDisplay = true } }   // on top: the wordmark's end of the unibar
     private var tallness: NSLayoutConstraint!
     static let tall: CGFloat = 46
@@ -496,14 +507,18 @@ final class LogoTab: NSView {
             home.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 15),
             home.centerYAnchor.constraint(equalTo: centerYAnchor),
             home.widthAnchor.constraint(equalToConstant: 15), home.heightAnchor.constraint(equalToConstant: 14),
-            word.leadingAnchor.constraint(equalTo: home.trailingAnchor, constant: 7),
             word.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -1),
         ])
+        afterHome = word.leadingAnchor.constraint(equalTo: home.trailingAnchor, constant: 7)
+        atEdge = word.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12)
+        afterHome.isActive = true
         home.contentTintColor = Theme.faint
     }
     required init?(coder: NSCoder) { fatalError() }
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: barColor ?? (selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3)),
+        // on top it is the left end of one unbroken bar: no corners, no gap
+        Tab.draw(in: onTop ? NSRect(x: -10, y: 0, width: bounds.width + 20, height: bounds.height + 10) : bounds,
+                 fill: barColor ?? (selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3)),
                  open: selected, top: onTop, hover: hover)
     }
     // The pointer over the tab.
@@ -529,10 +544,16 @@ final class LinkPanel: NSView {
     let button = NSButton(title: "Link Signal", target: nil, action: nil)
     let qr = NSImageView()
     let note = label("", Theme.mono(11), Theme.faint)
+    // The other login, said the same way: what it is, and what it opens.
+    let nccButton = NSButton(title: "Sign into NCC", target: nil, action: nil)
+    let nccStatus = label("to access wiki", Theme.mono(11), Theme.faint)
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
+        nccButton.bezelStyle = .rounded
+        nccButton.font = Theme.mono(12, bold: true)
+        nccButton.bezelColor = NSColor(hex: "006888")
         button.bezelStyle = .rounded
         button.font = Theme.mono(12, bold: true)
         button.bezelColor = NSColor(hex: "3A76F0")
@@ -547,10 +568,11 @@ final class LinkPanel: NSView {
         // measures itself again on every pass, and AppKit stops the app.
         note.preferredMaxLayoutWidth = 300
         note.widthAnchor.constraint(equalToConstant: 300).isActive = true
-        let stack = NSStackView(views: [button, status, qr, note])
+        let stack = NSStackView(views: [button, status, qr, note, nccButton, nccStatus])
         stack.orientation = .vertical
         stack.alignment = .centerX
         stack.spacing = 8
+        stack.setCustomSpacing(16, after: note)
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -806,6 +828,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let radioBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.55), radius: 6)    // in the Netlabel tab: the station
     private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
     private let searchField = NSTextField()
+    private let barSearch = NSTextField()          // on top: the search is in the task bar, at its left
+    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.7), radius: 6)
     var onSearchText: ((String) -> Void)?
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
     private var wikiPane: NSView!
@@ -936,8 +960,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         topLevel = 1
         let small = w < 380
         logo.small = small
-        logoWide.constant = small ? 46 : 146
-        topHeight.constant = 42
+        logoWide.constant = small ? 46 : 118
+        topHeight.constant = 36
         applyFoot(words: w >= 330, names: w >= 520)
     }
 
@@ -1150,6 +1174,24 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchBar.addSubview(searchField)
+        barSearch.font = Theme.mono(11)
+        barSearch.isBordered = false
+        barSearch.drawsBackground = false
+        barSearch.focusRingType = .none
+        barSearch.placeholderString = "search NCC"
+        barSearch.delegate = self
+        barSearch.translatesAutoresizingMaskIntoConstraints = false
+        barSearch.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+        barSearchBox.addSubview(barSearch)
+        let wide = barSearchBox.widthAnchor.constraint(equalToConstant: 220)
+        wide.priority = .init(600)
+        NSLayoutConstraint.activate([
+            wide, barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            barSearchBox.heightAnchor.constraint(equalToConstant: 20),
+            barSearch.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: 7),
+            barSearch.trailingAnchor.constraint(equalTo: barSearchBox.trailingAnchor, constant: -5),
+            barSearch.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
+        ])
         NSLayoutConstraint.activate([
             radioBar.heightAnchor.constraint(equalToConstant: 28),
             radioRow.leadingAnchor.constraint(equalTo: radioBar.leadingAnchor, constant: 10),
@@ -1176,7 +1218,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         addSubview(wiki)
         wikiBand.translatesAutoresizingMaskIntoConstraints = false
         wiki.addSubview(wikiBand)
-        pin(wikiHead, to: wikiBand, 4)
+        wikiBand.isHidden = true
         wikiScroll.translatesAutoresizingMaskIntoConstraints = false
         wiki.addSubview(wikiScroll)
 
@@ -1215,12 +1257,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // the tabs along the top: the wordmark's tab, the tabs in a row, the radio and the logins at the right
         topSet = [
             railBox.trailingAnchor.constraint(equalTo: trailingAnchor),
-            { topHeight = railBox.heightAnchor.constraint(equalToConstant: 42); return topHeight }(),
+            { topHeight = railBox.heightAnchor.constraint(equalToConstant: 36); return topHeight }(),
             { logoWide = logo.widthAnchor.constraint(equalToConstant: 146); return logoWide }(),
-            logo.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
-            unibar.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
+            logo.topAnchor.constraint(equalTo: railBox.topAnchor),
+            unibar.leadingAnchor.constraint(equalTo: logo.trailingAnchor),
             unibar.trailingAnchor.constraint(equalTo: railBox.trailingAnchor),
-            unibar.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
+            unibar.topAnchor.constraint(equalTo: railBox.topAnchor),
             unibar.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
             foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: 10),
             foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -10),
@@ -1251,7 +1293,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             wikiBand.leadingAnchor.constraint(equalTo: wiki.leadingAnchor),
             wikiBand.trailingAnchor.constraint(equalTo: wiki.trailingAnchor),
             wikiBand.topAnchor.constraint(equalTo: wiki.topAnchor),
-            wikiBand.heightAnchor.constraint(equalToConstant: 22),
+            wikiBand.heightAnchor.constraint(equalToConstant: 0),       // no band: the tab says this is the wiki
             wikiScroll.leadingAnchor.constraint(equalTo: wiki.leadingAnchor, constant: 4),
             wikiScroll.trailingAnchor.constraint(equalTo: wiki.trailingAnchor, constant: -2),
             wikiScroll.topAnchor.constraint(equalTo: wikiBand.bottomAnchor, constant: 3),
@@ -1300,6 +1342,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         foot.spacing = top ? 12 : 6
         taskBar.isHidden = !top
         footGap.isHidden = !top
+        barSearchBox.isHidden = !top
         logo.onTop = top
         density = -1
         fitRail(height: bounds.height)
@@ -1336,6 +1379,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     var onAccount: ((String) -> Void)?
     func setAccounts(ncc: String?, signal: String?) {
         foot.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        foot.addArrangedSubview(barSearchBox)
+        barSearchBox.isHidden = !top
         foot.addArrangedSubview(footGap)
         footGap.isHidden = !top
         whoLabels = []
@@ -1379,13 +1424,16 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     func showRadio(_ on: Bool) { radioBar.isHidden = !on }
 
     // The Search tab: its field, and what was found (in the ledger's place).
+    // (On top the field is in the task bar, so the sheet has no field of its own.)
     func showSearch(_ on: Bool) {
-        searchBar.isHidden = !on
-        if on { window?.makeFirstResponder(searchField) }
+        searchBar.isHidden = !on || top
+        guard on else { return }
+        if !top { window?.makeFirstResponder(searchField) }
+        else if barSearch.currentEditor() == nil { window?.makeFirstResponder(barSearch) }
     }
     var searchText: String {
-        get { searchField.stringValue }
-        set { searchField.stringValue = newValue }
+        get { top ? barSearch.stringValue : searchField.stringValue }
+        set { searchField.stringValue = newValue; barSearch.stringValue = newValue }
     }
 
     struct Found { let link: URL; let place: String; let color: NSColor?; let when: String; let who: String; let text: String }
@@ -1532,7 +1580,6 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         loginWeb = web
         wikiScroll.isHidden = web != nil
         guard let web else { return }
-        wikiHead.stringValue = "WIKI · NCC LOGIN"
         web.translatesAutoresizingMaskIntoConstraints = false
         wikiPane.addSubview(web)
         NSLayoutConstraint.activate([
@@ -2047,7 +2094,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var lastTyped = Date.distantPast
     var quiet: Bool { Date().timeIntervalSince(lastTyped) > 6 }
     func controlTextDidChange(_ n: Notification) {
-        if (n.object as? NSTextField) === searchField { return onSearchText?(searchField.stringValue) ?? () }
+        if let f = n.object as? NSTextField, f === searchField || f === barSearch { return onSearchText?(f.stringValue) ?? () }
         lastTyped = Date()
         updateMentions()
     }

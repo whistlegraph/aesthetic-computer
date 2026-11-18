@@ -31,6 +31,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let people = People()
     let wiki = Wiki()
     let updater = Updater()
+    var menuDonut: NSStatusItem?
     let radio = Radio()
     // The zoom of what is in the pane (not of the tabs and bars), kept between launches.
     var zoom: CGFloat = 1 {
@@ -83,6 +84,25 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         shell.set(main)
         window.contentView = shell
         if let z = UserDefaults.standard.object(forKey: "zoom") as? Double { zoom = CGFloat(z) }
+        // A donut in the menu bar: a click brings NCCd's window forward (and opens it again if it was shut).
+        if !Self.snapshotRun {
+            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+            let size: CGFloat = 16
+            let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
+                let ring = NSBezierPath(ovalIn: NSRect(x: 1, y: 1, width: size - 2, height: size - 2))
+                ring.append(NSBezierPath(ovalIn: NSRect(x: size / 2 - 2.6, y: size / 2 - 2.6, width: 5.2, height: 5.2)))
+                ring.windingRule = .evenOdd
+                NSColor.black.setFill()
+                ring.fill()
+                return true
+            }
+            image.isTemplate = true                 // it takes the menu bar's own colour
+            item.button?.image = image
+            item.button?.toolTip = "NCCd"
+            item.button?.target = self
+            item.button?.action = #selector(showWindow)
+            menuDonut = item
+        }
         radio.onChange = { [weak self] in
             guard let self else { return }
             self.main.setRadio(playing: self.radio.playing, now: self.radio.title)
@@ -117,8 +137,9 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         main.onDoc = { [weak self] id in self?.showDoc(id) }
         // The search runs a moment after the typing stops.
-        main.onSearchText = { [weak self] _ in
+        main.onSearchText = { [weak self] words in
             guard let self else { return }
+            if !self.onSearch, !words.isEmpty { self.go(-3) }       // typing in the task bar's search opens what is found
             self.searchWork?.cancel()
             let work = DispatchWorkItem { [weak self] in self?.search() }
             self.searchWork = work
@@ -265,6 +286,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         radio.stop()
         engine.cancelLink()
         engine.stop()
+        if let item = menuDonut { NSStatusBar.system.removeStatusItem(item) }
         satellites.forEach { $0.window.delegate = nil; $0.window.close() }
         satellites = []
         window.delegate = nil
@@ -277,7 +299,12 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         engine.cancelLink()
         engine.stop()
     }
-    func applicationShouldTerminateAfterLastWindowClosed(_ a: NSApplication) -> Bool { !leaving && !Self.dev }
+    // The window can be shut and the app stays (the donut in the menu bar, or the Dock, opens it again).
+    func applicationShouldTerminateAfterLastWindowClosed(_ a: NSApplication) -> Bool { false }
+    func applicationShouldHandleReopen(_ a: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        if !hasVisibleWindows { window.makeKeyAndOrderFront(nil) }
+        return true
+    }
     func windowDidBecomeKey(_ n: Notification) { if !circles.isEmpty { markRead() } }
 
     // ─── the two logins ──────────────────────────────────────────────────────
@@ -297,6 +324,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         main.showLink(account == nil)
         guard account == nil else { return }
         let panel = main.link
+        panel.nccButton.isHidden = nccName != nil            // the NCC line shows until that login is done
+        panel.nccStatus.isHidden = nccName != nil
+        panel.nccButton.target = self
+        panel.nccButton.action = #selector(openWikiLogin)
         if Config.shared.signalCli == nil {
             // The Signal engine (signal-cli) is not on this Mac. With Homebrew
             // here, the app installs it itself, as soon as it opens.
@@ -311,7 +342,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         } else {
             panel.button.isEnabled = !linking
-            panel.status.stringValue = linking ? "scan the code with your phone" : "Signal opens your circles"
+            panel.status.stringValue = linking ? "scan the code with your phone" : "to access announcements, chat, and circles"
         }
     }
 
@@ -374,6 +405,13 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
     }
+
+    @objc func showWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc func openWikiLogin() { go(-2); if wiki.token == nil, login == nil { showLogin() } }
 
     @objc func linkSignal() {
         linking = true
@@ -585,6 +623,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if onSearch {
             window.title = "NCCd: search"
+            main.showLink(false)
             main.showRadio(false)
             main.show(index: -3, heading: "search", color: Theme.search, roleLine: [], canSend: false, placeholder: "")
             main.showSearch(true)
@@ -592,6 +631,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return updateUnread()
         }
         main.showSearch(false)
+        main.showLink(onStart && account == nil)      // the way in shows on the donut page only
         if onStart {
             main.showRadio(false)
             window.title = "NCCd: donut"                  // the title bar says where we are
@@ -774,6 +814,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.wiki.me { name in
                 self.nccName = name ?? "signed in"
                 self.refreshAccounts()
+                self.refreshLink()
             }
             self.buildRail()        // the wiki's collection colours are in now
             self.refresh()

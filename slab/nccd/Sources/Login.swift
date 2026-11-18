@@ -42,9 +42,11 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         let css = """
         html, body { background: transparent !important; background-image: none !important; }
         .pf-c-login { min-height: 0 !important; padding: 12px 16px !important; background: transparent !important; display: block !important; }
-        ak-locale-select, .pf-c-login__header, .pf-c-login__footer, ak-brand-links, ak-flow-inspector-button { display: none !important; }
+        ak-locale-select, .pf-c-login__header, .pf-c-login__footer, ak-brand-links, ak-flow-inspector-button,
+        .pf-c-brand, img.branding-logo, .pf-c-login__main-header, h1.pf-c-title { display: none !important; }
+        p, label, span, a { white-space: nowrap !important; }
         .pf-c-login__main { background: transparent !important; box-shadow: none !important; border: 0 !important;
-          margin: 0 auto !important; max-width: 400px !important; width: 100% !important; }
+          margin: 0 auto !important; max-width: 520px !important; min-width: 0 !important; width: 100% !important; }
         .pf-c-login__main-header { padding: 4px 0 8px !important; }
         img.branding-logo { height: 30px !important; max-height: 30px !important; width: auto !important; }
         .pf-c-form__group.pf-m-action { margin-top: 4px !important; }

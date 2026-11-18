@@ -15,7 +15,9 @@ is the colour of the pane it opens; a tab that is not open is faded and shaded
 like a button; a circle with a window of its own shows a window mark. With
 View → Tabs on Top the tabs give way to the unibar: one bar along the top that
 says where you are and how much is unread elsewhere; a tap drops down the list
-of every place, and the logins are a task bar along the bottom. The donut page is one
+of every place, and a task bar along the bottom holds the search (at its
+left) and the logins. A donut in the macOS menu bar brings the window forward;
+shutting the window leaves the app running. The donut page is one
 image: every chat is a token on the donut, and its newest message floats off
 its token in a bubble; a click on either goes into that conversation. Middle, the open circle's messages with its roles on
 top as colour-coded blocks (the sheet is a wash of the circle's colour);
