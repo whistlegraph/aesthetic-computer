@@ -31,6 +31,7 @@
     "pulse": "node toolchain/analytics/pulse.mjs",
     "push:subscribers": "node toolchain/push-subscribers.mjs",
     "menubar:parity": "node slab/bin/menubar-parity.mjs",
+    "suite": "node slab/bin/slab-suite.mjs",
     "domain": "node toolchain/domains/domain.mjs",
     "laklok:parity": "node toolchain/laklok-sisters/parity.mjs",
     "laklok:sisters": "node toolchain/laklok-sisters/sisters.mjs",

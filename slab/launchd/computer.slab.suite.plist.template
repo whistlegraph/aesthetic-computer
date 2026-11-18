@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Suite watch, every 15 minutes: fleet vs slab/fleet/suite.json, one notice per
+     new drift. It quietly syncs the manifest's `follow` Macs once they sit idle;
+     every other Mac waits for `npm run suite -- sync <host>`.
+     Install on one control Mac:
+       sed "s|__HOME__|$HOME|g; s|__NODE__|$(command -v node)|g" slab/launchd/computer.slab.suite.plist.template > ~/Library/LaunchAgents/computer.slab.suite.plist
+       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/computer.slab.suite.plist
+     Remove:  launchctl bootout gui/$(id -u)/computer.slab.suite -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>computer.slab.suite</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__HOME__/aesthetic-computer/slab/bin/slab-suite.mjs</string>
+    <string>watch</string>
+    <string>--heal</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>__HOME__</string>
+    <key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartInterval</key><integer>900</integer>
+  <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>__HOME__/.local/share/slab/suite/watch.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/.local/share/slab/suite/watch.log</string>
+</dict>
+</plist>
