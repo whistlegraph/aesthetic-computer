@@ -1,0 +1,40 @@
+id,product,set,pattern,marked_plan,device,label,mark_hue,capture,url,captured_utc
+runway,Runway,ai,marked,Pro; Max,black frame; blue tint and fill,Popular; Best value,blue,rendered,https://runwayml.com/pricing,2026-11-18T20:19:36
+krea,Krea,ai,marked,Pro,"blue card, tab, glow",Most popular,blue,rendered,https://www.krea.ai/pricing,2026-11-18T20:19:44
+magnific,Magnific (Freepik),ai,marked,Plus; Pro,rose border and pill; dark fill,Best value; Expert choice,rose,rendered,https://www.magnific.com/pricing,2026-11-18T20:20:08
+pika,Pika,ai,marked,Creator; Fancy,"lilac tint, dark fill",Most popular; Best value,lilac,rendered,https://pika.art/pricing,2026-11-18T20:20:18
+luma,Luma,ai,marked,Pro,card inverted to black,,none,rendered,https://lumalabs.ai/pricing,2026-11-18T20:20:31
+flora,Flora,ai,marked,Pro,"green button and pill, card border",Most popular,green,rendered,https://flora.ai/pricing,2026-11-18T20:20:41
+weave,Figma Weave,ai,marked,Max,lemon tag,Best value,lemon,rendered,https://weave.figma.com/pricing,2026-11-18T20:20:50
+elevenlabs,ElevenLabs,ai,marked,Creator,header artwork,Popular,orange and blue artwork,rendered,https://elevenlabs.io/pricing,2026-11-18T20:20:56
+comfy,Comfy Cloud,ai,marked,Creator,plum pill,Most popular,plum,rendered,https://comfy.org/pricing/,2026-11-18T20:21:09
+playground,Playground,ai,marked,Pro Plus,"gradient border, blue fill",Best value,blue-violet,rendered,https://playgroundai.com/design/pricing,2026-11-18T20:21:20
+higgsfield,Higgsfield,ai,hue-per-plan,Plus,"gray, lime and pink headers",Most popular,lime; pink,rendered,https://higgsfield.ai/pricing,2026-11-18T20:22:04
+recraft,Recraft,ai,marked,Pro,violet filled button,,violet,rendered,https://www.recraft.ai/pricing,2026-11-18T20:22:30
+canva,Canva,ai,marked,Business,"pill, lavender card",Recommended,violet,rendered,https://www.canva.com/pricing/,2026-11-18T20:22:38
+firefly,Adobe Firefly,ai,marked,Firefly Pro Plus,heavy black border,,none,rendered,https://www.adobe.com/products/firefly/plans.html,2026-11-18T20:22:47
+leonardo,Leonardo.ai,ai,not-coded,,,,,bot challenge; archive markup only,https://leonardo.ai/pricing,2026-11-18T20:21:30
+ideogram,Ideogram,ai,not-coded,,,,,bot challenge; archive markup only,https://ideogram.ai/pricing,2026-11-18T20:21:42
+midjourney,Midjourney,ai,not-coded,,,,,bot challenge,https://www.midjourney.com/plans,2026-11-18T20:21:51
+kling,Kling,ai,not-coded,,,,,sign-in dialog over the plans,https://app.klingai.com/global/membership/membership-plan,2026-11-18T20:22:58
+hedra,Hedra,ai,not-coded,,,,,login wall,https://www.hedra.com/plans,2026-11-18T20:23:17
+spotify,Spotify,saas,hue-per-plan,,"green, mint, peach, lavender titles and buttons",,four hues,"rendered, scrolled to plans",https://www.spotify.com/us/premium/,2026-11-18T20:23:23
+cursor,Cursor,saas,marked,Premium,"orange pill, dark fill",Most popular,orange,rendered,https://cursor.com/pricing,2026-11-18T20:23:32
+linear,Linear,saas,marked,Business,light filled button,,none,rendered,https://linear.app/pricing,2026-11-18T20:23:41
+notion,Notion,saas,marked,Business,blue pill and fill,Recommended,blue,rendered,https://www.notion.com/pricing,2026-11-18T20:23:49
+slack,Slack,saas,marked,Business+,"purple border, banner and fill",Best value,purple,rendered,https://slack.com/pricing,2026-11-18T20:23:58
+claude,Claude,saas,none,,,,,rendered,https://claude.com/pricing,2026-11-18T20:24:09
+capcut,CapCut,saas,marked,Ultra,black frame and tab,Best value,none,rendered,https://www.capcut.com/pricing,2026-11-18T20:24:16
+descript,Descript,saas,marked,Creator,"lilac card, red button",Most popular,lilac,rendered,https://www.descript.com/pricing,2026-11-18T20:24:26
+vercel,Vercel,saas,marked,Pro,"pill, dark fill",Popular,none,rendered,https://vercel.com/pricing,2026-11-18T20:24:36
+miro,Miro,saas,marked,Business,"blue border, banner and fill",Best for teams and consultants,blue,rendered,https://miro.com/pricing/,2026-11-18T20:24:44
+figma,Figma,saas,none,,,,,rendered,https://www.figma.com/pricing/,2026-11-18T20:24:52
+chatgpt,ChatGPT,saas,none,,,,,rendered,https://chatgpt.com/pricing,2026-11-18T20:25:00
+github,GitHub,saas,marked,Enterprise,banner,Recommended,none,rendered,https://github.com/pricing,2026-11-18T20:25:10
+zapier,Zapier,saas,none,,,,,rendered,https://zapier.com/pricing,2026-11-18T20:25:18
+webflow,Webflow,saas,none,,,,,rendered,https://webflow.com/pricing,2026-11-18T20:25:25
+squarespace,Squarespace,saas,marked,Core,raised card,,none,rendered,https://www.squarespace.com/pricing,2026-11-18T20:25:35
+mailchimp,Mailchimp,saas,marked,Standard,tinted header,Best value,blue tint,rendered,https://mailchimp.com/pricing/marketing/,2026-11-18T20:25:43
+duolingo,Duolingo Super,saas,marked,Super,"gradient header, white card",,gradient,rendered,https://www.duolingo.com/super,2026-11-18T20:25:56
+airtable,Airtable,saas,marked,Team,blue header and fill,Most popular,blue,rendered,https://airtable.com/pricing,2026-11-18T20:26:04
+framer,Framer,saas,marked,Pro,blue filled button,,blue,rendered,https://www.framer.com/pricing,2026-11-18T20:26:14

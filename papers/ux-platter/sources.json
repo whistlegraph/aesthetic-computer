@@ -1,0 +1,512 @@
+{
+  "platter": "ux-platter",
+  "purpose": "Reading platter for interface persuasion: how color, position, labels and defaults steer a choice among priced options, and how strong the evidence for each is. Opened for a study of pricing-tier color.",
+  "posture": "Index and citation only. No source text or page image is reproduced; short quotations only, source named.",
+  "checked_key": {
+    "true": "citation details confirmed against a publisher, repository or catalog record during a platter pass",
+    "false": "some detail (authors, pages, sample size or title) written from working knowledge or a secondary source; wants a verification pass before it is cited in a paper"
+  },
+  "last_verification_pass": "2026-11-18",
+  "shelves": {
+    "attention": "Where the eye goes while choosing: salience, size, position, order.",
+    "color": "What hue, saturation and lightness do to price perception and choice, with the replications and reversals.",
+    "choice": "Labels, defaults, decoys and dark patterns: steering among priced options, measured on real purchases where possible.",
+    "practice": "Practitioner tests and counts of pricing pages. Lower-grade evidence, labelled as such.",
+    "regulation": "Where visual steering becomes a deceptive practice.",
+    "access": "Contrast and color-vision limits any palette must meet."
+  },
+  "sources": [
+    {
+      "id": "orquin-2021-eye-movements-meta",
+      "shelf": "attention",
+      "authors": [
+        "Orquin, Jacob L.",
+        "Lahm, Erik S.",
+        "Stojić, Hrvoje"
+      ],
+      "year": 2021,
+      "title": "The visual environment and attention in decision making",
+      "venue": "Psychological Bulletin 147(6), 597–617. DOI 10.1037/bul0000328",
+      "url": "https://doi.org/10.1037/bul0000328",
+      "checked": true,
+      "why": "Meta-analysis of 122 effect sizes on where people look while choosing. Central position ρ = .43, surface size ρ = .35, visual salience ρ = .13. The outcome is gaze, not purchase. The strongest single source for 'position and size beat salience'."
+    },
+    {
+      "id": "orquin-2013-attention-review",
+      "shelf": "attention",
+      "authors": [
+        "Orquin, Jacob L.",
+        "Mueller Loose, Simone"
+      ],
+      "year": 2013,
+      "title": "Attention and choice: A review on eye movements in decision making",
+      "venue": "Acta Psychologica 144(1), 190–206",
+      "url": "https://www.scinapse.io/papers/2042379996",
+      "checked": true,
+      "why": "Narrative review of eye movements in decision making; concludes no theory fully accounts for the role of attention."
+    },
+    {
+      "id": "milosavljevic-2012-saliency-bias",
+      "shelf": "attention",
+      "authors": [
+        "Milosavljevic, Milica",
+        "Navalpakkam, Vidhya",
+        "Koch, Christof",
+        "Rangel, Antonio"
+      ],
+      "year": 2012,
+      "title": "Relative visual saliency differences induce sizable bias in consumer choice",
+      "venue": "Journal of Consumer Psychology 22(1), 67–74. DOI 10.1016/j.jcps.2011.10.002",
+      "url": "https://doi.org/10.1016/j.jcps.2011.10.002",
+      "checked": false,
+      "why": "Three lab food-choice experiments. Salience was set by local brightness, not hue; the bias appears under fast decisions, cognitive load and weak preferences. Sample sizes and effect size not confirmed at source."
+    },
+    {
+      "id": "hunt-1995-von-restorff",
+      "shelf": "attention",
+      "authors": [
+        "Hunt, R. Reed"
+      ],
+      "year": 1995,
+      "title": "The subtlety of distinctiveness: What von Restorff really did",
+      "venue": "Psychonomic Bulletin & Review 2(1), 105–112. DOI 10.3758/BF03214414",
+      "url": "https://doi.org/10.3758/BF03214414",
+      "checked": true,
+      "why": "The isolation effect is a memory advantage for the odd item in a list. Applying it to which plan gets bought is extrapolation."
+    },
+    {
+      "id": "valenzuela-2009-center-stage",
+      "shelf": "attention",
+      "authors": [
+        "Valenzuela, Ana",
+        "Raghubir, Priya"
+      ],
+      "year": 2009,
+      "title": "Position-based beliefs: The center-stage effect",
+      "venue": "Journal of Consumer Psychology 19(2), 185–196",
+      "url": "https://merit.url.edu/en/publications/position-based-beliefs-the-center-stage-effect/",
+      "checked": true,
+      "why": "People believe the middle option in a row is the popular one and choose it more. The mechanism is inferred popularity, not attention."
+    },
+    {
+      "id": "atalay-2012-shining-in-the-center",
+      "shelf": "attention",
+      "authors": [
+        "Atalay, A. Selin",
+        "Bodur, H. Onur",
+        "Rasolofoarison, Dina"
+      ],
+      "year": 2012,
+      "title": "Shining in the center: Central gaze cascade effect on product choice",
+      "venue": "Journal of Consumer Research 39(4), 848–866. DOI 10.1086/665984",
+      "url": "https://doi.org/10.1086/665984",
+      "checked": true,
+      "why": "Eye-tracking: horizontally central brands get more attention and are chosen more."
+    },
+    {
+      "id": "bar-hillel-2015-position-effects",
+      "shelf": "attention",
+      "authors": [
+        "Bar-Hillel, Maya"
+      ],
+      "year": 2015,
+      "title": "Position effects in choice from simultaneous displays: A conundrum solved",
+      "venue": "Perspectives on Psychological Science 10(4), 419–433",
+      "url": "https://ratio.huji.ac.il/node/3129126",
+      "checked": true,
+      "why": "Review: middle bias is the most common position effect, but first and last advantages also occur."
+    },
+    {
+      "id": "suk-2012-price-order",
+      "shelf": "attention",
+      "authors": [
+        "Suk, Kwanho",
+        "Lee, Jiheon",
+        "Lichtenstein, Donald R."
+      ],
+      "year": 2012,
+      "title": "The influence of price presentation order on consumer choice",
+      "venue": "Journal of Marketing Research 49(5), 708–717. DOI 10.1509/jmr.11.0309",
+      "url": "https://doi.org/10.1509/jmr.11.0309",
+      "checked": false,
+      "why": "Descending price order steers toward pricier options. One paper; sample sizes not retrieved."
+    },
+    {
+      "id": "puccinelli-2013-red-prices",
+      "shelf": "color",
+      "authors": [
+        "Puccinelli, Nancy M.",
+        "Chandrashekaran, Rajesh",
+        "Grewal, Dhruv",
+        "Suri, Rajneesh"
+      ],
+      "year": 2013,
+      "title": "Are men seduced by red? The effect of red versus black prices on price perceptions",
+      "venue": "Journal of Retailing 89(2), 115–125",
+      "url": "https://econpapers.repec.org/RePEc:eee:jouret:v:89:y:2013:i:2:p:115-125",
+      "checked": true,
+      "why": "Red prices raised perceived savings for men under low involvement only. No independent replication found."
+    },
+    {
+      "id": "ye-2020-red-price-red-flag",
+      "shelf": "color",
+      "authors": [
+        "Ye, Hongjun",
+        "Bhatt, Siddharth",
+        "Jeong, Haeyoung",
+        "Zhang, Jintao",
+        "Suri, Rajneesh"
+      ],
+      "year": 2020,
+      "title": "Red price? Red flag! Eye-tracking reveals how one red price can hurt a retailer",
+      "venue": "Psychology & Marketing 37(7), 928–941. DOI 10.1002/mar.21331",
+      "url": "https://doi.org/10.1002/mar.21331",
+      "checked": true,
+      "why": "One red price among others lowered perceived savings: the reverse of the folk reading of Puccinelli 2013."
+    },
+    {
+      "id": "bazley-2021-visual-finance",
+      "shelf": "color",
+      "authors": [
+        "Bazley, William J.",
+        "Cronqvist, Henrik",
+        "Mormann, Milica"
+      ],
+      "year": 2021,
+      "title": "Visual finance: The pervasive effects of red on investor behavior",
+      "venue": "Management Science 67(9), 5616–5641",
+      "url": "https://econpapers.repec.org/RePEc:inm:ormnsc:v:67:y:2021:i:9:p:5616-5641",
+      "checked": true,
+      "why": "Eight experiments: red on financial data signals loss and lowers risk-taking. Absent in colorblind participants, muted in China, not explained by salience."
+    },
+    {
+      "id": "bagchi-2013-red-auctions",
+      "shelf": "color",
+      "authors": [
+        "Bagchi, Rajesh",
+        "Cheema, Amar"
+      ],
+      "year": 2013,
+      "title": "The effect of red background color on willingness-to-pay: The moderating role of selling mechanism",
+      "venue": "Journal of Consumer Research 39(5), 947–960. DOI 10.1086/666466",
+      "url": "https://doi.org/10.1086/666466",
+      "checked": true,
+      "why": "Red raised bids in auctions and lowered offers in negotiations. Fixed-price purchase was not tested."
+    },
+    {
+      "id": "labrecque-2012-exciting-red",
+      "shelf": "color",
+      "authors": [
+        "Labrecque, Lauren I.",
+        "Milne, George R."
+      ],
+      "year": 2012,
+      "title": "Exciting red and competent blue: The importance of color in marketing",
+      "venue": "Journal of the Academy of Marketing Science 40, 711–727. DOI 10.1007/s11747-010-0245-y",
+      "url": "https://doi.org/10.1007/s11747-010-0245-y",
+      "checked": true,
+      "why": "Hue mapped to brand-personality ratings of invented logos. Association data, not behavior."
+    },
+    {
+      "id": "elliot-2014-color-in-context",
+      "shelf": "color",
+      "authors": [
+        "Elliot, Andrew J.",
+        "Maier, Markus A."
+      ],
+      "year": 2014,
+      "title": "Color psychology: Effects of perceiving color on psychological functioning in humans",
+      "venue": "Annual Review of Psychology 65, 95–120",
+      "url": "https://doi.org/10.1146/annurev-psych-010213-115035",
+      "checked": false,
+      "why": "Color-in-context theory. The authors call the literature 'at a nascent stage'. DOI added from working knowledge."
+    },
+    {
+      "id": "steele-2014-mehta-zhu-replication",
+      "shelf": "color",
+      "authors": [
+        "Steele, Kenneth M."
+      ],
+      "year": 2014,
+      "title": "Failure to replicate the Mehta and Zhu (2009) color-priming effect on anagram solution times",
+      "venue": "Psychonomic Bulletin & Review 21, 771–776. DOI 10.3758/s13423-013-0548-3",
+      "url": "https://doi.org/10.3758/s13423-013-0548-3",
+      "checked": false,
+      "why": "Direct replication with more than three times the sample found no red-versus-blue effect. Title and pages from working knowledge."
+    },
+    {
+      "id": "gnambs-2020-red-performance",
+      "shelf": "color",
+      "authors": [
+        "Gnambs, Timo"
+      ],
+      "year": 2020,
+      "title": "Limited evidence for the effect of red color on cognitive performance: A meta-analysis",
+      "venue": "Psychonomic Bulletin & Review 27, 1374–1382. DOI 10.3758/s13423-020-01772-1",
+      "url": "https://doi.org/10.3758/s13423-020-01772-1",
+      "checked": true,
+      "why": "67 effect sizes: no evidential value for red and performance after publication-bias correction."
+    },
+    {
+      "id": "hagtvedt-2017-saturation-size",
+      "shelf": "color",
+      "authors": [
+        "Hagtvedt, Henrik",
+        "Brasel, S. Adam"
+      ],
+      "year": 2017,
+      "title": "Color saturation increases perceived product size",
+      "venue": "Journal of Consumer Research 44(2), 396–413",
+      "url": "https://www.bc.edu/bc-web/bcnews/nation-world-society/business-and-management/color-and-consumer-perception.html",
+      "checked": false,
+      "why": "Six experiments: higher saturation raises perceived size through arousal and attention. Supports 'saturation, not hue, carries weight'. Volume and pages from working knowledge."
+    },
+    {
+      "id": "jonauskaite-2020-color-emotion",
+      "shelf": "color",
+      "authors": [
+        "Jonauskaite, Domicele",
+        "et al."
+      ],
+      "year": 2020,
+      "title": "Universal patterns in color-emotion associations are further shaped by linguistic and geographic proximity",
+      "venue": "Psychological Science 31(10), 1245–1260. DOI 10.1177/0956797620948810",
+      "url": "https://doi.org/10.1177/0956797620948810",
+      "checked": true,
+      "why": "4,598 participants in 30 nations: color–emotion associations are largely shared (r = .88). Red is the main exception."
+    },
+    {
+      "id": "cai-2009-observational-learning",
+      "shelf": "choice",
+      "authors": [
+        "Cai, Hongbin",
+        "Chen, Yuyu",
+        "Fang, Hanming"
+      ],
+      "year": 2009,
+      "title": "Observational learning: Evidence from a randomized natural field experiment",
+      "venue": "American Economic Review 99(3), 864–882 (NBER Working Paper 13516)",
+      "url": "https://www.nber.org/system/files/working_papers/w13516/w13516.pdf",
+      "checked": true,
+      "why": "Showing a restaurant's five most popular dishes raised demand for them by 13–18%; merely listing dishes did less. Separates learning from others from salience."
+    },
+    {
+      "id": "bookwala-2022-most-popular-label",
+      "shelf": "choice",
+      "authors": [
+        "Bookwala, Kavya",
+        "Gallemore, Caleb",
+        "Gómez-Miñambres, Joaquín"
+      ],
+      "year": 2022,
+      "title": "The influence of food recommendations: Evidence from a randomized field experiment",
+      "venue": "Economic Inquiry (working paper, Chapman ESI 343)",
+      "url": "https://digitalcommons.chapman.edu/esi_working_papers/343",
+      "checked": false,
+      "why": "A 'most popular' label raised selection by about 13%; an expert label did not. Published title not confirmed."
+    },
+    {
+      "id": "jachimowicz-2019-defaults-meta",
+      "shelf": "choice",
+      "authors": [
+        "Jachimowicz, Jon M.",
+        "Duncan, Shannon",
+        "Weber, Elke U.",
+        "Johnson, Eric J."
+      ],
+      "year": 2019,
+      "title": "When and why defaults influence decisions: A meta-analysis of default effects",
+      "venue": "Behavioural Public Policy 3(2), 159–186",
+      "url": "https://econpapers.repec.org/RePEc:cup:bpubpo:v:3:y:2019:i:02:p:159-186_00",
+      "checked": true,
+      "why": "58 studies, N = 73,675, d = 0.68. Stronger when the default reads as an endorsement."
+    },
+    {
+      "id": "frederick-2014-limits-of-attraction",
+      "shelf": "choice",
+      "authors": [
+        "Frederick, Shane",
+        "Lee, Leonard",
+        "Baskin, Ernest"
+      ],
+      "year": 2014,
+      "title": "The limits of attraction",
+      "venue": "Journal of Marketing Research 51(4), 487–507",
+      "url": "https://marketing.wharton.upenn.edu/wp-content/uploads/2016/10/The-Limits-of-Attraction.pdf",
+      "checked": true,
+      "why": "19 studies with realistic stimuli; no decoy effect in any."
+    },
+    {
+      "id": "pinger-2016-compromise-menu",
+      "shelf": "choice",
+      "authors": [
+        "Pinger, Pia",
+        "Ruhmer-Krell, Isabel",
+        "Schumacher, Heiner"
+      ],
+      "year": 2016,
+      "title": "The compromise effect in action: Lessons from a restaurant's menu",
+      "venue": "Journal of Economic Behavior & Organization 128, 14–34. DOI 10.1016/j.jebo.2016.04.017",
+      "url": "https://doi.org/10.1016/j.jebo.2016.04.017",
+      "checked": true,
+      "why": "More than 88,000 real choices: an option that becomes the compromise gains about five points of share; not significant for people ordering alone."
+    },
+    {
+      "id": "luguri-2021-dark-patterns",
+      "shelf": "choice",
+      "authors": [
+        "Luguri, Jamie",
+        "Strahilevitz, Lior Jacob"
+      ],
+      "year": 2021,
+      "title": "Shining a light on dark patterns",
+      "venue": "Journal of Legal Analysis 13(1), 43–109",
+      "url": "https://academic.oup.com/jla/article/13/1/43/6180579",
+      "checked": true,
+      "why": "Mild dark patterns roughly doubled uptake of a paid plan without backlash; aggressive ones caused backlash."
+    },
+    {
+      "id": "cxl-2016-highlighted-plan",
+      "shelf": "practice",
+      "authors": [
+        "CXL Institute"
+      ],
+      "year": 2016,
+      "title": "The effects of highlighting a recommended pricing plan (original research)",
+      "venue": "Speero / CXL Institute, 26 September 2016",
+      "url": "https://speero.com/post/the-effects-of-highlighting-a-recommended-pricing-plan-original-research",
+      "checked": true,
+      "why": "The one study that isolates a highlighted plan: fixated sooner (p = .0171, cheap-first order) and chosen more often. Hypothetical choices, one product, sample sizes shown only in images, not replicated."
+    },
+    {
+      "id": "nng-visual-hierarchy",
+      "shelf": "practice",
+      "authors": [
+        "Nielsen Norman Group"
+      ],
+      "year": 2021,
+      "title": "Visual hierarchy in UX: Definition",
+      "venue": "nngroup.com",
+      "url": "https://www.nngroup.com/articles/visual-hierarchy-ux-definition/",
+      "checked": false,
+      "why": "Hierarchy comes from contrast in value and saturation between an element and its context, not from the hue. Year approximate."
+    },
+    {
+      "id": "saasframe-2026-pricing-pages",
+      "shelf": "practice",
+      "authors": [
+        "SaaSFrame"
+      ],
+      "year": 2026,
+      "title": "SaaS pricing page examples",
+      "venue": "saasframe.io, counted 13 November 2026",
+      "url": "https://www.saasframe.io/blog/saas-pricing-page-examples",
+      "checked": true,
+      "why": "245 pages: 16% carry a 'most popular' or 'best value' text label (a floor); 18% price in credits, and 15 of the 34 pages added since January 2025 do."
+    },
+    {
+      "id": "lazyweb-2026-badge-prevalence",
+      "shelf": "practice",
+      "authors": [
+        "Lazyweb"
+      ],
+      "year": 2026,
+      "title": "'Most popular' badge prevalence on pricing pages",
+      "venue": "design.lazyweb.com, July 2026",
+      "url": "https://design.lazyweb.com/blog/most-popular-badge-prevalence-pricing-pages.md",
+      "checked": true,
+      "why": "38% of 301 detected pricing experiments mention a recommended-plan badge; keyword lower bound over model-written text."
+    },
+    {
+      "id": "processst-2015-saas-250",
+      "shelf": "practice",
+      "authors": [
+        "Process Street"
+      ],
+      "year": 2015,
+      "title": "SaaS pricing pages: a study of the Montclare SaaS 250",
+      "venue": "process.st",
+      "url": "https://www.process.st/saas-pricing-pages/",
+      "checked": true,
+      "why": "48 pages with public pricing: half highlight one package; four packages most common."
+    },
+    {
+      "id": "goodui-pricing-tests",
+      "shelf": "practice",
+      "authors": [
+        "GoodUI"
+      ],
+      "year": 2026,
+      "title": "Pricing screen A/B tests",
+      "venue": "goodui.org",
+      "url": "https://www.goodui.org/tests/screen/pricing",
+      "checked": true,
+      "why": "Live tests on pricing badges and price type size. Both readable entries have under 35% power at a 5% effect, and results sit behind a membership wall."
+    },
+    {
+      "id": "ftc-2022-dark-patterns",
+      "shelf": "regulation",
+      "authors": [
+        "Federal Trade Commission"
+      ],
+      "year": 2022,
+      "title": "Bringing dark patterns to light (staff report)",
+      "venue": "FTC, September 2022",
+      "url": "https://www.ftc.gov/system/files/ftc_gov/pdf/P214800%20Dark%20Patterns%20Report%209.14.2022%20-%20FINAL.pdf",
+      "checked": true,
+      "why": "Appendix A names 'False Hierarchy': contrasting visual prominence used to steer a selection."
+    },
+    {
+      "id": "eu-2022-dsa-article-25",
+      "shelf": "regulation",
+      "authors": [
+        "European Union"
+      ],
+      "year": 2022,
+      "title": "Digital Services Act, Article 25 (Regulation (EU) 2022/2065)",
+      "venue": "Official Journal of the European Union",
+      "url": "https://eur-lex.europa.eu/eli/reg/2022/2065/oj",
+      "checked": false,
+      "why": "Online platforms may not design interfaces that deceive or manipulate; guidance may address 'giving more prominence to certain choices'. Read from a text mirror, not EUR-Lex."
+    },
+    {
+      "id": "cma-2022-online-choice-architecture",
+      "shelf": "regulation",
+      "authors": [
+        "Competition and Markets Authority"
+      ],
+      "year": 2022,
+      "title": "Online choice architecture: How digital design can harm competition and consumers (CMA155)",
+      "venue": "UK CMA discussion paper, April 2022",
+      "url": "https://assets.publishing.service.gov.uk/media/624c27c68fa8f527710aaf58/Online_choice_architecture_discussion_paper.pdf",
+      "checked": true,
+      "why": "Choice architecture is a neutral term; it harms when visual features or popularity claims mislead."
+    },
+    {
+      "id": "w3c-2023-wcag-22",
+      "shelf": "access",
+      "authors": [
+        "W3C"
+      ],
+      "year": 2023,
+      "title": "Web Content Accessibility Guidelines (WCAG) 2.2",
+      "venue": "W3C Recommendation",
+      "url": "https://www.w3.org/TR/WCAG22/",
+      "checked": true,
+      "why": "1.4.3 text contrast 4.5:1, 1.4.11 non-text contrast 3:1, 1.4.1 color is not the only signal."
+    },
+    {
+      "id": "birch-2012-color-deficiency",
+      "shelf": "access",
+      "authors": [
+        "Birch, Jennifer"
+      ],
+      "year": 2012,
+      "title": "Worldwide prevalence of red-green color deficiency",
+      "venue": "Journal of the Optical Society of America A 29(3), 313–320",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/22472762/",
+      "checked": true,
+      "why": "Red–green deficiency in about 8% of men and 0.4% of women of European descent."
+    }
+  ]
+}
