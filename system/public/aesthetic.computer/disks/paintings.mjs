@@ -55,8 +55,7 @@ import * as sfx from "./common/sfx.mjs";
 function meta({ piece }) {
   return {
     title: `${piece} • aesthetic.computer`,
-    desc: `Welcome to ${piece}'s profile.`,
-    // TODO: ^ Replace with user's last status.
+    desc: "Recent paintings made on Aesthetic Computer.",
   };
 }
 
