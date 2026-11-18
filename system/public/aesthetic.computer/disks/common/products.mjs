@@ -252,7 +252,7 @@ class Product {
               });
             } else {
               if ($.jump) {
-                $.jump(this.shopUrl);
+                $.jump(this.config.jump || this.shopUrl); // a print goes to its own + page inside AC
               } else {
                 window.open(this.shopUrl, "_blank");
               }
@@ -355,7 +355,7 @@ class Product {
               });
             } else {
               if ($.jump) {
-                $.jump(this.shopUrl);
+                $.jump(this.config.jump || this.shopUrl); // a print goes to its own + page inside AC
               } else {
                 window.open(this.shopUrl, "_blank");
               }
@@ -1347,6 +1347,9 @@ const PRODUCT_HANDLE_ALLOWLIST = new Set([
   'music_laer-klokken-shitcore-patch_26-4-21-18-12',
 ]);
 
+// 🖨️ How many of the newest prints (mugs, by + code) join the carousel.
+const PRINT_CAROUSEL_LIMIT = 3;
+
 // 🎯 Active product (can be switched)
 let productKeys = [];
 let activeProductKey = null;
@@ -1414,7 +1417,7 @@ async function fetchAndLoadProducts(api) {
   try {
     const data = await fetchLiveShopData();
     
-    if (!data || !data.products || data.products.length === 0) {
+    if (!data || !data.products || (data.products.length === 0 && !(data.prints || []).length)) {
       console.warn('🛒 No live products found, carousel will be empty');
       isBooting = false;
       return;
@@ -1452,6 +1455,26 @@ async function fetchAndLoadProducts(api) {
       productKeys.push(key);
     }
     
+    // 🖨️ The print lane: the newest few mugs people made from their paintings,
+    // beside the made objects. Each goes to its own + page, where it is ordered.
+    for (const print of (data.prints || []).slice(0, PRINT_CAROUSEL_LIMIT)) {
+      const key = `print_${print.printCode}`;
+      if (products[key] || !print.imageUrl) continue;
+      products[key] = new Product({
+        type: 'painting',
+        title: print.title,
+        byline: `by ${print.vendor}`,
+        price: print.price,
+        imageUrl: print.imageUrl,
+        imageScale: 0.05,
+        shopUrl: print.shopUrl,
+        jump: print.jump,
+        shopData: print,
+        soldOut: false,
+      });
+      productKeys.push(key);
+    }
+
     if (productKeys.length > 0) {
       // Randomize starting product
       currentProductIndex = Math.floor(Math.random() * productKeys.length);

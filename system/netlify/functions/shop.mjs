@@ -6,6 +6,8 @@
 import { respond } from "../../backend/http.mjs";
 import { connect } from "../../backend/database.mjs";
 import { getOrCompute, CACHE_KEYS, CACHE_TTLS } from "../../backend/cache.mjs";
+import { recentPrints } from "../../backend/shop-prints.mjs";
+import { handleFor } from "../../backend/authorization.mjs";
 
 // Collection ID for "Home page" (frontpage)
 const HOME_COLLECTION_ID = 369657512117;
@@ -151,10 +153,22 @@ async function computeShopProducts() {
   const available = products.filter((p) => p.available);
   const sold = products.filter((p) => !p.available);
 
+  // The print lane's products ride along under their own key, so everything
+  // that reads `products` still sees the Shopify store and nothing else. A
+  // failure here costs the prints, never the shop.
+  let prints = [];
+  try {
+    const { db } = await connect();
+    prints = await recentPrints(db, { handleFor });
+  } catch (error) {
+    console.error("🛒 Shop: could not list prints:", error?.message || error);
+  }
+
   return {
     products,
     available,
     sold,
+    prints,
     total: products.length,
     lastUpdated: new Date().toISOString(),
   };

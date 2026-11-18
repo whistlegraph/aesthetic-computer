@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { assemble } from "../media/nes/asm.mjs";
 import { Console, coreFor, play, CORES, MAX_FRAMES } from "../src/cores.mjs";
 import { screenBlock, screenSize } from "../src/core-video.mjs";
-import { Pad, TAP_FRAMES, REPEAT_FRAMES } from "../src/core-pad.mjs";
+import { Pad, Joystick, watchGamepad, TAP_FRAMES, REPEAT_FRAMES } from "../src/core-pad.mjs";
+import { existsSync } from "node:fs";
 import { videoSize, fitSize, openStream, ffmpegPath } from "../src/core-stream.mjs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -139,7 +140,7 @@ test("a key press is a tap, a repeating key is a held button, and a gamepad is e
   assert.equal(pad.key("q", 0, 9000), "", "not a button");
   assert.equal(new Pad(["a"]).key("\x1b[C", 0), "", "a button the core lacks");
   pad.held(1000);
-  pad.report([{ buttons: Object.assign(Array(16).fill(0), { 14: 1, 1: 1 }), axes: [0, 0.9, 0, 0] }]);
+  pad.report([{ buttons: Object.assign(Array(16).fill(0), { 14: 1, 0: 1 }), axes: [0, 0.9, 0, 0] }]);
   assert.deepEqual(pad.held(1000).sort(), ["a", "down", "left"]);
   pad.report([]);
   assert.deepEqual(pad.held(1000), []);
@@ -172,4 +173,46 @@ test("a film loops as frames past its own end", { skip: !(await ffmpegPath()) &&
   const different = new Set(frames).size;
   assert.ok(different >= 5 && different <= 12, `${different} different pictures in 25 frames`);
   await assert.rejects(openStream(join(dir, "none.mp4")), /no picture/);
+});
+
+test("a Linux joystick's events become the standard pad layout", () => {
+  const event = (type, number, value) => { const b = Buffer.alloc(8); b.writeInt16LE(value, 4); b[6] = type; b[7] = number; return b; };
+  const joystick = new Joystick(), pad = new Pad(["up", "down", "left", "right", "a", "b", "start", "select"]);
+  assert.equal(joystick.feed(Buffer.alloc(3)), null, "less than one event");
+  // The rest of that event, split across reads, then: A down, start down, D-pad left, stick down.
+  pad.report(joystick.feed(Buffer.concat([Buffer.alloc(5), event(0x81, 0, 1), event(1, 7, 1), event(2, 6, -32767), event(2, 1, 30000)])));
+  assert.deepEqual(pad.held(0).sort(), ["a", "down", "left", "start"]);
+  pad.report(joystick.feed(Buffer.concat([event(1, 0, 0), event(1, 7, 0), event(2, 6, 0), event(2, 1, 2000)])));
+  assert.deepEqual(pad.held(0), [], "released, and a stick at rest is not a press");
+  assert.equal(watchGamepad(() => {}, "win32"), null);
+});
+
+test("the macOS helper ships built for both kinds of Mac and reports as JSON lines", { skip: process.platform !== "darwin" && "macOS only" }, async () => {
+  const helper = new URL("../cores/pad/gamepad-macos", import.meta.url);
+  assert.ok(existsSync(helper));
+  const archs = execFileSync("lipo", ["-archs", helper.pathname], { encoding: "utf8" }).trim().split(" ").sort();
+  assert.deepEqual(archs, ["arm64", "x86_64"]);
+  const report = await new Promise((resolve) => { const stop = watchGamepad((pads) => { stop(); resolve(pads); }); });
+  assert.ok(Array.isArray(report));
+});
+
+test("Catch, the second cartridge in the box, is caught, lost and begun again by the buttons alone", async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), "aesel-catch-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, "catch.nes");
+  await writeFile(file, assemble(await readFile(new URL("../media/nes/catch.asm", import.meta.url), "utf8")).bytes);
+  const machine = await Console.open(file);
+  // The score's last digit is a sprite 8 pixels wide at (32, 17); its tile says the number.
+  const lit = () => { let n = 0; const p = machine.frame(); for (let y = 17; y < 25; y++) for (let x = 32; x < 40; x++) if (p[(y * 256 + x) * 4] === 255) n++; return n; };
+  const hearts = () => { let n = 0; const p = machine.frame(); for (let x = 208; x < 232; x++) if (p[(20 * 256 + x) * 4] > 150 && p[(20 * 256 + x) * 4 + 2] < 60) n++; return n; };
+  machine.step(90);
+  const zero = lit();
+  assert.ok(hearts() > 0, "three lives to begin");
+  play(machine, [{ frames: 6, hold: ["right"] }, { frames: 70 }]);
+  assert.notEqual(lit(), zero, "moving under the first gem scores a point");
+  play(machine, [{ frames: 60, hold: ["left"] }, { frames: 600 }]);
+  assert.equal(hearts(), 0, "standing aside loses every life");
+  play(machine, [{ frames: 4, hold: ["start"] }, { frames: 40 }]);
+  assert.ok(hearts() > 0, "Start begins again");
+  assert.equal(lit(), zero, "from nothing");
 });
