@@ -1270,7 +1270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             irisAvatar = IrisIcon.loadAvatar(at: path)
         }
         button.image = IrisIcon.render(avatar: irisAvatar, condition: IrisIcon.condition(for: irisState))
-        button.toolTip = IrisIcon.toolTip(for: irisState)
+        button.setAccessibilityLabel(IrisIcon.toolTip(for: irisState))
         irisHoverCard.update(irisState)
     }
 

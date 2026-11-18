@@ -4073,8 +4073,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
         let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
-        let toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
-        if button.toolTip != toolTip { button.toolTip = toolTip }
+        // Read aloud, never hovered: a toolTip on a menu bar item gets stranded as a floater.
+        let context = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
+        if button.accessibilityLabel() != context { button.setAccessibilityLabel(context) }
         // Let AppKit batch presentation after the coalesced image update.
         button.needsDisplay = true
     }

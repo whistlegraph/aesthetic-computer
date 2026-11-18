@@ -35,7 +35,7 @@ final class MenuBandJukeStatusItem {
             button.target = self
             button.action = #selector(clicked)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-            button.toolTip = "Juke"
+            button.setAccessibilityLabel("Juke")
         }
         statusItem.isVisible = false
     }
@@ -45,7 +45,7 @@ final class MenuBandJukeStatusItem {
         if timer == nil { statusItem.button?.image = baseImage }
         let line = [artist, title].filter { !$0.isEmpty }.joined(separator: " — ")
         statusItem.button?.title = line.isEmpty ? "" : " " + Self.trimmed(line)
-        statusItem.button?.toolTip = line.isEmpty ? "Juke" : "Juke · \(line)"
+        statusItem.button?.setAccessibilityLabel(line.isEmpty ? "Juke" : "Juke · \(line)")
         statusItem.isVisible = true
         setSpinning(playing)
     }
