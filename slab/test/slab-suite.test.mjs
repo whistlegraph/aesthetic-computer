@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PARTS, judge, parseProbe, promote } from "../bin/slab-suite.mjs";
+import { PARTS, judge, mcpGap, parseProbe, promote } from "../bin/slab-suite.mjs";
 
 const lock = { version: "1.6.14 (177)", id: "AAAA" };
 
@@ -53,4 +53,34 @@ test("a leader's CLI only pulls the lock forward", () => {
   const lock = { codex: { version: "0.170.0" } };
   assert.deepEqual(promote(lead({ codex: { version: "0.171.0" } }), { codex: "0.170.0" }, lock).moves, { codex: { version: "0.171.0" } });
   assert.deepEqual(promote(lead({ codex: { version: "0.169.0" } }), { codex: "0.170.0" }, lock).moves, {});
+});
+
+const servers = (names, state = "up") => ({ servers: Object.fromEntries(names.map((n) => [n, state])) });
+
+test("the probe's mcp line becomes a set of named servers", () => {
+  assert.deepEqual(parseProbe("mcp\tcal=up,dm=down,exa=set\n").parts.mcp, { servers: { cal: "up", dm: "down", exa: "set" } });
+  assert.equal(parseProbe("mcp\t\n").parts.mcp, null);
+});
+
+test("a Mac lacking a locked MCP name drifts; a skipped name is not asked of it", () => {
+  const lock = { servers: ["cal", "dm", "x"] };
+  assert.equal(judge(PARTS.mcp, servers(["cal", "x"]), lock, true), "drift");
+  assert.equal(judge(PARTS.mcp, servers(["cal", "x"]), lock, true, ["dm"]), "ok");
+  assert.equal(judge(PARTS.mcp, servers(["cal", "dm", "x", "extra"]), lock, true), "ok");
+  assert.deepEqual(mcpGap(servers(["cal"]), lock).lacks, ["dm", "x"]);
+});
+
+test("a locked MCP server that is registered but not listening is stopped", () => {
+  const have = { servers: { cal: "up", dm: "down" } };
+  assert.equal(judge(PARTS.mcp, have, { servers: ["cal", "dm"] }, true), "stopped");
+  assert.deepEqual(mcpGap(have, { servers: ["cal", "dm"] }).down, ["dm"]);
+});
+
+test("the MCP lock grows with the leader and never shrinks by following", () => {
+  const lock = { mcp: { servers: ["cal", "dm"] } };
+  const grown = promote(lead({ mcp: servers(["cal", "dm", "paper"]) }), { mcp: "cal,dm" }, lock);
+  assert.deepEqual(grown.moves.mcp, { servers: ["cal", "dm", "paper"] });
+  const shrunk = promote(lead({ mcp: servers(["cal"]) }), { mcp: "cal,dm" }, lock);
+  assert.deepEqual(shrunk.moves, {});
+  assert.equal(shrunk.is.mcp, "cal,dm");
 });

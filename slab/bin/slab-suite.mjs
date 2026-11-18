@@ -7,7 +7,13 @@
 // fleet should be running — is state, kept beside the watch in
 // ~/.local/share/slab/suite/lock.json. Apps are locked by Mach-O UUID, not
 // version string — two Macs that each compiled "1.6.14" are not the same
-// build. CLIs are locked by version.
+// build. CLIs are locked by version. MCP servers are locked by name: the set a
+// Claude session in the repo is handed (~/.claude.json, its project entry and
+// the repo's .mcp.json). A Mac lacking a locked name drifts, and one whose
+// localhost server is not listening is stopped. The lock only grows by
+// following the leader; dropping a name takes a pin. A name a Mac should not
+// carry goes in suite.json under mcp.skip.<host>. sync reports the gap and
+// writes no MCP config.
 //
 // Things get tried on the leader first. When the leader starts running a build
 // it was not running at the last watch, and that build is up, the lock moves
@@ -45,6 +51,7 @@ export const PARTS = {
   wallpaper: { kind: "app", label: "Wallpaper", app: "$HOME/Applications/BlueberryWallpaper.app", bin: "BlueberryWallpaper", agents: ["computer.aesthetic.blueberry-wallpaper"], ship: "adhoc" },
   macpal: { kind: "app", label: "MacPal", app: "/Applications/MacPal.app", bin: "MacPal", agents: ["computer.aesthetic.macpal"], ship: "adhoc" },
   acapp: { kind: "app", label: "Aesthetic.Computer", app: "/Applications/Aesthetic.Computer.app", bin: "Aesthetic.Computer", agents: [], ship: "whole" },
+  mcp: { kind: "mcp", label: "MCP servers" },
 };
 
 const PATHS = 'export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"';
@@ -83,9 +90,30 @@ app() { # id path bin agent
   echo "app	$1	$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$p" 2>/dev/null) ($(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$p" 2>/dev/null))	$(dwarfdump --uuid "$2/Contents/MacOS/$3" 2>/dev/null | awk '{print $2; exit}')	\${pid:--}"
 }
 ${Object.entries(PARTS).filter(([, p]) => p.kind === "app").map(([id, p]) => `app ${id} "${p.app}" "${p.bin}"`).join("\n")}
+/usr/bin/python3 - <<'PY' 2>/dev/null
+import json, os, socket
+from urllib.parse import urlparse
+home = os.path.expanduser("~"); found = {}
+def add(servers): found.update(servers or {})
+try:
+    conf = json.load(open(home + "/.claude.json"))
+    add(conf.get("mcpServers"))
+    add((conf.get("projects", {}).get(home + "/aesthetic-computer") or {}).get("mcpServers"))
+except Exception: pass
+try: add(json.load(open(home + "/aesthetic-computer/.mcp.json")).get("mcpServers"))
+except Exception: pass
+out = []
+for name in sorted(found):
+    url = urlparse(found[name].get("url") or ""); state = "set"
+    if url.hostname in ("127.0.0.1", "localhost") and url.port:
+        sock = socket.socket(); sock.settimeout(1)
+        state = "up" if sock.connect_ex(("127.0.0.1", url.port)) == 0 else "down"; sock.close()
+    out.append(name + "=" + state)
+print("mcp" + chr(9) + ",".join(out))
+PY
 `;
 
-// → { home, parts: { id: { version, id?, pid? } | null } }
+// → { home, parts: { id: { version, id?, pid? } | { servers: { name: up|down|set } } | null } }
 export function parseProbe(out) {
   const r = { parts: {} };
   for (const line of out.split("\n")) {
@@ -93,6 +121,7 @@ export function parseProbe(out) {
     if (k === "home") r.home = id;
     else if (k === "cli") r.parts[id] = a ? { version: a } : null;
     else if (k === "app") r.parts[id] = a === "missing" ? null : { version: a, id: b, pid: c === "-" ? null : c };
+    else if (k === "mcp") r.parts.mcp = id ? { servers: Object.fromEntries(id.split(",").map((e) => e.split("="))) } : null;
   }
   return r;
 }
@@ -103,11 +132,18 @@ function probe(host) {
 
 const cmp = (a, b) => a.split(".").map(Number).reduce((d, n, i) => d || n - Number(b.split(".")[i] || 0), 0);
 
+// Locked MCP names this Mac lacks, and the ones it has whose server is not listening.
+export function mcpGap(have, lock, skip = []) {
+  const need = (lock?.servers || []).filter((n) => !skip.includes(n)), got = have?.servers || {};
+  return { lacks: need.filter((n) => !got[n]), down: need.filter((n) => got[n] === "down") };
+}
+
 // One part on one Mac against the lock: ok · drift · ahead · missing · stopped · unpinned · off (not in profile)
-export function judge(part, have, lock, wanted) {
+export function judge(part, have, lock, wanted, skip) {
   if (!wanted) return "off";
   if (!have) return "missing";
   if (!lock) return "unpinned";
+  if (part.kind === "mcp") { const g = mcpGap(have, lock, skip); return g.lacks.length ? "drift" : g.down.length ? "stopped" : "ok"; }
   if (part.kind === "cli") { const d = cmp(have.version, lock.version); return d < 0 ? "drift" : d > 0 ? "ahead" : "ok"; }
   if (have.id !== lock.id) return "drift";
   return part.agents.length && !have.pid ? "stopped" : "ok";
@@ -118,12 +154,13 @@ const read = (file, or) => (existsSync(file) ? JSON.parse(readFileSync(file, "ut
 const load = () => ({ ...JSON.parse(readFileSync(MANIFEST, "utf8")), lock: read(LOCK, {}) });
 const save = (m) => { mkdirSync(STATE, { recursive: true }); writeFileSync(LOCK, JSON.stringify(m.lock, null, 2) + "\n"); };
 const wants = (m, host, id) => (m.profiles[m.hosts[host]] || []).includes(id);
+const skips = (m, host) => m.mcp?.skip?.[host] || [];
 
 function survey(m, hosts) {
   return Object.fromEntries(hosts.map((h) => {
     if (!m.hosts[h]) throw new Error(`${h} is not in ${MANIFEST}`);
     const p = probe(h);
-    const verdicts = Object.fromEntries(Object.entries(PARTS).map(([id, part]) => [id, p.error ? "unreachable" : judge(part, p.parts[id], m.lock[id], wants(m, h, id))]));
+    const verdicts = Object.fromEntries(Object.entries(PARTS).map(([id, part]) => [id, p.error ? "unreachable" : judge(part, p.parts[id], m.lock[id], wants(m, h, id), skips(m, h))]));
     return [h, { ...p, verdicts }];
   }));
 }
@@ -131,7 +168,8 @@ function survey(m, hosts) {
 const BAD = new Set(["drift", "missing", "stopped"]);
 const MARK = { ok: "✓", drift: "✗ drift", ahead: "↑ ahead", missing: "✗ missing", stopped: "✗ not running", unpinned: "? unpinned", off: "·", unreachable: "—" };
 const pad = (s, n) => String(s).padEnd(n);
-const short = (x) => (x?.id ? `${x.version} ${x.id.slice(0, 8)}` : x?.version || "");
+const short = (x) => (x?.servers ? `${(Array.isArray(x.servers) ? x.servers : Object.keys(x.servers)).length} servers` : x?.id ? `${x.version} ${x.id.slice(0, 8)}` : x?.version || "");
+const gapText = (g) => [g.lacks.length && `lacks ${g.lacks.join(" ")}`, g.down.length && `down ${g.down.join(" ")}`].filter(Boolean).join(" · ");
 
 function table(m, seen) {
   const hosts = Object.keys(seen), w = 30;
@@ -142,6 +180,7 @@ function table(m, seen) {
       return pad(v === "ok" || v === "off" || v === "unreachable" ? MARK[v] : `${MARK[v]}${have ? "  " + short(have) : ""}`, w);
     }).join(""));
   }
+  for (const h of hosts) if (BAD.has(seen[h].verdicts.mcp) && seen[h].parts.mcp) console.log(`\n${h} MCP: ${gapText(mcpGap(seen[h].parts.mcp, m.lock.mcp, skips(m, h)))}`);
   for (const h of hosts) if (seen[h].error) console.log(`\n${h}: ${seen[h].error}`);
 }
 
@@ -153,6 +192,9 @@ function status(hosts, json) {
   process.exit(drifted(seen).length ? 1 : 0);
 }
 
+// What a lock entry keeps of a probed part.
+const held = (have) => (have.servers ? { servers: Object.keys(have.servers) } : { version: have.version, ...(have.id ? { id: have.id } : {}) });
+
 function pin(ids, from) {
   if (!from) throw new Error("pin needs --from <host>");
   const m = load(), p = probe(from);
@@ -160,7 +202,7 @@ function pin(ids, from) {
   for (const id of ids[0] === "all" ? Object.keys(PARTS) : ids) {
     const have = p.parts[id];
     if (!PARTS[id] || !have) { console.log(`${id}: not on ${from}, left alone`); continue; }
-    m.lock[id] = { version: have.version, ...(have.id ? { id: have.id } : {}), from, at: new Date().toISOString().slice(0, 10) };
+    m.lock[id] = { ...held(have), from, at: new Date().toISOString().slice(0, 10) };
     console.log(`${id}: locked to ${short(have)} (${from})`);
   }
   save(m);
@@ -219,7 +261,8 @@ function sync(hosts, dry, only) {
     for (const [id, verdict] of todo) {
       const part = PARTS[id], lock = m.lock[id];
       try {
-        if (part.kind === "cli") sh(host, `${PATHS}\n${id === "codex" ? codexUp(lock.version) : part.up + " >/dev/null 2>&1"}`, { check: false });
+        if (part.kind === "mcp") console.log(`  MCP servers: ${gapText(mcpGap(seen[host].parts.mcp, lock, skips(m, host)))} — sync writes no MCP config; register or start them here as ${lock.from} has them`);
+        else if (part.kind === "cli") sh(host, `${PATHS}\n${id === "codex" ? codexUp(lock.version) : part.up + " >/dev/null 2>&1"}`, { check: false });
         else if (verdict === "stopped") sh(host, `for a in ${part.agents.join(" ")}; do launchctl kickstart "gui/$(id -u)/$a" 2>/dev/null || launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/$a.plist"; done; sleep 3`, { check: false });
         else {
           const { src, dst } = fetch(id, part, lock, seen, tmp);
@@ -237,7 +280,7 @@ function sync(hosts, dry, only) {
     }
     const after = probe(host);
     for (const [id] of todo) {
-      const v = judge(PARTS[id], after.parts[id], m.lock[id], true);
+      const v = judge(PARTS[id], after.parts[id], m.lock[id], true, skips(m, host));
       console.log(`  ${PARTS[id].label}: ${BAD.has(v) ? MARK[v] + "  " + short(after.parts[id]) : "✓ " + short(after.parts[id])}`);
     }
     if (m.hosts[host] === "studio") spawnSync("node", [join(HERE, "menubar-parity.mjs"), "apply", isLocal(host) ? "local" : host], { stdio: "inherit" });
@@ -248,22 +291,25 @@ function sync(hosts, dry, only) {
 // For the launch agent: keep a state file the menubar can read, and speak up
 // once when the set of drifted parts changes — not every hour it stays drifted.
 // --heal brings a follower back without asking, but only once nobody has
-// touched it for five minutes: a sync restarts the instrument.
+// touched it for five minutes: a sync restarts the instrument. A Mac whose
+// only drift is MCP servers is left alone, since sync cannot mend that.
 const idle = (host) => Number(sh(host, "ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print int($NF/1000000000); exit}'", { check: false })) || 0;
 
 // What the leader runs now against what it ran at the last watch → lock moves.
 // A build that is not up, or a CLI older than the lock, is never promoted, and
-// stays unrecorded so it is weighed again next time.
+// stays unrecorded so it is weighed again next time. Neither is an MCP set
+// that has lost a locked name.
 export function promote(lead, was, lock) {
   const is = { ...was }, moves = {};
   for (const [id, have] of Object.entries(lead.parts)) {
     if (!have || !PARTS[id]) continue;
-    const key = have.id || have.version, part = PARTS[id];
-    const fresh = was && was[id] !== key && key !== (lock[id]?.id || lock[id]?.version);
-    const sound = part.kind === "cli" ? !lock[id] || cmp(have.version, lock[id].version) > 0 : !part.agents.length || !!have.pid;
+    const key = have.servers ? Object.keys(have.servers).join(",") : have.id || have.version, part = PARTS[id];
+    const fresh = was && was[id] !== key && key !== (lock[id]?.servers?.join(",") || lock[id]?.id || lock[id]?.version);
+    const sound = part.kind === "mcp" ? !mcpGap(have, lock[id]).lacks.length
+      : part.kind === "cli" ? !lock[id] || cmp(have.version, lock[id].version) > 0 : !part.agents.length || !!have.pid;
     if (fresh && !sound) continue;
     is[id] = key;
-    if (fresh) moves[id] = { version: have.version, ...(have.id ? { id: have.id } : {}) };
+    if (fresh) moves[id] = held(have);
   }
   return { is, moves };
 }
@@ -286,7 +332,7 @@ function watch(heal) {
   const m = load();
   let seen = survey(m, Object.keys(m.hosts));
   if (lead(m, seen)) seen = survey(m, Object.keys(m.hosts));
-  const due = heal ? (m.follow || []).filter((h) => !seen[h].error && drifted({ [h]: seen[h] }).length && idle(h) >= 300) : [];
+  const due = heal ? (m.follow || []).filter((h) => !seen[h].error && drifted({ [h]: seen[h] }).some((d) => !d.includes(":mcp:")) && idle(h) >= 300) : [];
   if (due.length) { sync(due, false); seen = survey(m, Object.keys(m.hosts)); }
   mkdirSync(STATE, { recursive: true });
   const file = join(STATE, "status.json");

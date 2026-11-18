@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "studio": ["claude", "codex", "slab", "menuband", "wallpaper", "macpal", "acapp"],
+    "studio": ["claude", "codex", "slab", "menuband", "wallpaper", "macpal", "acapp", "mcp"],
     "work": ["claude", "codex", "slab", "macpal"]
   },
   "hosts": {
