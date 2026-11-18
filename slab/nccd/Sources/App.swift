@@ -88,16 +88,24 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // A donut in the menu bar: a click brings NCCd's window forward (and opens it again if it was shut).
         if !Self.snapshotRun {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-            let size: CGFloat = 16
+            // the donut in its own colours: dough, cyan icing, a few sprinkles
+            let size: CGFloat = 18
             let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-                let ring = NSBezierPath(ovalIn: NSRect(x: 1, y: 1, width: size - 2, height: size - 2))
-                ring.append(NSBezierPath(ovalIn: NSRect(x: size / 2 - 2.6, y: size / 2 - 2.6, width: 5.2, height: 5.2)))
-                ring.windingRule = .evenOdd
-                NSColor.black.setFill()
-                ring.fill()
+                let c = NSPoint(x: size / 2, y: size / 2)
+                Donut.draw(at: c, radius: size / 2 - 0.5)
+                let marks: [(CGFloat, CGFloat, String)] = [(20, 0.68, "E0127F"), (95, 0.72, "F3D34A"), (160, 0.66, "9932CC"),
+                                                         (230, 0.72, "00D080"), (300, 0.68, "F07C00")]
+                for (deg, reach, hex) in marks {
+                    let a = deg * .pi / 180, r = (size / 2) * reach
+                    NSColor(hex: hex)!.setFill()
+                    let dash = NSBezierPath(roundedRect: NSRect(x: -1.4, y: -0.6, width: 2.8, height: 1.2), xRadius: 0.6, yRadius: 0.6)
+                    var t = AffineTransform(translationByX: c.x + r * cos(a), byY: c.y + r * sin(a))
+                    t.rotate(byDegrees: deg + 60)
+                    dash.transform(using: t)
+                    dash.fill()
+                }
                 return true
             }
-            image.isTemplate = true                 // it takes the menu bar's own colour
             item.button?.image = image
             item.button?.toolTip = "NCCd"
             item.button?.target = self
