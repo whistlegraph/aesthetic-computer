@@ -39,6 +39,7 @@ enum Theme {
     static let teal = pair("006888", "4FD8FF")      // wordmark and links: the wiki's two logo colours
     // A link must not pass for text on any wash: deep blue, or in the dark theme a warm yellow.
     static let link = pair("0030B0", "FFE066")
+    static let search = pair("F2A93B", "E0932A")       // the search tab: amber
     static let yellow = NSColor(hex: "F3D34A")!
     static let onYellow = NSColor(hex: "1B2B22")!
     static let faint = pair("1B2B22", "D2F3E1", alpha: 0.62)
@@ -85,6 +86,7 @@ enum Theme {
     static func tabIcon(_ title: String, size: CGFloat = 13) -> NSImage? {
         let t = title.lowercased()
         let name = t == "home" ? "house.fill" : t == "window" ? "macwindow" : t == "wiki" ? "book.fill"
+            : t == "search" ? "magnifyingglass"
             : t.contains("steer") ? "steeringwheel" : t.contains("infra") ? "desktopcomputer"
             : t.contains("announce") ? "megaphone.fill" : t.contains("chat") ? "bubble.left.and.bubble.right.fill"
             : t.contains("event") ? "calendar" : t.contains("label") || t.contains("music") ? "music.note" : "circle.dashed"
@@ -228,7 +230,7 @@ func badge(_ p: Person, size: CGFloat) -> NSImage {
 }
 
 // The app's wordmark, "NCCd", in chunky pixels set close together: the club's
-// NCC in the wiki's teal and a small d (for donut) in the icing's pink, with
+// NCC in the wiki's teal and a small d (for donut) in the icing's cyan, with
 // sprinkles on it. Each letter stands on a darker copy of itself, a pixel down
 // and across. The d rocks a little now and then, and a band of light crosses
 // the whole word every few seconds.
@@ -278,7 +280,7 @@ final class NCCLogo: NSView {
                 (pink ? Donut.icing : Theme.teal).setFill()
                 rect.insetBy(dx: -0.2, dy: -0.2).fill()
             }
-            // sprinkles on the pink: a small dash of colour on some of its pixels
+            // sprinkles on the d: a small dash of colour on some of its pixels
             for (n, (rect, pink)) in all.enumerated() where pink && (n * 7 + 3) % 4 == 0 {
                 NSColor(hex: Theme.palette[(n * 5 + 1) % Theme.palette.count])!.setFill()
                 let w = cell * 0.5, across = (n % 2 == 0)
@@ -357,7 +359,7 @@ enum Tab {
     // `top`: the tabs stand in a row along the top of the window, like a
     // browser's or a file folder's: rounded at their upper corners, flush
     // with the pane at their foot. Otherwise they stand down the side.
-    static func draw(in bounds: NSRect, fill: NSColor, open: Bool, top: Bool = false) {
+    static func draw(in bounds: NSRect, fill: NSColor, open: Bool, top: Bool = false, hover: Bool = false) {
         let r: CGFloat = top ? 7 : 5
         let body = top ? NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - 3)
                        : NSRect(x: 6, y: 0, width: bounds.width - 6, height: bounds.height)
@@ -383,6 +385,10 @@ enum Tab {
         NSGraphicsContext.saveGraphicsState()
         path.addClip()
         Grain.draw(in: body)
+        if hover, !open {                       // under the pointer, a tab that is not open lights up
+            NSColor(white: 1, alpha: 0.22).setFill()
+            body.fill(using: .sourceOver)
+        }
         if !open {
             NSGradient(colors: [NSColor(white: 0, alpha: 0.14), NSColor(white: 1, alpha: 0.12)])?.draw(in: body, angle: 90)
             // a tab that is not open lies in the pane's shadow, at the edge where it meets the pane
@@ -413,6 +419,7 @@ final class LogoTab: NSView {
     var onClick: (() -> Void)?
     var selected = false { didSet { needsDisplay = true; home.contentTintColor = selected ? Theme.ink : Theme.faint } }
     var onTop = false { didSet { tallness.constant = onTop ? 36 : Self.tall; needsDisplay = true } }
+    var small = false { didSet { word.isHidden = small } }      // no room for the word: the house alone
     private var tallness: NSLayoutConstraint!
     static let tall: CGFloat = 46
 
@@ -437,8 +444,18 @@ final class LogoTab: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3), open: selected, top: onTop)
+        Tab.draw(in: bounds, fill: selected ? Theme.wash(Donut.icing) : Donut.icing.withAlphaComponent(0.3), open: selected, top: onTop, hover: hover)
     }
+    // The pointer over the tab.
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false }
+
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
@@ -502,25 +519,18 @@ final class LinkPanel: NSView {
 // under it.
 
 final class Shell: NSView {
-    // The zoom of the whole interface (⌘+, ⌘−, ⌘0): the screen keeps the
-    // shell's frame and is given smaller or larger bounds, so everything in it,
-    // text and pictures and the donut, is drawn that much larger or smaller.
-    var zoom: CGFloat = 1 { didSet { needsLayout = true } }
     private var screen: NSView?
-
     func set(_ v: NSView) {
         subviews.forEach { $0.removeFromSuperview() }
         v.translatesAutoresizingMaskIntoConstraints = true
-        v.autoresizingMask = []
+        v.autoresizingMask = [.width, .height]
+        v.frame = bounds
         addSubview(v)
         screen = v
-        needsLayout = true
     }
     override func layout() {
         super.layout()
-        guard let screen, bounds.width > 0 else { return }
-        screen.frame = bounds
-        screen.setBoundsSize(NSSize(width: (bounds.width / zoom).rounded(), height: (bounds.height / zoom).rounded()))
+        screen?.frame = bounds
     }
 }
 
@@ -530,34 +540,47 @@ final class LatestView: NSView {
     struct Item { let index: Int; let title: String; let color: NSColor; let who: String; let text: String; let when: String; let unread: Int }
     var items: [Item] = [] { didSet { needsDisplay = true } }
     var onPick: ((Int) -> Void)?
-    static let row: CGFloat = 26
+    static let row: CGFloat = 20
     override var isFlipped: Bool { true }
+    private var over = -1 { didSet { if over != oldValue { needsDisplay = true } } }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseMoved(with event: NSEvent) { over = Int(convert(event.locationInWindow, from: nil).y / Self.row) }
+    override func mouseExited(with event: NSEvent) { over = -1 }
 
     override func draw(_ dirty: NSRect) {
-        let font = Theme.mono(11), bold = Theme.mono(11, bold: true)
+        // smaller than the one text size: these are a glance, not the reading
+        let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular), bold = NSFont.monospacedSystemFont(ofSize: 10, weight: .bold)
         let nameW = (items.map { ($0.title as NSString).size(withAttributes: [.font: bold]).width }.max() ?? 60) + 18
         for (i, it) in items.enumerated() {
-            let r = NSRect(x: 0, y: CGFloat(i) * Self.row, width: bounds.width, height: Self.row - 3)
+            let r = NSRect(x: 0, y: CGFloat(i) * Self.row, width: bounds.width, height: Self.row - 2)
             Theme.wash(it.color).setFill()
             NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
+            if i == over {                           // under the pointer: the line lights up in its chat's colour
+                it.color.withAlphaComponent(0.3).setFill()
+                NSBezierPath(roundedRect: r, xRadius: 5, yRadius: 5).fill()
+            }
             let tag = NSRect(x: r.minX, y: r.minY, width: nameW, height: r.height)
             it.color.setFill()
             NSBezierPath(roundedRect: tag, xRadius: 5, yRadius: 5).fill()
-            (it.title as NSString).draw(at: NSPoint(x: tag.minX + 9, y: tag.minY + 4), withAttributes: [.font: bold, .foregroundColor: Theme.on(it.color)])
+            (it.title as NSString).draw(at: NSPoint(x: tag.minX + 8, y: tag.minY + 2), withAttributes: [.font: bold, .foregroundColor: Theme.on(it.color)])
             let when = NSAttributedString(string: it.when, attributes: [.font: font, .foregroundColor: Theme.faint])
             var right = r.maxX - 8 - when.size().width
-            when.draw(at: NSPoint(x: right, y: r.minY + 4))
+            when.draw(at: NSPoint(x: right, y: r.minY + 2))
             if it.unread > 0 {
                 let n = NSAttributedString(string: " \(it.unread) ", attributes: [.font: bold, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow])
                 right -= n.size().width + 8
-                n.draw(at: NSPoint(x: right, y: r.minY + 4))
+                n.draw(at: NSPoint(x: right, y: r.minY + 2))
             }
             let line = NSMutableAttributedString(string: it.who.isEmpty ? "" : it.who + "  ", attributes: [.font: bold, .foregroundColor: Theme.ink])
             line.append(NSAttributedString(string: it.text.replacingOccurrences(of: "\n", with: " "), attributes: [.font: font, .foregroundColor: Theme.ink]))
             let para = NSMutableParagraphStyle()
             para.lineBreakMode = .byTruncatingTail
             line.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: line.length))
-            line.draw(in: NSRect(x: tag.maxX + 9, y: r.minY + 4, width: max(10, right - tag.maxX - 18), height: r.height - 4))
+            line.draw(in: NSRect(x: tag.maxX + 8, y: r.minY + 2, width: max(10, right - tag.maxX - 16), height: r.height - 2))
         }
     }
     override func mouseDown(with event: NSEvent) {
@@ -663,8 +686,29 @@ final class RailRow: NSView {
     var windowed = false { didSet { paint() } }
     var unread = 0 { didSet { count.stringValue = "\(unread)"; countBg.isHidden = unread == 0 } }
     var tall: CGFloat = 24 { didSet { height.constant = tall } }
-    var onTop = false { didSet { needsDisplay = true } }       // the tabs are along the top of the window
-    var compact = false { didSet { paint() } }                 // no room: only the open tab shows its name
+    // The tabs are along the top of the window: closer set, so more of them fit on a line.
+    var onTop = false {
+        didSet {
+            inner.edgeInsets = NSEdgeInsets(top: 0, left: onTop ? 10 : 16, bottom: onTop ? 3 : 0, right: onTop ? 9 : 10)
+            inner.spacing = onTop ? 5 : 7
+            needsDisplay = true
+        }
+    }
+    // How much room there is for names: 0 every tab shows its name, 1 only the open tab, 2 none.
+    var compact = 0 { didSet { paint() } }
+    // How wide the tab is with its name, or with only its icon (and its unread count).
+    // (Measured from the tab's own contents, with the name in its heaviest weight, so a name is never cut short.)
+    func width(named: Bool) -> CGFloat {
+        let was = name.font
+        name.font = Theme.mono(weight: .heavy)
+        let hidden = name.isHidden
+        name.isHidden = !named
+        let w = inner.fittingSize.width
+        name.isHidden = hidden
+        name.font = was
+        return ceil(w) + 4
+    }
+    private var inner: NSStackView!
 
     init(title: String, icon image: NSImage?, color: NSColor, pane: NSColor) {
         wash = color
@@ -686,6 +730,9 @@ final class RailRow: NSView {
         let row = NSStackView(views: [icon, name, NSView(), mark, countBg])
         row.spacing = 7
         row.edgeInsets = NSEdgeInsets(top: 0, left: 16, bottom: 0, right: 10)
+        name.setContentCompressionResistancePriority(.required, for: .horizontal)
+        count.setContentCompressionResistancePriority(.required, for: .horizontal)
+        inner = row
         pin(row, to: self)
         height = heightAnchor.constraint(equalToConstant: tall)
         height.isActive = true
@@ -701,15 +748,26 @@ final class RailRow: NSView {
         icon.contentTintColor = on
         mark.contentTintColor = on
         mark.isHidden = !windowed
-        name.isHidden = compact && !selected
+        name.isHidden = compact == 2 || (compact == 1 && !selected)
         needsDisplay = true
     }
 
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42), open: selected, top: onTop)
+        Tab.draw(in: bounds, fill: selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42), open: selected, top: onTop, hover: hover)
     }
+    // The pointer over the tab.
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false }
+
     override func viewDidChangeEffectiveAppearance() { paint() }
     override func mouseDown(with event: NSEvent) { onClick?() }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
     override func menu(for event: NSEvent) -> NSMenu? { menuProvider?() }
 }
 
@@ -739,6 +797,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     var onRadio: (() -> Void)?
     let link = LinkPanel()                // shown on the sheet while Signal is not linked
     private let latest = LatestView()     // on the donut page: the newest message of every chat
+    private let radioBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.55), radius: 6)    // in the Netlabel tab: the station
+    private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
+    private let searchField = NSTextField()
+    var onSearchText: ((String) -> Void)?
     private var latestTall: NSLayoutConstraint!
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
     private var wikiPane: NSView!
@@ -753,10 +815,47 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         scroll.isHidden = linkShown || !latest.isHidden
         needsLayout = true
     }
+    // The zoom (⌘+, ⌘−, ⌘0), as in a browser: what is in the pane, the
+    // messages and the wiki with their pictures, is drawn larger or smaller
+    // and wraps again to fit. The tabs and the bars stay as they are.
+    var zoom: CGFloat = 1 {
+        didSet {
+            for sv in [scroll, wikiScroll] {
+                sv.allowsMagnification = true
+                sv.minMagnification = 0.5
+                sv.maxMagnification = 3
+                sv.magnification = zoom
+            }
+            fitText()
+            DispatchQueue.main.async { [weak self] in        // the text is laid out again at its new width
+                self?.fitText()
+                self?.lastRender?()
+                self?.lastWikiRender?()
+            }
+        }
+    }
+
+    // A text is as wide as its pane shows of it. Zoomed in, the pane shows
+    // less, so the text is narrower and wraps sooner; nothing runs off the edge.
+    private func fitText() {
+        for (t, sv) in [(text, scroll), (wikiText, wikiScroll)] {
+            let w = sv.contentView.bounds.width
+            if w > 0, abs(t.frame.width - w) > 0.5 { t.setFrameSize(NSSize(width: w, height: t.frame.height)) }
+        }
+    }
+
     // Where the tabs are: down the side, or along the top like a browser's (View menu).
     var tabsOnTop = UserDefaults.standard.bool(forKey: "tabsOnTop") { didSet { if tabsOnTop != oldValue { applyTabs() } } }
     private var top: Bool { tabsOnTop && !solo }
     private var sideSet: [NSLayoutConstraint] = [], topSet: [NSLayoutConstraint] = []
+    private var logoWide: NSLayoutConstraint!
+    private var topHeight: NSLayoutConstraint!
+    private let flow = NSView()                // along the top: where the tabs stand, on one line or more
+    private var lastSections: [(String, [(Int, String, NSColor?)])] = []
+    private let taskBar = Fill(Theme.mint)     // along the bottom, when the tabs are along the top
+    private let footGap = NSView()             // pushes the logins to the right end of the task bar
+    private var badgeNames: [NSView] = []      // the words in the login badges
+    private var topLevel = -1
     private var rowWide: [NSLayoutConstraint] = []
     private var railHeads: [NSView] = []       // the section headings of the rail
     private var railEnds: [NSView] = []        // the last row of each section
@@ -815,13 +914,58 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         sheet.isHidden = showWiki
         if beside { sheetFromEdge.isActive = false; sheetFromRail.isActive = true }
         else { sheetFromRail.isActive = false; sheetFromEdge.isActive = true }
-        // along the top, when the tabs have no room for their names, only the open one keeps its name
-        let roomy = !top || w >= 150 + CGFloat(rows.count) * 112 + 250
-        rows.forEach { $0.compact = !roomy }
+        fitTop(width: w)
         sheetToWiki.isActive = false
         sheetToEdge.isActive = true
         if showWiki { wikiWidth.constant = w - railW }
         paintTabs()
+    }
+
+    // Along the top, the bar holds the tabs alone (the radio and the logins
+    // are in the task bar along the bottom). Every tab shows its name, always:
+    // when the window is too narrow for them on one line, the wordmark's tab
+    // becomes its house alone, and then the tabs go on to a second line, and a
+    // third. Nothing is squeezed, cut short or laid over another thing.
+    private func fitTop(width w: CGFloat) {
+        guard top else {
+            if topLevel != -1 { topLevel = -1; logo.small = false; applyFoot(words: true, names: true) }
+            return
+        }
+        let line: CGFloat = 36, gap: CGFloat = 3, sectionGap: CGFloat = 9
+        func lines(room: CGFloat) -> [[(RailRow, CGFloat, CGFloat)]] {         // each line: its tabs, their x and width
+            var out: [[(RailRow, CGFloat, CGFloat)]] = [[]]
+            var x: CGFloat = 0
+            for r in rows {
+                let width = min(r.width(named: true), max(60, room))
+                if x > 0, x + width > room { out.append([]); x = 0 }
+                out[out.count - 1].append((r, x, width))
+                x += width + gap + (railEnds.contains { $0 === r } ? sectionGap : 0)
+            }
+            return out
+        }
+        // the wordmark stays whole when the tabs then still fit on one line
+        var small = false
+        var placed = lines(room: w - 146 - 3 - 4)
+        if placed.count > 1 { small = true; placed = lines(room: w - 46 - 3 - 4) }
+        topLevel = placed.count
+        logo.small = small
+        logoWide.constant = small ? 46 : 146
+        let high = CGFloat(placed.count) * line
+        topHeight.constant = 6 + high
+        for (n, tabs) in placed.enumerated() {
+            for (r, x, width) in tabs {
+                r.compact = 0
+                r.frame = NSRect(x: x, y: high - CGFloat(n + 1) * line, width: width, height: line)
+            }
+        }
+        // the task bar: words while there is room, who is signed in while there is more
+        applyFoot(words: w >= 330, names: w >= 520)
+    }
+
+    // The radio and the logins in words, or as marks alone; with or without who is signed in.
+    private func applyFoot(words: Bool, names: Bool) {
+        badgeNames.forEach { $0.isHidden = !words }
+        if top { whoLabels.forEach { $0.isHidden = !names } }
     }
 
     // Which tab is the open one: the wiki's when the wiki is open, else the sheet's.
@@ -829,6 +973,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let wiki = !solo && wikiOpen
         for r in rows { r.selected = wiki ? r.tag_ == -2 : r.tag_ == shownIndex }
         logo.selected = !wiki && shownIndex == -1
+        if top { fitTop(width: bounds.width) }
     }
 
     // The size that counts is the bounds' (the zoom gives the view bounds that are not its frame's).
@@ -855,16 +1000,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let n = CGFloat(rows.count), heads = CGFloat(railHeads.count), ends = CGFloat(railEnds.count)
         let logoH = LogoTab.tall
         func need(_ d: Int) -> CGFloat {
-            (d < 2 ? 8 + logoH + 8 : 6) + n * (d == 0 ? 25 : 21) + (d == 0 ? heads * 17 + ends * 10 : ends * 4) + 3 * 19 + 12 + 22
+            (d < 2 ? 8 + logoH + 8 : 6) + n * (d == 0 ? 25 : 21) + (d == 0 ? heads * 17 + ends * 10 : ends * 4) + 2 * 19 + 6 + 22
         }
         if top {                                    // along the top: one height, no headings, no names by the logins
             guard density != 9 else { return }
             density = 9
-            rows.forEach { $0.tall = 36 }
-            railHeads.forEach { $0.isHidden = true }
-            railEnds.forEach { rail.setCustomSpacing(10, after: $0) }
             logo.isHidden = false
-            whoLabels.forEach { $0.isHidden = true }
             return
         }
         let d = need(0) <= h ? 0 : need(1) <= h ? 1 : 2
@@ -879,10 +1020,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     override func layout() {
+        defer { fitText() }
+        fitText()
         // The donut has the sheet to itself.
         // the donut has the sheet to itself, or shares it with what is under it
         let tall = linkShown ? max(120, (bounds.height * 0.48).rounded())
-            : max(120, bounds.height - (top ? 42 : 0) - (latest.isHidden ? 0 : latestTall.constant + 8) - 24)
+            : max(120, bounds.height - (top ? topHeight.constant + 28 : 0) - (latest.isHidden ? 0 : latestTall.constant + 8) - 24)
         if diagramHeight.constant != tall { diagramHeight.constant = tall }
         super.layout()
         let sheetMoved = lastRender != nil && abs((text.textContainer?.size.width ?? 0) - renderedWidth) > 24
@@ -921,7 +1064,15 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         logo.onClick = { [weak self] in self?.onSelect?(-1) }
         railBox.addSubview(logo)
         railBox.addSubview(rail)
-        railBox.addSubview(foot)
+        flow.translatesAutoresizingMaskIntoConstraints = false
+        railBox.addSubview(flow)
+        // The radio and the logins. Down the side they are the foot of the rail;
+        // with the tabs along the top they are a task bar along the bottom.
+        taskBar.grain = true
+        taskBar.isHidden = true
+        addSubview(taskBar)
+        addSubview(foot)
+        footGap.setContentHuggingPriority(.init(1), for: .horizontal)
         // the radio: a press plays the station, another stops it
         radioIcon.imageScaling = .scaleNone
         radioIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
@@ -1000,13 +1151,37 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         latestTall = latest.heightAnchor.constraint(equalToConstant: 0)
         latestTall.isActive = true
         latest.onPick = { [weak self] i in self?.onSelect?(i) }
-        let col = NSStackView(views: [roles, diagram, link, latest, scroll, status, composer])
+        // the radio, in a bar of its own (shown in the Netlabel tab)
+        radioBar.isHidden = true
+        radioRow.translatesAutoresizingMaskIntoConstraints = false
+        radioBar.addSubview(radioRow)
+        // the search field (shown in the Search tab)
+        searchBar.isHidden = true
+        searchField.font = Theme.mono(12)
+        searchField.isBordered = false
+        searchField.drawsBackground = false
+        searchField.focusRingType = .none
+        searchField.placeholderString = "search the circles, the chats and the wiki"
+        searchField.delegate = self
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchBar.addSubview(searchField)
+        NSLayoutConstraint.activate([
+            radioBar.heightAnchor.constraint(equalToConstant: 28),
+            radioRow.leadingAnchor.constraint(equalTo: radioBar.leadingAnchor, constant: 10),
+            radioRow.trailingAnchor.constraint(lessThanOrEqualTo: radioBar.trailingAnchor, constant: -10),
+            radioRow.centerYAnchor.constraint(equalTo: radioBar.centerYAnchor),
+            searchBar.heightAnchor.constraint(equalToConstant: 34),
+            searchField.leadingAnchor.constraint(equalTo: searchBar.leadingAnchor, constant: 11),
+            searchField.trailingAnchor.constraint(equalTo: searchBar.trailingAnchor, constant: -11),
+            searchField.centerYAnchor.constraint(equalTo: searchBar.centerYAnchor),
+        ])
+        let col = NSStackView(views: [searchBar, radioBar, roles, diagram, link, latest, scroll, status, composer])
         col.orientation = .vertical
         col.alignment = .leading
         col.spacing = 2
         col.translatesAutoresizingMaskIntoConstraints = false
         sheet.addSubview(col)
-        for v in [diagram, link, latest, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
+        for v in [searchBar, radioBar, diagram, link, latest, scroll, composer] as [NSView] { v.widthAnchor.constraint(equalTo: col.widthAnchor).isActive = true }
         col.setCustomSpacing(5, after: scroll)
         scroll.setContentHuggingPriority(.defaultLow, for: .vertical)
 
@@ -1049,26 +1224,35 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             foot.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: -10),
             sheet.topAnchor.constraint(equalTo: topAnchor),
             wiki.topAnchor.constraint(equalTo: topAnchor),
+            sheet.bottomAnchor.constraint(equalTo: bottomAnchor),
+            wiki.bottomAnchor.constraint(equalTo: bottomAnchor),
         ]
         // the tabs along the top: the wordmark's tab, the tabs in a row, the radio and the logins at the right
         topSet = [
             railBox.trailingAnchor.constraint(equalTo: trailingAnchor),
-            railBox.heightAnchor.constraint(equalToConstant: 42),
-            logo.widthAnchor.constraint(equalToConstant: 146),
-            logo.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: 3),
-            rail.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
-            rail.bottomAnchor.constraint(equalTo: railBox.bottomAnchor, constant: 3),
-            foot.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -10),
-            foot.centerYAnchor.constraint(equalTo: railBox.centerYAnchor),
-            foot.leadingAnchor.constraint(greaterThanOrEqualTo: rail.trailingAnchor, constant: 8),
+            { topHeight = railBox.heightAnchor.constraint(equalToConstant: 42); return topHeight }(),
+            { logoWide = logo.widthAnchor.constraint(equalToConstant: 146); return logoWide }(),
+            logo.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
+            flow.leadingAnchor.constraint(equalTo: logo.trailingAnchor, constant: 3),
+            flow.trailingAnchor.constraint(equalTo: railBox.trailingAnchor, constant: -4),
+            flow.topAnchor.constraint(equalTo: railBox.topAnchor, constant: 6),
+            flow.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
+            foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor, constant: 10),
+            foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -10),
+            foot.centerYAnchor.constraint(equalTo: taskBar.centerYAnchor),
             sheet.topAnchor.constraint(equalTo: railBox.bottomAnchor),
             wiki.topAnchor.constraint(equalTo: railBox.bottomAnchor),
+            sheet.bottomAnchor.constraint(equalTo: taskBar.topAnchor),
+            wiki.bottomAnchor.constraint(equalTo: taskBar.topAnchor),
         ]
         NSLayoutConstraint.activate([
             railBox.leadingAnchor.constraint(equalTo: leadingAnchor),
             railBox.topAnchor.constraint(equalTo: topAnchor),
             logo.leadingAnchor.constraint(equalTo: railBox.leadingAnchor),
-            sheet.bottomAnchor.constraint(equalTo: bottomAnchor),
+            taskBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            taskBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            taskBar.bottomAnchor.constraint(equalTo: bottomAnchor),
+            taskBar.heightAnchor.constraint(equalToConstant: 28),
             band.leadingAnchor.constraint(equalTo: sheet.leadingAnchor),
             band.trailingAnchor.constraint(equalTo: sheet.trailingAnchor),
             band.topAnchor.constraint(equalTo: sheet.topAnchor),
@@ -1078,7 +1262,6 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             col.topAnchor.constraint(equalTo: band.bottomAnchor, constant: 7),
             col.bottomAnchor.constraint(equalTo: sheet.bottomAnchor, constant: -5),
             wiki.trailingAnchor.constraint(equalTo: trailingAnchor),
-            wiki.bottomAnchor.constraint(equalTo: bottomAnchor),
             wikiWidth,
             wikiBand.leadingAnchor.constraint(equalTo: wiki.leadingAnchor),
             wikiBand.trailingAnchor.constraint(equalTo: wiki.trailingAnchor),
@@ -1096,15 +1279,16 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     // Put the tabs where the member wants them: down the side, or along the top.
     private func applyTabs() {
         NSLayoutConstraint.deactivate(sideSet + topSet + rowWide)
-        NSLayoutConstraint.activate(top ? topSet : sideSet + rowWide)
-        rail.orientation = top ? .horizontal : .vertical
-        rail.alignment = top ? .bottom : .leading
-        rail.spacing = top ? 3 : 1
+        NSLayoutConstraint.activate(top ? topSet : sideSet)
+        rail.isHidden = top
+        flow.isHidden = !top
+        if !lastSections.isEmpty { setRail(lastSections) }      // the tabs are made again where they now stand
         foot.orientation = top ? .horizontal : .vertical
         foot.alignment = top ? .centerY : .leading
         foot.spacing = top ? 12 : 6
+        taskBar.isHidden = !top
+        footGap.isHidden = !top
         logo.onTop = top
-        rows.forEach { $0.onTop = top }
         density = -1
         fitRail(height: bounds.height)
         fold(width: bounds.width)
@@ -1115,7 +1299,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         t.isEditable = false
         t.drawsBackground = false
         t.textContainerInset = NSSize(width: 2, height: 2)
-        t.autoresizingMask = [.width]
+        t.autoresizingMask = []              // its width is set by fitText: what the pane shows, zoom and all
         t.isVerticallyResizable = true
         t.textContainer?.widthTracksTextView = true
         t.linkTextAttributes = [.foregroundColor: Theme.link, .cursor: NSCursor.pointingHand]
@@ -1140,16 +1324,19 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     var onAccount: ((String) -> Void)?
     func setAccounts(ncc: String?, signal: String?) {
         foot.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        foot.addArrangedSubview(radioRow)
-        radioRow.widthAnchor.constraint(lessThanOrEqualTo: foot.widthAnchor).isActive = true
-        whoLabels = [radioNow]                      // what is on gives way in a short window
+        foot.addArrangedSubview(footGap)
+        footGap.isHidden = !top
+        whoLabels = []
+        badgeNames = []
         func badge(_ name: String, logo: String, color: NSColor, who: String?, ask: String) -> NSView {
             let chip = Fill(who == nil ? color.withAlphaComponent(0.5) : color, radius: 3)
             let glyph = NSImageView()
             glyph.image = Pixel.icon(logo, size: 8)
             glyph.imageScaling = .scaleNone
             glyph.contentTintColor = .white
-            let row = NSStackView(views: [glyph, label(name, Theme.mono(9, bold: true), .white)])
+            let word = label(name, Theme.mono(9, bold: true), .white)
+            badgeNames.append(word)
+            let row = NSStackView(views: [glyph, word])
             row.spacing = 4
             row.edgeInsets = NSEdgeInsets(top: 3, left: 5, bottom: 3, right: 6)
             pin(row, to: chip)
@@ -1170,9 +1357,61 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         foot.addArrangedSubview(badge("Signal", logo: "signal", color: NSColor(hex: "3A76F0")!, who: signal, ask: "link"))
         density = -1
         fitRail(height: bounds.height)
+        topLevel = -1
+        fitTop(width: bounds.width)
     }
 
     func setStatus(_ s: String) { status.stringValue = s; status.isHidden = s.isEmpty }
+
+    // The station's bar, in the Netlabel tab.
+    func showRadio(_ on: Bool) { radioBar.isHidden = !on }
+
+    // The Search tab: its field, and what was found (in the ledger's place).
+    func showSearch(_ on: Bool) {
+        searchBar.isHidden = !on
+        if on { window?.makeFirstResponder(searchField) }
+    }
+    var searchText: String {
+        get { searchField.stringValue }
+        set { searchField.stringValue = newValue }
+    }
+
+    struct Found { let link: URL; let place: String; let color: NSColor?; let when: String; let who: String; let text: String }
+    func renderSearch(query: String, found: [Found], note: String) {
+        lastRender = nil
+        pendingRanges = []
+        glimmer()
+        let font = Theme.mono(11), bold = Theme.mono(11, bold: true)
+        let out = NSMutableAttributedString(string: note + "\n", attributes: [.font: font, .foregroundColor: Theme.faint])
+        let para = NSMutableParagraphStyle()
+        para.paragraphSpacingBefore = 7
+        para.headIndent = 14
+        let q = query.lowercased()
+        for f in found {
+            let line = NSMutableAttributedString(string: " " + f.place + " ", attributes: [
+                .font: bold, .foregroundColor: f.color.map(Theme.on) ?? .white, .backgroundColor: f.color ?? Theme.wikiBand, .link: f.link])
+            line.append(NSAttributedString(string: "  " + [f.when, f.who].filter { !$0.isEmpty }.joined(separator: "  ") + "\n", attributes: [
+                .font: font, .foregroundColor: Theme.faint]))
+            // the words, with what was looked for in bold
+            let words = f.text.replacingOccurrences(of: "\n", with: " ")
+            // (no link on the words themselves: a link's colour would hide what was found; the place is the link)
+            let body = NSMutableAttributedString(string: words + "\n", attributes: [.font: font, .foregroundColor: Theme.ink])
+            let ns = words.lowercased() as NSString
+            var from = 0
+            while !q.isEmpty, from < ns.length {
+                let r = ns.range(of: q, options: [], range: NSRange(location: from, length: ns.length - from))
+                guard r.location != NSNotFound, r.location + r.length <= body.length else { break }
+                body.addAttributes([.font: bold, .backgroundColor: Theme.yellow, .foregroundColor: Theme.onYellow], range: r)
+                from = r.location + r.length
+            }
+            line.append(body)
+            line.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: line.length))
+            out.append(line)
+        }
+        fitText()
+        text.textStorage?.setAttributedString(out)
+        text.scrollToBeginningOfDocument(nil)
+    }
 
     func setRadio(playing: Bool, now: String) {
         radioIcon.image = NSImage(systemSymbolName: playing ? "pause.fill" : "play.fill", accessibilityDescription: playing ? "Stop" : "Play")?
@@ -1292,7 +1531,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     // sections: [(heading, [(index, title, colour)])]
     func setRail(_ sections: [(String, [(Int, String, NSColor?)])]) {
+        lastSections = sections
         rail.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        flow.subviews.forEach { $0.removeFromSuperview() }
         rows = []
         rowWide = []
         railHeads = []
@@ -1319,20 +1560,30 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 row.menuProvider = { [weak self] in self?.menuFor?(index) }
                 row.tag_ = index
                 row.tall = density > 0 ? 20 : 24
-                rail.addArrangedSubview(row)
-                let wide = row.widthAnchor.constraint(equalTo: rail.widthAnchor)     // down the side, a tab is as wide as the rail
-                rowWide.append(wide)
-                wide.isActive = !top
                 row.onTop = top
+                if top {                                     // along the top a tab is placed by fitTop, on its line
+                    row.translatesAutoresizingMaskIntoConstraints = true
+                    row.tall = 36
+                    flow.addSubview(row)
+                } else {
+                    rail.addArrangedSubview(row)
+                    let wide = row.widthAnchor.constraint(equalTo: rail.widthAnchor)     // down the side, as wide as the rail
+                    rowWide.append(wide)
+                    wide.isActive = true
+                }
                 rows.append(row)
             }
-            railEnds.append(rail.arrangedSubviews.last!)
+            if let last = rows.last { railEnds.append(last) }
         }
         fitRail(height: bounds.height)
         paintTabs()
     }
 
-    func setUnread(_ index: Int, _ n: Int) { rows.first { $0.tag_ == index }?.unread = n }
+    func setUnread(_ index: Int, _ n: Int) {
+        guard let row = rows.first(where: { $0.tag_ == index }), row.unread != n else { return }
+        row.unread = n
+        if top { fitTop(width: bounds.width) }        // a count makes its tab wider
+    }
     // The tabs in the order they stand, by index (the wiki's is -2).
     var tabOrder: [Int] { rows.map { $0.tag_ } }
     func setWindowed(_ open: Set<Int>) { for r in rows where r.tag_ >= 0 { r.windowed = open.contains(r.tag_) } }
@@ -1510,6 +1761,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             line.addAttribute(.paragraphStyle, value: row, range: NSRange(location: 0, length: min(firstEnd, line.length)))
             out.append(line)
         }
+        fitText()
         text.textStorage?.setAttributedString(out)
         Self.linkify(text)
         pendingRanges = waiting
@@ -1549,6 +1801,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     // Show the newest message: lay the whole ledger out, then go to its end.
     private func toNewest() {
+        fitText()
         guard let container = text.textContainer else { return }
         text.layoutManager?.ensureLayout(for: container)
         text.sizeToFit()
@@ -1604,6 +1857,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let key = title + "\n" + (url?.absoluteString ?? "")
         let keep = key == docKey ? wikiScroll.contentView.bounds.origin : nil
         docKey = key
+        fitText()
         wikiText.textStorage?.setAttributedString(out)
         Self.linkify(wikiText)
         if let keep {
@@ -1674,6 +1928,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         guard let url = link as? URL, url.scheme == "ncc" else { return false }
         if url.host == "back" { onBack?() }
         if url.host == "doc" { onDoc?(url.lastPathComponent) }
+        if url.host == "circle", let i = Int(url.lastPathComponent) { onSelect?(i) }       // a message that was found
         return true
     }
 
@@ -1740,7 +1995,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     // While the list is open: the arrows move in it, Return or Tab takes a name, Esc shuts it.
     func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-        guard !mentions.isHidden else { return false }
+        guard control === field, !mentions.isHidden else { return false }
         switch selector {
         case #selector(NSResponder.moveUp(_:)): mentions.move(-1); return true
         case #selector(NSResponder.moveDown(_:)): mentions.move(1); return true
@@ -1770,6 +2025,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
     private var lastTyped = Date.distantPast
     var quiet: Bool { Date().timeIntervalSince(lastTyped) > 6 }
-    func controlTextDidChange(_ n: Notification) { lastTyped = Date(); updateMentions() }
+    func controlTextDidChange(_ n: Notification) {
+        if (n.object as? NSTextField) === searchField { return onSearchText?(searchField.stringValue) ?? () }
+        lastTyped = Date()
+        updateMentions()
+    }
     func focusField() { window?.makeFirstResponder(field) }
 }

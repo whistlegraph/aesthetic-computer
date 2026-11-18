@@ -32,13 +32,14 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let wiki = Wiki()
     let updater = Updater()
     let radio = Radio()
-    // The zoom of the whole interface, kept between launches.
+    // The zoom of what is in the pane (not of the tabs and bars), kept between launches.
     var zoom: CGFloat = 1 {
         didSet {
             zoom = min(2.4, max(0.6, (zoom * 20).rounded() / 20))
             UserDefaults.standard.set(Double(zoom), forKey: "zoom")
-            shell.zoom = zoom
-            satellites.forEach { $0.shell.zoom = zoom }
+            main.zoom = zoom
+            login?.web.pageZoom = zoom
+            satellites.forEach { $0.view.zoom = zoom }
         }
     }
     var wikiReady = false
@@ -51,6 +52,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var satellites: [Satellite] = []                         // circles open in windows of their own
     var pending: [String: [Msg]] = [:]                       // by group: messages sent, not yet landed
     var onStart = true                                       // the donut (home) is open, not a circle
+    var onSearch = false                                     // the Search tab is open
+    var searchWork: DispatchWorkItem?
     var picked = false                                       // the member has chosen something on the rail
     var account: SignalAccount?
     var circles: [Circle] = []
@@ -107,6 +110,14 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if !self.onStart { self.send(s, mentions: marks, to: self.selected, from: self.main) }
         }
         main.onDoc = { [weak self] id in self?.showDoc(id) }
+        // The search runs a moment after the typing stops.
+        main.onSearchText = { [weak self] _ in
+            guard let self else { return }
+            self.searchWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.search() }
+            self.searchWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
+        }
         main.onBack = { [weak self] in self?.openDoc = nil; self?.wikiTouched = true; self?.drawWiki() }
         main.menuFor = { [weak self] i in self?.circleMenu(i) }
         engine.onEnvelope = { [weak self] e in self?.handle(e) }
@@ -167,7 +178,15 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // NCC_SNAPSHOT_TOP=1 or 0 puts the tabs along the top, or down the side, for the picture (not kept).
         if let t = env["NCC_SNAPSHOT_TOP"] { main.tabsOnTop = t == "1" }
         // NCC_SNAPSHOT_ZOOM=<factor> zooms the interface for the picture (not kept).
-        if let z = env["NCC_SNAPSHOT_ZOOM"].flatMap({ Double($0) }) { shell.zoom = CGFloat(z) }
+        if let z = env["NCC_SNAPSHOT_ZOOM"].flatMap({ Double($0) }) { main.zoom = CGFloat(z) }
+        // NCC_SNAPSHOT_SEARCH=<words> opens the Search tab and searches for them.
+        if let words = env["NCC_SNAPSHOT_SEARCH"] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                self.go(-3)
+                self.main.searchText = words
+                self.search()
+            }
+        }
         // NCC_SNAPSHOT_CIRCLE=<n> opens the nth circle of the rail first.
         if let n = env["NCC_SNAPSHOT_CIRCLE"].flatMap({ Int($0) }) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 5) { self.picked = true; self.select(n) }
@@ -233,10 +252,14 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // ─── the two logins ──────────────────────────────────────────────────────
 
-    // The foot of the rail has one line for each: the name, and the end of the number.
+    // The logins, with who is signed in: the name as the wiki has it, and the
+    // name as Signal has it (or the end of the number, when Signal has none).
     func refreshAccounts() {
-        main.setAccounts(ncc: nccName.map { String($0.split(separator: " ").first ?? "") },
-                         signal: account.map { "…" + $0.number.suffix(4) })
+        let me = account.map { a -> String in
+            let name = people.person(a.uuid, fallback: nil).name
+            return name.isEmpty || name == a.uuid || name == "me" ? "…" + a.number.suffix(4) : name
+        }
+        main.setAccounts(ncc: nccName, signal: me)
     }
 
     // The link panel under the donut, while no Signal account is linked.
@@ -286,6 +309,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.loadWiki()
         }
         login = l
+        l.web.pageZoom = zoom
         main.showWikiLogin(l.web)
         l.start()
     }
@@ -316,6 +340,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         engine.call("listContacts") { [weak self] r in
             if case .success(let v) = r, let list = v as? [[String: Any]] { self?.people.setContacts(list) }
+            self?.refreshAccounts()                 // Signal's own name for this account is known now
             self?.refresh()
         }
         engine.call("listGroups") { [weak self] r in
@@ -403,7 +428,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.circles.enumerated().filter { $0.element.conf.kind == kind }
                 .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
         }
-        main.setRail([("", pick("commons")), ("", pick("circle")), ("", [(-2, "Wiki", Theme.wikiBand)])])
+        main.setRail([("", pick("commons")), ("", pick("circle")),
+                      ("", [(-2, "Wiki", Theme.wikiBand), (-3, "Search", Theme.search)])])
         updateUnread()
     }
 
@@ -443,6 +469,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard circles.indices.contains(i) else { return }
         selected = i
         onStart = false
+        onSearch = false
         markRead()
         refresh()
         refreshWiki()
@@ -457,7 +484,18 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // the rail marks the circles that have windows of their own
             main.setWindowed(Set(satellites.compactMap { s in circles.firstIndex { $0.conf.groupId == s.groupId } }))
         }
+        if onSearch {
+            window.title = "NCCd: search"
+            main.showLatest(nil)
+            main.showRadio(false)
+            main.show(index: -3, heading: "search", color: Theme.search, roleLine: [], canSend: false, placeholder: "")
+            main.showSearch(true)
+            search()
+            return updateUnread()
+        }
+        main.showSearch(false)
         if onStart {
+            main.showRadio(false)
             window.title = "NCCd: donut"                  // the title bar says where we are
             // Home: the donut, and floating under it the newest message of every chat.
             main.show(index: -1, heading: "donut", diagram: diagramItems(), roleLine: [], canSend: false, placeholder: "")
@@ -474,8 +512,59 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                   canSend: c.canSend,
                   placeholder: c.canSend ? "write to \(c.conf.title)" : "only admins write here")
         main.mentionable = mentionable(c)
+        main.showRadio(c.conf.title.lowercased().contains("label"))       // the station plays from the Netlabel tab
         main.render(ledger(c), reactions: c.log.reactions, people: people, me: account?.uuid ?? "")
         updateUnread()
+    }
+
+    // ─── the global search ───────────────────────────────────────────────────
+    // One search over what this member can read: the messages of every circle
+    // and chat (with Signal linked), and the wiki's pages (with the NCC login).
+    // With one of the two, it searches that one.
+    func search() {
+        guard onSearch else { return }
+        let q = main.searchText.trimmingCharacters(in: .whitespaces)
+        let sources = [account != nil ? "the circles and chats" : nil, wikiReady ? "the wiki" : nil].compactMap { $0 }
+        guard q.count >= 2 else {
+            let what = sources.isEmpty ? "Link Signal or sign in to NCC to have something to search." : "Searches " + sources.joined(separator: " and ") + "."
+            return main.renderSearch(query: "", found: [], note: what)
+        }
+        let low = q.lowercased()
+        let day = DateFormatter()
+        day.dateFormat = "d MMM yyyy HH:mm"
+        var hits: [(Int64, MainView.Found)] = []
+        for (i, c) in circles.enumerated() where account != nil {
+            for m in c.log.msgs.reversed() where m.kind == nil && m.body.lowercased().contains(low) {
+                let who = m.author == account?.uuid ? "me" : people.person(m.author, fallback: m.name).name
+                hits.append((m.ts, MainView.Found(link: URL(string: "ncc://circle/\(i)")!, place: c.conf.title, color: color(of: i),
+                                                  when: day.string(from: Date(timeIntervalSince1970: Double(m.ts) / 1000)), who: who,
+                                                  text: Self.around(m.body, low))))
+                if hits.count > 400 { break }
+            }
+        }
+        let messages = hits.sorted { $0.0 > $1.0 }.prefix(120).map { $0.1 }
+        let show: ([MainView.Found]) -> Void = { [weak self] pages in
+            guard let self, self.onSearch, self.main.searchText.trimmingCharacters(in: .whitespaces) == q else { return }
+            let note = "\(messages.count) message\(messages.count == 1 ? "" : "s")" + (self.wikiReady ? ", \(pages.count) wiki page\(pages.count == 1 ? "" : "s")" : "")
+                + " · " + (sources.isEmpty ? "nothing to search" : sources.joined(separator: " and "))
+            self.main.renderSearch(query: q, found: pages + messages, note: note)
+        }
+        show([])
+        guard wikiReady else { return }
+        wiki.search(q) { [weak self] pages in
+            guard let self else { return }
+            show(pages.map { MainView.Found(link: URL(string: "ncc://doc/" + $0.id)!, place: "Wiki", color: nil, when: "", who: $0.title, text: $0.context) })
+        }
+    }
+
+    // The words round the first place the query is found.
+    static func around(_ body: String, _ low: String) -> String {
+        let flat = body.replacingOccurrences(of: "\n", with: " ").replacingOccurrences(of: "\u{FFFC}", with: "")
+        let ns = flat as NSString
+        let r = (flat.lowercased() as NSString).range(of: low)
+        guard r.location != NSNotFound, ns.length > 220 else { return flat }
+        let from = max(0, r.location - 80), to = min(ns.length, r.location + r.length + 130)
+        return (from > 0 ? "…" : "") + ns.substring(with: NSRange(location: from, length: to - from)) + (to < ns.length ? "…" : "")
     }
 
     // A circle's ledger: its log, then the messages still on their way.
@@ -521,7 +610,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let gid = circles[i].conf.groupId
         if let s = satellites.first(where: { $0.groupId == gid }) { return s.window.makeKeyAndOrderFront(nil) }
         let s = Satellite(groupId: gid)
-        s.shell.zoom = zoom
+        s.view.zoom = zoom
         s.view.onSend = { [weak self, weak s] text, marks in
             guard let self, let s, let at = self.circles.firstIndex(where: { $0.conf.groupId == gid }) else { return }
             self.send(text, mentions: marks, to: at, from: s.view)
@@ -608,6 +697,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func showStart() {
         onStart = true
+        onSearch = false
         refresh()
         refreshWiki()
     }
@@ -899,13 +989,15 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // Open a tab: the donut (-1), a circle, or the wiki (-2).
     func go(_ i: Int) {
         if i == -2 { main.wikiOpen = true; return }
-        main.wikiOpen = false                 // a circle or the donut: the wiki steps aside
+        main.wikiOpen = false                 // a circle, the donut or the search: the wiki steps aside
+        if i == -3 { onSearch = true; onStart = false; refresh(); return }
+        onSearch = false
         picked = true
         i < 0 ? showStart() : select(i)
     }
     // The donut first, then the tabs of the rail in their order.
     var tabs: [Int] { [-1] + main.tabOrder }
-    var currentTab: Int { main.wikiOpen ? -2 : onStart ? -1 : selected }
+    var currentTab: Int { main.wikiOpen ? -2 : onSearch ? -3 : onStart ? -1 : selected }
     func stepTab(_ by: Int) {
         let all = tabs
         guard !all.isEmpty else { return }

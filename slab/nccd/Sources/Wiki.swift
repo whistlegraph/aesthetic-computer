@@ -80,6 +80,19 @@ final class Wiki {
         }
     }
 
+    // The wiki's own full-text search: the pages, and the words round what was found.
+    func search(_ query: String, done: @escaping ([(id: String, title: String, context: String)]) -> Void) {
+        call("documents.search", ["query": query, "limit": 25]) { j in
+            let rows = (j?["data"] as? [[String: Any]]) ?? []
+            done(rows.compactMap { r in
+                guard let d = r["document"] as? [String: Any], let id = d["id"] as? String else { return nil }
+                let context = ((r["context"] as? String) ?? "")
+                    .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+                return (id, (d["title"] as? String) ?? "(untitled)", context)
+            })
+        }
+    }
+
     // Who the wiki says is signed in.
     func me(done: @escaping (String?) -> Void) {
         call("auth.info", [:]) { j in

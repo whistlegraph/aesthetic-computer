@@ -1,7 +1,7 @@
 // make-icon.swift — draw the app icon and write Resources/AppIcon.icns.
 //   swift make-icon.swift      (run from slab/nccd; needs iconutil)
 // A near-black tile, the chunky pixel "NCCd" wordmark (NCC in the wiki's cyan,
-// the d in the icing's pink), and under it a donut with four discs on it for
+// the d in the icing's cyan), and under it a donut with four discs on it for
 // the circles.
 import AppKit
 
@@ -30,7 +30,7 @@ func render(_ px: Int) -> Data {
     for pass in 0..<2 {
         var x0 = 0
         for letter in letters {
-            let base = hex(letter.pink ? "FF6FB8" : "00C4FD")
+            let base = hex(letter.pink ? "9FF0FF" : "00A8E0")
             (pass == 0 ? (base.blended(withFraction: 0.55, of: .black) ?? base) : base).setFill()
             let d = pass == 0 ? c * 0.5 : 0
             for (y, row) in letter.rows.enumerated() {
@@ -58,7 +58,7 @@ func render(_ px: Int) -> Data {
     }
     hex("E6B873").setFill()
     ring({ _ in R }, { _ in R * hole }).fill()
-    hex("FF9BCF").setFill()
+    hex("4FD8FF").setFill()
     ring({ a in R * (0.905 + 0.035 * sin(11 * a)) }, { a in R * (hole + 0.095 + 0.022 * sin(7 * a + 1)) }).fill()
     // the circles: four discs spread out on it
     let track = R * (1 + hole) / 2 + R * 0.02, r = R * 0.215

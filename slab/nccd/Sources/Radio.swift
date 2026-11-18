@@ -1,5 +1,5 @@
-// Radio.swift — KPBJ 95.9 FM, the neighbourhood's community station, at the
-// foot of the rail. One press plays its public stream, another stops it. While
+// Radio.swift — KPBJ 95.9 FM, the neighbourhood's community station, in the
+// Netlabel tab. One press plays its public stream, another stops it. While
 // it plays, the app asks the station's server now and then what is on.
 
 import AVFoundation

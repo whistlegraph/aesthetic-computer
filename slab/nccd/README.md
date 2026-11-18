@@ -13,8 +13,10 @@ The tabs are folder tabs that run flush to the pane, down the left side or
 wordmark with a small house: it is the donut's tab. Then the commons, each
 circle, and the wiki, with no headings. The open tab is the colour of the pane
 it opens; a tab that is not open is faded and shaded like a button; a circle
-with a window of its own shows a window mark. Along the top, when there is no
-room for every name, only the open tab keeps its name. Under the donut, the
+with a window of its own shows a window mark. Along the top the bar holds the
+tabs alone, and the radio and the logins are a task bar along the bottom; as
+the window narrows the wordmark's tab becomes its house alone, then only the
+open tab keeps its name, then none does. Under the donut, the
 newest message of every chat floats, a line each: a click goes into that
 conversation. Middle, the open circle's messages with its roles on
 top as colour-coded blocks (the sheet is a wash of the circle's colour);
@@ -27,11 +29,14 @@ with ⌘N. The window's title says where you are ("NCCd: donut", "NCCd: Infra").
 The tabs' icons are smooth vector drawings (SF Symbols) in one tone; the
 wordmark and the login badges are pixels. The rail fits any height: it drops
 its headings, then its wordmark, before anything can overlap. One text size
-across every view; ⌘+ and ⌘− zoom the whole interface and ⌘0 sets it back.
+across every view; ⌘+ and ⌘− zoom what is in the pane (the messages and the wiki, as a
+browser zooms a page, not its tabs) and ⌘0 sets it back.
 The tab
 shortcuts are a browser's: ⌃Tab and ⌃⇧Tab (or ⌘⇧] and ⌘⇧[) for the next and
 the previous tab, ⌘1 to ⌘8 for a tab by its place, ⌘9 for the last.
-KPBJ 95.9 FM plays from the foot of the rail. Light and dark themes (View menu).
+KPBJ 95.9 FM plays from the Netlabel tab. The Search tab is one search over
+the messages of every circle and chat and the pages of the wiki (whichever of
+the two logins there is). Light and dark themes (View menu).
 
 The download page and the member's guide are `system/public/nccd/`
 (aesthetic.computer/nccd).
@@ -136,8 +141,9 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_SNAPSHOT_CIRCLE=<n>` | open the nth circle first (this marks it read) |
 | `NCC_SNAPSHOT_PICK=1` | pick the first circle on the donut, as a click would (runs the transition) |
 | `NCC_SNAPSHOT_PENDING=<words>` | show those words as a message on its way; nothing is sent |
-| `NCC_SNAPSHOT_ZOOM=<factor>` | zoom the interface for the picture |
+| `NCC_SNAPSHOT_ZOOM=<factor>` | zoom what is in the pane for the picture |
 | `NCC_SNAPSHOT_TOP=1` or `0` | tabs along the top, or down the side, for the picture |
+| `NCC_SNAPSHOT_SEARCH=<words>` | open the Search tab and search for them |
 | `NCC_SNAPSHOT_WINDOW=<n>` | give the nth circle its own window, and picture that window |
 | `NCC_SNAPSHOT_DOC=<title, id or slug>` | open that wiki page first; its markdown is written to `<file.png>.md` |
 | `NCC_LOGGED_OUT=1` | no Signal account and no wiki session, to see the logged-out screen (`signal` or `ncc` for one of them) |
@@ -167,6 +173,6 @@ club ships in this repo.
 - `Sources/Media.swift` — thumbnails, scaling, video frames
 - `Sources/Donut.swift` — the donut: the 3D home screen
 - `Sources/Updater.swift` — self-update
-- `Sources/Radio.swift` — KPBJ 95.9 FM at the foot of the rail
+- `Sources/Radio.swift` — KPBJ 95.9 FM, in the Netlabel tab
 - `Sources/UI.swift` — wordmark, rail, sheet, wiki pane, link panel, themes
 - `Sources/main.swift` — the controller

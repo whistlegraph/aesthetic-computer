@@ -16,7 +16,7 @@ import SceneKit
 
 enum Donut {
     static let dough = Theme.pair("E6B873", "D9A562")
-    static let icing = Theme.pair("FF8FC7", "FF6FB8")
+    static let icing = Theme.pair("3CCBF0", "6FE3FF")       // cyan: the app's own colour
     static let hole: CGFloat = 0.40          // the hole's radius, as a share of the donut's
 
     // The flat mark (the wordmark's last letter): a ring of dough, and on it a
@@ -223,12 +223,14 @@ final class CircleDiagram: NSView {
 
             // its name, small, on the token: a chip of the same colour
             let on = Theme.on(shown)
-            let words = NSMutableAttributedString(string: it.title.uppercased(), attributes: [
-                .font: Theme.mono(9, bold: true), .foregroundColor: on])
+            // The names grow and shrink with the donut, so they stay on their tokens
+            // and off each other (this is the one text that is not the one size).
+            let small = NSFont.monospacedSystemFont(ofSize: nameSize, weight: .bold)
+            let words = NSMutableAttributedString(string: it.title.uppercased(), attributes: [.font: small, .foregroundColor: on])
             if it.unread > 0 {
                 words.append(NSAttributedString(string: " "))
                 words.append(NSAttributedString(string: " \(it.unread) ", attributes: [
-                    .font: Theme.mono(9, bold: true), .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow]))
+                    .font: small, .foregroundColor: Theme.onYellow, .backgroundColor: Theme.yellow]))
             }
             let tag = Tag(words, wash: shown, tight: true)
             tag.onClick = { [weak self, weak tag] in
@@ -264,8 +266,13 @@ final class CircleDiagram: NSView {
         place()
     }
 
+    // The size of the names on the tokens, by the donut's own size.
+    private var nameSize: CGFloat { max(7, min(12, (min(bounds.height, bounds.width * 0.7) / 26).rounded())) }
+    private var builtAt: CGFloat = 0
+
     override func layout() {
         super.layout()
+        if builtAt != nameSize, !items.isEmpty { builtAt = nameSize; build() }
         // The commons stand to the right of the donut, one above the other.
         let wide = chips.map { $0.frame.width }.max() ?? 0
         var y = bounds.midY + (CGFloat(chips.count) * 24 - 4) / 2 - 20
