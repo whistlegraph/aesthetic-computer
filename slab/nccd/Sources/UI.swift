@@ -298,12 +298,18 @@ final class NCCLogo: NSView {
             }
             // The d's bowl is the donut: icing, with sprinkles. Its stem (the two
             // rows above the bowl) is a deeper hue and bare, so the donut stands out.
-            let stemFrom = 5.4 * cell
+            // Also bare and deeper are the bowl's two right corners, where the stem
+            // meets it: without them the icing is a ring, a circle of pixels.
+            let top = (CGFloat(NCCLogo.rows) + 0.5) * cell
+            func isStem(_ rect: NSRect) -> Bool {
+                let col = Int((rect.minX / cell).rounded()), row = Int(((top - rect.maxY) / cell).rounded())
+                return row < 2 || (col == 4 && (row == 2 || row == 6))
+            }
             for (rect, pink) in all {
-                (!pink ? Theme.word : rect.minY > stemFrom ? Donut.stem : Donut.icing).setFill()
+                (!pink ? Theme.word : isStem(rect) ? Donut.stem : Donut.icing).setFill()
                 rect.insetBy(dx: -0.2, dy: -0.2).fill()
             }
-            for (n, (rect, pink)) in all.enumerated() where pink && rect.minY <= stemFrom && (n * 7 + 3) % 3 == 0 {
+            for (n, (rect, pink)) in all.enumerated() where pink && !isStem(rect) && (n * 7 + 3) % 3 == 0 {
                 NSColor(hex: Theme.palette[(n * 5 + 1) % Theme.palette.count])!.setFill()
                 let w = cell * 0.5, across = (n % 2 == 0)
                 NSRect(x: rect.minX + cell * (n % 3 == 0 ? 0.15 : 0.4), y: rect.minY + cell * (n % 5 == 0 ? 0.5 : 0.2),
@@ -559,28 +565,120 @@ final class LogoTab: NSView {
 }
 
 // ─── login panel ────────────────────────────────────────────────────────────
-// The Login tab: two panes, one for each login, each in its service's own
-// colour, side by side in a wide window and one over the other in a narrow
-// one. A pane has the service's mark, a button (the way in, or once in, the
-// way out) and a line of what it opens or who is signed in. Signal's pane also
-// shows the QR code to scan while a link is being made.
+// The Login tab: two large buttons, one for each login, each in its service's
+// own colour, side by side in a wide window and one over the other in a narrow
+// one. The whole pane is the button: its mark, and under it one line that says
+// what a press does and what that opens ("Link Signal to chat"), or once in,
+// the way out and who is signed in. Signal's pane also shows the QR code to
+// scan while a link is being made.
+
+// A label and a button that say when their words change (the panes show them).
+final class Words: NSTextField {
+    var onChange: (() -> Void)?
+    override var stringValue: String { didSet { onChange?() } }
+}
+final class Deed: NSButton {
+    var onChange: (() -> Void)?
+    override var title: String { didSet { onChange?() } }
+    override var isEnabled: Bool { didSet { onChange?() } }
+}
+
+// One of the two large buttons.
+final class BigButton: NSView {
+    private let fill: NSColor
+    private let line = NSTextField(labelWithString: "")
+    private let stack = NSStackView()
+    var onClick: (() -> Void)?
+    var enabled = true { didSet { needsDisplay = true } }
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    private var down = false { didSet { needsDisplay = true } }
+
+    init(color: NSColor, mark: NSImage?, under: [NSView]) {
+        fill = color
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 8
+        layer?.masksToBounds = true                  // in a very small pane the contents are cut, never squeezed
+        let logo = NSImageView()
+        logo.image = mark
+        logo.imageScaling = .scaleNone
+        logo.contentTintColor = .white
+        logo.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(logo)
+        line.alignment = .center
+        line.lineBreakMode = .byTruncatingTail
+        stack.orientation = .vertical
+        stack.alignment = .centerX
+        stack.spacing = 9
+        stack.addArrangedSubview(line)
+        under.forEach { stack.addArrangedSubview($0) }
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(stack)
+        // The mark stands at the same height in both panes, whatever is under it.
+        NSLayoutConstraint.activate([
+            logo.widthAnchor.constraint(equalToConstant: 48), logo.heightAnchor.constraint(equalToConstant: 48),
+            logo.centerXAnchor.constraint(equalTo: centerXAnchor),
+            logo.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -26),
+            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stack.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 12),
+        ])
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    // "Link Signal" in bold and "to chat" after it, on one line.
+    func say(_ deed: String, _ what: String) {
+        let s = NSMutableAttributedString(string: deed, attributes: [.font: Theme.mono(13, bold: true), .foregroundColor: NSColor.white])
+        if !what.isEmpty {
+            s.append(NSAttributedString(string: " " + what, attributes: [.font: Theme.mono(13), .foregroundColor: NSColor(white: 1, alpha: 0.86)]))
+        }
+        line.attributedStringValue = s
+    }
+
+    override func draw(_ dirty: NSRect) {
+        fill.setFill()
+        bounds.fill()
+        Grain.draw(in: bounds)
+        // under the pointer the pane lights up; pressed, it darkens
+        if down { NSColor(white: 0, alpha: 0.16).setFill(); bounds.fill(using: .sourceOver) }
+        else if hover && enabled { NSColor(white: 1, alpha: 0.14).setFill(); bounds.fill(using: .sourceOver) }
+        if !enabled { NSColor(white: 0, alpha: 0.25).setFill(); bounds.fill(using: .sourceOver) }
+    }
+    // The whole pane is the button: a press anywhere in it, on the mark or the words too, is the pane's.
+    override func hitTest(_ point: NSPoint) -> NSView? { frame.contains(point) ? self : nil }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false; down = false }
+    override func mouseDown(with event: NSEvent) { if enabled { down = true } }
+    override func mouseUp(with event: NSEvent) {
+        let was = down
+        down = false
+        if was, enabled, bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+    override func resetCursorRects() { if enabled { addCursorRect(bounds, cursor: .pointingHand) } }
+}
 
 final class LinkPanel: NSView {
-    let status = label("", Theme.mono(11), .white)
-    let button = NSButton(title: "Link Signal", target: nil, action: nil)
+    // What each pane says and does is set through these (they are not shown themselves).
+    let status = Words(labelWithString: "")
+    let button = Deed(title: "Link Signal", target: nil, action: nil)
+    let nccButton = Deed(title: "Sign into NCC", target: nil, action: nil)
+    let nccStatus = Words(labelWithString: "for wiki & code")
     let qr = NSImageView()
-    let note = label("", Theme.mono(11), NSColor(white: 1, alpha: 0.8))
-    let nccButton = NSButton(title: "Sign into NCC", target: nil, action: nil)
-    let nccStatus = label("for wiki & code", Theme.mono(11), .white)
+    let note = label("", Theme.mono(11), NSColor(white: 1, alpha: 0.85))
     private let panes = NSStackView()
+    private var signalPane: BigButton!, nccPane: BigButton!
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         setContentHuggingPriority(.init(1), for: .vertical)          // the panel takes the whole sheet
         qr.imageScaling = .scaleProportionallyUpOrDown
-        qr.widthAnchor.constraint(equalToConstant: 170).isActive = true
-        qr.heightAnchor.constraint(equalToConstant: 170).isActive = true
+        qr.widthAnchor.constraint(equalToConstant: 150).isActive = true
+        qr.heightAnchor.constraint(equalToConstant: 150).isActive = true
         qr.isHidden = true
         note.maximumNumberOfLines = 3
         note.lineBreakMode = .byWordWrapping
@@ -590,53 +688,56 @@ final class LinkPanel: NSView {
         note.preferredMaxLayoutWidth = 240
         note.widthAnchor.constraint(equalToConstant: 240).isActive = true
 
-        func pane(_ color: NSColor, _ mark: NSImage?, _ views: [NSView]) -> NSView {
-            let box = Fill(color, radius: 8)
-            box.grain = true
-            box.wantsLayer = true
-            box.layer?.masksToBounds = true                          // in a very small pane the contents are cut, never squeezed
-            box.appearance = NSAppearance(named: .darkAqua)          // on these colours a button's words are white, in either theme
-            let logo = NSImageView()
-            logo.image = mark
-            logo.imageScaling = .scaleNone
-            logo.contentTintColor = .white
-            let stack = NSStackView(views: [logo] + views)
-            stack.orientation = .vertical
-            stack.alignment = .centerX
-            stack.spacing = 9
-            stack.translatesAutoresizingMaskIntoConstraints = false
-            box.addSubview(stack)
-            NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: box.centerXAnchor),
-                                         stack.centerYAnchor.constraint(equalTo: box.centerYAnchor)])
-            return box
-        }
-        for b in [button, nccButton] {
-            b.bezelStyle = .rounded
-            b.font = Theme.mono(12, bold: true)
-            b.controlSize = .large
-        }
-        status.alignment = .center
-        nccStatus.alignment = .center
-        let signal = pane(NSColor(hex: "3A76F0")!, Brand.signal(size: 44), [button, status, qr, note])
-        let ncc = pane(NSColor(hex: "006888")!, Pixel.icon("n", size: 40), [nccButton, nccStatus])
-        panes.addArrangedSubview(signal)
-        panes.addArrangedSubview(ncc)
+        signalPane = BigButton(color: NSColor(hex: "3A76F0")!, mark: Brand.signal(size: 44), under: [qr, note])
+        nccPane = BigButton(color: NSColor(hex: "006888")!, mark: Pixel.icon("n", size: 40), under: [])
+        signalPane.onClick = { [weak self] in self?.press(self?.button) }
+        nccPane.onClick = { [weak self] in self?.press(self?.nccButton) }
+        for w in [status, nccStatus] { w.onChange = { [weak self] in self?.sync() } }
+        for d in [button, nccButton] { d.onChange = { [weak self] in self?.sync() } }
+        panes.addArrangedSubview(signalPane)
+        panes.addArrangedSubview(nccPane)
         panes.distribution = .fillEqually
         panes.spacing = 8
         panes.translatesAutoresizingMaskIntoConstraints = false
         addSubview(panes)
         NSLayoutConstraint.activate([
             panes.leadingAnchor.constraint(equalTo: leadingAnchor), panes.trailingAnchor.constraint(equalTo: trailingAnchor),
-            panes.topAnchor.constraint(equalTo: topAnchor, constant: 2), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
+            // as far from the bar above as from the bar below, and as from the sides
+            panes.topAnchor.constraint(equalTo: topAnchor, constant: 5), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -7),
         ])
+        sync()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    private func press(_ b: NSButton?) {
+        guard let b, b.isEnabled, let action = b.action else { return }
+        NSApp.sendAction(action, to: b.target, from: b)
+    }
+    private func sync() {
+        signalPane?.say(button.title.trimmingCharacters(in: .whitespaces), status.stringValue)
+        signalPane?.enabled = button.isEnabled
+        nccPane?.say(nccButton.title.trimmingCharacters(in: .whitespaces), nccStatus.stringValue)
+        nccPane?.enabled = nccButton.isEnabled
+    }
 
     // Side by side when the window is wide for its height, else one over the other.
     override func setFrameSize(_ size: NSSize) {
         let side: NSUserInterfaceLayoutOrientation = size.width >= 520 && size.width > size.height ? .horizontal : .vertical
         if panes.orientation != side { panes.orientation = side }
         super.setFrameSize(size)
+    }
+
+    // Point at the logins: the two panes blink (a greyed-out tab or the greyed-out search was pressed).
+    func flash() {
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.12
+            panes.animator().alphaValue = 0.35
+        }, completionHandler: {
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.3
+                self.panes.animator().alphaValue = 1
+            }
+        })
     }
 
     func showQR(_ uri: String?) {
@@ -730,7 +831,19 @@ final class PressFill: NSView {
     override func draw(_ r: NSRect) {
         color.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
+        if hover {                               // under the pointer it lights up
+            NSColor(white: 1, alpha: 0.25).setFill()
+            NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
+        }
     }
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { hover = true }
+    override func mouseExited(with event: NSEvent) { hover = false }
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
@@ -738,6 +851,13 @@ final class PressFill: NSView {
 // A stack that takes a click.
 final class Press: NSStackView {
     var onClick: (() -> Void)?
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { alphaValue = 0.65 }     // under the pointer it gives a little
+    override func mouseExited(with event: NSEvent) { alphaValue = 1 }
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
@@ -771,6 +891,8 @@ final class RailRow: NSView {
     var unread = 0 { didSet { count.stringValue = "\(unread)"; countBg.isHidden = unread == 0 } }
     var tall: CGFloat = 24 { didSet { height.constant = tall } }
     // The tabs are along the top of the window: closer set, so more of them fit on a line.
+    // Greyed out: this place needs a login that is not done. A press goes to the logins.
+    var enabled = true { didSet { paint() } }
     var onTop = false {
         didSet {
             inner.edgeInsets = NSEdgeInsets(top: 0, left: onTop ? 10 : 16, bottom: onTop ? 3 : 0, right: onTop ? 9 : 10)
@@ -827,7 +949,7 @@ final class RailRow: NSView {
 
     private var open: Bool { selected || windowed }
     private func paint() {
-        let on = selected ? Theme.ink : windowed ? Theme.on(wash) : Theme.ink
+        let on = !enabled ? Theme.faint : selected ? Theme.ink : windowed ? Theme.on(wash) : Theme.ink
         name.font = Theme.mono(weight: selected ? .heavy : open ? .bold : .medium)
         name.textColor = on
         icon.contentTintColor = on
@@ -838,7 +960,8 @@ final class RailRow: NSView {
     }
 
     override func draw(_ dirty: NSRect) {
-        Tab.draw(in: bounds, fill: selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42), open: selected, top: onTop, hover: hover)
+        Tab.draw(in: bounds, fill: !enabled ? NSColor.gray.withAlphaComponent(0.22) : selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42),
+                 open: selected, top: onTop, hover: hover && enabled)
     }
     // The pointer over the tab.
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
@@ -1246,7 +1369,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barSearch.isBordered = false
         barSearch.drawsBackground = false
         barSearch.focusRingType = .none
-        barSearch.placeholderString = "search"
+        barSearch.placeholderString = "Search NCCd"
+        // pressed while it is greyed out: on to the logins
+        barSearchBox.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(searchPressed)))
         barSearch.delegate = self
         barSearch.translatesAutoresizingMaskIntoConstraints = false
         barSearch.setContentCompressionResistancePriority(.init(1), for: .horizontal)
@@ -1344,7 +1469,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             unibar.topAnchor.constraint(equalTo: railBox.topAnchor),
             unibar.bottomAnchor.constraint(equalTo: railBox.bottomAnchor),
             foot.leadingAnchor.constraint(equalTo: taskBar.leadingAnchor),
-            foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor, constant: -Theme.edge),
+            foot.trailingAnchor.constraint(equalTo: taskBar.trailingAnchor),
             foot.centerYAnchor.constraint(equalTo: taskBar.centerYAnchor),
             sheet.topAnchor.constraint(equalTo: railBox.bottomAnchor),
             wiki.topAnchor.constraint(equalTo: railBox.bottomAnchor),
@@ -1480,9 +1605,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             line.onClick = { [weak self] in self?.onAccount?(name) }
             return line
         }
-        foot.addArrangedSubview(badge("NCC", logo: "n", color: NSColor(hex: "006888")!, who: ncc, ask: "sign in"))
-        // Signal's own blue.
-        foot.addArrangedSubview(badge("Signal", logo: "signal", color: NSColor(hex: "3A76F0")!, who: signal, ask: "link"))
+        // (No badges: the Login tab says which logins are done.)
+        _ = badge
         density = -1
         fitRail(height: bounds.height)
         topLevel = -1
@@ -1502,12 +1626,16 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         if !top { window?.makeFirstResponder(searchField) }
         else if barSearch.currentEditor() == nil { window?.makeFirstResponder(barSearch) }
     }
+    private var searchOn = true
+    @objc private func searchPressed() {
+        if searchOn { window?.makeFirstResponder(barSearch) } else { onAccount?("") }
+    }
     // The search is greyed out until there is something to search: one login, at least.
     func setSearchEnabled(_ on: Bool) {
         barSearch.isEnabled = on
         searchField.isEnabled = on
         barSearchBox.alphaValue = on ? 1 : 0.4
-        barSearch.placeholderString = on ? "search" : "search (log in first)"
+        searchOn = on
     }
     var searchText: String {
         get { top ? barSearch.stringValue : searchField.stringValue }
@@ -1696,7 +1824,12 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 let row = RailRow(title: title, icon: index == -1 ? nil : Theme.tabIcon(title), color: hue,
                                   pane: index == -2 ? Theme.wikiPaper : Theme.wash(hue))
                 row.unread = unreadBy[index] ?? 0
-                row.onClick = { [weak self] in self?.dropOpen = false; self?.onSelect?(index) }
+                row.enabled = !disabledTabs.contains(index)
+                row.onClick = { [weak self] in
+                    guard let self else { return }
+                    self.dropOpen = false
+                    if self.disabledTabs.contains(index) { self.onAccount?("") } else { self.onSelect?(index) }
+                }
                 row.menuProvider = { [weak self] in self?.menuFor?(index) }
                 row.tag_ = index
                 row.tall = density > 0 ? 20 : 24
@@ -1726,7 +1859,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         if top { paintTabs() }                        // the bar's count of what is unread elsewhere
     }
     // The tabs in the order they stand, by index (the wiki's is -2).
-    var tabOrder: [Int] { rows.map { $0.tag_ } }
+    var tabOrder: [Int] { rows.filter { $0.enabled }.map { $0.tag_ } }
+    var disabledTabs: Set<Int> = []        // set before setRail: the places whose login is not done
     func setWindowed(_ open: Set<Int>) { for r in rows where r.tag_ >= 0 { r.windowed = open.contains(r.tag_) } }
 
     // One heading line, one roles line: "ROLE Name · ROLE Name".

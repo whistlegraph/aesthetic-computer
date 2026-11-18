@@ -135,7 +135,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // A login badge at the foot of the rail goes to where that login happens.
         main.onAccount = { [weak self] which in
             guard let self else { return }
-            self.go(-4)                    // a badge goes to the Login tab
+            self.go(-4)                    // a greyed-out place was pressed: on to the logins, and point at them
+            self.main.link.flash()
         }
         main.onSelect = { [weak self] i in
             guard let self else { return }
@@ -658,17 +659,30 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // The rail: the commons first, then the circles, then the wiki. No headings,
     // and no row for the donut (the wordmark's tab is the way to it).
     func buildRail() {
-        let pick = { (kind: String) -> [(Int, String, NSColor?)] in
-            self.circles.enumerated().filter { $0.element.conf.kind == kind }
-                .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
+        // Every place has its tab from the start. A place whose login is not
+        // done is greyed out (Signal: the chats and circles; NCC: the wiki and
+        // the code; either: the search), and a press on it goes to the logins.
+        var off: Set<Int> = []
+        var commons: [(Int, String, NSColor?)] = [], rings: [(Int, String, NSColor?)] = []
+        if account != nil {
+            for (i, c) in circles.enumerated() {
+                c.conf.kind == "circle" ? rings.append((i, c.conf.title, color(of: i))) : commons.append((i, c.conf.title, color(of: i)))
+            }
+        } else {
+            // not linked: the chats this Mac knows of, by name, or just "Chat"
+            let known = Config.shared.conf.circles
+            for (n, c) in known.enumerated() {
+                let row: (Int, String, NSColor?) = (-100 - n, c.title, Theme.circleColor(c.title, wiki: nil))
+                c.kind == "circle" ? rings.append(row) : commons.append(row)
+                off.insert(-100 - n)
+            }
+            if known.isEmpty { commons.append((-100, "Chat", Theme.circleColor("Chat", wiki: nil))); off.insert(-100) }
         }
-        // A tab is there only when its login is: the chats and circles with Signal, the wiki with NCC.
-        var last: [(Int, String, NSColor?)] = [(-3, "Search", Theme.search), (-4, "Login", Theme.login)]
-        if wiki.token != nil {              // the NCC login opens the wiki and the code
-            last.insert((-5, "Code", Theme.code), at: 0)
-            last.insert((-2, "Wiki", Theme.wikiBand), at: 0)
-        }
-        main.setRail([("", pick("commons")), ("", pick("circle")), ("", last)])
+        if wiki.token == nil { off.formUnion([-2, -5]) }
+        if account == nil, wiki.token == nil { off.insert(-3) }
+        main.disabledTabs = off
+        main.setRail([("", commons), ("", rings),
+                      ("", [(-2, "Wiki", Theme.wikiBand), (-5, "Code", Theme.code), (-3, "Search", Theme.search), (-4, "Login", Theme.login)])])
         updateUnread()
     }
 

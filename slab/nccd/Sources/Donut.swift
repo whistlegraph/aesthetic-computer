@@ -72,6 +72,13 @@ private final class Tag: NSView {
         frame.size = NSSize(width: text.frame.width + 2 * padX, height: text.frame.height + 2 * padY)
     }
     required init?(coder: NSCoder) { fatalError() }
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach(removeTrackingArea)
+        addTrackingArea(NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect], owner: self))
+    }
+    override func mouseEntered(with event: NSEvent) { layer?.borderWidth = 2; layer?.borderColor = NSColor.white.cgColor }   // under the pointer: a white edge
+    override func mouseExited(with event: NSEvent) { layer?.borderWidth = 0 }
     override func mouseDown(with event: NSEvent) { onClick?() }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
