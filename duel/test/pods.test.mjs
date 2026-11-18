@@ -247,3 +247,27 @@ test('a house is solid except at its door', async () => {
   assert.ok(through.z < h.zMax, 'and the back wall keeps it in');
   void toward;
 });
+
+test('a passage seats a signed-in walker with their handle before the account is checked again', async t => {
+  const {app,base,connect}=await fixture(t);
+  const a=await connect('lobby','jeffrey');
+  await wait(()=>[...app.rooms.get('lobby').sessions.values()].some(m=>m.handle==='jeffrey'&&m.seat>=0));
+  const member=[...app.rooms.get('lobby').sessions.values()][0];
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12});
+  a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
+  await wait(()=>a.messages.some(m=>m.type==='travel'));
+  const travel=a.messages.find(m=>m.type==='travel');
+  assert.equal(typeof travel.at.x,'number');
+  // The page says it is signed in (account=1) and never sends the token:
+  // the passage alone must seat it, as the handle that walked.
+  const params=new URLSearchParams({room:'e1n0',protocol:PROTOCOL,account:'1',passage:travel.passage});
+  const ws=new WebSocket(base.replace('http','ws')+'/play?'+params), messages=[];
+  t.after(()=>ws.close());
+  ws.on('message',raw=>messages.push(JSON.parse(raw)));
+  await once(ws,'open');
+  ws.send(JSON.stringify({type:'identity',token:a.token}));
+  await wait(()=>messages.some(m=>m.type==='arrival'));
+  const landed=[...app.rooms.get('e1n0').sessions.values()].find(m=>m.handle==='jeffrey');
+  assert.ok(landed&&landed.seat>=0);
+  assert.equal(app.rooms.get('e1n0').match.seats[landed.seat].player.x,travel.at.x);
+});

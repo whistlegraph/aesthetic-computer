@@ -236,6 +236,21 @@ export function createDuelServer({
   };
   // Short-lived, one-use travel receipts bind a server position to an owner.
   const passages = new Map();
+  // What a passage carries besides the place: who walked through it. The
+  // room they left knew them, so the room they reach need not ask again.
+  const carry = (member) => ({ handle: member.handle || null, accountId: member.accountId || null,
+    colors: member.colors || null, token: member.token || null });
+  // 🔐 A token that verified a few minutes ago is not asked about again: a
+  // reload or a new room would otherwise wait on two round trips every time.
+  const verified = new Map();
+  const verifyOnce = async (token) => {
+    const known = verified.get(token);
+    if (known && known.until > Date.now()) return known.account;
+    const account = await verifyIdentity(token);
+    for (const [t, v] of verified) if (v.until < Date.now()) verified.delete(t);
+    if (verified.size < 2048) verified.set(token, { account, until: Date.now() + 300000 });
+    return account;
+  };
   const handle = async (req, res) => {
     let url;
     try {
@@ -706,12 +721,20 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       builders.broadcast(key);
     }).catch(() => {});
     let arrived = false;
+    // 🎟️ A passage is the visitor themself, known a moment ago in the room
+    // they left: it seats them where it leads as soon as the page says whose
+    // it is, with the handle they wore, and the account is checked after.
     const arrive = () => {
-      if (arrived || !member.owner || member.seat < 0) return;
+      if (arrived || !member.owner || watching) return;
       const receipt = url.searchParams.get('passage'), pass = passages.get(receipt);
       if (!pass || pass.owner !== member.owner || pass.room !== key || pass.until < Date.now()) return;
-      passages.delete(receipt); arrived = true;
-      Object.assign(room.match.seats[member.seat].player, pass.position);
+      passages.delete(receipt);
+      for (const k of ['handle', 'accountId', 'colors', 'token']) if (pass[k] && !member[k]) member[k] = pass[k];
+      if (!member.ready) { clearTimeout(accountHold); member.ready = true; room.assign(); }
+      const body = room.match.seats[member.seat]?.player;
+      if (!body) return;
+      arrived = true;
+      Object.assign(body, pass.position);
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
     };
@@ -726,7 +749,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       accountAttempted = true;
       try {
-        const account = await verifyIdentity(token);
+        const account = await verifyOnce(token);
         const handle = String(account.handle || '').replace(/^@/, '');
         if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle) || handle.length > 16)
           return;
@@ -929,8 +952,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, room: destination, position, until: Date.now() + 30000 });
-        send(ws, { type: 'travel', room: destination, passage: receipt });
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position, until: Date.now() + 30000 });
+        send(ws, { type: 'travel', room: destination, passage: receipt, at: position });
         return;
       }
       // 🛗 The elevator: from the car, to a floor by number or handle, to
@@ -956,8 +979,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, room: destination, position: { ...CAR_ARRIVAL }, until: Date.now() + 30000 });
-        send(ws, { type: 'travel', room: destination, passage: receipt,
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, until: Date.now() + 30000 });
+        send(ws, { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
           ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } });
         return;
       }

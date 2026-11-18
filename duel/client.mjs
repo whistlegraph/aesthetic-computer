@@ -64,6 +64,10 @@ let room =
     : (accountExpected() && lastPlace) || 'lobby';
 // The block's lots and who settled each ({ rects, homes }), or null in the lobby.
 let lots = null, park = null, passage = null, walkAt = 0;
+// 🚶 The body between two rooms: where the passage sets it down, shown until
+// the new room seats it (a moment; three seconds at most), so the eye never
+// leaves the head for the watcher's camera.
+let held = null;
 // 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
 // ride in progress ({ from, to, handle, at }), and whether the top line is
 // the elevator's (typed in the car) rather than chat.
@@ -463,10 +467,10 @@ let tiles = {},
 let handleHistory = [],
   historyPending = false;
 // Motion blur: a post layer that blends each frame over the last ones,
-// more as the view turns faster. Toggled in the room menu.
-let motionBlur = true;
+// more as the view turns faster. Off unless turned on in the room menu.
+let motionBlur = false;
 try {
-  motionBlur = localStorage.getItem('dool-blur') !== 'off';
+  motionBlur = localStorage.getItem('dool-blur') === 'on';
 } catch {}
 let post, postCtx, lastYaw = 0, lastPitch = 0, turnSpeed = 0;
 function postProcess(elapsed) {
@@ -667,8 +671,9 @@ function placePath() {
   // are all dool. Only a room outside the world has a word of its own.
   return inWorld(room) ? '/dool/' : `/dool~${room}`;
 }
-function travel(to, chosen = true, receipt = null, riding = null) {
+function travel(to, chosen = true, receipt = null, riding = null, at = null) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
+  held = receipt && at && player && seat >= 0 ? { ...player, x: at.x, z: at.z, until: performance.now() + 3000 } : null;
   if (chosen) roamed = true;
   room = to;
   if (riding) {
@@ -738,7 +743,7 @@ function connect() {
   debt = 0;
   presentation.reset(null);
   playback.reset();
-  notice = 'CONNECTING';
+  notice = held ? '' : 'CONNECTING';
   connection.reset();
   members = [];
   selfMember = null;
@@ -759,7 +764,7 @@ function connect() {
       const old = player;
       seat = data.seat;
       if (seat >= 0) lastSeat = seat;
-      if (seat < 0) {
+      if (seat < 0 && !held) {
         freecam = old
           ? { x: old.x + 2, y: old.y + 2, z: old.z - 3, yaw, pitch }
           : freecam;
@@ -804,7 +809,7 @@ function connect() {
       })();
     }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza, pod: data.pod };
-    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null);
+    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null);
     if (data.type === 'tower') {
       tower = data;
       if (hasCar()) void readDirectory(data.revision ?? data.count);
@@ -941,7 +946,7 @@ function connect() {
       return;
     }
     const own = data.players[seat];
-    if (seat < 0 && !freecamPlaced) {
+    if (seat < 0 && !freecamPlaced && !held) {
       const target = data.players.find(Boolean);
       if (target) {
         freecam = {
@@ -2212,6 +2217,7 @@ function step(now) {
   })();
   // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
   const lift = liftAt(now), sky = plazaFrom();
+  if (held && ((seat >= 0 && player) || now > held.until)) held = null;
   if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
   const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
     ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
@@ -2226,9 +2232,10 @@ function step(now) {
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
-    me: seat < 0 ? null : player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy } : spawn(seat),
+    me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
+      : held ? { ...held, y: held.y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     controller: controller.id,
     seat,
