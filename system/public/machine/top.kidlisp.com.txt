@@ -5,7 +5,7 @@
 ## Resources
 
 - [Website](https://top.kidlisp.com/): Public entry point.
-- [Editor](https://kidlisp.com/): Create and run programs.
+- [KidLisp Lab](https://lab.kidlisp.com/): Create and run programs.
 
 ## Network
 

@@ -1,13 +1,12 @@
-# What's KidLisp
+# KidLisp Lab
 
-> The KidLisp language page: what it is, how it reads, where it runs.
+> The browser IDE for KidLisp: write, run, publish and browse programs.
 
 ## Resources
 
-- [Website](https://whats.kidlisp.com/): Public entry point.
-- [Editor](https://kidlisp.com/): Write and run a program.
+- [Website](https://lab.kidlisp.com/): Public entry point.
+- [KidLisp](https://kidlisp.com/): The language and where it runs.
 - [Learn](https://learn.kidlisp.com/): Language lessons and examples.
-- [Interpreter source](https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs): Published interpreter source.
 - [Public HTTP API (JSON)](https://aesthetic.computer/api?format=json): Supported endpoints, request schemas, authentication and limits.
 
 ## Network

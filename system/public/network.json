@@ -168,16 +168,24 @@
     {
       "url": "https://kidlisp.com/",
       "title": "KidLisp",
-      "summary": "A browser editor for a Lisp dialect for generative art, running on Aesthetic Computer.",
+      "summary": "A Lisp dialect for generative art: what it is, how it reads, and where it runs across Aesthetic Computer.",
       "llms": "https://kidlisp.com/llms.txt",
       "aliases": [
-        "www.kidlisp.com"
+        "www.kidlisp.com",
+        "whats.kidlisp.com",
+        "lang.kidlisp.com",
+        "whatis.kidlisp.com"
       ],
       "resources": [
         {
           "title": "Website",
           "url": "https://kidlisp.com/",
           "description": "Public entry point."
+        },
+        {
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
+          "description": "The browser IDE: write and run a program."
         },
         {
           "title": "Learn",
@@ -202,34 +210,26 @@
       ]
     },
     {
-      "url": "https://whats.kidlisp.com/",
-      "title": "What's KidLisp",
-      "summary": "The KidLisp language page: what it is, how it reads, where it runs.",
-      "llms": "https://whats.kidlisp.com/llms.txt",
-      "aliases": [
-        "lang.kidlisp.com",
-        "whatis.kidlisp.com"
-      ],
+      "url": "https://lab.kidlisp.com/",
+      "title": "KidLisp Lab",
+      "summary": "The browser IDE for KidLisp: write, run, publish and browse programs.",
+      "llms": "https://lab.kidlisp.com/llms.txt",
+      "aliases": [],
       "resources": [
         {
           "title": "Website",
-          "url": "https://whats.kidlisp.com/",
+          "url": "https://lab.kidlisp.com/",
           "description": "Public entry point."
         },
         {
-          "title": "Editor",
+          "title": "KidLisp",
           "url": "https://kidlisp.com/",
-          "description": "Write and run a program."
+          "description": "The language and where it runs."
         },
         {
           "title": "Learn",
           "url": "https://learn.kidlisp.com/",
           "description": "Language lessons and examples."
-        },
-        {
-          "title": "Interpreter source",
-          "url": "https://aesthetic.computer/aesthetic.computer/lib/kidlisp.mjs",
-          "description": "Published interpreter source."
         },
         {
           "title": "Public HTTP API (JSON)",
@@ -251,8 +251,8 @@
           "description": "Public entry point."
         },
         {
-          "title": "Editor",
-          "url": "https://kidlisp.com/",
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
           "description": "Try a program."
         },
         {
@@ -288,8 +288,8 @@
           "description": "How keeps work."
         },
         {
-          "title": "Editor",
-          "url": "https://kidlisp.com/",
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
           "description": "Create and run programs."
         }
       ]
@@ -310,7 +310,7 @@
         {
           "title": "KidLisp",
           "url": "https://kidlisp.com/",
-          "description": "Editor and language."
+          "description": "The language and where it runs."
         }
       ]
     },
@@ -327,8 +327,8 @@
           "description": "Public entry point."
         },
         {
-          "title": "Editor",
-          "url": "https://kidlisp.com/",
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
           "description": "Create and run programs."
         }
       ]
@@ -349,7 +349,7 @@
         {
           "title": "KidLisp",
           "url": "https://kidlisp.com/",
-          "description": "Editor and language."
+          "description": "The language and where it runs."
         }
       ]
     },
@@ -366,8 +366,8 @@
           "description": "Public entry point."
         },
         {
-          "title": "Editor",
-          "url": "https://kidlisp.com/",
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
           "description": "Create and run programs."
         }
       ]
@@ -385,8 +385,8 @@
           "description": "Public entry point."
         },
         {
-          "title": "Editor",
-          "url": "https://kidlisp.com/",
+          "title": "KidLisp Lab",
+          "url": "https://lab.kidlisp.com/",
           "description": "Create and run programs."
         }
       ]

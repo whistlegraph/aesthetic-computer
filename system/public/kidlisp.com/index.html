@@ -4,7 +4,7 @@
 <head>
   <script>console.clear();</script>
   <meta charset="utf-8">
-  <title>KidLisp.com</title>
+  <title>KidLisp Lab</title>
   
   <!-- Open Graph / Social Preview -->
   <meta property="og:type" content="website" />
@@ -10784,7 +10784,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         front.style.backfaceVisibility = 'hidden';
         
         const img = document.createElement('img');
-        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        const isKidlispDomain = /(^|\.)kidlisp\.com$/.test(window.location.hostname);
         img.src = isKidlispDomain ? `/cards/svg/${svgName}.svg` : `/kidlisp.com/cards/svg/${svgName}.svg`;
         img.alt = svgName;
         img.style.width = '100%';
@@ -11057,7 +11057,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         discardCard.dataset.cardIndex = cardIndex;
         
         const backImg = document.createElement('img');
-        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        const isKidlispDomain = /(^|\.)kidlisp\.com$/.test(window.location.hostname);
         backImg.src = isKidlispDomain ? '/cards/svg/card-back.svg' : '/kidlisp.com/cards/svg/card-back.svg';
         backImg.alt = 'Card Back';
         backImg.draggable = false;
@@ -15487,7 +15487,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
     // Function to update browser URL and title when code changes
     function updateURLForCode(code) {
       const cleanCode = code.startsWith('$') ? code.substring(1) : code;
-      const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+      const isKidlispDomain = /(^|\.)kidlisp\.com$/.test(window.location.hostname);
       const newPath = isKidlispDomain ? `/$${cleanCode}` : `/kidlisp.com/$${cleanCode}`;
       
       // Update URL and title to match
@@ -17281,7 +17281,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         const currentPath = window.location.pathname;
         if (currentPath !== '/kidlisp.com' && currentPath.startsWith('/kidlisp.com/')) {
           window.history.pushState({}, 'KidLisp.com', '/kidlisp.com');
-          document.title = 'KidLisp.com';
+          document.title = 'KidLisp Lab';
           localStorage.removeItem('kidlisp-current-code');
           setRouteCodeInUI(null, { immediate: true, animate: false });
           // Reset preview title to current platform name (using global helper)
@@ -19099,7 +19099,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       showBootScreen(currentPlatform);
       
       // Clear title
-      document.title = 'KidLisp.com';
+      document.title = 'KidLisp Lab';
       localStorage.removeItem('kidlisp-current-code');
     }
     
@@ -20473,7 +20473,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
             logBoot('auth', 'unavailable');
             return;
           }
-          const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+          const isKidlispDomain = /(^|\.)kidlisp\.com$/.test(window.location.hostname);
           const redirectUri = isKidlispDomain ? window.location.origin : window.location.origin + '/kidlisp.com';
           acAuth0Client = await window.auth0.createAuth0Client({
             domain: 'aesthetic.us.auth0.com',
@@ -20579,7 +20579,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
         if (!acAuth0Client) return;
         logAuth('logout', acHandle || acUser?.email?.split('@')[0]);
         acUser = null; acToken = null; acHandle = null;
-        const isKidlispDomain = window.location.hostname === 'kidlisp.com' || window.location.hostname === 'www.kidlisp.com';
+        const isKidlispDomain = /(^|\.)kidlisp\.com$/.test(window.location.hostname);
         const returnTo = isKidlispDomain ? window.location.origin : window.location.origin + '/kidlisp.com';
         await acAuth0Client.logout({ logoutParams: { returnTo } });
       }
@@ -24624,7 +24624,7 @@ s("ape_breaks_3").loopAt(2)</textarea>
       let connectionUrl = "wss://localhost:8889";
       if (window.location.host === "local.aesthetic.computer") {
         connectionUrl = "wss://session.local.aesthetic.computer";
-      } else if (window.location.host === "kidlisp.com") {
+      } else if (window.location.host.endsWith("kidlisp.com")) {
         connectionUrl = "wss://session-server.aesthetic.computer";
       }
       

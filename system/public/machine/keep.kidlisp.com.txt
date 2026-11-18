@@ -8,7 +8,7 @@ Wallet and minting actions require the visitor's own authorization. A public art
 
 - [Website](https://keep.kidlisp.com/): Public entry point.
 - [Technology](https://keep.kidlisp.com/technology): How keeps work.
-- [Editor](https://kidlisp.com/): Create and run programs.
+- [KidLisp Lab](https://lab.kidlisp.com/): Create and run programs.
 
 ## Network
 

@@ -5,7 +5,7 @@
 ## Resources
 
 - [Website](https://learn.kidlisp.com/): Public entry point.
-- [Editor](https://kidlisp.com/): Try a program.
+- [KidLisp Lab](https://lab.kidlisp.com/): Try a program.
 - [Decree](https://learn.kidlisp.com/decree): Published language guidance.
 - [Piece runtime API (JSON)](https://aesthetic.computer/docs.json): JavaScript lifecycle, drawing, audio, input and piece metadata.
 

@@ -7,7 +7,7 @@ Purchases are user actions; this discovery file does not authorize a transaction
 ## Resources
 
 - [Website](https://buy.kidlisp.com/): Public entry point.
-- [KidLisp](https://kidlisp.com/): Editor and language.
+- [KidLisp](https://kidlisp.com/): The language and where it runs.
 
 ## Network
 
