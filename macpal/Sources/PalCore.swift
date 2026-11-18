@@ -426,6 +426,10 @@ final class PalController: NSObject {
         layout()
     }
 
+    @objc func redraw3D() {
+        if use3D, glyphView is Pal3DView { rebuildGlyph() }
+    }
+
     func build() {
         let win = KeyWindow(contentRect: NSRect(x: 0, y: 0, width: W, height: 158),
                             styleMask: [.borderless, .nonactivatingPanel],
@@ -508,6 +512,15 @@ final class PalController: NSObject {
         refreshAgentContact()
         NotificationCenter.default.addObserver(self, selector: #selector(layout),
             name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        // A SceneKit view that came up before the login session could draw, or
+        // slept through a lid close, stays blank until it is built again.
+        for wake in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification,
+                     NSWorkspace.sessionDidBecomeActiveNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(redraw3D), name: wake, object: nil)
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(redraw3D),
+            name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.redraw3D() }
         NotificationCenter.default.addObserver(self, selector: #selector(accentChanged),
             name: NSColor.systemColorsDidChangeNotification, object: nil)
         // Menu Band note-ping. The sandboxed (App Store) Menu Band can't write

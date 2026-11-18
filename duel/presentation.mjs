@@ -62,10 +62,21 @@ export class LocalPresentation {
 export class SnapshotClock {
   reset() {
     this.tick = this.latest = this.at = this.sampledAt = undefined;
+    this.late = 0;
+  }
+
+  // How far behind the newest word the picture plays, in ticks: the usual
+  // few, and more on a link that delivers in clumps (the worst lateness
+  // lately, which fades over a few seconds), so others glide instead of
+  // stopping and jumping.
+  get delay() {
+    return INTERP_TICKS + Math.min(30, this.late || 0);
   }
 
   receive(tick, now) {
     if (this.latest !== undefined && tick <= this.latest) return;
+    if (this.latest !== undefined && now - this.at < 2000)
+      this.late = Math.max((this.late || 0) * 0.995, ((now - this.at) * HZ) / 1000 - (tick - this.latest));
     this.latest = tick;
     this.at = now;
     if (this.tick === undefined) {
@@ -80,7 +91,7 @@ export class SnapshotClock {
     this.sampledAt = now;
     const target = Math.min(
       this.latest,
-      this.latest + ((now - this.at) * HZ) / 1000 - INTERP_TICKS,
+      this.latest + ((now - this.at) * HZ) / 1000 - this.delay,
     );
     if (elapsed > 0.25 || target - this.tick > 20) {
       this.tick = Math.max(this.tick, target);

@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 import { createDuelServer } from '../server.mjs';
 import { connectBuilder, generateObject } from '../aesel.mjs';
 const token = 'b'.repeat(64),
-  app = createDuelServer({ builderToken: token });
+  app = createDuelServer({ guests: true, builderToken: token });
 await app.ready;
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');

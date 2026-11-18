@@ -26,6 +26,10 @@
 //                            target (group/person name or conversationId) read
 //                            ANY thread — group reads attribute each sender
 //   signal groups [N]        list recently-active group threads (name + id)
+//   signal export [N]        one group's last N messages (default 300) as JSON:
+//                            `--to <base64 groupId | name | conversationId>`;
+//                            each row carries the sender's ACI, for importers;
+//                            `--media <dir>` also decrypts attachments there
 //   signal tail              live terminal client (prints + BEL on new inbound)
 //   signal attachments [N]   list the last N attachments (default 10), indexed
 //   signal save [N|all]      decrypt recent attachments → temp dir; open PDFs
@@ -522,6 +526,87 @@ function cmdGroups(n) {
   }
 }
 
+// A group's history as JSON rows {ts, author, name, body, outgoing, files,
+// previews}. `to` may be the group's base64 groupId (what signal-cli calls the
+// group id), so a signal-cli-based client can import the thread it already
+// knows by that id. With `--media <dir>` each message's attachments and link
+// preview images are decrypted into that directory and listed on the row.
+function cmdExport(n, to, mediaDir) {
+  if (!to) throw new Error("export needs --to <groupId | name | conversationId>");
+  const byGroupId = sql(
+    `SELECT id FROM conversations WHERE type='group' AND groupId=${sqlStr(to)} LIMIT 1;`,
+  );
+  const convoId = byGroupId.length ? byGroupId[0].id : target(to).convoId;
+  const rows = sql(
+    `SELECT m.id AS mid, m.sent_at AS ts, m.type, m.body, m.sourceServiceId AS author, ` +
+      `m.hasAttachments, json_extract(m.json,'$.preview') AS preview, ` +
+      `IFNULL(c.profileFullName, IFNULL(c.name, c.profileName)) AS name ` +
+      `FROM messages m ` +
+      `LEFT JOIN conversations c ON c.serviceId = m.sourceServiceId AND c.type='private' ` +
+      `WHERE m.conversationId=${sqlStr(convoId)} AND m.type IN ('incoming','outgoing') ` +
+      `AND ((m.body IS NOT NULL AND m.body!='') OR m.hasAttachments=1) ` +
+      `ORDER BY m.sent_at DESC LIMIT ${Number(n) || 300};`,
+  ).reverse();
+
+  // messageId → [{kind, path, name, type}], decrypted once into mediaDir.
+  const media = new Map();
+  if (mediaDir && rows.length) {
+    mkdirSync(mediaDir, { recursive: true });
+    let atts = [];
+    try {
+      atts = sql(
+        `SELECT messageId, attachmentType AS kind, orderInMessage AS ord, path, localKey, size, ` +
+          `contentType, fileName, version FROM message_attachments ` +
+          `WHERE conversationId=${sqlStr(convoId)} AND path IS NOT NULL ` +
+          `AND attachmentType IN ('attachment','preview') AND sentAt >= ${Number(rows[0].ts) || 0};`,
+      );
+    } catch {
+      atts = []; // an older Signal Desktop schema: history comes without media
+    }
+    const extOf = (a) => {
+      const fromName = /\.([A-Za-z0-9]{1,5})$/.exec(a.fileName || "");
+      if (fromName) return fromName[1].toLowerCase();
+      const sub = (a.contentType || "").split("/")[1] || "bin";
+      return sub.split(/[;+]/)[0].replace("jpeg", "jpg").replace("quicktime", "mov");
+    };
+    for (const a of atts) {
+      const tag = crypto.createHash("sha256").update(String(a.messageId)).digest("hex").slice(0, 12);
+      const dest = join(mediaDir, `${tag}-${a.kind === "preview" ? "p" : "a"}${a.ord || 0}.${extOf(a)}`);
+      if (!existsSync(dest)) {
+        try { if (!decryptAttachment(a, dest)) continue; } catch { continue; }
+      }
+      if (!media.has(a.messageId)) media.set(a.messageId, []);
+      media.get(a.messageId).push({
+        kind: a.kind, ord: a.ord || 0, path: dest,
+        name: a.fileName || dest.split("/").pop(), type: a.contentType || "",
+      });
+    }
+  }
+
+  process.stdout.write(
+    JSON.stringify(
+      rows.map((r) => {
+        const mine = (media.get(r.mid) || []).sort((x, y) => x.ord - y.ord);
+        let previews = [];
+        try { previews = JSON.parse(r.preview || "[]") || []; } catch {}
+        const previewImages = mine.filter((m) => m.kind === "preview");
+        return {
+          ts: r.ts,
+          author: r.author || "",
+          name: r.name || "",
+          body: r.body || "",
+          outgoing: r.type === "outgoing",
+          files: mine.filter((m) => m.kind === "attachment").map(({ path, name, type }) => ({ path, name, type })),
+          previews: previews.filter((p) => p && p.url).map((p, i) => ({
+            url: p.url, title: p.title || "", description: p.description || "",
+            image: previewImages[i] ? previewImages[i].path : "",
+          })),
+        };
+      }),
+    ) + "\n",
+  );
+}
+
 function cmdAttachments(n, to) {
   const { convoId } = target(to);
   const atts = recentAttachments(convoId, n || 10);
@@ -600,12 +685,15 @@ if (ti >= 0 && !to) {
   console.error("signal: --to needs a value (a name substring, or a conversationId)");
   process.exit(1);
 }
+const mi = argv.indexOf("--media");
+const mediaDir = mi < 0 ? null : argv.splice(mi, 2)[1];
 const [cmd, arg] = argv;
 
 try {
   switch (cmd) {
     case "chats": case "recent": cmdChats(arg ? Number(arg) : 20); break;
     case "groups": cmdGroups(arg ? Number(arg) : 20); break;
+    case "export": cmdExport(arg ? Number(arg) : 300, to, mediaDir); break;
     case "status": cmdStatus(to); break;
     case "ack": cmdAck(to); break;
     case "read": cmdRead(arg ? Number(arg) : 15, to); break;

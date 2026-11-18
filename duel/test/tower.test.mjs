@@ -195,6 +195,12 @@ test('the elevator rides from the ground to a floor, and only its owner builds t
     const back = await open('lobby', '', token);
     assert.equal((await until(back, (d) => d.type === 'whereabouts')).room, trip.room);
     back.close();
+    // Looking in on the wrong room and being sent on is not standing there:
+    // the rest stays put (it once moved, and the two rooms traded the visitor forever).
+    await delay(150);
+    const again = await open('lobby', '', token);
+    assert.equal((await until(again, (d) => d.type === 'whereabouts')).room, trip.room);
+    again.close();
     // A floor that does not exist is not a place.
     const bad = new WebSocket(`ws://127.0.0.1:${port}/play?room=floor-00000000&protocol=${PROTOCOL}`);
     const [code] = await once(bad, 'close');

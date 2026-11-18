@@ -1,8 +1,8 @@
-import { edgeAt, SPAN, blockWalls, groundsOf } from './park.mjs';
+import { edgeAt, SPAN, groundsOf } from './park.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, move, spawn, clamp } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
@@ -12,7 +12,7 @@ import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
-import { accountToken, accountExpected } from './account.mjs';
+import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -25,7 +25,7 @@ const view = await createView(document.getElementById('game'));
 const canvas = view.canvas,
   keys = new Set();
 const query = new URLSearchParams(location.search);
-const requestedRoom = query.get('pod') || query.get('room');
+const requestedRoom = query.get('room');
 // 🎯 Hosted under the AC prompt (lib/dool-sheet.mjs on aesthetic.computer):
 // the paper over this frame drops on a tap and rises on Escape, Back or a tap
 // on the corner block. Behind the curtain the world keeps drawing, bare of
@@ -62,8 +62,13 @@ let room =
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
     : (accountExpected() && lastPlace) || 'lobby';
-// The block's lots and who settled each ({ rects, homes }), or null in the lobby.
-let lots = null, park = null, passage = null, walkAt = 0;
+let park = null, passage = null, walkAt = 0, walkEdge = null; // walkEdge: the side last walked off
+const BACK = { east: 'west', west: 'east', north: 'south', south: 'north' };
+// 🚶 The body between two rooms: where the passage sets it down, shown until
+// the new room seats it (a moment; twenty seconds at most), so the eye never
+// leaves the head for the watcher's camera.
+let held = null;
+let sentSeq = 0; // The newest command handed to the socket.
 // 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
 // ride in progress ({ from, to, handle, at }), and whether the top line is
 // the elevator's (typed in the car) rather than chat.
@@ -154,8 +159,8 @@ try {
   for (const [id, w] of Object.entries(JSON.parse(localStorage.getItem('dool-world') || '{}')))
     if (Array.isArray(w?.blocks)) worlds.set(id, w);
 } catch {}
-// The solid walls of this block's houses, rebuilt when its lots change.
-let wallsOf = null, houseBoxes = [], carBoxes = null, carBoxesFor = null;
+// The room's own solid boxes: the car, and the lobby on the plaza.
+let carBoxes = null, carBoxesFor = null;
 // 🍄 In botbop's arena the view is side-on: left and right walk, the body
 // faces the way it last went, and the ledges are the room's fixed boxes.
 // 🎮 The room's gametype (games.mjs), or null in dool's own rooms.
@@ -176,17 +181,22 @@ function gameCamera(me, players, elapsed) {
   for (const key of ['x', 'y', 'zoom']) gameCam[key] += (want[key] - gameCam[key]) * k;
   return (gameCam = { ...want, x: gameCam.x, y: gameCam.y, zoom: gameCam.zoom });
 }
-function houseWalls() {
-  if (game()?.ledges) return game().ledges;
-  if (wallsOf !== lots) {
-    wallsOf = lots;
-    houseBoxes = blockWalls(lots);
-    carBoxes = null;
+// The sides of this place that lead to a neighbour: no wall stands there.
+let openFor = null, openSides = null;
+function openEdges() {
+  if (openFor !== park) {
+    openFor = park;
+    openSides = park?.neighbours ? Object.keys(park.neighbours).filter((k) => park.neighbours[k]) : null;
   }
-  if (!hasCar()) return houseBoxes;
+  return openSides;
+}
+const NO_BOXES = [];
+function fixedBoxes() {
+  if (game()?.ledges) return game().ledges;
+  if (!hasCar()) return NO_BOXES;
   // (Rebuilt when the room changes: only the plaza has the lobby.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
-  return (carBoxes ||= [...houseBoxes, ...CAR_BOXES, ...(room === 'lobby' ? LOBBY_BOXES : [])]);
+  return (carBoxes ||= [...CAR_BOXES, ...(room === 'lobby' ? LOBBY_BOXES : [])]);
 }
 // The blocks beside the one underfoot, placed in metres from its middle.
 function around() {
@@ -207,7 +217,6 @@ function around() {
 async function streamWorld() {
   const asked = room;
   worldAt = performance.now();
-  if (asked.startsWith('pod-')) return void (world = null);
   // A floor of the tower looks down on the plaza's neighbourhood.
   const about = asked.startsWith('floor-') ? 'lobby' : asked;
   try {
@@ -449,6 +458,17 @@ let freecamPlaced = false;
 // that is joining, not watching, so none of the spectator's mode shows.
 let joiningUntil = 0;
 const joining = () => seat < 0 && performance.now() < joiningUntil;
+// 🪪 What the seat waits for: 'account' (nobody is signed in) or 'handle'
+// (signed in, no handle yet). Until then the visitor flies over and looks.
+let gate = null;
+// The way in: sign up, or back to the prompt where a handle is claimed.
+function askIn() {
+  if (!gate) return false;
+  if (locked()) document.exitPointerLock();
+  if (gate === 'handle' && hosted) leave();
+  else askAccount(gate);
+  return true;
+}
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -463,10 +483,10 @@ let tiles = {},
 let handleHistory = [],
   historyPending = false;
 // Motion blur: a post layer that blends each frame over the last ones,
-// more as the view turns faster. Toggled in the room menu.
-let motionBlur = true;
+// more as the view turns faster. Off unless turned on in the room menu.
+let motionBlur = false;
 try {
-  motionBlur = localStorage.getItem('dool-blur') !== 'off';
+  motionBlur = localStorage.getItem('dool-blur') === 'on';
 } catch {}
 let post, postCtx, lastYaw = 0, lastPitch = 0, turnSpeed = 0;
 function postProcess(elapsed) {
@@ -578,7 +598,7 @@ const legendShown = () => seat >= 0;
 const send = (data) => {
   if (
     ws?.readyState === WebSocket.OPEN &&
-    ws.bufferedAmount < (data.type === 'input' ? 2048 : 32768)
+    ws.bufferedAmount < (data.type === 'input' ? 65536 : 32768)
   ) {
     ws.send(JSON.stringify(data));
     return true;
@@ -621,7 +641,6 @@ async function peekRoom() {
     if (ws && ws.readyState !== WebSocket.CLOSED) return; // Joined meanwhile: the live state wins.
     if (room !== peeking) return;
     park = data.park || null;
-    lots = data.lots || null;
     if (Array.isArray(data.objects)) objects = data.objects;
     if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
     if (Array.isArray(data.screens)) setScreens(data.screens);
@@ -637,7 +656,7 @@ if (hosted) void peekRoom();
 if (query.has('debug'))
   window.doolDebug = () => ({
     seat,
-    room, park, lots, home, tower, ride,
+    room, park, home, tower, ride,
     player: player ? { x: player.x, y: player.y, z: player.z } : null,
     yaw,
     pitch,
@@ -667,8 +686,15 @@ function placePath() {
   // are all dool. Only a room outside the world has a word of its own.
   return inWorld(room) ? '/dool/' : `/dool~${room}`;
 }
-function travel(to, chosen = true, receipt = null, riding = null) {
+function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
+  // 🚶 The body goes on between the two rooms (held): it keeps walking by its
+  // own commands, which the next room runs when it seats it. A walk across
+  // a block's edge keeps its motion and the commands the old room never ran.
+  const walk = Number.isInteger(ack), from = room;
+  held = receipt && at && player && seat >= 0
+    ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
+  const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
   if (chosen) roamed = true;
   room = to;
   if (riding) {
@@ -684,18 +710,19 @@ function travel(to, chosen = true, receipt = null, riding = null) {
   }
   passage = receipt;
   park = null;
-  lots = null;
   walkAt = performance.now() + 1000;
   objects = [];
   tiles = {};
   // What the world stream already knows of the place stands there at once:
-  // the ground, lots and things were on screen a block away a moment ago.
+  // the ground and things were on screen a block away a moment ago.
   const known = world?.blocks.find((b) => b.id === to);
   if (known) {
-    park = { neighbours: known.neighbours, plaza: known.plaza, pod: null };
-    lots = known.lots || null;
+    park = { neighbours: known.neighbours, plaza: known.plaza };
     objects = known.objects || [];
     tiles = known.tiles || {};
+  } else if (walk && walkEdge) {
+    // Nothing known of the place yet but the way in: that side leads back.
+    park = { neighbours: { [BACK[walkEdge]]: from }, plaza: false };
   }
   void streamWorld();
   setScreens([]);
@@ -704,7 +731,6 @@ function travel(to, chosen = true, receipt = null, riding = null) {
   if (joinURL) joinURL = new URL(`?room=${room}`, location.href).href;
   try {
     const address = new URL(location.href);
-    address.searchParams.delete('pod');
     address.searchParams.set('room', room);
     window.history.replaceState(window.history.state, '', address);
   } catch {}
@@ -719,6 +745,11 @@ function travel(to, chosen = true, receipt = null, riding = null) {
     old.close();
     connect();
   } else void peekRoom();
+  if (held && owed.length) {
+    pending = owed.map((c, i) => ({ ...c, seq: i + 1 }));
+    seq = pending.length;
+    for (const c of pending) held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges()), walk, until: held.until };
+  }
 }
 function connect() {
   const url = new URL('./play', import.meta.url);
@@ -733,16 +764,17 @@ function connect() {
   snapshot = null;
   prediction = null;
   resetPrediction = false;
-  seq = 0;
+  seq = sentSeq = 0;
   eventId = 0;
   debt = 0;
   presentation.reset(null);
   playback.reset();
-  notice = 'CONNECTING';
+  notice = held ? '' : 'CONNECTING';
   connection.reset();
   members = [];
   selfMember = null;
   freecamPlaced = false;
+  gate = null;
   joiningUntil = performance.now() + 7000;
   connectAttempts++;
   logNet(`connecting to room ${room} (try ${connectAttempts})`);
@@ -758,8 +790,11 @@ function connect() {
     if (data.type === 'welcome' || data.type === 'role') {
       const old = player;
       seat = data.seat;
-      if (seat >= 0) lastSeat = seat;
-      if (seat < 0) {
+      if (seat >= 0) {
+        lastSeat = seat;
+        gate = null;
+      }
+      if (seat < 0 && !held) {
         freecam = old
           ? { x: old.x + 2, y: old.y + 2, z: old.z - 3, yaw, pitch }
           : freecam;
@@ -770,16 +805,30 @@ function connect() {
       player = null;
       prediction = null;
       resetPrediction = false;
-      pending = [];
-      seq = 0;
-      debt = 0;
-      prompt.open = false;
-      prompt.busy = false;
-      radial.close();
-      releaseInput();
-      presentation.reset(null);
+      sentSeq = 0;
+      // Between two rooms the body is still walking: its keys stay down and
+      // its commands wait for the seat.
+      if (!held) {
+        pending = [];
+        seq = 0;
+        debt = 0;
+        prompt.open = false;
+        prompt.busy = false;
+        radial.close();
+        releaseInput();
+        presentation.reset(null);
+      }
+    }
+    if (data.type === 'gate' && seat < 0) {
+      gate = data.needs === 'handle' ? 'handle' : 'account';
+      joiningUntil = 0; // Not joining: looking.
     }
     if (data.type === 'welcome') {
+      // Nobody signed in on this page and the room seats handles only.
+      if (data.guests === false && seat < 0 && !account && !query.has('film')) {
+        gate = 'account';
+        joiningUntil = 0;
+      }
       configureDiagnostics(data.diagnostics === true);
       logNet(seat >= 0 ? `joined as player ${seat + 1}` : account ? 'signing in' : 'joined as a spectator', { good: true });
       if (data.joinURL) joinURL = data.joinURL;
@@ -803,8 +852,8 @@ function connect() {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
-    if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza, pod: data.pod };
-    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null);
+    if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
+    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack);
     if (data.type === 'tower') {
       tower = data;
       if (hasCar()) void readDirectory(data.revision ?? data.count);
@@ -818,7 +867,11 @@ function connect() {
     if (data.type === 'elevator-result')
       chatLog = [...chatLog, { at: performance.now(), handle: null, name: 'elevator', colors: null, seat: -1,
         text: String(data.error || data.note || '').slice(0, CHAT_MAX) }].slice(-8);
-    if (data.type === 'arrival') { yaw = data.yaw; pitch = data.pitch || 0; passage = null; }
+    if (data.type === 'arrival') {
+      // A walker looks where they were looking; a door or the car sets the facing.
+      if (!held?.walk) { yaw = data.yaw; pitch = data.pitch || 0; }
+      passage = null;
+    }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
       home = { room: data.room, floor: data.floor };
       try {
@@ -826,10 +879,12 @@ function connect() {
       } catch {}
     }
     // 🌍 Where this handle last stood in the world: go there, unless this
-    // visit has already gone somewhere of its own.
-    if (data.type === 'whereabouts' && /^[a-z0-9-]{1,32}$/.test(data.room || '') && !roamed && data.room !== room)
-      travel(data.room, false);
-    if (data.type === 'lots' && data.room === room && Array.isArray(data.rects)) lots = { rects: data.rects, homes: data.homes || [] };
+    // visit has already gone somewhere of its own. Heard once a visit: the
+    // room it leads to says so again, and following that too never ends.
+    if (data.type === 'whereabouts' && /^[a-z0-9-]{1,32}$/.test(data.room || '') && !roamed) {
+      roamed = true;
+      if (data.room !== room) travel(data.room, false);
+    }
     if (data.type === 'presence') {
       members = data.members;
       selfMember = data.self || null;
@@ -941,7 +996,7 @@ function connect() {
       return;
     }
     const own = data.players[seat];
-    if (seat < 0 && !freecamPlaced) {
+    if (seat < 0 && !freecamPlaced && !held) {
       const target = data.players.find(Boolean);
       if (target) {
         freecam = {
@@ -965,7 +1020,8 @@ function connect() {
     if (seat >= 0 && !own) return;
     // Socket callbacks only retain the newest authority. Replaying prediction
     // for every queued snapshot can starve input, rendering and even pongs.
-    if (own) {
+    // (With a passage in hand the seat's first place is not ours: wait to be set down.)
+    if (own && !(passage && held)) {
       if (prediction && diagnostics.enabled) diagnostics.values.snapshotsCoalesced++;
       resetPrediction ||= !!snapshot && data.phase !== snapshot.phase;
       prediction = data;
@@ -978,7 +1034,7 @@ function connect() {
     latestAt = performance.now();
     connection.snapshot(data.tick, latestAt, HZ);
     history.push(data);
-    history = history.slice(-32);
+    history = history.slice(-64);
     playback.receive(data.tick, latestAt);
     if (notice === 'CONNECTING') notice = '';
     for (const event of data.events) {
@@ -1392,10 +1448,12 @@ function touchButton(button, isDown) {
     softKeys.focus({ preventScroll: true });
   } else syncSoftKeys();
 }
+let gateTap = null; // A quick tap while looking on asks the way in.
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  gateTap = seat < 0 && gate ? { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() } : null;
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
@@ -1416,7 +1474,11 @@ canvas.addEventListener('pointermove', (e) => {
   if (touchy(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
 });
 canvas.addEventListener('pointerup', (e) => {
-  if (touchy(e)) touchButton(touch.up(e, performance.now()), false);
+  if (!touchy(e)) return;
+  touchButton(touch.up(e, performance.now()), false);
+  const tap = gateTap;
+  gateTap = null;
+  if (tap && tap.id === e.pointerId && performance.now() - tap.at < 350 && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 12) askIn();
 });
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
@@ -1546,7 +1608,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
-    if (seat < 0) return;
+    if (seat < 0) return void askIn();
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
       releaseInput();
@@ -1734,8 +1796,9 @@ function applyPrediction() {
   if (!prediction) return;
   const began = performance.now(), data = prediction, own = data.players[seat];
   prediction = null;
+  const carried = !player && !!held;
   const changedLife = !player || own.life !== player.life;
-  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, houseWalls(), flat());
+  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, fixedBoxes(), flat(), openEdges());
   // How far the server's word moved us from where we thought we were: zero
   // when prediction holds (?debug reads it).
   if (player && !changedLife) {
@@ -1750,7 +1813,7 @@ function applyPrediction() {
   player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
   presentation.correct(player, changedLife || resetPrediction);
   resetPrediction = false;
-  if (changedLife) { yaw = own.yaw; pitch = own.pitch; }
+  if (changedLife && !carried) { yaw = own.yaw; pitch = own.pitch; }
   diagnostics.max('reconcileMaxMs', performance.now() - began);
   diagnostics.max('pendingCommandsMax', pending.length);
 }
@@ -1965,6 +2028,7 @@ function step(now) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+    if (seat < 0 && gate && gamepad.select) askIn(); // [A]: the way in.
   }
   if (lockOn && player) {
     const target = spotOf(lockOn.id);
@@ -2018,13 +2082,11 @@ function step(now) {
   const firstSequence = seq;
   while (debt >= DT) {
     debt -= DT;
-    if (
-      !connected ||
-      seat < 0 ||
-      !player ||
-      pending.length >= 120 ||
-      now - latestAt > 1000
-    ) {
+    // 🏃 The body answers its own keys at once, whatever the link is doing:
+    // it runs ahead of the server's word by up to HORIZON commands, through
+    // a quiet link and between two rooms (carrying), and stops only there.
+    const carrying = !!held && !player;
+    if (carrying ? pending.length >= HORIZON : !connected || seat < 0 || !player || pending.length >= HORIZON) {
       if (player) presentation.step(player);
       continue;
     }
@@ -2076,20 +2138,32 @@ function step(now) {
     }
     jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
+    if (carrying) {
+      held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges()), walk: held.walk, until: held.until };
+      presentation.step(held);
+      continue;
+    }
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting')
-      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, houseWalls(), flat());
+      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, fixedBoxes(), flat(), openEdges());
     presentation.step(player);
   }
-  // One newest batch per display frame: catch-up steps don't flood a slow link.
-  if (seq !== firstSequence)
-    send({ type: 'input', commands: pending.slice(-12) }); // match.mjs INPUT_BATCH
+  // Every command reaches the server once, in order, in batches of twelve
+  // (match.mjs INPUT_BATCH): what a slow link held back goes when it clears.
+  if (seat >= 0 && player && pending.length && pending.at(-1).seq > sentSeq) {
+    const due = pending.filter((c) => c.seq > sentSeq);
+    for (let i = 0; i < due.length; i += 12) {
+      const part = due.slice(i, i + 12);
+      if (!send({ type: 'input', commands: part })) break;
+      sentSeq = part.at(-1).seq;
+    }
+  }
   if (performance.now() - worldAt > 6000 && !document.hidden) void streamWorld();
   if (park?.neighbours && player && seq !== firstSequence) {
     // A home is its lot: walking over a front is only walking. Off a side
     // with a neighbour, the next block takes the walker.
     if (now > walkAt) {
       const edge = edgeAt(player);
-      if (edge && park.neighbours[edge]) { send({ type: 'walk', edge }); walkAt = now + 600; }
+      if (edge && park.neighbours[edge]) { walkEdge = edge; send({ type: 'walk', edge }); walkAt = now + 2500; } // (the server keeps the request and answers when the body is there)
     }
   }
   const seconds = snapshot
@@ -2212,6 +2286,7 @@ function step(now) {
   })();
   // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
   const lift = liftAt(now), sky = plazaFrom();
+  if (held && ((seat >= 0 && player) || now > held.until)) { if (!player) passage = null; held = null; }
   if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
   const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
     ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
@@ -2226,10 +2301,12 @@ function step(now) {
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
-    me: seat < 0 ? null : player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy } : spawn(seat),
+    me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
+      : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
+    gate: seat < 0 ? gate : null,
     controller: controller.id,
     seat,
     third: third || !!game()?.camera,
@@ -2296,7 +2373,6 @@ function step(now) {
     })(),
     spending: braincells !== null && shownBraincells > braincells + 0.5,
     tiles,
-    lots,
     park,
     around: around(),
     field: groundsOf(room),
@@ -2320,7 +2396,7 @@ function step(now) {
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
     cornerScale,
-    flyTo: seat < 0 && hosted && sheetOpen ? spawn(lastSeat >= 0 ? lastSeat : 0) : null,
+    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : spawn(lastSeat >= 0 ? lastSeat : 0) : null,
     jobs,
     worldTime,
     locked: locked(),

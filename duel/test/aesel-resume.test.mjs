@@ -14,7 +14,7 @@ const token = 'b'.repeat(40);
 const SOURCE = '; Slow cube\n(ink red) (slab -1 0 -1 1 2 1)';
 
 async function serve(stateDir, port = 0) {
-  const app = createDuelServer({ builderToken: token, stateDir, verifyIdentity: async () => { throw Error('guest'); } });
+  const app = createDuelServer({ guests: true, builderToken: token, stateDir, verifyIdentity: async () => { throw Error('guest'); } });
   await app.ready;
   app.server.listen(port, '127.0.0.1');
   await once(app.server, 'listening');

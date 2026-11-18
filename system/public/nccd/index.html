@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NCCd</title>
+<meta name="description" content="NCCd is a Mac app for the NELA Computer Club: the club's Signal circles, their roles and the club wiki in one window.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#BFE8CF">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0B3A4A">
+<link rel="canonical" href="https://aesthetic.computer/nccd/">
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NCCd">
+<meta property="og:description" content="A Mac app for the NELA Computer Club: the club's Signal circles, their roles and the club wiki in one window.">
+<meta property="og:url" content="https://aesthetic.computer/nccd/">
+<meta property="og:image" content="https://aesthetic.computer/nccd/icon.png">
+<style>
+:root {
+  --ground: #BFE8CF; --paper: #F4FBF6; --ink: #1B2B22; --faint: rgba(27,43,34,.6);
+  --teal: #006888; --teal-under: #002F3D; --green: #2E7D4F; --rule: rgba(27,43,34,.18); --yellow: #F3D34A;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ground: #0B3A4A; --paper: #14505C; --ink: #E4FBEF; --faint: rgba(228,251,239,.66);
+          --teal: #4FD8FF; --teal-under: #1C7391; --green: #00D080; --rule: rgba(228,251,239,.2); }
+}
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+body { margin: 0; color: var(--ink); font: 14px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+main { max-width: 760px; margin: 0 auto; padding: 44px 20px 80px; }
+a { color: var(--teal); }
+.mark { display: block; width: 220px; height: auto; }
+.mark .ncc { fill: var(--teal); } .mark .d { fill: #3CCBF0; }
+.mark .ncc-under { fill: var(--teal-under); } .mark .d-under { fill: #17718C; }
+.mark .shine { animation: shine 5.5s infinite; }
+@keyframes shine { 0% { transform: translateX(0); } 20%, 100% { transform: translateX(420px); } }
+@media (prefers-reduced-motion: reduce) { .mark .shine { animation: none; } }
+.lede { margin: 26px 0 0; font-size: 16px; max-width: 34em; }
+.sheet { background: var(--paper); border-radius: 6px; padding: 16px 18px; margin-top: 14px; }
+h2 { font-size: 12px; letter-spacing: .04em; margin: 44px 0 0; color: var(--teal); text-transform: uppercase; }
+h2::before { content: "▍"; }
+h3 { font-size: 14px; margin: 0 0 4px; }
+p { margin: 0 0 10px; } p:last-child { margin-bottom: 0; }
+.get { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 24px; }
+.download { display: inline-block; background: #3CCBF0; color: #0B1A12; text-decoration: none;
+  font-weight: 700; padding: 9px 16px; border-radius: 4px; }
+.facts { color: var(--faint); font-size: 12px; }
+.sum { color: var(--faint); font-size: 11px; margin-top: 10px; overflow-wrap: anywhere; }
+ol.flow { list-style: none; margin: 14px 0 0; padding: 0; counter-reset: step; }
+ol.flow li { counter-increment: step; position: relative; background: var(--paper); border-radius: 6px;
+  padding: 13px 16px 13px 58px; margin-bottom: 18px; }
+ol.flow li::before { content: counter(step); position: absolute; left: 16px; top: 12px; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--teal); color: var(--paper); font-weight: 700; text-align: center; line-height: 26px; }
+ol.flow li:not(:last-child)::after { content: ""; position: absolute; left: 28px; bottom: -18px; height: 18px;
+  border-left: 2px solid var(--rule); }
+ol.flow li.opt::before { background: transparent; color: var(--teal); box-shadow: inset 0 0 0 2px var(--teal); }
+.tag { font-size: 10px; font-weight: 700; color: var(--faint); letter-spacing: .05em; margin-left: 6px; }
+code { background: var(--ground); padding: 1px 5px; border-radius: 3px; font: inherit; white-space: nowrap; }
+figure { margin: 14px 0 0; background: var(--paper); border-radius: 6px; padding: 14px; }
+figure svg { display: block; width: 100%; height: auto; }
+figure svg text { font: 11px ui-monospace, "SF Mono", Menlo, Consolas, monospace; fill: var(--ink); }
+figure svg .box { fill: var(--ground); } figure svg .mac { fill: none; stroke: var(--teal); stroke-width: 1.5; }
+figure svg .wire { stroke: var(--ink); stroke-width: 1.2; fill: none; } figure svg .faint { fill: var(--faint); }
+figure svg .head { font-weight: 700; } figure svg .lock { fill: var(--green); font-weight: 700; }
+figcaption { color: var(--faint); font-size: 12px; margin-top: 10px; }
+dl { margin: 14px 0 0; }
+dl > div { background: var(--paper); border-radius: 6px; padding: 13px 16px; margin-bottom: 6px; }
+dt { font-weight: 700; margin-bottom: 4px; } dd { margin: 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 4px; }
+td, th { text-align: left; vertical-align: top; padding: 5px 12px 5px 0; border-bottom: 1px solid var(--rule); }
+tr:last-child td { border-bottom: 0; } th { font-size: 11px; color: var(--faint); }
+td:first-child { white-space: nowrap; }
+footer { margin-top: 48px; color: var(--faint); font-size: 12px; }
+@media (max-width: 560px) { td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<main>
+
+<svg class="mark" viewBox="0 0 245 75" role="img" aria-label="NCCd">
+<defs><linearGradient id="shine" x1="0" y1="0.35" x2="1" y2="0.65"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<clipPath id="word"><path d="M0 0h10v10h-10zM10 0h10v10h-10zM40 0h10v10h-10zM50 0h10v10h-10zM0 10h10v10h-10zM10 10h10v10h-10zM20 10h10v10h-10zM40 10h10v10h-10zM50 10h10v10h-10zM0 20h10v10h-10zM10 20h10v10h-10zM20 20h10v10h-10zM30 20h10v10h-10zM40 20h10v10h-10zM50 20h10v10h-10zM0 30h10v10h-10zM10 30h10v10h-10zM20 30h10v10h-10zM30 30h10v10h-10zM40 30h10v10h-10zM50 30h10v10h-10zM0 40h10v10h-10zM10 40h10v10h-10zM30 40h10v10h-10zM40 40h10v10h-10zM50 40h10v10h-10zM0 50h10v10h-10zM10 50h10v10h-10zM40 50h10v10h-10zM50 50h10v10h-10zM0 60h10v10h-10zM10 60h10v10h-10zM40 60h10v10h-10zM50 60h10v10h-10zM80 0h10v10h-10zM90 0h10v10h-10zM100 0h10v10h-10zM110 0h10v10h-10zM70 10h10v10h-10zM80 10h10v10h-10zM90 10h10v10h-10zM100 10h10v10h-10zM110 10h10v10h-10zM70 20h10v10h-10zM80 20h10v10h-10zM70 30h10v10h-10zM80 30h10v10h-10zM70 40h10v10h-10zM80 40h10v10h-10zM70 50h10v10h-10zM80 50h10v10h-10zM90 50h10v10h-10zM100 50h10v10h-10zM110 50h10v10h-10zM80 60h10v10h-10zM90 60h10v10h-10zM100 60h10v10h-10zM110 60h10v10h-10zM140 0h10v10h-10zM150 0h10v10h-10zM160 0h10v10h-10zM170 0h10v10h-10zM130 10h10v10h-10zM140 10h10v10h-10zM150 10h10v10h-10zM160 10h10v10h-10zM170 10h10v10h-10zM130 20h10v10h-10zM140 20h10v10h-10zM130 30h10v10h-10zM140 30h10v10h-10zM130 40h10v10h-10zM140 40h10v10h-10zM130 50h10v10h-10zM140 50h10v10h-10zM150 50h10v10h-10zM160 50h10v10h-10zM170 50h10v10h-10zM140 60h10v10h-10zM150 60h10v10h-10zM160 60h10v10h-10zM170 60h10v10h-10zM220 0h10v10h-10zM230 0h10v10h-10zM220 10h10v10h-10zM230 10h10v10h-10zM200 20h10v10h-10zM210 20h10v10h-10zM220 20h10v10h-10zM230 20h10v10h-10zM190 30h10v10h-10zM200 30h10v10h-10zM210 30h10v10h-10zM220 30h10v10h-10zM230 30h10v10h-10zM190 40h10v10h-10zM200 40h10v10h-10zM220 40h10v10h-10zM230 40h10v10h-10zM190 50h10v10h-10zM200 50h10v10h-10zM210 50h10v10h-10zM220 50h10v10h-10zM230 50h10v10h-10zM200 60h10v10h-10zM210 60h10v10h-10zM220 60h10v10h-10zM230 60h10v10h-10z"/></clipPath></defs>
+<path class="ncc-under" d="M5 5h10v10h-10zM15 5h10v10h-10zM45 5h10v10h-10zM55 5h10v10h-10zM5 15h10v10h-10zM15 15h10v10h-10zM25 15h10v10h-10zM45 15h10v10h-10zM55 15h10v10h-10zM5 25h10v10h-10zM15 25h10v10h-10zM25 25h10v10h-10zM35 25h10v10h-10zM45 25h10v10h-10zM55 25h10v10h-10zM5 35h10v10h-10zM15 35h10v10h-10zM25 35h10v10h-10zM35 35h10v10h-10zM45 35h10v10h-10zM55 35h10v10h-10zM5 45h10v10h-10zM15 45h10v10h-10zM35 45h10v10h-10zM45 45h10v10h-10zM55 45h10v10h-10zM5 55h10v10h-10zM15 55h10v10h-10zM45 55h10v10h-10zM55 55h10v10h-10zM5 65h10v10h-10zM15 65h10v10h-10zM45 65h10v10h-10zM55 65h10v10h-10zM85 5h10v10h-10zM95 5h10v10h-10zM105 5h10v10h-10zM115 5h10v10h-10zM75 15h10v10h-10zM85 15h10v10h-10zM95 15h10v10h-10zM105 15h10v10h-10zM115 15h10v10h-10zM75 25h10v10h-10zM85 25h10v10h-10zM75 35h10v10h-10zM85 35h10v10h-10zM75 45h10v10h-10zM85 45h10v10h-10zM75 55h10v10h-10zM85 55h10v10h-10zM95 55h10v10h-10zM105 55h10v10h-10zM115 55h10v10h-10zM85 65h10v10h-10zM95 65h10v10h-10zM105 65h10v10h-10zM115 65h10v10h-10zM145 5h10v10h-10zM155 5h10v10h-10zM165 5h10v10h-10zM175 5h10v10h-10zM135 15h10v10h-10zM145 15h10v10h-10zM155 15h10v10h-10zM165 15h10v10h-10zM175 15h10v10h-10zM135 25h10v10h-10zM145 25h10v10h-10zM135 35h10v10h-10zM145 35h10v10h-10zM135 45h10v10h-10zM145 45h10v10h-10zM135 55h10v10h-10zM145 55h10v10h-10zM155 55h10v10h-10zM165 55h10v10h-10zM175 55h10v10h-10zM145 65h10v10h-10zM155 65h10v10h-10zM165 65h10v10h-10zM175 65h10v10h-10z"/><path class="d-under" d="M225 5h10v10h-10zM235 5h10v10h-10zM225 15h10v10h-10zM235 15h10v10h-10zM205 25h10v10h-10zM215 25h10v10h-10zM225 25h10v10h-10zM235 25h10v10h-10zM195 35h10v10h-10zM205 35h10v10h-10zM215 35h10v10h-10zM225 35h10v10h-10zM235 35h10v10h-10zM195 45h10v10h-10zM205 45h10v10h-10zM225 45h10v10h-10zM235 45h10v10h-10zM195 55h10v10h-10zM205 55h10v10h-10zM215 55h10v10h-10zM225 55h10v10h-10zM235 55h10v10h-10zM205 65h10v10h-10zM215 65h10v10h-10zM225 65h10v10h-10zM235 65h10v10h-10z"/><path class="ncc" d="M0 0h10v10h-10zM10 0h10v10h-10zM40 0h10v10h-10zM50 0h10v10h-10zM0 10h10v10h-10zM10 10h10v10h-10zM20 10h10v10h-10zM40 10h10v10h-10zM50 10h10v10h-10zM0 20h10v10h-10zM10 20h10v10h-10zM20 20h10v10h-10zM30 20h10v10h-10zM40 20h10v10h-10zM50 20h10v10h-10zM0 30h10v10h-10zM10 30h10v10h-10zM20 30h10v10h-10zM30 30h10v10h-10zM40 30h10v10h-10zM50 30h10v10h-10zM0 40h10v10h-10zM10 40h10v10h-10zM30 40h10v10h-10zM40 40h10v10h-10zM50 40h10v10h-10zM0 50h10v10h-10zM10 50h10v10h-10zM40 50h10v10h-10zM50 50h10v10h-10zM0 60h10v10h-10zM10 60h10v10h-10zM40 60h10v10h-10zM50 60h10v10h-10zM80 0h10v10h-10zM90 0h10v10h-10zM100 0h10v10h-10zM110 0h10v10h-10zM70 10h10v10h-10zM80 10h10v10h-10zM90 10h10v10h-10zM100 10h10v10h-10zM110 10h10v10h-10zM70 20h10v10h-10zM80 20h10v10h-10zM70 30h10v10h-10zM80 30h10v10h-10zM70 40h10v10h-10zM80 40h10v10h-10zM70 50h10v10h-10zM80 50h10v10h-10zM90 50h10v10h-10zM100 50h10v10h-10zM110 50h10v10h-10zM80 60h10v10h-10zM90 60h10v10h-10zM100 60h10v10h-10zM110 60h10v10h-10zM140 0h10v10h-10zM150 0h10v10h-10zM160 0h10v10h-10zM170 0h10v10h-10zM130 10h10v10h-10zM140 10h10v10h-10zM150 10h10v10h-10zM160 10h10v10h-10zM170 10h10v10h-10zM130 20h10v10h-10zM140 20h10v10h-10zM130 30h10v10h-10zM140 30h10v10h-10zM130 40h10v10h-10zM140 40h10v10h-10zM130 50h10v10h-10zM140 50h10v10h-10zM150 50h10v10h-10zM160 50h10v10h-10zM170 50h10v10h-10zM140 60h10v10h-10zM150 60h10v10h-10zM160 60h10v10h-10zM170 60h10v10h-10z"/><path class="d" d="M220 0h10v10h-10zM230 0h10v10h-10zM220 10h10v10h-10zM230 10h10v10h-10zM200 20h10v10h-10zM210 20h10v10h-10zM220 20h10v10h-10zM230 20h10v10h-10zM190 30h10v10h-10zM200 30h10v10h-10zM210 30h10v10h-10zM220 30h10v10h-10zM230 30h10v10h-10zM190 40h10v10h-10zM200 40h10v10h-10zM220 40h10v10h-10zM230 40h10v10h-10zM190 50h10v10h-10zM200 50h10v10h-10zM210 50h10v10h-10zM220 50h10v10h-10zM230 50h10v10h-10zM200 60h10v10h-10zM210 60h10v10h-10zM220 60h10v10h-10zM230 60h10v10h-10z"/>
+<g clip-path="url(#word)"><rect class="shine" x="-90" y="-10" width="80" height="95" fill="url(#shine)"/></g></svg>
+
+<p class="lede">A Mac app for the NELA Computer Club. It shows the club's Signal circles,
+the roles in each circle, and the club wiki, in one window. The circles are peers on one
+ring, so the home screen is a donut. The d is for donut.</p>
+
+<div class="get">
+  <a class="download" id="dl" href="https://aesthetic.computer/api/download?app=nccd&amp;file=NCCd-0.3.3.dmg" download>Download NCCd <span id="ver">0.3.3</span> ↓</a>
+  <span class="facts">beta · macOS 13 or later · Apple silicon and Intel · <span id="size">1123 KB</span></span>
+</div>
+<p class="sum">sha256 <span id="sum">c99fe446eb18f595686f6f8242860435a3ef9f3c9fdcf78a1756d55a59682aed</span></p>
+
+<h2>How it works</h2>
+<ol class="flow">
+  <li><h3>Install the app</h3>
+    <p>Open the disk image and move NCCd into Applications. Apple has notarized the app,
+    so it opens with no warning.</p></li>
+  <li><h3>Install the Signal engine</h3>
+    <p>NCCd speaks to Signal through <a href="https://github.com/AsamK/signal-cli">signal-cli</a>.
+    Install it with Homebrew: <code>brew install signal-cli</code></p></li>
+  <li><h3>Link Signal to open your circles</h3>
+    <p>Select <b>Link Signal</b>. NCCd shows a QR code. On your phone, open Signal, then
+    Settings, then Linked devices, then Link new device, and scan the code. NCCd is now a
+    linked device of your account, as Signal Desktop is. The circles lie on the donut: a
+    larger one has more members, and one that beats had a message a short time ago. Under the donut is the newest message of every chat: select one to go into that conversation. To give a circle a window of its own, right-click it and select
+    Open in New Window. You see only the groups that you are a member of.</p></li>
+  <li><h3>Sign in to NCC to open the wiki</h3>
+    <p>The club login page shows in the Wiki tab. Sign in there. The wiki then opens in its own tab.</p></li>
+  <li><h3>Use one, or the two</h3>
+    <p>The two logins are separate. Signal opens the circles. NCC opens the wiki. NCCd works
+    with one of them, and the foot of the side bar shows a tick for each one that is done.</p></li>
+  <li><h3>Stay up to date</h3>
+    <p>NCCd updates itself. It looks for a new version every half hour, checks it, and
+    starts again on the same circle. You do nothing.</p></li>
+  <li class="opt"><h3>Bring your history <span class="tag">OPTIONAL</span></h3>
+    <p>A new link starts with no old messages. If this Mac also has Signal Desktop, select
+    Import History from Signal Desktop in the menu. The import needs Node.js.</p></li>
+</ol>
+
+<h2>What talks to what</h2>
+<figure>
+<svg viewBox="0 0 750 300" role="img" aria-label="NCCd on your Mac connects to Signal's servers, the club login and the club wiki. No other server is in the path.">
+  <rect class="mac" x="280" y="20" width="220" height="260" rx="8"/>
+  <text class="head" x="296" y="42">YOUR MAC</text>
+  <rect class="box" x="296" y="56" width="188" height="56" rx="5"/>
+  <text class="head" x="308" y="78">NCCd</text><text class="faint" x="308" y="96">the window</text>
+  <rect class="box" x="296" y="126" width="188" height="56" rx="5"/>
+  <text class="head" x="308" y="148">signal-cli</text><text class="faint" x="308" y="166">your Signal keys</text>
+  <rect class="box" x="296" y="196" width="188" height="68" rx="5"/>
+  <text class="head" x="308" y="218">Keychain + files</text><text class="faint" x="308" y="236">wiki session,</text><text class="faint" x="308" y="252">message logs</text>
+  <path class="wire" d="M390 112v14M390 182v14"/>
+
+  <rect class="box" x="10" y="126" width="170" height="56" rx="5"/>
+  <text class="head" x="22" y="148">Signal servers</text><text class="faint" x="22" y="166">and your phone</text>
+  <path class="wire" d="M180 154h116"/>
+  <text class="lock" x="192" y="146">end to end</text>
+
+  <rect class="box" x="570" y="56" width="170" height="56" rx="5"/>
+  <text class="head" x="582" y="78">Club login</text><text class="faint" x="582" y="96">auth.nela.computer</text>
+  <rect class="box" x="570" y="126" width="170" height="56" rx="5"/>
+  <text class="head" x="582" y="148">Club wiki</text><text class="faint" x="582" y="166">wiki.nela.computer</text>
+  <path class="wire" d="M484 84h86M548 84v70h22"/>
+  <text class="lock" x="508" y="76">HTTPS</text>
+
+  <rect class="box" x="570" y="196" width="170" height="68" rx="5"/>
+  <text class="head" x="582" y="218">Updates</text><text class="faint" x="582" y="236">assets.aesthetic</text><text class="faint" x="582" y="252">.computer</text>
+  <path class="wire" d="M548 154v76h22"/>
+</svg>
+<figcaption>Messages go between signal-cli on your Mac and Signal. They do not go through an
+Aesthetic Computer server. The app asks Aesthetic Computer for one thing: new versions.</figcaption>
+</figure>
+
+<h2>Security</h2>
+<dl>
+  <div><dt>Signal messages</dt>
+    <dd>NCCd is a linked device of your Signal account. signal-cli does the encryption with
+    Signal's own library, so messages stay encrypted end to end, the same as on your phone.
+    Nobody between your Mac and the other members can read them.</dd></div>
+  <div><dt>What a linked device receives</dt>
+    <dd>A linked device receives all messages that your account receives. NCCd keeps and shows
+    only the messages of the club groups, and drops the others. signal-cli saves the
+    attachments that it receives in its own folder on your Mac.</dd></div>
+  <div><dt>Club login</dt>
+    <dd>The club's own login page shows inside NCCd, in a web view. You type your password
+    into the club's page. NCCd does not read or keep what you type. It reads one thing from
+    that web view: the session that the wiki gives you when the club has confirmed who you
+    are. The wiki, not NCCd, decides what you can read.</dd></div>
+  <div><dt>Wiki session</dt>
+    <dd>The session is in your login Keychain. NCCd sends it only to the club wiki, over
+    HTTPS. Sign Out of NCC in the menu deletes it.</dd></div>
+  <div><dt>The app</dt>
+    <dd>The app is signed with a Developer ID, uses the hardened runtime, and is notarized by
+    Apple. It is not sandboxed, because it starts signal-cli. It has no analytics and no
+    crash reports. The
+    <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/nccd">source</a>
+    is public.</dd></div>
+  <div><dt>Updates</dt>
+    <dd>NCCd reads a small file on assets.aesthetic.computer to learn the newest version.
+    It sends nothing about you. Before a new version replaces the app, it must pass three
+    checks: its SHA-256 is the published one, its code signature is whole, and it is signed by
+    the same Developer ID team as the copy that is running.</dd></div>
+  <div><dt>This download</dt>
+    <dd>The download link counts the download: the version, the day, the country and the type
+    of computer. Your address is kept only as a keyed hash.</dd></div>
+  <div><dt>Limits</dt>
+    <dd>NCCd is a beta. signal-cli is not made or supported by Signal, and NCCd is not
+    affiliated with Signal. The message logs on your Mac are plain files: they are as safe as
+    your Mac account, so turn on FileVault.</dd></div>
+</dl>
+
+<h2>What it keeps on your Mac</h2>
+<div class="sheet">
+<table>
+  <tr><th>Where</th><th>What</th></tr>
+  <tr><td>~/Library/Application Support/NCC Circles/signal</td><td>The Signal keys of this linked device, and received attachments</td></tr>
+  <tr><td>~/Library/Application Support/NCC Circles/log</td><td>The messages of each circle, one file for each</td></tr>
+  <tr><td>~/.config/ncc-circles/config.json</td><td>Settings, and the list of your club groups</td></tr>
+  <tr><td>Login Keychain</td><td>The wiki session</td></tr>
+</table>
+</div>
+
+<h2>Remove it</h2>
+<div class="sheet">
+<p>On your phone, open Signal, then Settings, then Linked devices, and remove NCCd. Move the
+app to the Trash. Delete the two folders in the table. Messages already sent stay in the
+groups.</p>
+</div>
+
+<footer>NCCd <span id="foot">0.3.3</span> · <a href="https://nela.computer">nela.computer</a> ·
+made at <a href="https://aesthetic.computer">aesthetic.computer</a><br>
+Signal is a trademark of Signal Technology Foundation.</footer>
+
+</main>
+<script>
+// The newest release, from the same manifest the app updates from.
+fetch("https://assets.aesthetic.computer/nccd/latest.json", { cache: "no-store" })
+  .then((r) => (r.ok ? r.json() : null))
+  .then((m) => {
+    if (!m || !/^\d+(\.\d+){1,2}$/.test(m.version) || !/^[0-9a-f]{64}$/.test(m.dmgSha256 || "")) return;
+    const file = "NCCd-" + m.version + ".dmg";
+    document.getElementById("dl").href = "https://aesthetic.computer/api/download?app=nccd&file=" + file;
+    document.getElementById("ver").textContent = m.version;
+    document.getElementById("sum").textContent = m.dmgSha256;
+    if (m.dmgBytes > 0) document.getElementById("size").textContent = Math.round(m.dmgBytes / 1024) + " KB";
+    document.getElementById("foot").textContent = m.version;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>

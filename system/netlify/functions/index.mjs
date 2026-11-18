@@ -19,6 +19,7 @@ import { handleFromPermahandle } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
 import { objectMetadata } from "../../backend/object-metadata.mjs";
 import { recordPieceHit, looksAutomated } from "../../backend/piece-hits.mjs";
+import { aiReader, paintingCodeFromSlug, paintingFacts, paintingMeta, readerPage } from "../../backend/reader-page.mjs";
 import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backend/boot-preloads.mjs";
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
@@ -510,6 +511,16 @@ async function fun(event, context) {
   // Note: Legacy % symbols (like in "tape %JyK") are left as-is
   }
 
+  // 🖼️ /painting/CODE is how crawlers ask for a painting (1,463 times in
+  // three days, each answered 404 with a booting page). The piece takes its
+  // code as a parameter, so send them to the address that works.
+  const paintingSlash = /^painting\/([A-Za-z0-9]{3,12})$/.exec(slug);
+  if (paintingSlash) {
+    const query = new URLSearchParams(event.queryStringParameters || {}).toString();
+    const location = `/painting~${paintingSlash[1]}${query ? `?${query}` : ""}`;
+    return respond(301, `<a href="${location}">Redirecting to ${location}</a>`, { "Content-Type": "text/html", Location: location });
+  }
+
   // console.log("Path:", event.path, "Host:", event.headers["host"]);
 
   // Some domains will rewrite the initial slug.
@@ -888,6 +899,12 @@ async function fun(event, context) {
     return redirect;
   }
 
+  // 🖼️ A painting addressed by its code says who made it and when, and shows
+  // the picture itself rather than a screenshot the oven has to boot for.
+  const paintingCode = paintingCodeFromSlug(slug);
+  const painting = paintingCode ? await paintingFacts(paintingCode) : null;
+  if (painting) meta = { ...meta, ...paintingMeta(painting) };
+
   const { title, desc, ogImage, icon, iconWebp, twitterImage: defaultTwitterImage, manifest } = metadata(
     event.headers["host"],
     slug,
@@ -935,6 +952,25 @@ async function fun(event, context) {
 
   const publicPath = event.rawUrl ? new URL(event.rawUrl).pathname : event.path;
   const canonical = canonicalPageUrl(event.headers["host"], publicPath);
+
+  // 📖 A self-named AI reader gets the plain page: the same title, words and
+  // picture, with links to walk on from and no runtime to boot. See
+  // backend/reader-page.mjs. Only on aesthetic.computer's own address; the
+  // branded hosts keep their pages.
+  const readerHost = /^(www\.)?aesthetic\.computer$/.test(event.headers["host"] || "");
+  const reader = readerHost && statusCode === 200 && !previewOrIcon ? aiReader(event.headers) : null;
+  if (reader) {
+    console.log(`📖 ${reader} reads /${slug}`);
+    return {
+      statusCode: 200,
+      headers: { "Content-Type": "text/html; charset=utf-8", Vary: "User-Agent", "X-AC-Reader": reader },
+      body: readerPage({
+        title, desc, canonical: canonical || `https://aesthetic.computer/${slug === "prompt" ? "" : slug}`,
+        image: ogImage, piece: parsed?.text, painting,
+        handle: slug.startsWith("@") ? slug.slice(1).split("/")[0] : null,
+      }),
+    };
+  }
 
   const body = html`
     <!doctype html>
@@ -1174,7 +1210,7 @@ async function fun(event, context) {
                   var desc =
                     "Painting #" + code + (hasHandle ? " by " + displayHandle : "") +
                     " on aesthetic.computer";
-                  var imageSlug = (hasHandle ? handle + "/painting/" + slug : slug) + ".png";
+                  var imageSlug = (hasHandle ? "@" + handle + "/painting/" + slug : slug) + ".png";
                   var image = "/api/pixel/2048:conform/" + encodeURI(imageSlug);
                   return {
                     code: code,

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { LocalPresentation, SnapshotClock } from '../presentation.mjs';
-import { DT, HZ, move, spawn } from '../world.mjs';
+import { DT, HZ, HORIZON, INTERP_TICKS, OVERRUN, WORLD, move, spawn } from '../world.mjs';
 import { Match } from '../match.mjs';
 import { reconcile } from '../net.mjs';
 
@@ -155,4 +155,58 @@ test('80 ms RTT with jitter: presentation reduces abrupt motion while simulation
   assert.ok(roughness(smooth) < roughness(raw) * 0.35, `${roughness(raw)} -> ${roughness(smooth)}`);
   assert.ok(pending.length < 20);
   assert.ok(Math.abs(smooth.at(-1) - player.z) < 0.5);
+});
+
+// 🏃 The rubric (README, "Local first"): the body answers its own keys at once
+// and the server ends where the client predicted, whatever the link did.
+test('commands held back by a three second stall are all run, and the server ends where the client predicted', () => {
+  const m = new Match(), seat = m.join();
+  let predicted = { ...m.seats[seat].player };
+  const cmds = Array.from({ length: 181 }, (_, i) => ({ ...command(i + 1), right: i % 40 < 20 ? 1 : 0, buttons: i % 50 === 0 ? 1 : 0 }));
+  for (const [i, c] of cmds.entries()) predicted = move(predicted, c, [], 0, [], false);
+  m.input(seat, [cmds[0]]);
+  m.step();
+  for (let i = 0; i < 180; i++) m.step(); // the link is quiet: the body waits
+  assert.ok(180 < HORIZON);
+  for (let i = 1; i < cmds.length; i += 12) m.input(seat, cmds.slice(i, i + 12));
+  m.step();
+  const p = m.seats[seat].player;
+  assert.equal(m.seats[seat].ack, 181);
+  for (const k of ['x', 'y', 'z']) assert.ok(Math.abs(p[k] - predicted[k]) < 1e-9, `${k} ${p[k]} ${predicted[k]}`);
+});
+
+test('snapshots that arrive in clumps play further back, so others glide; a steady link plays close', () => {
+  const steady = new SnapshotClock();
+  for (let i = 0; i <= 120; i++) steady.receive(i, (i * 1000) / HZ);
+  assert.ok(steady.delay - INTERP_TICKS < 0.5);
+  const clumped = new SnapshotClock();
+  // Twelve ticks at a time, every fifth of a second.
+  for (let i = 0; i <= 120; i++) clumped.receive(i, Math.floor(i / 12) * 200);
+  assert.ok(clumped.delay >= INTERP_TICKS + 10 && clumped.delay <= INTERP_TICKS + 30);
+  let previous = clumped.sample(2000), stopped = 0;
+  for (let frame = 1; frame <= 120; frame++) {
+    const now = 2000 + (frame * 1000) / 60;
+    if (frame % 12 === 0) for (let i = 0; i < 12; i++) clumped.receive(120 + frame - 11 + i, now);
+    const tick = clumped.sample(now);
+    assert.ok(tick >= previous && tick <= clumped.latest);
+    if (frame > 30 && tick === previous) stopped++;
+    previous = tick;
+  }
+  assert.equal(stopped, 0, 'playback never waits for a clump');
+});
+
+test('a side with a neighbour has no wall: the body walks on past the line; a closed side stops it', () => {
+  const run = (open) => {
+    let p = { ...spawn(0), x: 6, z: 0 };
+    for (let i = 1; i <= 240; i++) p = move(p, { ...command(i), yaw: 90 }, [], 0, [], false, open);
+    return p;
+  };
+  assert.ok(Math.abs(run(null).x - (WORLD - 0.4)) < 1e-9);
+  assert.ok(Math.abs(run(['west']).x - (WORLD - 0.4)) < 1e-9);
+  const through = run(['east']);
+  assert.ok(Math.abs(through.x - (WORLD - 0.4 + OVERRUN)) < 1e-9);
+  // Crossing the line costs no speed.
+  let p = { ...spawn(0), x: 6, z: 0 }, slowest = Infinity;
+  for (let i = 1; i <= 30; i++) { p = move(p, { ...command(i), yaw: 90 }, [], 0, [], false, ['east']); if (i > 20) slowest = Math.min(slowest, p.vx); }
+  assert.ok(p.x > WORLD && slowest > 9);
 });

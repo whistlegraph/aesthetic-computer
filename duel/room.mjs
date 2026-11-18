@@ -5,8 +5,11 @@ import { MAX_PLAYERS } from './world.mjs';
 // Connections are not people. Duplicate verified handles share one player slot,
 // held by the newest of them.
 export class Room {
-  constructor(send) {
+  // `guests`: seat a session with no handle too. The server turns it off, so
+  // only a handle holds a body and the rest look on.
+  constructor(send, { guests = true } = {}) {
     this.send = send;
+    this.guests = guests;
     this.match = new Match();
     this.clients = new Map();
     this.sessions = new Map();
@@ -36,13 +39,14 @@ export class Room {
     // reload, or a second window, takes the body over in place, and the older
     // session (often a socket still dying on a slow link) watches instead.
     const latest = new Map();
-    for (const r of this.sessions.values()) if (r.ready) latest.set(this.person(r), r);
+    for (const r of this.sessions.values()) if (r.ready && (this.guests || r.handle)) latest.set(this.person(r), r);
     for (const [key, r] of latest) {
       if (r.seat >= 0) continue;
       for (const o of this.sessions.values())
         if (o !== r && o.seat >= 0 && this.person(o) === key) {
           r.seat = o.seat; // Handed over: same seat, same player, no leave or join.
           o.seat = -1;
+          this.match.handover(r.seat);
           break;
         }
     }

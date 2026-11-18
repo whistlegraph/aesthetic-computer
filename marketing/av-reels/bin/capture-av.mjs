@@ -21,6 +21,10 @@
 //
 // Flags: --duration N --fps N --density N --width N --height N --perform NAME
 //        --base URL --headful --settle MS --slug NAME
+//        --no-wake   do not click or type at boot (keeps an idle homepage idle);
+//                    AC's audio is started directly instead
+//        --av-offset MS   delay added to the audio after it is aligned to the
+//                    first frame (default 65; verify with measure-sync.py)
 //        --wg CODE   a published Whistlegraph piece (wgXxxxx): boots AC's blank
 //                    runtime in the top page and drops the piece's source in,
 //                    the way /mime-play/ does, so the audio tee and density apply
@@ -179,8 +183,18 @@ if (WG) {
   if (!result.startsWith("ok")) throw new Error(`could not load ${WG}: ${result}`);
 }
 
-await page.evaluate(() => { const c = document.querySelector("canvas"); if (c) { c.focus(); c.click(); } }).catch(() => {});
-await page.keyboard.press("Space").catch(() => {});
+if (flags["no-wake"]) {
+  // Leave the piece untouched (the idle homepage stays idle) and start AC's
+  // audio directly, so there is still an AudioContext to record.
+  await page.evaluate(async () => {
+    for (let i = 0; i < 80 && !window.AC?.startAudio; i++) await new Promise((r) => setTimeout(r, 100));
+    window.AC?.setMasterVolume?.(1);
+    await window.AC?.startAudio?.();
+  }).catch(() => {});
+} else {
+  await page.evaluate(() => { const c = document.querySelector("canvas"); if (c) { c.focus(); c.click(); } }).catch(() => {});
+  await page.keyboard.press("Space").catch(() => {});
+}
 if (isMerry) {
   await new Promise((r) => setTimeout(r, 1200));
   await page.keyboard.type(PIECE, { delay: 45 });
@@ -238,7 +252,10 @@ await page.evaluate(async () => {
   window.__acChunks = [];
   rec.ondataavailable = (e) => { if (e.data && e.data.size) window.__acChunks.push(e.data); };
   window.__acStop = () => new Promise((res) => { rec.onstop = res; rec.stop(); });
-  rec.start(200);
+  // The recording's time zero, on the wall clock: the video's first frame is
+  // stamped on the same clock, and the gap between them is trimmed at the mux.
+  await new Promise((res) => { rec.onstart = () => { window.__acRecStart = Date.now(); res(); }; rec.start(200); setTimeout(res, 1500); });
+  if (!window.__acRecStart) window.__acRecStart = Date.now();
 });
 
 // Video half. Two capture methods:
@@ -250,6 +267,7 @@ const GRAB = flags.grab !== undefined && flags.grab !== false && flags.grab !== 
 const stamps = [];
 const gestures = [];        // {id, t(video s), x, y, kind} for the finger overlay
 let wallAtFirstFrame = null; // Date.now() at first frame — the zero for gesture times
+let epochAtFirstFrame = null; // wall-clock ms of the first video frame
 let realDuration = 0;
 
 // ── Run the performance (timed key/mouse actions) while capturing ────────────
@@ -283,6 +301,8 @@ async function runPerformance() {
       else if (act.type === "move") await withLock(() => page.mouse.move(Math.round(act.x * CAP_W), Math.round(act.y * CAP_H)));
       else if (act.type === "mup") await withLock(() => page.mouse.up());
       else if (act.type === "type") await withLock(() => page.keyboard.type(act.text, { delay: 40 }));
+      // "blur": give the keyboard back to the piece after a prompt has held it
+      else if (act.type === "blur") await withLock(() => page.evaluate(() => { document.activeElement?.blur?.(); document.querySelector("canvas")?.focus?.(); }));
     } catch (e) {}
     // Record the gesture (in video time) for the finger overlay. `move` while
     // held = a drag: it belongs to its press id and drives the bubble's size.
@@ -299,7 +319,7 @@ if (GRAB) {
   // real time, so a scripted session runs longer than its scheduled duration) —
   // then a short tail of the final state. DURATION*2.5 is just a safety cap.
   const startWall = Date.now();
-  wallAtFirstFrame = startWall;
+  wallAtFirstFrame = startWall; epochAtFirstFrame = startWall;
   let perfComplete = false;
   const perfDone = runPerformance().finally(() => { perfComplete = true; });
   const interval = 1000 / FPS;
@@ -332,7 +352,7 @@ if (GRAB) {
     client.send("Page.screencastFrameAck", { sessionId }).catch(() => {});
     if (stop) return;
     const ts = metadata.timestamp ?? Date.now() / 1000;
-    if (t0 === null) { t0 = ts; wallAtFirstFrame = Date.now(); }
+    if (t0 === null) { t0 = ts; wallAtFirstFrame = Date.now(); epochAtFirstFrame = metadata.timestamp ? metadata.timestamp * 1000 : wallAtFirstFrame; }
     const t = ts - t0;
     if (t >= DURATION) { stop = true; realDuration = t; return; }
     const file = `frame-${String(i).padStart(5, "0")}.png`;
@@ -351,6 +371,7 @@ if (GRAB) {
 }
 
 // Stop audio recorder + read the webm back as base64.
+const recStartEpoch = await page.evaluate(() => window.__acRecStart || null).catch(() => null);
 const audioB64 = await page.evaluate(async () => {
   if (!window.__acStop) return null;
   await window.__acStop();
@@ -378,7 +399,19 @@ writeFileSync(`${OUT}/frames.txt`, list);
 
 const OUTMP4 = `${OUT}/base-${SLUG}.mp4`;
 const vArgs = ["-y", "-f", "concat", "-safe", "0", "-i", `${OUT}/frames.txt`];
-const aArgs = haveAudio ? ["-i", AUDIO] : [];
+// The recorder starts before the first video frame arrives (a static page
+// paints late, so the gap can reach half a second). Cut that lead off the
+// audio so sound and picture share a time zero. --av-offset MS adds a manual
+// trim on top (positive = audio later).
+const audioLead = recStartEpoch && epochAtFirstFrame ? (epochAtFirstFrame - recStartEpoch) / 1000 : 0;
+// A capture hears the synth with no speaker path at all, while the picture
+// still takes a frame or two to show a note, so untouched the sound runs
+// ahead of the picture (measured 50–80 ms with measure-sync.py). 65 ms of
+// delay centres it; check any new capture with measure-sync.py.
+const AV_OFFSET_MS = flags["av-offset"] !== undefined ? parseFloat(flags["av-offset"]) : 65;
+const audioSkip = audioLead - AV_OFFSET_MS / 1000;
+console.log(`  audio started ${(audioLead * 1000).toFixed(0)} ms before the first frame; with ${AV_OFFSET_MS} ms of delay → ${audioSkip >= 0 ? "trimming" : "padding"} ${Math.abs(audioSkip * 1000).toFixed(0)} ms`);
+const aArgs = !haveAudio ? [] : audioSkip >= 0 ? ["-ss", audioSkip.toFixed(4), "-i", AUDIO] : ["-itsoffset", (-audioSkip).toFixed(4), "-i", AUDIO];
 const mapArgs = haveAudio
   ? ["-map", "0:v", "-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-shortest"]
   : ["-map", "0:v"];
@@ -394,7 +427,7 @@ gestures.sort((a, b) => a.t - b.t);
 writeFileSync(`${OUT}/capture.json`, JSON.stringify({
   piece: PIECE, slug: SLUG, perform: flags.perform || null, isMerry, url,
   duration: DURATION, realDuration, fps: FPS, density: DENSITY, width: CAP_W, height: CAP_H,
-  frames: stamps.length, base: OUTMP4, hasAudio, gestures,
+  frames: stamps.length, base: OUTMP4, hasAudio, audioLeadSec: audioLead, gestures,
   // frame-exact cursor track: one {t, x, y, down} per captured frame
   cursorTrack: stamps.map((s) => ({ t: s.t, x: s.cx, y: s.cy, down: !!s.down })),
 }, null, 2));

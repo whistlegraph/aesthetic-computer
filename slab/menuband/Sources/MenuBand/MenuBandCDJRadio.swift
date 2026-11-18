@@ -411,7 +411,7 @@ final class MenuBandCDJStatusItem {
             button.target = self
             button.action = #selector(handlePlatterEvent)
             button.sendAction(on: [.leftMouseDown, .leftMouseDragged, .leftMouseUp])
-            button.toolTip = "Menu Band CDJ Radio · drag the disc to scratch"
+            button.setAccessibilityLabel("Menu Band CDJ Radio · drag the disc to scratch")
         }
         setVisible(false)
     }
@@ -425,9 +425,9 @@ final class MenuBandCDJStatusItem {
     }
 
     func update(title: String, artworkURL: URL?, playing: Bool) {
-        statusItem.button?.toolTip = title.isEmpty
+        statusItem.button?.setAccessibilityLabel(title.isEmpty
             ? "Menu Band CDJ Radio · drag the disc to scratch"
-            : "CDJ Radio · \(title) · drag to scratch"
+            : "CDJ Radio · \(title) · drag to scratch")
         updateArtwork(artworkURL)
         setPlaying(playing)
     }

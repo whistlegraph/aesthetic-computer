@@ -5,9 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Geography, BLOCK, LOTS, lot } from '../geography.mjs';
+import { Geography, BLOCK } from '../geography.mjs';
 import { Tower, floorRoom, carWalls, lobbyWalls, altitude, ATRIUM, STOREY, SLAB, LEG } from '../tower.mjs';
-import { houseWalls } from '../park.mjs';
 import { WORLD } from '../world.mjs';
 import { worldMap, towerShapes, place, MAP_VERSION } from '../map.mjs';
 import { createDuelServer } from '../server.mjs';
@@ -27,14 +26,6 @@ test('every solid the server walks people against is on the map', () => {
   assert.equal(map.version, MAP_VERSION);
   for (const w of [...lobbyWalls(), ...carWalls()])
     assert.ok(map.structure.some((s) => holds(s, w)), `missing ${JSON.stringify(w)}`);
-  // Each settled house: its walls stand inside the house's box, in its block.
-  for (const b of geography.census().blocks)
-    for (const h of b.homes)
-      for (const w of houseWalls(lot(h.lot))) {
-        const there = { ...w, xMin: w.xMin + b.i * BLOCK + 0.1, xMax: w.xMax + b.i * BLOCK - 0.1,
-          zMin: w.zMin + b.j * BLOCK + 0.1, zMax: w.zMax + b.j * BLOCK - 0.1 };
-        assert.ok(map.structure.some((s) => s.role === 'house' && holds(s, there)), `no house over ${JSON.stringify(there)}`);
-      }
 });
 
 test('the tower is as tall as its highest floor, a slab a storey', () => {
@@ -55,18 +46,15 @@ test('the tower is as tall as its highest floor, a slab a storey', () => {
   assert.deepEqual(towerShapes(0), []); // no handles yet, no tower
 });
 
-test('the lattice: plaza, blocks, lots, homes and the blocks that open next', () => {
+test('the lattice: the plaza, the open blocks and the blocks that open next; no lots or houses', () => {
   const { geography, tower } = world();
   const map = worldMap({ geography, tower });
   const count = (role) => map.structure.filter((s) => s.role === role).length;
   const census = geography.census();
   assert.equal(count('plaza'), 1);
   assert.equal(count('block'), census.opened);
-  assert.equal(count('home') + count('lot'), census.opened * LOTS);
-  assert.equal(count('home'), 3);
-  assert.equal(count('house'), 3);
+  assert.deepEqual([count('home'), count('lot'), count('house')], [0, 0, 0]);
   assert.equal(count('next'), 6);
-  assert.ok(map.structure.some((s) => s.role === 'home' && s.label === '@jeffrey'));
   assert.equal(map.extent.x1 - map.extent.x0 >= BLOCK, true);
   assert.equal(map.census.settled, 3);
 });
@@ -86,15 +74,14 @@ test('what stands in a block is drawn where it stands', () => {
   assert.deepEqual([screen.x, screen.z, screen.yaw], [BLOCK + 3, 4, 1.5]);
 });
 
-test('people stand where they are: the plaza, a block, a house, a floor at its height', () => {
+test('people stand where they are: the plaza, a block, a floor at its height', () => {
   const { geography, tower } = world();
-  const f = tower.forHandle('oskie'), pod = geography.home('jeffrey');
+  const f = tower.forHandle('oskie');
   const at = (room, p) => place(room, p, { geography, tower });
   assert.deepEqual(at('lobby', { x: 1, y: 0, z: 2 }), { x: 1, y: 0, z: 2, floor: 0 });
   assert.deepEqual(at('e1n0', { x: -3, y: 0, z: 2 }), { x: BLOCK - 3, y: 0, z: 2, floor: 0 });
   assert.deepEqual(at(floorRoom(f.id), { x: 1, y: 0.5, z: 2 }), { x: 1, y: altitude(f.number) + 0.5, z: 2, floor: f.number });
-  const inside = at(pod.pod, { x: 0, y: 0, z: 0 }), r = lot(pod.lot);
-  assert.ok(inside.x > BLOCK + r.xMin && inside.x < BLOCK + r.xMax); // in jeffrey's house, in its block
+  assert.equal(at(geography.home('jeffrey').pod, { x: 0, y: 0, z: 0 }), null); // a house is no longer a place
   assert.equal(at('botbop', { x: 0, y: 0, z: 0 }), null);
   const map = worldMap({ geography, tower, seated: [
     { handle: 'Oskie', room: floorRoom(f.id), x: 0, y: 0, z: 0 }, { handle: 'x', room: 'studio', x: 0, y: 0, z: 0 }] });
@@ -126,4 +113,16 @@ test('GET /map serves the drawing', async () => {
   } finally {
     await app.close();
   }
+});
+
+test('with the houses retired the map has no lots, homes or houses: only the plaza, the open blocks and the tower', () => {
+  const { geography, tower } = world();
+  const gone = geography.retire();
+  assert.equal(gone.length, 3);
+  assert.ok(gone.every((p) => p.id.startsWith('pod-') && p.handle));
+  const map = worldMap({ geography, tower });
+  const count = (role) => map.structure.filter((s) => s.role === role).length;
+  assert.deepEqual([count('home'), count('lot'), count('house')], [0, 0, 0]);
+  assert.equal(count('block'), geography.census().opened);
+  assert.equal(geography.retire().length, 0);
 });

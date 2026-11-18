@@ -4,6 +4,10 @@ import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.compute
 export const HZ = 60;
 export const DT = 1 / HZ;
 export const INTERP_TICKS = 6;
+// 🏃 How far a body may run ahead of the server's word, in commands: four
+// seconds. The client predicts this many unanswered, and the server runs
+// this many that arrive late, so the two give out at the same moment.
+export const HORIZON = 240;
 export const PROTOCOL = 'duel-6';
 export const FRAG_LIMIT = 10;
 export const COLORS = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40];
@@ -28,6 +32,11 @@ const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
   zMax,
 });
 
+// 🚶 A side with a neighbour has no wall: a body walks on past it, this far
+// at most, while the next block takes it over (the ground is drawn across
+// the join, so nothing stops at the line).
+export const OVERRUN = 16;
+const SIDES = ['west', 'east', 'south', 'north']; // in WALLS' order
 export const WALLS = [
   // The room's four walls, drawn by the view (buildArena) at the same edges.
   box(-WORLD - 1, -WORLD, 0, 60, -WORLD - 1, WORLD + 1),
@@ -79,7 +88,8 @@ export function spawn(seat, life = 1) {
 // `fixed` is the place's own solid boxes (a block's house walls).
 // A `platform` among them is a ledge: stood on from above, never a wall.
 // `flat` keeps the body on the z = 0 plane (a side-on arena).
-export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false) {
+// `open` names the sides that lead to a neighbour (['east', 'south']).
+export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null) {
   if (!player.alive) return { ...player };
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
@@ -96,7 +106,7 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   const cfg = {
     ...CFG,
     groundY: support?.yMax || 0,
-    obstacles: [...WALLS, ...solid, ...boxes.filter((b) => b.yMax > feet + step)],
+    obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step)],
   };
   const next = pmove(
     { ...player, onGround: grounded },
@@ -129,8 +139,9 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     next.vx *= 22 / speed;
     next.vz *= 22 / speed;
   }
-  next.x = clamp(next.x, -WORLD + 0.4, WORLD - 0.4);
-  next.z = clamp(next.z, -WORLD + 0.4, WORLD - 0.4);
+  const past = (side) => (open?.includes(side) ? OVERRUN : 0);
+  next.x = clamp(next.x, -WORLD + 0.4 - past('west'), WORLD - 0.4 + past('east'));
+  next.z = clamp(next.z, -WORLD + 0.4 - past('south'), WORLD - 0.4 + past('north'));
   if (flat) {
     next.z = next.vz = 0;
     next.duck = duck;

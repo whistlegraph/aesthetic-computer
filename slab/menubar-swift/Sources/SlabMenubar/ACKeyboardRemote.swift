@@ -338,7 +338,7 @@ final class ACKeyboardRemote: NSObject {
 
     private func show(_ title: String, detail: String) {
         item?.button?.title = title
-        item?.button?.toolTip = detail
+        // No toolTip on a menu bar item: macOS strands them on screen as floaters.
         item?.button?.setAccessibilityLabel(detail)
     }
 

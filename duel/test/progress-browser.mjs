@@ -13,7 +13,7 @@ const lisp = process.argv.includes('--lisp');
 const artifact = process.argv.includes('--artifact'),
   renderOnly = process.argv.includes('--render-only');
 const token = 'c'.repeat(64),
-  app = createDuelServer({ builderToken: token });
+  app = createDuelServer({ guests: true, builderToken: token });
 await app.ready;
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');

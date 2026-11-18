@@ -1,5 +1,14 @@
 # dool geography
 
+> **2026-11-17: the houses are gone.** A home is a floor of the tower (`tower.mjs`). When the
+> server starts it retires every house still on a lot (`Geography.retire`), moves what stood inside
+> to its handle's floor (`ObjectStore.moveRooms`) and keeps both ledgers as they stood
+> (`geography.before-houses.json`, `objects.before-houses.json`). Blocks are open field. The
+> house drawing, the door messages (`enter-pod`, `exit-pod`), `GET /dool/pod`,
+> `POST /dool/park/layout` and `test/pods-browser.mjs` are removed; what follows about lots,
+> pods and curation describes the old ledger, which `Geography` can still read.
+
+
 Dool is a public park with personal pods. Guests can walk its paths and visit
 pods. Each pod has a permanent ID and content room; its placement in the park
 can change. The first two plots remain where they were when upgraded.

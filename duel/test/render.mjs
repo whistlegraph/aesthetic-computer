@@ -5,7 +5,7 @@ import { chromium } from 'playwright';
 import { PNG } from 'pngjs';
 import { createDuelServer } from '../server.mjs';
 
-const app = createDuelServer({ prefix: '/dool' });
+const app = createDuelServer({ guests: true, prefix: '/dool' });
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');
 const base = `http://127.0.0.1:${app.server.address().port}/dool/`;

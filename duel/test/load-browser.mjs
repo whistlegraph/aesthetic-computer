@@ -7,7 +7,7 @@ import { createDuelServer } from '../server.mjs';
 import { populatedRoom } from './load-fixture.mjs';
 
 const rows = [], errors = [];
-const app = createDuelServer({ prefix: '/dool', diagnosticsEnabled: true, diagnosticWrite: r => rows.push(r) });
+const app = createDuelServer({ guests: true, prefix: '/dool', diagnosticsEnabled: true, diagnosticWrite: r => rows.push(r) });
 await app.ready;
 app.store.data.rooms.lobby = process.env.DOOL_ROOM_FIXTURE
   ? JSON.parse(await readFile(process.env.DOOL_ROOM_FIXTURE, 'utf8')).rooms.lobby : populatedRoom();

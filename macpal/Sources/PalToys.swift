@@ -1,4 +1,4 @@
-// PalToys.swift — procedural 3D pals: panda, chicken, neo.
+// PalToys.swift — procedural 3D pals: panda, chicken, neo, blueberry, frisbee.
 //
 // Soft glossy toys built from SceneKit primitives (and one cut-gem mesh), so
 // they need no model files and no generator. Pal3DView asks for one with a
@@ -8,7 +8,7 @@ import AppKit
 import SceneKit
 
 enum PalToy {
-    static let names: Set<String> = ["panda", "chicken", "neo"]
+    static let names: Set<String> = ["panda", "chicken", "neo", "blueberry", "frisbee"]
 
     static func path(_ name: String) -> String { "toy:" + name }
 
@@ -20,7 +20,7 @@ enum PalToy {
 
     static func build(_ path: String?) -> SCNNode? {
         guard let n = name(path) else { return nil }
-        let toy = n == "panda" ? panda() : n == "chicken" ? chicken() : neo()
+        let toy = n == "panda" ? panda() : n == "chicken" ? chicken() : n == "blueberry" ? blueberry() : n == "frisbee" ? frisbee() : neo()
         let env = ProcessInfo.processInfo.environment
         let still = env["MACPAL_NO_IDLE"] != nil
             || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -174,6 +174,86 @@ enum PalToy {
         }
         stick(beak, on: root, yaw: 0, pitch: -6, r: 0.93)
         return root
+    }
+
+    // ── blueberry ───────────────────────────────────────────────────────────
+    // The flat glyph in the round: a periwinkle berry with its star crown on
+    // the brow, a stem and one leaf.
+    private static func blueberry() -> SCNNode {
+        let root = SCNNode()
+        let blue = gloss(0x5b6bd6, glow: 0.1), crown = gloss(0x3a4490, shine: 0.4)
+        root.addChildNode(blob(1, blue, seg: 48))
+        // crown: a ten-point star laid on the brow, a dark bead at its heart
+        let star = NSBezierPath()
+        for i in 0..<20 {
+            let a = CGFloat(i) * .pi / 10, r: CGFloat = i % 2 == 0 ? 0.3 : 0.17
+            let p = NSPoint(x: r * sin(a), y: r * cos(a))
+            if i == 0 { star.move(to: p) } else { star.line(to: p) }
+        }
+        star.close()
+        let cut = SCNShape(path: star, extrusionDepth: 0.1)
+        cut.materials = [crown]
+        stick(SCNNode(geometry: cut), on: root, yaw: 0, pitch: 46, r: 0.965)
+        stick(blob(0.075, gloss(0x2c346f, shine: 0.7), 1, 1, 0.6, seg: 14), on: root, yaw: 0, pitch: 46, r: 1.02)
+        for s: CGFloat in [-1, 1] {
+            stick(eye(0.115, 0x2b2b2b), on: root, yaw: 22 * s, pitch: 8, r: 0.975)
+            let c = cheek(0.16)
+            c.geometry?.materials = [{ let m = gloss(0xc9a0f2, shine: 0.2); m.transparency = 0.85; return m }()]
+            stick(c, on: root, yaw: 42 * s, pitch: -14, r: 0.99)
+        }
+        stick(smile(0.16, 0x2b2b2b), on: root, yaw: 0, pitch: -12, r: 0.985)
+        // stem and leaf, off the top toward the right like the glyph's
+        let wood = SCNCylinder(radius: 0.045, height: 0.34)
+        wood.materials = [gloss(0x4e8f54, shine: 0.3)]
+        let stem = SCNNode(geometry: wood)
+        stem.position = SCNVector3(0.2, 1.08, 0)
+        stem.eulerAngles.z = -0.38
+        root.addChildNode(stem)
+        let leaf = blob(0.3, gloss(0x6fbf73, shine: 0.45), 1, 0.42, 0.5, seg: 16)
+        leaf.position = SCNVector3(0.5, 1.2, 0)
+        leaf.eulerAngles.z = 0.42
+        root.addChildNode(leaf)
+        return root
+    }
+
+    // ── frisbee ─────────────────────────────────────────────────────────────
+    // The flat glyph in the round: a disc caught mid-flight, tipped so its top
+    // plate — and the face riding on it — looks back at you.
+    private static func frisbee() -> SCNNode {
+        let disc = SCNNode()
+        disc.addChildNode(blob(1, gloss(0x2286c5), 1, 0.27, 1, seg: 48))          // rim, deep blue
+        let plate = blob(0.93, gloss(0x63dcec, glow: 0.08), 1, 0.25, 1, seg: 48)  // top, aqua
+        plate.position.y = 0.075
+        disc.addChildNode(plate)
+        let well = blob(0.74, gloss(0x32b7e1, glow: 0.1), 1, 0.2, 1, seg: 40)     // the flight plate
+        well.position.y = 0.145
+        disc.addChildNode(well)
+        let lip = SCNTorus(ringRadius: 0.7, pipeRadius: 0.022)                   // its pale grip ring
+        lip.ringSegmentCount = 56
+        lip.materials = [gloss(0xbaf5f5, shine: 0.8)]
+        let ring = SCNNode(geometry: lip)
+        ring.position.y = 0.215
+        disc.addChildNode(ring)
+        // The face lies on the plate, +z turned up out of it.
+        let face = SCNNode()
+        face.position.y = 0.335
+        face.eulerAngles.x = -.pi / 2
+        for s: CGFloat in [-1, 1] {
+            let e = eye(0.1, 0x133c58)
+            e.position = SCNVector3(0.2 * s, 0.07, 0)
+            face.addChildNode(e)
+            let c = cheek(0.13)
+            c.position = SCNVector3(0.4 * s, -0.08, -0.03)
+            face.addChildNode(c)
+        }
+        let grin = smile(0.13, 0x133c58)
+        grin.position = SCNVector3(0, -0.1, 0)
+        face.addChildNode(grin)
+        disc.addChildNode(face)
+        disc.eulerAngles = SCNVector3(1.02, 0, -0.24)
+        let hold = SCNNode()
+        hold.addChildNode(disc)
+        return hold
     }
 
     // ── neo: a translucent lime cut gem; the face inside stays on you ───────
@@ -334,7 +414,7 @@ enum PalToy {
         let shut = SCNAction.customAction(duration: 0.16) { n, t in
             blink(n, 1 - abs(1 - t / 0.08))
         }
-        let gap = name == "panda" ? 5.3 : name == "chicken" ? 4.4 : 6.1
+        let gap = name == "panda" ? 5.3 : name == "chicken" ? 4.4 : name == "blueberry" ? 4.9 : name == "frisbee" ? 5.6 : 6.1
         toy.runAction(.repeatForever(.sequence([.wait(duration: gap), shut])), forKey: "blink")
     }
 

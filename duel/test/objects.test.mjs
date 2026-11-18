@@ -104,7 +104,7 @@ test('ownership and immutable versions survive restart; stale and foreign edits 
 });
 test('builder authentication, concurrent users, shared versions and unauthorized edits', async () => {
   const token = 'a'.repeat(64),
-    app = createDuelServer({ builderToken: token });
+    app = createDuelServer({ guests: true, builderToken: token });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
   await once(app.server, 'listening');

@@ -911,7 +911,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Behind-main tooltip (fleet builds only; see RevisionChecker).
         RevisionChecker.onChange = { [weak self] in self?.updateIcon() }
         RevisionChecker.start()
-        // Launch-time "update from main?" notice (fleet builds; see MenuBandUpdater).
+        // No launch-time update prompt: new builds arrive whole from the suite lock
+        // (slab/bin/slab-suite.mjs), never compiled here behind a dialog.
         MenuBandUpdater.onChange = { [weak self] in self?.updateIcon() }
         MenuBandUpdater.onWillPresent = { [weak self] in
             self?.prepareForModalAlert()
@@ -921,7 +922,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.refreshPerformanceInputRouting()
             self?.menuBand.setKeyboardPerformanceActive(true)
         }
-        MenuBandUpdater.checkOnLaunch()
         #if MAC_APP_STORE
         // Launch-at-login (App Store build only — the DMG build uses a
         // LaunchAgent). Reconcile the OS registration with the user's stored
@@ -4073,8 +4073,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let routing = menuBand.audioRoutingContextLabel.map { " - \($0)" } ?? ""
         let revision = (MenuBandUpdater.statusLine ?? RevisionChecker.statusLine).map { " · \($0)" } ?? ""
-        let toolTip = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
-        if button.toolTip != toolTip { button.toolTip = toolTip }
+        // Read aloud, never hovered: a toolTip on a menu bar item gets stranded as a floater.
+        let context = "\(menuBand.voiceContextLabel) - \(menuBand.octaveContextLabel) - \(layoutName) layout\(routing)\(revision)"
+        if button.accessibilityLabel() != context { button.setAccessibilityLabel(context) }
         // Let AppKit batch presentation after the coalesced image update.
         button.needsDisplay = true
     }

@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { createDuelServer } from '../server.mjs';
-const app = createDuelServer({ prefix: '/dool' });
+const app = createDuelServer({ guests: true, prefix: '/dool' });
 await app.ready; app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
 const base = `http://127.0.0.1:${app.server.address().port}`;
 const browser = await chromium.launch({ channel: 'chrome', headless: true });

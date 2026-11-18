@@ -58,3 +58,15 @@ export async function accountToken() {
     return null;
   }
 }
+// 🪪 The way to a seat. Under the prompt the host's own sign-up opens; a
+// page on its own goes to the prompt, where an account or a handle is made.
+export function askAccount(needs = 'account') {
+  const h = host();
+  if (needs === 'account' && typeof h?.acLOGIN === 'function') return void h.acLOGIN('signup');
+  const to = needs === 'account' ? 'https://aesthetic.computer/?signup' : 'https://aesthetic.computer/prompt';
+  try {
+    (window.top || window).location.href = to;
+  } catch {
+    location.href = to;
+  }
+}

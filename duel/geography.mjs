@@ -254,6 +254,18 @@ export class Geography {
     this.revision++;
     return moves.map(m => this.publicPod(m.pod));
   }
+  // 🏢 Homes are floors of the tower now: the houses on the lots come down.
+  // Says whose they were (so what stood inside can go up to their floor);
+  // anyone resting in one wakes on the plaza.
+  retire() {
+    const gone = Object.values(this.pods).map((p) => ({ id: p.id, handle: p.handle, accountId: p.accountId || null }));
+    if (!gone.length) return gone;
+    for (const [who, r] of Object.entries(this.rests)) if (this.pod(r.room)) delete this.rests[who];
+    this.pods = {};
+    this.placements = {};
+    this.revision++;
+    return gone;
+  }
   rest(handle, { room, x, z, yaw = 0 }, now = Date.now()) {
     const who = key(handle);
     if (!who || !(room === LOBBY || parseBlock(room) || this.pod(room) || /^floor-[a-f0-9]{8}$/.test(room))) return null;
@@ -313,6 +325,12 @@ export class GeographyStore {
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
     }
+  }
+  // The ledger as it stood, kept once beside the live one (never replaced).
+  async keep(name) {
+    if (!this.directory) return;
+    await copyFile(join(this.directory, 'geography.json'), join(this.directory, name), constants.COPYFILE_EXCL)
+      .catch((e) => { if (e.code !== 'EEXIST' && e.code !== 'ENOENT') throw e; });
   }
   change(fn) {
     const task = this.queue.then(async () => {

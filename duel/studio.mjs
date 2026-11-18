@@ -21,6 +21,8 @@ if (!token || token.length < 32) {
 const app = createDuelServer({
   builderToken: token,
   stateDir,
+  // A local studio has no AC session: anyone is seated unless DOOL_GUESTS=0.
+  guests: process.env.DOOL_GUESTS !== '0',
   // The studio publishes each finished version to AC's KidLisp store.
   publishKidlisp: process.env.DOOL_KIDLISP === '0' ? null : kidlispPublisher(),
 });

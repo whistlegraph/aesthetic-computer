@@ -7,7 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { createDuelServer } from '../server.mjs';
 
-const app = createDuelServer({ prefix: '/dool' });
+const app = createDuelServer({ guests: true, prefix: '/dool' });
 app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
 const base = process.env.DUEL_URL || `http://127.0.0.1:${app.server.address().port}/dool/`;
 const room = `browser-${Date.now()}`;

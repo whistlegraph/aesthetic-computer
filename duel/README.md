@@ -14,8 +14,9 @@ npm run duel
 
 Open http://127.0.0.1:8787 in two browser windows. You enter the lobby directly;
 click the arena to capture the mouse. One player can move and build while waiting.
-The second starts a three-second countdown. Death respawns after one second;
-a finished match resets after five. Additional connections spectate with a free camera.
+The second player starts the match where both stand: an arrival or a departure
+never moves or stops anyone. Death respawns after one second; a finished match
+resets after five, with a three-second countdown. Additional connections spectate with a free camera.
 
 WASD moves, mouse aims, left mouse opens the object prompt, space jumps, V switches first/third
 person, Escape releases the mouse. Click again to resume. No mouse is needed: a control key
@@ -133,16 +134,45 @@ victim, claim a hit, supply a position or choose their simulation delta.
 | Mechanism | Scaffold behavior |
 | --- | --- |
 | Simulation | 60 Hz, fixed 1/60-second movement step |
-| Snapshots | 30 Hz, full state, sequence acknowledgements |
+| Snapshots | 60 Hz, full state, sequence acknowledgements |
 | Prediction | Immediate local simulation; reset to authority and replay unacknowledged input |
 | Presentation | Interpolate consecutive local ticks at display rate; ease small reconciliation offsets over 70 ms; mouse aim stays immediate |
-| Input delivery | Six-command backup, one batch per display frame, deduplication, bounded queue |
-| Server time budget | At most one command per simulation tick; excess backlog discarded |
-| Remote rendering | Six-tick target buffer on a monotonic playback clock; rate adjusts to jitter; freeze on starvation |
+| Input delivery | Every command once, in order, in batches of twelve; what a slow link held back goes when it clears |
+| Server time budget | One command per tick of the player's own time; late commands run in the order sent, up to `HORIZON` (four seconds) |
+| Remote rendering | Playback clock six ticks behind the newest snapshot, further on a link that delivers in clumps (up to 36); rate adjusts; freeze on starvation |
 | Rockets | Authoritative swept collision and splash; no projectile rewind |
-| Disconnect | Match cancelled, remaining player returns to warmup; vacated seat reusable |
-| Stalls | Prediction stops after one second without snapshots; no long catch-up burst |
+| Arrivals and departures | Never move or stop anyone already in the room; the score clears when one player is left |
+| Between rooms | The body keeps walking by its own commands; the next room runs them when it seats it |
+| Stalls | Prediction runs `HORIZON` commands ahead of the last acknowledgement, then waits |
 | Transport | WebSocket; bounded messages/queues, heartbeat and slow-consumer cutoff |
+
+### Local first
+
+This is the rule every change to movement, rooms and the network is checked
+against: **your own body answers your own keys on the same frame, whatever the
+link is doing.** The world arrives when it arrives; you never wait for it.
+
+1. **A key moves the body at once.** Input is run locally the tick it is
+   read. Nothing a server says is needed first.
+2. **The server ends where you predicted.** It runs your commands, all of
+   them, in the order sent, however late they come (to `HORIZON`). A
+   correction is a bug to find, not a cost of latency: `?debug` counts them,
+   and on a clean link the count is zero.
+3. **Nothing else moves you.** Someone arriving, someone leaving, a round
+   starting next to you, a reload of your own page: none of them sets your
+   body down somewhere else or takes your keys away.
+4. **A join in the world is not a stop.** Crossing a block or entering a
+   door changes rooms under a body that is still walking: keys stay down,
+   speed carries over, and the commands given on the way are run on arrival.
+5. **Others glide.** Remote bodies are drawn from the past, far enough back
+   that the next snapshot is always already here; the delay widens on a
+   clumpy link instead of the picture stopping and jumping.
+6. **When it must give out, it holds still and says so.** Past `HORIZON`
+   the body waits where it is (never rubber-bands) and the status line reads
+   CONNECTION STALLED.
+
+`test/presentation.test.mjs` and `test/pods.test.mjs` hold a test for each of
+2 to 5; a change that breaks one is breaking the rule.
 
 `world.mjs` is shared geometry/movement; `net.mjs` is validation/reconciliation;
 `match.mjs` is the transport-independent match; `server.mjs` supplies rooms,
@@ -158,6 +188,7 @@ reloads the renderer. Other Oskiewar hosts keep their existing defaults.
 interpolation adds one simulation tick (16.7 ms) of visual delay. Corrections over
 one meter, life changes and match transitions snap immediately; smaller offsets
 decay in real time. No smoothed position is sent to the server or used for hits.
+Life changes snap only when the body really was set down elsewhere.
 
 `paint.mjs` builds solid-color models and geometry from the shared Oskiewar
 5x7 block font. `project.mjs` clips faces at the near plane and projects them
