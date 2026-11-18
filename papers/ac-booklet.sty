@@ -9,9 +9,24 @@
 % first book set from this file. A book adds its own entry macro on top.
 %
 % Use from papers/<book>/ with XeLaTeX:  \usepackage{../ac-booklet}
+%                                    or \usepackage[screen]{../ac-booklet}
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesPackage{ac-booklet}[2026/11/18 Aesthetic Computer half-letter booklet]
+% Two pages.
+%   (default)  a booklet with a spine: twoside, the margin column on the outside.
+%   [screen]   a book read on a screen, never bound: every page the same. A
+%              rail on the left holds side-heads and small drawings, the text
+%              column sits to its right, and full-width blocks (cards, tables,
+%              chapter heads) span rail and column together: \fullwidth{...}.
+\newif\ifacscreen
+\DeclareOption{screen}{\acscreentrue}
+\ProcessOptions\relax
+\ifacscreen
+\RequirePackage[paperwidth=5.5in,paperheight=8.5in,left=1.47in,right=0.4in,top=0.42in,bottom=0.6in,marginparwidth=0.92in,marginparsep=0.15in,footskip=0.34in,nohead]{geometry}
+\reversemarginpar
+\else
 \RequirePackage[paperwidth=5.5in,paperheight=8.5in,inner=0.5in,outer=1.5in,top=0.72in,bottom=0.78in,marginparwidth=1.05in,marginparsep=0.16in,headsep=0.2in,footskip=0.34in]{geometry}
+\fi
 \RequirePackage{fontspec}
 \setmainfont{Latin Modern Roman}[Extension=.otf,UprightFont=lmroman10-regular,BoldFont=lmroman10-bold,ItalicFont=lmroman10-italic,BoldItalicFont=lmroman10-bolditalic,SmallCapsFont=lmromancaps10-regular]
 \setsansfont{Latin Modern Sans}[Extension=.otf,UprightFont=lmsans10-regular,BoldFont=lmsans10-bold,ItalicFont=lmsans10-oblique]
@@ -68,4 +83,23 @@
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \emergencystretch=2em
 \raggedbottom\linespread{1.04}
+
+% --- The screen page: one grid on every page.
+\ifacscreen
+\newlength{\rail}\setlength{\rail}{\dimexpr\marginparwidth+\marginparsep\relax}
+\newlength{\fullw}\AtBeginDocument{\setlength{\fullw}{\dimexpr\textwidth+\rail\relax}}
+% A block as wide as rail and column together.
+\newcommand{\fullwidth}[1]{\par\noindent\hspace*{-\rail}\begin{minipage}[t]{\fullw}#1\end{minipage}\par}
+% Side-heads sit in the rail, flush against the text they name.
+\renewcommand{\side}[1]{\leavevmode\marginpar{\sideup\raggedleft\footnotesize\itshape\color{acdark}#1}}
+\renewcommand{\sidevig}[2]{\leavevmode\marginpar{\sideup\raggedleft{\footnotesize\itshape\color{acdark}#1}\par\vspace{3pt}#2\par}}
+\renewcommand{\vig}[1]{\leavevmode\marginpar{\raggedleft #1}}
+% Chapter heads start at the rail's edge and rule the full width.
+\renewcommand{\chapter}[1]{\par\addvspace{1.2em}\refstepcounter{section}\markboth{#1}{#1}%
+ \fullwidth{{\footnotesize\scshape\color{acgray}chapter \thesection}\par\vspace{1pt}{\acbold\LARGE\color{acdark}#1}\par\vspace{3pt}{\color{acdark}\hrule height 0.9pt}}\nopagebreak\vspace{0.7em}}
+% The foot carries the book and chapter at the left and the page at the right.
+\fancyhf{}\fancyhfoffset[L]{\rail}
+\fancyfoot[L]{\footnotesize\scshape\color{acgray}\MakeLowercase{\leftmark}}
+\fancyfoot[R]{\footnotesize\color{acgray}\cue\quad{\color{black}\thepage}}
+\fi
 \endinput

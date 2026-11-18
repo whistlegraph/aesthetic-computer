@@ -31,6 +31,22 @@ book is a sister to Aesthetic Spells (papers/arxiv-magicians-manual).
   taped audio, results file, a folder server and a network block.
   `spellbook.e2e.mjs` was moved onto it on 2026-11-18.
 
+## Design (second pass, 2026-11-18)
+@jeffrey on the first build: "needs like boxes around typographic elements",
+"more alignment / color coding in the grid", "everything feels super floaty",
+"the spine we can lax cuz its not meant to be printed with a spine", "we need
+more of a design system there". What changed:
+- `ac-booklet.sty` got a `[screen]` layout: one page design, a left rail for
+  side-heads, full-width blocks over rail and column.
+- Each brush is a card of fixed height, two to a page: a band in the kind's
+  colour (green brush, blue filter, dark by name), the sentence, two ruled
+  grids (options left; odds, typed, ran as, test right), three framed pictures
+  with coloured labels along the bottom edge.
+- Everything typed is in a box; options are orange; painters are on black in
+  the colour the game's help gives them; test results are green or red chips.
+- Stamp's 17 painters moved to a back table so every card has the same parts.
+  Cards with more than four option rows pair them.
+
 ## Read in the source, not run
 - The even pick between the two tables: `AdvancedRandom.setProbabilityTable(choose("Brushes", "Filters"))` in the Index and Core sheets.
 - Blank or `?` at the prompt picks at random (Core, function GoToBrush).

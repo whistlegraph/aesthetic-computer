@@ -13,8 +13,48 @@
       "id": "two-buttons",
       "page": 3,
       "crop": [
+        0.06,
+        0.14,
+        0.2,
+        0.06
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "In the left rail, flush right against the text: No and Paint in two equal cells under the side-head."
+    },
+    {
+      "id": "the-prompt",
+      "page": 3,
+      "crop": [
+        0.06,
+        0.375,
+        0.2,
+        0.06
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "White mono on the prompt green, one line, flush right in the rail."
+    },
+    {
+      "id": "a-code",
+      "page": 3,
+      "crop": [
+        0.06,
         0.755,
-        0.165,
         0.2,
         0.065
       ],
@@ -27,51 +67,11 @@
         "hierarchy": "pass",
         "edgeRouting": "pass"
       },
-      "notes": "No and Paint in two equal cells under their side-head; type centred, nothing touches the rule."
-    },
-    {
-      "id": "the-prompt",
-      "page": 3,
-      "crop": [
-        0.755,
-        0.4,
-        0.2,
-        0.07
-      ],
-      "design": "pass",
-      "checks": {
-        "tangents": "pass",
-        "type": "pass",
-        "balance": "pass",
-        "spaceUse": "pass",
-        "hierarchy": "pass",
-        "edgeRouting": "pass"
-      },
-      "notes": "White mono on the prompt green, one line, clear of the side-head above."
-    },
-    {
-      "id": "a-code",
-      "page": 3,
-      "crop": [
-        0.755,
-        0.775,
-        0.2,
-        0.09
-      ],
-      "design": "pass",
-      "checks": {
-        "tangents": "pass",
-        "type": "pass",
-        "balance": "pass",
-        "spaceUse": "pass",
-        "hierarchy": "pass",
-        "edgeRouting": "pass"
-      },
-      "notes": "Grey corner with the eight-character code at bottom right; shortened after the first build so it clears the next side-head."
+      "notes": "Grey corner with the eight-character code at bottom right, clear of the side-head below."
     }
   ],
-  "reviewedAt": "2026-11-18T21:11:34.623Z",
-  "pdfSha256": "40d824cabd73eee790b71fa8be31e0cc4deb64d7e4e2cbd48032406e888e1feb",
+  "reviewedAt": "2026-11-18T21:26:11.697Z",
+  "pdfSha256": "38f99acdb8e5a0b25929939a13bbc68e0430f54fc46d14c671c465acfa79ffa8",
   "brand": {
     "canonicalName": "Aesthetic.Computer",
     "dotColor": "#B44887",
@@ -80,7 +80,7 @@
       "period": "pass",
       "dotColor": "pass"
     },
-    "notes": "Cover byline checked at 500 dpi: the period is pink. The second use, in Sources on the last page, was read at 110 dpi."
+    "notes": "Cover byline checked at 500 dpi on the first edition build (the period is pink); the cover and the Sources paragraph were not changed by the card layout and were re-read on the page contact sheet and at 100 dpi."
   },
-  "notes": "The gate counts pictures only inside figure environments, and this book has none, so the 37 strips and the cover are not listed. They were looked at anyway: every strip on a contact sheet of the source images (two sheets, then the seven that were rerun), all 21 pages on the page contact sheet, and pages 1, 3, 4, 16, 19, 20 and 21 at reading size. The last build changed one file name in the Sources paragraph on page 21; that paragraph was re-read at 110 dpi and the page count is unchanged."
+  "notes": "Screen layout, 25 pages. The gate counts pictures only inside figure environments, and this book has none, so the 37 picture rows and the cover are not listed. They were looked at anyway: every strip on contact sheets of the source images, all 25 pages on the page contact sheet, and pages 2, 3, 4, 12, 19, 23, 24 and 25 at 100 dpi. Checked on those: two cards fill each card page; the three pictures sit inside the card with equal gutters; no grid row wraps; Stamp fits its card."
 }

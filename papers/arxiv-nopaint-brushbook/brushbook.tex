@@ -1,31 +1,88 @@
 % !TEX program = xelatex
 % The No Paint Brushbook: every brush of nopaint.art (2021), A to Z, each with
 % the game's own help and what a browser saw when it ran the brush.
-% A sister to Aesthetic Spells (../arxiv-magicians-manual); both are set on the
-% half-letter page in ../ac-booklet.sty.
+% A sister to Aesthetic Spells (../arxiv-magicians-manual). It is read on a
+% screen, so it has no spine: ../ac-booklet.sty in its [screen] layout.
 %
 % Generated parts (do not edit): entries.tex, tables.tex, tally.tex, shots/,
 % cover.jpg. See gen-entries.mjs and notes.md.
-\documentclass[10pt,twoside]{article}
-\usepackage{../ac-booklet}
+\documentclass[10pt,oneside]{article}
+\usepackage[screen]{../ac-booklet}
 \usepackage{../ac-source-bundle}
+\usepackage{colortbl}
 \hypersetup{pdftitle={The No Paint Brushbook},pdfauthor={@jeffrey}}
-% No Paint's own colours: the title's yellow and the prompt's green.
-\definecolor{npyellow}{RGB}{255,221,0}
-\definecolor{npgreen}{RGB}{0,80,0}
-\definecolor{npink}{RGB}{24,24,32}
 
-% One brush. #1 name, #2 options, #3 kind, #4 label, #5 who made it,
-% #6 the game's sentence, #7 fields, #8 the strip, #9 what it started on.
-\newlength{\stripwidth}
-\newcommand{\brushentry}[9]{\par\addvspace{0.85em}\noindent\extramarks{#1}{#1}%
- \ifx\relax#5\relax\else\marginpar[\sideup\raggedleft\footnotesize\itshape\color{acdark}by #5]{\sideup\raggedright\footnotesize\itshape\color{acdark}by #5}\fi%
- \begin{minipage}[t]{\linewidth}\setlength{\parskip}{0pt}\setlength{\stripwidth}{0.72\linewidth}\phantomsection\label{#4}%
- {\large\spl{#1}}\ifx\relax#2\relax\else\ \textit{\small #2}\fi\hfill{\footnotesize\itshape #3}\par\vspace{0.12em}
- \noindent #6\par\vspace{0.2em}#7%
- \ifx\relax#8\relax\else\par\vspace{0.5em}\noindent\includegraphics[width=\stripwidth]{#8}\par\vspace{0.1em}%
- \noindent{\scriptsize\color{acgray}\makebox[0.370\stripwidth][l]{#9}\makebox[0.272\stripwidth][l]{the proposal}after Paint}\fi
- \end{minipage}\par}
+% ====================== THE SYSTEM ======================
+% One page, no spine. Three things repeat and nothing else is on a page:
+%   the rail and column   prose, with its side-heads in the rail;
+%   the card              one brush: a band, a sentence, two grids, three pictures;
+%   the ruled table       at the back.
+% Cards and tables span rail and column. Two cards fill a page exactly.
+%
+% Colour is a code, used the same way everywhere:
+\definecolor{npink}{RGB}{24,24,32}       % black: a brush's name, a painter's chip
+\definecolor{nporange}{RGB}{214,120,0}   % orange: an option; the proposal
+\definecolor{kbrush}{RGB}{0,118,62}      % green: a brush; a pass; after Paint
+\definecolor{kfilter}{RGB}{40,96,208}    % blue: a filter
+\definecolor{kname}{RGB}{64,56,74}       % dark: comes by name only
+\definecolor{badred}{RGB}{196,40,40}     % red: the test saw something else
+\definecolor{npgreen}{RGB}{0,80,0}       % the game's prompt
+
+% --- Boxes. Everything typed, and every label, sits in a box.
+\newcommand{\chipbox}[3]{{\setlength{\fboxsep}{1.7pt}\setlength{\fboxrule}{0.4pt}\fcolorbox{#1}{#2}{\vphantom{Xg}#3}}}
+\renewcommand{\spl}[1]{\chipbox{acgray!70}{acgray!9}{\ttfamily\bfseries #1}}           % something you type
+\newcommand{\opt}[1]{\chipbox{nporange}{nporange!7}{\ttfamily\footnotesize\color{nporange!70!black}#1}} % an option
+\newcommand{\bandopt}[1]{\chipbox{white}{white}{\ttfamily\footnotesize\bfseries\color{nporange!75!black}#1}}  % an option, on a band
+\newcommand{\kindchip}[2]{\chipbox{k#1}{k#1}{\sffamily\scriptsize\bfseries\color{white}#2}}             % brush, filter, by name
+\newcommand{\paintersize}{\footnotesize}
+\newcommand{\painter}[2]{\chipbox{npink}{npink}{\ttfamily\paintersize\bfseries\textcolor[HTML]{#2}{@#1}}}  % a painter, in their colour
+\newcommand{\ran}[1]{\chipbox{acgray!70}{acgray!9}{\ttfamily\scriptsize\bfseries #1}}          % a whole line, as typed or as run
+\newcommand{\ok}[1]{\chipbox{kbrush}{kbrush!10}{\sffamily\scriptsize\color{kbrush!80!black}#1}}
+\newcommand{\bad}[1]{\chipbox{badred}{badred!10}{\sffamily\scriptsize\color{badred!80!black}#1}}
+\newcommand{\lab}[1]{\leavevmode{\scriptsize\scshape\color{acdark}#1}}
+
+% --- The grid: ruled rows, labels in a fixed first column.
+\newlength{\labw}\setlength{\labw}{1.3cm}
+\newcommand{\grow}[2]{#1 & {\footnotesize #2} \\\hline}
+\newcommand{\oddsbar}[2]{\textcolor{k#1}{\rule[0.5pt]{#2}{4.5pt}}}
+\newcommand{\grid}[2]{{\arrayrulecolor{acgray!45}\renewcommand{\arraystretch}{1.22}%
+ \begin{tabular}[t]{@{}>{\raggedright\arraybackslash}p{\labw}@{\hspace{4pt}}>{\raggedright\arraybackslash}p{\dimexpr#1-\labw-4pt\relax}@{}}\hline #2\end{tabular}}}
+
+% --- The pictures: one height, one frame each, a coloured label under each.
+\newlength{\sh}
+\newcommand{\pic}[5]{\vtop{\offinterlineskip
+ \hbox{\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.5pt}\fcolorbox{#4}{white}{\includegraphics[height=\sh,trim=#2,clip]{#1}}}%
+ \hbox{\setlength{\fboxsep}{0pt}\colorbox{#4}{\makebox[\dimexpr#3+1pt\relax][l]{\rule[-2.4pt]{0pt}{9pt}\hspace{3pt}\sffamily\scriptsize\bfseries\color{white}#5}}}}}
+
+% --- The card. gen-entries.mjs sets \bn (name) \bo (options) \bk (kind key)
+% \bK (kind word) \bl (label) \bp (painter) \bd (sentence) \bL \bR (grid rows)
+% \bs (strip) \bt (what it started on), then \brushcard.
+\newlength{\cardh}\setlength{\cardh}{9.2cm}
+\newlength{\cardpad}\setlength{\cardpad}{7pt}
+\newlength{\cw}\newlength{\colw}\newlength{\colwb}
+\newcommand{\brushcard}{\par{\parskip=0pt\noindent\hspace*{-\rail}\extramarks{\bn}{\bn}%
+ {\setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.7pt}\fcolorbox{k\bk}{white}{%
+ \begin{minipage}[t][\cardh][t]{\dimexpr\fullw-1.4pt\relax}\setlength{\parskip}{0pt}\phantomsection\label{\bl}%
+  \setlength{\cw}{\dimexpr\linewidth-2\cardpad\relax}\setlength{\colw}{\dimexpr(\cw-10pt)*2/5\relax}\setlength{\colwb}{\dimexpr\cw-10pt-\colw\relax}%
+  % the band
+  \noindent{\setlength{\fboxsep}{0pt}\colorbox{k\bk}{\makebox[\linewidth][l]{\rule[-6pt]{0pt}{21pt}\hspace{\cardpad}%
+   {\ttfamily\bfseries\large\color{white}\bn}\hspace{7pt}\bo\hfill\bp\hspace{6pt}{\sffamily\scriptsize\bfseries\color{white}\bK}\hspace{\cardpad}}}}\par
+  \vspace{5pt}
+  % the sentence
+  \noindent\hspace{\cardpad}\parbox[t]{\cw}{\raggedright\bd}\par
+  \vspace{5pt}
+  % two grids, edge to edge
+  \noindent\hspace{\cardpad}\grid{\colw}{\bL}\hspace{10pt}\grid{\colwb}{\bR}\par
+  \vfill
+  % three pictures, edge to edge
+  \ifx\bs\empty\else\setlength{\sh}{\dimexpr(\cw-15pt)*10000/27266\relax}%
+  \noindent\hspace{\cardpad}\pic{\bs}{0 0 458 0}{\sh}{acgray}{\bt}\hfill%
+  \pic{\bs}{264 0 264 0}{0.7266\sh}{nporange}{the proposal}\hfill%
+  \pic{\bs}{458 0 0 0}{\sh}{kbrush}{after Paint}\hspace*{\cardpad}\par\fi
+  \vspace{\cardpad}
+ \end{minipage}}}\par}}
+% Two cards to a page: \cardgap between them, \clearpage after.
+\newcommand{\cardgap}{\vspace{0.28cm}}
 \input{tally}
 
 % Margin drawings: small pieces of the game's screen.
@@ -45,6 +102,8 @@
 \IfFileExists{cover.jpg}{\includegraphics[width=0.86\linewidth]{cover.jpg}}{}\par
 \vspace{0.7em}
 {\footnotesize\sffamily\color{acdark} What each brush left behind when a browser pressed Paint, in the order of the book.}\par
+\vspace{0.5em}
+{\kindchip{brush}{BRUSH}\ \ \kindchip{filter}{FILTER}\ \ \kindchip{name}{BY NAME}}\par
 \vfill
 \begin{minipage}{0.8\linewidth}\centering\itshape\color{acdark}
 Press ``Paint'' if you like what you see, or ``No'' if you don't.\par
@@ -57,23 +116,25 @@ Press ``Paint'' if you like what you see, or ``No'' if you don't.\par
 \restoregeometry
 
 % ====================== FRONT MATTER ======================
-\thispagestyle{empty}
-\vspace*{0.6em}
-\noindent\textbf{Abstract.} No Paint is a painting game with two buttons. It shows you something it could do to your painting, and you answer No or Paint. It has been at \url{https://nopaint.art} since 2021 and people still paint with it. This book is the list of things it can do: \brushcount{} brushes from A to Z, each with the game's own words for it, the options it takes, how often the game offers it, and pictures of one run.
+\chapter{This book}\label{ch:this}
+\side{Abstract.}No Paint is a painting game with two buttons. It shows you something it could do to your painting, and you answer No or Paint. It has been at \url{https://nopaint.art} since 2021 and people still paint with it. This book is the list of things it can do: \brushcount{} brushes from A to Z, each with the game's own words for it, the options it takes, how often the game offers it, and pictures of one run.
 
-\vspace{0.7em}
-\noindent\textbf{How to read it.} Words set like \spl{this} are typed at the game's prompt. Each entry shows three pictures: the painting before, the proposal on the screen, and the painting after Paint. A \emph{brush} adds something, so it starts on a new painting. A \emph{filter} changes what is there, so it starts on a test card. The label under the first picture says which.
+\side{Boxes.}Anything in a box like \spl{this} is typed at the game's prompt. An option a brush takes is orange: \opt{X} \opt{Y}. A painter is on black in the colour the game gives them: \painter{erin}{EE0000}.
 
-\vspace{0.7em}
-\noindent\textbf{Every entry has a line marked \textsc{ran}.} It says what a real browser saw on \testdate{} when it ran the brush twice, once answered Paint and once answered No. Of \brushcount{} brushes, \tallyworks{} did both as they should, \tallydiffers{} did something else and the entry says what, and \tallyuntested{} were not run.
+\side{Colours.}Each brush has a card, and the card's colour says what kind it is. \kindchip{brush}{BRUSH} adds something, so its pictures start on a new painting. \kindchip{filter}{FILTER} changes what is there, so its pictures start on a test card. \kindchip{name}{BY NAME} is never offered; you type it.
 
-\vspace{0.9em}
-{\small\noindent\begin{tabularx}{\linewidth}{@{}L@{}r@{}}
-How No Paint works & \pageref{ch:how} \\
-The brushes, A to Z & \pageref{ch:brushes} \\
-Tables & \pageref{ch:tables} \\
-How this book was made & \pageref{ch:made} \\
-\end{tabularx}}
+\side{Pictures.}Every card ends with the same three: the painting before, the proposal on the screen, and the painting after Paint. Two cards fill a page, in the order of the alphabet, and the foot of the page names the first and last.
+
+\side{The test.}Every card has a row marked \lab{test}. It says what a real browser saw on \testdate{} when it ran the brush twice, once answered Paint and once answered No. Of \brushcount{} brushes, \tallyworks{} did both as they should, \tallydiffers{} did something else and the card says what in red, and \tallyuntested{} were not run.
+
+\side{Who made it.}The page credits Jeffrey Alan Scudder with Alex Freundlich, Ella Fleck, Camille Klein and friends. The game's help names the maker of each brush, and \paintercount{} painters whose drawings \spl{Stamp} places. This book prints those names as the game does, and lists them at the back.
+
+\fullwidth{\vspace{0.6em}{\small\arrayrulecolor{acgray!45}\renewcommand{\arraystretch}{1.3}\begin{tabularx}{\linewidth}{@{}L r@{}}\hline
+How No Paint works & \pageref{ch:how} \\\hline
+The brushes, A to Z & \pageref{ch:brushes} \\\hline
+Tables & \pageref{ch:tables} \\\hline
+How this book was made & \pageref{ch:made} \\\hline
+\end{tabularx}}}
 \clearpage
 
 % ====================== HOW IT WORKS ======================
@@ -84,7 +145,7 @@ How this book was made & \pageref{ch:made} \\
 
 \sidevig{The prompt.}{\vigprompt}You can also ask for a brush. Tap the prompt and type its name exactly. The game's help says the rest: use a colon to add options, and keep an option random with a question mark. \spl{Softy: 128 128 S ?} is a small soft streak at the middle of the painting in a colour the game chooses. Type nothing, or \spl{?}, and the game picks for you.
 
-\side{Options.}Most options are places, sizes and colours. A place is two numbers from 0 to 255, counted from the top left corner, because the painting is 256 dots wide and 256 tall. A colour is six letters and digits, from \spl{000000} (black) to \spl{FFFFFF} (white). Leave an option out and the game chooses it. The prompt then shows the choice in grey, and the \textsc{ran} lines in this book quote it.
+\side{Options.}Most options are places, sizes and colours. A place is two numbers from 0 to 255, counted from the top left corner, because the painting is 256 dots wide and 256 tall. A colour is six letters and digits, from \spl{000000} (black) to \spl{FFFFFF} (white). Leave an option out and the game chooses it. The prompt then shows the choice in grey, and the \lab{ran as} rows in this book quote it.
 
 \side{Three by name only.}\spl{Camera}, \spl{Load} and \spl{Playlist} are never proposed. \spl{Camera} shows your device's camera. \spl{Playlist} runs a written sequence of brushes: the game has six, and it can read one from a text file. \spl{Load} brings in a picture from your device or a painting by its code.
 
@@ -92,22 +153,23 @@ How this book was made & \pageref{ch:made} \\
 
 \side{A new painting.}A new painting is not white. In every run of the test it began as one flat colour with a fine grain over it, a different colour each time. The \emph{before} pictures of the brushes show it.
 
-\side{Who made it.}The page credits Jeffrey Alan Scudder with Alex Freundlich, Ella Fleck, Camille Klein and friends. The game's help names the maker of each brush, and \paintercount{} painters whose drawings \spl{Stamp} places. This book prints those names as the game does.
 
 % ====================== THE BRUSHES ======================
-\chapter{The brushes}\label{ch:brushes}
+% No chapter head: the cards fill their pages. The foot still names the chapter.
+\clearpage\extramarks{\firstbrush}{\firstbrush}\markboth{The brushes}{The brushes}\phantomsection\label{ch:brushes}
 \input{entries}
+\extramarks{}{}
 
 % ====================== TABLES ======================
 \chapter{Tables}\label{ch:tables}
-\extramarks{}{}\noindent{\small \emph{Weight} is the number the game holds for the brush. \emph{In 100} is how many of 100 proposals it should be, counting the even pick between the two lists.}
+\side{Reading them.}\emph{Weight} is the number the game holds for the brush. \emph{In 100} is how many of 100 proposals it should be, counting the even pick between the two lists. The bar draws it.
 \input{tables}
 
 % ====================== HOW THIS BOOK WAS MADE ======================
 \chapter{How this book was made}\label{ch:made}
-\side{The words.}The sentence under each name, the option names and their ranges are the game's own help pages, read out of the 2021 project file by a script and printed without change. Two things are the book's: the sentence for \spl{Stamp}, which has none in the game, and the \textsc{odds} lines, worked out from the game's two weighted lists.
+\side{The words.}The sentence under each name, the option names and their ranges are the game's own help pages, read out of the 2021 project file by a script and printed without change. Two things are the book's: the sentence for \spl{Stamp}, which has none in the game, and the \lab{odds} rows, worked out from the game's two weighted lists.
 
-\side{The pictures.}A test ran the game in a browser with nobody watching (headless Chrome on a Mac mini). The build was the one served at nopaint.art, with one small script added so the test can type at the prompt, press the buttons and read the painting. For each brush it opened a new game, typed the name, waited 2.6 seconds, took the picture of the proposal, and pressed Paint. Then it did the same again and pressed No. Most names were typed with no options, so the game chose them. Six were typed with options, to put the mark at the middle or make it large enough to see; their \textsc{ran} lines show what was typed. Three slow brushes were watched for six to nine seconds. \spl{Breathe} started on the test card, because it needs something to inflate. The game was served from a folder and could reach nothing else, so no visit was counted and no painting was saved.
+\side{The pictures.}A test ran the game in a browser with nobody watching (headless Chrome on a Mac mini). The build was the one served at nopaint.art, with one small script added so the test can type at the prompt, press the buttons and read the painting. For each brush it opened a new game, typed the name, waited 2.6 seconds, took the picture of the proposal, and pressed Paint. Then it did the same again and pressed No. Most names were typed with no options, so the game chose them. Six were typed with options, to put the mark at the middle or make it large enough to see; the \lab{typed} row of each card shows what was typed. Three slow brushes were watched for six to nine seconds. \spl{Breathe} started on the test card, because it needs something to inflate. The game was served from a folder and could reach nothing else, so no visit was counted and no painting was saved.
 
 \side{What a pass means.}After Paint the painting must be different. After No it must be the same. The test does not judge whether the picture is the right one. A person looked at every strip in this book for that.
 
