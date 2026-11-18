@@ -1,11 +1,12 @@
 // Shared park geometry and server-authorized edge transitions.
 export const PARK_EDGES = ['east', 'west', 'north', 'south'];
 // Blocks meet along their whole edge, not only where the lanes cross: walk
-// off any side with a neighbour and you are in the neighbour. EDGE sits just
-// inside the walking bound (world.mjs keeps bodies within 7.6); an arrival is
-// set down at REACH, clear of the edge it came through, or it would be handed
-// straight back.
-export const EDGE = 7.5, REACH = 7.3, SPAN = 16;
+// off any side with a neighbour and you are in the neighbour. A block is
+// 16 m (8 either way) and EDGE sits a little past its line: an arrival is set
+// down at the very same spot seen from the next block (0.4 m short of that
+// block's own EDGE), so nothing jumps and it is not handed straight back.
+// (A side with a neighbour has no wall: world.mjs lets a body walk past it.)
+export const EDGE = 8.2, SPAN = 16;
 
 // 🌳 The tower's grounds: lattice cells [i, j] around the plaza that are open
 // field and never housing, so the tower stands in a yard and can be seen
@@ -91,15 +92,13 @@ export function edgeAt(p) {
   if (p.z < -EDGE) return 'south';
   return null;
 }
-// The same spot seen from the next block: one block over, held inside the
-// arrival line. The ground is drawn across the join, so this reads as a
-// short step forward.
+// The same spot seen from the next block: exactly one block over. The ground
+// is drawn across the join, so the body does not move at all.
 export function landing(p, edge) {
   const out = { x: p.x, z: p.z, yaw: p.yaw, pitch: p.pitch };
-  const hold = (n) => Math.max(-REACH, Math.min(REACH, n));
-  if (edge === 'east') out.x = hold(p.x - SPAN);
-  if (edge === 'west') out.x = hold(p.x + SPAN);
-  if (edge === 'north') out.z = hold(p.z - SPAN);
-  if (edge === 'south') out.z = hold(p.z + SPAN);
+  if (edge === 'east') out.x = p.x - SPAN;
+  if (edge === 'west') out.x = p.x + SPAN;
+  if (edge === 'north') out.z = p.z - SPAN;
+  if (edge === 'south') out.z = p.z + SPAN;
   return out;
 }

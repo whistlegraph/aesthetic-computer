@@ -35,7 +35,7 @@ const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
 // 🚶 A side with a neighbour has no wall: a body walks on past it, this far
 // at most, while the next block takes it over (the ground is drawn across
 // the join, so nothing stops at the line).
-export const OVERRUN = 4;
+export const OVERRUN = 16;
 const SIDES = ['west', 'east', 'south', 'north']; // in WALLS' order
 export const WALLS = [
   // The room's four walls, drawn by the view (buildArena) at the same edges.

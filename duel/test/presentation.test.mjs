@@ -198,7 +198,7 @@ test('snapshots that arrive in clumps play further back, so others glide; a stea
 test('a side with a neighbour has no wall: the body walks on past the line; a closed side stops it', () => {
   const run = (open) => {
     let p = { ...spawn(0), x: 6, z: 0 };
-    for (let i = 1; i <= 90; i++) p = move(p, { ...command(i), yaw: 90 }, [], 0, [], false, open);
+    for (let i = 1; i <= 240; i++) p = move(p, { ...command(i), yaw: 90 }, [], 0, [], false, open);
     return p;
   };
   assert.ok(Math.abs(run(null).x - (WORLD - 0.4)) < 1e-9);

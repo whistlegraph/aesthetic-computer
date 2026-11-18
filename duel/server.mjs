@@ -681,7 +681,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       room.match.setObjects(store.objects(key));
       builders.broadcast(key);
     }).catch(() => {});
-    let arrived = false;
+    let arrived = false, leaving = null; // leaving: the passage this socket was last given
     // 👀 Told its place is another room, and not yet walked a step in this
     // one: a look in on the way, which leaves the avatar's rest where it was.
     let passing = false;
@@ -920,12 +920,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
           walked = room.match.seats[member.seat].ack;
         }
+        // Asked again before the answer got there (a slow link): the same
+        // passage again, never a new one that would void the first.
+        if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
         passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position, at: Date.now(), until: Date.now() + 30000 });
         // `ack` is the last command this room ran: the walker's later ones go with them.
-        send(ws, { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) });
+        leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) } };
+        send(ws, leaving.message);
         return;
       }
       // 🛗 The elevator: from the car, to a floor by number or handle, to
@@ -948,12 +952,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (!destination) return void send(ws, { type: 'elevator-result',
           error: to === 'home' ? 'sign in for a floor' : to === 'up' ? 'this is the top' : `no floor ${to}` });
         if (destination === key) return void send(ws, { type: 'elevator-result', error: 'you are here' });
+        // Asked again before the answer got there (a slow link): the same
+        // passage again, never a new one that would void the first.
+        if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
         passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, at: Date.now(), until: Date.now() + 30000 });
-        send(ws, { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
-          ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } });
+        leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
+          ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } } };
+        send(ws, leaving.message);
         return;
       }
       // Ask for a floor number, the way a name is registered.

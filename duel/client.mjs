@@ -62,9 +62,10 @@ let room =
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
     : (accountExpected() && lastPlace) || 'lobby';
-let park = null, passage = null, walkAt = 0;
+let park = null, passage = null, walkAt = 0, walkEdge = null; // walkEdge: the side last walked off
+const BACK = { east: 'west', west: 'east', north: 'south', south: 'north' };
 // 🚶 The body between two rooms: where the passage sets it down, shown until
-// the new room seats it (a moment; three seconds at most), so the eye never
+// the new room seats it (a moment; twenty seconds at most), so the eye never
 // leaves the head for the watcher's camera.
 let held = null;
 let sentSeq = 0; // The newest command handed to the socket.
@@ -679,9 +680,9 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   // 🚶 The body goes on between the two rooms (held): it keeps walking by its
   // own commands, which the next room runs when it seats it. A walk across
   // a block's edge keeps its motion and the commands the old room never ran.
-  const walk = Number.isInteger(ack);
+  const walk = Number.isInteger(ack), from = room;
   held = receipt && at && player && seat >= 0
-    ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 3000 } : null;
+    ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
   if (chosen) roamed = true;
   room = to;
@@ -708,6 +709,9 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     park = { neighbours: known.neighbours, plaza: known.plaza };
     objects = known.objects || [];
     tiles = known.tiles || {};
+  } else if (walk && walkEdge) {
+    // Nothing known of the place yet but the way in: that side leads back.
+    park = { neighbours: { [BACK[walkEdge]]: from }, plaza: false };
   }
   void streamWorld();
   setScreens([]);
@@ -2128,7 +2132,7 @@ function step(now) {
     // with a neighbour, the next block takes the walker.
     if (now > walkAt) {
       const edge = edgeAt(player);
-      if (edge && park.neighbours[edge]) { send({ type: 'walk', edge }); walkAt = now + 600; }
+      if (edge && park.neighbours[edge]) { walkEdge = edge; send({ type: 'walk', edge }); walkAt = now + 2500; } // (the server keeps the request and answers when the body is there)
     }
   }
   const seconds = snapshot

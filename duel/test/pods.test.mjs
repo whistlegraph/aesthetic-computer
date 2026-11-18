@@ -71,13 +71,14 @@ test('park paths only connect open adjacent blocks and land inside the opposite 
   assert.deepEqual(g.neighbours('lobby'), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
   assert.deepEqual(g.neighbours('e1n0'), { west: 'lobby', south: 'e1s1' });
   assert.equal(g.neighbours('studio'), null);
-  assert.equal(edgeAt({x:7.55,y:1.7,z:0}), 'east');
-  assert.equal(edgeAt({x:7.55,y:1.7,z:2}), 'east'); // the whole side is open, not only the lane
-  assert.equal(edgeAt({x:7.4,y:1.7,z:2}), null);
-  assert.equal(edgeAt({x:7.55,y:3,z:0}), null);
-  // The same spot one block over, set down clear of the edge it came through.
-  const landed = landing({x:7.58,z:0.2,yaw:90,pitch:12},'east');
-  assert.deepEqual(landed,{x:-7.3,z:0.2,yaw:90,pitch:12});
+  assert.equal(edgeAt({x:8.25,y:1.7,z:0}), 'east');
+  assert.equal(edgeAt({x:8.25,y:1.7,z:2}), 'east'); // the whole side is open, not only the lane
+  assert.equal(edgeAt({x:8.1,y:1.7,z:2}), null);
+  assert.equal(edgeAt({x:8.25,y:3,z:0}), null);
+  // The very same spot seen from one block over: nothing moves, and it is not handed straight back.
+  const landed = landing({x:8.3,z:0.2,yaw:90,pitch:12},'east');
+  assert.ok(Math.abs(landed.x+7.7)<1e-9);
+  assert.deepEqual({...landed,x:0},{x:0,z:0.2,yaw:90,pitch:12});
   assert.equal(edgeAt({...landed,y:1.7}), null);
 });
 
@@ -106,14 +107,18 @@ async function fixture(t) {
 test('walking uses server position and a one-use owner-bound passage, preserving facing', async t => {
   const {app,connect}=await fixture(t);
   const a=await connect('lobby');
-  a.ws.send(JSON.stringify({type:'walk',edge:'east',x:7.58,z:0}));
+  a.ws.send(JSON.stringify({type:'walk',edge:'east',x:8.3,z:0}));
   await delay(40);
   assert.ok(!a.messages.some(m=>m.type==='travel'));
   const member=[...app.rooms.get('lobby').sessions.values()][0];
-  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:8.3,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
   a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const travel=a.messages.find(m=>m.type==='travel');
+  // Asked again before the answer got there (a slow link): the same passage, never one that voids the first.
+  a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
+  await wait(()=>a.messages.filter(m=>m.type==='travel').length===2);
+  assert.equal(a.messages.filter(m=>m.type==='travel')[1].passage,travel.passage);
   // The motion crosses with the body, and the walker is told which commands the plaza ran.
   // (A tick or two of friction may pass before the plaza answers.)
   assert.ok(travel.at.vx>4&&travel.at.vx<=6);
@@ -149,7 +154,7 @@ test('a visitor walks out of the plaza and down the promenade, two blocks south,
   let at=await connect('lobby'), here='lobby';
   for(const next of ['e0s1','e0s2']){
     const member=[...app.rooms.get(here).sessions.values()].find(m=>m.owner);
-    Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0.3,z:-7.58,y:1.7,yaw:180,pitch:0});
+    Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0.3,z:-8.3,y:1.7,yaw:180,pitch:0});
     at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
     await wait(()=>at.messages.some(m=>m.type==='travel'));
     const travel=at.messages.find(m=>m.type==='travel');
@@ -158,12 +163,12 @@ test('a visitor walks out of the plaza and down the promenade, two blocks south,
     at=await connect(next,null,token,travel.passage);
     await wait(()=>at.messages.some(m=>m.type==='arrival'));
     const landed=app.rooms.get(next).match.seats[[...app.rooms.get(next).sessions.values()].find(m=>m.owner).seat].player;
-    assert.ok(landed.z>7&&landed.z<7.5,'set down just inside the edge it came through');
+    assert.ok(Math.abs(landed.z-7.7)<0.5,'set down at the same spot, seen from the next block');
     assert.equal(at.messages.find(m=>m.type==='lots'),undefined,'the grounds have no lots');
     here=next;
   }
   const member=[...app.rooms.get(here).sessions.values()].find(m=>m.owner);
-  Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0,z:-7.58,y:1.7});
+  Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0,z:-8.3,y:1.7});
   at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
   await delay(60);
   assert.ok(!at.messages.some(m=>m.type==='travel'),'the terrace is the end of the grounds');
@@ -190,7 +195,7 @@ test('a passage seats a signed-in walker with their handle before the account is
   const a=await connect('lobby','jeffrey');
   await wait(()=>[...app.rooms.get('lobby').sessions.values()].some(m=>m.handle==='jeffrey'&&m.seat>=0));
   const member=[...app.rooms.get('lobby').sessions.values()][0];
-  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:7.58,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:8.3,z:0.2,y:1.7,yaw:90,pitch:12,vx:6});
   a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
   await wait(()=>a.messages.some(m=>m.type==='travel'));
   const travel=a.messages.find(m=>m.type==='travel');
