@@ -105,8 +105,9 @@ wraps to, in a colour that is not the text's.
 
 ## The two logins
 
-They are separate, and neither waits for the other. Both are in the Login
-tab, with the way out of each (Unlink Signal, Sign out of NCC); the small
+They are separate, and neither waits for the other. A tab is there only when its login is: the chats and circles with Signal, the
+wiki with NCC. Both logins are in the Login
+tab (two panes, each in its service's colour), with the way out of each (Unlink Signal, Sign out of NCC); the small
 badges at the foot of the window show which are done and go to that tab. With neither, the app
 still opens: the donut, a button to link Signal, and the club's login page in
 the wiki pane. The foot of the rail shows both, each with a tick when it is done.

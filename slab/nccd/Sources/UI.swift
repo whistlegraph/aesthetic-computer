@@ -39,6 +39,7 @@ enum Theme {
     static let teal = pair("006888", "4FD8FF")      // wordmark and links: the wiki's two logo colours
     // A link must not pass for text on any wash: deep blue, or in the dark theme a warm yellow.
     static let link = pair("0030B0", "FFE066")
+    static let word = pair("006888", "00D080")         // the wordmark's NCC: never the donut's cyan (teal, or in the dark the club green)
     static let search = pair("F2A93B", "E0932A")       // the search tab: amber
     static let login = pair("9FB2C8", "5B6E86")        // the login tab: slate
     static let edge: CGFloat = 12                      // the one margin: every plane's contents stand this far in
@@ -96,6 +97,21 @@ enum Theme {
                    ?? NSImage(systemSymbolName: "circle.dashed", accessibilityDescription: title))?
             .withSymbolConfiguration(.init(pointSize: size, weight: .semibold))
         img?.isTemplate = true
+        return img
+    }
+}
+
+// Signal's own logo (the path from the Simple Icons set), where the app
+// speaks of Signal: the Link Signal button and the badge at the foot. It is
+// Signal's trademark; it is used here to name their service, and NCCd is not
+// affiliated with Signal.
+enum Brand {
+    static let signalPath = "M12 0q-.934 0-1.83.139l.17 1.111a11 11 0 0 1 3.32 0l.172-1.111A12 12 0 0 0 12 0M9.152.34A12 12 0 0 0 5.77 1.742l.584.961a10.8 10.8 0 0 1 3.066-1.27zm5.696 0-.268 1.094a10.8 10.8 0 0 1 3.066 1.27l.584-.962A12 12 0 0 0 14.848.34M12 2.25a9.75 9.75 0 0 0-8.539 14.459c.074.134.1.292.064.441l-1.013 4.338 4.338-1.013a.62.62 0 0 1 .441.064A9.7 9.7 0 0 0 12 21.75c5.385 0 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25m-7.092.068a12 12 0 0 0-2.59 2.59l.909.664a11 11 0 0 1 2.345-2.345zm14.184 0-.664.909a11 11 0 0 1 2.345 2.345l.909-.664a12 12 0 0 0-2.59-2.59M1.742 5.77A12 12 0 0 0 .34 9.152l1.094.268a10.8 10.8 0 0 1 1.269-3.066zm20.516 0-.961.584a10.8 10.8 0 0 1 1.27 3.066l1.093-.268a12 12 0 0 0-1.402-3.383M.138 10.168A12 12 0 0 0 0 12q0 .934.139 1.83l1.111-.17A11 11 0 0 1 1.125 12q0-.848.125-1.66zm23.723.002-1.111.17q.125.812.125 1.66c0 .848-.042 1.12-.125 1.66l1.111.172a12.1 12.1 0 0 0 0-3.662M1.434 14.58l-1.094.268a12 12 0 0 0 .96 2.591l-.265 1.14 1.096.255.36-1.539-.188-.365a10.8 10.8 0 0 1-.87-2.35m21.133 0a10.8 10.8 0 0 1-1.27 3.067l.962.584a12 12 0 0 0 1.402-3.383zm-1.793 3.848a11 11 0 0 1-2.345 2.345l.664.909a12 12 0 0 0 2.59-2.59zm-19.959 1.1L.357 21.48a1.8 1.8 0 0 0 2.162 2.161l1.954-.455-.256-1.095-1.953.455a.675.675 0 0 1-.81-.81l.454-1.954zm16.832 1.769a10.8 10.8 0 0 1-3.066 1.27l.268 1.093a12 12 0 0 0 3.382-1.402zm-10.94.213-1.54.36.256 1.095 1.139-.266c.814.415 1.683.74 2.591.961l.268-1.094a10.8 10.8 0 0 1-2.35-.869zm3.634 1.24-.172 1.111a12.1 12.1 0 0 0 3.662 0l-.17-1.111q-.812.125-1.66.125a11 11 0 0 1-1.66-.125"
+    static func signal(size: CGFloat) -> NSImage? {
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" width=\"\(size)\" height=\"\(size)\"><path d=\"\(signalPath)\"/></svg>"
+        guard let img = NSImage(data: Data(svg.utf8)) else { return Pixel.icon("signal", size: size) }
+        img.size = NSSize(width: size, height: size)
+        img.isTemplate = true
         return img
     }
 }
@@ -276,15 +292,17 @@ final class NCCLogo: NSView {
             let all = pixels
             let drop = cell * 0.5
             for (rect, pink) in all {                // the copy underneath, darker
-                ((pink ? Donut.icing : Theme.teal).blended(withFraction: 0.55, of: .black) ?? .black).setFill()
+                ((pink ? Donut.icing : Theme.word).blended(withFraction: 0.55, of: .black) ?? .black).setFill()
                 rect.offsetBy(dx: drop, dy: -drop).fill()
             }
+            // The d's bowl is the donut: icing, with sprinkles. Its stem (the two
+            // rows above the bowl) is a deeper hue and bare, so the donut stands out.
+            let stemFrom = 5.4 * cell
             for (rect, pink) in all {
-                (pink ? Donut.icing : Theme.teal).setFill()
+                (!pink ? Theme.word : rect.minY > stemFrom ? Donut.stem : Donut.icing).setFill()
                 rect.insetBy(dx: -0.2, dy: -0.2).fill()
             }
-            // sprinkles on the d: a small dash of colour on some of its pixels
-            for (n, (rect, pink)) in all.enumerated() where pink && (n * 7 + 3) % 4 == 0 {
+            for (n, (rect, pink)) in all.enumerated() where pink && rect.minY <= stemFrom && (n * 7 + 3) % 3 == 0 {
                 NSColor(hex: Theme.palette[(n * 5 + 1) % Theme.palette.count])!.setFill()
                 let w = cell * 0.5, across = (n % 2 == 0)
                 NSRect(x: rect.minX + cell * (n % 3 == 0 ? 0.15 : 0.4), y: rect.minY + cell * (n % 5 == 0 ? 0.5 : 0.2),
@@ -537,61 +555,86 @@ final class LogoTab: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
 }
 
-// ─── link panel ─────────────────────────────────────────────────────────────
-// Shown on the sheet while no Signal account is linked: the button, the QR
-// code to scan from the phone, and one line of what to do.
+// ─── login panel ────────────────────────────────────────────────────────────
+// The Login tab: two panes, one for each login, each in its service's own
+// colour, side by side in a wide window and one over the other in a narrow
+// one. A pane has the service's mark, a button (the way in, or once in, the
+// way out) and a line of what it opens or who is signed in. Signal's pane also
+// shows the QR code to scan while a link is being made.
 
 final class LinkPanel: NSView {
-    let status = label("", Theme.mono(11), Theme.faint)
+    let status = label("", Theme.mono(11), .white)
     let button = NSButton(title: "Link Signal", target: nil, action: nil)
     let qr = NSImageView()
-    let note = label("", Theme.mono(11), Theme.faint)
-    // The other login, said the same way: what it is, and what it opens.
+    let note = label("", Theme.mono(11), NSColor(white: 1, alpha: 0.8))
     let nccButton = NSButton(title: "Sign into NCC", target: nil, action: nil)
-    let nccStatus = label("to access wiki", Theme.mono(11), Theme.faint)
+    let nccStatus = label("to access wiki", Theme.mono(11), .white)
+    private let panes = NSStackView()
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        nccButton.bezelStyle = .rounded
-        nccButton.font = Theme.mono(12, bold: true)
-        nccButton.bezelColor = NSColor(hex: "006888")
-        // each button wears its service's mark, as the badges in the task bar do
-        for (b, mark) in [(button, "signal"), (nccButton, "n")] {
-            b.image = Pixel.icon(mark, size: 12)
-            b.imagePosition = .imageLeading
-            b.imageHugsTitle = true
-        }
-        button.bezelStyle = .rounded
-        button.font = Theme.mono(12, bold: true)
-        button.bezelColor = NSColor(hex: "3A76F0")
+        setContentHuggingPriority(.init(1), for: .vertical)          // the panel takes the whole sheet
         qr.imageScaling = .scaleProportionallyUpOrDown
-        qr.widthAnchor.constraint(equalToConstant: 190).isActive = true
-        qr.heightAnchor.constraint(equalToConstant: 190).isActive = true
+        qr.widthAnchor.constraint(equalToConstant: 170).isActive = true
+        qr.heightAnchor.constraint(equalToConstant: 170).isActive = true
         qr.isHidden = true
         note.maximumNumberOfLines = 3
         note.lineBreakMode = .byWordWrapping
         note.alignment = .center
         // A fixed width: a wrapping label whose width is left to the layout
         // measures itself again on every pass, and AppKit stops the app.
-        note.preferredMaxLayoutWidth = 300
-        note.widthAnchor.constraint(equalToConstant: 300).isActive = true
-        let stack = NSStackView(views: [button, status, qr, note, nccButton, nccStatus])
+        note.preferredMaxLayoutWidth = 240
+        note.widthAnchor.constraint(equalToConstant: 240).isActive = true
+
+        func pane(_ color: NSColor, _ mark: NSImage?, _ views: [NSView]) -> NSView {
+            let box = Fill(color, radius: 8)
+            box.grain = true
+            box.wantsLayer = true
+            box.layer?.masksToBounds = true                          // in a very small pane the contents are cut, never squeezed
+            box.appearance = NSAppearance(named: .darkAqua)          // on these colours a button's words are white, in either theme
+            let logo = NSImageView()
+            logo.image = mark
+            logo.imageScaling = .scaleNone
+            logo.contentTintColor = .white
+            let stack = NSStackView(views: [logo] + views)
+            stack.orientation = .vertical
+            stack.alignment = .centerX
+            stack.spacing = 9
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(stack)
+            NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo: box.centerXAnchor),
+                                         stack.centerYAnchor.constraint(equalTo: box.centerYAnchor)])
+            return box
+        }
+        for b in [button, nccButton] {
+            b.bezelStyle = .rounded
+            b.font = Theme.mono(12, bold: true)
+            b.controlSize = .large
+        }
         status.alignment = .center
         nccStatus.alignment = .center
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = 8
-        stack.setCustomSpacing(16, after: note)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        let signal = pane(NSColor(hex: "3A76F0")!, Brand.signal(size: 44), [button, status, qr, note])
+        let ncc = pane(NSColor(hex: "006888")!, Pixel.icon("n", size: 40), [nccButton, nccStatus])
+        panes.addArrangedSubview(signal)
+        panes.addArrangedSubview(ncc)
+        panes.distribution = .fillEqually
+        panes.spacing = 8
+        panes.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(panes)
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -4),
+            panes.leadingAnchor.constraint(equalTo: leadingAnchor), panes.trailingAnchor.constraint(equalTo: trailingAnchor),
+            panes.topAnchor.constraint(equalTo: topAnchor, constant: 2), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
         ])
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // Side by side when the window is wide for its height, else one over the other.
+    override func setFrameSize(_ size: NSSize) {
+        let side: NSUserInterfaceLayoutOrientation = size.width >= 520 && size.width > size.height ? .horizontal : .vertical
+        if panes.orientation != side { panes.orientation = side }
+        super.setFrameSize(size)
+    }
 
     func showQR(_ uri: String?) {
         guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { qr.isHidden = true; return }
@@ -889,6 +932,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             drop.isHidden = !dropOpen
             scrim.isHidden = !dropOpen
             unibar.open = dropOpen
+            diagram.alphaValue = dropOpen ? 0 : 1        // the 3D donut steps out from under the list
         }
     }
     private var lastSections: [(String, [(Int, String, NSColor?)])] = []
@@ -1199,10 +1243,13 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barGlass.contentTintColor = Theme.faint
         barGlass.translatesAutoresizingMaskIntoConstraints = false
         barSearchBox.addSubview(barGlass)
-        let wide = barSearchBox.widthAnchor.constraint(equalToConstant: 220)
-        wide.priority = .init(600)
+        // It takes all of the task bar that the badges leave: it is the one thing
+        // in the bar that stretches. (Never by a wide width of its own: that
+        // would push the window wider.)
+        barSearchBox.setContentHuggingPriority(.init(1), for: .horizontal)
+        barSearchBox.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         NSLayoutConstraint.activate([
-            wide, barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
+            barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
             barSearchBox.heightAnchor.constraint(equalToConstant: 22),
             barGlass.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: 8),
             barGlass.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
@@ -1360,7 +1407,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         foot.alignment = top ? .centerY : .leading
         foot.spacing = top ? 12 : 6
         taskBar.isHidden = !top
-        footGap.isHidden = !top
+        footGap.isHidden = true
         barSearchBox.isHidden = !top
         logo.onTop = top
         density = -1
@@ -1401,13 +1448,13 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         foot.addArrangedSubview(barSearchBox)
         barSearchBox.isHidden = !top
         foot.addArrangedSubview(footGap)
-        footGap.isHidden = !top
+        footGap.isHidden = true                     // on top the search fills the bar; down the side nothing needs pushing
         whoLabels = []
         badgeNames = []
         func badge(_ name: String, logo: String, color: NSColor, who: String?, ask: String) -> NSView {
             let chip = Fill(who == nil ? color.withAlphaComponent(0.5) : color, radius: 3)
             let glyph = NSImageView()
-            glyph.image = Pixel.icon(logo, size: 8)
+            glyph.image = logo == "signal" ? Brand.signal(size: 11) : Pixel.icon(logo, size: 8)
             glyph.imageScaling = .scaleNone
             glyph.contentTintColor = .white
             let row = NSStackView(views: [glyph])         // small: the mark alone (the Login tab has the words)
@@ -2096,7 +2143,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     // Test aid: the 3D donut as a picture with the views over it, and where it sits (nil when hidden).
     func donutShot() -> (NSImage, [NSView], NSView)? {
-        diagram.isHiddenOrHasHiddenAncestor || diagram.window == nil ? nil : (diagram.shot(), diagram.overlays, diagram)
+        diagram.isHiddenOrHasHiddenAncestor || diagram.alphaValue == 0 || diagram.window == nil ? nil : (diagram.shot(), diagram.overlays, diagram)
     }
 
     // The words in the composer, and whether the member has stopped typing

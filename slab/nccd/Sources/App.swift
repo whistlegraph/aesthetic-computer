@@ -492,6 +492,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         l.onToken = { [weak self] token in
             guard let self else { return }
             self.wiki.setToken(token)
+            self.buildRail()                 // the wiki has its tab now
             self.login = nil
             self.main.showWikiLogin(nil)
             self.loadWiki()
@@ -617,8 +618,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.circles.enumerated().filter { $0.element.conf.kind == kind }
                 .map { ($0.offset, $0.element.conf.title, self.color(of: $0.offset)) }
         }
-        main.setRail([("", pick("commons")), ("", pick("circle")),
-                      ("", [(-2, "Wiki", Theme.wikiBand), (-3, "Search", Theme.search), (-4, "Login", Theme.login)])])
+        // A tab is there only when its login is: the chats and circles with Signal, the wiki with NCC.
+        var last: [(Int, String, NSColor?)] = [(-3, "Search", Theme.search), (-4, "Login", Theme.login)]
+        if wiki.token != nil { last.insert((-2, "Wiki", Theme.wikiBand), at: 0) }
+        main.setRail([("", pick("commons")), ("", pick("circle")), ("", last)])
         updateUnread()
     }
 

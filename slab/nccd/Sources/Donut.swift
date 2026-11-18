@@ -17,6 +17,7 @@ import SceneKit
 enum Donut {
     static let dough = Theme.pair("E6B873", "D9A562")
     static let icing = Theme.pair("3CCBF0", "6FE3FF")       // cyan: the app's own colour
+    static let stem = Theme.pair("1E9FDB", "3AB4EE")        // the d's stem in the wordmark: a deeper blue than the icing
     static let hole: CGFloat = 0.40          // the hole's radius, as a share of the donut's
 
     // The flat mark (the wordmark's last letter): a ring of dough, and on it a

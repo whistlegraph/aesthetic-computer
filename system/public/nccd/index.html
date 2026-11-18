@@ -20,22 +20,22 @@
 :root {
   --ground: #BFE8CF; --paper: #F4FBF6; --ink: #1B2B22; --faint: rgba(27,43,34,.64);
   --cyan: #3CCBF0; --cyan-ink: #06222C; --teal: #006888; --under: #002F3D; --d-under: #17718C;
-  --dough: #E6B873; --yellow: #F3D34A;
+  --dough: #E6B873; --yellow: #F3D34A; --stem: #1E9FDB;
 }
 @media (prefers-color-scheme: dark) {
   :root { --ground: #0B3A4A; --paper: #14505C; --ink: #E4FBEF; --faint: rgba(228,251,239,.68);
-          --cyan: #6FE3FF; --teal: #2BA5C6; --under: #062630; --d-under: #1C7391; }
+          --cyan: #6FE3FF; --stem: #3AB4EE; --teal: #2BA5C6; --under: #062630; --d-under: #1C7391; }
 }
 * { box-sizing: border-box; }
 html { background: var(--ground); }
-body { margin: 0; color: var(--ink); font: 14px/1.55 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-main { max-width: 620px; margin: 0 auto; padding: 40px 20px 56px; }
+body { margin: 0; color: var(--ink); font: 13px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+main { max-width: 540px; margin: 0 auto; padding: 18px 14px 24px; }
 a { color: inherit; text-decoration-color: var(--cyan); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 p { margin: 0; }
 
 .top { display: flex; align-items: center; gap: 20px; }
-.mark { display: block; flex: 0 1 230px; min-width: 0; height: auto; }
-.mark .ncc { fill: var(--teal); } .mark .d { fill: var(--cyan); }
+.mark { display: block; flex: 0 1 132px; min-width: 0; height: auto; }
+.mark .ncc { fill: var(--teal); } .mark .d { fill: var(--cyan); } .mark .d-stem { fill: var(--stem); }
 .mark .ncc-under { fill: var(--under); } .mark .d-under { fill: var(--d-under); }
 .mark .shine { animation: shine 5.5s infinite; }
 @keyframes shine { 0% { transform: translateX(0); } 20%, 100% { transform: translateX(420px); } }
@@ -43,32 +43,40 @@ p { margin: 0; }
 .donut { display: block; flex: 0 0 74px; width: 74px; height: 74px; }
 .donut .dough { fill: var(--dough); } .donut .icing { fill: var(--cyan); } .donut .hole { fill: var(--ground); }
 
-.lede { margin-top: 24px; font-size: 16px; }
+.lede { margin-top: 10px; font-size: 13px; }
 
-.download { display: block; margin-top: 26px; background: var(--cyan); color: var(--cyan-ink);
-  text-decoration: none; font-weight: 700; font-size: 20px; line-height: 1.2; padding: 18px 20px;
-  box-shadow: 6px 6px 0 var(--d-under); }
+.download { display: block; margin-top: 12px; background: var(--cyan); color: var(--cyan-ink);
+  text-decoration: none; font-weight: 700; font-size: 15px; line-height: 1.2; padding: 10px 12px;
+  box-shadow: 4px 4px 0 var(--d-under); }
 .download:active { transform: translate(3px, 3px); box-shadow: 3px 3px 0 var(--d-under); }
-.facts { margin-top: 16px; color: var(--faint); font-size: 12px; }
+.facts { margin-top: 9px; color: var(--faint); font-size: 11px; }
 
-h2 { margin: 40px 0 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
-ol { list-style: none; margin: 12px 0 0; padding: 0; counter-reset: step; }
+h2 { margin: 16px 0 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+ol { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: step; }
 ol li { counter-increment: step; position: relative; background: var(--paper);
-  padding: 12px 14px 12px 56px; margin-bottom: 4px; min-height: 48px; }
-ol li::before { content: counter(step); position: absolute; left: 0; top: 0; bottom: 0; width: 42px;
+  padding: 6px 10px 6px 36px; margin-bottom: 2px; min-height: 0; }
+ol li::before { content: counter(step); position: absolute; left: 0; top: 0; bottom: 0; width: 26px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--cyan); color: var(--cyan-ink); font-weight: 700; font-size: 18px; }
-.note { margin-top: 10px; }
+  background: var(--cyan); color: var(--cyan-ink); font-weight: 700; font-size: 13px; }
+.note { margin-top: 5px; color: var(--faint); font-size: 12px; }
 
-.know { margin: 12px 0 0; padding: 14px 16px; list-style: none; background: var(--cyan); color: var(--cyan-ink); }
-.know li + li { margin-top: 8px; }
+.know { margin: 6px 0 0; padding: 8px 10px; font-size: 12px; list-style: none; background: var(--cyan); color: var(--cyan-ink); }
+.know li + li { margin-top: 4px; }
 .know a { text-decoration-color: var(--cyan-ink); }
 
-footer { margin-top: 40px; color: var(--faint); font-size: 12px; }
-.sum { margin-top: 8px; font-size: 10px; overflow-wrap: anywhere; }
+footer { margin-top: 14px; color: var(--faint); font-size: 11px; }
+.sum { margin-top: 4px; font-size: 9px; overflow-wrap: anywhere; }
 .badge { display: inline-flex; align-items: center; gap: 5px; color: #fff; font-weight: 700; font-size: 11px;
   padding: 2px 7px 2px 6px; border-radius: 3px; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
 .badge svg { width: 10px; height: 10px; fill: #fff; shape-rendering: crispEdges; }
+/* the wordmark's NCC is never the donut's cyan: in the dark it is the club green */
+@media (prefers-color-scheme: dark) { .mark .ncc { fill: #00D080 !important; } .mark .ncc-under { fill: #00603A !important; } }
+@media (min-width: 900px) {
+  main { max-width: 900px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: start; }
+  .top, .lede, .download, .facts, footer { grid-column: 1 / -1; }
+  .lede { max-width: 62ch; } .download { max-width: 420px; }
+  .col { min-width: 0; }
+}
 </style>
 </head>
 <body>
@@ -78,50 +86,38 @@ footer { margin-top: 40px; color: var(--faint); font-size: 12px; }
 <svg class="mark" viewBox="0 0 245 75" role="img" aria-label="NCCd">
 <defs><linearGradient id="shine" x1="0" y1="0.35" x2="1" y2="0.65"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
 <clipPath id="word"><path d="M0 0h10v10h-10zM10 0h10v10h-10zM40 0h10v10h-10zM50 0h10v10h-10zM0 10h10v10h-10zM10 10h10v10h-10zM20 10h10v10h-10zM40 10h10v10h-10zM50 10h10v10h-10zM0 20h10v10h-10zM10 20h10v10h-10zM20 20h10v10h-10zM30 20h10v10h-10zM40 20h10v10h-10zM50 20h10v10h-10zM0 30h10v10h-10zM10 30h10v10h-10zM20 30h10v10h-10zM30 30h10v10h-10zM40 30h10v10h-10zM50 30h10v10h-10zM0 40h10v10h-10zM10 40h10v10h-10zM30 40h10v10h-10zM40 40h10v10h-10zM50 40h10v10h-10zM0 50h10v10h-10zM10 50h10v10h-10zM40 50h10v10h-10zM50 50h10v10h-10zM0 60h10v10h-10zM10 60h10v10h-10zM40 60h10v10h-10zM50 60h10v10h-10zM80 0h10v10h-10zM90 0h10v10h-10zM100 0h10v10h-10zM110 0h10v10h-10zM70 10h10v10h-10zM80 10h10v10h-10zM90 10h10v10h-10zM100 10h10v10h-10zM110 10h10v10h-10zM70 20h10v10h-10zM80 20h10v10h-10zM70 30h10v10h-10zM80 30h10v10h-10zM70 40h10v10h-10zM80 40h10v10h-10zM70 50h10v10h-10zM80 50h10v10h-10zM90 50h10v10h-10zM100 50h10v10h-10zM110 50h10v10h-10zM80 60h10v10h-10zM90 60h10v10h-10zM100 60h10v10h-10zM110 60h10v10h-10zM140 0h10v10h-10zM150 0h10v10h-10zM160 0h10v10h-10zM170 0h10v10h-10zM130 10h10v10h-10zM140 10h10v10h-10zM150 10h10v10h-10zM160 10h10v10h-10zM170 10h10v10h-10zM130 20h10v10h-10zM140 20h10v10h-10zM130 30h10v10h-10zM140 30h10v10h-10zM130 40h10v10h-10zM140 40h10v10h-10zM130 50h10v10h-10zM140 50h10v10h-10zM150 50h10v10h-10zM160 50h10v10h-10zM170 50h10v10h-10zM140 60h10v10h-10zM150 60h10v10h-10zM160 60h10v10h-10zM170 60h10v10h-10zM220 0h10v10h-10zM230 0h10v10h-10zM220 10h10v10h-10zM230 10h10v10h-10zM200 20h10v10h-10zM210 20h10v10h-10zM220 20h10v10h-10zM230 20h10v10h-10zM190 30h10v10h-10zM200 30h10v10h-10zM210 30h10v10h-10zM220 30h10v10h-10zM230 30h10v10h-10zM190 40h10v10h-10zM200 40h10v10h-10zM220 40h10v10h-10zM230 40h10v10h-10zM190 50h10v10h-10zM200 50h10v10h-10zM210 50h10v10h-10zM220 50h10v10h-10zM230 50h10v10h-10zM200 60h10v10h-10zM210 60h10v10h-10zM220 60h10v10h-10zM230 60h10v10h-10z"/></clipPath></defs>
-<path class="ncc-under" d="M5 5h10v10h-10zM15 5h10v10h-10zM45 5h10v10h-10zM55 5h10v10h-10zM5 15h10v10h-10zM15 15h10v10h-10zM25 15h10v10h-10zM45 15h10v10h-10zM55 15h10v10h-10zM5 25h10v10h-10zM15 25h10v10h-10zM25 25h10v10h-10zM35 25h10v10h-10zM45 25h10v10h-10zM55 25h10v10h-10zM5 35h10v10h-10zM15 35h10v10h-10zM25 35h10v10h-10zM35 35h10v10h-10zM45 35h10v10h-10zM55 35h10v10h-10zM5 45h10v10h-10zM15 45h10v10h-10zM35 45h10v10h-10zM45 45h10v10h-10zM55 45h10v10h-10zM5 55h10v10h-10zM15 55h10v10h-10zM45 55h10v10h-10zM55 55h10v10h-10zM5 65h10v10h-10zM15 65h10v10h-10zM45 65h10v10h-10zM55 65h10v10h-10zM85 5h10v10h-10zM95 5h10v10h-10zM105 5h10v10h-10zM115 5h10v10h-10zM75 15h10v10h-10zM85 15h10v10h-10zM95 15h10v10h-10zM105 15h10v10h-10zM115 15h10v10h-10zM75 25h10v10h-10zM85 25h10v10h-10zM75 35h10v10h-10zM85 35h10v10h-10zM75 45h10v10h-10zM85 45h10v10h-10zM75 55h10v10h-10zM85 55h10v10h-10zM95 55h10v10h-10zM105 55h10v10h-10zM115 55h10v10h-10zM85 65h10v10h-10zM95 65h10v10h-10zM105 65h10v10h-10zM115 65h10v10h-10zM145 5h10v10h-10zM155 5h10v10h-10zM165 5h10v10h-10zM175 5h10v10h-10zM135 15h10v10h-10zM145 15h10v10h-10zM155 15h10v10h-10zM165 15h10v10h-10zM175 15h10v10h-10zM135 25h10v10h-10zM145 25h10v10h-10zM135 35h10v10h-10zM145 35h10v10h-10zM135 45h10v10h-10zM145 45h10v10h-10zM135 55h10v10h-10zM145 55h10v10h-10zM155 55h10v10h-10zM165 55h10v10h-10zM175 55h10v10h-10zM145 65h10v10h-10zM155 65h10v10h-10zM165 65h10v10h-10zM175 65h10v10h-10z"/><path class="d-under" d="M225 5h10v10h-10zM235 5h10v10h-10zM225 15h10v10h-10zM235 15h10v10h-10zM205 25h10v10h-10zM215 25h10v10h-10zM225 25h10v10h-10zM235 25h10v10h-10zM195 35h10v10h-10zM205 35h10v10h-10zM215 35h10v10h-10zM225 35h10v10h-10zM235 35h10v10h-10zM195 45h10v10h-10zM205 45h10v10h-10zM225 45h10v10h-10zM235 45h10v10h-10zM195 55h10v10h-10zM205 55h10v10h-10zM215 55h10v10h-10zM225 55h10v10h-10zM235 55h10v10h-10zM205 65h10v10h-10zM215 65h10v10h-10zM225 65h10v10h-10zM235 65h10v10h-10z"/><path class="ncc" d="M0 0h10v10h-10zM10 0h10v10h-10zM40 0h10v10h-10zM50 0h10v10h-10zM0 10h10v10h-10zM10 10h10v10h-10zM20 10h10v10h-10zM40 10h10v10h-10zM50 10h10v10h-10zM0 20h10v10h-10zM10 20h10v10h-10zM20 20h10v10h-10zM30 20h10v10h-10zM40 20h10v10h-10zM50 20h10v10h-10zM0 30h10v10h-10zM10 30h10v10h-10zM20 30h10v10h-10zM30 30h10v10h-10zM40 30h10v10h-10zM50 30h10v10h-10zM0 40h10v10h-10zM10 40h10v10h-10zM30 40h10v10h-10zM40 40h10v10h-10zM50 40h10v10h-10zM0 50h10v10h-10zM10 50h10v10h-10zM40 50h10v10h-10zM50 50h10v10h-10zM0 60h10v10h-10zM10 60h10v10h-10zM40 60h10v10h-10zM50 60h10v10h-10zM80 0h10v10h-10zM90 0h10v10h-10zM100 0h10v10h-10zM110 0h10v10h-10zM70 10h10v10h-10zM80 10h10v10h-10zM90 10h10v10h-10zM100 10h10v10h-10zM110 10h10v10h-10zM70 20h10v10h-10zM80 20h10v10h-10zM70 30h10v10h-10zM80 30h10v10h-10zM70 40h10v10h-10zM80 40h10v10h-10zM70 50h10v10h-10zM80 50h10v10h-10zM90 50h10v10h-10zM100 50h10v10h-10zM110 50h10v10h-10zM80 60h10v10h-10zM90 60h10v10h-10zM100 60h10v10h-10zM110 60h10v10h-10zM140 0h10v10h-10zM150 0h10v10h-10zM160 0h10v10h-10zM170 0h10v10h-10zM130 10h10v10h-10zM140 10h10v10h-10zM150 10h10v10h-10zM160 10h10v10h-10zM170 10h10v10h-10zM130 20h10v10h-10zM140 20h10v10h-10zM130 30h10v10h-10zM140 30h10v10h-10zM130 40h10v10h-10zM140 40h10v10h-10zM130 50h10v10h-10zM140 50h10v10h-10zM150 50h10v10h-10zM160 50h10v10h-10zM170 50h10v10h-10zM140 60h10v10h-10zM150 60h10v10h-10zM160 60h10v10h-10zM170 60h10v10h-10z"/><path class="d" d="M220 0h10v10h-10zM230 0h10v10h-10zM220 10h10v10h-10zM230 10h10v10h-10zM200 20h10v10h-10zM210 20h10v10h-10zM220 20h10v10h-10zM230 20h10v10h-10zM190 30h10v10h-10zM200 30h10v10h-10zM210 30h10v10h-10zM220 30h10v10h-10zM230 30h10v10h-10zM190 40h10v10h-10zM200 40h10v10h-10zM220 40h10v10h-10zM230 40h10v10h-10zM190 50h10v10h-10zM200 50h10v10h-10zM210 50h10v10h-10zM220 50h10v10h-10zM230 50h10v10h-10zM200 60h10v10h-10zM210 60h10v10h-10zM220 60h10v10h-10zM230 60h10v10h-10z"/><rect class="sprinkle" x="211.5" y="5" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="221.5" y="12" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="211.5" y="22" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="191.5" y="32" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="221.5" y="32" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="211.5" y="45" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="191.5" y="52" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="221.5" y="52" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="211.5" y="62" width="5" height="2.5" fill="#F07C00"/>
+<path class="ncc-under" d="M5 5h10v10h-10zM15 5h10v10h-10zM45 5h10v10h-10zM55 5h10v10h-10zM5 15h10v10h-10zM15 15h10v10h-10zM25 15h10v10h-10zM45 15h10v10h-10zM55 15h10v10h-10zM5 25h10v10h-10zM15 25h10v10h-10zM25 25h10v10h-10zM35 25h10v10h-10zM45 25h10v10h-10zM55 25h10v10h-10zM5 35h10v10h-10zM15 35h10v10h-10zM25 35h10v10h-10zM35 35h10v10h-10zM45 35h10v10h-10zM55 35h10v10h-10zM5 45h10v10h-10zM15 45h10v10h-10zM35 45h10v10h-10zM45 45h10v10h-10zM55 45h10v10h-10zM5 55h10v10h-10zM15 55h10v10h-10zM45 55h10v10h-10zM55 55h10v10h-10zM5 65h10v10h-10zM15 65h10v10h-10zM45 65h10v10h-10zM55 65h10v10h-10zM85 5h10v10h-10zM95 5h10v10h-10zM105 5h10v10h-10zM115 5h10v10h-10zM75 15h10v10h-10zM85 15h10v10h-10zM95 15h10v10h-10zM105 15h10v10h-10zM115 15h10v10h-10zM75 25h10v10h-10zM85 25h10v10h-10zM75 35h10v10h-10zM85 35h10v10h-10zM75 45h10v10h-10zM85 45h10v10h-10zM75 55h10v10h-10zM85 55h10v10h-10zM95 55h10v10h-10zM105 55h10v10h-10zM115 55h10v10h-10zM85 65h10v10h-10zM95 65h10v10h-10zM105 65h10v10h-10zM115 65h10v10h-10zM145 5h10v10h-10zM155 5h10v10h-10zM165 5h10v10h-10zM175 5h10v10h-10zM135 15h10v10h-10zM145 15h10v10h-10zM155 15h10v10h-10zM165 15h10v10h-10zM175 15h10v10h-10zM135 25h10v10h-10zM145 25h10v10h-10zM135 35h10v10h-10zM145 35h10v10h-10zM135 45h10v10h-10zM145 45h10v10h-10zM135 55h10v10h-10zM145 55h10v10h-10zM155 55h10v10h-10zM165 55h10v10h-10zM175 55h10v10h-10zM145 65h10v10h-10zM155 65h10v10h-10zM165 65h10v10h-10zM175 65h10v10h-10z"/><path class="d-under" d="M225 5h10v10h-10zM235 5h10v10h-10zM225 15h10v10h-10zM235 15h10v10h-10zM205 25h10v10h-10zM215 25h10v10h-10zM225 25h10v10h-10zM235 25h10v10h-10zM195 35h10v10h-10zM205 35h10v10h-10zM215 35h10v10h-10zM225 35h10v10h-10zM235 35h10v10h-10zM195 45h10v10h-10zM205 45h10v10h-10zM225 45h10v10h-10zM235 45h10v10h-10zM195 55h10v10h-10zM205 55h10v10h-10zM215 55h10v10h-10zM225 55h10v10h-10zM235 55h10v10h-10zM205 65h10v10h-10zM215 65h10v10h-10zM225 65h10v10h-10zM235 65h10v10h-10z"/><path class="ncc" d="M0 0h10v10h-10zM10 0h10v10h-10zM40 0h10v10h-10zM50 0h10v10h-10zM0 10h10v10h-10zM10 10h10v10h-10zM20 10h10v10h-10zM40 10h10v10h-10zM50 10h10v10h-10zM0 20h10v10h-10zM10 20h10v10h-10zM20 20h10v10h-10zM30 20h10v10h-10zM40 20h10v10h-10zM50 20h10v10h-10zM0 30h10v10h-10zM10 30h10v10h-10zM20 30h10v10h-10zM30 30h10v10h-10zM40 30h10v10h-10zM50 30h10v10h-10zM0 40h10v10h-10zM10 40h10v10h-10zM30 40h10v10h-10zM40 40h10v10h-10zM50 40h10v10h-10zM0 50h10v10h-10zM10 50h10v10h-10zM40 50h10v10h-10zM50 50h10v10h-10zM0 60h10v10h-10zM10 60h10v10h-10zM40 60h10v10h-10zM50 60h10v10h-10zM80 0h10v10h-10zM90 0h10v10h-10zM100 0h10v10h-10zM110 0h10v10h-10zM70 10h10v10h-10zM80 10h10v10h-10zM90 10h10v10h-10zM100 10h10v10h-10zM110 10h10v10h-10zM70 20h10v10h-10zM80 20h10v10h-10zM70 30h10v10h-10zM80 30h10v10h-10zM70 40h10v10h-10zM80 40h10v10h-10zM70 50h10v10h-10zM80 50h10v10h-10zM90 50h10v10h-10zM100 50h10v10h-10zM110 50h10v10h-10zM80 60h10v10h-10zM90 60h10v10h-10zM100 60h10v10h-10zM110 60h10v10h-10zM140 0h10v10h-10zM150 0h10v10h-10zM160 0h10v10h-10zM170 0h10v10h-10zM130 10h10v10h-10zM140 10h10v10h-10zM150 10h10v10h-10zM160 10h10v10h-10zM170 10h10v10h-10zM130 20h10v10h-10zM140 20h10v10h-10zM130 30h10v10h-10zM140 30h10v10h-10zM130 40h10v10h-10zM140 40h10v10h-10zM130 50h10v10h-10zM140 50h10v10h-10zM150 50h10v10h-10zM160 50h10v10h-10zM170 50h10v10h-10zM140 60h10v10h-10zM150 60h10v10h-10zM160 60h10v10h-10zM170 60h10v10h-10z"/><path class="d" d="M220 0h10v10h-10zM230 0h10v10h-10zM220 10h10v10h-10zM230 10h10v10h-10zM200 20h10v10h-10zM210 20h10v10h-10zM220 20h10v10h-10zM230 20h10v10h-10zM190 30h10v10h-10zM200 30h10v10h-10zM210 30h10v10h-10zM220 30h10v10h-10zM230 30h10v10h-10zM190 40h10v10h-10zM200 40h10v10h-10zM220 40h10v10h-10zM230 40h10v10h-10zM190 50h10v10h-10zM200 50h10v10h-10zM210 50h10v10h-10zM220 50h10v10h-10zM230 50h10v10h-10zM200 60h10v10h-10zM210 60h10v10h-10zM220 60h10v10h-10zM230 60h10v10h-10z"/><path class="d-stem" d="M210 0h20v20h-20z"/><rect class="sprinkle" x="211.5" y="22" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="191.5" y="32" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="221.5" y="32" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="211.5" y="45" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="191.5" y="52" width="5" height="2.5" fill="#F07C00"/><rect class="sprinkle" x="221.5" y="52" width="2.5" height="5" fill="#FFE066"/><rect class="sprinkle" x="211.5" y="62" width="5" height="2.5" fill="#F07C00"/>
 <g clip-path="url(#word)"><rect class="shine" x="-90" y="-10" width="80" height="95" fill="url(#shine)"/></g></svg>
-<svg class="donut" viewBox="0 0 100 100" aria-hidden="true">
-  <circle class="dough" cx="50" cy="50" r="48"/>
-  <circle class="icing" cx="50" cy="50" r="40"/>
-  <circle class="dough" cx="50" cy="50" r="20"/>
-  <circle class="hole" cx="50" cy="50" r="14"/>
-  <rect x="45" y="15" width="12" height="5" fill="#F3D34A" transform="rotate(20 51 17)"/>
-  <rect x="70" y="36" width="12" height="5" fill="#F4FBF6" transform="rotate(70 76 38)"/>
-  <rect x="64" y="68" width="12" height="5" fill="#006888" transform="rotate(-35 70 70)"/>
-  <rect x="38" y="78" width="12" height="5" fill="#F4FBF6" transform="rotate(10 44 80)"/>
-  <rect x="15" y="58" width="12" height="5" fill="#F3D34A" transform="rotate(-60 21 60)"/>
-  <rect x="20" y="30" width="12" height="5" fill="#006888" transform="rotate(40 26 32)"/>
-</svg>
 </div>
 
 <p class="lede">NCCd is a Mac app for the NELA Computer Club. It shows the club's Signal chats
 and circles and the club wiki in one window. The d is for donut.</p>
 
-<a class="download" id="dl" href="https://aesthetic.computer/api/download?app=nccd&amp;file=NCCd-0.3.7.dmg" download>Download NCCd <span id="ver">0.3.7</span> ↓</a>
-<p class="facts">beta · macOS 13 or later · Apple silicon and Intel · <span id="size">1183 KB</span></p>
+<a class="download" id="dl" href="https://aesthetic.computer/api/download?app=nccd&amp;file=NCCd-0.3.8.dmg" download>Download NCCd <span id="ver">0.3.8</span> ↓</a>
+<p class="facts">beta · macOS 13 or later · Apple silicon and Intel · <span id="size">1188 KB</span></p>
 
-<h2>How it works</h2>
+<div class="col"><h2>How it works</h2>
 <ol>
   <li>Open it. If your Mac has Homebrew, NCCd installs its Signal engine (signal-cli) itself.</li>
-  <li><span class="badge" style="background:#3A76F0"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M2 0h1v1h-1zM3 0h1v1h-1zM4 0h1v1h-1zM5 0h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM3 1h1v1h-1zM4 1h1v1h-1zM5 1h1v1h-1zM6 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM2 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM0 7h1v1h-1zM1 7h1v1h-1z"/></svg>Signal</span> Link Signal to access announcements, chat, and circles. Scan a QR code with your phone, as you do for Signal Desktop.</li>
+  <li><span class="badge" style="background:#3A76F0"><svg viewBox="0 0 24 24" aria-hidden="true" style="width:12px;height:12px;shape-rendering:auto"><path d="M12 0q-.934 0-1.83.139l.17 1.111a11 11 0 0 1 3.32 0l.172-1.111A12 12 0 0 0 12 0M9.152.34A12 12 0 0 0 5.77 1.742l.584.961a10.8 10.8 0 0 1 3.066-1.27zm5.696 0-.268 1.094a10.8 10.8 0 0 1 3.066 1.27l.584-.962A12 12 0 0 0 14.848.34M12 2.25a9.75 9.75 0 0 0-8.539 14.459c.074.134.1.292.064.441l-1.013 4.338 4.338-1.013a.62.62 0 0 1 .441.064A9.7 9.7 0 0 0 12 21.75c5.385 0 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25m-7.092.068a12 12 0 0 0-2.59 2.59l.909.664a11 11 0 0 1 2.345-2.345zm14.184 0-.664.909a11 11 0 0 1 2.345 2.345l.909-.664a12 12 0 0 0-2.59-2.59M1.742 5.77A12 12 0 0 0 .34 9.152l1.094.268a10.8 10.8 0 0 1 1.269-3.066zm20.516 0-.961.584a10.8 10.8 0 0 1 1.27 3.066l1.093-.268a12 12 0 0 0-1.402-3.383M.138 10.168A12 12 0 0 0 0 12q0 .934.139 1.83l1.111-.17A11 11 0 0 1 1.125 12q0-.848.125-1.66zm23.723.002-1.111.17q.125.812.125 1.66c0 .848-.042 1.12-.125 1.66l1.111.172a12.1 12.1 0 0 0 0-3.662M1.434 14.58l-1.094.268a12 12 0 0 0 .96 2.591l-.265 1.14 1.096.255.36-1.539-.188-.365a10.8 10.8 0 0 1-.87-2.35m21.133 0a10.8 10.8 0 0 1-1.27 3.067l.962.584a12 12 0 0 0 1.402-3.383zm-1.793 3.848a11 11 0 0 1-2.345 2.345l.664.909a12 12 0 0 0 2.59-2.59zm-19.959 1.1L.357 21.48a1.8 1.8 0 0 0 2.162 2.161l1.954-.455-.256-1.095-1.953.455a.675.675 0 0 1-.81-.81l.454-1.954zm16.832 1.769a10.8 10.8 0 0 1-3.066 1.27l.268 1.093a12 12 0 0 0 3.382-1.402zm-10.94.213-1.54.36.256 1.095 1.139-.266c.814.415 1.683.74 2.591.961l.268-1.094a10.8 10.8 0 0 1-2.35-.869zm3.634 1.24-.172 1.111a12.1 12.1 0 0 0 3.662 0l-.17-1.111q-.812.125-1.66.125a11 11 0 0 1-1.66-.125"/></svg>Signal</span> Link Signal to access announcements, chat, and circles. Scan a QR code with your phone, as you do for Signal Desktop.</li>
   <li><span class="badge" style="background:#006888"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M0 0h1v1h-1zM1 0h1v1h-1zM6 0h1v1h-1zM7 0h1v1h-1zM0 1h1v1h-1zM1 1h1v1h-1zM2 1h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM0 2h1v1h-1zM1 2h1v1h-1zM2 2h1v1h-1zM3 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM0 3h1v1h-1zM1 3h1v1h-1zM3 3h1v1h-1zM4 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM0 5h1v1h-1zM1 5h1v1h-1zM5 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM0 6h1v1h-1zM1 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1z"/></svg>NCC</span> Sign into NCC to access wiki. The club login shows inside the app.</li>
 </ol>
-<p class="note">The two logins are separate. Neither is required.</p>
+<p class="note">The two logins are separate. Neither is required.</p></div>
 
-<h2>Good to know</h2>
+<div class="col"><h2>Good to know</h2>
 <ul class="know">
   <li>Messages stay end-to-end encrypted. NCCd is a linked device, signal-cli does the encryption, and no Aesthetic Computer server is in the path.</li>
   <li>NCCd updates itself. It verifies the hash and the signature of each update.</li>
   <li>The app is signed and notarized by Apple. It has no analytics. The <a href="https://github.com/whistlegraph/aesthetic-computer/tree/main/slab/nccd">source</a> is public.</li>
   <li>The download link counts downloads. It keeps your address only as a keyed hash.</li>
   <li>To remove NCCd, unlink it in Signal on your phone and delete the app.</li>
-</ul>
+</ul></div>
 
 <footer>
-<p>NCCd <span id="foot">0.3.7</span> · <a href="https://nela.computer">nela.computer</a> ·
+<p>NCCd <span id="foot">0.3.8</span> · <a href="https://nela.computer">nela.computer</a> ·
 <a href="https://aesthetic.computer">aesthetic.computer</a></p>
 <p>Signal is a trademark of Signal Technology Foundation.</p>
-<p class="sum">sha256 <span id="sum">a627cb5f6915ec18de69479be64478cca6364631b6fe4614eb4beb46716b5d4f</span></p>
+<p class="sum">sha256 <span id="sum">d446cedc6518da46f8cdd2c5823129fcc2c59a3aca7316a95b2994edafee20b2</span></p>
 </footer>
 
 </main>
