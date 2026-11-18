@@ -191,6 +191,7 @@ club ships in this repo.
 - `Sources/Donut.swift` — the donut: the 3D home screen
 - `Sources/Updater.swift` — self-update
 - the Code tab (`showCode` in `App.swift`) shows the club's forge (`forgeURL`, default `https://git.nela.computer`) in a web view that shares the NCC login's session
+- `Sources/MenuBar.swift` — the wordmark in the macOS menu bar, its hover card (unread by chat, the last day by the hour), and the notifications for new club messages
 - `Sources/Radio.swift` — KPBJ 95.9 FM, in the Netlabel tab
 - `Sources/UI.swift` — wordmark, rail, sheet, wiki pane, link panel, themes
 - `Sources/App.swift` — the controller, and the entry points

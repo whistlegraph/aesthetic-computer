@@ -34,7 +34,7 @@ LIB="$OUT/libNCCd.dylib"
 OBJ="$OUT/obj"
 mkdir -p "$OBJ" "$APP/Contents/MacOS" "$APP/Contents/Resources"
 FRAMEWORKS=(-framework AppKit -framework Network -framework Security -framework CoreImage
-            -framework AVFoundation -framework ImageIO -framework SceneKit -framework WebKit)
+            -framework AVFoundation -framework ImageIO -framework SceneKit -framework WebKit -framework UserNotifications)
 
 # The output file map: where each source's object and dependency files go.
 map() {
