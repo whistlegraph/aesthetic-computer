@@ -230,6 +230,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if env["NCC_SNAPSHOT_DROP"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.main.testDrop() }
         }
+        // NCC_SNAPSHOT_QR=<words> shows a code to scan in Signal's pane (a code of those words; no link is started).
+        if let words = env["NCC_SNAPSHOT_QR"] { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.showQR(words) } }
         // NCC_SNAPSHOT_NCC=1 starts the NCC login in its pane.
         if env["NCC_SNAPSHOT_NCC"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.openWikiLogin() } }
         // NCC_SNAPSHOT_TAB=<index> opens that place first (-2 wiki, -3 search, -4 login, -5 code).
