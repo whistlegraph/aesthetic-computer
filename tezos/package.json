@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@bitcoinerlab/secp256k1": "^1.2.0",
+    "@opensea/sdk": "^14.2.0",
     "@pinata/sdk": "^2.1.0",
     "@stablelib/blake2b": "^2.0.1",
     "@stablelib/ed25519": "^2.0.2",

@@ -180,6 +180,7 @@ Which content mill feeds which account. Plan campaigns by picking a row and a ca
 | `recap/` | narrated 1080×1920 verticals | IG/TikTok |
 | `papers/` essays → `reading` skill | audio readings + caption video | Buzzsprout → Spotify/Apple/YT |
 | `at/` scripts | changelog threads, painting shares | Bluesky |
+| `social/bin/screenshots.mjs` | the 90 Screenshots (ETH), each on the anniversary of the day it was taken — `plan`, `today`, `done <id>`; prepares image + texts, posts nothing | Bluesky (the work, no price) + X (with the token link) |
 | whistlegraph archive (`portraits/jeffrey/bin/`) | back-catalog of 950+ TikToks / 193 YT videos | re-cut fodder for funnel posts ("made with aesthetic.computer") |
 
 ---
