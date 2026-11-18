@@ -16,7 +16,7 @@ import { createDuelServer } from '../server.mjs';
 import { Actor } from '../film/actor.mjs';
 import { Projector } from '../project.mjs';
 import { CFG, direction, along } from '../world.mjs';
-import { inCar, CAR, CAR_Z } from '../elevator.mjs';
+import { CAR_SCREEN_Z, inCar, CAR, CAR_Z } from '../elevator.mjs';
 
 // Ten neighbours came before @jeffrey, so his floor is 11.
 const HANDLES = [];
@@ -24,7 +24,7 @@ for (let i = 1; i <= 10; i++) HANDLES.push(`neighbor${i.toString(36)}`);
 HANDLES.push('jeffrey');
 
 async function dool() {
-  const app = createDuelServer({
+  const app = createDuelServer({ guests: true,
     stateDir: await mkdtemp(join(tmpdir(), 'dool-spell-ride-home-')),
     listHandles: async () => HANDLES,
     resolveHandleColors: async () => null,
@@ -157,12 +157,12 @@ async function carLine() {
   const here = new URL('../', import.meta.url);
   const client = await readFile(new URL('client.mjs', here), 'utf8'), view = await readFile(new URL('view.mjs', here), 'utf8');
   const turned = /Turn to the screen over the door[^\n]*\n\s*yaw = ([\d.]+);\s*\n\s*pitch = ([\d.]+);/.exec(client);
-  const hung = /carScreenFor\(tower\.screen\), 0, tower\.lift \|\| 0, CAR_Z - CAR \+ ([\d.]+), Math\.PI\)/.exec(view);
+  const hung = /carScreenFor\(tower\.screen\), 0, tower\.lift \|\| 0, CAR_SCREEN_Z, Math\.PI\)/.test(view); // elevator.mjs says how deep
   const typed = /line\(screen\.handle, [\d.]+, ([\d.]+), [\d.]+, ([\d.]+),/.exec(view);
   assert.ok(turned && hung && typed, 'the client changed how the car line is shown: read it again and update this case');
   return {
     yaw: Number(turned[1]), pitch: Number(turned[2]),
-    z: CAR_Z - CAR + Number(hung[1]),
+    z: CAR_SCREEN_Z,
     // The typed line's middle: font_1 is ten rows of `unit` under its top.
     y: Number(typed[1]) - 5 * Number(typed[2]),
     // Only the screen shows the line: the top line is closed while it is the elevator's.

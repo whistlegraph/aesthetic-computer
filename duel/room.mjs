@@ -43,6 +43,7 @@ export class Room {
         if (o !== r && o.seat >= 0 && this.person(o) === key) {
           r.seat = o.seat; // Handed over: same seat, same player, no leave or join.
           o.seat = -1;
+          this.match.handover(r.seat);
           break;
         }
     }

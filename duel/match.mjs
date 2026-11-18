@@ -465,6 +465,15 @@ export class Match {
     return seat;
   }
 
+  // A seat passes to a new connection of the same person, body and all. The
+  // newcomer counts its commands from one, so the count kept for the old
+  // connection goes: left standing, every command up to it was dropped and
+  // the body would not move until the new count had passed the old.
+  handover(seat) {
+    const s = this.seats[seat];
+    if (s) Object.assign(s, { ack: 0, queue: [], last: {} });
+  }
+
   // A departure only stops the match when it leaves one player alone.
   leave(seat) {
     this.seats[seat] = null;
