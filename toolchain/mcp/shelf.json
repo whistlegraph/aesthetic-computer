@@ -1,0 +1,117 @@
+{
+  "//": "MCP servers taken off every Mac's registration but kept within reach. slab/bin/mcp-hub.mjs serves this list as the `shelf` server: shelf_list browses it, shelf_tools reads a server's tools, shelf_call runs one. Nothing here starts until asked for, and it idles out like any hub child. An entry with command/args is callable through the shelf; one with only a url is listed with the line that registers it again. To retire a server, move its definition here; to bring one back for good, run its `restore` line and delete the entry.",
+  "servers": {
+    "dmgify": {
+      "about": "Plan, build and verify macOS .dmg installers for AC apps.",
+      "retired": "2026-11-18",
+      "why": "No calls from Claude or Codex in 60 days.",
+      "restore": "move the entry back into toolchain/mcp/hub-servers.json and run: node slab/bin/mcp-hub.mjs --register",
+      "command": "node",
+      "args": [
+        "slab/bin/dmgify-mcp.mjs"
+      ]
+    },
+    "jukewizard": {
+      "about": "Drive the Juke Wizard player: list, play, pause, seek, speed.",
+      "retired": "2026-11-18",
+      "why": "No calls from Claude or Codex in 60 days.",
+      "restore": "move the entry back into toolchain/mcp/hub-servers.json and run: node slab/bin/mcp-hub.mjs --register",
+      "command": "node",
+      "args": [
+        "juke-wizard/bin/jukewizard-mcp.mjs"
+      ]
+    },
+    "roblox": {
+      "about": "Launch, capture and test the pinned Roblox experience.",
+      "retired": "2026-11-18",
+      "why": "No calls from Claude or Codex in 60 days.",
+      "restore": "move the entry back into toolchain/mcp/hub-servers.json and run: node slab/bin/mcp-hub.mjs --register",
+      "command": "node",
+      "args": [
+        "toolchain/robloxplorer/testing-mcp.mjs"
+      ]
+    },
+    "chrome-devtools": {
+      "about": "Chrome DevTools protocol: pages, console, network, performance traces.",
+      "retired": "2026-11-18",
+      "why": "132 calls, none since 2026-10-22.",
+      "instead": "claude-in-chrome for the signed-in browser, puppet for the warm CDP browser, frame for native windows",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--no-usage-statistics"
+      ],
+      "restore": "claude mcp add --scope user chrome-devtools -- npx -y chrome-devtools-mcp@latest --no-usage-statistics"
+    },
+    "chrome-devtools-chicken": {
+      "about": "Chrome DevTools on the chicken mini, over the fleet bridge.",
+      "retired": "2026-11-18",
+      "why": "Never called; was registered on neo only.",
+      "instead": "fleet and puppet",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/fleet-chrome-devtools.mjs",
+        "--host=chicken",
+        "--expected-user=jeffrey@fuser.studio"
+      ],
+      "restore": "claude mcp add --scope user chrome-devtools-chicken -- node toolchain/mcp/fleet-chrome-devtools.mjs --host=chicken --expected-user=jeffrey@fuser.studio"
+    },
+    "sketchup": {
+      "about": "Drive SketchUp through the sketchup-mcp bridge.",
+      "retired": "2026-11-18",
+      "why": "Never called; was registered on neo only.",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "sketchup-mcp",
+        "--with",
+        "mcp==1.10.0",
+        "sketchup-mcp"
+      ],
+      "restore": "claude mcp add --scope user sketchup -- uvx --from sketchup-mcp --with mcp==1.10.0 sketchup-mcp"
+    },
+    "oskiewar-coach": {
+      "about": "The older oskiewar coach, run from the ac-jev-workshop checkout.",
+      "retired": "2026-11-18",
+      "why": "4 calls, none since 2026-10-19; the checkout exists on blueberry only.",
+      "instead": "coach (xbox/live/coach.mjs, in .mcp.json)",
+      "command": "/bin/bash",
+      "args": [
+        "$HOME/ac-jev-workshop/toolchain/jev/run.sh"
+      ],
+      "restore": "claude mcp add --scope user oskiewar-coach -- /bin/bash $HOME/ac-jev-workshop/toolchain/jev/run.sh"
+    },
+    "exa": {
+      "about": "Exa's hosted web search and fetch.",
+      "retired": "2026-11-18",
+      "why": "6 Claude and 14 Codex calls, frisbee only.",
+      "instead": "ac-web-search, which wraps the same service behind AC's own interface",
+      "url": "https://mcp.exa.ai/mcp",
+      "restore": "claude mcp add --transport http --scope user exa https://mcp.exa.ai/mcp"
+    },
+    "asana": {
+      "about": "Asana's hosted MCP: tasks, projects, comments.",
+      "retired": "2026-11-18",
+      "why": "Never called; was registered on neo only. Needs an Asana sign-in.",
+      "url": "https://mcp.asana.com/v2/mcp",
+      "restore": "claude mcp add --transport http --scope user asana https://mcp.asana.com/v2/mcp"
+    },
+    "diffusion": {
+      "about": "A local image diffusion server on port 3274.",
+      "retired": "2026-11-18",
+      "why": "Never called, and nothing was listening on the port on neo or blueberry.",
+      "instead": "illy",
+      "url": "http://127.0.0.1:3274/mcp",
+      "restore": "start the diffusion server, then: claude mcp add --transport http --scope user diffusion http://127.0.0.1:3274/mcp"
+    },
+    "oskiewar-stage": {
+      "about": "The oskiewar stage service on port 7792.",
+      "retired": "2026-11-18",
+      "why": "Never called; not listening on frisbee or blueberry.",
+      "instead": "oskiewar (oskiewar_stage reads and steers the same service) and venue",
+      "url": "http://127.0.0.1:7792/mcp",
+      "restore": "add it back to .mcp.json: {\"oskiewar-stage\": {\"type\": \"http\", \"url\": \"http://127.0.0.1:7792/mcp\"}}"
+    }
+  }
+}
