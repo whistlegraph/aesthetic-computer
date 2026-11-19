@@ -98,7 +98,13 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         """
     }
 
+    // The form is fitted again every second while it shows: whatever moved it, it comes back to size.
+    private var keep: Timer?
+    deinit { keep?.invalidate() }
     func start() {
+        let t = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.fit() }
+        RunLoop.main.add(t, forMode: .common)
+        keep = t
         guard let url = URL(string: base + "/auth/oidc") else { return }
         web.load(URLRequest(url: url))
     }
@@ -146,7 +152,7 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
     // (but never so small that it is hard to read). `zoom` is the member's own.
     var zoom: CGFloat = 1 { didSet { fit() } }
     func fit() {
-        guard !done, web.bounds.height > 0 else { return }
+        guard !done, web.bounds.height > 60, web.bounds.width > 120, web.window != nil, !web.isHiddenOrHasHiddenAncestor else { return }
         // The form's own size at no zoom (its fields and button, not the page round
         // them), and then the zoom at which it fills its pane: larger in a large
         // pane, smaller in a small one, and whole in both.
@@ -158,6 +164,8 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
             guard let self, let a = v as? [NSNumber], a.count == 2, a[0].doubleValue > 0 else { return }
             let tall = CGFloat(a[0].doubleValue), wide: CGFloat = 440       // the form is drawn 440 wide at no zoom
             let z = max(0.3, min(1.9, min(self.web.bounds.height / tall, self.web.bounds.width / (wide + 40)) * 0.94)) * self.zoom
+            // a pane that is momentarily small (it is being laid out) must not shrink the form for good
+            guard self.web.bounds.height > 60 else { return }
             if abs(self.web.pageZoom - z) > 0.02 { self.web.pageZoom = z }
         }
     }

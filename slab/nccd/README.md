@@ -159,6 +159,7 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_SNAPSHOT_SEARCH=<words>` | open the Search tab and search for them |
 | `NCC_SNAPSHOT_TAB=<index>` | open that place first (-2 wiki, -3 search, -4 login, -5 code) |
 | `NCC_SNAPSHOT_QR=<words>` | show a code to scan in Signal's pane (no link is started) |
+| `NCC_SNAPSHOT_BACK=1` | press "← back" a few seconds after a login was started |
 | `NCC_SNAPSHOT_NCC=1` | start the NCC login in its pane |
 | `NCC_SNAPSHOT_WINDOW=<n>` | give the nth circle its own window, and picture that window |
 | `NCC_SNAPSHOT_DOC=<title, id or slug>` | open that wiki page first; its markdown is written to `<file.png>.md` |

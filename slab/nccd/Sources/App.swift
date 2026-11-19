@@ -113,7 +113,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.makeKeyAndOrderFront(nil)
         }
 
-        main.link.onBack = { [weak self] in self?.stopLogins() }
+        main.onLoginBack = { [weak self] in self?.stopLogins() }
         main.link.button.target = self
         main.link.button.action = #selector(linkSignal)
         // A login badge at the foot of the rail goes to where that login happens.
@@ -216,6 +216,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // NCC_SNAPSHOT_QR=<words> shows a code to scan in Signal's pane (a code of those words; no link is started).
         if let words = env["NCC_SNAPSHOT_QR"] { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.showQR(words) } }
+        // NCC_SNAPSHOT_BACK=1 presses "← back" a few seconds after a login was started.
+        if env["NCC_SNAPSHOT_BACK"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 7) { self.stopLogins() } }
         // NCC_SNAPSHOT_NCC=1 starts the NCC login in its pane.
         if env["NCC_SNAPSHOT_NCC"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.openWikiLogin() } }
         // NCC_SNAPSHOT_TAB=<index> opens that place first (-2 wiki, -3 search, -4 login, -5 code).
@@ -1298,6 +1300,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         onCode = false
         main.wikiOpen = false                 // a circle, the donut or the search: the wiki steps aside
         // With Signal not linked, NCCd's own page is the logins.
+        if main.link.flowing { stopLogins() }          // leaving a login that is under way stops it: it starts afresh next time
         if i == -4 || (i == -1 && account == nil) { onLogin = true; onSearch = false; onStart = false; refresh(); return }
         onLogin = false
         if i == -3 { onSearch = true; onStart = false; refresh(); return }

@@ -480,10 +480,18 @@ final class Unibar: NSView {
     var open = false { didSet { needsDisplay = true } }
     // Until one login is done there is nowhere to go: no arrow, and a press does nothing.
     var locked = false { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
+    // While a login is under way the bar is the way back out of it.
+    var backAction: (() -> Void)? { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
 
     override func draw(_ dirty: NSRect) {
         Tab.draw(in: NSRect(x: -10, y: 0, width: bounds.width + 20, height: bounds.height + 13), fill: color, open: true, top: true)
+        if let _ = backAction {
+            if hover { NSColor(white: 1, alpha: 0.16).setFill(); bounds.fill(using: .sourceOver) }
+            let word = NSAttributedString(string: "← back", attributes: [.font: Theme.mono(weight: .heavy), .foregroundColor: Theme.ink])
+            word.draw(at: NSPoint(x: 12, y: bounds.midY - word.size().height / 2))
+            return
+        }
         if (hover || open) && !locked {
             NSColor(white: 1, alpha: 0.16).setFill()
             bounds.fill(using: .sourceOver)
@@ -526,8 +534,11 @@ final class Unibar: NSView {
     }
     override func mouseEntered(with event: NSEvent) { hover = true }
     override func mouseExited(with event: NSEvent) { hover = false }
-    override func mouseDown(with event: NSEvent) { if !locked { onClick?() } }
-    override func resetCursorRects() { if !locked { addCursorRect(bounds, cursor: .pointingHand) } }
+    override func mouseDown(with event: NSEvent) {
+        if let backAction { return backAction() }
+        if !locked { onClick?() }
+    }
+    override func resetCursorRects() { if !locked || backAction != nil { addCursorRect(bounds, cursor: .pointingHand) } }
 }
 
 // The first tab of the rail: the wordmark, with a house to its left. It is the
@@ -816,19 +827,13 @@ final class LinkPanel: NSView {
     let button = Deed(title: "Link Signal", target: nil, action: nil)
     let nccButton = Deed(title: "Sign into NCC", target: nil, action: nil)
     let nccStatus = Words(labelWithString: "for wiki & code")
-    let qr = NSImageView()
     let note = label("", Theme.mono(11), NSColor(white: 1, alpha: 0.85))
-    private let panes = NSStackView()
     private var signalPane: BigButton!, nccPane: BigButton!
 
     init() {
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         setContentHuggingPriority(.init(1), for: .vertical)          // the panel takes the whole sheet
-        qr.imageScaling = .scaleProportionallyUpOrDown
-        qr.widthAnchor.constraint(equalToConstant: 150).isActive = true
-        qr.heightAnchor.constraint(equalToConstant: 150).isActive = true
-        qr.isHidden = true
         note.maximumNumberOfLines = 3
         note.lineBreakMode = .byWordWrapping
         note.alignment = .center
@@ -837,59 +842,59 @@ final class LinkPanel: NSView {
         note.preferredMaxLayoutWidth = 240
         note.widthAnchor.constraint(equalToConstant: 240).isActive = true
 
-        signalPane = BigButton(color: NSColor(hex: "3A76F0")!, mark: Brand.signal(size: 44), under: [qr, note])
+        signalPane = BigButton(color: NSColor(hex: "3A76F0")!, mark: Brand.signal(size: 44), under: [note])
         nccPane = BigButton(color: NSColor(hex: "006888")!, mark: Brand.ncc(cell: 6), under: [])
-        // A press on a pane starts its login; on a strip whose login is already under way, it brings that login back.
-        signalPane.onClick = { [weak self] in
-            guard let self else { return }
-            if self.signalPane.busy { self.focus = self.signalPane } else { self.press(self.button) }
-        }
-        nccPane.onClick = { [weak self] in
-            guard let self else { return }
-            if self.nccPane.busy { self.focus = self.nccPane } else { self.press(self.nccButton) }
-        }
+        signalPane.onClick = { [weak self] in self?.press(self?.button) }
+        nccPane.onClick = { [weak self] in self?.press(self?.nccButton) }
         for w in [status, nccStatus] { w.onChange = { [weak self] in self?.sync() } }
         for d in [button, nccButton] { d.onChange = { [weak self] in self?.sync() } }
-        let word = NSTextField(labelWithString: "← back")
-        word.font = Theme.mono(11, bold: true)
-        word.textColor = .white
-        back.addArrangedSubview(word)
-        back.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
-        back.wantsLayer = true
-        back.layer?.backgroundColor = NSColor(white: 0, alpha: 0.3).cgColor
-        back.layer?.cornerRadius = 5
-        back.isHidden = true
-        back.onClick = { [weak self] in self?.onBack?() }
-        back.translatesAutoresizingMaskIntoConstraints = false
-        panes.addArrangedSubview(signalPane)
-        panes.addArrangedSubview(nccPane)
-        panes.distribution = .fillEqually
-        panes.spacing = 8
-        panes.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(panes)
-        addSubview(back)
-        NSLayoutConstraint.activate([
-            back.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10), back.topAnchor.constraint(equalTo: topAnchor, constant: 15),
-            panes.leadingAnchor.constraint(equalTo: leadingAnchor), panes.trailingAnchor.constraint(equalTo: trailingAnchor),
-            // as far from the bar above as from the bar below, and as from the sides
-            panes.topAnchor.constraint(equalTo: topAnchor, constant: 5), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
-        ])
+        // The panes are placed by hand (layout, below), not by a stack: every
+        // state, and every way back from one, gives each pane its exact frame.
+        for pane in [signalPane!, nccPane!] {
+            pane.translatesAutoresizingMaskIntoConstraints = true
+            pane.autoresizingMask = []
+            addSubview(pane)
+        }
         sync()
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    // One login at a time: the one in progress has the whole sheet, the other
-    // pane is out of sight, and "← back" stops it and brings both buttons back.
-    var onBack: (() -> Void)?
-    private let back = Press(views: [])
-    private var focus: BigButton? { didSet { balance() } }
-    private func balance() {
+    // One login at a time: the one in progress has the whole sheet and the
+    // other pane is out of sight. With none in progress the two share the
+    // sheet: side by side when it is wide for its height, else one over the other.
+    var onFlow: ((Bool) -> Void)?            // a login started (true) or there is none now (false)
+    private var focus: BigButton? {
+        didSet {
+            guard focus !== oldValue else { return }
+            needsLayout = true
+            onFlow?(focus != nil)
+        }
+    }
+    var flowing: Bool { focus != nil }
+    private func settle() { if let f = focus, !f.busy { focus = nil } }      // the login ended
+
+    override func layout() {
+        super.layout()
+        // as far from the bar above as from the bar below, and as from the sides
+        let room = NSRect(x: 0, y: 7, width: bounds.width, height: max(0, bounds.height - 12))
         signalPane.isHidden = focus != nil && focus !== signalPane
         nccPane.isHidden = focus != nil && focus !== nccPane
-        back.isHidden = focus == nil
-        if focus == nil { orient(bounds.size) }
+        if let focus { focus.frame = room; return }
+        let gap: CGFloat = 8
+        if room.width >= 520 && room.width > room.height {
+            let w = ((room.width - gap) / 2).rounded(.down)
+            signalPane.frame = NSRect(x: room.minX, y: room.minY, width: w, height: room.height)
+            nccPane.frame = NSRect(x: room.maxX - w, y: room.minY, width: w, height: room.height)
+        } else {
+            let h = ((room.height - gap) / 2).rounded(.down)
+            signalPane.frame = NSRect(x: room.minX, y: room.maxY - h, width: room.width, height: h)      // Signal's on top
+            nccPane.frame = NSRect(x: room.minX, y: room.minY, width: room.width, height: h)
+        }
     }
-    private func settle() { if let f = focus, !f.busy { focus = nil } }      // the login ended
+    override func setFrameSize(_ size: NSSize) {
+        super.setFrameSize(size)
+        needsLayout = true
+    }
 
     // The NCC login runs in NCC's own pane (nil: the button again).
     func showNCC(_ web: NSView?) {
@@ -909,29 +914,22 @@ final class LinkPanel: NSView {
         nccPane?.enabled = nccButton.isEnabled
     }
 
-    // Side by side when the window is wide for its height, else one over the other.
-    override func setFrameSize(_ size: NSSize) {
-        if focus == nil { orient(size) }
-        super.setFrameSize(size)
-    }
-    private func orient(_ size: NSSize) {
-        let side: NSUserInterfaceLayoutOrientation = size.width >= 520 && size.width > size.height ? .horizontal : .vertical
-        if panes.orientation != side { panes.orientation = side }
-    }
-
-    // Point at the logins: the two panes blink (a greyed-out tab or the greyed-out search was pressed).
+    // Point at the logins: the two panes blink (a greyed-out tab was pressed).
     func flash() {
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.12
-            panes.animator().alphaValue = 0.35
-        }, completionHandler: {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.3
-                self.panes.animator().alphaValue = 1
-            }
-        })
+        for pane in [signalPane!, nccPane!] {
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.12
+                pane.animator().alphaValue = 0.35
+            }, completionHandler: {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.3
+                    pane.animator().alphaValue = 1
+                }
+            })
+        }
     }
 
+    // The code to scan, in Signal's pane (nil: the button again).
     func showQR(_ uri: String?) {
         guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { signalPane.showCode(nil); return settle() }
         f.setValue(Data(uri.utf8), forKey: "inputMessage")
@@ -1726,7 +1724,14 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         ])
         dropOpen = false
         applyTabs()
+        // a login under way: the bar is "← back" (down the side, where there is no bar, a press on the wordmark goes back)
+        link.onFlow = { [weak self] on in
+            guard let self else { return }
+            self.dropOpen = false
+            self.unibar.backAction = on ? { [weak self] in self?.onLoginBack?() } : nil
+        }
     }
+    var onLoginBack: (() -> Void)?
     required init?(coder: NSCoder) { fatalError() }
 
     // Put the tabs where the member wants them: down the side, or along the top.
