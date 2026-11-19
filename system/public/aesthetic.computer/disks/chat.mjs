@@ -1309,10 +1309,12 @@ function paint(
   if (helpRoom) options = {
     hideChrome: true,
     topMargin: 60,
-    presenceOverride: "Public help with @jeffrey",
-    presenceColor: [255, 255, 255],
+    // Closed to new messages on 2026.11.18: the scrollback stays readable and
+    // the one way forward is the Laklok button.
+    hideInput: true,
+    presenceOverride: "closed 2026.11.18 - we chat on laklok",
+    presenceColor: [150, 150, 150],
     presenceTop: 28,
-    inputPlaceholder: "Ask for help...",
     ...options,
   };
 
@@ -1395,11 +1397,11 @@ function paint(
   options?.paintHeader?.(api, topMargin);
 
   if (helpRoom && communityButton) {
-    communityButton.box = new Box(6, 41, Math.min(110, screen.width - 12), 15);
+    const label = "laklok", w = text.width(label) + 16;
+    communityButton.box = new Box(Math.floor((screen.width - w) / 2), 40, w, 16);
     const hot = communityButton.over || communityButton.down;
-    ink(hot ? "yellow" : "white").box(communityButton.box, "outline");
-    ink(hot ? "yellow" : "white").write("Conversation: Laklok", { x: 10, y: 45 },
-      false, undefined, false, "MatrixChunky8");
+    ink(hot ? "yellow" : "white").box(communityButton.box);
+    ink("black").write(label, { x: communityButton.box.x + 8, y: 43 });
   }
 
   // Interface
@@ -4712,8 +4714,8 @@ function act(
       }
     }
 
-    // 🖥️ Keyboard / Text Input
-    inputBtn.act(e, {
+    // 🖥️ Keyboard / Text Input (none when the footer is hidden: TV, closed room)
+    if (!inputHidden) inputBtn.act(e, {
       down: () => {
         send({ type: "keyboard:enabled" }); // In case corner was pressed,
         //                                     which can disable the keyboard.
@@ -4733,7 +4735,7 @@ function act(
       },
     });
 
-    handleBtn.act(e, () => {
+    if (!inputHidden) handleBtn.act(e, () => {
       const hand = handle();
       if (!hand) {
         net.login();
@@ -4743,6 +4745,7 @@ function act(
     });
 
     if (
+      !inputHidden &&
       !input.canType &&
       e.is("keyboard:down:enter") // ||
       // e.is("keyboard:down:escape") ||
@@ -4850,7 +4853,7 @@ function act(
     e.is("keyboard:close") ||
     (input.canType && !e.is("keyboard:down:escape")) ||
     // Also handle touch/lift events when input is not active but user interacts with the input button area
-    (!input.canType && (e.is("touch") || e.is("lift")) && inputBtn && inputBtn.btn.box.contains(e))
+    (!inputHidden && !input.canType && (e.is("touch") || e.is("lift")) && inputBtn && inputBtn.btn.box.contains(e))
   );
   
   if (shouldCallInputAct) {
