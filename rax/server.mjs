@@ -16,7 +16,7 @@ import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { clearOfCar, altitude } from './elevator.mjs';
+import { clearOfCar, altitude, floorAt } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -160,8 +160,10 @@ export function createRaxServer({
   // facing in (east, west behind the desk, and north beside the car), so
   // there is always something live to walk up to, and to watch a screen's
   // grid coarsen with distance (screen-lod.mjs). Each is four metres wide.
-  // Stood once; whoever keeps the plaza can take one down.
-  const LOBBY_SCREENS = [['roz', 7.2, 4.6, 90], ['bop', -7.2, 4.6, 270], ['berz', 4.9, 7.7, 0]];
+  // They are the building's, not anyone's: told with the room's own screens
+  // and never written down (object-store.mjs standing).
+  store.standing = { [GROUND]: [['roz', 7.2, 4.6, 90], ['bop', -7.2, 4.6, 270], ['berz', 4.9, 7.7, 0]]
+    .map(([code, x, z, yaw]) => ({ id: `lobby-${code}`, owner: null, code, x, z, yaw, at: 0 })) };
   const ready = loaded.then(async () => {
     const pods = Object.values(geography.geography.pods);
     if (!pods.length) return;
@@ -474,9 +476,22 @@ export function createRaxServer({
               tiles: store.tiles(id),
             });
           }
+      // 🏢 And the floors of the tower near a height asked for (an eye flying
+      // up its side, or standing on one): what stands on each, to be drawn
+      // where the floor is. Three storeys either way.
+      const y = Number(url.searchParams.get('y')), floors = [];
+      if (asked === 'lobby' && url.searchParams.has('y') && Number.isFinite(y)) {
+        const middle = floorAt(Math.max(0, y));
+        for (let n = Math.max(1, middle - 3); n <= middle + 3; n++) {
+          const f = tower.tower.at(n);
+          if (!f) continue;
+          const id = floorRoom(f.id);
+          floors.push({ id, number: n, y: altitude(n), objects: store.objects(id).filter((o) => !o.item), tiles: store.tiles(id) });
+        }
+      }
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-        .end(JSON.stringify({ room: at ? blockId(at) : null, revision: geography.geography.revision, blocks }));
+        .end(JSON.stringify({ room: at ? blockId(at) : null, revision: geography.geography.revision, blocks, floors }));
       return;
     }
     if (path === '/room' && req.method === 'GET') {
@@ -522,11 +537,6 @@ export function createRaxServer({
     maxPayload: 8192,
     perMessageDeflate: false,
   });
-  void ready.then(async () => {
-    const have = new Set(store.screens(GROUND).map((s) => s.id));
-    for (const [code, x, z, yaw] of LOBBY_SCREENS)
-      if (!have.has(`lobby-${code}`)) await store.addScreen(GROUND, { id: `lobby-${code}`, owner: null, code, x, z, yaw, at: Date.now() });
-  }).catch(() => {});
   const builderWss = new WebSocketServer({
     noServer: true,
     maxPayload: 32768,

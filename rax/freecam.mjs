@@ -24,7 +24,9 @@ export function moveFreecam(camera, input, seconds, air = null) {
   const k = 1 - Math.exp(-dt * (asked ? PUSH : DRIFT));
   const ax = (air?.x || 0) * RIDE, ay = (air?.y || 0) * HEAVE, az = (air?.z || 0) * RIDE;
   let vx = (camera.vx || 0) + (x * top + ax - (camera.vx || 0)) * k,
-    vy = (camera.vy || 0) + (y * top * climb + ay - (camera.vy || 0)) * k,
+    // (Only the up and down asked for outright: flying ahead with the eye tipped
+    // a little keeps its line at any height.)
+    vy = (camera.vy || 0) + ((f.y * input.fwd + input.up * climb) * top + ay - (camera.vy || 0)) * k,
     vz = (camera.vz || 0) + (z * top + az - (camera.vz || 0)) * k;
   if (!asked && !air && Math.hypot(vx, vy, vz) < 0.02) vx = vy = vz = 0; // at a hover (in still air)
   const nx = clamp(camera.x + vx * dt, -60, 60), ny = clamp(camera.y + vy * dt, 0.15, CEILING), nz = clamp(camera.z + vz * dt, -60, 60);

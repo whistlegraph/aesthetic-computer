@@ -1198,6 +1198,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
+    gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
@@ -1482,7 +1483,7 @@ export async function createView(canvas) {
     }
     for (const b of around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
-      draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz);
+      if (!b.floor) draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz); // (a floor of the tower has its own slab)
       const painted = tilesFor(b.id, b.tiles);
       if (painted) draw(painted, b.dx, by, b.dz);
       // The seams between the blocks around, on their lines; the ones that
@@ -2448,6 +2449,22 @@ export async function createView(canvas) {
         key(cx + b * 0.7, oy + radius + b * 1.1, held[9], PAPER, b * 0.8, b * 0.6);
         // Anything past the standard seventeen (L4, R4, paddles): a row beneath, as they come.
         held.forEach((on, i) => { if (i > 16 && on) key(cx + (i - 18.5) * step, oy - radius - b, true, 0xd7a6ff); });
+      });
+      projector.overlay(m, W, H);
+    }
+    // 🚁 A drone's dials along the bottom's middle: speed, the rotors, height.
+    if (gauge && !bare && !menu) {
+      const { unit, safeY } = hud;
+      const m = model(({ small }) => {
+        const parts = [[`${Math.round(gauge.mph)}`, PAPER], [' mph   ', THEME.dim], [`${(Math.round(gauge.rpm / 10) * 10).toLocaleString('en-US')}`, 0x00ffff], [' rpm   ', THEME.dim],
+          [`${Math.round(gauge.feet).toLocaleString('en-US')}`, AXIS.y], [' ft', THEME.dim]];
+        let left = -(parts.reduce((w, [t]) => w + smallWidth(t) + 1, 0) * unit) / 2;
+        const y = -H / 2 + safeY + 12 * unit;
+        for (const [t, ink] of parts) {
+          const x = left + (smallWidth(t) / 2) * unit;
+          if (t.trim()) { small(t, x + unit, y - unit, 0.000002, unit, INK); small(t, x, y, 0, unit, ink); }
+          left += (smallWidth(t) + 1) * unit;
+        }
       });
       projector.overlay(m, W, H);
     }

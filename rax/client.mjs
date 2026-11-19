@@ -279,15 +279,30 @@ function around() {
   // 🏢 From a floor of the tower the plaza and its blocks lie below.
   if (room.startsWith('floor-')) {
     const at = plazaFrom();
-    return at ? world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
-      home: null })) : [];
+    return at ? [...world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
+      home: null })), ...floorsAround(at.dy)] : [];
   }
   const here = world.blocks.find((b) => b.id === room);
   if (!here) return [];
   return world.blocks
     .filter((b) => b !== here && Math.abs(b.di - here.di) <= 1 && Math.abs(b.dj - here.dj) <= 1)
     .map((b) => ({ ...b, dx: (b.di - here.di) * SPAN, dz: (b.dj - here.dj) * SPAN,
-      home: home && home.room === b.id ? home.lot : null }));
+      home: home && home.room === b.id ? home.lot : null }))
+    .concat(room === 'lobby' ? floorsAround(0) : []);
+}
+// 🏢 What stands on the tower's floors near the eye, each where its floor is
+// (the floor you are on is the room itself, and is not drawn twice).
+function floorsAround(dy) {
+  return (world?.floors || []).filter((f) => f.id !== room)
+    .map((f) => ({ id: f.id, floor: true, dx: 0, dz: 0, dy: f.y + dy, objects: f.objects, tiles: f.tiles, neighbours: {}, plaza: false, home: null }));
+}
+// 🏢 How high the eye is in the world: on a floor of the tower, that floor's
+// height; flying over the plaza, the drone's. The world is asked again when
+// it has moved a storey, for the floors now beside it.
+let worldY = 0;
+function eyeHeight() {
+  const up = room.startsWith('floor-') ? -(plazaFrom()?.dy || 0) : 0;
+  return up + (seat < 0 && !held ? freecam?.y || 0 : player?.y || 0);
 }
 async function streamWorld() {
   const asked = room;
@@ -295,7 +310,8 @@ async function streamWorld() {
   // A floor of the tower looks down on the plaza's neighbourhood.
   const about = asked.startsWith('floor-') ? 'lobby' : asked;
   try {
-    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}`, import.meta.url), { cache: 'no-store' });
+    worldY = eyeHeight();
+    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}${about === 'lobby' ? `&y=${Math.round(worldY)}` : ''}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok || room !== asked) return;
     const data = await r.json();
     if (!Array.isArray(data.blocks)) return;
@@ -639,10 +655,13 @@ function spotOf(id) {
   }
   const w = walls.find((x) => `wall:${x.code}` === id);
   if (w) return w.face === 'north' ? { x: 0, y: 10, z: SCREEN } : { x: -SCREEN, y: 10, z: 0 };
+  const s = screens.find((x) => `screen:${x.id}` === id);
+  if (s) return { x: s.x, y: 1.5, z: s.z };
   return null;
 }
+const screenFocus = (s) => ({ id: `screen:${s.id}`, wall: true, screen: true, code: s.code, version: 0, owner: null, geometry: { name: `$${s.code}` } });
 function selectables() {
-  return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`)];
+  return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`), ...screens.map((s) => `screen:${s.id}`)];
 }
 function setLock(id) {
   if (id && !lockOn) {
@@ -650,7 +669,7 @@ function setLock(id) {
     if (seat >= 0) third = true;
   }
   if (!id && lockOn) third = thirdBeforeLock;
-  lockOn = id ? { id, wall: id.startsWith('wall:') } : null;
+  lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') } : null; // (a wall or a standing screen is looked at, never removed by a lock)
 }
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
@@ -2371,7 +2390,7 @@ function step(now) {
       sentSeq = part.at(-1).seq;
     }
   }
-  if (performance.now() - worldAt > 6000 && !document.hidden) void streamWorld();
+  if (!document.hidden && (performance.now() - worldAt > 6000 || (performance.now() - worldAt > 700 && Math.abs(eyeHeight() - worldY) > 7))) void streamWorld();
   tendWarm();
   if (park?.neighbours && player && seq !== firstSequence) {
     // A home is its lot: walking over a front is only walking. Off a side
@@ -2450,6 +2469,12 @@ function step(now) {
         focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
       }
     }
+    // 📺 A standing KidLisp screen is aimed at too (four metres wide, facing its yaw).
+    for (const s of screens) {
+      const wide = direction((s.yaw || 0) - 90), hx = Math.abs(wide.x) * 2 + 0.15, hz = Math.abs(wide.z) * 2 + 0.15;
+      const distance = rayBox(origin, dir, { xMin: s.x - hx, xMax: s.x + hx, yMin: 0.4, yMax: 2.7, zMin: s.z - hz, zMax: s.z + hz }, nearest);
+      if (distance < nearest) { nearest = distance; focusObject = screenFocus(s); }
+    }
     // The floor square under the crosshair, within reach, if nothing nearer.
     floorAim = null;
     if (dir.y < -0.02 && player) {
@@ -2466,7 +2491,9 @@ function step(now) {
     if (lockOn) {
       const locked = objects.find((o) => o.id === lockOn.id);
       const w = walls.find((x) => `wall:${x.code}` === lockOn.id);
+      const s = screens.find((x) => `screen:${x.id}` === lockOn.id);
       if (locked) focusObject = locked;
+      else if (s) focusObject = screenFocus(s);
       else if (w)
         focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
     }
@@ -2576,6 +2603,12 @@ function step(now) {
     gate: seat < 0 ? gate : null,
     controller: controller.id,
     stats: statsShown,
+    // 🚁 The drone's dials, bottom centre: miles an hour, the rotors' turns a minute, feet up.
+    gauge: seat < 0 && !held && sheetOpen && snapshot ? (() => {
+      const v = Math.hypot(freecam.vx || 0, freecam.vy || 0, freecam.vz || 0);
+      // (A hover turns them at 5,400; climbing and speed ask for more, sinking for less.)
+      return { mph: v * 2.23694, rpm: Math.max(2400, 5400 + v * 190 + (freecam.vy || 0) * 260), feet: (freecam.y || 0) * 3.28084 };
+    })() : null,
     sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0], buttons: controller.previous || [] } : null,
     seat,
     third: third || !!game()?.camera,

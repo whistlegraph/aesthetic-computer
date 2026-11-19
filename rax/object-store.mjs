@@ -213,8 +213,11 @@ export class ObjectStore {
     });
   }
   // Standing KidLisp screens, one per $code prompt: { id, owner, code, x, z, yaw, at }.
+  // (standing: screens a place has of its own, { room: [screen] }, set by the
+  // server and never kept here; one of the same id written down earlier gives way.)
   screens(room) {
-    return (this.data.screens?.[room] || []).map((s) => ({ ...s }));
+    const own = this.standing?.[room] || [], ids = new Set(own.map((s) => s.id));
+    return [...own, ...(this.data.screens?.[room] || []).filter((s) => !ids.has(s.id))].map((s) => ({ ...s }));
   }
   addScreen(room, screen) {
     return this.transact((data) => {
