@@ -53,18 +53,23 @@ async function run(browser, route) {
       setTimeout(() => reject(new Error(`no answer to ${o}`)), 8000);
     }), op, args || {});
     const steps = () => page.evaluate(() => ({ code: window.nopaintSteps.code, version: window.nopaintSteps.version, saved: window.nopaintSteps.saved,
-      error: window.nopaintSteps.error, who: document.querySelector("#nopaint-who")?.textContent, ai: document.querySelector("#nopaint-ai")?.hidden ? null : document.querySelector("#nopaint-ai")?.textContent,
-      chip: document.querySelector("#nopaint-steps")?.textContent, log: window.nopaintSteps.log }));
+      error: window.nopaintSteps.error, who: window.nopaintSteps.account || "guest", title: window.nopaintSteps.title,
+      chip: window.nopaintSteps.painting, log: window.nopaintSteps.log }));
     const events = () => page.evaluate(() => window.nopaintSteps.events.length);
     const until = (from, event, timeout = 30000) => page.waitForFunction((f, e) => window.nopaintSteps.events.slice(f).includes(e), { timeout, polling: 100 }, from, event);
     for (let i = 0; i < 300 && !(await ask("state").then((s) => s.layout, () => null)); i++) await wait(200);
-    await wait(2500); // the title screen, for the film
-    await ask("goto", { layout: "Index" });
+    await wait(2500); // the dark opening screen, for the film
+    // Start as a player does: a tap turns the lights on, another starts.
+    for (let taps = 0; taps < 4 && (await ask("state")).layout === "Splash"; taps++) {
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45);
+      await wait(taps ? 400 : 2500); // the lit title screen, with its sign-in slot, for the film
+      for (let i = 0; i < 20 && (await ask("state")).layout === "Splash" && taps; i++) await wait(150);
+    }
     await wait(1200);
     // Hold the AI flag down so the one AI turn is the one asked for below.
     for (let i = 0; i < 60 && !("AI" in (await ask("odds")).odds); i++) await wait(250);
     const offered = "AI" in (await ask("odds")).odds;
-    check("the page found an AI turn to offer", offered, route.account ? (await steps()).ai : "the free turn");
+    check("the page found an AI turn to offer", offered, route.account ? "a painter with AI turns on" : "the free turn");
     await ask("flags", { flags: { ai: false } });
     const play = async (line, answer, look = 2600) => {
       await ask("prompt", { text: line });
@@ -97,7 +102,7 @@ async function run(browser, route) {
     await wait(4000); // the save
     let seen = await steps();
     check("every step is on AC under one #code", !!seen.code && seen.saved === seen.version && !seen.error, `${seen.chip}${seen.error ? `, ${seen.error}` : ""}`);
-    check(route.account ? "the page shows the handle" : "the page offers sign-in", seen.who === (route.account?.label || "sign in"), seen.who);
+    check(route.account ? "the painter is signed in" : "the painter is a guest", seen.who === (route.account?.label || "guest"), seen.who);
     // Save, from the pause screen: the game shows the painting's own code.
     await ask("call", { name: "Pause" });
     await wait(1800);
