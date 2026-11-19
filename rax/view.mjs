@@ -206,7 +206,7 @@ export async function createView(canvas) {
   const gpu = { max: 0, queued: 0 };
   try {
     host = await WebGPUOskiewarScene3D.create(canvas, {
-      maxTriangles: 49152,
+      maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
       shadows: true, // 🌑 the sun's shadows, as stencil volumes (shadow.mjs)
       onDeviceLost: () => {
         lost = true;
@@ -225,7 +225,7 @@ export async function createView(canvas) {
     canvas = replacement;
     const { WebGLOskiewarScene3D } = await import('./engine/scene3d-webgl.mjs');
     host = new WebGLOskiewarScene3D(canvas, {
-      maxTriangles: 49152,
+      maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
       antialias: false,
     });
     backend = 'webgl2';
@@ -832,13 +832,8 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
-  const LENS_ZOOM = 1.3; // how much larger the middle is drawn under the lens
-  // Off unless asked for (L): from high up, or with a big flat thing close by, a
-  // wide triangle that runs past the edge of the picture is bent wrongly and
-  // shows through what stands before it. It wants doing to the finished
-  // picture, not to each corner.
-  let lensOn = false;
-  try { lensOn = localStorage.getItem('rax-lens-try') === '1'; } catch {}
+  const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
+  let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
   const statsRun = new Float32Array(120); let statsHead = 0; // the last 120 frames' gaps, a ring
@@ -1404,10 +1399,12 @@ export async function createView(canvas) {
     // nothing there is stretched. Not from overhead, nor side-on in a game.
     projector.decay = decay;
     projector.decayAt = now;
-    projector.lens = lensOn && orbit <= 0 && !game?.camera ? 1 : 0;
+    // It is how rax is seen, always; flying in from overhead it comes on as the eye comes down.
+    projector.lens = game?.camera ? 0 : LENS * Math.max(0, Math.min(1, 1 - orbit));
+    projector.fine = lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3;
     if (projector.lens) {
-      projector.sx *= LENS_ZOOM;
-      projector.sy *= LENS_ZOOM;
+      projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
+      projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
     }
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
@@ -2475,6 +2472,7 @@ export async function createView(canvas) {
       statsAt = t;
       statsGap += (gap - statsGap) * 0.1;
       statsRun[statsHead] = gap; statsHead = (statsHead + 1) % statsRun.length;
+      lensFull = (projector.scene?.triangleCount || 0) / (projector.scene?.maxTriangles || 1);
       if (gap > statsWorst || t - statsWorstAt > 3000) { statsWorst = gap; statsWorstAt = t; }
     }
     if (stats) {
@@ -3622,12 +3620,6 @@ export async function createView(canvas) {
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
     density: setDensity,
-    // 🔭 The lens on or off (kept); with nothing, the other of the two.
-    lens(on = !lensOn) {
-      lensOn = !!on;
-      try { localStorage.setItem('rax-lens-try', lensOn ? '1' : '0'); } catch {}
-      return lensOn;
-    },
     showFps(on) {
       SHOW_FPS = !!on;
     },

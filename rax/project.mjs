@@ -114,7 +114,7 @@ export class Projector {
     // Wholly off one side of the picture: not drawn.
     if ((ax < -1 && bx < -1 && cx < -1) || (ax > 1 && bx > 1 && cx > 1) || (ay < -1 && by < -1 && cy < -1) || (ay > 1 && by > 1 && cy > 1)) return;
     if (depth > 0) {
-      const LONG = 0.12 * 0.12; // (a sixteenth of the picture's width: short enough that two flat things a few millimetres apart keep their order)
+      const LONG = (this.fine || 0.12) ** 2; // (0.12 is a sixteenth of the picture's width: short enough that two flat things a few millimetres apart keep their order)
       const e0 = (ax - bx) ** 2 + (ay - by) ** 2 > LONG, e1 = (bx - cx) ** 2 + (by - cy) ** 2 > LONG, e2 = (cx - ax) ** 2 + (cy - ay) ** 2 > LONG;
       if (e0 || e1 || e2) {
         const mx0 = (x0 + x1) / 2, my0 = (y0 + y1) / 2, mz0 = (z0 + z1) / 2, mx1 = (x1 + x2) / 2, my1 = (y1 + y2) / 2, mz1 = (z1 + z2) / 2,
@@ -230,12 +230,11 @@ export class Projector {
       }
       // What is left of the triangle, as a fan, each part put on the screen.
       for (let j = 3; j < count - 3; j += 3) {
-        // (How finely an edge may be halved falls as the frame's triangles
-        // run out: a full frame keeps its shapes and loses only their bend.)
-        const used = this.scene.triangleCount / this.scene.maxTriangles;
-        if (used >= 1) { this.overflow = true; return; } // (by the count, never by the flag: that is only lowered where shadows are cast)
-        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5],
-          !this.lens ? 0 : used < 0.4 ? 5 : used < 0.6 ? 3 : used < 0.75 ? 1 : 0);
+        // (How short an edge must be is one rule for the whole frame, `fine`,
+        // so two shapes that share an edge always halve it alike and no crack
+        // opens; the view sets it from how full the last frame was.)
+        if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; } // (by the count, never by the flag: that is only lowered where shadows are cast)
+        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5], this.lens ? 7 : 0);
       }
     }
   }
