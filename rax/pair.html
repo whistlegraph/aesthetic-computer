@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>sign in a screen · rax</title>
+<style>
+  html, body { margin: 0; min-height: 100%; background: #141720; color: #e8eaf0; font: 18px/1.4 ui-monospace, Menlo, monospace; }
+  main { max-width: 22em; margin: 0 auto; padding: 12vh 1.2em 2em; }
+  #number { font-size: 4.5em; font-weight: 700; letter-spacing: 0.12em; line-height: 1; margin: 0 0 0.3em; color: #fff; }
+  #handle { color: #ffe066; }
+  p { margin: 0 0 1em; }
+  .quiet { color: #8b90a0; font-size: 0.8em; }
+  button, a.button { display: block; width: 100%; box-sizing: border-box; font: inherit; padding: 0.9em; margin: 0 0 0.7em; border: 2px solid #5a5f70; border-radius: 6px; background: none; color: inherit; text-align: center; text-decoration: none; }
+  #yes { background: #3fb950; border-color: #3fb950; color: #10131a; font-weight: 700; }
+  button:disabled { opacity: 0.4; }
+  [hidden] { display: none; }
+</style>
+<main>
+  <p id="number" aria-label="number on the screen" hidden></p>
+  <p id="say" role="status">one moment…</p>
+  <p id="note" class="quiet" hidden>Tap only if a screen in front of you shows this number. That tab plays rax as you until it is closed or reloaded. Your sign-in stays on this phone.</p>
+  <button id="yes" hidden></button>
+  <a id="in" class="button" href="https://aesthetic.computer/hi" target="_blank" rel="noopener" hidden>sign in to Aesthetic Computer</a>
+  <button id="no" hidden>cancel</button>
+</main>
+<script type="module" src="./pair.mjs"></script>
+</html>

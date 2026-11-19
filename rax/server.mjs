@@ -16,7 +16,7 @@ import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { clearOfCar, altitude, floorAt } from './elevator.mjs';
+import { clearOfCar, altitude, floorsNear } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -28,6 +28,7 @@ import { createWalks } from './walks.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
+import { createPairing, ipOf, jsonBody } from './pairing.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Lith installs this dependency in production; standalone development can resolve root's copy.
@@ -36,7 +37,12 @@ const { WebSocketServer, WebSocket } = createRequire(
 )('ws');
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
+  ['/pair', ['pair.html', 'text/html']], // 📱 the phone's side of a pairing (pairing.mjs)
   ...[
+    'pair',
+    'pair-number',
+    'pair-desk',
+    'pair-view',
     'client',
     'view',
     'paint',
@@ -62,12 +68,15 @@ const assets = new Map([
     'ball',
     'weather',
     'air',
+    'planet', // 🌍 the small planet's sums (project.mjs, view.mjs, freecam.mjs)
     'diagnostics-client',
     'stalls',
     'park',
     'bop',
     'games',
     'elevator',
+    'panel', // 🖼️ world panels, and the pieces on them
+    'pieces/keypad',
     'solids',
     'sky',
     'shadow',
@@ -130,6 +139,7 @@ export function createRaxServer({
   // flies over and looks (2026-11-17); RAX_GUESTS=1 seats anyone, for a
   // private or local server with no accounts.
   guests = process.env.RAX_GUESTS === '1',
+  pairLimits, // 📱 pairing.mjs PAIR_LIMITS, for a test
 } = {}) {
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
     throw new Error('Invalid mount path');
@@ -220,7 +230,8 @@ export function createRaxServer({
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
-    if (!hasCar(key)) return void send(ws, { type: 'tower', count: t.count, top: t.top, revision: t.revision, here: null, yours: null, owner: false });
+    // (`listed`: the floors with a storey of their own, so the page counts heights as the server does: elevator.mjs SHORT.)
+    if (!hasCar(key)) return void send(ws, { type: 'tower', count: t.count, top: t.top, listed: t.listed(), revision: t.revision, here: null, yours: null, owner: false });
     const mine = member?.handle ? t.forHandle(member.handle) : null;
     // The floors with someone on them now, lowest first: [number, whose, how many].
     const inside = [];
@@ -229,7 +240,7 @@ export function createRaxServer({
       if (people) inside.push([f.number, f.handle, people]);
     }
     inside.sort((a, b) => a[0] - b[0]);
-    send(ws, { type: 'tower', count: t.count, top: t.top, revision: t.revision, inside: inside.slice(0, 8),
+    send(ws, { type: 'tower', count: t.count, top: t.top, listed: t.listed(), revision: t.revision, inside: inside.slice(0, 8),
       here: here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
       yours: t.public(mine), owner: !!here && t.owns(here, member) });
     if (here && !profiles.get(here.handle)?.colors)
@@ -286,6 +297,12 @@ export function createRaxServer({
     if (verified.size < 2048) verified.set(token, { account, until: Date.now() + 300000 });
     return account;
   };
+  // The handle an account wears here, or null (none yet, or not one of ours).
+  const handleOf = (account) => {
+    const h = String(account?.handle || '').replace(/^@/, '');
+    return /^[a-z0-9]+([._][a-z0-9]+)*$/i.test(h) && h.length <= 16 ? h : null;
+  };
+  const pairing = createPairing({ verify: verifyOnce, handleOf, limits: pairLimits });
   const handle = async (req, res) => {
     let url;
     try {
@@ -481,8 +498,7 @@ export function createRaxServer({
       // where the floor is. Three storeys either way.
       const y = Number(url.searchParams.get('y')), floors = [];
       if (asked === 'lobby' && url.searchParams.has('y') && Number.isFinite(y)) {
-        const middle = floorAt(Math.max(0, y));
-        for (let n = Math.max(1, middle - 3); n <= middle + 3; n++) {
+        for (const n of floorsNear(y, 3)) { // (a short tower: only the floors with a storey of their own)
           const f = tower.tower.at(n);
           if (!f) continue;
           const id = floorRoom(f.id);
@@ -511,6 +527,19 @@ export function createRaxServer({
             chalk: rooms.get(id)?.match.chalk || [],
           }),
         );
+      return;
+    }
+    // 📱 A phone approves a pairing: the code it scanned and its own token
+    // (pairing.mjs). Only from our own page; neither is ever logged.
+    // (/pair/who: the same token alone, answered with its handle.)
+    if ((path === '/pair' || path === '/pair/who') && req.method === 'POST') {
+      let foreign = false;
+      try { foreign = !!req.headers.origin && new URL(req.headers.origin).host !== req.headers.host; } catch { foreign = true; }
+      const body = foreign ? null : await jsonBody(req);
+      const { status, ...said } = foreign ? { status: 403, error: 'bad' }
+        : path === '/pair' ? await pairing.approve(body?.code, body?.accessToken, ipOf(req))
+        : await pairing.who(body?.accessToken, ipOf(req));
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(said));
       return;
     }
     const asset = assets.get(path);
@@ -569,7 +598,7 @@ export function createRaxServer({
       return;
     }
     wss.handleUpgrade(req, socket, head, (ws) =>
-      wss.emit('connection', ws, url, req.headers.authorization),
+      wss.emit('connection', Object.assign(ws, { ip: ipOf(req) }), url, req.headers.authorization),
     );
   };
   const detach = [];
@@ -806,7 +835,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       passages.delete(receipt);
       for (const k of ['handle', 'accountId', 'colors', 'token']) if (pass[k] && !member[k]) member[k] = pass[k];
       member.owner ||= pass.owner; // the page's own word may still be on its way
-      if (!member.ready) { clearTimeout(accountHold); member.ready = true; room.assign(); }
+      // (Looking on until now, with no account of the page's own: a screen a
+      // phone signed in. The handle it brought seats it.)
+      if (!member.ready || member.seat < 0) { clearTimeout(accountHold); member.ready = true; room.assign(); }
       const body = room.match.seats[member.seat]?.player;
       if (!body) return;
       arrived = true;
@@ -817,6 +848,67 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       sendTower(ws, key, member); // whose floor this is, known with the passage
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
+    };
+    // 🪪 This socket is now this verified account, whichever way it was
+    // verified: by the page's own token (`account`), or by a phone's
+    // (pairing.mjs). → whether the socket took a handle.
+    // Paired, no token is kept (the phone's stays the phone's: the screen
+    // wears the handle and builds on a guest's allowance), and the body
+    // stands up here: going to where the handle last stood would open a new
+    // socket, and the pairing is this socket's alone.
+    const signIn = (account, token, paired = false) => {
+      member.signedIn = true; // An account, with or without a handle yet.
+      const handle = handleOf(account);
+      if (!handle) return false;
+      if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return false;
+      // 🗺️ A handle has one home, settled the first time it arrives, and
+      // its avatar wakes where it rested if that was this room. A reload
+      // that takes over a body already here leaves the body where it is.
+      const person = handle.toLowerCase();
+      const takeover = [...room.sessions.values()].some(
+        (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
+      );
+      member.handle = handle;
+      member.accountId = account.sub;
+      // 🏢 Its floor of the tower is its home, held for good from now on.
+      // (Homes on the park's lots stay where they stand; none are added.)
+      void tower.change((t) => t.arrive(handle, account.sub)).then(() => {
+        sendHome(ws, handle);
+        sendTower(ws, key, member);
+        if (paired) return;
+        // 🌍 One persistent world: say where this handle last stood, so a
+        // visit that has not gone anywhere yet picks up there. A first
+        // visit starts on the plaza, at the foot of the tower.
+        const last = geography.geography.whereabouts(handle)?.room;
+        const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
+          (parseBlock(last) && blockIndex(parseBlock(last)) <= geography.geography.opened));
+        const place = open ? last : 'lobby';
+        passing = place !== key && !arrived;
+        send(ws, { type: 'whereabouts', room: place });
+      }).catch(() => {});
+      if (!waiting) member.ready = true;
+      // The $ history is the handle's, ready before the menu opens.
+      member.wantsHistory = false;
+      void sendHandleHistory(ws, handle);
+      // Kept in memory only, to read this player's braincells.
+      member.token = paired ? null : token;
+      void refreshBraincells(ws, member);
+      room.assign();
+      const rest = geography.geography.whereabouts(handle),
+        body = room.match.seats[member.seat]?.player;
+      if (!arrived && !takeover && body && rest?.room === key) {
+        const edge = BLOCK / 2 - 0.4; // inside the walls
+        body.x = Math.max(-edge, Math.min(edge, rest.x));
+        body.z = Math.max(-edge, Math.min(edge, rest.z));
+        body.yaw = rest.yaw;
+      }
+      arrive();
+      void colorsFor(handle).promise.then((colors) => {
+        if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return;
+        member.colors = colors;
+        room.broadcast();
+      });
+      return true;
     };
     let accountAttempted = false;
     const identifyAccount = async (token) => {
@@ -829,58 +921,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       accountAttempted = true;
       try {
-        const account = await verifyOnce(token);
-        member.signedIn = true; // An account, with or without a handle yet.
-        const handle = String(account.handle || '').replace(/^@/, '');
-        if (!/^[a-z0-9]+([._][a-z0-9]+)*$/i.test(handle) || handle.length > 16)
-          return;
-        if (ws.readyState !== WebSocket.OPEN || !room.sessions.has(ws)) return;
-        // 🗺️ A handle has one home, settled the first time it arrives, and
-        // its avatar wakes where it rested if that was this room. A reload
-        // that takes over a body already here leaves the body where it is.
-        const person = handle.toLowerCase();
-        const takeover = [...room.sessions.values()].some(
-          (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
-        );
-        member.handle = handle;
-        member.accountId = account.sub;
-        // 🏢 Its floor of the tower is its home, held for good from now on.
-        // (Homes on the park's lots stay where they stand; none are added.)
-        void tower.change((t) => t.arrive(handle, account.sub)).then(() => {
-          sendHome(ws, handle);
-          sendTower(ws, key, member);
-          // 🌍 One persistent world: say where this handle last stood, so a
-          // visit that has not gone anywhere yet picks up there. A first
-          // visit starts on the plaza, at the foot of the tower.
-          const last = geography.geography.whereabouts(handle)?.room;
-          const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
-            (parseBlock(last) && blockIndex(parseBlock(last)) <= geography.geography.opened));
-          const place = open ? last : 'lobby';
-          passing = place !== key && !arrived;
-          send(ws, { type: 'whereabouts', room: place });
-        }).catch(() => {});
-        if (!waiting) member.ready = true;
-        // The $ history is the handle's, ready before the menu opens.
-        member.wantsHistory = false;
-        void sendHandleHistory(ws, handle);
-        // Kept in memory only, to read this player's braincells.
-        member.token = token;
-        void refreshBraincells(ws, member);
-        room.assign();
-        const rest = geography.geography.whereabouts(handle),
-          body = room.match.seats[member.seat]?.player;
-        if (!arrived && !takeover && body && rest?.room === key) {
-          const edge = BLOCK / 2 - 0.4; // inside the walls
-          body.x = Math.max(-edge, Math.min(edge, rest.x));
-          body.z = Math.max(-edge, Math.min(edge, rest.z));
-          body.yaw = rest.yaw;
-        }
-        arrive();
-        const colors = await colorsFor(handle).promise;
-        if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
-          member.colors = colors;
-          room.broadcast();
-        }
+        signIn(await verifyOnce(token), token);
       } catch {
         /* Unverified sessions remain guests. */
       } finally {
@@ -997,6 +1038,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         builders.cancel(owner, key);
       if (data?.type === 'account') void identifyAccount(data.accessToken).finally(seatGuest);
       if (data?.type === 'account-none') seatGuest();
+      // 📱 Looking on with nobody signed in: a code a phone can sign this
+      // socket in with (pairing.mjs). A reload is a new socket: scan again.
+      if (data?.type === 'pair') {
+        if (guests || watching || waiting || member.handle) return;
+        const approve = (account) => {
+          try { return !member.handle && signIn(account, null, true); } catch { return false; }
+        };
+        void pairing.create(ws, ws.ip, approve).then((made) => send(ws, { type: 'pair', ...made }));
+        return;
+      }
       // 💬 Room chat: a seated player's line goes to everyone in the room.
       // Printable ASCII (the room's font), short, filtered like AC's chat,
       // slowed to a line or so a second, and never stored.
@@ -1230,6 +1281,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           .change((g) => g.rest(member.handle, { room: key, x: body.x, z: body.z, yaw: body.yaw }))
           .catch(() => {});
       walks.leave(member);
+      pairing.drop(ws);
       room.remove(ws);
       if (!room.clients.size) {
         const kept = room.match.flight();
@@ -1246,10 +1298,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const cellOf = (key) => {
     if (key === GROUND) return { i: 0, j: 0, h: 0 };
     const floor = tower.tower.forRoom(key);
-    if (floor) return { i: 0, j: 0, h: altitude(floor.number) };
+    if (floor) return { i: 0, j: 0, h: altitude(floor.number), floor: floor.number };
     const block = parseBlock(key);
     return block ? { ...block, h: 0 } : null;
   };
+  // 🏬 Two floors on one storey of the short tower (elevator.mjs SHORT) are
+  // different rooms in the same place: neither sees into the other.
+  const overlaid = (a, b) => !!a.floor && !!b.floor && a.floor !== b.floor && a.h === b.h;
   const ball = createBall({
     neighbours: (key) => geography.geography.neighbours(key),
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
@@ -1305,7 +1360,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (!at) return;
     for (const [key, room] of rooms) {
       const here = cellOf(key);
-      if (!here || Math.abs(at.i - here.i) > 2 || Math.abs(at.j - here.j) > 2 || !room.clients.size) continue; // (as far as people are seen: tellBeyond)
+      if (!here || Math.abs(at.i - here.i) > 2 || Math.abs(at.j - here.j) > 2 || !room.clients.size || overlaid(at, here)) continue; // (as far as people are seen: tellBeyond)
       const r = (n) => Math.round(n * 1000) / 1000;
       const word = JSON.stringify({ type: 'ball', x: r(b.x + (at.i - here.i) * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + (at.j - here.j) * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
       for (const ws of room.clients.keys()) sendText(ws, word);
@@ -1340,7 +1395,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const seen = [], drones = [];
       for (const there of stood) {
         const di = there.at.i - here.at.i, dj = there.at.j - here.at.j;
-        if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND) continue;
+        if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND || overlaid(there.at, here.at)) continue;
         for (const [id, name, x, y, z, yaw] of there.eyes)
           drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
         if (there === here) continue; // (its own people are in its snapshot)
@@ -1413,6 +1468,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     tower,
     builders,
     walks,
+    pairing,
     ready,
     async close() {
       builders.close();

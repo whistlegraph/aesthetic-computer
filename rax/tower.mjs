@@ -13,10 +13,14 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { listFloors } from './elevator.mjs';
 export * from './elevator.mjs';
 
 export const GROUND = 'lobby'; // floor 0: the plaza the elevator leaves from
 export const TOP = 9999; // the highest number anyone may ask for (40 km of tower)
+// 🏬 Whose floors have a storey of their own while the tower is short
+// (elevator.mjs SHORT); the highest floor always has one.
+export const LISTED = ['jeffrey'];
 const VALID = /^[a-z0-9]+([._][a-z0-9]+)*$/;
 const key = (handle) => String(handle || '').replace(/^@/, '').toLowerCase();
 export const validHandle = (handle) => VALID.test(key(handle)) && key(handle).length <= 16;
@@ -42,6 +46,11 @@ export class Tower {
   toJSON() { return { version: 1, floors: this.floors, revision: this.revision }; }
   get count() { return this.byNumber.size; }
   get top() { let top = 0; for (const n of this.byNumber.keys()) if (n > top) top = n; return top; }
+  // The floors with a storey of their own, lowest first (see LISTED).
+  listed() {
+    const numbers = [...LISTED.map((h) => this.byHandle.get(h)?.number), this.top].filter(Boolean);
+    return [...new Set(numbers)].sort((a, b) => a - b);
+  }
   floor(id) { return Object.hasOwn(this.floors, id || '') ? this.floors[id] : null; }
   forRoom(room) { return isFloorRoom(room) ? this.floor(room.slice(6)) : null; }
   forHandle(handle) { return this.byHandle.get(key(handle)) || null; }
@@ -151,6 +160,7 @@ export class TowerStore {
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
     }
+    listFloors(this.tower.listed());
   }
   change(fn) {
     const task = this.queue.then(async () => {
@@ -161,6 +171,7 @@ export class TowerStore {
         await rename(path + '.tmp', path);
       }
       this.tower = next;
+      listFloors(next.listed()); // the heights follow the ledger: one tower stands in a process
       return result;
     });
     this.queue = task.catch(() => {});

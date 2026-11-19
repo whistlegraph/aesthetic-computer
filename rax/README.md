@@ -433,6 +433,29 @@ macOS uses fullscreen on the current desktop so switching panes retains focus.
 `node rax/test/rig.mjs --layout-only --accounts --controls` checks duplicate-handle
 spectating and simulated controller input through the native app.
 
+### Signing a screen in from a phone
+
+A tab that looks on with nobody signed in shows a QR bottom left, in the face
+cam's place, with a four-digit number. A phone already signed in to AC scans
+it, sees the same number and its own handle, and on a tap the screen is seated
+as that handle. A click on the QR signs in on the device itself instead.
+
+- The tab sends `{ type: 'pair' }` on its socket and gets `{ code, number, ttl }`.
+  The code is 128 random bits, lives two minutes, works once, and is kept in
+  memory with that socket (`pairing.mjs`). The tab asks again 30 s before it
+  runs out; a socket holds the code it shows and the one before.
+- The QR is `https://aesthetic.computer/rax/pair#<code>`. The phone's page
+  (`pair.html`, `pair.mjs`) takes the code out of the address at once, posts its
+  token to `/pair/who` to learn its handle, and on the tap posts
+  `{ code, accessToken }` to `/pair`.
+- The server verifies the token and signs in the waiting socket only. The tab
+  never receives the token and the server does not keep it for that socket, so
+  a paired screen builds on a guest's allowance. No credential is minted.
+- A reload, or a dropped connection, is a new socket: scan again. Walking
+  between rooms keeps the handle (a passage carries it).
+- Codes and approvals are limited per socket and per address (`PAIR_LIMITS`);
+  five refused approvals discard a code. Codes and tokens are never logged.
+
 Rotation bounds now evaluate sine/cosine over each actual angle interval. A small
 leg swing no longer reserves a full circle and falsely crosses the floor. The
 previously rejected Big friend source is a regression fixture; animations that

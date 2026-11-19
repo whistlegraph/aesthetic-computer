@@ -331,6 +331,19 @@ addEventListener("keydown", (e) => {
   if (state === "open" && e.key === "Escape") hide();
 });
 
+// 🎮 A pad's START is Tab: it lifts the paper off the room and lays it back.
+// Heard here, on the prompt's page, so it works from either side.
+let startWas = false;
+setInterval(() => {
+  let down = false;
+  try { for (const pad of navigator.getGamepads?.() || []) if (pad?.connected && pad.buttons[9]?.pressed) down = true; } catch {}
+  if (down && !startWas && document.hasFocus()) {
+    if (state === "open") hide();
+    else if (state === "parked") show();
+  }
+  startWas = down;
+}, 50);
+
 // ⬆️ Up: the guest says when it is ready and when the player leaves.
 addEventListener("message", (e) => {
   if (!frame || e.origin !== location.origin || e.source !== frame.contentWindow) return;

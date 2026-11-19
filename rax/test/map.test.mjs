@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Geography, BLOCK } from '../geography.mjs';
-import { Tower, floorRoom, carWalls, lobbyWalls, altitude, ATRIUM, STOREY, SLAB, LEG } from '../tower.mjs';
+import { Tower, floorRoom, carWalls, lobbyWalls, altitude, ATRIUM, STOREY, SLAB, LEG, SHORT, listFloors, storeyOf, roofOf } from '../tower.mjs';
 import { WORLD } from '../world.mjs';
 import { worldMap, peopleNow, towerShapes, place, MAP_VERSION } from '../map.mjs';
 import { REACH } from '../park.mjs';
@@ -33,12 +33,17 @@ test('the tower is as tall as its highest floor, a slab a storey', () => {
   const { geography, tower } = world();
   tower.arrive('max');
   tower.take('max', 89);
+  listFloors(tower.listed()); // (as the server's ledger does on every change)
   const map = worldMap({ geography, tower });
   const floors = map.structure.find((s) => s.k === 'stack' && s.role === 'floor');
-  assert.deepEqual([floors.y, floors.step, floors.count], [ATRIUM, STOREY, 90]); // 89 floors and the roof
+  // (2026-11-19: counted in storeys. The full tower has 89 and the roof; the
+  // short one has @jeffrey's, one for the numbers between, 89's, and the roof.)
+  assert.deepEqual(tower.listed(), [1, 89]);
+  assert.equal(storeyOf(89), SHORT ? 3 : 89);
+  assert.deepEqual([floors.y, floors.step, floors.count], [ATRIUM, STOREY, storeyOf(89) + 1]);
   assert.equal(floors.x1, SLAB);
-  assert.equal(map.tower.height, altitude(90));
-  assert.deepEqual(map.tower, { floors: 4, top: 89, atrium: ATRIUM, storey: STOREY, height: altitude(90) });
+  assert.equal(map.tower.height, roofOf(89));
+  assert.deepEqual(map.tower, { floors: 4, top: 89, atrium: ATRIUM, storey: STOREY, height: SHORT ? 33 : 635 });
   const legs = map.structure.filter((s) => s.role === 'leg');
   assert.equal(legs.length, 4);
   assert.ok(legs.every((s) => s.y1 === ATRIUM && Math.abs(Math.abs(s.x0 + s.x1) / 2 - LEG.at) < 1e-6));

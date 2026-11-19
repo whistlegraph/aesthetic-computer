@@ -16,7 +16,7 @@
 //   panel  an upright rectangle, turned by `yaw`:   x z yaw w h y
 // A shape may carry a `color` (0xrrggbb) and a `label`.
 import { BLOCK, LOBBY, blockAt, parseBlock, toWorld } from './geography.mjs';
-import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, carWalls, lobbyWalls } from './elevator.mjs';
+import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, storeyOf, roofOf, carWalls, lobbyWalls } from './elevator.mjs';
 import { TILE_COLORS } from './world.mjs';
 import { REACH } from './park.mjs';
 
@@ -33,7 +33,8 @@ const solid = (role, w) =>
 
 // The tower over the plaza, `top` floors tall: its legs, the lobby's glass
 // and what stands in it, the courtyard's planters, the car and its shaft,
-// and a slab for every floor plus the roof.
+// and a slab for every storey plus the roof (a storey for every floor in the
+// full tower; a few while it is short: elevator.mjs SHORT).
 export function towerShapes(top) {
   if (!top) return [];
   const out = [], half = LEG.wide / 2, o = CAR + CAR_WALL;
@@ -42,8 +43,8 @@ export function towerShapes(top) {
       out.push(shape('box', 'leg', { x0: x - half, z0: z - half, x1: x + half, z1: z + half, y0: 0, y1: ATRIUM }));
   for (const w of lobbyWalls()) out.push(solid(w.yMax >= ATRIUM ? 'glass' : 'fixture', w));
   for (const w of carWalls()) out.push(solid('car', w));
-  out.push(shape('box', 'shaft', { x0: -o, z0: CAR_Z - CAR, x1: o, z1: CAR_Z + o, y0: CAR_HEIGHT, y1: altitude(top + 1) }));
-  out.push(shape('stack', 'floor', { x0: -SLAB, z0: -SLAB, x1: SLAB, z1: SLAB, y: ATRIUM, step: STOREY }, { count: top + 1 }));
+  out.push(shape('box', 'shaft', { x0: -o, z0: CAR_Z - CAR, x1: o, z1: CAR_Z + o, y0: CAR_HEIGHT, y1: roofOf(top) }));
+  out.push(shape('stack', 'floor', { x0: -SLAB, z0: -SLAB, x1: SLAB, z1: SLAB, y: ATRIUM, step: STOREY }, { count: storeyOf(top) + 1 }));
   return out;
 }
 
@@ -112,7 +113,7 @@ export function worldMap({ geography, tower = null, contents = () => ({}), seate
       x1: Math.max(...is) * BLOCK + half, z1: Math.max(...js) * BLOCK + half,
     },
     census: { settled: census.settled, opened: census.opened, across: census.span.metres },
-    tower: { floors: tower?.count || 0, top, atrium: ATRIUM, storey: STOREY, height: top ? altitude(top + 1) : 0 },
+    tower: { floors: tower?.count || 0, top, atrium: ATRIUM, storey: STOREY, height: roofOf(top) },
     structure: [...landShapes(geography), ...towerShapes(top)],
     content: census.blocks.flatMap((b) => contentShapes(b, contents(b.id))),
     people: seated.flatMap((s) => {

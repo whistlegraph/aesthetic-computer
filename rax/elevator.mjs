@@ -3,12 +3,63 @@
 //
 // The tower stands over the plaza on four legs. Its first floor is ATRIUM
 // metres up, so the plaza keeps its sky, and every floor after that is one
-// STOREY higher. A floor is a real place at a real height: floor 89 is
-// 628 m above the plaza.
+// STOREY higher. A floor is a real place at a real height: in the full tower
+// floor 89 is 628 m above the plaza.
 export const STOREY = 7, ATRIUM = 12;
-export const altitude = (number) => (number > 0 ? ATRIUM + (number - 1) * STOREY : 0);
-// The floor a height falls in (0 below the first).
-export const floorAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / STOREY));
+// 🏬 A short tower, for now (2026-11-19). Every handle keeps its floor and its
+// number, but only the listed floors (tower.mjs `listed`: @jeffrey's and the
+// highest) are given a storey of their own. The numbers between two listed
+// floors share one storey, so the building is a few storeys tall whatever the
+// numbers are: with floors 1 and 4000 listed, 1 is the first storey, 2 to
+// 3999 are all the second, 4000 is the third and the roof lies on that.
+// SHORT = false is the full tower again: floor n on storey n.
+export const SHORT = true;
+let listed = []; // the floors with a storey of their own, lowest first
+// The server lists them from its ledger (TowerStore) and tells every page
+// (the `tower` message), so both count storeys the same way.
+export const listFloors = (numbers = []) =>
+  void (listed = [...new Set((numbers || []).filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b));
+export const listedFloors = () => listed;
+// The storey a floor stands on (1 is the first; 0 the ground).
+export function storeyOf(number) {
+  if (!(number > 0)) return 0;
+  if (!SHORT) return number;
+  let s = 0, prev = 0;
+  for (const n of listed) {
+    if (number < n) return s + 1; // in the shared storey under n
+    s += n - prev > 1 ? 2 : 1; // that shared storey, if there are numbers for it, and n's own
+    if (number === n) return s;
+    prev = n;
+  }
+  return s + 1; // over every listed floor
+}
+// Every height in the tower comes from these: a storey's, a floor's, the roof's.
+export const heightOf = (storey) => (storey > 0 ? ATRIUM + (storey - 1) * STOREY : 0);
+export const altitude = (number) => heightOf(storeyOf(number));
+export const roofOf = (top) => (top > 0 ? heightOf(storeyOf(top) + 1) : 0);
+// The storey a height falls in (0 below the first).
+export const storeyAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / STOREY));
+// The floor a height falls in (0 below the first). On a shared storey that is
+// one of `among` (the floors a ride runs between) if one stands there, or the
+// lowest number of that storey.
+export function floorAt(y, among = []) {
+  const s = storeyAt(y);
+  if (!SHORT || !s) return s;
+  const known = [...among, ...listed].find((n) => storeyOf(n) === s);
+  if (known) return known;
+  let prev = 0;
+  for (const n of listed) { if (storeyOf(n) > s) break; prev = n; }
+  return prev + 1;
+}
+// The floors with a storey of their own within `reach` storeys of a height:
+// what can be drawn from outside, each where it stands.
+export function floorsNear(y, reach = 3) {
+  const s = storeyAt(Math.max(0, y));
+  if (SHORT) return listed.filter((n) => Math.abs(storeyOf(n) - s) <= reach);
+  const out = [];
+  for (let n = Math.max(1, s - reach); n <= s + reach; n++) out.push(n);
+  return out;
+}
 
 // The tower's frame, around the 16 m room every floor is: SLAB is a floor
 // slab's half-width, and LEG is where the four legs (and every storey's
@@ -54,6 +105,11 @@ export function carScreenSolids() {
     { name: 'screen', ink: 'screen', color: 'screen', x: 0, y: 2.59, z: 0.01, w: 2.7, h: 0.72, d: 0.02 },
   ];
 }
+// 🔢 The pad at the back of the car: a world panel (panel.mjs) the size of a
+// tablet, on the back pane's mullion at the height of a hand, its face to the
+// door. Its slab reaches back to the mullion and stops a millimetre short.
+// (y is its middle, above the car's floor: it rides with the car.)
+export const CAR_PAD = { x: 0, y: 1.42, z: CAR_Z + CAR - 0.045, yaw: 0, w: 0.6, h: 0.9, cols: 64, rows: 96, deep: 0.1 };
 
 // 🖥️ A standing screen keeps clear of the car, its shaft and the way to its
 // door: a screen asked for there stands at the nearest edge of that ground

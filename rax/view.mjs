@@ -1,7 +1,7 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
-import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, VOLUME_TRIANGLES, reach, shadeFor } from './shadow.mjs';
@@ -29,7 +29,9 @@ import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-lan
 import { BALL } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector } from './project.mjs';
+import { PLANET, FAR, landTiles } from './planet.mjs';
 import { joinCode, hudLayout } from './hud.mjs';
+import { pairLayout, pairModel } from './pair-view.mjs';
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
@@ -51,9 +53,23 @@ export const LEGEND = {
     '[RB] build / [RB] use / [X] drop',
     '[X] paint / [RT] chalk',
     '[LB] lock on / [B] remove',
-    '[START] $ menu',
+    '[START] prompt / dpad down: $ menu',
   ],
   touch: [], // The thumb areas and the icons name themselves.
+};
+// 🚁 A drone's controls (looking on), in the same shape.
+const DRONE_LEGEND = {
+  keys: [
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['space', 'Space'], ' up / ', ['shift', ['ShiftLeft', 'ShiftRight']], ' down'],
+    [['q', 'KeyQ'], ['r', 'KeyR'], ' roll / ', ['e', 'KeyE'], ' fast / ', ['v', 'KeyV'], ' drone'],
+    [['z', 'KeyZ'], ' lock on / ', ['f', 'KeyF'], ' full screen'],
+  ],
+  pad: [
+    '[LS] move / [RS] look / [LB] down / [RB] up',
+    '[LT] [RT] roll / [A] fast / [Y] drone',
+    '[X] lock on / [BACK] full screen',
+  ],
+  touch: ['look'],
 };
 // Each action has its own colour, shared by its words and its key caps, so
 // the eye finds a control by colour (2026-11-08). Separators stay dim.
@@ -62,6 +78,7 @@ const ACTION_COLORS = {
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
   paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
+  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, fast: 0xffe066, drone: 0xb46bff, 'full screen': 0xb0b0ff,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
@@ -384,7 +401,7 @@ export async function createView(canvas) {
     const day = paletteName === 'day';
     const frame = day ? 0x8f98ac : 0x59607a, sill = day ? 0xdfe3ee : 0x3d4357, pad = day ? 0xffd9ec : 0x5a2244;
     const number = here ? (here.number ? `${here.number}` : 'G') : '';
-    const who = here?.handle ? `@${here.handle}` : here ? 'AC TOWER' : '';
+    const who = here?.handle ? `@${here.handle}` : ''; // (the ground floor's car says G and how many floors: the name is over the entrance)
     const under = here?.handle ? '' : tower?.count ? `${tower.count} floors` : '';
     const made = model(({ quad, box, text, handleText }) => {
       const z0 = CAR_Z, t = CAR_WALL;
@@ -502,15 +519,24 @@ export async function createView(canvas) {
     // The land around the plaza and its blocks, out to the horizon: four
     // fields around the middle 48 m, which the blocks themselves fill.
     const grass = day ? 0xb9d7ac : 0x243d36;
-    const land = model(({ quad }) => {
-      const far = 2200, n = 24, y = -0.02;
-      quad([-far, y, n], [-far, y, far], [far, y, far], [far, y, n], grass);
-      quad([-far, y, -far], [-far, y, -n], [far, y, -n], [far, y, -far], grass);
-      quad([-far, y, -n], [-far, y, n], [-n, y, n], [-n, y, -n], grass);
-      quad([n, y, -n], [n, y, n], [far, y, n], [far, y, -n], grass);
-    });
+    // (planet.mjs landTiles: rings of squares, each three times the last, far
+    // past where a drone may fly; the hole a little under the blocks' edge.
+    // Each tile is a fan about its middle, to every point round its edge.)
+    const LAND_REACH = 9000;
+    const tiled = (tri, tiles, y, ink) => {
+      for (const t of tiles) {
+        const mid = [(t.x0 + t.x1) / 2, y, (t.z0 + t.z1) / 2], n = t.points.length;
+        for (let k = 0; k < n; k++) tri(mid, [t.points[k][0], y, t.points[k][1]], [t.points[(k + 1) % n][0], y, t.points[(k + 1) % n][1]], ink(t));
+      }
+    };
+    const land = model(({ tri }) => tiled(tri, landTiles(47, LAND_REACH), -0.02, () => grass));
+    // 🕳️ The land from underneath, for an eye inside the hollow planet: earth
+    // in two tints, each ring's squares cut in nine and chequered, so the
+    // inside of the ball reads as a dome drawing in on the tower's foot.
+    const earth = day ? [0x8a6a52, 0x77594a] : [0x3a2e2a, 0x2c2422];
+    const dome = model(({ tri }) => tiled(tri, landTiles(47, LAND_REACH, 3), -0.5, (t) => earth[t.odd]));
     const lawn = model(({ quad }) => quad([-8, -0.02, -8], [-8, -0.02, 8], [8, -0.02, 8], [8, -0.02, -8], grass));
-    towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, land, lawn };
+    towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, land, dome, lawn };
     return towerSet;
   }
   // 🚪 Automatic doors: two glass leaves that slide apart when someone comes
@@ -617,8 +643,7 @@ export async function createView(canvas) {
         // (Text is laid out with x running the other way from boxes: a
         // viewer facing north has +x on the left. `tx` is the board's middle.)
         const tx = -bx;
-        line('ac tower', tx, 3.08, z, 2.4, 0.034, 0xff3296);
-        line(`${count} floors`, tx, 2.7, z, 2.4, 0.022, 0xc9cedb);
+        line(`${count} floors`, tx, 2.96, z, 2.4, 0.03, 0xc9cedb);
         line(board.yours ? `your floor: ${board.yours}` : 'sign in for a floor', tx, 2.36, z, 2.6, 0.026, board.yours ? 0xff3296 : 0x9aa3b5);
         line(board.in.length ? 'in now' : 'nobody is upstairs', tx, 1.92, z, 2.4, 0.02, 0x9aa3b5);
         board.in.slice(0, 4).forEach(([n, handle], k) => {
@@ -639,17 +664,20 @@ export async function createView(canvas) {
     if (!top) return;
     draw(t.legs, ox, oy, oz);
     const near = 9, mid = 70, sight = 2300;
-    const at = Math.max(1, Math.min(top, floorAt(eyeY - oy) || 1));
-    const lo = Math.max(1, floorAt(eyeY - oy - sight) || 1), hi = Math.min(top, Math.max(1, floorAt(eyeY - oy + sight)));
+    // (Counted in storeys, n: one for every floor in the full tower, a few
+    // while it is short. elevator.mjs SHORT.)
+    top = storeyOf(top);
+    const at = Math.max(1, Math.min(top, storeyAt(eyeY - oy) || 1));
+    const lo = Math.max(1, storeyAt(eyeY - oy - sight) || 1), hi = Math.min(top, Math.max(1, storeyAt(eyeY - oy + sight)));
     for (let n = lo; n <= hi; ) {
-      const y = oy + altitude(n);
+      const y = oy + heightOf(n);
       if (n + 9 <= hi && (n > at + mid || n + 9 < at - mid)) { draw(t.columns10, ox, y, oz); n += 10; continue; }
       draw(t.columns1, ox, y, oz);
       if (Math.abs(n - at) <= mid) draw(t.slabModel, ox, y, oz);
       if (Math.abs(n - at) <= near) { draw(t.glass, ox, y, oz); draw(t.rails, ox, y, oz); }
       n++;
     }
-    if (hi === top) draw(t.slabModel, ox, oy + altitude(top + 1), oz); // the roof
+    if (hi === top) draw(t.slabModel, ox, oy + heightOf(top + 1), oz); // the roof
   }
   // 🍄 botbop's ledges: slabs lit on top, rebuilt with the palette.
   // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
@@ -833,7 +861,7 @@ export async function createView(canvas) {
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
   const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
-  const PLANET = 900; // the planet's radius, metres (a ball of 140 was tried: every far shape must be halved many times to bend so sharply, and the frame rate halved)
+  const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
@@ -852,6 +880,7 @@ export async function createView(canvas) {
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
+  let pairAt = null; // 📱 The sign-in code bottom left (pair-view.mjs), a button too.
   let qrModel = null; // Retain the tag until its code or pixel dimensions change.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
   const chalkModels = new Map();
@@ -1057,7 +1086,11 @@ export async function createView(canvas) {
   let casting = false;
   const SHADOW_BUDGET = 14000; // triangles of shadow volume in a frame, at most
   const SHADOW_SIGHT = 45; // metres from the eye a box still casts
-  const volumeFloats = new Float32Array(SHADOW_BUDGET * 18);
+  const SHADOW_MOST = 12000; // triangles in the frame the shadows may come to, once their long faces are halved for the lens
+  const volumeFloats = new Float32Array(VOLUME_TRIANGLES * 18); // one box's solid at a time
+  const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again
+  // The boxes that cast this frame: how far each is, which thing it is part of, the box, its top; and the order they are cast in.
+  const castFar = new Float32Array(Math.floor(SHADOW_BUDGET / VOLUME_TRIANGLES)), castFrom = new Int32Array(castFar.length), castTop = new Float32Array(castFar.length), castBox = [], castOrder = [];
   // 🫧 A seam: the line where one room of the world hands a walker to the
   // next (each block is its own room, on its own socket). A net of threads
   // you can see through: posts that stand and rungs that climb. Cyan at
@@ -1137,6 +1170,28 @@ export async function createView(canvas) {
       if (i < j && j < k && near(j).includes(k))
         face([[i, j], [j, i], [j, k], [k, j], [k, i], [i, k]].map(([p, q]) => third(corners[p], corners[q])), 0xf4f4f0);
   }));
+  // 🟦 A grid of pixels (RGBA) as a model: `wide` by `tall` metres about x = 0,
+  // its foot at `base`, facing -z; a row's run of one colour is one quad. The
+  // standing KidLisp screens and the world panels are both drawn with it.
+  const gridModel = (px, cols, rows, wide, tall, base) => model(({ quad }) => {
+    const cw = wide / cols, ch = tall / rows;
+    for (let j = 0; j < rows; j++)
+      for (let i = 0; i < cols; ) {
+        const k = (j * cols + i) * 4;
+        const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
+        let n = 1;
+        while (i + n < cols) {
+          const q = (j * cols + i + n) * 4;
+          if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
+          n++;
+        }
+        const u0 = wide / 2 - i * cw, u1 = wide / 2 - (i + n) * cw;
+        const y1 = base + tall - j * ch, y0 = y1 - ch;
+        quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], c);
+        i += n;
+      }
+  });
+  const panelModels = new Map(); // a world panel's face and slab, by its id
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
@@ -1147,6 +1202,7 @@ export async function createView(canvas) {
     camera,
     spectator = false,
     gate = null, // 'account' | 'handle': what a visitor needs before a seat.
+    pair = null, // 📱 { url, number }: a code a phone signs this tab in with, while looking on signed out
     controller,
     seat = 0,
     third = false,
@@ -1232,6 +1288,7 @@ export async function createView(canvas) {
     corner = false,
     screens = [],
     screenPrograms = new Map(),
+    panels = [], // 🖼️ world panels (panel.mjs): { id, x, y, z, yaw, w, h, deep, cols, rows, pixels, frame, cursor: { x, y, down } | null }
     bare = false, // Behind the prompt's curtain: no panel, hint or legend.
     half = WORLD, // 📐 This room's half-width (world.mjs halfOf).
   } = {}) {
@@ -1406,6 +1463,12 @@ export async function createView(canvas) {
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = projector.lens > 0.3 ? PLANET : 0;
     projector.fine = lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3;
+    // The land lies at the plaza's height (far below, seen from a floor of the tower).
+    projector.ground = skyline?.dy || 0;
+    projector.frame();
+    // 🕳️ An eye under the land is inside the hollow planet: the land is a dome over it, and no sun comes in.
+    const under = !!projector.planet && eye.y < projector.ground;
+    if (under) casting = false;
     if (projector.lens) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
@@ -1415,7 +1478,11 @@ export async function createView(canvas) {
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground.
-    if (today) draw(skyDome(skyStep), eye.x, eye.y, eye.z);
+    if (today) {
+      projector.bends = false; // (the sky is not wrapped round the planet)
+      draw(skyDome(skyStep), eye.x, eye.y, eye.z, 0, 0, SKY);
+      projector.bends = true;
+    }
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) {
@@ -1471,7 +1538,10 @@ export async function createView(canvas) {
       {
         const t = towerParts();
         const shown = (dx, dz) => (dx === 0 && dz === 0 && !skyline.dy) || around.some((b) => b.dx === dx && b.dz === dz);
+        projector.halvings = 13; // (its far squares are kilometres across: halved until they lie round the ball)
         draw(t.land, skyline.dx, skyline.dy, skyline.dz);
+        if (under) draw(t.dome, skyline.dx, skyline.dy, skyline.dz);
+        projector.halvings = 0;
         for (let i = -1; i <= 1; i++)
           for (let j = -1; j <= 1; j++)
             if (!shown(skyline.dx + i * 16, skyline.dz + j * 16))
@@ -1922,6 +1992,8 @@ export async function createView(canvas) {
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       // In the car the floor comes first: before paint, and on touch too.
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry
+        : panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
+          ? input === 'touch' ? 'tap the screen' : pad ? '[A] press' : '{enter} or click: press'
         : car
           ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[D-PAD] up / down a floor' : '{enter} pick a floor'
         : paintHint ? paintHint
@@ -2004,10 +2076,8 @@ export async function createView(canvas) {
                 ? [
                     // Looking on. (No way in is offered here: signing up
                     // and taking a handle belong to the paper, 2026-11-18.)
-                    hintSpans(
-                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [LT] [RT] roll / [A] fast / [Y] drone / [X] lock on / [BACK] full' : 'look / {wasd} / {space} up / {shift} down / {q} {r} roll / {e} fast / {v} drone / {z} lock on / {f} full',
-                      THEME.text,
-                    ),
+                    // (Three short rows, as a walker's are: each key lights while it is down, each action in its colour.)
+                    ...legendRows(input === 'touch' ? 'touch' : controller ? 'pad' : 'keys', held, DRONE_LEGEND),
                   ]
                 : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint
@@ -2698,7 +2768,8 @@ export async function createView(canvas) {
     // On the floor the cursor is laid on the aimed square in 3D (below);
     // facing a wall, an object or the sky it is this 2D reticle.
     const onFloor = floorAim && !focusObject && !lockedOn && !radial && !menu && !bare && orbit <= 0 && !cursor;
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor && game?.hud?.reticle !== false) {
+    const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor && !onPanel && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
@@ -2932,9 +3003,12 @@ export async function createView(canvas) {
     }
     // 👁️ Looking on there is no face: the connection and where the eye is, in
     // the world's metres, stand where the face's column would, bottom left.
+    // 📱 Signed out, the sign-in code stands in the face's place and that column beside it.
+    pairAt = pair && !face && !bare && !menu && !game ? pairLayout(pair, hud, W, H, panelTop, pixelScale) : null;
+    if (pairAt) projector.overlay(pairModel(pairAt, flip), W, H);
     if (!face && !bare && !game && camera && !me) {
       const { unit, safeX, safeY } = hud;
-      const x0 = -W / 2 + safeX + 2, y0 = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
+      const x0 = -W / 2 + safeX + 2 + (pairAt ? pairAt.size + 4 * unit : 0), y0 = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
         const ping = (connection?.label || '').toLowerCase(), bars = connection?.bars || 0;
@@ -3461,23 +3535,7 @@ export async function createView(canvas) {
         s.cols = cols;
         s.drawn = w.frames;
         const px = w.pixels;
-        s.model = model(({ quad }) => {
-          for (let j = 0; j < rows; j++)
-            for (let i = 0; i < cols; ) {
-              const k = (j * cols + i) * 4;
-              const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
-              let n = 1;
-              while (i + n < cols) {
-                const q = (j * cols + i + n) * 4;
-                if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
-                n++;
-              }
-              const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
-              const y1 = base + tall - j * cell, y0 = y1 - cell;
-              quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], c);
-              i += n;
-            }
-        });
+        s.model = gridModel(px, cols, rows, span, tall, base);
       }
       let frame = screenFrames.get(s.id);
       if (!frame) {
@@ -3492,6 +3550,39 @@ export async function createView(canvas) {
       const yaw = ((s.yaw || 0) * Math.PI) / 180;
       draw(s.model, s.x, 0, s.z, yaw);
       draw(frame, s.x, 0, s.z, yaw);
+    }
+    // 🖼️ World panels (panel.mjs): a piece's pixels on a rectangle in the
+    // room, drawn as a standing screen's are, on a slab. Where the aim meets
+    // one its virtual mouse is laid on the face: the crosshair, come to rest
+    // on the panel (and so not drawn in the middle of the picture, above).
+    for (const p of panels) {
+      let kept = panelModels.get(p.id);
+      if (!kept) panelModels.set(p.id, (kept = { frame: -1 }));
+      if (kept.frame !== p.frame) {
+        kept.frame = p.frame;
+        kept.face = gridModel(p.pixels, p.cols, p.rows, p.w, p.h, -p.h / 2);
+      }
+      kept.slab ||= model(({ box }) => box(0, 0, 0.004 + p.deep / 2, p.w + 0.06, p.h + 0.06, p.deep, 0x2a2d3a, 0x22252f, 0x2a2d3a));
+      const yaw = ((p.yaw || 0) * Math.PI) / 180;
+      draw(kept.slab, p.x, p.y, p.z, yaw);
+      draw(kept.face, p.x, p.y, p.z, yaw);
+      if (!p.cursor) continue;
+      // The mouse: four arms about a dot, most of a panel pixel thick, a hair
+      // proud of the face, with a shadow down and across; closed up and
+      // yellow while pressed.
+      const u = (p.w / p.cols) * 0.7, cx =p.w / 2 - (p.cursor.x / p.cols) * p.w, cy = p.h / 2 - (p.cursor.y / p.rows) * p.h;
+      const gap = p.cursor.down ? 1.5 : 2.5, ink = p.cursor.down ? 0xffe066 : 0x00ffff;
+      projector.draw(model(({ quad }) => {
+        const bar = (x, y, w, h, z, c) => quad([x + w, y - h, z], [x - w, y - h, z], [x - w, y + h, z], [x + w, y + h, z], c);
+        for (const [dx, dy, z, c] of [[-u, -u, -0.003, 0x000000], [0, 0, -0.005, ink]]) {
+          const x = cx + dx, y = cy + dy;
+          bar(x, y, u / 2, u / 2, z, c);
+          for (const side of [-1, 1]) {
+            bar(x + side * (gap + 2) * u, y, 2 * u, u / 2, z, c);
+            bar(x, y + side * (gap + 2) * u, u / 2, 2 * u, z, c);
+          }
+        }
+      }), p.x, p.y, p.z, yaw);
     }
     menuBox = null;
     if (menu) {
@@ -3567,35 +3658,51 @@ export async function createView(canvas) {
     let shadow = null;
     if (casting && casters.length) {
       const first = host.scene.triangleCount;
-      const room = Math.min(SHADOW_BUDGET, host.scene.maxTriangles - first - 64);
+      // What the shadows may take of the frame: a share of it, so they cost no more than a few milliseconds to work out.
+      const most = Math.min(first + SHADOW_MOST, host.scene.maxTriangles - 64);
       const light = { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
-      let at = 0;
-      cast: for (let i = 0; i < casters.length; i += 6) {
+      let n = 0;
+      for (let i = 0; i < casters.length && n < castFar.length; i += 6) {
         const x = casters[i + 1], y = casters[i + 2], z = casters[i + 3], yaw = casters[i + 4], scale = casters[i + 5];
         const cy = Math.cos(yaw), sy = Math.sin(yaw);
         for (const b of boxesOf(casters[i])) {
-          if (at / 18 + VOLUME_TRIANGLES > room) break cast;
+          if (n >= castFar.length) break;
           // Not the floor's dots and marks, nothing underground, nothing far overhead or far off.
           if (b.h * scale < 0.06 || Math.max(b.w, b.d) * scale < 0.06) continue;
           const top = (b.y + b.h / 2) * scale + y, foot = (b.y - b.h / 2) * scale + y;
           if (top < 0.05 || foot > eye.y + 40) continue;
-          const wx = (b.x * cy + b.z * sy) * scale + x, wz = (-b.x * sy + b.z * cy) * scale + z;
-          if (Math.hypot(wx - eye.x, wz - eye.z) > SHADOW_SIGHT + Math.max(b.w, b.d) * scale) continue;
-          at = shadowVolume(volumeFloats, at, b, x, y, z, yaw, scale, light, 0.02, reach(top, light));
+          const wx = (b.x * cy + b.z * sy) * scale + x, wz = (-b.x * sy + b.z * cy) * scale + z, far = Math.hypot(wx - eye.x, wz - eye.z);
+          if (far > SHADOW_SIGHT + Math.max(b.w, b.d) * scale) continue;
+          castFar[n] = far; castFrom[n] = i; castBox[n] = b; castTop[n] = top; castOrder[n] = n; n++;
         }
       }
-      if (at) {
-        projector.overflow = false;
-        // (A shadow's solid is closed however its edges are halved, as long as it is by the one rule: a coarse one, so the shadows of a whole view fit the frame and none is cast short.)
-        const fine = projector.fine;
-        projector.fine = fine; // (the same rule as what they fall on: a coarser one left lit patches inside a shadow)
-        projector.draw(volumeFloats.subarray(0, at), 0, 0, 0);
-        projector.fine = fine;
-        const count = host.scene.triangleCount - first;
-        // A volume cut short by the triangle budget would shade wrongly: cast none.
-        if (count > 0 && !projector.overflow) shadow = { first, count, shade };
-        else host.scene.triangleCount = first;
+      // 🌑 Each box's solid is drawn by itself, the nearest the eye first
+      // (one out of the picture costs nothing: project.mjs `unseen`). When
+      // the frame can hold no more the far ones go without: a solid cut
+      // short would shade wrongly, so each is there whole or not at all.
+      // (Its edges are halved by the same rule as what it falls on: a
+      // coarser one left lit patches inside a shadow.)
+      castOrder.length = n;
+      castOrder.sort((p, q) => castFar[p] - castFar[q]);
+      projector.overflow = false;
+      projector.horizon = Infinity; // (a solid is counted where it lies behind what is seen: its faces over the horizon are part of the count)
+      let spilt = 0;
+      castFrame++;
+      for (const k of castOrder) {
+        if (castLate.get(castBox[k]) > castFrame) continue; // (it did not fit a moment ago: not worked out again for nothing)
+        const i = castFrom[k], before = host.scene.triangleCount;
+        const end = shadowVolume(volumeFloats, 0, castBox[k], casters[i + 1], casters[i + 2], casters[i + 3], casters[i + 4], casters[i + 5], light, 0.02, reach(castTop[k], light));
+        projector.draw(volumeFloats.subarray(0, end), 0, 0, 0);
+        if (projector.overflow || host.scene.triangleCount > most) {
+          // (One that does not fit is taken back, and left out for the next second; a few farther, smaller ones may still fit.)
+          host.scene.triangleCount = before;
+          castLate.set(castBox[k], castFrame + 60);
+          if (projector.overflow || ++spilt > 3) { projector.overflow = false; break; }
+        }
       }
+      castBox.length = 0;
+      const count = host.scene.triangleCount - first;
+      if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
     host.present({ clear: sky, shadow });
@@ -3699,6 +3806,11 @@ export async function createView(canvas) {
       let x = f[0] + r[0] * kx + u[0] * ky, y = f[1] + r[1] * kx + u[1] * ky, z = f[2] + r[2] * kx + u[2] * ky;
       const l = Math.hypot(x, y, z) || 1;
       return { x: x / l, y: y / l, z: z / l };
+    },
+    pairHit(cssX, cssY) {
+      if (!pairAt) return false;
+      const px = canvas.width / Math.max(1, canvas.clientWidth), x = cssX * px, y = cssY * px, r = pairAt.rect;
+      return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
     },
     qrHit(cssX, cssY) {
       if (!qrRect) return false;

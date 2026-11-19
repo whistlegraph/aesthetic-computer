@@ -2,7 +2,9 @@ import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
 import { airAt, sun } from './air.mjs';
 import { phase as skyPhase } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
+import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD } from './elevator.mjs';
+import { createPanels, PANEL_REACH } from './panel.mjs';
+import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
@@ -14,7 +16,8 @@ import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
-import { accountToken, accountExpected } from './account.mjs';
+import { accountToken, accountExpected, askAccount } from './account.mjs';
+import { createPairDesk } from './pair-desk.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -116,9 +119,38 @@ let shownAt = null; // when the paper was last put away, until the body is there
 let liftWas = null; // the car's height a frame ago, for its speed
 const DIAL_MS = 900;
 let dial = { text: '', at: 0 };
+// 🖼️ World panels (panel.mjs): pieces on screens in the room, worked with the
+// crosshair as their mouse. The one there is: the pad at the back of the car
+// (pieces/keypad.mjs). Its digits are the same `dial` the number keys press,
+// but a key aimed at takes longer than a key under a finger, so the car waits
+// PAD_MS after one of those (or goes at once on `go`).
+const PAD_MS = 5000;
+const panels = createPanels();
+const carPad = panels.mount({
+  id: 'car-pad', piece: keypad, ...CAR_PAD,
+  host: {
+    car: {
+      typed: () => dial.text,
+      key: (digit) => { dial = { text: (dial.text + digit).slice(-4), at: performance.now(), wait: PAD_MS }; sfx.ringMove(Number(digit)); },
+      clear: () => { dial = { text: '', at: 0 }; sfx.ringBack(); },
+      go: (to) => {
+        dial = { text: '', at: 0 };
+        if (seat >= 0 && player && hasCar() && inCar(player)) send({ type: 'elevator', to: String(to) });
+        sfx.ringPick(3);
+      },
+      floor: () => (ride && rideMoving(performance.now()) ? floorAt(altitude(ride.to) + liftAt(performance.now()) + 0.5, [ride.to, ride.from]) : tower?.here?.number ?? 0),
+      home: () => home?.floor || 0,
+      moving: () => rideMoving(performance.now()),
+    },
+  },
+});
+let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
+// 🏬 And which of its floors have a storey of their own (elevator.mjs SHORT),
+// kept beside it so the skyline is the right height before the server speaks.
+try { listFloors(JSON.parse(localStorage.getItem('rax-tower-listed') || '[]')); } catch {}
 // 🛗 While the car runs, how far it still is from the floor it is going to
 // (metres; below it going up, above it coming down), and whether it moves.
 const rideMoving = (now) => !!ride && now - ride.at < ride.seconds * 1000;
@@ -190,7 +222,8 @@ let beyond = new Map(), drones = new Map(), myEye = null, droneView = false; // 
 // The eye a little behind and above your own drone, along the way it looks.
 function droneBack() {
   const d = direction(yaw, pitch);
-  return { x: freecam.x - d.x * 1.6, y: Math.max(0.2, freecam.y - d.y * 1.6 + 0.35), z: freecam.z - d.z * 1.6 };
+  const y = freecam.y - d.y * 1.6 + 0.35;
+  return { x: freecam.x - d.x * 1.6, y: freecam.y < 0 ? Math.min(-0.2, y) : Math.max(0.2, y), z: freecam.z - d.z * 1.6 }; // (the eye keeps to the drone's side of the land: over it, or under it inside the planet)
 }
 function droneAt(d, now) {
   const k = Math.min(1, (now - d.at) / 110), f = d.from;
@@ -596,6 +629,8 @@ const joining = () => seat < 0 && performance.now() < joiningUntil;
 // 🪪 What the seat waits for: 'account' (nobody is signed in) or 'handle'
 // (signed in, no handle yet). Until then the visitor flies over and looks.
 let gate = null;
+// 📱 Signed out and looking on, a phone can sign this tab in (pair-desk.mjs).
+const pairDesk = createPairDesk();
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -859,7 +894,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     // floor it was on its way to.
     const now = performance.now(), running = rideMoving(now) ? liftAt(now) : 0;
     const span = altitude(riding.from) - altitude(riding.to) + running;
-    ride = { ...riding, ...(running ? { from: floorAt(altitude(riding.from) + running + 0.5) } : {}), at: now, span, seconds: rideSeconds(span), rung: false };
+    ride = { ...riding, ...(running ? { from: floorAt(altitude(riding.from) + running + 0.5, [riding.from, ride?.from]) } : {}), at: now, span, seconds: rideSeconds(span), rung: false };
     tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null } : { room: 'lobby', number: 0 }, owner: false };
     sfx.ringMove(ride.to > ride.from ? 9 : 4);
   } else {
@@ -1059,6 +1094,7 @@ function connect(adopt = null) {
         presentation.reset(null);
       }
     }
+    if (data.type === 'pair') return void pairDesk.hear(socket, data);
     if (data.type === 'gate' && seat < 0) {
       gate = data.needs === 'handle' ? 'handle' : 'account';
       joiningUntil = 0; // Not joining: looking.
@@ -1119,6 +1155,10 @@ function connect(adopt = null) {
     if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack);
     if (data.type === 'tower') {
       tower = data;
+      if (Array.isArray(data.listed)) {
+        listFloors(data.listed);
+        try { localStorage.setItem('rax-tower-listed', JSON.stringify(data.listed)); } catch {}
+      }
       if (hasCar()) void readDirectory(data.revision ?? data.count);
       if (data.top) {
         towerTop = data.top;
@@ -1390,6 +1430,8 @@ canvas.addEventListener('click', (e) => {
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
   // The code tag in the bottom-right is a button: it opens the $code's page.
   if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
+  // 📱 The sign-in code is a button as well: sign in here, the ordinary way.
+  if (!locked() && view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
   void capture();
 });
 canvas.addEventListener('paste', (e) => {
@@ -1659,6 +1701,12 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  if (view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
+  // 🖼️ A finger on a world panel presses it there (panel.mjs), and is not a look or a button.
+  if (!menu && !radial.open && padFinger === null) {
+    const ray = view.aimRay(e.offsetX, e.offsetY), eye = view.aimOrigin();
+    if (ray && eye && panels.pressAt(panels.aim(eye, ray))) return void (padFinger = e.pointerId);
+  }
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
@@ -1679,10 +1727,12 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('pointerup', (e) => {
   if (!touchy(e)) return;
+  if (e.pointerId === padFinger) { padFinger = null; return void panels.release(); }
   touchButton(touch.up(e, performance.now()), false);
 });
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
+  if (e.pointerId === padFinger) { padFinger = null; return void panels.release(); }
   const held = touch.cancel(e);
   if (held && !held.act) pressKey('keyup', held.code, held.key);
 });
@@ -1810,6 +1860,8 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
+    // 🖼️ Aimed at a world panel, Enter presses it.
+    if (!prompt.open && !menu && !radial.open && !chalkMode && panels.hot) return void panels.tap(performance.now());
     if (seat < 0) return; // Looking on: Enter asks for nothing.
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
@@ -1930,6 +1982,12 @@ function dragBrush() {
 }
 document.addEventListener('keyup', (e) => keys.delete(e.code));
 document.addEventListener('mousedown', (e) => {
+  // 🖼️ A click on a world panel is that panel's (panel.mjs): down now, up on the mouse's release.
+  if (locked() && e.button === 0 && panels.hot && !menu && !radial.open && !prompt.open) {
+    e.preventDefault();
+    panels.press();
+    return;
+  }
   if (seat >= 0 && locked() && e.button === 0 && holding()) {
     e.preventDefault();
     useQueued = true;
@@ -1940,6 +1998,7 @@ document.addEventListener('mousedown', (e) => {
 });
 document.addEventListener('mouseup', (e) => {
   firing = false;
+  if (e.button === 0 && !panels.pinned) panels.release();
   if (e.button === 2) chalkMouse = false;
 });
 document.addEventListener('mousedown', (e) => {
@@ -2140,12 +2199,16 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  if (gamepad.start) toggleMenu(); // START (menu) opens the $
+  // START is Tab: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it opens the $.
+  if (gamepad.start && !hosted) toggleMenu();
+  // ⬇️ Down on the d-pad opens the $ (not in the car, where it rides down, nor while typing); once open the d-pad moves in it.
+  let opened = false;
+  if (gamepad.ddown && !menu && !prompt.open && !radial.open && !(seat >= 0 && hasCar() && inCar(player))) { toggleMenu(); opened = true; }
   // VIEW (back) fills the screen with the room, and gives it back.
   if (gamepad.swap) fullScreen();
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
-    let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
+    let step = opened ? 0 : (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
     if (!step && Math.abs(gamepad.fwd) > 0.6 && now - menuStickAt > 220) {
       step = gamepad.fwd > 0 ? -1 : 1;
       menuStickAt = now;
@@ -2157,6 +2220,11 @@ function step(now) {
     if (gamepad.select) chooseMenu();
     if (gamepad.cancel) closeMenu();
     gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
+  }
+  // 🖼️ Aimed at a world panel, A or RB presses it, and does nothing else.
+  if (!menu && !radial.open && !prompt.open && panels.hot && (gamepad.select || gamepad.use)) {
+    panels.tap(now);
+    gamepad = { ...gamepad, select: false, use: false };
   }
   // 🛗 In the car the d-pad rides a floor up or down.
   if (!menu && seat >= 0 && hasCar() && inCar(player) && (gamepad.dup || gamepad.ddown)) send({ type: 'elevator', to: gamepad.dup ? 'up' : 'down' });
@@ -2312,7 +2380,9 @@ function step(now) {
       },
       elapsed,
       // 🌬️ The air where the eye is, in the world's metres at this moment.
-      weather ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null,
+      weather && freecam.y >= 0 ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null, // (no wind inside the planet)
+      // 🕳️ Under the land the planet is hollow (freecam.mjs); a floor of the tower, and a game's arena, are only floors.
+      !room.startsWith('floor-') && !game(),
     );
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
@@ -2446,6 +2516,7 @@ function step(now) {
   cursorAim = CURSOR_AIM && !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
   // 🚁 Someone looking on aims too (their drone's eye): to scan what stands there and lock on to it.
   const aimer = player || (seat < 0 && !held && snapshot && sheetOpen ? freecam : null), hand = seat >= 0 ? seat : -2;
+  if (!aimer) panels.point(null);
   if (aimer) {
     // The aim ray: from the camera, through the free mouse or along the
     // camera's own centre (the crosshair's normal), never from the player's
@@ -2510,6 +2581,11 @@ function step(now) {
       const distance = rayBox(origin, dir, screenBox(s), nearest);
       if (distance < nearest) { nearest = distance; focusObject = screenFocus(s); }
     }
+    // 🖼️ A world panel within reach, with nothing before it, takes the aim
+    // as its mouse (panel.mjs): the primary action presses there.
+    const onPanel = panels.aim(origin, dir, Math.min(PANEL_REACH, nearest));
+    panels.point(onPanel);
+    if (onPanel) { nearest = onPanel.t; focusObject = null; }
     // The floor square under the crosshair, within reach, if nothing nearer.
     floorAim = null;
     if (dir.y < -0.02 && player) {
@@ -2578,6 +2654,10 @@ function step(now) {
     console.info(`⏱️ rax tab in: ${ms} ms`);
   }
   const lift = liftAt(now), sky = plazaFrom();
+  // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
+  carPad.hidden = !hasCar() || !!game()?.ledges;
+  carPad.y = CAR_PAD.y + lift;
+  panels.frame(now);
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
   sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
   liftWas = { lift, at: now };
@@ -2605,12 +2685,12 @@ function step(now) {
   }
   if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
   // (Between two rooms the digits wait for the body to be set down.)
-  if (dial.text && now - dial.at > DIAL_MS && !held) {
+  if (dial.text && now - dial.at > (dial.wait || DIAL_MS) && !held) {
     if (seat >= 0 && player && hasCar() && inCar(player)) send({ type: 'elevator', to: dial.text });
     dial = { text: '', at: 0 };
   }
   const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
-    ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
+    ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5, [ride.to, ride.from]) } : null;
   // 🎬 The director's camera, when a film is being shot. A shot that `rides`
   // is in the car's frame: it goes up and down with it.
   filmPlayers = shownPlayers;
@@ -2637,15 +2717,16 @@ function step(now) {
     camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
+    pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
     controller: controller.id,
-    stats: statsShown,
+    stats: statsShown && sheetOpen && sheetShown, // (not over the prompt's paper)
     // 🚁 The drone's dials, bottom centre: miles an hour, the rotors' turns a minute, feet up.
     gauge: seat < 0 && !held && sheetOpen && snapshot ? (() => {
       const v = Math.hypot(freecam.vx || 0, freecam.vy || 0, freecam.vz || 0);
       // (A hover turns them at 5,400; climbing and speed ask for more, sinking for less.)
       return { mph: v * 2.23694, rpm: Math.max(2400, 5400 + v * 190 + (freecam.vy || 0) * 260), feet: (freecam.y || 0) * 3.28084 };
     })() : null,
-    sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0], buttons: controller.previous || [] } : null,
+    sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
     third: third || !!game()?.camera,
     game: game(),
@@ -2749,11 +2830,12 @@ function step(now) {
     corner: sheetOpen && !down && !film,
     screens,
     screenPrograms,
+    panels: panels.list.filter((p) => !p.hidden),
     bare: !sheetOpen || !sheetShown || down || !!film,
     held: {
       keys: [...keys],
       pad: [
-        ...['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT'].filter((_, i) => controller.previous[i]),
+        ...['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'BACK', 'START'].filter((_, i) => controller.previous[i]),
         ...(gamepad.fwd || gamepad.right ? ['LS'] : []),
         ...(gamepad.lookX || gamepad.lookY ? ['RS'] : []),
       ],

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import WebSocket from 'ws';
-import { Tower, TowerStore, floorRoom, isFloorRoom, carWalls, lobbyWalls, LOBBY_FRONT, inCar, CAR, CAR_Z, altitude, floorAt } from '../tower.mjs';
+import { Tower, TowerStore, floorRoom, isFloorRoom, carWalls, lobbyWalls, LOBBY_FRONT, inCar, CAR, CAR_Z, altitude, floorAt, SHORT, listFloors, storeyOf, roofOf, floorsNear } from '../tower.mjs';
 import { createRaxServer } from '../server.mjs';
 import { PROTOCOL, move, spawn } from '../world.mjs';
 
@@ -113,11 +113,44 @@ test('the lobby is entered by its door', () => {
   assert.ok(walk(5).z < LOBBY_FRONT, 'not through the glass');
 });
 
+// (2026-11-19: the tower is short for now, so a floor's height is its storey's,
+// not its number's. The full tower's heights are still checked, for the day
+// SHORT is put back to false.)
 test('a floor is a height', () => {
   assert.equal(altitude(0), 0);
-  assert.equal(altitude(1), 12);
-  assert.equal(altitude(89), 628);
-  assert.deepEqual([0, 11.9, 12, 18.9, 19, 628, 634.9].map(floorAt), [0, 0, 1, 1, 2, 89, 89]);
+  if (!SHORT) {
+    assert.equal(altitude(1), 12);
+    assert.equal(altitude(89), 628);
+    assert.deepEqual([0, 11.9, 12, 18.9, 19, 628, 634.9].map((y) => floorAt(y)), [0, 0, 1, 1, 2, 89, 89]);
+    return;
+  }
+  // @jeffrey on 1 and the highest floor, 4000, have a storey each; every
+  // number between shares the one between them; the roof lies on the top.
+  listFloors([4000, 1]);
+  assert.deepEqual([1, 2, 89, 3999, 4000].map(storeyOf), [1, 2, 2, 2, 3]);
+  assert.deepEqual([1, 89, 4000].map(altitude), [12, 19, 26]);
+  assert.equal(roofOf(4000), 33);
+  assert.deepEqual([0, 11.9, 12, 18.9, 19, 26, 32.9].map((y) => floorAt(y)), [0, 0, 1, 1, 2, 4000, 4000]);
+  assert.equal(floorAt(20, [89, 0]), 89, 'a ride to 89 passes 89, not the lowest number of its storey');
+  assert.deepEqual(floorsNear(13), [1, 4000], 'only floors with a storey of their own are drawn from outside');
+  // A listed floor that is not the lowest: the numbers under it share a storey too.
+  listFloors([5, 9]);
+  assert.deepEqual([1, 4, 5, 6, 8, 9].map(storeyOf), [1, 1, 2, 3, 3, 4]);
+  // Two listed floors side by side have no storey between them.
+  listFloors([1, 2]);
+  assert.deepEqual([1, 2].map(altitude), [12, 19]);
+  assert.equal(roofOf(2), 26);
+  listFloors([]);
+});
+
+test('the ledger lists @jeffrey\'s floor and the highest', () => {
+  const t = new Tower();
+  t.admit(['oskie', 'jeffrey', 'prutti']);
+  assert.deepEqual(t.listed(), [2, 3]);
+  t.arrive('prutti');
+  t.take('prutti', 300);
+  assert.deepEqual(t.listed(), [2, 300]);
+  assert.equal(t.count, 3, 'every handle keeps its floor');
 });
 
 test('the elevator rides from the ground to a floor, and only its owner builds there', async () => {
