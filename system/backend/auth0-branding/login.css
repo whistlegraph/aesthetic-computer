@@ -103,7 +103,10 @@ main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
 }
 .af-custom-form-container .af-screenEnding { min-height: 200px; display: flex !important; align-items: center; justify-content: center; }
 .af-custom-form-container .af-screenEnding > .af-spinner { display: none !important; }
-.ac-handle-print { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; line-height: 1; white-space: nowrap; will-change: translate; animation: ac-bob 1s ease-in-out .5s infinite; }
+.ac-handle-won-box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 26px; }
+.ac-handle-print { display: flex; line-height: 1; white-space: nowrap; will-change: translate; animation: ac-bob 1s ease-in-out .5s infinite; }
+/* Said at the moment the name becomes theirs, to an address not yet confirmed. */
+.ac-handle-note { font-size: 22px; line-height: 1.2; white-space: nowrap; color: #fff; text-shadow: 2px 2px 0 #202019, -1px -1px 0 #202019, 1px -1px 0 #202019, -1px 1px 0 #202019; }
 /* Letters only pop (transform and opacity, which the compositor can run alone);
    the line bobs as one. Shadowed text repainting per letter per frame crawled. */
 .ac-handle-print span { display: inline-block; -webkit-text-stroke: 3px #fff; paint-order: stroke fill; will-change: transform, opacity; animation: ac-pop .14s cubic-bezier(.2, 1.7, .4, 1) both; }

@@ -485,7 +485,12 @@ function paint($) {
   // The widgets themselves are shared with `lairk` — see lakChatOptions.
   chat.paint($, lakChatOptions(lakTheme, {
     otherChat: chatView(),
-    inputPlaceholder: "Say hi...",
+    // A newcomer named before confirming their address keeps the name only if
+    // the letter is opened within the week (backend/signup-handle.mjs). Say so
+    // here, quietly, for as long as it is true.
+    inputPlaceholder: $.user?.email_verified === false && $.handle?.()
+      ? `Say hi... check your email to keep ${$.handle()}`
+      : "Say hi...",
     hideInput: lakTV, // 📺 broadcast face drops the login/message footer
     // QR box + gear + breathing room.
     presenceRightInset: 50,

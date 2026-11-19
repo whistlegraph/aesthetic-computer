@@ -110,7 +110,10 @@ main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
 }
 .af-custom-form-container .af-screenEnding { min-height: 200px; display: flex !important; align-items: center; justify-content: center; }
 .af-custom-form-container .af-screenEnding > .af-spinner { display: none !important; }
-.ac-handle-print { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; line-height: 1; white-space: nowrap; will-change: translate; animation: ac-bob 1s ease-in-out .5s infinite; }
+.ac-handle-won-box { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 26px; }
+.ac-handle-print { display: flex; line-height: 1; white-space: nowrap; will-change: translate; animation: ac-bob 1s ease-in-out .5s infinite; }
+/* Said at the moment the name becomes theirs, to an address not yet confirmed. */
+.ac-handle-note { font-size: 22px; line-height: 1.2; white-space: nowrap; color: #fff; text-shadow: 2px 2px 0 #202019, -1px -1px 0 #202019, 1px -1px 0 #202019, -1px 1px 0 #202019; }
 /* Letters only pop (transform and opacity, which the compositor can run alone);
    the line bobs as one. Shadowed text repainting per letter per frame crawled. */
 .ac-handle-print span { display: inline-block; -webkit-text-stroke: 3px #fff; paint-order: stroke fill; will-change: transform, opacity; animation: ac-pop .14s cubic-bezier(.2, 1.7, .4, 1) both; }
@@ -198,8 +201,7 @@ main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card-ou
       document.addEventListener('input', (event) => {
         if (event.target?.name !== 'handle') return;
         handle = event.target.value.trim().replace(/^@/, '');
-        const refusal = document.querySelector('.af-scenarioMessage-error');
-        if (refusal) refusal.style.display = 'none';
+        for (const refusal of document.querySelectorAll('.af-scenarioMessage-error')) refusal.style.display = 'none';
       }, true);
       const print = (ending) => {
         ending.dataset.acPrinted = '1';
@@ -207,7 +209,18 @@ main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card-ou
         line.className = 'ac-handle-print';
         line.setAttribute('aria-label', text);
         line.style.fontSize = Math.min(84, Math.floor(430 / (text.length * 0.6))) + 'px';
-        ending.append(line);
+        const box = document.createElement('div');
+        box.className = 'ac-handle-won-box';
+        box.append(line);
+        // The form carries a hidden marker of whether the address is confirmed
+        // (auth0-forms/form.json, "verified"). A password signup's isn't yet.
+        if (document.querySelector('.af-componentId-verified')?.textContent.trim() === 'false') {
+          const note = document.createElement('div');
+          note.className = 'ac-handle-note';
+          note.textContent = 'check your email to keep it';
+          box.append(note);
+        }
+        ending.append(box);
         document.querySelector('main.af-custom-form')?.classList.add('ac-handle-won');
         // Every letter goes in at once and CSS staggers them: the page is
         // busy finishing the sign-in, and timers here can stall for a second.

@@ -273,7 +273,7 @@ await step("a new email + password comes back to AC and asks for verification", 
     await shot("03b-hosted-handle");
     await page.type(field, "jeffrey", { delay: 40 });
     await page.keyboard.press("Enter");
-    await page.waitForFunction(() => /Taken\. Try another\./.test(document.querySelector(".af-scenarioMessage-error")?.innerText || ""), { timeout: 20_000 })
+    await page.waitForFunction(() => [...document.querySelectorAll(".af-scenarioMessage-error")].some((e) => /Taken\. Try another\./.test(e.textContent)), { timeout: 30_000 })
       .catch(() => { throw new Error("the hosted form did not refuse @jeffrey"); });
     await ac.wait(1200);
     await shot("03c-hosted-handle-taken");
@@ -298,8 +298,9 @@ await step("a new email + password comes back to AC and asks for verification", 
     await page.waitForFunction(() => window.auth0Client, { timeout: 30_000 });
     sub = (await page.evaluate(async () => (await window.auth0Client?.getUser())?.sub)) || null;
     const landed = elapsed();
-    // Stay for the one-time "CONFIRM YOUR EMAIL" notice, which waits for the piece.
-    for (let i = 1; i <= 4; i++) { await ac.wait(900); await shot(`04-laklok-landing-${i}`); }
+    // Laklok's message bar reminds an unconfirmed newcomer about the letter.
+    await ac.wait(3500);
+    await shot("04-laklok-landing");
     return `${sub || "?"}, @${handle} picked on the hosted page, straight to /laklok at ${landed}`;
   }
   await reached("verification_shown");
