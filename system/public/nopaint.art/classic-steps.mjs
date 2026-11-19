@@ -330,35 +330,46 @@ async function aiTurn({ id, note, settings: turn = {} }) {
 // the game takes it.
 //
 // A guest's lit screen is the sign-in and nothing else. The slot becomes a
-// button in the middle, where the line that counts the brushes was: its plate
-// yellow, Sign In on it in black at twice the size, the two swapping under the
-// pointer, which turns to the game's hand there and nowhere else. The game's
-// own buttons are shut, and are reddened to say so.
+// button in the middle of the screen, over the instructions: its plate yellow
+// in a black frame, Sign In on it in black at three times the size, the three
+// swapping under the pointer, which turns to the game's hand there and nowhere
+// else. Everything else is shut, and the whole screen is reddened to say so.
 const LIT = 114, DARK = 98, PLATE = 158; // UIDs in the Construct source (layout Splash)
 const COUNT = 398;                       // "38 Brushes & 684 Stamps"
 const LETTER = { [LIT]: 8.4, [DARK]: 9.7 }; // each label's letter advance, in layout pixels
-const BUTTON = { plate: { x: 60, y: 200, width: 136, height: 22 }, words: { x: 69, y: 203, width: 118, height: 16 } }; // centred, between the instructions and PAINT
+const BUTTON = { frame: { x: 34, y: 124, width: 188, height: 36 }, plate: { x: 36, y: 126, width: 184, height: 32 }, words: { x: 40, y: 130, width: 177, height: 24 } }; // the middle of the screen
 const SLOT = { x: 0, y: 0, width: 101, height: 16 }; // the plate's own place
-const YELLOW = [1, 0.92, 0.2], BLACK = [0, 0, 0];
+const YELLOW = [1, 0.92, 0.2], BLACK = [0, 0, 0], GROUND = [1.22, 0.72, 0.9]; // GROUND: a guest's red where the game has green (the plate is pale green, so more than 1 of red)
 // What is shut for a guest, and the red each turns: Whistlegraph, Painter Stories,
-// the camera and its label, and About and Community (plate, then letters).
+// the camera and its label, About and Community (plate, then letters), and then
+// the rest of the screen: the ground (a plate laid over it), NO and PAINT, the instructions (paper,
+// then words), the butterfly and the date.
 const SHUT = [[789, [1, 0.35, 0.35]], [346, [1, 0.3, 0.3]], [710, [1, 0.4, 0.4]], [711, [1, 0.4, 0.4]],
-  [89, [1, 0.72, 0.72]], [44, [0.8, 0.1, 0.1]], [49, [1, 0.72, 0.72]], [9, [0.8, 0.1, 0.1]]];
+  [89, [1, 0.72, 0.72]], [44, [0.8, 0.1, 0.1]], [49, [1, 0.72, 0.72]], [9, [0.8, 0.1, 0.1]],
+  [84, [1, 0.3, 0.3]], [85, [1, 0.3, 0.3]], [45, [1, 0.72, 0.72]], [38, [0.75, 0.2, 0.2]],
+  [108, [0.8, 0.15, 0.15]], [91, [0.8, 0.1, 0.1]]];
 let layoutNow = null, spots = [], labels = { who: null, lights: null }, asking = 0, titling = Promise.resolve(), watching = null;
-let worn = null, hot = false, pointing; // worn: the colours the guest's screen took the place of
+let worn = null, hot = false, pointing, frame = null, ground = null; // frame: the button's black edge, a plate made behind the plate // worn: the colours the guest's screen took the place of
 function title() { titling = titling.then(drawTitle, drawTitle); return titling; }
-const signInWords = () => `[scale=2][color=${hot ? "#ffff00" : "#000000"}]Sign In[/color][/scale]`;
+const signInWords = () => `[scale=3][color=${hot ? "#ffff00" : "#000000"}]Sign In[/color][/scale]`;
 // Put the guest's screen on, or take it off again.
 async function dress(guest) {
   if (guest === Boolean(worn)) return;
   if (guest) {
     worn = [];
     for (const [uid, color] of [[PLATE, hot ? BLACK : YELLOW], ...SHUT]) worn.push([uid, (await ask("tint", { uid, color })).was]);
-    await ask("place", { uid: PLATE, ...BUTTON.plate });
+    await ask("place", { uid: PLATE, ...BUTTON.plate, under: LIT }); // over the instructions, behind its own letters
+    // The ground: a plate laid over the game's green, under everything else.
+    ground = (await (ground ? ask("place", { uid: ground, visible: true }) : Promise.reject()).catch(() => ask("create", { like: PLATE, layer: "Butterfly", under: 108, x: 0, y: 0, width: 256, height: 304 }))).uid;
+    await ask("tint", { uid: ground, color: GROUND });
+    frame = (await (frame ? ask("place", { uid: frame, visible: true }) : Promise.reject()).catch(() => ask("create", { like: PLATE, under: PLATE, ...BUTTON.frame }))).uid;
+    await ask("tint", { uid: frame, color: hot ? YELLOW : BLACK });
     await ask("write", { uid: COUNT, visible: false });
   } else {
     for (const [uid, color] of worn) await ask("tint", { uid, color }).catch(() => {});
     worn = null;
+    if (frame) await ask("place", { uid: frame, visible: false }).catch(() => {});
+    if (ground) await ask("place", { uid: ground, visible: false }).catch(() => {});
     await ask("place", { uid: PLATE, ...SLOT });
     await ask("write", { uid: COUNT, visible: true });
   }
@@ -371,7 +382,7 @@ function point() {
   ask("pointer", { as }).catch(() => { pointing = undefined; });
 }
 async function drawTitle() {
-  if (layoutNow !== "Splash") { spots = []; labels = { who: null, lights: null }; worn = null; hot = false; point(); clearInterval(watching); watching = null; return; }
+  if (layoutNow !== "Splash") { spots = []; labels = { who: null, lights: null }; worn = null; frame = ground = null; hot = false; point(); clearInterval(watching); watching = null; return; }
   // The lights come on without the layout changing, so keep looking while here.
   watching ||= setInterval(title, 600);
   try {
@@ -400,6 +411,7 @@ async function hover(now) {
   point();
   if (!worn) return;
   await ask("tint", { uid: PLATE, color: hot ? BLACK : YELLOW }).catch(() => {});
+  if (frame) await ask("tint", { uid: frame, color: hot ? YELLOW : BLACK }).catch(() => {});
   await ask("write", { uid: LIT, text: signInWords() }).catch(() => {});
 }
 async function act(what) {

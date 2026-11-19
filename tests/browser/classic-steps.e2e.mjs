@@ -349,8 +349,8 @@ try {
   const slot = await game.ask("look", { uid: 114 });
   const plate = await game.ask("look", { uid: 158 });
   const tintOf = async (uid) => (await game.ask("stage")).things.find((thing) => thing.uid === uid)?.tint.map((v) => +v.toFixed(2)).join();
-  check("with the lights on, Sign In is a button across the middle: black letters, large, on the game's plate turned yellow", /\[scale=2\]\[color=#000000\]Sign In/.test(slot.text) && Math.abs(slot.x + slot.width / 2 - 128) < 1.5
-    && Math.abs(plate.x + plate.width / 2 - 128) < 1 && plate.y > 196 && plate.y + plate.height < 226 && plate.x < slot.x && plate.y < slot.y && (await tintOf(158)) === "1,0.92,0.2"
+  check("with the lights on, Sign In is a button across the middle: black letters, large, on the game's plate turned yellow", /\[scale=3\]\[color=#000000\]Sign In/.test(slot.text) && Math.abs(slot.x + slot.width / 2 - 128) < 1.5
+    && Math.abs(plate.x + plate.width / 2 - 128) < 1 && plate.y > 120 && plate.y + plate.height < 164 && plate.x < slot.x && plate.y < slot.y && (await tintOf(158)) === "1,0.92,0.2"
     && !(await game.ask("look", { uid: 398 })).shown && (await game.steps()).title.spots.join() === "in", `plate ${plate.width} x ${plate.height} at ${plate.x},${plate.y}; letters at ${slot.x},${slot.y}`);
   check("the game's own buttons are reddened", (await tintOf(789)) === "1,0.35,0.35" && (await tintOf(710)) === "1,0.4,0.4" && (await tintOf(44)) === "0.8,0.1,0.1" && (await tintOf(9)) === "0.8,0.1,0.1", `Whistlegraph ${await tintOf(789)}, About ${await tintOf(44)}`);
   await game.page.screenshot({ path: join(OUT, "title-guest.png") });
@@ -366,7 +366,7 @@ try {
   check("over a shut button the cursor stays an arrow, and Sign In turns back", !off.hot && off.cursor === "Normal" && off.plate === "1,0.92,0.2", `${off.cursor}, plate ${off.plate}`);
   // Everything else on the screen is shut: the middle (which starts a painting), About, Community, the corners.
   const middle = async (uid) => { const { css } = await game.ask("look", { uid }); return [(css[0][0] + css[1][0]) / 2, (css[0][1] + css[1][1]) / 2]; };
-  for (const [x, y] of [[VIEW.W / 2, VIEW.H * 0.45], await middle(44), await middle(9), [VIEW.W * 0.8, VIEW.H * 0.2], [VIEW.W * 0.85, VIEW.H * 0.75], [20, VIEW.H * 0.5]]) { await game.page.mouse.click(x, y); await wait(350); }
+  for (const [x, y] of [[VIEW.W / 2, VIEW.H * 0.36], [VIEW.W / 2, VIEW.H * 0.6], await middle(44), await middle(9), [VIEW.W * 0.8, VIEW.H * 0.2], [VIEW.W * 0.85, VIEW.H * 0.75], [20, VIEW.H * 0.5]]) { await game.page.mouse.click(x, y); await wait(350); }
   await wait(800);
   check("no other tap on a guest's lit screen does anything", (await game.ask("state")).layout === "Splash" && game.page.url() === site.url + "/" && !(await game.steps()).who && (await game.page.evaluate(() => window.nopaintSteps.log)).every((line) => !/ tap: /.test(line)),
     `${(await game.ask("state")).layout}; ${game.page.url().replace(site.url, "")}`);

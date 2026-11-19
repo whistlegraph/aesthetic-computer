@@ -2564,12 +2564,12 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 //   aiResult {turn, png | error} the picture of an AI turn, or why there is none
 //   look {uid}                   one placed thing on this layout: place, size, text, box on the page
 //   write {uid, text, visible, x, y, width, height, fit}   set a sprite font
-//   create {like | type, layer, x, y, width, height, text}   a new sprite font, drawn like another
+//   create {like | type, layer, x, y, width, height, text, under}   a new sprite font or sprite, drawn like another; under: a UID to sit just behind
 //   code {code}                  the #code Save should show, as prompt.ac/#code (null: a classic code)
 //   settings                     the tuning's settings for AI turns
 //   texts                        every text on this layout: UID, type, words, place
 //   stage                        every placed thing on this layout, back to front, with its box
-//   place {uid, x, y, width, height, visible}   move, size, show or hide any placed thing
+//   place {uid, x, y, width, height, visible, under}   move, size, show or hide any placed thing; under: a UID to sit just behind
 //   tint {uid, color, opacity}   tint a placed thing, or set how solid it is
 //   pointer {as}                 the cursor: "hand", "arrow", or null to leave it to the game
 //   address                      the prompt.ac/# beside Save's code: where it is, how much ink
@@ -2768,13 +2768,18 @@ runOnStartup(async (runtime) => {
     // Put a new sprite font on this layout, drawn like an existing one. It
     // lasts until the layout ends, as everything on a layout does.
     // (like: a UID to draw like; or type: any one of that object type here.)
-    create({ like, type, layer, x, y, width, height, text = "" }) {
+    create({ like, type, layer, x, y, width, height, text = "", under }) {
       const model = like !== undefined ? runtime.getInstanceByUid(Number(like)) : runtime.objects[type]?.getFirstInstance();
-      if (!model || !("text" in model)) throw new Error(`no text here to draw like (${like ?? type})`);
+      if (!model) throw new Error(`nothing here to draw like (${like ?? type})`);
       const made = model.objectType.createInstance(layer || model.layer.name, Number.isFinite(x) ? x : model.x, Number.isFinite(y) ? y : model.y);
       made.width = Number.isFinite(width) ? width : model.width; made.height = Number.isFinite(height) ? height : model.height;
-      for (const key of ["characterScale", "characterSpacing", "lineHeight", "horizontalAlign", "verticalAlign", "wordWrapMode"]) try { made[key] = model[key]; } catch {}
-      made.text = String(text);
+      if ("text" in model) {
+        for (const key of ["characterScale", "characterSpacing", "lineHeight", "horizontalAlign", "verticalAlign", "wordWrapMode"]) try { made[key] = model[key]; } catch {}
+        made.text = String(text);
+      }
+      // Just behind another placed thing: a frame behind a plate.
+      const over = under !== undefined ? runtime.getInstanceByUid(Number(under)) : null;
+      if (over) made.moveAdjacentToInstance(over, false);
       return ops.look({ uid: made.uid });
     },
     // The stage: every placed thing on this layout, back to front, with its
@@ -2798,11 +2803,13 @@ runOnStartup(async (runtime) => {
       return { layout: where(), size: [runtime.layout.width, runtime.layout.height], layers, things };
     },
     // Move or size any placed thing, or show and hide it.
-    place({ uid, x, y, width, height, visible }) {
+    place({ uid, x, y, width, height, visible, under }) {
       const thing = runtime.getInstanceByUid(Number(uid));
       if (!thing) throw new Error(`nothing with UID ${uid} on this layout`);
       for (const [key, value] of Object.entries({ x, y, width, height })) if (Number.isFinite(value)) thing[key] = value;
       if (visible !== undefined) thing.isVisible = Boolean(visible);
+      const over = under !== undefined ? runtime.getInstanceByUid(Number(under)) : null;
+      if (over) thing.moveAdjacentToInstance(over, false);
       return { uid: thing.uid, x: thing.x, y: thing.y, width: thing.width, height: thing.height, visible: thing.isVisible };
     },
     // Tint a placed thing (1, 1, 1 is its own colours), or set how solid it is.
