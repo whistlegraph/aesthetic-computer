@@ -213,6 +213,13 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
       if (!s.text) continue;
       const w = (smallWidth(s.text) + 1) * unit;
       const centre = left + (w - unit) / 2;
+      // Between two controls: a small square dot at mid height, not a slash.
+      if (s.text.trim() === '/') {
+        if (shadow !== null) rect(centre, y - 6 * unit, z + 2 * step, 2 * unit, 2 * unit, shadow);
+        rect(centre - unit, y - 5 * unit, z, 2 * unit, 2 * unit, THEME.dim);
+        left += w;
+        continue;
+      }
       if (shadow !== null && s.text.trim()) small(s.text, centre + unit, y - unit, z + 2 * step, unit, shadow);
       small(s.text, centre, y, z, unit, s.color);
       left += w;

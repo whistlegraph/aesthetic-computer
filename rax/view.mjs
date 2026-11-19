@@ -831,6 +831,7 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
+  let statsAt = 0, statsGap = 16.7, statsWorst = 0, statsWorstAt = 0; // 🧰 the last frame's start, the time between frames (eased), the worst lately
   // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
   let panelTop = null;
@@ -1156,6 +1157,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
+    stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
     sticks = null, // 🎮 { move: [x, y], look: [x, y] } from -1 to 1: a controller's two sticks, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
@@ -1973,11 +1975,11 @@ export async function createView(canvas) {
             }
           } else {
             // The controls and the hint, top-right, compact: MatrixChunky8
-            // with small key caps and badges, ten-pixel rows (2026-11-08).
+            // with small key caps and badges (2026-11-08).
             const right = width / 2 - safeX;
             visible.forEach((spans) => {
               const w = smallSpanWidth(spans, unit);
-              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 2 * unit - visible.indexOf(spans) * 12 * unit, unit, { shadow: INK, tiny: true });
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 2 * unit - visible.indexOf(spans) * 14 * unit, unit, { shadow: INK, tiny: true }); // (fourteen-pixel rows: a cap and its shadow clear the row under it)
             });
           }
         });
@@ -2347,6 +2349,38 @@ export async function createView(canvas) {
           const k = radius * 0.6;
           rect(kx - k / 2 + unit, ky - k / 2 - unit, 0.000003, k, k, INK);
           rect(kx - k / 2, ky - k / 2, 0.000002, k, k, moved ? ink : tint(ink, 0.6));
+        }
+      });
+      projector.overlay(m, W, H);
+    }
+    // 🧰 The debugging panel (the ` key), bottom right: how fast the picture
+    // comes, how big it is, how many triangles it took and what draws them.
+    {
+      const t = performance.now(), gap = statsAt ? t - statsAt : 16.7;
+      statsAt = t;
+      statsGap += (gap - statsGap) * 0.1;
+      if (gap > statsWorst || t - statsWorstAt > 3000) { statsWorst = gap; statsWorstAt = t; }
+    }
+    if (stats) {
+      const { unit, safeX, safeY } = hud;
+      const tris = projector.scene?.triangleCount || 0, most = projector.scene?.maxTriangles || 0;
+      const rate = Math.round(1000 / Math.max(1, statsGap));
+      const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
+      const lines = [
+        [`${rate} fps`, rate >= 55 ? good : rate >= 30 ? fair : poor],
+        [`${statsGap.toFixed(1)} ms  worst ${Math.round(statsWorst)}`, statsWorst < 34 ? good : statsWorst < 100 ? fair : poor],
+        [`${tris.toLocaleString('en-US')} tris${most ? ` of ${Math.round(most / 1000)}k` : ''}`, most && tris > most * 0.85 ? poor : PAPER],
+        [`${canvas.width} x ${canvas.height} px`, PAPER],
+        [`${backend}${stallNote ? `  ${stallNote}` : ''}`, backend === 'webgpu' ? good : fair],
+      ];
+      const m = model(({ small }) => {
+        const right = W / 2 - safeX - 2 * unit;
+        let y = -H / 2 + safeY + (9 + (lines.length - 1) * 10) * unit;
+        for (const [words, ink] of lines) {
+          const x = right - (smallWidth(words) / 2) * unit;
+          small(words, x + unit, y - unit, 0.000002, unit, INK);
+          small(words, x, y, 0, unit, ink);
+          y -= 10 * unit;
         }
       });
       projector.overlay(m, W, H);

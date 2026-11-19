@@ -370,6 +370,8 @@ function logNet(text, flags = {}) {
   netLog.push({ when, text, ...flags });
   if (netLog.length > 40) netLog.shift();
 }
+let statsShown = false;
+try { statsShown = localStorage.getItem('rax-stats') === '1'; } catch {}
 const extrasSeen = new Set(); // a controller's buttons past the standard ones, as they are first pressed
 // 🔄 New code reaches a page that is up over the room (parked) too: it asks
 // the server's revision every half minute and loads again, unseen, when
@@ -1767,6 +1769,13 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  // 🧰 ` anywhere else opens the debugging panel, bottom right (not while typing).
+  if (e.code === 'Backquote' && !e.repeat && !typing()) {
+    statsShown = !statsShown;
+    try { localStorage.setItem('rax-stats', statsShown ? '1' : ''); } catch {}
+    e.preventDefault();
+    return;
+  }
   if (!locked() && !keyboardMode && !synthetic.has(e)) {
     if (touch.active || !CONTROL_KEYS.includes(e.code)) return;
     keyboardMode = true;
@@ -2486,6 +2495,7 @@ function step(now) {
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     controller: controller.id,
+    stats: statsShown,
     sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0] } : null,
     seat,
     third: third || !!game()?.camera,
