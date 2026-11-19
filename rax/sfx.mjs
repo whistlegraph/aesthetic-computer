@@ -99,6 +99,39 @@ export class Sfx {
     r.out.gain.setTargetAtTime(n ? (0.006 + 0.01 * w) * n * n * MASTER : 0, t, 0.15);
     r.depth.gain.setTargetAtTime(n ? 0.002 * n * n * MASTER : 0, t, 0.15);
   }
+  // 📉 Going down: as the picture comes apart (`gone`, 0 to 1) a tone falls
+  // and breaks up into steps, under a rising hiss; at the end only a low hum.
+  down(gone) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.fall) {
+      if (gone <= 0) return;
+      const tone = a.createOscillator(), toneGain = a.createGain(), chop = a.createOscillator(), chopGain = a.createGain();
+      tone.type = 'square';
+      toneGain.gain.value = 0;
+      chop.type = 'square';
+      chop.frequency.value = 9;
+      chopGain.gain.value = 0;
+      chop.connect(chopGain).connect(toneGain.gain);
+      tone.connect(toneGain).connect(a.destination);
+      const buffer = a.createBuffer(1, a.sampleRate, a.sampleRate), data = buffer.getChannelData(0);
+      // (Held samples: a hiss with its bits taken away.)
+      for (let i = 0, held = 0; i < data.length; i++) { if (i % 6 === 0) held = Math.round((Math.random() * 2 - 1) * 4) / 4; data[i] = held; }
+      const hiss = a.createBufferSource(), hissGain = a.createGain();
+      hiss.buffer = buffer;
+      hiss.loop = true;
+      hissGain.gain.value = 0;
+      hiss.connect(hissGain).connect(a.destination);
+      tone.start(); chop.start(); hiss.start();
+      this.fall = { tone, toneGain, chop, chopGain, hissGain };
+    }
+    const g = Math.max(0, Math.min(1, gone)), f = this.fall;
+    f.tone.frequency.setTargetAtTime(g ? 660 * 2 ** (-3.5 * g) : 660, t, 0.05);
+    f.chop.frequency.setTargetAtTime(6 + 30 * g, t, 0.1);
+    f.toneGain.gain.setTargetAtTime(g ? (0.02 - 0.012 * g) * MASTER : 0, t, 0.08);
+    f.chopGain.gain.setTargetAtTime(g ? 0.012 * g * MASTER : 0, t, 0.08);
+    f.hissGain.gain.setTargetAtTime(g ? 0.03 * Math.sin(Math.PI * Math.min(1, g * 1.2)) * MASTER : 0, t, 0.1);
+  }
   lift(speed) {
     if (!this.ready) return;
     const a = this.audio, t = a.currentTime;

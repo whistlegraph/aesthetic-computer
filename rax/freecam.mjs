@@ -8,6 +8,7 @@ const PUSH = 5, DRIFT = 2.2; // how quickly it takes up a speed asked for, and l
 // a fifth of the wind across, a third of what rises and sinks: a slow float, as
 // a gyro holds it, never a shake.
 const RIDE = 0.2, HEAVE = 0.35;
+export const REACH = 4000; // how far out over the land an eye may fly, metres from its room's middle
 export const CEILING = 50000; // over the top of the tallest tower there can be (tower.mjs TOP)
 export function moveFreecam(camera, input, seconds, air = null) {
   const f = direction(camera.yaw, camera.pitch),
@@ -29,7 +30,7 @@ export function moveFreecam(camera, input, seconds, air = null) {
     vy = (camera.vy || 0) + ((f.y * input.fwd + input.up * climb) * top + ay - (camera.vy || 0)) * k,
     vz = (camera.vz || 0) + (z * top + az - (camera.vz || 0)) * k;
   if (!asked && !air && Math.hypot(vx, vy, vz) < 0.02) vx = vy = vz = 0; // at a hover (in still air)
-  const nx = clamp(camera.x + vx * dt, -60, 60), ny = clamp(camera.y + vy * dt, 0.15, CEILING), nz = clamp(camera.z + vz * dt, -60, 60);
+  const nx = clamp(camera.x + vx * dt, -REACH, REACH), ny = clamp(camera.y + vy * dt, 0.15, CEILING), nz = clamp(camera.z + vz * dt, -REACH, REACH);
   // Against the edge of the air it stops, it does not push.
   if (nx !== camera.x + vx * dt) vx = 0;
   if (ny !== camera.y + vy * dt) vy = 0;

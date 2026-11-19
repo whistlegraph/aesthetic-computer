@@ -86,9 +86,11 @@ export class Projector {
       dy = y - e.y,
       dz = z - e.z;
     const [r, u, f] = [this.right, this.up, this.forward];
-    const depth = dx * f[0] + dy * f[1] + dz * f[2];
+    // (On the planet's land: what is far lies lower.)
+    const fall = this.planet ? (dx * dx + dz * dz) / (2 * this.planet) : 0;
+    const depth = dx * f[0] + (dy - fall) * f[1] + dz * f[2];
     if (depth < 0.1) return null;
-    const px = (dx * r[0] + dy * r[1] + dz * r[2]) / depth, py = (dx * u[0] + dy * u[1] + dz * u[2]) / depth, k = this.squeeze(px, py);
+    const px = (dx * r[0] + (dy - fall) * r[1] + dz * r[2]) / depth, py = (dx * u[0] + (dy - fall) * u[1] + dz * u[2]) / depth, k = this.squeeze(px, py);
     return { x: px * k * this.sx + (this.shiftX || 0), y: py * k * this.sy + (this.shiftY || 0), depth };
   }
   // 🔭 The lens (0: none, a flat picture as a pinhole makes it; 1: all of
@@ -108,6 +110,19 @@ export class Projector {
   // halve it at the same place and no gap opens between them.
   put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
     const near = 0.05, far = 2400, sx = this.sx, sy = this.sy, ox = this.shiftX || 0, oy = this.shiftY || 0;
+    // 🌍 The land is a small planet's: what is far lies lower, by the square
+    // of how far it is over twice the planet's radius, straight down. (The
+    // corners passed on to the halves are the flat ones: each is bent here.)
+    const fx0 = x0, fy0 = y0, fz0 = z0, fx1 = x1, fy1 = y1, fz1 = z1, fx2 = x2, fy2 = y2, fz2 = z2;
+    if (this.planet) {
+      const ux = this.right[1], uy = this.up[1], uz = this.forward[1], bend = 1 / (2 * this.planet);
+      let h = x0 * ux + y0 * uy + z0 * uz, d = (x0 * x0 + y0 * y0 + z0 * z0 - h * h) * bend;
+      x0 -= ux * d; y0 -= uy * d; z0 = Math.max(near, z0 - uz * d);
+      h = x1 * ux + y1 * uy + z1 * uz; d = (x1 * x1 + y1 * y1 + z1 * z1 - h * h) * bend;
+      x1 -= ux * d; y1 -= uy * d; z1 = Math.max(near, z1 - uz * d);
+      h = x2 * ux + y2 * uy + z2 * uz; d = (x2 * x2 + y2 * y2 + z2 * z2 - h * h) * bend;
+      x2 -= ux * d; y2 -= uy * d; z2 = Math.max(near, z2 - uz * d);
+    }
     const k0 = this.squeeze(x0 / z0, y0 / z0), k1 = this.squeeze(x1 / z1, y1 / z1), k2 = this.squeeze(x2 / z2, y2 / z2);
     let ax = (x0 * k0 * sx) / z0 + ox, ay = (y0 * k0 * sy) / z0 + oy, bx = (x1 * k1 * sx) / z1 + ox, by = (y1 * k1 * sy) / z1 + oy,
       cx = (x2 * k2 * sx) / z2 + ox, cy = (y2 * k2 * sy) / z2 + oy;
@@ -117,6 +132,7 @@ export class Projector {
       const LONG = (this.fine || 0.12) ** 2; // (0.12 is a sixteenth of the picture's width: short enough that two flat things a few millimetres apart keep their order)
       const e0 = (ax - bx) ** 2 + (ay - by) ** 2 > LONG, e1 = (bx - cx) ** 2 + (by - cy) ** 2 > LONG, e2 = (cx - ax) ** 2 + (cy - ay) ** 2 > LONG;
       if (e0 || e1 || e2) {
+        x0 = fx0; y0 = fy0; z0 = fz0; x1 = fx1; y1 = fy1; z1 = fz1; x2 = fx2; y2 = fy2; z2 = fz2;
         const mx0 = (x0 + x1) / 2, my0 = (y0 + y1) / 2, mz0 = (z0 + z1) / 2, mx1 = (x1 + x2) / 2, my1 = (y1 + y2) / 2, mz1 = (z1 + z2) / 2,
           mx2 = (x2 + x0) / 2, my2 = (y2 + y0) / 2, mz2 = (z2 + z0) / 2, d = depth - 1;
         if (e0 && e1 && e2) {

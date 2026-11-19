@@ -1189,7 +1189,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // 👀 Where someone looking on has their eye, kept for the map alone.
       if (data?.type === 'look' && member.seat < 0 && [data.x, data.y, data.z, data.yaw].every(Number.isFinite))
-        member.look = { x: clamp(data.x, -60, 60), y: clamp(data.y, 0, 50000), z: clamp(data.z, -60, 60), yaw: data.yaw, at: Date.now() };
+        member.look = { x: clamp(data.x, -4000, 4000), y: clamp(data.y, 0, 50000), z: clamp(data.z, -4000, 4000), yaw: data.yaw, at: Date.now() };
       // Sharper or chunkier: change a screen's pixel grid; no Aesel needed.
       if (data?.type === 'wall-res' && member.seat >= 0 && ['north', 'west'].includes(data.face) && [-1, 1].includes(data.dir))
         void store.stepWallRes(key, data.face, data.dir).then(() => builders.broadcast(key));

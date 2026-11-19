@@ -833,6 +833,7 @@ export async function createView(canvas) {
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
   const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
+  const PLANET = 900; // the planet's radius, metres: from 2 m up the horizon is 60 m off, from 100 m up 420 m
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
@@ -848,6 +849,7 @@ export async function createView(canvas) {
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let snow = null, snowAt = 0; // The room's falling snow.
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
+  let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   let qrModel = null; // Retain the tag until its code or pixel dimensions change.
@@ -1053,7 +1055,7 @@ export async function createView(canvas) {
   // the frame: the model, then x, y, z, yaw and scale, flat in one list.
   const casters = [];
   let casting = false;
-  const SHADOW_BUDGET = 9000; // triangles of shadow volume in a frame, at most
+  const SHADOW_BUDGET = 14000; // triangles of shadow volume in a frame, at most
   const SHADOW_SIGHT = 45; // metres from the eye a box still casts
   const volumeFloats = new Float32Array(SHADOW_BUDGET * 18);
   // 🫧 A seam: the line where one room of the world hands a walker to the
@@ -1363,14 +1365,14 @@ export async function createView(canvas) {
     // never quite still, from the first frame behind the curtain on. Walking
     // adds a step-paced bob with a small roll and a nod (2026-11-03): the
     // head tilts side to side with each stride and dips as the foot lands.
-    let roll = 0;
+    let roll = camera?.roll || 0; // (a drone rolled over on its triggers)
     {
       const breath = Math.sin(now / 1900) * 0.03, sway = Math.sin(now / 3100) * 0.015;
       const pace = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 6) : 0;
       stride += (pace * (now - strideAt)) / 1000 * 9; // about 1.4 steps a second at full pace
       strideAt = now;
       const bob = Math.sin(stride) * 0.045 * pace, lean = Math.sin(stride / 2) * 0.02 * pace;
-      roll = Math.sin(stride / 2) * 0.012 * pace + Math.sin(now / 2600) * 0.0025;
+      roll += Math.sin(stride / 2) * 0.012 * pace + Math.sin(now / 2600) * 0.0025;
       const r = projector.right || [1, 0, 0];
       eye = { ...eye, x: eye.x + sway + r[0] * lean, y: eye.y + breath + bob, z: eye.z + r[2] * lean };
       aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
@@ -1401,6 +1403,8 @@ export async function createView(canvas) {
     projector.decayAt = now;
     // It is how rax is seen, always; flying in from overhead it comes on as the eye comes down.
     projector.lens = game?.camera ? 0 : LENS * Math.max(0, Math.min(1, 1 - orbit));
+    // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
+    projector.planet = projector.lens > 0.3 ? PLANET : 0;
     projector.fine = lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3;
     if (projector.lens) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
@@ -1776,7 +1780,7 @@ export async function createView(canvas) {
       const lean = Math.max(-0.6, Math.min(0.6, along * 0.05 - pushAlong * 0.012 + hunt(1300, 1)));
       const bank = Math.max(-0.6, Math.min(0.6, across * 0.05 - pushAcross * 0.012 + hunt(1100, 2)));
       const y = d.y + air.y * 0.03 + hunt(900, 3) * 3 - 0.05;
-      draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank);
+      draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank + (d.roll || 0));
       if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }
     projector.cut = cut;
@@ -2001,7 +2005,7 @@ export async function createView(canvas) {
                     // Looking on. (No way in is offered here: signing up
                     // and taking a handle belong to the paper, 2026-11-18.)
                     hintSpans(
-                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [Y] drone / [X] lock on' : 'look / {wasd} / {space} up / {shift} down / {v} drone / {z} lock on',
+                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [LT] [RT] roll / [A] fast / [Y] drone / [X] lock on / [BACK] full' : 'look / {wasd} / {space} up / {shift} down / {q} {r} roll / {e} fast / {v} drone / {z} lock on / {f} full',
                       THEME.text,
                     ),
                   ]
@@ -2708,7 +2712,8 @@ export async function createView(canvas) {
       let box = null;
       if (lockedOn && focusObject) {
         let world = null;
-        if (focusObject.wall) {
+        if (focusObject.box) world = focusObject.box; // (a standing screen, or a thing in another room: its box is told)
+        else if (focusObject.wall) {
           const w = walls.find((x) => `wall:${x.code}` === focusObject.id);
           if (w) {
             const d = SCREEN - 0.03, top = 1.5 + 18;
@@ -3141,6 +3146,36 @@ export async function createView(canvas) {
       });
       draw(m, 0, 0, 0);
     }
+    // 🌬️ The air seen: pale motes that ride it (air.mjs), each drawn as a
+    // short streak along the way it is going, so the wind's set, its gusts
+    // and what rises show. More of them the harder it blows.
+    if (weather && orbit <= 0) {
+      if (!motes) {
+        motes = [];
+        for (let i = 0; i < 150; i++) motes.push({ x: (Math.random() - 0.5) * 36, y: Math.random() * 16 - 4, z: (Math.random() - 0.5) * 36, vx: 0, vy: 0, vz: 0 });
+      }
+      const dt = Math.min(0.1, (now - (motesAt || now)) / 1000);
+      motesAt = now;
+      const cx = eye.x, cy = eye.y, cz = eye.z, when = Date.now() / 1000, day = sun(phase());
+      const count = Math.round(motes.length * Math.min(1, 0.35 + (weather.wind || 0) / 8 + (weather.gust || 0) / 24));
+      const r = projector.right, ink = phase() > 0.27 && phase() < 0.73 ? 0xf2f6ff : 0x9fb0d0;
+      const m = model(({ quad }) => {
+        for (let i = 0; i < count; i++) {
+          const f = motes[i];
+          const a = airAt(weather, cx + f.x + (place?.x || 0), Math.max(0.3, cy + f.y), cz + f.z + (place?.z || 0), when, { day });
+          f.vx = a.x; f.vy = a.y; f.vz = a.z;
+          f.x += a.x * dt; f.y += a.y * dt; f.z += a.z * dt;
+          // Out of the box round the eye: back in on the far side.
+          if (f.x > 18) f.x -= 36; else if (f.x < -18) f.x += 36;
+          if (f.z > 18) f.z -= 36; else if (f.z < -18) f.z += 36;
+          if (f.y > 12) f.y -= 16; else if (f.y < -4 || cy + f.y < 0.2) f.y += 16;
+          const x = cx + f.x, y = cy + f.y, z = cz + f.z, w = 0.012, tail = 0.16;
+          quad([x - r[0] * w, y - w, z - r[2] * w], [x + r[0] * w, y - w, z + r[2] * w],
+            [x + r[0] * w - a.x * tail, y + w - a.y * tail, z + r[2] * w - a.z * tail], [x - r[0] * w - a.x * tail, y + w - a.y * tail, z - r[2] * w - a.z * tail], ink);
+        }
+      });
+      draw(m, 0, 0, 0);
+    }
     if (weather?.snow > 0) {
       if (!snow) {
         snow = [];
@@ -3551,7 +3586,11 @@ export async function createView(canvas) {
       }
       if (at) {
         projector.overflow = false;
+        // (A shadow's solid is closed however its edges are halved, as long as it is by the one rule: a coarse one, so the shadows of a whole view fit the frame and none is cast short.)
+        const fine = projector.fine;
+        projector.fine = fine; // (the same rule as what they fall on: a coarser one left lit patches inside a shadow)
         projector.draw(volumeFloats.subarray(0, at), 0, 0, 0);
+        projector.fine = fine;
         const count = host.scene.triangleCount - first;
         // A volume cut short by the triangle budget would shade wrongly: cast none.
         if (count > 0 && !projector.overflow) shadow = { first, count, shade };

@@ -184,6 +184,7 @@ const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c
 let weather = null;
 // 👀 The people in the rooms around this one (the server's `beyond`), eased
 // from where each was last drawn to where they were last heard of.
+let droneRoll = 0; // radians your own drone is rolled over
 let beyond = new Map(), drones = new Map(), myEye = null, droneView = false; // droneView: looking on, from behind your own drone
 // The eye a little behind and above your own drone, along the way it looks.
 function droneBack() {
@@ -643,6 +644,18 @@ function postProcess(elapsed) {
   postCtx.drawImage(src, 0, 0);
   postCtx.globalAlpha = 1;
 }
+// 🖥️ Fill the screen with the room, or give it back: the browser is asked, and
+// a host (the Mac app, the prompt's page) is told so it can do it itself.
+function fullScreen() {
+  const full = document.fullscreenElement || document.webkitFullscreenElement;
+  const done = full
+    ? (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
+    : (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
+  // (A browser that will not take a pad's button for it says so in the log; a host is asked as well.)
+  Promise.resolve(done).then(() => logNet(full ? 'left full screen' : 'full screen'), (error) => logNet(`full screen refused: ${error?.message || error}`, { bad: true }));
+  toHost({ type: 'rax:sheet:fullscreen', on: !full });
+  try { window.webkit?.messageHandlers?.fullscreen?.postMessage({ on: !full }); } catch {}
+  }
 // Lock-on: the view eases to keep this object centred, in third person;
 // null when free. The d-pad moves the lock around you.
 let lockOn = null,
@@ -657,9 +670,14 @@ function spotOf(id) {
   if (w) return w.face === 'north' ? { x: 0, y: 10, z: SCREEN } : { x: -SCREEN, y: 10, z: 0 };
   const s = screens.find((x) => `screen:${x.id}` === id);
   if (s) return { x: s.x, y: 1.5, z: s.z };
+  const far = farThings.get(id)?.box;
+  if (far) return { x: (far.xMin + far.xMax) / 2, y: (far.yMin + far.yMax) / 2, z: (far.zMin + far.zMax) / 2 };
   return null;
 }
-const screenFocus = (s) => ({ id: `screen:${s.id}`, wall: true, screen: true, code: s.code, version: 0, owner: null, geometry: { name: `$${s.code}` } });
+const screenBox = (s) => { const wide = direction((s.yaw || 0) - 90), hx = Math.abs(wide.x) * 2 + 0.08, hz = Math.abs(wide.z) * 2 + 0.08; return { xMin: s.x - hx, xMax: s.x + hx, yMin: 0.4, yMax: 2.65, zMin: s.z - hz, zMax: s.z + hz }; };
+const screenFocus = (s) => ({ id: `screen:${s.id}`, wall: true, screen: true, code: s.code, version: 0, owner: null, geometry: { name: `$${s.code}` }, box: screenBox(s) });
+// 🔭 Things that stand in the rooms around (another block, a floor of the tower): where each is in this room's metres, as last aimed at.
+const farThings = new Map();
 function selectables() {
   return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`), ...screens.map((s) => `screen:${s.id}`)];
 }
@@ -669,7 +687,7 @@ function setLock(id) {
     if (seat >= 0) third = true;
   }
   if (!id && lockOn) third = thirdBeforeLock;
-  lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') } : null; // (a wall or a standing screen is looked at, never removed by a lock)
+  lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') || farThings.has(id) } : null; // (a wall or a standing screen is looked at, never removed by a lock)
 }
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
@@ -1850,6 +1868,9 @@ document.addEventListener('keydown', (e) => {
     sfx.jump();
   }
   if (seat >= 0 && e.code === 'KeyV' && !e.repeat) third = !third;
+  // 🚁 Looking on, F fills the screen (as VIEW does on a pad) and Escape lets a lock go (as B does).
+  if (seat < 0 && e.code === 'KeyF' && !e.repeat && !typing()) fullScreen();
+  if (seat < 0 && lockOn && e.code === 'Escape') { setLock(null); e.preventDefault(); return; }
   // 🚁 Looking on, V steps back to see your own drone.
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
@@ -2120,15 +2141,7 @@ function step(now) {
   }
   if (gamepad.start) toggleMenu(); // START (menu) opens the $
   // VIEW (back) fills the screen with the room, and gives it back.
-  if (gamepad.swap) {
-    const full = document.fullscreenElement || document.webkitFullscreenElement;
-    const done = full
-      ? (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
-      : (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
-    // (A browser that will not take a pad's button for it says so in the log; a host is asked as well.)
-    Promise.resolve(done).then(() => logNet(full ? 'left full screen' : 'full screen'), (error) => logNet(`full screen refused: ${error?.message || error}`, { bad: true }));
-    toHost({ type: 'rax:sheet:fullscreen', on: !full });
-  }
+  if (gamepad.swap) fullScreen();
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
     let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
@@ -2265,6 +2278,12 @@ function step(now) {
     activeSeconds += Math.min(0.1, elapsed);
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
   if (seat < 0 && connected && !joining())
+    // 🌀 The triggers (or Q and R) roll it over, a turn in two seconds; let go, its gyro brings it level the short way.
+    {
+      const turn = (gamepad.rt || keys.has('KeyR') ? 1 : 0) - (gamepad.lt || keys.has('KeyQ') ? 1 : 0);
+      if (turn) droneRoll += turn * Math.PI * Math.min(0.1, elapsed);
+      else { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 5); }
+    }
     freecam = moveFreecam(
       { ...freecam, yaw, pitch },
       {
@@ -2285,7 +2304,7 @@ function step(now) {
           -1,
           1,
         ),
-        boost: gamepad.boost || gamepad.hold, // the right trigger, or A held
+        boost: gamepad.hold || keys.has('KeyE'), // A held, or E (the triggers roll it)
       },
       elapsed,
       // 🌬️ The air where the eye is, in the world's metres at this moment.
@@ -2463,10 +2482,28 @@ function step(now) {
         focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
       }
     }
+    // 🔭 What stands in the rooms around is aimed at too, where it is seen.
+    for (const b of around()) {
+      const things = (b.objects || []).filter((o) => !o.item && o.geometry);
+      if (!things.length) continue;
+      const dy = b.dy || 0;
+      for (const box of objectBoxes(things, worldTime)) {
+        const shifted = { xMin: box.xMin + b.dx, xMax: box.xMax + b.dx, yMin: box.yMin + dy, yMax: box.yMax + dy, zMin: box.zMin + b.dz, zMax: box.zMax + b.dz };
+        const distance = rayBox(origin, dir, shifted, nearest);
+        if (distance >= nearest) continue;
+        nearest = distance;
+        const o = things.find((x) => x.id === box.objectId);
+        if (!o) continue;
+        // (Its whole box, for the lock's corners.)
+        const whole = objectBoxes([o], worldTime).reduce((w, q) => (w ? { xMin: Math.min(w.xMin, q.xMin), xMax: Math.max(w.xMax, q.xMax), yMin: Math.min(w.yMin, q.yMin), yMax: Math.max(w.yMax, q.yMax), zMin: Math.min(w.zMin, q.zMin), zMax: Math.max(w.zMax, q.zMax) } : { ...q }), null);
+        focusObject = { ...o, far: true, wall: true, box: { xMin: whole.xMin + b.dx, xMax: whole.xMax + b.dx, yMin: whole.yMin + dy, yMax: whole.yMax + dy, zMin: whole.zMin + b.dz, zMax: whole.zMax + b.dz } };
+        farThings.set(o.id, focusObject);
+        if (farThings.size > 64) farThings.delete(farThings.keys().next().value);
+      }
+    }
     // 📺 A standing KidLisp screen is aimed at too (four metres wide, facing its yaw).
     for (const s of screens) {
-      const wide = direction((s.yaw || 0) - 90), hx = Math.abs(wide.x) * 2 + 0.15, hz = Math.abs(wide.z) * 2 + 0.15;
-      const distance = rayBox(origin, dir, { xMin: s.x - hx, xMax: s.x + hx, yMin: 0.4, yMax: 2.7, zMin: s.z - hz, zMax: s.z + hz }, nearest);
+      const distance = rayBox(origin, dir, screenBox(s), nearest);
       if (distance < nearest) { nearest = distance; focusObject = screenFocus(s); }
     }
     // The floor square under the crosshair, within reach, if nothing nearer.
@@ -2488,6 +2525,7 @@ function step(now) {
       const s = screens.find((x) => `screen:${x.id}` === lockOn.id);
       if (locked) focusObject = locked;
       else if (s) focusObject = screenFocus(s);
+      else if (farThings.has(lockOn.id)) focusObject = farThings.get(lockOn.id);
       else if (w)
         focusObject = { id: `wall:${w.code}`, wall: true, code: w.code, source: w.source, colored: w.colored, size: `${w.width}x${w.height}`, version: 0, owner: null, geometry: { name: `$${w.code}` } };
     }
@@ -2581,7 +2619,7 @@ function step(now) {
     seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
     weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
-      ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0 }] : [])],
+      ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
@@ -2592,7 +2630,7 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : {}), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     controller: controller.id,
@@ -2688,7 +2726,7 @@ function step(now) {
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
     // 📉 Going down, the picture comes apart: how far gone, 0 to 1, over the outage's first five seconds.
-    decay: sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0),
+    decay: sfx.down(sheetOpen && down ? Math.min(1, (now - (downSince ?? now)) / 5000) : 0) || sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0),
     // 📟 The server quiet for a moment (not yet an outage), or the page just back on new code.
     wire: !sheetOpen || down ? null
       : ws?.readyState === WebSocket.OPEN && connection.lastSnapshot !== null && now - connection.lastSnapshot > 400 && !held
