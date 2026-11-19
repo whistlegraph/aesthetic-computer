@@ -59,8 +59,10 @@ BASE="http://$HOST"
 
 push() { # push <local-file> <remote-path> [jump]
     local file="$1" remote="$2" jump="${3:-}"
-    local url="$BASE$remote"
-    [ -n "$jump" ] && url="$url?jump=1"
+    # keep=0: a dev push is a system piece under test, not the machine
+    # owner's work — the device must not keep it or publish it to their account.
+    local url="$BASE$remote?keep=0"
+    [ -n "$jump" ] && url="$url&jump=1"
     if curl -fsS --max-time 10 -X PUT --data-binary "@$file" "$url" > /dev/null; then
         echo "→ $remote ($(wc -c < "$file" | tr -d ' ') bytes)${jump:+ + reload}"
     else

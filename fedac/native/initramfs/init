@@ -198,6 +198,16 @@ if [ "$USB_MOUNTED" = "1" ]; then
 fi
 mkdir -p /media
 
+# Pieces kept on the drive (piece-keep.sh puts them there when one is pushed
+# to this machine) come back into /pieces. A kept piece wins over one of the
+# same name in the OS image: it is the owner's own latest. Delete the file in
+# /mnt/pieces to return to the built-in.
+if [ -d /mnt/pieces ]; then
+    for p in /mnt/pieces/*.mjs /mnt/pieces/*.lisp; do
+        [ -f "$p" ] && cp "$p" /pieces/ 2>/dev/null
+    done
+fi
+
 if [ -x /scripts/usb-midi-gadget.sh ]; then
     if [ "$USB_MOUNTED" = "1" ] && [ -f /mnt/config.json ] &&
        grep -Eq '"usbMidi"[[:space:]]*:[[:space:]]*true' /mnt/config.json 2>/dev/null; then

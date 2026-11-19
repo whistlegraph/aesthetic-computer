@@ -20,6 +20,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -238,6 +239,26 @@ static int http_save_body(int fd, const char *dest, const char *pre,
     return 0;
 }
 
+// Hand a freshly pushed piece to /scripts/piece-keep.sh, which copies it to
+// the drive and publishes it to the owner's account. That takes seconds and
+// waits on the network, so it runs detached: fork twice so the script is
+// init's child (nothing here ever has to reap it), and the first child is
+// reaped at once.
+static void lan_keep_piece(const char *name) {
+    if (access("/scripts/piece-keep.sh", X_OK) != 0) return;
+    pid_t pid = fork();
+    if (pid < 0) return;
+    if (pid == 0) {
+        if (fork() == 0) {
+            setsid();
+            for (int i = 3; i < 256; i++) close(i);
+            execl("/scripts/piece-keep.sh", "piece-keep.sh", name, (char *)NULL);
+        }
+        _exit(0);
+    }
+    waitpid(pid, NULL, 0);
+}
+
 static void http_handle(int fd) {
     struct timeval tv = {5, 0};
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
@@ -266,6 +287,10 @@ static void http_handle(int fd) {
     char *query = strchr(target, '?');
     if (query) *query++ = 0;
     int want_jump = query && strstr(query, "jump=1") != NULL;
+    // A pushed piece is kept (drive + the owner's account) unless the push
+    // says keep=0 — which dev-push does, so a system piece under test is not
+    // published as the machine owner's work.
+    int want_keep = !(query && strstr(query, "keep=0") != NULL);
 
     long clen = 0;
     char *cl = strcasestr(req, "Content-Length:");
@@ -328,6 +353,7 @@ static void http_handle(int fd) {
                 if (dot) *dot = 0;
                 lan_trigger_jump(base);
             }
+            if (want_keep && dir[1] == 'p') lan_keep_piece(name);
             http_send_text(fd, 200, "OK", "saved\n");
             return;
         }
