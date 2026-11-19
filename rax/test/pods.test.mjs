@@ -69,7 +69,7 @@ test('park paths only connect open adjacent blocks and land inside the opposite 
   const g = new Geography();
   // Housing to the east; the tower's grounds to the west and south (no way through its back).
   assert.deepEqual(g.neighbours('lobby'), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
-  assert.deepEqual(g.neighbours('e1n0'), { west: 'lobby', south: 'e1s1' });
+  assert.deepEqual(g.neighbours('e1n0'), { east: 'e2n0', west: 'lobby', south: 'e1s1' }); // the yard lies beyond it too
   assert.equal(g.neighbours('studio'), null);
   assert.equal(edgeAt({x:8.25,y:1.7,z:0}), 'east');
   assert.equal(edgeAt({x:8.25,y:1.7,z:2}), 'east'); // the whole side is open, not only the lane
@@ -149,10 +149,10 @@ test('walking uses server position and a one-use owner-bound passage, preserving
   assert.ok(!replay.messages.some(m=>m.type==='arrival'));
 });
 
-test('a visitor walks out of the plaza and down the promenade, two blocks south, and no further', async t => {
+test('a visitor walks out of the plaza, down the promenade and on across the yard, three blocks south, and no further', async t => {
   const {app,connect}=await fixture(t);
   let at=await connect('lobby'), here='lobby';
-  for(const next of ['e0s1','e0s2']){
+  for(const next of ['e0s1','e0s2','e0s3']){
     const member=[...app.rooms.get(here).sessions.values()].find(m=>m.owner);
     Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0.3,z:-8.3,y:1.7,yaw:180,pitch:0});
     at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
@@ -171,7 +171,7 @@ test('a visitor walks out of the plaza and down the promenade, two blocks south,
   Object.assign(app.rooms.get(here).match.seats[member.seat].player,{x:0,z:-8.3,y:1.7});
   at.ws.send(JSON.stringify({type:'walk',edge:'south'}));
   await delay(60);
-  assert.ok(!at.messages.some(m=>m.type==='travel'),'the terrace is the end of the grounds');
+  assert.ok(!at.messages.some(m=>m.type==='travel'),'three blocks out is the end of the grounds');
 });
 
 test('an eight-lot ledger is set down again on the four house lots, in founding order', () => {

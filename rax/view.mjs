@@ -1145,6 +1145,7 @@ export async function createView(canvas) {
     casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
+    let through = false; // The third-person camera, looking through what hides you.
     if (me) {
       const dir = direction(me.yaw, me.pitch),
         origin = { x: me.x, y: me.y, z: me.z };
@@ -1153,10 +1154,14 @@ export async function createView(canvas) {
         const back = { x: -dir.x, y: -dir.y + 0.22, z: -dir.z },
           len = Math.hypot(back.x, back.y, back.z);
         for (const k of ['x', 'y', 'z']) back[k] /= len;
-        // Ease the boom in and out rather than snapping as things pass.
-        const want = Math.max(0, wallDistance(origin, back, boomLength, solidObjects, worldTime) - 0.2);
-        boom = want < boom ? want : boom + (want - boom) * 0.12;
+        // 👻 The camera keeps its distance and goes through whatever is
+        // behind you: a wall or a ceiling there is looked through (see
+        // `projector.look` below), never a reason to rush the camera in
+        // (2026-11-18). Only the ground you stand on holds it up, by sliding.
+        boom += (boomLength - boom) * 0.2;
         eye = along(origin, back, boom);
+        eye.y = Math.max(eye.y, me.y - CFG.eyeHeight + 0.3);
+        through = true;
       }
       let distance = wallDistance(origin, dir, 100, solidObjects, worldTime);
       players.forEach((p, i) => {
@@ -1238,6 +1243,14 @@ export async function createView(canvas) {
       aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
     }
     projector.camera(eye, aim, aspect, roll);
+    // 👻 Head, chest, feet and both shoulders: what the eye must still see.
+    if (through && !camera && orbit <= 0) {
+      const r = projector.right, feet = me.y - CFG.eyeHeight;
+      projector.look([
+        { x: me.x, y: me.y, z: me.z }, { x: me.x, y: feet + 1.1, z: me.z }, { x: me.x, y: feet + 0.15, z: me.z },
+        { x: me.x + r[0] * 0.35, y: feet + 1.2, z: me.z + r[2] * 0.35 }, { x: me.x - r[0] * 0.35, y: feet + 1.2, z: me.z - r[2] * 0.35 },
+      ]);
+    } else projector.look();
     if (camera?.zoom) {
       projector.sx *= camera.zoom;
       projector.sy *= camera.zoom;
@@ -1522,6 +1535,8 @@ export async function createView(canvas) {
         if (me?.alive) { const feet = me.y - CFG.eyeHeight; bar(me.x - 0.12, feet - 0.02, me.x + 0.12, feet + 0.02, 0xffe066); }
       }));
     }
+    const cut = projector.cut; // People are never looked through: a body stays whole.
+    projector.cut = null;
     for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
       const p = i === seat && me ? me : players[i];
       if (!p?.alive) continue;
@@ -1572,6 +1587,7 @@ export async function createView(canvas) {
         }
       }
     }
+    projector.cut = cut;
     for (let i = sparkles.length - 1; i >= 0; i--) {
       const s = sparkles[i],
         t = (now - s.born) / 1000,

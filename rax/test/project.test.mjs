@@ -47,3 +47,22 @@ test('model placement and camera position agree, and overflow is explicit', () =
   p.draw(face, 5, 0, 2);
   assert.ok(Math.abs(scene.vertices[0] - 0.05) < 1e-7);
 });
+
+test('a face between the eye and the body it follows is looked through; faces beside and beyond stay', () => {
+  const { scene, p } = setup();
+  const wall = (z, x = 0) => triangle([x - 1, -1, z], [x + 1, -1, z], [x, 2, z]);
+  p.look([{ x: 0, y: 0, z: 4 }]); // the body stands four metres ahead
+  p.draw(wall(2));
+  assert.equal(scene.triangleCount, 0, 'a wall across the sight line is not drawn');
+  p.draw(wall(2, 3));
+  assert.equal(scene.triangleCount, 1, 'a wall off to the side is');
+  p.draw(wall(6));
+  assert.equal(scene.triangleCount, 2, 'and so is one behind the body');
+  p.draw(wall(3.8));
+  assert.equal(scene.triangleCount, 3, 'the last 0.45 m is the body itself: never cut');
+  p.look();
+  p.draw(wall(2));
+  assert.equal(scene.triangleCount, 4, 'with nothing to look for, everything is drawn');
+  p.look([{ x: 0, y: 0, z: 0.2 }]);
+  assert.equal(p.cut, null, 'a body closer than the margin asks for nothing');
+});

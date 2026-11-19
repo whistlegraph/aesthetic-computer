@@ -55,13 +55,16 @@ test('housing blocks keep one place each and are never laid on the tower\'s grou
   assert.equal(isGrounds({ i: 0, j: 0 }), false);
 });
 
-test('the grounds open off the plaza on every side but the tower\'s back, two blocks south', () => {
+test('the grounds open off the plaza on every side but the tower\'s back, three blocks out', () => {
   const g = new Geography({ opened: 2 });
   assert.deepEqual(g.neighbours(LOBBY), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
   assert.equal(g.neighbours('e0n1').south, undefined, 'no way in through the back of the tower');
   assert.equal(g.neighbours('e0s1').south, 'e0s2');
-  assert.equal(g.neighbours('e0s2').south, undefined, 'the promenade ends at the terrace');
-  assert.equal(g.neighbours('e1s1').east, undefined, 'housing beyond the grounds opens in its turn');
+  assert.equal(g.neighbours('e0s2').south, 'e0s3', 'the field goes on past the terrace');
+  assert.equal(g.neighbours('e0s3').south, undefined, 'the yard ends three blocks out');
+  assert.equal(g.neighbours('w3n0').west, undefined);
+  assert.equal(g.neighbours('e1s1').east, 'e2s1', 'the yard wraps round the two blocks settled before it');
+  assert.equal(g.neighbours('e3s1').east, undefined, 'housing beyond the grounds opens in its turn');
 });
 
 test('world metres and block-local metres convert both ways', () => {

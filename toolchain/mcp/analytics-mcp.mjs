@@ -142,6 +142,19 @@ async function braincellsReport({ hours = 24, limit = 25 } = {}) {
   return JSON.parse(stdout.slice(stdout.indexOf("{")));
 }
 
+// 👣 Who came into rax (the world under the prompt) and how they moved, read on
+// lith from the server's own walk log by rax/walks-cli.mjs.
+async function raxWalks({ hours = 24, visit, points = 600 } = {}) {
+  hours = Number(hours); points = Number(points);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 840) throw new Error("hours must be 1..840");
+  if (!Number.isInteger(points) || points < 2 || points > 5000) throw new Error("points must be 2..5000");
+  if (visit !== undefined && !/^[a-f0-9]{8}$/.test(visit)) throw new Error("visit must be an 8-character visit id");
+  const remote = `cd /opt/ac && node rax/walks-cli.mjs --json ${visit ? `--visit ${visit} --points ${points}` : `--hours ${hours}`}`;
+  const { stdout } = await pexec("ssh", ["-i", sshKey(), "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", LITH, remote],
+    { timeout: 90_000, maxBuffer: 32 * 1024 * 1024 });
+  return JSON.parse(stdout.slice(stdout.indexOf("{")));
+}
+
 // 🎨 No Paint
 
 // Classic Construct saves, teacher notes, the sticker split and the notepaint
@@ -470,6 +483,16 @@ const TOOLS = [
     } },
   },
   {
+    name: "rax_walks",
+    description: "Who has been in rax, the 3D world under the prompt (formerly dool), from the server's own walk log on lith: one row per visit with room, public handle or guest name, when they entered, how long they stayed and how far they walked. Pass a visit id for that visit's path (t, x, y, z, yaw), thinned to `points` samples from the recorded 60 a second. A visit is one connection, not one person; guests only watch, so only handles have a path. Recording began 2026-11-18 and keeps 35 days. Read-only.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: { type: "object", additionalProperties: false, properties: {
+      hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
+      visit: { type: "string", pattern: "^[a-f0-9]{8}$", description: "A visit id from the listing: return its path" },
+      points: { type: "integer", minimum: 2, maximum: 5000, description: "Most path samples to return; default 600" },
+    } },
+  },
+  {
     name: "braincells_report",
     description: "The Braincell economy: Braincells in circulation and their value at pack price ($5 per million), debt and in-flight holds, top holders; spend in the window by model, handle and product (per-request rows for Aesel/Whistlegraph hosted inference from the ledger rollout, No Paint moves, Whistlegraph speech), purchased versus free-allowance totals, estimated provider cost; Stripe, Apple and Tezos purchases; AC's OpenRouter balance and key usage. Names public handles. Read-only.",
     annotations: { readOnlyHint: true, destructiveHint: false },
@@ -553,6 +576,7 @@ const TOOLS = [
 async function callTool(name, args = {}) {
   const result = name === "visits_report" ? await visitsReport(args)
     : name === "braincells_report" ? await braincellsReport(args)
+    : name === "rax_walks" ? await raxWalks(args)
     : name === "nopaint_report" ? await nopaintReport(args)
     : name === "network_report" ? await networkReport(args)
     : name === "search_console" ? { ...(await searchConsole(args)), ...(args.sitemaps ? { sitemaps: await sitemaps({ site: args.site }) } : {}) }

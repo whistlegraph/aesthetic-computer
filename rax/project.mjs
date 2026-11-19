@@ -42,6 +42,43 @@ export class Projector {
     this.sx = 1 / (tan * aspect);
     this.sy = 1 / tan;
   }
+  // 👻 Looking through: `points` are places in the world the eye must be able
+  // to see (the body the camera follows). Until `look()` with nothing, a face
+  // that stands between the eye and any of them is not drawn, so a wall or a
+  // ceiling behind the player opens instead of pushing the camera in. Each
+  // sight line stops `short` of its point, so the body itself is never cut.
+  look(points = null, short = 0.45) {
+    if (!points?.length) return (this.cut = null);
+    const e = this.eye, [r, u, f] = [this.right, this.up, this.forward];
+    this.cut = [];
+    for (const p of points) {
+      const dx = p.x - e.x, dy = p.y - e.y, dz = p.z - e.z, d = Math.hypot(dx, dy, dz);
+      const k = d > short ? (d - short) / d : 0;
+      if (k) this.cut.push((dx * r[0] + dy * r[1] + dz * r[2]) * k, (dx * u[0] + dy * u[1] + dz * u[2]) * k, (dx * f[0] + dy * f[1] + dz * f[2]) * k);
+    }
+    if (!this.cut.length) this.cut = null;
+  }
+  // Does this face (three points in view space, flat in `a`) cross a sight line?
+  veils(a) {
+    const e1x = a[3] - a[0], e1y = a[4] - a[1], e1z = a[5] - a[2],
+      e2x = a[6] - a[0], e2y = a[7] - a[1], e2z = a[8] - a[2];
+    for (let i = 0; i < this.cut.length; i += 3) {
+      const dx = this.cut[i], dy = this.cut[i + 1], dz = this.cut[i + 2];
+      // Möller–Trumbore from the eye (the origin of view space) along d.
+      const px = dy * e2z - dz * e2y, py = dz * e2x - dx * e2z, pz = dx * e2y - dy * e2x;
+      const det = e1x * px + e1y * py + e1z * pz;
+      if (det > -1e-9 && det < 1e-9) continue;
+      const inv = 1 / det, tx = -a[0], ty = -a[1], tz = -a[2];
+      const s = (tx * px + ty * py + tz * pz) * inv;
+      if (s < 0 || s > 1) continue;
+      const qx = ty * e1z - tz * e1y, qy = tz * e1x - tx * e1z, qz = tx * e1y - ty * e1x;
+      const v = (dx * qx + dy * qy + dz * qz) * inv;
+      if (v < 0 || s + v > 1) continue;
+      const t = (e2x * qx + e2y * qy + e2z * qz) * inv;
+      if (t > 0 && t < 1) return true;
+    }
+    return false;
+  }
   // A world point to screen space: x right and y up in -1..1, or null behind.
   project(x, y, z) {
     const e = this.eye,
@@ -89,6 +126,7 @@ export class Projector {
         a[j * 3 + 1] = wx * u[0] + wy * u[1] + wz * u[2];
         a[j * 3 + 2] = wx * f[0] + wy * f[1] + wz * f[2];
       }
+      if (this.cut && this.veils(a)) continue;
       let count = 0;
       for (let j = 0; j < 3; j++) {
         const k = j * 3,

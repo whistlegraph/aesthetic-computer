@@ -68,5 +68,7 @@ test('rooms know whether they are the tower\'s grounds', () => {
   assert.deepEqual(groundsOf('w1n0'), { i: -1, j: 0 });
   for (const id of ['lobby', 'e1n0', 'e1n1', 'pod-abc', 'floor-12345678', 'studio']) assert.equal(groundsOf(id), null, id);
   assert.deepEqual(cellOf('lobby'), { i: 0, j: 0 });
-  assert.equal(GROUNDS.length, 9);
+  assert.equal(GROUNDS.length, 46); // three blocks out on every side, less the plaza and the two settled blocks
+  assert.deepEqual(groundsOf('w3s3'), { i: -3, j: -3 });
+  assert.equal(groundsOf('e4n0'), null, 'past the yard');
 });

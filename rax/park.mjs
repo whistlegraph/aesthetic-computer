@@ -14,7 +14,14 @@ export const EDGE = 8.2, SPAN = 16;
 // before the grounds were laid out and stay as they are. The cells south of
 // the door are the promenade: a reflecting pool on the tower's axis between
 // two rose beds, two blocks long, ending in a terrace.
-export const GROUNDS = [[0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [-1, -2], [0, -2], [1, -2]];
+// (2026-11-18: the yard is REACH blocks deep on every side, where it was one
+// or two, so there is room to walk well away from the tower and look back.)
+export const REACH = 3;
+const SETTLED = [[1, 0], [1, 1]]; // blocks 1 and 2, east and north-east
+export const GROUNDS = [];
+for (let j = REACH; j >= -REACH; j--)
+  for (let i = -REACH; i <= REACH; i++)
+    if ((i || j) && !SETTLED.some(([a, b]) => a === i && b === j)) GROUNDS.push([i, j]);
 // A block room's cell on the lattice ("e0s1" is one south of the plaza).
 export function cellOf(id) {
   if (id === 'lobby') return { i: 0, j: 0 };
