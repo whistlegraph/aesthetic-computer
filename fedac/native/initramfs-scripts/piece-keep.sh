@@ -6,9 +6,10 @@
 # piece its author's:
 #   1. copies it to /mnt/pieces on the drive (init puts it back at boot), and
 #   2. publishes it to the owner's account as @handle/<name>, flagged
-#      origin "ac-native" so the web knows it is an AC OS piece.
-# Step 2 needs the account token `link` writes into /mnt/config.json; with no
-# token the piece is still kept on the drive.
+#      platform "ac-native" so the web knows it is an AC OS piece.
+# Step 2 needs the `token` in /mnt/config.json — the device token written at
+# flash time, or the sign-in token `link` stores; with no token the piece is
+# still kept on the drive.
 #
 # Called in the background by lanserv after each PUT /pieces/<name>.
 # Result of the last run per piece: /tmp/piece-keep/<name>.log
@@ -22,8 +23,8 @@ CA="/etc/pki/tls/certs/ca-bundle.crt"
 
 case "$NAME" in
     */*|.*) exit 0 ;;
-    *.mjs) EXT="mjs"; MIME="application/javascript; charset=utf-8" ;;
-    *.lisp) EXT="lisp"; MIME="text/x-lisp; charset=utf-8" ;;
+    *.mjs) EXT="mjs" ;;
+    *.lisp) EXT="lisp" ;;
     *) exit 0 ;;
 esac
 SLUG="${NAME%.*}"
@@ -59,7 +60,7 @@ sleep 20
 TOKEN=$(jq -r '.token // empty' "$CONFIG" 2>/dev/null)
 HANDLE=$(jq -r '.handle // empty' "$CONFIG" 2>/dev/null)
 if [ -z "$TOKEN" ] || [ -z "$HANDLE" ]; then
-    say "not published: no account token on this machine (run the link piece)"
+    say "not published: no account token on this machine"
     exit 0
 fi
 
@@ -76,27 +77,21 @@ if [ "$(cat "/tmp/piece-keep/$NAME.published" 2>/dev/null)" = "$REV" ]; then
     exit 0
 fi
 
-GRANT=$($CURL -H "Authorization: Bearer $TOKEN" -H "Accept: application/json" \
-    "$SITE/presigned-upload-url/$EXT/piece-$SLUG.$EXT/user" 2>>"$LOG")
-URL=$(printf '%s' "$GRANT" | jq -r '.uploadURL // empty' 2>/dev/null)
-if [ -z "$URL" ]; then
-    say "not published: no upload grant ($(printf '%s' "$GRANT" | head -c 160))"
-    rm -f "$BODY"
-    exit 1
-fi
-
-CODE=$($CURL -o /dev/null -w '%{http_code}' -X PUT \
-    -H "Content-Type: $MIME" -H "Content-Disposition: inline" \
-    -H "x-amz-acl: public-read" --data-binary "@$BODY" "$URL" 2>>"$LOG")
+# One call: the site checks this machine's token, stores the source at
+# <owner>/piece/<slug>.<ext> and registers it flagged platform "ac-native".
+REQ="/tmp/piece-keep/$NAME.json"
+jq -n --arg handle "$HANDLE" --arg token "$TOKEN" --arg slug "$SLUG" \
+    --arg ext "$EXT" --rawfile source "$BODY" \
+    '{handle:$handle, token:$token, slug:$slug, ext:$ext, source:$source}' > "$REQ"
 rm -f "$BODY"
+OUT="/tmp/piece-keep/$NAME.reply"
+CODE=$($CURL -o "$OUT" -w '%{http_code}' -X POST \
+    -H "Content-Type: application/json" --data-binary "@$REQ" \
+    "$SITE/api/native-piece" 2>>"$LOG")
+rm -f "$REQ"
 if [ "$CODE" != "200" ]; then
-    say "not published: upload answered HTTP $CODE"
+    say "not published: HTTP $CODE $(head -c 200 "$OUT" 2>/dev/null)"
     exit 1
 fi
-
-REG=$($CURL -X POST -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"slug\":\"$SLUG\",\"ext\":\"$EXT\",\"revision\":\"$REV\",\"origin\":\"ac-native\"}" \
-    "$SITE/api/register-piece" 2>>"$LOG")
 echo "$REV" > "/tmp/piece-keep/$NAME.published"
-say "published @$HANDLE/$SLUG $REV $(printf '%s' "$REG" | head -c 200)"
+say "published @$HANDLE/$SLUG $REV $(head -c 200 "$OUT" 2>/dev/null)"

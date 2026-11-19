@@ -58,7 +58,7 @@ import { optionalProduct } from "../shared/private-product.mjs";
 import { operationsAuth } from "./operations-auth.mjs";
 import { paintingStorageUrl } from "../system/backend/painting-storage.mjs";
 import { sendStream } from "./stream-response.mjs";
-import { userMediaTarget, userMediaOrigin } from "./media-path.mjs";
+import { userMediaTarget, userMediaOrigin, nativePiecePath, nativeNoticeModule, NATIVE_PLATFORM } from "./media-path.mjs";
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, statSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
@@ -1299,6 +1299,22 @@ app.all("/media/*rest", async (req, res) => {
         const user = JSON.parse(result.body);
         const userId = user.sub;
         if (userId) {
+          // An AC OS piece does not run in a browser: the web gets a notice
+          // in its place. Any failure here falls through to the piece itself.
+          const nativePiece = req.query.source === undefined && userIdentifier.startsWith("@") && nativePiecePath(subPath);
+          if (nativePiece && functions["native-piece"]) {
+            try {
+              const flag = await functions["native-piece"]({ httpMethod: "GET", headers: {}, body: null, queryStringParameters: { sub: userId, slug: nativePiece.slug } }, {});
+              if (flag.statusCode === 200 && JSON.parse(flag.body).platform === NATIVE_PLATFORM) {
+                res.set("Content-Type", "application/javascript; charset=utf-8");
+                res.set("Cache-Control", "no-store");
+                res.set("Access-Control-Allow-Origin", "*");
+                return res.status(200).send(nativeNoticeModule({ handle: userIdentifier, slug: nativePiece.slug }));
+              }
+            } catch (err) {
+              console.error("native piece notice error:", err.message);
+            }
+          }
           return res.redirect(302, userMediaTarget({
             userId,
             subPath,

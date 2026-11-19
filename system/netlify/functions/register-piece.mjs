@@ -11,11 +11,9 @@ export function createHandler({authenticate=authorize,database=connect,request=g
   let db;
   try{
    const user=await authenticate(event.headers||{});if(!user?.sub)return respond(401,{error:'Sign in to register a piece'});
-   const {slug,ext,revision,version,origin}=JSON.parse(event.body||'{}');
+   const {slug,ext,revision,version}=JSON.parse(event.body||'{}');
    if(typeof slug!=='string'||! /^[a-zA-Z0-9_-]{1,100}$/.test(slug)||!['mjs','lisp','lua'].includes(ext)||! /^[a-f0-9]{64}$/.test(revision||''))return respond(400,{error:'Invalid piece identity'});
-   // An AC OS machine publishes what was pushed to it; it keeps no desktop revision ledger, so it sends no version.
-   const native=origin==='ac-native';
-   if(!native&&(!Number.isInteger(version)||version<2))return respond(200,{eligible:false});
+   if(!Number.isInteger(version)||version<2)return respond(200,{eligible:false});
    const key=`${user.sub}/piece/${slug}.${ext}`;
    const upload=await request(`https://${PIECE_BUCKET}.sfo3.digitaloceanspaces.com/`+key.split('/').map(encodeURIComponent).join('/'),{redirect:'error',signal:AbortSignal.timeout(8000)});
    if(!upload.ok)return respond(409,{error:'Published source is not readable yet'});
@@ -23,7 +21,7 @@ export function createHandler({authenticate=authorize,database=connect,request=g
    const chunks=[];let size=0;for await(const chunk of upload.body){size+=chunk.length;if(size>400000)return respond(413,{error:'Piece is too large'});chunks.push(chunk);}
    const bytes=Buffer.concat(chunks);if(createHash('sha256').update(bytes).digest('hex')!==revision)return respond(409,{error:'Published source changed before registration'});
    db=await database();
-   return respond(200,await registerPiece(db.db.collection('pieces'),{user:user.sub,slug,ext,bytes,makeCode,...(native?{origin:'ac-native'}:{})}));
+   return respond(200,await registerPiece(db.db.collection('pieces'),{user:user.sub,slug,ext,bytes,makeCode}));
   }catch(error){return respond(500,{error:'Piece registration unavailable'});}finally{await db?.disconnect?.();}
  };
 }

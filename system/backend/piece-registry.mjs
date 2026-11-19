@@ -8,7 +8,7 @@ import {generateUniqueCode} from './generate-short-code.mjs';
 
 export const PIECE_BUCKET = 'user-aesthetic-computer';
 
-export async function registerPiece(pieces, {user, slug, ext, bytes, origin = 'aesel', makeCode = generateUniqueCode, now = new Date()}) {
+export async function registerPiece(pieces, {user, slug, ext, bytes, origin = 'aesel', platform, makeCode = generateUniqueCode, now = new Date()}) {
   const mediaSlug = `piece/${slug}`;
   const existing = await pieces.findOne({user, slug: {$in: [mediaSlug, `${user}/${mediaSlug}`]}});
   // A deterministic id protects concurrent first publications of one name.
@@ -17,7 +17,9 @@ export async function registerPiece(pieces, {user, slug, ext, bytes, origin = 'a
   const revision = createHash('sha256').update(bytes).digest('hex');
   await pieces.updateOne({_id: id}, {
     $setOnInsert: {code, slug: mediaSlug, user, when: now, bucket: PIECE_BUCKET, type: 'piece', name: slug, origin},
-    $set: {ext, size: bytes.length, revision, updatedAt: now},
+    // `platform` says where a piece runs when that is not the web ("ac-native": written on
+    // an AC OS machine against its sound and input). Set on every save from such a machine.
+    $set: {ext, size: bytes.length, revision, updatedAt: now, ...(platform ? {platform} : {})},
   }, {upsert: true});
   const saved = await pieces.findOne({_id: id});
   return {code: saved.code, id: String(saved._id), discussion: `https://mime.ac/piece_${saved._id}`};
