@@ -654,6 +654,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func startSignal() {
         guard let account else { return }
         loadCircles()
+        if !sweeping { sweeping = true; DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.sweep() } }
         if Self.dev { return main.setStatus("development: Signal is not started; this is what is on this Mac") }
         if !Self.snapshotRun { menu.askToNotify() }
         main.setStatus("starting Signal…")
@@ -1146,8 +1147,15 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func ingest(_ dm: [String: Any], author: String, name: String?) {
         guard let gid = (dm["groupInfo"] as? [String: Any])?["groupId"] as? String,
               let i = circles.firstIndex(where: { $0.conf.groupId == gid }),
-              let ts = (dm["timestamp"] as? NSNumber)?.int64Value else { return }
+              let ts = (dm["timestamp"] as? NSNumber)?.int64Value else { return discard(dm) }
+        // Deleted for everyone: it goes from here too.
+        if let t = ((dm["remoteDelete"] as? [String: Any])?["timestamp"] as? NSNumber)?.int64Value {
+            if circles[i].log.remove(ts: t, author: author) { redraw(gid) }
+            return
+        }
         var m = Msg(ts: ts, author: author, name: name)
+        // A disappearing message: its time runs from when it was sent, which is never later than Signal's own.
+        if let life = (dm["expiresInSeconds"] as? NSNumber)?.int64Value, life > 0 { m.expires = ts + life * 1000 }
         if let r = dm["reaction"] as? [String: Any] {
             m.kind = "reaction"
             m.target = (r["targetSentTimestamp"] as? NSNumber)?.int64Value
@@ -1201,6 +1209,31 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if s.window.isKeyWindow { markRead(i) }
         }
         updateUnread()
+    }
+
+    // A message that is not the club's: the app shows nothing of it and keeps nothing of it.
+    // The engine has already put its pictures and files on disk, so they are deleted here.
+    // A Signal link that other tools on this Mac share is theirs, and is left alone.
+    func discard(_ dm: [String: Any]) {
+        guard Config.shared.conf.signalConfigDir == nil, ProcessInfo.processInfo.environment["NCC_SIGNAL_CONFIG"] == nil else { return }
+        let dir = Config.shared.signalConfigDir.appendingPathComponent("attachments")
+        var ids = ((dm["attachments"] as? [[String: Any]]) ?? []).compactMap { $0["id"] as? String }
+        ids += ((dm["previews"] as? [[String: Any]]) ?? []).compactMap { ($0["image"] as? [String: Any])?["id"] as? String }
+        for id in ids where !id.contains("/") { try? FileManager.default.removeItem(at: dir.appendingPathComponent(id)) }
+    }
+
+    // A circle's log lost a message: draw every place that shows it.
+    func redraw(_ gid: String) {
+        refresh()
+        for s in satellites where s.groupId == gid { draw(s) }
+        updateUnread()
+    }
+
+    private var sweeping = false
+    // Once a minute, disappearing messages that are past their time go.
+    func sweep() {
+        for c in circles where c.log.prune() { redraw(c.conf.groupId) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) { [weak self] in self?.sweep() }
     }
 
     // ─── Signal out ──────────────────────────────────────────────────────────
@@ -1327,6 +1360,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                                            description: (p["description"] as? String) ?? "", image: image)
                         }
                         if !previews.isEmpty { m.previews = previews }
+                        m.expires = (r["expires"] as? NSNumber)?.int64Value
+                        if (m.expires ?? .max) <= Int64(Date().timeIntervalSince1970 * 1000) { continue }
                         if self.circles[i].log.add(m) { added += 1 }
                     }
                 }

@@ -42,7 +42,7 @@ final class SignalEngine {
         }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: cli)
-        p.arguments = ["--config", Config.shared.signalConfigDir.path, "-a", account.number, "jsonRpc"]
+        p.arguments = ["--config", Config.shared.signalConfigDir.path, "-a", account.number, "jsonRpc", "--ignore-stories"]
         let inPipe = Pipe(), outPipe = Pipe(), errPipe = Pipe()
         p.standardInput = inPipe
         p.standardOutput = outPipe

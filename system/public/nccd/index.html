@@ -64,6 +64,8 @@ ol li::before { content: counter(step); position: absolute; left: 0; top: 0; bot
 .know li + li { margin-top: 4px; }
 .know a { text-decoration-color: var(--cyan-ink); }
 
+.sec { margin: 6px 0 0; padding: 8px 10px; font-size: 12px; list-style: none; background: var(--paper); }
+.sec li + li { margin-top: 4px; }
 footer { margin-top: 14px; color: var(--faint); font-size: 11px; }
 .sum { margin-top: 4px; font-size: 9px; overflow-wrap: anywhere; }
 .badge { display: inline-flex; align-items: center; gap: 5px; color: #fff; font-weight: 700; font-size: 11px;
@@ -73,7 +75,7 @@ footer { margin-top: 14px; color: var(--faint); font-size: 11px; }
 @media (prefers-color-scheme: dark) { .mark .ncc { fill: #00D080 !important; } .mark .ncc-under { fill: #00603A !important; } }
 @media (min-width: 900px) {
   main { max-width: 900px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: start; }
-  .top, .lede, .download, .facts, footer { grid-column: 1 / -1; }
+  .top, .lede, .download, .facts, .wide, footer { grid-column: 1 / -1; }
   .lede { max-width: 62ch; } .download { max-width: 420px; }
   .col { min-width: 0; }
 }
@@ -112,6 +114,17 @@ and circles and the club wiki in one window. The d is for donut.</p>
   <li>The download link counts downloads. It keeps your address only as a keyed hash.</li>
   <li>To remove NCCd, unlink it in Signal on your phone and delete the app.</li>
 </ul></div>
+
+<div class="col wide"><h2>Security</h2>
+<ul class="sec">
+  <li><b>Same as Signal Desktop:</b> a linked device, Signal's own encryption library, Signal's servers and no others.</li>
+  <li><b>Same:</b> the chat log on your Mac is encrypted, and its key is in your Keychain.</li>
+  <li><b>Same:</b> disappearing messages and messages deleted for everyone go from the log.</li>
+  <li><b>Less kept:</b> NCCd keeps the club's groups only. It drops the rest of your account as it arrives.</li>
+  <li><b>Behind:</b> pictures, files and Signal's keys are not encrypted on your Mac. They are in folders that only your account can read.</li>
+  <li><b>Know this:</b> the engine, signal-cli, is not made or reviewed by Signal. NCCd is a beta with no outside audit.</li>
+</ul>
+<p class="note"><a href="https://github.com/whistlegraph/aesthetic-computer/blob/main/slab/nccd/SECURITY.md">Read the security file</a>: the code for each part, what we tested, and the edge cases.</p></div>
 
 <footer>
 <p>NCCd <span id="foot">0.3.22</span> · <a href="https://nela.computer">nela.computer</a> ·

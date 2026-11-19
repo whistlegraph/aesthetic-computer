@@ -526,8 +526,8 @@ function cmdGroups(n) {
   }
 }
 
-// A group's history as JSON rows {ts, author, name, body, outgoing, files,
-// previews}. `to` may be the group's base64 groupId (what signal-cli calls the
+// A group's history as JSON rows {ts, author, name, body, outgoing, expires,
+// files, previews}. `to` may be the group's base64 groupId (what signal-cli calls the
 // group id), so a signal-cli-based client can import the thread it already
 // knows by that id. With `--media <dir>` each message's attachments and link
 // preview images are decrypted into that directory and listed on the row.
@@ -540,6 +540,7 @@ function cmdExport(n, to, mediaDir) {
   const rows = sql(
     `SELECT m.id AS mid, m.sent_at AS ts, m.type, m.body, m.sourceServiceId AS author, ` +
       `m.hasAttachments, json_extract(m.json,'$.preview') AS preview, ` +
+      `m.expireTimer AS life, m.expirationStartTimestamp AS lifeFrom, ` +
       `IFNULL(c.profileFullName, IFNULL(c.name, c.profileName)) AS name ` +
       `FROM messages m ` +
       `LEFT JOIN conversations c ON c.serviceId = m.sourceServiceId AND c.type='private' ` +
@@ -596,6 +597,8 @@ function cmdExport(n, to, mediaDir) {
           name: r.name || "",
           body: r.body || "",
           outgoing: r.type === "outgoing",
+          // A disappearing message: unix ms when it goes (its timer from when it was read, else sent).
+          expires: r.life > 0 ? Number(r.lifeFrom || r.ts) + Number(r.life) * 1000 : null,
           files: mine.filter((m) => m.kind === "attachment").map(({ path, name, type }) => ({ path, name, type })),
           previews: previews.filter((p) => p && p.url).map((p, i) => ({
             url: p.url, title: p.title || "", description: p.description || "",

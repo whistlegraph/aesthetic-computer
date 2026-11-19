@@ -39,10 +39,20 @@ The two logins are separate. You can use one without the other.
   stay encrypted end to end. No Aesthetic Computer server is in the path.
 - A linked device receives all the messages of your account. NCCd keeps and
   shows only the club's groups.
+- NCCd encrypts the log of the club's chats that it keeps on your Mac. The key
+  is in your login Keychain, as Signal Desktop keeps its key. Only your
+  account can read the files.
+- A disappearing message goes from the log when its time is up. A message that
+  its sender deletes for everyone goes too.
+- NCCd does not encrypt the pictures and files of the chats on your Mac. They
+  are in a folder that only your account can read.
 - You type your club password into the club's own login page. NCCd keeps the
   session that the wiki gives you, in your login Keychain.
 - The app is signed and notarized by Apple. It has no analytics.
 - NCCd is a beta, and it is not affiliated with Signal.
+
+`SECURITY.md` has the detail: the code for each part, what we tested, and
+where NCCd is behind Signal Desktop.
 
 To remove it: in Signal on your phone, remove NCCd from Linked devices. Then
 delete the app.

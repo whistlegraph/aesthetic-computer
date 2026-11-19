@@ -73,6 +73,24 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_LOGGED_OUT=1` | no Signal account and no wiki session, to see the logged-out screen (`signal` or `ncc` for one of them) |
 | `-appearance dark` (argument) | the theme |
 
+## What is kept on disk
+
+Each circle's log is under `~/Library/Application Support/NCC Circles/log`, a
+record to a line. Each line is sealed with AES-256-GCM (`Vault` in
+`Sources/Store.swift`). The key is the login Keychain item
+`computer.aesthetic.ncc-circles.log`, made on the first run. A log from before
+the seal is sealed the first time the app reads it.
+
+- The Keychain lets the app that made the item read it. A build with another
+  signature (ad-hoc, `./dev.sh`) makes macOS ask once. If the answer is no, the
+  app shows no history and writes none.
+- If the Keychain item is deleted, the logs cannot be read. Import the history
+  again from the menu.
+- A message with a timer has `expires`. `CircleLog.prune` takes it out, with
+  its files, at launch and once a minute.
+- Attachments are not sealed. signal-cli writes them, and its key store, as
+  plain files in a folder that only the owner can read.
+
 ## Config
 
 `~/.config/ncc-circles/config.json`, written on first run. Nothing about the

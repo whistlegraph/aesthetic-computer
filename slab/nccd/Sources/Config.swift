@@ -49,6 +49,10 @@ final class Config {
     init() {
         let fm = FileManager.default
         try? fm.createDirectory(at: Paths.log, withIntermediateDirectories: true)
+        // The chats and their pictures are for this account only.
+        for dir in [Paths.root, Paths.log, Paths.root.appendingPathComponent("media")] {
+            try? fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+        }
         if let d = try? Data(contentsOf: Paths.config),
            let c = try? JSONDecoder().decode(AppConf.self, from: d) {
             conf = c
