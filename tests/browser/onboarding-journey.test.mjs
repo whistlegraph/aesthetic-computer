@@ -49,7 +49,9 @@ const NAME = "onboarding-journey";
 const OUT = join(CONFIG.shotDir, NAME);
 
 const stamp = Date.now().toString(36);
-const email = `mail+signuptest${stamp}@aesthetic.computer`;
+// AC_SIGNUP_TAG changes the address, to prove the door for people who are not
+// the test: mail+<tag><stamp>@aesthetic.computer still lands in our inbox.
+const email = `mail+${process.env.AC_SIGNUP_TAG || "signuptest"}${stamp}@aesthetic.computer`;
 const handle = `sut${stamp}`; // throwaway; ≤ 16 characters, letters and numbers
 const password = `Ac-${randomBytes(12).toString("base64url")}!9`;
 const base = new URL(CONFIG.baseURL);

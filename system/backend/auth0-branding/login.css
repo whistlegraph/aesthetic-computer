@@ -87,9 +87,9 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offs
    1. Before the form arrives (.af-form.af-loading, no step yet): the card
       holds its size and an @ breathes where the spinner was.
    2. After a handle is accepted (.af-screenEnding): the script below
-      (ac-login-handle) prints the handle there one character at a time, each
-      its own colour over sharp stacked shadows in two more, while the card
-      fades out and leaves the handle alone on the backdrop. */
+      (ac-login-handle) prints the handle there one character at a time, white
+      on a sharp dark shadow behind a rose @, while the card fades out and
+      leaves the handle alone on the backdrop. */
 @keyframes ac-breathe { 50% { opacity: .5; transform: translate(-50%, -50%) scale(.86); } }
 @keyframes ac-pop { from { transform: translateY(22px) scale(.2) rotate(-25deg); opacity: 0; } }
 @keyframes ac-bob { 50% { translate: 0 -8px; } }
@@ -109,5 +109,6 @@ main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
 .ac-handle-note { font-size: 22px; line-height: 1.2; white-space: nowrap; color: #fff; text-shadow: 2px 2px 0 #202019, -1px -1px 0 #202019, 1px -1px 0 #202019, -1px 1px 0 #202019; }
 /* Letters only pop (transform and opacity, which the compositor can run alone);
    the line bobs as one. Shadowed text repainting per letter per frame crawled. */
-.ac-handle-print span { display: inline-block; -webkit-text-stroke: 3px #fff; paint-order: stroke fill; will-change: transform, opacity; animation: ac-pop .14s cubic-bezier(.2, 1.7, .4, 1) both; }
+.ac-handle-print span { display: inline-block; color: #fff; -webkit-text-stroke: 4px #202019; paint-order: stroke fill; text-shadow: 6px 6px 0 #202019; will-change: transform, opacity; animation: ac-pop .14s cubic-bezier(.2, 1.7, .4, 1) both; }
+.ac-handle-print .ac-handle-at { color: #ff3fa4; }
 main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card-out .15s ease-out forwards; }
