@@ -834,6 +834,7 @@ export async function createView(canvas) {
   let SHOW_FPS = false;
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
+  const statsRun = new Float32Array(120); let statsHead = 0; // the last 120 frames' gaps, a ring
   let statsAt = 0, statsGap = 16.7, statsWorst = 0, statsWorstAt = 0; // 🧰 the last frame's start, the time between frames (eased), the worst lately
   // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
@@ -2436,36 +2437,58 @@ export async function createView(canvas) {
       const t = performance.now(), gap = statsAt ? t - statsAt : 16.7;
       statsAt = t;
       statsGap += (gap - statsGap) * 0.1;
+      statsRun[statsHead] = gap; statsHead = (statsHead + 1) % statsRun.length;
       if (gap > statsWorst || t - statsWorstAt > 3000) { statsWorst = gap; statsWorstAt = t; }
     }
     if (stats) {
+      // A meter, not a table: the last two seconds of frames as bars (each as
+      // tall as the frame was long, green under a sixtieth, yellow under a
+      // thirtieth, red over), a line where sixty a second lies; under it how
+      // full the triangle budget is; beside it the wind as an arrow that
+      // points where the air goes, longer the harder it blows, with a tick
+      // up or down for lift. One number: frames a second.
       const { unit, safeX, safeY } = hud;
       const tris = projector.scene?.triangleCount || 0, most = projector.scene?.maxTriangles || 0;
       const rate = Math.round(1000 / Math.max(1, statsGap));
       const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
-      const lines = [
-        [`${rate} fps`, rate >= 55 ? good : rate >= 30 ? fair : poor],
-        [`${statsGap.toFixed(1)} ms  worst ${Math.round(statsWorst)}`, statsWorst < 34 ? good : statsWorst < 100 ? fair : poor],
-        [`${tris.toLocaleString('en-US')} tris${most ? ` of ${Math.round(most / 1000)}k` : ''}`, most && tris > most * 0.85 ? poor : PAPER],
-        [`${canvas.width} x ${canvas.height} px`, PAPER],
-        ...(() => {
-          // 🌬️ The air at the eye: how fast, where to, and whether it lifts.
-          const at = camera || me;
-          if (!weather || !at) return [];
-          const a = airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
-          const to = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'][Math.round(((Math.atan2(a.x, a.z) * 180) / Math.PI + 360) / 45) % 8];
-          return [[`air ${Math.hypot(a.x, a.z).toFixed(1)} m/s to ${to}  lift ${a.y >= 0 ? '+' : ''}${a.y.toFixed(1)}`, 0x9db4d6]];
-        })(),
-        [`${backend}${stallNote ? `  ${stallNote}` : ''}`, backend === 'webgpu' ? good : fair],
-      ];
-      const m = model(({ small }) => {
-        const right = W / 2 - safeX - 2 * unit;
-        let y = -H / 2 + safeY + (9 + (lines.length - 1) * 10) * unit;
-        for (const [words, ink] of lines) {
-          const x = right - (smallWidth(words) / 2) * unit;
-          small(words, x + unit, y - unit, 0.000002, unit, INK);
-          small(words, x, y, 0, unit, ink);
-          y -= 10 * unit;
+      const at = camera || me;
+      const air = weather && at ? airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) }) : null;
+      const m = model(({ rect: worldRect, small }) => {
+        const rect = flip(worldRect);
+        const BARS = statsRun.length, tall = 24 * unit, wide = BARS * unit;
+        const right = W / 2 - safeX - 2 * unit, foot = -H / 2 + safeY + 14 * unit, left = right - wide;
+        rect(left - unit, foot - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, INK);
+        rect(left, foot, 0.000003, wide, tall, 0x15171e);
+        for (let i = 0; i < BARS; i++) {
+          const gap = statsRun[(statsHead + i) % BARS];
+          if (!gap) continue;
+          const h = Math.max(unit, Math.min(tall, Math.round((gap / 50) * 24) * unit)); // the box is 50 ms tall
+          rect(left + i * unit, foot, 0.000002, unit, h, gap <= 18 ? good : gap <= 34 ? fair : poor);
+        }
+        rect(left, foot + Math.round((16.7 / 50) * 24) * unit, 0.000001, wide, unit, 0x5a5f70); // sixty a second
+        // The triangle budget: a bar under the frames, red when nearly full.
+        const full = most ? Math.min(1, tris / most) : 0;
+        rect(left - unit, foot - 6 * unit, 0.000004, wide + 2 * unit, 4 * unit, INK);
+        rect(left, foot - 5 * unit, 0.000003, wide, 2 * unit, 0x15171e);
+        rect(left, foot - 5 * unit, 0.000002, Math.max(unit, Math.round((wide * full) / unit) * unit), 2 * unit, full > 0.85 ? poor : 0x6aa8ff);
+        // Frames a second, over the box, in its health's colour; the backend's initial beside it.
+        const words = `${rate}`, ink = rate >= 55 ? good : rate >= 30 ? fair : poor, wx = right - (smallWidth(words) / 2) * unit, wy = foot + tall + 10 * unit;
+        small(words, wx + unit, wy - unit, 0.000002, unit, INK);
+        small(words, wx, wy, 0, unit, ink);
+        const kind = backend === 'webgpu' ? 'gpu' : 'gl', kx = left + (smallWidth(kind) / 2) * unit;
+        small(kind, kx + unit, wy - unit, 0.000002, unit, INK);
+        small(kind, kx, wy, 0, unit, backend === 'webgpu' ? good : fair);
+        // The wind: a dial left of the box, north up on the screen as on a map.
+        if (air) {
+          const cx = left - 18 * unit, cy = foot + tall / 2, R = 12 * unit;
+          const speed = Math.hypot(air.x, air.z), reach = Math.min(R, (2 + speed * 1.2) * unit), a = Math.atan2(air.x, air.z);
+          rect(cx - R - unit, cy - R - unit, 0.000004, 2 * R + 2 * unit, 2 * R + 2 * unit, INK);
+          rect(cx - R, cy - R, 0.000003, 2 * R, 2 * R, 0x15171e);
+          for (let k = 0; k <= reach; k += unit) rect(Math.round((cx + Math.sin(a) * k) / unit) * unit, Math.round((cy + Math.cos(a) * k) / unit) * unit, 0.000002, unit, unit, k > reach - 3 * unit ? 0xffffff : 0x9db4d6);
+          rect(cx - unit / 2, cy - unit / 2, 0.000001, unit, unit, 0x5a5f70);
+          // Lift: a bar on the dial's right edge, up from the middle when the air rises.
+          const lift = Math.max(-R, Math.min(R, Math.round(air.y * 6) * unit));
+          rect(cx + R - 2 * unit, lift >= 0 ? cy : cy + lift, 0.000002, 2 * unit, Math.max(unit, Math.abs(lift)), lift >= 0 ? good : poor);
         }
       });
       projector.overlay(m, W, H);
