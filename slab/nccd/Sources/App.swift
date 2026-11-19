@@ -113,6 +113,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.makeKeyAndOrderFront(nil)
         }
 
+        main.link.onBack = { [weak self] in self?.stopLogins() }
         main.link.button.target = self
         main.link.button.action = #selector(linkSignal)
         // A login badge at the foot of the rail goes to where that login happens.
@@ -329,20 +330,20 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let panel = main.link
         panel.nccButton.target = self
         if let name = nccName {
-            panel.nccButton.title = " Sign out of NCC"
-            panel.nccButton.action = #selector(signOut)
-            panel.nccStatus.stringValue = "signed in as \(name)"
+            panel.nccButton.title = "✓ NCC"
+            panel.nccButton.action = #selector(askSignOut)
+            panel.nccStatus.stringValue = "signed in as \(name) · press to sign out"
         } else {
             panel.nccButton.title = " Sign into NCC"
             panel.nccButton.action = #selector(openWikiLogin)
             panel.nccStatus.stringValue = "for wiki & code"
         }
         if let account {
-            panel.button.title = " Unlink Signal"
+            panel.button.title = "✓ Signal"
             panel.button.action = #selector(unlinkSignal)
             panel.button.isEnabled = true
             let me = people.person(account.uuid, fallback: nil).name
-            panel.status.stringValue = "linked as " + (me.isEmpty || me == account.uuid || me == "me" ? account.number : me)
+            panel.status.stringValue = "linked as " + (me.isEmpty || me == account.uuid || me == "me" ? account.number : me) + " · press to unlink"
             return
         }
         panel.button.title = " Link Signal"
@@ -499,6 +500,28 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         main.showWikiLogin(codeWeb)
         main.wikiOpen = true
         window.title = "NCCd: code"
+    }
+
+    @objc func askSignOut() {
+        let alert = NSAlert()
+        alert.messageText = "Sign out of NCC?"
+        alert.informativeText = "The wiki and the code close until you sign in again."
+        alert.addButton(withTitle: "Sign Out")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn { signOut() }
+    }
+
+    // "← back" on the Login page: stop the login that is under way.
+    func stopLogins() {
+        if linking {
+            engine.cancelLink()
+            linking = false
+        }
+        main.link.showQR(nil)
+        login = nil
+        main.link.showNCC(nil)
+        main.link.note.stringValue = ""
+        refreshLink()
     }
 
     @objc func openWikiLogin() { go(-4); if wiki.token == nil, login == nil { showLogin() } }
