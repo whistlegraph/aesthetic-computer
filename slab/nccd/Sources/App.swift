@@ -216,6 +216,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // NCC_SNAPSHOT_QR=<words> shows a code to scan in Signal's pane (a code of those words; no link is started).
         if let words = env["NCC_SNAPSHOT_QR"] { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.showQR(words) } }
+        // NCC_SNAPSHOT_WAIT=1 shows Signal's pane as it is between the press and the code.
+        if env["NCC_SNAPSHOT_WAIT"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.waitForCode() } }
         // NCC_SNAPSHOT_BACK=1 presses "← back" a few seconds after a login was started.
         if env["NCC_SNAPSHOT_BACK"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 7) { self.stopLogins() } }
         // NCC_SNAPSHOT_NCC=1 starts the NCC login in its pane.
@@ -350,6 +352,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         panel.button.title = " Link Signal"
         panel.button.action = #selector(linkSignal)
+        ensureLink()
         if Config.shared.signalCli == nil {
             // The Signal engine (signal-cli) is not on this Mac. With Homebrew
             // here, the app installs it itself, as soon as it opens.
@@ -515,10 +518,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // "← back" on the Login page: stop the login that is under way.
     func stopLogins() {
-        if linking {
-            engine.cancelLink()
-            linking = false
-        }
+        linking = false                      // the request stays open behind: the code is on hand for the next press
         main.link.showQR(nil)
         login = nil
         main.link.showNCC(nil)
@@ -528,25 +528,60 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc func openWikiLogin() { go(-4); if wiki.token == nil, login == nil { showLogin() } }
 
-    @objc func linkSignal() {
-        linking = true
-        main.link.note.stringValue = "On your phone: Signal → Settings → Linked devices → Link new device."
-        refreshLink()
-        engine.link(deviceName: "NCCd", onURI: { [weak self] uri in self?.main.link.showQR(uri) }) { [weak self] r in
+    // The code to scan is made ahead of time: while Signal is not linked the app
+    // keeps a link request open with Signal, so the code is on hand, and a press
+    // on Link Signal shows it at once. A request lasts a minute or so; when one
+    // ends unused, the next is made. (`linking` = the member is looking at it.)
+    var linkURI: String?
+    var linkRunning = false
+    var linkFails = 0
+
+    func ensureLink() {
+        guard account == nil, !linkRunning, Config.shared.signalCli != nil, !installing,
+              !Self.dev, !Self.snapshotRun, ProcessInfo.processInfo.environment["NCC_LOGGED_OUT"] == nil else { return }
+        linkRunning = true
+        let began = Date()
+        engine.link(deviceName: "NCCd", onURI: { [weak self] uri in
             guard let self else { return }
-            self.linking = false
-            self.main.link.showQR(nil)
+            self.linkURI = uri
+            if self.linking { self.main.link.showQR(uri) }
+        }) { [weak self] r in
+            guard let self else { return }
+            self.linkRunning = false
+            self.linkURI = nil
             switch r {
             case .success:
+                self.linking = false
+                self.main.link.showQR(nil)
                 self.account = SignalEngine.account()
                 self.main.link.note.stringValue = ""
+                self.refreshAccounts()
+                self.buildRail()
+                self.refreshLink()
+                if self.account != nil { self.startSignal(); self.showStart() }      // linked: on to the donut
             case .failure(let e):
-                self.main.link.note.stringValue = "Signal: \(e.message)"
+                // A request that ran its time and was not used: make the next. One that
+                // fails at once, three times running, is a real fault: say so and stop.
+                self.linkFails = Date().timeIntervalSince(began) < 8 ? self.linkFails + 1 : 0
+                if self.linkFails >= 3 {
+                    self.linking = false
+                    self.main.link.showQR(nil)
+                    self.main.link.note.stringValue = "Signal: \(e.message)"
+                    return self.refreshLink()
+                }
+                if self.linking { self.main.link.waitForCode() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.ensureLink() }
             }
-            self.refreshAccounts()
-            self.refreshLink()
-            if self.account != nil { self.startSignal(); self.showStart() }      // linked: on to the donut
         }
+    }
+
+    @objc func linkSignal() {
+        linking = true
+        linkFails = 0
+        main.link.note.stringValue = ""
+        if let uri = linkURI { main.link.showQR(uri) }      // on hand already: no wait, nothing jumps
+        else { main.link.waitForCode(); ensureLink() }
+        refreshLink()
     }
 
     // This theme's colours as CSS, for the club's login page.

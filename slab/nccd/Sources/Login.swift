@@ -163,7 +163,7 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         web.evaluateJavaScript(js) { [weak self] v, _ in
             guard let self, let a = v as? [NSNumber], a.count == 2, a[0].doubleValue > 0 else { return }
             let tall = CGFloat(a[0].doubleValue), wide: CGFloat = 440       // the form is drawn 440 wide at no zoom
-            let z = max(0.3, min(1.9, min(self.web.bounds.height / tall, self.web.bounds.width / (wide + 40)) * 0.94)) * self.zoom
+            let z = max(0.3, min(1.9, min(self.web.bounds.height / tall, self.web.bounds.width / (wide + 40)) * 0.94))       // (not the member's own zoom: this form is always fitted to its pane)
             // a pane that is momentarily small (it is being laid out) must not shrink the form for good
             guard self.web.bounds.height > 60 else { return }
             if abs(self.web.pageZoom - z) > 0.02 { self.web.pageZoom = z }

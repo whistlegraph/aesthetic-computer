@@ -488,8 +488,18 @@ final class Unibar: NSView {
         Tab.draw(in: NSRect(x: -10, y: 0, width: bounds.width + 20, height: bounds.height + 13), fill: color, open: true, top: true)
         if let _ = backAction {
             if hover { NSColor(white: 1, alpha: 0.16).setFill(); bounds.fill(using: .sourceOver) }
-            let word = NSAttributedString(string: "← back", attributes: [.font: Theme.mono(weight: .heavy), .foregroundColor: Theme.ink])
-            word.draw(at: NSPoint(x: 12, y: bounds.midY - word.size().height / 2))
+            // a large arrow, and no word
+            let arrow = NSImage(systemSymbolName: "arrow.left", accessibilityDescription: "Back")?
+                .withSymbolConfiguration(.init(pointSize: 20, weight: .heavy))
+            if let arrow {
+                let tinted = NSImage(size: arrow.size, flipped: false) { r in
+                    arrow.draw(in: r)
+                    Theme.ink.set()
+                    r.fill(using: .sourceAtop)
+                    return true
+                }
+                tinted.draw(in: NSRect(x: 12, y: bounds.midY - arrow.size.height / 2, width: arrow.size.width, height: arrow.size.height))
+            }
             return
         }
         if (hover || open) && !locked {
@@ -929,6 +939,23 @@ final class LinkPanel: NSView {
         }
     }
 
+    // The moment Link Signal is pressed: the pane is already laid out as it will
+    // be with the code in it (an empty white square, one line under it), so
+    // nothing jumps when the code arrives a second later.
+    func waitForCode() {
+        let side: CGFloat = 330
+        let blank = NSImage(size: NSSize(width: side, height: side))
+        blank.lockFocus()
+        NSColor.white.setFill()
+        NSRect(x: 0, y: 0, width: side, height: side).fill()
+        let words = NSAttributedString(string: "making your code…", attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: 15, weight: .medium), .foregroundColor: NSColor(white: 0, alpha: 0.45)])
+        words.draw(at: NSPoint(x: (side - words.size().width) / 2, y: (side - words.size().height) / 2))
+        blank.unlockFocus()
+        signalPane.showCode(blank, "Signal on your phone → Settings → Linked devices → scan")
+        focus = signalPane
+    }
+
     // The code to scan, in Signal's pane (nil: the button again).
     func showQR(_ uri: String?) {
         guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { signalPane.showCode(nil); return settle() }
@@ -1011,6 +1038,20 @@ final class MentionList: NSView {
         let i = Int((convert(event.locationInWindow, from: nil).y - 3) / Self.row)
         if items.indices.contains(i) { onPick?(items[i]) }
     }
+}
+
+// A dotted hairline, in the wordmark's green.
+final class Hairline: NSView {
+    override func draw(_ dirty: NSRect) {
+        NSGraphicsContext.current?.shouldAntialias = false
+        Theme.word.withAlphaComponent(0.7).setFill()
+        var x: CGFloat = 0
+        while x < bounds.width {
+            NSRect(x: x, y: 0, width: 3, height: 1).fill()
+            x += 6
+        }
+    }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 // A filled shape that takes a click.
@@ -1260,6 +1301,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
     private var lastSections: [(String, [(Int, String, NSColor?)])] = []
     private let taskBar = Fill(Theme.mint)     // along the bottom, when the tabs are along the top
+    private let topLine = Hairline(), bottomLine = Hairline()
     private let footGap = NSView()             // pushes the logins to the right end of the task bar
     private var badgeNames: [NSView] = []      // the words in the login badges
     private var topLevel = -1
@@ -1722,6 +1764,17 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             dropStack.leadingAnchor.constraint(equalTo: drop.leadingAnchor), dropStack.trailingAnchor.constraint(equalTo: drop.trailingAnchor, constant: -8),
             dropStack.topAnchor.constraint(equalTo: drop.topAnchor, constant: 8), dropStack.bottomAnchor.constraint(equalTo: drop.bottomAnchor, constant: -10),
         ])
+        // Hairlines: one under the top bar and one over the bottom bar, a dotted
+        // line in the wordmark's green, a pixel high.
+        for (line, bar, under) in [(topLine, railBox as NSView, true), (bottomLine, taskBar as NSView, false)] {
+            line.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(line, positioned: .above, relativeTo: nil)
+            NSLayoutConstraint.activate([
+                line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor),
+                line.heightAnchor.constraint(equalToConstant: 2),
+                under ? line.topAnchor.constraint(equalTo: bar.bottomAnchor) : line.bottomAnchor.constraint(equalTo: bar.topAnchor),
+            ])
+        }
         dropOpen = false
         applyTabs()
         // a login under way: the bar is "← back" (down the side, where there is no bar, a press on the wordmark goes back)
@@ -1751,6 +1804,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         foot.alignment = top ? .centerY : .leading
         foot.spacing = top ? 12 : 6
         taskBar.isHidden = !top
+        topLine.isHidden = !top
+        bottomLine.isHidden = !top
         footGap.isHidden = true
         barSearchBox.isHidden = !top
         logo.onTop = top
