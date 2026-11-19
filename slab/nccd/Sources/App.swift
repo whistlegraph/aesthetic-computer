@@ -332,7 +332,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let name = nccName {
             panel.nccButton.title = "✓ NCC"
             panel.nccButton.action = #selector(askSignOut)
-            panel.nccStatus.stringValue = "signed in as \(name) · press to sign out"
+            panel.nccStatus.stringValue = "\(name) · press to sign out"
         } else {
             panel.nccButton.title = " Sign into NCC"
             panel.nccButton.action = #selector(openWikiLogin)
@@ -343,7 +343,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             panel.button.action = #selector(unlinkSignal)
             panel.button.isEnabled = true
             let me = people.person(account.uuid, fallback: nil).name
-            panel.status.stringValue = "linked as " + (me.isEmpty || me == account.uuid || me == "me" ? account.number : me) + " · press to unlink"
+            panel.status.stringValue = (me.isEmpty || me == account.uuid || me == "me" ? account.number : me) + " · press to unlink"
             return
         }
         panel.button.title = " Link Signal"

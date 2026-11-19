@@ -118,6 +118,25 @@ enum Brand {
         img.isTemplate = true
         return img
     }
+    // The club's own mark: "NCC" in the wordmark's pixels, one tone (a template).
+    static func ncc(cell: CGFloat) -> NSImage {
+        let img = NSImage(size: NSSize(width: 18 * cell, height: 7 * cell), flipped: true) { _ in
+            NSGraphicsContext.current?.shouldAntialias = false
+            NSColor.black.setFill()
+            var x0 = 0
+            for letter in NCCLogo.letters.prefix(3) {
+                for (y, row) in letter.rows.enumerated() {
+                    for (x, ch) in row.enumerated() where ch == "X" {
+                        NSRect(x: CGFloat(x0 + x) * cell, y: CGFloat(y) * cell, width: cell + 0.2, height: cell + 0.2).fill()
+                    }
+                }
+                x0 += letter.rows[0].count + 1
+            }
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }
     static func signal(size: CGFloat) -> NSImage? {
         let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" width=\"\(size)\" height=\"\(size)\"><path d=\"\(signalPath)\"/></svg>"
         guard let img = NSImage(data: Data(svg.utf8)) else { return Pixel.icon("signal", size: size) }
@@ -711,11 +730,17 @@ final class BigButton: NSView {
         addSubview(stack)
         // The mark stands at the same height in both panes, whatever is under it.
         NSLayoutConstraint.activate([
-            logo.widthAnchor.constraint(equalToConstant: 48), logo.heightAnchor.constraint(equalToConstant: 48),
+            logo.widthAnchor.constraint(equalToConstant: 112), logo.heightAnchor.constraint(equalToConstant: 48),
             logo.centerXAnchor.constraint(equalTo: centerXAnchor),
             { shift = logo.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -26); return shift }(),
             stack.centerXAnchor.constraint(equalTo: centerXAnchor),
         ])
+        // the line never runs off the pane: it is cut short with "…" instead
+        stack.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -20).isActive = true
+        line.setContentCompressionResistancePriority(.init(200), for: .horizontal)
+        line.maximumNumberOfLines = 1
+        line.cell?.usesSingleLineMode = true
+        line.cell?.wraps = false
         below = stack.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 12)
         centred = stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -lip / 2 + 1)
         below.isActive = true
@@ -813,7 +838,7 @@ final class LinkPanel: NSView {
         note.widthAnchor.constraint(equalToConstant: 240).isActive = true
 
         signalPane = BigButton(color: NSColor(hex: "3A76F0")!, mark: Brand.signal(size: 44), under: [qr, note])
-        nccPane = BigButton(color: NSColor(hex: "006888")!, mark: Pixel.icon("n", size: 40), under: [])
+        nccPane = BigButton(color: NSColor(hex: "006888")!, mark: Brand.ncc(cell: 6), under: [])
         // A press on a pane starts its login; on a strip whose login is already under way, it brings that login back.
         signalPane.onClick = { [weak self] in
             guard let self else { return }
@@ -1182,7 +1207,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let searchBar = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.78), radius: 7)
     private let searchField = NSTextField()
     private let barSearch = NSTextField()          // on top: the search is in the task bar, at its left
-    private let barSearchBox = Fill(Theme.pair("FFFFFF", "061820", alpha: 0.8), radius: 0)      // full bleed: it is the bar
+    private let barSearchBox = Fill(Theme.pair("FFF3D0", "2B2410"), radius: 0)      // full bleed: it is the bar, on a warm ground of its own
     private let barGlass = NSImageView()
     var onSearchText: ((String) -> Void)?
     private var loginWeb: NSView?         // the club's login page, in the wiki pane
@@ -1403,7 +1428,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         // The donut has the sheet to itself.
         // the donut has the sheet to itself, or shares it with what is under it
         let tall = linkShown ? max(120, (bounds.height * 0.48).rounded())
-            : max(120, bounds.height - (top ? topHeight.constant + 28 : 0) - 24)
+            : max(120, bounds.height - (top ? topHeight.constant + 38 : 0) - 24)
         if diagramHeight.constant != tall { diagramHeight.constant = tall }
         super.layout()
         let sheetMoved = lastRender != nil && abs((text.textContainer?.size.width ?? 0) - renderedWidth) > 24
@@ -1539,7 +1564,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
         searchBar.addSubview(searchField)
-        barSearch.font = Theme.mono(11)
+        barSearch.font = .monospacedSystemFont(ofSize: 15, weight: .regular)     // larger than the one size: it is the bar
         barSearch.isBordered = false
         barSearch.drawsBackground = false
         barSearch.focusRingType = .none
@@ -1550,9 +1575,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barSearch.translatesAutoresizingMaskIntoConstraints = false
         barSearch.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         barSearchBox.addSubview(barSearch)
-        barGlass.image = Theme.tabIcon("search", size: 10)
+        barGlass.image = Theme.tabIcon("search", size: 14)
         barGlass.imageScaling = .scaleNone
-        barGlass.contentTintColor = Theme.faint
+        barGlass.contentTintColor = Theme.word          // the wordmark's green
         barGlass.translatesAutoresizingMaskIntoConstraints = false
         barSearchBox.addSubview(barGlass)
         // It takes all of the task bar that the badges leave: it is the one thing
@@ -1562,10 +1587,10 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         barSearchBox.setContentCompressionResistancePriority(.init(1), for: .horizontal)
         NSLayoutConstraint.activate([
             barSearchBox.widthAnchor.constraint(greaterThanOrEqualToConstant: 50),
-            barSearchBox.heightAnchor.constraint(equalToConstant: 28),
+            barSearchBox.heightAnchor.constraint(equalToConstant: 38),
             barGlass.leadingAnchor.constraint(equalTo: barSearchBox.leadingAnchor, constant: Theme.edge),
             barGlass.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
-            barGlass.widthAnchor.constraint(equalToConstant: 12),
+            barGlass.widthAnchor.constraint(equalToConstant: 17),
             barSearch.leadingAnchor.constraint(equalTo: barGlass.trailingAnchor, constant: 5),
             barSearch.trailingAnchor.constraint(equalTo: barSearchBox.trailingAnchor, constant: -5),
             barSearch.centerYAnchor.constraint(equalTo: barSearchBox.centerYAnchor),
@@ -1658,7 +1683,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             taskBar.leadingAnchor.constraint(equalTo: leadingAnchor),
             taskBar.trailingAnchor.constraint(equalTo: trailingAnchor),
             taskBar.bottomAnchor.constraint(equalTo: bottomAnchor),
-            taskBar.heightAnchor.constraint(equalToConstant: 28),
+            taskBar.heightAnchor.constraint(equalToConstant: 38),
             band.leadingAnchor.constraint(equalTo: sheet.leadingAnchor),
             band.trailingAnchor.constraint(equalTo: sheet.trailingAnchor),
             band.topAnchor.constraint(equalTo: sheet.topAnchor),
@@ -1812,7 +1837,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         if !on { dropOpen = false }
         barSearch.isEnabled = on
         searchField.isEnabled = on
-        barSearchBox.alphaValue = on ? 1 : 0.4
+        barSearchBox.alphaValue = on ? 1 : 0          // not there until there is something to search: an empty bar
         searchOn = on
     }
     var searchText: String {
