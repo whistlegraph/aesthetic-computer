@@ -29,9 +29,9 @@ test('the looking eye flies as a drone: it takes up speed, never more on a diago
  assert.ok(Math.hypot(let_go.x-p.x,let_go.z-p.z)>.05,'let go, it drifts on');
  for(let i=0;i<600;i++)p=moveFreecam(p,{fwd:0,right:0,up:0},1/60);
  assert.equal(Math.hypot(p.vx,p.vy,p.vz),0,'and comes to a hover');
- let high={...camera,y:39.9};
+ let high={...camera,y:49999.9};
  for(let i=0;i<60;i++)high=moveFreecam(high,{fwd:0,right:0,up:1,boost:true},1/60);
- assert.equal(high.y,40);assert.equal(high.vy,0);assert.deepEqual(camera,{x:0,y:2,z:0,yaw:0,pitch:0});
+ assert.equal(high.y,50000);assert.equal(high.vy,0);assert.deepEqual(camera,{x:0,y:2,z:0,yaw:0,pitch:0});
 });
 test('controller deadzone, edge actions, disconnect and pane focus',()=>{
  assert.deepEqual(stick(.1,.05),[0,0]);assert.deepEqual(stick(1,0),[1,0]);
