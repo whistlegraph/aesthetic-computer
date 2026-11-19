@@ -184,6 +184,9 @@ export function json(file, name, ops) {
 export const PATCHES = [
   // 2026-11-04 (762637e3e1): the splash link follows the studio's move.
   replace("scripts/c3runtime.js", "whistlegraph-org", '"https://whistlegraph.com"', '"https://whistlegraph.org"'),
+  // 2026-11-18: the title screen's Community button goes to laklok.com, where
+  // the conversation is now, and no longer to the 2021 Discord.
+  replace("scripts/c3runtime.js", "community-laklok", '"https://discord.gg/4BdxKC5gd9"', '"https://laklok.com"'),
   // 2026-11-18: the odds of each proposal, as parameters. The picker is the
   // rule; the tuning is the numbers (classic-tuning.json; print them with
   // classic-odds.mjs). To tune: edit the JSON, run this script, test, deploy.

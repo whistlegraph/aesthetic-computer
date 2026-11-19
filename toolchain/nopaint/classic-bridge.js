@@ -25,7 +25,7 @@
 //   aiResult {turn, png | error} the picture of an AI turn, or why there is none
 //   look {uid}                   one placed thing on this layout: place, size, text, box on the page
 //   write {uid, text, visible, x, y, width, height, fit}   set a sprite font
-//   create {like, layer, x, y, text}   a new sprite font, drawn like another
+//   create {like | type, layer, x, y, width, height, text}   a new sprite font, drawn like another
 //   code {code}                  the #code Save should show (null: a classic code)
 //   settings                     the tuning's settings for AI turns
 //   force {name}                 make the next proposal this brush, once
@@ -114,7 +114,7 @@ runOnStartup(async (runtime) => {
   };
   const state = () => ({
     layout: runtime.layout.name, tool: vars.CurrentTool, params: vars.Params,
-    prompt: vars.promptText, hint: vars.parameterHint, painting: !!vars.Painting, paused: !!vars.Paused,
+    prompt: vars.promptText, hint: vars.parameterHint, painting: !!vars.Painting, desktop: !!vars.DesktopMode, paused: !!vars.Paused,
     paintDate: vars.PaintDate, code: vars.LoadCode, name: vars.Name, time: runtime.gameTime,
   });
   // FNV-1a over the RGBA bytes; ink counts pixels that are not opaque white
@@ -196,7 +196,9 @@ runOnStartup(async (runtime) => {
       if (visible !== undefined) thing.isVisible = Boolean(visible);
       if (fit) {
         // As wide as the text. A label on the right half keeps its right edge.
-        const right = thing.x + thing.width, wide = Math.max(8, Math.ceil(String(thing.text).length * Number(fit)));
+        // (Colour, background and scale tags take no room of their own.)
+        const letters = String(thing.text).replace(/\[[^\]]*\]/g, "").length;
+        const right = thing.x + thing.width, wide = Math.max(8, Math.ceil(letters * Number(fit)));
         thing.width = wide;
         if (right > 128) thing.x = right - wide;
       }
@@ -205,11 +207,12 @@ runOnStartup(async (runtime) => {
     },
     // Put a new sprite font on this layout, drawn like an existing one. It
     // lasts until the layout ends, as everything on a layout does.
-    create({ like, layer, x, y, text = "" }) {
-      const model = runtime.getInstanceByUid(Number(like));
-      if (!model || !("text" in model)) throw new Error(`no text with UID ${like} to draw like`);
+    // (like: a UID to draw like; or type: any one of that object type here.)
+    create({ like, type, layer, x, y, width, height, text = "" }) {
+      const model = like !== undefined ? runtime.getInstanceByUid(Number(like)) : runtime.objects[type]?.getFirstInstance();
+      if (!model || !("text" in model)) throw new Error(`no text here to draw like (${like ?? type})`);
       const made = model.objectType.createInstance(layer || model.layer.name, Number.isFinite(x) ? x : model.x, Number.isFinite(y) ? y : model.y);
-      made.width = model.width; made.height = model.height;
+      made.width = Number.isFinite(width) ? width : model.width; made.height = Number.isFinite(height) ? height : model.height;
       for (const key of ["characterScale", "characterSpacing", "lineHeight", "horizontalAlign", "verticalAlign", "wordWrapMode"]) try { made[key] = model[key]; } catch {}
       made.text = String(text);
       return ops.look({ uid: made.uid });

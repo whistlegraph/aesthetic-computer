@@ -1,11 +1,11 @@
 // classic-live.e2e, 2026.11.18
 // The proof run. It makes one real painting on the live site by each route,
-// a guest and a signed-in painter, and films both: a few brushes, an AI turn
-// with the real service, and Save. Nothing is played here.
+// a guest and a signed-in painter, and films both. A guest is stopped at the
+// title screen and sent to sign-in. A painter plays a few brushes, takes an AI
+// turn with the real service, and saves. Nothing is played here.
 //
 // THIS SPENDS REAL THINGS. Each run:
-//   makes two real #paintings on Aesthetic Computer;
-//   uses one of the service's free guest AI turns for the day;
+//   makes one real #painting on Aesthetic Computer;
 //   spends Braincells of the signed-in painter for one AI turn.
 // It is run by hand, never by a schedule.
 //
@@ -59,6 +59,20 @@ async function run(browser, route) {
     const until = (from, event, timeout = 30000) => page.waitForFunction((f, e) => window.nopaintSteps.events.slice(f).includes(e), { timeout, polling: 100 }, from, event);
     for (let i = 0; i < 300 && !(await ask("state").then((s) => s.layout, () => null)); i++) await wait(200);
     await wait(2500); // the dark opening screen, for the film
+    if (!route.account) {
+      // A guest cannot paint: the tap that would start goes to the turnstile.
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // lights on
+      await wait(2500); // the lit title screen with its Sign In, for the film
+      const slot = await ask("look", { uid: 114 });
+      check("the title screen says Sign In", /Sign In/.test(slot.text), slot.text.replace(/\[[^\]]*\]/g, ""));
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // a tap to start
+      await page.waitForFunction(() => location.host === "hi.aesthetic.computer", { timeout: 30000 }).catch(() => {});
+      await wait(3500);
+      check("a guest's tap to start lands on the AC turnstile", new URL(page.url()).host === "hi.aesthetic.computer", page.url().split("?")[0]);
+      Object.assign(r, await clip.stop());
+      await context.close().catch(() => {});
+      return r;
+    }
     // Start as a player does: a tap turns the lights on, another starts.
     for (let taps = 0; taps < 4 && (await ask("state")).layout === "Splash"; taps++) {
       await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45);

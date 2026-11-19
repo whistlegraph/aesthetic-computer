@@ -153,10 +153,12 @@ export function serveFolder(folder) {
 }
 
 // Keep a page from reaching anything but `base`: no analytics, no saves.
-export async function onlyLocal(page, base, blocked = []) {
+// `without` names files of the site itself to leave out (a pattern).
+export async function onlyLocal(page, base, blocked = [], without = null) {
   await page.setRequestInterception(true);
   page.on("request", (request) => {
     const url = request.url();
+    if (without?.test(url)) { blocked.push(url.slice(0, 120)); return request.abort(); }
     if (url.startsWith(base) || url.startsWith("data:") || url.startsWith("blob:")) return request.continue();
     blocked.push(url.slice(0, 120));
     request.abort();

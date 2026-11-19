@@ -10,15 +10,16 @@
 // through /api/painting-wip. A Paint is a layer holding the pixels that
 // changed. A No is a layer with its line and no pixels.
 //
-// A guest's painting is held by a key kept in this browser. Signing in with
-// an Aesthetic Computer handle is offered, never asked for: the service then
-// gives the painting to that handle, and later paintings start as theirs.
+// Painting takes a handle. A guest can look at the title screen and follow its
+// links, but the first tap that would start a painting goes to sign-in, and
+// every painting belongs to the handle that made it.
 // Sign-in is AC's own turnstile, the hosted page at hi.aesthetic.computer
 // (where a new person also picks a handle); this page has no form of its own.
 //
 // Nothing here is drawn in the page. What the player sees is the game's: its
-// title screen's label says SIGN IN or the handle, in the game's own letters,
-// and a tap on it is taken here before the game sees it.
+// title screen's label says Sign In or the handle, in the game's own letters,
+// and a tap on it is taken here before the game sees it. While painting, the
+// handle sits in the checkerboard to the left of No and Paint.
 //
 // AI turns. The tuning (toolchain/nopaint/classic-tuning.json) can give an AI
 // brush a share of the proposals. An AI turn is Note Paint's move, through the
@@ -130,6 +131,8 @@ const state = (window.nopaintSteps = { get code() { return session?.code || null
   get account() { return account?.label || null; }, log: [],
   get painting() { return session?.code ? `#${session.code} v${piece ? piece.layers.length - (session.initial || 1) : 0}` : null; },
   get title() { return { ...labels, spots: spots.map((spot) => spot.act) }; },
+  get handleLine() { return handleLine; },
+  get titleLine() { return aiLine; },
   get saved() { return session?.saved ?? 0; }, get error() { return failed; }, events: [] });
 let told; // the #code the game was last told Save should show
 const show = () => {
@@ -315,7 +318,11 @@ async function drawTitle() {
     const sure = account && Date.now() - asking < 4000;
     labels.who = sure ? "Sign Out?" : account ? account.label : "Sign In";
     const dark = await ask("write", { uid: DARK, text: labels.who.toUpperCase(), fit: LETTER[DARK] });
-    const lit = await ask("write", { uid: LIT, text: labels.who, fit: LETTER[LIT] });
+    // A guest's Sign In is the loudest thing on the lit screen: twice the size,
+    // yellow on black, as the game marks what to type. A handle sits quietly.
+    const lit = await ask("write", account
+      ? { uid: LIT, text: labels.who, fit: LETTER[LIT], height: 16 }
+      : { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", width: 160, height: 32 });
     labels.lights = !dark.shown;
     const next = [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }];
     if (account && settings && !dark.shown) {
@@ -346,6 +353,29 @@ async function act(what) {
   }
   if (what === "ai") { store(AI_ON, stored(AI_ON) === "true" ? "false" : "true"); tired = false; return raise(); }
 }
+// ---- painting takes a handle ------------------------------------------------
+// The game leaves its title screen for the Index layout to propose a brush.
+// A guest who gets there is sent back and on to the turnstile.
+async function gate() {
+  await arrived;
+  if (account) return;
+  log("a guest tried to paint: to sign-in");
+  await ask("goto", { layout: "Splash" }).catch(() => {});
+  act("in");
+}
+// While painting on a desktop, the game's bottom strip has a checkerboard to
+// the left of No and Paint. The painter's handle goes there, in the game's
+// letters. (A phone's buttons fill the strip; there is no checkerboard.)
+let handleLine = null;
+async function sign() {
+  handleLine = null;
+  if (!account) return;
+  try {
+    if (!(await ask("state")).desktop) return;
+    handleLine = (await ask("create", { type: "MainSpriteFont", layer: "UI", x: 3, y: 290, width: 122, height: 12, text: `[color=#000000]${account.label}[/color]` })).uid;
+  } catch (error) { log(`handle line: ${error.message}`); }
+}
+
 // A tap inside a label never reaches the game.
 let held = false;
 const inside = (event) => spots.find(({ box }) => event.clientX >= box[0][0] && event.clientX <= box[1][0] && event.clientY >= box[0][1] && event.clientY <= box[1][1]);
@@ -377,6 +407,8 @@ channel.addEventListener("message", ({ data }) => {
   if (!data.event) return;
   state.events.push(data.event);
   if (data.event === "layout" || data.event === "ready") { layoutNow = data.layout; title(); }
+  if (data.event === "layout" && data.layout === "Index") gate();
+  if (data.event === "proposed") sign();
   // Steps are taken in the order the game reports them.
   if (data.event === "painted") queue = queue.then(() => step(data, "paint")).catch((error) => { failed = error.message; });
   if (data.event === "refused") queue = queue.then(() => step(data, "no")).catch((error) => { failed = error.message; });
