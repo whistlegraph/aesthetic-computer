@@ -11,7 +11,11 @@ WorkingDirectory=/opt/kidlisp-sidecar
 EnvironmentFile=/opt/kidlisp-sidecar/.env
 ## Runs directly from the checked-out source via Clojure CLI. Deps are
 ## resolved on first start and cached in ~/.m2 for subsequent restarts.
-ExecStart=/usr/local/bin/clojure -J-Xmx256m -J-Xms128m -M -m ac.kidlisp.core
+## Heap: list reads sort the whole corpus (~19k pieces, 2026-11), and 256m ran
+## out under a few at once. Silo has 3.8GB shared with MongoDB and the
+## transactor (512m). An exhausted heap exits the JVM so systemd restarts it;
+## left running, it answered 500s until someone restarted it by hand.
+ExecStart=/usr/local/bin/clojure -J-Xmx512m -J-Xms128m -J-XX:+ExitOnOutOfMemoryError -M -m ac.kidlisp.core
 Environment=HOME=/opt/kidlisp-sidecar
 Restart=on-failure
 RestartSec=5
