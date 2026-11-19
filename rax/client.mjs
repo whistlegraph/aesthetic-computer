@@ -1777,7 +1777,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   // 🔬 Standing alone, [ and ] make the picture chunkier or sharper (as L4 and R4 do).
-  if (!hosted && (e.code === 'BracketLeft' || e.code === 'BracketRight') && !typing() && !e.metaKey && !e.ctrlKey) {
+  if (!hosted && !lockOn && (e.code === 'BracketLeft' || e.code === 'BracketRight') && !typing() && !e.metaKey && !e.ctrlKey) {
     view.density?.(e.code === 'BracketRight' ? 1 : -1);
     e.preventDefault();
     return;
