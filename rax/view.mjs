@@ -1181,6 +1181,7 @@ export async function createView(canvas) {
     cornerScale = 1, // The curtain crosshair's breadth (1 at rest); the room scales with it.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
+    wire = null, // 📟 { text, color }: one line of the connection's story, top left, while the room is still up (the server quiet, or just back on new code)
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
     jobs = [],
     worldTime = 0,
@@ -2530,6 +2531,17 @@ export async function createView(canvas) {
         });
       }
       projector.overlay(netModel, W, H);
+    }
+    // 📟 Not down, but worth a word: one line where the outage's log goes.
+    if (wire && !offline && !menu && !prompt.open) {
+      const { unit } = hud;
+      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
+      const m = model(({ rect: worldRect, text }) => {
+        const rect = flip(worldRect);
+        const spans = [{ text: wire.text, color: wire.color ?? THEME.text }];
+        drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, H / 2 - safeY - 2 * unit - (cornerRect ? 1 : 0) * 10 * unit, unit, { shadow: INK });
+      });
+      projector.overlay(m, W, H);
     }
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,

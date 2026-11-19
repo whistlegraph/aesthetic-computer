@@ -370,6 +370,12 @@ function logNet(text, flags = {}) {
   netLog.push({ when, text, ...flags });
   if (netLog.length > 40) netLog.shift();
 }
+// 📟 Just loaded again because the server came back: say so for a few seconds.
+let rebooted = null;
+try {
+  const onto = sessionStorage.getItem('rax-rebooted');
+  if (onto !== null) { sessionStorage.removeItem('rax-rebooted'); rebooted = { text: `the server restarted: back on ${onto || 'new code'}`, until: performance.now() + 9000 }; }
+} catch {}
 let statsShown = false;
 try { statsShown = localStorage.getItem('rax-stats') === '1'; } catch {}
 const extrasSeen = new Set(); // a controller's buttons past the standard ones, as they are first pressed
@@ -423,6 +429,7 @@ function watchHealth(hadSnapshot) {
         logNet(`server up: ${String(h.revision || '').slice(0, 10)}, building ${h.building ?? '?'}`, { good: true });
         if (hadSnapshot) {
           logNet('reloading to rejoin');
+          try { sessionStorage.setItem('rax-rebooted', String(h.revision || '').slice(0, 10)); } catch {}
           return window.raxRig?.restart ? window.raxRig.restart() : location.reload();
         }
         connect();
@@ -2580,6 +2587,11 @@ function step(now) {
     netLog,
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
+    // 📟 The server quiet for a moment (not yet an outage), or the page just back on new code.
+    wire: !sheetOpen || down ? null
+      : ws?.readyState === WebSocket.OPEN && connection.lastSnapshot !== null && now - connection.lastSnapshot > 400 && !held
+        ? { text: `no word from the server ${((now - connection.lastSnapshot) / 1000).toFixed(1)} s`, color: 0xffe066 }
+        : rebooted && now < rebooted.until ? { text: rebooted.text, color: 0x3fb950 } : null,
     cursor: cursorAim ? mouseAt : null,
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
