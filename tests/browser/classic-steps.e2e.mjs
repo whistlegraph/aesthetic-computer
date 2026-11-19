@@ -347,9 +347,23 @@ try {
   check("a guest's dark opening screen says SIGN IN on its yellow label", (await game.ask("look", { uid: 98 })).text === "SIGN IN" && (await game.steps()).title.lights === false, (await game.ask("look", { uid: 98 })).text);
   await game.lights();
   const slot = await game.ask("look", { uid: 114 });
-  check("with the lights on, Sign In is large, yellow on black, across the middle", /\[scale=2\].*Sign In/.test(slot.text) && Math.abs(slot.x + slot.width / 2 - 128) < 1 && slot.y > 199 && slot.y < 210
-    && !(await game.ask("look", { uid: 398 })).shown && (await game.steps()).title.spots.join() === "in", `${slot.width} x ${slot.height} at ${slot.x},${slot.y}`);
+  const plate = await game.ask("look", { uid: 158 });
+  const tintOf = async (uid) => (await game.ask("stage")).things.find((thing) => thing.uid === uid)?.tint.map((v) => +v.toFixed(2)).join();
+  check("with the lights on, Sign In is a button across the middle: black letters, large, on the game's plate turned yellow", /\[scale=2\]\[color=#000000\]Sign In/.test(slot.text) && Math.abs(slot.x + slot.width / 2 - 128) < 1.5
+    && Math.abs(plate.x + plate.width / 2 - 128) < 1 && plate.y > 196 && plate.y + plate.height < 226 && plate.x < slot.x && plate.y < slot.y && (await tintOf(158)) === "1,0.92,0.2"
+    && !(await game.ask("look", { uid: 398 })).shown && (await game.steps()).title.spots.join() === "in", `plate ${plate.width} x ${plate.height} at ${plate.x},${plate.y}; letters at ${slot.x},${slot.y}`);
+  check("the game's own buttons are reddened", (await tintOf(789)) === "1,0.35,0.35" && (await tintOf(710)) === "1,0.4,0.4" && (await tintOf(44)) === "0.8,0.1,0.1" && (await tintOf(9)) === "0.8,0.1,0.1", `Whistlegraph ${await tintOf(789)}, About ${await tintOf(44)}`);
   await game.page.screenshot({ path: join(OUT, "title-guest.png") });
+  // The pointer: the game's hand over Sign In, which turns over; an arrow over everything shut.
+  const cursor = async () => (await game.ask("stage")).things.find((thing) => thing.type === "Cursor")?.animation;
+  const middleOf = ({ css }) => [(css[0][0] + css[1][0]) / 2, (css[0][1] + css[1][1]) / 2];
+  await game.page.mouse.move(...middleOf(plate)); await wait(900);
+  const over = { ...(await game.steps()).title, cursor: await cursor(), plate: await tintOf(158), words: (await game.ask("look", { uid: 114 })).text };
+  await game.page.screenshot({ path: join(OUT, "title-guest-over.png") });
+  await game.page.mouse.move(...middleOf(await game.ask("look", { uid: 44 }))); await wait(900);
+  const off = { ...(await game.steps()).title, cursor: await cursor(), plate: await tintOf(158) };
+  check("under the pointer Sign In turns over and the cursor is the game's hand", over.hot && over.cursor === "Over Button" && over.plate === "0,0,0" && /color=#ffff00/.test(over.words), `${over.cursor}, plate ${over.plate}`);
+  check("over a shut button the cursor stays an arrow, and Sign In turns back", !off.hot && off.cursor === "Normal" && off.plate === "1,0.92,0.2", `${off.cursor}, plate ${off.plate}`);
   // Everything else on the screen is shut: the middle (which starts a painting), About, Community, the corners.
   const middle = async (uid) => { const { css } = await game.ask("look", { uid }); return [(css[0][0] + css[1][0]) / 2, (css[0][1] + css[1][1]) / 2]; };
   for (const [x, y] of [[VIEW.W / 2, VIEW.H * 0.45], await middle(44), await middle(9), [VIEW.W * 0.8, VIEW.H * 0.2], [VIEW.W * 0.85, VIEW.H * 0.75], [20, VIEW.H * 0.5]]) { await game.page.mouse.click(x, y); await wait(350); }
@@ -372,6 +386,9 @@ try {
   await game.lights();
   const slot2 = await game.ask("look", { uid: 114 });
   check("with the lights on it is flush in the top-left corner, at its usual size", slot2.text === "@tester" && slot2.x === 0 && slot2.y === 0 && slot2.height === 16 && (await game.ask("state")).layout === "Splash", `${slot2.text} at ${slot2.x},${slot2.y}, ${slot2.height} high`);
+  const plate2 = await game.ask("look", { uid: 158 });
+  check("a painter's screen is the game's own: the plate is back in its corner and nothing is red", plate2.x === 0 && plate2.y === 0 && plate2.width === 101 && !(await game.steps()).title.dressed && (await game.steps()).title.pointing === null
+    && (await game.ask("stage")).things.filter((thing) => [789, 710, 44, 9, 158].includes(thing.uid)).every((thing) => !(thing.tint[0] > 0.75 && thing.tint[1] < 0.5)), `plate ${plate2.width} x ${plate2.height} at ${plate2.x},${plate2.y}`);
   check("the handle is the only label: there is no AI switch, and the brush count is back", (await game.steps()).title.spots.join() === "out" && (await game.ask("look", { uid: 398 })).shown
     && !(await game.ask("texts")).texts.some((text) => /^AI /.test(text.text)), (await game.steps()).title.spots.join());
   await game.page.screenshot({ path: join(OUT, "title-painter.png") });

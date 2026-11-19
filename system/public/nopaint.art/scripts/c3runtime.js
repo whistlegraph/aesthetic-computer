@@ -2568,6 +2568,10 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 //   code {code}                  the #code Save should show, as prompt.ac/#code (null: a classic code)
 //   settings                     the tuning's settings for AI turns
 //   texts                        every text on this layout: UID, type, words, place
+//   stage                        every placed thing on this layout, back to front, with its box
+//   place {uid, x, y, width, height, visible}   move, size, show or hide any placed thing
+//   tint {uid, color, opacity}   tint a placed thing, or set how solid it is
+//   pointer {as}                 the cursor: "hand", "arrow", or null to leave it to the game
 //   address                      the prompt.ac/# beside Save's code: where it is, how much ink
 //   force {name}                 make the next proposal this brush, once
 //   pixels {object, data}        read a canvas: hash and ink count, bytes if data is true
@@ -2584,7 +2588,7 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 // A brush's own tables (Stamp, Softy and Build keep some) are left alone, and
 // so is everything if the picker or the tuning is missing.
 const classic = (self.nopaintClassic = { tuning: self.nopaintTuning || null, flags: {}, run: {}, resolved: null, force: null,
-  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null,
+  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null, pointer: null,
   // The game's Save asks the save server for a code. This is added to that
   // request (below): it names the AC painting these steps belong to, and the
   // server hands its #code back as the code.
@@ -2595,6 +2599,19 @@ const classic = (self.nopaintClassic = { tuning: self.nopaintTuning || null, fla
   const ajax = self.C3?.Plugins?.AJAX?.Acts, request = ajax?.Request;
   if (request) ajax.Request = function (tag, url) {
     return request.call(this, tag, url === "https://server.nopaint.art/get-code" ? url + classic.codeQuery() : url);
+  };
+}
+// The game's cursor is a sprite: an arrow ("Normal"), and a hand over its
+// buttons ("Over Button"), which it works out from where its own buttons are.
+// The page has a button of its own on the title screen (Sign In) and shuts the
+// game's for a guest, so while the page says which the pointer is over
+// (op "pointer"), that is the cursor, whatever the game asks for.
+{
+  const acts = self.C3?.Plugins?.Sprite?.Acts, setAnim = acts?.SetAnim;
+  if (setAnim) acts.SetAnim = function (name, from) {
+    let want = name;
+    try { if (classic.pointer && (name === "Normal" || name === "Over Button") && this.GetObjectClass().GetName() === "Cursor") want = classic.pointer === "hand" ? "Over Button" : "Normal"; } catch {}
+    return setAnim.call(this, want, from);
   };
 }
 // Which list a brush is in, and its entry there.
@@ -2759,6 +2776,50 @@ runOnStartup(async (runtime) => {
       for (const key of ["characterScale", "characterSpacing", "lineHeight", "horizontalAlign", "verticalAlign", "wordWrapMode"]) try { made[key] = model[key]; } catch {}
       made.text = String(text);
       return ops.look({ uid: made.uid });
+    },
+    // The stage: every placed thing on this layout, back to front, with its
+    // box in layout pixels and on the page. toolchain/nopaint/stage-map.mjs draws it.
+    stage() {
+      const things = [];
+      for (const type of Object.values(runtime.objects)) for (const thing of type.getAllInstances?.() || []) {
+        if (!thing.layer || !Number.isFinite(thing.width)) continue;
+        const corner = (x, y) => thing.layer.layerToCssPx(x, y);
+        let box = null; try { const b = thing.getBoundingBox(); box = [b.left, b.top, b.right, b.bottom]; } catch {}
+        box ||= [thing.x, thing.y, thing.x + thing.width, thing.y + thing.height];
+        things.push({ uid: thing.uid, type: type.name, layer: thing.layer.name, layerIndex: thing.layer.index, z: thing.zIndex ?? 0,
+          x: thing.x, y: thing.y, width: thing.width, height: thing.height, angle: thing.angleDegrees || 0, box,
+          css: [corner(box[0], box[1]), corner(box[2], box[3])], opacity: thing.opacity, tint: thing.colorRgb ? [...thing.colorRgb] : null,
+          shown: Boolean(thing.isVisible && thing.layer.isVisible && thing.layer.opacity > 0 && thing.opacity > 0),
+          ...("text" in thing && typeof thing.text === "string" ? { text: thing.text } : {}),
+          ...(thing.animationName !== undefined ? { animation: thing.animationName, frame: thing.animationFrame } : {}) });
+      }
+      things.sort((a, b) => a.layerIndex - b.layerIndex || a.z - b.z);
+      const layers = runtime.layout.getAllLayers().map((layer) => ({ name: layer.name, index: layer.index, visible: layer.isVisible, opacity: layer.opacity }));
+      return { layout: where(), size: [runtime.layout.width, runtime.layout.height], layers, things };
+    },
+    // Move or size any placed thing, or show and hide it.
+    place({ uid, x, y, width, height, visible }) {
+      const thing = runtime.getInstanceByUid(Number(uid));
+      if (!thing) throw new Error(`nothing with UID ${uid} on this layout`);
+      for (const [key, value] of Object.entries({ x, y, width, height })) if (Number.isFinite(value)) thing[key] = value;
+      if (visible !== undefined) thing.isVisible = Boolean(visible);
+      return { uid: thing.uid, x: thing.x, y: thing.y, width: thing.width, height: thing.height, visible: thing.isVisible };
+    },
+    // Tint a placed thing (1, 1, 1 is its own colours), or set how solid it is.
+    tint({ uid, color, opacity }) {
+      const thing = runtime.getInstanceByUid(Number(uid));
+      if (!thing) throw new Error(`nothing with UID ${uid} on this layout`);
+      const was = [...thing.colorRgb];
+      if (color) thing.colorRgb = color.map(Number);
+      if (Number.isFinite(opacity)) thing.opacity = opacity;
+      return { uid: thing.uid, tint: [...thing.colorRgb], was, opacity: thing.opacity };
+    },
+    // Say what the cursor is over: "hand" (a button), "arrow" (nothing), or null to leave it to the game.
+    pointer({ as = null }) {
+      classic.pointer = as === "hand" || as === "arrow" ? as : null;
+      const cursor = runtime.objects.Cursor?.getFirstInstance();
+      if (classic.pointer && cursor) try { cursor.setAnimation(classic.pointer === "hand" ? "Over Button" : "Normal"); } catch {}
+      return { pointer: classic.pointer, cursor: cursor?.animationName ?? null };
     },
     // Every text on this layout: for finding one whose UID is not known.
     texts() {

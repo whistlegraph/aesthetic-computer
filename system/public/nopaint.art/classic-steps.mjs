@@ -151,7 +151,7 @@ let session = null, piece = null, saving = null, timer = null, dirty = false, fa
 const state = (window.nopaintSteps = { get code() { return session?.code || null; }, get version() { return piece ? piece.layers.length - (session?.initial || 1) : 0; },
   get account() { return account?.label || null; }, log: [],
   get painting() { return session?.code ? `#${session.code} v${piece ? piece.layers.length - (session.initial || 1) : 0}` : null; },
-  get title() { return { ...labels, spots: spots.map((spot) => spot.act) }; },
+  get title() { return { ...labels, spots: spots.map((spot) => spot.act), hot, pointing: pointing ?? null, dressed: Boolean(worn) }; },
   get handleLine() { return handleLine; },
   get ai() { return { free, cost: offer?.braincells ?? null, tired }; },
   get saved() { return session?.saved ?? 0; }, get error() { return failed; }, events: [] });
@@ -323,20 +323,55 @@ async function aiTurn({ id, note, settings: turn = {} }) {
 // ---- the title screen -------------------------------------------------------
 // The game's title screen has two states. It opens dark, with one small yellow
 // label bottom right ("EARLY ACCESS" in 2021); a tap turns the lights on, and
-// the lit screen has a slot top left ("Download App" in 2021). Whichever shows
-// is the sign-in: Sign In for a guest, the handle for a painter. It is the
-// game's own sprite font, written through the bridge, and a tap on it is
-// taken here before the game takes it. A guest's lit screen is the sign-in and
-// nothing else: Sign In sits large across the middle, where the line that
-// counts the brushes was, and a tap anywhere else is taken and dropped.
-const LIT = 114, DARK = 98;          // UIDs in the Construct source (layout Splash)
+// the lit screen has a slot top left ("Download App" in 2021): a pale plate
+// with a line of the game's letters on it. Whichever shows is the sign-in:
+// Sign In for a guest, the handle for a painter. It is all the game's own,
+// placed and written through the bridge, and a tap on it is taken here before
+// the game takes it.
+//
+// A guest's lit screen is the sign-in and nothing else. The slot becomes a
+// button in the middle, where the line that counts the brushes was: its plate
+// yellow, Sign In on it in black at twice the size, the two swapping under the
+// pointer, which turns to the game's hand there and nowhere else. The game's
+// own buttons are shut, and are reddened to say so.
+const LIT = 114, DARK = 98, PLATE = 158; // UIDs in the Construct source (layout Splash)
+const COUNT = 398;                       // "38 Brushes & 684 Stamps"
 const LETTER = { [LIT]: 8.4, [DARK]: 9.7 }; // each label's letter advance, in layout pixels
-const SIGN_IN = { x: 52, y: 203, width: 152, height: 16 }; // centred, in the green between the instructions and PAINT
-const COUNT = 398; // "38 Brushes & 684 Stamps", the line Sign In stands in for
+const BUTTON = { plate: { x: 60, y: 200, width: 136, height: 22 }, words: { x: 69, y: 203, width: 118, height: 16 } }; // centred, between the instructions and PAINT
+const SLOT = { x: 0, y: 0, width: 101, height: 16 }; // the plate's own place
+const YELLOW = [1, 0.92, 0.2], BLACK = [0, 0, 0];
+// What is shut for a guest, and the red each turns: Whistlegraph, Painter Stories,
+// the camera and its label, and About and Community (plate, then letters).
+const SHUT = [[789, [1, 0.35, 0.35]], [346, [1, 0.3, 0.3]], [710, [1, 0.4, 0.4]], [711, [1, 0.4, 0.4]],
+  [89, [1, 0.72, 0.72]], [44, [0.8, 0.1, 0.1]], [49, [1, 0.72, 0.72]], [9, [0.8, 0.1, 0.1]]];
 let layoutNow = null, spots = [], labels = { who: null, lights: null }, asking = 0, titling = Promise.resolve(), watching = null;
+let worn = null, hot = false, pointing; // worn: the colours the guest's screen took the place of
 function title() { titling = titling.then(drawTitle, drawTitle); return titling; }
+const signInWords = () => `[scale=2][color=${hot ? "#ffff00" : "#000000"}]Sign In[/color][/scale]`;
+// Put the guest's screen on, or take it off again.
+async function dress(guest) {
+  if (guest === Boolean(worn)) return;
+  if (guest) {
+    worn = [];
+    for (const [uid, color] of [[PLATE, hot ? BLACK : YELLOW], ...SHUT]) worn.push([uid, (await ask("tint", { uid, color })).was]);
+    await ask("place", { uid: PLATE, ...BUTTON.plate });
+    await ask("write", { uid: COUNT, visible: false });
+  } else {
+    for (const [uid, color] of worn) await ask("tint", { uid, color }).catch(() => {});
+    worn = null;
+    await ask("place", { uid: PLATE, ...SLOT });
+    await ask("write", { uid: COUNT, visible: true });
+  }
+}
+// The cursor on a guest's lit screen: a hand over Sign In, an arrow over all that is shut.
+function point() {
+  const as = shut() ? (hot ? "hand" : "arrow") : null;
+  if (as === pointing) return;
+  pointing = as;
+  ask("pointer", { as }).catch(() => { pointing = undefined; });
+}
 async function drawTitle() {
-  if (layoutNow !== "Splash") { spots = []; labels = { who: null, lights: null }; clearInterval(watching); watching = null; return; }
+  if (layoutNow !== "Splash") { spots = []; labels = { who: null, lights: null }; worn = null; hot = false; point(); clearInterval(watching); watching = null; return; }
   // The lights come on without the layout changing, so keep looking while here.
   watching ||= setInterval(title, 600);
   try {
@@ -345,18 +380,27 @@ async function drawTitle() {
     const was = labels.who;
     labels.who = sure ? "Sign Out?" : account ? account.label : arriving ? "" : "Sign In";
     if (labels.who !== was) log(`title: ${labels.who || "(nothing yet)"}`);
+    const guest = labels.who === "Sign In";
     const dark = await ask("write", { uid: DARK, text: labels.who.toUpperCase(), fit: LETTER[DARK] });
-    // A guest's Sign In is the loudest thing on the lit screen: twice the size,
-    // yellow on black, as the game marks what to type, in the middle. A handle
-    // sits quietly in the slot, the top left corner. Every write places it.
-    const lit = await ask("write", labels.who === "Sign In"
-      ? { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", ...SIGN_IN }
+    await dress(guest);
+    // A handle sits quietly in the slot, the top left corner. Every write places it.
+    const lit = await ask("write", guest ? { uid: LIT, text: signInWords(), ...BUTTON.words }
       : { uid: LIT, text: labels.who, x: 0, y: 0, width: Math.max(100, Math.ceil(labels.who.length * LETTER[LIT])), height: 16 });
-    await ask("write", { uid: COUNT, visible: labels.who !== "Sign In" }).catch(() => {});
     labels.lights = !dark.shown;
-    const next = labels.who ? [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }] : [];
-    spots = next;
+    // A tap anywhere on the button signs in, not only on its letters.
+    const box = dark.shown ? dark.css : guest ? (await ask("look", { uid: PLATE })).css : lit.css;
+    spots = labels.who ? [{ act: account ? "out" : "in", box }] : [];
   } catch (error) { spots = []; log(`title: ${error.message}`); }
+  point();
+}
+// The pointer over the button turns it over: yellow letters on black.
+async function hover(now) {
+  if (now === hot) return;
+  hot = now;
+  point();
+  if (!worn) return;
+  await ask("tint", { uid: PLATE, color: hot ? BLACK : YELLOW }).catch(() => {});
+  await ask("write", { uid: LIT, text: signInWords() }).catch(() => {});
 }
 async function act(what) {
   log(`tap: ${what}`);
@@ -415,6 +459,7 @@ for (const type of ["pointerup", "pointercancel", "mousedown", "mouseup", "click
   event.stopImmediatePropagation(); event.preventDefault();
   if (type === "pointerup" || type === "pointercancel") setTimeout(() => { held = false; }, 0);
 }, true);
+addEventListener("pointermove", (event) => hover(shut() && inside(event)?.act === "in"), true);
 addEventListener("resize", () => title());
 state.signOut = signOut;
 state.act = act;
