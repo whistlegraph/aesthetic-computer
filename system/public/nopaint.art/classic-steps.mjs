@@ -77,6 +77,15 @@ async function painting() {
 // null for a guest. (A session handed over another way, { token, label } under
 // ACCOUNT in localStorage, is honoured too: the live test signs in so.)
 let account = (() => { try { return JSON.parse(localStorage.getItem(ACCOUNT) || "null"); } catch { return null; } })();
+// Checking who is here takes a moment (the turnstile's library, then AC for
+// the handle). Until it is done the title screen must not say Sign In to
+// someone who is signed in. So the handle from last time is shown at once,
+// and someone just back from the turnstile sees no label until theirs is known.
+const WHO = "nopaint:classic:who";
+const returning = (() => { const params = new URLSearchParams(location.search); return params.has("code") && params.has("state"); })();
+const remembers = (() => { try { return Object.keys(localStorage).some((key) => key.startsWith("@@auth0spajs@@")); } catch { return false; } })();
+let arriving = !account && (returning || remembers);
+if (arriving && !returning) { try { const label = localStorage.getItem(WHO); if (label) account = { label, unchecked: true }; } catch {} }
 let auth = null; // the turnstile's client, loaded when first needed
 async function turnstile() {
   if (auth) return auth;
@@ -90,30 +99,29 @@ async function turnstile() {
 }
 // The token to send as this painter, fresh each time, or null for a guest.
 async function bearer() {
+  await arrived;
   if (!account) return null;
   if (account.token) return account.token;
   try { return await (await turnstile()).getTokenSilently(); } catch { signedOut(); return null; }
 }
 function signedOut() {
   account = null;
-  try { localStorage.removeItem(ACCOUNT); } catch {}
+  try { localStorage.removeItem(ACCOUNT); localStorage.removeItem(WHO); } catch {}
   auth?.logout({ openUrl: false }).catch(() => {});
 }
 // Coming back from the turnstile, or coming back signed in from an earlier visit.
 async function arrive() {
-  const params = new URLSearchParams(location.search), back = params.has("code") && params.has("state");
-  if (account?.token) return;
-  let known = false;
-  try { known = Object.keys(localStorage).some((key) => key.startsWith("@@auth0spajs@@")); } catch {}
-  if (!back && !known) return;
+  if (!arriving) return;
   try {
     const client = await turnstile();
-    if (back) try { await client.handleRedirectCallback(); } finally { history.replaceState(null, "", location.pathname); }
-    if (!(await client.isAuthenticated())) return;
+    if (returning) try { await client.handleRedirectCallback(); } finally { history.replaceState(null, "", location.pathname); }
+    if (!(await client.isAuthenticated())) { account = null; try { localStorage.removeItem(WHO); } catch {} return; }
     const user = await client.getUser();
     const handle = await fetch(`${HANDLE}?for=${encodeURIComponent(user.sub)}`).then((r) => r.json()).then((v) => v.handle, () => null);
-    account = { sub: user.sub, label: handle ? `@${handle}` : "signed in" };
-  } catch (error) { failed = `sign-in: ${error.message}`; }
+    account = { sub: user.sub, label: handle ? `@${handle}` : account?.label || "signed in" };
+    try { localStorage.setItem(WHO, account.label); } catch {}
+  } catch (error) { failed = `sign-in: ${error.message}`; if (account?.unchecked) account = null; }
+  finally { arriving = false; }
 }
 
 async function call(body) {
@@ -316,15 +324,19 @@ async function drawTitle() {
   watching ||= setInterval(title, 600);
   try {
     const sure = account && Date.now() - asking < 4000;
-    labels.who = sure ? "Sign Out?" : account ? account.label : "Sign In";
+    // Not known yet who is here: say nothing, and take no taps.
+    const was = labels.who;
+    labels.who = sure ? "Sign Out?" : account ? account.label : arriving ? "" : "Sign In";
+    if (labels.who !== was) log(`title: ${labels.who || "(nothing yet)"}`);
     const dark = await ask("write", { uid: DARK, text: labels.who.toUpperCase(), fit: LETTER[DARK] });
     // A guest's Sign In is the loudest thing on the lit screen: twice the size,
     // yellow on black, as the game marks what to type. A handle sits quietly.
-    const lit = await ask("write", account
-      ? { uid: LIT, text: labels.who, fit: LETTER[LIT], height: 16 }
-      : { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", width: 160, height: 32 });
+    // The slot is the screen's top left corner; every write puts it back there.
+    const lit = await ask("write", labels.who === "Sign In"
+      ? { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", x: 0, y: 0, width: 160, height: 32 }
+      : { uid: LIT, text: labels.who, x: 0, y: 0, width: Math.max(100, Math.ceil(labels.who.length * LETTER[LIT])), height: 16 });
     labels.lights = !dark.shown;
-    const next = [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }];
+    const next = labels.who ? [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }] : [];
     if (account && settings && !dark.shown) {
       const on = stored(AI_ON) === "true";
       labels.ai = on ? `AI On${offers?.paid ? ` ${offers.paid.braincells}` : ""}` : "AI Off";
