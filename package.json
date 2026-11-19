@@ -87,6 +87,7 @@
     "test:nopaint:e2e:local": "node tests/browser/run-nopaint-local.mjs",
     "test:nopaint:e2e:film": "AC_HEADED=1 AC_SLOWMO=120 AC_FRAME_RECEIPTS=1 node tests/browser/nopaint-journey.test.mjs",
     "nopaint:classic:patch": "node toolchain/nopaint/patch-classic.mjs",
+    "nopaint:classic:odds": "node toolchain/nopaint/classic-odds.mjs",
     "test:nopaint:classic": "node toolchain/nopaint/patch-classic.mjs --check && node --test toolchain/nopaint/patch-classic.test.mjs",
     "test:nopaint:brushes": "node toolchain/nopaint/brush-test.mjs",
     "test:nopaint:steps": "node toolchain/nopaint/brush-test.mjs --steps",

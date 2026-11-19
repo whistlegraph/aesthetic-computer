@@ -34,9 +34,9 @@
       "page": 3,
       "crop": [
         0.06,
-        0.375,
+        0.41,
         0.2,
-        0.06
+        0.065
       ],
       "design": "pass",
       "checks": {
@@ -54,7 +54,7 @@
       "page": 3,
       "crop": [
         0.06,
-        0.755,
+        0.795,
         0.2,
         0.065
       ],
@@ -70,8 +70,8 @@
       "notes": "Grey corner with the eight-character code at bottom right, clear of the side-head below."
     }
   ],
-  "reviewedAt": "2026-11-18T21:26:11.697Z",
-  "pdfSha256": "38f99acdb8e5a0b25929939a13bbc68e0430f54fc46d14c671c465acfa79ffa8",
+  "reviewedAt": "2026-11-18T23:16:57.482Z",
+  "pdfSha256": "d1693bda97cb953662575ea6d5e11d060f34584bd3002415d266f02f6cfd9dc2",
   "brand": {
     "canonicalName": "Aesthetic.Computer",
     "dotColor": "#B44887",
@@ -82,5 +82,5 @@
     },
     "notes": "Cover byline checked at 500 dpi on the first edition build (the period is pink); the cover and the Sources paragraph were not changed by the card layout and were re-read on the page contact sheet and at 100 dpi."
   },
-  "notes": "Screen layout, 25 pages. The gate counts pictures only inside figure environments, and this book has none, so the 37 picture rows and the cover are not listed. They were looked at anyway: every strip on contact sheets of the source images, all 25 pages on the page contact sheet, and pages 2, 3, 4, 12, 19, 23, 24 and 25 at 100 dpi. Checked on those: two cards fill each card page; the three pictures sit inside the card with equal gutters; no grid row wraps; Stamp fits its card."
+  "notes": "Screen layout, 25 pages. The gate counts pictures only inside figure environments, and this book has none, so the 37 picture rows and the cover are not listed. They were looked at anyway: every strip on contact sheets of the source images, all 25 pages on the page contact sheet, and pages 2, 3, 4, 12, 19, 23, 24 and 25 at 100 dpi. Checked on those: two cards fill each card page; the three pictures sit inside the card with equal gutters; no grid row wraps; Stamp fits its card. Odds corrected the same day (brushes two times in three, not even odds): the odds rows, the What it picks paragraph and the back tables changed. Pages 3, 12 and 23 were re-read at 100 dpi and the three margin drawings re-cropped; the page count is unchanged at 25."
 }

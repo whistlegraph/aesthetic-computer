@@ -45,7 +45,7 @@ must("rsync", ["-az", "tests/browser/book-kit.mjs", "tests/browser/brushbook.e2e
   "papers/arxiv-nopaint-brushbook/brushes.json", `${HOST}:${DIR}/`]);
 if (steps) {
   must("rsync", ["-az", "tests/browser/classic-steps.e2e.mjs", "system/public/aesthetic.computer/lib/nopaint-pieces.mjs",
-    "system/public/aesthetic.computer/lib/painting-state.mjs", `${HOST}:${DIR}/`]);
+    "system/public/aesthetic.computer/lib/painting-state.mjs", "toolchain/nopaint/classic-picker.js", "toolchain/nopaint/classic-tuning.json", `${HOST}:${DIR}/`]);
   const played = run("ssh", [HOST, `cd ${DIR} && rm -rf out-steps && zsh -lic 'OUT=out-steps node classic-steps.e2e.mjs'`]);
   mkdirSync(new URL("tmp/nopaint-steps-test", `file://${ROOT}`), { recursive: true });
   must("rsync", ["-az", "--delete", `${HOST}:${DIR}/out-steps/`, "tmp/nopaint-steps-test/"]);

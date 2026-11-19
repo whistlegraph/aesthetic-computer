@@ -48,7 +48,13 @@ more of a design system there". What changed:
   Cards with more than four option rows pair them.
 
 ## Read in the source, not run
-- The even pick between the two tables: `AdvancedRandom.setProbabilityTable(choose("Brushes", "Filters"))` in the Index and Core sheets.
+- The pick between the two tables. CORRECTED 2026-11-18: the first build of this
+  book said "even odds", read from `setProbabilityTable(choose("Brushes", "Filters"))`.
+  That line runs only for a `?` typed at the prompt or written in a playlist. The
+  main loop (Index sheet, "Random") is an OR block: Brushes when `firstIndex` is
+  true or `choose(0, 1, 2)` is not 0, else Filters, with a loop that re-picks a
+  filter equal to the last one. So: first proposal a brush, then brushes two times
+  in three, no filter twice running. The odds rows and tables were recomputed.
 - Blank or `?` at the prompt picks at random (Core, function GoToBrush).
 - The page credit is the `author` meta tag of the served index.html.
 - Save gives an eight-character code (system/backend/nopaint-classic.mjs); the

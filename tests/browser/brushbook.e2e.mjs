@@ -58,6 +58,10 @@ const LINES = {
 const ON_CARD = new Set(["Breathe"]);
 // Brushes that take a while to get anywhere: watch them longer (ms).
 const LOOKS = { Walker: 9000, Bubbles: 6000, Caterpillar: 6000 };
+// What the options a brush chose for itself must look like. Stamp, Softy and
+// Build pick from weighted tables of their own; the tuned picker
+// (toolchain/nopaint/classic-bridge.js) must leave those picks to the game.
+const CHOSE = { Stamp: /@\w+ \d+/, Softy: / [SML] [0-9A-F]{6}$/ };
 const startsOnCard = (brush) => brush.table === "Filters" || ON_CARD.has(brush.name);
 // A playlist is a written sequence: some of its steps paint by themselves and
 // some wait for you. It is watched, not answered: it passes when it has
@@ -212,6 +216,7 @@ async function decide(browser, base, brush, decision) {
     r.changed = r.after.hash !== r.before.hash;
     if (decision === "paint") r.png = await savePng(page, slug(`${brush.name}-painted`));
     r.pass = decision === "paint" ? r.changed : !r.changed;
+    if (CHOSE[brush.name] && !process.env.LINE && !CHOSE[brush.name].test(r.said || "")) { r.pass = false; r.error = `it chose "${r.said}", which is not what ${brush.name} chooses`; }
   } catch (e) {
     if (e !== null) { r.error = String(e?.message || e).slice(0, 240); r.pass = false; }
   }

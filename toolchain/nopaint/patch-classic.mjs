@@ -42,21 +42,24 @@ function replace(file, name, from, to) {
       return text.replace(from, () => to);
     },
     revert(text) {
-      if (count(text, to) === 0 && count(text, from) === 1) return text; // not applied
-      if (count(text, to) !== 1 || count(text, from) !== 0) throw new Error(`${name}: cannot tell whether it is applied`);
+      // The new text may hold the old one (a suffix added), so count the new first.
+      const applied = count(text, to);
+      if (applied === 0 && count(text, from) === 1) return text; // not applied
+      if (applied !== 1 || (!to.includes(from) && count(text, from) !== 0)) throw new Error(`${name}: cannot tell whether it is applied`);
       return text.replace(to, () => from);
     },
   };
 }
 
-// Add a source file to the end, between two marker lines.
+// Add a source file to the end, between two marker lines. `source` is a file,
+// or a function that returns the text.
 function append(file, name, source) {
   const begin = `\n/* nopaint-patch:${name}:begin */\n`, end = `\n/* nopaint-patch:${name}:end */\n`;
   return {
     file, name,
     apply(text) {
       if (text.includes(begin)) throw new Error(`${name}: already applied`);
-      return text + begin + readFileSync(source, "utf8").trimEnd() + end;
+      return text + begin + (typeof source === "function" ? source() : readFileSync(source, "utf8")).trimEnd() + end;
     },
     revert(text) {
       const at = text.indexOf(begin);
@@ -181,7 +184,13 @@ export function json(file, name, ops) {
 export const PATCHES = [
   // 2026-11-04 (762637e3e1): the splash link follows the studio's move.
   replace("scripts/c3runtime.js", "whistlegraph-org", '"https://whistlegraph.com"', '"https://whistlegraph.org"'),
-  // 2026-11-18: page ↔ game messages for the brush test and step storage.
+  // 2026-11-18: the odds of each proposal, as parameters. The picker is the
+  // rule; the tuning is the numbers (classic-tuning.json; print them with
+  // classic-odds.mjs). To tune: edit the JSON, run this script, test, deploy.
+  append("scripts/c3runtime.js", "picker", new URL("./classic-picker.js", import.meta.url)),
+  append("scripts/c3runtime.js", "tuning", () => `self.nopaintTuning = ${JSON.stringify(JSON.parse(readFileSync(new URL("./classic-tuning.json", import.meta.url), "utf8")))};`),
+  // 2026-11-18: page ↔ game messages for the brush test and step storage,
+  // and the hook that makes the game pick by the tuning.
   append("scripts/c3runtime.js", "bridge", new URL("./classic-bridge.js", import.meta.url)),
 ];
 
