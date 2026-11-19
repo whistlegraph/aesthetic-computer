@@ -156,6 +156,12 @@ export function createRaxServer({
   // of the tower. What stood inside each goes up to its handle's floor; both
   // ledgers are kept as they stood (geography.before-houses.json,
   // objects.before-houses.json). Runs once: after it there are no houses.
+  // 📺 The lobby's own screens: three KidLisp pieces running on its walls,
+  // facing in (east, west behind the desk, and north beside the car), so
+  // there is always something live to walk up to, and to watch a screen's
+  // grid coarsen with distance (screen-lod.mjs). Each is four metres wide.
+  // Stood once; whoever keeps the plaza can take one down.
+  const LOBBY_SCREENS = [['roz', 7.2, 4.6, 90], ['bop', -7.2, 4.6, 270], ['berz', 4.9, 7.7, 0]];
   const ready = loaded.then(async () => {
     const pods = Object.values(geography.geography.pods);
     if (!pods.length) return;
@@ -516,6 +522,11 @@ export function createRaxServer({
     maxPayload: 8192,
     perMessageDeflate: false,
   });
+  void ready.then(async () => {
+    const have = new Set(store.screens(GROUND).map((s) => s.id));
+    for (const [code, x, z, yaw] of LOBBY_SCREENS)
+      if (!have.has(`lobby-${code}`)) await store.addScreen(GROUND, { id: `lobby-${code}`, owner: null, code, x, z, yaw, at: Date.now() });
+  }).catch(() => {});
   const builderWss = new WebSocketServer({
     noServer: true,
     maxPayload: 32768,
@@ -1064,7 +1075,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         else {
           found = to === 'up' ? t.step(here ? here.number : 0, 1)
             : to === 'down' ? (here ? t.step(here.number, -1) : null)
-            : to === 'home' ? (member.handle ? t.forHandle(member.handle) : null) : t.resolve(to);
+            : to === 'home' ? (member.handle ? t.forHandle(member.handle) : null)
+            : ['top', 'roof', 'penthouse', 'the top'].includes(to) ? t.at(t.top) // 🔝 the highest floor there is
+            : t.resolve(to);
           if (to === 'down' && here && !found) destination = GROUND;
           else if (found) destination = floorRoom(found.id);
         }

@@ -1983,7 +1983,7 @@ export async function createView(canvas) {
                     // Looking on. (No way in is offered here: signing up
                     // and taking a handle belong to the paper, 2026-11-18.)
                     hintSpans(
-                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [Y] drone' : 'look / {wasd} / {space} up / {shift} down / {v} drone',
+                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [Y] drone / [X] lock on' : 'look / {wasd} / {space} up / {shift} down / {v} drone / {z} lock on',
                       THEME.text,
                     ),
                   ]

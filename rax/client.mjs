@@ -646,17 +646,18 @@ function selectables() {
 function setLock(id) {
   if (id && !lockOn) {
     thirdBeforeLock = third;
-    third = true;
+    if (seat >= 0) third = true;
   }
   if (!id && lockOn) third = thirdBeforeLock;
   lockOn = id ? { id, wall: id.startsWith('wall:') } : null;
 }
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
-  if (!player || !lockOn) return;
+  const from = player || (seat < 0 ? freecam : null);
+  if (!from || !lockOn) return;
   const bearing = (id) => {
     const p = spotOf(id);
-    return p ? (((Math.atan2(p.x - player.x, p.z - player.z) * 180) / Math.PI - yaw + 540) % 360) - 180 : null;
+    return p ? (((Math.atan2(p.x - from.x, p.z - from.z) * 180) / Math.PI - yaw + 540) % 360) - 180 : null;
   };
   const list = selectables()
     .map((id) => ({ id, b: bearing(id) }))
@@ -1839,7 +1840,7 @@ document.addEventListener('keydown', (e) => {
   // Lock on, as the pad's LB does (2026-11-08): Z toggles it, [ and ]
   // change it like the d-pad, and delete removes the locked object at once
   // (the lock is the confirmation, as B on the pad).
-  if (seat >= 0 && e.code === 'KeyZ' && !e.repeat) {
+  if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) { // (a drone locks on too, to look a thing over)
     setLock(lockOn ? null : focusObject?.id || null);
     sfx[lockOn ? 'ringOpen' : 'ringBack']();
   }
@@ -2132,12 +2133,14 @@ function step(now) {
   }
   // LB toggles a lock on the aimed object; while locked, B removes it (the
   // lock is the confirmation) and RB changes it.
-  if (gamepad.ring && seat >= 0 && !prompt.open) {
+  // (Looking on, LB flies down, so the lock is on X; B lets go.)
+  if (seat < 0 && lockOn && gamepad.cancel) setLock(null);
+  if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !prompt.open) {
     setLock(lockOn ? null : focusObject?.id || null);
     sfx[lockOn ? 'ringOpen' : 'ringBack']();
   }
   if (lockOn && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1);
-  if (lockOn && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
+  if (lockOn && seat >= 0 && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
     send({ type: 'remove', objectId: lockOn.id });
     setLock(null);
     gamepad.cancel = false;
@@ -2212,11 +2215,11 @@ function step(now) {
     if (seat >= 0 && gamepad.camera) third = !third;
     if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
-  if (lockOn && player) {
-    const target = spotOf(lockOn.id);
+  if (lockOn && (player || seat < 0)) {
+    const target = spotOf(lockOn.id), from = player || freecam; // (a drone turns its eye to it)
     if (!target) setLock(null);
     else {
-      const dx = target.x - player.x, dz = target.z - player.z, dy = target.y - player.y;
+      const dx = target.x - from.x, dz = target.z - from.z, dy = target.y - from.y;
       const wantYaw = (Math.atan2(dx, dz) * 180) / Math.PI;
       const wantPitch = (Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
       const dyaw = ((wantYaw - yaw + 540) % 360) - 180;
@@ -2388,12 +2391,14 @@ function step(now) {
   // Off (2026-11-03): the aim is the crosshair's normal, with pointer lock for
   // mouse look; a free mouse does not drag the aim around.
   cursorAim = CURSOR_AIM && !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
-  if (player) {
+  // 🚁 Someone looking on aims too (their drone's eye): to scan what stands there and lock on to it.
+  const aimer = player || (seat < 0 && !held && snapshot && sheetOpen ? freecam : null), hand = seat >= 0 ? seat : -2;
+  if (aimer) {
     // The aim ray: from the camera, through the free mouse or along the
     // camera's own centre (the crosshair's normal), never from the player's
     // position with the raw yaw and pitch.
     const ray = cursorAim ? view.aimRay(mouseAt.x, mouseAt.y) : view.aimForward();
-    const origin = ray ? view.aimOrigin() || player : player;
+    const origin = ray ? view.aimOrigin() || aimer : aimer;
     const dir = ray || direction(yaw, pitch);
     let nearest = wallDistance(origin, dir, 60, [], 0, half());
     for (const box of objectBoxes(solids(), worldTime)) {
@@ -2406,11 +2411,11 @@ function step(now) {
     // Items can be aimed at (and so edited) where they really are: loose on
     // the floor, or in your own hand.
     for (const it of snapshot?.items || []) {
-      if (it.holder >= 0 && it.holder !== seat) continue;
+      if (it.holder >= 0 && it.holder !== hand) continue;
       const r = 0.6;
       const box = { xMin: it.x - r, xMax: it.x + r, yMin: it.y - 0.1, yMax: it.y + 1.2, zMin: it.z - r, zMax: it.z + r };
-      const distance = it.holder === seat ? 0.5 : rayBox(origin, dir, box, nearest);
-      if (distance < nearest && it.holder !== seat) {
+      const distance = it.holder === hand ? 0.5 : rayBox(origin, dir, box, nearest);
+      if (distance < nearest && it.holder !== hand) {
         nearest = distance;
         focusObject = objects.find((o) => o.id === it.id);
       }
@@ -2430,7 +2435,7 @@ function step(now) {
     }
     // The floor square under the crosshair, within reach, if nothing nearer.
     floorAim = null;
-    if (dir.y < -0.02) {
+    if (dir.y < -0.02 && player) {
       const t = -origin.y / dir.y;
       // The floor is one of the walls the ray can meet: when nothing stands
       // before it, the two distances are the same, so the floor must not
@@ -2450,7 +2455,7 @@ function step(now) {
     }
     // Holding something with nothing else aimed at: the held item is the one to edit.
     if (!focusObject) {
-      const mine = snapshot?.items?.find((it) => it.holder === seat);
+      const mine = snapshot?.items?.find((it) => it.holder === hand);
       if (mine) focusObject = objects.find((o) => o.id === mine.id) || null;
     }
   }
