@@ -808,7 +808,15 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     const old = ws;
     ws = null; // its close is ours, not an outage
     old.close();
-    connect();
+    // 🚪 The next room's door is already open: step through it.
+    const door = warm.get(to);
+    if (door) warm.delete(to);
+    coolDown();
+    if (walk && door?.ready && door.socket.readyState === WebSocket.OPEN) connect(door);
+    else {
+      if (door) { door.socket.onclose = door.socket.onerror = door.socket.onmessage = null; try { door.socket.close(); } catch {} }
+      connect();
+    }
   } else void peekRoom();
   if (held && owed.length) {
     pending = owed.map((c, i) => ({ ...c, seq: i + 1 }));
@@ -816,7 +824,61 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     for (const c of pending) held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk, until: held.until };
   }
 }
-function connect() {
+// 🚪 The rooms next door, held open while you are near their seam: each
+// has answered and knows who you are, and waits (wait=1). Stepping over,
+// the passage is handed to the one already open, so there is no new
+// connection to make. Its room's words are kept to be heard on stepping in.
+const WARM_NEAR = 6, WARM_FAR = 7; // metres from a block's line: open within, let go beyond
+const warm = new Map(); // room → { socket, words, ready }
+function warmUp(to) {
+  if (warm.has(to) || warm.size >= 2) return;
+  const url = new URL('./play', import.meta.url);
+  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  url.search = new URLSearchParams({ room: to, protocol: PROTOCOL, wait: '1', ...(accountExpected() ? { account: '1' } : {}) });
+  const entry = { socket: new WebSocket(url), words: [], ready: false };
+  warm.set(to, entry);
+  entry.socket.onmessage = (e) => {
+    if (typeof e.data !== 'string' || e.data.startsWith('{"type":"snapshot"')) return; // the room's motion is not kept
+    let type = '';
+    try { type = JSON.parse(e.data).type; } catch { return; }
+    if (type === 'whereabouts' || type === 'ball' || type === 'gate') return;
+    if (entry.words.length < 256) entry.words.push(e.data);
+    if (type === 'welcome') {
+      // Say who is at the door now, so the step in has nothing to wait for.
+      entry.ready = true;
+      let token;
+      try { token = localStorage.getItem('rax-owner'); } catch {}
+      entry.socket.send(JSON.stringify({ type: 'identity', token }));
+      if (accountExpected()) void accountToken().then((accessToken) => {
+        if (accessToken && warm.get(to) === entry && entry.socket.readyState === WebSocket.OPEN) entry.socket.send(JSON.stringify({ type: 'account', accessToken }));
+      });
+    }
+  };
+  entry.socket.onclose = entry.socket.onerror = () => { if (warm.get(to) === entry) warm.delete(to); };
+}
+function coolDown(keep = null) {
+  for (const [to, entry] of warm) {
+    if (to === keep) continue;
+    warm.delete(to);
+    entry.socket.onclose = entry.socket.onerror = entry.socket.onmessage = null;
+    try { entry.socket.close(1000, 'walked away'); } catch {}
+  }
+}
+// Each frame: which neighbours' lines are you near?
+function tendWarm() {
+  if (!(park?.neighbours && player && seat >= 0 && sheetOpen && !held)) { if (!held) coolDown(); return; }
+  const h = half(), near = [];
+  for (const [side, d] of [['east', h - player.x], ['west', h + player.x], ['north', h - player.z], ['south', h + player.z]]) {
+    const to = park.neighbours[side];
+    if (!to) continue;
+    if (d < (warm.has(to) ? WARM_FAR : WARM_NEAR)) near.push([d, to]);
+  }
+  near.sort((a, b) => a[0] - b[0]);
+  const wanted = near.slice(0, 2).map(([, to]) => to);
+  for (const to of [...warm.keys()]) if (!wanted.includes(to)) { const e = warm.get(to); warm.delete(to); e.socket.onclose = e.socket.onerror = e.socket.onmessage = null; try { e.socket.close(1000, 'walked away'); } catch {} }
+  for (const to of wanted) warmUp(to);
+}
+function connect(adopt = null) {
   bootMark('connect');
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -843,9 +905,17 @@ function connect() {
   gate = null;
   joiningUntil = performance.now() + 7000;
   connectAttempts++;
-  logNet(`connecting to room ${room} (try ${connectAttempts})`);
-  ws = new WebSocket(url);
+  logNet(adopt ? `stepping into room ${room} (its door was open)` : `connecting to room ${room} (try ${connectAttempts})`);
+  ws = adopt ? adopt.socket : new WebSocket(url);
   const socket = ws;
+  socket.onclose = socket.onerror = null;
+  // The door was open: hear what the room said while it waited, then hand
+  // in the passage (after this function has set the socket's ears).
+  if (adopt) queueMicrotask(() => {
+    if (socket !== ws) return;
+    for (const word of adopt.words) socket.onmessage({ data: word });
+    if (socket === ws && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'arrive', passage }));
+  });
   socket.onopen = () => {
     if (socket === ws) { bootMark('open'); logNet('socket open', { good: true }); }
   };
@@ -2170,6 +2240,7 @@ function step(now) {
     }
   }
   if (performance.now() - worldAt > 6000 && !document.hidden) void streamWorld();
+  tendWarm();
   if (park?.neighbours && player && seq !== firstSequence) {
     // A home is its lot: walking over a front is only walking. Off a side
     // with a neighbour, the next block takes the walker.

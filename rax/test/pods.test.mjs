@@ -218,6 +218,38 @@ test('a passage seats a signed-in walker with their handle before the account is
   assert.equal(app.rooms.get('e1n0').match.seats[landed.seat].player.x,travel.at.x);
 });
 
+test('a door held open: a walker near a seam waits in the next room unseated, and the passage handed to that socket seats them where they crossed', async t => {
+  const {app,base,connect}=await fixture(t);
+  const a=await connect('lobby','jeffrey');
+  await wait(()=>[...app.rooms.get('lobby').sessions.values()].some(m=>m.handle==='jeffrey'&&m.seat>=0));
+  // The door: open, known (the page's own word and the account), and not seated.
+  const params=new URLSearchParams({room:'e1n0',protocol:PROTOCOL,account:'1',wait:'1'});
+  const ws=new WebSocket(base.replace('http','ws')+'/play?'+params), messages=[];
+  t.after(()=>ws.close());
+  ws.on('message',raw=>messages.push(JSON.parse(raw)));
+  await once(ws,'open');
+  ws.send(JSON.stringify({type:'identity',token:a.token}));
+  ws.send(JSON.stringify({type:'account',accessToken:'jeffrey'}));
+  await wait(()=>messages.some(m=>m.type==='identity'));
+  await new Promise(r=>setTimeout(r,150));
+  const door=()=>[...app.rooms.get('e1n0').sessions.values()][0];
+  assert.equal(door().seat,-1,'at the door, not in the room');
+  assert.equal(app.rooms.get('e1n0').match.seats.filter(Boolean).length,0);
+  // The step: the plaza gives the passage, and it is handed to the open door.
+  const member=[...app.rooms.get('lobby').sessions.values()][0];
+  Object.assign(app.rooms.get('lobby').match.seats[member.seat].player,{x:8.3,z:0.2,y:1.7,yaw:90,vx:6});
+  a.ws.send(JSON.stringify({type:'walk',edge:'east'}));
+  await wait(()=>a.messages.some(m=>m.type==='travel'));
+  const travel=a.messages.find(m=>m.type==='travel');
+  const before=Date.now();
+  ws.send(JSON.stringify({type:'arrive',passage:travel.passage}));
+  await wait(()=>messages.some(m=>m.type==='arrival'));
+  assert.ok(Date.now()-before<200,'seated in a word each way');
+  assert.ok(door().seat>=0);
+  assert.equal(app.rooms.get('e1n0').match.seats[door().seat].player.x,travel.at.x);
+  assert.equal(door().handle,'jeffrey');
+});
+
 test('the houses come down when the server starts: what stood inside goes up to the handle\'s floor, both ledgers are kept, and nobody is left resting in a house', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-retire-'));
   t.after(() => rm(dir, { recursive: true, force: true }));

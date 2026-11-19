@@ -412,7 +412,7 @@ export function createRaxServer({
       if (path === '/people') {
         res
           .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
-          .end(JSON.stringify(peopleNow({ geography: geography.geography, tower: tower.tower, seated, watching })));
+          .end(JSON.stringify(peopleNow({ geography: geography.geography, tower: tower.tower, seated, watching, ball: ball.ball })));
         return;
       }
       res
@@ -422,6 +422,7 @@ export function createRaxServer({
           tower: tower.tower,
           seated,
           watching,
+          ball: ball.ball,
           contents: (id) => ({ tiles: store.tiles(id), objects: store.objects(id), screens: store.screens(id) }),
         })));
       return;
@@ -682,7 +683,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       ws.close(1008, 'Place is not open'); return;
     }
     if (!rooms.has(key)) {
-      if (rooms.size >= 32) {
+      if (rooms.size >= 96) { // (a walker near a seam holds the next room open too)
         ws.close(1013, 'Server full');
         return;
       }
@@ -715,16 +716,22 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const webAccount = !nativeAccount && url.searchParams.get('account') === '1';
     // 🎬 watch=1 looks on without ever taking a seat (a film's camera).
     const watching = url.searchParams.get('watch') === '1';
-    const member = room.add(ws, nativeAccount || webAccount || watching);
+    // 🚪 wait=1 stands at the door: a walker near a seam opens the next
+    // room ahead of the step and says who they are, and is seated only when
+    // they hand in the passage (an `arrive` message). So the step over the
+    // line costs a word each way, not a new connection.
+    let waiting = url.searchParams.get('wait') === '1';
+    let passageAsked = url.searchParams.get('passage');
+    const member = room.add(ws, nativeAccount || webAccount || watching || waiting);
     // Nobody with a handle is here: say what the seat waits for, so the
     // page can ask for it (an account, or a handle on the account).
     const gate = () => {
-      if (guests || watching || member.handle || !room.sessions.has(ws)) return;
+      if (guests || watching || waiting || member.handle || !room.sessions.has(ws)) return;
       send(ws, { type: 'gate', needs: member.signedIn ? 'handle' : 'account' });
     };
     const seatGuest = () => {
       clearTimeout(accountHold);
-      if (room.sessions.has(ws) && !member.ready && !watching) {
+      if (room.sessions.has(ws) && !member.ready && !watching && !waiting) {
         member.ready = true;
         room.assign();
       }
@@ -748,8 +755,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // they left: it seats them where it leads as soon as the page says whose
     // it is, with the handle they wore, and the account is checked after.
     const arrive = () => {
-      if (arrived || watching) return;
-      const receipt = url.searchParams.get('passage'), pass = passages.get(receipt);
+      if (arrived || watching || waiting) return;
+      const receipt = passageAsked, pass = passages.get(receipt);
       // Whose it is: the page's owner, or (the account answered first) the
       // account the walker wore. Else the body stood two ticks at the
       // room's spawn before it was set down (seen 2026-11-19).
@@ -811,7 +818,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           passing = place !== key && !arrived;
           send(ws, { type: 'whereabouts', room: place });
         }).catch(() => {});
-        member.ready = true;
+        if (!waiting) member.ready = true;
         // The $ history is the handle's, ready before the menu opens.
         member.wantsHistory = false;
         void sendHandleHistory(ws, handle);
@@ -836,7 +843,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       } catch {
         /* Unverified sessions remain guests. */
       } finally {
-        if (room.sessions.has(ws) && !member.ready) {
+        if (room.sessions.has(ws) && !member.ready && !waiting) {
           member.ready = true;
           room.assign();
         }
@@ -962,6 +969,21 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           const message = { type: 'said', seat: who.seat, handle: who.handle, name: who.name, colors: who.colors, text: clean(text) };
           for (const client of room.clients.keys()) send(client, message);
         });
+        return;
+      }
+      // 🚪 The one at the door steps in with their passage. Not yet known
+      // (their own word still on its way)? Then when it is; and if the
+      // passage is no good, they are seated as anyone arriving would be.
+      if (data?.type === 'arrive' && waiting) {
+        waiting = false;
+        passageAsked = String(data.passage || '');
+        arrive();
+        if (!arrived) setTimeout(() => {
+          if (arrived || member.ready || !room.sessions.has(ws)) return;
+          member.ready = true;
+          room.assign();
+          gate();
+        }, 1500).unref?.();
         return;
       }
       // 🫧 The page's own count of a walk over a seam: from the old room's

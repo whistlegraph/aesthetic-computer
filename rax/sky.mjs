@@ -5,9 +5,25 @@
 // The phase runs 0 … 1 over a day: 0 is midnight, 0.25 sunrise, 0.5 noon,
 // 0.75 sunset. The sun rises in the east (+x), crosses the south (-z), where
 // the tower's door faces, and sets in the west.
-export const DAY_MS = 24 * 60 * 1000; // a day in twenty-four minutes: a minute is an hour
-export const STEPS = 480; // sky pictures in a day: one every three seconds
-export const phase = (now = Date.now()) => (((now % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+// 🌇 The day is Los Angeles's own (2026-11-19): noon in rax is noon there,
+// for everyone, whatever their clock says. (It was a day in twenty-four
+// minutes.) The zone's distance from UTC is asked once a minute, so the
+// clocks changing is followed.
+export const DAY_MS = 24 * 60 * 60 * 1000;
+export const STEPS = 480; // sky pictures in a day: one every three minutes
+const LA = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hourCycle: 'h23', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+let shiftAt = -Infinity, shift = 0;
+function zoneShift(now) {
+  if (Math.abs(now - shiftAt) > 60000) {
+    const part = Object.fromEntries(LA.formatToParts(new Date(now)).map((p) => [p.type, Number(p.value)]));
+    const there = ((part.hour * 60 + part.minute) * 60 + part.second) * 1000;
+    const utc = Math.floor(((((now % DAY_MS) + DAY_MS) % DAY_MS)) / 1000) * 1000;
+    shift = there - utc;
+    shiftAt = now;
+  }
+  return shift;
+}
+export const phase = (now = Date.now()) => ((((now + zoneShift(now)) % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
 export const stepOf = (t) => Math.floor(t * STEPS) % STEPS;
 
 const mix = (a, b, k) => {

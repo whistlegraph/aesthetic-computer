@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import { DAY_MS, STEPS, phase, stepOf, skyAt, skyColor, stars } from '../sky.mjs';
 
 test('one clock for everyone: the phase comes from the time alone and wraps each day', () => {
-  assert.equal(phase(0), 0);
-  assert.equal(phase(DAY_MS / 2), 0.5);
-  assert.equal(phase(DAY_MS * 7 + DAY_MS / 4), 0.25);
+  // Los Angeles's own day: midnight there is 0 and noon is a half, in
+  // winter (UTC-8) and in summer (UTC-7).
+  assert.equal(phase(Date.UTC(2026, 10, 19, 8)), 0);
+  assert.equal(phase(Date.UTC(2026, 10, 19, 20)), 0.5);
+  assert.equal(phase(Date.UTC(2026, 6, 1, 7)), 0);
+  assert.equal(phase(Date.UTC(2026, 6, 1, 13)), 0.25);
+  assert.equal(DAY_MS, 86400000);
   assert.equal(stepOf(0.5), STEPS / 2);
   assert.equal(stepOf(0.99999), STEPS - 1);
 });
