@@ -1111,14 +1111,26 @@ int drm_secondary_is_connected(ACDisplay *primary) {
     drmModeRes *res = drmModeGetResources(primary->fd);
     if (!res) return 0;
     int found = 0;
+    // This runs on the main loop every 3 s, so it must not probe.
+    // drmModeGetConnector makes the kernel re-detect each connector (DDC and
+    // AUX traffic): 72 ms on an empty HDMI port and 24 ms on the panel of a
+    // ThinkPad 11e, a ~120 ms stall a groovebox hears as a late beat.
+    // drmModeGetConnectorCurrent reads the state the kernel's own hotplug
+    // interrupt keeps. A full probe is paid once, for a connector that has
+    // just come up connected and has no mode list yet.
     for (int i = 0; i < res->count_connectors && !found; i++) {
-        drmModeConnector *c = drmModeGetConnector(primary->fd, res->connectors[i]);
+        if (res->connectors[i] == primary->connector_id) continue;
+        drmModeConnector *c = drmModeGetConnectorCurrent(primary->fd, res->connectors[i]);
         if (!c) continue;
-        if (c->connector_id != primary->connector_id &&
-            c->connection == DRM_MODE_CONNECTED && c->count_modes > 0 &&
-            (c->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
-             c->connector_type == DRM_MODE_CONNECTOR_HDMIB ||
-             c->connector_type == DRM_MODE_CONNECTOR_DisplayPort))
+        int external = c->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
+                       c->connector_type == DRM_MODE_CONNECTOR_HDMIB ||
+                       c->connector_type == DRM_MODE_CONNECTOR_DisplayPort;
+        if (external && c->connection == DRM_MODE_CONNECTED && c->count_modes == 0) {
+            drmModeFreeConnector(c);
+            c = drmModeGetConnector(primary->fd, res->connectors[i]);
+            if (!c) continue;
+        }
+        if (external && c->connection == DRM_MODE_CONNECTED && c->count_modes > 0)
             found = 1;
         drmModeFreeConnector(c);
     }
