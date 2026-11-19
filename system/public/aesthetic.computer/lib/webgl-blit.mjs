@@ -32,7 +32,7 @@ export function createWebGLBlitter(canvas) {
     out vec4 outColor;
     void main() {
       // Premultiplied out: WebKit shows a straight-alpha canvas as white
-      // wherever it is translucent (the curtain's veil over the dool world).
+      // wherever it is translucent (the curtain's veil over the rax world).
       vec4 c = texture(u_texture, vec2(v_uv.x, 1.0 - v_uv.y));
       outColor = vec4(c.rgb * c.a, c.a);
     }

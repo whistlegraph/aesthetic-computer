@@ -59,10 +59,10 @@ app bundle to the Trash before replacing it.
 
 On panda and chicken the field carries a live fishery (`Sources/Fishery.swift`)
 fed by the vault's `fuser-fishery` agent. All of its type is MatrixChunky8
-(`Resources/chunky8.ttf`, baked from `duel/chunky-font.mjs` by
+(`Resources/chunky8.ttf`, baked from `rax/chunky-font.mjs` by
 `bake-chunky8.py`) at whole multiples of 8 device pixels, with GNU Unifont
 (`Resources/unifont.otf`, 17.0.03) behind it for symbols, no antialiasing and
-a hard one-pixel shadow. dool is a small isometric model in the bottom left corner.
+a hard one-pixel shadow. rax is a small isometric model in the bottom left corner.
 
 ```bash
 ./push-minis.sh               # compile + swap on panda and chicken at once
@@ -83,41 +83,41 @@ interpolated, and fall back to their own feed when the stream stops.
 `toolchain/analytics/ac-fishery-wallpaper.mjs` feeds the same layer from Lith
 (signed-in handles from `account-activity`, anonymous interacted visits from
 `network-visits`, an hour of visits per site, 24 h of referrers) and asks for
-`school: "walkers"`: everyone is drawn as one of dool's people (shirt in a dool
+`school: "walkers"`: everyone is drawn as one of rax's people (shirt in a rax
 seat colour, white head, purple brain cap, legs stepping with the ground they
 cover) instead of a fish. Feeder categories may bring their own `glyph`,
 `color` and `chart`. Agent: `computer.aesthetic.ac-fishery.plist`.
 
-## dool from the air
+## rax from the air
 
-In the bottom left corner, above "came from", sits dool as a small wireframe
+In the bottom left corner, above "came from", sits rax as a small wireframe
 model (`Sources/FlyBy.swift`): the plaza with the tower over it (legs, glass
 lobby, the car and its shaft, a slab a floor), every open block with its lots
 and houses, the next six blocks of the spiral drawn faint, and what stands in
 each room. It is seen whole from an isometric angle, with no perspective and
 no frame, and swings slowly side to side; the census sits under it.
 
-The model is drawn from dool's own map and from nothing else:
+The model is drawn from rax's own map and from nothing else:
 
-    dool server  GET /dool/map (duel/map.mjs)
+    rax server  GET /rax/map (rax/map.mjs)
       → feeder   ac-fishery-wallpaper.mjs passes it through as `world`,
                  and again as world.json whenever it changes
       → FlyBy    draws the shapes it is given
 
-`duel/map.mjs` works every shape out from the measurements the server walks
-people against and the page draws from, and `duel/test/map.test.mjs` fails
-when a solid is missing from it. The feeder imports nothing from `duel/` and
-FlyBy holds none of dool's measurements, so neither can fall out of step.
+`rax/map.mjs` works every shape out from the measurements the server walks
+people against and the page draws from, and `rax/test/map.test.mjs` fails
+when a solid is missing from it. The feeder imports nothing from `rax/` and
+FlyBy holds none of rax's measurements, so neither can fall out of step.
 A shape is a `flat`, `box`, `stack` or `panel` with a `role`; FlyBy colours
 the roles it knows and draws any other in plain ink. To put something new on
-the wallpaper, add its shapes to `duel/map.mjs` and deploy dool.
+the wallpaper, add its shapes to `rax/map.mjs` and deploy rax.
 
 The ground is to scale. The tower is to scale for as many floors as fit
 (`rise` in FlyBy), then broken: three dots, its top two slabs, and the number
 of the top floor. Someone on a floor above the break stands on the top slab
 with their floor number after their handle.
 
-The fast lane asks for the map every second while someone is in dool and
+The fast lane asks for the map every second while someone is in rax and
 every five otherwise; the wallpaper looks for world.json twice a second. The
 swing starts over only when what stands for good changes, or the rooms gain
 their first thing or lose their last.

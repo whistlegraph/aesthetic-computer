@@ -285,15 +285,15 @@ let promptGlazeEnabled = true;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
 let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
-// 🎯 Dool: the world under the paper. A crosshair waits bottom-right of the
-// curtain; a tap flies it to the centre, then bios drops the paper into dool.
-let doolBtn;
-let doolFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
-// `room` drops into that room of dool rather than wherever it was.
-function openDool(send, room) {
+// 🎯 Rax: the world under the paper. A crosshair waits bottom-right of the
+// curtain; a tap flies it to the centre, then bios drops the paper into rax.
+let raxBtn;
+let raxFlight = null; // { at, phase: "out" | "away" | "back", awayAt }
+// `room` drops into that room of rax rather than wherever it was.
+function openRax(send, room) {
   const now = performance.now();
-  doolFlight = { at: now, phase: "held", awayAt: now };
-  send({ type: "dool:sheet", content: { action: "show", value: room } });
+  raxFlight = { at: now, phase: "held", awayAt: now };
+  send({ type: "rax:sheet", content: { action: "show", value: room } });
 }
 
 // 🔤 Sigil autocomplete: suggest from the already-in-memory media feed
@@ -1179,11 +1179,11 @@ async function boot({
   if (colon?.includes("poe")) theme = "poe";
   // 🎭 Load the mime feed under the curtain on idle, so a swipe never waits.
   if (theme === "default") send({ type: "mime:sheet", content: { action: "warm" } });
-  // 🎯 And the dool world, so the paper drops onto a room already built.
-  if (theme === "default") send({ type: "dool:sheet", content: { action: "warm" } });
-  // `?dool` (a minted object's doorway) arrives with the room already up: the
+  // 🎯 And the rax world, so the paper drops onto a room already built.
+  if (theme === "default") send({ type: "rax:sheet", content: { action: "warm" } });
+  // `?rax` (a minted object's doorway) arrives with the room already up: the
   // paper drops as soon as the guest says hello, no crosshair flight.
-  if (theme === "default" && query?.dool) send({ type: "dool:sheet", content: { action: "show" } });
+  if (theme === "default" && (query?.rax || query?.dool)) send({ type: "rax:sheet", content: { action: "show" } });
   // ✨ URL override for flair (e.g. `prompt:noflair` / `prompt:flair`). Non-
   // persisting — the `flair` command still owns the saved preference. Handy for
   // a clean attract screen and for the FPS regression test.
@@ -2147,16 +2147,16 @@ async function route($, text) {
   } else if (slug === "mime") {
     jump("https://aesthetic.computer/mime/");
     return true;
-  } else if (slug === "dool") {
-    // `dool <room>` (aesthetic.computer/dool~room) drops into that room.
+  } else if (slug === "rax" || slug === "dool") { // (dool: its name until 2026-11-18)
+    // `rax <room>` (aesthetic.computer/rax~room) drops into that room.
     const room = /^[a-z0-9-]{1,32}$/.test(params[0] || "") ? params[0] : undefined;
-    openDool(send, room);
+    openRax(send, room);
     return true;
   } else if (slug === "botbop") {
-    // 🤖 dool's side-on arena (duel/bop.mjs); `botbop <name>`
+    // 🤖 rax's side-on arena (rax/bop.mjs); `botbop <name>`
     // (aesthetic.computer/botbop~name) is a room of its own.
     const name = /^[a-z0-9-]{1,24}$/.test(params[0] || "") ? params[0] : "";
-    openDool(send, name ? `botbop-${name}` : "botbop");
+    openRax(send, name ? `botbop-${name}` : "botbop");
     return true;
   } else if (slug === "bills") {
     // 💸 Jump to billing dashboard
@@ -5387,14 +5387,14 @@ function paint($) {
     $.system.prompt.input.enter.txt = langButtons.enter;
   }
 
-  // 🎯 The curtain is clear: the dool world (bios's underlay, lib/dool-sheet.mjs)
+  // 🎯 The curtain is clear: the rax world (bios's underlay, lib/rax-sheet.mjs)
   // shows through, with the buttons and the wordmark over it. The prompt's
   // text input paints the palette background over its whole frame after
   // this, so the palette goes clear with the curtain. In dark mode the glaze
   // carries the canvas's alpha, so the world shows through it too.
-  if (theme === "default" && doolDarkSent !== !!$.dark) {
-    doolDarkSent = !!$.dark;
-    $.send({ type: "dool:sheet", content: { action: "theme", value: doolDarkSent } });
+  if (theme === "default" && raxDarkSent !== !!$.dark) {
+    raxDarkSent = !!$.dark;
+    $.send({ type: "rax:sheet", content: { action: "theme", value: raxDarkSent } });
   }
   const curtainClear = theme === "default" && !$.system.prompt.input.canType &&
     !$.system.prompt.input.text &&
@@ -6054,7 +6054,7 @@ function paint($) {
     const cw = 7 * s; // the font's advance plus a pixel of tracking
     const gh = 10 * s, depth = 2 * s;
     const x0 = Math.floor((screen.width - (word.length * cw - s)) / 2);
-    // The slab's foot sits on the same bottom margin as the handle and dool's crosshair.
+    // The slab's foot sits on the same bottom margin as the handle and rax's crosshair.
     const baseY = screen.height - gh - depth - WELCOME_MARGIN;
     mimeBox = { x: x0 - 1, y: baseY - 3, w: word.length * cw + 2, h: gh + depth + 4 };
     const cx = Math.floor(screen.width / 2);
@@ -6371,8 +6371,8 @@ function paint($) {
     // ✨ Starfield on the backdrop layer, under everything else on the curtain.
     if (flairEnabled && starsEnabled && theme === "default") {
       $.layer(0);
-      // Winter: the snow now falls in 3D inside the dool world under the
-      // curtain (duel/view.mjs), so the flat curtain snow rests.
+      // Winter: the snow now falls in 3D inside the rax world under the
+      // curtain (rax/view.mjs), so the flat curtain snow rests.
       if (!CURTAIN_WORLD_SNOW) paintSnow($);
       $.layer(1);
     }
@@ -6756,10 +6756,10 @@ function paint($) {
       mailBtn = undefined;
     }
 
-    // 🎯 Dool waits under the paper: its own square reticle, bottom-right of
+    // 🎯 Rax waits under the paper: its own square reticle, bottom-right of
     // the curtain. Tapped, it flies to the centre and grows while the paper
     // drops; when the paper comes back it flies home again.
-    if (curtainIdle || doolFlight) {
+    if (curtainIdle || raxFlight) {
       const now = performance.now();
       const side = (s) => 16 * s; // four corners about a dot: 2 × (7 + 1) units
       const home = { x: screen.width - 14 - side(1), y: screen.height - 14 - side(1) };
@@ -6768,73 +6768,73 @@ function paint($) {
         y: Math.floor((screen.height - side(s)) / 2),
       });
       const mix = (a, b, t) => ({ x: Math.round(a.x + (b.x - a.x) * t), y: Math.round(a.y + (b.y - a.y) * t) });
-      // Dool draws on the prompt's own pixel grid at HUD unit 1 (hud.mjs
-      // hudLayout under lib/dool-sheet.mjs), so the crosshair lands at the
+      // Rax draws on the prompt's own pixel grid at HUD unit 1 (hud.mjs
+      // hudLayout under lib/rax-sheet.mjs), so the crosshair lands at the
       // size it left: one graphic element carries across the paper's drop.
       const unitAway = 1;
       let at = home, scale = 1, lit = false;
-      if (doolFlight) {
-        const t = Math.min(1, (now - doolFlight.at) / 360);
+      if (raxFlight) {
+        const t = Math.min(1, (now - raxFlight.at) / 360);
         const ease = 1 - (1 - t) * (1 - t);
         scale = 1 + ease * (unitAway - 1);
-        if (doolFlight.phase === "out") {
+        if (raxFlight.phase === "out") {
           at = mix(home, centre(scale), ease);
           if (t >= 1) {
-            doolFlight.phase = "away";
-            doolFlight.awayAt = now;
-            $.send({ type: "dool:sheet", content: { action: "show" } });
+            raxFlight.phase = "away";
+            raxFlight.awayAt = now;
+            $.send({ type: "rax:sheet", content: { action: "show" } });
           }
-        } else if (doolFlight.phase === "held") {
+        } else if (raxFlight.phase === "held") {
           at = home;
           scale = 1;
           lit = false;
           // The loop sleeps from the tap until the paper is home again, so
           // any frame painted after the tap means the paper is back: ready
           // for the next tap at once (a 1.5 s wait swallowed quick re-entries).
-          if (now - doolFlight.awayAt > 200) doolFlight = null;
-        } else if (doolFlight.phase === "away") {
+          if (now - raxFlight.awayAt > 200) raxFlight = null;
+        } else if (raxFlight.phase === "away") {
           at = centre(unitAway);
           scale = unitAway;
           // The loop sleeps while the paper is away; a frame this long after
           // means it is home again (or the drop never came).
-          if (now - doolFlight.awayAt > 800) doolFlight = { at: now, phase: "back" };
+          if (now - raxFlight.awayAt > 800) raxFlight = { at: now, phase: "back" };
         } else {
           scale = unitAway - ease * (unitAway - 1);
           at = mix(centre(unitAway), home, ease);
-          if (t >= 1) doolFlight = null;
+          if (t >= 1) raxFlight = null;
         }
       }
-      const hot = !doolFlight && doolBtn?.over;
+      const hot = !raxFlight && raxBtn?.over;
       // Hovered, the crosshair blinks between a wide yellow select outline
       // and a tight teal inner one, hinting at locking on (2026-11-03); the
-      // room inside follows its size exactly (lib/dool-sheet.mjs "near").
+      // room inside follows its size exactly (lib/rax-sheet.mjs "near").
       const lockBlink = hot && Math.floor(now / 260) % 2 === 0;
       const grow = lockBlink ? 2 : 0;
       if (hot) $.needsPaint?.();
       // Sent on every whole-pixel change, so the room is always exactly the
       // crosshair's size (no easing on either side).
-      if (grow !== doolNearSent) {
-        doolNearSent = grow;
-        $.send({ type: "dool:sheet", content: { action: "near", value: (7 + grow) / 7 } });
+      if (grow !== raxNearSent) {
+        raxNearSent = grow;
+        $.send({ type: "rax:sheet", content: { action: "near", value: (7 + grow) / 7 } });
       }
 
       // Hover: a soft cyan glow, the arms spread a pixel, a soft tone as the
       // pointer arrives (2026-11-03).
-      if (hot && !doolHover) {
+      if (hot && !raxHover) {
         try { $.sound.synth({ type: "sine", tone: 1046.5, attack: 0.005, decay: 0.85, duration: 0.05, volume: 0.12 }); } catch {}
       }
-      doolHover = !!hot;
+      raxHover = !!hot;
       const s = Math.max(1, Math.round(scale));
-      const t = s, arm = 4 * s, half = (7 + (doolFlight ? 0 : grow)) * s;
+      const t = s, arm = 4 * s, half = (7 + (raxFlight ? 0 : grow)) * s;
       // (No glow on hover: the lock-on blink is the whole hover.)
       // The centre stays put as the arms spread (it used to grow from the corner).
       const ox = at.x + 8 * s, oy = at.y + 8 * s; // the reticle's centre
       // AC's cursor cyan, except the hover blink's yellow select and teal
       // inner phases; the press stays cyan for the handoff to the world.
-      const color = !hot || doolFlight ? ($.dark ? [0, 255, 255] : [0, 196, 214]) : lockBlink ? ($.dark ? [255, 224, 102] : [232, 150, 0]) : [0, 190, 175];
+      const color = !hot || raxFlight ? ($.dark ? [0, 255, 255] : [0, 196, 214]) : lockBlink ? ($.dark ? [255, 224, 102] : [232, 150, 0]) : [0, 190, 175];
       // Every shadow first, then every stroke: with no depth here, a
       // vertical arm's shadow drawn after its neighbour's stroke bit a black
-      // notch out of the bottom-left corner (2026-11-03). dool's depth test
+      // notch out of the bottom-left corner (2026-11-03). rax's depth test
       // keeps its strokes on top on its own.
       const parts = [];
       const L = (x, y, w, h) => parts.push([x, y, w, h]);
@@ -6848,13 +6848,13 @@ function paint($) {
       L(-t, -t, 2 * t, 2 * t);
       for (const [x, y, w, h] of parts) $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
       for (const [x, y, w, h] of parts) $.ink(color).box(ox + x, oy + y, w, h);
-      if (!doolFlight) {
+      if (!raxFlight) {
         // A Button hit-tests through its Box, so hand it a real one.
         const hit = { x: home.x - 6, y: home.y - 6, w: side(1) + 12, h: side(1) + 12 };
-        doolBtn = doolBtn || new $.ui.Button(hit.x, hit.y, hit.w, hit.h);
-        doolBtn.box = $.geo.Box.from(hit);
-      } else doolBtn = undefined;
-    } else doolBtn = undefined;
+        raxBtn = raxBtn || new $.ui.Button(hit.x, hit.y, hit.w, hit.h);
+        raxBtn.box = $.geo.Box.from(hit);
+      } else raxBtn = undefined;
+    } else raxBtn = undefined;
 
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
@@ -8151,9 +8151,9 @@ let caretPulse = 0;
 let wasTyping = false;
 const caretFold = []; // Motes folding back into the caret when the curtain returns.
 let mimeBox = null; // The MIMEs mark's box this frame, for its halo.
-let doolHover = false; // The pointer is over the corner crosshair.
-let doolNearSent = 0; // The last nearness told to the world.
-let doolDarkSent; // The last theme told to the world: its room is dark or light with the prompt.
+let raxHover = false; // The pointer is over the corner crosshair.
+let raxNearSent = 0; // The last nearness told to the world.
+let raxDarkSent; // The last theme told to the world: its room is dark or light with the prompt.
 const CURTAIN_WORLD_SNOW = true; // The world under the curtain carries the snow.
 function paintSnow($) {
   const { width, height } = $.screen;
@@ -8389,7 +8389,7 @@ function act({
   // opens the prompt: a soft rising tone now, the chime on the release.
   {
     const inp = system.prompt.input;
-    const onButton = [login, signup, profile, commitBtn, doolBtn].some((b) => {
+    const onButton = [login, signup, profile, commitBtn, raxBtn].some((b) => {
       const box = b?.btn?.box || b?.box;
       return box && !b?.btn?.disabled && box.contains?.(e);
     });
@@ -8570,12 +8570,12 @@ function act({
     });
   };
 
-  // 🎯 Dool's crosshair, bottom-right of the curtain: a tap sends it flying
+  // 🎯 Rax's crosshair, bottom-right of the curtain: a tap sends it flying
   // to the centre, and bios drops the paper into the world once it lands.
-  if (doolFlight) {
+  if (raxFlight) {
     if (e.is("touch") || e.is("draw") || e.is("lift")) return; // The paper is on its way.
-  } else if (doolBtn) {
-    doolBtn.act(e, {
+  } else if (raxBtn) {
+    raxBtn.act(e, {
       down: () => {
         system.prompt.input.backdropTouchOff = true; // So the lift won't lift the curtain.
         send({ type: "keyboard:lock" });
@@ -8586,7 +8586,7 @@ function act({
         // One motion (2026-11-03): the world's camera starts at once and its
         // reticle carries the cursor from this corner to the centre; this
         // crosshair holds still and fades with the paper over it.
-        openDool(send);
+        openRax(send);
       },
       cancel: () => cancelSound(),
     });
@@ -8602,14 +8602,14 @@ function act({
       send({ type: "mime:sheet", content: { action: "show" } });
       return;
     }
-    // Tab drops straight into dool, as a tap on its crosshair does; Escape
+    // Tab drops straight into rax, as a tap on its crosshair does; Escape
     // in the world comes back (jeffrey, 2026-11-08).
-    if (onCurtain && e.is("keyboard:down:tab") && doolBtn && !doolFlight) {
+    if (onCurtain && e.is("keyboard:down:tab") && raxBtn && !raxFlight) {
       pushSound();
-      openDool(send);
+      openRax(send);
       return;
     }
-    if (e.is("touch") && onCurtain && !doolBtn?.box?.contains(e)) {
+    if (e.is("touch") && onCurtain && !raxBtn?.box?.contains(e)) {
       mimeSwipe = { x: e.x, y: e.y, engaged: false };
       // A press on the MIMEs mark is a click on it, not on the curtain.
       const mb = mimeBox;
@@ -9368,7 +9368,7 @@ function act({
   if (e.is("textinput:shift-right:empty")) autocompleteChar();
 
   // 📊 Toggle the FPS meter with backtick: bios draws it over everything
-  // (prompt, typing, dool, mime) and remembers it (2026-11-08).
+  // (prompt, typing, rax, mime) and remembers it (2026-11-08).
   if (e.is("keyboard:down:`")) send({ type: "fps:hud", content: { toggle: true } });
 
   // if (e.is("keyboard:down") && e.key !== "Enter") {
@@ -10304,7 +10304,7 @@ function poePlayClear(synth, style) {
 
 // The welcome buttons (Log in / I'm new, or the handle) sit in the curtain's
 // bottom-left corner (2026-11-03), clear of the mime wordmark at the bottom
-// centre and dool's crosshair at the bottom right.
+// centre and rax's crosshair at the bottom right.
 const WELCOME_MARGIN = 6;
 function welcomePos(screen) {
   return { left: WELCOME_MARGIN, bottom: WELCOME_MARGIN, screen };

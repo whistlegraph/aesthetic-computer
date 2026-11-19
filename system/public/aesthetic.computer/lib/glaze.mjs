@@ -103,7 +103,7 @@ export function init(wrapper) {
   canvas.style.opacity = 0;
 
   // Alpha, so a piece's clear pixels can stay clear through the prompt glaze
-  // (the dool world under the curtain). Other glazes are forced opaque below.
+  // (the rax world under the curtain). Other glazes are forced opaque below.
   gl = canvas.getContext("webgl2", {
     alpha: true,
     depth: false,

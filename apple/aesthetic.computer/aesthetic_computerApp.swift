@@ -395,7 +395,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 #if os(macOS)
 // pointer lock shim: WKWebView exposes requestPointerLock but never grants it
 // (the request rejects with pointerlockerror), so the page's API is replaced
-// in every aesthetic.computer frame, the dool iframe included. The frame that
+// in every aesthetic.computer frame, the rax iframe included. The frame that
 // asks gets the cursor hidden and pinned, and raw mouse deltas arrive as
 // mousemove events with movementX/Y until Escape, exitPointerLock, a resign
 // of the app or key window, or a navigation.

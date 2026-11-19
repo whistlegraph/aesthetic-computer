@@ -1,5 +1,5 @@
 // Object viewer: a turntable for KidLisp written in the 3D object dialect
-// (the dialect dool's objects use). `isObjectLisp` decides from the calls a
+// (the dialect rax's objects use). `isObjectLisp` decides from the calls a
 // program makes, or a `; #3d` pragma; `objectPiece` returns a piece that
 // draws it with a small z-buffered rasterizer straight into screen.pixels.
 // Drag to orbit.

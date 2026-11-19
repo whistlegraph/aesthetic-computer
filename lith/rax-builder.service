@@ -1,0 +1,27 @@
+[Unit]
+Description=rax — Aesel builder beside lith's /rax server
+After=network.target lith.service
+# The builder signs in to the Aesel relay as the operator's AC account. Until
+# that login and the shared secret are seeded
+# (lith/scripts/rax-builder-setup.fish) it stays down instead of flapping.
+ConditionPathExists=/var/lib/rax-builder/.ac-token
+ConditionPathExists=/etc/aesthetic-computer/rax.env
+
+[Service]
+Type=simple
+User=rax-builder
+WorkingDirectory=/opt/ac/rax
+# RAX_BUILDER_TOKEN: the same secret lith's rax server checks. Kept out of
+# system/.env, which every deploy replaces from the vault.
+EnvironmentFile=/etc/aesthetic-computer/rax.env
+Environment=HOME=/var/lib/rax-builder
+Environment=RAX_SERVER_URL=ws://127.0.0.1:8888/rax/builder
+ExecStart=/usr/bin/node aesel.mjs
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

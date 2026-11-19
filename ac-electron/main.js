@@ -5,8 +5,8 @@
  * - AC Pane (3D flip view with front webview + back terminal)
  */
 
-if (process.argv.includes('--dool-rig')) {
-  require('./dool-rig').launchDoolRig();
+if (process.argv.includes('--rax-rig')) {
+  require('./rax-rig').launchRaxRig();
   return;
 }
 
@@ -1027,8 +1027,8 @@ function createMenu() {
           click: () => openAcPaneWindow()
         },
         {
-          label: 'Dool Test Rig',
-          click: () => require('./dool-rig').openDoolRig()
+          label: 'Rax Test Rig',
+          click: () => require('./rax-rig').openRaxRig()
         },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }

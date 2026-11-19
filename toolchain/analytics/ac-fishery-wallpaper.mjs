@@ -2,7 +2,7 @@
 // AC Fishery feeder: who is on the Aesthetic network right now, as one JSON
 // snapshot for the desktop wallpaper's fishery layer
 // (toolchain/macos/blueberry-wallpaper/Sources/Fishery.swift). The wallpaper
-// draws each one as a dool walker (`school: "walkers"`).
+// draws each one as a rax walker (`school: "walkers"`).
 // Each tick also carries `infra`, the public-host and tailnet probe in
 // ac-infra-probe.mjs, for the constellation in the wallpaper's top-left.
 //
@@ -222,17 +222,17 @@ export function snapshot(raw, state) {
     fish: [...fish.values(), ...ghostList], events: all, totals };
 }
 
-// 🗺️ dool, as dool draws itself: GET /dool/map (duel/map.mjs) is every block,
+// 🗺️ rax, as rax draws itself: GET /rax/map (rax/map.mjs) is every block,
 // house, the tower and what stands in the rooms as plain shapes in world
 // metres, with everyone who is there now. It rides the snapshot untouched as
-// `world`. Nothing of dool's geometry is kept or worked out here, so the
+// `world`. Nothing of rax's geometry is kept or worked out here, so the
 // wallpaper's model cannot fall out of step with the world.
-const DOOL = process.env.FISHERY_DOOL || "https://aesthetic.computer/dool";
-async function doolMap() {
-  const r = await fetch(`${DOOL}/map`, { signal: AbortSignal.timeout(4000) });
-  if (!r.ok) throw new Error(`dool map ${r.status}`);
+const RAX = process.env.FISHERY_RAX || process.env.FISHERY_DOOL || "https://aesthetic.computer/rax";
+async function raxMap() {
+  const r = await fetch(`${RAX}/map`, { signal: AbortSignal.timeout(4000) });
+  if (!r.ok) throw new Error(`rax map ${r.status}`);
   const map = await r.json();
-  if (!Array.isArray(map.structure)) throw new Error("dool map has no structure");
+  if (!Array.isArray(map.structure)) throw new Error("rax map has no structure");
   return map;
 }
 
@@ -250,13 +250,13 @@ async function tick(state) {
   const snap = snapshot(JSON.parse(out.slice(at + 7)), state);
   state.n++;
   // A map that does not answer keeps the last one; the walkers go out anyway.
-  try { state.map = await doolMap(); } catch (error) { console.error(`${new Date().toISOString()} ${error.message}`); }
+  try { state.map = await raxMap(); } catch (error) { console.error(`${new Date().toISOString()} ${error.message}`); }
   if (state.map) snap.world = state.map;
   return snap;
 }
 
 // ⚡ The fast lane: the map again, written to world.json beside the snapshot
-// whenever it changes. Asked every second while someone is in dool, every
+// whenever it changes. Asked every second while someone is in rax, every
 // five when nobody is.
 const LIVE = join(dirname(OUT), "world.json");
 async function watch(state) {
@@ -264,7 +264,7 @@ async function watch(state) {
   for (;;) {
     let busy = false;
     try {
-      const map = await doolMap();
+      const map = await raxMap();
       state.map = map;
       busy = map.people?.length > 0;
       const text = JSON.stringify(map);

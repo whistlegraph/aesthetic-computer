@@ -72,7 +72,7 @@ Boot telemetry records which names were present — names only, never values.
 | `session-aesthetic` | token | auth | — | boot | live | A session handed in by a host (desktop app, VS Code); stored, then removed. |
 | `session-sotce` | token | auth | — | boot | live | A sotce session handed in by the VS Code extension; stored, then removed. |
 | `notice` | string | piece | — | disk, piece:painting | live | A notice to flash on load: `success`, `cancel`, `email-verified`, or free text. |
-| `dool` | flag | piece | — | piece:prompt | live | Boot the prompt with the dool room already up (a minted object's doorway links `?dool` bare). |
+| `rax` | flag | piece | — | piece:prompt | live | Boot the prompt with the rax room already up (a minted object's doorway links `?rax` bare). |
 | `test` | string | piece | — | piece:chat, piece:laklok, piece:mail | live | Test hooks (BroadcastChannel) for browser e2e runs. |
 | `ticket` | string | piece | — | piece:botce | live | A botce ticket key. |
 | `rom` | string | piece | — | piece:gameboy | live | A ROM link to load. |

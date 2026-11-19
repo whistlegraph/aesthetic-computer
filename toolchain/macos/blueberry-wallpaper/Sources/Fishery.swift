@@ -513,7 +513,7 @@ final class FisheryLayer: CALayer {
         var events: [[String: Any]] = []
         var totals: [String: Any] = [:]
         var heatmaps: [[String: Any]] = []
-        /// "walkers" draws dool's little people instead of fish.
+        /// "walkers" draws rax's little people instead of fish.
         var school = ""
     }
 
@@ -1703,7 +1703,7 @@ final class FisheryLayer: CALayer {
     /// The world from the air (FlyBy.swift), a small wireframe model in the
     /// bottom left corner above "came from", and the census under it.
     private func layoutWorld(left: CGFloat, bottom: CGFloat, shadow: (CALayer) -> Void) {
-        // ⚡ The feeder's fast lane (world.json): dool's map again, written
+        // ⚡ The feeder's fast lane (world.json): rax's map again, written
         // whenever it changes and looked for twice a second. It wins over
         // the snapshot's copy.
         let clock = CACurrentMediaTime()
@@ -2071,7 +2071,7 @@ final class FishSchool {
     let root = SCNNode()
     /// The wallpaper's emblem (the Fuser mark); employees wear a small one.
     var badge: SCNNode?
-    /// Draw dool's little people (aesthetic.computer) instead of fish.
+    /// Draw rax's little people (aesthetic.computer) instead of fish.
     var walkers = false
 
     private final class Body {
@@ -2101,7 +2101,7 @@ final class FishSchool {
         var emissive: NSColor?
         var glowStep = -1
         // Walkers only: hinged legs and arms, a white head and hands, and
-        // the shirt colour dool gives each seat.
+        // the shirt colour rax gives each seat.
         var walker = false
         let paper = SCNMaterial()
         var cloth: NSColor?
@@ -2114,8 +2114,8 @@ final class FishSchool {
     }
     private var bodies: [String: Body] = [:]
 
-    /// dool's seat colours (duel/world.mjs COLORS) and its purple brain.
-    private static let doolColors: [UInt32] = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40]
+    /// rax's seat colours (rax/world.mjs COLORS) and its purple brain.
+    private static let raxColors: [UInt32] = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40]
     private static let brain: UInt32 = 0xb46bff
     private static func rgb(_ v: UInt32, _ k: CGFloat = 1) -> NSColor {
         NSColor(srgbRed: min(1, CGFloat(v >> 16 & 255) / 255 * k), green: min(1, CGFloat(v >> 8 & 255) / 255 * k),
@@ -2283,9 +2283,9 @@ final class FishSchool {
         return b
     }
 
-    /// One of dool's people (duel/view.mjs `fighters`): a shirt-coloured torso
+    /// One of rax's people (rax/view.mjs `fighters`): a shirt-coloured torso
     /// and limbs, a white head under a purple brain cap, white hands, two
-    /// dark eyes. Built in dool's metres facing +z, then fitted to the fish's
+    /// dark eyes. Built in rax's metres facing +z, then fitted to the fish's
     /// unit: one unit tall, feet at -0.3 so the name hangs just below them,
     /// turned to face +x like a fish.
     private func buildWalker(_ id: String) -> Body {
@@ -2293,7 +2293,7 @@ final class FishSchool {
         b.walker = true
         var h: UInt64 = 1469598103934665603
         for c in id.utf8 { h = (h ^ UInt64(c)) &* 1099511628211 }
-        b.cloth = Self.rgb(Self.doolColors[Int(h % UInt64(Self.doolColors.count))])
+        b.cloth = Self.rgb(Self.raxColors[Int(h % UInt64(Self.raxColors.count))])
         for m in [b.skin, b.paper] {
             m.lightingModel = .physicallyBased
             m.metalness.contents = 0.0
@@ -2339,7 +2339,7 @@ final class FishSchool {
             }
             return n
         }
-        // dool's figure spans 0.22 m (sole) to 1.925 m (brain top).
+        // rax's figure spans 0.22 m (sole) to 1.925 m (brain top).
         let fit = SCNNode()
         let k: CGFloat = 1 / 1.705
         fit.scale = SCNVector3(k, k, k)
@@ -2364,7 +2364,7 @@ final class FishSchool {
         box(fit, 0, 1.88, 0, 0.012, 0.07, 0.27, fold, rim: false)
         for side: CGFloat in [-1, 1] {
             b.eyes.append(box(fit, side * 0.095, 1.6, 0.181, 0.07, 0.07, 0.012, ink, rim: false))
-            // Legs hinge at the hip, arms at the shoulder (dool's heights).
+            // Legs hinge at the hip, arms at the shoulder (rax's heights).
             let hip = SCNNode()
             hip.position = SCNVector3(side * 0.15, 0.68, 0)
             box(hip, 0, -0.23, 0, 0.13, 0.46, 0.16, b.skin)

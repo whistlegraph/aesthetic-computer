@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bakes Resources/chunky8.ttf from duel/chunky-font.mjs (MatrixChunky8.bdf).
+"""Bakes Resources/chunky8.ttf from rax/chunky-font.mjs (MatrixChunky8.bdf).
 
 One square per lit pixel run, 100 units a pixel on an 800-unit em, so the face
 is exact at whole multiples of 8 device pixels. Needs fonttools:
@@ -12,7 +12,7 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SOURCE = os.path.join(HERE, "../../../duel/chunky-font.mjs")
+SOURCE = os.path.join(HERE, "../../../rax/chunky-font.mjs")
 OUT = os.path.join(HERE, "Resources/chunky8.ttf")
 PX = 100
 

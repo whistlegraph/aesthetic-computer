@@ -461,10 +461,18 @@ echo -e "$GREEN-> Updating service + Caddy config...$NC"
 ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "\
 cp $REMOTE_DIR/lith/lith.service /etc/systemd/system/lith.service && \
 cp $REMOTE_DIR/lith/lith-mail.service /etc/systemd/system/lith-mail.service && \
-cp $REMOTE_DIR/lith/dool-builder.service /etc/systemd/system/dool-builder.service && \
-(id -u dool-builder >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir /var/lib/dool-builder dool-builder) && \
-install -d -m 700 -o dool-builder -g dool-builder /var/lib/dool-builder && \
-systemctl enable -q dool-builder && \
+cp $REMOTE_DIR/lith/rax-builder.service /etc/systemd/system/rax-builder.service && \
+(id -u rax-builder >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir /var/lib/rax-builder rax-builder) && \
+install -d -m 700 -o rax-builder -g rax-builder /var/lib/rax-builder && \
+(if [ -d /var/lib/dool-builder ] && [ ! -e /var/lib/rax-builder/.ac-token ]; then \
+  systemctl stop dool-builder 2>/dev/null; \
+  cp -a /var/lib/dool-builder/. /var/lib/rax-builder/ && chown -R rax-builder:rax-builder /var/lib/rax-builder; \
+fi; \
+if [ -s /etc/aesthetic-computer/dool.env ] && [ ! -s /etc/aesthetic-computer/rax.env ]; then \
+  (umask 077 && sed 's/^DOOL_/RAX_/' /etc/aesthetic-computer/dool.env > /etc/aesthetic-computer/rax.env); \
+fi; \
+systemctl disable -q --now dool-builder 2>/dev/null; rm -f /etc/systemd/system/dool-builder.service; true) && \
+systemctl enable -q rax-builder && \
 id -u lith-mail >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir /nonexistent lith-mail && \
 install -m 755 $REMOTE_DIR/lith/lith-mail-renew.sh /etc/letsencrypt/renewal-hooks/deploy/lith-mail.sh 2>/dev/null; \
 sh $REMOTE_DIR/lith/lith-mail-renew.sh && \
@@ -479,7 +487,7 @@ caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile"
 
 # Restart lith service, and the Amail SMTP door beside it
 echo -e "$GREEN-> Restarting lith + lith-mail...$NC"
-ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith lith-mail dool-builder"
+ssh -i $SSH_KEY $LITH_USER@$TARGET_HOST "systemctl restart lith lith-mail rax-builder"
 
 # Stop automatic transcript deletion immediately, even before the next API call.
 echo -e "$GREEN-> Migrating Aesel transcript expiration to a soft marker...$NC"

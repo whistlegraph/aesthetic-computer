@@ -50,7 +50,8 @@ export const VISIT_ACTIONS = Object.freeze([
   "braincells_sheet_shown", "braincells_limit_reached", "braincells_checkout_opened", "braincells_purchased",
   "painting_viewed",
   "ac_opened", "ac_ad_shown",
-  "dool_entered",
+  "rax_entered",
+  "dool_entered", // its name until 2026-11-18; pages loaded before then still send it
   "note_written", "paint_pressed", "paint_signin_asked", "paint_failed", "painting_rejected",
   "teacher_note_opened", "teacher_note_sent",
   "notepat_opened", "notepat_ad_shown", "notepat_note_played", "notepat_eight_notes",

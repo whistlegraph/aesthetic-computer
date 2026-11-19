@@ -96,7 +96,7 @@ explained.
   production serves that revision. For lith, use `ac-deploy`, which deploys
   pushed `main`; `ac-deploy --verify` checks the served revision.
 - Give a feature an AC address, not a query string. Every address is a prompt
-  line: `~` is a space, so `aesthetic.computer/dool~botbop` runs `dool botbop`.
+  line: `~` is a space, so `aesthetic.computer/rax~botbop` runs `rax botbop`.
   A feature is a piece or prompt command, `~` params are its words, and `:`
   params are its options (`notepat:piano`). A prompt command that loads no
   piece gets a forwarding piece that jumps to `prompt~<line>~!autorun`; the

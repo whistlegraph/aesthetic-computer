@@ -184,7 +184,7 @@ typealias ACImage = NSImage
 // after mouse dispatch so native focus changes cannot replace it.
 final class ACNativeWebView: WKWebView {
     weak var navigation: AppNavigation?
-    /// The page hides the pointer itself (dool's world): stop reasserting the
+    /// The page hides the pointer itself (rax's world): stop reasserting the
     /// AC cursor, which fought the page's `cursor: none` and flickered on
     /// every mouse move (2026-11-08). Set by the page's `cursor:hidden`.
     var pageHidesCursor = false {

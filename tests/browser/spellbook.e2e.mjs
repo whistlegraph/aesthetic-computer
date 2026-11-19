@@ -149,7 +149,7 @@ async function run(browser, c) {
       r.shot = await shot(page, slug(c.id));
       if (c.back) {
         await page.keyboard.press(c.back); await wait(400);
-        await page.keyboard.press(c.back); // dool: the first Escape frees the mouse
+        await page.keyboard.press(c.back); // rax: the first Escape frees the mouse
         await wait(2500);
         r.back = { key: c.back, ...(await where(page)) };
       }

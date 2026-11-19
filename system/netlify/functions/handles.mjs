@@ -9,7 +9,7 @@ export async function handler(event) {
     return respond(405, { error: "Method not allowed" });
   }
 
-  // order=created lists handles oldest first (dool gives the tower's floors
+  // order=created lists handles oldest first (rax gives the tower's floors
   // out in that order); the default is alphabetical.
   const { search, limit = "100", tenant = "aesthetic", order } = event.queryStringParameters || {};
   const created = order === "created";

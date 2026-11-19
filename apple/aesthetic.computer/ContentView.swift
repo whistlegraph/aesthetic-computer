@@ -270,7 +270,7 @@ final class BootStatus: ObservableObject {
         switch type {
         #if os(macOS)
         case "cursor:hidden":
-            // The page hides the pointer (dool's world): the native cursor
+            // The page hides the pointer (rax's world): the native cursor
             // stops reasserting itself until the page says otherwise.
             guard message.frameInfo.isMainFrame, message.frameInfo.securityOrigin.protocol == "https",
                   message.frameInfo.securityOrigin.host == "aesthetic.computer",
@@ -433,7 +433,7 @@ struct WebView: ACWebViewRepresentable {
         config.userContentController.addUserScript(WKUserScript(
             source: "window.acNativeWindowColor = true;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        // Every frame, so the dool iframe can capture the mouse for mouse-look
+        // Every frame, so the rax iframe can capture the mouse for mouse-look
         // (WKWebView never grants the Pointer Lock API itself).
         config.userContentController.add(context.coordinator, name: "acPointerLock")
         config.userContentController.addUserScript(WKUserScript(

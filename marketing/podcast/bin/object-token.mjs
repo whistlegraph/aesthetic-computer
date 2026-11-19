@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// object-token.mjs — one of @jeffrey's dool-built KidLisp objects, minted as
+// object-token.mjs — one of @jeffrey's rax-built KidLisp objects, minted as
 // a 1/1 on Teia (the hic et nunc objkts contract), signed by aesthetic.tez.
 //
 //   source  — the object's saved $code, checked to be @jeffrey's and 3D
@@ -22,7 +22,7 @@
 // Usage:
 //   node bin/object-token.mjs --code 62i                 # mint the pistol
 //   node bin/object-token.mjs --code 62i --dry           # render, pack, metadata; nothing stored, pinned or minted
-//   node bin/object-token.mjs --code 62i --door https://aesthetic.computer/?dool
+//   node bin/object-token.mjs --code 62i --door https://aesthetic.computer/?rax
 //
 // Secrets come from the environment or --env <file> (repeatable):
 //   AESTHETIC_KEY, AESTHETIC_ADDRESS   the signer (must be aesthetic.tez)
@@ -72,7 +72,7 @@ const HANDLE = "jeffrey";
 const EDITIONS = 1;
 const PRICE_XTZ = Number(flags.price || process.env.OBJECT_PRICE_XTZ || 5);
 const ROYALTIES = Number(process.env.OBJECT_ROYALTIES_PERMILLE || 150); // HEN and Teia are per-mille
-const DOOR = typeof flags.door === "string" ? flags.door : (process.env.OBJECT_DOOR || "https://aesthetic.computer/?dool");
+const DOOR = typeof flags.door === "string" ? flags.door : (process.env.OBJECT_DOOR || "https://aesthetic.computer/?rax");
 const MIN_BALANCE_XTZ = 0.15;
 const SIZE = 640;
 const OBJECT_STYLE = "#aesthetic-computer { position: relative; overflow: hidden; }";
@@ -262,8 +262,8 @@ const files = [...base.files,
 const builtOn = new Date(`${receipt.built}T12:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 const metadataFor = (uris) => ({
   name: title,
-  description: `Built in dool, the room under aesthetic.computer, on ${builtOn}. A KidLisp object of ${shapeCount} slabs, orbs and capsules. Tap it to open aesthetic.computer with the room already up, where you can orbit it, read its source, and build your own.\n\nLive: ${AC}/$${receipt.code}\nDool: ${DOOR}`,
-  tags: ["aesthetic.computer", "kidlisp", "3d", "object", "dool", receipt.name.toLowerCase()],
+  description: `Built in rax, the room under aesthetic.computer, on ${builtOn}. A KidLisp object of ${shapeCount} slabs, orbs and capsules. Tap it to open aesthetic.computer with the room already up, where you can orbit it, read its source, and build your own.\n\nLive: ${AC}/$${receipt.code}\nRax: ${DOOR}`,
+  tags: ["aesthetic.computer", "kidlisp", "3d", "object", "rax", receipt.name.toLowerCase()],
   symbol: "OBJKT",
   artifactUri: uris.directory,
   displayUri: uris.gif,

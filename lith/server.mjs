@@ -48,8 +48,9 @@ if (typeof globalThis.awslambda === "undefined") {
 
 import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
-import { createDuelServer } from "../duel/server.mjs";
-import { kidlispPublisher } from "../duel/kidlisp-code.mjs";
+import { createRaxServer } from "../rax/server.mjs";
+import { kidlispPublisher } from "../rax/kidlisp-code.mjs";
+import { stateHome } from "../rax/env.mjs";
 import os from "node:os";
 import { resolve as resolvePath } from "node:path";
 import { optionalProduct } from "../shared/private-product.mjs";
@@ -115,14 +116,15 @@ app.disable("x-powered-by"); // no framework fingerprint (security audit 2026-11
 // The room must outlive a restart: without a state directory the object
 // store held everything in memory and every deploy emptied the room
 // (2026-11-03). Same default as the standalone server.
-const dool = createDuelServer({
-  prefix: '/dool',
+const rax = createRaxServer({
+  prefix: '/rax',
+  alias: '/dool', // its name until 2026-11-18: old links, pages and the builder still land
   publishKidlisp: kidlispPublisher(),
-  stateDir: process.env.DOOL_STATE_DIR || resolvePath(os.homedir(), '.local/share/dool'),
+  stateDir: stateHome(),
 });
-await dool.ready; // The store is read from disk before the first request.
+await rax.ready; // The store is read from disk before the first request.
 app.use((req, res, next) => {
-  if (req.path === '/dool' || req.path.startsWith('/dool/')) return dool.handle(req, res);
+  if (/^\/(rax|dool)(\/|$)/.test(req.path)) return rax.handle(req, res);
   next();
 });
 const BOOT_TIME = Date.now();
@@ -1524,7 +1526,7 @@ if (DEV && HAS_SSL) {
 }
 
 // Share authentication, concurrency guards and durable quotas with the HTTP lane.
-dool.attach(server);
+rax.attach(server);
 const musicalAPI = await import(pathToFileURL(join(SYSTEM, "netlify/functions/easel-musical-jev.mjs")).href);
 const musicalSocket = attachMusicalSocket(server, {authenticate:musicalAPI.authenticateMusical, decide:musicalAPI.musicalDecision});
 const whistlegraph = await optionalProduct(new URL("./whistlegraph-socket.mjs", import.meta.url));
@@ -1644,7 +1646,7 @@ async function gracefulShutdown(signal) {
   console.log(`[lith] draining connections...`);
   musicalSocket.close();
   whistlegraphSocket?.close();
-  await dool.close();
+  await rax.close();
   server.close(() => {
     console.log("[lith] all connections drained, exiting");
     process.exit(0);

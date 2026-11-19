@@ -1,15 +1,15 @@
 // map, 2026.11.13
-// dool from above: every block, who is awake in it and who rests there.
+// rax from above: every block, who is awake in it and who rests there.
 
 const BLOCK = 16; // metres along a block's edge
 const FONT = "MatrixChunky8";
-const PROD = "https://aesthetic.computer/dool/geography";
+const PROD = "https://aesthetic.computer/rax/geography";
 const EVERY = 30000;
 
 const DARK = { bg: [16, 14, 24], ink: [215, 212, 230], dim: [112, 108, 136], pink: [255, 105, 180], purple: [170, 125, 255], awake: [80, 255, 120], rest: [128, 124, 150] };
 const LIGHT = { bg: [246, 244, 250], ink: [40, 36, 56], dim: [150, 146, 168], pink: [220, 60, 140], purple: [120, 70, 200], awake: [0, 165, 70], rest: [156, 152, 172] };
 
-// The spiral is re-derived from duel/geography.mjs, which reads
+// The spiral is re-derived from rax/geography.mjs, which reads
 // the disk and cannot be imported here. East is +x, north is +z.
 const ring = (n) => Math.ceil((Math.sqrt(n + 1) - 1) / 2);
 
@@ -84,7 +84,7 @@ function place(cell, who, awake, x, z) {
 async function load() {
   const here = typeof location !== "undefined" && /(^|\.)aesthetic\.computer$/.test(location.hostname);
   try {
-    const res = await fetch(here ? "/dool/geography" : PROD);
+    const res = await fetch(here ? "/rax/geography" : PROD);
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     offline = false;

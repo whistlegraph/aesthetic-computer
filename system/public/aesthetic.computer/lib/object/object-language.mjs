@@ -624,7 +624,7 @@ function compiled(source) {
     return value;
   }
   const accepted = admit(source),
-    run = compile(accepted.plan, 'dool'),
+    run = compile(accepted.plan, 'rax'),
     meshes = run.meshes.map(meshData),
     sketches = run.sketches.map(sketchData);
   let vertices = new Float64Array(512 * 18),

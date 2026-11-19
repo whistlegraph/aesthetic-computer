@@ -25,7 +25,7 @@ const DOWN_AFTER = 2;
 // `health` wants a 200; the rest count as up under the doctor's rule (< 500).
 export const HOSTS = [
   { id: "edge", url: "https://aesthetic.computer/.commit-ref", parent: "", health: true, kind: "proxy" },
-  { id: "lith", url: "https://aesthetic.computer/dool/health", parent: "edge", health: true, kind: "kernel" },
+  { id: "lith", url: "https://aesthetic.computer/rax/health", parent: "edge", health: true, kind: "kernel" },
   { id: "oven", url: "https://oven.aesthetic.computer/papers-build", parent: "lith", health: true, kind: "dev" },
   { id: "session", url: "https://session-server.aesthetic.computer", parent: "lith", kind: "bridge" },
   { id: "relay", url: "https://relay-sfo.aesthetic.computer/health", parent: "lith", health: true, kind: "bridge" },

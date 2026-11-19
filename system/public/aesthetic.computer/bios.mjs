@@ -1534,7 +1534,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // 📊 FPS HUD (2026-11-08): one on/off shared by every AC surface, each of
   // which draws its own readout in its own pixels — the worker in the piece's
-  // frame (disk.mjs), dool in its HUD (duel/view.mjs), the mime feed as an AC
+  // frame (disk.mjs), rax in its HUD (rax/view.mjs), the mime feed as an AC
   // runtime of its own. Backtick on the prompt toggles it; localStorage
   // "ac:fps-hud" carries it across reloads, frames and windows (the storage
   // event updates the others live).
@@ -2363,7 +2363,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       debugCanvas.style.height = projectedHeight + "px";
     }
 
-    // 📐 The frame's pixel grid for underlays (lib/dool-sheet.mjs): CSS pixels
+    // 📐 The frame's pixel grid for underlays (lib/rax-sheet.mjs): CSS pixels
     // per buffer pixel and where the canvas starts, so a world drawn beneath
     // the paper can lay its pixels on the same grid.
     window.acFrameGrid = {
@@ -2373,7 +2373,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       width,
       height,
     };
-    window.acDoolSheet?.framed?.();
+    window.acRaxSheet?.framed?.();
 
     // During tape playback, don't restore stale content — the canvas was just
     // cleared to transparent by the resize, and we need screen.pixels to be
@@ -4592,7 +4592,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     console.log(`🔍 Density: ${newDensity}`);
   }
 
-  window.acChangeDensity = changeDensity; // dool under the paper hands its ⌘± up here.
+  window.acChangeDensity = changeDensity; // rax under the paper hands its ⌘± up here.
 
   // Keyboard listener for density controls (capture phase to intercept early)
   window.addEventListener("keydown", (e) => {
@@ -6604,7 +6604,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   function sendFocus(focused) {
     sentFocus = focused;
     send({ type: "focus-change", content: focused });
-    window.acDoolSheet?.windowFocus?.(focused); // The world under the paper rests too.
+    window.acRaxSheet?.windowFocus?.(focused); // The world under the paper rests too.
   }
   // Counts for checking from a console: requests sent, sim steps carried.
   const pacing = (window.acPacing = { resting: false, paceMs: 0, requests: 0, updates: 0 });
@@ -14723,7 +14723,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             document.activeElement !== input &&
             e.key !== "`" &&
             e.key !== "Escape" &&
-            e.key !== "Tab" // Tab is a command (dool from the curtain), not typing.
+            e.key !== "Tab" // Tab is a command (rax from the curtain), not typing.
           ) {
             keyboardOpenMethod = "keyboard";
             input.focus();
@@ -15768,15 +15768,15 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🎯 The dool world under the prompt's paper (lib/dool-sheet.mjs).
+    // 🎯 The rax world under the prompt's paper (lib/rax-sheet.mjs).
     if (type === "fps:hud") {
       setFpsHud(content?.toggle ? !fpsHud.on : content?.on);
       return;
     }
 
-    if (type === "dool:sheet") {
-      const { doolSheet } = await import("./lib/dool-sheet.mjs");
-      doolSheet(content);
+    if (type === "rax:sheet") {
+      const { raxSheet } = await import("./lib/rax-sheet.mjs");
+      raxSheet(content);
       return;
     }
 
@@ -24315,7 +24315,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   window.onpopstate = function (e) {
     if (window.acMimeSheet?.popstate(e)) return; // 🎭 The mime sheet's own entry.
-    if (window.acDoolSheet?.popstate(e)) return; // 🎯 The dool world's own entry.
+    if (window.acRaxSheet?.popstate(e)) return; // 🎯 The rax world's own entry.
     if (
       document.location.hash === "#debug" ||
       document.location.hash === "#nodebug"

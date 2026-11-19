@@ -1,7 +1,7 @@
 import { palette } from "./onboarding-ui.mjs";
 import { PROMPT_TEXT_ORIGIN } from "./prompt-layout.mjs";
 
-const LETTER_MS = 16; // Sixty letters a second, as dool types its own outage.
+const LETTER_MS = 16; // Sixty letters a second, as rax types its own outage.
 const LINE_PAUSE = 6; // Letters of quiet between one line and the next.
 const LINE_HEIGHT = 12;
 const GLYPH_WIDTH = 6;

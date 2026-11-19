@@ -1,0 +1,249 @@
+import { objectBoxes } from './objects.mjs';
+import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
+
+export const HZ = 60;
+export const DT = 1 / HZ;
+export const INTERP_TICKS = 6;
+// 🏃 How far a body may run ahead of the server's word, in commands: four
+// seconds. The client predicts this many unanswered, and the server runs
+// this many that arrive late, so the two give out at the same moment.
+export const HORIZON = 240;
+export const PROTOCOL = 'rax-6';
+// The same wire under its old name: a page loaded before the rename still plays.
+export const PROTOCOLS = [PROTOCOL, 'duel-6'];
+export const FRAG_LIMIT = 10;
+export const COLORS = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40];
+// Players one room holds at once. Seats 0 and 1 keep the original duel's
+// spawns; the rest stand on a ring facing the middle (2026-11-08).
+export const MAX_PLAYERS = 16;
+const SPAWN_YAWS = [0, 180, 90, 270, 45, 225, 135, 315];
+export const seatColor = (seat) => COLORS[((seat % COLORS.length) + COLORS.length) % COLORS.length];
+// Half the width of the room in metres: a small studio for now, not a world.
+export const WORLD = 8;
+export const SCREEN = 40;
+// The floor's paints, by the number a painted square stores (1 to 6).
+export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
+
+const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
+  type: 'box',
+  xMin,
+  xMax,
+  yMin,
+  yMax,
+  zMin,
+  zMax,
+});
+
+// 🚶 A side with a neighbour has no wall: a body walks on past it, this far
+// at most, while the next block takes it over (the ground is drawn across
+// the join, so nothing stops at the line).
+export const OVERRUN = 16;
+const SIDES = ['west', 'east', 'south', 'north']; // in WALLS' order
+export const WALLS = [
+  // The room's four walls, drawn by the view (buildArena) at the same edges.
+  box(-WORLD - 1, -WORLD, 0, 60, -WORLD - 1, WORLD + 1),
+  box(WORLD, WORLD + 1, 0, 60, -WORLD - 1, WORLD + 1),
+  box(-WORLD, WORLD, 0, 60, -WORLD - 1, -WORLD),
+  box(-WORLD, WORLD, 0, 60, WORLD, WORLD + 1),
+];
+export const CFG = Object.freeze({
+  ...DEFAULT_CFG,
+  simHz: HZ,
+  groundY: 0,
+  eyeHeight: 1.7,
+  runSpeed: 10,
+  jumpVelocity: 10,
+  gravity: 28,
+  airAccel: 35,
+  groundAccel: 14,
+  airCapSpeed: 1.5,
+  groundFriction: 8,
+  playerRadius: 0.4,
+  obstacles: WALLS,
+});
+export const FIRE_COOLDOWN = 42;
+const DIVE = 30; // extra fall, m/s², while ducking in the air
+export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+// Stand back from the middle along the seat's yaw, so every spawn faces in.
+// Seats past the first eight take an inner ring, turned half a step.
+export function spawnPoint(seat) {
+  const outer = seat < SPAWN_YAWS.length;
+  const yaw = SPAWN_YAWS[seat % SPAWN_YAWS.length] + (outer ? 0 : 22.5);
+  const r = outer ? WORLD - 3 : WORLD - 5.5;
+  const f = direction(yaw);
+  return { x: Math.round(-f.x * r * 1000) / 1000 || 0, z: Math.round(-f.z * r * 1000) / 1000 || 0, yaw };
+}
+
+export function spawn(seat, life = 1) {
+  return {
+    ...newState({ ...spawnPoint(seat), cfg: CFG }),
+    seat,
+    life,
+    health: 100,
+    score: 0,
+    cooldown: 0,
+    respawnAt: 0,
+  };
+}
+
+// `fixed` is the place's own solid boxes (a block's house walls).
+// A `platform` among them is a ledge: stood on from above, never a wall.
+// `flat` keeps the body on the z = 0 plane (a side-on arena).
+// `open` names the sides that lead to a neighbour (['east', 'south']).
+export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null) {
+  if (!player.alive) return { ...player };
+  // pmove's +X strafe faces the other way from a +Z-looking Three camera.
+  const boxes = objectBoxes(objects, time),
+    feet = player.y - CFG.eyeHeight;
+  const under = (b, p) => p.x >= b.xMin && p.x <= b.xMax && p.z >= b.zMin && p.z <= b.zMax;
+  // 🦆 Ducking (flat rooms): ledges let the body through, a fall is faster,
+  // and on the ground the head is lower (bop.mjs).
+  const duck = flat && !!cmd.duck;
+  const solid = fixed.some((b) => b.platform) ? fixed.filter((b) => !b.platform) : fixed,
+    ledges = duck ? [] : fixed.filter((b) => b.platform);
+  const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
+  const grounded = player.onGround && (feet < 0.02 || !!support);
+  const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
+  const cfg = {
+    ...CFG,
+    groundY: support?.yMax || 0,
+    obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step)],
+  };
+  const next = pmove(
+    { ...player, onGround: grounded },
+    { ...cmd, right: -(cmd.right || 0), dt: DT },
+    cfg,
+  );
+  // Shared step-up, landing and head collision; generated boxes are solid on all sides.
+  const nextFeet = next.y - CFG.eyeHeight;
+  let floor = 0;
+  for (const b of boxes) {
+    if (!under(b, next)) continue;
+    if (b.yMax <= feet + step && (nextFeet <= b.yMax || (grounded && nextFeet <= b.yMax + step)))
+      floor = Math.max(floor, b.yMax);
+    if (next.vy > 0 && player.y + 0.2 <= b.yMin && next.y + 0.2 >= b.yMin) {
+      next.y = b.yMin - 0.2;
+      next.vy = 0;
+    }
+  }
+  // A ledge catches only what was above it.
+  for (const b of ledges)
+    if (under(b, next) && feet >= b.yMax - 0.02 && nextFeet <= b.yMax) floor = Math.max(floor, b.yMax);
+  if (next.vy <= 0 && next.y - CFG.eyeHeight <= floor + (grounded ? step : 0.001)) {
+    next.y = floor + CFG.eyeHeight;
+    next.vy = 0;
+    next.onGround = true;
+  } else if (next.y - CFG.eyeHeight > floor + 0.001) next.onGround = false;
+  // Bound speed also bounds discrete collision steps.
+  const speed = Math.hypot(next.vx, next.vz);
+  if (speed > 22) {
+    next.vx *= 22 / speed;
+    next.vz *= 22 / speed;
+  }
+  const past = (side) => (open?.includes(side) ? OVERRUN : 0);
+  next.x = clamp(next.x, -WORLD + 0.4 - past('west'), WORLD - 0.4 + past('east'));
+  next.z = clamp(next.z, -WORLD + 0.4 - past('south'), WORLD - 0.4 + past('north'));
+  if (flat) {
+    next.z = next.vz = 0;
+    next.duck = duck;
+    if (duck && !next.onGround) next.vy -= DIVE * DT;
+  }
+  return next;
+}
+
+export function direction(yaw, pitch = 0) {
+  const y = (yaw * Math.PI) / 180,
+    p = (pitch * Math.PI) / 180;
+  return { x: Math.sin(y) * Math.cos(p), y: Math.sin(p), z: Math.cos(y) * Math.cos(p) };
+}
+
+// Slab intersection: distance along a normalized ray, including an origin inside a box.
+export function rayBox(origin, dir, box, max = 1000) {
+  let near = 0,
+    far = max;
+  for (const axis of ['x', 'y', 'z']) {
+    const lo = box[`${axis}Min`],
+      hi = box[`${axis}Max`];
+    if (Math.abs(dir[axis]) < 1e-8) {
+      if (origin[axis] < lo || origin[axis] > hi) return Infinity;
+    } else {
+      const a = (lo - origin[axis]) / dir[axis],
+        b = (hi - origin[axis]) / dir[axis];
+      near = Math.max(near, Math.min(a, b));
+      far = Math.min(far, Math.max(a, b));
+      if (near > far) return Infinity;
+    }
+  }
+  return near;
+}
+
+export function wallDistance(origin, dir, max = 1000, objects = [], time = 0) {
+  let hit = max;
+  for (const wall of [...WALLS, ...objectBoxes(objects, time)])
+    hit = Math.min(hit, rayBox(origin, dir, wall, max));
+  if (dir.y < 0 && origin.y >= 0) hit = Math.min(hit, -origin.y / dir.y);
+  return hit;
+}
+
+// The first surface along a ray, with the face normal there: walls, solid
+// objects and the floor. { t, normal } or null within max.
+export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0) {
+  let best = null;
+  for (const b of [...WALLS, ...objectBoxes(objects, time)]) {
+    let near = -Infinity, far = max, axis = null, sign = 0;
+    let miss = false;
+    for (const k of ['x', 'y', 'z']) {
+      const lo = b[`${k}Min`], hi = b[`${k}Max`];
+      if (Math.abs(dir[k]) < 1e-8) {
+        if (origin[k] < lo || origin[k] > hi) { miss = true; break; }
+        continue;
+      }
+      const a = (lo - origin[k]) / dir[k], c = (hi - origin[k]) / dir[k];
+      const enter = Math.min(a, c);
+      if (enter > near) {
+        near = enter;
+        axis = k;
+        sign = dir[k] > 0 ? -1 : 1;
+      }
+      far = Math.min(far, Math.max(a, c));
+      if (near > far) { miss = true; break; }
+    }
+    if (miss || near < 0 || near > max || !axis) continue;
+    if (!best || near < best.t)
+      best = { t: near, normal: { x: axis === 'x' ? sign : 0, y: axis === 'y' ? sign : 0, z: axis === 'z' ? sign : 0 } };
+  }
+  if (dir.y < 0 && origin.y >= 0) {
+    const t = -origin.y / dir.y;
+    if (t <= max && (!best || t < best.t)) best = { t, normal: { x: 0, y: 1, z: 0 } };
+  }
+  return best;
+}
+
+// Reflect velocity v about normal n, keeping `bounce` of the normal part
+// and `slide` of the tangential part.
+export function reflect(v, n, bounce = 1, slide = 1) {
+  const d = v.x * n.x + v.y * n.y + v.z * n.z;
+  return {
+    x: (v.x - d * n.x) * slide - d * n.x * bounce,
+    y: (v.y - d * n.y) * slide - d * n.y * bounce,
+    z: (v.z - d * n.z) * slide - d * n.z * bounce,
+  };
+}
+
+export function bodyBox(p) {
+  return {
+    xMin: p.x - 0.4,
+    xMax: p.x + 0.4,
+    yMin: p.y - CFG.eyeHeight,
+    yMax: p.y + 0.2,
+    zMin: p.z - 0.4,
+    zMax: p.z + 0.4,
+  };
+}
+
+export const along = (p, d, distance) => ({
+  x: p.x + d.x * distance,
+  y: p.y + d.y * distance,
+  z: p.z + d.z * distance,
+});

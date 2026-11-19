@@ -1,15 +1,15 @@
 import AppKit
 import QuartzCore
 
-/// ✈️ dool from the air, a small wireframe model in a corner, drawn from
-/// dool's own map (GET /dool/map, duel/map.mjs): the plaza with the tower
+/// ✈️ rax from the air, a small wireframe model in a corner, drawn from
+/// rax's own map (GET /rax/map, rax/map.mjs): the plaza with the tower
 /// over it, every open block with its lots and houses, the blocks that open
 /// next drawn faint, what stands in the rooms, and who is there now. The
 /// whole world is seen from an isometric angle, with no perspective, and
 /// swings slowly side to side.
 ///
 /// This file knows how to draw four kinds of shape and how to colour the
-/// roles it has met. It holds none of dool's measurements: when dool
+/// roles it has met. It holds none of rax's measurements: when rax
 /// changes, the map changes and this follows.
 ///
 /// Everything is a plain colour layer or a text layer under one transform, so
@@ -17,7 +17,7 @@ import QuartzCore
 /// ten times a second and looped by Core Animation. Nothing here runs per
 /// frame.
 final class WorldFlyLayer: CALayer {
-    /// One shape of dool's map (duel/map.mjs), in world metres: x east,
+    /// One shape of rax's map (rax/map.mjs), in world metres: x east,
     /// z north, y up.
     struct Shape {
         var kind = "", role = "", label = ""
@@ -43,7 +43,7 @@ final class WorldFlyLayer: CALayer {
             }
         }
     }
-    /// dool as GET /dool/map draws it. Nothing of dool's geometry is kept
+    /// rax as GET /rax/map draws it. Nothing of rax's geometry is kept
     /// here: what stands in the world is whatever shapes the map carries.
     struct World {
         var revision = ""
@@ -52,7 +52,7 @@ final class WorldFlyLayer: CALayer {
         /// What stands for good, and what people have put in the rooms.
         var structure: [Shape] = []
         var content: [Shape] = []
-        /// Everyone in dool now; `floor` is 0 on the ground.
+        /// Everyone in rax now; `floor` is 0 on the ground.
         var people: [(handle: String, x: CGFloat, y: CGFloat, z: CGFloat, floor: Int)] = []
         var floors = 0, top = 0, settled = 0, across = 0
 
@@ -74,7 +74,7 @@ final class WorldFlyLayer: CALayer {
         var isEmpty: Bool { structure.isEmpty }
         /// The line under the model.
         var census: String {
-            var parts = ["dool"]
+            var parts = ["rax"]
             if floors > 0 { parts.append("\(floors) floor\(floors == 1 ? "" : "s")") }
             parts.append("\(settled) home\(settled == 1 ? "" : "s")")
             if across > 0 { parts.append("\(across) m across") }

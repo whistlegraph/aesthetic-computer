@@ -1,7 +1,7 @@
 // Botbop, 2026.11.16
-// The address of dool's side-on arena: aesthetic.computer/botbop opens it and
+// The address of rax's side-on arena: aesthetic.computer/botbop opens it and
 // botbop~name a room of its own. The prompt runs `botbop` (prompt.mjs), which
-// drops the paper into dool there (lib/dool-sheet.mjs, duel/bop.mjs).
+// drops the paper into rax there (lib/rax-sheet.mjs, rax/bop.mjs).
 
 export function boot({ params, jump }) {
   // Everything after `prompt~` is one prompt line: its words take spaces.
@@ -11,6 +11,6 @@ export function boot({ params, jump }) {
 export function meta() {
   return {
     title: "botbop",
-    desc: "Land on a head. Bop the drones and each other in dool's side-on arena.",
+    desc: "Land on a head. Bop the drones and each other in rax's side-on arena.",
   };
 }
