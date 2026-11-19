@@ -2427,7 +2427,7 @@ function step(now) {
   tendScreens(now);
   view.render({
     half: half(),
-    seam: { crossing: !!held || now - crossedAt < 400 },
+    seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
     weather,
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
     drones: shownDrones,

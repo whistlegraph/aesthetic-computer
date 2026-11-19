@@ -1139,7 +1139,7 @@ export async function createView(canvas) {
     park = null,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
-    seam = null, // 🫧 { crossing }: the body is between two rooms
+    seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
     ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
     home = null,
@@ -1346,7 +1346,7 @@ export async function createView(canvas) {
       // past the block's line), so the net is seen to hop on the way over.
       // (Not behind the curtain: the small room in the prompt's corner is the
       // block alone, fitted to the crosshair's square.)
-      if (orbit < 1) drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
+      if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
     else if (half === WORLD) draw(arena);
     else {
@@ -1411,7 +1411,7 @@ export async function createView(canvas) {
       if (painted) draw(painted, b.dx, by, b.dz);
       // The seams between the blocks around, on their lines; the ones that
       // face this block are its own, drawn above.
-      if (!by && orbit < 1) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
+      if (!by && orbit < 1 && seam?.shown) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
