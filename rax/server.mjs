@@ -870,6 +870,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     };
     send(ws, {
       type: 'welcome',
+      eye: (member.eye ||= randomUUID().slice(0, 8)), // 🚁 its drone's name among the rest, to leave its own undrawn
       seat: member.seat,
       role: member.seat < 0 ? 'spectator' : 'player',
       protocol: PROTOCOL,
@@ -1294,31 +1295,37 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const BEYOND = 2;
   let beyondTick = 0;
   const tellBeyond = () => {
-    if (++beyondTick % 4 || rooms.size < 2) return;
-    const r = (n) => Math.round(n * 100) / 100, stood = [];
+    if (++beyondTick % 4 || !rooms.size) return;
+    const r = (n) => Math.round(n * 100) / 100, stood = [], fresh = Date.now() - 4000;
     for (const [key, room] of rooms) {
       const at = cellOf(key);
       if (!at) continue;
-      const people = [];
+      const people = [], eyes = [];
       room.match.seats.forEach((s, seat) => {
         const p = s?.player, m = room.members[seat];
         if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0]);
       });
-      stood.push({ key, room, at, people });
+      // 🚁 Whoever looks on is a small drone where their eye is (heard of in the last four seconds).
+      for (const m of room.sessions.values())
+        if (m.seat < 0 && m.eye && m.look && m.look.at > fresh)
+          eyes.push([m.eye, m.handle ? `@${m.handle}` : m.owner ? guestName(m.owner) : '', m.look.x, m.look.y, m.look.z, m.look.yaw]);
+      stood.push({ key, room, at, people, eyes });
     }
     for (const here of stood) {
       if (!here.room.clients.size) continue;
-      const seen = [];
+      const seen = [], drones = [];
       for (const there of stood) {
-        if (there === here || !there.people.length) continue;
         const di = there.at.i - here.at.i, dj = there.at.j - here.at.j;
         if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND) continue;
+        for (const [id, name, x, y, z, yaw] of there.eyes)
+          drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
+        if (there === here) continue; // (its own people are in its snapshot)
         for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz] of there.people)
           seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz)]);
       }
-      if (!seen.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
-      here.room.beyondSeen = seen.length;
-      const word = JSON.stringify({ type: 'beyond', people: seen });
+      if (!seen.length && !drones.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
+      here.room.beyondSeen = seen.length + drones.length;
+      const word = JSON.stringify({ type: 'beyond', people: seen, drones });
       for (const ws of here.room.clients.keys()) sendText(ws, word);
     }
   };

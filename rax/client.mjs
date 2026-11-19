@@ -182,7 +182,14 @@ const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c
 let weather = null;
 // 👀 The people in the rooms around this one (the server's `beyond`), eased
 // from where each was last drawn to where they were last heard of.
-let beyond = new Map();
+let beyond = new Map(), drones = new Map(), myEye = null;
+function droneAt(d, now) {
+  const k = Math.min(1, (now - d.at) / 110), f = d.from;
+  if (!f) return d;
+  let turn = d.yaw - f.yaw;
+  turn -= Math.round(turn / 360) * 360;
+  return { ...d, x: f.x + (d.x - f.x) * k, y: f.y + (d.y - f.y) * k, z: f.z + (d.z - f.z) * k, yaw: f.yaw + turn * k, from: null };
+}
 function beyondAt(b, now) {
   const k = Math.min(1, (now - b.at) / 70), f = b.from;
   if (!f) return b;
@@ -814,6 +821,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   }
   passage = receipt;
   beyond = new Map(); // (the next room tells them in its own metres)
+  drones = new Map();
   park = null;
   walkAt = performance.now() + 1000;
   objects = [];
@@ -972,6 +980,7 @@ function connect(adopt = null) {
     const messageAt = performance.now();
     const data = JSON.parse(e.data);
     if (data.type === 'welcome' || data.type === 'role') {
+      if (data.eye) myEye = data.eye;
       const old = player;
       seat = data.seat;
       if (seat >= 0) {
@@ -1046,6 +1055,17 @@ function connect(adopt = null) {
         next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, alive: true, from, at: now });
       }
       beyond = next;
+      // 🚁 And who looks on from the air, each a drone (your own is not drawn).
+      const eyes = new Map();
+      for (const [id, name, x, y, z, yaw] of data.drones || []) {
+        if (id === myEye) continue;
+        const was = drones.get(id), from = was ? droneAt(was, now) : null;
+        // (How fast it goes, eased: what its lean is drawn from.)
+        const vx = was ? (was.vx || 0) * 0.6 + ((x - was.x) / Math.max(0.03, (now - was.at) / 1000)) * 0.4 : 0;
+        const vz = was ? (was.vz || 0) * 0.6 + ((z - was.z) / Math.max(0.03, (now - was.at) / 1000)) * 0.4 : 0;
+        eyes.set(id, { id, name, x, y, z, yaw, vx, vz, from, at: now });
+      }
+      drones = eyes;
       return;
     }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
@@ -2228,7 +2248,7 @@ function step(now) {
     );
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
-  if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 250) {
+  if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 100) { // (ten times a second: the room draws it as a drone)
     const said = `${freecam.x.toFixed(1)} ${freecam.y.toFixed(1)} ${freecam.z.toFixed(1)} ${Math.round(yaw / 5)}`;
     if (said !== lookSaid) {
       lookSaid = said;
@@ -2495,6 +2515,7 @@ function step(now) {
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
     weather,
+    eyes: sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : [],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,

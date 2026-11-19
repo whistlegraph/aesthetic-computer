@@ -1084,6 +1084,27 @@ export async function createView(canvas) {
   // ⚽ The ball: a small sphere in black and white patches, turned by how
   // far it has rolled.
   let ballModel = null, ballRoll = 0, ballSeen = null;
+  // 🚁 A looker-on's drone: a small body, four arms to four rotors (two
+  // frames of them, turned, for the blur), a light at the nose.
+  const droneModels = [];
+  const droneFor = (frame) => (droneModels[frame] ||= model(({ box, quad }) => {
+    const shell = 0x2a2d3a, arm = 0x4a4f63, blade = frame ? 0xcfd6ea : 0x9aa3bd;
+    box(0, 0, 0, 0.26, 0.09, 0.34, shell, tint(shell, 0.8), tint(shell, 1.2));
+    box(0, 0.02, 0.18, 0.08, 0.05, 0.04, 0x00ffff, 0x00ffff, 0x00ffff); // the eye, at the nose
+    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const x = sx * 0.24, z = sz * 0.24;
+      box(x / 2, 0.01, z / 2, 0.05, 0.03, 0.05, arm, arm, arm);
+      box(x, 0.03, z, 0.06, 0.07, 0.06, arm, tint(arm, 0.8), arm);
+      // The rotor: a thin cross, turned an eighth between the two frames.
+      const a = frame ? Math.PI / 4 : 0, R = 0.15, w = 0.025, top = 0.075;
+      for (const t of [a, a + Math.PI / 2]) {
+        const c = Math.cos(t), s = Math.sin(t);
+        const p = (u, v) => [x + c * u - s * v, top, z + s * u + c * v];
+        quad(p(-R, -w), p(R, -w), p(R, w), p(-R, w), blade);
+        quad(p(-R, w), p(R, w), p(R, -w), p(-R, -w), blade);
+      }
+    }
+  }));
   // (A football proper: twelve black pentagons and twenty white hexagons, an
   // icosahedron with its corners cut, each corner pushed out to the sphere.)
   const ballFor = () => (ballModel ||= model(({ quad }) => {
@@ -1171,6 +1192,7 @@ export async function createView(canvas) {
     stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
     sticks = null, // 🎮 { move: [x, y], look: [x, y] } from -1 to 1: a controller's two sticks, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
+    eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
     ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
@@ -1715,6 +1737,17 @@ export async function createView(canvas) {
           );
         }
       }
+    }
+    // 🚁 Those looking on: a quadcopter each, hovering with a small bob,
+    // leaning into the way it goes (nose down ahead, banked to the side),
+    // its rotors a blur, a light at the front, its name over it.
+    for (const d of eyes) {
+      const yawR = (d.yaw * Math.PI) / 180, ahead = direction(d.yaw), side = direction(d.yaw - 90);
+      const along = (d.vx || 0) * ahead.x + (d.vz || 0) * ahead.z, across = (d.vx || 0) * side.x + (d.vz || 0) * side.z;
+      const lean = Math.max(-0.5, Math.min(0.5, along * 0.05)), bank = Math.max(-0.5, Math.min(0.5, across * 0.05));
+      const y = d.y + Math.sin(now / 420 + d.x) * 0.04 - 0.05;
+      draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank);
+      if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }
     projector.cut = cut;
     for (let i = sparkles.length - 1; i >= 0; i--) {
