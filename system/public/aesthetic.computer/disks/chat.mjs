@@ -1431,7 +1431,7 @@ function paint(
   }
 
   if (client.connecting) {
-    ink("pink").write("Connecting" + ellipsisTicker?.text(help.repeat), {
+    ink("pink").write("Connecting" + (ellipsisTicker?.text(help.repeat) ?? ""), {
       center: "xy",
     }, undefined, undefined, false, typefaceName);
     return;
