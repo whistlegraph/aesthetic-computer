@@ -22,7 +22,7 @@
 # The development app is its own bundle (computer.aesthetic.nccd-dev), so its
 # window is not tiled with the installed app's and its settings are apart.
 # The wiki shows the club's login unless NCC_WIKI_TOKEN is in the environment.
-# Every test aid of the README works here too (NCC_SNAPSHOT_TOP=1 ./dev.sh).
+# Every test aid of DEVELOPING.md works here too (NCC_SNAPSHOT_TOP=1 ./dev.sh).
 #
 # A compile error is printed and the running app is left as it was.
 set -uo pipefail

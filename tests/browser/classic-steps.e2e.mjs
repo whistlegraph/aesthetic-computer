@@ -314,13 +314,16 @@ try {
   seen = await game.steps();
   check("a guest's tap to start goes to the turnstile, and comes back signed in", seen.who === "@tester" && !/[?&]code=/.test(game.page.url()), `${seen.who}; ${game.page.url().replace(site.url, "")}`);
   check("the guest painted nothing on the way", calls.length === before2.calls && moves.length === before2.moves && !seen.code);
+  const said = async () => (await game.page.evaluate(() => window.nopaintSteps.log)).filter((line) => / title: /.test(line)).map((line) => line.split(" title: ")[1]);
+  for (let i = 0; i < 40 && (await game.steps()).title?.who !== "@tester"; i++) await wait(150);
+  check("back from the turnstile, the title never says Sign In", !(await said()).includes("Sign In") && (await said()).at(-1) === "@tester", (await said()).join(" → "));
   for (let i = 0; i < 40 && (await game.steps()).title?.who !== "@tester"; i++) await wait(150);
   const opening = await game.ask("look", { uid: 98 });
   check("the dark opening screen shows the handle on its yellow label", opening.text === "@TESTER" && opening.shown && (await game.steps()).title.lights === false && (await game.ask("state")).layout === "Splash", opening.text);
   await game.page.screenshot({ path: join(OUT, "title-opening.png") });
   await game.lights();
   const slot2 = await game.ask("look", { uid: 114 });
-  check("with the lights on it is in the top-left slot, at its usual size", slot2.text === "@tester" && slot2.height === 16 && (await game.ask("state")).layout === "Splash", `${slot2.text}, ${slot2.height} high`);
+  check("with the lights on it is flush in the top-left corner, at its usual size", slot2.text === "@tester" && slot2.x === 0 && slot2.y === 0 && slot2.height === 16 && (await game.ask("state")).layout === "Splash", `${slot2.text} at ${slot2.x},${slot2.y}, ${slot2.height} high`);
   for (let i = 0; i < 40 && !(await game.steps()).title?.ai; i++) await wait(150);
   const aiLine = async () => (await game.steps()).title?.ai;
   check("a line under it says the painter's AI turns are off", (await aiLine()) === "AI Off" && !("AI" in (await game.ask("odds")).odds), await aiLine());
@@ -329,6 +332,15 @@ try {
   for (let i = 0; i < 20 && (await aiLine()) !== "AI On 2000"; i++) await wait(150);
   check("a tap on the line turns them on and shows the cost", (await aiLine()) === "AI On 2000" && (await game.ask("odds")).odds.AI > 0 && lineSpots.join() === "out,ai" && (await game.ask("state")).layout === "Splash", `${await aiLine()}; taps: ${lineSpots.join()}`);
   await game.page.screenshot({ path: join(OUT, "title-painter.png") });
+
+  // A later visit, still signed in: the handle is there from the first frame.
+  await game.page.reload({ waitUntil: "domcontentloaded" });
+  await game.wake();
+  for (let i = 0; i < 40 && (await game.steps()).title?.who !== "@tester"; i++) await wait(150);
+  check("on a later visit the title shows the handle at once, never Sign In", (await said()).join() === "@tester", (await said()).join(" → "));
+  await game.lights();
+  const slot3 = await game.ask("look", { uid: 114 });
+  check("and it is flush top left there too", slot3.text === "@tester" && slot3.x === 0 && slot3.y === 0, `${slot3.text} at ${slot3.x},${slot3.y}`);
 
   // Sign out: two taps on the handle.
   await game.tap(114);

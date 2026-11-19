@@ -2,8 +2,8 @@
 
 The map of the app: what each part is, what it holds, and how a change moves
 through it. Read this first; then the file you need. `README.md` is for a
-person who builds and runs the app, this is for a person (or an agent) who
-changes it.
+person who uses the app; `DEVELOPING.md` has the release, the tests and the
+settings; this is the map for a person (or an agent) who changes it.
 
 ## Work loop
 
@@ -20,7 +20,7 @@ changes (`Dev/host.swift`) loads the library again in the same process. The
 development app starts no Signal engine and sends nothing: it shows the logs
 and config that are already on this Mac. Look at a change with no screen and
 no clicks: `NCC_SNAPSHOT=/tmp/x.png ./build/NCCd.app/Contents/MacOS/NCCd`
-(every aid is in the README's table).
+(every aid is in the table in `DEVELOPING.md`).
 
 A new source file needs nothing: both builds take `Sources/*.swift`.
 
