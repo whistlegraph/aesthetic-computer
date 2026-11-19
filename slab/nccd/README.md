@@ -158,6 +158,8 @@ chosen size run a copy with another id (copy the app, change
 | `NCC_SNAPSHOT_DROP=1` | open the unibar's dropdown for the picture |
 | `NCC_SNAPSHOT_SEARCH=<words>` | open the Search tab and search for them |
 | `NCC_SNAPSHOT_TAB=<index>` | open that place first (-2 wiki, -3 search, -4 login, -5 code) |
+| `NCC_SNAPSHOT_QR=<words>` | show a code to scan in Signal's pane (no link is started) |
+| `NCC_SNAPSHOT_NCC=1` | start the NCC login in its pane |
 | `NCC_SNAPSHOT_WINDOW=<n>` | give the nth circle its own window, and picture that window |
 | `NCC_SNAPSHOT_DOC=<title, id or slug>` | open that wiki page first; its markdown is written to `<file.png>.md` |
 | `NCC_NO_SIGNAL_CLI=1` | as if signal-cli were not installed, to see the engine install |
@@ -189,6 +191,7 @@ club ships in this repo.
 - `Sources/Donut.swift` — the donut: the 3D home screen
 - `Sources/Updater.swift` — self-update
 - the Code tab (`showCode` in `App.swift`) shows the club's forge (`forgeURL`, default `https://git.nela.computer`) in a web view that shares the NCC login's session
+- `Sources/MenuBar.swift` — the wordmark in the macOS menu bar, its hover card (unread by chat, the last day by the hour), and the notifications for new club messages
 - `Sources/Radio.swift` — KPBJ 95.9 FM, in the Netlabel tab
 - `Sources/UI.swift` — wordmark, rail, sheet, wiki pane, link panel, themes
 - `Sources/App.swift` — the controller, and the entry points

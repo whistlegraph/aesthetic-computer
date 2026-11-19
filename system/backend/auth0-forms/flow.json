@@ -1,0 +1,40 @@
+{
+  "name": "Claim handle",
+  "actions": [
+    {
+      "id": "claim",
+      "alias": "Claim the handle on Aesthetic Computer",
+      "type": "HTTP",
+      "action": "SEND_REQUEST",
+      "allow_failure": false,
+      "mask_output": false,
+      "params": {
+        "method": "POST",
+        "url": "https://aesthetic.computer/handle",
+        "headers": { "x-ac-signup": "__SIGNUP_SECRET__" },
+        "payload": {
+          "handle": "{{fields.handle}}",
+          "sub": "{{context.user.user_id}}",
+          "email": "{{context.user.email}}",
+          "email_verified": "{{context.user.email_verified}}"
+        },
+        "content_type": "JSON"
+      }
+    },
+    {
+      "id": "claimed",
+      "alias": "Claimed?",
+      "type": "FLOW",
+      "action": "BOOLEAN_CONDITION",
+      "allow_failure": false,
+      "mask_output": false,
+      "params": {
+        "if": { "operands": [ { "operands": ["{{ claim.body.ok }}", "yes"], "operator": "EQ" } ], "operator": "AND" },
+        "else": [
+          { "id": "refused", "type": "FLOW", "action": "ERROR_MESSAGE", "allow_failure": false, "mask_output": false,
+            "params": { "message": "{{ claim.body.message }}" } }
+        ]
+      }
+    }
+  ]
+}

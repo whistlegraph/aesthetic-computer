@@ -595,15 +595,31 @@ final class BigButton: NSView {
     private var shift: NSLayoutConstraint!
     private let logo = NSImageView()
     private(set) var hosted: NSView?
+    private var below: NSLayoutConstraint!, centred: NSLayoutConstraint!
+    private var qrSlot: NSView?
+    var busy: Bool { hosted != nil || code.image != nil }        // a login is in progress in this pane
+    // A strip: the other pane's login has the room, and this one shows its one line.
+    var compact = false { didSet { if compact != oldValue { arrange() } } }
+    private func arrange() {
+        let flow = !compact
+        hosted?.isHidden = !flow
+        code.isHidden = !flow || code.image == nil
+        codeLine.isHidden = code.isHidden
+        logo.isHidden = compact || busy
+        stack.isHidden = flow && busy
+        for v in stack.arrangedSubviews where v !== line { v.isHidden = compact || v === qrSlot }     // a strip is its one line
+        below.isActive = false
+        centred.isActive = false
+        (compact ? centred : below)?.isActive = true
+        needsDisplay = true
+    }
 
     // The login itself, inside this pane (nil: the button again). While it is
     // here the pane is not a button: what is in it takes the presses.
     func host(_ v: NSView?) {
         hosted?.removeFromSuperview()
         hosted = v
-        logo.isHidden = v != nil
-        stack.isHidden = v != nil
-        needsDisplay = true
+        arrange()
         guard let v else { return }
         v.translatesAutoresizingMaskIntoConstraints = false
         addSubview(v)
@@ -611,6 +627,36 @@ final class BigButton: NSView {
             v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             v.topAnchor.constraint(equalTo: topAnchor, constant: 8), v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(lip + 8)),
         ])
+    }
+
+    // The code to scan fills the pane (nil: the button again): as large as the
+    // pane lets it be, whole at any window size, with one line under it.
+    private let code = NSImageView()
+    private let codeLine = NSTextField(labelWithString: "")
+    func showCode(_ image: NSImage?, _ words: String = "") {
+        if code.superview == nil {
+            code.imageScaling = .scaleProportionallyUpOrDown
+            code.translatesAutoresizingMaskIntoConstraints = false
+            code.setContentCompressionResistancePriority(.init(1), for: .vertical)
+            code.setContentCompressionResistancePriority(.init(1), for: .horizontal)
+            codeLine.font = Theme.mono(11)
+            codeLine.textColor = .white
+            codeLine.alignment = .center
+            codeLine.lineBreakMode = .byTruncatingTail
+            codeLine.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(code)
+            addSubview(codeLine)
+            NSLayoutConstraint.activate([
+                code.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+                code.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10), code.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+                code.bottomAnchor.constraint(equalTo: codeLine.topAnchor, constant: -6),
+                codeLine.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), codeLine.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+                codeLine.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(lip + 7)),
+            ])
+        }
+        code.image = image
+        codeLine.stringValue = words
+        arrange()
     }
 
     init(color: NSColor, mark: NSImage?, under: [NSView]) {
@@ -638,8 +684,10 @@ final class BigButton: NSView {
             logo.centerXAnchor.constraint(equalTo: centerXAnchor),
             { shift = logo.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -26); return shift }(),
             stack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stack.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 12),
         ])
+        below = stack.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 12)
+        centred = stack.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -lip / 2 + 1)
+        below.isActive = true
     }
     required init?(coder: NSCoder) { fatalError() }
 
@@ -658,7 +706,7 @@ final class BigButton: NSView {
     private let lip: CGFloat = 7
     override func draw(_ dirty: NSRect) {
         let r: CGFloat = 8
-        let sunk = (down && enabled) || hosted != nil       // with its login in it, the key stays down
+        let sunk = (down && enabled) || (busy && !compact)       // with its login in it, the key stays down
         (fill.blended(withFraction: 0.5, of: .black) ?? fill).setFill()          // the lip
         NSBezierPath(roundedRect: bounds, xRadius: r, yRadius: r).fill()
         let face = NSRect(x: 0, y: sunk ? 2 : lip, width: bounds.width, height: bounds.height - lip)
@@ -687,7 +735,7 @@ final class BigButton: NSView {
     }
     // The whole pane is the button: a press anywhere in it, on the mark or the words too, is the pane's.
     override func hitTest(_ point: NSPoint) -> NSView? {
-        if hosted != nil { return super.hitTest(point) }
+        if hosted != nil, !compact { return super.hitTest(point) }
         return frame.contains(point) ? self : nil
     }
     override func updateTrackingAreas() {
@@ -697,11 +745,11 @@ final class BigButton: NSView {
     }
     override func mouseEntered(with event: NSEvent) { hover = true }
     override func mouseExited(with event: NSEvent) { hover = false; down = false }
-    override func mouseDown(with event: NSEvent) { if enabled, hosted == nil { down = true } }
+    override func mouseDown(with event: NSEvent) { if enabled || compact, hosted == nil || compact { down = true } }
     override func mouseUp(with event: NSEvent) {
         let was = down
         down = false
-        if was, enabled, bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+        if was, enabled || compact, bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
     }
     override func resetCursorRects() { if enabled { addCursorRect(bounds, cursor: .pointingHand) } }
 }
@@ -735,8 +783,15 @@ final class LinkPanel: NSView {
 
         signalPane = BigButton(color: NSColor(hex: "3A76F0")!, mark: Brand.signal(size: 44), under: [qr, note])
         nccPane = BigButton(color: NSColor(hex: "006888")!, mark: Pixel.icon("n", size: 40), under: [])
-        signalPane.onClick = { [weak self] in self?.press(self?.button) }
-        nccPane.onClick = { [weak self] in self?.press(self?.nccButton) }
+        // A press on a pane starts its login; on a strip whose login is already under way, it brings that login back.
+        signalPane.onClick = { [weak self] in
+            guard let self else { return }
+            if self.signalPane.busy { self.focus = self.signalPane } else { self.press(self.button) }
+        }
+        nccPane.onClick = { [weak self] in
+            guard let self else { return }
+            if self.nccPane.busy { self.focus = self.nccPane } else { self.press(self.nccButton) }
+        }
         for w in [status, nccStatus] { w.onChange = { [weak self] in self?.sync() } }
         for d in [button, nccButton] { d.onChange = { [weak self] in self?.sync() } }
         panes.addArrangedSubview(signalPane)
@@ -754,8 +809,35 @@ final class LinkPanel: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    // The login in progress has the room: its pane takes the sheet, and the
+    // other is squashed to a strip with its one line (press it to swap). With
+    // no login in progress the two panes share the sheet.
+    private var strip: NSLayoutConstraint?
+    private var focus: BigButton? { didSet { balance() } }
+    private func balance() {
+        strip?.isActive = false
+        strip = nil
+        signalPane.compact = focus != nil && focus !== signalPane
+        nccPane.compact = focus != nil && focus !== nccPane
+        if let small = [signalPane, nccPane].first(where: { $0!.compact }) ?? nil {
+            panes.orientation = .vertical
+            panes.distribution = .fill
+            strip = small.heightAnchor.constraint(equalToConstant: 44)
+            strip?.isActive = true
+        } else {
+            panes.distribution = .fillEqually
+            orient(bounds.size)
+        }
+    }
+    private func settle() {             // a login ended: the other one, if it is under way, has the room
+        if let f = focus, !f.busy { focus = [signalPane, nccPane].compactMap { $0 }.first { $0.busy } }
+    }
+
     // The NCC login runs in NCC's own pane (nil: the button again).
-    func showNCC(_ web: NSView?) { nccPane.host(web) }
+    func showNCC(_ web: NSView?) {
+        nccPane.host(web)
+        if web != nil { focus = nccPane } else { settle() }
+    }
     var nccWeb: NSView? { nccPane.hosted }
 
     private func press(_ b: NSButton?) {
@@ -771,9 +853,12 @@ final class LinkPanel: NSView {
 
     // Side by side when the window is wide for its height, else one over the other.
     override func setFrameSize(_ size: NSSize) {
+        if focus == nil { orient(size) }
+        super.setFrameSize(size)
+    }
+    private func orient(_ size: NSSize) {
         let side: NSUserInterfaceLayoutOrientation = size.width >= 520 && size.width > size.height ? .horizontal : .vertical
         if panes.orientation != side { panes.orientation = side }
-        super.setFrameSize(size)
     }
 
     // Point at the logins: the two panes blink (a greyed-out tab or the greyed-out search was pressed).
@@ -790,15 +875,21 @@ final class LinkPanel: NSView {
     }
 
     func showQR(_ uri: String?) {
-        guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { qr.isHidden = true; return }
+        guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { signalPane.showCode(nil); return settle() }
         f.setValue(Data(uri.utf8), forKey: "inputMessage")
         f.setValue("M", forKey: "inputCorrectionLevel")
-        guard let out = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return }
+        guard let out = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) else { return }
+        // on white, with a white margin round it, so it scans on any pane colour
         let rep = NSCIImageRep(ciImage: out)
-        let img = NSImage(size: rep.size)
-        img.addRepresentation(rep)
-        qr.image = img
-        qr.isHidden = false
+        let pad: CGFloat = 24
+        let img = NSImage(size: NSSize(width: rep.size.width + 2 * pad, height: rep.size.height + 2 * pad))
+        img.lockFocus()
+        NSColor.white.setFill()
+        NSRect(origin: .zero, size: img.size).fill()
+        rep.draw(in: NSRect(x: pad, y: pad, width: rep.size.width, height: rep.size.height))
+        img.unlockFocus()
+        signalPane.showCode(img, "Signal on your phone → Settings → Linked devices → scan")
+        focus = signalPane
     }
 }
 

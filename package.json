@@ -94,6 +94,7 @@
     "test:mail:e2e": "node tests/browser/mail-journey.test.mjs",
     "test:signup:e2e": "node tests/browser/signup-journey.test.mjs",
     "test:signup:e2e:password": "node tests/browser/signup-password-journey.test.mjs",
+    "test:onboarding:e2e": "node tests/browser/onboarding-journey.test.mjs",
     "test:mail:e2e:local": "AC_TEST_URL=https://localhost:8888 node tests/browser/mail-journey.test.mjs",
     "test:flair-fps": "AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs",
     "test:flair-fps:headed": "AC_HEADED=1 AC_TEST_URL=https://localhost:8888 node tests/browser/flair-fps.test.mjs",

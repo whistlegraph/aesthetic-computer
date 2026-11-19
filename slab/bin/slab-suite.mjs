@@ -12,7 +12,8 @@
 // the repo's .mcp.json). A Mac lacking a locked name drifts, and one whose
 // localhost server is not listening is stopped. The lock only grows by
 // following the leader; dropping a name takes a pin. A name a Mac should not
-// carry goes in suite.json under mcp.skip.<host>. sync reports the gap and
+// carry goes in suite.json under mcp.skip.<host>; a name retired for the whole
+// fleet goes on the shelf (toolchain/mcp/shelf.json). sync reports the gap and
 // writes no MCP config.
 //
 // Things get tried on the leader first. When the leader starts running a build
@@ -154,7 +155,9 @@ const read = (file, or) => (existsSync(file) ? JSON.parse(readFileSync(file, "ut
 const load = () => ({ ...JSON.parse(readFileSync(MANIFEST, "utf8")), lock: read(LOCK, {}) });
 const save = (m) => { mkdirSync(STATE, { recursive: true }); writeFileSync(LOCK, JSON.stringify(m.lock, null, 2) + "\n"); };
 const wants = (m, host, id) => (m.profiles[m.hosts[host]] || []).includes(id);
-const skips = (m, host) => m.mcp?.skip?.[host] || [];
+// Names no Mac is asked for: this one's own skips, and everything retired to the shelf.
+const SHELF = join(REPO, "toolchain/mcp/shelf.json");
+const skips = (m, host) => [...(m.mcp?.skip?.[host] || []), ...Object.keys(read(SHELF, {}).servers || {})];
 
 function survey(m, hosts) {
   return Object.fromEntries(hosts.map((h) => {

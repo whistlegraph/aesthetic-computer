@@ -20,7 +20,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 FRAMEWORKS=(-framework AppKit -framework Network -framework Security -framework CoreImage
-            -framework AVFoundation -framework ImageIO -framework SceneKit -framework WebKit)
+            -framework AVFoundation -framework ImageIO -framework SceneKit -framework WebKit -framework UserNotifications)
 if [[ -n "${DONUT_ARCHS:-}" ]]; then
     SDK="$(xcrun --sdk macosx --show-sdk-path)"
     SLICES=()

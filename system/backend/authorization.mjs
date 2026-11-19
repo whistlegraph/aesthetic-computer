@@ -143,6 +143,25 @@ export async function userIDFromEmail(email, tenant = "aesthetic", got, token) {
   }
 }
 
+// Every verified `aesthetic` account on an address. A code or social sign-in
+// that Auth0 links into an older account shares its address with it, and the
+// handle is on the older one (backend/signup-handle.mjs).
+export async function verifiedSubsForEmail(email) {
+  try {
+    const got = (await import("got")).got;
+    const token = await getAccessToken(got, "aesthetic");
+    const response = await got(`${aestheticBaseURI}/api/v2/users-by-email`, {
+      searchParams: { email },
+      headers: { Authorization: `Bearer ${token}` },
+      responseType: "json",
+    });
+    return (response.body || []).filter((user) => user.email_verified === true).map((user) => user.user_id);
+  } catch (error) {
+    shell.error(`Error retrieving accounts by email from Auth0: ${error}`);
+    return [];
+  }
+}
+
 // Pick between the below functions based on sub prefix.
 export async function findSisterSub(sub, options) {
   if (sub.startsWith("sotce-")) {

@@ -25,6 +25,9 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         super.init()
         web.navigationDelegate = self
         web.translatesAutoresizingMaskIntoConstraints = false
+        // the form is fitted again whenever its pane changes size
+        web.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(forName: NSView.frameDidChangeNotification, object: web, queue: .main) { [weak self] _ in self?.fit() }
         web.setValue(false, forKey: "drawsBackground")       // the pane's own colour shows behind the page
         web.configuration.userContentController.addUserScript(WKUserScript(
             source: Self.dress(ink: ink, field: field, accent: accent, onAccent: onAccent),
@@ -45,7 +48,8 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         ak-flow-executor, .ak-v2-c-drawer, .ak-v2-c-drawer__main, .ak-v2-c-drawer__content, .ak-v2-c-drawer__body {
           height: auto !important; min-height: 0 !important; }
         form.pf-c-form > p { display: none !important; }
-        .pf-c-login { min-height: 0 !important; padding: 12px 16px !important; background: transparent !important; display: block !important; }
+        .pf-c-login { min-height: 100vh !important; padding: 0 16px !important; background: transparent !important;
+          display: flex !important; flex-direction: column !important; justify-content: center !important; box-sizing: border-box !important; }
         ak-locale-select, .pf-c-login__header, .pf-c-login__footer, ak-brand-links, ak-flow-inspector-button,
         .pf-c-brand, img.branding-logo, .pf-c-login__main-header, h1.pf-c-title { display: none !important; }
         p, label, span, a { white-space: nowrap !important; }
@@ -144,11 +148,11 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
     func fit() {
         guard !done, web.bounds.height > 0 else { return }
         // the form's own height at no zoom, whatever the zoom is now
-        let js = "(function(){var e=document.querySelector('ak-flow-executor');var m=e&&e.shadowRoot&&e.shadowRoot.querySelector('.pf-c-login');return m?m.scrollHeight:document.documentElement.scrollHeight;})()"
+        let js = "(function(){var e=document.querySelector('ak-flow-executor');var m=e&&e.shadowRoot&&e.shadowRoot.querySelector('.pf-c-login__main');return m?m.scrollHeight+28:document.documentElement.scrollHeight;})()"
         web.evaluateJavaScript(js) { [weak self] v, _ in
             guard let self, let tall = (v as? NSNumber)?.doubleValue, tall > 0 else { return }
             let fits = self.web.bounds.height / CGFloat(tall)
-            let z = max(0.55, min(1, fits * 0.97)) * self.zoom
+            let z = max(0.3, min(1, fits * 0.97)) * self.zoom
             if abs(self.web.pageZoom - z) > 0.01 { self.web.pageZoom = z }
         }
     }

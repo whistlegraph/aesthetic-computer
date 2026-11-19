@@ -11,6 +11,8 @@ import {
   userIDFromHandle,
   userIDFromHandleOrEmail,
   findSisterSub,
+  userEmailFromID,
+  verifiedSubsForEmail,
   handleFor,
   hasAdmin,
 } from "../../backend/authorization.mjs";
@@ -25,10 +27,35 @@ import { shell } from "../../backend/shell.mjs";
 import { updateAtprotoHandle } from "../../backend/at.mjs";
 import { handleQuarantined } from "../../backend/account-deletion.mjs";
 import { heldByOther, releaseHold } from "../../backend/handle-hold.mjs";
+import { signupClaim, signupBody, signupReply, signupLookup, releaseAbandoned } from "../../backend/signup-handle.mjs";
 
 const dev = process.env.CONTEXT === "dev";
 
+// The hosted sign-in page claims a new account's handle with a secret in
+// place of a bearer token (backend/signup-handle.mjs). Create only.
 export async function handler(event, context) {
+  if (event.httpMethod !== "POST") return handleRequest(event, context);
+  let body;
+  try { body = JSON.parse(event.body); } catch { return handleRequest(event, context); }
+  const claimed = signupClaim(event.headers, body);
+  if (claimed === undefined) return handleRequest(event, context);
+  if (claimed === null) return respond(403, { message: "unauthorized" });
+  if (!body.handle) {
+    try { return respond(200, await signupLookup(claimed, { handleFor, subsForEmail: verifiedSubsForEmail })); }
+    catch { return respond(503, { message: "lookup unavailable" }); }
+  }
+  const response = await handleRequest({ ...event, body: signupBody(body) }, context, claimed);
+  return signupReply(response, body.handle, respond);
+}
+
+// A handle whose account stayed unverified for a week gives way to the next
+// person who asks for it.
+const freed = (handles, doc) => releaseAbandoned(handles, doc, {
+  verified: async (sub) => (await userEmailFromID(sub))?.email_verified,
+  forget: async (old) => { await KeyValue.del("@handles", old.handle); await KeyValue.del("userIDs", old._id); },
+});
+
+async function handleRequest(event, context, claimed) {
   // A GET request to get a handle from a user `sub`.
   if (event.httpMethod === "GET") {
     const accepts = (event.headers?.accept || event.headers?.Accept || "").toLowerCase();
@@ -158,7 +185,9 @@ export async function handler(event, context) {
     }
 
     // And that we are logged in...
-    const user = await authorize(event.headers, tenant);
+    const user = claimed
+      ? { sub: claimed.sub, email: claimed.email, email_verified: true }
+      : await authorize(event.headers, tenant);
 
     // shell.log("🙆 Handle update for user:", user);
 
@@ -355,9 +384,10 @@ export async function handler(event, context) {
           shell.log("Current user handle:", existingUser.handle);
           // Replace existing handle or fail if the new handle is already taken
           // by someone else (case-insensitive).
-          const existingHandle = await handles.findOne({ 
+          let existingHandle = await handles.findOne({ 
             handle: { $regex: new RegExp(`^${handle}$`, 'i') }
           });
+          if (existingHandle && existingHandle._id !== sub && (await freed(handles, existingHandle))) existingHandle = null;
 
           if (
             existingHandle &&
@@ -392,13 +422,14 @@ export async function handler(event, context) {
           const existingHandle = await handles.findOne({ 
             handle: { $regex: new RegExp(`^${handle}$`, 'i') }
           });
-          if (existingHandle) throw new Error("taken");
+          if (existingHandle && !(await freed(handles, existingHandle))) throw new Error("taken");
           // Recently deleted accounts' handles are held (account-deletion.mjs).
           if (await handleQuarantined(database.db, handle)) throw new Error("taken");
           if (await heldByOther(database.db, handle, body.hold)) throw new Error("taken");
 
           // Add a new `@handles` document for this user.
-          await handles.insertOne({ _id: primarySub, handle, createdAt: new Date(), updatedAt: new Date() });
+          await handles.insertOne({ _id: primarySub, handle, createdAt: new Date(), updatedAt: new Date(),
+            ...(claimed?.unverified ? { unverifiedAt: new Date() } : {}) });
 
           if (!primarySub.startsWith("sotce-")) {
             await logger.log(`hi @${handle}`, {

@@ -31,7 +31,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let people = People()
     let wiki = Wiki()
     let updater = Updater()
-    var menuDonut: NSStatusItem?
+    let menu = MenuBar()
     let radio = Radio()
     // The zoom of what is in the pane (not of the tabs and bars), kept between launches.
     var zoom: CGFloat = 1 {
@@ -88,32 +88,15 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         shell.set(main)
         window.contentView = shell
         if let z = UserDefaults.standard.object(forKey: "zoom") as? Double { zoom = CGFloat(z) }
-        // A donut in the menu bar: a click brings NCCd's window forward (and opens it again if it was shut).
+        // NCCd in the menu bar (MenuBar.swift): the wordmark, a card on hover, and the notifications.
         if !Self.snapshotRun {
-            let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-            // the donut in its own colours: dough, cyan icing, a few sprinkles
-            let size: CGFloat = 18
-            let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-                let c = NSPoint(x: size / 2, y: size / 2)
-                Donut.draw(at: c, radius: size / 2 - 0.5)
-                let marks: [(CGFloat, CGFloat, String)] = [(20, 0.68, "E0127F"), (95, 0.72, "F3D34A"), (160, 0.66, "9932CC"),
-                                                         (230, 0.72, "00D080"), (300, 0.68, "F07C00")]
-                for (deg, reach, hex) in marks {
-                    let a = deg * .pi / 180, r = (size / 2) * reach
-                    NSColor(hex: hex)!.setFill()
-                    let dash = NSBezierPath(roundedRect: NSRect(x: -1.4, y: -0.6, width: 2.8, height: 1.2), xRadius: 0.6, yRadius: 0.6)
-                    var t = AffineTransform(translationByX: c.x + r * cos(a), byY: c.y + r * sin(a))
-                    t.rotate(byDegrees: deg + 60)
-                    dash.transform(using: t)
-                    dash.fill()
-                }
-                return true
+            menu.onOpen = { [weak self] in self?.showWindow() }
+            menu.onOpenChat = { [weak self] g in
+                guard let self, let i = self.circles.firstIndex(where: { $0.conf.groupId == g }) else { return }
+                self.go(i)
             }
-            item.button?.image = image
-            item.button?.toolTip = "NCCd"
-            item.button?.target = self
-            item.button?.action = #selector(showWindow)
-            menuDonut = item
+            menu.stats = { [weak self] in self?.menuStats() ?? MenuStats() }
+            menu.install()
         }
         radio.onChange = { [weak self] in
             guard let self else { return }
@@ -230,6 +213,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if env["NCC_SNAPSHOT_DROP"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 6) { self.main.testDrop() }
         }
+        // NCC_SNAPSHOT_QR=<words> shows a code to scan in Signal's pane (a code of those words; no link is started).
+        if let words = env["NCC_SNAPSHOT_QR"] { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.showQR(words) } }
         // NCC_SNAPSHOT_NCC=1 starts the NCC login in its pane.
         if env["NCC_SNAPSHOT_NCC"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.openWikiLogin() } }
         // NCC_SNAPSHOT_TAB=<index> opens that place first (-2 wiki, -3 search, -4 login, -5 code).
@@ -304,7 +289,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         radio.stop()
         engine.cancelLink()
         engine.stop()
-        if let item = menuDonut { NSStatusBar.system.removeStatusItem(item) }
+        menu.remove()
         satellites.forEach { $0.window.delegate = nil; $0.window.close() }
         satellites = []
         window.delegate = nil
@@ -440,6 +425,23 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    // What the menu bar's card shows: each chat's unread, and the last day by the hour.
+    func menuStats() -> MenuStats {
+        var s = MenuStats()
+        guard account != nil else { return s }
+        let now = Int64(Date().timeIntervalSince1970 * 1000), hour: Int64 = 3_600_000
+        for (i, c) in circles.enumerated() {
+            let since = (UserDefaults.standard.object(forKey: readKey(c)) as? Int64) ?? 0
+            s.rows.append((c.conf.title, color(of: i), c.log.unread(since: since, me: account?.uuid ?? "")))
+            for m in c.log.msgs.reversed() {
+                let ago = (now - m.ts) / hour
+                if ago >= 24 { break }
+                if ago >= 0, m.kind == nil { s.hours[23 - Int(ago)] += 1 }
+            }
+        }
+        return s
+    }
+
     @objc func showWindow() {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -573,6 +575,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let account else { return }
         loadCircles()
         if Self.dev { return main.setStatus("development: Signal is not started; this is what is on this Mac") }
+        if !Self.snapshotRun { menu.askToNotify() }
         main.setStatus("starting Signal…")
         do { try engine.start(account: account) } catch {
             main.setStatus((error as? SignalEngine.EngineError)?.message ?? error.localizedDescription)
@@ -1096,6 +1099,15 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if m.body.isEmpty, m.files == nil { return }
         }
         guard circles[i].log.add(m) else { return }
+        // A new message from someone else is a notification, unless its chat is the one being read
+        // (and not the old messages that a fresh link catches up on).
+        let reading = NSApp.isActive && ((i == selected && !onStart && !onSearch && !onLogin && !main.wikiOpen)
+            || satellites.contains { $0.groupId == gid && $0.window.isKeyWindow })
+        let fresh = abs(Int64(Date().timeIntervalSince1970 * 1000) - ts) < 120_000
+        if m.kind == nil, author != account?.uuid, fresh, !reading, !Self.dev, !Self.snapshotRun {
+            menu.notify(chat: circles[i].conf.title, groupId: gid, who: people.person(author, fallback: name).name,
+                        words: m.body.isEmpty ? "sent a picture or a file" : m.body)
+        }
         if i == selected, !onStart {
             refresh()
             if window.isKeyWindow { markRead() }

@@ -48,6 +48,7 @@ build.sh  dev.sh  dist.sh  release.sh  make-icon.swift
 | `Store.swift` | what is kept | `Msg`, `CircleLog` (JSONL per circle), `People` (names, colours, roles) |
 | `Config.swift` | settings and paths | `AppConf`, `Paths`, `Config.shared` |
 | `Media.swift` | pictures and video frames | thumbnails, sizes |
+| `MenuBar.swift` | the menu bar item and notifications | the wordmark item, the hover card, `notify` |
 | `Radio.swift` | KPBJ | an `AVPlayer` on the stream, what is on |
 | `Updater.swift` | self-update | manifest, three checks, swap, relaunch |
 
