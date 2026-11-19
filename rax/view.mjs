@@ -1744,9 +1744,15 @@ export async function createView(canvas) {
     for (const d of eyes) {
       const yawR = (d.yaw * Math.PI) / 180, ahead = direction(d.yaw), side = direction(d.yaw - 90);
       const along = (d.vx || 0) * ahead.x + (d.vz || 0) * ahead.z, across = (d.vx || 0) * side.x + (d.vz || 0) * side.z;
-      const lean = Math.max(-0.5, Math.min(0.5, along * 0.05)), bank = Math.max(-0.5, Math.min(0.5, across * 0.05));
-      const y = d.y + Math.sin(now / 420 + d.x) * 0.04 - 0.05;
-      draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank);
+      // It is never quite still: a hover's own small hunting, and the wind over
+      // Los Angeles pushing it about (weather.mjs), each drone out of step
+      // with the next. A fast one is steadier than one hanging in the air.
+      const seed = (d.name || '').length * 1.7 + (d.name || 'x').charCodeAt(0), wind = weather?.wind || 0;
+      const loose = (0.025 + wind * 0.012) * (1 - Math.min(0.6, Math.hypot(along, across) / 20));
+      const sway = (rate, phase) => Math.sin(now / rate + seed * phase) + 0.5 * Math.sin(now / (rate * 0.37) + seed);
+      const lean = Math.max(-0.5, Math.min(0.5, along * 0.05)) + sway(610, 1) * loose, bank = Math.max(-0.5, Math.min(0.5, across * 0.05)) + sway(530, 2) * loose;
+      const y = d.y + sway(420, 3) * (0.03 + wind * 0.008) - 0.05;
+      draw(droneFor(Math.floor(now / 40) % 2), d.x + sway(900, 4) * wind * 0.006, y, d.z + sway(1100, 5) * wind * 0.006, yawR, lean, 1, -bank);
       if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }
     projector.cut = cut;
@@ -1971,7 +1977,7 @@ export async function createView(canvas) {
                     // Looking on. (No way in is offered here: signing up
                     // and taking a handle belong to the paper, 2026-11-18.)
                     hintSpans(
-                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up' : 'look / {wasd} / {space} up / {shift} down',
+                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up / [Y] drone' : 'look / {wasd} / {space} up / {shift} down / {v} drone',
                       THEME.text,
                     ),
                   ]

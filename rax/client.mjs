@@ -182,7 +182,12 @@ const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c
 let weather = null;
 // 👀 The people in the rooms around this one (the server's `beyond`), eased
 // from where each was last drawn to where they were last heard of.
-let beyond = new Map(), drones = new Map(), myEye = null;
+let beyond = new Map(), drones = new Map(), myEye = null, droneView = false; // droneView: looking on, from behind your own drone
+// The eye a little behind and above your own drone, along the way it looks.
+function droneBack() {
+  const d = direction(yaw, pitch);
+  return { x: freecam.x - d.x * 1.6, y: Math.max(0.2, freecam.y - d.y * 1.6 + 0.35), z: freecam.z - d.z * 1.6 };
+}
 function droneAt(d, now) {
   const k = Math.min(1, (now - d.at) / 110), f = d.from;
   if (!f) return d;
@@ -1822,6 +1827,8 @@ document.addEventListener('keydown', (e) => {
     sfx.jump();
   }
   if (seat >= 0 && e.code === 'KeyV' && !e.repeat) third = !third;
+  // 🚁 Looking on, V steps back to see your own drone.
+  if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
     if (focusObject?.wall && !holding()) openRadial(focusObject);
     else useQueued = true;
@@ -2201,6 +2208,7 @@ function step(now) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+    if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
   if (lockOn && player) {
     const target = spotOf(lockOn.id);
@@ -2515,7 +2523,8 @@ function step(now) {
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
     weather,
-    eyes: sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : [],
+    eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
+      ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0 }] : [])],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
@@ -2526,7 +2535,7 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : {}), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     controller: controller.id,
