@@ -2278,10 +2278,11 @@ function step(now) {
     activeSeconds += Math.min(0.1, elapsed);
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
   if (seat < 0 && connected && !joining())
-    // 🌀 The triggers (or Q and R) roll it over, a turn in two seconds; let go, its gyro brings it level the short way.
+    // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
     {
-      const turn = (gamepad.rt || keys.has('KeyR') ? 1 : 0) - (gamepad.lt || keys.has('KeyQ') ? 1 : 0);
-      if (turn) droneRoll += turn * Math.PI * Math.min(0.1, elapsed);
+      const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
+      const turn = Math.max(squeeze(gamepad.lt || 0), keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0);
+      if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
       else { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 5); }
     }
     freecam = moveFreecam(

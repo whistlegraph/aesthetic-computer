@@ -93,8 +93,9 @@ export class Controller {
       result.swap = edge(8);
       result.up = Number(buttons[5]) - Number(buttons[4]);
       result.boost = !!buttons[7];
-      result.lt = !!buttons[6]; // the triggers held (a drone rolls on them)
-      result.rt = !!buttons[7];
+      // How far each trigger is squeezed, 0 to 1 (a drone rolls on them).
+      result.lt = pad.buttons[6]?.value ?? Number(buttons[6]);
+      result.rt = pad.buttons[7]?.value ?? Number(buttons[7]);
       // Past the standard seventeen: a pad's own extras (back paddles, L4 and R4), just pressed.
       result.extras = buttons.map((_, i) => i).filter((i) => i > 16 && edge(i));
     }
