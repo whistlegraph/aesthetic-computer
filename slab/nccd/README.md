@@ -61,7 +61,7 @@ loop works (per-file compilation, a dynamic library, a host that reloads it).
 
 The app needs `signal-cli`. When it is missing and this Mac has Homebrew, the
 app installs it itself as it opens (`brew install signal-cli`), and the menu's
-Update Signal Engine runs `brew upgrade signal-cli`. With no Homebrew it says
+Check for Updates also runs `brew upgrade signal-cli`. With no Homebrew it says
 what to do.
 
 ## Release
@@ -122,8 +122,7 @@ the wiki pane. The foot of the rail shows both, each with a tick when it is done
    sign-in (`/auth/oidc`); when the club has confirmed the member, the wiki
    sets its session token, and the app asks the wiki's API with that token
    (kept in the login Keychain). The app needs no client of its own at the
-   identity provider. Menu → Sign Out of NCC forgets the session. An API key
-   set by hand (menu → Set Wiki Key…) works in place of the login.
+   identity provider. Menu → Sign Out of NCC forgets the session. The `NCC_WIKI_TOKEN` environment variable (an API key) stands in for the login in tests.
 
 ## The wiki
 
@@ -193,6 +192,7 @@ club ships in this repo.
 - `Sources/Updater.swift` — self-update
 - the Code tab (`showCode` in `App.swift`) shows the club's forge (`forgeURL`, default `https://git.nela.computer`) in a web view that shares the NCC login's session
 - `Sources/MenuBar.swift` — the wordmark in the macOS menu bar, its hover card (unread by chat, the last day by the hour), and the notifications for new club messages
+- `Sources/About.swift` — the About NCCd window
 - `Sources/Radio.swift` — KPBJ 95.9 FM, in the Netlabel tab
 - `Sources/UI.swift` — wordmark, rail, sheet, wiki pane, link panel, themes
 - `Sources/App.swift` — the controller, and the entry points

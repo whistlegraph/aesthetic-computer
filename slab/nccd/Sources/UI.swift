@@ -1040,15 +1040,33 @@ final class MentionList: NSView {
     }
 }
 
-// A dotted hairline, in the wordmark's green.
+// A seam: a row of stitches, as on cloth. Each stitch is a short rounded
+// thread, lit along its top, with the dark of the hole it goes into at each
+// end and a soft shadow under it, so it sits on the plane, not in it.
 final class Hairline: NSView {
+    static let tall: CGFloat = 7
     override func draw(_ dirty: NSRect) {
-        NSGraphicsContext.current?.shouldAntialias = false
-        Theme.word.withAlphaComponent(0.7).setFill()
-        var x: CGFloat = 0
-        while x < bounds.width {
-            NSRect(x: x, y: 0, width: 3, height: 1).fill()
-            x += 6
+        let mid = bounds.midY, long: CGFloat = 9, gap: CGFloat = 6, thick: CGFloat = 2.4
+        var thread = Theme.word, light = NSColor.white
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            thread = Theme.word.usingColorSpace(.sRGB) ?? thread
+            light = thread.blended(withFraction: 0.55, of: .white) ?? light
+        }
+        var x: CGFloat = 4
+        while x + long < bounds.width {
+            // the holes
+            NSColor(white: 0, alpha: 0.35).setFill()
+            NSBezierPath(ovalIn: NSRect(x: x - 1.6, y: mid - 1.3, width: 2.6, height: 2.6)).fill()
+            NSBezierPath(ovalIn: NSRect(x: x + long - 1, y: mid - 1.3, width: 2.6, height: 2.6)).fill()
+            // the shadow under the thread
+            NSColor(white: 0, alpha: 0.22).setFill()
+            NSBezierPath(roundedRect: NSRect(x: x, y: mid - thick / 2 - 1.2, width: long, height: thick), xRadius: thick / 2, yRadius: thick / 2).fill()
+            // the thread, and the light along its top
+            thread.setFill()
+            NSBezierPath(roundedRect: NSRect(x: x, y: mid - thick / 2, width: long, height: thick), xRadius: thick / 2, yRadius: thick / 2).fill()
+            light.setFill()
+            NSBezierPath(roundedRect: NSRect(x: x + 1, y: mid + thick / 2 - 1, width: long - 2, height: 0.8), xRadius: 0.4, yRadius: 0.4).fill()
+            x += long + gap
         }
     }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -1771,8 +1789,9 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             addSubview(line, positioned: .above, relativeTo: nil)
             NSLayoutConstraint.activate([
                 line.leadingAnchor.constraint(equalTo: leadingAnchor), line.trailingAnchor.constraint(equalTo: trailingAnchor),
-                line.heightAnchor.constraint(equalToConstant: 2),
-                under ? line.topAnchor.constraint(equalTo: bar.bottomAnchor) : line.bottomAnchor.constraint(equalTo: bar.topAnchor),
+                line.heightAnchor.constraint(equalToConstant: Hairline.tall),
+                // the seam sits across the edge where the two planes meet
+                line.centerYAnchor.constraint(equalTo: under ? bar.bottomAnchor : bar.topAnchor),
             ])
         }
         dropOpen = false
@@ -2547,6 +2566,17 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     func clearField() { field.stringValue = ""; chosen = []; mentions.isHidden = true }
+
+    // The wordmark hops: a press on it had nowhere to go.
+    func bounceLogo() {
+        logo.wantsLayer = true
+        let hop = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        hop.values = [0, 9, 0, 4, 0, 1.5, 0]
+        hop.keyTimes = [0, 0.22, 0.48, 0.64, 0.8, 0.9, 1]
+        hop.duration = 0.5
+        hop.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        logo.layer?.add(hop, forKey: "hop")
+    }
 
     // Test aid: open the unibar's dropdown.
     func testDrop() { dropOpen = true }
