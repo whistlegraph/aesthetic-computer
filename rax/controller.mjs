@@ -93,6 +93,8 @@ export class Controller {
       result.swap = edge(8);
       result.up = Number(buttons[5]) - Number(buttons[4]);
       result.boost = !!buttons[7];
+      // Past the standard seventeen: a pad's own extras (back paddles, L4 and R4), just pressed.
+      result.extras = buttons.map((_, i) => i).filter((i) => i > 16 && edge(i));
     }
     this.previous = buttons;
     this.focused = focused;

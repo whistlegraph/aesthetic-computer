@@ -370,6 +370,19 @@ function logNet(text, flags = {}) {
   netLog.push({ when, text, ...flags });
   if (netLog.length > 40) netLog.shift();
 }
+const extrasSeen = new Set(); // a controller's buttons past the standard ones, as they are first pressed
+// 🔄 New code reaches a page that is up over the room (parked) too: it asks
+// the server's revision every half minute and loads again, unseen, when
+// that is not the one it started with. (In the room, the socket's fall
+// does it: watchHealth.)
+let bootRevision = null;
+const askRevision = () => fetch(new URL('./health', import.meta.url), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((h) => h?.revision || null).catch(() => null);
+void askRevision().then((r) => { bootRevision = r; });
+setInterval(async () => {
+  if (!hosted || sheetOpen || !bootRevision) return;
+  const now = await askRevision();
+  if (now && now !== bootRevision && !sheetOpen) location.reload();
+}, 30000);
 let parked = false; // The client closed the room's socket itself (back on the curtain).
 let lastSeat = -1; // The seat held last time, for the next flight in.
 let cornerScale = 1, shownCornerScale = 1; // The curtain crosshair's breadth, which the room follows.
@@ -1998,6 +2011,14 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
+  // 🎮 L4 and R4 (a pad's extra buttons) change the pixel density, as ⌘− and
+  // ⌘+ do: of the extras this pad has shown, the lowest is chunkier and any
+  // other sharper. Each is named in the log the first time, to map them by.
+  for (const i of gamepad.extras || []) {
+    if (!extrasSeen.has(i)) { extrasSeen.add(i); logNet(`controller: extra button ${i}`); console.info(`🎮 rax extra button ${i}`); }
+    const step = extrasSeen.size > 1 && i === Math.min(...extrasSeen) ? -1 : 1;
+    if (hosted) toHost({ type: 'rax:sheet:density', step });
+  }
   // Walking through chalk dusts it: the points within reach fall as motes
   // here at once, and the server cuts the strokes for everyone.
   if (player && seat >= 0 && now - dustedAt > 120 && Math.hypot(player.vx || 0, player.vz || 0) > 0.5) {
