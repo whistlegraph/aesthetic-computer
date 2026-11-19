@@ -831,6 +831,8 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
+  let density = 0;
+  try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
   let statsAt = 0, statsGap = 16.7, statsWorst = 0, statsWorstAt = 0; // 🧰 the last frame's start, the time between frames (eased), the worst lately
   // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
@@ -1009,12 +1011,21 @@ export async function createView(canvas) {
     // 10.5 CSS pixels (the size 75% browser zoom gave) and the world gains
     // detail. A 1x screen keeps whole CSS pixels.
     const step = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
-    const scale = step * (devicePixelRatio >= 1.5 ? 0.75 : 1);
+    // (Standing alone, a controller's L4 and R4 make it chunkier or sharper: density below.)
+    const scale = Math.max(0.5, Math.min(8, step * (devicePixelRatio >= 1.5 ? 0.75 : 1) * 0.8 ** density));
     host.resize(Math.ceil(width / scale), Math.ceil(height / scale));
     aspect = width / height;
     pixelScale = scale;
   }
   const observer = new ResizeObserver(resize);
+  // 🔬 The picture's own density when no prompt lays the grid: each step up is
+  // a quarter more pixels across, each step down a fifth fewer; 0 is as it came.
+  function setDensity(by) {
+    density = by === 0 ? 0 : Math.max(-5, Math.min(5, density + Math.sign(by)));
+    try { localStorage.setItem('rax-density', String(density)); } catch {}
+    resize();
+    return density;
+  }
   observer.observe(canvas);
   addEventListener('resize', () => grid && resize());
   resize();
@@ -3476,6 +3487,7 @@ export async function createView(canvas) {
     effect,
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
+    density: setDensity,
     showFps(on) {
       SHOW_FPS = !!on;
     },

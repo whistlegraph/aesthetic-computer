@@ -1776,6 +1776,12 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  // 🔬 Standing alone, [ and ] make the picture chunkier or sharper (as L4 and R4 do).
+  if (!hosted && (e.code === 'BracketLeft' || e.code === 'BracketRight') && !typing() && !e.metaKey && !e.ctrlKey) {
+    view.density?.(e.code === 'BracketRight' ? 1 : -1);
+    e.preventDefault();
+    return;
+  }
   // 🧰 ` anywhere else opens the debugging panel, bottom right (not while typing).
   if (e.code === 'Backquote' && !e.repeat && !typing()) {
     statsShown = !statsShown;
@@ -2034,6 +2040,7 @@ function step(now) {
     if (!extrasSeen.has(i)) { extrasSeen.add(i); logNet(`controller: extra button ${i}`); console.info(`🎮 rax extra button ${i}`); }
     const step = extrasSeen.size > 1 && i === Math.min(...extrasSeen) ? -1 : 1;
     if (hosted) toHost({ type: 'rax:sheet:density', step });
+    else view.density?.(step);
   }
   // Walking through chalk dusts it: the points within reach fall as motes
   // here at once, and the server cuts the strokes for everyone.
