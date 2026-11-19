@@ -86,6 +86,17 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offs
   margin: 0 !important; padding: 0 !important;
 }
 .ac-fit-ready ._prompt-box-outer { margin: 0 !important; }
+
+/* The handle step (auth0-forms) loads inside this card. Auth0's loader is a
+   small spinner in an otherwise empty box; show a breathing @ instead. The
+   form's own stylesheet can't reach this: it only applies once the form is in. */
+@keyframes ac-breathe { 50% { opacity: .35; transform: scale(.9); } }
+.af-custom-form-container .af-loading { min-height: 230px; display: flex; align-items: center; justify-content: center; }
+.af-custom-form-container .af-loading > .af-spinner { display: none !important; }
+.af-custom-form-container .af-loading::before {
+  content: "@"; font-size: 64px; line-height: 1; color: #ff3fa4;
+  animation: ac-breathe 1.2s ease-in-out infinite;
+}
   </style>
 </head>
 <body class="_widget-auto-layout">
