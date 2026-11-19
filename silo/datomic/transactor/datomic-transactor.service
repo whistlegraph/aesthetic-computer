@@ -14,6 +14,8 @@ WorkingDirectory=/opt/datomic/current
 ## Bump the -Xmx once kidlisp corpus outgrows this. The transactor
 ## script accepts -Xmx/-Xms positionally before the properties file.
 ExecStart=/opt/datomic/current/bin/transactor -Xmx512m -Xms256m /opt/datomic/config/transactor.properties
+## Heap 512m plus the JVM's own ~250 MB; see the budget in kidlisp-sidecar.service.
+MemoryMax=900M
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
