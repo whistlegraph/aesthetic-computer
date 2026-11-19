@@ -8,7 +8,7 @@
 import { DT, CFG, reflect } from './world.mjs';
 import { SPAN } from './park.mjs';
 
-export const BALL = { r: 0.22, room: 'lobby', x: 3, z: -5 };
+export const BALL = { r: 0.34, room: 'lobby', x: 3, z: -5 };
 const G = 22, BOUNCE = 0.55, ROLL = 0.6, REACH = 0.4 + BALL.r, KICK = 1.5, LOFT = 0.35;
 const SIDES = [['east', 'x', 1], ['west', 'x', -1], ['north', 'z', 1], ['south', 'z', -1]];
 

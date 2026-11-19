@@ -1279,7 +1279,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (!at) return;
     for (const [key, room] of rooms) {
       const here = cellOf(key);
-      if (!here || Math.abs(at.i - here.i) > 1 || Math.abs(at.j - here.j) > 1 || !room.clients.size) continue;
+      if (!here || Math.abs(at.i - here.i) > 2 || Math.abs(at.j - here.j) > 2 || !room.clients.size) continue; // (as far as people are seen: tellBeyond)
       const r = (n) => Math.round(n * 1000) / 1000;
       const word = JSON.stringify({ type: 'ball', x: r(b.x + (at.i - here.i) * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + (at.j - here.j) * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
       for (const ws of room.clients.keys()) sendText(ws, word);

@@ -26,6 +26,7 @@ try {
 } catch {}
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
+import { BALL } from './ball.mjs';
 import { Projector } from './project.mjs';
 import { joinCode, hudLayout } from './hud.mjs';
 
@@ -1071,16 +1072,31 @@ export async function createView(canvas) {
   // ⚽ The ball: a small sphere in black and white patches, turned by how
   // far it has rolled.
   let ballModel = null, ballRoll = 0, ballSeen = null;
+  // (A football proper: twelve black pentagons and twenty white hexagons, an
+  // icosahedron with its corners cut, each corner pushed out to the sphere.)
   const ballFor = () => (ballModel ||= model(({ quad }) => {
-    const R = 0.22, LAT = 6, LON = 10;
-    const at = (a, b) => { const p = (a / LAT) * Math.PI, t = (b / LON) * 2 * Math.PI; return [R * Math.sin(p) * Math.cos(t), R * Math.cos(p), R * Math.sin(p) * Math.sin(t)]; };
-    for (let a = 0; a < LAT; a++)
-      for (let b = 0; b < LON; b++) {
-        const ink = (a + b) % 2 ? 0x16181d : 0xf4f4f0;
-        const p = [at(a, b), at(a + 1, b), at(a + 1, b + 1), at(a, b + 1)];
-        quad(p[0], p[1], p[2], p[3], ink);
-        quad(p[3], p[2], p[1], p[0], ink);
+    const R = BALL.r, F = (1 + Math.sqrt(5)) / 2, corners = [];
+    for (const a of [-1, 1]) for (const b of [-F, F]) corners.push([0, a, b], [a, b, 0], [b, 0, a]);
+    const sub = (p, q) => [p[0] - q[0], p[1] - q[1], p[2] - q[2]], dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    const cross = (p, q) => [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+    const out = (p) => { const d = Math.hypot(p[0], p[1], p[2]); return [(p[0] / d) * R, (p[1] / d) * R, (p[2] / d) * R]; };
+    const third = (p, q) => [p[0] + (q[0] - p[0]) / 3, p[1] + (q[1] - p[1]) / 3, p[2] + (q[2] - p[2]) / 3];
+    const near = (i) => corners.map((_, j) => j).filter((j) => j !== i && Math.abs(Math.hypot(...sub(corners[i], corners[j])) - 2) < 0.01);
+    // A face's corners in order round its middle, then as a fan of quads.
+    const face = (points, ink) => {
+      const mid = points.reduce((m, p) => [m[0] + p[0], m[1] + p[1], m[2] + p[2]], [0, 0, 0]);
+      const u = sub(points[0], mid.map((v) => v / points.length)), n = out(mid), v = cross(n, u);
+      const ring = points.map((p) => { const d = sub(p, mid.map((m) => m / points.length)); return [Math.atan2(dot(d, v), dot(d, u)), out(p)]; }).sort((p, q) => p[0] - q[0]).map(([, p]) => p);
+      for (let k = 1; k + 1 < ring.length; k += 2) {
+        const c = ring[k + 2] || ring[k + 1];
+        quad(ring[0], ring[k], ring[k + 1], c, ink);
+        quad(c, ring[k + 1], ring[k], ring[0], ink);
       }
+    };
+    corners.forEach((c, i) => face(near(i).map((j) => third(c, corners[j])), 0x16181d));
+    for (let i = 0; i < 12; i++) for (const j of near(i)) for (const k of near(i))
+      if (i < j && j < k && near(j).includes(k))
+        face([[i, j], [j, i], [j, k], [k, j], [k, i], [i, k]].map(([p, q]) => third(corners[p], corners[q])), 0xf4f4f0);
   }));
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
@@ -1358,7 +1374,7 @@ export async function createView(canvas) {
     }
     if (ball) {
       const pace = Math.hypot(ball.vx || 0, ball.vz || 0);
-      if (ballSeen !== null) ballRoll += (pace * Math.min(0.1, (now - ballSeen) / 1000)) / 0.22;
+      if (ballSeen !== null) ballRoll += (pace * Math.min(0.1, (now - ballSeen) / 1000)) / BALL.r;
       ballSeen = now;
       draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, ballRoll);
     }
@@ -2720,6 +2736,37 @@ export async function createView(canvas) {
           }
         }
       }
+    }
+    // 👁️ Looking on there is no face: the connection and where the eye is, in
+    // the world's metres, stand where the face's column would, bottom left.
+    if (!face && !bare && !game && camera && !me) {
+      const { unit, safeX, safeY } = hud;
+      const x0 = -W / 2 + safeX + 2, y0 = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
+      const m = model(({ rect: worldRect, small }) => {
+        const rect = flip(worldRect);
+        const ping = (connection?.label || '').toLowerCase(), bars = connection?.bars || 0;
+        const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? 0x3fb950 : bars >= 2 ? 0xffe066 : 0xff6b6b;
+        let row = 20;
+        if (ping) {
+          for (let i = 0; i < 4; i++) {
+            const h = 2 + i * 2, lit = i < bars;
+            rect(x0 + (i * 3 + 1) * unit, y0 + (row - 8) * unit, 0.000002, 2 * unit, h * unit, INK);
+            rect(x0 + i * 3 * unit, y0 + (row - 7) * unit, 0.000001, 2 * unit, h * unit, lit ? pingColor : 0x2c3040);
+          }
+          const tx = x0 + (14 + smallWidth(ping) / 2) * unit, ty = y0 + row * unit;
+          small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
+          small(ping, tx, ty, 0, unit, pingColor);
+          row -= 10;
+        }
+        let left = x0;
+        for (const [t, c] of [[(camera.x + (place?.x || 0)).toFixed(1), AXIS.x], [(camera.y || 0).toFixed(1), AXIS.y], [(camera.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
+          const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + row * unit;
+          small(t, cx + unit, cy - unit, 0.000002, unit, INK);
+          small(t, cx, cy, 0, unit, c);
+          left += (smallWidth(t) + 3) * unit;
+        }
+      });
+      projector.overlay(m, W, H);
     }
     if (face && !bare) {
       // A face cam, bottom left above your handle: an original pixel portrait
