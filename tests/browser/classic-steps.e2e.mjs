@@ -38,7 +38,11 @@ const TURNSTILE = `self.auth0 = { Auth0Client: class {
   async isAuthenticated() { return localStorage.getItem("played-turnstile") === "in"; }
   async getUser() { return { sub: "auth0|played" }; }
   async getTokenSilently() { return "test-token"; }
-  async logout() { localStorage.removeItem("played-turnstile"); localStorage.removeItem("@@auth0spajs@@::played"); }
+  async logout(options) {
+    localStorage.removeItem("played-turnstile"); localStorage.removeItem("@@auth0spajs@@::played");
+    // With somewhere to return to, the real one leaves to end the turnstile's own session and comes back.
+    if (options?.logoutParams?.returnTo) { localStorage.setItem("played-logout", "at the turnstile"); location.assign(options.logoutParams.returnTo + "/"); }
+  }
 } };`;
 // The AI service, played: two brains at the painting's size, one of them the
 // free one, and a move that answers with a flat magenta picture.
@@ -347,10 +351,12 @@ try {
   for (let i = 0; i < 20 && (await game.steps()).title?.who !== "Sign Out?"; i++) await wait(150);
   const sure = (await game.steps()).title?.who, stillThere = (await game.ask("state")).layout;
   await game.tap(114);
-  for (let i = 0; i < 20 && (await game.steps()).who; i++) await wait(150);
-  for (let i = 0; i < 20 && (await game.steps()).title?.who !== "Sign In"; i++) await wait(150);
-  check("two taps on the handle sign out, and neither starts the game", sure === "Sign Out?" && stillThere === "Splash" && !(await game.steps()).who && /Sign In/.test((await game.ask("look", { uid: 114 })).text) && (await game.ask("state")).layout === "Splash",
-    `${sure} → ${(await game.steps()).title?.who}`);
+  await game.page.waitForFunction(() => localStorage.getItem("played-logout") && window.nopaintSteps && !window.nopaintSteps.account, { timeout: 30000, polling: 250 }).catch(() => {});
+  await game.wake();
+  for (let i = 0; i < 40 && (await game.steps()).title?.who !== "Sign In"; i++) await wait(150);
+  check("two taps on the handle sign out at the turnstile too, and neither starts the game", sure === "Sign Out?" && stillThere === "Splash"
+    && (await game.page.evaluate(() => localStorage.getItem("played-logout"))) === "at the turnstile" && !(await game.steps()).who && (await game.steps()).title?.who === "Sign In" && (await game.ask("state")).layout === "Splash",
+    `${sure} → ${(await game.steps()).title?.who}; ${await game.page.evaluate(() => localStorage.getItem("played-logout"))}`);
   check("no page errors", game.log.errors.length === 0, game.log.errors.join(" | ").slice(0, 160));
 } catch (error) {
   check("the run finished", false, String(error?.message || error).slice(0, 200));

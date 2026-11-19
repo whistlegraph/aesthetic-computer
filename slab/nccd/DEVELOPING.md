@@ -105,3 +105,7 @@ club ships in this repo.
 - `Sources/App.swift` — the controller, and the entry points
 - `Launch/main.swift` — the release executable's one line
 - `Dev/host.swift` — the development host, which loads the app's code as a library and loads it again
+
+## Walkthrough video
+
+`./walkthrough/make.py` makes the narrated walkthrough: one picture of the real app, one spoken line and timed captions for each scene of `walkthrough/scenes.json`. The pictures show real club chats and wiki pages, so the video is for the club, not for the public.

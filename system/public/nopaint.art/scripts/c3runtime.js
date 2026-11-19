@@ -2651,8 +2651,10 @@ runOnStartup(async (runtime) => {
     if (!instance || typeof instance.getImagePixelData !== "function") throw new Error(`no canvas named ${name}`);
     return instance;
   };
+  // Between two layouts the game is on none, and asking it which throws.
+  const where = () => { try { return runtime.layout.name; } catch { return null; } };
   const state = () => ({
-    layout: runtime.layout.name, tool: vars.CurrentTool, params: vars.Params,
+    layout: where(), tool: vars.CurrentTool, params: vars.Params,
     prompt: vars.promptText, hint: vars.parameterHint, painting: !!vars.Painting, desktop: !!vars.DesktopMode, paused: !!vars.Paused,
     paintDate: vars.PaintDate, code: vars.LoadCode, name: vars.Name, time: runtime.gameTime,
   });
@@ -2793,7 +2795,8 @@ runOnStartup(async (runtime) => {
   classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, settings: classic.tuning.ai || {} });
   let layout = null, painting = false, proposal = null, steps = 0;
   runtime.addEventListener("tick", () => {
-    const now = runtime.layout.name;
+    const now = where();
+    if (now === null) return;
     const flag = !!vars.Painting;
     // The options are chosen a moment after the layout starts; keep the latest.
     if (proposal && !proposal.turn && now === proposal.layout && !flag) proposal.options = hint() || vars.Params || proposal.options;

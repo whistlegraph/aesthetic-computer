@@ -272,7 +272,12 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 // the switcher is a window of its own: lay it in where it floats
                 if let (card, rect) = self.main.dropShot(), let r = card.bitmapImageRepForCachingDisplay(in: card.bounds) {
                     card.cacheDisplay(in: card.bounds, to: r)
-                    r.draw(in: view.convert(rect, from: nil))
+                    // (the card's own window is clear round its corners; a picture of it is not, so cut it to its shape)
+                    let at = view.convert(rect, from: nil)
+                    NSGraphicsContext.saveGraphicsState()
+                    NSBezierPath(roundedRect: NSRect(x: at.minX, y: at.minY, width: at.width, height: at.height - Popover.nib), xRadius: 10, yRadius: 10).addClip()
+                    r.draw(in: at)
+                    NSGraphicsContext.restoreGraphicsState()
                 }
                 if let web, let pane = self.main.wikiLoginView, !pane.isHiddenOrHasHiddenAncestor {
                     web.draw(in: pane.convert(pane.bounds, to: view))

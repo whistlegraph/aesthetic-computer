@@ -1,0 +1,108 @@
+[
+ {
+  "name": "01-login",
+  "env": {
+   "NCC_LOGGED_OUT": "1",
+   "NCC_SNAPSHOT_AFTER": "6"
+  },
+  "say": "This is N C C D. It's a Mac app I'm making for the NELA Computer Club. When you open it, there are two ways in."
+ },
+ {
+  "name": "02-qr",
+  "env": {
+   "NCC_LOGGED_OUT": "1",
+   "NCC_SNAPSHOT_QR": "sgnl://linkdevice?uuid=00000000-0000-0000-0000-000000000000&pub_key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "say": "Link Signal, and scan the code with your phone. That opens our chats and circles."
+ },
+ {
+  "name": "03-ncc",
+  "env": {
+   "NCC_LOGGED_OUT": "1",
+   "NCC_SNAPSHOT_NCC": "1",
+   "NCC_SNAPSHOT_AFTER": "13"
+  },
+  "say": "Or sign into N C C with your club account. That opens the wiki and the code. You can use one login without the other."
+ },
+ {
+  "name": "04-donut",
+  "env": {},
+  "say": "Home is a donut. Every chat is a token on it. Bigger means more members. A token that beats had a message a moment ago, and the newest message floats beside it."
+ },
+ {
+  "name": "05-chat",
+  "env": {
+   "NCC_SNAPSHOT_CIRCLE": "5"
+  },
+  "say": "Click one and you're in the chat. You can read, write, and mention people."
+ },
+ {
+  "name": "06-circle",
+  "env": {
+   "NCC_SNAPSHOT_CIRCLE": "1"
+  },
+  "say": "Each circle shows its roles across the top. Pictures, files and links show in line."
+ },
+ {
+  "name": "07-pending",
+  "env": {
+   "NCC_SNAPSHOT_CIRCLE": "2",
+   "NCC_SNAPSHOT_PENDING": "a message on its way glimmers until signal has it"
+  },
+  "say": "When you send, your message shows right away, and glimmers until Signal has it."
+ },
+ {
+  "name": "08-switcher",
+  "env": {
+   "NCC_SNAPSHOT_DROP": "1"
+  },
+  "say": "This little switcher gets you anywhere. Or use browser shortcuts. Control tab for the next place, command one through nine, and command plus and minus to zoom."
+ },
+ {
+  "name": "09-wiki",
+  "env": {
+   "NCC_SNAPSHOT_TAB": "-2",
+   "NCC_SNAPSHOT_AFTER": "11"
+  },
+  "say": "The wiki is a tab. This is our starting page, straight from Outline."
+ },
+ {
+  "name": "10-wikipage",
+  "env": {
+   "NCC_SNAPSHOT_DOC": "$WALK_DOC",
+   "NCC_SNAPSHOT_AFTER": "13"
+  },
+  "say": "Pages are drawn from their markdown, with tables and links. Links between pages open right here."
+ },
+ {
+  "name": "11-code",
+  "env": {
+   "NCC_SNAPSHOT_TAB": "-5",
+   "NCC_SNAPSHOT_AFTER": "15"
+  },
+  "say": "The code tab is our Forgejo, already signed in."
+ },
+ {
+  "name": "12-search",
+  "env": {
+   "NCC_SNAPSHOT_SEARCH": "netlabel",
+   "NCC_SNAPSHOT_AFTER": "11"
+  },
+  "say": "Search looks through every chat and the wiki at once."
+ },
+ {
+  "name": "13-linked",
+  "env": {
+   "NCC_SNAPSHOT_TAB": "-4"
+  },
+  "say": "Each login shows a tick. Press it again to unlink or sign out."
+ },
+ {
+  "name": "14-about",
+  "env": {
+   "NCC_SNAPSHOT_ABOUT": "1",
+   "NCC_SNAPSHOT_AFTER": "6"
+  },
+  "say": "New messages show up as Mac notifications, so Signal desktop can stay closed. It's written in Swift. Signal runs through signal C L I. The wiki is Outline, the code is Forgejo, and login is Authentik. It's signed, notarized, and it updates itself. The code is on our Forgejo. Feel free to try it."
+ }
+]
