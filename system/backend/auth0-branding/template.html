@@ -87,21 +87,36 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offs
 }
 .ac-fit-ready ._prompt-box-outer { margin: 0 !important; }
 
-/* The handle step (auth0-forms). Before the form arrives and after it is
-   accepted, Auth0 shows a small spinner in an otherwise empty card. Whenever
-   the form's step is not on screen, drop the card and its spinner and let one
-   large @ breathe over the background instead. The form's own stylesheet
-   can't do this: it only applies while the form is in. */
+/* The handle step (auth0-forms) shows Auth0's small spinner in an empty card
+   twice. Both are redrawn here; the form's own stylesheet only applies while
+   the form is in, and a script is needed for the second.
+
+   1. Before the form arrives (.af-form.af-loading, no step yet): the card
+      holds its size and an @ breathes where the spinner was.
+   2. After a handle is accepted (.af-screenEnding): the script below
+      (ac-login-handle) prints the handle there one character at a time, each
+      its own colour, while the card's background and border cycle. */
 @keyframes ac-breathe { 50% { opacity: .5; transform: translate(-50%, -50%) scale(.86); } }
-main.af-custom-form:not(:has(.af-step)) { position: relative; min-height: 300px; }
-main.af-custom-form:not(:has(.af-step)) ._prompt-box-outer > * { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
-main.af-custom-form:not(:has(.af-step)) ._prompt-box-outer > * * { visibility: hidden !important; }
-main.af-custom-form:not(:has(.af-step))::after {
+@keyframes ac-pop { from { transform: translateY(22px) scale(.2) rotate(-25deg); opacity: 0; } }
+@keyframes ac-bob { 50% { translate: 0 -8px; } }
+@keyframes ac-card {
+  0%, 100% { background-color: #fff0f8; border-color: #ff3fa4; }
+  25% { background-color: #eef3ff; border-color: #3f59e4; }
+  50% { background-color: #e9fbf7; border-color: #00b3a4; }
+  75% { background-color: #fff7e3; border-color: #ef9b05; }
+}
+main.af-custom-form ._prompt-box-outer > * > .af-custom-form-container { min-height: 260px !important; position: relative; }
+main.af-custom-form:not(:has(.af-step)) .af-form.af-loading > .af-spinner { display: none !important; }
+main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
   content: "@"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  font: 400 190px/1 ulp-font, -apple-system, system-ui, sans-serif; color: #ff3fa4;
-  -webkit-text-stroke: 10px #fff; paint-order: stroke fill;
+  font-size: 64px; line-height: 1; color: #ff3fa4;
   animation: ac-breathe 1.2s ease-in-out infinite;
 }
+.af-custom-form-container .af-screenEnding { min-height: 200px; display: flex !important; align-items: center; justify-content: center; }
+.af-custom-form-container .af-screenEnding > .af-spinner { display: none !important; }
+.ac-handle-print { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; line-height: 1; white-space: nowrap; }
+.ac-handle-print span { display: inline-block; animation: ac-pop .4s cubic-bezier(.2, 1.7, .4, 1) both, ac-bob 1s ease-in-out infinite; }
+main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card 1.4s linear infinite; }
   </style>
 </head>
 <body class="_widget-auto-layout">
@@ -169,6 +184,50 @@ main.af-custom-form:not(:has(.af-step))::after {
       }
       dot();
       new MutationObserver(dot).observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
+  <script id="ac-login-handle">
+    // The handle step (auth0-forms). Remember what is typed. When a name is
+    // accepted Auth0 swaps the form for its ending screen (.af-screenEnding,
+    // a spinner); print the handle there instead, a character at a time,
+    // each its own colour (login.css animates them and the card). Typing
+    // again also puts away a refusal about the last name tried.
+    (() => {
+      if (!location.pathname.includes('/u/custom-prompt')) return;
+      const colors = ['#ff3fa4', '#3f59e4', '#00b3a4', '#ef9b05', '#b500d5', '#e1285b'];
+      let handle = '';
+      document.addEventListener('input', (event) => {
+        if (event.target?.name !== 'handle') return;
+        handle = event.target.value.trim().replace(/^@/, '');
+        const refusal = document.querySelector('.af-scenarioMessage-error');
+        if (refusal) refusal.style.display = 'none';
+      }, true);
+      const print = (ending) => {
+        ending.dataset.acPrinted = '1';
+        const text = '@' + handle, line = document.createElement('div');
+        line.className = 'ac-handle-print';
+        line.setAttribute('aria-label', text);
+        line.style.fontSize = Math.min(52, Math.floor(330 / (text.length * 0.6))) + 'px';
+        ending.append(line);
+        document.querySelector('main.af-custom-form')?.classList.add('ac-handle-won');
+        let at = 0;
+        const next = () => {
+          if (at >= text.length) return;
+          const letter = document.createElement('span');
+          letter.textContent = text[at];
+          letter.setAttribute('aria-hidden', 'true');
+          letter.style.color = colors[at % colors.length];
+          letter.style.animationDelay = '0s, ' + (at * 60) + 'ms';
+          line.append(letter);
+          at++;
+          setTimeout(next, 32);
+        };
+        next();
+      };
+      new MutationObserver(() => {
+        const ending = document.querySelector('.af-screenEnding');
+        if (ending && handle && !ending.dataset.acPrinted) print(ending);
+      }).observe(document.documentElement, { childList: true, subtree: true });
     })();
   </script>
 </body>

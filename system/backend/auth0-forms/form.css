@@ -14,5 +14,4 @@
 .af-form:has(.af-scenarioMessage-error[style*="block"]) .af-step .af-component.af-field .af-field-content .af-field-wrapper input.af-stringField-input[name=handle]{border-bottom-color:#e1285b!important}
 .af-form .af-blockType-next_button{margin-top:26px!important}
 .af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:16px 0 0!important;min-height:0!important;text-align:center!important}
-.af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:19px!important;line-height:1.3!important;margin:0!important;padding:0!important;white-space:pre-line!important;text-align:center!important}
-.af-form .af-scenarioMessage-error .af-message-text::first-line{color:#ff3fa4!important;font-size:28px!important}
+.af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:22px!important;line-height:1.3!important;margin:0!important;padding:0!important;text-align:center!important}

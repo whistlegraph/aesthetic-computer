@@ -72,7 +72,7 @@
                   "allow_failure": false,
                   "mask_output": false,
                   "params": {
-                    "message": "@{{fields.handle}}\nis taken. Try another."
+                    "message": "Taken. Try another."
                   }
                 }
               ],
@@ -84,7 +84,7 @@
                   "allow_failure": false,
                   "mask_output": false,
                   "params": {
-                    "message": "@{{fields.handle}}\n{{ claim.body.message }}"
+                    "message": "{{ claim.body.message }}"
                   }
                 }
               ]
