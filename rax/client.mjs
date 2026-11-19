@@ -2507,6 +2507,16 @@ function step(now) {
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
   sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
   liftWas = { lift, at: now };
+  // 🚁 Your own drone is heard while you look on; anyone else's when it is near.
+  {
+    const eye = seat < 0 && !held ? freecam : displayed || player, flying = seat < 0 && !held && sheetOpen && snapshot;
+    let near = flying ? 0.8 : 0, work = flying ? Math.min(1, Math.hypot(freecam.vx || 0, freecam.vy || 0, freecam.vz || 0) / 16) : 0;
+    if (eye && sheetOpen) for (const d of drones.values()) {
+      const close = Math.max(0, 1 - Math.hypot(d.x - eye.x, d.y - eye.y, d.z - eye.z) / 18);
+      if (close > near) { near = close; work = Math.min(1, Math.hypot(d.vx || 0, d.vz || 0) / 16); }
+    }
+    sfx.drone(near, work);
+  }
   if (held && ((seat >= 0 && player) || now > held.until)) {
     if (crossing) {
       const ms = Math.round(now - crossing.at);

@@ -64,6 +64,41 @@ export class Sfx {
 
   // 🛗 The car in motion: a motor's hum and the wind in the shaft, both
   // rising with its speed (0 to 1). Asked every frame; nothing at 0.
+  // 🚁 A drone's whir: four rotors as two pairs a little apart in pitch, a
+  // buzz with a flutter in it. `near` is how close it is (1: it is yours, or
+  // at your ear; 0: none in earshot); `work` how hard it is flying, 0 to 1.
+  drone(near, work = 0) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.rotors) {
+      if (near <= 0) return;
+      const out = a.createGain(), band = a.createBiquadFilter(), flutter = a.createOscillator(), depth = a.createGain();
+      out.gain.value = 0;
+      band.type = 'bandpass';
+      band.frequency.value = 900;
+      band.Q.value = 0.9;
+      const pair = [0, 7].map((cents) => {
+        const o = a.createOscillator();
+        o.type = 'sawtooth';
+        o.detune.value = cents;
+        o.connect(band);
+        o.start();
+        return o;
+      });
+      // The blades' beat: a quick tremble in the loudness.
+      flutter.frequency.value = 31;
+      depth.gain.value = 0;
+      flutter.connect(depth).connect(out.gain);
+      flutter.start();
+      band.connect(out).connect(a.destination);
+      this.rotors = { out, band, pair, depth };
+    }
+    const n = Math.max(0, Math.min(1, near)), w = Math.max(0, Math.min(1, work)), r = this.rotors;
+    for (const o of r.pair) o.frequency.setTargetAtTime(150 + 90 * w, t, 0.12);
+    r.band.frequency.setTargetAtTime(700 + 900 * w, t, 0.15);
+    r.out.gain.setTargetAtTime(n ? (0.006 + 0.01 * w) * n * n * MASTER : 0, t, 0.15);
+    r.depth.gain.setTargetAtTime(n ? 0.002 * n * n * MASTER : 0, t, 0.15);
+  }
   lift(speed) {
     if (!this.ready) return;
     const a = this.audio, t = a.currentTime;

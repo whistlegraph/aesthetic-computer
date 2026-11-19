@@ -15,13 +15,15 @@ export function moveFreecam(camera, input, seconds, air = null) {
     y = f.y * input.fwd + input.up,
     z = f.z * input.fwd + r.z * input.right;
   // The speed asked for: never more on a diagonal than straight ahead.
-  // (Above the rooftops it covers ground as fast as it is high: the tower is kilometres tall.)
-  const length = Math.max(1, Math.hypot(x, y, z)), top = ((input.boost ? 16 : 6) * (1 + Math.max(0, camera.y - 20) / 40)) / length;
+  const length = Math.max(1, Math.hypot(x, y, z)), top = (input.boost ? 16 : 6) / length;
+  // Above the rooftops it climbs and sinks as fast as it is high (the tower is
+  // kilometres tall); across, it flies as it does anywhere.
+  const climb = 1 + Math.min(60, Math.max(0, camera.y - 20) / 40);
   const dt = Math.min(0.1, Math.max(0, seconds)), asked = Math.hypot(x, y, z) > 0.01;
   const k = 1 - Math.exp(-dt * (asked ? PUSH : DRIFT));
   const ax = (air?.x || 0) * RIDE, ay = (air?.y || 0) * HEAVE, az = (air?.z || 0) * RIDE;
   let vx = (camera.vx || 0) + (x * top + ax - (camera.vx || 0)) * k,
-    vy = (camera.vy || 0) + (y * top + ay - (camera.vy || 0)) * k,
+    vy = (camera.vy || 0) + (y * top * climb + ay - (camera.vy || 0)) * k,
     vz = (camera.vz || 0) + (z * top + az - (camera.vz || 0)) * k;
   if (!asked && !air && Math.hypot(vx, vy, vz) < 0.02) vx = vy = vz = 0; // at a hover (in still air)
   const nx = clamp(camera.x + vx * dt, -60, 60), ny = clamp(camera.y + vy * dt, 0.15, CEILING), nz = clamp(camera.z + vz * dt, -60, 60);
