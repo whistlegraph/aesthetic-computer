@@ -2178,7 +2178,7 @@ function step(now) {
           -1,
           1,
         ),
-        boost: gamepad.boost,
+        boost: gamepad.boost || gamepad.hold, // the right trigger, or A held
       },
       elapsed,
     );
@@ -2465,6 +2465,7 @@ function step(now) {
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     controller: controller.id,
+    sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0] } : null,
     seat,
     third: third || !!game()?.camera,
     game: game(),

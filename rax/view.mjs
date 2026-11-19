@@ -1140,6 +1140,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
+    sticks = null, // 🎮 { move: [x, y], look: [x, y] } from -1 to 1: a controller's two sticks, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
@@ -2303,6 +2304,33 @@ export async function createView(canvas) {
           const k = radius * 0.6;
           rect(kx - k / 2 + unit, ky - k / 2 - unit, 0.000003, k, k, INK);
           rect(kx - k / 2, ky - k / 2, 0.000002, k, k, PAPER);
+        }
+      });
+      projector.overlay(m, W, H);
+    }
+    // 🎮 A controller's two sticks while looking on: a ring each side of the
+    // bottom's middle, the knob where the thumb has it. Left moves the eye,
+    // right (cyan) turns it.
+    if (sticks) {
+      const { unit } = hud;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        const radius = Math.max(22, Math.min(canvas.clientWidth, canvas.clientHeight) * 0.055) * pixel;
+        const frame = (cx, cy, size, thick, color, z) => {
+          rect(cx - size / 2, cy + size / 2 - thick, z, size, thick, color);
+          rect(cx - size / 2, cy - size / 2, z, size, thick, color);
+          rect(cx - size / 2, cy - size / 2, z, thick, size, color);
+          rect(cx + size / 2 - thick, cy - size / 2, z, thick, size, color);
+        };
+        const oy = -H / 2 + radius + 14 * unit;
+        for (const [side, [ax, ay], ink] of [[-1, sticks.move, PAPER], [1, sticks.look, 0x00ffff]]) {
+          const ox = side * radius * 1.6, moved = Math.hypot(ax, ay) > 0.05;
+          const kx = ox + Math.max(-1, Math.min(1, ax)) * radius * 0.7, ky = oy - Math.max(-1, Math.min(1, ay)) * radius * 0.7;
+          frame(ox + unit, oy - unit, radius * 2, 2 * unit, INK, 0.000003);
+          frame(ox, oy, radius * 2, 2 * unit, moved ? ink : tint(ink, 0.6), 0.000002);
+          const k = radius * 0.6;
+          rect(kx - k / 2 + unit, ky - k / 2 - unit, 0.000003, k, k, INK);
+          rect(kx - k / 2, ky - k / 2, 0.000002, k, k, moved ? ink : tint(ink, 0.6));
         }
       });
       projector.overlay(m, W, H);
