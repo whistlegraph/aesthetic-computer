@@ -18,8 +18,16 @@ export const COLORS = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc
 export const MAX_PLAYERS = 16;
 const SPAWN_YAWS = [0, 180, 90, 270, 45, 225, 135, 315];
 export const seatColor = (seat) => COLORS[((seat % COLORS.length) + COLORS.length) % COLORS.length];
-// Half the width of the room in metres: a small studio for now, not a world.
+// Half the width of a room in metres, unless the room says otherwise: a
+// small studio. A room's own half-width comes from halfOf (2026-11-18);
+// everything that bounds a body, a ray or a build takes it as `half`.
 export const WORLD = 8;
+// The tower's rooms (the plaza and every floor) share one size. It is the
+// studio's for now; the rest of rax no longer assumes so.
+export const TOWER_HALF = WORLD;
+export const halfOf = (room) => (room === 'lobby' || /^floor-/.test(room || '') ? TOWER_HALF : WORLD);
+// The farthest a point in any room can be from its middle.
+export const MAX_HALF = Math.max(WORLD, TOWER_HALF);
 export const SCREEN = 40;
 // The floor's paints, by the number a painted square stores (1 to 6).
 export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
@@ -39,13 +47,20 @@ const box = (xMin, xMax, yMin, yMax, zMin, zMax) => ({
 // the join, so nothing stops at the line).
 export const OVERRUN = 16;
 const SIDES = ['west', 'east', 'south', 'north']; // in WALLS' order
-export const WALLS = [
-  // The room's four walls, drawn by the view (buildArena) at the same edges.
-  box(-WORLD - 1, -WORLD, 0, 60, -WORLD - 1, WORLD + 1),
-  box(WORLD, WORLD + 1, 0, 60, -WORLD - 1, WORLD + 1),
-  box(-WORLD, WORLD, 0, 60, -WORLD - 1, -WORLD),
-  box(-WORLD, WORLD, 0, 60, WORLD, WORLD + 1),
-];
+// A room's four walls, drawn by the view (buildArena) at the same edges:
+// one list for each size, the same list every time it is asked for.
+const walled = new Map();
+export function wallsOf(half = WORLD) {
+  if (!walled.has(half))
+    walled.set(half, [
+      box(-half - 1, -half, 0, 60, -half - 1, half + 1),
+      box(half, half + 1, 0, 60, -half - 1, half + 1),
+      box(-half, half, 0, 60, -half - 1, -half),
+      box(-half, half, 0, 60, half, half + 1),
+    ]);
+  return walled.get(half);
+}
+export const WALLS = wallsOf(WORLD);
 export const CFG = Object.freeze({
   ...DEFAULT_CFG,
   simHz: HZ,
@@ -67,17 +82,17 @@ export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
 // Stand back from the middle along the seat's yaw, so every spawn faces in.
 // Seats past the first eight take an inner ring, turned half a step.
-export function spawnPoint(seat) {
+export function spawnPoint(seat, half = WORLD) {
   const outer = seat < SPAWN_YAWS.length;
   const yaw = SPAWN_YAWS[seat % SPAWN_YAWS.length] + (outer ? 0 : 22.5);
-  const r = outer ? WORLD - 3 : WORLD - 5.5;
+  const r = outer ? half - 3 : half - 5.5;
   const f = direction(yaw);
   return { x: Math.round(-f.x * r * 1000) / 1000 || 0, z: Math.round(-f.z * r * 1000) / 1000 || 0, yaw };
 }
 
-export function spawn(seat, life = 1) {
+export function spawn(seat, life = 1, half = WORLD) {
   return {
-    ...newState({ ...spawnPoint(seat), cfg: CFG }),
+    ...newState({ ...spawnPoint(seat, half), cfg: CFG }),
     seat,
     life,
     health: 100,
@@ -91,7 +106,9 @@ export function spawn(seat, life = 1) {
 // A `platform` among them is a ledge: stood on from above, never a wall.
 // `flat` keeps the body on the z = 0 plane (a side-on arena).
 // `open` names the sides that lead to a neighbour (['east', 'south']).
-export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null) {
+// `half` is the room's half-width (halfOf).
+export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null, half = WORLD) {
+  const WALLS = wallsOf(half);
   if (!player.alive) return { ...player };
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
@@ -142,8 +159,8 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     next.vz *= 22 / speed;
   }
   const past = (side) => (open?.includes(side) ? OVERRUN : 0);
-  next.x = clamp(next.x, -WORLD + 0.4 - past('west'), WORLD - 0.4 + past('east'));
-  next.z = clamp(next.z, -WORLD + 0.4 - past('south'), WORLD - 0.4 + past('north'));
+  next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
+  next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
   if (flat) {
     next.z = next.vz = 0;
     next.duck = duck;
@@ -178,9 +195,9 @@ export function rayBox(origin, dir, box, max = 1000) {
   return near;
 }
 
-export function wallDistance(origin, dir, max = 1000, objects = [], time = 0) {
+export function wallDistance(origin, dir, max = 1000, objects = [], time = 0, half = WORLD) {
   let hit = max;
-  for (const wall of [...WALLS, ...objectBoxes(objects, time)])
+  for (const wall of [...wallsOf(half), ...objectBoxes(objects, time)])
     hit = Math.min(hit, rayBox(origin, dir, wall, max));
   if (dir.y < 0 && origin.y >= 0) hit = Math.min(hit, -origin.y / dir.y);
   return hit;
@@ -188,9 +205,9 @@ export function wallDistance(origin, dir, max = 1000, objects = [], time = 0) {
 
 // The first surface along a ray, with the face normal there: walls, solid
 // objects and the floor. { t, normal } or null within max.
-export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0) {
+export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half = WORLD) {
   let best = null;
-  for (const b of [...WALLS, ...objectBoxes(objects, time)]) {
+  for (const b of [...wallsOf(half), ...objectBoxes(objects, time)]) {
     let near = -Infinity, far = max, axis = null, sign = 0;
     let miss = false;
     for (const k of ['x', 'y', 'z']) {

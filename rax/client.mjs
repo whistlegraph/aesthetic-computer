@@ -1,13 +1,13 @@
 import { edgeAt, SPAN, groundsOf } from './park.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { carWalls, lobbyWalls, inCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
+import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
-import { direction, rayBox, wallDistance, along, SCREEN, WORLD } from './world.mjs';
+import { direction, rayBox, wallDistance, along, SCREEN, WORLD, halfOf } from './world.mjs';
 import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
@@ -19,6 +19,7 @@ import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 import { kidlispWall } from './kidlisp-wall.mjs';
+import { screenRows, carryPixels } from './screen-lod.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
 const view = await createView(document.getElementById('game'));
@@ -59,7 +60,7 @@ function leave() {
 // browser remembers the place so the right room is up before the socket is;
 // the server, which keeps where every handle rests, has the last word. A
 // `room` in the address wins, and so does anywhere travelled to since.
-// (`home` is the handle's floor of the tower, for the go menu.)
+// (`home` is the handle's floor of the tower.)
 let home = null, lastPlace = null;
 try {
   const kept = localStorage.getItem('rax-place');
@@ -80,6 +81,9 @@ const BACK = { east: 'west', west: 'east', north: 'south', south: 'north' };
 // the new room seats it (a moment; twenty seconds at most), so the eye never
 // leaves the head for the watcher's camera.
 let held = null;
+// 🫧 The walk over a seam now under way, and when the last one ended: how
+// long the body was between two rooms goes in the connection's log.
+let crossing = null, crossedAt = -Infinity;
 let sentSeq = 0; // The newest command handed to the socket.
 // 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
 // ride in progress ({ from, to, handle, at }), and whether the top line is
@@ -162,6 +166,8 @@ if (query.has('film'))
   }).catch(() => {});
 let filmPlayers = [], filmRide = null;
 const hasCar = () => room === 'lobby' || room.startsWith('floor-');
+// 📐 This room's half-width (world.mjs): the same number the server moves us by.
+const half = () => halfOf(room);
 const CAR_BOXES = carWalls(), LOBBY_BOXES = lobbyWalls();
 // 🌍 The world around this block, streamed from the server and kept between
 // visits: the last answer of /world for each block it was asked about.
@@ -404,19 +410,37 @@ function setWalls(spec = {}, res = wallRes) {
 // above stays for when a room asks for them again.
 const cube = [];
 // Standing KidLisp screens: a `$code` prompt stands that piece on the field.
-// The room lists them; each code's program runs here, once, for all of them.
+// The room lists them. A screen's program runs here at the pixel grid the
+// view asks for (`want`, from how far the eye is: screen-lod.mjs), one
+// program for each code at each grid, shared by the screens that show it.
 let screens = [];
-const screenPrograms = new Map();
+const screenPrograms = new Map(); // `${code}@${cols}` → program, or null while it loads
+const screenSources = new Map(); // code → source, fetched once
+function screenProgram(code, cols, from = null) {
+  const key = `${code}@${cols}`;
+  if (screenPrograms.has(key)) return;
+  screenPrograms.set(key, null);
+  kidlispWall(code, { width: cols, height: screenRows(cols), source: screenSources.get(code) || null })
+    .then((w) => {
+      screenSources.set(code, w.source);
+      // Start from the picture the coarser (or finer) grid was showing.
+      const old = from && screenPrograms.get(`${code}@${from}`);
+      if (old) carryPixels(old.pixels, old.width, old.height, w.pixels, w.width, w.height);
+      w.usedAt = performance.now();
+      screenPrograms.set(key, w);
+    })
+    .catch((e) => console.info(`KidLisp screen $${code}:`, e.message));
+}
 function setScreens(list) {
-  for (const s of list) {
-    if (screenPrograms.has(s.code)) continue;
-    screenPrograms.set(s.code, null);
-    kidlispWall(s.code, { width: 64, height: 36 })
-      .then((w) => screenPrograms.set(s.code, w))
-      .catch((e) => console.info(`KidLisp screen $${s.code}:`, e.message));
-  }
   // Keep the same objects for screens that stay, so their frame caches hold.
-  screens = list.map((s) => Object.assign(screens.find((o) => o.id === s.id) || {}, s));
+  // A screen stood on the car before 2026-11-18 is shown beside it.
+  screens = list.map((s) => Object.assign(screens.find((o) => o.id === s.id) || {}, s, hasCar() ? clearOfCar(s.x, s.z) : null));
+}
+// Once a frame: load the grid each screen wants, and let go of a program no
+// screen has drawn from for a while.
+function tendScreens(now) {
+  for (const s of screens) screenProgram(s.code, s.want || 64, s.cols || null);
+  for (const [key, w] of screenPrograms) if (w && now - w.usedAt > 8000) screenPrograms.delete(key);
 }
 // What the face cam reacts to: when you were hurt and from which side, when
 // to grin.
@@ -488,7 +512,8 @@ let tiles = {},
 let handleHistory = [],
   historyPending = false;
 // Motion blur: a post layer that blends each frame over the last ones,
-// more as the view turns faster. Off unless turned on in the room menu.
+// more as the view turns faster. Off: its menu switch is retired (2026-11-18),
+// and only a browser that turned it on before still has it.
 let motionBlur = false;
 try {
   motionBlur = localStorage.getItem('rax-blur') === 'on';
@@ -697,6 +722,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   // own commands, which the next room runs when it seats it. A walk across
   // a block's edge keeps its motion and the commands the old room never ran.
   const walk = Number.isInteger(ack), from = room;
+  if (walk) crossing = { from, to, at: performance.now() };
   held = receipt && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
@@ -753,7 +779,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (held && owed.length) {
     pending = owed.map((c, i) => ({ ...c, seq: i + 1 }));
     seq = pending.length;
-    for (const c of pending) held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges()), walk, until: held.until };
+    for (const c of pending) held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk, until: held.until };
   }
 }
 function connect() {
@@ -1005,9 +1031,9 @@ function connect() {
       const target = data.players.find(Boolean);
       if (target) {
         freecam = {
-          x: clamp(target.x + 4, -WORLD + 1, WORLD - 1),
+          x: clamp(target.x + 4, -half() + 1, half() - 1),
           y: target.y + 3,
-          z: clamp(target.z - 5, -WORLD + 1, WORLD - 1),
+          z: clamp(target.z - 5, -half() + 1, half() - 1),
         };
         yaw =
           (Math.atan2(target.x - freecam.x, target.z - freecam.z) * 180) /
@@ -1152,7 +1178,7 @@ function chalkPoint() {
   const held = (gamepad?.boost || chalkMouse || keys.has('KeyC')) && seat >= 0 && !prompt.open;
   if (!held || !player) return null;
   const dir = direction(yaw, pitch);
-  const reach = Math.min(3, wallDistance(player, dir, 3, solids(), 0) - 0.05);
+  const reach = Math.min(3, wallDistance(player, dir, 3, solids(), 0, half()) - 0.05);
   return along(player, dir, Math.max(0.6, reach));
 }
 // Send the drawing as this build's turn.
@@ -1166,47 +1192,10 @@ function submitChalk() {
   send({ type: 'prompt', prompt: chalkMode.text, objectId: chalkMode.target?.id, baseVersion: chalkMode.target?.version, chalk: true });
   chalkMode = null;
 }
-// The one menu's tabs: where to go, what you made, how it looks. The tab
-// last open is where it opens next.
-const MENU_TABS = ['go', '$', 'view'];
-let menuTab = 0;
+// The $ menu is one list: what your handle has made (2026-11-18). Its go
+// and view tabs are retired: places are walked and ridden to, V and [Y]
+// switch the camera, and chalk is erased from the build ring.
 function menuItems() {
-  // 🚪 (The old room menu's rows live here since 2026-11-13; "clear the
-  // room" is retired.) Both places always show; the one you stand in says so.
-  const here = (id) => (room === id ? ' · here' : '');
-  const places = [
-    home
-      ? { label: `home · floor ${home.floor ?? ''}${here(home.room)}`, act: () => travel(home.room) }
-      : { label: 'home · sign in for a floor', act: () => {} },
-    { label: `plaza${here('lobby')}`, act: () => travel('lobby') },
-    { label: `${BOP_NAME}${here(BOP_NAME)}`, act: () => travel(BOP_NAME) },
-  ];
-  // 🛗 In the car the elevator's buttons come first.
-  if (hasCar() && inCar(player))
-    places.unshift(
-      { label: 'elevator · up a floor', act: () => send({ type: 'elevator', to: 'up' }) },
-      { label: 'elevator · down a floor', act: () => send({ type: 'elevator', to: 'down' }) },
-      { label: 'elevator · my floor', act: () => send({ type: 'elevator', to: 'home' }) },
-      { label: 'elevator · ground', act: () => send({ type: 'elevator', to: 'g' }) },
-    );
-  const switches = [
-    { label: third ? 'first person' : 'third person', stay: true, act: () => (third = !third) },
-    {
-      stay: true,
-      label: motionBlur ? 'motion blur off' : 'motion blur on',
-      act: () => {
-        motionBlur = !motionBlur;
-        try {
-          localStorage.setItem('rax-blur', motionBlur ? 'on' : 'off');
-        } catch {}
-      },
-    },
-    {
-      label: 'fullscreen',
-      act: () => (window.raxRig ? window.raxRig.toggleFullscreen() : canvas.requestFullscreen?.().catch(() => {})),
-    },
-    { label: 'erase my chalk', act: () => send({ type: 'chalk-clear' }) },
-  ];
   // Everything your handle has made that fits the space, from any session,
   // with what this room remembers for you; newest first, a code once.
   const time = (at) => (typeof at === 'number' ? at : Date.parse(at) || 0);
@@ -1219,28 +1208,15 @@ function menuItems() {
     .sort((a, b) => b.at - a.at)
     .filter((h) => !seen.has(h.code) && seen.add(h.code))
     .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
-  return [
-    places,
-    list.length
-      ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
-      : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }],
-    switches,
-  ][menuTab];
-}
-// Left and right turn the tabs; the list starts at its top.
-function turnMenu(step, to = null) {
-  if (!menu) return;
-  menuTab = to ?? (menuTab + step + MENU_TABS.length) % MENU_TABS.length;
-  menu.tab = menuTab;
-  menu.items = menuItems();
-  menu.selected = 0;
-  sfx.ringMove(menuTab);
+  return list.length
+    ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
+    : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }];
 }
 function toggleMenu() {
   if (menu) return closeMenu();
   historyPending = !handleHistory.length;
   send({ type: 'handle-history' });
-  menu = { kind: 'history', tabs: MENU_TABS, tab: menuTab, items: menuItems(), selected: 0 };
+  menu = { kind: 'history', tabs: ['$'], tab: 0, items: menuItems(), selected: 0 };
   closeBuild();
   releaseInput();
   sfx.ringOpen();
@@ -1252,12 +1228,6 @@ function closeMenu() {
 function chooseMenu() {
   const item = menu?.items[menu.selected];
   sfx.ringPick(0);
-  if (item?.stay) {
-    // A switch flips where it stands and reads its new state.
-    item.act();
-    menu.items = menuItems();
-    return;
-  }
   menu = null;
   item?.act();
 }
@@ -1461,7 +1431,6 @@ canvas.addEventListener('pointerdown', (e) => {
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
     if (row === null) closeMenu();
-    else if (row <= -10) turnMenu(0, -10 - row); // a tab
     else if (row >= 0) {
       menu.selected = row;
       chooseMenu();
@@ -1551,8 +1520,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   // Tab: back to the prompt, as Tab there comes in (2026-11-10). $ (shift
-  // 4): the one menu — travel, the $code list, the view's switches — as the
-  // prompt's $ starts a code; not while typing, where $ is a letter
+  // 4): the menu, the list of what you made, as the prompt's $ starts a code; not while typing, where $ is a letter
   // (2026-11-08). The room menu on R and ` is retired (2026-11-13).
   if (e.code === 'Tab') {
     e.preventDefault();
@@ -1569,8 +1537,6 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (e.code === 'ArrowDown' || e.code === 'KeyS') menu.selected = (menu.selected + 1) % menu.items.length;
     if (e.code === 'ArrowUp' || e.code === 'KeyW') menu.selected = (menu.selected - 1 + menu.items.length) % menu.items.length;
-    if (!e.repeat && (e.code === 'ArrowLeft' || e.code === 'KeyA')) turnMenu(-1);
-    if (!e.repeat && (e.code === 'ArrowRight' || e.code === 'KeyD')) turnMenu(1);
     if (e.code === 'Enter') chooseMenu();
     if (e.code === 'Escape') closeMenu();
     return;
@@ -1796,7 +1762,7 @@ function applyPrediction() {
   prediction = null;
   const carried = !player && !!held;
   const changedLife = !player || own.life !== player.life;
-  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, fixedBoxes(), flat(), openEdges());
+  const result = reconcile(own, pending, data.acks[seat], solids(), data.tick, fixedBoxes(), flat(), openEdges(), half());
   // How far the server's word moved us from where we thought we were: zero
   // when prediction holds (?debug reads it).
   if (player && !changedLife) {
@@ -1920,17 +1886,12 @@ function step(now) {
       menu.selected = (menu.selected + step + menu.items.length) % menu.items.length;
       sfx.ringMove(menu.selected);
     }
-    // Tabs: d-pad left and right, the bumpers, or the stick.
-    let turn = (gamepad.dright || gamepad.use ? 1 : 0) - (gamepad.dleft || gamepad.ring ? 1 : 0);
-    if (!turn && !step && Math.abs(gamepad.right) > 0.6 && now - menuStickAt > 260) {
-      turn = gamepad.right > 0 ? 1 : -1;
-      menuStickAt = now;
-    }
-    if (turn) turnMenu(turn);
     if (gamepad.select) chooseMenu();
     if (gamepad.cancel) closeMenu();
     gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
   }
+  // 🛗 In the car the d-pad rides a floor up or down.
+  if (!menu && seat >= 0 && hasCar() && inCar(player) && (gamepad.dup || gamepad.ddown)) send({ type: 'elevator', to: gamepad.dup ? 'up' : 'down' });
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
   for (const event of pad.events) {
     if (event.type === 'tap' && radial.open && event.menu) {
@@ -2146,12 +2107,12 @@ function step(now) {
     jumpQueued = fireQueued = useQueued = dropQueued = false;
     pending.push(c);
     if (carrying) {
-      held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges()), walk: held.walk, until: held.until };
+      held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk: held.walk, until: held.until };
       presentation.step(held);
       continue;
     }
     if (snapshot.phase === 'playing' || snapshot.phase === 'waiting')
-      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, fixedBoxes(), flat(), openEdges());
+      player = move(player, c, solids(), (snapshot.tick + pending.length) / HZ, fixedBoxes(), flat(), openEdges(), half());
     presentation.step(player);
   }
   // Every command reaches the server once, in order, in batches of twelve
@@ -2207,7 +2168,7 @@ function step(now) {
     const ray = cursorAim ? view.aimRay(mouseAt.x, mouseAt.y) : view.aimForward();
     const origin = ray ? view.aimOrigin() || player : player;
     const dir = ray || direction(yaw, pitch);
-    let nearest = wallDistance(origin, dir, 60);
+    let nearest = wallDistance(origin, dir, 60, [], 0, half());
     for (const box of objectBoxes(solids(), worldTime)) {
       const distance = rayBox(origin, dir, box, nearest);
       if (distance < nearest) {
@@ -2293,7 +2254,17 @@ function step(now) {
   })();
   // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
   const lift = liftAt(now), sky = plazaFrom();
-  if (held && ((seat >= 0 && player) || now > held.until)) { if (!player) passage = null; held = null; }
+  if (held && ((seat >= 0 && player) || now > held.until)) {
+    if (crossing) {
+      const ms = Math.round(now - crossing.at);
+      logNet(player ? `crossed ${crossing.from} → ${crossing.to} in ${ms} ms` : `crossing ${crossing.from} → ${crossing.to} gave up after ${ms} ms`, player ? { good: true } : { bad: true });
+      console.info(`🫧 rax seam ${crossing.from} → ${crossing.to}: ${ms} ms${player ? '' : ' (no seat)'}`);
+      crossing = null;
+      crossedAt = now;
+    }
+    if (!player) passage = null;
+    held = null;
+  }
   if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
   const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
     ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
@@ -2303,13 +2274,16 @@ function step(now) {
   filmRide = rideNow;
   const filmShot = film?.camera(now) || null;
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
+  tendScreens(now);
   view.render({
+    half: half(),
+    seam: { crossing: !!held || now - crossedAt < 400 },
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
-      : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat),
+      : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
     camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
@@ -2403,7 +2377,7 @@ function step(now) {
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
     cornerScale,
-    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : spawn(lastSeat >= 0 ? lastSeat : 0) : null,
+    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : spawn(lastSeat >= 0 ? lastSeat : 0, 1, half()) : null,
     jobs,
     worldTime,
     locked: locked(),

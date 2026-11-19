@@ -11,6 +11,7 @@ import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBl
 import { edgeAt, landing } from './park.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { guestName } from './guest-name.mjs';
+import { clearOfCar } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -19,7 +20,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, WORLD, clamp } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 
@@ -52,6 +53,7 @@ const assets = new Map([
     'highlight',
     'chunky-font',
     'kidlisp-wall',
+    'screen-lod',
     'diagnostics-client',
     'stalls',
     'park',
@@ -635,7 +637,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     ...wallsFor(key),
     // The car, and an aisle from its door to the middle of the room.
     ...(hasCar(key) ? [clear(-CAR, CAR, -1, CAR_Z + CAR)] : []),
-    ...(key === GROUND ? [clear(-DOOR, DOOR, LOBBY_FRONT - 2, LOBBY_FRONT + 2), clear(-1.2, 1.2, -WORLD, CAR_Z - CAR)] : []),
+    ...(key === GROUND ? [clear(-DOOR, DOOR, LOBBY_FRONT - 2, LOBBY_FRONT + 2), clear(-1.2, 1.2, -halfOf(key), CAR_Z - CAR)] : []),
   ];
   const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp, diagnostics, solids: keepClear });
   // Off unless a transcript is named, and only in the listed rooms.
@@ -680,6 +682,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       rooms.set(key, new Room(send, { guests }));
+      rooms.get(key).match.half = halfOf(key);
       // 🛗 In a room with the car, bodies land in a row south of the middle,
       // facing the car: never inside it, never against a planter.
       if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
@@ -965,7 +968,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           // unless a house stands there: then in the yard, as from the line.)
           let spot = landing(p, edge);
           const inWall = (q) => wallsFor(destination).some((b) => q.x + 0.4 > b.xMin && q.x - 0.4 < b.xMax && q.z + 0.4 > b.zMin && q.z - 0.4 < b.zMax);
-          if (inWall(spot)) spot = landing({ ...p, x: clamp(p.x, -WORLD + 0.4, WORLD - 0.4), z: clamp(p.z, -WORLD + 0.4, WORLD - 0.4) }, edge);
+          if (inWall(spot)) spot = landing({ ...p, x: clamp(p.x, -halfOf(key) + 0.4, halfOf(key) - 0.4), z: clamp(p.z, -halfOf(key) + 0.4, halfOf(key) - 0.4) }, edge);
           position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
           walked = room.match.seats[member.seat].ack;
         }
@@ -1106,8 +1109,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             id: randomUUID(),
             owner,
             code: data.code,
-            x: clamp(Number(data.x) || 0, -WORLD + 1, WORLD - 1),
-            z: clamp(Number(data.z) || 0, -WORLD + 1, WORLD - 1),
+            // Never on the car, in its shaft or across its door.
+            ...((x, z) => (hasCar(key) ? clearOfCar(x, z) : { x, z }))(clamp(Number(data.x) || 0, -halfOf(key) + 1, halfOf(key) - 1), clamp(Number(data.z) || 0, -halfOf(key) + 1, halfOf(key) - 1)),
             yaw: Number(data.yaw) || 0,
             at: Date.now(),
           })

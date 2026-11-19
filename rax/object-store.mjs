@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { geometry, MAX_OBJECTS, MAX_VERSIONS } from './objects.mjs';
-import { WORLD } from './world.mjs';
+import { WORLD, halfOf } from './world.mjs';
 const digest = (token) => createHash('sha256').update(token).digest('hex');
 // Builds placed when the room was larger come inside the walls: the whole
 // room scales about its centre until the farthest build stands within
@@ -44,7 +44,7 @@ export class ObjectStore {
     }
     // Rooms built before the walls closed in: bring their builds inside.
     let moved = false;
-    for (const list of Object.values(this.data.rooms || {})) moved = fitRoom(list) || moved;
+    for (const [room, list] of Object.entries(this.data.rooms || {})) moved = fitRoom(list, halfOf(room) - 1.5) || moved;
     if (moved) await this.transact(() => true);
   }
   // 🏢 Everything a room holds goes to another: builds, screens, painted
@@ -67,7 +67,7 @@ export class ObjectStore {
         if (d.tiles?.[from] && !Object.keys(d.tiles[to] || {}).length) d.tiles[to] = d.tiles[from];
         for (const part of ['tiles', 'walls', 'wallRes']) delete d[part]?.[from];
       }
-      for (const [, to] of pairs) if (d.rooms?.[to]) fitRoom(d.rooms[to]);
+      for (const [, to] of pairs) if (d.rooms?.[to]) fitRoom(d.rooms[to], halfOf(to) - 1.5);
       return moved;
     });
   }

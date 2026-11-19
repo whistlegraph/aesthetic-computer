@@ -55,6 +55,17 @@ export function carScreenSolids() {
   ];
 }
 
+// 🖥️ A standing screen keeps clear of the car, its shaft and the way to its
+// door: a screen asked for there stands at the nearest edge of that ground
+// instead. SCREEN_CLEAR is half a screen's width and a step.
+const SCREEN_CLEAR = 2.3;
+export function clearOfCar(x, z) {
+  const side = CAR + CAR_WALL + SCREEN_CLEAR, front = CAR_Z - CAR - CAR_WALL - SCREEN_CLEAR;
+  if (Math.abs(x) >= side || z <= front) return { x, z };
+  // Out by the shorter way: to a side of the car, or back from its door.
+  return side - Math.abs(x) < z - front ? { x: (x < 0 ? -1 : 1) * side, z } : { x, z: front };
+}
+
 // The car's three solid walls (the fourth side is the door).
 export function carWalls() {
   const t = CAR_WALL, o = CAR + t, z = CAR_Z;

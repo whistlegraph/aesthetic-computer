@@ -2,8 +2,7 @@
 
 Aesthetic Computer's shared world, developed in `rax/`.
 The [park and pod geography](GEOGRAPHY.md) separates personal pod identities from
-their park placements. Walk the public paths, enter tagged pods, and return to
-the park through the **go** menu. Pod interiors are public to visit and only
+their park placements. Walk the public paths and enter tagged pods. Pod interiors are public to visit and only
 their owners can arrange them.
 Move through the arena with empty hands and ask Aesel to build or revise objects.
 The original rocket match simulation remains underneath. The scoreboard is hidden.
@@ -36,7 +35,7 @@ message bubble) and build (a cube). What the thing in view offers (paint, chalk,
 remove, lock on, use, drop) appears as a cap above them; typing a build, a ring cap opens
 the build ring. Chat types on the top line, as a build does.
 
-**Controller:** left trigger jumps. RB adds: it opens the build ring, or changes the object (or KidLisp wall) you aim at; with an item in hand it uses it. LB removes the object you aim at (it stays in the $ history, Back, to put back). X paints floor squares or drops an item. Start opens the room menu. Point with
+**Controller:** left trigger jumps. RB adds: it opens the build ring, or changes the object (or KidLisp wall) you aim at; with an item in hand it uses it. LB removes the object you aim at (it stays in the $ history, Back, to put back). X paints floor squares or drops an item. Start opens the $ menu, the list of what you made; in the elevator the d-pad rides a floor up or down. Point with
 a stick, A adds the highlighted choice, X builds, B undoes the last choice and
 then closes. Aimed at your own object, the ring offers changes ("make it spin");
 otherwise you pick a thing and then traits ("a red spinning tower"). Typing on

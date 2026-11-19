@@ -6,7 +6,7 @@ import {
   MAX_OBJECTS,
   MAX_VERSIONS,
 } from './objects.mjs';
-import { WALLS, bodyBox, WORLD } from './world.mjs';
+import { wallsOf, halfOf, bodyBox, WORLD } from './world.mjs';
 import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.mjs';
 // Builds a guest identity may start per day.
 export const GUEST_BUILDS = 5;
@@ -86,14 +86,14 @@ export const PER_WORKER = 3;
 // The middle of the 2 m floor square a player's view lands on, as the page
 // works its highlight out (client.mjs floorAim): null when they look at no
 // floor, or past the room.
-export function aimedSquare(player) {
+export function aimedSquare(player, half = WORLD) {
   const pitch = ((player.pitch || 0) * Math.PI) / 180, yaw = (player.yaw * Math.PI) / 180;
   const down = -Math.sin(pitch);
   if (!(down > 0.02)) return null;
   const t = player.y / down, flat = Math.cos(pitch);
   if (!(t > 0 && t < 60)) return null;
   const x = player.x + Math.sin(yaw) * flat * t, z = player.z + Math.cos(yaw) * flat * t;
-  if (Math.abs(x) >= WORLD || Math.abs(z) >= WORLD) return null;
+  if (Math.abs(x) >= half || Math.abs(z) >= half) return null;
   return { x: Math.floor(x / 2) * 2 + 1, z: Math.floor(z / 2) * 2 + 1 };
 }
 
@@ -448,7 +448,7 @@ export class Builders {
           ? 'explode'
           : null;
       const yaw = (player.yaw * Math.PI) / 180;
-      const aimed = aimedSquare(player);
+      const aimed = aimedSquare(player, halfOf(room));
       // Build from chalk: the player's strokes become a sketch to follow,
       // and the object goes where they were drawn.
       const strokes = input.chalk ? this.rooms.get(room)?.match.chalk[seat] || [] : [];
@@ -621,8 +621,9 @@ export class Builders {
         .get(job.room)
         ?.match.seats.filter(Boolean)
         .map((s) => bodyBox(s.player)) || [];
+    const half = halfOf(job.room);
     const occupied = [
-      ...WALLS,
+      ...wallsOf(half),
       ...envelope(
         this.store.objects(job.room).filter((o) => o.id !== job.objectId),
       ),
@@ -641,7 +642,7 @@ export class Builders {
     const positions = [[ax, az]];
     for (let x = Math.round(ax) - 16; x <= Math.round(ax) + 16; x += 0.5)
       for (let z = Math.round(az) - 16; z <= Math.round(az) + 16; z += 0.5)
-        if (Math.abs(x) <= WORLD - 2 && Math.abs(z) <= WORLD - 2) positions.push([x, z]);
+        if (Math.abs(x) <= half - 2 && Math.abs(z) <= half - 2) positions.push([x, z]);
     positions.sort((a, b) => Math.hypot(a[0] - ax, a[1] - az) - Math.hypot(b[0] - ax, b[1] - az));
     const scalable = shape.format !== OBJECT_FORMAT;
     let best = null;
@@ -651,7 +652,7 @@ export class Builders {
         const boxes = envelope([{ x, z, geometry: sized }]);
         if (
           boxes.some(
-            (b) => b.xMin < -WORLD + 1 || b.xMax > WORLD - 1 || b.zMin < -WORLD + 1 || b.zMax > WORLD - 1,
+            (b) => b.xMin < -half + 1 || b.xMax > half - 1 || b.zMin < -half + 1 || b.zMax > half - 1,
           )
         )
           continue;

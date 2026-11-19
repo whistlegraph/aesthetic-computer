@@ -1,7 +1,8 @@
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { groundsOf, promenade, GROUNDS } from './park.mjs';
+import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, altitude, floorAt, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
+import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, VOLUME_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
@@ -161,6 +162,7 @@ import {
   COLORS,
   seatColor,
   WORLD,
+  TOWER_HALF,
   SCREEN,
   TILE_COLORS,
   CFG,
@@ -232,24 +234,24 @@ export async function createView(canvas) {
   // A small studio: a floor marked only by faint dots every two metres, four
   // plain walls and a low ceiling, all at the world's edges.
   const ROOM_HEIGHT = 4;
-  const buildArena = (p) =>
+  const buildArena = (p, W = WORLD) =>
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
       // centimetre under the floor it z-fought from any distance.)
-      quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
-      for (let x = -WORLD + 2; x < WORLD; x += 2)
-        for (let z = -WORLD + 2; z < WORLD; z += 2)
+      quad([-W, 0, -W], [-W, 0, W], [W, 0, W], [W, 0, -W], p.floor);
+      for (let x = -W + 2; x < W; x += 2)
+        for (let z = -W + 2; z < W; z += 2)
           box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot); // clear of the floor and the paint
       // Four slabs that never share volume (2026-11-03: overlapping corners
       // z-fought): north and south run the full outside width and own the
       // corners; east and west fit exactly between their inner faces.
-      const h = ROOM_HEIGHT, t = 0.3, outside = 2 * WORLD + 2 * t, inside = 2 * WORLD;
-      box(0, h / 2, -WORLD - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
-      box(0, h / 2, WORLD + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
+      const h = ROOM_HEIGHT, t = 0.3, outside = 2 * W + 2 * t, inside = 2 * W;
+      box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
+      box(0, h / 2, W + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
       // A box colours its x faces second and its z faces third: the long
       // walls show their z face, the end walls their x face.
-      box(-WORLD - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
-      box(WORLD + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
+      box(-W - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
+      box(W + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
       // No ceiling (2026-11-03): the sky shows over the walls.
     });
   // Sky: rings of colour around the viewer, deep overhead to a glow at the
@@ -305,6 +307,7 @@ export async function createView(canvas) {
   }
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
+  const arenas = new Map(); // a plain room's walls and floor, by palette and half-width
   // 🌍 Per-block models, kept by block id ('here' is the one underfoot) and
   // rebuilt only when what they show changes.
   const grounds = new Map(), tileSets = new Map();
@@ -312,21 +315,22 @@ export async function createView(canvas) {
   // lanes. A side with an open neighbour is left open; the world's edge gets
   // the plaza's wall or the park's hedge.
   function groundFor(id, neighbours, plaza, field = null) {
-    const key = JSON.stringify([neighbours, !!plaza, paletteName, field]);
+    const W = TOWER_HALF; // the plaza is the tower's ground floor
+    const key = JSON.stringify([neighbours, !!plaza, paletteName, field, W]);
     const kept = grounds.get(id);
     if (kept?.key === key) return kept.model;
     const p = PALETTES[paletteName], open = neighbours || {};
     const made = model(({ quad, box }) => {
       if (plaza) {
-        quad([-WORLD, 0, -WORLD], [-WORLD, 0, WORLD], [WORLD, 0, WORLD], [WORLD, 0, -WORLD], p.floor);
-        for (let x = -WORLD + 2; x < WORLD; x += 2)
-          for (let z = -WORLD + 2; z < WORLD; z += 2)
+        quad([-W, 0, -W], [-W, 0, W], [W, 0, W], [W, 0, -W], p.floor);
+        for (let x = -W + 2; x < W; x += 2)
+          for (let z = -W + 2; z < W; z += 2)
             box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
-        const h = ROOM_HEIGHT, t = 0.3, outside = 2 * WORLD + 2 * t, inside = 2 * WORLD;
-        if (!open.south) box(0, h / 2, -WORLD - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
-        if (!open.north) box(0, h / 2, WORLD + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
-        if (!open.west) box(-WORLD - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
-        if (!open.east) box(WORLD + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
+        const h = ROOM_HEIGHT, t = 0.3, outside = 2 * W + 2 * t, inside = 2 * W;
+        if (!open.south) box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
+        if (!open.north) box(0, h / 2, W + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
+        if (!open.west) box(-W - t / 2, h / 2, 0, t, h, inside, p.walls.west, p.walls.west, p.wallSide);
+        if (!open.east) box(W + t / 2, h / 2, 0, t, h, inside, p.walls.east, p.walls.east, p.wallSide);
         return;
       }
       const day = paletteName === 'day';
@@ -438,7 +442,7 @@ export async function createView(canvas) {
     const day = paletteName === 'day', p = PALETTES[paletteName];
     const slab = day ? 0xd9dde8 : 0x30354a, edge = day ? 0xb9c0d2 : 0x232738, under = day ? 0xc9cedb : 0x262a3c;
     const post = day ? 0x9aa3b5 : 0x4b526b, sill = day ? 0xe9edf5 : 0x3a4056, column = day ? 0xaab2c6 : 0x3f455c;
-    const W = WORLD, E = LEG.at;
+    const W = TOWER_HALF, E = LEG.at;
     // The shaft: the bay of every floor the car passes through, left open.
     const S = SLAB, bayX = CAR + CAR_WALL + 0.25, bayZ = CAR_Z - CAR - CAR_WALL - 0.05;
     // A floor-sized sheet at height y with the shaft cut out of it, as three pieces.
@@ -539,7 +543,7 @@ export async function createView(canvas) {
     const post = day ? 0x8f98ac : 0x59607a, sill = day ? 0xe9edf5 : 0x3a4056, stone = day ? 0xf3eee6 : 0x34313f;
     const dark = 0x171d26, wood = day ? 0xc9a37a : 0x6b5440, cushion = 0xff7ac8;
     const made = model(({ quad, box, text, handleText }) => {
-      const f = LOBBY_FRONT, H = ATRIUM - 0.4, W = WORLD;
+      const f = LOBBY_FRONT, H = ATRIUM - 0.4, W = TOWER_HALF;
       // The hall's own floor, clear of the car's bay.
       quad([-W, 0.011, f], [-W, 0.011, W], [W, 0.011, W], [W, 0.011, f], stone);
       // The front: a sill and glass to the first floor, open at the entrance.
@@ -696,6 +700,7 @@ export async function createView(canvas) {
     const p = PALETTES[name];
     paletteName = name;
     arena = buildArena(p);
+    arenas.clear();
     skyModel = buildSky(p);
     sky = [...rgb(p.sky), 1];
     document.body.style.background = '#' + p.sky.toString(16).padStart(6, '0');
@@ -1032,6 +1037,35 @@ export async function createView(canvas) {
   const SHADOW_BUDGET = 9000; // triangles of shadow volume in a frame, at most
   const SHADOW_SIGHT = 45; // metres from the eye a box still casts
   const volumeFloats = new Float32Array(SHADOW_BUDGET * 18);
+  // 🫧 A seam: the line where one room of the world hands a walker to the
+  // next (each block is its own room, on its own socket). A net of threads
+  // you can see through: posts that stand and rungs that climb. Cyan at
+  // rest, amber while your body is between the two rooms, dim on the blocks
+  // around.
+  const SEAM = { rest: 0x4ff0ff, crossing: 0xffb000, far: 0x2f8f9c }, SEAM_STEP = 0.5, SEAM_HEIGHT = 3;
+  const seams = new Map();
+  const seamFor = (ink, part) => {
+    const key = `${ink} ${part}`;
+    if (!seams.has(key))
+      seams.set(key, model(({ quad }) => {
+        const both = (a, b, c, d) => { quad(a, b, c, d, ink); quad(d, c, b, a, ink); };
+        const t = 0.02, W = SPAN / 2;
+        if (part === 'posts')
+          for (let x = -W; x <= W + 0.001; x += SEAM_STEP) both([x - t, 0, 0], [x + t, 0, 0], [x + t, SEAM_HEIGHT, 0], [x - t, SEAM_HEIGHT, 0]);
+        else
+          for (let y = 0; y < SEAM_HEIGHT - 0.001; y += SEAM_STEP) both([-W, y, 0], [W, y, 0], [W, y + 2 * t, 0], [-W, y + 2 * t, 0]);
+      }));
+    return seams.get(key);
+  };
+  const drawSeams = (neighbours, dx, dy, dz, line, ink, now, skip = null) => {
+    const climb = ((now / 2400) % 1) * SEAM_STEP;
+    for (const [side, sx, sz] of [['east', 1, 0], ['west', -1, 0], ['north', 0, 1], ['south', 0, -1]]) {
+      if (!neighbours?.[side] || skip?.(sx, sz)) continue;
+      const x = dx + sx * line, z = dz + sz * line, turn = sx ? Math.PI / 2 : 0;
+      projector.draw(seamFor(ink, 'posts'), x, dy, z, turn);
+      projector.draw(seamFor(ink, 'rungs'), x, dy + climb, z, turn);
+    }
+  };
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
@@ -1089,6 +1123,7 @@ export async function createView(canvas) {
     park = null,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
+    seam = null, // 🫧 { crossing }: the body is between two rooms
     home = null,
     floorAim = null,
     chalk = [],
@@ -1117,6 +1152,7 @@ export async function createView(canvas) {
     screens = [],
     screenPrograms = new Map(),
     bare = false, // Behind the prompt's curtain: no panel, hint or legend.
+    half = WORLD, // 📐 This room's half-width (world.mjs halfOf).
   } = {}) {
     if (lost) {
       location.reload();
@@ -1165,7 +1201,7 @@ export async function createView(canvas) {
         eye.y = Math.max(eye.y, me.y - CFG.eyeHeight + 0.3);
         through = true;
       }
-      let distance = wallDistance(origin, dir, 100, solidObjects, worldTime);
+      let distance = wallDistance(origin, dir, 100, solidObjects, worldTime, half);
       players.forEach((p, i) => {
         if (i !== seat && p?.alive)
           distance = Math.min(distance, rayBox(origin, dir, bodyBox(p), 100));
@@ -1194,7 +1230,7 @@ export async function createView(canvas) {
       // the picture instead of distance, eased back to 1 as it flies in.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
       const height = 25;
-      const natural = ((WORLD + 0.3) / height) * (1 / tan) * (canvas.height / 2); // room half-size in px
+      const natural = ((half + 0.3) / height) * (1 / tan) * (canvas.height / 2); // room half-size in px
       orbitZoom = Math.pow((7 * cornerScale) / natural, 1 - (1 - orbit) * (1 - orbit) * (3 - 2 * (1 - orbit)));
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
@@ -1270,8 +1306,17 @@ export async function createView(canvas) {
     if (today) draw(skyDome(skyStep), eye.x, eye.y, eye.z);
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
-    else if (park?.neighbours) draw(groundFor('here', park.neighbours, park.plaza, field));
-    else draw(arena);
+    else if (park?.neighbours) {
+      draw(groundFor('here', park.neighbours, park.plaza, field));
+      // This room's seams stand where it lets go of a walker (EDGE, a step
+      // past the block's line), so the net is seen to hop on the way over.
+      drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
+    }
+    else if (half === WORLD) draw(arena);
+    else {
+      if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
+      draw(arenas.get(half));
+    }
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
       if (tower.screen) draw(carScreenFor(tower.screen), 0, tower.lift || 0, CAR_SCREEN_Z, Math.PI); // hung clear of the door's sign
@@ -1322,6 +1367,9 @@ export async function createView(canvas) {
       draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz);
       const painted = tilesFor(b.id, b.tiles);
       if (painted) draw(painted, b.dx, by, b.dz);
+      // The seams between the blocks around, on their lines; the ones that
+      // face this block are its own, drawn above.
+      if (!by) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
@@ -1729,7 +1777,7 @@ export async function createView(canvas) {
       // In the car the floor comes first: before paint, and on touch too.
       const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry
         : car
-          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '$ menu: pick a floor' : '{enter} pick a floor'
+          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[D-PAD] up / down a floor' : '{enter} pick a floor'
         : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
@@ -2082,7 +2130,7 @@ export async function createView(canvas) {
           // Hidden behind walls and built objects, as a real tag would be.
           const dx = t.x - eye.x, dy = t.y - eye.y, dz = t.z - eye.z,
             d = Math.hypot(dx, dy, dz);
-          if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime) < d - 0.3) continue;
+          if (wallDistance(eye, { x: dx / d, y: dy / d, z: dz / d }, d, solidObjects, worldTime, half) < d - 0.3) continue;
           const member = t.label ? null : members.find((x) => x.seat === t.seat);
           const label = t.label || (member?.handle ? `@${member.handle}` : member?.name || `guest ${t.seat + 1}`);
           const x = Math.round((s.x * W) / 2);
@@ -3006,14 +3054,33 @@ export async function createView(canvas) {
       draw(w.frame, 0, 0, 0);
     }
     // Standing KidLisp screens: each $code prompt stands its piece on the
-    // field, facing whoever asked, stepping about 20 times a second.
+    // field, facing whoever asked. How fine its grid is and how often its
+    // program steps follow the eye (screen-lod.mjs): the screen says what
+    // it wants, the page loads that grid, and it draws from the one it has
+    // until then.
+    const gaze = Math.hypot(aim.x - eye.x, aim.z - eye.z) || 1;
+    const look = { x: (aim.x - eye.x) / gaze, z: (aim.z - eye.z) / gaze };
     for (const s of screens) {
-      const w = screenPrograms.get(s.code);
+      const span = SCREEN_SPAN, base = 0.4;
+      const far = Math.hypot(s.x - eye.x, s.z - eye.z);
+      const detail = screenDetail(far, { cols: s.cols || 0, seen: screenSeen(eye, look, s) });
+      s.want = detail.cols;
+      const ready = screenPrograms.get(`${s.code}@${detail.cols}`);
+      const w = ready || (s.cols && screenPrograms.get(`${s.code}@${s.cols}`));
       if (!w) continue;
-      const span = 4, cols = w.width, rows = w.height, cell = span / cols, tall = (span * rows) / cols, base = 0.4;
-      if (!s.model || now - (s.at || 0) > 50) {
-        s.at = now;
-        const px = w.step();
+      w.usedAt = now;
+      const cols = w.width, rows = w.height, cell = span / cols, tall = (span * rows) / cols;
+      // The program steps at its rate once, whichever of its screens asks;
+      // a screen redraws when its program has a newer frame or a new grid.
+      if (w.steppedAt == null || (detail.hz && now - w.steppedAt >= 1000 / detail.hz)) {
+        w.steppedAt = now;
+        w.step();
+        w.frames = (w.frames || 0) + 1;
+      }
+      if (!s.model || s.cols !== cols || s.drawn !== w.frames) {
+        s.cols = cols;
+        s.drawn = w.frames;
+        const px = w.pixels;
         s.model = model(({ quad }) => {
           for (let j = 0; j < rows; j++)
             for (let i = 0; i < cols; ) {

@@ -30,6 +30,7 @@ export class Match {
     this.objects = [];
     this.walls = [];
     this.open = null; // The sides that lead to a neighbour (world.mjs move).
+    this.half = WORLD; // The room's half-width (world.mjs halfOf); the server sets it.
     this.phase = 'waiting';
     this.until = 0;
     this.winner = null;
@@ -63,7 +64,7 @@ export class Match {
   }
   // A fresh body for a seat, set down where this room sets bodies down.
   fresh(seat, life = 1) {
-    const p = spawn(seat, life);
+    const p = spawn(seat, life, this.half);
     // A room with fixed things in it (the tower's car) says where bodies land.
     if (this.spawnAt) Object.assign(p, this.spawnAt(seat));
     return this.arena ? Object.assign(p, arenaSpawn(seat, life)) : p;
@@ -327,7 +328,7 @@ export class Match {
           if (sp < 0.01) break;
           const dir = { x: it.vx / sp, y: it.vy / sp, z: it.vz / sp },
             travel = (sp * DT) / steps;
-          const hit = surfaceHit(it, dir, travel, this.objects, time);
+          const hit = surfaceHit(it, dir, travel, this.objects, time, this.half);
           if (hit) {
             Object.assign(it, along(it, dir, Math.max(0, hit.t - 0.02)));
             const v = reflect({ x: it.vx, y: it.vy, z: it.vz }, hit.normal, 0.42, 0.85);
@@ -348,8 +349,8 @@ export class Match {
         it.spin *= 0.8;
         if (Math.hypot(it.vx, it.vz) < 0.2) it.vx = it.vz = 0;
       }
-      it.x = Math.max(-WORLD + 0.5, Math.min(WORLD - 0.5, it.x));
-      it.z = Math.max(-WORLD + 0.5, Math.min(WORLD - 0.5, it.z));
+      it.x = Math.max(-this.half + 0.5, Math.min(this.half - 0.5, it.x));
+      it.z = Math.max(-this.half + 0.5, Math.min(this.half - 0.5, it.z));
       // A thrown item hits the first other player it reaches while fast.
       if (it.thrownBy >= 0) {
         if (Math.hypot(it.vx, it.vy, it.vz) < 5) it.thrownBy = -1;
@@ -412,7 +413,7 @@ export class Match {
             body = q;
           }
         }
-        const surface = surfaceHit(b, dir, at, this.objects, time);
+        const surface = surfaceHit(b, dir, at, this.objects, time, this.half);
         if (surface && surface.t <= at) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
           const v = reflect({ x: b.vx, y: b.vy, z: b.vz }, surface.normal);
@@ -429,7 +430,7 @@ export class Match {
           b.dead = true;
         }
       }
-      if (b.bounces > 16 || Math.abs(b.x) > WORLD + 5 || Math.abs(b.z) > WORLD + 5 || b.y > 80) b.dead = true;
+      if (b.bounces > 16 || Math.abs(b.x) > this.half + 5 || Math.abs(b.z) > this.half + 5 || b.y > 80) b.dead = true;
     }
     // Rounds from different players that meet in the air cancel each other.
     for (let a = 0; a < this.bullets.length; a++)
@@ -582,7 +583,7 @@ export class Match {
         const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
         // Waiting is a movement warmup; the match countdown locks both spawns.
         if (this.phase === 'playing' || this.phase === 'waiting')
-          p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open);
+          p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open, this.half);
         else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;
@@ -661,7 +662,7 @@ export class Match {
           : { x: 0, y: 1, z: 0 };
       if (
         p.seat !== direct &&
-        wallDistance(r, dir, distance, this.objects, this.tick / HZ) < distance - 0.05
+        wallDistance(r, dir, distance, this.objects, this.tick / HZ, this.half) < distance - 0.05
       )
         continue;
       const force = Math.max(0, 1 - distance / 4);
@@ -678,7 +679,7 @@ export class Match {
     for (const r of this.rockets) {
       if (this.phase !== 'playing' && this.phase !== 'waiting') break;
       const travel = 28 * DT;
-      let distance = wallDistance(r, r.dir, travel, this.objects, this.tick / HZ),
+      let distance = wallDistance(r, r.dir, travel, this.objects, this.tick / HZ, this.half),
         direct = -1;
       for (const s of this.seats.filter(Boolean)) {
         const p = s.player;

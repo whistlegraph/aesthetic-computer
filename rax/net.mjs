@@ -1,4 +1,4 @@
-import { clamp, move, HZ, WORLD } from './world.mjs';
+import { clamp, move, HZ, WORLD, MAX_HALF } from './world.mjs';
 
 // Only input crosses the authority boundary: never client positions, damage or dt.
 export function command(raw) {
@@ -22,15 +22,15 @@ export function command(raw) {
     duck: raw.duck === true,
     chalk:
       raw.chalk && ['x', 'y', 'z'].every((k) => Number.isFinite(raw.chalk[k]))
-        ? { x: clamp(raw.chalk.x, -WORLD, WORLD), y: clamp(raw.chalk.y, 0, 30), z: clamp(raw.chalk.z, -WORLD, WORLD) }
+        ? { x: clamp(raw.chalk.x, -MAX_HALF, MAX_HALF), y: clamp(raw.chalk.y, 0, 30), z: clamp(raw.chalk.z, -MAX_HALF, MAX_HALF) }
         : null,
   };
 }
 
-export function reconcile(authority, pending, ack, objects = [], tick = 0, fixed = [], flat = false, open = null) {
+export function reconcile(authority, pending, ack, objects = [], tick = 0, fixed = [], flat = false, open = null, half = WORLD) {
   const remaining = pending.filter((c) => c.seq > ack);
   return {
-    player: remaining.reduce((p, c, i) => move(p, c, objects, (tick + i + 1) / HZ, fixed, flat, open), {
+    player: remaining.reduce((p, c, i) => move(p, c, objects, (tick + i + 1) / HZ, fixed, flat, open, half), {
       ...authority,
     }),
     pending: remaining,
