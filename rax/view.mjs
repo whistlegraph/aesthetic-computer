@@ -353,7 +353,7 @@ export async function createView(canvas) {
           // A field beside the tower: two trees, set by where the field lies.
           const wood = day ? 0xc9a37a : 0x6b5440, leaf2 = day ? 0x8cc97f : 0x3b6e52;
           for (const [x, z] of [[3.5 * Math.sign(field.i || 1), -3 + field.j], [-4 + field.i, 4.5 * Math.sign(field.j || -1)]]) {
-            box(x, 1.1, z, 0.3, 2.2, 0.3, wood, tint(wood, 0.8), wood);
+            box(x, 1.15, z, 0.3, 2.3, 0.3, wood, tint(wood, 0.8), wood); // (its top a little way into the leaves: level with their underside, the two fought for the pixel)
             box(x, 3, z, 2.2, 1.6, 2.2, inks.leaf, tint(inks.leaf, 0.82), leaf2);
           }
         }
