@@ -504,7 +504,22 @@ export async function handler(event, context) {
         return respond(400, { error: "Code or codes parameter required" });
       }
 
-      const entity = await sidecar.lookupByCode(code);
+      // A piece must still load when the sidecar is down or hung: every
+      // runtime (and every oven thumbnail) reads its source through here. The
+      // Mongo `kidlisp` collection holds an identity row for each piece
+      // (backend/kidlisp-projection.mjs), so serve the source from it and say
+      // so. Mutable fields (hits, keeps) are Datomic's and are left out.
+      let entity;
+      let degraded = false;
+      try {
+        entity = await sidecar.lookupByCode(code);
+      } catch (err) {
+        const row = await database.db.collection("kidlisp").findOne({ code });
+        if (typeof row?.source !== "string") throw err;
+        console.warn(`⚠️ store-kidlisp: sidecar lookupByCode(${code}) failed — served the Mongo projection:`, err?.message || err);
+        entity = { source: row.source, when: row.when, hits: row.hits ?? 0, user: row.user || null };
+        degraded = true;
+      }
       if (!entity) {
         await database.disconnect();
         return respond(404, { error: "Not found" });
@@ -523,7 +538,7 @@ export async function handler(event, context) {
           contractProfile: requestedContractProfile,
           contractVersion: requestedContractVersion,
         }),
-        NO_CACHE_HEADERS
+        degraded ? { ...NO_CACHE_HEADERS, "X-Kidlisp-Source": "mongo-projection" } : NO_CACHE_HEADERS
       );
     }
 

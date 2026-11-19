@@ -124,6 +124,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         main.onSelect = { [weak self] i in
             guard let self else { return }
+            // the wordmark, pressed when its page is the one showing: there is nowhere to go, so it bounces
+            if i == -1, !self.main.wikiOpen, (self.account == nil ? self.onLogin : self.onStart) { return self.main.bounceLogo() }
             if i == -2, self.main.wikiOpen, !self.onCode { self.main.wikiOpen = false; return }   // the open Wiki tab, picked again: back to the sheet
             self.go(i)
         }
@@ -216,6 +218,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // NCC_SNAPSHOT_QR=<words> shows a code to scan in Signal's pane (a code of those words; no link is started).
         if let words = env["NCC_SNAPSHOT_QR"] { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.showQR(words) } }
+        // NCC_SNAPSHOT_ABOUT=1 pictures the About window.
+        if env["NCC_SNAPSHOT_ABOUT"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 2) { AboutWindow.shared.show() } }
         // NCC_SNAPSHOT_WAIT=1 shows Signal's pane as it is between the press and the code.
         if env["NCC_SNAPSHOT_WAIT"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.go(-4); self.main.link.waitForCode() } }
         // NCC_SNAPSHOT_BACK=1 presses "← back" a few seconds after a login was started.
@@ -247,7 +251,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + (Double(env["NCC_SNAPSHOT_AFTER"] ?? "") ?? 10)) {
             guard !self.leaving else { return }         // a build that was replaced takes no picture
-            guard let view = (self.satellites.first?.window ?? self.window).contentView,
+            guard let view = AboutWindow.shared.view ?? (self.satellites.first?.window ?? self.window).contentView,
                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return NSApp.terminate(nil) }
             view.cacheDisplay(in: view.bounds, to: rep)
             // Two things are drawn outside AppKit, and this picture cannot see
@@ -447,6 +451,8 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         return s
     }
+
+    @objc func showAbout() { AboutWindow.shared.show() }
 
     @objc func showWindow() {
         NSApp.activate(ignoringOtherApps: true)
@@ -1318,7 +1324,11 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    @objc func checkForUpdates() { updater.check(asked: true) }
+    // The app, and the Signal engine under it (when Homebrew keeps it).
+    @objc func checkForUpdates() {
+        updater.check(asked: true)
+        if Config.brew != nil, Config.shared.signalCli != nil, !Self.dev { updateEngine() }
+    }
     // ─── tabs, as a browser moves through them ───────────────────────────────
 
     // Open a tab: the donut (-1), a circle, or the wiki (-2).
@@ -1387,13 +1397,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func buildMenu() {
         let bar = NSMenu()
         let app = NSMenu()
-        app.addItem(withTitle: "Import History from Signal Desktop", action: #selector(importHistory), keyEquivalent: "i")
-        app.addItem(withTitle: "Set Wiki Key…", action: #selector(setWikiKey), keyEquivalent: "k")
-        app.addItem(withTitle: "Sign Out of NCC", action: #selector(signOut), keyEquivalent: "")
-        app.addItem(.separator())
-        app.addItem(withTitle: "About NCCd", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        // A short menu. The logins and the ways out of them are on the app's first
+        // page; the old messages are read in by themselves on a first link.
+        app.addItem(withTitle: "About NCCd", action: #selector(showAbout), keyEquivalent: "").target = self
         app.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
-        app.addItem(withTitle: "Update Signal Engine", action: #selector(updateEngine), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "Quit NCCd", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         let edit = NSMenu(title: "Edit")

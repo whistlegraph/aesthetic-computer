@@ -11,7 +11,9 @@
       "params": {
         "method": "POST",
         "url": "https://aesthetic.computer/handle",
-        "headers": { "x-ac-signup": "__SIGNUP_SECRET__" },
+        "headers": {
+          "x-ac-signup": "__SIGNUP_SECRET__"
+        },
         "payload": {
           "handle": "{{fields.handle}}",
           "sub": "{{context.user.user_id}}",
@@ -29,10 +31,65 @@
       "allow_failure": false,
       "mask_output": false,
       "params": {
-        "if": { "operands": [ { "operands": ["{{ claim.body.ok }}", "yes"], "operator": "EQ" } ], "operator": "AND" },
+        "if": {
+          "operands": [
+            {
+              "operands": [
+                "{{ claim.body.ok }}",
+                "yes"
+              ],
+              "operator": "EQ"
+            }
+          ],
+          "operator": "AND"
+        },
         "else": [
-          { "id": "refused", "type": "FLOW", "action": "ERROR_MESSAGE", "allow_failure": false, "mask_output": false,
-            "params": { "message": "{{ claim.body.message }}" } }
+          {
+            "id": "taken",
+            "alias": "Taken?",
+            "type": "FLOW",
+            "action": "BOOLEAN_CONDITION",
+            "allow_failure": false,
+            "mask_output": false,
+            "params": {
+              "if": {
+                "operands": [
+                  {
+                    "operands": [
+                      "{{ claim.body.message }}",
+                      "@{{fields.handle}} is taken. Try another."
+                    ],
+                    "operator": "EQ"
+                  }
+                ],
+                "operator": "AND"
+              },
+              "then": [
+                {
+                  "id": "refused_taken",
+                  "type": "FLOW",
+                  "action": "ERROR_MESSAGE",
+                  "allow_failure": false,
+                  "mask_output": false,
+                  "params": {
+                    "message": "Taken. Try another."
+                  }
+                }
+              ],
+              "else": [
+                {
+                  "id": "refused",
+                  "type": "FLOW",
+                  "action": "ERROR_MESSAGE",
+                  "allow_failure": false,
+                  "mask_output": false,
+                  "params": {
+                    "message": "{{ claim.body.message }}"
+                  }
+                }
+              ]
+            }
+          }
         ]
       }
     }

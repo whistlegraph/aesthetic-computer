@@ -213,23 +213,31 @@
           limit  (min 100000 (max 1 (Integer/parseInt (or limit "50"))))
           db     (d/db conn)
           since-inst (when (seq since) (java.util.Date/from (java.time.Instant/parse since)))
-          q      (if since-inst
-                   '[:find [?e ...]
-                     :in $ ?since
-                     :where
-                     [?e :kidlisp/created-at ?when]
-                     [(> ?when ?since)]]
-                   '[:find [?e ...]
-                     :where
-                     [?e :kidlisp/code]])
-          eids   (if since-inst (d/q q db since-inst) (d/q q db))
-          pieces (->> eids
-                      (map #(d/entity db %))
+          ;; Sort on [eid when hits] tuples and build entities only for the
+          ;; rows returned. Building one per piece to sort them held the
+          ;; whole corpus in the heap on every list read.
+          epoch  (java.util.Date. 0)
+          rows   (if since-inst
+                   (d/q '[:find ?e ?when ?hits
+                          :in $ ?since
+                          :where
+                          [?e :kidlisp/created-at ?when]
+                          [(> ?when ?since)]
+                          [(get-else $ ?e :kidlisp/hits 0) ?hits]]
+                        db since-inst)
+                   (d/q '[:find ?e ?when ?hits
+                          :in $ ?epoch
+                          :where
+                          [?e :kidlisp/code]
+                          [(get-else $ ?e :kidlisp/created-at ?epoch) ?when]
+                          [(get-else $ ?e :kidlisp/hits 0) ?hits]]
+                        db epoch))
+          pieces (->> rows
                       (sort-by (case sort
-                                 "hits" #(- (or (:kidlisp/hits %) 0))
-                                 #(- (.getTime ^java.util.Date (:kidlisp/created-at %)))))
+                                 "hits" (fn [[_ _ hits]] (- hits))
+                                 (fn [[_ when _]] (- (.getTime ^java.util.Date when)))))
                       (take limit)
-                      (map piece->map))]
+                      (map (fn [[e]] (piece->map (d/entity db e)))))]
       (ok {:recent (vec pieces)
            :count  (count pieces)
            :limit  limit}))))

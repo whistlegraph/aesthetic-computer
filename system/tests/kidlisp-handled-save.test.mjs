@@ -4,11 +4,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { kidlispSaveIdentity } from "../backend/kidlisp-save-identity.mjs";
 
-let datomic = false, sequence = 0;
+let datomic = false, sequence = 0, sidecarDown = false;
 const mongo = [], entities = [], profileEvents = [];
 const match = (row, query) => Object.entries(query).every(([k, v]) => row[k] === v);
 const collection = {
   createIndex: async () => {},
+  find: () => ({ project: () => ({ toArray: async () => [] }) }), // the @handles join
   findOne: async query => mongo.find(row => match(row, query)) || null,
   insertOne: async row => {
     if (mongo.some(r => r.hash === row.hash)) throw Object.assign(Error("duplicate"), { code: 11000, keyPattern: { hash: 1 } });
@@ -34,7 +35,7 @@ mock.module("../backend/kidlisp-sidecar.mjs", { exports: {
   kidlispDatomicEnabled: () => datomic,
   sidecar: {
     lookupByHash: async hash => entities.find(r => r.hash === hash) || null,
-    lookupByCode: async code => entities.find(r => r.code === code) || null,
+    lookupByCode: async code => { if (sidecarDown) throw new Error("sidecar lookupByCode failed: 502"); return entities.find(r => r.code === code) || null; },
     create: async input => {
       const existing = entities.find(r => r.hash === input.hash);
       if (existing) return { code: existing.code, cached: true };
@@ -85,4 +86,21 @@ test("ordinary dedup hashes are unchanged and ownership keys survive handle rena
   const b = kidlispSaveIdentity(source, { handled: true, user: { sub: "alice" }, handle: "@renamed" });
   assert.equal(a.hash, b.hash);
   assert.throws(() => kidlispSaveIdentity(source, { handled: "true" }), /boolean/);
+});
+
+test("datomic: a single-code read survives a dead sidecar through the Mongo projection", async () => {
+  datomic = true; mongo.length = entities.length = 0;
+  const { code } = await save("(wipe purple)", "alice");
+  const read = async c => handler({ httpMethod: "GET", headers: {}, queryStringParameters: { code: c } });
+  sidecarDown = true;
+  try {
+    const reply = await read(code);
+    assert.equal(reply.statusCode, 200);
+    assert.equal(JSON.parse(reply.body).source, "(wipe purple)");
+    assert.equal(reply.headers["X-Kidlisp-Source"], "mongo-projection");
+    assert.equal((await read("nosuchcode")).statusCode, 500, "no projection row: the sidecar error still surfaces");
+  } finally { sidecarDown = false; }
+  const live = await read(code);
+  assert.equal(live.statusCode, 200);
+  assert.equal(live.headers["X-Kidlisp-Source"], undefined);
 });
