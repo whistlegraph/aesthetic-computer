@@ -141,6 +141,7 @@ export function createRaxServer({
   const chatFilter = () => (chatFilterLoad ||= import('../shared/filter.mjs')
     .then((m) => (text) => { try { return String(m.filter(text)); } catch { return text; } })
     .catch(() => (text) => text));
+  const loopStalls = []; // 🧊 when this process's own clock came late (over 100 ms), newest last
   const stallLog = []; // 🧊 The newest stalls clients reported (GET /stalls).
   let stallRevision = 'local';
   // 👣 Who came in and how they moved, kept beside the stores (walks.mjs).
@@ -374,7 +375,7 @@ export function createRaxServer({
     if (path === '/stalls' && req.method === 'GET') {
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
-        .end(JSON.stringify({ building: builders.jobs.size, stalls: stallLog }));
+        .end(JSON.stringify({ building: builders.jobs.size, stalls: stallLog, loop: loopStalls }));
       return;
     }
     // 🗺️ The map: every open block, who settled it, and the world's size.
@@ -1327,6 +1328,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const timer = setInterval(() => {
     const now = performance.now();
     if (diagnostics.enabled) loopGapMaxMs = Math.max(loopGapMaxMs, now - previous);
+    // 🧊 The server's own stops: the world's clock is asked for every 16 ms,
+    // and when it comes this late something else held the one thread (this
+    // process serves the whole site). Kept beside what the pages reported
+    // (GET /stalls), so a page's quiet can be told from the wire's.
+    if (now - previous > 100 && rooms.size) {
+      loopStalls.push({ at: Date.now(), gap: Math.round(now - previous), rooms: rooms.size, clients: wss.clients.size });
+      if (loopStalls.length > 300) loopStalls.shift();
+    }
     // After a stall the world catches up (to half a second): ticks lost here
     // would leave every player's commands waiting behind the world's clock.
     debt += Math.min(500, now - previous);
