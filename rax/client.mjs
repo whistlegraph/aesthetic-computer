@@ -817,7 +817,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     // 🚪 The next room's door is already open: step through it.
     const door = warm.get(to);
     if (door) warm.delete(to);
-    coolDown();
+    coolDown(walk ? from : null); // (the room just left keeps its door: the way straight back)
     if (walk && door?.ready && door.socket.readyState === WebSocket.OPEN) connect(door);
     else {
       if (door) { door.socket.onclose = door.socket.onerror = door.socket.onmessage = null; try { door.socket.close(); } catch {} }
@@ -837,7 +837,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
 const WARM_NEAR = 6, WARM_FAR = 7; // metres from a block's line: open within, let go beyond
 const warm = new Map(); // room → { socket, words, ready }
 function warmUp(to) {
-  if (warm.has(to) || warm.size >= 2) return;
+  if (warm.has(to) || warm.size >= 3) return;
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   url.search = new URLSearchParams({ room: to, protocol: PROTOCOL, wait: '1', ...(accountExpected() ? { account: '1' } : {}) });
@@ -847,7 +847,8 @@ function warmUp(to) {
     if (typeof e.data !== 'string' || e.data.startsWith('{"type":"snapshot"')) return; // the room's motion is not kept
     let type = '';
     try { type = JSON.parse(e.data).type; } catch { return; }
-    if (type === 'whereabouts' || type === 'ball' || type === 'gate') return;
+    // (What only happened once is not heard again: a line said, a pong, an answer to an asking.)
+    if (['whereabouts', 'ball', 'gate', 'said', 'pong', 'dev-log', 'input', 'travel', 'build-result', 'build-accepted', 'elevator-result'].includes(type)) return;
     if (entry.words.length < 256) entry.words.push(e.data);
     if (type === 'welcome') {
       // Say who is at the door now, so the step in has nothing to wait for.
@@ -881,6 +882,8 @@ function tendWarm() {
   }
   near.sort((a, b) => a[0] - b[0]);
   const wanted = near.slice(0, 2).map(([, to]) => to);
+  // 🔙 And this room's own door, for turning straight back once over the line.
+  if (wanted.length) wanted.push(room);
   for (const to of [...warm.keys()]) if (!wanted.includes(to)) { const e = warm.get(to); warm.delete(to); e.socket.onclose = e.socket.onerror = e.socket.onmessage = null; try { e.socket.close(1000, 'walked away'); } catch {} }
   for (const to of wanted) warmUp(to);
 }
