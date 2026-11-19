@@ -1446,6 +1446,10 @@ nopaint.art {
         header Cache-Control "public, max-age=3600"
         file_server
     }
+    # The game's page, its module and its runtime change together and carry
+    # no version in their names: always ask before using a kept copy.
+    @nopaint_classic_code path / /index.html /classic-steps.mjs /scripts/* /data.json
+    header @nopaint_classic_code Cache-Control "no-cache"
     # nopaint.art is the 2021 original again (its files are this folder's
     # root). The studio moved to notepaint.art; its paths here redirect there.
     # The Mac app still loads nopaint.art and allows only that host, so it

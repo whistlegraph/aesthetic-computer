@@ -84,7 +84,7 @@ let last = null; // the page in use, for a look when something goes wrong
 const site = await serveFolder(SITE);
 const browser = await launch(VIEW, (process.env.CHROME_ARGS || "").split(" ").filter(Boolean));
 const context = await browser.createBrowserContext(), guestContext = await browser.createBrowserContext();
-async function open({ stay = false, guest = false } = {}) {
+async function open({ stay = false, guest = false, late = 0 } = {}) {
   const { page, log } = await openPage(browser, VIEW, { context: guest ? guestContext : context, consoleTypes: ["error"] });
   // Painting takes a handle, so the painting parts run signed in: a session
   // handed to the page, as the live test hands one.
@@ -124,6 +124,8 @@ async function open({ stay = false, guest = false } = {}) {
       wallet.asked++;
       return request.respond({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ unlimited: false, unit: "braincells", remaining: wallet.free, purchased: 50000 }) });
     }
+    // late: the page's module arrives after the game is up, as on a visit with the game in the cache.
+    if (late && url.startsWith(site.url) && /classic-steps\.mjs/.test(url)) return void setTimeout(() => request.continue().catch(() => {}), late);
     if (url.startsWith(site.url) || url.startsWith("data:") || url.startsWith("blob:")) return request.continue();
     const lib = /^https:\/\/aesthetic\.computer\/aesthetic\.computer\/lib\/(nopaint-pieces|painting-state)\.mjs$/.exec(url);
     if (lib) return request.respond({ status: 200, contentType: "text/javascript", headers: cors, body: readFileSync(join(LIB, `${lib[1]}.mjs`)) });
@@ -320,6 +322,21 @@ try {
   check("pressing Save sends the latest steps to AC at once", calls.filter((c) => c.action === "save").length >= savesBefore && (await game.steps()).saved === (await game.steps()).version);
 
   check("no page errors while painting", game.log.errors.length === 0, game.log.errors.join(" | ").slice(0, 160));
+  await game.page.close();
+
+  // The other order: the game is up before the page's module. Steps are still
+  // taken and saved, with the AI brush on. (Once, the wallet waited on the
+  // sign-in and the sign-in on the wallet, and nothing was ever saved.)
+  wallet.free = 4000;
+  game = await open({ late: 7000 });
+  for (let i = 0; i < 60 && (await game.steps()).ai?.free !== 4000; i++) await wait(150);
+  await game.ask("flags", { flags: { ai: false } });
+  const lateBefore = (await game.steps()).version || 0;
+  await game.play("Invert", "Paint");
+  await wait(4500);
+  seen = await game.steps();
+  check("with the game up before the page's module, steps are taken and saved", seen.code === "t3st" && seen.version > lateBefore && seen.saved === seen.version && seen.ai?.free === 4000, `${seen.chip}, saved ${seen.saved}, free ${seen.ai?.free}`);
+  wallet.free = 0;
 
   // A guest. Painting takes a handle: on the lit title screen Sign In is the
   // one thing that answers a tap.

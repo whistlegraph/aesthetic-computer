@@ -419,7 +419,9 @@ addEventListener("resize", () => title());
 state.signOut = signOut;
 state.act = act;
 // Know who is here before the first save, so a painter's painting starts as theirs.
-const arrived = arrive().then(() => raise());
+// (raise() asks for the painter's token, which waits on this: it must not be part of it.)
+const arrived = arrive();
+arrived.then(() => raise());
 
 channel.addEventListener("message", ({ data }) => {
   if (!data || data.to !== "page") return;
