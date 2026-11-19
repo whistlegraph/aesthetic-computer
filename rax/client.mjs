@@ -18,13 +18,27 @@ import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
-import { kidlispWall } from './kidlisp-wall.mjs';
+// 🐌 KidLisp is some thirty modules deep (its runtime and AC's graphics): it
+// was fetched before the room could start at all, about 0.4 s of the way in
+// on a cold cache (measured 2026-11-19). Now it comes when the first screen
+// or wall asks for a program, and the room is up before it.
+const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kidlispWall(...given));
 import { screenRows, carryPixels } from './screen-lod.mjs';
 import { ballAt } from './ball.mjs';
 import { SPAN as BLOCK_SPAN } from './park.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
+// ⏱️ How long the way in takes, once: when this module ran, when the view
+// was ready, the first connect, the socket open, the welcome, the seat and
+// the first frame, in ms since the page began (window.raxBoot; one line in
+// the console and the connection's log when the seat is had). Each time the
+// paper is put away, how long until the body is there is logged too.
+const boot = {};
+const bootMark = (name) => { if (!(name in boot)) boot[name] = Math.round(performance.now()); };
+try { window.raxBoot = boot; } catch {}
+bootMark('module');
 const view = await createView(document.getElementById('game'));
+bootMark('view');
 const canvas = view.canvas,
   keys = new Set();
 const query = new URLSearchParams(location.search);
@@ -96,6 +110,7 @@ let tower = null, ride = null, liftLine = false;
 // 🔢 In the car the number keys are its buttons: press a floor's digits and,
 // a moment after the last one, the car goes. Pressed while it runs, it
 // stops where it is and goes to the new floor from there.
+let shownAt = null; // when the paper was last put away, until the body is there
 let liftWas = null; // the car's height a frame ago, for its speed
 const DIAL_MS = 900;
 let dial = { text: '', at: 0 };
@@ -802,6 +817,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   }
 }
 function connect() {
+  bootMark('connect');
   const url = new URL('./play', import.meta.url);
   url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   // 🔐 Signed in on this page: fetch the token while the socket opens, and
@@ -831,7 +847,7 @@ function connect() {
   ws = new WebSocket(url);
   const socket = ws;
   socket.onopen = () => {
-    if (socket === ws) logNet('socket open', { good: true });
+    if (socket === ws) { bootMark('open'); logNet('socket open', { good: true }); }
   };
   socket.onmessage = (e) => {
     if (socket !== ws) return;
@@ -874,6 +890,7 @@ function connect() {
       joiningUntil = 0; // Not joining: looking.
     }
     if (data.type === 'welcome') {
+      bootMark('welcome');
       // Nobody signed in on this page and the room seats handles only.
       if (data.guests === false && seat < 0 && !account && !query.has('film')) {
         gate = 'account';
@@ -1808,6 +1825,7 @@ function applyPrediction() {
   diagnostics.max('pendingCommandsMax', pending.length);
 }
 function frame(now) {
+  bootMark('frame');
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
   // 🧊 A gap since the last frame, while someone is in the room looking.
@@ -2279,6 +2297,18 @@ function step(now) {
     });
   })();
   // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
+  if (seat >= 0 && player && !('seat' in boot)) {
+    bootMark('seat');
+    const line = `way in: module ${boot.module}, view +${boot.view - boot.module}, connect ${boot.connect}, open +${boot.open - boot.connect}, welcome +${boot.welcome - boot.open}, seat +${boot.seat - boot.welcome} (ms)`;
+    logNet(line, { good: true });
+    console.info(`⏱️ rax ${line}`);
+  }
+  if (shownAt !== null && seat >= 0 && player) {
+    const ms = Math.round(now - shownAt);
+    shownAt = null;
+    logNet(`paper away → body there in ${ms} ms`, { good: true });
+    console.info(`⏱️ rax tab in: ${ms} ms`);
+  }
   const lift = liftAt(now), sky = plazaFrom();
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
   sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
@@ -2480,6 +2510,7 @@ if (hosted) {
       ws.close(1000, 'left');
     }
     if (sheetOpen) parked = false;
+    if (sheetOpen && !(seat >= 0 && player)) shownAt = performance.now();
     if (!sheetOpen) sheetShown = false;
     if (sheetOpen) closingAt = 0; // A fresh drop starts the reticle at the centre.
     if (!sheetOpen) sheetClosedAt = performance.now();
