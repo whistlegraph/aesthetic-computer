@@ -297,7 +297,10 @@ await step("a new email + password comes back to AC and asks for verification", 
     if (stages.includes("verification_shown")) throw new Error("AC still stopped at “Check your email” for an account that already has a handle");
     await page.waitForFunction(() => window.auth0Client, { timeout: 30_000 });
     sub = (await page.evaluate(async () => (await window.auth0Client?.getUser())?.sub)) || null;
-    return `${sub || "?"}, @${handle} picked on the hosted page, straight to /laklok at ${elapsed()}`;
+    const landed = elapsed();
+    // Stay for the one-time "CONFIRM YOUR EMAIL" notice, which waits for the piece.
+    for (let i = 1; i <= 4; i++) { await ac.wait(900); await shot(`04-laklok-landing-${i}`); }
+    return `${sub || "?"}, @${handle} picked on the hosted page, straight to /laklok at ${landed}`;
   }
   await reached("verification_shown");
   await dialogTitled(/Check your email/);
@@ -429,9 +432,17 @@ if (!KEEP && sub) {
   await step("delete-erase-and-forget-me locks the test account", async () => {
     const token = await page.evaluate(() => window.auth0Client?.getTokenSilently());
     if (!token) throw new Error("no token to delete with — account left alive");
-    const res = await fetch(`${CONFIG.baseURL}/api/delete-erase-and-forget-me`, {
-      method: "POST", headers: { Authorization: `Bearer ${token}` },
-    });
+    // One dropped connection here would leave a throwaway account behind.
+    let res;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        res = await fetch(`${CONFIG.baseURL}/api/delete-erase-and-forget-me`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+        break;
+      } catch (error) {
+        if (attempt === 3) throw error;
+        await ac.wait(2000);
+      }
+    }
     const json = await res.json().catch(() => ({}));
     if (res.status !== 200) throw new Error(`${res.status} ${JSON.stringify(json)}`);
     return `purge after ${json.purgeAfter || "?"}`;
