@@ -390,6 +390,7 @@ try {
   const onto = sessionStorage.getItem('rax-rebooted');
   if (onto !== null) { sessionStorage.removeItem('rax-rebooted'); rebooted = { text: `the server restarted: back on ${onto || 'new code'}`, until: performance.now() + 9000 }; }
 } catch {}
+let downSince = null; // when this outage began, for the picture's decay
 let statsShown = false;
 try { statsShown = localStorage.getItem('rax-stats') === '1'; } catch {}
 const extrasSeen = new Set(); // a controller's buttons past the standard ones, as they are first pressed
@@ -2104,7 +2105,17 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  if (gamepad.start || gamepad.swap) toggleMenu(); // START, with BACK as before
+  if (gamepad.start) toggleMenu(); // START (menu) opens the $
+  // VIEW (back) fills the screen with the room, and gives it back.
+  if (gamepad.swap) {
+    const full = document.fullscreenElement || document.webkitFullscreenElement;
+    const done = full
+      ? (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)
+      : (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
+    // (A browser that will not take a pad's button for it says so in the log; a host is asked as well.)
+    Promise.resolve(done).then(() => logNet(full ? 'left full screen' : 'full screen'), (error) => logNet(`full screen refused: ${error?.message || error}`, { bad: true }));
+    toHost({ type: 'rax:sheet:fullscreen', on: !full });
+  }
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
     let step = (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
@@ -2649,6 +2660,8 @@ function step(now) {
     netLog,
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
+    // 📉 Going down, the picture comes apart: how far gone, 0 to 1, over the outage's first five seconds.
+    decay: sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0),
     // 📟 The server quiet for a moment (not yet an outage), or the page just back on new code.
     wire: !sheetOpen || down ? null
       : ws?.readyState === WebSocket.OPEN && connection.lastSnapshot !== null && now - connection.lastSnapshot > 400 && !held

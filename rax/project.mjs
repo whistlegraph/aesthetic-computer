@@ -109,7 +109,7 @@ export class Projector {
   put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
     const near = 0.05, far = 2400, sx = this.sx, sy = this.sy, ox = this.shiftX || 0, oy = this.shiftY || 0;
     const k0 = this.squeeze(x0 / z0, y0 / z0), k1 = this.squeeze(x1 / z1, y1 / z1), k2 = this.squeeze(x2 / z2, y2 / z2);
-    const ax = (x0 * k0 * sx) / z0 + ox, ay = (y0 * k0 * sy) / z0 + oy, bx = (x1 * k1 * sx) / z1 + ox, by = (y1 * k1 * sy) / z1 + oy,
+    let ax = (x0 * k0 * sx) / z0 + ox, ay = (y0 * k0 * sy) / z0 + oy, bx = (x1 * k1 * sx) / z1 + ox, by = (y1 * k1 * sy) / z1 + oy,
       cx = (x2 * k2 * sx) / z2 + ox, cy = (y2 * k2 * sy) / z2 + oy;
     // Wholly off one side of the picture: not drawn.
     if ((ax < -1 && bx < -1 && cx < -1) || (ax > 1 && bx > 1 && cx > 1) || (ay < -1 && by < -1 && cy < -1) || (ay > 1 && by > 1 && cy > 1)) return;
@@ -156,6 +156,22 @@ export class Projector {
       return;
     }
     const v = this.scene.vertices, q = far / (far - near), w = (far * near) / (far - near);
+    // 📉 Coming apart (decay, 0 to 1, when the server has gone): each shape
+    // has its own number, and by it some drop out, the rest snap to a
+    // coarser and coarser grid and slip sideways in bands, some turn to the
+    // green of a terminal, and at the end they fall.
+    if (this.decay > 0) {
+      const g = this.decay, tick = Math.floor((this.decayAt || 0) / 90);
+      let h = (Math.imul((ax * 4096) | 0, 73856093) ^ Math.imul((ay * 4096) | 0, 19349663) ^ Math.imul(tick + ((z0 * 16) | 0), 83492791)) >>> 0;
+      const roll = () => ((h = (Math.imul(h, 1664525) + 1013904223) >>> 0) / 4294967296);
+      if (roll() < g * 0.55) return; // gone
+      const cell = 1 / (160 - 150 * g), snap = (n) => Math.round(n / cell) * cell;
+      const slip = roll() < g * 0.6 ? (roll() - 0.5) * 0.5 * g : 0, drop = g > 0.6 ? (g - 0.6) * 2.5 * roll() : 0;
+      ax = snap(ax) + slip; bx = snap(bx) + slip; cx = snap(cx) + slip;
+      ay = snap(ay) - drop; by = snap(by) - drop; cy = snap(cy) - drop;
+      if (roll() < g * 0.45) { const lit = 0.25 + 0.75 * roll(); cr = 0.05 * lit; cg = lit; cb = 0.3 * lit; }
+      else if (roll() < g * 0.3) { const t = cr; cr = cb; cb = cg; cg = t; } // the colours' wires crossed
+    }
     let at = this.scene.triangleCount++ * 18;
     v[at++] = ax; v[at++] = ay; v[at++] = q - w / z0; v[at++] = cr; v[at++] = cg; v[at++] = cb;
     v[at++] = bx; v[at++] = by; v[at++] = q - w / z1; v[at++] = cr; v[at++] = cg; v[at++] = cb;

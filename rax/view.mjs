@@ -1223,6 +1223,7 @@ export async function createView(canvas) {
     cornerScale = 1, // The curtain crosshair's breadth (1 at rest); the room scales with it.
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
+    decay = 0, // 📉 0 to 1: the server is gone and the picture is coming apart into blocks and bits
     wire = null, // 📟 { text, color }: one line of the connection's story, top left, while the room is still up (the server quiet, or just back on new code)
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
     jobs = [],
@@ -1400,6 +1401,8 @@ export async function createView(canvas) {
     // is drawn a little larger than a flat picture of this width would have
     // it, and the edges are drawn in, so more is seen to either side and
     // nothing there is stretched. Not from overhead, nor side-on in a game.
+    projector.decay = decay;
+    projector.decayAt = now;
     projector.lens = lensOn && orbit <= 0 && !game?.camera ? 1 : 0;
     if (projector.lens) {
       projector.sx *= LENS_ZOOM;
