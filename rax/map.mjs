@@ -96,8 +96,10 @@ export function place(room, p, { geography, tower }) {
 }
 
 // The whole map. `contents(id)` gives a block's { tiles, objects, screens };
-// `seated` is everyone in rax now: [{ handle, room, x, y, z }].
-export function worldMap({ geography, tower = null, contents = () => ({}), seated = [] }) {
+// `seated` is everyone in rax now: [{ handle, room, x, y, z }]; `watching`
+// is everyone looking on from the air: [{ name, room, x, y, z, yaw }], where
+// x, y, z is their eye.
+export function worldMap({ geography, tower = null, contents = () => ({}), seated = [], watching = [] }) {
   const census = geography.census(), half = BLOCK / 2, top = tower?.top || 0;
   // The yard is part of what is open: people walk it, so the map holds it.
   const is = [...census.blocks.map((b) => b.i), -REACH, REACH], js = [...census.blocks.map((b) => b.j), -REACH, REACH];
@@ -117,12 +119,18 @@ export function worldMap({ geography, tower = null, contents = () => ({}), seate
       const at = s.handle ? place(s.room, s, { geography, tower }) : null;
       return at ? [{ handle: String(s.handle).toLowerCase(), ...at, ...(Number.isFinite(s.yaw) ? { yaw: Math.round(s.yaw) } : {}) }] : [];
     }),
+    // 👀 Eyes in the air: no body, so a reader draws them apart from people.
+    watchers: watching.flatMap((s) => {
+      const at = s.name ? place(s.room, s, { geography, tower }) : null;
+      return at ? [{ name: String(s.name).toLowerCase(), ...at, ...(Number.isFinite(s.yaw) ? { yaw: Math.round(s.yaw) } : {}) }] : [];
+    }),
   };
 }
 
 // ⚡ Only who is where, for a reader that already holds the map and wants
 // them moving (GET /rax/people): small enough to ask for several times a
 // second. `at` is the server's clock.
-export function peopleNow({ geography, tower = null, seated = [], now = Date.now() }) {
-  return { at: now, people: worldMap({ geography, tower, seated }).people };
+export function peopleNow({ geography, tower = null, seated = [], watching = [], now = Date.now() }) {
+  const map = worldMap({ geography, tower, seated, watching });
+  return { at: now, people: map.people, watchers: map.watchers };
 }

@@ -12,7 +12,7 @@ import { createView } from './view.mjs';
 import { Connection } from './connection.mjs';
 import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
-import { accountToken, accountExpected, askAccount } from './account.mjs';
+import { accountToken, accountExpected } from './account.mjs';
 import { Controller } from './controller.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -466,6 +466,7 @@ let holdTime = 0,
 // ceiling and the dotted floor all show and the room reads as a room.
 let freecam = { x: -3, y: 2.1, z: -WORLD + 2, yaw: 28, pitch: -7 };
 let freecamPlaced = false;
+let lookAt = 0, lookSaid = ''; // When and what this eye last told the room of itself.
 // Just arrived and not seated yet (the seat waits for a signed-in handle):
 // that is joining, not watching, so none of the spectator's mode shows.
 let joiningUntil = 0;
@@ -473,14 +474,6 @@ const joining = () => seat < 0 && performance.now() < joiningUntil;
 // 🪪 What the seat waits for: 'account' (nobody is signed in) or 'handle'
 // (signed in, no handle yet). Until then the visitor flies over and looks.
 let gate = null;
-// The way in: sign up, or back to the prompt where a handle is claimed.
-function askIn() {
-  if (!gate) return false;
-  if (locked()) document.exitPointerLock();
-  if (gate === 'handle' && hosted) leave();
-  else askAccount(gate);
-  return true;
-}
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -1460,12 +1453,10 @@ function touchButton(button, isDown) {
     softKeys.focus({ preventScroll: true });
   } else syncSoftKeys();
 }
-let gateTap = null; // A quick tap while looking on asks the way in.
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
-  gateTap = seat < 0 && gate ? { id: e.pointerId, x: e.clientX, y: e.clientY, at: performance.now() } : null;
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
     const row = view.menuHit(e.offsetX, e.offsetY);
@@ -1488,9 +1479,6 @@ canvas.addEventListener('pointermove', (e) => {
 canvas.addEventListener('pointerup', (e) => {
   if (!touchy(e)) return;
   touchButton(touch.up(e, performance.now()), false);
-  const tap = gateTap;
-  gateTap = null;
-  if (tap && tap.id === e.pointerId && performance.now() - tap.at < 350 && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 12) askIn();
 });
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
@@ -1620,7 +1608,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
-    if (seat < 0) return void askIn();
+    if (seat < 0) return; // Looking on: Enter asks for nothing.
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
       releaseInput();
@@ -2040,7 +2028,6 @@ function step(now) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
-    if (seat < 0 && gate && gamepad.select) askIn(); // [A]: the way in.
   }
   if (lockOn && player) {
     const target = spotOf(lockOn.id);
@@ -2086,6 +2073,16 @@ function step(now) {
       },
       elapsed,
     );
+  // 👀 Someone looking on tells the room where their eye is, a few times a
+  // second and only when it has moved, so maps can show who is overhead.
+  if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 250) {
+    const said = `${freecam.x.toFixed(1)} ${freecam.y.toFixed(1)} ${freecam.z.toFixed(1)} ${Math.round(yaw / 5)}`;
+    if (said !== lookSaid) {
+      lookSaid = said;
+      lookAt = now;
+      send({ type: 'look', x: freecam.x, y: freecam.y, z: freecam.z, yaw });
+    }
+  }
   const probe = connection.probe(
     performance.now(),
     ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048,

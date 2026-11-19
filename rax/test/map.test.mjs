@@ -96,7 +96,11 @@ test('the yard is on the map, and who is where can be asked for alone', () => {
   assert.deepEqual(map.structure.find((s) => s.role === 'yard'), { k: 'flat', role: 'yard', x0: -reach, z0: -reach, x1: reach, z1: reach });
   assert.ok(map.extent.x0 <= -reach && map.extent.x1 >= reach && map.extent.z0 <= -reach && map.extent.z1 >= reach, 'someone far out in the yard is still on the map');
   const now = peopleNow({ geography, tower, now: 5, seated: [{ handle: 'Jeffrey', room: 'w3s3', x: 1, y: 1.7, z: -2, yaw: 91.4 }] });
-  assert.deepEqual(now, { at: 5, people: [{ handle: 'jeffrey', x: -3 * BLOCK + 1, y: 1.7, z: -3 * BLOCK - 2, floor: 0, yaw: 91 }] });
+  assert.deepEqual(now, { at: 5, people: [{ handle: 'jeffrey', x: -3 * BLOCK + 1, y: 1.7, z: -3 * BLOCK - 2, floor: 0, yaw: 91 }], watchers: [] });
+  const over = peopleNow({ geography, tower, now: 6, seated: [], watching: [
+    { name: 'Opal-Otter', room: 'lobby', x: 2, y: 14, z: -3, yaw: 10, at: 1 }, { name: '@x', room: 'studio', x: 0, y: 3, z: 0 }] });
+  assert.deepEqual(over.watchers, [{ name: 'opal-otter', x: 2, y: 14, z: -3, floor: 0, yaw: 10 }], 'an eye in the air is on the map where it is, apart from people');
+  assert.deepEqual(over.people, []);
 });
 
 test('GET /map serves the drawing', async () => {

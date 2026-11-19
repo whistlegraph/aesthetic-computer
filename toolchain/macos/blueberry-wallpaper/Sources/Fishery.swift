@@ -1750,9 +1750,9 @@ final class FisheryLayer: CALayer {
             let stamp = (try? FileManager.default.attributesOfItem(atPath: Self.peopleFile))?[.modificationDate] as? Date
             if stamp != peopleStamp {
                 peopleStamp = stamp
-                if let rows = FileManager.default.contents(atPath: Self.peopleFile)
-                    .flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })?["people"] as? [[String: Any]] {
-                    let live = WorldFlyLayer.people(rows)
+                if let now = FileManager.default.contents(atPath: Self.peopleFile)
+                    .flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }), now["people"] != nil {
+                    let live = WorldFlyLayer.everyone(in: now)
                     peopleLive = live
                     // Slide over the time since the last reading, within reason.
                     worldFly.move(live, over: min(0.6, max(0.12, clock - peopleRead)))

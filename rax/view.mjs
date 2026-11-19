@@ -1127,6 +1127,8 @@ export async function createView(canvas) {
       now = start;
     const solidObjects = objects.filter((o) => !o.item);
     lastWorldTime = worldTime;
+    // 👀 Looking on, the connection's meter stays away: it sat over the controls.
+    if (spectator) connection = null;
     // The corner join code is retired for now: rax is joining the AC homepage.
     const cells = null;
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale, grid ? 1 : 0);
@@ -1806,19 +1808,12 @@ export async function createView(canvas) {
               ...(showLegend ? legendRows(input, held, game?.legend || LEGEND) : []),
               ...(spectator
                 ? [
+                    // Looking on. (No way in is offered here: signing up
+                    // and taking a handle belong to the paper, 2026-11-18.)
                     hintSpans(
-                      input === 'touch' ? 'flying over' : controller ? 'flying over / [LB] down / [RB] up' : 'flying over / {wasd} / {space} up / {shift} down',
+                      input === 'touch' ? 'look' : controller ? 'look / [LB] down / [RB] up' : 'look / {wasd} / {space} up / {shift} down',
                       THEME.text,
                     ),
-                    // 🪪 A body and a floor come with a handle.
-                    ...(gate
-                      ? [
-                          hintSpans(
-                            `${input === 'touch' ? 'tap' : controller ? '[A]' : '{enter}'} ${gate === 'handle' ? 'get a handle to walk' : 'sign up to walk'}`,
-                            THEME.verb,
-                          ),
-                        ]
-                      : []),
                   ]
                 : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint

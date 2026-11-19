@@ -286,9 +286,9 @@ async function watch(state) {
       const r = await fetch(`${RAX}/people`, { signal: AbortSignal.timeout(2000) });
       if (r.ok) {
         const now = await r.json();
-        busy = now.people?.length > 0;
+        busy = now.people?.length > 0 || now.watchers?.length > 0;
         // Without `at`, so an empty world writes nothing tick after tick.
-        lastPeople = writeIfNew(PEOPLE, JSON.stringify({ people: now.people || [] }), lastPeople);
+        lastPeople = writeIfNew(PEOPLE, JSON.stringify({ people: now.people || [], watchers: now.watchers || [] }), lastPeople);
       }
     } catch {}
     await new Promise(r => setTimeout(r, busy ? PEOPLE_MS : 1000));

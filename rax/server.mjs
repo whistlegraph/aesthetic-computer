@@ -10,6 +10,7 @@ import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing } from './park.mjs';
 import { worldMap, peopleNow } from './map.mjs';
+import { guestName } from './guest-name.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -392,16 +393,19 @@ export function createRaxServer({
     // ⚡ /people is the same people alone, for a reader that wants them moving.
     if ((path === '/map' || path === '/people') && req.method === 'GET') {
       await ready;
-      const seated = [];
+      const seated = [], watching = [];
       for (const [room, r] of rooms)
         for (const m of r.sessions.values()) {
           const p = m.handle && r.match.seats[m.seat]?.player;
           if (p) seated.push({ handle: m.handle, room, x: p.x, y: p.y, z: p.z, yaw: p.yaw });
+          // Someone looking on, if their eye was heard from in the last ten seconds.
+          else if (m.seat < 0 && m.look && Date.now() - m.look.at < 10000 && (m.handle || m.owner))
+            watching.push({ name: m.handle ? `@${m.handle}` : guestName(m.owner), room, ...m.look });
         }
       if (path === '/people') {
         res
           .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
-          .end(JSON.stringify(peopleNow({ geography: geography.geography, tower: tower.tower, seated })));
+          .end(JSON.stringify(peopleNow({ geography: geography.geography, tower: tower.tower, seated, watching })));
         return;
       }
       res
@@ -410,6 +414,7 @@ export function createRaxServer({
           geography: geography.geography,
           tower: tower.tower,
           seated,
+          watching,
           contents: (id) => ({ tiles: store.tiles(id), objects: store.objects(id), screens: store.screens(id) }),
         })));
       return;
@@ -1087,6 +1092,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           }, 6000).unref();
         }
       }
+      // 👀 Where someone looking on has their eye, kept for the map alone.
+      if (data?.type === 'look' && member.seat < 0 && [data.x, data.y, data.z, data.yaw].every(Number.isFinite))
+        member.look = { x: clamp(data.x, -60, 60), y: clamp(data.y, 0, 40), z: clamp(data.z, -60, 60), yaw: data.yaw, at: Date.now() };
       // Sharper or chunkier: change a screen's pixel grid; no Aesel needed.
       if (data?.type === 'wall-res' && member.seat >= 0 && ['north', 'west'].includes(data.face) && [-1, 1].includes(data.dir))
         void store.stepWallRes(key, data.face, data.dir).then(() => builders.broadcast(key));

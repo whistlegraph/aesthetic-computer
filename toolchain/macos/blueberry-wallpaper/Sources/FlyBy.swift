@@ -22,11 +22,18 @@ import QuartzCore
 /// to where they now are over the time between two readings, leaving a line
 /// along the ground where they have been for the last minute and a half.
 final class WorldFlyLayer: CALayer {
-    typealias Person = (handle: String, x: CGFloat, y: CGFloat, z: CGFloat, floor: Int)
-    /// People as rax lists them, in the map or alone.
-    static func people(_ rows: [[String: Any]]) -> [Person] {
+    /// `watching` is someone looking on from the air: x, y, z is their eye,
+    /// and `handle` is the name to show ("@jeffrey", or a guest's two words).
+    typealias Person = (handle: String, x: CGFloat, y: CGFloat, z: CGFloat, floor: Int, watching: Bool)
+    /// People as rax lists them, in the map or alone: `people` stand in the
+    /// world, `watchers` look on from above it.
+    static func people(_ rows: [[String: Any]], watching: Bool = false) -> [Person] {
         let num = { (v: Any?) -> CGFloat in CGFloat((v as? NSNumber)?.doubleValue ?? 0) }
-        return rows.map { ($0["handle"] as? String ?? "", num($0["x"]), num($0["y"]), num($0["z"]), Int(num($0["floor"]))) }
+        return rows.map { ($0[watching ? "name" : "handle"] as? String ?? "", num($0["x"]), num($0["y"]), num($0["z"]),
+                           Int(num($0["floor"])), watching) }
+    }
+    static func everyone(in map: [String: Any]) -> [Person] {
+        people(map["people"] as? [[String: Any]] ?? []) + people(map["watchers"] as? [[String: Any]] ?? [], watching: true)
     }
     /// One shape of rax's map (rax/map.mjs), in world metres: x east,
     /// z north, y up.
@@ -74,7 +81,7 @@ final class WorldFlyLayer: CALayer {
             extent = CGRect(x: num(e["x0"]), y: num(e["z0"]), width: num(e["x1"]) - num(e["x0"]), height: num(e["z1"]) - num(e["z0"]))
             structure = (map["structure"] as? [[String: Any]] ?? []).map(Shape.init)
             content = (map["content"] as? [[String: Any]] ?? []).map(Shape.init)
-            people = WorldFlyLayer.people(map["people"] as? [[String: Any]] ?? [])
+            people = WorldFlyLayer.everyone(in: map)
             let tower = map["tower"] as? [String: Any] ?? [:], census = map["census"] as? [String: Any] ?? [:]
             floors = Int(num(tower["floors"])); top = Int(num(tower["top"]))
             settled = Int(num(census["settled"])); across = Int(num(census["across"]))
@@ -233,48 +240,56 @@ final class WorldFlyLayer: CALayer {
         CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .linear))
         var here = Set<String>()
         for p in people where !p.handle.isEmpty {
-            here.insert(p.handle)
+            // 👀 An eye in the air is drawn apart from a body: cyan, on a hair
+            // from the ground up to where it looks from, its line on the ground.
+            let id = (p.watching ? "eye " : "") + p.handle
+            let tint = p.watching ? Self.screenCyan : Self.awakeGreen
+            here.insert(id)
             // Someone above the break stands on the top slab drawn.
-            var y = p.y, name = "@" + p.handle
+            var y = p.y, name = p.watching ? p.handle : "@" + p.handle
             if let c = crown, p.y > c.cut { y = c.y; name += " \(p.floor)" }
             let at = CGPoint(x: p.x, y: p.z)
-            if var w = walkers[p.handle] {
+            let foot: CGFloat = p.watching ? 0 : y, tall: CGFloat = p.watching ? max(0.2, y) : 1.3
+            if var w = walkers[id] {
                 if w.label != name {
                     w.sign.removeFromSuperlayer()
-                    w.sign = sign(name, Self.awakeGreen, x: p.x, z: p.z, lift: y + 1.3 + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
+                    w.sign = sign(name, tint, x: p.x, z: p.z, lift: foot + tall + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
                     w.sign.actions = Self.walking
                     w.label = name
-                    walkers[p.handle] = w
+                    walkers[id] = w
                 }
-                w.pole.position = at; w.pole.zPosition = y
-                w.head.position = at; w.head.zPosition = y + 1.3
-                w.sign.position = at; w.sign.zPosition = y + 1.3 + mark * 1.4
+                w.pole.position = at; w.pole.zPosition = foot
+                if p.watching { w.pole.bounds = CGRect(x: 0, y: 0, width: hair, height: tall) } // the hair follows the eye up and down
+                w.head.position = at; w.head.zPosition = foot + tall
+                w.sign.position = at; w.sign.zPosition = foot + tall + mark * 1.4
             } else {
                 let trail = CAShapeLayer()
                 trail.actions = Self.still.merging(["path": NSNull()]) { a, _ in a }
                 trail.fillColor = nil
-                trail.strokeColor = Self.awakeGreen.withAlphaComponent(0.55).cgColor
+                trail.strokeColor = tint.withAlphaComponent(p.watching ? 0.35 : 0.55).cgColor
                 trail.lineWidth = max(hair * 1.4, 0.05)
                 trail.lineJoin = .round
                 trail.lineCap = .round
                 crowd.addSublayer(trail)
-                let pole = upright(CGSize(width: hair, height: 1.3), x: p.x, z: p.z, lift: y, fill: Self.awakeGreen, into: crowd)
-                let head = upright(CGSize(width: mark, height: mark), x: p.x, z: p.z, lift: y + 1.3, border: Self.awakeGreen, width: 0.07, into: crowd)
-                let words = sign(name, Self.awakeGreen, x: p.x, z: p.z, lift: y + 1.3 + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
+                let pole = upright(CGSize(width: hair, height: tall), x: p.x, z: p.z, lift: foot,
+                                   fill: tint.withAlphaComponent(p.watching ? 0.45 : 1), into: crowd)
+                let head = upright(CGSize(width: mark, height: mark), x: p.x, z: p.z, lift: foot + tall, border: tint, width: 0.07,
+                                   fill: p.watching ? tint.withAlphaComponent(0.35) : nil, into: crowd)
+                let words = sign(name, tint, x: p.x, z: p.z, lift: foot + tall + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
                 for l in [pole, head, words] { l.actions = Self.walking }
-                walkers[p.handle] = Walker(pole: pole, head: head, sign: words, trail: trail, label: name)
+                walkers[id] = Walker(pole: pole, head: head, sign: words, trail: trail, label: name)
             }
             // The line behind them: a new point for every step, none for standing.
-            var line = trails[p.handle] ?? []
-            if let last = line.last, abs(last.y - y) > 2 { line.removeAll() } // another floor: a new line
+            var line = trails[id] ?? []
+            if !p.watching, let last = line.last, abs(last.y - y) > 2 { line.removeAll() } // another floor: a new line
             if line.last.map({ hypot($0.at.x - at.x, $0.at.y - at.y) > 0.15 }) ?? true { line.append((at, y, now)) }
             line.removeAll { now - $0.t > Self.trailSeconds }
-            trails[p.handle] = line
-            if let trail = walkers[p.handle]?.trail {
+            trails[id] = line
+            if let trail = walkers[id]?.trail {
                 let path = CGMutablePath()
                 if line.count > 1 { path.addLines(between: line.map { $0.at }) }
                 trail.path = path
-                trail.zPosition = y
+                trail.zPosition = foot
             }
         }
         for (handle, w) in walkers where !here.contains(handle) {
