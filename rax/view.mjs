@@ -1140,6 +1140,8 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
+    place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
+    beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
     ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
     home = null,
@@ -1629,19 +1631,23 @@ export async function createView(canvas) {
     }
     const cut = projector.cut; // People are never looked through: a body stays whole.
     projector.cut = null;
-    for (let i = 0; i < Math.max(players.length, seat + 1); i++) {
-      const p = i === seat && me ? me : players[i];
+    const inRoom = Math.max(players.length, seat + 1);
+    for (let n = 0; n < inRoom + beyond.length; n++) {
+      // (After the room's own: the people beyond it, each drawn as the seat they hold there.)
+      const far = n >= inRoom ? beyond[n - inRoom] : null, i = far ? far.seat : n;
+      const p = far || (i === seat && me ? me : players[i]);
       if (!p?.alive) continue;
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
-      if (i !== seat || third || !me) {
+      if (far || i !== seat || third || !me) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
         draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
         // Name tags are screen text drawn after the world (see below), so
         // they stay crisp and never fight the scene for depth.
-        if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z, at: p });
+        if (far) { if (far.name) tags.push({ label: far.name, seat: i, x: p.x, y: base + 2.15, z: p.z, at: p }); }
+        else if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z, at: p });
         const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10),
           right = direction(p.yaw - 90);
         for (const side of [-1, 1]) {
@@ -2177,13 +2183,13 @@ export async function createView(canvas) {
           // land on one already placed this frame rises a line at a time
           // (nearest first below, so the closest player keeps the spot over
           // their own head). Its width allows for the position after it.
-          const half = ((label.length * 6) / 2 + 3) * unit, wide = half + 15 * 4 * unit;
+          const reach = ((label.length * 6) / 2 + 3) * unit, wide = reach + 15 * 4 * unit;
           for (let tries = 0; tries < 12; tries++) {
-            const hit = placedTags.find((p) => x - half < p.right && x + wide > p.left && Math.abs(y - p.y) < 9 * unit);
+            const hit = placedTags.find((p) => x - reach < p.right && x + wide > p.left && Math.abs(y - p.y) < 9 * unit);
             if (!hit) break;
             y = hit.y + 9 * unit;
           }
-          placedTags.push({ left: x - half, right: x + wide, y });
+          placedTags.push({ left: x - reach, right: x + wide, y });
           if (member?.handle) {
             handleText(label, x + unit, y - unit, 0.000002, unit, shadowInk(label));
             handleText(label, x, y, 0, unit, member.colors);
@@ -2746,7 +2752,7 @@ export async function createView(canvas) {
           if (me) {
             const pt = nextSlot();
             let left = x0 + 27 * unit;
-            for (const [t, c] of [[me.x.toFixed(1), AXIS.x], [(me.y || 0).toFixed(1), AXIS.y], [me.z.toFixed(1), AXIS.z]]) {
+            for (const [t, c] of [[(me.x + (place?.x || 0)).toFixed(1), AXIS.x], [(me.y || 0).toFixed(1), AXIS.y], [(me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
               const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
               small(t, cx + unit, cy - unit, 0.000002, unit, INK);
               small(t, cx, cy, 0, unit, c);

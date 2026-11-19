@@ -1,4 +1,4 @@
-import { edgeAt, SPAN, groundsOf } from './park.mjs';
+import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
@@ -178,7 +178,18 @@ function carScreen(rideNow) {
 // Where the plaza (and the tower on it) stands from this room, in metres.
 // 🌧️ What falls over Los Angeles falls here: asked of the server now and
 // every five minutes (weather.mjs).
+const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c.j * SPAN } : null; };
 let weather = null;
+// 👀 The people in the rooms around this one (the server's `beyond`), eased
+// from where each was last drawn to where they were last heard of.
+let beyond = new Map();
+function beyondAt(b, now) {
+  const k = Math.min(1, (now - b.at) / 70), f = b.from;
+  if (!f) return b;
+  let turn = b.yaw - f.yaw;
+  turn -= Math.round(turn / 360) * 360;
+  return { ...b, x: f.x + (b.x - f.x) * k, y: f.y + (b.y - f.y) * k, z: f.z + (b.z - f.z) * k, yaw: f.yaw + turn * k, pitch: f.pitch + (b.pitch - f.pitch) * k, from: null };
+}
 const askWeather = () => fetch(new URL('./weather', import.meta.url)).then((r) => (r.ok ? r.json() : null)).then((w) => { if (w) weather = w; }).catch(() => {});
 void askWeather();
 setInterval(askWeather, 5 * 60 * 1000);
@@ -780,6 +791,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     ride = null;
   }
   passage = receipt;
+  beyond = new Map(); // (the next room tells them in its own metres)
   park = null;
   walkAt = performance.now() + 1000;
   objects = [];
@@ -1004,6 +1016,16 @@ function connect(adopt = null) {
       })();
     }
     if (data.type === 'ball') { ball = { ...data, at: performance.now() }; return; }
+    // 👀 Who walks the rooms around this one, in this room's metres.
+    if (data.type === 'beyond') {
+      const now = performance.now(), next = new Map();
+      for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz] of data.people) {
+        const was = beyond.get(id), from = was ? beyondAt(was, now) : null;
+        next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, alive: true, from, at: now });
+      }
+      beyond = next;
+      return;
+    }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
     if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack);
     if (data.type === 'tower') {
@@ -2429,6 +2451,8 @@ function step(now) {
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
     weather,
+    place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
+    beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever

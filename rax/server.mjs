@@ -1285,6 +1285,42 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const ws of room.clients.keys()) sendText(ws, word);
     }
   };
+  // 👀 The people beyond: each room is told who walks the rooms around it
+  // (two blocks out, and the floors over the plaza), in its own metres, 15
+  // times a second. A room simulates only its own; what it hears of the rest
+  // is for the eye, so the park is one place to look across however many
+  // rooms it is made of, and a room's cost does not grow with the world's.
+  const BEYOND = 2;
+  let beyondTick = 0;
+  const tellBeyond = () => {
+    if (++beyondTick % 4 || rooms.size < 2) return;
+    const r = (n) => Math.round(n * 100) / 100, stood = [];
+    for (const [key, room] of rooms) {
+      const at = cellOf(key);
+      if (!at) continue;
+      const people = [];
+      room.match.seats.forEach((s, seat) => {
+        const p = s?.player, m = room.members[seat];
+        if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0]);
+      });
+      stood.push({ key, room, at, people });
+    }
+    for (const here of stood) {
+      if (!here.room.clients.size) continue;
+      const seen = [];
+      for (const there of stood) {
+        if (there === here || !there.people.length) continue;
+        const di = there.at.i - here.at.i, dj = there.at.j - here.at.j;
+        if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND) continue;
+        for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz] of there.people)
+          seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz)]);
+      }
+      if (!seen.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
+      here.room.beyondSeen = seen.length;
+      const word = JSON.stringify({ type: 'beyond', people: seen });
+      for (const ws of here.room.clients.keys()) sendText(ws, word);
+    }
+  };
   let previous = performance.now(),
     debt = 0;
   let diagnosticStart = previous, loopGapMaxMs = 0, tickMaxMs = 0;
@@ -1298,6 +1334,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;
       if (rooms.size) tellBall(ball.step());
+      tellBeyond();
       if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
         room.match.step();
