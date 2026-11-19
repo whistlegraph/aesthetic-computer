@@ -832,6 +832,9 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
+  const LENS_ZOOM = 1.3; // how much larger the middle is drawn under the lens
+  let lensOn = true;
+  try { lensOn = localStorage.getItem('rax-lens') !== '0'; } catch {}
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
   const statsRun = new Float32Array(120); let statsHead = 0; // the last 120 frames' gaps, a ring
@@ -1389,6 +1392,15 @@ export async function createView(canvas) {
       projector.sy *= orbitZoom;
     }
     orbitZoom = 1;
+    // 🔭 The lens (project.mjs): walking or flying, the middle of the picture
+    // is drawn a little larger than a flat picture of this width would have
+    // it, and the edges are drawn in, so more is seen to either side and
+    // nothing there is stretched. Not from overhead, nor side-on in a game.
+    projector.lens = lensOn && orbit <= 0 && !game?.camera ? 1 : 0;
+    if (projector.lens) {
+      projector.sx *= LENS_ZOOM;
+      projector.sy *= LENS_ZOOM;
+    }
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
     const tags = [];
@@ -3585,6 +3597,12 @@ export async function createView(canvas) {
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
     density: setDensity,
+    // 🔭 The lens on or off (kept); with nothing, the other of the two.
+    lens(on = !lensOn) {
+      lensOn = !!on;
+      try { localStorage.setItem('rax-lens', lensOn ? '1' : '0'); } catch {}
+      return lensOn;
+    },
     showFps(on) {
       SHOW_FPS = !!on;
     },
@@ -3619,7 +3637,9 @@ export async function createView(canvas) {
       const pxr = canvas.width / Math.max(1, canvas.clientWidth);
       const nx = (cssX * pxr - canvas.width / 2) / (canvas.width / 2), ny = (canvas.height / 2 - cssY * pxr) / (canvas.height / 2);
       const [f, r, u] = [projector.forward, projector.right, projector.up];
-      const kx = nx / projector.sx, ky = ny / projector.sy;
+      // (Under the lens a place on the screen is 2 tan(a/2) from the middle: back to tan(a).)
+      let kx = nx / projector.sx, ky = ny / projector.sy;
+      if (projector.lens) { const r = Math.hypot(kx, ky), back = r > 1e-6 ? Math.tan(2 * Math.atan(Math.min(1.9, r) / 2)) / r : 1; kx *= back; ky *= back; }
       let x = f[0] + r[0] * kx + u[0] * ky, y = f[1] + r[1] * kx + u[1] * ky, z = f[2] + r[2] * kx + u[2] * ky;
       const l = Math.hypot(x, y, z) || 1;
       return { x: x / l, y: y / l, z: z / l };

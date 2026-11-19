@@ -88,11 +88,78 @@ export class Projector {
     const [r, u, f] = [this.right, this.up, this.forward];
     const depth = dx * f[0] + dy * f[1] + dz * f[2];
     if (depth < 0.1) return null;
-    return {
-      x: ((dx * r[0] + dy * r[1] + dz * r[2]) * this.sx) / depth + (this.shiftX || 0),
-      y: ((dx * u[0] + dy * u[1] + dz * u[2]) * this.sy) / depth + (this.shiftY || 0),
-      depth,
-    };
+    const px = (dx * r[0] + dy * r[1] + dz * r[2]) / depth, py = (dx * u[0] + dy * u[1] + dz * u[2]) / depth, k = this.squeeze(px, py);
+    return { x: px * k * this.sx + (this.shiftX || 0), y: py * k * this.sy + (this.shiftY || 0), depth };
+  }
+  // 🔭 The lens (0: none, a flat picture as a pinhole makes it; 1: all of
+  // it). A flat picture of a wide view stretches whatever is near its edges.
+  // The lens keeps the middle exactly as the flat picture has it and draws
+  // the edges in toward it, as a wide lens does (the stereographic one: a
+  // thing at angle a from the middle lies 2 tan(a/2) out, not tan(a)), so
+  // the same screen holds more of the world to either side and nothing at
+  // the edge is pulled long. How much a point at (x, y) over its depth moves in:
+  squeeze(x, y) {
+    return this.lens ? 1 + (2 / (1 + Math.sqrt(1 + x * x + y * y)) - 1) * this.lens : 1;
+  }
+  // One triangle, in the eye's own space (right, up, ahead), put on the
+  // screen in its colour. Under the lens a straight edge is a curve, so an
+  // edge that is long on the screen is halved, and its halves again (to
+  // `depth` times): by the edge alone, so two triangles that share one
+  // halve it at the same place and no gap opens between them.
+  put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
+    const near = 0.05, far = 2400, sx = this.sx, sy = this.sy, ox = this.shiftX || 0, oy = this.shiftY || 0;
+    const k0 = this.squeeze(x0 / z0, y0 / z0), k1 = this.squeeze(x1 / z1, y1 / z1), k2 = this.squeeze(x2 / z2, y2 / z2);
+    const ax = (x0 * k0 * sx) / z0 + ox, ay = (y0 * k0 * sy) / z0 + oy, bx = (x1 * k1 * sx) / z1 + ox, by = (y1 * k1 * sy) / z1 + oy,
+      cx = (x2 * k2 * sx) / z2 + ox, cy = (y2 * k2 * sy) / z2 + oy;
+    // Wholly off one side of the picture: not drawn.
+    if ((ax < -1 && bx < -1 && cx < -1) || (ax > 1 && bx > 1 && cx > 1) || (ay < -1 && by < -1 && cy < -1) || (ay > 1 && by > 1 && cy > 1)) return;
+    if (depth > 0) {
+      const LONG = 0.12 * 0.12; // (a sixteenth of the picture's width: short enough that two flat things a few millimetres apart keep their order)
+      const e0 = (ax - bx) ** 2 + (ay - by) ** 2 > LONG, e1 = (bx - cx) ** 2 + (by - cy) ** 2 > LONG, e2 = (cx - ax) ** 2 + (cy - ay) ** 2 > LONG;
+      if (e0 || e1 || e2) {
+        const mx0 = (x0 + x1) / 2, my0 = (y0 + y1) / 2, mz0 = (z0 + z1) / 2, mx1 = (x1 + x2) / 2, my1 = (y1 + y2) / 2, mz1 = (z1 + z2) / 2,
+          mx2 = (x2 + x0) / 2, my2 = (y2 + y0) / 2, mz2 = (z2 + z0) / 2, d = depth - 1;
+        if (e0 && e1 && e2) {
+          this.put(x0, y0, z0, mx0, my0, mz0, mx2, my2, mz2, cr, cg, cb, d);
+          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, cr, cg, cb, d);
+          this.put(mx2, my2, mz2, mx1, my1, mz1, x2, y2, z2, cr, cg, cb, d);
+          this.put(mx0, my0, mz0, mx1, my1, mz1, mx2, my2, mz2, cr, cg, cb, d);
+        } else if (e0 && e1) {
+          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, cr, cg, cb, d);
+          this.put(x0, y0, z0, mx0, my0, mz0, mx1, my1, mz1, cr, cg, cb, d);
+          this.put(x0, y0, z0, mx1, my1, mz1, x2, y2, z2, cr, cg, cb, d);
+        } else if (e1 && e2) {
+          this.put(mx1, my1, mz1, x2, y2, z2, mx2, my2, mz2, cr, cg, cb, d);
+          this.put(x1, y1, z1, mx1, my1, mz1, mx2, my2, mz2, cr, cg, cb, d);
+          this.put(x1, y1, z1, mx2, my2, mz2, x0, y0, z0, cr, cg, cb, d);
+        } else if (e2 && e0) {
+          this.put(mx2, my2, mz2, x0, y0, z0, mx0, my0, mz0, cr, cg, cb, d);
+          this.put(x2, y2, z2, mx2, my2, mz2, mx0, my0, mz0, cr, cg, cb, d);
+          this.put(x2, y2, z2, mx0, my0, mz0, x1, y1, z1, cr, cg, cb, d);
+        } else if (e0) {
+          this.put(x0, y0, z0, mx0, my0, mz0, x2, y2, z2, cr, cg, cb, d);
+          this.put(mx0, my0, mz0, x1, y1, z1, x2, y2, z2, cr, cg, cb, d);
+        } else if (e1) {
+          this.put(x1, y1, z1, mx1, my1, mz1, x0, y0, z0, cr, cg, cb, d);
+          this.put(mx1, my1, mz1, x2, y2, z2, x0, y0, z0, cr, cg, cb, d);
+        } else {
+          this.put(x2, y2, z2, mx2, my2, mz2, x1, y1, z1, cr, cg, cb, d);
+          this.put(mx2, my2, mz2, x0, y0, z0, x1, y1, z1, cr, cg, cb, d);
+        }
+        return;
+      }
+    }
+    // Over budget: drop the rest of this frame's geometry, never throw
+    // (a throw here stops the frame loop and freezes the game).
+    if (this.scene.triangleCount >= this.scene.maxTriangles) {
+      this.overflow = true;
+      return;
+    }
+    const v = this.scene.vertices, q = far / (far - near), w = (far * near) / (far - near);
+    let at = this.scene.triangleCount++ * 18;
+    v[at++] = ax; v[at++] = ay; v[at++] = q - w / z0; v[at++] = cr; v[at++] = cg; v[at++] = cb;
+    v[at++] = bx; v[at++] = by; v[at++] = q - w / z1; v[at++] = cr; v[at++] = cg; v[at++] = cb;
+    v[at++] = cx; v[at++] = cy; v[at++] = q - w / z2; v[at++] = cr; v[at++] = cg; v[at++] = cb;
   }
   draw(vertices, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) {
     const cy = Math.cos(yaw),
@@ -145,38 +212,10 @@ export class Projector {
           b[count++] = a[k + 2];
         }
       }
-      for (let j = 0; j < count; j += 3) {
-        const depth = b[j + 2];
-        b[j] = (b[j] * this.sx) / depth + (this.shiftX || 0);
-        b[j + 1] = (b[j + 1] * this.sy) / depth + (this.shiftY || 0);
-        b[j + 2] = far / (far - near) - (far * near) / (depth * (far - near));
-      }
+      // What is left of the triangle, as a fan, each part put on the screen.
       for (let j = 3; j < count - 3; j += 3) {
-        if (
-          [0, 1, 2].some((axis) => {
-            const lo = axis === 2 ? 0 : -1;
-            return (
-              (b[axis] < lo && b[j + axis] < lo && b[j + 3 + axis] < lo) ||
-              (b[axis] > 1 && b[j + axis] > 1 && b[j + 3 + axis] > 1)
-            );
-          })
-        )
-          continue;
-        // Over budget: drop the rest of this frame's geometry, never throw
-        // (a throw here stops the frame loop and freezes the game).
-        if (this.scene.triangleCount >= this.scene.maxTriangles) {
-          this.overflow = true;
-          return;
-        }
-        let at = this.scene.triangleCount++ * 18;
-        for (const k of [0, j, j + 3]) {
-          this.scene.vertices[at++] = b[k];
-          this.scene.vertices[at++] = b[k + 1];
-          this.scene.vertices[at++] = b[k + 2];
-          this.scene.vertices[at++] = vertices[i + 3];
-          this.scene.vertices[at++] = vertices[i + 4];
-          this.scene.vertices[at++] = vertices[i + 5];
-        }
+        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5], this.lens ? 5 : 0);
+        if (this.overflow) return;
       }
     }
   }

@@ -1810,6 +1810,12 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
+  // 🔭 L turns the lens on and off (view.mjs), to see the flat picture beside it.
+  if (e.code === 'KeyL' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) {
+    logNet(`lens ${view.lens?.() ? 'on' : 'off'}`);
+    e.preventDefault();
+    return;
+  }
   // 🧰 ` anywhere else opens the debugging panel, bottom right (not while typing).
   if (e.code === 'Backquote' && !e.repeat && !typing()) {
     statsShown = !statsShown;
