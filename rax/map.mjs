@@ -18,6 +18,7 @@
 import { BLOCK, LOBBY, blockAt, parseBlock, toWorld } from './geography.mjs';
 import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, carWalls, lobbyWalls } from './elevator.mjs';
 import { TILE_COLORS } from './world.mjs';
+import { REACH } from './park.mjs';
 
 export const MAP_VERSION = 1;
 const round = (n) => Math.round(n * 100) / 100;
@@ -51,6 +52,9 @@ export function landShapes(geography, ahead = 6) {
   const out = [], half = BLOCK / 2, census = geography.census();
   const square = (role, b) =>
     shape('flat', role, { x0: b.i * BLOCK - half, z0: b.j * BLOCK - half, x1: b.i * BLOCK + half, z1: b.j * BLOCK + half });
+  // 🌳 The tower's yard (park.mjs): open field REACH blocks out on every side.
+  const yard = (REACH + 0.5) * BLOCK;
+  out.push(shape('flat', 'yard', { x0: -yard, z0: -yard, x1: yard, z1: yard }));
   for (let k = 1; k <= ahead; k++) out.push(square('next', blockAt(census.opened + k)));
   for (const b of census.blocks) {
     out.push(Object.assign(square(b.n === 0 ? 'plaza' : 'block', b), { id: b.id }));
@@ -95,7 +99,8 @@ export function place(room, p, { geography, tower }) {
 // `seated` is everyone in rax now: [{ handle, room, x, y, z }].
 export function worldMap({ geography, tower = null, contents = () => ({}), seated = [] }) {
   const census = geography.census(), half = BLOCK / 2, top = tower?.top || 0;
-  const is = census.blocks.map((b) => b.i), js = census.blocks.map((b) => b.j);
+  // The yard is part of what is open: people walk it, so the map holds it.
+  const is = [...census.blocks.map((b) => b.i), -REACH, REACH], js = [...census.blocks.map((b) => b.j), -REACH, REACH];
   return {
     version: MAP_VERSION,
     revision: `${census.revision}.${tower?.revision || 0}`,
@@ -110,7 +115,14 @@ export function worldMap({ geography, tower = null, contents = () => ({}), seate
     content: census.blocks.flatMap((b) => contentShapes(b, contents(b.id))),
     people: seated.flatMap((s) => {
       const at = s.handle ? place(s.room, s, { geography, tower }) : null;
-      return at ? [{ handle: String(s.handle).toLowerCase(), ...at }] : [];
+      return at ? [{ handle: String(s.handle).toLowerCase(), ...at, ...(Number.isFinite(s.yaw) ? { yaw: Math.round(s.yaw) } : {}) }] : [];
     }),
   };
+}
+
+// ⚡ Only who is where, for a reader that already holds the map and wants
+// them moving (GET /rax/people): small enough to ask for several times a
+// second. `at` is the server's clock.
+export function peopleNow({ geography, tower = null, seated = [], now = Date.now() }) {
+  return { at: now, people: worldMap({ geography, tower, seated }).people };
 }

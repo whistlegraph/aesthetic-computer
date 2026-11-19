@@ -8,7 +8,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { Geography, BLOCK } from '../geography.mjs';
 import { Tower, floorRoom, carWalls, lobbyWalls, altitude, ATRIUM, STOREY, SLAB, LEG } from '../tower.mjs';
 import { WORLD } from '../world.mjs';
-import { worldMap, towerShapes, place, MAP_VERSION } from '../map.mjs';
+import { worldMap, peopleNow, towerShapes, place, MAP_VERSION } from '../map.mjs';
+import { REACH } from '../park.mjs';
 import { createRaxServer } from '../server.mjs';
 
 const world = () => {
@@ -86,6 +87,16 @@ test('people stand where they are: the plaza, a block, a floor at its height', (
   const map = worldMap({ geography, tower, seated: [
     { handle: 'Oskie', room: floorRoom(f.id), x: 0, y: 0, z: 0 }, { handle: 'x', room: 'studio', x: 0, y: 0, z: 0 }] });
   assert.deepEqual(map.people, [{ handle: 'oskie', x: 0, y: altitude(f.number), z: 0, floor: f.number }]);
+});
+
+test('the yard is on the map, and who is where can be asked for alone', () => {
+  const { geography, tower } = world();
+  const map = worldMap({ geography, tower });
+  const reach = (REACH + 0.5) * BLOCK;
+  assert.deepEqual(map.structure.find((s) => s.role === 'yard'), { k: 'flat', role: 'yard', x0: -reach, z0: -reach, x1: reach, z1: reach });
+  assert.ok(map.extent.x0 <= -reach && map.extent.x1 >= reach && map.extent.z0 <= -reach && map.extent.z1 >= reach, 'someone far out in the yard is still on the map');
+  const now = peopleNow({ geography, tower, now: 5, seated: [{ handle: 'Jeffrey', room: 'w3s3', x: 1, y: 1.7, z: -2, yaw: 91.4 }] });
+  assert.deepEqual(now, { at: 5, people: [{ handle: 'jeffrey', x: -3 * BLOCK + 1, y: 1.7, z: -3 * BLOCK - 2, floor: 0, yaw: 91 }] });
 });
 
 test('GET /map serves the drawing', async () => {

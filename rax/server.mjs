@@ -9,7 +9,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing } from './park.mjs';
-import { worldMap } from './map.mjs';
+import { worldMap, peopleNow } from './map.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -389,14 +389,21 @@ export function createRaxServer({
     // 🗺️ The world as a drawing (map.mjs): every block, house, the tower
     // and what stands in the rooms as plain shapes in world metres, with
     // everyone who is in rax now. Readers outside rax draw from this.
-    if (path === '/map' && req.method === 'GET') {
+    // ⚡ /people is the same people alone, for a reader that wants them moving.
+    if ((path === '/map' || path === '/people') && req.method === 'GET') {
       await ready;
       const seated = [];
       for (const [room, r] of rooms)
         for (const m of r.sessions.values()) {
           const p = m.handle && r.match.seats[m.seat]?.player;
-          if (p) seated.push({ handle: m.handle, room, x: p.x, y: p.y, z: p.z });
+          if (p) seated.push({ handle: m.handle, room, x: p.x, y: p.y, z: p.z, yaw: p.yaw });
         }
+      if (path === '/people') {
+        res
+          .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
+          .end(JSON.stringify(peopleNow({ geography: geography.geography, tower: tower.tower, seated })));
+        return;
+      }
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' })
         .end(JSON.stringify(worldMap({

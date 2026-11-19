@@ -117,8 +117,14 @@ The ground is to scale. The tower is to scale for as many floors as fit
 of the top floor. Someone on a floor above the break stands on the top slab
 with their floor number after their handle.
 
-The fast lane asks for the map every second while someone is in rax and
-every five otherwise; the wallpaper looks for world.json twice a second. The
+The fast lane is two files. world.json is the map, asked for every five
+seconds and looked for twice a second. people.json is only who is where
+(`GET /rax/people`), asked for five times a second while anyone is in rax
+and looked for ten times a second: each walker slides to where they now are
+over the time between two readings, and leaves a line along the ground where
+they have been for the last minute and a half. The tower's yard is on the
+map as one faint green square, so someone far out in it is still in the
+model. The
 swing starts over only when what stands for good changes, or the rooms gain
 their first thing or lose their last.
 

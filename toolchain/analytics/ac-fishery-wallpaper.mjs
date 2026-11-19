@@ -255,27 +255,43 @@ async function tick(state) {
   return snap;
 }
 
-// ⚡ The fast lane: the map again, written to world.json beside the snapshot
-// whenever it changes. Asked every second while someone is in rax, every
-// five when nobody is.
+// ⚡ The fast lane, in two files beside the snapshot, each written only when
+// it changes. world.json is the map again, asked for every five seconds.
+// people.json is only who is where (GET /rax/people), asked for five times a
+// second while anyone is in rax and once a second when nobody is: the
+// wallpaper moves its walkers between these and draws where they have been.
 const LIVE = join(dirname(OUT), "world.json");
+const PEOPLE = join(dirname(OUT), "people.json");
+const PEOPLE_MS = 200;
+function writeIfNew(file, text, last) {
+  if (text === last) return last;
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, text);
+  renameSync(tmp, file);
+  return text;
+}
 async function watch(state) {
-  let last = "";
+  let lastMap = "", lastPeople = "", mapAt = 0;
   for (;;) {
     let busy = false;
     try {
-      const map = await raxMap();
-      state.map = map;
-      busy = map.people?.length > 0;
-      const text = JSON.stringify(map);
-      if (text !== last) {
-        last = text;
-        const tmp = `${LIVE}.${process.pid}.tmp`;
-        writeFileSync(tmp, text);
-        renameSync(tmp, LIVE);
+      if (Date.now() - mapAt >= 5000) {
+        mapAt = Date.now();
+        const map = await raxMap();
+        state.map = map;
+        lastMap = writeIfNew(LIVE, JSON.stringify(map), lastMap);
       }
     } catch {}
-    await new Promise(r => setTimeout(r, busy ? 1000 : 5000));
+    try {
+      const r = await fetch(`${RAX}/people`, { signal: AbortSignal.timeout(2000) });
+      if (r.ok) {
+        const now = await r.json();
+        busy = now.people?.length > 0;
+        // Without `at`, so an empty world writes nothing tick after tick.
+        lastPeople = writeIfNew(PEOPLE, JSON.stringify({ people: now.people || [] }), lastPeople);
+      }
+    } catch {}
+    await new Promise(r => setTimeout(r, busy ? PEOPLE_MS : 1000));
   }
 }
 

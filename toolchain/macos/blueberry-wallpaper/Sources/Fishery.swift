@@ -699,6 +699,13 @@ final class FisheryLayer: CALayer {
     private var worldLiveStamp: Date?
     private var worldLivePolled: CFTimeInterval = 0
     private var worldLiveVersion = 0
+    /// 👣 Who is where, alone (people.json, from GET /rax/people): read ten
+    /// times a second so the walkers in the model move as people do.
+    private static let peopleFile = NSHomeDirectory() + "/.local/share/blueberry-wallpaper/people.json"
+    private var peopleLive: [WorldFlyLayer.Person]?
+    private var peopleStamp: Date?
+    private var peoplePolled: CFTimeInterval = 0
+    private var peopleRead: CFTimeInterval = 0
     private static let liveFile = NSHomeDirectory() + "/.local/share/blueberry-wallpaper/world.json"
     private var worldCensus = ""
     private let worldHead = HaloTextLayer()
@@ -1726,12 +1733,32 @@ final class FisheryLayer: CALayer {
         let version = "\(worldLiveVersion)\(dataVersion)\(dark)\(Int(ts * 100))\(scale)\(panel.size)"
         if worldVersion != version {
             worldVersion = version
-            let drawn = WorldFlyLayer.World(map)
+            var drawn = WorldFlyLayer.World(map)
+            // The people file is the newer word on who is where, unless the
+            // feeder stopped writing it and the map has moved on since.
+            if let live = peopleLive, let stamp = peopleStamp, stamp.timeIntervalSince(worldLiveStamp ?? .distantPast) > -6 {
+                drawn.people = live
+            }
             worldCensus = drawn.census
             worldFly.show(drawn, size: panel.size,
                           style: .init(font: face(NSFont.systemFont(ofSize: max(11, 10 * tu), weight: .heavy)),
                                        ink: NSColor(cgColor: ink()) ?? .white,
                                        halo: dark ? Self.darkHalo : Self.lightHalo, scale: scale))
+        }
+        if clock - peoplePolled > 0.1 {
+            peoplePolled = clock
+            let stamp = (try? FileManager.default.attributesOfItem(atPath: Self.peopleFile))?[.modificationDate] as? Date
+            if stamp != peopleStamp {
+                peopleStamp = stamp
+                if let rows = FileManager.default.contents(atPath: Self.peopleFile)
+                    .flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })?["people"] as? [[String: Any]] {
+                    let live = WorldFlyLayer.people(rows)
+                    peopleLive = live
+                    // Slide over the time since the last reading, within reason.
+                    worldFly.move(live, over: min(0.6, max(0.12, clock - peopleRead)))
+                    peopleRead = clock
+                }
+            }
         }
         let title = worldCensus
         if worldHead.name != title + (dark ? "d" : "l") {
