@@ -27,6 +27,7 @@ try {
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { BALL } from './ball.mjs';
+import { airAt, sun, heading } from './air.mjs';
 import { Projector } from './project.mjs';
 import { joinCode, hudLayout } from './hud.mjs';
 
@@ -1747,12 +1748,16 @@ export async function createView(canvas) {
       // It is never quite still: a hover's own small hunting, and the wind over
       // Los Angeles pushing it about (weather.mjs), each drone out of step
       // with the next. A fast one is steadier than one hanging in the air.
-      const seed = (d.name || '').length * 1.7 + (d.name || 'x').charCodeAt(0), wind = weather?.wind || 0;
-      const loose = (0.025 + wind * 0.012) * (1 - Math.min(0.6, Math.hypot(along, across) / 20));
-      const sway = (rate, phase) => Math.sin(now / rate + seed * phase) + 0.5 * Math.sin(now / (rate * 0.37) + seed);
-      const lean = Math.max(-0.5, Math.min(0.5, along * 0.05)) + sway(610, 1) * loose, bank = Math.max(-0.5, Math.min(0.5, across * 0.05)) + sway(530, 2) * loose;
-      const y = d.y + sway(420, 3) * (0.03 + wind * 0.008) - 0.05;
-      draw(droneFor(Math.floor(now / 40) % 2), d.x + sway(900, 4) * wind * 0.006, y, d.z + sway(1100, 5) * wind * 0.006, yawR, lean, 1, -bank);
+      // The air it flies in (air.mjs), where it is in the world: it leans
+      // against what pushes it and rides what lifts it, as a small boat does.
+      const seed = (d.name || '').length * 1.7 + (d.name || 'x').charCodeAt(0);
+      const air = airAt(weather, d.x + (place?.x || 0), d.y, d.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
+      const pushAlong = air.x * ahead.x + air.z * ahead.z, pushAcross = air.x * side.x + air.z * side.z;
+      const hunt = (rate, k) => (Math.sin(now / rate + seed * k) + 0.5 * Math.sin(now / (rate * 0.37) + seed)) * 0.02;
+      const lean = Math.max(-0.6, Math.min(0.6, along * 0.05 - pushAlong * 0.035 + hunt(610, 1)));
+      const bank = Math.max(-0.6, Math.min(0.6, across * 0.05 - pushAcross * 0.035 + hunt(530, 2)));
+      const y = d.y + air.y * 0.06 + hunt(420, 3) * 1.5 - 0.05;
+      draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank);
       if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }
     projector.cut = cut;
@@ -2422,6 +2427,14 @@ export async function createView(canvas) {
         [`${statsGap.toFixed(1)} ms  worst ${Math.round(statsWorst)}`, statsWorst < 34 ? good : statsWorst < 100 ? fair : poor],
         [`${tris.toLocaleString('en-US')} tris${most ? ` of ${Math.round(most / 1000)}k` : ''}`, most && tris > most * 0.85 ? poor : PAPER],
         [`${canvas.width} x ${canvas.height} px`, PAPER],
+        ...(() => {
+          // 🌬️ The air at the eye: how fast, where to, and whether it lifts.
+          const at = camera || me;
+          if (!weather || !at) return [];
+          const a = airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
+          const to = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'][Math.round(((Math.atan2(a.x, a.z) * 180) / Math.PI + 360) / 45) % 8];
+          return [[`air ${Math.hypot(a.x, a.z).toFixed(1)} m/s to ${to}  lift ${a.y >= 0 ? '+' : ''}${a.y.toFixed(1)}`, 0x9db4d6]];
+        })(),
         [`${backend}${stallNote ? `  ${stallNote}` : ''}`, backend === 'webgpu' ? good : fair],
       ];
       const m = model(({ small }) => {
@@ -3033,17 +3046,18 @@ export async function createView(canvas) {
       }
       const dt = Math.min(0.1, (now - (rainAt || now)) / 1000);
       rainAt = now;
-      const r = projector.right, lean = Math.min(0.35, (weather.wind || 0) * 0.03), count = Math.round(rain.length * Math.min(1, 0.15 + weather.rain));
+      const r = projector.right, lean = Math.min(0.35, (weather.wind || 0) * 0.03), blown = heading(weather), count = Math.round(rain.length * Math.min(1, 0.15 + weather.rain));
       const cx = eye?.x || 0, cz = eye?.z || 0;
       const m = model(({ quad }) => {
         for (let i = 0; i < count; i++) {
           const f = rain[i];
           f.y -= f.v * dt;
-          f.x += f.v * lean * dt;
+          f.x += f.v * lean * blown.x * dt;
+          f.z += f.v * lean * blown.z * dt;
           if (f.y < 0.02) { f.y = 13 + Math.random(); f.x = (Math.random() - 0.5) * 34; f.z = (Math.random() - 0.5) * 34; }
           const x = cx + f.x, z = cz + f.z, w = 0.02, long = 0.5;
           quad([x - r[0] * w, f.y, z - r[2] * w], [x + r[0] * w, f.y, z + r[2] * w],
-            [x + r[0] * w + lean * long, f.y + long, z + r[2] * w], [x - r[0] * w + lean * long, f.y + long, z - r[2] * w], 0x5f7fb0);
+            [x + r[0] * w - blown.x * lean * long, f.y + long, z + r[2] * w - blown.z * lean * long], [x - r[0] * w - blown.x * lean * long, f.y + long, z - r[2] * w - blown.z * lean * long], 0x5f7fb0);
         }
       });
       draw(m, 0, 0, 0);

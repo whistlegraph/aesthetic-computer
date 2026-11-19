@@ -61,6 +61,7 @@ const assets = new Map([
     'screen-lod',
     'ball',
     'weather',
+    'air',
     'diagnostics-client',
     'stalls',
     'park',

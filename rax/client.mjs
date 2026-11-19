@@ -1,4 +1,6 @@
 import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
+import { airAt, sun } from './air.mjs';
+import { phase as skyPhase } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, rideSeconds, rideEase } from './elevator.mjs';
 import { gameFor } from './games.mjs';
@@ -2253,6 +2255,8 @@ function step(now) {
         boost: gamepad.boost || gamepad.hold, // the right trigger, or A held
       },
       elapsed,
+      // 🌬️ The air where the eye is, in the world's metres at this moment.
+      weather ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null,
     );
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
