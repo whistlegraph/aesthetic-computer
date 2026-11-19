@@ -88,16 +88,12 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offs
       holds its size and an @ breathes where the spinner was.
    2. After a handle is accepted (.af-screenEnding): the script below
       (ac-login-handle) prints the handle there one character at a time, each
-      its own colour, while the card's background and border cycle. */
+      its own colour over sharp stacked shadows in two more, while the card
+      fades out and leaves the handle alone on the backdrop. */
 @keyframes ac-breathe { 50% { opacity: .5; transform: translate(-50%, -50%) scale(.86); } }
 @keyframes ac-pop { from { transform: translateY(22px) scale(.2) rotate(-25deg); opacity: 0; } }
 @keyframes ac-bob { 50% { translate: 0 -8px; } }
-@keyframes ac-card {
-  0%, 100% { background-color: #fff0f8; border-color: #ff3fa4; }
-  25% { background-color: #eef3ff; border-color: #3f59e4; }
-  50% { background-color: #e9fbf7; border-color: #00b3a4; }
-  75% { background-color: #fff7e3; border-color: #ef9b05; }
-}
+@keyframes ac-card-out { to { background-color: transparent; border-color: transparent; box-shadow: 0 0 0 transparent; } }
 main.af-custom-form ._prompt-box-outer > * > .af-custom-form-container { min-height: 260px !important; position: relative; }
 main.af-custom-form:not(:has(.af-step)) .af-form.af-loading > .af-spinner { display: none !important; }
 main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
@@ -107,6 +103,8 @@ main.af-custom-form:not(:has(.af-step)) .af-custom-form-container::after {
 }
 .af-custom-form-container .af-screenEnding { min-height: 200px; display: flex !important; align-items: center; justify-content: center; }
 .af-custom-form-container .af-screenEnding > .af-spinner { display: none !important; }
-.ac-handle-print { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; line-height: 1; white-space: nowrap; }
-.ac-handle-print span { display: inline-block; animation: ac-pop .4s cubic-bezier(.2, 1.7, .4, 1) both, ac-bob 1s ease-in-out infinite; }
-main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card 1.4s linear infinite; }
+.ac-handle-print { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; line-height: 1; white-space: nowrap; will-change: translate; animation: ac-bob 1s ease-in-out .5s infinite; }
+/* Letters only pop (transform and opacity, which the compositor can run alone);
+   the line bobs as one. Shadowed text repainting per letter per frame crawled. */
+.ac-handle-print span { display: inline-block; -webkit-text-stroke: 3px #fff; paint-order: stroke fill; will-change: transform, opacity; animation: ac-pop .14s cubic-bezier(.2, 1.7, .4, 1) both; }
+main.af-custom-form.ac-handle-won ._prompt-box-outer > * { animation: ac-card-out .15s ease-out forwards; }
