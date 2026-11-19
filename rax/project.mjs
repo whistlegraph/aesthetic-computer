@@ -86,11 +86,16 @@ export class Projector {
       dy = y - e.y,
       dz = z - e.z;
     const [r, u, f] = [this.right, this.up, this.forward];
-    // (On the planet's land: what is far lies lower.)
-    const fall = this.planet ? (dx * dx + dz * dz) / (2 * this.planet) : 0;
-    const depth = dx * f[0] + (dy - fall) * f[1] + dz * f[2];
+    // (On the planet: round the ball, as the shapes are.)
+    let wx = dx, wy = dy, wz = dz;
+    if (this.planet && dx * dx + dy * dy + dz * dz < 2300 * 2300) {
+      const R = this.planet, d = Math.hypot(dx, dz), turn = Math.min(Math.PI, d / R), out = R + y;
+      const along = d > 1e-6 ? (out * Math.sin(turn)) / d : out / R;
+      wx = dx * along; wz = dz * along; wy = out * Math.cos(turn) - R - e.y;
+    }
+    const depth = wx * f[0] + wy * f[1] + wz * f[2];
     if (depth < 0.1) return null;
-    const px = (dx * r[0] + (dy - fall) * r[1] + dz * r[2]) / depth, py = (dx * u[0] + (dy - fall) * u[1] + dz * u[2]) / depth, k = this.squeeze(px, py);
+    const px = (wx * r[0] + wy * r[1] + wz * r[2]) / depth, py = (wx * u[0] + wy * u[1] + wz * u[2]) / depth, k = this.squeeze(px, py);
     return { x: px * k * this.sx + (this.shiftX || 0), y: py * k * this.sy + (this.shiftY || 0), depth };
   }
   // 🔭 The lens (0: none, a flat picture as a pinhole makes it; 1: all of
@@ -110,18 +115,29 @@ export class Projector {
   // halve it at the same place and no gap opens between them.
   put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
     const near = 0.05, far = 2400, sx = this.sx, sy = this.sy, ox = this.shiftX || 0, oy = this.shiftY || 0;
-    // 🌍 The land is a small planet's: what is far lies lower, by the square
-    // of how far it is over twice the planet's radius, straight down. (The
-    // corners passed on to the halves are the flat ones: each is bent here.)
+    // 🌍 The land is a small planet's, wrapped round a ball of radius
+    // `planet`: a thing a way off along the ground stands that far round the
+    // ball, upright on it (so a tower far off leans away), and what is
+    // farther than half way round is at the far side. The sky, which is
+    // drawn far off about the eye, is left where it is. (The corners passed
+    // on to the halves are the flat ones: each is bent here.)
     const fx0 = x0, fy0 = y0, fz0 = z0, fx1 = x1, fy1 = y1, fz1 = z1, fx2 = x2, fy2 = y2, fz2 = z2;
     if (this.planet) {
-      const ux = this.right[1], uy = this.up[1], uz = this.forward[1], bend = 1 / (2 * this.planet);
-      let h = x0 * ux + y0 * uy + z0 * uz, d = (x0 * x0 + y0 * y0 + z0 * z0 - h * h) * bend;
-      x0 -= ux * d; y0 -= uy * d; z0 = Math.max(near, z0 - uz * d);
-      h = x1 * ux + y1 * uy + z1 * uz; d = (x1 * x1 + y1 * y1 + z1 * z1 - h * h) * bend;
-      x1 -= ux * d; y1 -= uy * d; z1 = Math.max(near, z1 - uz * d);
-      h = x2 * ux + y2 * uy + z2 * uz; d = (x2 * x2 + y2 * y2 + z2 * z2 - h * h) * bend;
-      x2 -= ux * d; y2 -= uy * d; z2 = Math.max(near, z2 - uz * d);
+      const R = this.planet, E = this.eye.y, ux = this.right[1], uy = this.up[1], uz = this.forward[1];
+      let gone = 0; // corners past the far side of the ball: a shape that is all there is not drawn
+      for (let c = 0; c < 3; c++) {
+        const x = c === 0 ? x0 : c === 1 ? x1 : x2, y = c === 0 ? y0 : c === 1 ? y1 : y2, z = c === 0 ? z0 : c === 1 ? z1 : z2;
+        const all = x * x + y * y + z * z;
+        if (all > 2300 * 2300) continue; // the sky
+        const h = x * ux + y * uy + z * uz, d = Math.sqrt(Math.max(0, all - h * h));
+        if (d > Math.PI * R) gone++;
+        const turn = Math.min(Math.PI, d / R), out = R + h + E;
+        const along = d > 1e-6 ? (out * Math.sin(turn)) / d : out / R, lift = out * Math.cos(turn) - R - E;
+        // (Across the ground: scaled; up: where the ball puts it.)
+        const nx = (x - h * ux) * along + ux * lift, ny = (y - h * uy) * along + uy * lift, nz = Math.max(near, (z - h * uz) * along + uz * lift);
+        if (c === 0) { x0 = nx; y0 = ny; z0 = nz; } else if (c === 1) { x1 = nx; y1 = ny; z1 = nz; } else { x2 = nx; y2 = ny; z2 = nz; }
+      }
+      if (gone === 3) return;
     }
     const k0 = this.squeeze(x0 / z0, y0 / z0), k1 = this.squeeze(x1 / z1, y1 / z1), k2 = this.squeeze(x2 / z2, y2 / z2);
     let ax = (x0 * k0 * sx) / z0 + ox, ay = (y0 * k0 * sy) / z0 + oy, bx = (x1 * k1 * sx) / z1 + ox, by = (y1 * k1 * sy) / z1 + oy,

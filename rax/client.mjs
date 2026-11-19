@@ -184,6 +184,7 @@ const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c
 let weather = null;
 // 👀 The people in the rooms around this one (the server's `beyond`), eased
 // from where each was last drawn to where they were last heard of.
+let rolledAt = -Infinity;
 let droneRoll = 0; // radians your own drone is rolled over
 let beyond = new Map(), drones = new Map(), myEye = null, droneView = false; // droneView: looking on, from behind your own drone
 // The eye a little behind and above your own drone, along the way it looks.
@@ -2283,7 +2284,9 @@ function step(now) {
       const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
       const turn = Math.max(squeeze(gamepad.lt || 0), keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0);
       if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
-      else { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 5); }
+      // (Held where it was left for two seconds, then brought level slowly.)
+      else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
+      if (turn) rolledAt = now;
     }
     freecam = moveFreecam(
       { ...freecam, yaw, pitch },

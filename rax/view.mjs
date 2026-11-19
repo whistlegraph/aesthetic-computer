@@ -833,7 +833,7 @@ export async function createView(canvas) {
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
   const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
-  const PLANET = 900; // the planet's radius, metres: from 2 m up the horizon is 60 m off, from 100 m up 420 m
+  const PLANET = 900; // the planet's radius, metres (a ball of 140 was tried: every far shape must be halved many times to bend so sharply, and the frame rate halved)
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
