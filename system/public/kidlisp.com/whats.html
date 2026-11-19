@@ -148,6 +148,13 @@
       position: absolute; right: 8px; bottom: 8px; font-size: 13px;
       background: rgba(0,0,0,.6); color: #fff; padding: 3px 8px; border-radius: 4px; text-decoration: none;
     }
+    .feed { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; margin-bottom: 22px; }
+    @media (min-width: 960px) { .feed { grid-template-columns: repeat(4, 1fr); } }
+    .feed figure { margin: 0; min-width: 0; }
+    .feed .frame { max-width: none; }
+    .feed figcaption { margin-top: 6px; font-size: 13px; color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed figcaption a { color: inherit; }
+    .feed-head { font-family: var(--font-display); font-weight: normal; font-size: 20px; margin: 0 0 10px; color: var(--fg-2); }
     .caption { margin: 8px 0 0; color: var(--fg-2); font-size: 15px; }
 
     .pieces { display: grid; gap: 28px; }
@@ -217,6 +224,14 @@
         <p class="caption">The most played KidLisp piece. Four words.</p>
       </div>
     </div>
+
+    <section id="feed">
+      <h2>Playing now</h2>
+      <h3 class="feed-head">Animations</h3>
+      <div class="feed" id="feed-2d"></div>
+      <h3 class="feed-head">Models</h3>
+      <div class="feed" id="feed-3d"></div>
+    </section>
 
     <section id="how">
       <h2>How it reads</h2>
@@ -291,11 +306,6 @@
       </div>
     </section>
 
-    <section id="played">
-      <h2>Most played right now</h2>
-      <div class="top" id="top"></div>
-    </section>
-
     <section id="go">
       <h2>Go</h2>
       <div class="go">
@@ -367,16 +377,46 @@
       });
     }).catch(() => {});
 
-    fetch("/api/store-kidlisp?recent=true&sort=hits&limit=6").then((r) => r.json()).then((d) => {
-      const box = document.getElementById("top");
-      const list = d.recent || [];
-      if (list[0]) document.getElementById("stat-hits").textContent = fmt(list[0].hits);
-      list.forEach((p) => {
-        const a = document.createElement("a");
-        a.href = `${AC}/$${p.code}`;
-        a.innerHTML = `${esc(p.source.slice(0, 160))}<small>$${esc(p.code)} · ${esc(p.handle || "")} · ${fmt(p.hits)} plays</small>`;
-        box.appendChild(a);
+    // The feed: most-played animations beside the newest 3D models. A frame
+    // runs only while it is on screen.
+    // Same test as isObjectLisp in lib/object/viewer.mjs.
+    const isModel = (src) => /^\s*;\s*#3d\b/m.test(src) || /\((?:slab|orb|capsule)\s/.test(src.replace(/;[^\n]*/g, ""));
+    const titleOf = (src) => (src.match(/^\s*;\s*([^#\n][^\n]*)/) || [])[1]?.trim();
+
+    const watch = new IntersectionObserver((entries) => {
+      entries.forEach(({ target, isIntersecting }) => {
+        if (isIntersecting) return play(target);
+        target.replaceChildren();
       });
+    }, { rootMargin: "100px" });
+
+    function fill(id, pieces) {
+      const box = document.getElementById(id);
+      pieces.forEach((p) => {
+        const fig = document.createElement("figure");
+        const name = titleOf(p.source);
+        fig.innerHTML = `<div class="frame" data-code="$${esc(p.code)}"></div>
+          <figcaption><a href="${AC}/$${esc(p.code)}">${name ? esc(name) + " · " : ""}$${esc(p.code)}</a> · ${esc(p.handle || "anon")} · ${fmt(p.hits)} plays</figcaption>`;
+        box.appendChild(fig);
+        watch.observe(fig.querySelector(".frame"));
+      });
+    }
+
+    const feed = (query) => fetch(`/api/store-kidlisp?recent=true&${query}`).then((r) => r.json()).then((d) => d.recent || []);
+
+    feed("sort=hits&limit=60").then((list) => {
+      if (list[0]) document.getElementById("stat-hits").textContent = fmt(list[0].hits);
+      // $bop already plays in the hero; one-word pieces make a dull frame.
+      fill("feed-2d", list.filter((p) => p.code !== "bop" && !isModel(p.source) && p.source.length > 12).slice(0, 4));
+    }).catch(() => {});
+
+    feed("sort=recent&limit=400").then((list) => {
+      const seen = new Set();
+      const models = list.filter((p) => isModel(p.source)).sort((a, b) => b.hits - a.hits).filter((p) => {
+        const key = `${p.handle}|${titleOf(p.source) || p.code}`;
+        return !seen.has(key) && seen.add(key);
+      });
+      fill("feed-3d", models.slice(0, 4));
     }).catch(() => {});
   </script>
 </body>
