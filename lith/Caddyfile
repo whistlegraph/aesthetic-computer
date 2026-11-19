@@ -1484,8 +1484,16 @@ nopaint.art {
     handle /.netlify/functions/* {
         import lith_proxy
     }
+    # The 2021 game at the root keeps its sounds in media/. A sound that is a
+    # file here is served; any other /media/ path is AC's (a painting's picture).
     handle /media/* {
-        import lith_proxy
+        @nopaint_classic_sound file
+        handle @nopaint_classic_sound {
+            file_server
+        }
+        handle {
+            import lith_proxy
+        }
     }
     handle /disks/* {
         uri strip_prefix /disks

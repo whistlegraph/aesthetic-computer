@@ -63,6 +63,10 @@ test('No Paint classic serves the complete archived export without crossing stud
     // (toolchain/nopaint/patch-classic.mjs).
     assert.equal(createHash('sha256').update(bytes).digest('hex'), file.served || file.sha256, path);
   }
+  // The game at the root asks for its sounds at /media/, where AC's media route also lives.
+  const sound = await fetch(base + '/media/' + encodeURIComponent('light switch - released.webm'));
+  assert.equal(sound.status, 200);
+  assert.deepEqual(Buffer.from(await sound.arrayBuffer()), await readFile(new URL('../system/public/nopaint.art/media/light switch - released.webm', import.meta.url)));
   for (const path of ['/media/example.webm', '/api/nopaint', '/nopaint:123']) {
     assert.equal(await (await fetch(base + path)).text(), 'proxy fallback', path);
   }
