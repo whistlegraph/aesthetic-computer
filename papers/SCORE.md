@@ -241,6 +241,29 @@ The mill's code lives at the top of `papers/` and in [`bin/`](bin/). All scripts
 | [`ac-paper-cards.sty`](ac-paper-cards.sty) | Cards-format layout. |
 | [`ac-paper-essay.sty`](ac-paper-essay.sty) | Essay-format layout: single-column magazine essay style with title block macros (`\essaydeck`, `\essaytitle`, `\essaysubtitle`, `\essaybyline`), `\dropcap`, `\sectionbreak` (silcrow ornament), `\begin{pullquote}`, `\enote{}` for endnotes, and `\begin{further}` / `\reading{}` for the Further Reading coda. |
 | [`ac-paper-gear-guess.sty`](ac-paper-gear-guess.sty) | Gear-guess layout: dated decision block, price rail, alternatives, compatibility warnings, setup score, and direct source shelf. |
+| [`ac-paper-table.sty`](ac-paper-table.sty) | The house table, for every lane: `actable`, a coloured rounded box with even cell margins and horizontal and vertical separators, and `\acth{}` for header cells. See **Tables** below. |
+
+### Tables
+
+**Every table in every paper uses the house table** (rule set by @jeffrey, 2026-11-18). No bare `tabular`, and no `booktabs` rules standing in for a box. A table is:
+
+- **Coloured.** The whole table sits on a tint (`actablecream` by default; `acsoftplum`, `acsoftpink`, `acsoftteal` are ready), and header cells take a darker band of the same tint.
+- **Rounded.** One border with a 4pt corner radius, drawn by the box, never by `\hline` at the top and bottom.
+- **Evenly padded.** The same margin in every cell: 7pt left and right, rows 1.5 times the text height. Do not tighten `\tabcolsep` or `\arraystretch` to make a table fit; cut a column or shorten the words.
+- **Separated both ways.** A horizontal rule between every row and a vertical rule between every column.
+
+Use [`ac-paper-table.sty`](ac-paper-table.sty):
+
+```latex
+\usepackage{ac-paper-table}
+\begin{actable}{X|r}                     % tabularx columns, with | between them
+  \acth{Metric} & \acth{Value} \\ \hline
+  Handles claimed & 3,095 \\ \hline
+  KidLisp pieces  & 18,993              % no rule after the last row
+\end{actable}
+```
+
+Options go first, for example `\begin{actable}[colback=acsoftplum]{l|X|r}`. First use: the investor briefs in the vault, `grants/investor-threads-2026-11-18/briefs/`. Papers written before this date still carry `booktabs` tables; convert a paper's tables when that paper is next rebuilt. Figure-Table-QA-Check and Aesthetic Eye reviews should fail a new paper whose tables are not in this style.
 
 ## Formats
 

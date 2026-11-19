@@ -1,4 +1,5 @@
 import { MEDIA_KINDS, MEDIA_THREADS, mediaPipeline, publicPosts } from "./mime-media.mjs";
+import { storageFor } from "./sack.mjs";
 
 export const PROFILE_KINDS = ["mime", ...Object.keys(MEDIA_KINDS)];
 export const PROFILE_PAGE_SIZE = 12;
@@ -29,7 +30,7 @@ export async function readProfileCard(db, { handle, membership = false, readMemb
     visibility: { $in: [null, "public"] } };
   const paintingPipeline = mediaPipeline("painting", { user }, false);
   paintingPipeline.splice(1, 0, { $sort: { when: -1, _id: -1 } }, { $limit: 1 });
-  const [moods, moodCount, counts, uploads, painting] = await Promise.all([
+  const [moods, moodCount, counts, uploads, painting, storage] = await Promise.all([
     db.collection("moods").find(moodMatch, { projection: { _id: 0, mood: 1, when: 1 } })
       .sort({ when: -1 }).limit(1).toArray(),
     db.collection("moods").countDocuments(moodMatch),
@@ -38,6 +39,7 @@ export async function readProfileCard(db, { handle, membership = false, readMemb
     // Direct mime uploads are the only posts not derived from a media record.
     db.collection("mimechan").countDocuments({ user, parent: null }),
     db.collection("paintings").aggregate(paintingPipeline).toArray(),
+    storageFor(db, user),
   ]);
   const [latestPainting] = await publicPosts(db, painting);
   const media = Object.fromEntries(counts);
@@ -46,6 +48,8 @@ export async function readProfileCard(db, { handle, membership = false, readMemb
     mood: moods[0] ? { text: String(moods[0].mood || "").replaceAll("\\n", "\n"), when: moods[0].when } : null,
     counts: { ...media, mood: moodCount, mime: uploads + Object.values(media).reduce((a, b) => a + b, 0) },
     latestPainting: latestPainting || null,
+    // What this handle keeps in sacks: the total only, never the files.
+    storage,
     // Presence is live, but no historical per-account duration is recorded.
     onlineTimeMs: null,
   };

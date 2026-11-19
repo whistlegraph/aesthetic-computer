@@ -493,7 +493,11 @@ async function handleFunction(req, res) {
   }
 
   // Check response cache (GET only, with matching query string)
-  const ttl = CACHE_TTLS[name];
+  // KidLisp list and stats reads scan the whole corpus in the Datomic sidecar
+  // (256 MB heap); a minute's cache keeps a busy page from exhausting it.
+  // Single-code lookups and `since` polls stay live.
+  const kidlispList = name === "store-kidlisp" && (req.query.recent || req.query.stats) && !req.query.since;
+  const ttl = CACHE_TTLS[name] || (kidlispList ? 60_000 : 0);
   if (ttl && req.method === "GET") {
     const cacheKey = `${name}:${req.originalUrl}`;
     const cached = responseCache.get(cacheKey);

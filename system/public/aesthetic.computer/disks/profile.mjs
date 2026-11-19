@@ -1,5 +1,6 @@
 // Profile, 2026.10.30
-// @handle pages: a big handle, the numbers, then the media you scroll through.
+// @handle pages: the corner label is the handle, wearing its colors; under it
+// the mood, the numbers, then the media you scroll through.
 // MIMEs is the default tab — everything this handle has made that mime can
 // comment on. The other tabs are one kind each.
 
@@ -15,11 +16,12 @@ const KIND_COLOR = {
   mime: [235, 235, 225], painting: [100, 200, 255], piece: [255, 160, 200],
   kidlisp: [120, 255, 120], tape: [255, 200, 80], whistlegraph: [200, 160, 255],
 };
+const SACK_COLOR = [255, 170, 90];
 const ORIGIN = typeof location !== "undefined" && /^https?:$/.test(location.protocol)
   ? location.origin : "https://aesthetic.computer";
 const { floor, round, max, min, abs } = Math;
 
-let net, visiting, card, cardError, tab, feeds, images, bg;
+let net, hud, visiting, card, cardError, tab, feeds, images, bg;
 let scroll = 0; // <= 0, 0 = top
 let drag; // { moved } while a finger is down
 let hits = []; // tap targets from the last paint: { x, y, w, h, go }
@@ -30,8 +32,8 @@ export function meta({ piece }) {
   return { title: `${piece} - aesthetic.computer`, desc: `Profile for ${piece}.` };
 }
 
-export function boot({ params, handle, user, net: n, store }) {
-  net = n;
+export function boot({ params, handle, user, net: n, hud: h, store }) {
+  net = n; hud = h;
   visiting = normalize(params[0] || handle());
   card = cardError = drag = undefined;
   tab = "mime"; feeds = {}; images = {}; hits = []; scroll = 0; bg = [16, 26, 22];
@@ -50,16 +52,6 @@ export function paint({ api, wipe, ink, screen, paste, text, pen, ui }) {
   if (!visiting) return paintNoProfile({ api, ink, ui });
   const W = screen.width;
   let y = TOP + scroll;
-
-  // Handle, wearing its colors.
-  const name = card?.handle || visiting;
-  const size = text.width(name) * 2 <= W - PAD * 2 ? 2 : 1;
-  const cw = text.width("@") * size;
-  [...name].forEach((ch, i) => {
-    const c = card?.colors?.[i];
-    ink(c ? [c.r, c.g, c.b] : 235).write(ch, { x: PAD + i * cw, y, size });
-  });
-  y += 10 * size + 3;
 
   // Mood as the bio line.
   const mood = card?.mood?.text?.replace(/\s+/g, " ").trim();
@@ -90,6 +82,17 @@ export function paint({ api, wipe, ink, screen, paste, text, pen, ui }) {
     if (on) ink(col).box(x, rowTop + 19, w - 4, 1);
     hits.push({ x, y: rowTop, w, h: 22, go: () => switchTab(k) });
     x += w; rowH = rowTop + 22 - y;
+  }
+  // What this handle keeps in sacks, at the end of the row. Not a tab: the
+  // files are reached by a sack's own link.
+  if (card?.storage?.bytes > 0) {
+    const num = bytes(card.storage.bytes), label = card.storage.sacks === 1 ? "in 1 sack" : `in ${compact(card.storage.sacks)} sacks`;
+    const w = max(text.width(num), text.width(label, SMALL)) + 8;
+    if (x + w > W - PAD && x > PAD) { x = PAD; rowTop += 22; }
+    ink(170).write(num, { x: x + 2, y: rowTop });
+    ink(SACK_COLOR).write(label, { x: x + 2, y: rowTop + 11 }, undefined, undefined, false, SMALL);
+    hits.push({ x, y: rowTop, w, h: 22, go: (jump) => jump("sack") });
+    rowH = rowTop + 22 - y;
   }
   y += rowH + 2;
   ink(bg[0] + 30, bg[1] + 30, bg[2] + 30).box(0, y, W, 1);
@@ -149,7 +152,7 @@ function paintTile({ ink, paste, text, pen }, post, x, y, s) {
     ink(255).write(n, { x: x + s - w + 2, y: y + s - 9 }, undefined, undefined, false, SMALL);
   }
   if (pen && pen.x >= x && pen.x < x + s && pen.y >= y && pen.y < y + s) ink(col).box(x, y, s, s, "outline");
-  hits.push({ x, y, w: s, h: s, go: () => open(post) });
+  hits.push({ x, y, w: s, h: s, go: open(post) });
 }
 
 function paintNoProfile({ api, ink, ui }) {
@@ -236,13 +239,17 @@ function image(post) {
   if (Object.keys(images).length > 90) for (const old of Object.keys(images).slice(0, 30)) delete images[old];
   // Paintings go by short code: that route resolves legacy storage folders.
   const m = post.media;
+  // KidLisp has no stored poster: the oven renders one by code, at the same
+  // address mime asks for, so both share one cached grab.
+  const grab = m?.kind === "kidlisp" && m.code
+    ? `https://oven.aesthetic.computer/grab/webp/512/512/${encodeURIComponent("$" + m.code)}` : null;
   const url = m?.kind === "painting" && m.code ? `/media/paintings/${m.code}.png`
-    : post.file?.poster || (post.file?.type?.startsWith("image/") ? post.file.url : null);
+    : grab || post.file?.poster || (post.file?.type?.startsWith("image/") ? post.file.url : null);
   if (!url || !net) return (images[key] = null);
   images[key] = "loading";
   const href = new URL(url, ORIGIN).href;
   const still = () => net.preload({ path: href, extension: "png" }).then((got) => { images[key] = got?.img || got || null; });
-  const animated = ["kidlisp", "piece"].includes(m?.kind) && post.file?.poster
+  const animated = grab || (m?.kind === "piece" && post.file?.poster)
     ? net.preloadAnimatedWebp(href).then((got) => {
       if (!got?.frames?.length) throw new Error("no frames");
       const frames = got.frames.map((f) => ({ width: got.width, height: got.height, pixels: f.pixels }));
@@ -267,6 +274,12 @@ async function loadCard() {
   cardError = undefined;
   try {
     card = await json(`/api/profile-card?handle=${encodeURIComponent(visiting)}`);
+    // The handle is written once: the corner label, one color per character.
+    const name = card.handle || visiting;
+    hud.label([...name].map((ch, i) => {
+      const c = card.colors?.[i];
+      return c ? `\\${c.r},${c.g},${c.b}\\${ch}` : `\\235,235,235\\${ch}`;
+    }).join(""), undefined, undefined, name);
     const cs = (card.colors || []).filter(Boolean);
     if (cs.length) {
       const avg = ["r", "g", "b"].map((k) => cs.reduce((a, c) => a + c[k], 0) / cs.length);
@@ -309,5 +322,12 @@ const normalize = (v) => {
   return /^[a-z0-9][a-z0-9_.-]{0,63}$/.test(h) ? "@" + h : null;
 };
 const clamp = (v, lo, hi) => max(lo, min(hi, v));
+// 1.9 GB, 124 MB, 12 KB: three figures at most.
+const bytes = (n) => {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let u = 0;
+  while (n >= 1000 && u < units.length - 1) { n /= 1000; u++; }
+  return (n >= 100 || u === 0 ? round(n) : n.toFixed(1).replace(/\.0$/, "")) + " " + units[u];
+};
 const compact = (n) => n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, "") + "m"
   : n >= 1e4 ? round(n / 1e3) + "k" : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "k" : String(n);
