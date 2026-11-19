@@ -116,6 +116,12 @@
         "auth0-users-validation": "Hmm, that didn't work. If you've been here before, use Log in or Email a code."
       }
     },
+    "signup-id": {
+      "signup-id": {
+        "title": "Create account",
+        "description": " "
+      }
+    },
     "signup": {
       "signup": {
         "title": "Create your account",

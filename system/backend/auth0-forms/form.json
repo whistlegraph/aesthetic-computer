@@ -7,9 +7,9 @@
       "config": {
         "components": [
           { "id": "rich_text_title", "category": "BLOCK", "type": "RICH_TEXT",
-            "config": { "content": "<h3>Pick your @handle</h3><p>Your name on Aesthetic Computer.</p>" } },
+            "config": { "content": "<h3>Pick your @handle</h3><p>Up to 16 letters or numbers.</p>" } },
           { "id": "handle", "category": "FIELD", "type": "TEXT", "label": "Handle", "required": true, "sensitive": false,
-            "config": { "multiline": false, "placeholder": "letters and numbers", "min_length": 1, "max_length": 16 } },
+            "config": { "multiline": false, "placeholder": "handle", "min_length": 1, "max_length": 16 } },
           { "id": "next_button_go", "category": "BLOCK", "type": "NEXT_BUTTON", "config": { "text": "Continue" } }
         ],
         "next_node": "flow_claim"

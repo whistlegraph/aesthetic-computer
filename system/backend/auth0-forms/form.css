@@ -1,12 +1,21 @@
 @font-face{font-family:"ac-processing";src:url("https://assets.aesthetic.computer/type%2Fwebfonts%2Fywft-processing-bold.woff") format("woff");font-display:swap}
+@keyframes ac-breathe{50%{opacity:.35;transform:scale(.9)}}
 .af-form,.af-form *{font-family:"ac-processing",ulp-font,-apple-system,system-ui,sans-serif!important}
+.af-form.af-loading{min-height:230px!important;display:flex!important;align-items:center!important;justify-content:center!important}
+.af-form.af-loading>.af-spinner{display:none!important}
+.af-form.af-loading::before{content:"@";font-size:64px;line-height:1;color:#ff3fa4;animation:ac-breathe 1.2s ease-in-out infinite}
 .af-form h3{font-size:27px!important;line-height:1.2!important;font-weight:400!important;text-align:center!important;margin:0 0 8px!important}
-.af-form h3 strong{font-weight:400!important}
 .af-form h3::before{content:"";display:block;width:64px;height:64px;margin:0 auto 18px;background:url("https://pals.aesthetic.computer") center/contain no-repeat}
-.af-form h3+p{text-align:center!important;color:#65676e!important;margin:0 0 8px!important}
-.af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:-2px 0 14px!important;min-height:0!important}
+.af-form h3+p{text-align:center!important;color:#65676e!important;margin:0 0 22px!important}
+.af-form .af-field-label{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.af-form .af-field-wrapper{position:relative!important;border:0!important;box-shadow:none!important;outline:0!important;background:none!important}
+.af-form .af-field-wrapper::before{content:"@";position:absolute;left:0;top:9px;font-size:46px;line-height:1;color:#ff3fa4;pointer-events:none}
+.af-form.af-form-modern .af-step .af-field .af-field-wrapper input.af-stringField-input{font-size:40px!important;line-height:1!important;height:60px!important;padding:0 0 6px 44px!important;border:0!important;border-bottom:3px solid #202019!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;outline:0!important;color:#202019!important;letter-spacing:.01em!important}
+.af-form.af-form-modern .af-step .af-field .af-field-wrapper input.af-stringField-input::placeholder{color:#c9c6c0!important;opacity:1!important}
+.af-form.af-form-modern .af-step .af-field .af-field-wrapper input.af-stringField-input:focus,.af-form.af-form-modern .af-step .af-field .af-field-wrapper input.af-stringField-input:focus-visible{border-bottom-color:#ff3fa4!important;outline:0!important;box-shadow:none!important}
+.af-form .af-char-counter{display:none!important}
+.af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:10px 0 0!important;min-height:0!important}
 .af-form .af-scenarioMessage-error::before,.af-form .af-scenarioMessage-error::after{display:none!important}
 .af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:16px!important;line-height:1.35!important;margin:0!important;padding:0!important}
-.af-form:has(.af-scenarioMessage-error) .af-stringField-input{border-color:#e1285b!important}
-.af-form .af-stringField-input:focus{border-color:#a32770!important;outline:2px solid #a32770!important;outline-offset:0!important;box-shadow:none!important}
-.af-form .af-char-counter{color:#65676e!important;font-size:14px!important}
+.af-form.af-form-modern:has(.af-scenarioMessage-error[style*="block"]) .af-step .af-field .af-field-wrapper input.af-stringField-input{border-bottom-color:#e1285b!important}
+.af-form .af-blockType-next_button{margin-top:26px!important}
