@@ -3,6 +3,7 @@ import { automatedVisit, visitReferrer } from "./visit-model.mjs";
 import { validateHandle } from "./text.mjs";
 
 const KEY = "ac:signup:v1";
+const REMIND_KEY = "ac:signup:confirm-email";
 
 // Authentication, verification and a normal handle form; content stays local.
 // The collector receives only a per-attempt UUID and allowlisted milestones.
@@ -47,6 +48,21 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
       credentials: "omit", referrerPolicy: "no-referrer", keepalive: true,
     })).catch(() => {}); } catch {}
   };
+  // "Confirm your email", shown once as a notice on the page a newcomer lands
+  // on. It rides the tab's session across the navigation there and waits for
+  // the first piece, which is when the runtime can show anything.
+  const remind = () => { try { win.sessionStorage.setItem(REMIND_KEY, "1"); } catch {} };
+  try {
+    if (win.sessionStorage.getItem(REMIND_KEY)) {
+      win.sessionStorage.removeItem(REMIND_KEY);
+      const started = Date.now();
+      const waiting = win.setInterval(() => {
+        const ready = win.preloaded === true && win.acSEND;
+        if (ready) win.acSEND({ type: "notice", content: "CONFIRM YOUR EMAIL" });
+        if (ready || Date.now() - started > 20000) win.clearInterval(waiting);
+      }, 100);
+    }
+  } catch {}
   function start(mode = "signup") {
     if (!supported()) return;
     close();
@@ -199,7 +215,15 @@ export function createSignupFlow(win, doc, { clientId, redirect, social, socials
     try {
       const status = await request("/api/signup-status");
       if (mine !== generation) return;
-      if (status.handle && status.verified) { if (asked) { clear(); close(); } else complete("/prompt"); return; }
+      // Someone signing up lands in Laklok; someone logging in goes back to
+      // the prompt (or the piece they came from, either way).
+      const landing = () => complete(read()?.mode === "signup" ? undefined : "/prompt");
+      if (status.handle && status.verified) { if (asked) { clear(); close(); } else landing(); return; }
+      // Named on the sign-in page already (backend/auth0-forms), before the
+      // address was confirmed: there is nothing left to ask here. The letter
+      // still has to be opened within a week to keep the name, so say so
+      // once, where they land.
+      if (status.handle && !asked) { remind(); landing(); return; }
       if (status.verified) claimStep(); else if (asked) { clear(); close(); } else verification();
     } catch {
       if (mine !== generation) return;

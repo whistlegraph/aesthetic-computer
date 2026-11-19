@@ -3,9 +3,11 @@
 // every signup goes through the hosted page (boot.mjs, `acLOGIN`), so this is
 // the default path with no flags: a fresh browser types `signup` at the prompt,
 // creates an account as mail+signuptest<stamp>@aesthetic.computer, comes back
-// to the pixel `join` piece, opens the link in the verification letter, claims
-// a throwaway @handle (sut<stamp>), passes the monthly-support offer and lands
-// in Laklok signed in. A reload proves the session holds, and then the account is put
+// to AC and lands in Laklok signed in. With the hosted handle step on
+// (backend/auth0-forms) the throwaway @handle (sut<stamp>) is picked on the
+// sign-in page and AC asks nothing more; without it the pixel `join` piece
+// asks for the letter and then the handle. Either way the verification link
+// is opened. A reload proves the session holds, and then the account is put
 // through delete-erase-and-forget-me.
 //
 //   npm run test:onboarding:e2e                 # headless, production
@@ -286,6 +288,17 @@ await step("a new email + password comes back to AC and asks for verification", 
     ]).catch(async () => { throw new Error(`the hosted form kept @${handle}: ${(await page.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").slice(0, 160)}`); });
   }
   await reached("auth_returned");
+  if (hosted) {
+    // Already named, so AC asks nothing: straight to Laklok, with the letter
+    // still to open. (lib/signup-flow.mjs, resume.)
+    await reached("completed", 30_000);
+    await page.waitForFunction(() => location.pathname === "/laklok", { timeout: 30_000 })
+      .catch(async () => { throw new Error(`a named newcomer was not sent to Laklok; the tab is on ${await page.evaluate(() => location.pathname).catch(() => "?")}`); });
+    if (stages.includes("verification_shown")) throw new Error("AC still stopped at “Check your email” for an account that already has a handle");
+    await page.waitForFunction(() => window.auth0Client, { timeout: 30_000 });
+    sub = (await page.evaluate(async () => (await window.auth0Client?.getUser())?.sub)) || null;
+    return `${sub || "?"}, @${handle} picked on the hosted page, straight to /laklok at ${elapsed()}`;
+  }
   await reached("verification_shown");
   await dialogTitled(/Check your email/);
   sub = (await page.evaluate(async () => (await window.auth0Client?.getUser())?.sub)) || null;
@@ -320,14 +333,10 @@ await step("back on the first tab, the verified account moves on", async () => {
   await page.bringToFront();
   await roll(page);
   await ac.wait(800);
+  if (hosted) return "already in Laklok; nothing was waiting on the letter";
   // The page checks every fifteen seconds while it is visible, so a slow
   // letter can find the handle form already open and the button gone.
   const pressed = await press("I’ve verified my email");
-  if (hosted) {
-    // Already named: verifying is all that was left, and AC moves on.
-    await reached("completed", 30_000);
-    return `${pressed ? "pressed “I’ve verified my email”" : "the page noticed by itself"}; no handle form, at ${elapsed()}`;
-  }
   if (!pressed && !stages.includes("handle_shown")) throw new Error("no verified button in the dialog, and no handle form either");
   await reached("handle_shown", 20_000);
   await dialogTitled(/Choose your @handle/);
