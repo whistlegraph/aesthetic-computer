@@ -1,4 +1,5 @@
 import { captureObjectFrames, OBJECT_PREVIEW_FPS, OBJECT_TURN_SECONDS } from "./object-preview.mjs";
+import { pieceSourceFailure, isSuspectDud, isStaleDud, captureUrl, cdnHref } from "./grab-duds.mjs";
 // Grabber - KidLisp piece screenshot/GIF capture using Puppeteer
 // Captures frames from running KidLisp pieces for thumbnails
 
@@ -1141,8 +1142,16 @@ async function checkExistingCapture(captureKey) {
   if (!database) return { exists: false };
   
   try {
-    // Check oven-grabs collection for matching capture
-    const grab = await database.collection('oven-grabs').findOne({ captureKey });
+    // Check oven-grabs collection for matching capture. Newest first: a key
+    // can hold an old dud and a later good capture.
+    const grab = await database.collection('oven-grabs').findOne(
+      { captureKey, cdnUrl: { $exists: true, $ne: null } },
+      { sort: { completedAt: -1 } },
+    );
+    if (grab && isStaleDud(grab)) {
+      console.log(`♻️  Ignoring stale dud capture: ${captureKey} (${grab.size} bytes)`);
+      return { exists: false };
+    }
     if (grab && grab.cdnUrl) {
       console.log(`✅ Found existing capture: ${captureKey}`);
       return { exists: true, cdnUrl: grab.cdnUrl, grab };
@@ -1694,7 +1703,7 @@ async function captureFrames(piece, options = {}) {
   // Use piece name as-is (caller decides if $ prefix is needed for KidLisp)
   // tv=true (non-interactive), nolabel=true (no HUD label), nogap=true (no border)
   // noboot=true skips the boot canvas animation to prevent zoom/scale glitches in captures
-  const url = `${baseUrl}/${piece}?density=${density}&tv=true&nolabel=true&nogap=true&spoofaudio=true&noboot=true`;
+  const url = captureUrl(baseUrl, piece, `density=${density}&tv=true&nolabel=true&nogap=true&spoofaudio=true&noboot=true`);
   
   console.log(`📸 Capturing ${frames} frames from ${url} (${fps} fps, ${duration}ms)`);
   console.log(`   Size: ${width}x${height}`);
@@ -1727,9 +1736,15 @@ async function captureFrames(piece, options = {}) {
     console.log(`   [REQUEST FAILED] ${url} - ${request.failure()?.errorText}`);
   });
   
+  // A $code piece with no source never paints: the runtime shows a blank
+  // canvas, and waiting out the ready heuristic only produces a black frame
+  // that then gets cached as the piece's thumbnail. Fail the grab instead.
+  let sourceLoadError = null;
   page.on('response', response => {
     if (response.status() >= 400) {
       console.log(`   [HTTP ${response.status()}] ${response.url()}`);
+      const failed = pieceSourceFailure(piece, response.url(), response.status());
+      if (failed) sourceLoadError = failed;
     }
   });
   
@@ -1792,6 +1807,7 @@ async function captureFrames(piece, options = {}) {
     const isNoboot = url.includes('noboot=true');
 
     while (!pieceReady && (Date.now() - pieceWaitStart) < maxPieceWait) {
+      if (sourceLoadError) throw new Error(sourceLoadError);
       const status = await page.evaluate(() => {
         const ready = window.acPieceReady === true;
         const readyTime = window.acPieceReadyTime;
@@ -1843,6 +1859,8 @@ async function captureFrames(piece, options = {}) {
         await new Promise(r => setTimeout(r, 100));
       }
     }
+
+    if (sourceLoadError) throw new Error(sourceLoadError);
 
     if (pieceReady) {
       if (!bootHiddenSince) {
@@ -1962,6 +1980,9 @@ async function captureFrames(piece, options = {}) {
     } catch (e) {
       console.log(`   🔤 Font diagnostics failed: ${e.message}`);
     }
+
+    // The source read can fail late (a hung backend answers after the waits above).
+    if (sourceLoadError) throw new Error(sourceLoadError);
 
     // Settle time: let the piece run a bit more after ready signal
     // For stills, wait longer to let animations stabilize
@@ -2341,8 +2362,9 @@ export async function grabPiece(piece, options = {}) {
         grabId: existing.grab?.id || captureKey,
         piece,
         format,
-        cdnUrl: existing.cdnUrl,
+        cdnUrl: cdnHref(existing.cdnUrl), // Records from before cdnHref hold a raw '#'.
         cached: true,
+        dud: isSuspectDud(existing.grab),
         captureKey,
       };
     }
@@ -2507,6 +2529,7 @@ export async function grabPiece(piece, options = {}) {
           // accepted cached/dedup behavior. skipCache callers were thrown
           // earlier so they never reach this branch.
           if (uniformCheck.isUniform) {
+            grabRecord.dud = true; // Cached only for DUD_CACHE_TTL_MS — see isStaleDud.
             // Return still frame in requested format (same as frozen)
             const outW = width * density;
             const outH = height * density;
@@ -2605,7 +2628,7 @@ export async function grabPiece(piece, options = {}) {
           CacheControl: 'public, max-age=604800', // 7 day cache
         }));
         
-        grab.cdnUrl = `${SPACES_CDN_BASE}/${spacesKey}`;
+        grab.cdnUrl = cdnHref(`${SPACES_CDN_BASE}/${spacesKey}`);
         console.log(`📦 Stored grab in Spaces: ${grab.cdnUrl}`);
       } catch (e) {
         console.error('❌ Failed to store grab in Spaces:', e.message);
@@ -2641,6 +2664,7 @@ export async function grabPiece(piece, options = {}) {
       cdnUrl: grab.cdnUrl,
       captureKey,
       cached: false,
+      dud: grab.dud === true,
     };
     
     } catch (error) {
@@ -3089,7 +3113,7 @@ export async function grabGetHandler(req, res) {
               const contentType = contentTypes[format] || 'image/webp';
               res.setHeader('Content-Type', contentType);
               res.setHeader('Content-Length', buffer.length);
-              res.setHeader('Cache-Control', 'public, max-age=86400');
+              res.setHeader('Cache-Control', result.dud ? 'public, max-age=300' : 'public, max-age=86400');
               res.setHeader('X-Proxy', 'CDN');
               return res.send(buffer);
             }
@@ -3099,14 +3123,17 @@ export async function grabGetHandler(req, res) {
           }
         }
         
-        return res.redirect(301, result.cdnUrl);
+        // Browsers keep a 301 indefinitely; a dud must stay re-askable.
+        return res.redirect(result.dud ? 302 : 301, result.cdnUrl);
       }
       
       const contentTypes = { webp: 'image/webp', gif: 'image/gif', png: 'image/png' };
       const contentType = contentTypes[format] || 'image/webp';
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', result.buffer.length);
-      res.setHeader('Cache-Control', 'public, max-age=86400');
+      // A dud may be a failed render: do not let browsers hold it for a day.
+      res.setHeader('Cache-Control', result.dud ? 'public, max-age=300' : 'public, max-age=86400');
+      if (result.dud) res.setHeader('X-Oven-Dud', 'true');
       res.setHeader('X-Grab-Id', result.grabId);
       res.setHeader('X-Cache', 'MISS');
       res.send(result.buffer);

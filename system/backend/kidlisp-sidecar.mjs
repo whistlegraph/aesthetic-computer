@@ -20,11 +20,18 @@ function headers() {
   return { "content-type": "application/json", "x-sidecar-secret": s };
 }
 
-async function req(method, path, body) {
+// A single-piece read that has not answered in this long is a hung sidecar,
+// not a slow one (lists and stats may legitimately take longer; unbounded).
+// Without a bound, the caller waits out silo's own 15 s proxy timeout — long
+// enough for a piece load (and an oven thumbnail) to give up on a blank frame.
+const READ_TIMEOUT_MS = Number(process.env.DATOMIC_SIDECAR_READ_TIMEOUT_MS) || 4000;
+
+async function req(method, path, body, { timeoutMs } = {}) {
   const res = await fetch(`${URL_BASE()}${path}`, {
     method,
     headers: headers(),
     body: body != null ? JSON.stringify(body) : undefined,
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
   });
   const text = await res.text();
   let json = null;
@@ -43,7 +50,7 @@ export const sidecar = {
   },
 
   async lookupByCode(code) {
-    const r = await req("GET", `/kidlisp/${encodeURIComponent(code)}`);
+    const r = await req("GET", `/kidlisp/${encodeURIComponent(code)}`, null, { timeoutMs: READ_TIMEOUT_MS });
     if (r.status === 404) return null;
     if (!r.ok) throw new Error(`sidecar lookupByCode failed: ${r.status}`);
     return r.body;
