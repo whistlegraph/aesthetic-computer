@@ -20,6 +20,8 @@ import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 import { kidlispWall } from './kidlisp-wall.mjs';
 import { screenRows, carryPixels } from './screen-lod.mjs';
+import { ballAt } from './ball.mjs';
+import { SPAN as BLOCK_SPAN } from './park.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
 const view = await createView(document.getElementById('game'));
@@ -84,6 +86,8 @@ let held = null;
 // 🫧 The walk over a seam now under way, and when the last one ended: how
 // long the body was between two rooms goes in the connection's log.
 let crossing = null, crossedAt = -Infinity;
+// ⚽ The park's ball as last heard, in this room's metres, and when.
+let ball = null;
 let sentSeq = 0; // The newest command handed to the socket.
 // 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
 // ride in progress ({ from, to, handle, at }), and whether the top line is
@@ -92,6 +96,7 @@ let tower = null, ride = null, liftLine = false;
 // 🔢 In the car the number keys are its buttons: press a floor's digits and,
 // a moment after the last one, the car goes. Pressed while it runs, it
 // stops where it is and goes to the new floor from there.
+let liftWas = null; // the car's height a frame ago, for its speed
 const DIAL_MS = 900;
 let dial = { text: '', at: 0 };
 // The tower's height in floors, as last heard: it stands on every skyline.
@@ -729,6 +734,11 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   // a block's edge keeps its motion and the commands the old room never ran.
   const walk = Number.isInteger(ack), from = room;
   if (walk) crossing = { from, to, at: performance.now() };
+  // The ball stays where it is in the world: over a seam it is a block
+  // away in the new room's metres; by any other way it is out of sight.
+  if (walk && ball && player && at) {
+    ball = { ...ball, x: ball.x + Math.round((at.x - player.x) / BLOCK_SPAN) * BLOCK_SPAN, z: ball.z + Math.round((at.z - player.z) / BLOCK_SPAN) * BLOCK_SPAN };
+  } else ball = null;
   held = receipt && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
@@ -892,6 +902,7 @@ function connect() {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
+    if (data.type === 'ball') { ball = { ...data, at: performance.now() }; return; }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
     if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack);
     if (data.type === 'tower') {
@@ -2269,6 +2280,9 @@ function step(now) {
   })();
   // 🛗 The car's height over (or under) its floor this frame; a bell on arrival.
   const lift = liftAt(now), sky = plazaFrom();
+  // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
+  sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
+  liftWas = { lift, at: now };
   if (held && ((seat >= 0 && player) || now > held.until)) {
     if (crossing) {
       const ms = Math.round(now - crossing.at);
@@ -2299,6 +2313,7 @@ function step(now) {
   view.render({
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400 },
+    ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.

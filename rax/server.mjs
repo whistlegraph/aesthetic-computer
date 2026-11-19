@@ -8,10 +8,14 @@ import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
-import { edgeAt, landing } from './park.mjs';
+import { edgeAt, landing, SPAN } from './park.mjs';
+import { createBall } from './ball.mjs';
+import { readFileSync as readBall } from 'node:fs';
+import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
+import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { guestName } from './guest-name.mjs';
-import { clearOfCar } from './elevator.mjs';
+import { clearOfCar, altitude } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -54,6 +58,7 @@ const assets = new Map([
     'chunky-font',
     'kidlisp-wall',
     'screen-lod',
+    'ball',
     'diagnostics-client',
     'stalls',
     'park',
@@ -683,6 +688,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       rooms.set(key, new Room(send, { guests }));
       rooms.get(key).match.half = halfOf(key);
+      if (flights.has(key)) {
+        rooms.get(key).match.setObjects(store.objects(key));
+        rooms.get(key).match.resume(flights.get(key));
+        flights.delete(key);
+      }
       // 🛗 In a room with the car, bodies land in a row south of the middle,
       // facing the car: never inside it, never against a planter.
       if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
@@ -1025,6 +1035,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
         passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, at: Date.now(), until: Date.now() + 30000 });
+        // ⚽ A ball in the car rides with it.
+        if (ball.ball.room === key && inCar(ball.ball)) { ball.ball.room = destination; keepBall(); }
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
           ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } } };
         send(ws, leaving.message);
@@ -1153,10 +1165,86 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           .catch(() => {});
       walks.leave(member);
       room.remove(ws);
-      if (!room.clients.size) rooms.delete(key);
+      if (!room.clients.size) {
+        const kept = room.match.flight();
+        if (kept) flights.set(key, kept);
+        rooms.delete(key);
+      }
     });
   });
 
+  // ⚽ The park's one ball (ball.mjs): the world's clock rolls it, and every
+  // page within a block of it hears where it is, in its own room's metres.
+  // A place's cell of the lattice and how high it is: a floor of the tower
+  // stands over the plaza's cell.
+  const cellOf = (key) => {
+    if (key === GROUND) return { i: 0, j: 0, h: 0 };
+    const floor = tower.tower.forRoom(key);
+    if (floor) return { i: 0, j: 0, h: altitude(floor.number) };
+    const block = parseBlock(key);
+    return block ? { ...block, h: 0 } : null;
+  };
+  const ball = createBall({
+    neighbours: (key) => geography.geography.neighbours(key),
+    boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
+    bodies: (key) => (rooms.get(key)?.match.seats || []).filter((s) => s?.player?.alive).map((s) => s.player),
+    below: (key) => { const floor = tower.tower.forRoom(key); return floor ? { room: GROUND, dy: altitude(floor.number) } : null; },
+  });
+  // It lies where it was left: kept in the state directory when it comes to
+  // rest, every few seconds while it rolls, and when the server closes.
+  const ballFile = stateDir && resolve(stateDir, 'ball.json');
+  let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0;
+  const keepBall = () => {
+    if (!ballFile) return ballSaved;
+    const { room, x, y, z, vx, vy, vz } = ball.ball, text = JSON.stringify({ room, x, y, z, vx, vy, vz });
+    ballKeptAt = Date.now();
+    return (ballSaved = ballSaved.then(async () => {
+      await mkdirBall(stateDir, { recursive: true });
+      await writeBall(`${ballFile}.tmp`, text);
+      await renameBall(`${ballFile}.tmp`, ballFile);
+    }).catch(() => {}));
+  };
+  try {
+    const was = ballFile && JSON.parse(readBall(ballFile, 'utf8'));
+    if (was && cellOf(String(was.room)) && ['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(was[k])))
+      Object.assign(ball.ball, { room: was.room, x: clamp(was.x, -SPAN / 2, SPAN / 2), y: Math.max(0, was.y), z: clamp(was.z, -SPAN / 2, SPAN / 2), vx: was.vx, vy: was.vy, vz: was.vz });
+  } catch {} // none kept yet: it starts in the courtyard
+  let ballTick = 0;
+  // ✈️ What was in the air in a room that emptied, or when the server last
+  // stopped (match.mjs flight): taken up when the room is next made.
+  const flightFile = stateDir && resolve(stateDir, 'flight.json');
+  const flights = new Map();
+  try { for (const [key, kept] of Object.entries(JSON.parse(readBall(flightFile, 'utf8')))) flights.set(key, kept); } catch {}
+  let flightSaved = Promise.resolve(), flightText = '', flightAt = 0;
+  const keepFlights = () => {
+    flightAt = Date.now();
+    if (!flightFile) return flightSaved;
+    const all = Object.fromEntries(flights);
+    for (const [key, room] of rooms) { const f = room.match.flight(); if (f) all[key] = f; else delete all[key]; }
+    const text = JSON.stringify(all);
+    if (text === flightText) return flightSaved;
+    flightText = text;
+    return (flightSaved = flightSaved.then(async () => {
+      await mkdirBall(stateDir, { recursive: true });
+      await writeBall(`${flightFile}.tmp`, text);
+      await renameBall(`${flightFile}.tmp`, flightFile);
+    }).catch(() => {}));
+  };
+  const tellBall = (moved) => {
+    if (ballRolling && !moved) keepBall(); // come to rest
+    else if (moved && Date.now() - ballKeptAt > 5000) keepBall();
+    ballRolling = moved;
+    if (!moved && ++ballTick % 30) return; // at rest: twice a second, for whoever just came
+    const b = ball.ball, at = cellOf(b.room);
+    if (!at) return;
+    for (const [key, room] of rooms) {
+      const here = cellOf(key);
+      if (!here || Math.abs(at.i - here.i) > 1 || Math.abs(at.j - here.j) > 1 || !room.clients.size) continue;
+      const r = (n) => Math.round(n * 1000) / 1000;
+      const word = JSON.stringify({ type: 'ball', x: r(b.x + (at.i - here.i) * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + (at.j - here.j) * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
+      for (const ws of room.clients.keys()) sendText(ws, word);
+    }
+  };
   let previous = performance.now(),
     debt = 0;
   let diagnosticStart = previous, loopGapMaxMs = 0, tickMaxMs = 0;
@@ -1169,6 +1257,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     previous = now;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;
+      if (rooms.size) tellBall(ball.step());
+      if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
         room.match.step();
         walks.tick(key, room);
@@ -1197,6 +1287,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   return {
     server,
     rooms,
+    ball,
+    flights,
     handle,
     attach,
     store,
@@ -1219,6 +1311,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await geography.queue;
       await tower.queue;
       await walks.close();
+      await keepBall();
+      await keepFlights();
       if (server.listening)
         await new Promise((resolve) => server.close(resolve));
     },

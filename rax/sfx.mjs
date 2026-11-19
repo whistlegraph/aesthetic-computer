@@ -62,6 +62,39 @@ export class Sfx {
     src.start(t);
   }
 
+  // 🛗 The car in motion: a motor's hum and the wind in the shaft, both
+  // rising with its speed (0 to 1). Asked every frame; nothing at 0.
+  lift(speed) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.car) {
+      if (speed <= 0) return;
+      const hum = a.createOscillator(), low = a.createBiquadFilter(), humGain = a.createGain();
+      hum.type = 'sawtooth';
+      low.type = 'lowpass';
+      low.frequency.value = 220;
+      humGain.gain.value = 0;
+      hum.connect(low).connect(humGain).connect(a.destination);
+      hum.start();
+      const buffer = a.createBuffer(1, a.sampleRate * 2, a.sampleRate), data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+      const wind = a.createBufferSource(), band = a.createBiquadFilter(), windGain = a.createGain();
+      wind.buffer = buffer;
+      wind.loop = true;
+      band.type = 'bandpass';
+      band.Q.value = 0.7;
+      windGain.gain.value = 0;
+      wind.connect(band).connect(windGain).connect(a.destination);
+      wind.start();
+      this.car = { hum, humGain, band, windGain };
+    }
+    const s = Math.max(0, Math.min(1, speed)), c = this.car;
+    c.hum.frequency.setTargetAtTime(38 + 46 * s, t, 0.08);
+    c.humGain.gain.setTargetAtTime(s ? (0.012 + 0.02 * s) * MASTER : 0, t, 0.12);
+    c.band.frequency.setTargetAtTime(300 + 1500 * s, t, 0.1);
+    c.windGain.gain.setTargetAtTime(0.05 * s * s * MASTER, t, 0.12);
+  }
+
   // A chord of sines, each voice gliding from from × its pitch to its pitch,
   // a little detuned against its neighbours so the chord shimmers.
   chord(steps, { root = 196, duration = 1, from = 1, attack = 0.06, volume = 0.012, stagger = 0.03, at = 0 } = {}) {

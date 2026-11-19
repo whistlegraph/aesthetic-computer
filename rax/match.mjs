@@ -699,6 +699,38 @@ export class Match {
     this.rockets = this.phase === 'playing' || this.phase === 'waiting' ? remaining : [];
   }
 
+  // ✈️ What is in the air, or lies where it was thrown: put by when a room
+  // empties or the server stops, taken up again when the room is next made.
+  // Time stands still in between. Nobody's seat is remembered: a round
+  // that flies again is nobody's.
+  flight() {
+    const loose = [...this.items.values()].filter((it) => it.holder < 0 && !it.awayUntil &&
+      (it.y > 0 || it.fuseAt || Math.hypot(it.x - it.home.x, it.z - it.home.z) > 0.01));
+    if (!this.rockets.length && !this.bullets.length && !loose.length) return null;
+    return {
+      rockets: this.rockets.map((r) => ({ x: r.x, y: r.y, z: r.z, dir: { ...r.dir }, age: this.tick - r.born })),
+      bullets: this.bullets.map((b) => ({ x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, bounces: b.bounces })),
+      items: loose.map((it) => ({ id: it.id, x: it.x, y: it.y, z: it.z, vx: it.vx, vy: it.vy, vz: it.vz, spin: it.spin,
+        fuse: it.fuseAt ? Math.max(1, it.fuseAt - this.tick) : 0 })),
+    };
+  }
+  resume(kept) {
+    const real = (o, keys) => !!o && keys.every((k) => Number.isFinite(o[k]));
+    for (const r of kept?.rockets || [])
+      if (real(r, ['x', 'y', 'z', 'age']) && real(r.dir, ['x', 'y', 'z']))
+        this.rockets.push({ x: r.x, y: r.y, z: r.z, dir: { ...r.dir }, owner: -1, born: this.tick - r.age, id: ++this.eventId });
+    for (const b of kept?.bullets || [])
+      if (real(b, ['x', 'y', 'z', 'vx', 'vy', 'vz']))
+        this.bullets.push({ x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, owner: -1, born: this.tick, safeUntil: 0,
+          bounces: b.bounces || 0, id: ++this.eventId });
+    for (const k of kept?.items || []) {
+      const it = this.items.get(k.id);
+      if (it && real(k, ['x', 'y', 'z', 'vx', 'vy', 'vz']))
+        Object.assign(it, { x: k.x, y: k.y, z: k.z, vx: k.vx, vy: k.vy, vz: k.vz, spin: k.spin || 0, holder: -1, thrownBy: -1,
+          fuseAt: k.fuse ? this.tick + k.fuse : 0 });
+    }
+  }
+
   snapshot() {
     return {
       type: 'snapshot',

@@ -1068,6 +1068,20 @@ export async function createView(canvas) {
       projector.draw(seamFor(ink, 'rungs'), x, dy + climb, z, turn);
     }
   };
+  // ⚽ The ball: a small sphere in black and white patches, turned by how
+  // far it has rolled.
+  let ballModel = null, ballRoll = 0, ballSeen = null;
+  const ballFor = () => (ballModel ||= model(({ quad }) => {
+    const R = 0.22, LAT = 6, LON = 10;
+    const at = (a, b) => { const p = (a / LAT) * Math.PI, t = (b / LON) * 2 * Math.PI; return [R * Math.sin(p) * Math.cos(t), R * Math.cos(p), R * Math.sin(p) * Math.sin(t)]; };
+    for (let a = 0; a < LAT; a++)
+      for (let b = 0; b < LON; b++) {
+        const ink = (a + b) % 2 ? 0x16181d : 0xf4f4f0;
+        const p = [at(a, b), at(a + 1, b), at(a + 1, b + 1), at(a, b + 1)];
+        quad(p[0], p[1], p[2], p[3], ink);
+        quad(p[3], p[2], p[1], p[0], ink);
+      }
+  }));
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
@@ -1126,6 +1140,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing }: the body is between two rooms
+    ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
     home = null,
     floorAim = null,
     chalk = [],
@@ -1258,12 +1273,28 @@ export async function createView(canvas) {
           aim = along(eye, direction(me0.yaw, 0), 10);
         }
         const bez = (p, q, r) => (1 - e) * (1 - e) * p + 2 * (1 - e) * e * q + e * e * r;
-        eye = { x: bez(far.x, behind.x, eye.x), y: bez(far.y, behind.y, eye.y), z: bez(far.z, behind.z, eye.z) };
+        // 🧭 Straight down, which way is up hangs on a hair: the first step
+        // of the flight used to snap the room round to the curve's own
+        // heading. Now the curve leaves the overhead view on that heading
+        // (`out`), and the whole flight is turned about the room's middle by
+        // what is left between it and the slow spin, eased away to nothing
+        // by the time the eye is the player's (2026-11-19).
+        const ox = aim.x - centre.x - 2 * behind.x, oz = aim.z - centre.z - 2 * behind.z, on = Math.hypot(ox, oz) || 1;
+        const lean = height * 0.002;
+        const out = { x: (-ox / on) * lean, y: height, z: (-oz / on) * lean };
+        eye = { x: bez(out.x, behind.x, eye.x), y: bez(out.y, behind.y, eye.y), z: bez(out.z, behind.z, eye.z) };
         aim = {
           x: centre.x + (aim.x - centre.x) * e,
           y: centre.y + (aim.y - centre.y) * e,
           z: centre.z + (aim.z - centre.z) * e,
         };
+        let turn = Math.atan2(-Math.sin(a), Math.cos(a)) - Math.atan2(ox, oz);
+        turn = (((turn + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; // the short way round
+        turn *= 1 - e;
+        const c = Math.cos(turn), n = Math.sin(turn);
+        const about = (p) => ({ x: p.x * c + p.z * n, y: p.y, z: -p.x * n + p.z * c });
+        eye = about(eye);
+        aim = about(aim);
       }
     }
     // Breathing: a slow rise and fall with a slighter sway, so the room is
@@ -1312,12 +1343,20 @@ export async function createView(canvas) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
       // This room's seams stand where it lets go of a walker (EDGE, a step
       // past the block's line), so the net is seen to hop on the way over.
-      drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
+      // (Not behind the curtain: the small room in the prompt's corner is the
+      // block alone, fitted to the crosshair's square.)
+      if (orbit < 1) drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
     else if (half === WORLD) draw(arena);
     else {
       if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
       draw(arenas.get(half));
+    }
+    if (ball) {
+      const pace = Math.hypot(ball.vx || 0, ball.vz || 0);
+      if (ballSeen !== null) ballRoll += (pace * Math.min(0.1, (now - ballSeen) / 1000)) / 0.22;
+      ballSeen = now;
+      draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, ballRoll);
     }
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
@@ -1371,7 +1410,7 @@ export async function createView(canvas) {
       if (painted) draw(painted, b.dx, by, b.dz);
       // The seams between the blocks around, on their lines; the ones that
       // face this block are its own, drawn above.
-      if (!by) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
+      if (!by && orbit < 1) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
