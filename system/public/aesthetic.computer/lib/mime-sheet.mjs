@@ -75,6 +75,10 @@ function ensure() {
     colorScheme: "normal", // Matching schemes keep the frame see-through.
     transform: "translateY(100%)",
     willChange: "transform", // Promoted from the start: rastered before any swipe.
+    // Parked means unseen, not only out of frame: the feed's first card has
+    // flashed full-screen over the prompt while the page loads or leaves.
+    // Opacity keeps the layer rastered, so showing it is still free.
+    opacity: "0",
     pointerEvents: "none",
   });
   document.body.append(frame);
@@ -197,6 +201,7 @@ function begin() {
     y = goal = innerHeight;
   }
   post({ type: "mime:sheet", open: true, playing: false });
+  f.style.opacity = "1"; // Seen from the first pixel of the trip.
   state = "moving";
   toward = null;
   pausePrompt(); // The last frame rides along; the loop is back at home().
@@ -269,6 +274,7 @@ function home() {
   y = goal = innerHeight;
   Object.assign(frame.style, {
     transform: "translateY(100%)",
+    opacity: "0",
     pointerEvents: "none",
   });
   const s = stage();

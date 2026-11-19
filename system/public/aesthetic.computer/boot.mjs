@@ -2033,6 +2033,8 @@ if (!sandboxed && !skipAuth) {
 
 // Incoming window-message responder (kidlisp.com embed, vscode, l5, docs, etc.).
 
+// A `load-piece` request held until the worker can load (see below).
+let heldPieceLoad = null, heldPieceLoadTimer = null;
 function receive(event) {
   // console.log("🌟 Event:", event);
   if (event.data?.type === "aesthetic-parent:focused") {
@@ -2067,9 +2069,27 @@ function receive(event) {
     // Parse the slug exactly like URL / back-button navigation does, then drive
     // the same worker load path (history-load → $commonApi.load) so there's no
     // full iframe reload. `parse` is already imported for boot-time routing.
+    //
+    // The worker can't load anything until its first piece has booted
+    // (`window.preloaded`). A request that arrives sooner used to be sent
+    // anyway, threw "$commonApi.load is not a function" in the worker, and was
+    // lost — which is how signup's `join` piece went missing after sign-in,
+    // leaving its form invisible. Hold the latest request until then.
     const slug = event.data.slug;
-    if (slug && window.acSEND) {
-      window.acSEND({ type: "history-load", content: parse(slug) });
+    if (slug) {
+      heldPieceLoad = slug;
+      if (!heldPieceLoadTimer) {
+        const started = performance.now();
+        const deliver = () => {
+          if (window.preloaded === true && window.acSEND) {
+            window.acSEND({ type: "history-load", content: parse(heldPieceLoad) });
+          } else if (performance.now() - started < 30000) return;
+          clearInterval(heldPieceLoadTimer);
+          heldPieceLoadTimer = heldPieceLoad = null;
+        };
+        heldPieceLoadTimer = setInterval(deliver, 50);
+        deliver();
+      }
     }
     return;
   } else if (event.data?.type === "kidlisp-reload") {

@@ -12,6 +12,11 @@
 //   AC_HEADED=1 npm run test:onboarding:e2e     # watch it
 //   AC_FILM=0 ...                               # no video
 //   AC_SIGNUP_KEEP=1 ...                        # leave the test account alive
+//   AC_OVERLAY=boot.mjs,lib/mime-sheet.mjs ...  # production, with these files
+//       of this checkout's system/public/aesthetic.computer swapped in —
+//       tries a client fix before it ships. It turns the service worker off,
+//       and without its cache the prompt's own import sometimes never
+//       finishes, so a red run here needs a second look before it means much.
 //
 // The film is cut from one clip per tab (prompt → hosted page → join, the
 // letter's tab, then join → Laklok → prompt), skips the wait for the letter,
@@ -27,8 +32,9 @@
 
 import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { ACSession, CONFIG, scenario, report } from "./ac-harness.mjs";
 import { waitForLetter } from "./jasellite-mail.mjs";
@@ -36,6 +42,7 @@ import { waitForLetter } from "./jasellite-mail.mjs";
 const KEEP = process.env.AC_SIGNUP_KEEP === "1";
 const FILM = process.env.AC_FILM !== "0";
 const FFMPEG = process.env.AC_FFMPEG || "ffmpeg";
+const OVERLAY = (process.env.AC_OVERLAY || "").split(",").map((f) => f.trim()).filter(Boolean);
 const NAME = "onboarding-journey";
 const OUT = join(CONFIG.shotDir, NAME);
 
@@ -51,6 +58,20 @@ mkdirSync(join(OUT, "reel"), { recursive: true });
 const ac = await ACSession.open(); // a fresh profile: the incognito case
 const page = ac.page;
 const shot = (name) => ac.shot(`${NAME}/${name}`);
+if (OVERLAY.length) {
+  const root = join(dirname(fileURLToPath(import.meta.url)), "../../system/public/aesthetic.computer");
+  const served = new Set();
+  await page.setBypassServiceWorker(true);
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const file = url.host === base.host && OVERLAY.find((f) => url.pathname === `/aesthetic.computer/${f}`);
+    if (!file) return request.continue();
+    if (!served.has(file)) { served.add(file); console.log(`  🩹 overlay: ${file}`); }
+    request.respond({ status: 200, contentType: "text/javascript; charset=utf-8", headers: { "cache-control": "no-store" },
+      body: readFileSync(join(root, file), "utf8") });
+  });
+}
 // The harness turns on acDEBUG for the prompt's test hook, which this journey
 // doesn't read. Debug also points Laklok's chat at a local dev port, so the
 // newcomer's first room would sit on "Connecting…". A stranger has no flag.
@@ -184,7 +205,18 @@ const step = (name, fn) => scenario(name, async (expect) => {
 // The dialog is invisible; the join piece is what a person sees. Each form
 // notes which piece was on screen, and one scenario judges them after the claim.
 const drawn = [];
-const noteScreen = async (form) => drawn.push({ form, path: await page.evaluate(() => location.pathname).catch(() => "?") });
+// The piece is asked for once the runtime can load one (boot.mjs holds the
+// request until then), so give it a few seconds to arrive.
+const noteScreen = async (form) => {
+  const deadline = Date.now() + 10_000;
+  let path = "?";
+  while (Date.now() < deadline) {
+    path = await page.evaluate(() => location.pathname).catch(() => "?");
+    if (path === "/join") break;
+    await ac.wait(200);
+  }
+  drawn.push({ form, path });
+};
 
 let sub = null, hosted = false; // hosted: the handle was picked on the sign-in page
 const t0 = Date.now();
