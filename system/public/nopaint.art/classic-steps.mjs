@@ -109,6 +109,18 @@ function signedOut() {
   try { localStorage.removeItem(ACCOUNT); localStorage.removeItem(WHO); } catch {}
   auth?.logout({ openUrl: false }).catch(() => {});
 }
+// The painter's own sign-out is a true one: it ends the session at the
+// turnstile too, so the next Sign In asks again. The page leaves for the
+// turnstile's logout and comes back as a guest's.
+async function signOut() {
+  clearTimeout(timer);
+  await save();
+  const through = account && !account.token; // signed in through the turnstile
+  account = null;
+  try { localStorage.removeItem(ACCOUNT); localStorage.removeItem(WHO); } catch {}
+  if (through) try { return await (await turnstile()).logout({ logoutParams: { returnTo: location.origin } }); } catch (error) { log(`sign-out: ${error.message}`); }
+  return raise();
+}
 // Coming back from the turnstile, or coming back signed in from an earlier visit.
 async function arrive() {
   if (!arriving) return;
@@ -358,7 +370,7 @@ async function act(what) {
   }
   if (what === "out") {
     // Two taps sign out: the first asks.
-    if (Date.now() - asking < 4000) { asking = 0; signedOut(); return raise(); }
+    if (Date.now() - asking < 4000) { asking = 0; return signOut(); }
     asking = Date.now();
     setTimeout(() => { if (asking && Date.now() - asking >= 4000) { asking = 0; title(); } }, 4100);
     return title();
@@ -404,7 +416,7 @@ for (const type of ["pointerup", "pointercancel", "mousedown", "mouseup", "click
   if (type === "pointerup" || type === "pointercancel") setTimeout(() => { held = false; }, 0);
 }, true);
 addEventListener("resize", () => title());
-state.signOut = () => { signedOut(); return raise(); };
+state.signOut = signOut;
 state.act = act;
 // Know who is here before the first save, so a painter's painting starts as theirs.
 const arrived = arrive().then(() => raise());
