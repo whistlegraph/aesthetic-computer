@@ -1,0 +1,48 @@
+% ac-paper-table.sty — the house table for every AC paper.
+%
+% A table is a coloured, rounded box with even cell margins and both
+% horizontal and vertical separators. Rule: papers/SCORE.md, "Tables".
+%
+%   \usepackage{ac-paper-table}          (after xcolor; fontspec optional)
+%
+%   \begin{actable}{l|r}                 % any tabularx column spec; put | between columns
+%     \acth{Metric} & \acth{Value} \\ \hline
+%     Handles claimed & 3,095 \\ \hline
+%     KidLisp pieces  & 18,993
+%   \end{actable}
+%
+% Write \\ \hline between rows and nothing after the last row: the box draws
+% the outer border, so the table never needs \toprule or \bottomrule.
+% Options go first: \begin{actable}[colback=acsoftplum]{X|r}. Named tints:
+% actablecream (default), acsoftplum, acsoftpink, acsoftteal.
+% \acth{...} sets a header cell: bold, on the darker band of the same tint.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ac-paper-table}[2026/11/18 AC house table]
+
+\RequirePackage{xcolor}
+\RequirePackage{array}
+\RequirePackage{tabularx}
+\RequirePackage{colortbl}
+\RequirePackage[most]{tcolorbox}
+
+\definecolor{actablecream}{RGB}{251,244,232}
+\definecolor{acsoftplum}{RGB}{241,236,247}
+\definecolor{acsoftpink}{RGB}{252,240,246}
+\definecolor{acsoftteal}{RGB}{232,244,243}
+\definecolor{actablerule}{RGB}{176,168,186}
+\colorlet{actablehead}{black!7}
+
+\newcommand{\acth}[1]{\cellcolor{actablehead}\textbf{#1}}
+
+% Cell margins: 7pt left and right of every cell, rows 1.5 times the text
+% height. tcolorbox's tabularx* key runs this code just before the table opens.
+\newtcolorbox{actable}[2][]{%
+  enhanced, clip upper,
+  tabularx*={\arrayrulecolor{actablerule}\setlength{\tabcolsep}{7pt}\renewcommand{\arraystretch}{1.5}}{#2},
+  colback=actablecream, colframe=actablerule,
+  boxrule=0.6pt, arc=4pt,
+  fontupper=\sffamily\small,
+  before skip=0.6em, after skip=0.6em,
+  #1}
+
+\endinput
