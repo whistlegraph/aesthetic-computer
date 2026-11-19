@@ -296,6 +296,8 @@ final class NCCLogo: NSView {
     // Some of the word's letters, drawn in pixels.
     private final class Word: NSView {
         let cell: CGFloat, parts: [(rows: [String], pink: Bool)]
+        var hot = false { didSet { if hot != oldValue { needsDisplay = true } } }      // under the pointer: lighter
+        private func lit(_ c: NSColor) -> NSColor { hot ? (c.blended(withFraction: 0.38, of: .white) ?? c) : c }
         init(cell: CGFloat, parts: [(rows: [String], pink: Bool)]) {
             self.cell = cell
             self.parts = parts
@@ -335,7 +337,9 @@ final class NCCLogo: NSView {
                 return row < 2 || (col == 4 && (row == 2 || row == 6))
             }
             for (rect, pink) in all {
-                (!pink ? Theme.word : isStem(rect) ? Donut.stem : Donut.icing).setFill()
+                var c = !pink ? Theme.word : isStem(rect) ? Donut.stem : Donut.icing
+                effectiveAppearance.performAsCurrentDrawingAppearance { c = c.usingColorSpace(.sRGB) ?? c }
+                lit(c).setFill()
                 rect.insetBy(dx: -0.2, dy: -0.2).fill()
             }
             for (n, (rect, pink)) in all.enumerated() where pink && !isStem(rect) && (n * 7 + 3) % 3 == 0 {
@@ -349,6 +353,7 @@ final class NCCLogo: NSView {
 
     private let cell: CGFloat
     private let ncc: Word, d: Word
+    var hot = false { didSet { ncc.hot = hot; d.hot = hot } }
     private let shine = CAGradientLayer()
 
     // `scale` is the size of one pixel of the word, in points.
@@ -605,7 +610,7 @@ final class LogoTab: NSView {
                  open: selected, top: onTop, hover: hover)
     }
     // The pointer over the tab.
-    private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
+    private var hover = false { didSet { if hover != oldValue { needsDisplay = true; word.hot = hover } } }
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         trackingAreas.forEach(removeTrackingArea)
@@ -1044,18 +1049,29 @@ final class MentionList: NSView {
 // thread, lit along its top, with the dark of the hole it goes into at each
 // end and a soft shadow under it, so it sits on the plane, not in it.
 final class Hairline: NSView {
-    static let tall: CGFloat = 7
+    static let tall: CGFloat = 22
     override func draw(_ dirty: NSRect) {
-        let mid = bounds.midY, long: CGFloat = 9, gap: CGFloat = 6, thick: CGFloat = 2.4
+        // The crease the two planes meet in: dark at the fold, fading out above and
+        // below it, from one edge of the window to the other.
+        let fold = bounds.midY
+        NSGradient(colors: [NSColor(white: 0, alpha: 0), NSColor(white: 0, alpha: 0.2)])?
+            .draw(in: NSRect(x: 0, y: fold, width: bounds.width, height: bounds.height / 2), angle: -90)
+        NSGradient(colors: [NSColor(white: 0, alpha: 0.2), NSColor(white: 0, alpha: 0)])?
+            .draw(in: NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height / 2), angle: -90)
+        NSColor(white: 1, alpha: 0.1).setFill()
+        NSRect(x: 0, y: fold - 1.5, width: bounds.width, height: 0.5).fill()
+        let mid = bounds.midY, long: CGFloat = 8, gap: CGFloat = 7, thick: CGFloat = 1.8
         var thread = Theme.word, light = NSColor.white
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            thread = Theme.word.usingColorSpace(.sRGB) ?? thread
-            light = thread.blended(withFraction: 0.55, of: .white) ?? light
+            // a quiet thread: the wordmark's colour let well down into the plane it is sewn on
+            let ground = Theme.mint.usingColorSpace(.sRGB) ?? .gray
+            thread = (Theme.word.usingColorSpace(.sRGB) ?? thread).blended(withFraction: 0.6, of: ground) ?? thread
+            light = thread.blended(withFraction: 0.25, of: .white) ?? light
         }
-        var x: CGFloat = 4
-        while x + long < bounds.width {
+        var x: CGFloat = -3                     // the row runs off both edges, as a seam does
+        while x < bounds.width {
             // the holes
-            NSColor(white: 0, alpha: 0.35).setFill()
+            NSColor(white: 0, alpha: 0.2).setFill()
             NSBezierPath(ovalIn: NSRect(x: x - 1.6, y: mid - 1.3, width: 2.6, height: 2.6)).fill()
             NSBezierPath(ovalIn: NSRect(x: x + long - 1, y: mid - 1.3, width: 2.6, height: 2.6)).fill()
             // the shadow under the thread
