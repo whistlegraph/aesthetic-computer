@@ -1593,17 +1593,15 @@ document.addEventListener('keydown', (e) => {
     else chalkMode = null;
     return;
   }
-  // Hosted, Escape first frees the mouse (the browser usually keeps that
-  // press for itself); then, with nothing open and the mouse already free,
-  // Escape brings the prompt's paper back.
-  // Hosted, one Escape with nothing open does both (2026-11-03): it frees
-  // the mouse and brings the prompt's paper back. (A browser that eats the
-  // first Escape to end its own pointer lock still needs a second press.)
+  // Hosted, Escape takes two steps (2026-11-18): the first only frees the
+  // mouse, and the next, with the mouse free and nothing open, brings the
+  // prompt's paper back. Tab is the one-press way out. A browser may end the
+  // lock itself and then hand over the same press; that press has done its
+  // work, so the moment just after an unlock does not leave.
   if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open) {
     e.preventDefault();
     if (locked()) document.exitPointerLock();
-    unlockedAt = performance.now();
-    leave();
+    else if (performance.now() - unlockedAt > 250) leave();
     return;
   }
   if (e.code === 'Enter' && !e.repeat) {

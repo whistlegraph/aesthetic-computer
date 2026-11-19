@@ -626,6 +626,10 @@ final class FisheryLayer: CALayer {
         var nextWander: Double = 0
         var depth: CGFloat = 0.5
         var lunge: CGFloat = 0
+        /// 🗺️ 0 out in the field, 1 standing on the rax model: how far this
+        /// walker has gone in, and the last place the model gave for them.
+        var world: CGFloat = 0
+        var worldAt: CGPoint = .zero
 
         init(id: String) { self.id = id }
     }
@@ -1211,7 +1215,31 @@ final class FisheryLayer: CALayer {
         f.depth = min(1, max(0, f.reach + wander + f.lunge * 0.5))
         }
         let near = 0.6 + 0.6 * f.depth
-        let size = f.length * near
+        var size = f.length * near
+        // 🗺️ Someone in rax leaves the field and walks onto the model, small,
+        // to stand where they stand in the world; when they leave rax they
+        // walk back out. The field's own wander carries on underneath, so
+        // there is always somewhere to come back to.
+        let freeX = f.x, freeY = f.y
+        defer { f.x = freeX; f.y = freeY }
+        var depth = f.depth
+        if remote == nil, walkers {
+            let spot = f.name.hasPrefix("@") && !f.leaving && f.kind != "ghost"
+                ? worldFly.spot(String(f.name.dropFirst()).lowercased()) : nil
+            if let spot { f.worldAt = CGPoint(x: worldFly.position.x + spot.x, y: worldFly.position.y + spot.y) }
+            f.world = min(1, max(0, f.world + (spot != nil ? dt : -dt) / Self.worldWalk))
+            if f.world > 0 {
+                let e = f.world * f.world * (3 - 2 * f.world)
+                let small = Self.worldBody * u
+                // The body's feet are 0.3 of its size under its middle.
+                f.x += (f.worldAt.x - f.x) * e
+                f.y += (f.worldAt.y + small * 0.3 - f.y) * e
+                size += (small - size) * e
+                depth += (1 - depth) * e
+                f.tag.opacity = Float(1 - e)
+                f.sub.opacity = Float(1 - e)
+            }
+        }
         f.size = size
         f.root.position = CGPoint(x: f.x, y: f.y)
         f.root.zPosition = f.depth
@@ -1252,7 +1280,7 @@ final class FisheryLayer: CALayer {
         f.body.shadowRadius = (2 + f.glow * 10) * u
         // Facing +x is yaw 0, -x is π; a slow sway shows the body's volume.
         let yaw = (1 - f.facing) * 0.5 * .pi + sin(tt * 0.8 + f.phase) * (walkers ? 0.12 : 0.32)
-        poses.append(Pose(id: f.id, x: f.x, y: f.y, length: size, depth: f.depth, yaw: yaw, tilt: tilt * 2,
+        poses.append(Pose(id: f.id, x: f.x, y: f.y, length: size, depth: depth, yaw: yaw, tilt: tilt * 2,
                           wag: wag * 1.6, color: color(for: f.kind), alpha: f.alpha,
                           glow: f.glow,
                           skin: f.skins.isEmpty ? "" : f.skins[(Int(t / 9) + Int(f.phase * 10)) % f.skins.count],
@@ -1265,9 +1293,13 @@ final class FisheryLayer: CALayer {
     /// Water between a fish's belly and its table, and around each fish.
     private static let subGap: CGFloat = 8
     private static let schoolMargin: CGFloat = 14
+    /// 🗺️ A body standing on the rax model: its height, and the seconds the
+    /// walk between the field and the model takes.
+    private static let worldBody: CGFloat = 15
+    private static let worldWalk: CGFloat = 1.6
 
     private func spaceOut(dt: CGFloat) {
-        let school = fish.values.filter { !$0.leaving && $0.alpha > 0.05 }
+        let school = fish.values.filter { !$0.leaving && $0.alpha > 0.05 && $0.world < 0.5 }
         let box = { (f: Fish) -> CGRect in
             let tagScale = 0.85 + 0.2 * f.depth
             let m = Self.schoolMargin * self.u
@@ -2072,6 +2104,7 @@ final class FisheryLayer: CALayer {
             }
         } else {
             for f in fish.values { swim(f, t: now, dt: dt) }
+            worldFly.embodied = Set(fish.values.filter { $0.world > 0.9 }.map { String($0.name.dropFirst()).lowercased() })
             spaceOut(dt: dt)
             if let link, link.config.role == .leader, now - lastSent >= 1.0 / 30 {
                 lastSent = now

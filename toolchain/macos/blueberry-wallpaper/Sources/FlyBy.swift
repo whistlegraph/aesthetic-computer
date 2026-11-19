@@ -140,6 +140,32 @@ final class WorldFlyLayer: CALayer {
     /// Where each handle has been: ground points, the height they were at, and when.
     private var trails: [String: [(at: CGPoint, y: CGFloat, t: CFTimeInterval)]] = [:]
     private static let trailSeconds: CFTimeInterval = 90
+    /// Handles (lower case) whose own body has walked in from the field and
+    /// stands on the model: their pole and head step aside for it. The name
+    /// and the line behind them stay.
+    var embodied = Set<String>() {
+        didSet { if embodied != oldValue { stepAside() } }
+    }
+    private func stepAside() {
+        for (id, w) in walkers {
+            let gone = embodied.contains(id.lowercased())
+            w.pole.isHidden = gone
+            w.head.isHidden = gone
+        }
+    }
+    /// Where a handle (lower case) stands right now, in this layer's points:
+    /// their feet on the model as it is drawn this frame, mid-slide and
+    /// mid-swing. Nil when they are not in rax.
+    func spot(_ handle: String) -> CGPoint? {
+        guard !isHidden, let w = walkers.first(where: { $0.key.lowercased() == handle })?.value else { return nil }
+        let pole = w.pole.presentation() ?? w.pole, m = (rig.presentation() ?? rig).transform
+        let x = pole.position.x, y = pole.position.y, z = pole.zPosition
+        return CGPoint(x: rig.position.x + x * m.m11 + y * m.m21 + z * m.m31 + m.m41,
+                       y: rig.position.y + x * m.m12 + y * m.m22 + z * m.m32 + m.m42)
+    }
+    /// Radians the resting view is turned from square-on, so the blocks run
+    /// on the diagonal and the tower shows two faces.
+    private static let turn: CGFloat = 0.5
 
     /// Panel heights of tower drawn to scale above the ground.
     private static let rise: CGFloat = 1.15
@@ -297,6 +323,7 @@ final class WorldFlyLayer: CALayer {
             walkers[handle] = nil
             trails[handle] = nil
         }
+        stepAside()
         CATransaction.commit()
     }
 
@@ -421,8 +448,8 @@ final class WorldFlyLayer: CALayer {
 
         sublayerTransform = CATransform3DIdentity
         rig.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        // One pose: the whole world, swung a third of a turn and back.
-        stops = [Stop(x: e.midX, z: e.midY, pitch: Self.pitch, span: span, sway: 0.55, travel: 24, hold: 24)]
+        // One pose: the whole world, turned a little, swung a third of a turn and back.
+        stops = [Stop(x: e.midX, z: e.midY, yaw: Self.turn, pitch: Self.pitch, span: span, sway: 0.55, travel: 24, hold: 24)]
         fly(size: size)
     }
 
