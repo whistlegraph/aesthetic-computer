@@ -833,8 +833,12 @@ export async function createView(canvas) {
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
   const LENS_ZOOM = 1.3; // how much larger the middle is drawn under the lens
-  let lensOn = true;
-  try { lensOn = localStorage.getItem('rax-lens') !== '0'; } catch {}
+  // Off unless asked for (L): from high up, or with a big flat thing close by, a
+  // wide triangle that runs past the edge of the picture is bent wrongly and
+  // shows through what stands before it. It wants doing to the finished
+  // picture, not to each corner.
+  let lensOn = false;
+  try { lensOn = localStorage.getItem('rax-lens-try') === '1'; } catch {}
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
   const statsRun = new Float32Array(120); let statsHead = 0; // the last 120 frames' gaps, a ring
@@ -3600,7 +3604,7 @@ export async function createView(canvas) {
     // 🔭 The lens on or off (kept); with nothing, the other of the two.
     lens(on = !lensOn) {
       lensOn = !!on;
-      try { localStorage.setItem('rax-lens', lensOn ? '1' : '0'); } catch {}
+      try { localStorage.setItem('rax-lens-try', lensOn ? '1' : '0'); } catch {}
       return lensOn;
     },
     showFps(on) {

@@ -214,8 +214,12 @@ export class Projector {
       }
       // What is left of the triangle, as a fan, each part put on the screen.
       for (let j = 3; j < count - 3; j += 3) {
-        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5], this.lens ? 5 : 0);
-        if (this.overflow) return;
+        // (How finely an edge may be halved falls as the frame's triangles
+        // run out: a full frame keeps its shapes and loses only their bend.)
+        const used = this.scene.triangleCount / this.scene.maxTriangles;
+        if (used >= 1) return; // (never by the flag: it is only lowered where shadows are cast)
+        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5],
+          !this.lens ? 0 : used < 0.4 ? 5 : used < 0.6 ? 3 : used < 0.75 ? 1 : 0);
       }
     }
   }
