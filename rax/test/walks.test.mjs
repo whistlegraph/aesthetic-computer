@@ -57,3 +57,20 @@ test('without a state directory nothing is kept', async () => {
   assert.equal(walks.enabled, false);
   await walks.close();
 });
+
+test("a walk in over a seam keeps the page's own count, once", async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'rax-walks-'));
+  const t = Date.UTC(2026, 10, 19, 8);
+  const walks = createWalks({ directory, now: () => t, flushMs: 1e9 });
+  const member = { ready: true, handle: 'jeffrey', owner: null, seat: 0 };
+  const room = { sessions: new Map([[1, member]]), match: { seats: [{ player: { x: 0, y: 1.7, z: 7, yaw: 0, pitch: 0 } }] } };
+  walks.seam(member, { from: 'e0s1', ms: 1 }); // before its first tick: no visit yet
+  walks.tick('e0s2', room);
+  walks.seam(member, { from: 'e0s1', ms: 412 });
+  walks.seam(member, { from: 'e0s1', ms: 9 });
+  await walks.close();
+  const lines = (await readFile(join(directory, '2026-11-19.jsonl'), 'utf8')).split('\n');
+  const [v] = readWalks(lines);
+  assert.deepEqual(v.seam, { from: 'e0s1', ms: 412 });
+  await rm(directory, { recursive: true });
+});

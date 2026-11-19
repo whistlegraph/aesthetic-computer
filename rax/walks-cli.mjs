@@ -29,7 +29,7 @@ for (const name of names) {
 const visits = readWalks(lines, motion).filter((v) => v.end >= since);
 const row = (v) => ({ visit: v.id, room: v.room, who: v.who, guest: v.guest, seated: v.seated,
   entered: new Date(v.start).toISOString(), seconds: Math.round((v.end - v.start) / 1000),
-  distance: Math.round(v.distance * 10) / 10, ticks: v.ticks, stillIn: !v.left });
+  distance: Math.round(v.distance * 10) / 10, ticks: v.ticks, ...(v.seam ? { seam: v.seam } : {}), stillIn: !v.left });
 if (want) {
   const v = visits.find((v) => v.id === want);
   if (!v) { console.error(`No visit ${want}`); process.exit(1); }

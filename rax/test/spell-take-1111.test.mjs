@@ -33,6 +33,7 @@ function carScreenOf(base) {
   const source = CLIENT.slice(from, to).replaceAll('import.meta.url', 'BASE');
   return new Function('fetch', 'altitude', 'BASE', `
     let tower = null, home = null, liftLine = false;
+    const dial = { text: '' };
     const chat = { open: false, text: '' };
     ${source}
     return {

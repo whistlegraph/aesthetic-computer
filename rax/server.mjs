@@ -738,11 +738,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // they left: it seats them where it leads as soon as the page says whose
     // it is, with the handle they wore, and the account is checked after.
     const arrive = () => {
-      if (arrived || !member.owner || watching) return;
+      if (arrived || watching) return;
       const receipt = url.searchParams.get('passage'), pass = passages.get(receipt);
-      if (!pass || pass.owner !== member.owner || pass.room !== key || pass.until < Date.now()) return;
+      // Whose it is: the page's owner, or (the account answered first) the
+      // account the walker wore. Else the body stood two ticks at the
+      // room's spawn before it was set down (seen 2026-11-19).
+      const mine = pass && (member.owner ? pass.owner === member.owner : !!member.accountId && pass.accountId === member.accountId);
+      if (!mine || pass.room !== key || pass.until < Date.now()) return;
       passages.delete(receipt);
       for (const k of ['handle', 'accountId', 'colors', 'token']) if (pass[k] && !member[k]) member[k] = pass[k];
+      member.owner ||= pass.owner; // the page's own word may still be on its way
       if (!member.ready) { clearTimeout(accountHold); member.ready = true; room.assign(); }
       const body = room.match.seats[member.seat]?.player;
       if (!body) return;
@@ -751,6 +756,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       Object.assign(body, pass.position);
       // The time on the way was lived: the commands given in it are owed a run.
       room.match.owe(member.seat, Math.round(((Date.now() - pass.at) * HZ) / 1000));
+      sendTower(ws, key, member); // whose floor this is, known with the passage
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
     };
@@ -946,6 +952,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           const message = { type: 'said', seat: who.seat, handle: who.handle, name: who.name, colors: who.colors, text: clean(text) };
           for (const client of room.clients.keys()) send(client, message);
         });
+        return;
+      }
+      // 🫧 The page's own count of a walk over a seam: from the old room's
+      // word to its first place in this one.
+      if (data?.type === 'seam' && member.seat >= 0) {
+        const ms = Number(data.ms);
+        if (Number.isFinite(ms) && ms >= 0 && ms < 60000 && /^[a-z0-9-]{1,32}$/.test(String(data.from || '')))
+          walks.seam(member, { from: data.from, ms: Math.round(ms) });
         return;
       }
       if (data?.type === 'walk' && member.owner && member.seat >= 0) {

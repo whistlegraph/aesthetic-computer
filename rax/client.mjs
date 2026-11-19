@@ -89,6 +89,11 @@ let sentSeq = 0; // The newest command handed to the socket.
 // ride in progress ({ from, to, handle, at }), and whether the top line is
 // the elevator's (typed in the car) rather than chat.
 let tower = null, ride = null, liftLine = false;
+// 🔢 In the car the number keys are its buttons: press a floor's digits and,
+// a moment after the last one, the car goes. Pressed while it runs, it
+// stops where it is and goes to the new floor from there.
+const DIAL_MS = 900;
+let dial = { text: '', at: 0 };
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
@@ -134,6 +139,7 @@ function floorAsked(text) {
 const lobbyBoard = () => ({ yours: tower?.yours?.number || home?.floor || 0, in: tower?.inside || [] });
 function carScreen(rideNow) {
   // Asked where to: the line being typed is on the screen itself.
+  if (dial.text) return { number: dial.text, moving: true, handle: floorAsked(dial.text), note: 'going in a moment', entry: true };
   if (liftLine && chat.open) {
     const blink = Math.floor(performance.now() / 400) % 2 ? '_' : ' ';
     return { number: '?', moving: true, handle: `${chat.text.slice(0, 22)}${blink}`, note: floorAsked(chat.text), entry: true };
@@ -731,8 +737,11 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (riding) {
     // 🛗 The car leaves at once and the next floor is already known: the
     // ride is the distance between the two, travelled for real.
-    const span = altitude(riding.from) - altitude(riding.to);
-    ride = { ...riding, at: performance.now(), span, seconds: rideSeconds(span), rung: false };
+    // Asked while the car ran: it starts from where it is, not from the
+    // floor it was on its way to.
+    const now = performance.now(), running = rideMoving(now) ? liftAt(now) : 0;
+    const span = altitude(riding.from) - altitude(riding.to) + running;
+    ride = { ...riding, ...(running ? { from: floorAt(altitude(riding.from) + running + 0.5) } : {}), at: now, span, seconds: rideSeconds(span), rung: false };
     tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null } : { room: 'lobby', number: 0 }, owner: false };
     sfx.ringMove(ride.to > ride.from ? 9 : 4);
   } else {
@@ -1483,6 +1492,12 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (down && e.code !== 'Escape') {
+    e.preventDefault();
+    return;
+  }
+  if (!chat.open && !prompt.open && !menu && !radial.open && seat >= 0 && player && hasCar() && inCar(player)
+    && /^(Digit|Numpad)\d$/.test(e.code) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (!e.repeat) dial = { text: (dial.text + e.code.slice(-1)).slice(-4), at: performance.now() };
     e.preventDefault();
     return;
   }
@@ -2259,6 +2274,7 @@ function step(now) {
       const ms = Math.round(now - crossing.at);
       logNet(player ? `crossed ${crossing.from} → ${crossing.to} in ${ms} ms` : `crossing ${crossing.from} → ${crossing.to} gave up after ${ms} ms`, player ? { good: true } : { bad: true });
       console.info(`🫧 rax seam ${crossing.from} → ${crossing.to}: ${ms} ms${player ? '' : ' (no seat)'}`);
+      if (player) send({ type: 'seam', from: crossing.from, ms });
       crossing = null;
       crossedAt = now;
     }
@@ -2266,6 +2282,11 @@ function step(now) {
     held = null;
   }
   if (ride && !ride.rung && !rideMoving(now)) { ride.rung = true; sfx.ringMove(12); }
+  // (Between two rooms the digits wait for the body to be set down.)
+  if (dial.text && now - dial.at > DIAL_MS && !held) {
+    if (seat >= 0 && player && hasCar() && inCar(player)) send({ type: 'elevator', to: dial.text });
+    dial = { text: '', at: 0 };
+  }
   const rideNow = ride && now - ride.at < ride.seconds * 1000 + 2500
     ? { ...ride, moving: rideMoving(now), floor: floorAt(altitude(ride.to) + lift + 0.5) } : null;
   // 🎬 The director's camera, when a film is being shot. A shot that `rides`

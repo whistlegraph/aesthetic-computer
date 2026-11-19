@@ -830,6 +830,8 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
+  // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
+  const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
   let panelTop = null;
   let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
@@ -2029,16 +2031,21 @@ export async function createView(canvas) {
       const { unit } = hud;
       // 📍 World position in metres (x y z), small, after a handle: yours
       // bottom left, everyone else's over their head.
-      const where = (p) => `${p.x.toFixed(1)} ${(p.y || 0).toFixed(1)} ${p.z.toFixed(1)}`;
+      const where = (p) => [[p.x.toFixed(1), AXIS.x], [(p.y || 0).toFixed(1), AXIS.y], [p.z.toFixed(1), AXIS.z]];
       const m = model(({ rect: worldRect, text, handleText, small }) => {
-        const place = (p, left, y, n = 0) => {
+        const place = (p, left, y, n = 0, beside = false) => {
           // 🍄 In the arena the count is the point; elsewhere it follows the position.
           const count = `${n} bop${n === 1 ? '' : 's'}`;
-          const t = ledges ? count : n ? `${where(p)} ${count}` : where(p), cx = left + (smallWidth(t) / 2) * unit;
-          small(t, cx + unit, y - unit, 0.000002, unit, INK);
-          small(t, cx, y, 0, unit, THEME.dim);
+          const parts = [...(ledges || beside ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : [])];
+          for (const [t, c] of parts) {
+            const cx = left + (smallWidth(t) / 2) * unit;
+            small(t, cx + unit, y - unit, 0.000002, unit, INK);
+            small(t, cx, y, 0, unit, c);
+            left += (smallWidth(t) + 3) * unit;
+          }
         };
-        if (ownTag && !game) place(me, ownTag.x, ownTag.y, bops[seat] || 0);
+        // (Your own position is in the column beside the face cam.)
+        if (ownTag && !game) place(me, ownTag.x, ownTag.y, bops[seat] || 0, !!face);
         // 🎮 In a game the score is the headline: top centre, large. A
         // chain in the air reads under it as +points (and xN from the
         // second bop); on landing that flies up into the score, which
@@ -2079,17 +2086,8 @@ export async function createView(canvas) {
             text(label, 0, at, 0, size, 0xff3296);
           }
         }
-        // 🛗 The ride: the floor counter runs from where you were to where
-        // you are going, then the floor's handle sits under it.
-        if (ride && !bare) {
-          const digits = ride.floor ? `${ride.floor}` : 'G', big = unit * 5, y = H / 2 - hud.safeY - 28 * unit;
-          text(digits, unit * 2, y - unit * 2, 0.000002, big, INK);
-          text(digits, 0, y, 0, big, ride.moving ? PAPER : 0xff3296);
-          const word = ride.moving ? (ride.to > ride.from ? 'going up' : 'going down') : ride.handle ? `@${ride.handle}` : 'ground';
-          const wy = y - unit * 32;
-          small(word, unit, wy - unit, 0.000002, unit * 2, INK);
-          small(word, 0, wy, 0, unit * 2, THEME.dim);
-        }
+        // 🛗 The ride is told on the car's own screen (2026-11-19): nothing
+        // of it is laid over the picture.
         // 💬 Chat: the room's last lines up the left side, over the face cam,
         // newest lowest. The line being typed is the top line (above).
         if (chatting) {
@@ -2681,6 +2679,40 @@ export async function createView(canvas) {
         // 8-row glyph box; the glyphs themselves start a row lower.
         let slot = 25;
         const nextSlot = () => ((slot -= 9), slot + 9);
+        // Three rows, the cam's own height: the connection (four rising bars
+        // and its ping), where you stand, your braincells. The frame rate,
+        // when shown, goes under them.
+        {
+          const ping = (connection?.label || '').toLowerCase();
+          const bars = connection?.bars || 0;
+          const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
+          const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
+          const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
+          if (ping) {
+            const pt = nextSlot();
+            const base = pt - 7; // The bars' foot on the glyphs' foot.
+            for (let i = 0; i < 4; i++) {
+              const h = 2 + i * 2, lit = i < bars;
+              px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
+              px(27 + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
+              if (lit) px(27 + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
+            }
+            // The glyphs' foot on the bars' foot (small() takes the top of an 8-row box).
+            const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
+            small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
+            small(ping, tx, ty, 0, unit, pingColor);
+          }
+          // 📍 Where you stand, in metres, each axis in its colour.
+          if (me) {
+            const pt = nextSlot();
+            let left = x0 + 27 * unit;
+            for (const [t, c] of [[me.x.toFixed(1), AXIS.x], [(me.y || 0).toFixed(1), AXIS.y], [me.z.toFixed(1), AXIS.z]]) {
+              const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
+              small(t, cx + unit, cy - unit, 0.000002, unit, INK);
+              small(t, cx, cy, 0, unit, c);
+              left += (smallWidth(t) + 3) * unit;
+            }
+          }
         // Braincells beside the cam: a pixel brain and the count, in purple.
         if (Number.isFinite(braincells)) {
           const bt = nextSlot();
@@ -2705,28 +2737,6 @@ export async function createView(canvas) {
             px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
           }
         }
-        // Under the braincells: the connection as four rising bars and its
-        // ping, then the frame rate, each coloured by health.
-        {
-          const ping = (connection?.label || '').toLowerCase();
-          const bars = connection?.bars || 0;
-          const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
-          const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
-          const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
-          if (ping) {
-            const pt = nextSlot();
-            const base = pt - 7; // The bars' foot on the glyphs' foot.
-            for (let i = 0; i < 4; i++) {
-              const h = 2 + i * 2, lit = i < bars;
-              px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
-              px(27 + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
-              if (lit) px(27 + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
-            }
-            // The glyphs' foot on the bars' foot (small() takes the top of an 8-row box).
-            const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
-            small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
-            small(ping, tx, ty, 0, unit, pingColor);
-          }
           if (SHOW_FPS && fps) {
             const f = `${fps} fps`;
             const fx = x0 + (27 + smallWidth(f) / 2) * unit, fy = y0 + nextSlot() * unit;

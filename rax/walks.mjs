@@ -7,6 +7,8 @@
 //   {t, e:"enter", v, room}                    a connection arrived
 //   {t, e:"who",   v, handle|name, g, seat}    it became someone, or changed seat
 //   {t, e:"leave", v}                          it closed
+//   {t, e:"seam",  v, from, ms}                it walked in over a seam: the room it left, and how long
+//                                             the page had no place in either (its own count)
 //
 // <day>.motion — the gesture, every simulated tick of every seated body (HZ a
 // second, the rate input is applied at). Frames, each:
@@ -118,6 +120,13 @@ export function createWalks({ directory, now = Date.now, keepDays = 35, flushMs 
         if (++v.count >= FRAME) seal(v);
       }
     },
+    // Once a visit: the first count is the walk in.
+    seam(r, { from, ms }) {
+      const v = visits.get(r);
+      if (!directory || !v || v.seam) return;
+      v.seam = true;
+      write({ e: 'seam', v: v.id, from, ms });
+    },
     leave(r) {
       const v = visits.get(r);
       if (!v) return;
@@ -177,6 +186,7 @@ export function readWalks(lines, motion = new Map()) {
       v.guest = !row.handle;
       if (row.seat >= 0) v.seated = true;
     }
+    if (row.e === 'seam') v.seam = { from: row.from, ms: row.ms };
     if (row.e === 'leave') v.left = true;
   }
   for (const v of visits.values()) {
