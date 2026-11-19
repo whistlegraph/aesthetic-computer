@@ -9,6 +9,9 @@
 //   painting {step, tool}               Paint was pressed
 //   painted {step, tool, options}       the proposal is over and is in the painting
 //   refused {step, tool, options}       the proposal was left without Paint (No)
+//   ai {id, note, settings}             an AI turn began; answer with aiResult
+//   failed {step, tool, turn}           an AI turn got no picture; not a step
+//   saving {code}                       Save was pressed
 // The page asks:   {to:"game", id, op, ...}  →  {to:"page", id, result} or {to:"page", id, error}
 //
 //   state                        where the game is
@@ -16,12 +19,87 @@
 //   call {name, args}            call an event-sheet function: "Paint", "No", "Clear"
 //   set {name, value}            write a global variable
 //   goto {layout}                go to a layout by name: "Index"
+//   flags {flags}                raise or lower the tuning's conditions: {ai: true}
+//   odds                         each brush's chance in 100, as the game has it now
+//   sample {n}                   draw n proposals with the game's picker and count them
+//   aiResult {turn, png | error} the picture of an AI turn, or why there is none
+//   code {code}                  the #code Save should show (null: a classic code)
+//   settings                     the tuning's settings for AI turns
+//   force {name}                 make the next proposal this brush, once
 //   pixels {object, data}        read a canvas: hash and ink count, bytes if data is true
 //   load {object, width, height, data}   write RGBA bytes into a canvas
 //
 // The brush test (tests/browser/brushbook.e2e.mjs) drives the game with
 // these, and the page module that stores each step listens to "painted".
+
+// ---- the picker hook --------------------------------------------------------
+// The game rolls between its two lists and then asks its random plugin for a
+// weighted pick. From here that pick is made by classic-picker.js with the
+// numbers in classic-tuning.json (both appended above this file). This runs
+// when the script loads, before the runtime looks the plugin's functions up.
+// A brush's own tables (Stamp, Softy and Build keep some) are left alone, and
+// so is everything if the picker or the tuning is missing.
+const classic = (self.nopaintClassic = { tuning: self.nopaintTuning || null, flags: {}, run: {}, resolved: null, force: null,
+  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null,
+  // The game's Save asks the save server for a code. This is added to that
+  // request (below): it names the AC painting these steps belong to, and the
+  // server hands its #code back as the code.
+  codeQuery() { this.onSaving?.(); return this.code ? `?as=${encodeURIComponent(this.code)}` : ""; } });
+{
+  // The request is wrapped, not its URL: the game works a constant URL out
+  // once, when it loads, so text added to the URL would never run at Save.
+  const ajax = self.C3?.Plugins?.AJAX?.Acts, request = ajax?.Request;
+  if (request) ajax.Request = function (tag, url) {
+    return request.call(this, tag, url === "https://server.nopaint.art/get-code" ? url + classic.codeQuery() : url);
+  };
+}
+// Which list a brush is in, and its entry there.
+const entryOf = (name) => { for (const list of Object.keys(classic.tuning?.split || {})) if (classic.tuning[list]?.[name] !== undefined) return classic.tuning[list][name]; return null; };
+{
+  const plugin = self.C3?.Plugins?.AdvancedRandom, picker = self.nopaintPicker;
+  if (plugin?.Exps?.Weighted && picker && classic.tuning) {
+    const rolled = new Set(["Brushes", "Filters"]); // the lists the 2021 game rolls between
+    const weighted = plugin.Exps.Weighted;
+    plugin.Exps.Weighted = function () {
+      // The plugin knows which table is current, however it was made current:
+      // Stamp picks a painter from a table it creates and never "sets".
+      if (!rolled.has(this._currentProbabilityTableName)) return weighted.call(this);
+      try {
+        classic.resolved ||= picker.resolve(classic.tuning, classic.flags);
+        const name = classic.force || picker.next(classic.run, classic.tuning, classic.resolved);
+        classic.force = null;
+        // An AI turn rides the game's Load brush: Load fetches a picture by a
+        // code and shows it as a proposal. The code names a turn, the page
+        // makes the picture (the bridge says "ai"), and the fetch below waits for it.
+        if (name && entryOf(name)?.ai && classic.runtime) {
+          const id = `ai${++classic.turn}`, notes = classic.tuning.ai?.notes || [];
+          const note = notes[Math.floor(Math.random() * notes.length)] || "surprise me";
+          classic.turns.set(id, { id, name, note, blob: null, error: null, settle: null });
+          classic.runtime.globalVars.Params = id;
+          classic.onTurn?.(classic.turns.get(id));
+          return "Load";
+        }
+        if (name) return name;
+      } catch (error) { console.warn("[nopaint] the tuned pick failed; the game picks", error); }
+      return weighted.call(this);
+    };
+    classic.hooked = true;
+  }
+  // The picture of an AI turn, when the game's Load brush asks for it.
+  const TURN = /^https:\/\/server\.nopaint\.art\/painting\/(ai\d+)\.png$/, fetchBlob = self.C3?.FetchBlob;
+  if (fetchBlob) self.C3.FetchBlob = function (url) {
+    const turn = classic.turns.get(TURN.exec(String(url))?.[1]);
+    if (!turn) return fetchBlob.call(this, url);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => turn.settle?.(null, "the AI turn took too long"), 120000);
+      turn.settle = (blob, error) => { clearTimeout(timer); turn.settle = null; if (blob) resolve(blob); else { turn.error = error || "the AI turn failed"; reject(new Error(turn.error)); } };
+      if (turn.blob) turn.settle(turn.blob); else if (turn.error) turn.settle(null, turn.error);
+    });
+  };
+}
+
 runOnStartup(async (runtime) => {
+  classic.runtime = runtime;
   if (typeof BroadcastChannel !== "function") return;
   const channel = new BroadcastChannel("nopaint-classic");
   const vars = runtime.globalVars;
@@ -65,6 +143,41 @@ runOnStartup(async (runtime) => {
       vars[name] = value;
       return state();
     },
+    // Raise or lower the conditions the tuning names (when: "ai").
+    flags({ flags = {} }) {
+      classic.flags = { ...classic.flags, ...flags };
+      classic.resolved = null;
+      return { flags: classic.flags, hooked: !!classic.hooked };
+    },
+    // The odds as the game has them now: each brush's chance in 100.
+    odds() {
+      if (!classic.hooked) return { hooked: false, odds: null };
+      const table = self.nopaintPicker.table(self.nopaintPicker.resolve(classic.tuning, classic.flags));
+      return { hooked: true, flags: classic.flags, odds: Object.fromEntries(table.map((row) => [row.name, +(row.chance * 100).toFixed(3)])) };
+    },
+    // Draw n proposals with the game's own picker, on a run of their own, and count them.
+    sample({ n = 10000 }) {
+      if (!classic.hooked) return { hooked: false, counts: null };
+      const resolved = self.nopaintPicker.resolve(classic.tuning, classic.flags), run = {}, counts = {};
+      let first = null;
+      for (let i = 0; i < Math.min(n, 1_000_000); i++) { const name = self.nopaintPicker.next(run, classic.tuning, resolved); first ??= name; counts[name] = (counts[name] || 0) + 1; }
+      return { hooked: true, n: Math.min(n, 1_000_000), first, counts };
+    },
+    // The page's answer to "ai": the picture as PNG bytes, or why there is none.
+    // (The turn is named "turn": "id" is the question's own id.)
+    aiResult({ turn: name, png, error }) {
+      const turn = classic.turns.get(name);
+      if (!turn) throw new Error(`no AI turn ${name}`);
+      if (png) turn.blob = new Blob([png], { type: "image/png" }); else turn.error = String(error || "the AI turn failed");
+      turn.settle?.(turn.blob, turn.error);
+      return { turn: name, ok: !!turn.blob };
+    },
+    // The #code of the AC painting on the canvas, or null: what Save will show.
+    code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
+    // The tuning's settings for AI turns, for the page.
+    settings() { return { ai: classic.tuning?.ai || null, hooked: !!classic.hooked }; },
+    // Make the next proposal this brush, once. For tests, and for asking.
+    force({ name }) { classic.force = String(name); return { force: classic.force }; },
     goto({ layout }) {
       runtime.goToLayout(String(layout));
       return state();
@@ -92,12 +205,14 @@ runOnStartup(async (runtime) => {
   // Both carry the brush and the options it ran with.
   const NOT_BRUSHES = /^(Index|Splash|Load|Playlist)$|Profile|PainterStories/;
   const hint = () => String(vars.parameterHint || "").replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "").trim();
+  classic.onSaving = () => say({ event: "saving", code: classic.code });
+  classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, settings: classic.tuning.ai || {} });
   let layout = null, painting = false, proposal = null, steps = 0;
   runtime.addEventListener("tick", () => {
     const now = runtime.layout.name;
     const flag = !!vars.Painting;
     // The options are chosen a moment after the layout starts; keep the latest.
-    if (proposal && now === proposal.tool && !flag) proposal.options = hint() || vars.Params || proposal.options;
+    if (proposal && !proposal.turn && now === proposal.layout && !flag) proposal.options = hint() || vars.Params || proposal.options;
     if (flag !== painting) {
       painting = flag;
       if (flag && proposal) proposal.painted = true;
@@ -106,9 +221,14 @@ runOnStartup(async (runtime) => {
     if (now !== layout) {
       // The proposal is over. The painting holds a Paint only once the game
       // has left the brush, so "painted" is said here and not when the flag falls.
-      if (proposal) say({ event: proposal.painted ? "painted" : "refused", ...state(), step: proposal.step, tool: proposal.tool, options: proposal.options });
+      // An AI turn that never got its picture was not answered: it "failed".
+      if (proposal) say({ event: proposal.painted ? "painted" : proposal.turn?.error ? "failed" : "refused", ...state(),
+        step: proposal.step, tool: proposal.tool, options: proposal.options, ...(proposal.turn ? { turn: proposal.turn.id } : {}) });
       layout = now;
-      proposal = NOT_BRUSHES.test(now) ? null : { step: ++steps, tool: now, options: "", painted: false };
+      // A Load whose code names an AI turn is that turn's proposal.
+      const turn = now === "Load" ? classic.turns.get(String(vars.Params).split(" ")[0]) : null;
+      proposal = turn ? { step: ++steps, layout: now, tool: turn.name, options: turn.note, painted: false, turn }
+        : NOT_BRUSHES.test(now) ? null : { step: ++steps, layout: now, tool: now, options: "", painted: false };
       say({ event: "layout", ...state() });
       if (proposal) say({ event: "proposed", step: proposal.step, tool: proposal.tool });
     }

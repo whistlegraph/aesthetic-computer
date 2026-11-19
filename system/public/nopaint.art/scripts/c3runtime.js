@@ -2447,6 +2447,95 @@ g,b.width),a=getColorIndicesForCoord$$module$str$main(b.width-1-c,g,b.width),d[l
 b[l+3]=Math.min(200,Math.floor((g-c.hardness)/e*255));g=b[l+3]/255*255;b[l]=g;b[l+1]=g;b[l+2]=g}f.objects.VignetteBuffer.getFirstInstance().loadImagePixelData(globalImageData$$module$str$main)},async Buttons_Event111_Act1(f,c){f=rgbToHsl$$module$str$main(c.r/255,c.g/255,c.b/255);c.h=f[0];c.s=f[1];c.l=f[2]},async Core_Event16_Act4(f,c){c=await f.objects.Painting.getFirstInstance().getImagePixelData();const b=c.data;for(let d=0,e=b.length;d<e;d+=4)b[d]=(b[d]+(-15+Math.floor(16*f.random())))%255,b[d+
 1]=(b[d+1]+(-15+Math.floor(16*f.random())))%255,b[d+2]=(b[d+2]+(-15+Math.floor(16*f.random())))%255;f.objects.Painting.getFirstInstance().loadImagePixelData(c)},async Core_Event565_Act1(f,c){f.globalVars.layoutExists=layoutCheck$$module$str$main(f,f.globalVars.promptCommand)},async Core_Event578_Act1(f,c){f=hslToRgb$$module$str$main(c.h,c.s,c.l);c.h=f[0];c.s=f[1];c.l=f[2]}};var module$str$scriptsInEvents={};var module$str$__c3root__={};
 
+/* nopaint-patch:picker:begin */
+// No Paint classic picker, 2026.11.18
+// How the next proposal is chosen, as parameters. The 2021 game (Index event
+// sheet, "Random") takes its first proposal from the Brushes list; after that
+// it takes Brushes two times in three and Filters one time in three, picks
+// from the list by weight, and never offers the same filter twice running.
+// This is those rules with every number open to tuning
+// (toolchain/nopaint/classic-tuning.json), and with room for brushes the 2021
+// lists do not have.
+//
+// It is plain script so the same file runs in the game (appended to the
+// runtime by patch-classic.mjs) and in node (classic-odds.mjs).
+//
+// A tuning is { split: { Brushes: 2, Filters: 1 }, first: "Brushes",
+// norepeat: ["Filters"], Brushes: {...}, Filters: {...} }.
+// There can be any number of lists; a new kind of brush can have its own.
+// An entry is a weight (a number), or { in100: n } to ask for n in 100 of all
+// proposals whatever the other weights are. Either kind may carry
+// when: "flag" to be offered only while that flag is up (the page raises "ai"
+// while an AI turn can be had).
+self.nopaintPicker = {
+  // Turn a tuning into the chance of each brush among all proposals.
+  resolve(tuning, flags = {}) {
+    const lists = {};
+    // A list with nothing to offer right now (every entry waits on a flag that
+    // is down) is left out, and the others share its chance.
+    const open = Object.entries(tuning.split).filter(([list]) => Object.values(tuning[list] || {})
+      .some((entry) => !(entry.when && !flags[entry.when]) && (entry.in100 > 0 || entry.weight > 0 || entry > 0)));
+    const total = open.reduce((sum, [, chance]) => sum + chance, 0);
+    for (const [list, chance] of open) {
+      const share = chance / total; // of all proposals
+      const fixed = {}, asked = {};
+      for (const [name, entry] of Object.entries(tuning[list] || {})) {
+        const value = typeof entry === "number" ? { weight: entry } : entry;
+        if (value.when && !flags[value.when]) continue;
+        if (value.in100 !== undefined) asked[name] = value.in100 / 100 / share; // its share of this list
+        else if (value.weight > 0) fixed[name] = value.weight;
+      }
+      // The asked-for shares come off the top; the weights divide what is left.
+      const taken = Object.values(asked).reduce((a, b) => a + b, 0);
+      if (taken >= 1) throw new Error(`${list}: the in100 entries ask for more than the whole list`);
+      const weight = Object.values(fixed).reduce((a, b) => a + b, 0);
+      const entries = {};
+      for (const [name, value] of Object.entries(fixed)) entries[name] = share * (1 - taken) * value / weight;
+      for (const [name, value] of Object.entries(asked)) entries[name] = share * value;
+      lists[list] = { share, entries };
+    }
+    return lists;
+  },
+  // Every brush with its chance, most likely first.
+  table(resolved) {
+    return Object.entries(resolved)
+      .flatMap(([list, { entries }]) => Object.entries(entries).map(([name, chance]) => ({ name, list, chance })))
+      .sort((a, b) => b.chance - a.chance || a.name.localeCompare(b.name));
+  },
+  // One pick from a list, the way the game asks: the list is already chosen.
+  pick(resolved, list, random = Math.random) {
+    const entries = Object.entries(resolved[list]?.entries || {});
+    let at = random() * entries.reduce((sum, [, chance]) => sum + chance, 0);
+    for (const [name, chance] of entries) { at -= chance; if (at < 0) return name; }
+    return entries.at(-1)?.[0] ?? null;
+  },
+  // One whole proposal: a list by the split, then a brush from it.
+  propose(resolved, random = Math.random) {
+    const lists = Object.entries(resolved);
+    let at = random() * lists.reduce((sum, [, list]) => sum + list.share, 0);
+    for (const [name, list] of lists) { at -= list.share; if (at < 0) return this.pick(resolved, name, random); }
+    return this.pick(resolved, lists.at(-1)[0], random);
+  },
+  // The next proposal of a run, with the two rules that look back: the first
+  // comes from tuning.first, and a list named in tuning.norepeat never gives
+  // the same brush twice running. `run` is { count, last }, kept by the caller.
+  next(run, tuning, resolved, random = Math.random) {
+    const first = !run.count && tuning.first && resolved[tuning.first];
+    let name = first ? this.pick(resolved, tuning.first, random) : this.propose(resolved, random);
+    const list = (brush) => Object.keys(resolved).find((key) => brush in resolved[key].entries);
+    for (let tries = 0; tries < 50 && name === run.last && (tuning.norepeat || []).includes(list(name)) && Object.keys(resolved[list(name)].entries).length > 1; tries++)
+      name = this.pick(resolved, list(name), random);
+    run.count = (run.count || 0) + 1;
+    run.last = name;
+    return name;
+  },
+};
+/* nopaint-patch:picker:end */
+
+/* nopaint-patch:tuning:begin */
+self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. split: the chance of each list. first: the list the first proposal comes from. norepeat: lists that never give the same brush twice running. An entry is a weight, or {in100: n} to ask for n in 100 of all proposals; when: \"ai\" offers it only while an AI turn can be had. Print the table: node toolchain/nopaint/classic-odds.mjs","split":{"Brushes":63.33,"Filters":31.67,"AI":5},"first":"Brushes","norepeat":["Filters"],"Brushes":{"Aura":0.4,"Banner":1,"Box":1.5,"Breathe":0.5,"Bubbles":0.6,"Build":1,"Caterpillar":0.25,"Dark Window":0.6,"Ellipse":0.8,"Frame":0.25,"Grid Worm":0.35,"Line":0.8,"Softy":1.5,"Stamp":2,"Triangle":0.8,"Vignette":0.4,"Wafer":0.8,"Walker":0.2},"Filters":{"Blur":1,"Contrast":1,"Flip":1,"Invert":1,"Light Bump":1,"Mirror":1,"Noise":1,"Quicksand":1,"Rainbow":1,"Recurse":1,"Saturate":1,"Scroll":1,"Sharpen":1,"Spin":1,"Turn":1,"Wipe":1,"Zoom":1},"AI":{"AI":{"weight":1,"when":"ai","ai":true}},"ai":{"strength":0.5,"guests":true,"notes":["add something surprising","make it stranger","add a small creature","turn it into a landscape","add weather","make it glow","fill the empty parts","add a pattern","make it look older","add a face somewhere","paint over it loosely","add something from the sea"]}};
+/* nopaint-patch:tuning:end */
+
 /* nopaint-patch:bridge:begin */
 // No Paint classic bridge, 2026.11.18
 // Appended to scripts/c3runtime.js by toolchain/nopaint/patch-classic.mjs.
@@ -2459,6 +2548,9 @@ b[l+3]=Math.min(200,Math.floor((g-c.hardness)/e*255));g=b[l+3]/255*255;b[l]=g;b[
 //   painting {step, tool}               Paint was pressed
 //   painted {step, tool, options}       the proposal is over and is in the painting
 //   refused {step, tool, options}       the proposal was left without Paint (No)
+//   ai {id, note, settings}             an AI turn began; answer with aiResult
+//   failed {step, tool, turn}           an AI turn got no picture; not a step
+//   saving {code}                       Save was pressed
 // The page asks:   {to:"game", id, op, ...}  →  {to:"page", id, result} or {to:"page", id, error}
 //
 //   state                        where the game is
@@ -2466,12 +2558,87 @@ b[l+3]=Math.min(200,Math.floor((g-c.hardness)/e*255));g=b[l+3]/255*255;b[l]=g;b[
 //   call {name, args}            call an event-sheet function: "Paint", "No", "Clear"
 //   set {name, value}            write a global variable
 //   goto {layout}                go to a layout by name: "Index"
+//   flags {flags}                raise or lower the tuning's conditions: {ai: true}
+//   odds                         each brush's chance in 100, as the game has it now
+//   sample {n}                   draw n proposals with the game's picker and count them
+//   aiResult {turn, png | error} the picture of an AI turn, or why there is none
+//   code {code}                  the #code Save should show (null: a classic code)
+//   settings                     the tuning's settings for AI turns
+//   force {name}                 make the next proposal this brush, once
 //   pixels {object, data}        read a canvas: hash and ink count, bytes if data is true
 //   load {object, width, height, data}   write RGBA bytes into a canvas
 //
 // The brush test (tests/browser/brushbook.e2e.mjs) drives the game with
 // these, and the page module that stores each step listens to "painted".
+
+// ---- the picker hook --------------------------------------------------------
+// The game rolls between its two lists and then asks its random plugin for a
+// weighted pick. From here that pick is made by classic-picker.js with the
+// numbers in classic-tuning.json (both appended above this file). This runs
+// when the script loads, before the runtime looks the plugin's functions up.
+// A brush's own tables (Stamp, Softy and Build keep some) are left alone, and
+// so is everything if the picker or the tuning is missing.
+const classic = (self.nopaintClassic = { tuning: self.nopaintTuning || null, flags: {}, run: {}, resolved: null, force: null,
+  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null,
+  // The game's Save asks the save server for a code. This is added to that
+  // request (below): it names the AC painting these steps belong to, and the
+  // server hands its #code back as the code.
+  codeQuery() { this.onSaving?.(); return this.code ? `?as=${encodeURIComponent(this.code)}` : ""; } });
+{
+  // The request is wrapped, not its URL: the game works a constant URL out
+  // once, when it loads, so text added to the URL would never run at Save.
+  const ajax = self.C3?.Plugins?.AJAX?.Acts, request = ajax?.Request;
+  if (request) ajax.Request = function (tag, url) {
+    return request.call(this, tag, url === "https://server.nopaint.art/get-code" ? url + classic.codeQuery() : url);
+  };
+}
+// Which list a brush is in, and its entry there.
+const entryOf = (name) => { for (const list of Object.keys(classic.tuning?.split || {})) if (classic.tuning[list]?.[name] !== undefined) return classic.tuning[list][name]; return null; };
+{
+  const plugin = self.C3?.Plugins?.AdvancedRandom, picker = self.nopaintPicker;
+  if (plugin?.Exps?.Weighted && picker && classic.tuning) {
+    const rolled = new Set(["Brushes", "Filters"]); // the lists the 2021 game rolls between
+    const weighted = plugin.Exps.Weighted;
+    plugin.Exps.Weighted = function () {
+      // The plugin knows which table is current, however it was made current:
+      // Stamp picks a painter from a table it creates and never "sets".
+      if (!rolled.has(this._currentProbabilityTableName)) return weighted.call(this);
+      try {
+        classic.resolved ||= picker.resolve(classic.tuning, classic.flags);
+        const name = classic.force || picker.next(classic.run, classic.tuning, classic.resolved);
+        classic.force = null;
+        // An AI turn rides the game's Load brush: Load fetches a picture by a
+        // code and shows it as a proposal. The code names a turn, the page
+        // makes the picture (the bridge says "ai"), and the fetch below waits for it.
+        if (name && entryOf(name)?.ai && classic.runtime) {
+          const id = `ai${++classic.turn}`, notes = classic.tuning.ai?.notes || [];
+          const note = notes[Math.floor(Math.random() * notes.length)] || "surprise me";
+          classic.turns.set(id, { id, name, note, blob: null, error: null, settle: null });
+          classic.runtime.globalVars.Params = id;
+          classic.onTurn?.(classic.turns.get(id));
+          return "Load";
+        }
+        if (name) return name;
+      } catch (error) { console.warn("[nopaint] the tuned pick failed; the game picks", error); }
+      return weighted.call(this);
+    };
+    classic.hooked = true;
+  }
+  // The picture of an AI turn, when the game's Load brush asks for it.
+  const TURN = /^https:\/\/server\.nopaint\.art\/painting\/(ai\d+)\.png$/, fetchBlob = self.C3?.FetchBlob;
+  if (fetchBlob) self.C3.FetchBlob = function (url) {
+    const turn = classic.turns.get(TURN.exec(String(url))?.[1]);
+    if (!turn) return fetchBlob.call(this, url);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => turn.settle?.(null, "the AI turn took too long"), 120000);
+      turn.settle = (blob, error) => { clearTimeout(timer); turn.settle = null; if (blob) resolve(blob); else { turn.error = error || "the AI turn failed"; reject(new Error(turn.error)); } };
+      if (turn.blob) turn.settle(turn.blob); else if (turn.error) turn.settle(null, turn.error);
+    });
+  };
+}
+
 runOnStartup(async (runtime) => {
+  classic.runtime = runtime;
   if (typeof BroadcastChannel !== "function") return;
   const channel = new BroadcastChannel("nopaint-classic");
   const vars = runtime.globalVars;
@@ -2515,6 +2682,41 @@ runOnStartup(async (runtime) => {
       vars[name] = value;
       return state();
     },
+    // Raise or lower the conditions the tuning names (when: "ai").
+    flags({ flags = {} }) {
+      classic.flags = { ...classic.flags, ...flags };
+      classic.resolved = null;
+      return { flags: classic.flags, hooked: !!classic.hooked };
+    },
+    // The odds as the game has them now: each brush's chance in 100.
+    odds() {
+      if (!classic.hooked) return { hooked: false, odds: null };
+      const table = self.nopaintPicker.table(self.nopaintPicker.resolve(classic.tuning, classic.flags));
+      return { hooked: true, flags: classic.flags, odds: Object.fromEntries(table.map((row) => [row.name, +(row.chance * 100).toFixed(3)])) };
+    },
+    // Draw n proposals with the game's own picker, on a run of their own, and count them.
+    sample({ n = 10000 }) {
+      if (!classic.hooked) return { hooked: false, counts: null };
+      const resolved = self.nopaintPicker.resolve(classic.tuning, classic.flags), run = {}, counts = {};
+      let first = null;
+      for (let i = 0; i < Math.min(n, 1_000_000); i++) { const name = self.nopaintPicker.next(run, classic.tuning, resolved); first ??= name; counts[name] = (counts[name] || 0) + 1; }
+      return { hooked: true, n: Math.min(n, 1_000_000), first, counts };
+    },
+    // The page's answer to "ai": the picture as PNG bytes, or why there is none.
+    // (The turn is named "turn": "id" is the question's own id.)
+    aiResult({ turn: name, png, error }) {
+      const turn = classic.turns.get(name);
+      if (!turn) throw new Error(`no AI turn ${name}`);
+      if (png) turn.blob = new Blob([png], { type: "image/png" }); else turn.error = String(error || "the AI turn failed");
+      turn.settle?.(turn.blob, turn.error);
+      return { turn: name, ok: !!turn.blob };
+    },
+    // The #code of the AC painting on the canvas, or null: what Save will show.
+    code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
+    // The tuning's settings for AI turns, for the page.
+    settings() { return { ai: classic.tuning?.ai || null, hooked: !!classic.hooked }; },
+    // Make the next proposal this brush, once. For tests, and for asking.
+    force({ name }) { classic.force = String(name); return { force: classic.force }; },
     goto({ layout }) {
       runtime.goToLayout(String(layout));
       return state();
@@ -2542,12 +2744,14 @@ runOnStartup(async (runtime) => {
   // Both carry the brush and the options it ran with.
   const NOT_BRUSHES = /^(Index|Splash|Load|Playlist)$|Profile|PainterStories/;
   const hint = () => String(vars.parameterHint || "").replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "").trim();
+  classic.onSaving = () => say({ event: "saving", code: classic.code });
+  classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, settings: classic.tuning.ai || {} });
   let layout = null, painting = false, proposal = null, steps = 0;
   runtime.addEventListener("tick", () => {
     const now = runtime.layout.name;
     const flag = !!vars.Painting;
     // The options are chosen a moment after the layout starts; keep the latest.
-    if (proposal && now === proposal.tool && !flag) proposal.options = hint() || vars.Params || proposal.options;
+    if (proposal && !proposal.turn && now === proposal.layout && !flag) proposal.options = hint() || vars.Params || proposal.options;
     if (flag !== painting) {
       painting = flag;
       if (flag && proposal) proposal.painted = true;
@@ -2556,9 +2760,14 @@ runOnStartup(async (runtime) => {
     if (now !== layout) {
       // The proposal is over. The painting holds a Paint only once the game
       // has left the brush, so "painted" is said here and not when the flag falls.
-      if (proposal) say({ event: proposal.painted ? "painted" : "refused", ...state(), step: proposal.step, tool: proposal.tool, options: proposal.options });
+      // An AI turn that never got its picture was not answered: it "failed".
+      if (proposal) say({ event: proposal.painted ? "painted" : proposal.turn?.error ? "failed" : "refused", ...state(),
+        step: proposal.step, tool: proposal.tool, options: proposal.options, ...(proposal.turn ? { turn: proposal.turn.id } : {}) });
       layout = now;
-      proposal = NOT_BRUSHES.test(now) ? null : { step: ++steps, tool: now, options: "", painted: false };
+      // A Load whose code names an AI turn is that turn's proposal.
+      const turn = now === "Load" ? classic.turns.get(String(vars.Params).split(" ")[0]) : null;
+      proposal = turn ? { step: ++steps, layout: now, tool: turn.name, options: turn.note, painted: false, turn }
+        : NOT_BRUSHES.test(now) ? null : { step: ++steps, layout: now, tool: now, options: "", painted: false };
       say({ event: "layout", ...state() });
       if (proposal) say({ event: "proposed", step: proposal.step, tool: proposal.tool });
     }

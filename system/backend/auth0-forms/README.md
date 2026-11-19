@@ -7,6 +7,8 @@ already named. Source of record for three things that live in Auth0:
 - `flow.json` — the flow. It POSTs the name to `https://aesthetic.computer/handle`
   with the signup secret and shows AC's reply when the name is refused.
 - `form.json` — the form: one field, one button, then the flow.
+- `form.css` — the form's look: the sign-in page's typeface and logo, and a
+  refusal as plain red text under the field. The installer inlines it.
 - `ask-handle.js` — the post-login Action that shows the form when AC says the
   account has no handle.
 

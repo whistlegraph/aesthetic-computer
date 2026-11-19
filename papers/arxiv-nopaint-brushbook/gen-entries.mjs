@@ -77,8 +77,11 @@ if (from) {
 const summary = existsSync(join(HERE, "e2e-summary.json")) ? read("e2e-summary.json") : { cases: [] };
 const cases = Object.fromEntries(summary.cases.map((c) => [c.brush, c]));
 
-// Share of all proposals: one of the two tables at even odds, then by weight.
-const share = (brush) => brush.table ? 0.5 * brush.weight / totals[brush.table] : 0;
+// Share of all proposals in a long run. The game's main loop (Index sheet,
+// "Random") takes Brushes two times in three and Filters one time in three,
+// then picks from the list by weight.
+const SPLIT = { Brushes: 2 / 3, Filters: 1 / 3 };
+const share = (brush) => brush.table ? SPLIT[brush.table] * brush.weight / totals[brush.table] : 0;
 const percent = (p) => p >= 0.0995 ? `${Math.round(p * 100)}` : (p * 100).toFixed(1).replace(/\.0$/, "");
 const kind = (brush) => brush.table === "Filters" ? "filter" : brush.table === "Brushes" ? "brush" : "by name";
 
@@ -149,7 +152,7 @@ for (const [name, title] of [["Brushes", "Brushes: they add something"], ["Filte
   const rows = brushes.filter((b) => b.table === name).sort((a, b) => b.weight - a.weight || a.name.localeCompare(b.name));
   tab += `\\fullwidth{\\backhead{${title}}\n\\noindent{\\footnotesize\\arrayrulecolor{acgray!40}\\renewcommand{\\arraystretch}{1.3}\\begin{tabularx}{\\linewidth}{@{}l L r r r@{}}\\hline\n & & weight & in 100 & page \\\\\\hline\n`;
   for (const b of rows) tab += `\\spl{${esc(b.name)}} & ${bar(b)} & ${b.weight} & ${percent(share(b))} & \\pageref{${b.label}} \\\\\\hline\n`;
-  tab += `total & & ${totals[name]} & 50 & \\\\\\hline\n\\end{tabularx}}}\n`;
+  tab += `total & & ${totals[name]} & ${percent(SPLIT[name])} & \\\\\\hline\n\\end{tabularx}}}\n`;
 }
 const named = brushes.filter((b) => !b.table);
 tab += `\\fullwidth{\\backhead{By name only}\n\\noindent{\\footnotesize ${named.map((b) => `\\spl{${esc(b.name)}} p.\\,\\pageref{${b.label}}`).join("\\quad ")}}}\n`;

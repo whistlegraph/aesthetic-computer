@@ -1,0 +1,12 @@
+@font-face{font-family:"ac-processing";src:url("https://assets.aesthetic.computer/type%2Fwebfonts%2Fywft-processing-bold.woff") format("woff");font-display:swap}
+.af-form,.af-form *{font-family:"ac-processing",ulp-font,-apple-system,system-ui,sans-serif!important}
+.af-form h3{font-size:27px!important;line-height:1.2!important;font-weight:400!important;text-align:center!important;margin:0 0 8px!important}
+.af-form h3 strong{font-weight:400!important}
+.af-form h3::before{content:"";display:block;width:64px;height:64px;margin:0 auto 18px;background:url("https://pals.aesthetic.computer") center/contain no-repeat}
+.af-form h3+p{text-align:center!important;color:#65676e!important;margin:0 0 8px!important}
+.af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:-2px 0 14px!important;min-height:0!important}
+.af-form .af-scenarioMessage-error::before,.af-form .af-scenarioMessage-error::after{display:none!important}
+.af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:16px!important;line-height:1.35!important;margin:0!important;padding:0!important}
+.af-form:has(.af-scenarioMessage-error) .af-stringField-input{border-color:#e1285b!important}
+.af-form .af-stringField-input:focus{border-color:#a32770!important;outline:2px solid #a32770!important;outline-offset:0!important;box-shadow:none!important}
+.af-form .af-char-counter{color:#65676e!important;font-size:14px!important}

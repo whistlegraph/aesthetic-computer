@@ -108,6 +108,16 @@ enum Theme {
 // affiliated with Signal.
 enum Brand {
     static let signalPath = "M12 0q-.934 0-1.83.139l.17 1.111a11 11 0 0 1 3.32 0l.172-1.111A12 12 0 0 0 12 0M9.152.34A12 12 0 0 0 5.77 1.742l.584.961a10.8 10.8 0 0 1 3.066-1.27zm5.696 0-.268 1.094a10.8 10.8 0 0 1 3.066 1.27l.584-.962A12 12 0 0 0 14.848.34M12 2.25a9.75 9.75 0 0 0-8.539 14.459c.074.134.1.292.064.441l-1.013 4.338 4.338-1.013a.62.62 0 0 1 .441.064A9.7 9.7 0 0 0 12 21.75c5.385 0 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25m-7.092.068a12 12 0 0 0-2.59 2.59l.909.664a11 11 0 0 1 2.345-2.345zm14.184 0-.664.909a11 11 0 0 1 2.345 2.345l.909-.664a12 12 0 0 0-2.59-2.59M1.742 5.77A12 12 0 0 0 .34 9.152l1.094.268a10.8 10.8 0 0 1 1.269-3.066zm20.516 0-.961.584a10.8 10.8 0 0 1 1.27 3.066l1.093-.268a12 12 0 0 0-1.402-3.383M.138 10.168A12 12 0 0 0 0 12q0 .934.139 1.83l1.111-.17A11 11 0 0 1 1.125 12q0-.848.125-1.66zm23.723.002-1.111.17q.125.812.125 1.66c0 .848-.042 1.12-.125 1.66l1.111.172a12.1 12.1 0 0 0 0-3.662M1.434 14.58l-1.094.268a12 12 0 0 0 .96 2.591l-.265 1.14 1.096.255.36-1.539-.188-.365a10.8 10.8 0 0 1-.87-2.35m21.133 0a10.8 10.8 0 0 1-1.27 3.067l.962.584a12 12 0 0 0 1.402-3.383zm-1.793 3.848a11 11 0 0 1-2.345 2.345l.664.909a12 12 0 0 0 2.59-2.59zm-19.959 1.1L.357 21.48a1.8 1.8 0 0 0 2.162 2.161l1.954-.455-.256-1.095-1.953.455a.675.675 0 0 1-.81-.81l.454-1.954zm16.832 1.769a10.8 10.8 0 0 1-3.066 1.27l.268 1.093a12 12 0 0 0 3.382-1.402zm-10.94.213-1.54.36.256 1.095 1.139-.266c.814.415 1.683.74 2.591.961l.268-1.094a10.8 10.8 0 0 1-2.35-.869zm3.634 1.24-.172 1.111a12.1 12.1 0 0 0 3.662 0l-.17-1.111q-.812.125-1.66.125a11 11 0 0 1-1.66-.125"
+    // Authentik's logo (the same set): the club's login is an Authentik page.
+    static let authentikPath = "M13.96 9.01h-.84V7.492h-1.234v3.663H5.722c.34.517.538.982.538 1.152 0 .46-1.445 3.059-3.197 3.059C.8 15.427-.745 12.8.372 10.855a3.062 3.062 0 0 1 2.691-1.606c1.04 0 1.971.915 2.557 1.755V6.577a3.773 3.773 0 0 1 3.77-3.769h10.84C22.31 2.808 24 4.5 24 6.577v10.845a3.773 3.773 0 0 1-3.77 3.769h-1.6V17.5h-7.64v3.692h-1.6a3.773 3.773 0 0 1-3.77-3.769v-3.41h12.114v-6.52h-1.59v.893h-.84v-.893H13.96v1.516Zm-9.956 1.845c-.662-.703-1.578-.544-2.209 0-2.105 2.054 1.338 5.553 3.302 1.447a5.395 5.395 0 0 0-1.093-1.447Z"
+    static func authentik(size: CGFloat) -> NSImage? { mark(authentikPath, size) }
+    private static func mark(_ path: String, _ size: CGFloat) -> NSImage? {
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" width=\"\(size)\" height=\"\(size)\"><path d=\"\(path)\"/></svg>"
+        guard let img = NSImage(data: Data(svg.utf8)) else { return nil }
+        img.size = NSSize(width: size, height: size)
+        img.isTemplate = true
+        return img
+    }
     static func signal(size: CGFloat) -> NSImage? {
         let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" width=\"\(size)\" height=\"\(size)\"><path d=\"\(signalPath)\"/></svg>"
         guard let img = NSImage(data: Data(svg.utf8)) else { return Pixel.icon("signal", size: size) }
@@ -449,11 +459,13 @@ final class Unibar: NSView {
     var color: NSColor = Donut.icing { didSet { needsDisplay = true } }
     var unread = 0 { didSet { needsDisplay = true } }
     var open = false { didSet { needsDisplay = true } }
+    // Until one login is done there is nowhere to go: no arrow, and a press does nothing.
+    var locked = false { didSet { needsDisplay = true; window?.invalidateCursorRects(for: self) } }
     private var hover = false { didSet { if hover != oldValue { needsDisplay = true } } }
 
     override func draw(_ dirty: NSRect) {
         Tab.draw(in: NSRect(x: -10, y: 0, width: bounds.width + 20, height: bounds.height + 13), fill: color, open: true, top: true)
-        if hover || open {
+        if (hover || open) && !locked {
             NSColor(white: 1, alpha: 0.16).setFill()
             bounds.fill(using: .sourceOver)
         }
@@ -476,8 +488,10 @@ final class Unibar: NSView {
             name.draw(at: NSPoint(x: x, y: mid - name.size().height / 2))
             x += name.size().width + 8
         }
-        let arrow = NSAttributedString(string: open ? "▴" : "▾", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: on])
-        arrow.draw(at: NSPoint(x: x, y: mid - arrow.size().height / 2))
+        if !locked {
+            let arrow = NSAttributedString(string: open ? "▴" : "▾", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: on])
+            arrow.draw(at: NSPoint(x: x, y: mid - arrow.size().height / 2))
+        }
         if unread > 0 {
             let n = NSAttributedString(string: "\(unread)", attributes: [.font: Theme.mono(11, bold: true), .foregroundColor: Theme.onYellow])
             let pill = NSRect(x: bounds.maxX - n.size().width - 26, y: mid - 9, width: n.size().width + 16, height: 18)
@@ -493,8 +507,8 @@ final class Unibar: NSView {
     }
     override func mouseEntered(with event: NSEvent) { hover = true }
     override func mouseExited(with event: NSEvent) { hover = false }
-    override func mouseDown(with event: NSEvent) { onClick?() }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .pointingHand) }
+    override func mouseDown(with event: NSEvent) { if !locked { onClick?() } }
+    override func resetCursorRects() { if !locked { addCursorRect(bounds, cursor: .pointingHand) } }
 }
 
 // The first tab of the rail: the wordmark, with a house to its left. It is the
@@ -597,12 +611,14 @@ final class BigButton: NSView {
     private(set) var hosted: NSView?
     private var below: NSLayoutConstraint!, centred: NSLayoutConstraint!
     private var qrSlot: NSView?
+    private var hostHead: NSView?
     var busy: Bool { hosted != nil || code.image != nil }        // a login is in progress in this pane
     // A strip: the other pane's login has the room, and this one shows its one line.
     var compact = false { didSet { if compact != oldValue { arrange() } } }
     private func arrange() {
         let flow = !compact
         hosted?.isHidden = !flow
+        hostHead?.isHidden = !flow
         code.isHidden = !flow || code.image == nil
         codeLine.isHidden = code.isHidden
         logo.isHidden = compact || busy
@@ -620,12 +636,27 @@ final class BigButton: NSView {
         hosted?.removeFromSuperview()
         hosted = v
         arrange()
+        hostHead?.removeFromSuperview()
+        hostHead = nil
         guard let v else { return }
+        // over the form: whose login this is (the club's, by Authentik)
+        let glyph = NSImageView()
+        glyph.image = Brand.authentik(size: 18)
+        glyph.contentTintColor = .white
+        let words = NSTextField(labelWithString: "NCC login · authentik")
+        words.font = Theme.mono(11, bold: true)
+        words.textColor = .white
+        let head = NSStackView(views: [glyph, words])
+        head.spacing = 6
+        head.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(head)
+        hostHead = head
         v.translatesAutoresizingMaskIntoConstraints = false
         addSubview(v)
         NSLayoutConstraint.activate([
+            head.centerXAnchor.constraint(equalTo: centerXAnchor), head.topAnchor.constraint(equalTo: topAnchor, constant: 10),
             v.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8), v.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            v.topAnchor.constraint(equalTo: topAnchor, constant: 8), v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(lip + 8)),
+            v.topAnchor.constraint(equalTo: head.bottomAnchor, constant: 4), v.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -(lip + 8)),
         ])
     }
 
@@ -794,13 +825,26 @@ final class LinkPanel: NSView {
         }
         for w in [status, nccStatus] { w.onChange = { [weak self] in self?.sync() } }
         for d in [button, nccButton] { d.onChange = { [weak self] in self?.sync() } }
+        let word = NSTextField(labelWithString: "← back")
+        word.font = Theme.mono(11, bold: true)
+        word.textColor = .white
+        back.addArrangedSubview(word)
+        back.edgeInsets = NSEdgeInsets(top: 4, left: 8, bottom: 4, right: 8)
+        back.wantsLayer = true
+        back.layer?.backgroundColor = NSColor(white: 0, alpha: 0.3).cgColor
+        back.layer?.cornerRadius = 5
+        back.isHidden = true
+        back.onClick = { [weak self] in self?.onBack?() }
+        back.translatesAutoresizingMaskIntoConstraints = false
         panes.addArrangedSubview(signalPane)
         panes.addArrangedSubview(nccPane)
         panes.distribution = .fillEqually
         panes.spacing = 8
         panes.translatesAutoresizingMaskIntoConstraints = false
         addSubview(panes)
+        addSubview(back)
         NSLayoutConstraint.activate([
+            back.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10), back.topAnchor.constraint(equalTo: topAnchor, constant: 15),
             panes.leadingAnchor.constraint(equalTo: leadingAnchor), panes.trailingAnchor.constraint(equalTo: trailingAnchor),
             // as far from the bar above as from the bar below, and as from the sides
             panes.topAnchor.constraint(equalTo: topAnchor, constant: 5), panes.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -5),
@@ -809,29 +853,18 @@ final class LinkPanel: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
 
-    // The login in progress has the room: its pane takes the sheet, and the
-    // other is squashed to a strip with its one line (press it to swap). With
-    // no login in progress the two panes share the sheet.
-    private var strip: NSLayoutConstraint?
+    // One login at a time: the one in progress has the whole sheet, the other
+    // pane is out of sight, and "← back" stops it and brings both buttons back.
+    var onBack: (() -> Void)?
+    private let back = Press(views: [])
     private var focus: BigButton? { didSet { balance() } }
     private func balance() {
-        strip?.isActive = false
-        strip = nil
-        signalPane.compact = focus != nil && focus !== signalPane
-        nccPane.compact = focus != nil && focus !== nccPane
-        if let small = [signalPane, nccPane].first(where: { $0!.compact }) ?? nil {
-            panes.orientation = .vertical
-            panes.distribution = .fill
-            strip = small.heightAnchor.constraint(equalToConstant: 44)
-            strip?.isActive = true
-        } else {
-            panes.distribution = .fillEqually
-            orient(bounds.size)
-        }
+        signalPane.isHidden = focus != nil && focus !== signalPane
+        nccPane.isHidden = focus != nil && focus !== nccPane
+        back.isHidden = focus == nil
+        if focus == nil { orient(bounds.size) }
     }
-    private func settle() {             // a login ended: the other one, if it is under way, has the room
-        if let f = focus, !f.busy { focus = [signalPane, nccPane].compactMap { $0 }.first { $0.busy } }
-    }
+    private func settle() { if let f = focus, !f.busy { focus = nil } }      // the login ended
 
     // The NCC login runs in NCC's own pane (nil: the button again).
     func showNCC(_ web: NSView?) {
@@ -1775,6 +1808,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
     // The search is greyed out until there is something to search: one login, at least.
     func setSearchEnabled(_ on: Bool) {
+        unibar.locked = !on                  // the same rule: nothing to open until one login is done
+        if !on { dropOpen = false }
         barSearch.isEnabled = on
         searchField.isEnabled = on
         barSearchBox.alphaValue = on ? 1 : 0.4

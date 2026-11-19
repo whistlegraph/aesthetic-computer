@@ -54,7 +54,7 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
         .pf-c-brand, img.branding-logo, .pf-c-login__main-header, h1.pf-c-title { display: none !important; }
         p, label, span, a { white-space: nowrap !important; }
         .pf-c-login__main { background: transparent !important; box-shadow: none !important; border: 0 !important;
-          margin: 0 auto !important; max-width: 520px !important; min-width: 0 !important; width: 100% !important; }
+          margin: 0 auto !important; max-width: 440px !important; min-width: 0 !important; width: 100% !important; flex: 0 0 auto !important; }
         .pf-c-login__main-header { padding: 4px 0 8px !important; }
         img.branding-logo { height: 30px !important; max-height: 30px !important; width: auto !important; }
         .pf-c-form__group.pf-m-action { margin-top: 4px !important; }
@@ -147,13 +147,18 @@ final class WikiLogin: NSObject, WKNavigationDelegate {
     var zoom: CGFloat = 1 { didSet { fit() } }
     func fit() {
         guard !done, web.bounds.height > 0 else { return }
-        // the form's own height at no zoom, whatever the zoom is now
-        let js = "(function(){var e=document.querySelector('ak-flow-executor');var m=e&&e.shadowRoot&&e.shadowRoot.querySelector('.pf-c-login__main');return m?m.scrollHeight+28:document.documentElement.scrollHeight;})()"
+        // The form's own size at no zoom (its fields and button, not the page round
+        // them), and then the zoom at which it fills its pane: larger in a large
+        // pane, smaller in a small one, and whole in both.
+        let js = """
+        (function(){var e=document.querySelector('ak-flow-executor');var st=e&&e.shadowRoot&&e.shadowRoot.querySelector('ak-stage-identification');
+        var f=st&&st.shadowRoot&&st.shadowRoot.querySelector('form');return f?[f.scrollHeight+120,f.scrollWidth]:null;})()
+        """
         web.evaluateJavaScript(js) { [weak self] v, _ in
-            guard let self, let tall = (v as? NSNumber)?.doubleValue, tall > 0 else { return }
-            let fits = self.web.bounds.height / CGFloat(tall)
-            let z = max(0.3, min(1, fits * 0.97)) * self.zoom
-            if abs(self.web.pageZoom - z) > 0.01 { self.web.pageZoom = z }
+            guard let self, let a = v as? [NSNumber], a.count == 2, a[0].doubleValue > 0 else { return }
+            let tall = CGFloat(a[0].doubleValue), wide: CGFloat = 440       // the form is drawn 440 wide at no zoom
+            let z = max(0.3, min(1.9, min(self.web.bounds.height / tall, self.web.bounds.width / (wide + 40)) * 0.94)) * self.zoom
+            if abs(self.web.pageZoom - z) > 0.02 { self.web.pageZoom = z }
         }
     }
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) { look() }

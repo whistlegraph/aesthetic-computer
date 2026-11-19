@@ -359,6 +359,56 @@ runs, so it can be taken away. The worked example of section 6 is the first
 test in `toolchain/nopaint/patch-classic.test.mjs`
 (`node --test toolchain/nopaint/patch-classic.test.mjs`).
 
+### Tuning the odds (added 2026-11-18)
+
+How the next proposal is chosen is a patch with parameters.
+
+- The rule: `toolchain/nopaint/classic-picker.js`. The 2021 game takes its
+  first proposal from Brushes, then Brushes two times in three and Filters one
+  time in three, picks by weight, and never offers the same filter twice
+  running. (The `choose("Brushes", "Filters")` in the source runs only for a
+  `?` at the prompt or in a playlist.)
+- The numbers: `toolchain/nopaint/classic-tuning.json`. `split` is the chance
+  of each list, `first` the list of the first proposal, `norepeat` the lists
+  that never repeat. An entry is a weight, or `{"in100": n}`, and may carry
+  `"when": "ai"` to be offered only while that flag is up. A new kind of brush
+  can have its own list.
+- `npm run nopaint:classic:odds` prints the table: 2021 beside tuned.
+  `-- --sample 100000` also draws that many; `-- --no-ai` lowers the flag.
+- Both files are appended to the runtime by `patch-classic.mjs`, and the
+  bridge replaces the random plugin's weighted pick with the picker when the
+  game has set its `Brushes` or `Filters` table. Bridge ops: `flags`, `odds`,
+  `sample`.
+- To tune: edit the JSON, `npm run nopaint:classic:patch`,
+  `npm run test:nopaint:steps` (it checks the game's odds against the file),
+  deploy.
+- One difference from 2021 with the 2021 numbers: a `?` at the prompt or in a
+  playlist now uses the same split as the main loop (two in three) and not
+  even odds.
+
+### AI turns and Save (added 2026-11-18)
+
+Neither changes `data.json`. Both wrap a plugin function from the bridge, as
+the picker does. (A constant in an event, such as a URL, is worked out once
+when the game loads, so replacing its text does not run later. Wrap the
+function that uses it.)
+
+- **AI turn.** The tuning's `AI` list has one entry marked `"ai": true`. When
+  the picker picks it, the bridge sets the game's `Params` to a turn id,
+  returns `Load`, and says `ai {id, note}`. The game's Load brush then fetches
+  `https://server.nopaint.art/painting/<id>.png`; the bridge's wrapped
+  `C3.FetchBlob` holds that fetch until the page answers `aiResult {turn,
+  png}`. The page (`classic-steps.mjs`) makes the picture with Note Paint's
+  move, `POST /api/nopaint-inference`: the painting, the note the game chose
+  from `tuning.ai.notes`, and a strength. A guest uses the service's one free
+  turn; a signed-in painter pays Braincells and turns AI on with a chip. The
+  bridge reports the step as tool `AI` with the note as its options.
+- **Save.** The bridge wraps `C3.Plugins.AJAX.Acts.Request` and adds
+  `?as=<#code>` to the game's `get-code` request. The save server
+  (`system/backend/nopaint-classic.mjs`, private) hands that code back when it
+  is an AC painting's, stores nothing for an upload under it, and sends
+  `/painting/<code>.png` to AC's own picture of the painting.
+
 Not built yet: the Caddy `Cache-Control: no-cache` line for the Construct
 files (section 6, step 3).
 

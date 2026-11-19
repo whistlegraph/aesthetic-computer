@@ -15,7 +15,7 @@
 // nopaint-pieces.mjs and painting-state.mjs (from system/public/aesthetic.computer/lib).
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, deflateSync, crc32 } from "node:zlib";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launch, openPage, serveFolder, viewport, wait, OUT } from "./book-kit.mjs";
@@ -28,7 +28,24 @@ const checks = [];
 const check = (name, ok, detail = "") => { checks.push({ name, ok: !!ok, detail }); console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? `  (${detail})` : ""}`); };
 
 // The painting service, played: one painting, kept in memory.
-const calls = [], signins = [], mailed = [];
+const calls = [], signins = [], mailed = [], moves = [], saves = [];
+// The AI service, played: two brains at the painting's size, one of them the
+// free one, and a move that answers with a flat magenta picture.
+const CATALOG = { creditValueUSD: 0.000005, service: { available: true }, trial: { model: "free-brain@1024", family: "free-brain", turns: 1 },
+  models: [
+    { id: "free-brain", family: "free-brain", size: [256, 256], braincells: 4000, quote: "quote-free", available: true },
+    { id: "free-brain@1024", family: "free-brain", size: [1024, 1024], braincells: 4000, quote: "quote-free-1024", available: true },
+    { id: "cheap-brain", family: "cheap-brain", size: [256, 256], braincells: 2000, quote: "quote-cheap", available: true },
+  ] };
+function flatPng(side, [r, g, b]) {
+  const row = Buffer.alloc(1 + side * 3); // filter byte, then RGB
+  for (let x = 0; x < side; x++) row.set([r, g, b], 1 + x * 3);
+  const chunk = (kind, data) => { const body = Buffer.concat([Buffer.from(kind), data]), out = Buffer.alloc(body.length + 8);
+    out.writeUInt32BE(data.length, 0); body.copy(out, 4); out.writeUInt32BE(crc32(body), body.length + 4); return out; };
+  const head = Buffer.alloc(13); head.writeUInt32BE(side, 0); head.writeUInt32BE(side, 4); head.set([8, 2, 0, 0, 0], 8);
+  return Buffer.concat([Buffer.from("89504e470d0a1a0a", "hex"), chunk("IHDR", head), chunk("IDAT", deflateSync(Buffer.concat(Array(side).fill(row)))), chunk("IEND", Buffer.alloc(0))]);
+}
+const MAGENTA = flatPng(256, [255, 0, 255]).toString("base64");
 let stored = null;
 function service(body) {
   calls.push(body);
@@ -47,6 +64,7 @@ function service(body) {
 }
 const decode = (state) => JSON.parse(gunzipSync(Buffer.from(state, "base64")).toString("utf8")).piece;
 
+let last = null; // the page in use, for a look when something goes wrong
 const site = await serveFolder(SITE);
 const browser = await launch(VIEW);
 const context = await browser.createBrowserContext();
@@ -66,6 +84,25 @@ async function open() {
         : signins.filter((a) => a === "poll").length < 3 ? { status: "pending" }
         : { status: "claimed", session: { accessToken: "test-token", account: { label: "@tester", id: "auth0|test" } } };
       return request.respond({ status: 200, contentType: "application/json", body: JSON.stringify(value) });
+    }
+    // The save server, played: it hands back the #code it is asked for.
+    if (url.startsWith("https://server.nopaint.art/")) {
+      const at = new URL(url);
+      saves.push({ path: at.pathname, as: at.searchParams.get("as"), body: (request.postData() || "").slice(0, 40) });
+      if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
+      const code = at.searchParams.get("as") || "Classic1";
+      return request.respond({ status: 200, contentType: "application/json", headers: cors,
+        body: JSON.stringify(at.pathname === "/get-code" ? { code } : { code: "t3st", url: "https://aesthetic.computer/media/paintings/t3st.png" }) });
+    }
+    if (url === "https://aesthetic.computer/api/nopaint-inference") {
+      if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
+      if (request.method() === "GET") return request.respond({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify(CATALOG) });
+      const body = JSON.parse(request.postData() || "{}");
+      moves.push({ ...body, _as: request.headers().authorization || null });
+      // As the real service: a guest's free turn is one per browser token.
+      const spent = !request.headers().authorization && moves.filter((m) => !m._as && m.trialId === body.trialId).length > 1;
+      return request.respond({ status: spent ? 409 : 200, contentType: "application/json", headers: cors,
+        body: JSON.stringify(spent ? { error: "This browser has used its free painting." } : { image: MAGENTA, width: 256, height: 256, billing: { braincells: request.headers().authorization ? 2000 : 0 } }) });
     }
     if (url === "https://hi.aesthetic.computer/passwordless/start") {
       if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
@@ -106,11 +143,53 @@ async function open() {
     await page.waitForFunction((from, event) => window.nopaintSteps.events.slice(from).includes(event), { timeout: 20000, polling: 100 }, mark, answer === "Paint" ? "painted" : "refused");
     for (let i = 0; i < 60 && ((await steps()).version || 0) <= before; i++) await wait(100);
   };
-  return { page, log, ask, steps, play };
+  // Make the next proposal an AI turn, wait for its picture to show, and answer it.
+  const playAi = async (answer) => {
+    await ask("force", { name: "AI" });
+    const mark = await page.evaluate(() => window.nopaintSteps.events.length);
+    const before = (await steps()).version || 0;
+    await ask("call", { name: "No" }); // whatever is up; the next one is the AI turn
+    await page.waitForFunction((from) => window.nopaintSteps.events.slice(from).includes("ai"), { timeout: 20000, polling: 100 }, mark);
+    for (let i = 0; i < 100 && (await ask("state")).layout !== "Load"; i++) await wait(100);
+    await wait(Number(process.env.AI_WAIT || 9000)); // the spinner, then the picture flickers in
+    const after = await page.evaluate(() => window.nopaintSteps.events.length);
+    await ask("call", { name: answer });
+    await page.waitForFunction((from, event) => window.nopaintSteps.events.slice(from).includes(event), { timeout: 20000, polling: 100 }, after, answer === "Paint" ? "painted" : "refused");
+    for (let i = 0; i < 60 && ((await steps()).version || 0) <= before + 1; i++) await wait(100);
+  };
+  return (last = { page, log, ask, steps, play, playAi });
 }
+
+// The tuning and the picker, as node sees them, to compare with the game's.
+const beside = (name, repo) => existsSync(here(`./${name}`)) ? here(`./${name}`) : here(repo);
+const tuning = JSON.parse(readFileSync(beside("classic-tuning.json", "../../toolchain/nopaint/classic-tuning.json"), "utf8"));
+const scope = {};
+new Function("self", readFileSync(beside("classic-picker.js", "../../toolchain/nopaint/classic-picker.js"), "utf8"))(scope);
+const expected = (flags) => Object.fromEntries(scope.nopaintPicker.table(scope.nopaintPicker.resolve(tuning, flags)).map((row) => [row.name, row.chance * 100]));
 
 try {
   let game = await open();
+  // The odds: the game picks by the tuning. (The page raises the ai flag by
+  // itself for a guest with a free turn; lower it to see the plain odds.)
+  for (let i = 0; i < 50 && !("AI" in (await game.ask("odds")).odds); i++) await wait(200);
+  const offered = await game.ask("odds");
+  check("a guest with a free turn is offered AI at its share, unasked", Math.abs((offered.odds.AI ?? -1) - expected({ ai: true }).AI) < 0.01, `AI ${offered.odds.AI} in 100`);
+  await game.ask("flags", { flags: { ai: false } });
+  const plain = await game.ask("odds");
+  const want = expected({});
+  check("the game picks by the tuning", plain.hooked && Object.keys(want).length === Object.keys(plain.odds).length && Object.entries(want).every(([name, chance]) => Math.abs(plain.odds[name] - chance) < 0.01),
+    `${Object.keys(plain.odds || {}).length} brushes, Stamp ${plain.odds?.Stamp} in 100`);
+  const drawn = await game.ask("sample", { n: 60000 });
+  const worst = Object.entries(want).map(([name, chance]) => [name, Math.abs((drawn.counts[name] || 0) / drawn.n * 100 - chance)]).sort((a, b) => b[1] - a[1])[0];
+  check("60,000 proposals drawn in the game come out at those odds", worst[1] < 0.6 && Object.keys(drawn.counts).every((name) => name in want), `furthest: ${worst[0]}, off by ${worst[1].toFixed(2)} in 100`);
+  check("the first proposal of a run is from the first list", drawn.first in tuning[tuning.first], drawn.first);
+  const lit = await game.ask("flags", { flags: { ai: true } }).then(() => game.ask("odds"));
+  const wantAi = expected({ ai: true });
+  check("raising the ai flag brings the AI list in at its share", Math.abs((lit.odds.AI ?? -1) - wantAi.AI) < 0.01 && Math.abs(lit.odds.Stamp - wantAi.Stamp) < 0.01, `AI ${lit.odds.AI}, Stamp ${lit.odds.Stamp}`);
+  const down = await game.ask("flags", { flags: { ai: false } }).then(() => game.ask("odds"));
+  check("lowering it gives the 2021 odds back", !("AI" in down.odds) && Math.abs(down.odds.Stamp - want.Stamp) < 0.01);
+  // The flag stays down from here, so the game offers no AI turn of its own
+  // and the one free turn is still there when the test asks for it by name.
   await game.play("Box: 128 128 90 60 FF0000", "Paint");
   await game.play("Flip: H", "No");
   await game.play("Softy: 128 128 L ?", "Paint");
@@ -145,11 +224,28 @@ try {
 
   // Come back: the same painting goes on.
   game = await open();
+  for (let i = 0; i < 50 && !("AI" in (await game.ask("odds")).odds); i++) await wait(200); // the page raises it again
+  await game.ask("flags", { flags: { ai: false } });
   await game.play("Invert", "Paint");
   await wait(4500);
   seen = await game.steps();
   check("after a reload the same #code goes on", seen.code === "t3st" && seen.version > before && seen.saved === seen.version, `${seen.chip}, was v${before}`);
   check("still one painting", calls.filter((c) => c.action === "create").length === 1);
+
+  // An AI turn as a guest: the free one.
+  await game.playAi("Paint");
+  await wait(4500);
+  seen = await game.steps();
+  piece = decode(stored.state);
+  const aiLayer = piece.layers.at(-1), sent = moves[0] || {};
+  check("the game asked for one move, with a note of its own and the painting", moves.length === 1 && tuning.ai.notes.includes(sent.hint) && sent.strength === tuning.ai.strength
+    && Buffer.from(sent.image || "", "base64").readUInt32BE(16) === 256 && sent.model === "free-brain" && sent.quote === "quote-free" && /^[0-9a-f-]{36}$/.test(sent.trialId || "") && !sent._as, `"${sent.hint}", ${sent.model}`);
+  check("the AI picture was painted and is a step", aiLayer.code.score.proposal.kind === "AI" && aiLayer.code.score.proposal.decision === "paint" && aiLayer.code.score.proposal.line === `AI: ${sent.hint}`
+    && aiLayer.code.score.proposal.ai?.model === "free-brain" && aiLayer.pixels.width === 256 && seen.saved === seen.version, `${aiLayer.code.score.proposal.line}, ${aiLayer.pixels.width} x ${aiLayer.pixels.height}`);
+  const composite = Buffer.from(piece.composite.pixels.$pixels, "base64");
+  check("the painting is now the AI's picture", composite[0] === 255 && composite[1] === 0 && composite[2] === 255 && composite[4 * 30000] === 255 && composite[4 * 30000 + 1] === 0);
+  if (process.env.DEBUG) console.log("AFTER GUEST TURN", JSON.stringify(await game.page.evaluate(() => window.nopaintSteps.log)));
+  check("a guest's free turn is spent: AI is offered no more", !("AI" in (await game.ask("odds")).odds));
 
   // Sign in with a handle: the dialog, the link, and the painting saved as them.
   check("a guest is offered sign-in", seen.who === "sign in", seen.who);
@@ -169,9 +265,38 @@ try {
   seen = await game.steps();
   const asHandle = calls.filter((c) => c.action === "save" && c._as === "Bearer test-token").length;
   check("steps after sign-in are saved as the handle", asHandle >= 1 && seen.saved === seen.version && !seen.error, `${asHandle} saves as @tester, ${seen.chip}${seen.error ? `, ${seen.error}` : ""}`);
+
+  // AI turns for a signed-in painter: off until turned on, then paid for.
+  const chipAi = () => game.page.evaluate(() => { const chip = document.querySelector("#nopaint-ai"); return chip.hidden ? null : chip.textContent; });
+  check("a signed-in painter's AI turns start off", (await chipAi()) === "AI off" && !("AI" in (await game.ask("odds")).odds), await chipAi());
+  await game.page.click("#nopaint-ai");
+  await wait(800);
+  check("turned on, the chip shows the cost and AI is offered", (await chipAi()) === "AI on · 2000" && (await game.ask("odds")).odds.AI > 0, await chipAi());
+  await game.playAi("No");
+  await wait(4500);
+  seen = await game.steps();
+  piece = decode(stored.state);
+  const refusedAi = piece.layers.at(-1).code.score.proposal;
+  check("a paid move goes out as the handle with the cheapest brain", moves.length === 2 && moves[1]._as === "Bearer test-token" && moves[1].model === "cheap-brain" && !moves[1].trialId, `${moves[1]?.model}, ${moves[1]?._as}`);
+  check("an AI turn answered No is a step with no pixels", refusedAi.kind === "AI" && refusedAi.decision === "no" && refusedAi.ai?.braincells === 2000 && piece.layers.at(-1).pixels.width === 0 && seen.saved === seen.version, `${refusedAi.line}: ${refusedAi.decision}`);
+
+  // Save: the game asks the save server for the painting's own #code.
+  const savesBefore = calls.filter((c) => c.action === "save").length;
+  await game.ask("call", { name: "Pause" }); // Save is on the pause screen
+  await wait(1500);
+  await game.ask("call", { name: "Save" });
+  for (let i = 0; i < 80 && !saves.some((s) => s.path === "/upload-painting"); i++) await wait(250);
+  await wait(1500);
+  const asked = saves.find((s) => s.path === "/get-code"), sentUp = saves.find((s) => s.path === "/upload-painting");
+  check("Save asks the save server for this painting's #code", asked?.as === "t3st", JSON.stringify(asked));
+  check("the game takes the #code as its code and saves under it", (await game.ask("state")).code === "t3st" && (sentUp?.body || "").startsWith("code=t3st&painting="), `${(await game.ask("state")).code}; ${sentUp?.body?.slice(0, 24)}`);
+  check("pressing Save sends the latest steps to AC at once", calls.filter((c) => c.action === "save").length >= savesBefore && (await game.steps()).saved === (await game.steps()).version);
   check("no page errors", game.log.errors.length === 0, game.log.errors.join(" | ").slice(0, 160));
 } catch (error) {
   check("the run finished", false, String(error?.message || error).slice(0, 200));
+  if (process.env.DEBUG && last) console.log("AT FAILURE", JSON.stringify(await last.page.evaluate(() => ({ events: window.nopaintSteps.events.slice(-14), error: window.nopaintSteps.error, log: window.nopaintSteps.log.slice(-12),
+    storage: Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith("nopaint:classic:") && !k.endsWith("account") && !k.endsWith("steps"))) })).catch((e) => String(e))),
+    JSON.stringify(moves.map((m) => [m.model, m._as, (m.hint || "").slice(0, 20)])), JSON.stringify(await last.ask("odds").then((o) => o.flags, () => null)));
 }
 writeFileSync(join(OUT, "wip-calls.json"), JSON.stringify(calls));
 writeFileSync(join(OUT, "results.json"), JSON.stringify({ at: new Date().toISOString(), checks }, null, 1));

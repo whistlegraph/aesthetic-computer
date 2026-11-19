@@ -141,7 +141,7 @@ How this book was made & \pageref{ch:made} \\\hline
 \chapter{How No Paint works}\label{ch:how}
 \sidevig{Two buttons.}{\vigbuttons}The game picks a brush and shows it at work on your painting. This is a \emph{proposal}. Nothing is kept yet. Press \emph{Paint} and what you see goes into the painting. Press \emph{No} and it is gone. Either way the next proposal comes at once.
 
-\side{What it picks.}The game keeps two lists. One has \brushtablecount{} brushes, which add something: a box, a stamp, a worm. The other has \filtertablecount{} filters, which change what is already there: blur, flip, zoom. For each proposal it first picks a list, with even odds, and then picks from that list by weight. A heavy brush comes more often. \spl{Stamp} is the heaviest and \spl{Walker} the lightest. The tables at the back give every weight.
+\side{What it picks.}The game keeps two lists. One has \brushtablecount{} brushes, which add something: a box, a stamp, a worm. The other has \filtertablecount{} filters, which change what is already there: blur, flip, zoom. The first proposal of a visit is always a brush. After that it picks the brush list two times in three and the filter list one time in three, and then picks from that list by weight. A heavy brush comes more often. It never offers the same filter twice running. \spl{Stamp} is the heaviest and \spl{Walker} the lightest. The tables at the back give every weight.
 
 \sidevig{The prompt.}{\vigprompt}You can also ask for a brush. Tap the prompt and type its name exactly. The game's help says the rest: use a colon to add options, and keep an option random with a question mark. \spl{Softy: 128 128 S ?} is a small soft streak at the middle of the painting in a colour the game chooses. Type nothing, or \spl{?}, and the game picks for you.
 
@@ -162,7 +162,7 @@ How this book was made & \pageref{ch:made} \\\hline
 
 % ====================== TABLES ======================
 \chapter{Tables}\label{ch:tables}
-\side{Reading them.}\emph{Weight} is the number the game holds for the brush. \emph{In 100} is how many of 100 proposals it should be, counting the even pick between the two lists. The bar draws it.
+\side{Reading them.}\emph{Weight} is the number the game holds for the brush. \emph{In 100} is how many of 100 proposals it should be over a long visit, counting the pick between the two lists: brushes two times in three. The bar draws it.
 \input{tables}
 
 % ====================== HOW THIS BOOK WAS MADE ======================

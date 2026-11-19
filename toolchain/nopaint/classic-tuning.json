@@ -1,0 +1,76 @@
+{
+  "note": "The odds of each proposal in No Paint classic. split: the chance of each list. first: the list the first proposal comes from. norepeat: lists that never give the same brush twice running. An entry is a weight, or {in100: n} to ask for n in 100 of all proposals; when: \"ai\" offers it only while an AI turn can be had. Print the table: node toolchain/nopaint/classic-odds.mjs",
+  "split": {
+    "Brushes": 63.33,
+    "Filters": 31.67,
+    "AI": 5
+  },
+  "first": "Brushes",
+  "norepeat": [
+    "Filters"
+  ],
+  "Brushes": {
+    "Aura": 0.4,
+    "Banner": 1,
+    "Box": 1.5,
+    "Breathe": 0.5,
+    "Bubbles": 0.6,
+    "Build": 1,
+    "Caterpillar": 0.25,
+    "Dark Window": 0.6,
+    "Ellipse": 0.8,
+    "Frame": 0.25,
+    "Grid Worm": 0.35,
+    "Line": 0.8,
+    "Softy": 1.5,
+    "Stamp": 2,
+    "Triangle": 0.8,
+    "Vignette": 0.4,
+    "Wafer": 0.8,
+    "Walker": 0.2
+  },
+  "Filters": {
+    "Blur": 1,
+    "Contrast": 1,
+    "Flip": 1,
+    "Invert": 1,
+    "Light Bump": 1,
+    "Mirror": 1,
+    "Noise": 1,
+    "Quicksand": 1,
+    "Rainbow": 1,
+    "Recurse": 1,
+    "Saturate": 1,
+    "Scroll": 1,
+    "Sharpen": 1,
+    "Spin": 1,
+    "Turn": 1,
+    "Wipe": 1,
+    "Zoom": 1
+  },
+  "AI": {
+    "AI": {
+      "weight": 1,
+      "when": "ai",
+      "ai": true
+    }
+  },
+  "ai": {
+    "strength": 0.5,
+    "guests": true,
+    "notes": [
+      "add something surprising",
+      "make it stranger",
+      "add a small creature",
+      "turn it into a landscape",
+      "add weather",
+      "make it glow",
+      "fill the empty parts",
+      "add a pattern",
+      "make it look older",
+      "add a face somewhere",
+      "paint over it loosely",
+      "add something from the sea"
+    ]
+  }
+}
