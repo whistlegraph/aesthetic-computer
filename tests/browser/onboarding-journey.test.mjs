@@ -239,7 +239,7 @@ await step("a new email + password comes back to AC and asks for verification", 
     await shot("03b-hosted-handle");
     await page.type(field, "jeffrey", { delay: 40 });
     await page.keyboard.press("Enter");
-    await page.waitForFunction(() => /@jeffrey is taken/.test(document.body.innerText), { timeout: 20_000 })
+    await page.waitForFunction(() => /@jeffrey\s+is taken/.test(document.body.innerText), { timeout: 20_000 })
       .catch(() => { throw new Error("the hosted form did not refuse @jeffrey"); });
     await ac.wait(1200);
     await shot("03c-hosted-handle-taken");

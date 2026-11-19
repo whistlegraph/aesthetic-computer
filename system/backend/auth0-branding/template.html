@@ -87,15 +87,19 @@ a:focus-visible, button:focus-visible { outline: 3px solid #a32770; outline-offs
 }
 .ac-fit-ready ._prompt-box-outer { margin: 0 !important; }
 
-/* The handle step (auth0-forms) loads inside this card. Auth0's loader is a
-   small spinner in an otherwise empty box; show a breathing @ instead. The
-   form's own stylesheet can't reach this: it only applies once the form is in.
-   The Continue button's own loading state (.af-component) keeps its spinner. */
-@keyframes ac-breathe { 50% { opacity: .35; transform: scale(.9); } }
-.af-custom-form-container .af-loading:not(.af-component) { min-height: 230px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
-.af-custom-form-container .af-loading:not(.af-component) > .af-spinner { display: none !important; }
-.af-custom-form-container .af-loading:not(.af-component)::before {
-  content: "@"; font-size: 64px; line-height: 1; color: #ff3fa4;
+/* The handle step (auth0-forms). Before the form arrives and after it is
+   accepted, Auth0 shows a small spinner in an otherwise empty card. Whenever
+   the form's step is not on screen, drop the card and its spinner and let one
+   large @ breathe over the background instead. The form's own stylesheet
+   can't do this: it only applies while the form is in. */
+@keyframes ac-breathe { 50% { opacity: .5; transform: translate(-50%, -50%) scale(.86); } }
+main.af-custom-form:not(:has(.af-step)) { position: relative; min-height: 300px; }
+main.af-custom-form:not(:has(.af-step)) ._prompt-box-outer > * { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+main.af-custom-form:not(:has(.af-step)) ._prompt-box-outer > * * { visibility: hidden !important; }
+main.af-custom-form:not(:has(.af-step))::after {
+  content: "@"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font: 400 190px/1 ulp-font, -apple-system, system-ui, sans-serif; color: #ff3fa4;
+  -webkit-text-stroke: 10px #fff; paint-order: stroke fill;
   animation: ac-breathe 1.2s ease-in-out infinite;
 }
   </style>

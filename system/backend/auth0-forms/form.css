@@ -10,8 +10,9 @@
 .af-form .af-step .af-component.af-field .af-field-content .af-field-wrapper input.af-stringField-input[name=handle]::placeholder{color:#c9c6c0!important;opacity:1!important}
 .af-form .af-step .af-component.af-field .af-field-content .af-field-wrapper input.af-stringField-input[name=handle]:focus,.af-form .af-step .af-component.af-field .af-field-content .af-field-wrapper input.af-stringField-input[name=handle]:focus-visible{border-bottom-color:#ff3fa4!important;outline:0!important;box-shadow:none!important}
 .af-form .af-char-counter{display:none!important}
-.af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:10px 0 0!important;min-height:0!important}
 .af-form .af-scenarioMessage-error::before,.af-form .af-scenarioMessage-error::after{display:none!important}
-.af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:16px!important;line-height:1.35!important;margin:0!important;padding:0!important}
 .af-form:has(.af-scenarioMessage-error[style*="block"]) .af-step .af-component.af-field .af-field-content .af-field-wrapper input.af-stringField-input[name=handle]{border-bottom-color:#e1285b!important}
 .af-form .af-blockType-next_button{margin-top:26px!important}
+.af-form .af-scenarioMessage-error{background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;padding:0!important;margin:16px 0 0!important;min-height:0!important;text-align:center!important}
+.af-form .af-scenarioMessage-error .af-message-text{color:#e1285b!important;font-size:19px!important;line-height:1.3!important;margin:0!important;padding:0!important;white-space:pre-line!important;text-align:center!important}
+.af-form .af-scenarioMessage-error .af-message-text::first-line{color:#ff3fa4!important;font-size:28px!important}
