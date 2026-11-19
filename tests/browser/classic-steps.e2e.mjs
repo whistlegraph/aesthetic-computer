@@ -44,8 +44,8 @@ const TURNSTILE = `self.auth0 = { Auth0Client: class {
     if (options?.logoutParams?.returnTo) { localStorage.setItem("played-logout", "at the turnstile"); location.assign(options.logoutParams.returnTo + "/"); }
   }
 } };`;
-// The AI service, played: two brains at the painting's size, one of them the
-// free one, and a move that answers with a flat magenta picture.
+// The AI service, played: two brains at the painting's size and a move that
+// answers with a flat magenta picture, paid from the wallet's free day.
 const CATALOG = { creditValueUSD: 0.000005, service: { available: true }, trial: { model: "free-brain@1024", family: "free-brain", turns: 1 },
   models: [
     { id: "free-brain", family: "free-brain", size: [256, 256], braincells: 4000, quote: "quote-free", available: true },
@@ -62,6 +62,7 @@ function flatPng(side, [r, g, b]) {
 }
 const MAGENTA = flatPng(256, [255, 0, 255]).toString("base64");
 let stored = null;
+const wallet = { free: 0, asked: 0 }; // the handle's free Braincells today; the test sets what is left
 function service(body) {
   calls.push(body);
   if (body.action === "create") { stored ||= { id: body.id, key: body.key, code: "t3st", revision: 0, state: null }; return { code: stored.code, revision: stored.revision, steps: 0, status: "wip" }; }
@@ -81,7 +82,7 @@ const decode = (state) => JSON.parse(gunzipSync(Buffer.from(state, "base64")).to
 
 let last = null; // the page in use, for a look when something goes wrong
 const site = await serveFolder(SITE);
-const browser = await launch(VIEW);
+const browser = await launch(VIEW, (process.env.CHROME_ARGS || "").split(" ").filter(Boolean));
 const context = await browser.createBrowserContext(), guestContext = await browser.createBrowserContext();
 async function open({ stay = false, guest = false } = {}) {
   const { page, log } = await openPage(browser, VIEW, { context: guest ? guestContext : context, consoleTypes: ["error"] });
@@ -111,11 +112,17 @@ async function open({ stay = false, guest = false } = {}) {
       if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
       if (request.method() === "GET") return request.respond({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify(CATALOG) });
       const body = JSON.parse(request.postData() || "{}");
-      moves.push({ ...body, _as: request.headers().authorization || null });
-      // As the real service: a guest's free turn is one per browser token.
-      const spent = !request.headers().authorization && moves.filter((m) => !m._as && m.trialId === body.trialId).length > 1;
-      return request.respond({ status: spent ? 409 : 200, contentType: "application/json", headers: cors,
-        body: JSON.stringify(spent ? { error: "This browser has used its free painting." } : { image: MAGENTA, width: 256, height: 256, billing: { braincells: request.headers().authorization ? 2000 : 0 } }) });
+      // As the real service: the free day pays first, bought Braincells after.
+      const cost = CATALOG.models.find((model) => model.id === body.model)?.braincells || 0, free = Math.min(cost, wallet.free);
+      wallet.free -= free;
+      moves.push({ ...body, _as: request.headers().authorization || null, _free: free, _paid: cost - free });
+      return request.respond({ status: 200, contentType: "application/json", headers: cors,
+        body: JSON.stringify({ image: MAGENTA, width: 256, height: 256, billing: { braincells: cost, free, paid: cost - free } }) });
+    }
+    if (url === "https://aesthetic.computer/api/nopaint-wallet") {
+      if (request.method() === "OPTIONS") return request.respond({ status: 204, headers: cors });
+      wallet.asked++;
+      return request.respond({ status: 200, contentType: "application/json", headers: cors, body: JSON.stringify({ unlimited: false, unit: "braincells", remaining: wallet.free, purchased: 50000 }) });
     }
     if (url.startsWith(site.url) || url.startsWith("data:") || url.startsWith("blob:")) return request.continue();
     const lib = /^https:\/\/aesthetic\.computer\/aesthetic\.computer\/lib\/(nopaint-pieces|painting-state)\.mjs$/.exec(url);
@@ -154,7 +161,7 @@ async function open({ stay = false, guest = false } = {}) {
   await wake();
   if (!stay) await start();
   const steps = () => page.evaluate(() => ({ code: window.nopaintSteps?.code, version: window.nopaintSteps?.version, saved: window.nopaintSteps?.saved,
-    error: window.nopaintSteps?.error, chip: window.nopaintSteps?.painting, who: window.nopaintSteps?.account, title: window.nopaintSteps?.title }));
+    error: window.nopaintSteps?.error, chip: window.nopaintSteps?.painting, who: window.nopaintSteps?.account, title: window.nopaintSteps?.title, ai: window.nopaintSteps?.ai }));
   // Tap a thing the game drew, in the middle of its box on the page.
   const tap = async (uid) => { const { css } = await ask("look", { uid }); await page.mouse.click((css[0][0] + css[1][0]) / 2, (css[0][1] + css[1][1]) / 2); };
   // Ask for a brush, watch it, answer it, and wait until the game has
@@ -194,11 +201,12 @@ const expected = (flags) => Object.fromEntries(scope.nopaintPicker.table(scope.n
 
 try {
   let game = await open();
-  // The odds: the game picks by the tuning. A painter's AI turns start off,
-  // so nothing raises the ai flag unasked.
-  await wait(1500);
+  // The odds: the game picks by the tuning. This painter's free Braincells of
+  // the day are spent, so no AI turn is offered and none of the bought ones go.
+  for (let i = 0; i < 40 && (await game.steps()).ai?.free !== 0; i++) await wait(150);
+  await wait(600);
   const plain = await game.ask("odds");
-  check("a painter's AI turns are off until turned on: none is offered", !("AI" in plain.odds) && (await game.steps()).who === "@tester", (await game.steps()).who);
+  check("with the day's free Braincells spent, no AI turn is offered", !("AI" in plain.odds) && (await game.steps()).who === "@tester" && (await game.steps()).ai?.free === 0 && wallet.asked === 1, `${(await game.steps()).who}, free ${(await game.steps()).ai?.free}`);
   const want = expected({});
   check("the game picks by the tuning", plain.hooked && Object.keys(want).length === Object.keys(plain.odds).length && Object.entries(want).every(([name, chance]) => Math.abs(plain.odds[name] - chance) < 0.01),
     `${Object.keys(plain.odds || {}).length} brushes, Stamp ${plain.odds?.Stamp} in 100`);
@@ -245,8 +253,15 @@ try {
   const before = seen.version;
   await game.page.close();
 
-  // Come back: the same painting goes on.
+  // Come back: the same painting goes on. It is a new day: the handle's free
+  // Braincells cover two turns of the cheapest brain, and the AI brush is on
+  // with no switch to throw.
+  wallet.free = 4000;
   game = await open();
+  for (let i = 0; i < 40 && (await game.steps()).ai?.free !== 4000; i++) await wait(150);
+  await wait(600);
+  check("a painter's AI turns are on while the free day covers one", Math.abs(((await game.ask("odds")).odds.AI ?? -1) - expected({ ai: true }).AI) < 0.01 && (await game.steps()).ai?.cost === 2000, `free ${(await game.steps()).ai?.free}, a turn ${(await game.steps()).ai?.cost}`);
+  await game.ask("flags", { flags: { ai: false } }); // so the only AI turns are the ones asked for below
   await game.play("Invert", "Paint");
   await wait(4500);
   seen = await game.steps();
@@ -259,18 +274,15 @@ try {
   check("the painter's handle is drawn left of No and Paint", /@tester/.test(drawn2.text || "") && drawn2.layer === "UI" && drawn2.x < 128 && drawn2.y >= 288 && drawn2.y < 304, `${drawn2.text} at ${drawn2.x},${drawn2.y}`);
   await game.page.screenshot({ path: join(OUT, "painting.png") });
 
-  // An AI turn: the painter turns them on, and pays for each.
-  await game.page.evaluate(() => window.nopaintSteps.act("ai"));
-  await wait(800);
-  check("turned on, AI is offered at its share", Math.abs(((await game.ask("odds")).odds.AI ?? -1) - expected({ ai: true }).AI) < 0.01);
-  await game.ask("flags", { flags: { ai: false } }); // so the only AI turns are the ones asked for below
+  // An AI turn, paid from the free day.
   await game.playAi("Paint");
+  await game.ask("flags", { flags: { ai: false } }); // the page raised it again: one free turn is left
   await wait(4500);
   seen = await game.steps();
   piece = decode(stored.state);
   const aiLayer = piece.layers.at(-1), sent = moves[0] || {};
   check("the game asked for one move, with a note of its own and the painting", moves.length === 1 && tuning.ai.notes.includes(sent.hint) && sent.strength === tuning.ai.strength
-    && Buffer.from(sent.image || "", "base64").readUInt32BE(16) === 256 && sent.model === "cheap-brain" && sent.quote === "quote-cheap" && !sent.trialId && sent._as === "Bearer test-token", `"${sent.hint}", ${sent.model}, ${sent._as}`);
+    && Buffer.from(sent.image || "", "base64").readUInt32BE(16) === 256 && sent.model === "cheap-brain" && sent.quote === "quote-cheap" && !sent.trialId && sent._as === "Bearer test-token" && sent._free === 2000 && sent._paid === 0, `"${sent.hint}", ${sent.model}, ${sent._as}`);
   check("the AI picture was painted and is a step", aiLayer.code.score.proposal.kind === "AI" && aiLayer.code.score.proposal.decision === "paint" && aiLayer.code.score.proposal.line === `AI: ${sent.hint}`
     && aiLayer.code.score.proposal.ai?.model === "cheap-brain" && aiLayer.code.score.proposal.ai?.braincells === 2000 && aiLayer.pixels.width === 256 && seen.saved === seen.version, `${aiLayer.code.score.proposal.line}, ${aiLayer.pixels.width} x ${aiLayer.pixels.height}`);
   const composite = Buffer.from(piece.composite.pixels.$pixels, "base64");
@@ -283,7 +295,9 @@ try {
   seen = await game.steps();
   piece = decode(stored.state);
   const refusedAi = piece.layers.at(-1).code.score.proposal;
-  check("a paid move goes out as the handle with the cheapest brain", moves.length === 2 && moves[1]._as === "Bearer test-token" && moves[1].model === "cheap-brain" && !moves[1].trialId, `${moves.length} moves; ${moves[1]?.model}, ${moves[1]?._as}`);
+  check("the second move goes out as the handle with the cheapest brain, free too", moves.length === 2 && moves[1]._as === "Bearer test-token" && moves[1].model === "cheap-brain" && moves[1]._paid === 0, `${moves.length} moves; ${moves[1]?.model}, ${moves[1]?._as}`);
+  for (let i = 0; i < 20 && "AI" in (await game.ask("odds")).odds; i++) await wait(150);
+  check("the free day is spent: the AI brush is offered no more, and nothing bought was touched", !("AI" in (await game.ask("odds")).odds) && seen.ai?.free === 0 && wallet.free === 0 && moves.every((move) => move._paid === 0), `free ${seen.ai?.free}`);
   check("an AI turn answered No is a step with no pixels", refusedAi.kind === "AI" && refusedAi.decision === "no" && refusedAi.ai?.braincells === 2000 && piece.layers.at(-1).pixels.width === 0 && seen.saved === seen.version, `${refusedAi.line}: ${refusedAi.decision}`);
 
   // Save: the game asks the save server for the painting's own #code.
@@ -297,12 +311,18 @@ try {
   const asked = saves.find((s) => s.path === "/get-code"), sentUp = saves.find((s) => s.path === "/upload-painting");
   check("Save asks the save server for this painting's #code", asked?.as === "t3st", JSON.stringify(asked));
   check("the game takes the #code as its code and saves under it", (await game.ask("state")).code === "t3st" && (sentUp?.body || "").startsWith("code=t3st&painting="), `${(await game.ask("state")).code}; ${sentUp?.body?.slice(0, 24)}`);
+  // The code is written as an address: prompt.ac/ small, a # (the game's font
+  // has none), then the code in the game's own letters.
+  const codeLine = await game.ask("look", { uid: 718 }), mark = await game.ask("address");
+  check("Save shows the code as prompt.ac/#code", mark.shown && mark.code === "t3st" && mark.ink > 60 && mark.layer === codeLine.layer && Math.round(mark.x + mark.width) === Math.round(codeLine.x + codeLine.width - 4 * 8)
+    && codeLine.text.replace(/\[[^\]]*\]/g, "") === "t3st" && codeLine.shown, `${mark.width} x ${mark.height} at ${mark.x},${mark.y}, ${mark.ink} pixels of ink`);
+  await game.page.screenshot({ path: join(OUT, "saved.png") });
   check("pressing Save sends the latest steps to AC at once", calls.filter((c) => c.action === "save").length >= savesBefore && (await game.steps()).saved === (await game.steps()).version);
 
   check("no page errors while painting", game.log.errors.length === 0, game.log.errors.join(" | ").slice(0, 160));
 
-  // A guest. Painting takes a handle: the title screen says so loudly, and a
-  // tap that would start a painting goes to the turnstile.
+  // A guest. Painting takes a handle: on the lit title screen Sign In is the
+  // one thing that answers a tap.
   const before2 = { calls: calls.length, moves: moves.length };
   game = await open({ guest: true, stay: true });
   check("the page lays nothing over the game", await game.page.evaluate(() => [...document.body.children].every((el) => ["CANVAS", "SCRIPT", "STYLE", "NOSCRIPT"].includes(el.tagName) || el.id === "fb-root" || !el.getBoundingClientRect().width)));
@@ -310,13 +330,20 @@ try {
   check("a guest's dark opening screen says SIGN IN on its yellow label", (await game.ask("look", { uid: 98 })).text === "SIGN IN" && (await game.steps()).title.lights === false, (await game.ask("look", { uid: 98 })).text);
   await game.lights();
   const slot = await game.ask("look", { uid: 114 });
-  check("with the lights on, Sign In is large, yellow on black, top left", /\[scale=2\].*Sign In/.test(slot.text) && slot.height === 32 && (await game.steps()).title.spots.join() === "in", `${slot.width} x ${slot.height}`);
+  check("with the lights on, Sign In is large, yellow on black, across the middle", /\[scale=2\].*Sign In/.test(slot.text) && Math.abs(slot.x + slot.width / 2 - 128) < 1 && slot.y > 199 && slot.y < 210
+    && !(await game.ask("look", { uid: 398 })).shown && (await game.steps()).title.spots.join() === "in", `${slot.width} x ${slot.height} at ${slot.x},${slot.y}`);
   await game.page.screenshot({ path: join(OUT, "title-guest.png") });
-  await game.page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // a tap to start painting
+  // Everything else on the screen is shut: the middle (which starts a painting), About, Community, the corners.
+  const middle = async (uid) => { const { css } = await game.ask("look", { uid }); return [(css[0][0] + css[1][0]) / 2, (css[0][1] + css[1][1]) / 2]; };
+  for (const [x, y] of [[VIEW.W / 2, VIEW.H * 0.45], await middle(44), await middle(9), [VIEW.W * 0.8, VIEW.H * 0.2], [VIEW.W * 0.85, VIEW.H * 0.75], [20, VIEW.H * 0.5]]) { await game.page.mouse.click(x, y); await wait(350); }
+  await wait(800);
+  check("no other tap on a guest's lit screen does anything", (await game.ask("state")).layout === "Splash" && game.page.url() === site.url + "/" && !(await game.steps()).who && (await game.page.evaluate(() => window.nopaintSteps.log)).every((line) => !/ tap: /.test(line)),
+    `${(await game.ask("state")).layout}; ${game.page.url().replace(site.url, "")}`);
+  await game.tap(114); // Sign In
   await game.page.waitForFunction(() => window.nopaintSteps?.account === "@tester", { timeout: 30000, polling: 250 }).catch(() => {});
   await game.wake();
   seen = await game.steps();
-  check("a guest's tap to start goes to the turnstile, and comes back signed in", seen.who === "@tester" && !/[?&]code=/.test(game.page.url()), `${seen.who}; ${game.page.url().replace(site.url, "")}`);
+  check("a tap on Sign In goes to the turnstile, and comes back signed in", seen.who === "@tester" && !/[?&]code=/.test(game.page.url()), `${seen.who}; ${game.page.url().replace(site.url, "")}`);
   check("the guest painted nothing on the way", calls.length === before2.calls && moves.length === before2.moves && !seen.code);
   const said = async () => (await game.page.evaluate(() => window.nopaintSteps.log)).filter((line) => / title: /.test(line)).map((line) => line.split(" title: ")[1]);
   for (let i = 0; i < 40 && (await game.steps()).title?.who !== "@tester"; i++) await wait(150);
@@ -328,13 +355,8 @@ try {
   await game.lights();
   const slot2 = await game.ask("look", { uid: 114 });
   check("with the lights on it is flush in the top-left corner, at its usual size", slot2.text === "@tester" && slot2.x === 0 && slot2.y === 0 && slot2.height === 16 && (await game.ask("state")).layout === "Splash", `${slot2.text} at ${slot2.x},${slot2.y}, ${slot2.height} high`);
-  for (let i = 0; i < 40 && !(await game.steps()).title?.ai; i++) await wait(150);
-  const aiLine = async () => (await game.steps()).title?.ai;
-  check("a line under it says the painter's AI turns are off", (await aiLine()) === "AI Off" && !("AI" in (await game.ask("odds")).odds), await aiLine());
-  const lineSpots = await game.page.evaluate(() => window.nopaintSteps.title.spots);
-  await game.tap(await game.page.evaluate(() => window.nopaintSteps.titleLine));
-  for (let i = 0; i < 20 && (await aiLine()) !== "AI On 2000"; i++) await wait(150);
-  check("a tap on the line turns them on and shows the cost", (await aiLine()) === "AI On 2000" && (await game.ask("odds")).odds.AI > 0 && lineSpots.join() === "out,ai" && (await game.ask("state")).layout === "Splash", `${await aiLine()}; taps: ${lineSpots.join()}`);
+  check("the handle is the only label: there is no AI switch, and the brush count is back", (await game.steps()).title.spots.join() === "out" && (await game.ask("look", { uid: 398 })).shown
+    && !(await game.ask("texts")).texts.some((text) => /^AI /.test(text.text)), (await game.steps()).title.spots.join());
   await game.page.screenshot({ path: join(OUT, "title-painter.png") });
 
   // A later visit, still signed in: the handle is there from the first frame.

@@ -10,9 +10,9 @@
 // through /api/painting-wip. A Paint is a layer holding the pixels that
 // changed. A No is a layer with its line and no pixels.
 //
-// Painting takes a handle. A guest can look at the title screen and follow its
-// links, but the first tap that would start a painting goes to sign-in, and
-// every painting belongs to the handle that made it.
+// Painting takes a handle. A guest gets as far as the lit title screen, where
+// Sign In is the one thing that answers a tap: no link, no start. Every
+// painting belongs to the handle that made it.
 // Sign-in is AC's own turnstile, the hosted page at hi.aesthetic.computer
 // (where a new person also picks a handle); this page has no form of its own.
 //
@@ -26,9 +26,10 @@
 // same service and the same Braincells as Aesel (/api/nopaint-inference): the
 // painting and a short note go up, a new picture comes back, and the game
 // shows it as a proposal to answer No or Paint. No Paint takes no input, so
-// the game writes the note. A guest has the service's one free turn. A
-// signed-in painter pays Braincells for each turn, so theirs are off until
-// they turn them on.
+// the game writes the note. A painter's AI turns are always on, with no switch,
+// for as long as the handle's free Braincells of the day cover one
+// (/api/nopaint-wallet). They never spend bought Braincells: when the free day
+// runs out, the AI brush stops being offered until the next one.
 //
 // Loaded by index.html. window.nopaintSteps shows the state for debugging.
 
@@ -43,7 +44,7 @@ const HANDLE = "https://aesthetic.computer/api/handle";
 const STORE = "nopaint:classic:steps";
 const ACCOUNT = "nopaint:classic:account";
 const MOVES = "https://aesthetic.computer/api/nopaint-inference";
-const TRIAL_ID = "nopaint:classic:trial-id", TRIAL_USED = "nopaint:classic:trial-used", AI_ON = "nopaint:classic:ai-on";
+const WALLET = "https://aesthetic.computer/api/nopaint-wallet";
 const SIDE = 256;            // the painting; the game's canvas is taller
 const QUIET = 2500;          // ms without a step before a save goes out
 const MAX_STATE = 24_000_000; // base64 characters; the service takes 32 MB of state
@@ -105,7 +106,7 @@ async function bearer() {
   try { return await (await turnstile()).getTokenSilently(); } catch { signedOut(); return null; }
 }
 function signedOut() {
-  account = null;
+  account = null; free = null;
   try { localStorage.removeItem(ACCOUNT); localStorage.removeItem(WHO); } catch {}
   auth?.logout({ openUrl: false }).catch(() => {});
 }
@@ -152,7 +153,7 @@ const state = (window.nopaintSteps = { get code() { return session?.code || null
   get painting() { return session?.code ? `#${session.code} v${piece ? piece.layers.length - (session.initial || 1) : 0}` : null; },
   get title() { return { ...labels, spots: spots.map((spot) => spot.act) }; },
   get handleLine() { return handleLine; },
-  get titleLine() { return aiLine; },
+  get ai() { return { free, cost: offer?.braincells ?? null, tired }; },
   get saved() { return session?.saved ?? 0; }, get error() { return failed; }, events: [] });
 let told; // the #code the game was last told Save should show
 const show = () => {
@@ -247,34 +248,38 @@ async function save() {
 state.save = save;
 
 // ---- AI turns ---------------------------------------------------------------
-const stored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
-const store = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
 const receipts = new Map(); // turn id → { model, braincells }
 // What happened lately, for looking at when something goes wrong: window.nopaintSteps.log
 const log = (text) => { state.log.push(`${new Date().toISOString().slice(11, 23)} ${text}`); if (state.log.length > 60) state.log.shift(); };
-let settings = null, offers = null, tired = false; // tired: a turn failed; no more this visit
-// The brains this painter can use at the painting's size: the free one, and the cheapest paid one.
+let settings = null, offer = null, free = null, tired = false; // tired: a turn failed; no more this visit
+// The brain an AI turn uses: the cheapest that paints at the painting's size.
 async function catalog() {
   const response = await fetch(MOVES, { cache: "no-store" });
   if (!response.ok) throw new Error("the AI service did not answer");
-  const value = await response.json();
-  const fits = (value.models || []).filter((model) => model.available && model.size?.[0] === SIDE && model.size?.[1] === SIDE);
-  offers = {
-    guest: value.trial ? fits.find((model) => (model.family || model.id) === value.trial.family) || null : null,
-    paid: fits.toSorted((a, b) => a.braincells - b.braincells)[0] || null,
-  };
+  const fits = ((await response.json()).models || []).filter((model) => model.available && model.size?.[0] === SIDE && model.size?.[1] === SIDE);
+  offer = fits.toSorted((a, b) => a.braincells - b.braincells)[0] || null;
 }
-const aiOffer = () => tired || !settings ? null
-  : account ? (stored(AI_ON) === "true" ? offers?.paid : null)
-  : settings.guests && stored(TRIAL_USED) !== "true" ? offers?.guest : null;
+// What is left of the handle's free Braincells today.
+async function allowance() {
+  const token = await bearer();
+  if (!token) return (free = null);
+  const response = await fetch(WALLET, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`the wallet answered ${response.status}`);
+  const value = await response.json();
+  free = value.unlimited ? Infinity : Number(value.remaining) || 0;
+}
+// An AI turn can be had while the free day covers one.
+const aiOffer = () => !tired && settings && account && offer && free >= offer.braincells ? offer : null;
 // Tell the game whether an AI turn can be had, so it is offered only then.
 async function raise() {
   try {
     if (!settings) settings = (await ask("settings")).ai;
-    const wanted = settings && !tired && (account ? stored(AI_ON) === "true" : settings.guests && stored(TRIAL_USED) !== "true");
-    if (wanted && !offers) await catalog().catch(() => {});
+    if (settings && account && !tired) {
+      if (!offer) await catalog().catch((error) => log(`catalog: ${error.message}`));
+      if (free === null) await allowance().catch((error) => log(`wallet: ${error.message}`));
+    }
     const answer = await ask("flags", { flags: { ai: Boolean(aiOffer()) } });
-    log(`ai flag ${answer.flags.ai ? "up" : "down"}${tired ? " (tired)" : ""}`);
+    log(`ai flag ${answer.flags.ai ? "up" : "down"}${tired ? " (tired)" : ""}, free ${free}`);
   } catch (error) { log(`raise failed: ${error.message}`); }
   show();
 }
@@ -288,28 +293,25 @@ async function png(pixels) {
 }
 // One AI turn: the painting and the game's note go up; the picture goes to the game.
 async function aiTurn({ id, note, settings: turn = {} }) {
-  const offer = aiOffer(), guest = !account;
-  log(`ai turn ${id} "${note}" ${offer ? offer.id : "no offer"}${guest ? " guest" : ""}`);
+  const using = aiOffer();
+  log(`ai turn ${id} "${note}" ${using ? using.id : "no offer"}`);
   try {
-    if (!offer) throw new Error("no AI turn can be had");
-    let trial = stored(TRIAL_ID);
-    if (guest && !trial) store(TRIAL_ID, (trial = crypto.randomUUID()));
+    if (!using) throw new Error("no AI turn can be had");
     const response = await fetch(MOVES, { method: "POST",
-      headers: { "Content-Type": "application/json", ...(guest ? {} : { Authorization: `Bearer ${await bearer()}` }) },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await bearer()}` },
       body: JSON.stringify({ requestId: crypto.randomUUID(), strength: [0.25, 0.5, 0.75].includes(turn.strength) ? turn.strength : 0.5,
-        seed: Math.floor(Math.random() * 2 ** 31), hint: note, image: await png((await painting()).pixels), quote: offer.quote, model: offer.id,
-        ...(guest ? { trialId: trial } : {}) }) });
+        seed: Math.floor(Math.random() * 2 ** 31), hint: note, image: await png((await painting()).pixels), quote: using.quote, model: using.id }) });
     const value = await response.json().catch(() => ({}));
     if (!response.ok || typeof value.image !== "string") throw Object.assign(new Error(value.error || `the AI service answered ${response.status}`), { status: response.status, code: value.code });
-    if (guest) store(TRIAL_USED, "true");
-    receipts.set(id, { model: offer.id, braincells: value.billing?.braincells ?? 0 });
+    // The free day pays; a turn that reached bought Braincells is the last.
+    free = value.billing?.paid ? 0 : free - (value.billing?.free ?? using.braincells);
+    receipts.set(id, { model: using.id, braincells: value.billing?.braincells ?? 0 });
     log(`ai turn ${id} got a picture`);
     await ask("aiResult", { turn: id, png: Uint8Array.from(atob(value.image), (c) => c.charCodeAt(0)) });
     log(`ai turn ${id} handed to the game`);
   } catch (error) {
     log(`ai turn ${id} failed: ${error.message}`);
-    // A guest's turn is spent or refused; a painter's sign-in or Braincells ran out; or the service is down. Stop asking.
-    if (guest && error.status >= 400 && error.status < 500) store(TRIAL_USED, "true");
+    // The sign-in or the free day ran out, or the service is down. Stop asking.
     if (error.status === 401) signedOut();
     tired = true;
     failed = `AI: ${error.message}`;
@@ -322,16 +324,19 @@ async function aiTurn({ id, note, settings: turn = {} }) {
 // The game's title screen has two states. It opens dark, with one small yellow
 // label bottom right ("EARLY ACCESS" in 2021); a tap turns the lights on, and
 // the lit screen has a slot top left ("Download App" in 2021). Whichever shows
-// is the sign-in: Sign In for a guest, the handle for a painter. On the lit
-// screen a second line under it turns a painter's AI turns on and off. All of
-// it is the game's own sprite font, written through the bridge, and a tap on
-// any of it is taken here before the game takes it.
+// is the sign-in: Sign In for a guest, the handle for a painter. It is the
+// game's own sprite font, written through the bridge, and a tap on it is
+// taken here before the game takes it. A guest's lit screen is the sign-in and
+// nothing else: Sign In sits large across the middle, where the line that
+// counts the brushes was, and a tap anywhere else is taken and dropped.
 const LIT = 114, DARK = 98;          // UIDs in the Construct source (layout Splash)
 const LETTER = { [LIT]: 8.4, [DARK]: 9.7 }; // each label's letter advance, in layout pixels
-let layoutNow = null, spots = [], labels = { who: null, ai: null, lights: null }, aiLine = null, asking = 0, titling = Promise.resolve(), watching = null;
+const SIGN_IN = { x: 52, y: 203, width: 152, height: 16 }; // centred, in the green between the instructions and PAINT
+const COUNT = 398; // "38 Brushes & 684 Stamps", the line Sign In stands in for
+let layoutNow = null, spots = [], labels = { who: null, lights: null }, asking = 0, titling = Promise.resolve(), watching = null;
 function title() { titling = titling.then(drawTitle, drawTitle); return titling; }
 async function drawTitle() {
-  if (layoutNow !== "Splash") { spots = []; labels = { who: null, ai: null, lights: null }; aiLine = null; clearInterval(watching); watching = null; return; }
+  if (layoutNow !== "Splash") { spots = []; labels = { who: null, lights: null }; clearInterval(watching); watching = null; return; }
   // The lights come on without the layout changing, so keep looking while here.
   watching ||= setInterval(title, 600);
   try {
@@ -342,22 +347,14 @@ async function drawTitle() {
     if (labels.who !== was) log(`title: ${labels.who || "(nothing yet)"}`);
     const dark = await ask("write", { uid: DARK, text: labels.who.toUpperCase(), fit: LETTER[DARK] });
     // A guest's Sign In is the loudest thing on the lit screen: twice the size,
-    // yellow on black, as the game marks what to type. A handle sits quietly.
-    // The slot is the screen's top left corner; every write puts it back there.
+    // yellow on black, as the game marks what to type, in the middle. A handle
+    // sits quietly in the slot, the top left corner. Every write places it.
     const lit = await ask("write", labels.who === "Sign In"
-      ? { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", x: 0, y: 0, width: 160, height: 32 }
+      ? { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", ...SIGN_IN }
       : { uid: LIT, text: labels.who, x: 0, y: 0, width: Math.max(100, Math.ceil(labels.who.length * LETTER[LIT])), height: 16 });
+    await ask("write", { uid: COUNT, visible: labels.who !== "Sign In" }).catch(() => {});
     labels.lights = !dark.shown;
     const next = labels.who ? [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }] : [];
-    if (account && settings && !dark.shown) {
-      const on = stored(AI_ON) === "true";
-      labels.ai = on ? `AI On${offers?.paid ? ` ${offers.paid.braincells}` : ""}` : "AI Off";
-      if (!aiLine) aiLine = (await ask("create", { like: LIT, y: lit.y + lit.height + 1, text: labels.ai })).uid;
-      next.push({ act: "ai", box: (await ask("write", { uid: aiLine, text: labels.ai, visible: true, fit: LETTER[LIT] })).css });
-    } else {
-      if (aiLine) await ask("write", { uid: aiLine, visible: false }).catch(() => {});
-      labels.ai = null;
-    }
     spots = next;
   } catch (error) { spots = []; log(`title: ${error.message}`); }
 }
@@ -375,11 +372,11 @@ async function act(what) {
     setTimeout(() => { if (asking && Date.now() - asking >= 4000) { asking = 0; title(); } }, 4100);
     return title();
   }
-  if (what === "ai") { store(AI_ON, stored(AI_ON) === "true" ? "false" : "true"); tired = false; return raise(); }
 }
 // ---- painting takes a handle ------------------------------------------------
 // The game leaves its title screen for the Index layout to propose a brush.
-// A guest who gets there is sent back and on to the turnstile.
+// A guest who gets there all the same (a key, a quick second tap) is sent back
+// and on to the turnstile.
 async function gate() {
   await arrived;
   if (account) return;
@@ -400,15 +397,18 @@ async function sign() {
   } catch (error) { log(`handle line: ${error.message}`); }
 }
 
-// A tap inside a label never reaches the game.
+// A tap inside a label never reaches the game. Nor does any tap on a guest's
+// lit title screen: there, Sign In is all there is. (The tap that turns the
+// lights on is the game's, and it is the one that wakes the sound.)
 let held = false;
+const shut = () => layoutNow === "Splash" && !account && labels.lights === true;
 const inside = (event) => spots.find(({ box }) => event.clientX >= box[0][0] && event.clientX <= box[1][0] && event.clientY >= box[0][1] && event.clientY <= box[1][1]);
 addEventListener("pointerdown", (event) => {
   const spot = inside(event);
-  if (!spot) return;
+  if (!spot && !shut()) return;
   held = true;
   event.stopImmediatePropagation(); event.preventDefault();
-  act(spot.act);
+  if (spot) act(spot.act);
 }, true);
 for (const type of ["pointerup", "pointercancel", "mousedown", "mouseup", "click", "touchstart", "touchend"]) addEventListener(type, (event) => {
   if (!held) return;

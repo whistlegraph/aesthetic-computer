@@ -2565,8 +2565,10 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 //   look {uid}                   one placed thing on this layout: place, size, text, box on the page
 //   write {uid, text, visible, x, y, width, height, fit}   set a sprite font
 //   create {like | type, layer, x, y, width, height, text}   a new sprite font, drawn like another
-//   code {code}                  the #code Save should show (null: a classic code)
+//   code {code}                  the #code Save should show, as prompt.ac/#code (null: a classic code)
 //   settings                     the tuning's settings for AI turns
+//   texts                        every text on this layout: UID, type, words, place
+//   address                      the prompt.ac/# beside Save's code: where it is, how much ink
 //   force {name}                 make the next proposal this brush, once
 //   pixels {object, data}        read a canvas: hash and ink count, bytes if data is true
 //   load {object, width, height, data}   write RGBA bytes into a canvas
@@ -2758,6 +2760,24 @@ runOnStartup(async (runtime) => {
       made.text = String(text);
       return ops.look({ uid: made.uid });
     },
+    // Every text on this layout: for finding one whose UID is not known.
+    texts() {
+      const found = [];
+      for (const type of Object.values(runtime.objects)) for (const thing of type.getAllInstances?.() || []) {
+        if (!("text" in thing) || typeof thing.text !== "string") continue;
+        found.push({ uid: thing.uid, type: type.name, text: thing.text, x: thing.x, y: thing.y, width: thing.width, height: thing.height, layer: thing.layer?.name,
+          shown: Boolean(thing.isVisible && thing.layer?.isVisible && thing.layer.opacity > 0 && thing.opacity > 0) });
+      }
+      return { layout: where(), texts: found };
+    },
+    // The prompt.ac/# drawn beside Save's code, if it is up: where, and its pixels.
+    async address() {
+      const made = mark && !mark.making ? runtime.getInstanceByUid(mark.uid) : null;
+      if (!made) return { shown: false };
+      const image = await made.getImagePixelData();
+      let ink = 0; for (let i = 3; i < image.data.length; i += 4) if (image.data[i]) ink++;
+      return { shown: Boolean(made.isVisible), code: mark.code, x: made.x, y: made.y, width: made.width, height: made.height, layer: made.layer?.name, ink, pixels: [image.width, image.height] };
+    },
     // The #code of the AC painting on the canvas, or null: what Save will show.
     code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
     // The tuning's settings for AI turns, for the page.
@@ -2793,10 +2813,59 @@ runOnStartup(async (runtime) => {
   const hint = () => String(vars.parameterHint || "").replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "").trim();
   classic.onSaving = () => say({ event: "saving", code: classic.code });
   classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, settings: classic.tuning.ai || {} });
+  // Save writes the code at the right end of the pause bar, a colour to each
+  // letter. An AC painting's code is a #code and has an address, so the line
+  // reads prompt.ac/#code. The game's font cannot say that: its # is a carrot
+  // and it has no letters small enough. So the address and the # are pixels,
+  // put on a small canvas of the game's that sits against the code's left
+  // edge: prompt.ac/ three pixels wide a letter, then a # as tall as the code.
+  // A long code that leaves the address no room gets the # alone.
+  const CODE_LINE = 718, CODE_LEFT = 172; // the line's UID in the Construct source; where the date and time end
+  const SMALL = { p: ["000", "110", "101", "110", "100"], r: ["000", "101", "110", "100", "100"], o: ["000", "010", "101", "101", "010"],
+    m: ["00000", "11010", "10101", "10101", "10101"], t: ["010", "111", "010", "010", "011"], ".": ["0", "0", "0", "0", "1"],
+    a: ["000", "110", "011", "101", "111"], c: ["000", "011", "100", "100", "011"], "/": ["001", "001", "010", "100", "100"] };
+  const HASH = ["01010", "01010", "11111", "01010", "11111", "01010", "01010"];
+  const plain = (text) => String(text).replace(/\[[^\]]*\]/g, "");
+  // The mark's pixels, one layout pixel each: [x, y, grey].
+  function markPixels(withSite) {
+    const dots = [];
+    let x = 0;
+    if (withSite) { for (const letter of "prompt.ac/") { SMALL[letter].forEach((row, y) => [...row].forEach((on, i) => { if (on === "1") dots.push([x + i, y + 2, 154]); })); x += SMALL[letter][0].length + 1; } x += 1; }
+    HASH.forEach((row, y) => [...row].forEach((on, i) => { if (on === "1") dots.push([x + i, y, 255]); }));
+    return { dots, width: x + HASH[0].length + 1 };
+  }
+  let mark = null; // { uid, code }: the canvas now showing, and the code it stands beside
+  async function address() {
+    const line = classic.code && vars.LoadCode === classic.code ? runtime.getInstanceByUid(CODE_LINE) : null;
+    const showing = Boolean(line && line.isVisible && plain(line.text) === classic.code);
+    let made = mark && runtime.getInstanceByUid(mark.uid);
+    if (made && (!showing || mark.code !== classic.code)) { made.destroy(); made = mark = null; }
+    if (!showing || made || mark?.making) return;
+    const letters = classic.code.length * 8, right = line.x + line.width;
+    const full = markPixels(true), { dots, width } = right - letters - full.width >= CODE_LEFT ? full : markPixels(false);
+    const type = runtime.objects.WorkAroundCanvas;
+    if (!type) return;
+    mark = { making: true };
+    try {
+      made = type.createInstance(line.layer.name, right - letters - width, line.y + 5); // the letters sit five pixels down their line
+      made.width = width; made.height = 8;
+      mark = { uid: made.uid, code: classic.code, making: true };
+      // The canvas has as many pixels as the screen gives it; ask, and fill each layout pixel.
+      const image = await made.getImagePixelData(), scale = Math.max(1, Math.round(image.width / width));
+      const data = new Uint8ClampedArray(image.width * image.height * 4);
+      for (const [x, y, grey] of dots) for (let v = 0; v < scale; v++) for (let u = 0; u < scale; u++) {
+        const at = ((y * scale + v) * image.width + x * scale + u) * 4;
+        if (at + 3 < data.length && x * scale + u < image.width) data.set([grey, grey, grey, 255], at);
+      }
+      made.loadImagePixelData(new ImageData(data, image.width, image.height));
+      mark.making = false;
+    } catch (error) { console.warn("[nopaint] the address was not drawn", error); mark = null; }
+  }
   let layout = null, painting = false, proposal = null, steps = 0;
   runtime.addEventListener("tick", () => {
     const now = where();
     if (now === null) return;
+    address();
     const flag = !!vars.Painting;
     // The options are chosen a moment after the layout starts; keep the latest.
     if (proposal && !proposal.turn && now === proposal.layout && !flag) proposal.options = hint() || vars.Params || proposal.options;

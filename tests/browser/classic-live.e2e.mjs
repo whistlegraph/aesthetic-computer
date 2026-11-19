@@ -1,12 +1,12 @@
 // classic-live.e2e, 2026.11.18
 // The proof run. It makes one real painting on the live site by each route,
 // a guest and a signed-in painter, and films both. A guest is stopped at the
-// title screen and sent to sign-in. A painter plays a few brushes, takes an AI
+// title screen, where only Sign In answers. A painter plays a few brushes, takes an AI
 // turn with the real service, and saves. Nothing is played here.
 //
 // THIS SPENDS REAL THINGS. Each run:
 //   makes one real #painting on Aesthetic Computer;
-//   spends Braincells of the signed-in painter for one AI turn.
+//   spends one AI turn of the signed-in painter's free Braincells of the day.
 // It is run by hand, never by a schedule.
 //
 //   VIDEO=1 node classic-live.e2e.mjs            both routes
@@ -38,10 +38,10 @@ async function run(browser, route) {
   const { page, log } = await openPage(browser, VIEW, { context });
   await page.setRequestInterception(true);
   page.on("request", (request) => /visit-tracker|googletagmanager|google-analytics/.test(request.url()) ? request.abort() : request.continue());
-  // The signed-in route starts as a painter who has turned AI turns on.
+  // The signed-in route starts as a painter. AI turns are on by themselves
+  // while the handle's free Braincells of the day cover one.
   if (route.account) await page.evaluateOnNewDocument((value) => {
     localStorage.setItem("nopaint:classic:account", JSON.stringify(value));
-    localStorage.setItem("nopaint:classic:ai-on", "true");
   }, { token: route.account.token, label: route.account.label });
   const clip = await startClip(page, `classic-${route.name}`);
   try {
@@ -60,15 +60,18 @@ async function run(browser, route) {
     for (let i = 0; i < 300 && !(await ask("state").then((s) => s.layout, () => null)); i++) await wait(200);
     await wait(2500); // the dark opening screen, for the film
     if (!route.account) {
-      // A guest cannot paint: the tap that would start goes to the turnstile.
+      // A guest cannot paint: the lit screen is shut but for Sign In, which goes to the turnstile.
       await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // lights on
       await wait(2500); // the lit title screen with its Sign In, for the film
       const slot = await ask("look", { uid: 114 });
       check("the title screen says Sign In", /Sign In/.test(slot.text), slot.text.replace(/\[[^\]]*\]/g, ""));
-      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // a tap to start
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // a tap to start: nothing
+      await wait(1500);
+      check("a guest's tap to start does nothing", (await ask("state")).layout === "Splash" && new URL(page.url()).host !== "hi.aesthetic.computer");
+      await page.mouse.click((slot.css[0][0] + slot.css[1][0]) / 2, (slot.css[0][1] + slot.css[1][1]) / 2); // Sign In
       await page.waitForFunction(() => location.host === "hi.aesthetic.computer", { timeout: 30000 }).catch(() => {});
       await wait(3500);
-      check("a guest's tap to start lands on the AC turnstile", new URL(page.url()).host === "hi.aesthetic.computer", page.url().split("?")[0]);
+      check("a guest's tap on Sign In lands on the AC turnstile", new URL(page.url()).host === "hi.aesthetic.computer", page.url().split("?")[0]);
       Object.assign(r, await clip.stop());
       await context.close().catch(() => {});
       return r;
@@ -83,7 +86,7 @@ async function run(browser, route) {
     // Hold the AI flag down so the one AI turn is the one asked for below.
     for (let i = 0; i < 60 && !("AI" in (await ask("odds")).odds); i++) await wait(250);
     const offered = "AI" in (await ask("odds")).odds;
-    check("the page found an AI turn to offer", offered, route.account ? "a painter with AI turns on" : "the free turn");
+    check("the page found an AI turn to offer", offered, route.account ? "a painter with free Braincells left today" : "none for a guest");
     await ask("flags", { flags: { ai: false } });
     const play = async (line, answer, look = 2600) => {
       await ask("prompt", { text: line });
