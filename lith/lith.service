@@ -15,6 +15,9 @@ RestartSec=5
 # Long work (paid image moves) gets up to 185s, then a 10s drain.
 TimeoutStopSec=210
 KillSignal=SIGTERM
+# rax runs beside lith as a process of its own (rax-child.mjs) and is left up
+# when lith restarts: only lith itself is signalled.
+KillMode=process
 StandardOutput=journal
 StandardError=journal
 

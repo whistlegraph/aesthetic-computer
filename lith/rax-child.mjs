@@ -9,12 +9,23 @@ import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { attachSocketRoute } from './socket-routing.mjs';
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { raxBuild } from './rax-build.mjs';
+import { stateHome } from '../rax/env.mjs';
+
 export function startRax({ port = Number(process.env.RAX_PORT || 8786), entry = fileURLToPath(new URL('./rax-process.mjs', import.meta.url)), env = process.env } = {}) {
-  let child = null, closed = false, starts = 0;
-  const start = () => {
+  let child = null, closed = false, starts = 0, adopted = 0;
+  const build = raxBuild(), card = join(env.RAX_STATE_DIR || stateHome(), `process-${port}.json`);
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  const spawn = () => {
     if (closed) return;
     starts++;
-    child = fork(entry, [], { env: { ...env, RAX_PORT: String(port) }, stdio: 'inherit' });
+    adopted = 0;
+    // On its own feet (detached): it outlives this process, and the next lith
+    // to start takes it up again if it is still the same rax.
+    child = fork(entry, [], { env: { ...env, RAX_PORT: String(port) }, stdio: 'inherit', detached: true });
+    child.unref();
     child.once('exit', (code, signal) => {
       child = null;
       if (closed) return;
@@ -22,7 +33,36 @@ export function startRax({ port = Number(process.env.RAX_PORT || 8786), entry = 
       setTimeout(start, Math.min(5000, 250 * starts)).unref();
     });
   };
+  // A rax left running by the lith before this one: the same build is kept
+  // (nobody in the room notices the site's deploy); another is asked to stop
+  // (it writes down what is in the air first) and the new one started.
+  const start = () => {
+    if (closed) return;
+    let was = null;
+    try { was = JSON.parse(readFileSync(card, 'utf8')); } catch {}
+    if (was && Number.isInteger(was.pid) && was.pid !== process.pid && alive(was.pid)) {
+      if (was.build === build && was.port === port) {
+        adopted = was.pid;
+        console.log(`[lith] rax is already up and is this build (${build.slice(0, 10)}, pid ${was.pid}): left running`);
+        return;
+      }
+      console.log(`[lith] rax is up as another build (pid ${was.pid}): stopping it for ${build.slice(0, 10)}`);
+      try { process.kill(was.pid, 'SIGTERM'); } catch {}
+      const began = Date.now();
+      const wait = setInterval(() => {
+        if (alive(was.pid) && Date.now() - began < 9000) return;
+        clearInterval(wait);
+        if (alive(was.pid)) { try { process.kill(was.pid, 'SIGKILL'); } catch {} }
+        spawn();
+      }, 100);
+      return;
+    }
+    spawn();
+  };
   start();
+  // One taken up has no exit to hear: look in on it, and start a new one if it has gone.
+  const watch = setInterval(() => { if (!closed && adopted && !alive(adopted)) { console.warn('[lith] the rax taken up has gone; starting one'); adopted = 0; spawn(); } }, 3000);
+  watch.unref();
   // Up when its health answers.
   const ask = () => new Promise((resolve) => {
     const request = http.get({ host: '127.0.0.1', port, path: '/rax/health', timeout: 1000 }, (r) => { r.resume(); resolve(r.statusCode === 200); });
@@ -67,16 +107,17 @@ export function startRax({ port = Number(process.env.RAX_PORT || 8786), entry = 
     ready,
     handle,
     attach: (server) => detach.push(attachSocketRoute(server, ['/rax', '/dool'].flatMap((p) => [`${p}/play`, `${p}/builder`]), upgrade, { allowQuery: true })),
-    async close() {
+    // lith going down leaves rax up (stop: true takes it down too: a test, or a machine being emptied).
+    async close({ stop = env.RAX_STOP_WITH_LITH === '1' } = {}) {
       closed = true;
+      clearInterval(watch);
       for (const off of detach.splice(0)) off();
-      const running = child;
-      if (!running) return;
-      await new Promise((resolve) => {
-        running.once('exit', resolve);
-        running.kill('SIGTERM');
-        setTimeout(() => { try { running.kill('SIGKILL'); } catch {} resolve(); }, 9000).unref();
-      });
+      if (!stop) return;
+      const pid = child?.pid || adopted;
+      if (!pid) return;
+      try { process.kill(pid, 'SIGTERM'); } catch {}
+      for (let i = 0; i < 90 && alive(pid); i++) await new Promise((r) => setTimeout(r, 100));
+      if (alive(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
     },
   };
 }

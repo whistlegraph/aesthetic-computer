@@ -11,7 +11,15 @@ import { createRaxServer } from '../rax/server.mjs';
 import { kidlispPublisher } from '../rax/kidlisp-code.mjs';
 import { stateHome } from '../rax/env.mjs';
 
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { raxBuild } from './rax-build.mjs';
+
 const port = Number(process.env.RAX_PORT || 8786);
+// 🪪 Which rax this is (its own files' hash) and where it runs, written down:
+// a lith that starts later and finds the same rax still up leaves it be, so
+// a deploy that changed nothing of rax does not put anyone out of the room.
+const build = raxBuild(), card = join(stateHome(), `process-${port}.json`);
 const app = createRaxServer({
   prefix: '/rax',
   alias: '/dool', // its name until 2026-11-18: old links, pages and the builder still land
@@ -19,13 +27,17 @@ const app = createRaxServer({
   stateDir: stateHome(),
 });
 await app.ready; // The store is read from disk before the first request.
-app.server.listen(port, '127.0.0.1', () => console.log(`[rax] its own process, on 127.0.0.1:${port}`));
+app.server.listen(port, '127.0.0.1', () => {
+  console.log(`[rax] its own process, on 127.0.0.1:${port} (${build.slice(0, 10)})`);
+  try { mkdirSync(stateHome(), { recursive: true }); writeFileSync(card, JSON.stringify({ pid: process.pid, port, build })); } catch {}
+});
 let closing = false;
 for (const signal of ['SIGTERM', 'SIGINT'])
   process.on(signal, () => {
     if (closing) return;
     closing = true;
     // What is in the air and where the ball lies are written down on the way out.
+    try { rmSync(card, { force: true }); } catch {}
     app.close().catch(() => {}).finally(() => process.exit(0));
     setTimeout(() => process.exit(0), 8000).unref();
   });

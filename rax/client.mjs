@@ -1299,6 +1299,17 @@ function connect(adopt = null) {
       return;
     }
     const own = data.players[seat];
+    // 📍 A page loaded again (a restart of the server, a reload) puts a drone back where it was, looking where it looked.
+    if (seat < 0 && !freecamPlaced && !held) {
+      try {
+        const was = JSON.parse(sessionStorage.getItem('rax-eye') || 'null');
+        if (was && was.room === room && Date.now() - was.at < 30 * 60000 && [was.x, was.y, was.z, was.yaw, was.pitch].every(Number.isFinite)) {
+          freecam = { x: was.x, y: was.y, z: was.z };
+          yaw = was.yaw; pitch = was.pitch;
+          freecamPlaced = true;
+        }
+      } catch {}
+    }
     if (seat < 0 && !freecamPlaced && !held) {
       const target = data.players.find(Boolean);
       if (target) {
@@ -2392,6 +2403,7 @@ function step(now) {
       lookSaid = said;
       lookAt = now;
       send({ type: 'look', x: freecam.x, y: freecam.y, z: freecam.z, yaw });
+      try { sessionStorage.setItem('rax-eye', JSON.stringify({ room, x: freecam.x, y: freecam.y, z: freecam.z, yaw, pitch, at: Date.now() })); } catch {}
     }
   }
   const probe = connection.probe(

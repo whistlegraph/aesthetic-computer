@@ -862,6 +862,7 @@ export async function createView(canvas) {
   let SHOW_FPS = false;
   const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
+  let cost = 0; // milliseconds a frame's drawing takes on this machine, eased
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
@@ -1318,7 +1319,7 @@ export async function createView(canvas) {
     const sunNow = today ? skyAt(phase()).sun : null;
     const shade = sunNow && host.shadows ? shadeFor(sunNow.y) : null;
     casters.length = 0;
-    casting = !!shade;
+    casting = !!shade && cost < 12; // (no shadows while the drawing runs long)
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
     let through = false; // The third-person camera, looking through what hides you.
@@ -1462,7 +1463,7 @@ export async function createView(canvas) {
     projector.lens = game?.camera ? 0 : LENS * Math.max(0, Math.min(1, 1 - orbit));
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = projector.lens > 0.3 ? PLANET : 0;
-    projector.fine = lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3;
+    projector.fine = Math.max(lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3, cost < 7 ? 0 : cost < 10 ? 0.24 : cost < 14 ? 0.34 : 0.5);
     // The land lies at the plaza's height (far below, seen from a floor of the tower).
     projector.ground = skyline?.dy || 0;
     projector.frame();
@@ -3761,7 +3762,16 @@ export async function createView(canvas) {
   }
   return {
     canvas,
-    render,
+    // ⏱️ Each frame's drawing is timed (eased): when it runs long the lens
+    // halves edges less finely and, longer still, the shadows are left out,
+    // so a heavy view is a plainer picture and never a stopped one.
+    render(params) {
+      const began = performance.now();
+      try { return render(params); } finally {
+        const took = performance.now() - began;
+        cost += (took - cost) * (took > cost ? 0.5 : 0.08); // (quick to take fright, slow to trust again)
+      }
+    },
     effect,
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
