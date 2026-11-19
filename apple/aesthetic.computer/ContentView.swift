@@ -256,6 +256,18 @@ final class BootStatus: ObservableObject {
             PointerLock.handle(message)
             return
         }
+        if message.name == "fullscreen" {
+            // rax's full-screen word (F, or a pad's View button, which WebKit
+            // takes for no gesture): the window itself fills the screen.
+            // Element fullscreen is off here, so the page cannot know it is
+            // full and says `on: true` again to leave: that also toggles.
+            guard message.frameInfo.securityOrigin.protocol == "https",
+                  message.frameInfo.securityOrigin.host == "aesthetic.computer",
+                  let window = message.webView?.window else { return }
+            let on = ((message.body as? [String: Any])?["on"] as? Bool) ?? true
+            if on || window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) }
+            return
+        }
         #endif
 
         guard message.name == "iOSApp", let jsonString = message.body as? String else { return }
@@ -436,6 +448,8 @@ struct WebView: ACWebViewRepresentable {
         // Every frame, so the rax iframe can capture the mouse for mouse-look
         // (WKWebView never grants the Pointer Lock API itself).
         config.userContentController.add(context.coordinator, name: "acPointerLock")
+        // Every frame as well: rax asks for the window to fill the screen.
+        config.userContentController.add(context.coordinator, name: "fullscreen")
         config.userContentController.addUserScript(WKUserScript(
             source: PointerLock.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         // The native canvas always uses AC's SVG pointer, including after
