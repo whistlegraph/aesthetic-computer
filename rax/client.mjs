@@ -176,6 +176,12 @@ function carScreen(rideNow) {
   };
 }
 // Where the plaza (and the tower on it) stands from this room, in metres.
+// 🌧️ What falls over Los Angeles falls here: asked of the server now and
+// every five minutes (weather.mjs).
+let weather = null;
+const askWeather = () => fetch(new URL('./weather', import.meta.url)).then((r) => (r.ok ? r.json() : null)).then((w) => { if (w) weather = w; }).catch(() => {});
+void askWeather();
+setInterval(askWeather, 5 * 60 * 1000);
 function plazaFrom() {
   if (room === 'lobby') return { dx: 0, dy: 0, dz: 0 };
   if (room.startsWith('floor-')) return tower?.here?.number ? { dx: 0, dy: -altitude(tower.here.number), dz: 0 } : null;
@@ -898,9 +904,14 @@ function connect(adopt = null) {
   presentation.reset(null);
   playback.reset();
   notice = held ? '' : 'CONNECTING';
-  connection.reset();
-  members = [];
-  selfMember = null;
+  // 🚶 Walking over a seam you are still you and the line is still the line:
+  // your face, your ping and the roster stay up until the next room speaks.
+  if (held?.walk) { connection.pending.clear(); connection.next = 0; }
+  else {
+    connection.reset();
+    members = [];
+    selfMember = null;
+  }
   freecamPlaced = false;
   gate = null;
   joiningUntil = performance.now() + 7000;
@@ -2414,6 +2425,7 @@ function step(now) {
   view.render({
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400 },
+    weather,
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever

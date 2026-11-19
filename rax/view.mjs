@@ -840,7 +840,7 @@ export async function createView(canvas) {
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let snow = null, snowAt = 0; // The room's falling snow.
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
-  const SNOW = false; // Resting for now (2026-11-03).
+  let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   let qrModel = null; // Retain the tag until its code or pixel dimensions change.
   const screenFrames = new Map(); // Standing screens' frames, by screen id.
@@ -1140,6 +1140,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing }: the body is between two rooms
+    weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
     ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
     home = null,
     floorAim = null,
@@ -2713,11 +2714,11 @@ export async function createView(canvas) {
         px(-1, 0, 1, 24, edge);
         px(24, 0, 1, 24, edge);
         // The column beside the cam — braincells, the connection, the frame
-        // rate — in even 9-row slots from the frame's top edge down, so no
+        // rate — in even 10-row slots from the frame's top edge down, so no
         // two overlap (2026-11-08). A slot's number is the top of small()'s
         // 8-row glyph box; the glyphs themselves start a row lower.
-        let slot = 25;
-        const nextSlot = () => ((slot -= 9), slot + 9);
+        let slot = 26;
+        const nextSlot = () => ((slot -= 10), slot + 10); // (a clear row between each line)
         // Three rows, the cam's own height: the connection (four rising bars
         // and its ping), where you stand, your braincells. The frame rate,
         // when shown, goes under them.
@@ -2845,7 +2846,32 @@ export async function createView(canvas) {
     // ❄️ Snow falling into the open room (2026-11-03): small camera-facing
     // flakes in a volume over and around the room, depth-tested against the
     // walls, drifting as they fall, nearer ones a little larger.
-    if (SNOW) {
+    // 🌧️ Rain, when it rains over Los Angeles: thin streaks that fall fast and
+    // lean with the wind, more of them the harder it comes down.
+    if (weather?.rain > 0) {
+      if (!rain) {
+        rain = [];
+        for (let i = 0; i < 520; i++)
+          rain.push({ x: (Math.random() - 0.5) * 34, y: Math.random() * 14, z: (Math.random() - 0.5) * 34, v: 9 + Math.random() * 5 });
+      }
+      const dt = Math.min(0.1, (now - (rainAt || now)) / 1000);
+      rainAt = now;
+      const r = projector.right, lean = Math.min(0.35, (weather.wind || 0) * 0.03), count = Math.round(rain.length * Math.min(1, 0.15 + weather.rain));
+      const cx = eye?.x || 0, cz = eye?.z || 0;
+      const m = model(({ quad }) => {
+        for (let i = 0; i < count; i++) {
+          const f = rain[i];
+          f.y -= f.v * dt;
+          f.x += f.v * lean * dt;
+          if (f.y < 0.02) { f.y = 13 + Math.random(); f.x = (Math.random() - 0.5) * 34; f.z = (Math.random() - 0.5) * 34; }
+          const x = cx + f.x, z = cz + f.z, w = 0.02, long = 0.5;
+          quad([x - r[0] * w, f.y, z - r[2] * w], [x + r[0] * w, f.y, z + r[2] * w],
+            [x + r[0] * w + lean * long, f.y + long, z + r[2] * w], [x - r[0] * w + lean * long, f.y + long, z - r[2] * w], 0x5f7fb0);
+        }
+      });
+      draw(m, 0, 0, 0);
+    }
+    if (weather?.snow > 0) {
       if (!snow) {
         snow = [];
         for (let i = 0; i < 260; i++)

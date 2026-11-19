@@ -14,6 +14,7 @@ import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
 import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
+import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
 import { clearOfCar, altitude } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
@@ -59,6 +60,7 @@ const assets = new Map([
     'kidlisp-wall',
     'screen-lod',
     'ball',
+    'weather',
     'diagnostics-client',
     'stalls',
     'park',
@@ -245,6 +247,17 @@ export function createRaxServer({
   };
   void ready.then(() => admitHandles(6), () => {});
   const admitTimer = setInterval(() => admitHandles(), 10 * 60 * 1000);
+  // 🌧️ The weather over 90026, asked every ten minutes (never under test).
+  let weather = { ...CLEAR };
+  const askWeather = async () => {
+    try {
+      const r = await fetch(WEATHER_URL, { signal: AbortSignal.timeout(10000) });
+      if (r.ok) weather = readWeather(await r.json());
+    } catch {}
+  };
+  const weatherTimer = process.env.NODE_TEST_CONTEXT ? null : setInterval(askWeather, 10 * 60 * 1000);
+  weatherTimer?.unref?.();
+  if (weatherTimer) void askWeather();
   admitTimer.unref?.();
   // Short-lived, one-use travel receipts bind a server position to an owner.
   const passages = new Map();
@@ -398,6 +411,11 @@ export function createRaxServer({
     // and what stands in the rooms as plain shapes in world metres, with
     // everyone who is in rax now. Readers outside rax draw from this.
     // ⚡ /people is the same people alone, for a reader that wants them moving.
+    // 🌧️ What is falling over Los Angeles now (weather.mjs).
+    if (path === '/weather' && req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' }).end(JSON.stringify(weather));
+      return;
+    }
     if ((path === '/map' || path === '/people') && req.method === 'GET') {
       await ready;
       const seated = [], watching = [];
@@ -1325,6 +1343,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       clearInterval(braincellTimer);
       clearInterval(timer);
       clearInterval(admitTimer);
+      clearInterval(weatherTimer);
       for (const remove of detach) remove();
       for (const ws of wss.clients) ws.terminate();
       await new Promise((resolve) => wss.close(resolve));
