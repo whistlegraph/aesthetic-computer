@@ -143,7 +143,9 @@ async function savePng(page, name) {
 async function begin(browser, base, brush, blocked) {
   const context = await browser.createBrowserContext();
   const { page, log } = await openPage(browser, VIEW, { context, consoleTypes: ["error", "warning"] });
-  await onlyLocal(page, base, blocked);
+  // The page's own module is left out: it keeps guests from painting and
+  // records steps, and this test is of the brushes alone.
+  await onlyLocal(page, base, blocked, /\/classic-steps\.mjs/);
   await page.evaluateOnNewDocument(client);
   // The page's own stickers (the Notepat note, the teacher chip) sit over the
   // canvas; the shots are of the game.

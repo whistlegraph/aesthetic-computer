@@ -2431,7 +2431,7 @@ k.GetValue()+"[/opacity][/color]"},a=>{const h=a._GetNode(0).GetVar(),k=a._GetNo
 return()=>(h(k.GetValue())-1)%m.GetValue()},a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1).GetVar(),m=a._GetNode(2).GetVar();return()=>Math.floor((h(k.GetValue())-1)/m.GetValue())},a=>{const h=a._GetNode(0);return()=>h.ExpObject()+8},a=>{const h=a._GetNode(0);return()=>h.ExpObject()-3},a=>{const h=a._GetNode(0),k=a._GetNode(1),m=a._GetNode(2);return()=>l(l("MoreLess"===h.ExpInstVar()?1:0,"Peek"===k.ExpInstVar()?1:0),"Emoji"===m.ExpObject()?1:0)},a=>{const h=a._GetNode(0),k=a._GetNode(1);
 return()=>l("MoreLess"===h.ExpInstVar()?1:0,"Peek"===k.ExpInstVar()?1:0)},a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1).GetBoundMethod();return()=>h("3|0|3|0|0|3|6|0|0|0|0|0|0|0|0|1|0|0|0",k(),"|")},a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1).GetBoundMethod(),m=a._GetNode(2).GetBoundMethod();return()=>h(k("3|0|3|0|0|3|6|0|0|0|0|0|0|0|0|1|0|0|0",m(),"|"))},()=>"Features",a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1),m=a._GetNode(2).GetVar();return()=>h(k.ExpObject(),
 "(\\?)","",m.GetValue().toString())},()=>"Emoji Sprinkles",()=>"background.css",()=>"body, html",()=>"mobile",()=>304,()=>227,()=>184,()=>216,()=>235,a=>{const h=a._GetNode(0),k=a._GetNode(1);return()=>h.ExpObject()+k.ExpObject()},a=>{const h=a._GetNode(0);return()=>h.ExpObject()-24},()=>"Enter",()=>"Version",a=>{const h=a._GetNode(0);return()=>h.ExpObject()-48},a=>{const h=a._GetNode(0),k=a._GetNode(1);return()=>l("AboutButton"===h.ExpInstVar()?1:0,"AboutText"===k.ExpInstVar()?1:0)},()=>"About",
-()=>"ChatButton",()=>"Community",()=>"AppButton",()=>"Download App",()=>"paintingRetrievalComplete",()=>"App",()=>"Whistlegraph",()=>"LightSwitch",()=>"\ud83d\udc4b Welcome to No Paint",()=>"Light Switch",()=>"EarlyAccess",a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1).GetBoundMethod();return()=>h(k(0,1),.35,.435,1)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(20,25,30)},()=>"LightSwitchReleased",()=>-.5,()=>"https://discord.gg/4BdxKC5gd9",()=>"https://whistlegraph.org",()=>
+()=>"ChatButton",()=>"Community",()=>"AppButton",()=>"Download App",()=>"paintingRetrievalComplete",()=>"App",()=>"Whistlegraph",()=>"LightSwitch",()=>"\ud83d\udc4b Welcome to No Paint",()=>"Light Switch",()=>"EarlyAccess",a=>{const h=a._GetNode(0).GetBoundMethod(),k=a._GetNode(1).GetBoundMethod();return()=>h(k(0,1),.35,.435,1)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(20,25,30)},()=>"LightSwitchReleased",()=>-.5,()=>"https://laklok.com",()=>"https://whistlegraph.org",()=>
 "Your Ad Here",()=>"https://tally.so/r/3EQbo3",()=>"https://apps.apple.com/us/app/no-paint/id1107427275",a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(128,128,0)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(100,0,100)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(145,145,200)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(0,100,0)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(125,175,125)},()=>"AboutButton",a=>{const h=a._GetNode(0).GetBoundMethod();
 return()=>h(0,100,100)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(255,90,90)},a=>{const h=a._GetNode(0).GetBoundMethod();return()=>h(100,100,100)},()=>85,()=>"AboutText",()=>"\ud83d\udc40 Looking for a previously stored painting.",()=>"\ud83d\udc4d Painting found!",()=>"\ud83d\udc4e Painting not found!",()=>"\u2705 Loaded the stored painting.",()=>352]}var module$str$c3runtime={};runOnStartup(async f=>{f.addEventListener("beforeprojectstart",()=>OnBeforeProjectStart$$module$str$main(f))});function OnBeforeProjectStart$$module$str$main(f){}function layoutCheck$$module$str$main(f,c){const b=f.getAllLayouts();return Object.keys(b).some(function(d){return b[d].name===c})}function getColorIndicesForCoord$$module$str$main(f,c,b){f=4*c*b+4*f;return[f,f+1,f+2,f+3]}const globalImageData$$module$str$main=new ImageData(256,256);
 function distance$$module$str$main(f,c,b,d){f=b-f;c=d-c;return Math.sqrt(f*f+c*c)}function hslToRgb$$module$str$main(f,c,b){if(0==c)b=c=f=b;else{function g(l,a,h){0>h&&(h+=1);1<h&&--h;return h<1/6?l+6*(a-l)*h:.5>h?a:h<2/3?l+(a-l)*(2/3-h)*6:l}var d=.5>b?b*(1+c):b+c-b*c,e=2*b-d;b=g(e,d,f+1/3);c=g(e,d,f);f=g(e,d,f-1/3)}return[255*b,255*c,255*f]}
@@ -2562,8 +2562,9 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 //   odds                         each brush's chance in 100, as the game has it now
 //   sample {n}                   draw n proposals with the game's picker and count them
 //   aiResult {turn, png | error} the picture of an AI turn, or why there is none
-//   look {uid}                   one placed thing on this layout: place, size, text
-//   write {uid, text, visible}   set a sprite font's text, show or hide it
+//   look {uid}                   one placed thing on this layout: place, size, text, box on the page
+//   write {uid, text, visible, x, y, width, height, fit}   set a sprite font
+//   create {like | type, layer, x, y, width, height, text}   a new sprite font, drawn like another
 //   code {code}                  the #code Save should show (null: a classic code)
 //   settings                     the tuning's settings for AI turns
 //   force {name}                 make the next proposal this brush, once
@@ -2652,7 +2653,7 @@ runOnStartup(async (runtime) => {
   };
   const state = () => ({
     layout: runtime.layout.name, tool: vars.CurrentTool, params: vars.Params,
-    prompt: vars.promptText, hint: vars.parameterHint, painting: !!vars.Painting, paused: !!vars.Paused,
+    prompt: vars.promptText, hint: vars.parameterHint, painting: !!vars.Painting, desktop: !!vars.DesktopMode, paused: !!vars.Paused,
     paintDate: vars.PaintDate, code: vars.LoadCode, name: vars.Name, time: runtime.gameTime,
   });
   // FNV-1a over the RGBA bytes; ink counts pixels that are not opaque white
@@ -2713,20 +2714,47 @@ runOnStartup(async (runtime) => {
       turn.settle?.(turn.blob, turn.error);
       return { turn: name, ok: !!turn.blob };
     },
-    // One placed thing, by the UID the Construct source carries: where it is and what it says.
+    // One placed thing, by the UID the Construct source carries: where it is,
+    // what it says, and its box on the page in CSS pixels (for taps).
     look({ uid }) {
       const thing = runtime.getInstanceByUid(Number(uid));
       if (!thing) throw new Error(`nothing with UID ${uid} on this layout`);
+      const corner = (x, y) => thing.layer.layerToCssPx(x, y);
       return { uid: Number(uid), type: thing.objectType?.name, x: thing.x, y: thing.y, width: thing.width, height: thing.height,
-        visible: thing.isVisible, layer: thing.layer?.name, ...("text" in thing ? { text: thing.text } : {}) };
+        visible: thing.isVisible, layer: thing.layer?.name, ...("text" in thing ? { text: thing.text } : {}),
+        // Can a player see it now? Its own switch, and its layer's.
+        shown: Boolean(thing.isVisible && thing.layer?.isVisible && thing.layer.opacity > 0 && thing.opacity > 0),
+        css: [corner(thing.x, thing.y), corner(thing.x + thing.width, thing.y + thing.height)] };
     },
-    // Write the text of a sprite font on this layout, and say whether it shows.
-    write({ uid, text, visible }) {
+    // Write a sprite font on this layout: its text, whether it shows, where it
+    // sits. fit: make it as wide as its text, keeping its right edge.
+    write({ uid, text, visible, x, y, width, height, fit }) {
       const thing = runtime.getInstanceByUid(Number(uid));
       if (!thing || !("text" in thing)) throw new Error(`no text with UID ${uid} on this layout`);
       if (text !== undefined) thing.text = String(text);
       if (visible !== undefined) thing.isVisible = Boolean(visible);
+      if (fit) {
+        // As wide as the text. A label on the right half keeps its right edge.
+        // (Colour, background and scale tags take no room of their own.)
+        const letters = String(thing.text).replace(/\[[^\]]*\]/g, "").length;
+        const right = thing.x + thing.width, wide = Math.max(8, Math.ceil(letters * Number(fit)));
+        thing.width = wide;
+        if (right > 128) thing.x = right - wide;
+      }
+      for (const [key, value] of Object.entries({ x, y, width, height })) if (Number.isFinite(value)) thing[key] = value;
       return ops.look({ uid });
+    },
+    // Put a new sprite font on this layout, drawn like an existing one. It
+    // lasts until the layout ends, as everything on a layout does.
+    // (like: a UID to draw like; or type: any one of that object type here.)
+    create({ like, type, layer, x, y, width, height, text = "" }) {
+      const model = like !== undefined ? runtime.getInstanceByUid(Number(like)) : runtime.objects[type]?.getFirstInstance();
+      if (!model || !("text" in model)) throw new Error(`no text here to draw like (${like ?? type})`);
+      const made = model.objectType.createInstance(layer || model.layer.name, Number.isFinite(x) ? x : model.x, Number.isFinite(y) ? y : model.y);
+      made.width = Number.isFinite(width) ? width : model.width; made.height = Number.isFinite(height) ? height : model.height;
+      for (const key of ["characterScale", "characterSpacing", "lineHeight", "horizontalAlign", "verticalAlign", "wordWrapMode"]) try { made[key] = model[key]; } catch {}
+      made.text = String(text);
+      return ops.look({ uid: made.uid });
     },
     // The #code of the AC painting on the canvas, or null: what Save will show.
     code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
@@ -2769,6 +2797,9 @@ runOnStartup(async (runtime) => {
     const flag = !!vars.Painting;
     // The options are chosen a moment after the layout starts; keep the latest.
     if (proposal && !proposal.turn && now === proposal.layout && !flag) proposal.options = hint() || vars.Params || proposal.options;
+    // The Load brush flickers its picture between full and half strength, and
+    // Paint keeps whichever it is at. An AI turn's picture is held at full.
+    if (proposal?.turn && now === proposal.layout) { const shown = runtime.objects.LoadBuffer?.getFirstInstance(); if (shown && shown.opacity !== 1) shown.opacity = 1; }
     if (flag !== painting) {
       painting = flag;
       if (flag && proposal) proposal.painted = true;

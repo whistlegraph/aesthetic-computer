@@ -10,11 +10,16 @@
 // through /api/painting-wip. A Paint is a layer holding the pixels that
 // changed. A No is a layer with its line and no pixels.
 //
-// A guest's painting is held by a key kept in this browser. Signing in with
-// an Aesthetic Computer handle is offered, never asked for: the service then
-// gives the painting to that handle, and later paintings start as theirs.
-// Sign-in is Note Paint's (/api/nopaint-signin): a link sent by email, opened
-// on any device, and this page learns of it by polling.
+// Painting takes a handle. A guest can look at the title screen and follow its
+// links, but the first tap that would start a painting goes to sign-in, and
+// every painting belongs to the handle that made it.
+// Sign-in is AC's own turnstile, the hosted page at hi.aesthetic.computer
+// (where a new person also picks a handle); this page has no form of its own.
+//
+// Nothing here is drawn in the page. What the player sees is the game's: its
+// title screen's label says Sign In or the handle, in the game's own letters,
+// and a tap on it is taken here before the game sees it. While painting, the
+// handle sits in the checkerboard to the left of No and Paint.
 //
 // AI turns. The tuning (toolchain/nopaint/classic-tuning.json) can give an AI
 // brush a share of the proposals. An AI turn is Note Paint's move, through the
@@ -32,7 +37,9 @@ import { createNoPaintPiece, createNoPaintProposalLayer, appendNoPaintLayer, rec
 import { encodePaintingState, decodePaintingState } from "https://aesthetic.computer/aesthetic.computer/lib/painting-state.mjs";
 
 const API = "https://aesthetic.computer/api/painting-wip";
-const SIGNIN = "/api/nopaint-signin"; // same origin; lith answers it
+const AUTH = { domain: "hi.aesthetic.computer", clientId: "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt",
+  sdk: "https://aesthetic.computer/aesthetic.computer/dep/auth0-spa-js.production.js" };
+const HANDLE = "https://aesthetic.computer/api/handle";
 const STORE = "nopaint:classic:steps";
 const ACCOUNT = "nopaint:classic:account";
 const MOVES = "https://aesthetic.computer/api/nopaint-inference";
@@ -66,12 +73,52 @@ async function painting() {
   return { pixels, hash: (hash >>> 0).toString(16).padStart(8, "0") };
 }
 
-// Who is painting: { token, label } once signed in, or null for a guest.
+// Who is painting: { label, sub } once signed in through the turnstile, or
+// null for a guest. (A session handed over another way, { token, label } under
+// ACCOUNT in localStorage, is honoured too: the live test signs in so.)
 let account = (() => { try { return JSON.parse(localStorage.getItem(ACCOUNT) || "null"); } catch { return null; } })();
-function signedOut() { account = null; try { localStorage.removeItem(ACCOUNT); } catch {} }
+let auth = null; // the turnstile's client, loaded when first needed
+async function turnstile() {
+  if (auth) return auth;
+  if (!globalThis.auth0) await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = AUTH.sdk; script.onload = resolve; script.onerror = () => reject(new Error("Sign-in could not load."));
+    document.head.append(script);
+  });
+  return (auth = new globalThis.auth0.Auth0Client({ domain: AUTH.domain, clientId: AUTH.clientId, cacheLocation: "localstorage",
+    useRefreshTokens: true, authorizationParams: { redirect_uri: location.origin }, httpTimeoutInSeconds: 30 }));
+}
+// The token to send as this painter, fresh each time, or null for a guest.
+async function bearer() {
+  if (!account) return null;
+  if (account.token) return account.token;
+  try { return await (await turnstile()).getTokenSilently(); } catch { signedOut(); return null; }
+}
+function signedOut() {
+  account = null;
+  try { localStorage.removeItem(ACCOUNT); } catch {}
+  auth?.logout({ openUrl: false }).catch(() => {});
+}
+// Coming back from the turnstile, or coming back signed in from an earlier visit.
+async function arrive() {
+  const params = new URLSearchParams(location.search), back = params.has("code") && params.has("state");
+  if (account?.token) return;
+  let known = false;
+  try { known = Object.keys(localStorage).some((key) => key.startsWith("@@auth0spajs@@")); } catch {}
+  if (!back && !known) return;
+  try {
+    const client = await turnstile();
+    if (back) try { await client.handleRedirectCallback(); } finally { history.replaceState(null, "", location.pathname); }
+    if (!(await client.isAuthenticated())) return;
+    const user = await client.getUser();
+    const handle = await fetch(`${HANDLE}?for=${encodeURIComponent(user.sub)}`).then((r) => r.json()).then((v) => v.handle, () => null);
+    account = { sub: user.sub, label: handle ? `@${handle}` : "signed in" };
+  } catch (error) { failed = `sign-in: ${error.message}`; }
+}
 
 async function call(body) {
-  const response = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", ...(account?.token ? { Authorization: `Bearer ${account.token}` } : {}) }, body: JSON.stringify(body) });
+  const token = await bearer();
+  const response = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
   const value = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(value.error || `painting service answered ${response.status}`), { status: response.status });
   return value;
@@ -82,20 +129,16 @@ async function call(body) {
 let session = null, piece = null, saving = null, timer = null, dirty = false, failed = null;
 const state = (window.nopaintSteps = { get code() { return session?.code || null; }, get version() { return piece ? piece.layers.length - (session?.initial || 1) : 0; },
   get account() { return account?.label || null; }, log: [],
+  get painting() { return session?.code ? `#${session.code} v${piece ? piece.layers.length - (session.initial || 1) : 0}` : null; },
+  get title() { return { ...labels, spots: spots.map((spot) => spot.act) }; },
+  get handleLine() { return handleLine; },
+  get titleLine() { return aiLine; },
   get saved() { return session?.saved ?? 0; }, get error() { return failed; }, events: [] });
 let told; // the #code the game was last told Save should show
 const show = () => {
   // Save shows the painting's #code once it has one, a classic code until then.
   if ((session?.code || null) !== told) { told = session?.code || null; ask("code", { code: told }).catch(() => { told = undefined; }); }
-  chip.hidden = !session?.code;
-  chip.textContent = session?.code ? `#${session.code} v${state.version}` : "";
-  chip.dataset.saved = String(state.saved === state.version);
-  who.textContent = account?.label || "sign in";
-  who.dataset.signedIn = String(Boolean(account));
-  const on = Boolean(account) && stored(AI_ON) === "true";
-  aiChip.hidden = !account || !settings;
-  aiChip.dataset.on = String(on);
-  aiChip.textContent = on ? `AI on${offers?.paid ? ` · ${offers.paid.braincells}` : ""}` : "AI off";
+  title();
 };
 
 // Take up the painting on the canvas: the one this browser was making, if the
@@ -122,6 +165,7 @@ async function begin() {
 
 // One step: the brush, the options it ran with, and how it was answered.
 async function step(event, decision) {
+  await arrived;
   if (!piece) await begin();
   const score = { kind: event.tool, engine: "nopaint-classic", options: event.options || "", decision,
     line: event.options ? `${event.tool}: ${event.options}` : event.tool, ...(receipts.get(event.turn) ? { ai: receipts.get(event.turn) } : {}) };
@@ -231,7 +275,7 @@ async function aiTurn({ id, note, settings: turn = {} }) {
     let trial = stored(TRIAL_ID);
     if (guest && !trial) store(TRIAL_ID, (trial = crypto.randomUUID()));
     const response = await fetch(MOVES, { method: "POST",
-      headers: { "Content-Type": "application/json", ...(guest ? {} : { Authorization: `Bearer ${account.token}` }) },
+      headers: { "Content-Type": "application/json", ...(guest ? {} : { Authorization: `Bearer ${await bearer()}` }) },
       body: JSON.stringify({ requestId: crypto.randomUUID(), strength: [0.25, 0.5, 0.75].includes(turn.strength) ? turn.strength : 0.5,
         seed: Math.floor(Math.random() * 2 ** 31), hint: note, image: await png((await painting()).pixels), quote: offer.quote, model: offer.id,
         ...(guest ? { trialId: trial } : {}) }) });
@@ -254,105 +298,104 @@ async function aiTurn({ id, note, settings: turn = {} }) {
   raise();
 }
 
-// ---- the page ---------------------------------------------------------------
-const bar = document.createElement("div");
-bar.id = "nopaint-steps-bar";
-bar.innerHTML = `<button type="button" id="nopaint-ai" hidden title="AI turns cost Braincells. They are off until you turn them on."></button><button type="button" id="nopaint-who" title="Keep your paintings under an Aesthetic Computer handle"></button><span id="nopaint-steps" hidden title="This painting on Aesthetic Computer, and how many steps it has"></span>
-<dialog id="nopaint-signin" aria-labelledby="nopaint-signin-title"><form method="dialog">
-<h2 id="nopaint-signin-title">Keep your paintings</h2>
-<p class="lede">Sign in with your Aesthetic Computer handle and this painting, with every step, is yours. We send a link to your email.</p>
-<label>Email <input type="email" name="email" autocomplete="email" required></label>
-<p class="status" role="status"></p>
-<div class="row"><button value="cancel" formnovalidate>Close</button><button type="submit" value="send">Send link</button></div>
-</form></dialog>`;
-const style = document.createElement("style");
-style.textContent = `#nopaint-steps-bar { position: fixed; right: 6px; bottom: 6px; z-index: 9; display: flex; gap: 4px; align-items: center; font: 11px/1.3 monospace; }
-  #nopaint-steps, #nopaint-who, #nopaint-ai { padding: 2px 6px; color: #fff; background: #181820; border: 0; border-radius: 0; font: inherit; }
-  #nopaint-steps { opacity: 0.55; user-select: all; } #nopaint-steps[data-saved="true"] { opacity: 0.9; } #nopaint-steps[hidden] { display: none; }
-  #nopaint-ai { cursor: pointer; opacity: 0.9; } #nopaint-ai[data-on="true"] { color: #6cff33; } #nopaint-ai[hidden] { display: none; }
-  #nopaint-who { cursor: pointer; opacity: 0.9; } #nopaint-who[data-signed-in="true"] { color: #ffdd00; }
-  #nopaint-signin { max-width: min(380px, calc(100vw - 32px)); width: 100%; padding: 0; border: 3px solid #181820; background: #fff; color: #181820; }
-  #nopaint-signin::backdrop { background: rgba(24, 24, 32, .45); }
-  #nopaint-signin form { display: grid; gap: 10px; padding: 16px; font: 15px/1.35 system-ui, sans-serif; }
-  #nopaint-signin h2, #nopaint-signin p { margin: 0; } #nopaint-signin h2 { font-size: 19px; }
-  #nopaint-signin label { display: grid; gap: 3px; font-size: 13px; }
-  #nopaint-signin input { font: inherit; font-size: 16px; padding: 7px 8px; border: 2px solid #181820; border-radius: 0; }
-  #nopaint-signin .row { display: flex; gap: 10px; justify-content: flex-end; }
-  #nopaint-signin button { font: inherit; padding: 6px 12px; border: 2px solid #181820; background: #fff; color: #181820; cursor: pointer; border-radius: 0; }
-  #nopaint-signin button[type=submit] { background: #181820; color: #fff; } #nopaint-signin .status { min-height: 1.2em; font-size: 13px; }`;
-document.head.append(style);
-(document.body || document.documentElement).append(bar);
-const chip = bar.querySelector("#nopaint-steps"), who = bar.querySelector("#nopaint-who"), dialog = bar.querySelector("#nopaint-signin"), aiChip = bar.querySelector("#nopaint-ai");
-// A signed-in painter turns AI turns on and off, and sees what one costs.
-aiChip.addEventListener("click", async () => {
-  store(AI_ON, stored(AI_ON) === "true" ? "false" : "true");
-  tired = false;
-  await raise();
-});
-const form = dialog.querySelector("form"), status = dialog.querySelector(".status");
-
-// ---- sign in ----------------------------------------------------------------
-async function signin(body) {
-  const response = await fetch(SIGNIN, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const value = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(value.error || value.message || "Sign-in could not finish.");
-  return value;
-}
-let pairing = null; // { code, pollSecret, until } while a link is out
-async function waitForLink() {
-  while (pairing && Date.now() < pairing.until) {
-    await new Promise((done) => setTimeout(done, 2500));
-    if (!pairing) return;
-    const answer = await signin({ action: "poll", code: pairing.code, pollSecret: pairing.pollSecret }).catch(() => null);
-    if (answer?.status !== "claimed" || !answer.session?.accessToken) continue;
-    account = { token: answer.session.accessToken, label: answer.session.account?.label || "signed in" };
-    try { localStorage.setItem(ACCOUNT, JSON.stringify(account)); } catch {}
-    pairing = null;
-    if (dialog.open) dialog.close();
-    // Saving again as this handle makes the painting theirs.
-    if (piece) { dirty = true; save(); }
-    tired = false;
-    return raise();
-  }
-  if (pairing) { pairing = null; status.textContent = "That link ran out. Send another."; }
-}
-// The game reads the keyboard everywhere; typing here must stay here. Its
-// page script also takes every selection to start in an element, and throws
-// when one starts in text, so those stop here too.
-for (const type of ["keydown", "keyup", "keypress"]) dialog.addEventListener(type, (event) => event.stopPropagation());
-bar.addEventListener("selectstart", (event) => event.stopPropagation());
-who.addEventListener("click", () => {
-  if (account) { if (confirmSignOut()) { signedOut(); raise(); } return; }
-  status.textContent = "";
-  dialog.showModal();
-});
-// Two clicks sign out: the first asks.
-let asking = 0;
-function confirmSignOut() {
-  if (Date.now() - asking < 4000) { asking = 0; return true; }
-  asking = Date.now();
-  who.textContent = "sign out?";
-  setTimeout(() => { if (asking) { asking = 0; show(); } }, 4000);
-  return false;
-}
-form.addEventListener("submit", async (event) => {
-  if (event.submitter?.value !== "send") { pairing = null; return; }
-  event.preventDefault();
-  const email = form.elements.email.value.trim();
-  status.textContent = "Sending…";
+// ---- the title screen -------------------------------------------------------
+// The game's title screen has two states. It opens dark, with one small yellow
+// label bottom right ("EARLY ACCESS" in 2021); a tap turns the lights on, and
+// the lit screen has a slot top left ("Download App" in 2021). Whichever shows
+// is the sign-in: Sign In for a guest, the handle for a painter. On the lit
+// screen a second line under it turns a painter's AI turns on and off. All of
+// it is the game's own sprite font, written through the bridge, and a tap on
+// any of it is taken here before the game takes it.
+const LIT = 114, DARK = 98;          // UIDs in the Construct source (layout Splash)
+const LETTER = { [LIT]: 8.4, [DARK]: 9.7 }; // each label's letter advance, in layout pixels
+let layoutNow = null, spots = [], labels = { who: null, ai: null, lights: null }, aiLine = null, asking = 0, titling = Promise.resolve(), watching = null;
+function title() { titling = titling.then(drawTitle, drawTitle); return titling; }
+async function drawTitle() {
+  if (layoutNow !== "Splash") { spots = []; labels = { who: null, ai: null, lights: null }; aiLine = null; clearInterval(watching); watching = null; return; }
+  // The lights come on without the layout changing, so keep looking while here.
+  watching ||= setInterval(title, 600);
   try {
-    const made = await signin({ action: "create" });
-    const parameters = await signin({ action: "email", code: made.code, email });
-    const sent = await fetch("https://hi.aesthetic.computer/passwordless/start", { method: "POST", headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(15000), body: JSON.stringify({ ...parameters, connection: "email", email, send: "link" }) });
-    if (!sent.ok) throw new Error(sent.status === 429 ? "Please wait before asking for another link." : "The link could not be sent.");
-    pairing = { code: made.code, pollSecret: made.pollSecret, until: Date.now() + 590_000 };
-    status.textContent = "Check your email and open the link. Keep this page open.";
-    waitForLink();
-  } catch (error) { status.textContent = error.message; }
-});
-state.signOut = () => { signedOut(); raise(); };
-show();
+    const sure = account && Date.now() - asking < 4000;
+    labels.who = sure ? "Sign Out?" : account ? account.label : "Sign In";
+    const dark = await ask("write", { uid: DARK, text: labels.who.toUpperCase(), fit: LETTER[DARK] });
+    // A guest's Sign In is the loudest thing on the lit screen: twice the size,
+    // yellow on black, as the game marks what to type. A handle sits quietly.
+    const lit = await ask("write", account
+      ? { uid: LIT, text: labels.who, fit: LETTER[LIT], height: 16 }
+      : { uid: LIT, text: "[scale=2][background=#000000][color=#ffff00] Sign In [/color][/background][/scale]", width: 160, height: 32 });
+    labels.lights = !dark.shown;
+    const next = [{ act: account ? "out" : "in", box: (dark.shown ? dark : lit).css }];
+    if (account && settings && !dark.shown) {
+      const on = stored(AI_ON) === "true";
+      labels.ai = on ? `AI On${offers?.paid ? ` ${offers.paid.braincells}` : ""}` : "AI Off";
+      if (!aiLine) aiLine = (await ask("create", { like: LIT, y: lit.y + lit.height + 1, text: labels.ai })).uid;
+      next.push({ act: "ai", box: (await ask("write", { uid: aiLine, text: labels.ai, visible: true, fit: LETTER[LIT] })).css });
+    } else {
+      if (aiLine) await ask("write", { uid: aiLine, visible: false }).catch(() => {});
+      labels.ai = null;
+    }
+    spots = next;
+  } catch (error) { spots = []; log(`title: ${error.message}`); }
+}
+async function act(what) {
+  log(`tap: ${what}`);
+  if (what === "in") {
+    clearTimeout(timer);
+    await save(); // the steps so far, before the page leaves for the turnstile
+    return (await turnstile()).loginWithRedirect().catch((error) => { failed = `sign-in: ${error.message}`; });
+  }
+  if (what === "out") {
+    // Two taps sign out: the first asks.
+    if (Date.now() - asking < 4000) { asking = 0; signedOut(); return raise(); }
+    asking = Date.now();
+    setTimeout(() => { if (asking && Date.now() - asking >= 4000) { asking = 0; title(); } }, 4100);
+    return title();
+  }
+  if (what === "ai") { store(AI_ON, stored(AI_ON) === "true" ? "false" : "true"); tired = false; return raise(); }
+}
+// ---- painting takes a handle ------------------------------------------------
+// The game leaves its title screen for the Index layout to propose a brush.
+// A guest who gets there is sent back and on to the turnstile.
+async function gate() {
+  await arrived;
+  if (account) return;
+  log("a guest tried to paint: to sign-in");
+  await ask("goto", { layout: "Splash" }).catch(() => {});
+  act("in");
+}
+// While painting on a desktop, the game's bottom strip has a checkerboard to
+// the left of No and Paint. The painter's handle goes there, in the game's
+// letters. (A phone's buttons fill the strip; there is no checkerboard.)
+let handleLine = null;
+async function sign() {
+  handleLine = null;
+  if (!account) return;
+  try {
+    if (!(await ask("state")).desktop) return;
+    handleLine = (await ask("create", { type: "MainSpriteFont", layer: "UI", x: 3, y: 290, width: 122, height: 12, text: `[color=#000000]${account.label}[/color]` })).uid;
+  } catch (error) { log(`handle line: ${error.message}`); }
+}
+
+// A tap inside a label never reaches the game.
+let held = false;
+const inside = (event) => spots.find(({ box }) => event.clientX >= box[0][0] && event.clientX <= box[1][0] && event.clientY >= box[0][1] && event.clientY <= box[1][1]);
+addEventListener("pointerdown", (event) => {
+  const spot = inside(event);
+  if (!spot) return;
+  held = true;
+  event.stopImmediatePropagation(); event.preventDefault();
+  act(spot.act);
+}, true);
+for (const type of ["pointerup", "pointercancel", "mousedown", "mouseup", "click", "touchstart", "touchend"]) addEventListener(type, (event) => {
+  if (!held) return;
+  event.stopImmediatePropagation(); event.preventDefault();
+  if (type === "pointerup" || type === "pointercancel") setTimeout(() => { held = false; }, 0);
+}, true);
+addEventListener("resize", () => title());
+state.signOut = () => { signedOut(); return raise(); };
+state.act = act;
+// Know who is here before the first save, so a painter's painting starts as theirs.
+const arrived = arrive().then(() => raise());
 
 channel.addEventListener("message", ({ data }) => {
   if (!data || data.to !== "page") return;
@@ -363,6 +406,9 @@ channel.addEventListener("message", ({ data }) => {
   }
   if (!data.event) return;
   state.events.push(data.event);
+  if (data.event === "layout" || data.event === "ready") { layoutNow = data.layout; title(); }
+  if (data.event === "layout" && data.layout === "Index") gate();
+  if (data.event === "proposed") sign();
   // Steps are taken in the order the game reports them.
   if (data.event === "painted") queue = queue.then(() => step(data, "paint")).catch((error) => { failed = error.message; });
   if (data.event === "refused") queue = queue.then(() => step(data, "no")).catch((error) => { failed = error.message; });

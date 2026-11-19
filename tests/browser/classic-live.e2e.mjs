@@ -1,11 +1,11 @@
 // classic-live.e2e, 2026.11.18
 // The proof run. It makes one real painting on the live site by each route,
-// a guest and a signed-in painter, and films both: a few brushes, an AI turn
-// with the real service, and Save. Nothing is played here.
+// a guest and a signed-in painter, and films both. A guest is stopped at the
+// title screen and sent to sign-in. A painter plays a few brushes, takes an AI
+// turn with the real service, and saves. Nothing is played here.
 //
 // THIS SPENDS REAL THINGS. Each run:
-//   makes two real #paintings on Aesthetic Computer;
-//   uses one of the service's free guest AI turns for the day;
+//   makes one real #painting on Aesthetic Computer;
 //   spends Braincells of the signed-in painter for one AI turn.
 // It is run by hand, never by a schedule.
 //
@@ -53,18 +53,37 @@ async function run(browser, route) {
       setTimeout(() => reject(new Error(`no answer to ${o}`)), 8000);
     }), op, args || {});
     const steps = () => page.evaluate(() => ({ code: window.nopaintSteps.code, version: window.nopaintSteps.version, saved: window.nopaintSteps.saved,
-      error: window.nopaintSteps.error, who: document.querySelector("#nopaint-who")?.textContent, ai: document.querySelector("#nopaint-ai")?.hidden ? null : document.querySelector("#nopaint-ai")?.textContent,
-      chip: document.querySelector("#nopaint-steps")?.textContent, log: window.nopaintSteps.log }));
+      error: window.nopaintSteps.error, who: window.nopaintSteps.account || "guest", title: window.nopaintSteps.title,
+      chip: window.nopaintSteps.painting, log: window.nopaintSteps.log }));
     const events = () => page.evaluate(() => window.nopaintSteps.events.length);
     const until = (from, event, timeout = 30000) => page.waitForFunction((f, e) => window.nopaintSteps.events.slice(f).includes(e), { timeout, polling: 100 }, from, event);
     for (let i = 0; i < 300 && !(await ask("state").then((s) => s.layout, () => null)); i++) await wait(200);
-    await wait(2500); // the title screen, for the film
-    await ask("goto", { layout: "Index" });
+    await wait(2500); // the dark opening screen, for the film
+    if (!route.account) {
+      // A guest cannot paint: the tap that would start goes to the turnstile.
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // lights on
+      await wait(2500); // the lit title screen with its Sign In, for the film
+      const slot = await ask("look", { uid: 114 });
+      check("the title screen says Sign In", /Sign In/.test(slot.text), slot.text.replace(/\[[^\]]*\]/g, ""));
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45); // a tap to start
+      await page.waitForFunction(() => location.host === "hi.aesthetic.computer", { timeout: 30000 }).catch(() => {});
+      await wait(3500);
+      check("a guest's tap to start lands on the AC turnstile", new URL(page.url()).host === "hi.aesthetic.computer", page.url().split("?")[0]);
+      Object.assign(r, await clip.stop());
+      await context.close().catch(() => {});
+      return r;
+    }
+    // Start as a player does: a tap turns the lights on, another starts.
+    for (let taps = 0; taps < 4 && (await ask("state")).layout === "Splash"; taps++) {
+      await page.mouse.click(VIEW.W / 2, VIEW.H * 0.45);
+      await wait(taps ? 400 : 2500); // the lit title screen, with its sign-in slot, for the film
+      for (let i = 0; i < 20 && (await ask("state")).layout === "Splash" && taps; i++) await wait(150);
+    }
     await wait(1200);
     // Hold the AI flag down so the one AI turn is the one asked for below.
     for (let i = 0; i < 60 && !("AI" in (await ask("odds")).odds); i++) await wait(250);
     const offered = "AI" in (await ask("odds")).odds;
-    check("the page found an AI turn to offer", offered, route.account ? (await steps()).ai : "the free turn");
+    check("the page found an AI turn to offer", offered, route.account ? "a painter with AI turns on" : "the free turn");
     await ask("flags", { flags: { ai: false } });
     const play = async (line, answer, look = 2600) => {
       await ask("prompt", { text: line });
@@ -97,7 +116,7 @@ async function run(browser, route) {
     await wait(4000); // the save
     let seen = await steps();
     check("every step is on AC under one #code", !!seen.code && seen.saved === seen.version && !seen.error, `${seen.chip}${seen.error ? `, ${seen.error}` : ""}`);
-    check(route.account ? "the page shows the handle" : "the page offers sign-in", seen.who === (route.account?.label || "sign in"), seen.who);
+    check(route.account ? "the painter is signed in" : "the painter is a guest", seen.who === (route.account?.label || "guest"), seen.who);
     // Save, from the pause screen: the game shows the painting's own code.
     await ask("call", { name: "Pause" });
     await wait(1800);

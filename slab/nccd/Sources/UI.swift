@@ -1045,6 +1045,42 @@ final class MentionList: NSView {
     }
 }
 
+// The switcher's card: rounded, with a small nib at its top that points up at
+// the bar's arrow, and a shadow under it, so it reads as floating over the page.
+final class Popover: NSView {
+    static let nib: CGFloat = 7
+    override var isFlipped: Bool { true }
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.35
+        layer?.shadowRadius = 10
+        layer?.shadowOffset = CGSize(width: 0, height: -4)
+    }
+    required init?(coder: NSCoder) { fatalError() }
+    override func draw(_ dirty: NSRect) {
+        let body = NSRect(x: 0, y: Self.nib, width: bounds.width, height: bounds.height - Self.nib)
+        let path = NSBezierPath(roundedRect: body, xRadius: 10, yRadius: 10)
+        let x: CGFloat = 26                         // under the arrow
+        path.move(to: NSPoint(x: x - Self.nib, y: Self.nib + 0.5))
+        path.line(to: NSPoint(x: x, y: 0))
+        path.line(to: NSPoint(x: x + Self.nib, y: Self.nib + 0.5))
+        path.close()
+        Theme.pair("F4FBF6", "10303A").setFill()
+        path.fill()
+        NSColor(white: 1, alpha: 0.18).setStroke()
+        NSBezierPath(roundedRect: body.insetBy(dx: 0.5, dy: 0.5), xRadius: 9.5, yRadius: 9.5).stroke()
+    }
+    override func mouseDown(with event: NSEvent) {}       // a press on the card's own ground does nothing (and does not fall through)
+}
+
+// Behind the switcher, unseen: it takes the press that shuts it.
+final class Catch: NSView {
+    var onClick: (() -> Void)?
+    override func mouseDown(with event: NSEvent) { onClick?() }
+}
+
 // A seam: a row of stitches, as on cloth. Each stitch is a short rounded
 // thread, lit along its top, with the dark of the hole it goes into at each
 // end and a soft shadow under it, so it sits on the plane, not in it.
@@ -1164,6 +1200,7 @@ final class RailRow: NSView {
     // The tabs are along the top of the window: closer set, so more of them fit on a line.
     // Greyed out: this place needs a login that is not done. A press goes to the logins.
     var enabled = true { didSet { paint() } }
+    var pill = false { didSet { needsDisplay = true } }       // in the switcher: a rounded pill, not a folder tab
     var onTop = false {
         didSet {
             inner.edgeInsets = NSEdgeInsets(top: 0, left: onTop ? 10 : 16, bottom: onTop ? 3 : 0, right: onTop ? 9 : 10)
@@ -1220,7 +1257,7 @@ final class RailRow: NSView {
 
     private var open: Bool { selected || windowed }
     private func paint() {
-        let on = !enabled ? Theme.faint : selected ? Theme.ink : windowed ? Theme.on(wash) : Theme.ink
+        let on = !enabled ? Theme.faint : pill ? (selected ? Theme.on(wash) : Theme.ink) : selected ? Theme.ink : windowed ? Theme.on(wash) : Theme.ink
         name.font = Theme.mono(weight: selected ? .heavy : open ? .bold : .medium)
         name.textColor = on
         icon.contentTintColor = on
@@ -1231,6 +1268,19 @@ final class RailRow: NSView {
     }
 
     override func draw(_ dirty: NSRect) {
+        if pill {
+            // the place's colour, rounded all round; the open one is full, the rest are let down, and the one under the pointer lights up
+            let shape = NSBezierPath(roundedRect: bounds, xRadius: 7, yRadius: 7)
+            (!enabled ? NSColor.gray.withAlphaComponent(0.2) : selected ? wash : wash.withAlphaComponent(hover ? 0.8 : 0.34)).setFill()
+            shape.fill()
+            if hover, enabled, !selected {
+                NSColor(white: 1, alpha: 0.5).setStroke()
+                let edge = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.75, dy: 0.75), xRadius: 6.5, yRadius: 6.5)
+                edge.lineWidth = 1.5
+                edge.stroke()
+            }
+            return
+        }
         Tab.draw(in: bounds, fill: !enabled ? NSColor.gray.withAlphaComponent(0.22) : selected ? pane : windowed ? wash : wash.withAlphaComponent(0.42),
                  open: selected, top: onTop, hover: hover && enabled)
     }
@@ -1322,16 +1372,60 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var logoWide: NSLayoutConstraint!
     private var topHeight: NSLayoutConstraint!
     private let unibar = Unibar()              // on top: the one bar
-    private let drop = Fill(Theme.mint)        // the list of places that drops down from it
+    private let drop = Popover()               // the switcher: a small card of places that pops out under the bar
     private let dropStack = NSStackView()
-    private let scrim = PressFill(NSColor(white: 0, alpha: 0.28), radius: 0)     // behind the list: a tap on it shuts the list
+    private let scrim = Catch()                // unseen, behind the card: a press anywhere else shuts it
+    // The card is a small window of its own, a child of the app's window: it
+    // floats over everything in it (the 3D donut too), may reach past the
+    // window's edge when the window is small, and takes no focus.
+    private var dropPanel: NSPanel?
     private var dropOpen = false {
         didSet {
-            drop.isHidden = !dropOpen
             scrim.isHidden = !dropOpen
             unibar.open = dropOpen
-            diagram.alphaValue = dropOpen ? 0 : 1        // the 3D donut steps out from under the list
+            guard dropOpen != oldValue else { return }
+            if dropOpen { openDrop() } else { closeDrop() }
         }
+    }
+    private func openDrop() {
+        guard let window else { return }
+        drop.layoutSubtreeIfNeeded()
+        let size = NSSize(width: 196, height: dropStack.fittingSize.height + Popover.nib + 12)
+        let panel = dropPanel ?? {
+            let p = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            p.isOpaque = false
+            p.backgroundColor = .clear
+            p.hasShadow = true
+            p.contentView = drop
+            dropPanel = p
+            return p
+        }()
+        // under the bar's arrow, kept on the screen
+        let bar = window.convertToScreen(unibar.convert(unibar.bounds, to: nil))
+        var origin = NSPoint(x: bar.minX - 2, y: bar.minY - size.height + 6)
+        if let screen = window.screen {          // (a window that is on no screen is a test's)
+            origin.x = min(origin.x, screen.visibleFrame.maxX - size.width - 4)
+            origin.y = max(origin.y, screen.visibleFrame.minY + 4)
+        }
+        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.alphaValue = 0
+        window.addChildWindow(panel, ordered: .above)
+        NSAnimationContext.runAnimationGroup { ctx in       // it pops: a quick fade in
+            ctx.duration = 0.12
+            panel.animator().alphaValue = 1
+        }
+    }
+    private func closeDrop() {
+        guard let panel = dropPanel else { return }
+        panel.parent?.removeChildWindow(panel)
+        panel.orderOut(nil)
+    }
+    // Test aid: the card as a picture, and where it is in the window's own space.
+    func dropShot() -> (NSView, NSRect)? {
+        // (where it belongs under the bar, in the window's own space: the system moves a test's off-screen window's card)
+        guard dropOpen, let panel = dropPanel else { return nil }
+        let bar = unibar.convert(unibar.bounds, to: nil)
+        return (drop, NSRect(x: bar.minX - 2, y: bar.minY - panel.frame.height + 6, width: panel.frame.width, height: panel.frame.height))
     }
     private var lastSections: [(String, [(Int, String, NSColor?)])] = []
     private let taskBar = Fill(Theme.mint)     // along the bottom, when the tabs are along the top
@@ -1777,26 +1871,25 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             wikiScroll.topAnchor.constraint(equalTo: wikiBand.bottomAnchor, constant: 3),
             wikiScroll.bottomAnchor.constraint(equalTo: wiki.bottomAnchor, constant: -4),
         ])
-        // the dropdown: over everything under the bar, with a scrim behind it
+        // The switcher: a small card that floats over the page, under the bar's
+        // arrow. It covers only its own size; what is behind it stays in view.
         scrim.wantsLayer = true            // layers, so that they lie over the 3D donut (which is one)
         drop.wantsLayer = true
         scrim.translatesAutoresizingMaskIntoConstraints = false
         scrim.onClick = { [weak self] in self?.dropOpen = false }
         addSubview(scrim)
-        drop.grain = true
-        addSubview(drop)
         dropStack.orientation = .vertical
         dropStack.alignment = .leading
-        dropStack.spacing = 1
+        dropStack.spacing = 2
         dropStack.translatesAutoresizingMaskIntoConstraints = false
         drop.addSubview(dropStack)
+        drop.frame = NSRect(x: 0, y: 0, width: 196, height: 100)
+        drop.autoresizingMask = [.width, .height]
         NSLayoutConstraint.activate([
             scrim.leadingAnchor.constraint(equalTo: leadingAnchor), scrim.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrim.topAnchor.constraint(equalTo: railBox.bottomAnchor), scrim.bottomAnchor.constraint(equalTo: bottomAnchor),
-            drop.leadingAnchor.constraint(equalTo: leadingAnchor), drop.trailingAnchor.constraint(equalTo: trailingAnchor),
-            drop.topAnchor.constraint(equalTo: railBox.bottomAnchor),
-            dropStack.leadingAnchor.constraint(equalTo: drop.leadingAnchor), dropStack.trailingAnchor.constraint(equalTo: drop.trailingAnchor, constant: -8),
-            dropStack.topAnchor.constraint(equalTo: drop.topAnchor, constant: 8), dropStack.bottomAnchor.constraint(equalTo: drop.bottomAnchor, constant: -10),
+            dropStack.leadingAnchor.constraint(equalTo: drop.leadingAnchor, constant: 6), dropStack.trailingAnchor.constraint(equalTo: drop.trailingAnchor, constant: -6),
+            dropStack.topAnchor.constraint(equalTo: drop.topAnchor, constant: Popover.nib + 6), dropStack.bottomAnchor.constraint(equalTo: drop.bottomAnchor, constant: -6),
         ])
         // Hairlines: one under the top bar and one over the bottom bar, a dotted
         // line in the wordmark's green, a pixel high.
@@ -1860,6 +1953,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         t.linkTextAttributes = [.foregroundColor: Theme.link, .cursor: NSCursor.pointingHand]
         s.documentView = t
         s.hasVerticalScroller = true
+        s.autohidesScrollers = true                      // no scroller when there is nothing to scroll
+        s.scrollerStyle = .overlay
         s.drawsBackground = false
     }
 
@@ -1910,6 +2005,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     func setStatus(_ s: String) { status.stringValue = s; status.isHidden = s.isEmpty }
+    var statusText: String { status.stringValue }
 
     // The station's bar, in the Netlabel tab.
     func showRadio(_ on: Bool) { radioBar.isHidden = !on }
@@ -2131,7 +2227,8 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 row.tag_ = index
                 row.tall = density > 0 ? 20 : 24
                 if top {                                     // on top the places are a list that drops down from the bar
-                    row.tall = 30
+                    row.tall = 26
+                    row.pill = true
                     dropStack.addArrangedSubview(row)
                     row.widthAnchor.constraint(equalTo: dropStack.widthAnchor).isActive = true
                 } else {
@@ -2171,6 +2268,7 @@ final class MainView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         sheet.color = Theme.wash(hue)            // the sheet is a wash of the circle's colour
         title.textColor = Theme.on(hue)
         diagram.isHidden = items == nil
+        scroll.isHidden = items != nil || linkShown      // the donut has the sheet: no empty ledger (or its scroller) under it
         if let items { diagram.items = items }
         // The roles, each its own block: the role on a dark ground, then the
         // member's name on the member's own colour.

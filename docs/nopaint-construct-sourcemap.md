@@ -409,6 +409,36 @@ function that uses it.)
   is an AC painting's, stores nothing for an upload under it, and sends
   `/painting/<code>.png` to AC's own picture of the painting.
 
+### The title screen and sign-in (added 2026-11-18)
+
+The page draws nothing over the game. What it has to say is written into the
+game's own text through the bridge (`look`, `write`, `create`).
+
+- The title screen (layout `Splash`) has two states. It opens dark, with one
+  yellow label bottom right (UID 98, layer `Light Switch`, "EARLY ACCESS" in
+  2021). A tap turns the lights on; the lit screen has a slot top left (UID
+  114, "Download App" in 2021). `look` reports `shown` for each.
+- `classic-steps.mjs` writes `Sign In` or the handle into whichever shows, and
+  on the lit screen adds a line under the slot, made with `create`, that turns
+  a signed-in painter's AI turns on and off.
+- A tap inside one of those boxes is taken by the page in the capture phase
+  (the bridge gives each box in CSS pixels), so the game never sees it.
+- Sign-in is AC's hosted turnstile (`hi.aesthetic.computer`, Auth0 SPA SDK,
+  `loginWithRedirect`, return to `https://nopaint.art`). The page has no form.
+- Painting takes a handle (2026-11-18). When the game reaches the `Index`
+  layout and nobody is signed in, the page sends it back to `Splash` and goes
+  to the turnstile. A guest's `Sign In` on the lit screen is written at twice
+  the size, yellow on black, with the sprite font's own tags
+  (`[scale=2][background=#000000][color=#ffff00]`).
+- While painting on a desktop, the handle is drawn in the checkerboard left of
+  No and Paint: a sprite font made with `create` on layer `UI` at (3, 290).
+  The strip is `DesktopNoPaintBackdrop`, 256 × 16 at y 288; No and Paint are
+  the right half (`DesktopNoPaintZipper`). A phone has no checkerboard.
+- The brush test leaves `classic-steps.mjs` out, so it tests the brushes as a
+  guest could before.
+- In a test, leave the title screen with real taps. Forcing the layout with
+  `goto` skips the game's own start, and Pause and Save then do nothing.
+
 Not built yet: the Caddy `Cache-Control: no-cache` line for the Construct
 files (section 6, step 3).
 
