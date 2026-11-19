@@ -1773,10 +1773,11 @@ export async function createView(canvas) {
       const seed = (d.name || '').length * 1.7 + (d.name || 'x').charCodeAt(0);
       const air = airAt(weather, d.x + (place?.x || 0), d.y, d.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
       const pushAlong = air.x * ahead.x + air.z * ahead.z, pushAcross = air.x * side.x + air.z * side.z;
-      const hunt = (rate, k) => (Math.sin(now / rate + seed * k) + 0.5 * Math.sin(now / (rate * 0.37) + seed)) * 0.02;
-      const lean = Math.max(-0.6, Math.min(0.6, along * 0.05 - pushAlong * 0.035 + hunt(610, 1)));
-      const bank = Math.max(-0.6, Math.min(0.6, across * 0.05 - pushAcross * 0.035 + hunt(530, 2)));
-      const y = d.y + air.y * 0.06 + hunt(420, 3) * 1.5 - 0.05;
+      // (Held level by its gyro: it floats, slowly, and leans only a little against the air.)
+      const hunt = (rate, k) => Math.sin(now / rate + seed * k) * 0.008;
+      const lean = Math.max(-0.6, Math.min(0.6, along * 0.05 - pushAlong * 0.012 + hunt(1300, 1)));
+      const bank = Math.max(-0.6, Math.min(0.6, across * 0.05 - pushAcross * 0.012 + hunt(1100, 2)));
+      const y = d.y + air.y * 0.03 + hunt(900, 3) * 3 - 0.05;
       draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank);
       if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }

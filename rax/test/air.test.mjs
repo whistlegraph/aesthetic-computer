@@ -38,3 +38,11 @@ test('by day under a clear sky some air rises and some sinks; by night none does
   assert.equal(sun(0), 0);
   assert.ok(Math.abs(sun(0.5) - 1) < 1e-9);
 });
+
+test('at the clock\'s real size the air still changes smoothly from one frame to the next', () => {
+  const t = 1795120000, gusty = { wind: 3, gust: 9, from: 161, cloud: 0.5 };
+  for (const [x, y, z] of [[2, 3, 6], [-30, 40, 12], [5, 800, 5]]) {
+    const a = airAt(gusty, x, y, z, t, { day: 1 }), b = airAt(gusty, x + 0.05, y + 0.02, z, t + 1 / 60, { day: 1 });
+    assert.ok(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) < 0.15, `a sixtieth of a second on, at ${x},${y},${z}: ${Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z).toFixed(2)} m/s different`);
+  }
+});

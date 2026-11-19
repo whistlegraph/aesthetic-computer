@@ -5,8 +5,9 @@ import { direction, clamp } from './world.mjs';
 const PUSH = 5, DRIFT = 2.2; // how quickly it takes up a speed asked for, and loses one let go (per second)
 // air: what the air is doing where it is (air.mjs), metres a second. It holds
 // its place against most of a steady wind, as a drone does, and rides the rest:
-// a quarter of the wind across, more of what rises and sinks.
-const RIDE = 0.25, HEAVE = 0.6;
+// a fifth of the wind across, a third of what rises and sinks: a slow float, as
+// a gyro holds it, never a shake.
+const RIDE = 0.2, HEAVE = 0.35;
 export const CEILING = 50000; // over the top of the tallest tower there can be (tower.mjs TOP)
 export function moveFreecam(camera, input, seconds, air = null) {
   const f = direction(camera.yaw, camera.pitch),

@@ -43,7 +43,7 @@ export function airAt(weather, x, y, z, seconds, { day = 0 } = {}) {
   let up = along * 0.6 * windward;
   along *= 1 - 0.5 * windward - 0.6 * lee;
   // Eddies: three swirls of different size on each axis, carried downwind.
-  const rough = (0.25 + 0.1 * gust) * (1 + 1.5 / (1 + h)) * (1 + 2.5 * lee), px = x - u.x * along * seconds, pz = z - u.z * along * seconds;
+  const rough = (0.15 + 0.06 * gust) * (1 + 1.5 / (1 + h)) * (1 + 1.5 * lee), px = x - u.x * speed * seconds, pz = z - u.z * speed * seconds; // (carried by the wind reported, the same everywhere: the clock is a large number, and times anything that changes from place to place it would shake the swirls to noise)
   const ex = wave(px / 3.1 + pz / 5.3 + seconds * 0.9) + 0.6 * wave(pz / 2.3 - y / 3.7 + seconds * 1.7) + 0.4 * wave(px / 7.9 + y / 2.1 - seconds * 0.6);
   const ez = wave(pz / 3.7 - px / 4.9 + seconds * 0.8 + 2) + 0.6 * wave(px / 2.7 + y / 4.3 - seconds * 1.5) + 0.4 * wave(pz / 8.3 - y / 2.9 + seconds * 0.5);
   const ey = wave(px / 4.3 + pz / 3.9 + seconds * 1.1 + 4) + 0.5 * wave(px / 2.1 - pz / 2.9 - seconds * 1.9);
