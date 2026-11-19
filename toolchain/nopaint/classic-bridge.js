@@ -23,6 +23,8 @@
 //   odds                         each brush's chance in 100, as the game has it now
 //   sample {n}                   draw n proposals with the game's picker and count them
 //   aiResult {turn, png | error} the picture of an AI turn, or why there is none
+//   look {uid}                   one placed thing on this layout: place, size, text
+//   write {uid, text, visible}   set a sprite font's text, show or hide it
 //   code {code}                  the #code Save should show (null: a classic code)
 //   settings                     the tuning's settings for AI turns
 //   force {name}                 make the next proposal this brush, once
@@ -171,6 +173,21 @@ runOnStartup(async (runtime) => {
       if (png) turn.blob = new Blob([png], { type: "image/png" }); else turn.error = String(error || "the AI turn failed");
       turn.settle?.(turn.blob, turn.error);
       return { turn: name, ok: !!turn.blob };
+    },
+    // One placed thing, by the UID the Construct source carries: where it is and what it says.
+    look({ uid }) {
+      const thing = runtime.getInstanceByUid(Number(uid));
+      if (!thing) throw new Error(`nothing with UID ${uid} on this layout`);
+      return { uid: Number(uid), type: thing.objectType?.name, x: thing.x, y: thing.y, width: thing.width, height: thing.height,
+        visible: thing.isVisible, layer: thing.layer?.name, ...("text" in thing ? { text: thing.text } : {}) };
+    },
+    // Write the text of a sprite font on this layout, and say whether it shows.
+    write({ uid, text, visible }) {
+      const thing = runtime.getInstanceByUid(Number(uid));
+      if (!thing || !("text" in thing)) throw new Error(`no text with UID ${uid} on this layout`);
+      if (text !== undefined) thing.text = String(text);
+      if (visible !== undefined) thing.isVisible = Boolean(visible);
+      return ops.look({ uid });
     },
     // The #code of the AC painting on the canvas, or null: what Save will show.
     code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
