@@ -269,6 +269,11 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         r.draw(in: v.convert(v.bounds, to: view))
                     }
                 }
+                // the switcher is a window of its own: lay it in where it floats
+                if let (card, rect) = self.main.dropShot(), let r = card.bitmapImageRepForCachingDisplay(in: card.bounds) {
+                    card.cacheDisplay(in: card.bounds, to: r)
+                    r.draw(in: view.convert(rect, from: nil))
+                }
                 if let web, let pane = self.main.wikiLoginView, !pane.isHiddenOrHasHiddenAncestor {
                     web.draw(in: pane.convert(pane.bounds, to: view))
                 }
@@ -451,6 +456,10 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         return s
     }
+
+    // "starting Signal…" goes when Signal first answers, or after a few seconds
+    // in any case (a fresh link can be slow to list its groups; the app is usable meanwhile).
+    func clearStarting() { if main.statusText.hasPrefix("starting Signal") { main.setStatus("") } }
 
     @objc func showAbout() { AboutWindow.shared.show() }
 
@@ -643,6 +652,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if Self.dev { return main.setStatus("development: Signal is not started; this is what is on this Mac") }
         if !Self.snapshotRun { menu.askToNotify() }
         main.setStatus("starting Signal…")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in self?.clearStarting() }
         do { try engine.start(account: account) } catch {
             main.setStatus((error as? SignalEngine.EngineError)?.message ?? error.localizedDescription)
             return
@@ -650,6 +660,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         engine.call("listContacts") { [weak self] r in
             if case .success(let v) = r, let list = v as? [[String: Any]] { self?.people.setContacts(list) }
             self?.refreshAccounts()                 // Signal's own name for this account is known now
+            self?.clearStarting()                   // Signal answered: it has started
             self?.refresh()
         }
         engine.call("listGroups") { [weak self] r in
