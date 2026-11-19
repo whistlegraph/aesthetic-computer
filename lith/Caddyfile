@@ -129,6 +129,16 @@
 }
 
 (lith_proxy) {
+	# rax has a process of its own (lith/rax-process.mjs): its pages, its
+	# sockets and its old name go straight there, so none of it waits on lith.
+	reverse_proxy /rax/* localhost:8786 {
+		lb_try_duration 30s
+		lb_try_interval 250ms
+	}
+	reverse_proxy /dool/* localhost:8786 {
+		lb_try_duration 30s
+		lb_try_interval 250ms
+	}
 	reverse_proxy localhost:8888 {
 		lb_try_duration 30s
 		lb_try_interval 250ms
