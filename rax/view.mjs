@@ -1191,7 +1191,7 @@ export async function createView(canvas) {
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
     stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
-    sticks = null, // 🎮 { move: [x, y], look: [x, y] } from -1 to 1: a controller's two sticks, shown while looking on
+    sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
@@ -2382,23 +2382,26 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // 🎮 A controller's two sticks while looking on: a ring each side of the
-    // bottom's middle, the knob where the thumb has it. Left moves the eye,
-    // right (cyan) turns it.
+    // 🎮 A controller while looking on, top right under the controls: its two
+    // sticks as rings with the knob where the thumb has it (left moves the
+    // eye, right, in cyan, turns it), and everything on it that can be
+    // pressed as a dark square that lights while held.
     if (sticks) {
-      const { unit } = hud;
+      const { unit, safeX, safeY } = hud;
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
-        const radius = Math.max(22, Math.min(canvas.clientWidth, canvas.clientHeight) * 0.055) * pixel;
-        const frame = (cx, cy, size, thick, color, z) => {
-          rect(cx - size / 2, cy + size / 2 - thick, z, size, thick, color);
-          rect(cx - size / 2, cy - size / 2, z, size, thick, color);
-          rect(cx - size / 2, cy - size / 2, z, thick, size, color);
-          rect(cx + size / 2 - thick, cy - size / 2, z, thick, size, color);
+        const radius = Math.max(16, Math.min(canvas.clientWidth, canvas.clientHeight) * 0.04) * pixel;
+        const b = Math.max(3 * unit, Math.round(radius * 0.34)), gapX = radius * 1.4, step = b * 1.25, wing = gapX + radius + b * 2.4;
+        // Its middle: the whole pad's width in from the right edge, below the legend's row.
+        const cx = W / 2 - safeX - (wing + step + b), oy = H / 2 - safeY - 18 * unit - (radius + b * 3);
+        const frame = (x, y, size, thick, color, z) => {
+          rect(x - size / 2, y + size / 2 - thick, z, size, thick, color);
+          rect(x - size / 2, y - size / 2, z, size, thick, color);
+          rect(x - size / 2, y - size / 2, z, thick, size, color);
+          rect(x + size / 2 - thick, y - size / 2, z, thick, size, color);
         };
-        const oy = -H / 2 + radius + 14 * unit;
         for (const [side, [ax, ay], ink] of [[-1, sticks.move, PAPER], [1, sticks.look, 0x00ffff]]) {
-          const ox = side * radius * 1.6, moved = Math.hypot(ax, ay) > 0.05;
+          const ox = cx + side * gapX, moved = Math.hypot(ax, ay) > 0.05;
           const kx = ox + Math.max(-1, Math.min(1, ax)) * radius * 0.7, ky = oy - Math.max(-1, Math.min(1, ay)) * radius * 0.7;
           frame(ox + unit, oy - unit, radius * 2, 2 * unit, INK, 0.000003);
           frame(ox, oy, radius * 2, 2 * unit, moved ? ink : tint(ink, 0.6), 0.000002);
@@ -2406,6 +2409,24 @@ export async function createView(canvas) {
           rect(kx - k / 2 + unit, ky - k / 2 - unit, 0.000003, k, k, INK);
           rect(kx - k / 2, ky - k / 2, 0.000002, k, k, moved ? ink : tint(ink, 0.6));
         }
+        const held = sticks.buttons || [];
+        const key = (x, y, on, ink, w = b, h = b) => {
+          rect(x - w / 2 + unit, y - h / 2 - unit, 0.000003, w, h, INK);
+          rect(x - w / 2, y - h / 2, 0.000002, w, h, on ? ink : 0x2c3040);
+        };
+        // D-pad: up 12, down 13, left 14, right 15.
+        for (const [i, dx, dy] of [[12, 0, 1], [13, 0, -1], [14, -1, 0], [15, 1, 0]]) key(cx - wing + dx * step, oy + dy * step, held[i], PAPER);
+        // Faces as they sit: bottom 0 (A), right 1 (B), left 2 (X), top 3 (Y), in the legend's colours.
+        for (const [i, dx, dy, ink] of [[0, 0, -1, 0x3fb950], [1, 1, 0, 0xff6b6b], [2, -1, 0, 0x6aa8ff], [3, 0, 1, 0xffe066]]) key(cx + wing + dx * step, oy + dy * step, held[i], ink);
+        // Bumpers (4, 5) and triggers (6, 7) over the sticks; back and start (8, 9) between them.
+        for (const [side, bumper, trigger] of [[-1, 4, 6], [1, 5, 7]]) {
+          key(cx + side * gapX, oy + radius + b * 1.1, held[bumper], PAPER, radius * 1.3, b * 0.8);
+          key(cx + side * gapX, oy + radius + b * 2.3, held[trigger], 0x00ffff, radius * 0.9, b * 0.8);
+        }
+        key(cx - b * 0.7, oy + radius + b * 1.1, held[8], PAPER, b * 0.8, b * 0.6);
+        key(cx + b * 0.7, oy + radius + b * 1.1, held[9], PAPER, b * 0.8, b * 0.6);
+        // Anything past the standard seventeen (L4, R4, paddles): a row beneath, as they come.
+        held.forEach((on, i) => { if (i > 16 && on) key(cx + (i - 18.5) * step, oy - radius - b, true, 0xd7a6ff); });
       });
       projector.overlay(m, W, H);
     }

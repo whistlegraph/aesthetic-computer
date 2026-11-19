@@ -2544,7 +2544,7 @@ function step(now) {
     gate: seat < 0 ? gate : null,
     controller: controller.id,
     stats: statsShown,
-    sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0] } : null,
+    sticks: controller.id && seat < 0 && !held && gamepad ? { move: [gamepad.right || 0, -(gamepad.fwd || 0)], look: [gamepad.lookX || 0, gamepad.lookY || 0], buttons: controller.previous || [] } : null,
     seat,
     third: third || !!game()?.camera,
     game: game(),
