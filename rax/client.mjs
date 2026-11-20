@@ -150,6 +150,33 @@ const carPad = panels.mount({
     },
   },
 });
+// 🧩 Real AC pieces in the yard, to try them in the world: two `bleep`s side
+// by side on the lobby's front, west of the door, each under a sign that says
+// what it is. The disks are AC's own (ac-piece.mjs); their tones are this
+// page's alone for now (nobody else hears them), and every held one stops
+// when the room is left.
+const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9]];
+const yardPanels = [], yardVoices = new Set();
+let yardAsked = false;
+const yardQuiet = () => { for (const v of [...yardVoices]) v.kill(0.05); };
+async function mountYard() {
+  if (yardAsked) return;
+  yardAsked = true;
+  try {
+    const { acPiece, signPiece } = await import('./ac-piece.mjs');
+    const sound = { synth: ({ type, tone }) => {
+      const held = sfx.hold(Number(tone), { type }), voice = { kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
+      yardVoices.add(voice);
+      return voice;
+    } };
+    for (const [k, [slug, x]] of YARD_PIECES.entries()) {
+      const { piece, host } = await acPiece(slug, { sound });
+      const z = 0.95; // a step out from the lobby's front glass, facing the yard
+      yardPanels.push(panels.mount({ id: `yard-${k}`, piece, host, x, y: 1.35, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 }));
+      yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: 2.12, z, yaw: 0, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
+    }
+  } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
+}
 let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
@@ -926,6 +953,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
   if (chosen) roamed = true;
+  yardQuiet(); // (a tone held on a piece in the yard does not follow into the next room)
   room = to;
   if (riding) {
     // 🛗 The car leaves at once and the next floor is already known: the
@@ -2745,6 +2773,9 @@ function step(now) {
   const lift = liftAt(now), sky = plazaFrom();
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
+  // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first stood on.
+  if (room === 'lobby' && seat >= 0) void mountYard();
+  for (const p of yardPanels) p.hidden = room !== 'lobby';
   carPad.y = CAR_PAD.y + lift;
   panels.frame(now);
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
@@ -2890,7 +2921,8 @@ function step(now) {
     chalkVersion,
     chalkLocal,
     chalkMode,
-    face: seat >= 0 && player && game()?.hud?.face !== false ? { ...face, health: player.health, alive: player.alive, seat, pitch, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
+    // (Between two rooms the body is `held`: the face stays up over the hop, where it used to blink out when the car's pad was pressed.)
+    face: seat >= 0 && (player || held) && game()?.hud?.face !== false ? { ...face, health: (player || held).health, alive: (player || held).alive, seat, pitch, turn: gamepad.lookX + (keys.has('KeyA') || keys.has('ArrowLeft') ? -0.5 : 0) + (keys.has('KeyD') || keys.has('ArrowRight') ? 0.5 : 0) } : null,
     devLog: sheetOpen ? devLog.filter((d) => now - d.at < 120000).map((d) => ({ ...d, age: (now - d.at) / 1000 })) : [],
     owner,
     focusObject,

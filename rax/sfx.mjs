@@ -41,6 +41,27 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 🎹 A tone held until it is let go (a piece's `synth` with no end): → { kill(fade) }.
+  hold(frequency, { volume = 0.035, type = 'sine' } = {}) {
+    if (!this.ready || !(frequency > 0)) return { kill() {} };
+    const a = this.audio, o = a.createOscillator(), g = a.createGain();
+    o.type = ['sine', 'square', 'triangle', 'sawtooth'].includes(type) ? type : 'square';
+    o.frequency.setValueAtTime(frequency, a.currentTime);
+    g.gain.setValueAtTime(0.0001, a.currentTime);
+    g.gain.exponentialRampToValueAtTime(volume * MASTER, a.currentTime + 0.01);
+    o.connect(g).connect(a.destination);
+    o.start();
+    let gone = false;
+    return { kill: (fade = 0.05) => {
+      if (gone) return;
+      gone = true;
+      const t = a.currentTime, f = Math.max(0.01, Number(fade) || 0.05);
+      g.gain.cancelScheduledValues(t);
+      g.gain.setValueAtTime(Math.max(0.0001, g.gain.value), t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + f);
+      o.stop(t + f + 0.03);
+    } };
+  }
   noise(duration, { volume = 0.03, at = 0, from = 1800, to = 300 } = {}) {
     if (!this.ready) return;
     volume *= MASTER;

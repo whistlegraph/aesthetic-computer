@@ -63,6 +63,7 @@ export function painter(width, height) {
     wipe: (...c) => { if (c.length) color = colorOf(c); fill(0, 0, width, height); return g; },
     plot: (x, y) => { plot(x, y); return g; },
     box(x, y, w, h, mode = 'fill') {
+      if (x && typeof x === 'object') { mode = y || 'fill'; ({ x, y, w, h } = x); } // (a Box, as AC's ui hands one: box(button.box, 'in'))
       if (mode === 'fill') fill(x, y, w, h);
       else { fill(x, y, w, 1); fill(x, y + h - 1, w, 1); fill(x, y, 1, h); fill(x + w - 1, y, 1, h); }
       return g;

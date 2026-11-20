@@ -79,6 +79,7 @@ const assets = new Map([
     'elevator',
     'panel', // 🖼️ world panels, and the pieces on them
     'pieces/keypad',
+    'ac-piece', // 🧩 real AC disks on world panels
     'solids',
     'sky',
     'shadow',
@@ -373,8 +374,8 @@ export function createRaxServer({
           : { revision: t.revision, count: t.count, top: t.top, floors: t.directory() }));
       return;
     }
-    // AC's own libraries, read-only, so a wall can run real KidLisp.
-    if (req.method === 'GET' && /^\/ac\/(lib|dep)\/[\w@./-]+\.(mjs|js)$/.test(path) && !path.includes('..')) {
+    // AC's own libraries, read-only, so a wall can run real KidLisp; and its disks, so a world panel can run a real piece (ac-piece.mjs).
+    if (req.method === 'GET' && /^\/ac\/(lib|dep|disks)\/[\w@./-]+\.(mjs|js)$/.test(path) && !path.includes('..')) {
       const root = resolve(here, '../system/public/aesthetic.computer');
       const file = resolve(root, path.slice(4));
       if (file.startsWith(root + '/')) {
