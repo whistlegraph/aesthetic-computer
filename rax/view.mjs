@@ -860,7 +860,8 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
-  const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
+  // The lens is off: done corner by corner it cannot keep two things that lie on one another in order (a screen and its picture, paint and floor), and holes open in them. It wants doing to the finished picture on the card. (?lens=0.65 to see it.)
+  const LENS = 0, LENS_ZOOM = 1.3;
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
   let cost = 0; // milliseconds a frame's drawing takes on this machine, eased
   let plain = 0;
@@ -1091,6 +1092,8 @@ export async function createView(canvas) {
   const SHADOW_MOST = 12000; // triangles in the frame the shadows may come to, once their long faces are halved for the lens
   const volumeFloats = new Float32Array(Math.max(VOLUME_TRIANGLES, SLAB_TRIANGLES) * 18); // one box's solid at a time
   const SOLIDS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('volumes');
+  // (?lens=0.3, ?planet=0: for looking at what each bend does to the picture.)
+  const TRY = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map(); const n = (k) => (q.has(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : null); return { lens: n('lens'), planet: n('planet') }; })();
   const SUN_AT = typeof location !== 'undefined' && new URLSearchParams(location.search).has('sun') ? Number(new URLSearchParams(location.search).get('sun')) : null; // (?sun=0.42: a fixed time of day to light by)
   let shadowReach = 45, reachCut = 0; // metres from the eye a box still casts now (SHADOW_SIGHT at the most), and the frame it was last drawn in
   const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again
@@ -1466,9 +1469,10 @@ export async function createView(canvas) {
     projector.decay = decay;
     projector.decayAt = now;
     // It is how rax is seen, always; flying in from overhead it comes on as the eye comes down.
-    projector.lens = game?.camera ? 0 : LENS * Math.max(0, Math.min(1, 1 - orbit));
+    projector.lens = game?.camera ? 0 : (TRY.lens ?? LENS) * Math.max(0, Math.min(1, 1 - orbit));
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
-    projector.planet = projector.lens > 0.3 ? PLANET : 0;
+    projector.planet = !game?.camera && orbit <= 0 ? PLANET : 0;
+    if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
     // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
     if (plain < 3 && cost > [7, 10, 14][plain]) plain++;
     else if (plain > 0 && cost < [4.5, 6.5, 9][plain - 1]) plain--;

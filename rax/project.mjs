@@ -394,7 +394,7 @@ export class Projector {
     // is cut away here, before the bending (`put` cuts after it).
     const whole = this.planet && this.bends && eye.y < this.ground;
     // How many times a shape may be halved: seven, or as many as the view asks for the far land's great squares.
-    const halvings = this.lens ? this.halvings || 7 : 0;
+    const halvings = this.lens || this.planet ? this.halvings || 7 : 0; // (the ball needs its edges halved whether or not the lens is on)
     for (let i = 0; i < vertices.length; i += 18) {
       for (let j = 0; j < 3; j++) {
         const k = i + j * 6,
