@@ -2958,6 +2958,7 @@ if (hosted) {
     if (sheetOpen && !(seat >= 0 && player)) shownAt = performance.now();
     if (!sheetOpen) sheetShown = false;
     if (sheetOpen) closingAt = 0; // A fresh drop starts the reticle at the centre.
+    if (sheetOpen && e.data.straight) orbitMix = 0; // 🔁 a page loaded again while in the world: no fly-in from the far view
     if (!sheetOpen) sheetClosedAt = performance.now();
     if (sheetOpen) {
       last = performance.now();

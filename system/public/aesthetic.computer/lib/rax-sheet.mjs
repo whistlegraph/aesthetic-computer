@@ -190,6 +190,13 @@ const BEAT = 360; // ms, the whole move: the crosshair's flight takes the same
 let loop = 0;
 let lastStep = 0;
 let from = 0, began = 0; // The move's start value and time.
+// 🔁 A page loaded again while the world was open goes straight back into it:
+// no fade from the paper, no fly-in (the guest is told, and drops its far
+// view at once). This browser remembers it was there (through a relaunch of the app too); the first drop after a load asks.
+const WAS_OPEN = "rax:sheet:was-open";
+const wasOpen = (() => { try { return localStorage.getItem(WAS_OPEN) === "1"; } catch { return false; } })();
+const remember = (on) => { try { on ? localStorage.setItem(WAS_OPEN, "1") : localStorage.removeItem(WAS_OPEN); } catch {} };
+let firstDrop = true, straight = false;
 
 function write() {
   const s = stage();
@@ -213,7 +220,7 @@ function run2() {
 function step(now) {
   loop = 0;
   lastStep = now;
-  const t = Math.min(1, (now - began) / BEAT);
+  const t = straight ? 1 : Math.min(1, (now - began) / BEAT);
   const ease = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
   y = t >= 1 ? goal : from + (goal - from) * ease;
   write();
@@ -242,7 +249,9 @@ function show(room) {
     pendingShow = setTimeout(() => (pendingShow = 0), room ? 20000 : 4000);
     return;
   }
-  if (state === "parked") post({ type: "rax:sheet", open: true });
+  straight = firstDrop && wasOpen;
+  firstDrop = false;
+  if (state === "parked") post({ type: "rax:sheet", open: true, ...(straight ? { straight: true } : {}) });
   state = "moving";
   toward = "open";
   goal = innerHeight;
@@ -256,6 +265,8 @@ function hide() {
   if (!frame || state === "parked" || state === "cold" || toward === "home") return;
   state = "moving";
   toward = "home";
+  straight = false;
+  remember(false);
   goal = 0;
   frame.style.pointerEvents = "none";
   // Beneath the stage at once, so the paper fades in over the world (left on
@@ -270,6 +281,8 @@ function hide() {
 
 function opened() {
   state = "open";
+  straight = false;
+  remember(true);
   window.acVisits?.action("rax_entered"); // One per visit: the daily count of people who went in.
   write();
   post({ type: "rax:sheet", phase: "opened" }); // The paper is gone: the guest may show its HUD.
