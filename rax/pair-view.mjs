@@ -1,13 +1,12 @@
 // 📱 The pairing code on the screen (pairing.mjs): looking on with nobody
-// signed in, a small QR stands bottom left where a player's face would, and
-// a line saying what it is for. The whole square is a button too: a click
+// signed in, a small QR stands bottom left where a player's face would,
+// with nothing written beside it. The whole square is a button too: a click
 // signs in on this device the ordinary way. (It showed four digits to check
 // against the phone, 2026-11-19; they were taken off the same day.)
 import { joinCode } from './hud.mjs';
 import { model, smallWidth, INK, PAPER } from './paint.mjs';
 
 const QUIET = 2; // white modules round the code
-const LABEL = 'scan or click to sign in';
 
 // Where it stands, in overlay space (origin at the centre, y up), or null.
 // At least three screen pixels a module, so a phone reads it from a couch.
@@ -41,10 +40,7 @@ export function pairModel(at, flip) {
         rect(x + (start + QUIET) * module, y + size - (r + QUIET + 1) * module, 0, (c - start) * module, module, 0x000000);
       }
     });
-    // Beside it: what to do.
-    const left = x + size + 4 * unit, top = y + size, lx = left + (smallWidth(LABEL) * unit) / 2;
-    small(LABEL, lx + unit, top - 3 * unit, 0.000002, unit, INK);
-    small(LABEL, lx, top - 2 * unit, 0, unit, 0xffe066);
+    // (No words beside it: a code in the corner of a screen says what it is for.)
   });
   kept = { key: at.key, mesh };
   return mesh;
