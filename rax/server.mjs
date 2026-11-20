@@ -168,14 +168,7 @@ export function createRaxServer({
   // of the tower. What stood inside each goes up to its handle's floor; both
   // ledgers are kept as they stood (geography.before-houses.json,
   // objects.before-houses.json). Runs once: after it there are no houses.
-  // 📺 The lobby's own screens: three KidLisp pieces running on its walls,
-  // facing in (east, west behind the desk, and north beside the car), so
-  // there is always something live to walk up to, and to watch a screen's
-  // grid coarsen with distance (screen-lod.mjs). Each is four metres wide.
-  // They are the building's, not anyone's: told with the room's own screens
-  // and never written down (object-store.mjs standing).
-  store.standing = { [GROUND]: [['roz', 7.2, 4.6, 90], ['bop', -7.2, 4.6, 270], ['berz', 4.9, 7.7, 0]]
-    .map(([code, x, z, yaw]) => ({ id: `lobby-${code}`, owner: null, code, x, z, yaw, at: 0 })) };
+  // (The lobby has no screens of its own: what stands there is what someone put there. object-store.mjs `standing` is how a place would be given some.)
   const ready = loaded.then(async () => {
     const pods = Object.values(geography.geography.pods);
     if (!pods.length) return;

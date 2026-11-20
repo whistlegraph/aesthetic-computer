@@ -585,8 +585,6 @@ export async function createView(canvas) {
       box(0, DOOR_HEIGHT + 0.08, f, 2 * DOOR + 0.24, 0.16, 0.22, post, post, post);
       for (const y of [6.2, 9.2]) box(0, y, f, 2 * DOOR, 0.12, 0.12, post, post, post);
       box(0, 3.25, f - 0.9, 6.4, 0.16, 2, sill, post, sill);
-      // The name over the door, facing the plaza.
-      box(0, 4.15, f - 0.12, 6, 1.3, 0.12, 0x27324a, dark, dark);
       const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
       // Sign text with a hard shadow one pixel down and across, just behind it.
       const inked = (label, x, y, z, unit, color) => {
@@ -597,8 +595,7 @@ export async function createView(canvas) {
         const unit = fit(label, width, most);
         inked(label, x, top - unit, z, unit, color);
       };
-      line('AC TOWER', 0, 4.72, f - 0.19, 5, 0.085, 0xff3296);
-      if (count) line(`${count} floors`, 0, 3.86, f - 0.19, 4, 0.026, 0xc9cedb);
+      // (No name over the door: the tower is its own sign.)
       // The two ends, glass like the front.
       for (const x of [-W + 0.05, W - 0.05]) {
         box(x, 0.25, (f + W) / 2, 0.2, 0.5, W - f, sill, sill, post);
