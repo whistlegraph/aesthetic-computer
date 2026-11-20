@@ -863,6 +863,7 @@ export async function createView(canvas) {
   const LENS = 0.65, LENS_ZOOM = 1.3; // how much of the lens (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
   let cost = 0; // milliseconds a frame's drawing takes on this machine, eased
+  let plain = 0;
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
@@ -1089,6 +1090,7 @@ export async function createView(canvas) {
   const SHADOW_SIGHT = 45; // metres from the eye a box still casts
   const SHADOW_MOST = 12000; // triangles in the frame the shadows may come to, once their long faces are halved for the lens
   const volumeFloats = new Float32Array(VOLUME_TRIANGLES * 18); // one box's solid at a time
+  let shadowReach = 45, reachCut = 0; // metres from the eye a box still casts now (SHADOW_SIGHT at the most), and the frame it was last drawn in
   const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again
   // The boxes that cast this frame: how far each is, which thing it is part of, the box, its top; and the order they are cast in.
   const castFar = new Float32Array(Math.floor(SHADOW_BUDGET / VOLUME_TRIANGLES)), castFrom = new Int32Array(castFar.length), castTop = new Float32Array(castFar.length), castBox = [], castOrder = [];
@@ -1319,7 +1321,7 @@ export async function createView(canvas) {
     const sunNow = today ? skyAt(phase()).sun : null;
     const shade = sunNow && host.shadows ? shadeFor(sunNow.y) : null;
     casters.length = 0;
-    casting = !!shade && cost < 12; // (no shadows while the drawing runs long)
+    casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
     let through = false; // The third-person camera, looking through what hides you.
@@ -1463,7 +1465,10 @@ export async function createView(canvas) {
     projector.lens = game?.camera ? 0 : LENS * Math.max(0, Math.min(1, 1 - orbit));
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = projector.lens > 0.3 ? PLANET : 0;
-    projector.fine = Math.max(lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3, cost < 7 ? 0 : cost < 10 ? 0.24 : cost < 14 ? 0.34 : 0.5);
+    // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
+    if (plain < 3 && cost > [7, 10, 14][plain]) plain++;
+    else if (plain > 0 && cost < [4.5, 6.5, 9][plain - 1]) plain--;
+    projector.fine = Math.max(lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3, [0, 0.24, 0.34, 0.5][plain]);
     // The land lies at the plaza's height (far below, seen from a floor of the tower).
     projector.ground = skyline?.dy || 0;
     projector.frame();
@@ -3673,7 +3678,7 @@ export async function createView(canvas) {
           const top = (b.y + b.h / 2) * scale + y, foot = (b.y - b.h / 2) * scale + y;
           if (top < 0.05 || foot > eye.y + 40) continue;
           const wx = (b.x * cy + b.z * sy) * scale + x, wz = (-b.x * sy + b.z * cy) * scale + z, far = Math.hypot(wx - eye.x, wz - eye.z);
-          if (far > SHADOW_SIGHT + Math.max(b.w, b.d) * scale) continue;
+          if (far > shadowReach + Math.max(b.w, b.d) * scale) continue;
           castFar[n] = far; castFrom[n] = i; castBox[n] = b; castTop[n] = top; castOrder[n] = n; n++;
         }
       }
@@ -3690,19 +3695,28 @@ export async function createView(canvas) {
       let spilt = 0;
       castFrame++;
       for (const k of castOrder) {
-        if (castLate.get(castBox[k]) > castFrame) continue; // (it did not fit a moment ago: not worked out again for nothing)
         const i = castFrom[k], before = host.scene.triangleCount;
         const end = shadowVolume(volumeFloats, 0, castBox[k], casters[i + 1], casters[i + 2], casters[i + 3], casters[i + 4], casters[i + 5], light, 0.02, reach(castTop[k], light));
         projector.draw(volumeFloats.subarray(0, end), 0, 0, 0);
         if (projector.overflow || host.scene.triangleCount > most) {
-          // (One that does not fit is taken back, and left out for the next second; a few farther, smaller ones may still fit.)
+          // (One that does not fit is taken back, and with it everything
+          // farther: the shadows' reach is drawn in to just short of it.)
           host.scene.triangleCount = before;
-          castLate.set(castBox[k], castFrame + 60);
-          if (projector.overflow || ++spilt > 3) { projector.overflow = false; break; }
+          shadowReach = Math.max(6, castFar[k] * 0.9);
+          spilt++;
+          projector.overflow = false;
+          break;
         }
       }
       castBox.length = 0;
       const count = host.scene.triangleCount - first;
+      // 🌑 How far from the eye a thing still casts is one distance, moved
+      // with care so no shadow blinks: drawn in at once when they do not fit
+      // or the drawing runs long (at most twice a second), let out again a
+      // couple of metres a second and only while there is plenty to spare.
+      if (cost > 12 && castFrame - reachCut > 30) { shadowReach = Math.max(6, shadowReach * 0.85); reachCut = castFrame; }
+      else if (!spilt && cost < 8 && count < SHADOW_MOST * 0.55 && castFrame - reachCut > 120) shadowReach = Math.min(SHADOW_SIGHT, shadowReach + 0.03);
+      if (spilt) reachCut = castFrame;
       if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
