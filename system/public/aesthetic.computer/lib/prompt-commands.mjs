@@ -36,7 +36,7 @@ export const commandDescriptions = {
   // 🔔 Notifications
   notifs: "Enable notifications",
   nonotifs: "Disable notifications",
-  scream: "Send a scream notification",
+  scream: "Scream over every screen",
   
   // 📷 Camera
   selfie: "Take a selfie",

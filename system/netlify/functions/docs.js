@@ -2900,10 +2900,11 @@ void draw() {
         done: true,
       },
       scream: {
-        sig: "scream <message>",
-        desc: "Scream at all users.",
+        sig: "scream[:take] <message>",
+        desc: "Scream at all users: the message takes over every screen. A handle's scream is voiced; no message is a wordless one.",
         params: [
-          { name: "message", type: "string", required: true, desc: "Your scream text" }
+          { name: "take", type: "number", required: false, desc: "Another delivery of the same words" },
+          { name: "message", type: "string", required: false, desc: "Your scream text" }
         ],
         done: true,
       },

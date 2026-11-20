@@ -643,6 +643,9 @@ if (pub) pub.on("error", (err) => {
       await sub.subscribe("scream", (message) => {
         everyone(pack("scream", message, "screamer")); // Socket back to everyone.
       });
+      await sub.subscribe("scream:vox", (message) => {
+        everyone(pack("scream:vox", message, "screamer")); // The voice, for screens that can play it.
+      });
       log("🟢 Redis connected + subscribed (code, scream)");
     } else {
       log("⚠️ Redis disabled — code/scream channels unavailable");
@@ -1848,6 +1851,20 @@ fastify.get("/", async (request, reply) => {
 });
 
 // Pack messages into a simple object protocol of `{type, content}`.
+// 😱 A take made by /api/scream, read from its sidecar in Spaces.
+async function screamTake(id) {
+  if (!/^[a-f0-9]{64}$/.test(id || "")) return null;
+  try {
+    const res = await fetch(`https://assets.aesthetic.computer/screams/jeffrey/${id}.json`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    return res.ok ? await res.json() : null;
+  } catch (err) {
+    log("😱 No scream take:", id, err?.message);
+    return null;
+  }
+}
+
 function pack(type, content, id) {
   return JSON.stringify({ type, content, id });
 }
@@ -2639,32 +2656,39 @@ wss.on("connection", async (ws, req) => {
     if (msg.type === "scream") {
       // Alert all connected users via redis pub/sub to the scream.
       log("😱 About to scream...");
-      const out = filter(msg.content);
-      pub
-        .publish("scream", out)
-        .then((result) => {
-          log("😱 Scream succesfully published:", result);
+      // A voiced scream names its take; the take's own sidecar says what it
+      // says, so the words on screen are the words in the sound.
+      screamTake(msg.content?.id)
+        .then((vox) => {
+          const out = filter(String(vox?.text || msg.content?.text || msg.content || "Ahh!").slice(0, 240));
+          return pub.publish("scream", out).then((result) => {
+            log("😱 Scream succesfully published:", result);
+            if (vox) {
+              const { id, audio, text, duration, words } = vox;
+              pub.publish("scream:vox", JSON.stringify({ id, audio, text, duration, words }));
+            }
 
-          let piece = "";
-          if (out.indexOf("pond") > -1) piece = "pond";
-          else if (out.indexOf("field") > -1) piece = "field";
+            let piece = "";
+            if (out.indexOf("pond") > -1) piece = "pond";
+            else if (out.indexOf("field") > -1) piece = "field";
 
-          if (chatManager?.db) {
-            broadcastToTopic(
-              chatManager.db,
-              "scream",
-              {
-                title: "😱 Scream",
-                body: out,
-                urgent: true, // time-sensitive on iOS, Urgency: high on web
-                ttl: 0, // don't store undelivered screams
-                data: { piece },
-              },
-              log,
-            ).catch((error) => {
-              log("📵  Error sending notification:", error);
-            });
-          }
+            if (chatManager?.db) {
+              broadcastToTopic(
+                chatManager.db,
+                "scream",
+                {
+                  title: "😱 Scream",
+                  body: out,
+                  urgent: true, // time-sensitive on iOS, Urgency: high on web
+                  ttl: 0, // don't store undelivered screams
+                  data: { piece },
+                },
+                log,
+              ).catch((error) => {
+                log("📵  Error sending notification:", error);
+              });
+            }
+          });
         })
         .catch((error) => {
           log("🙅‍♀️ Error publishing scream:", error);

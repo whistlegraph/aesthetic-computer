@@ -2572,12 +2572,20 @@ async function route($, text) {
       send({ type: "keyboard:close" });
       return true; //"dont-unlock";
     }
-  } else if (slug === "scream") {
-    // TODO: Scream additions. 23.12.11.12.53
-    // - [] Vocalize all screams / make a sound?
-    // - [] Smartly time-synchronize that message for all users by looking ahead?
-    // console.log("😱 Screaming...");
-    server?.send("scream", params.join(" ") || "Ahh!");
+  } else if (slugWithoutColon === "scream") {
+    // A handle screams in jeffrey's voice: /api/scream makes the take (or
+    // finds it), and the id sent along lets every screen play it. `scream:2`
+    // asks for another delivery of the same words. Anyone else screams in text.
+    const words = params.join(" ");
+    let vox;
+    if (handle()) {
+      notice("SCREAMING", ["yellow", "red"]);
+      vox = await net.userRequest("POST", "/api/scream", {
+        text: words,
+        take: parseInt(slug.split(":")[1]) || 0,
+      });
+    }
+    server?.send("scream", vox?.id ? { text: vox.text, id: vox.id } : words || "Ahh!");
     flashColor = [255, 0, 0];
     makeFlash($);
     return true;

@@ -47,6 +47,7 @@ import * as num from "./num.mjs";
 import * as text from "./text.mjs";
 import * as geo from "./geo.mjs";
 import * as gizmo from "./gizmo.mjs";
+import * as Scream from "./scream.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
@@ -2646,10 +2647,6 @@ let udp = {
   },
   udpReceive = undefined;
 
-let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
-//                       (A great end<->end socket + redis test.)
-let screaming = false;
-let screamingTimer; // Keep track of scream duration.
 
 const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
@@ -9139,9 +9136,16 @@ async function load(
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
             // 😱 Scream at everyone who is connected!
-            if (type === "scream" && socket?.id !== id) {
-              console.log("😱 Scream:", content, "❗");
-              scream = content;
+            if (type === "scream" && socket?.id !== id) Scream.hear(content);
+            if (type === "scream:vox") {
+              Scream.voice(JSON.parse(content), {
+                preload: $commonApi.net.preload,
+                play: (sfx) => {
+                  const id = sfx + "_scream_" + performance.now();
+                  send({ type: "sfx:play", content: { sfx, id } });
+                  return { kill: (fade) => send({ type: "sfx:kill", content: { id, fade } }) };
+                },
+              }).catch((err) => console.warn("😱 Scream has no voice:", err));
             }
             // 🎯 Jump to a specific piece!
             if (type === "jump") {
@@ -14830,10 +14834,11 @@ async function makeFrame({ data: { type, content } }) {
       if (
         previewMode === false &&
         iconMode === false &&
-        (noPaint === false || scream || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
+        (noPaint === false || Scream.busy() || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
         booted
       ) {
         let paintOut;
+        Scream.lift(screen); // 😱 The piece paints on its own pixels, not the takeover's.
 
         // Restore kidlisp's accumulated pan state from previous frame
         $api.loadpan();
@@ -15160,34 +15165,6 @@ async function makeFrame({ data: { type, content } }) {
         // currentPromptButton.paint($api);
         // }
 
-        // 😱 Scream - Paint a scream if it exists.
-        // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
-        //       Yes probably, because of layering issues?
-        if (scream || screaming) {
-          ink("yellow").write(scream, { x: 6, y: 18 }, "red");
-          //ink("red").write(scream, { x: 6 + 1, y: 18 + 1 });
-
-          /*
-          ink(255)
-            .wipe(255, 0, 0)
-            .write(
-              scream,
-              { center: "xy", size: 3, thickness: 1 },
-              undefined,
-              $api.screen.width - 8,
-              needsPaint(),
-            );
-          */
-          if (!screaming) {
-            screaming = true;
-            clearTimeout(screamingTimer);
-            screamingTimer = setTimeout(() => {
-              screaming = false;
-              scream = null;
-            }, 1000);
-          }
-        }
-
         // 🧚 Ambient Pen Points - Paint if they exist.
         fairies.forEach(({ x, y }) => {
           ink().point(x * screen.width, y * screen.height);
@@ -15260,6 +15237,14 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
 
+        // 😱 A scream takes the whole frame, over everything flushed so far.
+        const screamed = Scream.paint($api);
+        if (screamed) {
+          painting.paint(true);
+          layer(0);
+          noPaint = false;
+        }
+
         if (connectionModal.visible) {
           connectionModal.capture(screen, $commonApi.slug);
           layer(1001);
@@ -15310,6 +15295,7 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         if (paintOut) dirtyBox = paintOut;
+        if (screamed) dirtyBox = undefined;
 
         delete screen.resized; // Remove status from screen after painting.
         delete screen.created;
