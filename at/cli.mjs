@@ -259,6 +259,50 @@ async function commandPost(args) {
     createdAt: new Date().toISOString(),
   };
 
+  // A reply names its parent and the thread's root. --reply takes a bsky.app
+  // post link or an at:// uri.
+  if (args.reply) {
+    let uri = String(args.reply);
+    const link = uri.match(/bsky\.app\/profile\/([^/]+)\/post\/([^/?#]+)/);
+    if (link) {
+      const did = link[1].startsWith("did:") ? link[1] : (await agent.resolveHandle({ handle: link[1] })).data.did;
+      uri = `at://${did}/app.bsky.feed.post/${link[2]}`;
+    }
+    const { data } = await agent.getPosts({ uris: [uri] });
+    const parent = data.posts[0];
+    if (!parent) {
+      console.error(`No such post to reply to: ${args.reply}`);
+      process.exit(1);
+    }
+    const ref = { uri: parent.uri, cid: parent.cid };
+    postRecord.reply = { root: parent.record?.reply?.root || ref, parent: ref };
+  }
+
+  // Attach a video if provided. The file goes up as one blob; Bluesky
+  // transcodes it after the post is made. --aspect=WxH keeps the frame from
+  // jumping while it loads.
+  if (args.video) {
+    const { readFileSync } = await import("fs");
+    const videoData = readFileSync(args.video);
+    if (!/\.mp4$/i.test(args.video)) {
+      console.error(`Unsupported video type: ${args.video} (mp4 only)`);
+      process.exit(1);
+    }
+    if (videoData.length > 50_000_000) {
+      console.error(`${args.video} is over 50MB; Bluesky will not take it.`);
+      process.exit(1);
+    }
+    const { data } = await agent.uploadBlob(videoData, { encoding: "video/mp4" });
+    const [width, height] = String(args.aspect || "").split("x").map(Number);
+    postRecord.embed = {
+      $type: "app.bsky.embed.video",
+      video: data.blob,
+      alt: args.alt || "Video from Aesthetic Computer",
+      ...(width && height ? { aspectRatio: { width, height } } : {}),
+    };
+    console.log(`Uploaded video: ${args.video}`);
+  }
+
   // Attach image if provided
   if (args.image) {
     const { readFileSync } = await import("fs");
@@ -608,7 +652,7 @@ Query & Inspect:
   lexicons                           Show AC custom lexicon schemas
 
 Publish:
-  post <text> [--image=path] [--alt=text]  Post to Bluesky
+  post <text> [--image=path | --video=path.mp4 --aspect=WxH] [--alt=text] [--reply=link]  Post to Bluesky
 
 Admin (requires PDS_ADMIN_PASSWORD):
   invite                             Generate PDS invite code

@@ -214,6 +214,7 @@ async function uploadMedia(path, creds) {
   const extension = path.split(".").pop().toLowerCase();
   const type = MIME[extension];
   if (!type) throw new Error(`unsupported media type .${extension}`);
+  if (type.startsWith("video/")) return uploadVideo(path, type, creds);
   const form = new FormData();
   form.append("media", new Blob([readFileSync(path)], { type }), basename(path));
   const response = await fetch(UPLOAD, {
@@ -225,6 +226,38 @@ async function uploadMedia(path, creds) {
   if (!response.ok) throw new Error(explain(response.status, body));
   return JSON.parse(body).media_id_string;
 }
+
+// Video goes up in pieces: INIT names the size, APPEND sends four-megabyte
+// segments, FINALIZE closes it, and STATUS is polled until X has transcoded
+// it. A post that names a video still being processed is refused, so wait.
+async function uploadVideo(path, type, creds) {
+  const bytes = readFileSync(path);
+  const command = async (fields) => {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) form.append(key, value);
+    const response = await fetch(UPLOAD, { method: "POST", headers: { Authorization: authorize("POST", UPLOAD, {}, creds) }, body: form });
+    const body = await response.text();
+    if (!response.ok) throw new Error(explain(response.status, body));
+    return body ? JSON.parse(body) : {};
+  };
+  const { media_id_string: id } = await command({ command: "INIT", total_bytes: String(bytes.length), media_type: type, media_category: "tweet_video" });
+  const SEGMENT = 4 * 1024 * 1024;
+  for (let index = 0; index * SEGMENT < bytes.length; index++) {
+    await command({ command: "APPEND", media_id: id, segment_index: String(index), media: new Blob([bytes.subarray(index * SEGMENT, (index + 1) * SEGMENT)], { type }) });
+  }
+  let info = (await command({ command: "FINALIZE", media_id: id })).processing_info;
+  while (info && info.state !== "succeeded") {
+    if (info.state === "failed") throw new Error(`X could not process the video: ${JSON.stringify(info.error || info)}`);
+    await new Promise((done) => setTimeout(done, (info.check_after_secs || 3) * 1000));
+    const query = { command: "STATUS", media_id: id };
+    const response = await fetch(`${UPLOAD}?${new URLSearchParams(query)}`, { headers: { Authorization: authorize("GET", UPLOAD, query, creds) } });
+    const body = await response.text();
+    if (!response.ok) throw new Error(explain(response.status, body));
+    info = JSON.parse(body).processing_info;
+  }
+  return id;
+}
+const isVideo = (path) => /\.mp4$/i.test(path);
 
 // Alt text is a separate v1.1 call and is not optional for us — an image
 // without it is an image some readers simply do not get.
@@ -403,7 +436,8 @@ async function commandPost({ text = positional[1], replyTo = flags["reply-to"] }
   if (replyId) body.reply = { in_reply_to_tweet_id: replyId };
   if (flags.media) {
     const mediaId = await uploadMedia(flags.media, creds);
-    await describeMedia(mediaId, flags.alt, creds);
+    // X takes alt text for images and GIFs only; a video is described in the post.
+    if (!isVideo(flags.media)) await describeMedia(mediaId, flags.alt, creds);
     body.media = { media_ids: [mediaId] };
     console.log(`uploaded ${flags.media} (${mediaId})`);
   }
