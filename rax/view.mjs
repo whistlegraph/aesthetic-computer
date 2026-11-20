@@ -864,7 +864,7 @@ export async function createView(canvas) {
   const LENS = 0.65, LENS_ZOOM = 1.3;
   let lensNow = null; // what the card is told of the lens this frame
   // 🪶 Anti-aliasing: the world drawn twice as fine each way as it is shown, and averaged (lens-host.mjs). ?aa=1 turns it off, ?aa=3 is finer still.
-  const AA = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null; return q?.has('aa') ? Math.max(1, Math.min(3, Number(q.get('aa')) || 1)) : 2; })();
+  const AA = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null; return q?.has('aa') ? Math.max(1, Math.min(3, Number(q.get('aa')) || 1)) : 1; })();
   // 👁️ How much of the picture, from its middle out, is drawn at full sharpness (lens-host.mjs); ?fovea=0 draws all of it so, ?fovea=0.3 a smaller middle.
   const FOVEA = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null; return q?.has('fovea') ? Math.max(0, Math.min(0.9, Number(q.get('fovea')) || 0)) : 0.5; })();
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
