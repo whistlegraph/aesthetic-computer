@@ -64,6 +64,20 @@ test('a number printed by ASR is spelled the way the script reads it, one timed 
  const digits=alignWhisperWords('Room 270 is open.',[{...heard(' 270',0,900),tokens:[{text:' 2',t_dtw:10},{text:'70',t_dtw:40},{text:'.',t_dtw:90}]}]);
  assert.deepEqual(digits.words.map(w=>w.text),['270']);
 });
+test('a printed range and a hundred-and number are spelled the way the script says them',()=>{
+ const range=alignWhisperWords('The clock ran a hundred to three hundred milliseconds late.',[
+  {...heard(' 100-300',0,1400),tokens:[{text:' 100',t_dtw:0},{text:'-',t_dtw:60},{text:'300',t_dtw:80},{text:'.',t_dtw:140}]},
+ ]);
+ assert.deepEqual(range.words.map(w=>w.text),['a','hundred','to','three','hundred']);
+ const and=alignWhisperWords('It froze for about a hundred and twenty milliseconds.',[
+  {...heard(' 120',0,800),tokens:[{text:' 120',t_dtw:0},{text:'.',t_dtw:80}]},
+ ]);
+ assert.deepEqual(and.words.map(w=>w.text),['a','hundred','and','twenty']);
+ const prose=alignWhisperWords('Pages 10-12 are missing.',[
+  {...heard(' 10-12',0,800),tokens:[{text:' 10',t_dtw:0},{text:'-',t_dtw:30},{text:'12',t_dtw:50},{text:'.',t_dtw:80}]},
+ ]);
+ assert.ok(!prose.words.some(w=>w.text==='to'),'a range the script prints as digits is left alone');
+});
 test('a domain printed by ASR preserves every spoken name and dot token',()=>{
  const result=alignWhisperWords('Aesthetic dot computer.',[{...heard(' Aesthetic.computer.',0,2000),tokens:[
   {text:' A',t_dtw:10},{text:'esthetic',t_dtw:20},{text:'.',t_dtw:40},

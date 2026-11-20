@@ -102,6 +102,18 @@ export function spellNumber(printed) {
   return words;
 }
 
+// The way the script says a spelled number: as spelled, with "a" for a
+// leading "one", with "and" after "hundred", or both ("120" for "a hundred
+// and twenty"). Null when the script says it in none of these ways.
+export function spokenForm(spelled, body) {
+  if (!spelled) return null;
+  const lower = body.toLowerCase();
+  const and = spelled.flatMap((word, i) => word === 'hundred' && i < spelled.length - 1 && !(spelled[i + 1] in SCALE) ? [word, 'and'] : [word]);
+  const article = words => words[0] === 'one' && words.length > 1 ? ['a', ...words.slice(1)] : null;
+  const forms = [spelled, article(spelled), and.length > spelled.length ? and : null, and.length > spelled.length ? article(and) : null];
+  return forms.find(words => words && new RegExp(`(?<![\\p{L}\\p{N}])${words.join(' ')}(?![\\p{L}\\p{N}])`, 'u').test(lower)) || null;
+}
+
 // ASR prints what it hears as one token where the script reads several
 // words: "24.22.1" for "twenty-four point twenty-two point one",
 // "mail@aesthetic.computer" for "mail at aesthetic dot computer", "9x16" for
@@ -235,15 +247,15 @@ export function alignWhisperWords(body, transcription, offsetMs = 0, sentences =
       const to = nextTime.get(lexical.at(-1)) ?? segment.offsets.to;
       // A printed number the script spells out ("270" for "two hundred
       // seventy") becomes one heard word per spoken word, sharing the span.
-      const spelled = spellNumber(segment.text.trim().replace(/[.,!?]+$/, ''));
-      if (spelled && spelled.length > 1 && to > from) {
-        const lower = body.toLowerCase();
-        const phrase = spelled.join(' '), article = spelled[0] === 'one' ? ['a', ...spelled.slice(1)].join(' ') : null;
-        const words = lower.includes(phrase) ? spelled : article && lower.includes(article) ? ['a', ...spelled.slice(1)] : null;
-        if (words) {
-          const step = (to - from) / words.length;
-          return words.map((text, k) => ({ text, offsets: { from: Math.round(from + k * step), to: Math.round(from + (k + 1) * step) } }));
-        }
+      // A printed range ("100-300" for "a hundred to three hundred") reads
+      // as two spelled numbers joined by "to".
+      const printed = segment.text.trim().replace(/[.,!?]+$/, '');
+      const range = printed.match(/^(\$?[\d,.]*\d)[-–](\$?[\d,.]*\d)$/);
+      const low = range && spokenForm(spellNumber(range[1]), body), high = range && spokenForm(spellNumber(range[2]), body);
+      const words = low && high ? [...low, 'to', ...high] : spokenForm(spellNumber(printed), body);
+      if (words && words.length > 1 && to > from && (!range || body.toLowerCase().includes(words.join(' ')))) {
+        const step = (to - from) / words.length;
+        return words.map((text, k) => ({ text, offsets: { from: Math.round(from + k * step), to: Math.round(from + (k + 1) * step) } }));
       }
       // ASR sometimes prints a spoken quantity as “8GB”. Preserve the two
       // separately measured tokens so canonical “eight gigabytes” can align.
