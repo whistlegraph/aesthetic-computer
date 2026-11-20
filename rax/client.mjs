@@ -1961,7 +1961,8 @@ document.addEventListener('keydown', (e) => {
     setLock(lockOn ? null : focusObject?.id || null);
     sfx[lockOn ? 'ringOpen' : 'ringBack']();
   }
-  if (lockOn && !e.repeat && (e.code === 'BracketLeft' || e.code === 'BracketRight')) cycleLock(e.code === 'BracketRight' ? 1 : -1);
+  // (the arrows step it too: a lock holds the eye, so they have no turning to do)
+  if (lockOn && !e.repeat && !typing() && ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight'].includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
   if (seat >= 0 && (e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
     if (lockOn && !lockOn.wall) {
       send({ type: 'remove', objectId: lockOn.id });

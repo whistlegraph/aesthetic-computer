@@ -11,11 +11,11 @@ const PUSH = 5, DRIFT = 2.2; // how quickly it takes up a speed asked for, and l
 const RIDE = 0.2, HEAVE = 0.35;
 export const REACH = 4000; // how far out over the land an eye may fly, metres from its room's middle
 export const CEILING = 50000; // over the top of the tallest tower there can be (tower.mjs TOP)
-// 🕳️ The ground holds it up, FLOOR over it. Held down against the ground for
-// HOLD seconds, it is let through into the hollow planet (planet.mjs), and
-// may sink to just over the inside of the far side; coming back up it meets
-// nothing. `hollow` is false over a floor of the tower, which is only a floor.
-export const FLOOR = 0.15, HOLD = 0.7, DEEP = -(2 * PLANET - 4);
+// 🕳️ The land is no floor to it: it flies straight through into the hollow
+// planet (planet.mjs), down to just over the inside of the far side, and back
+// out the same way. `hollow` is false over a floor of the tower, which is only
+// a floor: there it is held FLOOR over it.
+export const FLOOR = 0.15, DEEP = -(2 * PLANET - 4);
 export function moveFreecam(camera, input, seconds, air = null, hollow = true) {
   const f = direction(camera.yaw, camera.pitch),
     r = direction(camera.yaw - 90);
@@ -36,13 +36,10 @@ export function moveFreecam(camera, input, seconds, air = null, hollow = true) {
     vy = (camera.vy || 0) + ((f.y * input.fwd + input.up * climb) * top + ay - (camera.vy || 0)) * k,
     vz = (camera.vz || 0) + (z * top + az - (camera.vz || 0)) * k;
   if (!asked && !air && Math.hypot(vx, vy, vz) < 0.02) vx = vy = vz = 0; // at a hover (in still air)
-  // (How long it has been pressed down on the ground; it starts over the moment it is let up.)
-  const landing = camera.y >= FLOOR && camera.y + vy * dt < FLOOR;
-  const pressed = landing && hollow && input.up < -0.5 ? (camera.pressed || 0) + dt : 0;
-  const nx = clamp(camera.x + vx * dt, -REACH, REACH), ny = clamp(camera.y + vy * dt, landing && pressed < HOLD ? FLOOR : hollow ? DEEP : FLOOR, CEILING), nz = clamp(camera.z + vz * dt, -REACH, REACH);
+  const nx = clamp(camera.x + vx * dt, -REACH, REACH), ny = clamp(camera.y + vy * dt, hollow ? DEEP : FLOOR, CEILING), nz = clamp(camera.z + vz * dt, -REACH, REACH);
   // Against the edge of the air it stops, it does not push.
   if (nx !== camera.x + vx * dt) vx = 0;
   if (ny !== camera.y + vy * dt) vy = 0;
   if (nz !== camera.z + vz * dt) vz = 0;
-  return { ...camera, x: nx, y: ny, z: nz, vx, vy, vz, pressed };
+  return { ...camera, x: nx, y: ny, z: nz, vx, vy, vz };
 }

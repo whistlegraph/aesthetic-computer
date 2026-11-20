@@ -530,10 +530,10 @@ export async function createView(canvas) {
       }
     };
     const land = model(({ tri }) => tiled(tri, landTiles(47, LAND_REACH), -0.02, () => grass));
-    // 🕳️ The land from underneath, for an eye inside the hollow planet: earth
-    // in two tints, each ring's squares cut in nine and chequered, so the
-    // inside of the ball reads as a dome drawing in on the tower's foot.
-    const earth = day ? [0x8a6a52, 0x77594a] : [0x3a2e2a, 0x2c2422];
+    // 🫧 The land from underneath, for an eye inside the hollow planet: a
+    // bubble's skin in two pale tints, each ring's squares cut in nine, seen
+    // through (drawn below) so the tower and the sky show beyond it.
+    const earth = day ? [0xcfeaff, 0xb4dcf8] : [0x4a6a9c, 0x3c5a8a];
     const dome = model(({ tri }) => tiled(tri, landTiles(47, LAND_REACH, 3), -0.5, (t) => earth[t.odd]));
     const lawn = model(({ quad }) => quad([-8, -0.02, -8], [-8, -0.02, 8], [8, -0.02, 8], [8, -0.02, -8], grass));
     towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, land, dome, lawn };
@@ -1564,8 +1564,9 @@ export async function createView(canvas) {
         const t = towerParts();
         const shown = (dx, dz) => (dx === 0 && dz === 0 && !skyline.dy) || around.some((b) => b.dx === dx && b.dz === dz);
         projector.halvings = 13; // (its far squares are kilometres across: halved until they lie round the ball)
-        draw(t.land, skyline.dx, skyline.dy, skyline.dz);
-        if (under) draw(t.dome, skyline.dx, skyline.dy, skyline.dz);
+        // (From inside, the grass is not drawn: the bubble's skin is the land there. On the card it is seen through, and so drawn last: at the frame's end.)
+        if (!under) draw(t.land, skyline.dx, skyline.dy, skyline.dz);
+        else if (!projector.card) draw(t.dome, skyline.dx, skyline.dy, skyline.dz);
         projector.halvings = 0;
         for (let i = -1; i <= 1; i++)
           for (let j = -1; j <= 1; j++)
@@ -3677,6 +3678,14 @@ export async function createView(canvas) {
         });
       });
       projector.overlay(m, W, H);
+    }
+    // 🫧 The bubble's skin, from inside the planet: after all the world, so what lies beyond shows through it (lens-host.mjs).
+    if (under && projector.card && skyline && !ledges && orbit < 0.6) {
+      const from = host.scene.triangleCount;
+      projector.halvings = 13;
+      projector.draw(towerParts().dome, skyline.dx, skyline.dy, skyline.dz);
+      projector.halvings = 0;
+      for (let v = host.scene.vertices, i = from * 18 + 3, end = host.scene.triangleCount * 18; i < end; i += 6) v[i] += 2;
     }
     // 🌑 The shadow volumes go last in the stream; the host counts them in
     // its stencil and shades what lies inside (scene3d-webgpu.mjs).

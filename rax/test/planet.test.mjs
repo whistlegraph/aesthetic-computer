@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PLANET, bend, sight, hidden, depthRange, depthAt, widest, ballOf, landTiles, NEAR, FAR, SPLIT, SHARE } from '../planet.mjs';
 import { Projector, layerBias } from '../project.mjs';
-import { moveFreecam, FLOOR, HOLD, DEEP } from '../freecam.mjs';
+import { moveFreecam, FLOOR, DEEP } from '../freecam.mjs';
 import { OskiewarScene3D } from '../../xbox/live/scene3d.mjs';
 
 let seed = 11;
@@ -189,20 +189,18 @@ test('depth is shared out by how near the nearest thing of any size was last fra
   assert.equal(p.range.split, Infinity, 'down at six metres: one again');
 });
 
-test('a drone is held up by the ground, let through when held down on it, and stopped over the far side\'s inside', () => {
+test('a drone flies straight through the land into the planet, is held by a floor of the tower, and stopped over the far side\'s inside', () => {
   const down = { fwd: 0, right: 0, up: -1 };
-  let p = { x: 0, y: 3, z: 0, yaw: 0, pitch: 0 }, landed = 0;
-  for (let n = 0; n < 600 && p.y >= FLOOR; n++) { p = moveFreecam(p, down, 1 / 60); if (p.y === FLOOR) landed++; }
-  assert.ok(landed / 60 >= HOLD - 0.05, 'it rests on the ground for the hold');
-  assert.ok(p.y < FLOOR, 'then goes through');
+  let p = { x: 0, y: 3, z: 0, yaw: 0, pitch: 0 }, rested = 0;
+  for (let n = 0; n < 240 && p.y >= 0; n++) { const y = p.y; p = moveFreecam(p, down, 1 / 60); if (p.y === y) rested++; }
+  assert.ok(p.y < 0, 'it goes through');
+  assert.equal(rested, 0, 'without resting on the way');
+  let dive = { x: 0, y: 2, z: 0, yaw: 0, pitch: -40 };
+  for (let n = 0; n < 240; n++) dive = moveFreecam(dive, { fwd: 1, right: 0, up: 0 }, 1 / 60);
+  assert.ok(dive.y < -1, 'flown at, the land lets it in too');
   let floor = { x: 0, y: 3, z: 0, yaw: 0, pitch: 0 };
   for (let n = 0; n < 600; n++) floor = moveFreecam(floor, down, 1 / 60, null, false);
   assert.equal(floor.y, FLOOR, 'a floor of the tower is only a floor');
-  let tap = { x: 0, y: 0.3, z: 0, yaw: 0, pitch: 0 };
-  for (let n = 0; n < 20; n++) tap = moveFreecam(tap, down, 1 / 60);
-  for (let n = 0; n < 60; n++) tap = moveFreecam(tap, { fwd: 0, right: 0, up: 0 }, 1 / 60);
-  for (let n = 0; n < 20; n++) tap = moveFreecam(tap, down, 1 / 60);
-  assert.equal(tap.y, FLOOR, 'two short presses do not add up');
   let deep = { x: 0, y: DEEP + 1, z: 0, yaw: 0, pitch: 0 };
   for (let n = 0; n < 600; n++) deep = moveFreecam(deep, { ...down, boost: true }, 1 / 60);
   assert.equal(deep.y, DEEP);

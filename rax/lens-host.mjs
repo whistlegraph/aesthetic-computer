@@ -25,7 +25,13 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
   out.color = color;
   return out;
 }
-@fragment fn fragment(in: Vertex) -> @location(0) vec4f { return vec4f(in.color, 1.); }`;
+// 🫧 A red over 1.5 marks a thing seen through (view.mjs adds 2 to it, and
+// draws it after everything else in the world): it is laid a little under
+// half over what is already there.
+@fragment fn fragment(in: Vertex) -> @location(0) vec4f {
+  if (in.color.r > 1.5) { return vec4f(in.color.r - 2., in.color.gb, .42); }
+  return vec4f(in.color, 1.);
+}`;
 const hud = `
 struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 @vertex fn vertex(@location(0) position: vec3f, @location(1) color: vec3f) -> Vertex {
@@ -122,7 +128,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     const depth = { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' };
     const worldModule = device.createShaderModule({ code: world }), hudModule = device.createShaderModule({ code: hud }), lensModule = device.createShaderModule({ code: LENS });
     const made = [
-      device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format }] }, primitive, depthStencil: depth }),
+      device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }] }, primitive, depthStencil: depth }),
       device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: hudModule, entryPoint: 'vertex', buffers }, fragment: { module: hudModule, entryPoint: 'fragment', targets: [{ format }] }, primitive, depthStencil: depth }),
       device.createRenderPipelineAsync({
         layout: 'auto', vertex: { module: lensModule, entryPoint: 'vertex' }, fragment: { module: lensModule, entryPoint: 'fragment', targets: [{ format }] },
