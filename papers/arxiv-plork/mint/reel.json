@@ -1,0 +1,16 @@
+{
+  "out": "plork-reel.mp4",
+  "bed": "felt",
+  "slides": [
+    { "image": "../figures/cover-nov.png", "title": "PLOrk'ing the Planet", "sub": "A laptop orchestra that boots\nfrom a USB stick.", "foot": "a new paper by @jeffrey",
+      "say": "Plorking the Planet. A laptop orchestra that boots from a USB stick." },
+    { "image": "../figures/notepat-laptop.png", "title": "The keys name the notes", "sub": "Press C, hear C.\nNo install. No account.", "foot": "notepat on AC Native OS",
+      "say": "The keys play the notes they name. Press C, hear C. No install. No account." },
+    { "image": "../figures/notespatial-score.jpg", "title": "Six salvaged laptops", "sub": "One 13-minute spatial score.\nLos Angeles, Sept 24, 2026.", "foot": "all six finished it",
+      "say": "On September twenty-fourth, six salvaged laptops played one thirteen-minute score in Los Angeles. All six finished it." },
+    { "image": "reel-spread.jpg", "title": "Edition of 20", "sub": "10 tez each on objkt.\n#200tez", "foot": "9 pages, source bundle inside",
+      "say": "It's a nine-page paper. An edition of twenty, at ten tez each, on object dot com. Minted for two hundred tez." },
+    { "image": "../figures/qr-os.png", "pixel": true, "title": "Get the OS", "sub": "prompt.ac/os", "foot": "put it on a stick, boot an old laptop",
+      "say": "Get the O S at prompt dot A C, slash O S. Put it on a USB stick. Boot an old laptop." }
+  ]
+}

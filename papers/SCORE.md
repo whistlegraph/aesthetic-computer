@@ -272,6 +272,23 @@ Options go first, for example `\begin{actable}[colback=acsoftplum]{l|X|r}`. Firs
 - **Cards**: Single-sheet index-card layout reformatted from arXiv source. Designed for printing, passing hand to hand, pinning on walls.
 - **JOSS**: Condensed software papers for Journal of Open Source Software. Markdown with LaTeX includes. JOSS reviews focus on software quality, documentation, and community impact.
 - **Gear guess**: Single-column, dated procurement hypothesis with one answer, explicit price uncertainty, compatibility catches, an operating score, and direct source URLs.
+- **Reel**: A paper told in under a minute for a feed. Portrait 1080×1350, about five narrated slides, one claim per slide, a slow push on each picture, captions that ease in, a soft bed. Built by [`bin/paper-reel.mjs`](bin/paper-reel.mjs) from a `reel.json` beside the paper. See **Sharing a paper**.
+
+## Sharing a paper
+
+How a finished paper leaves the building. First done for *PLOrk'ing the Planet* on 2026-11-20; its files in [`arxiv-plork/mint/`](arxiv-plork/mint/) are the worked example. Do the steps in order. Do not start before the paper passes Aesthetic Eye and @jeffrey has approved the PDF.
+
+1. **Give it a way in.** The last page carries a QR for the thing the paper is about (`qrencode`, then flatten to RGB so it prints solid). Scan it from the rendered page before going on.
+2. **Mint the revision** (optional, and only when @jeffrey says to). The collection is *Aesthetic.Computer Papers* on objkt, `KT1FVtrz28Y9XkiwpokWGtTAUiFcvwnG6fvj`.
+   - Add `edition.tex` beside the paper with the revision, edition size, price, contract and token number. The next token number is the count of tokens already in the collection. The Tezos stamp prints only while the build's revision equals `\editionrev`, so later revisions drop it.
+   - Rebuild, pass Aesthetic Eye again, and keep that exact PDF.
+   - `bin/paper-token.mjs --stage mint` pins the PDF, mints the edition and lists it. It needs `AESTHETIC_KEY` and Taquito, which live on jasellite. Run it with `--dry` first.
+   - Set the paper's `revisions` in `metadata.json` to the minted revision before publishing: the builder stamps the number it finds, then adds one.
+3. **Publish.** Commit the paper and push to `main`; the oven builds and deploys it. Download the served PDF and read the title, the abstract and the last page. A paper that needs a font the oven lacks fails there, not here: test with `bin/crunch.mjs` first when the paper uses anything new.
+4. **Make the reel.** Write `reel.json`: about five slides, each with a picture, a title, one or two lines, a foot line and one spoken line. Write the spoken line the way it is said aloud. `node papers/bin/paper-reel.mjs <paper>/mint/reel.json` narrates it in @jeffrey's voice, adds motion and a bed, and prints what the finished mix says. Read that against the script before posting.
+5. **Announce** on X (`@promptDOTac`) and Bluesky (`@aesthetic.computer`) with the reel attached: what the paper claims, in the paper's own plain register, the link, and the event tag if there is one. `toolchain/x/x.mjs post … --media reel.mp4` and `at/cli.mjs post … --video=reel.mp4 --aspect=1080x1350`. Public posts need @jeffrey's go-ahead each time.
+6. **Join the conversation that is already happening.** Read the event's own posts first. Reply only in threads that ask for entries, with one plain line, the link and a picture (`at/cli.mjs post … --reply=<link> --image=…`). X lets the API reply only where the account was mentioned; other X replies are made by hand.
+7. **Keep the receipts.** The collection file, the token receipt, the post texts and `reel.json` are committed under `<paper>/mint/`. The minted PDF and the videos are not: the PDF is on IPFS and the reel rebuilds from its spec.
 
 ## Translations
 
