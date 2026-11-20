@@ -2574,8 +2574,9 @@ async function route($, text) {
     }
   } else if (slugWithoutColon === "scream") {
     // A handle screams in jeffrey's voice: /api/scream makes the take (or
-    // finds it), and the id sent along lets every screen play it. `scream:2`
-    // asks for another delivery of the same words. Anyone else screams in text.
+    // finds it), and its id, sent after the words, lets every screen play it.
+    // `scream:2` asks for another delivery of the same words. Anyone else
+    // screams in text.
     const words = params.join(" ");
     let vox;
     if (handle()) {
@@ -2585,7 +2586,8 @@ async function route($, text) {
         take: parseInt(slug.split(":")[1]) || 0,
       });
     }
-    server?.send("scream", vox?.id ? { text: vox.text, id: vox.id } : words || "Ahh!");
+    server?.send("scream", vox?.text || words || "Ahh!");
+    if (vox?.id) server?.send("scream:voice", vox.id);
     flashColor = [255, 0, 0];
     makeFlash($);
     return true;

@@ -2656,44 +2656,45 @@ wss.on("connection", async (ws, req) => {
     if (msg.type === "scream") {
       // Alert all connected users via redis pub/sub to the scream.
       log("😱 About to scream...");
-      // A voiced scream names its take; the take's own sidecar says what it
-      // says, so the words on screen are the words in the sound.
-      screamTake(msg.content?.id)
-        .then((vox) => {
-          const out = filter(String(vox?.text || msg.content?.text || msg.content || "Ahh!").slice(0, 240));
-          return pub.publish("scream", out).then((result) => {
-            log("😱 Scream succesfully published:", result);
-            if (vox) {
-              const { id, audio, text, duration, words } = vox;
-              pub.publish("scream:vox", JSON.stringify({ id, audio, text, duration, words }));
-            }
+      const out = filter(String(msg.content?.text || msg.content || "Ahh!").slice(0, 240));
+      pub
+        .publish("scream", out)
+        .then((result) => {
+          log("😱 Scream succesfully published:", result);
 
-            let piece = "";
-            if (out.indexOf("pond") > -1) piece = "pond";
-            else if (out.indexOf("field") > -1) piece = "field";
+          let piece = "";
+          if (out.indexOf("pond") > -1) piece = "pond";
+          else if (out.indexOf("field") > -1) piece = "field";
 
-            if (chatManager?.db) {
-              broadcastToTopic(
-                chatManager.db,
-                "scream",
-                {
-                  title: "😱 Scream",
-                  body: out,
-                  urgent: true, // time-sensitive on iOS, Urgency: high on web
-                  ttl: 0, // don't store undelivered screams
-                  data: { piece },
-                },
-                log,
-              ).catch((error) => {
-                log("📵  Error sending notification:", error);
-              });
-            }
-          });
+          if (chatManager?.db) {
+            broadcastToTopic(
+              chatManager.db,
+              "scream",
+              {
+                title: "😱 Scream",
+                body: out,
+                urgent: true, // time-sensitive on iOS, Urgency: high on web
+                ttl: 0, // don't store undelivered screams
+                data: { piece },
+              },
+              log,
+            ).catch((error) => {
+              log("📵  Error sending notification:", error);
+            });
+          }
         })
         .catch((error) => {
           log("🙅‍♀️ Error publishing scream:", error);
         });
       // Send a notification to all devices subscribed to the `scream` topic.
+    } else if (msg.type === "scream:voice") {
+      // The voice of the scream just sent: a take's id. Its sidecar is read
+      // here, so every screen gets the same words and times as the sound.
+      screamTake(msg.content).then((vox) => {
+        if (!vox) return;
+        const { id, audio, text, duration, words } = vox;
+        return pub.publish("scream:vox", JSON.stringify({ id, audio, text, duration, words }));
+      }).catch((error) => log("🙅‍♀️ Error publishing scream voice:", error));
     } else if (msg.type === "code-channel:sub") {
       // Filter code-channel updates based on this user.
       codeChannel = msg.content;
