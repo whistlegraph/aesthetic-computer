@@ -1,0 +1,21 @@
+{
+  "imageUri": "ipfs://QmeuE5YZvpmNhnEGUmCNLTHqqFDEK28zTKgZCLQTLwmXpZ",
+  "metadata": {
+    "name": "Aesthetic.Computer Papers",
+    "description": "Papers from the Aesthetic.Computer press, minted as editions. Each token is the PDF of one revision of one paper: its source, its figures and its references in a single file. The same papers are free to read at papers.aesthetic.computer.",
+    "authors": [
+      "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"
+    ],
+    "homepage": "https://papers.aesthetic.computer",
+    "imageUri": "ipfs://QmeuE5YZvpmNhnEGUmCNLTHqqFDEK28zTKgZCLQTLwmXpZ",
+    "interfaces": [
+      "TZIP-12"
+    ],
+    "type": "art"
+  },
+  "metadataUri": "ipfs://QmTy39fegVXqcJkeck7GwCNbsBKXDfjcNBuYngoLic6AWs",
+  "createOp": "op2SkET62rKD8PMFuo2H1aviP4F6twGjFpJBJnQYVcR7BZGZwnp",
+  "id": "115795",
+  "contract": "KT1FVtrz28Y9XkiwpokWGtTAUiFcvwnG6fvj",
+  "objktUrl": "https://objkt.com/collections/KT1FVtrz28Y9XkiwpokWGtTAUiFcvwnG6fvj"
+}

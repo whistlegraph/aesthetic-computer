@@ -1,0 +1,13 @@
+{
+  "name": "PLOrk'ing the Planet",
+  "description": "A laptop orchestra that boots from a USB stick.\n\nA paper by @jeffrey, November 2026, nine pages. AC Native OS boots a discarded laptop into notepat, an instrument whose keys play the notes they name. Six salvaged laptops played a thirteen-minute spatial score in Los Angeles on September 24, 2026. A second musician, @oskie, wrote a groovebox for the system on his own ThinkPad. The paper gives the instrument, the first measurements, the lineage in laptop orchestras and live coding, and the tests that could show the idea fails.\n\nThis token is revision 7 of the paper as a PDF, an edition of 20 for #200tez. The PDF carries its own source bundle and a QR code for downloading the OS. Free to read at papers.aesthetic.computer.",
+  "tags": ["200tez", "paper", "pdf", "laptoporchestra", "notepat", "livecoding", "aestheticcomputer", "acnativeos", "plork"],
+  "editions": 20,
+  "priceXtz": 10,
+  "royaltiesBps": 1500,
+  "attributes": [
+    { "name": "Revision", "value": "7" },
+    { "name": "Pages", "value": "9" },
+    { "name": "Author", "value": "@jeffrey" }
+  ]
+}

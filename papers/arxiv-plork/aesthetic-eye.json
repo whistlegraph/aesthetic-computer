@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "paper": "PLOrk'ing the Planet",
+  "pdf": "plork.pdf",
+  "pdfSha256": "184c0701bd836754bc424b29a64b5e28ea5324af16d10556b198587084f05b2f",
+  "visualInference": true,
+  "reviewer": {
+    "kind": "visual-inference",
+    "name": "Claude"
+  },
+  "reviewedAt": "2026-11-21T04:30:00Z",
+  "brand": {
+    "canonicalName": "Aesthetic.Computer",
+    "dotColor": "#B44887",
+    "design": "pass",
+    "checks": {
+      "period": "pass",
+      "dotColor": "pass"
+    },
+    "notes": "Every wordmark goes through the \\ac macro, bibliography included. Pink period confirmed in the byline, the scale list, the repository citations and the edition stamp. The drawn laptop shows the product wordmark notepat.com, which is not the project name. Tables carry pastel column tints with teal, pink and gold state cells explained in each caption. Handles are set through \\handle in the house handle blue, bold and linked to prompt.ac, in the byline, body and citations."
+  },
+  "expectedFigures": 2,
+  "figures": [
+    {
+      "id": "notepat-laptop",
+      "page": 2,
+      "crop": [
+        0.17,
+        0.04,
+        0.66,
+        0.4
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "Coloured-pencil ThinkPad 11e at two thirds of the text width with the notepat screen facing the reader: slider labels, tabs and the key letters c v d s e f w g r a q b / h t i y j k u l o m p n read at normal size. The caption states it is a drawing made from a captured frame and what was checked against it. The illy carries a passed three-pass check in notepat-laptop.png.illy.json."
+    },
+    {
+      "id": "notespatial-score",
+      "page": 3,
+      "crop": [
+        0.5,
+        0.04,
+        0.44,
+        0.3
+      ],
+      "design": "pass",
+      "checks": {
+        "scale": "pass",
+        "legibility": "pass",
+        "evidenceDominance": "pass",
+        "crop": "pass",
+        "captionFit": "pass"
+      },
+      "notes": "Column-width capture of the spatial score view on its own dark ground, aspect preserved, LISTENER label legible; caption says only what is visible."
+    }
+  ],
+  "expectedDiagrams": 3,
+  "diagrams": [
+    {
+      "id": "culturehub-ring",
+      "page": 3,
+      "crop": [
+        0.07,
+        0.04,
+        0.44,
+        0.36
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Six seat nodes of equal size around a dashed audience circle, labels outside each node with clear air, one hand-held seat tinted pink and labelled, one dashed gold line from the conductor box to the ring. Nothing touches; symmetric left to right; type at footnote size."
+    },
+    {
+      "id": "tezos-edition-stamp",
+      "page": 9,
+      "crop": [
+        0.5,
+        0.18,
+        0.44,
+        0.12
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Rounded blue box: the tez mark as a transparent PNG at left, bold edition line, provenance lines with the real contract KT1FVtrz28Y9XkiwpokWGtTAUiFcvwnG6fvj and token 0 on one line. Site build of the minted revision; the minted file used the Geneva glyph for the same mark."
+    },
+    {
+      "id": "get-ac-os-box",
+      "page": 9,
+      "crop": [
+        0.5,
+        0.05,
+        0.44,
+        0.13
+      ],
+      "design": "pass",
+      "checks": {
+        "tangents": "pass",
+        "type": "pass",
+        "balance": "pass",
+        "spaceUse": "pass",
+        "hierarchy": "pass",
+        "edgeRouting": "pass"
+      },
+      "notes": "Pink rounded box above the edition stamp: a solid black QR at 2.3 cm with a white quiet zone at left, a bold heading, one instruction line and the address prompt.ac/os at right. QR decoded from the rendered page to https://prompt.ac/os. No edges to route; box width and corner radius match the stamp below it."
+    }
+  ]
+}

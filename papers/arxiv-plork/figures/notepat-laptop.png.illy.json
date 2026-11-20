@@ -1,0 +1,68 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-20T20:01:33.692Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1536x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/notepat-laptop.png",
+  "promptPath": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/notepat-laptop-prompt.txt",
+  "researchPath": null,
+  "promptHash": "48d8a6404f633caa0413e5e0b46dd17c915b27dde030df9246d68ca478c2a3e8",
+  "references": [
+    "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/notepat-native.png",
+    "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/hardware-yoga.jpg",
+    "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/cover-nov.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 41.007,
+  "archived": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/archive/notepat-laptop-2026-11-20T20-01-33-640Z.png",
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 4519,
+    "input_tokens_details": {
+      "image_tokens": 3536,
+      "text_tokens": 983
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 5891
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "e2dad8ca9e2f2cafcef7adc5148736890523601f64d0dd32633744e81b11ad91",
+    "checkedAt": "2026-11-20T20:02:27.636Z",
+    "reviewer": "Claude (visual inference)",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One ThinkPad, no person, no other objects, nothing touching the picture edge. Screen compared line by line with notepat-native.png: wordmark notepat.com with no trademark sign; sliders fx 100%, echo 0%, pitch +0c, crush 0%, vol 100%, drive 0%, wobble 0% in that order, fx full and vol half filled; tabs sine tri saw square pno harp whist sample; chips 'no usb' and 'wave sine'; key letters c v d s e f w g r a q b and h t i y j k u l o m p n; c lit red, g lit blue; waveform band; five nested rectangles on pink. Kept deviation: the three small chips at the top right are drawn as blank colour blocks where the frame reads usb off, udp and fps24; nothing wrong is written there."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Single clamshell from the user's side: trackpad, keyboard, hinge, then the screen rising behind and facing the camera. No lid back visible."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Laptop sits flat in its own hatched shadow. Physical rows read Q W E R T Y U I O P, A S D F G H J K L, Z X C V B N M with the TrackPoint between G, H and B. No unexplained glow."
+      }
+    }
+  }
+}

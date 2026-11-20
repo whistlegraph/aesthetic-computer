@@ -1,0 +1,86 @@
+{
+  "slug": "plorking-the-planet-26-arxiv",
+  "artifactUri": "ipfs://QmXGc97dHZMCpWVFSiPjBG3Ld3QPaTgyDNq2DLBRQw6CsY",
+  "displayUri": "ipfs://QmcATnr2YmwAgkQr3r47DZcGDpV5DrXCtohAdcybZZ3nik",
+  "thumbnailUri": "ipfs://QmaCFaRxoWaCpNifnECUmWmFVy4MjuZ4b3JN18aTnpE8bd",
+  "metadata": {
+    "name": "PLOrk'ing the Planet",
+    "description": "A laptop orchestra that boots from a USB stick.\n\nA paper by @jeffrey, November 2026, nine pages. AC Native OS boots a discarded laptop into notepat, an instrument whose keys play the notes they name. Six salvaged laptops played a thirteen-minute spatial score in Los Angeles on September 24, 2026. A second musician, @oskie, wrote a groovebox for the system on his own ThinkPad. The paper gives the instrument, the first measurements, the lineage in laptop orchestras and live coding, and the tests that could show the idea fails.\n\nThis token is revision 7 of the paper as a PDF, an edition of 20 for #200tez. The PDF carries its own source bundle and a QR code for downloading the OS. Free to read at papers.aesthetic.computer.",
+    "tags": [
+      "200tez",
+      "paper",
+      "pdf",
+      "laptoporchestra",
+      "notepat",
+      "livecoding",
+      "aestheticcomputer",
+      "acnativeos",
+      "plork"
+    ],
+    "symbol": "OBJKTCOM",
+    "decimals": 0,
+    "isBooleanAmount": false,
+    "artifactUri": "ipfs://QmXGc97dHZMCpWVFSiPjBG3Ld3QPaTgyDNq2DLBRQw6CsY",
+    "displayUri": "ipfs://QmcATnr2YmwAgkQr3r47DZcGDpV5DrXCtohAdcybZZ3nik",
+    "thumbnailUri": "ipfs://QmaCFaRxoWaCpNifnECUmWmFVy4MjuZ4b3JN18aTnpE8bd",
+    "image": "ipfs://QmcATnr2YmwAgkQr3r47DZcGDpV5DrXCtohAdcybZZ3nik",
+    "formats": [
+      {
+        "uri": "ipfs://QmXGc97dHZMCpWVFSiPjBG3Ld3QPaTgyDNq2DLBRQw6CsY",
+        "mimeType": "application/pdf",
+        "fileName": "artifact.pdf",
+        "fileSize": 4638011
+      },
+      {
+        "uri": "ipfs://QmcATnr2YmwAgkQr3r47DZcGDpV5DrXCtohAdcybZZ3nik",
+        "mimeType": "image/png",
+        "fileName": "display.png",
+        "fileSize": 1829173
+      },
+      {
+        "uri": "ipfs://QmaCFaRxoWaCpNifnECUmWmFVy4MjuZ4b3JN18aTnpE8bd",
+        "mimeType": "image/jpeg",
+        "fileName": "thumbnail.jpg",
+        "fileSize": 35774
+      }
+    ],
+    "creators": [
+      "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE"
+    ],
+    "minter": "KT1Aq4wWmVanpQhq4TTfjZXB5AjFpx15iQMM",
+    "mintingTool": "https://aesthetic.computer",
+    "date": "2026-11-20T20:37:55.222Z",
+    "language": "en",
+    "rights": "© @jeffrey, Aesthetic.Computer. Free to read and share with attribution.",
+    "royalties": {
+      "decimals": 4,
+      "shares": {
+        "tz1gkf8EexComFBJvjtT1zdsisdah791KwBE": "1500"
+      }
+    },
+    "attributes": [
+      {
+        "name": "Revision",
+        "value": "7"
+      },
+      {
+        "name": "Pages",
+        "value": "9"
+      },
+      {
+        "name": "Author",
+        "value": "@jeffrey"
+      }
+    ]
+  },
+  "metadataUri": "ipfs://QmSCWzY9fojbfnK3d6AtHhiCnszr2KohceCsVuREaN6gyK",
+  "editions": 20,
+  "priceXtz": 10,
+  "pdfBytes": 4638011,
+  "mintOp": "ooFFdS8ZsZk1Q9LKqiAJVJhWB29kVhfToqjq66oCAhijkJyJj1d",
+  "tokenId": "0",
+  "listOp": "ooC4utu9Uvvn9a4SEnNXtec8oSpXJccRhAt6gmfFmh9JqujESF5",
+  "listed": true,
+  "listedOn": "objkt",
+  "objktUrl": "https://objkt.com/tokens/KT1FVtrz28Y9XkiwpokWGtTAUiFcvwnG6fvj/0"
+}

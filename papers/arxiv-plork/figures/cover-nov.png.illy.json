@@ -1,0 +1,71 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-20T19:44:27.682Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/cover-nov.png",
+  "promptPath": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/cover-nov-prompt.txt",
+  "researchPath": null,
+  "promptHash": "543b2dd81e7c469c6d5c5a51446e5fb1ee9c5f2282bebb3634aae6b8b678b868",
+  "references": [
+    "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/notepat-native.png",
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--07.jpg",
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--01.jpg",
+    "/Users/jas/aesthetic-computer/portraits/jeffrey/corpus/shoot-2k/jeffery-av--04.jpg",
+    "/Users/jas/aesthetic-computer/papers/arxiv-keymaps/figures/cover.png",
+    "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/hardware-yoga.jpg"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 45.38,
+  "archived": "/Users/jas/aesthetic-computer/papers/arxiv-plork/figures/archive/cover-nov-2026-11-20T19-44-27-658Z.png",
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 9348,
+    "input_tokens_details": {
+      "image_tokens": 8022,
+      "text_tokens": 1326
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 11104
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "a029b5a18ba32003b6838391dff51be5b38d8381a4253f493f40225877230762",
+    "checkedAt": "2026-11-20T19:45:11.185Z",
+    "reviewer": "Claude (visual inference)",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One man, one wooden folding chair, six ThinkPads (one on his lap, five on the floor). No extra people, cables, speakers or lettering. Each floor screen was compared with the reference frame notepat-native.png: grey control strip with green slider bars, the row of pastel tabs, the dark piano strip with a red key at the left and a blue key near the middle, the pale waveform band, the pink field and the nested brown and olive rectangles are all present and in the reference's order on all five. Two deviations kept: the key letters are too small to read and render as light marks, and two laptops carry a palm-rest sticker where the first prompt asked for one (prompt relaxed to one or two)."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "All five floor laptops, checked one at a time in the quadrant crops, read trackpad, keyboard, hinge, then the screen rising behind and facing the camera; no lid back is visible on any of them and no keyboard sits behind its screen. The lap laptop shows only the plain back of its lid with the ThinkPad mark, its screen toward him, his head tipped to it."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Visible hand on the lap keyboard has a plausible finger count, the other is hidden behind the lid; both feet flat with contact shadows; he is seated on the chair and the chair legs are grounded. Floor laptops sit in their own shadows at a consistent scale. No unexplained glow."
+      }
+    }
+  }
+}

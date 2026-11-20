@@ -323,7 +323,7 @@ Sorted by most recently edited/added.
 | Sucking on the Complex | arXiv (LaTeX) | `arxiv-complex/complex.pdf` | `arxiv-complex/complex.tex` |
 | Playable Folk Songs | arXiv (LaTeX) | `arxiv-folk-songs/folk-songs.pdf` | `arxiv-folk-songs/folk-songs.tex` |
 | Every Sound is a Painting: Sampling as Visual-Auditory Practice | arXiv (LaTeX) | `arxiv-sampling/sampling.pdf` | `arxiv-sampling/sampling.tex` |
-| PLORKing the Planet: From Laptop Orchestra to Planetary Organ | arXiv (LaTeX, 8pp) | `arxiv-plork/plork.pdf` | `arxiv-plork/plork.tex` |
+| PLOrk'ing the Planet: A Laptop Orchestra That Boots from a USB Stick | arXiv (LaTeX, 9pp) | `arxiv-plork/plork.pdf` | `arxiv-plork/plork.tex` |
 | From setup() to boot(): Processing at the Core of the Piece API | arXiv (LaTeX, 7pp) | `arxiv-api/api.pdf` | `arxiv-api/api.tex` |
 | Network Audit: Who Uses Aesthetic Computer and What Do They Make? | arXiv (LaTeX, 4pp) | `arxiv-network-audit/network-audit.pdf` | `arxiv-network-audit/network-audit.tex` |
 | KidLisp Language Reference: 118 Built-ins in 12 Categories | arXiv (LaTeX, 4pp) | `arxiv-kidlisp-reference/kidlisp-reference.pdf` | `arxiv-kidlisp-reference/kidlisp-reference.tex` |
