@@ -71,7 +71,12 @@ const toHost = (message) => {
   window.parent.postMessage(message, location.origin);
   window.parent.postMessage({ ...message, type: message.type.replace(/^rax:/, 'dool:') }, location.origin);
 };
+// ⎋ The step of Escape just taken, { color, at }: the view flashes it down both sides.
+let escFlash = null;
 function leave() {
+  // Escape's second step, to the prompt: pink down the sides and two notes falling.
+  escFlash = { color: 0xff3296, at: performance.now() };
+  sfx.escStep(2);
   if (hosted) {
     releaseInput();
     if (locked()) document.exitPointerLock();
@@ -813,6 +818,8 @@ let activeSeconds = 0; // Seconds of play this visit.
 // (2026-11-08: jeffrey wants every action always in view; no hide key).
 const legendShown = () => seat >= 0;
 const send = (data) => {
+  // 🧵 What is said of the body is said of a room: the socket stays when the body goes to the next, and a word for the room left is not the next one's.
+  if (data.type === 'input' || data.type === 'walk' || data.type === 'elevator') data = { ...data, in: room };
   if (
     ws?.readyState === WebSocket.OPEN &&
     ws.bufferedAmount < (data.type === 'input' ? 65536 : 32768)
@@ -903,7 +910,7 @@ function placePath() {
   // are all rax. Only a room outside the world has a word of its own.
   return inWorld(room) ? '/rax/' : `/rax~${room}`;
 }
-function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null) {
+function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null, here = false) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   // 🚶 The body goes on between the two rooms (held): it keeps walking by its
   // own commands, which the next room runs when it seats it. A walk across
@@ -915,7 +922,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (walk && ball && player && at) {
     ball = { ...ball, x: ball.x + Math.round((at.x - player.x) / BLOCK_SPAN) * BLOCK_SPAN, z: ball.z + Math.round((at.z - player.z) / BLOCK_SPAN) * BLOCK_SPAN };
   } else ball = null;
-  held = receipt && at && player && seat >= 0
+  held = (receipt || here) && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
   if (chosen) roamed = true;
@@ -969,7 +976,12 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     lastPlace = room;
     try { localStorage.setItem('rax-place', room); } catch {}
   }
-  if (ws && ws.readyState !== WebSocket.CLOSED) {
+  if (here && ws?.readyState === WebSocket.OPEN) {
+    // 🧵 The socket stays: the server has moved the body, and the next room's
+    // words are next on this wire. Only what was known of the room left goes.
+    coolDown();
+    unseat();
+  } else if (ws && ws.readyState !== WebSocket.CLOSED) {
     const old = ws;
     ws = null; // its close is ours, not an outage
     old.close();
@@ -993,6 +1005,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
 // has answered and knows who you are, and waits (wait=1). Stepping over,
 // the passage is handed to the one already open, so there is no new
 // connection to make. Its room's words are kept to be heard on stepping in.
+const STAY = true;
 const WARM_NEAR = 6, WARM_FAR = 7; // metres from a block's line: open within, let go beyond
 const warm = new Map(); // room → { socket, words, ready }
 function warmUp(to) {
@@ -1032,6 +1045,8 @@ function coolDown(keep = null) {
 }
 // Each frame: which neighbours' lines are you near?
 function tendWarm() {
+  // 🧵 The socket stays from room to room, so no door is held open ahead of a step. (STAY off: the doors again, for a server that hands out passages.)
+  if (STAY) return;
   if (!(park?.neighbours && player && seat >= 0 && sheetOpen && !held)) { if (!held) coolDown(); return; }
   const h = half(), near = [];
   for (const [side, d] of [['east', h - player.x], ['west', h + player.x], ['north', h - player.z], ['south', h + player.z]]) {
@@ -1046,14 +1061,9 @@ function tendWarm() {
   for (const to of [...warm.keys()]) if (!wanted.includes(to)) { const e = warm.get(to); warm.delete(to); e.socket.onclose = e.socket.onerror = e.socket.onmessage = null; try { e.socket.close(1000, 'walked away'); } catch {} }
   for (const to of wanted) warmUp(to);
 }
-function connect(adopt = null) {
-  bootMark('connect');
-  const url = new URL('./play', import.meta.url);
-  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  // 🔐 Signed in on this page: fetch the token while the socket opens, and
-  // ask the server to keep the seat for the handle (no guest name first).
-  const account = accountExpected() ? accountToken() : null;
-  url.search = new URLSearchParams({ room, protocol: PROTOCOL, ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}), ...(query.has('film') ? { watch: '1' } : {}) });
+// What was known of a room's match goes when the body leaves it: its
+// snapshots, its count of commands, what was predicted in it.
+function unseat() {
   history = [];
   pending = [];
   player = null;
@@ -1065,6 +1075,19 @@ function connect(adopt = null) {
   debt = 0;
   presentation.reset(null);
   playback.reset();
+  freecamPlaced = false;
+  gate = null;
+  joiningUntil = performance.now() + 7000;
+}
+function connect(adopt = null) {
+  bootMark('connect');
+  const url = new URL('./play', import.meta.url);
+  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // 🔐 Signed in on this page: fetch the token while the socket opens, and
+  // ask the server to keep the seat for the handle (no guest name first).
+  const account = accountExpected() ? accountToken() : null;
+  url.search = new URLSearchParams({ room, protocol: PROTOCOL, stay: '1', ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}), ...(query.has('film') ? { watch: '1' } : {}) }); // (stay: one socket from room to room)
+  unseat();
   notice = held ? '' : 'CONNECTING';
   // 🚶 Walking over a seam you are still you and the line is still the line:
   // your face, your ping and the roster stay up until the next room speaks.
@@ -1074,9 +1097,6 @@ function connect(adopt = null) {
     members = [];
     selfMember = null;
   }
-  freecamPlaced = false;
-  gate = null;
-  joiningUntil = performance.now() + 7000;
   connectAttempts++;
   logNet(adopt ? `stepping into room ${room} (its door was open)` : `connecting to room ${room} (try ${connectAttempts})`);
   ws = adopt ? adopt.socket : new WebSocket(url);
@@ -1187,7 +1207,7 @@ function connect(adopt = null) {
       return;
     }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
-    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack);
+    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack, data.here === true);
     if (data.type === 'tower') {
       tower = data;
       if (Array.isArray(data.listed)) {
@@ -1788,7 +1808,11 @@ function releaseInput() {
 }
 document.addEventListener('pointerlockchange', () => {
   releaseInput();
-  if (!locked()) unlockedAt = performance.now();
+  if (!locked()) {
+    unlockedAt = performance.now();
+    // ⎋ Escape's first step, the mouse let go: yellow down the sides and a ding. (Not over the second step's, when leaving let it go.)
+    if (!escFlash || unlockedAt - escFlash.at > 400) { escFlash = { color: 0xffe066, at: unlockedAt }; sfx.escStep(1); }
+  }
 });
 document.addEventListener('mousemove', (e) => {
   if (e.movementX || e.movementY) inputAt = performance.now(); // (a hand on the mouse: not idle)
@@ -2891,6 +2915,7 @@ function step(now) {
     jobs,
     worldTime,
     locked: locked(),
+    flash: escFlash,
     legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
     corner: sheetOpen && !down && !film,
     screens,

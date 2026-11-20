@@ -1259,6 +1259,7 @@ export async function createView(canvas) {
     jobs = [],
     worldTime = 0,
     locked = false,
+    flash = null, // ⎋ { color, at }: a step of Escape just taken, shown down both sides of the screen
     legend = false,
     held = {},
     corner = false,
@@ -2603,8 +2604,8 @@ export async function createView(canvas) {
         h = 10 * unit;
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
-      // Beside it, what it and Escape do (2026-11-08).
-      const label = hintSpans('{esc} back to AC', THEME.dim);
+      // Beside it, what Escape does next: with the mouse held it frees the mouse, and with the mouse free it goes to the prompt.
+      const label = hintSpans(locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim);
       const labelW = smallSpanWidth(label, unit);
       cornerRect = { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
       const m = model(({ rect: worldRect, text, small }) => {
@@ -2625,6 +2626,16 @@ export async function createView(canvas) {
           rect(left + i * unit + unit, bottom + j * unit - unit, 0.000003, unit, unit, INK);
           rect(left + i * unit, bottom + j * unit, 0.000002, unit, unit, col);
         });
+      });
+      projector.overlay(m, W, H);
+    }
+    // ⎋ A step of Escape: a bar of its colour down each side, drawn in over a third of a second.
+    if (flash && now - flash.at < 360) {
+      const wide = Math.max(1, Math.round(8 * (1 - (now - flash.at) / 360))) * hud.unit;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        rect(-W / 2, -H / 2, 0.000004, wide, H, flash.color);
+        rect(W / 2 - wide, -H / 2, 0.000004, wide, H, flash.color);
       });
       projector.overlay(m, W, H);
     }

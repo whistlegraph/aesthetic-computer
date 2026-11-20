@@ -99,6 +99,15 @@ export class Room {
       // A member still waiting for its handle has no name to show yet.
       if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? this.public(r) : null });
   }
+  // 🧵 Someone already known comes in from another room on the socket they
+  // have: the same record, a new seat.
+  adopt(record) {
+    record.seat = -1;
+    this.sessions.set(record.ws, record);
+    this.clients.set(record.ws, -1);
+    this.assign();
+    return record;
+  }
   remove(ws) {
     const r = this.sessions.get(ws);
     if (!r) return;

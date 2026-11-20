@@ -751,17 +751,18 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       ws.close(1008, 'Invalid room or build');
       return;
     }
-    const key = roomId;
+    // 🧵 The place this socket stands in. It changes when the body walks over a
+    // line or rides the car on a socket that stays (`stay=1`, relocate below).
+    let key = roomId;
     if ((key.startsWith('pod-') && !geography.geography.pod(key)) ||
         (key.startsWith('floor-') && !tower.tower.forRoom(key)) ||
         (parseBlock(key) && !onLap(parseBlock(key)))) {
       ws.close(1008, 'Place is not open'); return;
     }
-    if (!rooms.has(key)) {
-      if (rooms.size >= 96) { // (a walker near a seam holds the next room open too)
-        ws.close(1013, 'Server full');
-        return;
-      }
+    // The room of a place, made if nobody is in it yet; null when the server is full.
+    const openRoom = (key) => {
+      if (rooms.has(key)) return rooms.get(key);
+      if (rooms.size >= 96) return null;
       rooms.set(key, new Room(send, { guests }));
       rooms.get(key).match.half = halfOf(key);
       if (flights.has(key)) {
@@ -774,8 +775,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
         : { x: (seat % 2 ? -1 : 1) * 1.5 * Math.ceil((seat % 8 || 8) / 2), z: seat < 9 ? -6.3 : -7.2, yaw: 0 };
       if (isArena(key)) rooms.get(key).match.setArena(LEDGES);
+      return rooms.get(key);
+    };
+    let room = openRoom(key);
+    if (!room) {
+      ws.close(1013, 'Server full');
+      return;
     }
-    const room = rooms.get(key);
     if (room.clients.size >= ROOM_CONNECTIONS) {
       ws.close(1013, 'Room full');
       return;
@@ -796,6 +802,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // they hand in the passage (an `arrive` message). So the step over the
     // line costs a word each way, not a new connection.
     let waiting = url.searchParams.get('wait') === '1';
+    // 🧵 stay=1: this page keeps its one socket from room to room (relocate).
+    const stays = url.searchParams.get('stay') === '1';
     let passageAsked = url.searchParams.get('passage');
     const member = room.add(ws, nativeAccount || webAccount || watching || waiting);
     // Nobody with a handle is here: say what the seat waits for, so the
@@ -814,14 +822,19 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     };
     const accountHold = webAccount ? setTimeout(seatGuest, 6000) : null;
     accountHold?.unref?.();
-    room.match.setObjects(store.objects(key));
-    room.match.setWalls(wallsFor(key));
-    // An old build in the way of the car or the entrance is stood aside.
-    if (hasCar(key)) void builders.tidy(key).then((moved) => {
-      if (!moved) return;
-      room.match.setObjects(store.objects(key));
-      builders.broadcast(key);
-    }).catch(() => {});
+    // What stands in the room is solid for whoever comes into it.
+    const furnish = () => {
+      const at = key, here = room;
+      here.match.setObjects(store.objects(at));
+      here.match.setWalls(wallsFor(at));
+      // An old build in the way of the car or the entrance is stood aside.
+      if (hasCar(at)) void builders.tidy(at).then((moved) => {
+        if (!moved) return;
+        here.match.setObjects(store.objects(at));
+        builders.broadcast(at);
+      }).catch(() => {});
+    };
+    furnish();
     let arrived = false, leaving = null; // leaving: the passage this socket was last given
     // 👀 Told its place is another room, and not yet walked a step in this
     // one: a look in on the way, which leaves the avatar's rest where it was.
@@ -858,6 +871,50 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       sendTower(ws, key, member); // whose floor this is, known with the passage
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
+    };
+    // 🧵 The body goes to another room and the socket stays. Nothing is
+    // closed or opened and nobody is asked again who they are: the same
+    // member leaves this room's match and takes a seat in the next, set down
+    // where the line or the car left them, and the next room's words follow
+    // the `travel` on the same wire, in order. → whether it was done (a page
+    // that does not stay, or a room with no place left, takes a passage).
+    const relocate = (destination, position, { ride = null, told = {} } = {}) => {
+      if (!stays || destination === key) return false;
+      const next = openRoom(destination);
+      if (!next || next.clients.size >= ROOM_CONNECTIONS) return false;
+      const from = room, fromKey = key;
+      send(ws, { type: 'travel', room: destination, here: true, at: position, ...told });
+      from.remove(ws);
+      if (!from.clients.size) {
+        const kept = from.match.flight();
+        if (kept) flights.set(fromKey, kept);
+        rooms.delete(fromKey);
+      }
+      key = destination;
+      room = next;
+      room.adopt(member);
+      furnish();
+      arrived = true;
+      passing = false;
+      leaving = null;
+      member.walk = null;
+      const body = room.match.seats[member.seat]?.player;
+      if (body) {
+        Object.assign(body, position);
+        // 🛗 Come by the car: its door is shut for the ride (world.mjs `shut`).
+        if (ride) { member.ride = ride; body.shut = shutTicks(ride.seconds, HZ); }
+        // The commands given while the word was on its way are owed a run.
+        room.match.owe(member.seat, HZ / 2);
+      }
+      send(ws, { type: 'role', seat: member.seat, role: member.seat < 0 ? 'spectator' : 'player' });
+      if (devRoom(key) && devRecent.length) send(ws, { type: 'dev-log', entries: devRecent });
+      send(ws, { type: 'chalk', strokes: room.match.chalk });
+      sendPark(ws, key);
+      sendTower(ws, key, member);
+      send(ws, { type: 'arrival', yaw: position.yaw, pitch: position.pitch });
+      send(ws, room.match.snapshot());
+      send(ws, builders.state(key, member));
+      return true;
     };
     // 🪪 This socket is now this verified account, whichever way it was
     // verified: by the page's own token (`account`), or by a phone's
@@ -1000,6 +1057,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         ws.close(1008, 'Invalid JSON');
         return;
       }
+      // 🧵 Said in a room this socket has since left (the word crossed the move on the wire): not this room's to hear.
+      if (typeof data?.in === 'string' && data.in !== key) return;
       if (data?.type === 'stall') {
         if (now - stallAt < 200) return;
         stallAt = now;
@@ -1121,6 +1180,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
           walked = room.match.seats[member.seat].ack;
         }
+        // 🧵 On a socket that stays, the body is in the next room now. `ack` is the last command this room ran.
+        if (relocate(destination, position, { told: walked === undefined ? {} : { ack: walked } })) return;
         // Asked again before the answer got there (a slow link): the same
         // passage again, never a new one that would void the first.
         if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
@@ -1155,12 +1216,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (!destination) return void send(ws, { type: 'elevator-result',
           error: to === 'home' ? 'sign in for a floor' : to === 'up' ? 'this is the top' : `no floor ${to}` });
         if (destination === key) return void send(ws, { type: 'elevator-result', error: 'you are here' });
-        // Asked again before the answer got there (a slow link): the same
-        // passage again, never a new one that would void the first.
-        if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
-        for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
-        if (passages.size >= 1024) return;
-        const receipt = randomUUID();
         // 🛗 A rider stays where they stand in the car, looking where they look: the car moves, they do not. (No facing is given, so the page keeps its own.)
         const stood = { x: p.x, z: p.z };
         // 🚪 How long the car runs, as the page counts it (asked while it ran, it starts from where it is): the door is shut for that long, and the rider walks about inside.
@@ -1168,11 +1223,24 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const running = was && since < was.seconds ? was.span * (1 - rideEase(since / was.seconds)) : 0;
         const span = altitude(here ? here.number : 0) - altitude(found ? found.number : 0) + running;
         const run = { at: Date.now(), span, seconds: rideSeconds(span) };
+        const riding = { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null };
+        // 🧵 On a socket that stays, the rider is on the next floor now (and a ball in the car with them).
+        const carried = ball.ball.room === key && inCar(ball.ball);
+        if (relocate(destination, stood, { ride: run, told: { ride: riding } })) {
+          if (carried) { ball.ball.room = destination; keepBall(); }
+          return;
+        }
+        // Asked again before the answer got there (a slow link): the same
+        // passage again, never a new one that would void the first.
+        if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
+        for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
+        if (passages.size >= 1024) return;
+        const receipt = randomUUID();
         passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, ride: run, at: Date.now(), until: Date.now() + 30000 });
         // ⚽ A ball in the car rides with it.
         if (ball.ball.room === key && inCar(ball.ball)) { ball.ball.room = destination; keepBall(); }
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...stood },
-          ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } } };
+          ride: riding } };
         send(ws, leaving.message);
         return;
       }

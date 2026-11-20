@@ -272,6 +272,12 @@ export class Sfx {
     this.voice(note(slot + 5), 0.12, { volume: 0.035 });
     this.voice(note(slot + 7), 0.16, { volume: 0.02, at: 0.04, type: 'sine' });
   }
+  // ⎋ Escape's two steps: the mouse let go (one high ding), then to the prompt (two notes falling).
+  escStep(step) {
+    if (step === 1) return void this.voice(note(9), 0.14, { volume: 0.03, type: 'sine' });
+    this.voice(note(7), 0.1, { volume: 0.03, type: 'sine' });
+    this.voice(note(2), 0.18, { volume: 0.03, type: 'sine', at: 0.07 });
+  }
   ringBack() {
     this.voice(note(3), 0.08, { volume: 0.025, slide: 0.7 });
   }
