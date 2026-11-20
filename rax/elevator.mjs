@@ -91,8 +91,8 @@ export function carSolids() {
   for (const x of [-o + t / 2, o - t / 2])
     for (const z of [door, back]) add('post', 'frame', x, H / 2, z, t, H, t);
   add('mullion', 'frame', 0, (0.6 + H - 0.2) / 2, back, 0.08, H - 0.8, 0.08);
-  // The sign over the door, read from outside and (its other face) from inside.
-  add('sign', 'sign', 0, 2.6, door, 2 * CAR, 0.8, t);
+  // Over the door a rail like the other sides': no sign, outside or in (the pad inside tells the floor).
+  add('door rail', 'frame', 0, H - 0.1, door, 2 * CAR, 0.2, t);
   return solids;
 }
 // 📟 The screen inside the car, over the door: a bezel plate with the dark

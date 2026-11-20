@@ -28,10 +28,10 @@ test('the elevator car is built of solids that never cross', () => {
   assert.deepEqual(crossings(car).map(describeCrossing), []);
 });
 
-test('the car keeps its shape: four posts, a roof over all of it, a sign between the front posts', () => {
+test('the car keeps its shape: four posts, a roof over all of it, a rail between the front posts', () => {
   const car = carSolids(), o = CAR + CAR_WALL;
   assert.equal(car.filter((s) => s.name === 'post').length, 4);
-  const roof = car.find((s) => s.name === 'roof'), sign = car.find((s) => s.name === 'sign');
+  const roof = car.find((s) => s.name === 'roof'), sign = car.find((s) => s.name === 'door rail');
   assert.deepEqual([roof.w, roof.d, roof.y - roof.h / 2], [2 * o, 2 * o, CAR_HEIGHT]);
   assert.equal(sign.w, 2 * CAR);
   assert.ok(sign.y + sign.h / 2 <= CAR_HEIGHT);

@@ -392,38 +392,22 @@ export async function createView(canvas) {
   }
   // 🛗 The elevator car against the north edge of the plaza and of every
   // floor: a glass box (posts, a sill, a roof) with its door to the south and
-  // the world behind its back. The floor's number and handle are over the
-  // door, outside and in.
+  // the world behind its back. It wears no sign: the pad inside tells the floor.
   let carSet = null;
   function carFor(tower) {
-    const here = tower?.here, key = JSON.stringify([here, tower?.count, paletteName]);
+    const key = paletteName;
     if (carSet?.key === key) return carSet.model;
     const day = paletteName === 'day';
     const frame = day ? 0x8f98ac : 0x59607a, sill = day ? 0xdfe3ee : 0x3d4357, pad = day ? 0xffd9ec : 0x5a2244;
-    const number = here ? (here.number ? `${here.number}` : 'G') : '';
-    const who = here?.handle ? `@${here.handle}` : ''; // (the ground floor's car says G and how many floors: the name is over the entrance)
-    const under = here?.handle ? '' : tower?.count ? `${tower.count} floors` : '';
-    const made = model(({ quad, box, text, handleText }) => {
-      const z0 = CAR_Z, t = CAR_WALL;
+    const made = model(({ box }) => {
       // The car's solids (elevator.mjs): a floor, a roof, glass on three
-      // sides, a post at each corner and the sign over the door, none of
+      // sides, a post at each corner and a rail over the door, none of
       // them sharing volume with another.
       const inks = {
         pad: [pad, frame, pad], roof: [sill, frame, sill], sill: [sill, frame, sill],
-        frame: [frame, frame, frame], sign: [0x27324a, 0x171d26, 0x171d26],
+        frame: [frame, frame, frame],
       };
       for (const s of carSolids()) box(s.x, s.y, s.z, s.w, s.h, s.d, ...inks[s.ink]);
-      const door = z0 - CAR - t / 2;
-      const fit = (label, width, most) => Math.min(most, width / Math.max(1, label.length * 6));
-      const line = (label, top, z, width, most, color) => {
-        const unit = fit(label, width, most);
-        text(label, unit, top - 2 * unit, z + 0.004, unit, 0x000000); // a hard shadow, one pixel down and across
-        if (color === 'handle') handleText(label, 0, top - unit, z, unit, here.colors);
-        else text(label, 0, top - unit, z, unit, color);
-      };
-      if (number) line(number, 2.95, door - t / 2 - 0.012, 1.6, 0.035, 0xff3296);
-      if (who) line(who, 2.55, door - t / 2 - 0.012, 2.6, 0.028, here?.handle ? 'handle' : PAPER);
-      if (under) line(under, 2.3, door - t / 2 - 0.012, 2.6, 0.012, 0x9aa3b5);
     });
     carSet = { key, model: made };
     return made;
