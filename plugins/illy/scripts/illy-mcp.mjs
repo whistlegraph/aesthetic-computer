@@ -9,6 +9,7 @@ import {
   renameSync, statSync, unlinkSync, writeFileSync,
 } from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import * as readline from "node:readline";
 import { resolveCredentials } from "../../../toolchain/vault/credentials.mjs";
@@ -18,6 +19,7 @@ const REPO = resolve(ROOT, "../..");
 const PROVIDERS = JSON.parse(readFileSync(join(ROOT, "config/providers.json"), "utf8")).providers;
 const PIPELINES = JSON.parse(readFileSync(join(ROOT, "config/pipelines.json"), "utf8")).pipelines;
 const CONTRACTS = JSON.parse(readFileSync(join(ROOT, "config/contracts.json"), "utf8")).contracts;
+const CHECKS = JSON.parse(readFileSync(join(ROOT, "config/checks.json"), "utf8")).passes;
 const IMAGE_RE = /\.(png|jpe?g|webp|gif)$/i;
 
 function envValue(name) {
@@ -309,8 +311,8 @@ async function generate(args) {
   const archived = archiveExisting(plan.output);
   renameSync(pending, plan.output);
   const framed = plan.frame ? frameOutput(plan.output, plan.frame) : null;
-  const meta = writeProvenance(plan, { durationSeconds: (Date.now() - started) / 1000, archived, framed, ...result });
-  return { status: "generated", plan, meta };
+  const meta = writeProvenance(plan, { durationSeconds: (Date.now() - started) / 1000, archived, framed, ...result, check: unverified(plan.output) });
+  return { status: "generated", check: "UNVERIFIED: call illy_check on the output, inspect all three passes, then record them with illy_verdict before using the image.", plan, meta };
 }
 
 function record(args) {
@@ -328,7 +330,87 @@ function record(args) {
     refs: (args.references || []).map((path) => resolve(path)), contracts,
     stages: ["external-generate", "provenance"],
   };
-  return writeProvenance(plan, { note: args.note || "Recorded external/interactively generated illy." });
+  return writeProvenance(plan, { note: args.note || "Recorded external/interactively generated illy.", check: unverified(output) });
+}
+
+// ── The baseline inference check ─────────────────────────────────────────
+// A render is unverified until someone looks at it three times, once per pass
+// in config/checks.json, and records a verdict for each. The server prepares
+// the evidence (the render, four quadrant crops at native size, the prompt and
+// the questions); it never certifies a pass itself. A verdict is bound to the
+// image by its SHA-256, so a reroll is unverified again.
+const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const unverified = (output) => ({ status: "unverified", imageSha256: sha256(output) });
+
+function readMeta(output) {
+  const path = `${output}.illy.json`;
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : { schema: "illy/v1", output, note: "No provenance on file; checked as found." };
+}
+
+function checkState(output) {
+  const check = readMeta(output).check;
+  if (!check || check.imageSha256 !== sha256(output)) return "unverified";
+  return check.status;
+}
+
+// The render at inspection size, then its four quadrants enlarged two times so
+// small objects at the edges can be read. Falls back to the file as it is when
+// ffmpeg is missing.
+function evidence(output) {
+  const dir = join(tmpdir(), `illy-check-${sha256(output).slice(0, 12)}`);
+  mkdirSync(dir, { recursive: true });
+  const shot = (name, filter) => {
+    const path = join(dir, `${name}.jpg`);
+    execFileSync("ffmpeg", ["-y", "-loglevel", "error", "-i", output, "-vf", filter, "-frames:v", "1", "-q:v", "3", path]);
+    return { name, path };
+  };
+  try {
+    const half = (x, y) => `crop=iw/2:ih/2:${x}:${y},scale=1024:-2:flags=lanczos`;
+    return [
+      shot("whole", "scale='min(1536,iw)':-2:flags=lanczos"),
+      shot("top-left", half("0", "0")), shot("top-right", half("iw/2", "0")),
+      shot("bottom-left", half("0", "ih/2")), shot("bottom-right", half("iw/2", "ih/2")),
+    ];
+  } catch { return [{ name: "whole", path: output }]; }
+}
+
+function check(args) {
+  const output = resolve(args.output || "");
+  if (!args.output || !existsSync(output)) throw new Error("output must name an existing image");
+  const meta = readMeta(output);
+  const prompt = args.prompt || (meta.promptPath && existsSync(meta.promptPath) ? readFileSync(meta.promptPath, "utf8").trim() : null);
+  const shots = evidence(output);
+  const rubric = Object.entries(CHECKS).map(([id, pass]) => `${pass.title}  (id: ${id})\n${pass.ask.map((line) => `  - ${line}`).join("\n")}`).join("\n\n");
+  const text = [
+    `ILLY CHECK: ${output}`,
+    `STATUS: ${checkState(output).toUpperCase()}. Visual inference required; this tool does not certify a pass.`,
+    `Images below, in order: ${shots.map((shot) => shot.name).join(", ")}.`,
+    `Contracts: ${(meta.contracts || []).join(", ") || "none recorded"}`,
+    prompt ? `PROMPT THE RENDER MUST SATISFY:\n${prompt}` : "No prompt on file: pass `prompt` so the render can be checked against what was asked.",
+    `Look once per pass. Do not merge them.\n\n${rubric}`,
+    "Then call illy_verdict with a verdict (pass or fail) and notes for every pass. Notes name what was looked at: each device and the face it shows, each count. Any fail means a reroll with one targeted prompt change, then a new check.",
+  ].join("\n\n");
+  return { _content: [{ type: "text", text }, ...shots.map((shot) => ({ type: "image", data: readFileSync(shot.path).toString("base64"), mimeType: mime(shot.path) }))] };
+}
+
+function verdict(args) {
+  const output = resolve(args.output || "");
+  if (!args.output || !existsSync(output)) throw new Error("output must name an existing image");
+  const passes = {};
+  for (const id of Object.keys(CHECKS)) {
+    const given = args.passes?.[id];
+    if (!given || !["pass", "fail"].includes(given.verdict)) throw new Error(`pass "${id}" needs verdict "pass" or "fail"`);
+    if (!String(given.notes || "").trim()) throw new Error(`pass "${id}" needs notes saying what was inspected`);
+    passes[id] = { verdict: given.verdict, notes: String(given.notes).trim() };
+  }
+  const failed = Object.keys(passes).filter((id) => passes[id].verdict === "fail");
+  const meta = readMeta(output);
+  meta.check = {
+    status: failed.length ? "failed" : "passed", imageSha256: sha256(output), checkedAt: new Date().toISOString(),
+    reviewer: args.reviewer || "visual-inference", passes,
+  };
+  writeFileSync(`${output}.illy.json`, JSON.stringify(meta, null, 2) + "\n");
+  return { output, status: meta.check.status, failed, next: failed.length ? "Reroll with one targeted prompt change (force: true), then illy_check again." : "Verified for this exact file." };
 }
 
 const commonProperties = {
@@ -346,6 +428,8 @@ const TOOLS = [
   { name: "illy_contracts", description: "List shared prompt contracts enforced by Illy pipelines, including physical and extreme motion-ready requirements.", inputSchema: { type: "object", properties: {} } },
   { name: "illy_plan", description: "Resolve an illy request into a non-billing execution plan: creative prompt, applied contracts, effective prompt, refs, provider/model, stages, and output.", inputSchema: { type: "object", properties: commonProperties } },
   { name: "illy_generate", description: "Run a paid OpenAI, fal.ai, or OpenRouter illy pipeline. Existing outputs are cached unless force=true; successful rerolls archive the prior take and write provenance.", inputSchema: { type: "object", properties: commonProperties } },
+  { name: "illy_check", description: "Prepare the baseline inference check for a render: returns the image, four enlarged quadrant crops, the prompt it must satisfy and the three passes (inventory, orientation and facing, bodies and contact). Read-only apart from temp crops; never certifies a pass. Every illy_generate output is unverified until illy_verdict records all three.", inputSchema: { type: "object", properties: { output: { type: "string" }, prompt: { type: "string", description: "Only needed when the render has no prompt file on record." } }, required: ["output"] } },
+  { name: "illy_verdict", description: "Record the three inspection verdicts for a render after illy_check, bound to the image's SHA-256 in its .illy.json. Each pass needs verdict pass|fail and notes naming what was inspected. Any fail marks the render failed.", inputSchema: { type: "object", properties: { output: { type: "string" }, reviewer: { type: "string" }, passes: { type: "object", description: `Keys: ${Object.keys(CHECKS).join(", ")}; each {verdict, notes}.` } }, required: ["output", "passes"] } },
   { name: "illy_record", description: "Write illy provenance for an image generated outside the MCP, including a Codex built-in image-tool render.", inputSchema: { type: "object", properties: { output: { type: "string" }, prompt: { type: "string" }, pipeline: { type: "string" }, provider: { type: "string" }, model: { type: "string" }, promptFile: { type: "string" }, references: { type: "array", items: { type: "string" } }, contracts: { type: "array", items: { type: "string" } }, size: { type: "string" }, quality: { type: "string" }, note: { type: "string" } }, required: ["output", "prompt"] } },
 ];
 
@@ -356,19 +440,21 @@ async function callTool(name, args = {}) {
   if (name === "illy_plan") return buildPlan(args);
   if (name === "illy_generate") return generate(args);
   if (name === "illy_record") return record(args);
+  if (name === "illy_check") return check(args);
+  if (name === "illy_verdict") return verdict(args);
   throw new Error(`unknown tool: ${name}`);
 }
 
 async function handle(message) {
   const { id, method, params } = message;
   try {
-    if (method === "initialize") return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "illy", version: "0.2.0" } } };
+    if (method === "initialize") return { jsonrpc: "2.0", id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "illy", version: "0.3.0" } } };
     if (method === "initialized" || method === "notifications/initialized") return null;
     if (method === "ping") return { jsonrpc: "2.0", id, result: {} };
     if (method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: TOOLS } };
     if (method === "tools/call") {
       const value = await callTool(params?.name, params?.arguments || {});
-      return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] } };
+      return { jsonrpc: "2.0", id, result: { content: value?._content || [{ type: "text", text: JSON.stringify(value, null, 2) }] } };
     }
     return { jsonrpc: "2.0", id, error: { code: -32601, message: `method not found: ${method}` } };
   } catch (error) {

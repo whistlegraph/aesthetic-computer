@@ -1,0 +1,33 @@
+{
+  "note": "The baseline inference check. Every illy is unverified until each pass below is inspected against the render and a verdict is recorded with illy_verdict. The tool never certifies a pass itself.",
+  "passes": {
+    "inventory": {
+      "title": "Pass 1 — inventory",
+      "ask": [
+        "List every person, object and screen the prompt names. Count each in the render.",
+        "Fail if a named thing is missing, appears more often than asked, is fused with another, or is a different kind of thing.",
+        "Fail if the render adds people, props, text, logos or effects the prompt ruled out.",
+        "Read every letter, numeral and label in the render aloud against the prompt; fail on wrong, garbled or invented text."
+      ]
+    },
+    "orientation": {
+      "title": "Pass 2 — orientation and facing",
+      "ask": [
+        "Take each laptop, phone, monitor, book, sign and instrument one at a time, using the quadrant crops. For each, name which face the camera sees.",
+        "A clamshell laptop reads from its user's side as keyboard, hinge, then screen rising behind. Fail if lit screen content appears on the side of the lid that faces away from that keyboard, or if a keyboard sits behind its own screen.",
+        "Fail if one device shows both its screen content and the back of its lid, or if a screen faces two directions.",
+        "Fail if someone using a device is not facing its screen, or if a held object is upside down, mirrored or backwards for its use.",
+        "Fail if the render's facing for any device differs from the facing the prompt stated."
+      ]
+    },
+    "contact": {
+      "title": "Pass 3 — bodies, contact and light",
+      "ask": [
+        "Count fingers, hands, arms, legs and feet on every figure; check joints bend the right way.",
+        "Check every support: feet on the ground, body on the seat, objects resting on a surface with a shadow that agrees, hands closed around what they hold.",
+        "Fail on floating, sinking or intersecting objects, and on scale that changes between copies of the same object.",
+        "Fail if light comes from nowhere: glow on keys, hands or objects that no visible source explains."
+      ]
+    }
+  }
+}

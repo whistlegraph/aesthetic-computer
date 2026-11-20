@@ -16,7 +16,8 @@ Use the shared `illy` MCP as the source of truth. The implementation, provider r
    a paid route.
 3. Call `illy_plan` before a batch or unfamiliar model. Report provider, model, references, output path, and stages.
 4. Call `illy_generate` only after the requested route is clear. Existing output is cached unless `force: true`; rerolls archive the old take.
-5. Inspect the output and iterate with one targeted prompt change.
+5. Run the baseline inference check on every output: `illy_check`, inspect the three passes (inventory, orientation and facing, bodies and contact) one at a time against the render and its quadrant crops, then record them with `illy_verdict`. A render is unverified until then; do not place it anywhere.
+6. On any fail, iterate with one targeted prompt change and check the reroll again.
 
 Every pipeline enforces the shared `physical-accuracy` prompt contract.
 `pop-panel` also enforces `extreme-physical-beats`: a dynamic illy must be one
