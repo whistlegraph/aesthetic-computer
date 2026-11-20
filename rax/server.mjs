@@ -68,7 +68,8 @@ const assets = new Map([
     'ball',
     'weather',
     'air',
-    'planet', // 🌍 the small planet's sums (project.mjs, view.mjs, freecam.mjs)
+    'planet',
+    'lens-host', // 🔭 the lens on the card // 🌍 the small planet's sums (project.mjs, view.mjs, freecam.mjs)
     'diagnostics-client',
     'stalls',
     'park',

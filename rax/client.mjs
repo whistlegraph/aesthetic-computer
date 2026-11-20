@@ -1880,9 +1880,9 @@ document.addEventListener('keydown', (e) => {
       liftLine = true;
       chat.text = '';
       chat.begin();
-      // Turn to the screen over the door: that is where the floor is typed.
-      yaw = 180;
-      pitch = 24;
+      // Turn to the pad on the back wall: that is where the floor shows (the typed line is on the page's top line too).
+      yaw = 0;
+      pitch = -3;
       return;
     }
     if (!prompt.open) {

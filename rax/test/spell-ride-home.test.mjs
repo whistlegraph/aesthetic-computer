@@ -156,15 +156,17 @@ test('asked from one step outside the car door, the elevator says why it is stay
 async function carLine() {
   const here = new URL('../', import.meta.url);
   const client = await readFile(new URL('client.mjs', here), 'utf8'), view = await readFile(new URL('view.mjs', here), 'utf8');
-  const turned = /Turn to the screen over the door[^\n]*\n\s*yaw = ([\d.]+);\s*\n\s*pitch = ([\d.]+);/.exec(client);
+  // (2026-11-19: the screen over the door is gone. Enter turns the rider to the pad on the back wall, and the typed line is on the page's top line.)
+  const turned = /Turn to the pad on the back wall[^\n]*\n\s*yaw = (-?[\d.]+);\s*\n\s*pitch = (-?[\d.]+);/.exec(client);
   const hung = /carScreenFor\(tower\.screen\), 0, tower\.lift \|\| 0, CAR_SCREEN_Z, Math\.PI\)/.test(view); // elevator.mjs says how deep
   const typed = /line\(screen\.handle, [\d.]+, ([\d.]+), [\d.]+, ([\d.]+),/.exec(view);
-  assert.ok(turned && hung && typed, 'the client changed how the car line is shown: read it again and update this case');
+  const top = /^\s*open: chat\.open,$/m.test(client);
+  assert.ok(turned && (top || (hung && typed)), 'the client changed how the car line is shown: read it again and update this case');
   return {
     yaw: Number(turned[1]), pitch: Number(turned[2]),
     z: CAR_SCREEN_Z,
     // The typed line's middle: font_1 is ten rows of `unit` under its top.
-    y: Number(typed[1]) - 5 * Number(typed[2]),
+    y: typed ? Number(typed[1]) - 5 * Number(typed[2]) : 0,
     // Only the screen shows the line: the top line is closed while it is the elevator's.
     onlyOnScreen: /open: chat\.open && !liftLine,/.test(client),
     onTopLine: /^\s*open: chat\.open,$/m.test(client),

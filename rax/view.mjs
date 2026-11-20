@@ -1,4 +1,4 @@
-import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
+import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
@@ -222,7 +222,7 @@ export async function createView(canvas) {
   // slowest since the client last read it, and how many are still out.
   const gpu = { max: 0, queued: 0 };
   try {
-    host = await WebGPUOskiewarScene3D.create(canvas, {
+    host = await LensScene3D.create(canvas, {
       maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
       shadows: true, // 🌑 the sun's shadows, as stencil volumes (shadow.mjs)
       onDeviceLost: () => {
@@ -860,8 +860,9 @@ export async function createView(canvas) {
   // The frame-rate readout follows AC's shared fps switch (localStorage
   // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
   let SHOW_FPS = false;
-  // The lens is off: done corner by corner it cannot keep two things that lie on one another in order (a screen and its picture, paint and floor), and holes open in them. It wants doing to the finished picture on the card. (?lens=0.65 to see it.)
-  const LENS = 0, LENS_ZOOM = 1.3;
+  // 🔭 The lens: how much of it (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it. It is done to the finished picture on the card (lens-host.mjs): corner by corner it could not keep two things that lie on one another in order, and holes opened in them.
+  const LENS = 0.65, LENS_ZOOM = 1.3;
+  let lensNow = null; // what the card is told of the lens this frame
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
   let cost = 0; // milliseconds a frame's drawing takes on this machine, eased
   let plain = 0;
@@ -1469,7 +1470,17 @@ export async function createView(canvas) {
     projector.decay = decay;
     projector.decayAt = now;
     // It is how rax is seen, always; flying in from overhead it comes on as the eye comes down.
-    projector.lens = game?.camera ? 0 : (TRY.lens ?? LENS) * Math.max(0, Math.min(1, 1 - orbit));
+    // 🔭 The card bends the finished picture (lens-host.mjs), so nothing tears; without WebGPU there is no lens.
+    projector.card = backend === 'webgpu';
+    projector.under = projector.card ? 1 : 0;
+    projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS;
+    if (projector.lens) {
+      projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
+      projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
+    }
+    // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
+    projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
+    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch) } : null;
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = !game?.camera && orbit <= 0 ? PLANET : 0;
     if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
@@ -1483,10 +1494,6 @@ export async function createView(canvas) {
     // 🕳️ An eye under the land is inside the hollow planet: the land is a dome over it, and no sun comes in.
     const under = !!projector.planet && eye.y < projector.ground;
     if (under) casting = false;
-    if (projector.lens) {
-      projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
-      projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
-    }
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
     const tags = [];
@@ -3007,7 +3014,7 @@ export async function createView(canvas) {
           for (const p of [poly[0], poly[i], poly[i + 1]]) {
             v[at++] = cx + p[0] * sx;
             v[at++] = cy + p[1] * sy;
-            v[at++] = p[2] * 0.001;
+            v[at++] = p[2] * 0.001 - (projector.under || 0);
             v[at++] = p[3];
             v[at++] = p[4];
             v[at++] = p[5];
@@ -3732,7 +3739,7 @@ export async function createView(canvas) {
       if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
-    host.present({ clear: sky, shadow });
+    host.present({ clear: sky, shadow, lens: lensNow });
     if (backend === 'webgpu' && gpu.queued < 64) {
       const handed = performance.now();
       gpu.queued++;

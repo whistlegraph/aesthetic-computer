@@ -38,7 +38,8 @@ export class Projector {
   }
   // The widest angle off straight ahead still in the picture, kept until the picture changes.
   wide() {
-    const reach = Math.hypot((1 + Math.abs(this.shiftX || 0)) / this.sx, (1 + Math.abs(this.shiftY || 0)) / this.sy), lens = this.lens || 0;
+    const wider = this.card ? this.stretch || 1 : 1; // (the flat picture drawn for the card's lens reaches farther out)
+    const reach = Math.hypot((1 + Math.abs(this.shiftX || 0)) / (this.sx * wider), (1 + Math.abs(this.shiftY || 0)) / (this.sy * wider)), lens = this.card ? 0 : this.lens || 0;
     if (this.wideFor !== reach || this.wideLens !== lens) { this.wideFor = reach; this.wideLens = lens; this.widest = widest(reach, lens); }
     return this.widest;
   }
@@ -72,7 +73,7 @@ export class Projector {
         const k = i + j * 6;
         this.scene.vertices[at++] = (-vertices[k] * 2) / width;
         this.scene.vertices[at++] = (vertices[k + 1] * 2) / height;
-        this.scene.vertices[at++] = 0.00001 + vertices[k + 2];
+        this.scene.vertices[at++] = 0.00001 + vertices[k + 2] - (this.under || 0); // (under: a whole unit nearer than the world, so the card knows the HUD from it)
         for (let c = 3; c < 6; c++) this.scene.vertices[at++] = vertices[k + c];
       }
     }
@@ -159,6 +160,10 @@ export class Projector {
   // thing at angle a from the middle lies 2 tan(a/2) out, not tan(a)), so
   // the same screen holds more of the world to either side and nothing at
   // the edge is pulled long. How much a point at (x, y) over its depth moves in:
+  // 🔭 When the card bends the finished picture (lens-host.mjs) no corner is moved here.
+  bend(x, y) {
+    return this.card ? 1 : this.squeeze(x, y);
+  }
   squeeze(x, y) {
     return this.lens ? 1 + (2 / (1 + Math.sqrt(1 + x * x + y * y)) - 1) * this.lens : 1;
   }
@@ -168,7 +173,8 @@ export class Projector {
   // `depth` times): by the edge alone, so two triangles that share one
   // halve it at the same place and no gap opens between them.
   put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
-    const near = NEAR, sx = this.sx, sy = this.sy, ox = this.shiftX || 0, oy = this.shiftY || 0;
+    // (On the card the picture is drawn flat and wider, to be bent after: card, stretch.)
+    const near = NEAR, sx = this.sx * (this.card ? this.stretch || 1 : 1), sy = this.sy * (this.card ? this.stretch || 1 : 1), ox = this.shiftX || 0, oy = this.shiftY || 0;
     // 🌍 The land is a small planet's, wrapped round a ball of radius
     // `planet`: a thing a way off along the ground stands that far round the
     // ball, upright on it (so a tower far off leans away), and what is
@@ -241,16 +247,16 @@ export class Projector {
     const b0 = z0 < near, b1 = z1 < near, b2 = z2 < near, behind = b0 || b1 || b2, q = this.cutout, wide = w0 || w1 || w2;
     let ax = 0, ay = 0, bx = 0, by = 0, cx = 0, cy = 0, kept = 3;
     if (!behind) {
-      const k0 = this.squeeze(x0 / z0, y0 / z0), k1 = this.squeeze(x1 / z1, y1 / z1), k2 = this.squeeze(x2 / z2, y2 / z2);
+      const k0 = this.bend(x0 / z0, y0 / z0), k1 = this.bend(x1 / z1, y1 / z1), k2 = this.bend(x2 / z2, y2 / z2);
       ax = (x0 * k0 * sx) / z0 + ox; ay = (y0 * k0 * sy) / z0 + oy; bx = (x1 * k1 * sx) / z1 + ox; by = (y1 * k1 * sy) / z1 + oy;
       cx = (x2 * k2 * sx) / z2 + ox; cy = (y2 * k2 * sy) / z2 + oy;
       // Wholly off one side of the picture: not drawn.
       if (!wide && ((ax < -1 && bx < -1 && cx < -1) || (ax > 1 && bx > 1 && cx > 1) || (ay < -1 && by < -1 && cy < -1) || (ay > 1 && by > 1 && cy > 1))) return;
     } else {
       if (!wide && b0 && b1 && b2) return;
-      if (!b0) { const k = this.squeeze(x0 / z0, y0 / z0); ax = (x0 * k * sx) / z0 + ox; ay = (y0 * k * sy) / z0 + oy; }
-      if (!b1) { const k = this.squeeze(x1 / z1, y1 / z1); bx = (x1 * k * sx) / z1 + ox; by = (y1 * k * sy) / z1 + oy; }
-      if (!b2) { const k = this.squeeze(x2 / z2, y2 / z2); cx = (x2 * k * sx) / z2 + ox; cy = (y2 * k * sy) / z2 + oy; }
+      if (!b0) { const k = this.bend(x0 / z0, y0 / z0); ax = (x0 * k * sx) / z0 + ox; ay = (y0 * k * sy) / z0 + oy; }
+      if (!b1) { const k = this.bend(x1 / z1, y1 / z1); bx = (x1 * k * sx) / z1 + ox; by = (y1 * k * sy) / z1 + oy; }
+      if (!b2) { const k = this.bend(x2 / z2, y2 / z2); cx = (x2 * k * sx) / z2 + ox; cy = (y2 * k * sy) / z2 + oy; }
       kept = 0;
       for (let j = 0; j < 3 && !wide; j++) {
         const x = j === 0 ? x0 : j === 1 ? x1 : x2, y = j === 0 ? y0 : j === 1 ? y1 : y2, z = j === 0 ? z0 : j === 1 ? z1 : z2;
@@ -264,7 +270,7 @@ export class Projector {
       kept /= 3;
       let left = 0, right = 0, low = 0, high = 0;
       for (let j = 0; j < kept; j++) {
-        const z = q[j * 3 + 2], k = this.squeeze(q[j * 3] / z, q[j * 3 + 1] / z);
+        const z = q[j * 3 + 2], k = this.bend(q[j * 3] / z, q[j * 3 + 1] / z);
         const px = (q[j * 3] = (q[j * 3] * k * sx) / z + ox), py = (q[j * 3 + 1] = (q[j * 3 + 1] * k * sy) / z + oy);
         if (px < -1) left++; else if (px > 1) right++;
         if (py < -1) low++; else if (py > 1) high++;
@@ -394,7 +400,7 @@ export class Projector {
     // is cut away here, before the bending (`put` cuts after it).
     const whole = this.planet && this.bends && eye.y < this.ground;
     // How many times a shape may be halved: seven, or as many as the view asks for the far land's great squares.
-    const halvings = this.lens || this.planet ? this.halvings || 7 : 0; // (the ball needs its edges halved whether or not the lens is on)
+    const halvings = (this.lens && !this.card) || this.planet ? this.halvings || 7 : 0; // (the ball needs its edges halved whether or not the lens is on)
     for (let i = 0; i < vertices.length; i += 18) {
       for (let j = 0; j < 3; j++) {
         const k = i + j * 6,
