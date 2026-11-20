@@ -1099,6 +1099,7 @@ export async function createView(canvas) {
   const SOLIDS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('volumes');
   // (?lens=0.3, ?planet=0: for looking at what each bend does to the picture.)
   const TRY = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map(); const n = (k) => (q.has(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : null); return { lens: n('lens'), planet: n('planet') }; })();
+  const MOON_SHADE = [0.8, 0.82, 0.9]; // how dark the moon's shadows are, beside the sun's (shadow.mjs shadeFor)
   const SUN_AT = typeof location !== 'undefined' && new URLSearchParams(location.search).has('sun') ? Number(new URLSearchParams(location.search).get('sun')) : null; // (?sun=0.42: a fixed time of day to light by)
   let shadowReach = 45, reachCut = 0; // metres from the eye a box still casts now (SHADOW_SIGHT at the most), and the frame it was last drawn in
   const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again
@@ -1331,7 +1332,9 @@ export async function createView(canvas) {
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
     // (`sunAt`: a time of day to light by, 0 to 1, for looking at shadows; `shadows: false` casts none.)
     const sunNow = today ? skyAt(Number.isFinite(sunAt) ? sunAt : SUN_AT ?? phase()).sun : null;
-    const shade = sunNow && host.shadows && shadows ? shadeFor(sunNow.y) : null;
+    // 🌙 With the sun down the moon casts (it stands across the sky from the sun: sky.mjs), and its shadows are faint: the night is lit a little all over.
+    const lamp = !sunNow ? null : sunNow.y >= 0 ? sunNow : { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
+    const shade = lamp && host.shadows && shadows ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
     casters.length = 0;
     casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
@@ -3694,7 +3697,7 @@ export async function createView(canvas) {
       const first = host.scene.triangleCount;
       // What the shadows may take of the frame: a share of it, so they cost no more than a few milliseconds to work out.
       const most = Math.min(first + SHADOW_MOST, host.scene.maxTriangles - 64);
-      const light = { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
+      const light = { x: -lamp.x, y: -lamp.y, z: -lamp.z };
       let n = 0;
       for (let i = 0; i < casters.length && n < castFar.length; i += 6) {
         const x = casters[i + 1], y = casters[i + 2], z = casters[i + 3], yaw = casters[i + 4], scale = casters[i + 5];

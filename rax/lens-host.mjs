@@ -31,7 +31,9 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 @fragment fn fragment(in: Vertex) -> @location(0) vec4f {
   if (in.color.r > 1.5) { return vec4f(in.color.r - 2., in.color.gb, .42); }
   return vec4f(in.color, 1.);
-}`;
+}
+// 🌑 Where a shadow falls the picture's fourth number is put out (it is 1 everywhere else); the lens darkens by it, softly.
+@fragment fn shaded() -> @location(0) vec4f { return vec4f(0.); }`;
 const hud = `
 struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 @vertex fn vertex(@location(0) position: vec3f, @location(1) color: vec3f) -> Vertex {
@@ -47,11 +49,18 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 // lens: 0 (none) to 1 (all of it); fovea: how much of the wide picture, from
 // its middle out, the sharp texture holds (0: there is none).
 const LENS = `
-struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32 }
+struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32, soft: f32, shade: vec3f }
 @group(0) @binding(0) var picture: texture_2d<f32>;
 @group(0) @binding(1) var nearest: sampler;
 @group(0) @binding(2) var<uniform> u: Lens;
 @group(0) @binding(3) var middle: texture_2d<f32>;
+@group(0) @binding(4) var smoothly: sampler;
+// 🌑 How lit a place is, 0 (in shadow) to 1: the mean of four looks a texel apart, each itself a mean of four, so a shadow's stepped edge is a soft one. Only the shadows are smoothed: the picture's own pixels stay hard.
+fn lit(t: texture_2d<f32>, at: vec2f) -> f32 {
+  let d = u.soft / vec2f(textureDimensions(t));
+  return (textureSampleLevel(t, smoothly, at + d * vec2f(-1., -.35), 0.).a + textureSampleLevel(t, smoothly, at + d * vec2f(.35, -1.), 0.).a
+    + textureSampleLevel(t, smoothly, at + d * vec2f(1., .35), 0.).a + textureSampleLevel(t, smoothly, at + d * vec2f(-.35, 1.), 0.).a) * .25;
+}
 struct Out { @builtin(position) position: vec4f, @location(0) at: vec2f }
 @vertex fn vertex(@builtin(vertex_index) i: u32) -> Out {
   var out: Out;
@@ -77,12 +86,15 @@ struct Out { @builtin(position) position: vec4f, @location(0) at: vec2f }
   let flat = select(q, q * (t / r), r > 0.);
   // The texture's picture is the screen's flat one, at u.wide times the scale.
   let ndc = flat * vec2f(u.sx, u.sy) * u.wide;
-  let far = textureSampleLevel(picture, nearest, clamp(vec2f(ndc.x * .5 + .5, .5 - ndc.y * .5), vec2f(0.), vec2f(1.)), 0.);
+  let farAt = clamp(vec2f(ndc.x * .5 + .5, .5 - ndc.y * .5), vec2f(0.), vec2f(1.));
+  let far = textureSampleLevel(picture, nearest, farAt, 0.);
   // 👁️ Near the middle the sharp texture has it (a texel in from its edge, so none of its border is read).
   let inner = ndc / max(u.fovea, .0001);
-  let sharp = textureSampleLevel(middle, nearest, clamp(vec2f(inner.x * .5 + .5, .5 - inner.y * .5), vec2f(0.), vec2f(1.)), 0.);
+  let sharpAt = clamp(vec2f(inner.x * .5 + .5, .5 - inner.y * .5), vec2f(0.), vec2f(1.));
+  let sharp = textureSampleLevel(middle, nearest, sharpAt, 0.);
   let within = u.fovea > 0. && max(abs(inner.x), abs(inner.y)) < .985;
-  return select(far, sharp, within);
+  let light = select(lit(picture, farAt), lit(middle, sharpAt), within);
+  return vec4f(select(far, sharp, within).rgb * mix(u.shade, vec3f(1.), light), 1.);
 }`;
 
 // How far out (as a tangent) the flat picture must reach for a place r out on
@@ -142,16 +154,23 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
         layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, writeMask: 0 }] }, primitive,
         depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less', stencilFront: count('decrement-wrap'), stencilBack: count('increment-wrap') },
       }));
+      // The shade: one triangle over the picture, marking it wherever the count is not zero (the shared host darkens there and then; here the lens does, so it can soften the edge).
+      const inside = { compare: 'not-equal', failOp: 'keep', passOp: 'keep', depthFailOp: 'keep' };
+      made.push(device.createRenderPipelineAsync({
+        layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'shaded', targets: [{ format, writeMask: GPUColorWrite.ALPHA }] }, primitive,
+        depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less', stencilFront: inside, stencilBack: inside, stencilWriteMask: 0 },
+      }));
     }
-    this.uniform = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.uniform = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.sampler = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' });
     this.smooth = device.createSampler({ magFilter: 'linear', minFilter: 'linear' }); // for a picture drawn finer than it is shown (aa)
     // Two pictures of the world: the whole of it, and its middle larger.
     this.layers = [0, 1].map(() => ({ zoom: device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }) }));
-    this.ready = Promise.all([this.ready, ...made]).then(([, worldPipe, hudPipe, lensPipe, solidPipe]) => {
-      this.worldPipe = worldPipe; this.hudPipe = hudPipe; this.lensPipe = lensPipe; this.solidPipe = solidPipe || null;
+    this.ready = Promise.all([this.ready, ...made]).then(([, worldPipe, hudPipe, lensPipe, solidPipe, markPipe]) => {
+      this.worldPipe = worldPipe; this.hudPipe = hudPipe; this.lensPipe = lensPipe; this.solidPipe = solidPipe || null; this.markPipe = markPipe || null;
       for (const layer of this.layers) {
         layer.world = device.createBindGroup({ layout: worldPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] });
+        layer.mark = markPipe ? device.createBindGroup({ layout: markPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] }) : null;
         layer.solid = solidPipe ? device.createBindGroup({ layout: solidPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] }) : null;
       }
     });
@@ -171,7 +190,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
       layer.depthView = layer.depth.createView();
     });
     if (changed || !this.bind || this.bindSmooth !== smooth) this.bind = this.device.createBindGroup({ layout: this.lensPipe.getBindGroupLayout(0), entries: [
-      { binding: 0, resource: this.layers[0].view }, { binding: 1, resource: smooth ? this.smooth : this.sampler }, { binding: 2, resource: { buffer: this.uniform } }, { binding: 3, resource: this.layers[1].view }] });
+      { binding: 0, resource: this.layers[0].view }, { binding: 1, resource: smooth ? this.smooth : this.sampler }, { binding: 2, resource: { buffer: this.uniform } }, { binding: 3, resource: this.layers[1].view }, { binding: 4, resource: this.smooth }] });
     this.bindSmooth = smooth;
   }
   // lens: { sx, sy, wide, lens, over, fovea } (project.mjs has the first four).
@@ -190,7 +209,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     // The whole picture at half sharpness and the middle at all of it; or, with no fovea, the whole at all of it (and a middle of one pixel, unused).
     this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)], aa > 1);
     if (scene.triangleCount) device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
-    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, 0, 0, 0]));
+    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, l.soft ?? 1, 0, 0, ...(shadow?.shade || [1, 1, 1]), 0]));
     device.queue.writeBuffer(this.layers[0].zoom, 0, new Float32Array([1, 0, 0, 0]));
     device.queue.writeBuffer(this.layers[1].zoom, 0, new Float32Array([fovea ? 1 / fovea : 1, 0, 0, 0]));
     const stencil = this.shadows ? { stencilClearValue: 0, stencilLoadOp: 'clear', stencilStoreOp: 'discard' } : {};
@@ -204,9 +223,9 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
         depthStencilAttachment: { view: layer.depthView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard', ...stencil },
       });
       if (drawn) { pass.setPipeline(this.worldPipe); pass.setBindGroup(0, layer.world); pass.setVertexBuffer(0, this.buffer); pass.draw(drawn * 3); }
-      if (cast && this.solidPipe) {
+      if (cast && this.solidPipe && this.markPipe) {
         pass.setPipeline(this.solidPipe); pass.setBindGroup(0, layer.solid); pass.setVertexBuffer(0, this.buffer); pass.setStencilReference(0); pass.draw(cast.count * 3, 1, cast.first * 3);
-        pass.setPipeline(this.shade); pass.setVertexBuffer(0, this.cover); pass.setBlendConstant([...(cast.shade || [0.6, 0.6, 0.6]), 1]); pass.draw(3);
+        pass.setPipeline(this.markPipe); pass.setBindGroup(0, layer.mark); pass.setVertexBuffer(0, this.cover); pass.setStencilReference(0); pass.draw(3);
       }
       pass.end();
     }
