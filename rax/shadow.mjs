@@ -75,3 +75,57 @@ export function shadeFor(sunY, full = [0.6, 0.63, 0.74]) {
   const k = Math.min(1, (sunY - 0.08) / 0.25);
   return full.map((c) => 1 - (1 - c) * k);
 }
+
+// 🌑 A box's shadow on its own ground, as a low closed slab. The long solid
+// above (shadowVolume) grazes the ground at a shallow angle, and wherever two
+// surfaces nearly lie in one another the depth test flips from pixel to
+// pixel: stripes. This one never grazes anything: the box's eight corners
+// are slid along the light down to the ground it stands on, the hull of
+// where they land is the shadow's outline, and that outline is raised into
+// a slab from a metre under the ground to a hand above it. Its walls are
+// upright, so they cut the ground square on; its lid and floor lie well
+// clear of the ground. What the renderer counts inside it is the ground
+// under the outline (and the first few centimetres of whatever stands
+// there). `ground` is the height of the ground the box stands on; `far` the
+// most a corner may slide (a low sun's shadows are held to that).
+export const SLAB_TRIANGLES = 28; // an outline of eight corners at the most: two fans of six and sixteen of wall
+const LID = 0.12, FLOOR = -1;
+const landed = new Float64Array(16), hull = new Int8Array(18);
+export function groundShadow(out, at, box, px, py, pz, yaw, scale, light, ground, far) {
+  if (!(light.y < -0.01)) return at;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const w = Math.abs(box.w), h = Math.abs(box.h), d = Math.abs(box.d);
+  scale = Math.abs(scale);
+  const flat = Math.hypot(light.x, light.z);
+  for (let i = 0; i < 8; i++) {
+    // (The foot's corners are drawn in a little: the slab's wall on the lit
+    // side would lie in the box's own wall, and two surfaces in one plane
+    // flicker; a finger's width inside, it is hidden in the box.)
+    const tuck = i & 2 ? 0 : Math.min(0.03, Math.min(w, d) * scale * 0.2) / scale;
+    const lx = (box.x + (i & 1 ? 1 : -1) * (w / 2 - tuck)) * scale, ly = (box.y + (i & 2 ? h : -h) / 2) * scale, lz = (box.z + (i & 4 ? 1 : -1) * (d / 2 - tuck)) * scale;
+    const x = lx * cy + lz * sy + px, y = ly + py, z = -lx * sy + lz * cy + pz;
+    // Down the light to the ground; no farther along it than `far`.
+    let t = Math.max(0, (y - ground) / -light.y);
+    if (flat * t > far) t = far / flat;
+    landed[i * 2] = x + light.x * t;
+    landed[i * 2 + 1] = z + light.z * t;
+  }
+  // The hull of the eight (Andrew's chain: sorted by x then z, lower and upper runs).
+  const order = [0, 1, 2, 3, 4, 5, 6, 7].sort((a, b) => landed[a * 2] - landed[b * 2] || landed[a * 2 + 1] - landed[b * 2 + 1]);
+  const turn = (a, b, c) => (landed[b * 2] - landed[a * 2]) * (landed[c * 2 + 1] - landed[a * 2 + 1]) - (landed[b * 2 + 1] - landed[a * 2 + 1]) * (landed[c * 2] - landed[a * 2]);
+  let n = 0;
+  for (const p of order) { while (n >= 2 && turn(hull[n - 2], hull[n - 1], p) <= 1e-9) n--; hull[n++] = p; }
+  const low = n + 1;
+  for (let k = 6; k >= 0; k--) { const p = order[k]; while (n >= low && turn(hull[n - 2], hull[n - 1], p) <= 1e-9) n--; hull[n++] = p; }
+  n--; // (the first corner comes round again at the end)
+  if (n < 3) return at;
+  const put = (k, y) => { out[at] = landed[hull[k] * 2]; out[at + 1] = ground + y; out[at + 2] = landed[hull[k] * 2 + 1]; out[at + 3] = out[at + 4] = out[at + 5] = 0; at += 6; };
+  for (let k = 1; k + 1 < n; k++) { put(0, LID); put(k, LID); put(k + 1, LID); }
+  for (let k = 1; k + 1 < n; k++) { put(0, FLOOR); put(k + 1, FLOOR); put(k, FLOOR); }
+  for (let k = 0; k < n; k++) {
+    const j = (k + 1) % n;
+    put(k, FLOOR); put(j, FLOOR); put(j, LID);
+    put(k, FLOOR); put(j, LID); put(k, LID);
+  }
+  return at;
+}

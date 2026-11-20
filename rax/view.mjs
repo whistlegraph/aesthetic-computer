@@ -4,7 +4,7 @@ import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
-import { shadowVolume, VOLUME_TRIANGLES, reach, shadeFor } from './shadow.mjs';
+import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
 import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
 // 🧱 `localStorage["rax:solids"] = "on"` audits every model as it is built:
@@ -1089,7 +1089,9 @@ export async function createView(canvas) {
   const SHADOW_BUDGET = 14000; // triangles of shadow volume in a frame, at most
   const SHADOW_SIGHT = 45; // metres from the eye a box still casts
   const SHADOW_MOST = 12000; // triangles in the frame the shadows may come to, once their long faces are halved for the lens
-  const volumeFloats = new Float32Array(VOLUME_TRIANGLES * 18); // one box's solid at a time
+  const volumeFloats = new Float32Array(Math.max(VOLUME_TRIANGLES, SLAB_TRIANGLES) * 18); // one box's solid at a time
+  const SOLIDS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('volumes');
+  const SUN_AT = typeof location !== 'undefined' && new URLSearchParams(location.search).has('sun') ? Number(new URLSearchParams(location.search).get('sun')) : null; // (?sun=0.42: a fixed time of day to light by)
   let shadowReach = 45, reachCut = 0; // metres from the eye a box still casts now (SHADOW_SIGHT at the most), and the frame it was last drawn in
   const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again
   // The boxes that cast this frame: how far each is, which thing it is part of, the box, its top; and the order they are cast in.
@@ -1254,6 +1256,7 @@ export async function createView(canvas) {
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
+    sunAt = null, shadows = true, // 🌑 a fixed sun and a switch, for measuring shadows
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
@@ -1318,8 +1321,9 @@ export async function createView(canvas) {
     sky = [...rgb(today ? today.horizon : PALETTES[paletteName].sky), 1];
     host.beginFrame();
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
-    const sunNow = today ? skyAt(phase()).sun : null;
-    const shade = sunNow && host.shadows ? shadeFor(sunNow.y) : null;
+    // (`sunAt`: a time of day to light by, 0 to 1, for looking at shadows; `shadows: false` casts none.)
+    const sunNow = today ? skyAt(Number.isFinite(sunAt) ? sunAt : SUN_AT ?? phase()).sun : null;
+    const shade = sunNow && host.shadows && shadows ? shadeFor(sunNow.y) : null;
     casters.length = 0;
     casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
@@ -3696,7 +3700,11 @@ export async function createView(canvas) {
       castFrame++;
       for (const k of castOrder) {
         const i = castFrom[k], before = host.scene.triangleCount;
-        const end = shadowVolume(volumeFloats, 0, castBox[k], casters[i + 1], casters[i + 2], casters[i + 3], casters[i + 4], casters[i + 5], light, 0.02, reach(castTop[k], light));
+        // (Each box's shadow is a low slab on the ground it stands on: shadow.mjs groundShadow. `?volumes` draws the long solids instead, to compare.)
+        const end = SOLIDS
+          ? shadowVolume(volumeFloats, 0, castBox[k], casters[i + 1], casters[i + 2], casters[i + 3], casters[i + 4], casters[i + 5], light, 0.02, reach(castTop[k], light))
+          : groundShadow(volumeFloats, 0, castBox[k], casters[i + 1], casters[i + 2], casters[i + 3], casters[i + 4], casters[i + 5], light, casters[i + 2], reach(castTop[k], light));
+        if (!end) continue;
         projector.draw(volumeFloats.subarray(0, end), 0, 0, 0);
         if (projector.overflow || host.scene.triangleCount > most) {
           // (One that does not fit is taken back, and with it everything
