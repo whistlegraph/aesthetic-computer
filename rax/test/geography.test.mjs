@@ -55,16 +55,24 @@ test('housing blocks keep one place each and are never laid on the tower\'s grou
   assert.equal(isGrounds({ i: 0, j: 0 }), false);
 });
 
-test('the grounds open off the plaza on every side but the tower\'s back, three blocks out', () => {
+test('the land opens off the plaza on every side but the tower\'s back, and goes round: fifty-five blocks one way come back', () => {
   const g = new Geography({ opened: 2 });
   assert.deepEqual(g.neighbours(LOBBY), { east: 'e1n0', west: 'w1n0', south: 'e0s1' });
   assert.equal(g.neighbours('e0n1').south, undefined, 'no way in through the back of the tower');
   assert.equal(g.neighbours('e0s1').south, 'e0s2');
   assert.equal(g.neighbours('e0s2').south, 'e0s3', 'the field goes on past the terrace');
-  assert.equal(g.neighbours('e0s3').south, undefined, 'the yard ends three blocks out');
-  assert.equal(g.neighbours('w3n0').west, undefined);
+  assert.equal(g.neighbours('e0s3').south, 'e0s4', 'past the yard the land goes on');
+  assert.equal(g.neighbours('w3n0').west, 'w4n0');
   assert.equal(g.neighbours('e1s1').east, 'e2s1', 'the yard wraps round the two blocks settled before it');
-  assert.equal(g.neighbours('e3s1').east, undefined, 'housing beyond the grounds opens in its turn');
+  assert.equal(g.neighbours('e3s1').east, 'e4s1', 'open lots until housing reaches them');
+  // 🌍 The lap: the block past the last is the first, each way.
+  assert.equal(g.neighbours('e27n0').east, 'w27n0');
+  assert.equal(g.neighbours('w27n3').west, 'e27n3');
+  assert.equal(g.neighbours('e5s27').south, 'e5n27');
+  assert.equal(g.neighbours('e28n0'), null, 'nothing lies off the lap');
+  let at = LOBBY, steps = 0;
+  do { at = g.neighbours(at).east; steps++; } while (at !== LOBBY && steps < 100);
+  assert.equal(steps, 55, 'east all the way is home again');
 });
 
 test('world metres and block-local metres convert both ways', () => {

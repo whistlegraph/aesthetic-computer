@@ -7,6 +7,15 @@ export const PARK_EDGES = ['east', 'west', 'north', 'south'];
 // block's own EDGE), so nothing jumps and it is not handed straight back.
 // (A side with a neighbour has no wall: world.mjs lets a body walk past it.)
 export const EDGE = 8.2, SPAN = 16;
+// 🌍 The land goes round: fifty-five blocks one way bring you back where you
+// began, east to west and north to south alike (the planet's girth, 880 m,
+// in blocks: planet.mjs). So the lattice is cells -27 to 27 each way and the
+// one past the last is the first. (A grid of squares cannot lie on a ball:
+// it is a ring in each direction, drawn round one. Two walkers who set out
+// north and east never meet at a pole.)
+export const LAP = 55, HALF_LAP = 27;
+export const wrap = (n) => ((((n + HALF_LAP) % LAP) + LAP) % LAP) - HALF_LAP;
+export const onLap = (cell) => !!cell && Math.abs(cell.i) <= HALF_LAP && Math.abs(cell.j) <= HALF_LAP;
 
 // 🌳 The tower's grounds: lattice cells [i, j] around the plaza that are open
 // field and never housing, so the tower stands in a yard and can be seen

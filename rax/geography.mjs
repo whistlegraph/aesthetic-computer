@@ -9,7 +9,7 @@ import { mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
-import { GROUNDS } from './park.mjs';
+import { GROUNDS, wrap, onLap } from './park.mjs';
 
 export const BLOCK = 16; // metres along a block's edge (2 × world.mjs WORLD)
 export const LANE = 2; // width of the two lanes that cross every block
@@ -282,13 +282,14 @@ export class Geography {
     // The plaza is block 0 of the same lattice: its sides open onto the
     // blocks beside it like any other.
     const b = room === LOBBY ? { i: 0, j: 0 } : parseBlock(room);
-    if (!b || blockIndex(b) > this.opened) return null;
+    // (Every block of the lap can be walked: housing fills it as people come, the rest is open lots.)
+    if (!onLap(b)) return null;
     const out = {};
     for (const [edge, di, dj] of [['east',1,0],['west',-1,0],['north',0,1],['south',0,-1]]) {
-      const n = { i: b.i + di, j: b.j + dj };
+      const n = { i: wrap(b.i + di), j: wrap(b.j + dj) }; // 🌍 past the last block is the first
       // The tower's back stands on the plaza's north edge: no way through it.
       if (b.i === 0 && n.i === 0 && b.j + n.j === 1) continue;
-      if (blockIndex(n) <= this.opened) out[edge] = blockId(n);
+      out[edge] = blockId(n);
     }
     return out;
   }

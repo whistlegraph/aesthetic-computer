@@ -2175,15 +2175,6 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
-  // 🎮 L4 and R4 (a pad's extra buttons) change the pixel density, as ⌘− and
-  // ⌘+ do: of the extras this pad has shown, the lowest is chunkier and any
-  // other sharper. Each is named in the log the first time, to map them by.
-  for (const i of gamepad.extras || []) {
-    if (!extrasSeen.has(i)) { extrasSeen.add(i); logNet(`controller: extra button ${i}`); console.info(`🎮 rax extra button ${i}`); }
-    const step = extrasSeen.size > 1 && i === Math.min(...extrasSeen) ? -1 : 1;
-    if (hosted) toHost({ type: 'rax:sheet:density', step });
-    else view.density?.(step);
-  }
   // Walking through chalk dusts it: the points within reach fall as motes
   // here at once, and the server cuts the strokes for everyone.
   if (player && seat >= 0 && now - dustedAt > 120 && Math.hypot(player.vx || 0, player.vz || 0) > 0.5) {

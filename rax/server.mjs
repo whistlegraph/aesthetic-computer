@@ -8,7 +8,7 @@ import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
-import { edgeAt, landing, SPAN } from './park.mjs';
+import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
 import { createBall } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
@@ -480,11 +480,10 @@ export function createRaxServer({
       const asked = url.searchParams.get('room') || '';
       const at = asked === 'lobby' ? { i: 0, j: 0 } : parseBlock(asked);
       const blocks = [];
-      if (at && blockIndex(at) <= geography.geography.opened)
+      if (onLap(at))
         for (let dj = -1; dj <= 1; dj++)
           for (let di = -1; di <= 1; di++) {
-            const b = { i: at.i + di, j: at.j + dj }, n = blockIndex(b);
-            if (n > geography.geography.opened) continue;
+            const b = { i: wrap(at.i + di), j: wrap(at.j + dj) }; // 🌍 round the lap
             const id = blockId(b);
             blocks.push({
               id, di, dj, plaza: id === 'lobby',
@@ -749,7 +748,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const key = roomId;
     if ((key.startsWith('pod-') && !geography.geography.pod(key)) ||
         (key.startsWith('floor-') && !tower.tower.forRoom(key)) ||
-        (parseBlock(key) && blockIndex(parseBlock(key)) > geography.geography.opened)) {
+        (parseBlock(key) && !onLap(parseBlock(key)))) {
       ws.close(1008, 'Place is not open'); return;
     }
     if (!rooms.has(key)) {
@@ -881,7 +880,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // visit starts on the plaza, at the foot of the tower.
         const last = geography.geography.whereabouts(handle)?.room;
         const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
-          (parseBlock(last) && blockIndex(parseBlock(last)) <= geography.geography.opened));
+          onLap(parseBlock(last)));
         const place = open ? last : 'lobby';
         passing = place !== key && !arrived;
         send(ws, { type: 'whereabouts', room: place });
@@ -1360,9 +1359,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (!at) return;
     for (const [key, room] of rooms) {
       const here = cellOf(key);
-      if (!here || Math.abs(at.i - here.i) > 2 || Math.abs(at.j - here.j) > 2 || !room.clients.size || overlaid(at, here)) continue; // (as far as people are seen: tellBeyond)
+      // (As far as people are seen: tellBeyond. The shorter way round the lap.)
+      const bi = here ? wrap(at.i - here.i) : 0, bj = here ? wrap(at.j - here.j) : 0;
+      if (!here || Math.abs(bi) > 2 || Math.abs(bj) > 2 || !room.clients.size || overlaid(at, here)) continue;
       const r = (n) => Math.round(n * 1000) / 1000;
-      const word = JSON.stringify({ type: 'ball', x: r(b.x + (at.i - here.i) * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + (at.j - here.j) * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
+      const word = JSON.stringify({ type: 'ball', x: r(b.x + bi * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + bj * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
       for (const ws of room.clients.keys()) sendText(ws, word);
     }
   };
@@ -1394,7 +1395,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (!here.room.clients.size) continue;
       const seen = [], drones = [];
       for (const there of stood) {
-        const di = there.at.i - here.at.i, dj = there.at.j - here.at.j;
+        const di = wrap(there.at.i - here.at.i), dj = wrap(there.at.j - here.at.j);
         if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND || overlaid(there.at, here.at)) continue;
         for (const [id, name, x, y, z, yaw] of there.eyes)
           drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
