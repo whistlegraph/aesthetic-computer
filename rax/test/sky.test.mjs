@@ -54,3 +54,14 @@ test('the stars are the same for everyone and stay above the horizon', () => {
     assert.ok(s.y > 0.05 && Math.abs(Math.hypot(s.x, s.y, s.z) - 1) < 1e-9);
   }
 });
+
+test('the sky keeps the real sun\'s hours: its rise is the sky\'s sunrise, its set the sunset', async () => {
+  const { skyOf } = await import('../sky.mjs');
+  const rise = 0.2701, set = 0.6986; // 06:29 and 16:46
+  assert.equal(skyOf(rise, rise, set), 0.25);
+  assert.equal(skyOf(set, rise, set), 0.75);
+  assert.ok(Math.abs(skyOf((rise + set) / 2, rise, set) - 0.5) < 1e-9, 'noon by the sun is half way between them');
+  assert.ok(skyOf(17 / 24, rise, set) > 0.75, 'five in the evening in November is after dark');
+  assert.equal(skyOf(0, rise, set), 0);
+  let last = -1; for (let c = 0; c < 1; c += 0.01) { const p = skyOf(c, rise, set); assert.ok(p > last); last = p; }
+});

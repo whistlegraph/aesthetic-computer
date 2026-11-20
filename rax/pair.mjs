@@ -49,18 +49,18 @@ async function start() {
   try {
     if (!CODE.test(code)) return void (show(), say('Nothing to sign in. Scan the code on the screen running rax.'));
     const number = await pairNumber(code);
-    $('number').textContent = number;
-    show('number');
+    void number; // (the screen no longer shows it, so the phone does not ask for it to be checked)
+    show();
     say('one moment…');
     const token = await accountToken();
-    if (!token) return void (show('number', 'in'), say('Sign in on this phone, then come back to this page.'));
+    if (!token) return void (show('in'), say('Sign in on this phone, then come back to this page.'));
     // Whose token this is, as the rax server will see it.
     const me = await post('./pair/who', { accessToken: token }), handle = me?.handle;
-    if (!me?.ok) return void (show('number', ...(me?.error === 'account' ? ['in'] : [])), say(WHY[me?.error] || 'The rax server did not answer. Try again in a moment.'));
-    say(`Sign in the screen showing ${number} as @${handle}?`);
-    $('yes').textContent = `sign in screen ${number} as @${handle}`;
+    if (!me?.ok) return void (show(...(me?.error === 'account' ? ['in'] : [])), say(WHY[me?.error] || 'The rax server did not answer. Try again in a moment.'));
+    say(`Sign in the screen you just scanned as @${handle}?`);
+    $('yes').textContent = `sign in that screen as @${handle}`;
     $('yes').disabled = false;
-    show('number', 'note', 'yes', 'no');
+    show('note', 'yes', 'no');
     $('yes').onclick = async () => {
       $('yes').disabled = true;
       const answer = await post('./pair', { code, accessToken: token });

@@ -10,7 +10,9 @@ const answer = (precipitation, weather_code, snowfall = precipitation.map(() => 
 
 test('a dry sky has no rain, and its cloud and wind are told', () => {
   const w = read(answer([0, 0, 0], [3, 3, 3]), 5);
-  assert.deepEqual(w, { rain: 0, snow: 0, cloud: 1, wind: 5, gust: 10, from: 200, at: 5 });
+  assert.deepEqual(w, { rain: 0, snow: 0, cloud: 1, wind: 5, gust: 10, from: 200, rise: 0.25, set: 0.75, at: 5 });
+  const day = read({ ...answer([0], [3]), daily: { sunrise: ['2026-11-19T06:29'], sunset: ['2026-11-19T16:46'] } });
+  assert.deepEqual([day.rise, day.set], [0.2701, 0.6986], 'the real sun\'s hours, as shares of the day');
 });
 
 test('a shower in the last half hour still falls, harder the more came down', () => {

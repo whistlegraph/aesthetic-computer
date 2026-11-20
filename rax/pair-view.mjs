@@ -1,7 +1,8 @@
 // 📱 The pairing code on the screen (pairing.mjs): looking on with nobody
-// signed in, a QR stands bottom left where a player's face would, with the
-// four digits the phone will show beside it. The whole square is a button
-// too: a click signs in on this device the ordinary way.
+// signed in, a small QR stands bottom left where a player's face would, and
+// a line saying what it is for. The whole square is a button too: a click
+// signs in on this device the ordinary way. (It showed four digits to check
+// against the phone, 2026-11-19; they were taken off the same day.)
 import { joinCode } from './hud.mjs';
 import { model, smallWidth, INK, PAPER } from './paint.mjs';
 
@@ -15,7 +16,7 @@ export function pairLayout(pair, hud, W, H, panelTop, scale = 1) {
   if (!cells) return null;
   const { unit, safeX, safeY } = hud, across = cells.length + 2 * QUIET;
   const module = Math.max(1, Math.min(
-    Math.max(Math.ceil(3 / Math.max(0.5, scale)), Math.floor((52 * unit) / across)),
+    Math.max(Math.ceil(2 / Math.max(0.5, scale)), Math.floor((30 * unit) / across)), // (about the face cam's size: two screen pixels a module at the least)
     Math.floor(Math.min(W, H) / 2 / across)));
   const size = across * module;
   const x = -W / 2 + safeX + 2, y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
@@ -40,13 +41,10 @@ export function pairModel(at, flip) {
         rect(x + (start + QUIET) * module, y + size - (r + QUIET + 1) * module, 0, (c - start) * module, module, 0x000000);
       }
     });
-    // Beside it, from the top: the number this screen answers to, then what to do.
-    const left = x + size + 4 * unit, top = y + size;
-    const nx = left + (number.length * 6 - 1) * unit, lx = left + (smallWidth(LABEL) * unit) / 2;
-    text(number, nx + unit, top - 3 * unit, 0.000002, unit * 2, INK);
-    text(number, nx, top - 2 * unit, 0, unit * 2, PAPER);
-    small(LABEL, lx + unit, top - 18 * unit, 0.000002, unit, INK);
-    small(LABEL, lx, top - 17 * unit, 0, unit, 0xffe066);
+    // Beside it: what to do.
+    const left = x + size + 4 * unit, top = y + size, lx = left + (smallWidth(LABEL) * unit) / 2;
+    small(LABEL, lx + unit, top - 3 * unit, 0.000002, unit, INK);
+    small(LABEL, lx, top - 2 * unit, 0, unit, 0xffe066);
   });
   kept = { key: at.key, mesh };
   return mesh;

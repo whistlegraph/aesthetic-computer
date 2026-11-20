@@ -1,8 +1,9 @@
 import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
 import { airAt, sun } from './air.mjs';
-import { phase as skyPhase } from './sky.mjs';
+import { flyover } from './flyover.mjs';
+import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD } from './elevator.mjs';
+import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf } from './elevator.mjs';
 import { createPanels, PANEL_REACH } from './panel.mjs';
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
@@ -216,6 +217,16 @@ const placeOf = (id) => { const c = cellOf(id); return c ? { x: c.i * SPAN, z: c
 let weather = null;
 // 👀 The people in the rooms around this one (the server's `beyond`), eased
 // from where each was last drawn to where they were last heard of.
+// 🛫 The idle flyover (flyover.mjs): the tour, where on it this drone is, and when anyone last touched a control.
+const IDLE_MS = 25000;
+let tour = null, touring = null, inputAt = performance.now();
+const roofNow = () => { try { return roofOf(towerTop) || 33; } catch { return 33; } };
+// Where on the tour is nearest a place: it is joined there, not at its start.
+function nearestOnTour(t, at) {
+  let best = 0, least = Infinity;
+  for (let s = 0; s < t.seconds; s += 0.5) { const p = t.at(s), d = Math.hypot(p.x - at.x, p.y - at.y, p.z - at.z); if (d < least) { least = d; best = s; } }
+  return best;
+}
 let rolledAt = -Infinity;
 let droneRoll = 0; // radians your own drone is rolled over
 let beyond = new Map(), drones = new Map(), myEye = null, droneView = false; // droneView: looking on, from behind your own drone
@@ -239,7 +250,7 @@ function beyondAt(b, now) {
   turn -= Math.round(turn / 360) * 360;
   return { ...b, x: f.x + (b.x - f.x) * k, y: f.y + (b.y - f.y) * k, z: f.z + (b.z - f.z) * k, yaw: f.yaw + turn * k, pitch: f.pitch + (b.pitch - f.pitch) * k, from: null };
 }
-const askWeather = () => fetch(new URL('./weather', import.meta.url)).then((r) => (r.ok ? r.json() : null)).then((w) => { if (w) weather = w; }).catch(() => {});
+const askWeather = () => fetch(new URL('./weather', import.meta.url)).then((r) => (r.ok ? r.json() : null)).then((w) => { if (w) { weather = w; sunTimes(w.rise, w.set); } }).catch(() => {});
 void askWeather();
 setInterval(askWeather, 5 * 60 * 1000);
 function plazaFrom() {
@@ -1756,6 +1767,7 @@ document.addEventListener('pointerlockchange', () => {
   if (!locked()) unlockedAt = performance.now();
 });
 document.addEventListener('mousemove', (e) => {
+  if (e.movementX || e.movementY) inputAt = performance.now(); // (a hand on the mouse: not idle)
   if (!locked()) {
     // A free mouse: remember where it is; the aim ray goes through it.
     const r = canvas.getBoundingClientRect();
@@ -2348,44 +2360,67 @@ function step(now) {
   if (seat >= 0 && (keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || pad.fwd || pad.right || pad.dx || pad.dy))
     activeSeconds += Math.min(0.1, elapsed);
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
-  if (seat < 0 && connected && !joining())
-    // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
-    {
-      const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
-      const turn = Math.max(squeeze(gamepad.lt || 0), keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0);
-      if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
-      // (Held where it was left for two seconds, then brought level slowly.)
-      else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
-      if (turn) rolledAt = now;
-    }
-    freecam = moveFreecam(
-      { ...freecam, yaw, pitch },
+  if (seat < 0 && connected && !joining()) {
+    // 🛫 Nobody at the stick for a while, over the plaza: the drone takes itself on its tour (flyover.mjs). Any key, stick or look gives it back.
+    const moving = keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || gamepad.up || gamepad.lt > 0.06 || gamepad.rt > 0.06 || gamepad.hold || pad.fwd || pad.right || pad.dx || pad.dy;
+    if (moving) inputAt = now;
+    const idle = sheetOpen && room === 'lobby' && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && now - inputAt > IDLE_MS;
+    if (idle) {
+      tour ||= flyover(roofNow());
+      // (Taken up gently: for four seconds it eases from where it was to where the tour is.)
+      if (!touring) touring = { at: now, from: { ...freecam }, clock: nearestOnTour(tour, freecam) };
+      const dt = Math.min(0.1, elapsed), t = touring.clock + (now - touring.at) / 1000, to = tour.at(t);
+      const ease = Math.min(1, (now - touring.at) / 4000), e = ease * ease * (3 - 2 * ease);
+      const x = touring.from.x + (to.x - touring.from.x) * e, y = touring.from.y + (to.y - touring.from.y) * e, z = touring.from.z + (to.z - touring.from.z) * e;
+      const vx = dt ? (x - freecam.x) / dt : 0, vy = dt ? (y - freecam.y) / dt : 0, vz = dt ? (z - freecam.z) / dt : 0;
+      freecam = { ...freecam, x, y, z, vx: (freecam.vx || 0) * 0.8 + vx * 0.2, vy: (freecam.vy || 0) * 0.8 + vy * 0.2, vz: (freecam.vz || 0) * 0.8 + vz * 0.2 };
+      // The eye turns to what the tour looks at, the short way, unhurried; and banks a little into its turn.
+      const wantYaw = (Math.atan2(to.lx - x, to.lz - z) * 180) / Math.PI, wantPitch = (Math.atan2(to.ly - y, Math.hypot(to.lx - x, to.lz - z)) * 180) / Math.PI;
+      const dyaw = ((wantYaw - yaw + 540) % 360) - 180, k = 1 - Math.exp(-dt * 2.2);
+      yaw = (yaw + dyaw * k + 360) % 360;
+      pitch = clamp(pitch + (wantPitch - pitch) * k, -85, 85);
+      droneRoll += (clamp(-dyaw * 0.012, -0.35, 0.35) - droneRoll) * (1 - Math.exp(-dt * 2));
+    } else {
+      touring = null;
+      // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
       {
-        fwd: clamp(
-          Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + gamepad.fwd + pad.fwd,
-          -1,
-          1,
-        ),
-        right: clamp(
-          Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + gamepad.right + pad.right,
-          -1,
-          1,
-        ),
-        up: clamp(
-          Number(keys.has('Space')) -
-            Number(keys.has('ShiftLeft') || keys.has('ShiftRight')) +
-            gamepad.up,
-          -1,
-          1,
-        ),
-        boost: gamepad.hold || keys.has('KeyE'), // A held, or E (the triggers roll it)
-      },
-      elapsed,
-      // 🌬️ The air where the eye is, in the world's metres at this moment.
-      weather && freecam.y >= 0 ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null, // (no wind inside the planet)
-      // 🕳️ Under the land the planet is hollow (freecam.mjs); a floor of the tower, and a game's arena, are only floors.
-      !room.startsWith('floor-') && !game(),
-    );
+        const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
+        const turn = Math.max(squeeze(gamepad.lt || 0), keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0);
+        if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
+        // (Held where it was left for two seconds, then brought level slowly.)
+        else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
+        if (turn) rolledAt = now;
+      }
+      freecam = moveFreecam(
+        { ...freecam, yaw, pitch },
+        {
+          fwd: clamp(
+            Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + gamepad.fwd + pad.fwd,
+            -1,
+            1,
+          ),
+          right: clamp(
+            Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + gamepad.right + pad.right,
+            -1,
+            1,
+          ),
+          up: clamp(
+            Number(keys.has('Space')) -
+              Number(keys.has('ShiftLeft') || keys.has('ShiftRight')) +
+              gamepad.up,
+            -1,
+            1,
+          ),
+          boost: gamepad.hold || keys.has('KeyE'), // A held, or E (the triggers roll it)
+        },
+        elapsed,
+        // 🌬️ The air where the eye is, in the world's metres at this moment.
+        weather && freecam.y >= 0 ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null, // (no wind inside the planet)
+        // 🕳️ Under the land the planet is hollow (freecam.mjs); a floor of the tower, and a game's arena, are only floors.
+        !room.startsWith('floor-') && !game(),
+      );
+    }
+  }
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
   if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 100) { // (ten times a second: the room draws it as a drone)

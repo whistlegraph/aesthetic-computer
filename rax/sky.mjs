@@ -23,7 +23,20 @@ function zoneShift(now) {
   }
   return shift;
 }
-export const phase = (now = Date.now()) => ((((now + zoneShift(now)) % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+// The place's own clock, 0 (midnight) to 1.
+export const clock = (now = Date.now()) => ((((now + zoneShift(now)) % DAY_MS) + DAY_MS) % DAY_MS) / DAY_MS;
+// 🌅 The sky's day runs from a sunrise at a quarter to a sunset at three
+// quarters. The real sun over Los Angeles keeps other hours (a November day
+// is ten hours and a quarter, and dark by five), so the clock is stretched
+// to them: the hour it truly rises is the sky's sunrise, the hour it truly
+// sets its sunset. sunTimes(rise, set) gives them, as shares of the day
+// (weather.mjs); until then, six and six.
+let rise = 0.25, set = 0.75;
+export function sunTimes(r, s) {
+  if (r > 0.1 && r < 0.45 && s > 0.55 && s < 0.95) { rise = r; set = s; }
+}
+export const skyOf = (c, r = rise, s = set) => (c < r ? (0.25 * c) / r : c < s ? 0.25 + (0.5 * (c - r)) / (s - r) : 0.75 + (0.25 * (c - s)) / (1 - s));
+export const phase = (now = Date.now()) => skyOf(clock(now));
 export const stepOf = (t) => Math.floor(t * STEPS) % STEPS;
 
 const mix = (a, b, k) => {
