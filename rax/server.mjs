@@ -190,7 +190,12 @@ export function createRaxServer({
     .then(async () => {
       const swept = await store.clearGround((room) => room === GROUND || !!parseBlock(room), 'keeper');
       if (swept) console.log(`rax: ${swept} builds cleared from the ground`);
-    }).catch((e) => console.error('rax: ground not cleared:', e?.message || e));
+    }).catch((e) => console.error('rax: ground not cleared:', e?.message || e))
+    // 📺 The three screens the lobby was once given as its own (2026-11-19) were written down; they come out. Nobody's: no owner, and the building's ids.
+    .then(() => store.transact((data) => {
+      const list = data.screens?.[GROUND];
+      if (list) data.screens[GROUND] = list.filter((s) => !(s.owner == null && /^lobby-/.test(s.id || '')));
+    })).catch((e) => console.error('rax: lobby screens not removed:', e?.message || e));
   const profiles = new Map();
   const colorsFor = (handle) => {
     let cached = profiles.get(handle);
