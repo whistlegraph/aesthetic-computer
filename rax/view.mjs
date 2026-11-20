@@ -1520,7 +1520,7 @@ export async function createView(canvas) {
     }
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
-      if (tower.screen) draw(carScreenFor(tower.screen), 0, tower.lift || 0, CAR_SCREEN_Z, Math.PI); // hung clear of the door's sign
+      // (The screen that hung over the door inside is gone: the pad on the back wall is the one thing in the car that tells and is told.)
       // 🚪 The doors answer whoever is near: the car's stay shut while it
       // runs, the lobby's entrance opens from either side.
       const bodies = [me, ...players].filter(Boolean), dtDoor = Math.min(0.1, (now - doorTime) / 1000);

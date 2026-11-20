@@ -109,7 +109,8 @@ export function carScreenSolids() {
 // tablet, on the back pane's mullion at the height of a hand, its face to the
 // door. Its slab reaches back to the mullion and stops a millimetre short.
 // (y is its middle, above the car's floor: it rides with the car.)
-export const CAR_PAD = { x: 0, y: 1.42, z: CAR_Z + CAR - 0.045, yaw: 0, w: 0.6, h: 0.9, cols: 64, rows: 96, deep: 0.1 };
+export const CAR_PAD = { x: 0, y: 1.6, // (its middle a hand under the eye, which is at 1.7)
+  z: CAR_Z + CAR - 0.045, yaw: 0, w: 0.6, h: 0.9, cols: 64, rows: 96, deep: 0.1 };
 
 // 🖥️ A standing screen keeps clear of the car, its shaft and the way to its
 // door: a screen asked for there stands at the nearest edge of that ground
