@@ -1150,10 +1150,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: { ...CAR_ARRIVAL }, at: Date.now(), until: Date.now() + 30000 });
+        // 🛗 A rider stays where they stand in the car, looking where they look: the car moves, they do not. (No facing is given, so the page keeps its own.)
+        const stood = { x: p.x, z: p.z };
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, at: Date.now(), until: Date.now() + 30000 });
         // ⚽ A ball in the car rides with it.
         if (ball.ball.room === key && inCar(ball.ball)) { ball.ball.room = destination; keepBall(); }
-        leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...CAR_ARRIVAL },
+        leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...stood },
           ride: { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null } } };
         send(ws, leaving.message);
         return;

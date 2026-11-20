@@ -1205,7 +1205,7 @@ function connect(adopt = null) {
         text: String(data.error || data.note || '').slice(0, CHAT_MAX) }].slice(-8);
     if (data.type === 'arrival') {
       // A walker looks where they were looking; a door or the car sets the facing.
-      if (!held?.walk) { yaw = data.yaw; pitch = data.pitch || 0; }
+      if (!held?.walk && Number.isFinite(data.yaw)) { yaw = data.yaw; pitch = data.pitch || 0; } // (a rider is given none: they look where they looked)
       passage = null;
     }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
