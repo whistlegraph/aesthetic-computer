@@ -863,6 +863,8 @@ export async function createView(canvas) {
   // 🔭 The lens: how much of it (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it. It is done to the finished picture on the card (lens-host.mjs): corner by corner it could not keep two things that lie on one another in order, and holes opened in them.
   const LENS = 0.65, LENS_ZOOM = 1.3;
   let lensNow = null; // what the card is told of the lens this frame
+  // 🪶 Anti-aliasing: the world drawn twice as fine each way as it is shown, and averaged (lens-host.mjs). ?aa=1 turns it off, ?aa=3 is finer still.
+  const AA = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null; return q?.has('aa') ? Math.max(1, Math.min(3, Number(q.get('aa')) || 1)) : 2; })();
   // 👁️ How much of the picture, from its middle out, is drawn at full sharpness (lens-host.mjs); ?fovea=0 draws all of it so, ?fovea=0.3 a smaller middle.
   const FOVEA = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : null; return q?.has('fovea') ? Math.max(0, Math.min(0.9, Number(q.get('fovea')) || 0)) : 0.5; })();
   const SKY = (0.97 * FAR) / 2350; // the sky's dome, drawn this many times its own size: behind everything, however high or far the eye
@@ -1482,7 +1484,7 @@ export async function createView(canvas) {
     }
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
-    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA } : null;
+    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = !game?.camera && orbit <= 0 ? PLANET : 0;
     if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)

@@ -139,6 +139,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     }
     this.uniform = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.sampler = device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' });
+    this.smooth = device.createSampler({ magFilter: 'linear', minFilter: 'linear' }); // for a picture drawn finer than it is shown (aa)
     // Two pictures of the world: the whole of it, and its middle larger.
     this.layers = [0, 1].map(() => ({ zoom: device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }) }));
     this.ready = Promise.all([this.ready, ...made]).then(([, worldPipe, hudPipe, lensPipe, solidPipe]) => {
@@ -150,7 +151,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     });
   }
   // The textures the world is drawn into, each with its own depth: made again when a size changes.
-  room(sizes) {
+  room(sizes, smooth = false) {
     const max = this.device.limits.maxTextureDimension2D;
     let changed = false;
     this.layers.forEach((layer, n) => {
@@ -163,8 +164,9 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
       layer.view = layer.picture.createView();
       layer.depthView = layer.depth.createView();
     });
-    if (changed || !this.bind) this.bind = this.device.createBindGroup({ layout: this.lensPipe.getBindGroupLayout(0), entries: [
-      { binding: 0, resource: this.layers[0].view }, { binding: 1, resource: this.sampler }, { binding: 2, resource: { buffer: this.uniform } }, { binding: 3, resource: this.layers[1].view }] });
+    if (changed || !this.bind || this.bindSmooth !== smooth) this.bind = this.device.createBindGroup({ layout: this.lensPipe.getBindGroupLayout(0), entries: [
+      { binding: 0, resource: this.layers[0].view }, { binding: 1, resource: smooth ? this.smooth : this.sampler }, { binding: 2, resource: { buffer: this.uniform } }, { binding: 3, resource: this.layers[1].view }] });
+    this.bindSmooth = smooth;
   }
   // lens: { sx, sy, wide, lens, over, fovea } (project.mjs has the first four).
   // over: texture pixels to a screen pixel where the picture is sharpest.
@@ -176,9 +178,11 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     const { device, scene } = this;
     if (!this.depth) this.resize(this.canvas.width, this.canvas.height);
     const l = lens || { sx: 1, sy: 1, wide: 1, lens: 0, over: 1, fovea: 0 };
-    const over = Math.max(1, Math.min(2, l.over || 1)), fovea = l.fovea > 0 && l.fovea < 1 ? l.fovea : 0;
+    // 🪶 aa (1, 2 or 3): the world is drawn that many times finer each way than it is shown and each screen pixel takes the mean of what falls in it, so edges are soft where they were stepped (full-screen anti-aliasing, by supersampling).
+    const aa = Math.max(1, Math.min(3, Math.round(l.aa || 1)));
+    const over = Math.max(1, Math.min(2, l.over || 1)) * aa, fovea = l.fovea > 0 && l.fovea < 1 ? l.fovea : 0;
     // The whole picture at half sharpness and the middle at all of it; or, with no fovea, the whole at all of it (and a middle of one pixel, unused).
-    this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)]);
+    this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)], aa > 1);
     if (scene.triangleCount) device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
     device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, 0, 0, 0]));
     device.queue.writeBuffer(this.layers[0].zoom, 0, new Float32Array([1, 0, 0, 0]));
