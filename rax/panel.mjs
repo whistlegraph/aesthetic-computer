@@ -136,6 +136,10 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
       if (name === 'lift') pen.down = false;
       piece.act?.({ ...api, event: pointerEvent(name, Math.floor(x), Math.floor(y), device) });
     },
+    // 👥 Someone else in the room presses here: the piece hears their pointer (numbered, so two hands are two), and this page's own pen is left alone.
+    hear(name, x, y, pointer) {
+      piece.act?.({ ...api, event: { ...pointerEvent(name, Math.floor(x), Math.floor(y), 'remote'), pointer } });
+    },
     step() {
       piece.sim?.(api);
       piece.paint?.(api);

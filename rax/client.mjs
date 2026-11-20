@@ -152,9 +152,11 @@ const carPad = panels.mount({
 });
 // 🧩 Real AC pieces in the yard, to try them in the world: two `bleep`s side
 // by side on the lobby's front, west of the door, each under a sign that says
-// what it is. The disks are AC's own (ac-piece.mjs); their tones are this
-// page's alone for now (nobody else hears them), and every held one stops
-// when the room is left.
+// what it is. The disks are AC's own (ac-piece.mjs); they are kiosks: a
+// press is told to the room (`panel`), so everyone there sees the pads go
+// down and hears the tone from where the kiosk stands, and each piece rolls
+// its dice from its place's name so the pads are the same on every page.
+// Every held tone stops when the room is left.
 const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9]];
 const yardPanels = [], yardVoices = new Set();
 let yardAsked = false;
@@ -164,15 +166,27 @@ async function mountYard() {
   yardAsked = true;
   try {
     const { acPiece, signPiece } = await import('./ac-piece.mjs');
-    const sound = { synth: ({ type, tone }) => {
-      const held = sfx.hold(Number(tone), { type }), voice = { kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
-      yardVoices.add(voice);
-      return voice;
-    } };
     for (const [k, [slug, x]] of YARD_PIECES.entries()) {
-      const { piece, host } = await acPiece(slug, { sound });
-      const z = 0.95; // a step out from the lobby's front glass, facing the yard
-      yardPanels.push(panels.mount({ id: `yard-${k}`, piece, host, x, y: 1.35, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 }));
+      const z = 0.95, y = 1.35, id = `yard-${k}`; // a step out from the lobby's front glass, facing the yard
+      const sound = { synth: ({ type, tone }) => {
+        const held = sfx.hold(Number(tone), { type, at: { x, y, z } }), voice = { kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
+        yardVoices.add(voice);
+        return voice;
+      } };
+      const { piece, host } = await acPiece(slug, { sound, seed: id });
+      const panel = panels.mount({ id, piece, host, x, y, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 });
+      // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
+      const act = panel.act;
+      let toldAt = 0;
+      panel.act = (name, px, py, device) => {
+        act(name, px, py, device);
+        if (name === 'move' || seat < 0 || room !== 'lobby') return;
+        const now = performance.now();
+        if (name === 'draw' && now - toldAt < 50) return;
+        toldAt = now;
+        send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
+      };
+      yardPanels.push(panel);
       yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: 2.12, z, yaw: 0, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     }
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
@@ -846,7 +860,7 @@ let activeSeconds = 0; // Seconds of play this visit.
 const legendShown = () => seat >= 0;
 const send = (data) => {
   // 🧵 What is said of the body is said of a room: the socket stays when the body goes to the next, and a word for the room left is not the next one's.
-  if (data.type === 'input' || data.type === 'walk' || data.type === 'elevator') data = { ...data, in: room };
+  if (data.type === 'input' || data.type === 'walk' || data.type === 'elevator' || data.type === 'panel') data = { ...data, in: room };
   if (
     ws?.readyState === WebSocket.OPEN &&
     ws.bufferedAmount < (data.type === 'input' ? 65536 : 32768)
@@ -1213,6 +1227,8 @@ function connect(adopt = null) {
       })();
     }
     if (data.type === 'ball') { ball = { ...data, at: performance.now() }; return; }
+    // 👥 Someone else's hand on a kiosk: its piece hears their pointer, numbered by their seat.
+    if (data.type === 'panel') { yardPanels.find((p) => p.id === data.id)?.hear?.(data.name, data.x, data.y, data.seat + 2); return; }
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();

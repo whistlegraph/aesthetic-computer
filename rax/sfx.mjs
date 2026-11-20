@@ -42,14 +42,24 @@ export class Sfx {
     o.stop(t + duration + 0.02);
   }
   // 🎹 A tone held until it is let go (a piece's `synth` with no end): → { kill(fade) }.
-  hold(frequency, { volume = 0.035, type = 'sine' } = {}) {
+  // `at` { x, y, z }: where in the world it sounds from (the listener is the eye: SpatialTones keeps it).
+  hold(frequency, { volume = 0.035, type = 'sine', at = null } = {}) {
     if (!this.ready || !(frequency > 0)) return { kill() {} };
     const a = this.audio, o = a.createOscillator(), g = a.createGain();
     o.type = ['sine', 'square', 'triangle', 'sawtooth'].includes(type) ? type : 'square';
     o.frequency.setValueAtTime(frequency, a.currentTime);
     g.gain.setValueAtTime(0.0001, a.currentTime);
-    g.gain.exponentialRampToValueAtTime(volume * MASTER, a.currentTime + 0.01);
-    o.connect(g).connect(a.destination);
+    g.gain.exponentialRampToValueAtTime(volume * MASTER * (at ? 2.2 : 1), a.currentTime + 0.01);
+    let out = a.destination;
+    if (at && a.createPanner) {
+      const p = a.createPanner();
+      Object.assign(p, { panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 2, maxDistance: 60, rolloffFactor: 1.4 });
+      if (p.positionX) { p.positionX.value = at.x; p.positionY.value = at.y; p.positionZ.value = at.z; }
+      else p.setPosition?.(at.x, at.y, at.z);
+      p.connect(a.destination);
+      out = p;
+    }
+    o.connect(g).connect(out);
     o.start();
     let gone = false;
     return { kill: (fade = 0.05) => {

@@ -873,6 +873,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
     };
+    // 👥 Leaving with a hand still on a kiosk: the room is told it was let go.
+    const letGo = () => {
+      if (!member.pressing || member.seat < 0) return;
+      const word = JSON.stringify({ type: 'panel', id: member.pressing, seat: member.seat, name: 'lift', x: -1, y: -1 });
+      member.pressing = null;
+      for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
+    };
     // 🧵 The body goes to another room and the socket stays. Nothing is
     // closed or opened and nobody is asked again who they are: the same
     // member leaves this room's match and takes a seat in the next, set down
@@ -885,6 +892,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (!next || next.clients.size >= ROOM_CONNECTIONS) return false;
       const from = room, fromKey = key;
       send(ws, { type: 'travel', room: destination, here: true, at: position, ...told });
+      letGo();
       from.remove(ws);
       if (!from.clients.size) {
         const kept = from.match.flight();
@@ -1149,6 +1157,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         }, 1500).unref?.();
         return;
       }
+      // 👥 A press on a world panel (a kiosk: panel.mjs) is told to everyone else in the room, with whose it is, so the piece on it is worked by all of them together.
+      if (data?.type === 'panel') {
+        if (member.seat < 0 || typeof data.id !== 'string' || !/^[a-z0-9-]{1,24}$/.test(data.id) || !['touch', 'draw', 'lift'].includes(data.name) || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
+        member.pressing = data.name === 'lift' ? null : data.id;
+        const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: data.name, x: clamp(Math.round(data.x), -1, 1024), y: clamp(Math.round(data.y), -1, 1024) });
+        for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
+        return;
+      }
       // 🫧 The page's own count of a walk over a seam: from the old room's
       // word to its first place in this one.
       if (data?.type === 'seam' && member.seat >= 0) {
@@ -1368,6 +1384,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           .catch(() => {});
       walks.leave(member);
       pairing.drop(ws);
+      letGo();
       room.remove(ws);
       if (!room.clients.size) {
         const kept = room.match.flight();

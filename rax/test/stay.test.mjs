@@ -94,3 +94,20 @@ test('a page that does not stay is given a passage, as before', async (t) => {
   assert.ok(travel.passage && !travel.here);
   assert.ok(bodyIn('lobby'), 'the body waits in the room it is leaving');
 });
+
+test('a press on a kiosk is told to everyone else in the room, and let go for whoever leaves holding it', async (t) => {
+  const { connect } = await fixture(t);
+  const a = await connect('lobby', { stay: '1' }), b = await connect('lobby', { stay: '1' });
+  a.say({ type: 'panel', id: 'yard-0', name: 'touch', x: 14.4, y: 14, in: 'lobby' });
+  await wait(() => b.messages.some((m) => m.type === 'panel'));
+  const heard = b.messages.find((m) => m.type === 'panel');
+  assert.deepEqual({ id: heard.id, name: heard.name, x: heard.x, y: heard.y }, { id: 'yard-0', name: 'touch', x: 14, y: 14 });
+  assert.ok(heard.seat >= 0, 'whose hand it is');
+  assert.ok(!a.messages.some((m) => m.type === 'panel'), 'not told back to the one who pressed');
+  a.say({ type: 'panel', id: '../x', name: 'touch', x: 1, y: 1 });
+  a.say({ type: 'panel', id: 'yard-0', name: 'shout', x: 1, y: 1 });
+  a.ws.close();
+  await wait(() => b.messages.filter((m) => m.type === 'panel').length === 2);
+  const last = b.messages.filter((m) => m.type === 'panel')[1];
+  assert.deepEqual({ name: last.name, seat: last.seat, x: last.x }, { name: 'lift', seat: heard.seat, x: -1 });
+});
