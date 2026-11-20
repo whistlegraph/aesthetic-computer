@@ -871,7 +871,7 @@ export async function createView(canvas) {
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
-  const statsRun = new Float32Array(120); let statsHead = 0; // the last 120 frames' gaps, a ring
+  const statsRun = new Float32Array(56); let statsHead = 0; // the last 56 frames' gaps, a ring (a short graph: it keeps to its corner)
   let statsAt = 0, statsGap = 16.7, statsWorst = 0, statsWorstAt = 0; // 🧰 the last frame's start, the time between frames (eased), the worst lately
   // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
@@ -2587,17 +2587,17 @@ export async function createView(canvas) {
       const air = weather && at ? airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) }) : null;
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
-        const BARS = statsRun.length, tall = 24 * unit, wide = BARS * unit;
+        const BARS = statsRun.length, tall = 16 * unit, wide = BARS * unit;
         const right = W / 2 - safeX - 2 * unit, foot = -H / 2 + safeY + 14 * unit, left = right - wide;
         rect(left - unit, foot - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, INK);
         rect(left, foot, 0.000003, wide, tall, 0x15171e);
         for (let i = 0; i < BARS; i++) {
           const gap = statsRun[(statsHead + i) % BARS];
           if (!gap) continue;
-          const h = Math.max(unit, Math.min(tall, Math.round((gap / 50) * 24) * unit)); // the box is 50 ms tall
+          const h = Math.max(unit, Math.min(tall, Math.round((gap / 50) * 16) * unit)); // the box is 50 ms tall
           rect(left + i * unit, foot, 0.000002, unit, h, gap <= 18 ? good : gap <= 34 ? fair : poor);
         }
-        rect(left, foot + Math.round((16.7 / 50) * 24) * unit, 0.000001, wide, unit, 0x5a5f70); // sixty a second
+        rect(left, foot + Math.round((16.7 / 50) * 16) * unit, 0.000001, wide, unit, 0x5a5f70); // sixty a second
         // The triangle budget: a bar under the frames, red when nearly full.
         const full = most ? Math.min(1, tris / most) : 0;
         rect(left - unit, foot - 6 * unit, 0.000004, wide + 2 * unit, 4 * unit, INK);
@@ -2612,7 +2612,7 @@ export async function createView(canvas) {
         small(kind, kx, wy, 0, unit, backend === 'webgpu' ? good : fair);
         // The wind: a dial left of the box, north up on the screen as on a map.
         if (air) {
-          const cx = left - 18 * unit, cy = foot + tall / 2, R = 12 * unit;
+          const cx = left - 13 * unit, cy = foot + tall / 2, R = 8 * unit;
           const speed = Math.hypot(air.x, air.z), reach = Math.min(R, (2 + speed * 1.2) * unit), a = Math.atan2(air.x, air.z);
           rect(cx - R - unit, cy - R - unit, 0.000004, 2 * R + 2 * unit, 2 * R + 2 * unit, INK);
           rect(cx - R, cy - R, 0.000003, 2 * R, 2 * R, 0x15171e);
