@@ -172,7 +172,7 @@ test('a visitor riding up can step out of the car after the owner builds facing 
   try {
     await rideFromLobby(visitor, '@jeffrey');
     assert.equal(visitor.room, floor);
-    try { await visitor.walkTo(0, 0, { pace: 0.6, patience: 4 }); reached = true; } catch { reached = false; }
+    try { await visitor.walkTo(0, 0, { pace: 0.6, patience: 9 }); reached = true; } catch { reached = false; } // (the door is shut while the car runs: the walk waits at it)
     stopped = { ...visitor.at };
   } finally {
     visitor.leave();

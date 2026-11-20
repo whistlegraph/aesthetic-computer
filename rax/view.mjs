@@ -1,7 +1,7 @@
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
-import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, DESK, PLANTERS, PLANTER } from './elevator.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
@@ -562,10 +562,10 @@ export async function createView(canvas) {
   let doorTime = performance.now();
   // 🚪 The lobby: a glass hall the height of the tower's legs, across the
   // north half of the plaza. A canopy and the tower's name over the entrance;
-  // inside, a pale floor, a desk, benches and the directory board.
+  // inside, a pale floor and benches.
   let lobbySet = null;
-  function lobbyFor(count, board) {
-    const key = JSON.stringify([paletteName, count, board]);
+  function lobbyFor() {
+    const key = paletteName;
     if (lobbySet?.key === key) return lobbySet.model;
     const day = paletteName === 'day';
     const post = day ? 0x8f98ac : 0x59607a, sill = day ? 0xe9edf5 : 0x3a4056, stone = day ? 0xf3eee6 : 0x34313f;
@@ -602,9 +602,7 @@ export async function createView(canvas) {
         for (const y of [3.2, 6.2, 9.2]) box(x, y, (f + W) / 2, 0.12, 0.12, W - f, post, post, post);
         for (let z = f; z <= W + 0.01; z += (W - f) / 3) box(x, (H + 0.5) / 2, z, 0.12, H - 0.5, 0.12, post, post, post); // standing on the sill
       }
-      // Inside: the desk, two benches, a runner from the door to the car.
-      box(DESK.x, DESK.h / 2, DESK.z, DESK.w, DESK.h, DESK.d, wood, tint(wood, 0.8), tint(wood, 1.08));
-      box(DESK.x, DESK.h + 0.02, DESK.z, DESK.w + 0.16, 0.05, DESK.d + 0.16, stone, stone, stone);
+      // Inside: two benches and a runner from the door to the car. (No desk and no board: the walls are for screens.)
       for (const z of [3, 6]) {
         box(5.6, 0.22, z, 0.7, 0.44, 1.9, post, post, post);
         box(5.6, 0.48, z, 0.74, 0.1, 1.94, cushion, cushion, cushion);
@@ -630,24 +628,6 @@ export async function createView(canvas) {
       for (const x of [-3.6, 3.6]) {
         box(x, 0.22, -6.4, 1.9, 0.44, 0.7, post, post, post);
         box(x, 0.48, -6.4, 1.94, 0.1, 0.74, cushion, cushion, cushion);
-      }
-      // The board by the desk, read from the door: your floor, how tall the
-      // tower is, and the floors with someone on them right now.
-      if (board) {
-        const bx = DESK.x, bz = DESK.z + 1.5, z = bz - 0.012;
-        box(bx, 1.75, bz + 0.05, 3, 2.9, 0.1, 0x27324a, dark, dark); // a lighter face, so the shadows read
-        box(bx, 0.15, bz + 0.05, 3.2, 0.3, 0.3, post, post, post);
-        // (Text is laid out with x running the other way from boxes: a
-        // viewer facing north has +x on the left. `tx` is the board's middle.)
-        const tx = -bx;
-        line(`${count} floors`, tx, 2.96, z, 2.4, 0.03, 0xc9cedb);
-        line(board.yours ? `your floor: ${board.yours}` : 'sign in for a floor', tx, 2.36, z, 2.6, 0.026, board.yours ? 0xff3296 : 0x9aa3b5);
-        line(board.in.length ? 'in now' : 'nobody is upstairs', tx, 1.92, z, 2.4, 0.02, 0x9aa3b5);
-        board.in.slice(0, 4).forEach(([n, handle], k) => {
-          const top = 1.66 - k * 0.27, unit = 0.02, label = `${n}  @${handle}`.slice(0, 22);
-          inked(label, tx - 1.2 + ((label.length * 6 - 1) * unit) / 2, top - unit, z, unit, 0x9be7a0);
-        });
-        line('ride: a number or @handle', tx, 0.56, z, 2.6, 0.016, 0x9aa3b5);
       }
     });
     lobbySet = { key, model: made };
@@ -1554,7 +1534,7 @@ export async function createView(canvas) {
     // screen. They come in once the drop is most of the way down.
     if (skyline && !ledges && orbit < 0.6) {
       drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y);
-      draw(lobbyFor(skyline.count, skyline.board), skyline.dx, skyline.dy, skyline.dz);
+      draw(lobbyFor(), skyline.dx, skyline.dy, skyline.dz);
       // The land the tower stands on, seen from the plaza and from every floor:
       // fields to the horizon, and a lawn wherever a block around the plaza is
       // not open yet.

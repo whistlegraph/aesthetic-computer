@@ -1,4 +1,5 @@
 import { objectBoxes } from './objects.mjs';
+import { carDoor } from './elevator.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -107,6 +108,7 @@ export function spawn(seat, life = 1, half = WORLD) {
 // `flat` keeps the body on the z = 0 plane (a side-on arena).
 // `open` names the sides that lead to a neighbour (['east', 'south']).
 // `half` is the room's half-width (halfOf).
+const CAR_DOOR = carDoor();
 export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null, half = WORLD) {
   const WALLS = wallsOf(half);
   if (!player.alive) return { ...player };
@@ -125,13 +127,15 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   const cfg = {
     ...CFG,
     groundY: support?.yMax || 0,
-    obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step)],
+    obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
+      ...(player.shut > 0 ? [CAR_DOOR] : [])], // 🛗 riding: the car's door is shut for this body (`shut` ticks to go)
   };
   const next = pmove(
     { ...player, onGround: grounded },
     { ...cmd, right: -(cmd.right || 0), dt: DT },
     cfg,
   );
+  if (player.shut > 0) next.shut = player.shut - 1;
   // Shared step-up, landing and head collision; generated boxes are solid on all sides.
   const nextFeet = next.y - CFG.eyeHeight;
   let floor = 0;

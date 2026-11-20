@@ -129,6 +129,13 @@ export function carWalls() {
   const slab = (xMin, xMax, zMin, zMax) => ({ type: 'box', xMin, xMax, yMin: 0, yMax: CAR_HEIGHT, zMin, zMax });
   return [slab(-o, o, z + CAR, z + o), slab(-o, -CAR, z - CAR, z + CAR), slab(CAR, o, z - CAR, z + CAR)];
 }
+// 🚪 The door, shut while the car runs: a rider walks about inside and cannot step out (world.mjs `shut`).
+export function carDoor() {
+  const o = CAR + CAR_WALL, z = CAR_Z - CAR;
+  return { type: 'box', xMin: -o, xMax: o, yMin: 0, yMax: CAR_HEIGHT, zMin: z - CAR_WALL, zMax: z };
+}
+// How many ticks the door stays shut for a ride of so many seconds: the ride and a moment after the bell.
+export const shutTicks = (seconds, hz = 60) => Math.round(seconds * hz) + 12;
 // Standing in the car, feet on its floor.
 export const inCar = (p) => !!p && Math.abs(p.x) < CAR && Math.abs(p.z - CAR_Z) < CAR && p.y < 2.3;
 // Where a rider steps out: the car's middle, facing the door.
@@ -143,12 +150,11 @@ export const rideEase = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t < 0.5 ? 4 * t * t * 
 // north of the plaza's middle with the entrance in its centre; the elevator
 // is at the back. DOOR is the entrance's half-width.
 export const LOBBY_FRONT = 1.2, DOOR = 1.6, DOOR_HEIGHT = 2.7;
-export const DESK = { x: -4.6, z: 4.6, w: 2.8, d: 0.9, h: 1.1 };
 // 🌳 The courtyard: the plaza's south half, before the entrance. A paved walk
 // runs up the middle to the door between two planters, each with a tree.
 export const PLANTERS = [{ x: -5, z: -3.4 }, { x: 5, z: -3.4 }], PLANTER = 2.2;
 // The ground floor's solid parts: the front either side of the entrance, the
-// two ends, the desk, and the courtyard's planters.
+// two ends, and the courtyard's planters.
 export function lobbyWalls() {
   const t = 0.1, f = LOBBY_FRONT, e = 7.9;
   const slab = (xMin, xMax, zMin, zMax, yMax = ATRIUM) => ({ type: 'box', xMin, xMax, yMin: 0, yMax, zMin, zMax });
@@ -157,7 +163,6 @@ export function lobbyWalls() {
     slab(DOOR, 8, f - t, f + t),
     slab(-8, -e, f + t, 8),
     slab(e, 8, f + t, 8),
-    slab(DESK.x - DESK.w / 2, DESK.x + DESK.w / 2, DESK.z - DESK.d / 2, DESK.z + DESK.d / 2, DESK.h),
     ...PLANTERS.map((p) => slab(p.x - PLANTER / 2, p.x + PLANTER / 2, p.z - PLANTER / 2, p.z + PLANTER / 2, 0.55)),
   ];
 }

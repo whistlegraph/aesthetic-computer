@@ -3,7 +3,7 @@ import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf } from './elevator.mjs';
+import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf } from './elevator.mjs';
 import { createPanels, PANEL_REACH } from './panel.mjs';
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
@@ -149,6 +149,8 @@ let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
+// 🏗️ How many floors stand, for the car's sign and its pad: the storeys built, which while the tower is short is fewer than the numbers given out.
+const standing = () => storeyOf(tower?.top || towerTop);
 // 🏬 And which of its floors have a storey of their own (elevator.mjs SHORT),
 // kept beside it so the skyline is the right height before the server speaks.
 try { listFloors(JSON.parse(localStorage.getItem('rax-tower-listed') || '[]')); } catch {}
@@ -190,8 +192,6 @@ function floorAsked(text) {
   for (const [n, handle] of directory) if (name && handle.startsWith(name)) return `@${handle}? floor ${n}`;
   return 'nobody by that name';
 }
-// 🪧 The lobby's board: your floor and the floors with someone on them now.
-const lobbyBoard = () => ({ yours: tower?.yours?.number || home?.floor || 0, in: tower?.inside || [] });
 function carScreen(rideNow) {
   // Asked where to: the line being typed is on the screen itself.
   if (dial.text) return { number: dial.text, moving: true, handle: floorAsked(dial.text), note: 'going in a moment', entry: true };
@@ -207,7 +207,7 @@ function carScreen(rideNow) {
     moving,
     handle: n ? (who ? `@${who}` : 'empty') : 'plaza',
     note: moving ? `${rideNow.to > rideNow.from ? 'up' : 'down'} to ${rideNow.to || 'G'}${rideNow.handle ? ` @${rideNow.handle}` : ''}`
-      : n ? `${altitude(n)} m up` : tower?.count ? `${tower.count} floors` : '',
+      : n ? `${altitude(n)} m up` : standing() ? `${standing()} floors` : '',
   };
 }
 // Where the plaza (and the tower on it) stands from this room, in metres.
@@ -929,6 +929,8 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     const span = altitude(riding.from) - altitude(riding.to) + running;
     ride = { ...riding, ...(running ? { from: floorAt(altitude(riding.from) + running + 0.5, [riding.from, ride?.from]) } : {}), at: now, span, seconds: rideSeconds(span), rung: false };
     tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null } : { room: 'lobby', number: 0 }, owner: false };
+    // 🚪 The door is shut while it runs: the rider walks about inside (world.mjs `shut`); the next room says the same when it seats them.
+    if (held) held.shut = shutTicks(ride.seconds, HZ);
     sfx.ringMove(ride.to > ride.from ? 9 : 4);
   } else {
     tower = null;
@@ -2504,8 +2506,6 @@ function step(now) {
       })(),
       fire: (firing || fireQueued) && locked(),
     };
-    // 🛗 The car is moving: stand still and look out.
-    if (rideMoving(performance.now())) Object.assign(c, { fwd: 0, right: 0, buttons: 0 });
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
       // Up jumps and down ducks (the arrows as well as WASD; the stick too).
@@ -2765,7 +2765,7 @@ function step(now) {
   tendScreens(now);
   view.render({
     half: half(),
-    seam: { crossing: !!held || now - crossedAt < 400, shown: query.has('seams') }, // the lines between rooms are walked through unseen; ?seams draws them
+    seam: { crossing: !!held || now - crossedAt < 400, shown: query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
     weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
       ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
@@ -2821,8 +2821,8 @@ function step(now) {
       lines: chatLog.filter((l) => chat.open || now - l.at < CHAT_SHOWN_MS),
       lift: liftLine && chat.open,
     },
-    tower: hasCar() ? { ...(tower || { here: null }), lift, screen: carScreen(rideNow) } : null,
-    skyline: sky && towerTop ? { top: towerTop, ...sky, count: tower?.count || towerTop, board: room === 'lobby' ? lobbyBoard() : null } : null,
+    tower: hasCar() ? { ...(tower || { here: null }), count: standing(), lift, screen: carScreen(rideNow) } : null,
+    skyline: sky && towerTop ? { top: towerTop, ...sky } : null,
     car: hasCar() && seat >= 0 && inCar(player) && !rideMoving(now),
     plainTags: !!film,
     ride: rideNow,

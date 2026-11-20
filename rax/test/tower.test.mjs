@@ -242,3 +242,15 @@ test('the elevator rides from the ground to a floor, and only its owner builds t
     await app.close();
   }
 });
+
+test('a rider walks about in the running car and cannot step out until its door opens', async () => {
+  const { move, spawn, HZ } = await import('../world.mjs');
+  const { carWalls: walls, inCar: inside, CAR_Z: z, shutTicks } = await import('../elevator.mjs');
+  const south = { yaw: 180, pitch: 0, fwd: 1, right: 0, buttons: 0 };
+  let p = { ...spawn(0), x: 0.8, z: z + 0.8, shut: shutTicks(2, HZ) };
+  const from = { x: p.x, z: p.z };
+  while (p.shut > 0) { p = move(p, south, [], 0, walls()); assert.ok(inside(p), `out of the car at ${p.x.toFixed(2)}, ${p.z.toFixed(2)} with the door shut`); }
+  assert.ok(Math.hypot(p.x - from.x, p.z - from.z) > 1, 'the rider did not move in the car');
+  for (let i = 0; i < HZ; i++) p = move(p, south, [], 0, walls());
+  assert.ok(!inside(p), 'the door did not open after the ride');
+});

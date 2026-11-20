@@ -16,7 +16,7 @@ import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { clearOfCar, altitude, floorsNear } from './elevator.mjs';
+import { clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
@@ -168,7 +168,13 @@ export function createRaxServer({
   // of the tower. What stood inside each goes up to its handle's floor; both
   // ledgers are kept as they stood (geography.before-houses.json,
   // objects.before-houses.json). Runs once: after it there are no houses.
-  // (The lobby has no screens of its own: what stands there is what someone put there. object-store.mjs `standing` is how a place would be given some.)
+  // 📺 The lobby's own screens: three KidLisp pieces running on its walls,
+  // facing in (east, west, and north beside the car), so there is always
+  // something live to walk up to. Each is four metres wide. They are the
+  // building's, not anyone's: told with the room's own screens and never
+  // written down (object-store.mjs standing).
+  store.standing = { [GROUND]: [['roz', 7.2, 4.6, 90], ['bop', -7.2, 4.6, 270], ['berz', 4.9, 7.7, 0]]
+    .map(([code, x, z, yaw]) => ({ id: `lobby-${code}`, owner: null, code, x, z, yaw, at: 0 })) };
   const ready = loaded.then(async () => {
     const pods = Object.values(geography.geography.pods);
     if (!pods.length) return;
@@ -225,7 +231,7 @@ export function createRaxServer({
   // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
   // which floor is theirs.
   const hasCar = (key) => key === GROUND || isFloorRoom(key);
-  // The elevator is solid on every floor; the lobby's glass and desk on the ground.
+  // The elevator is solid on every floor; the lobby's glass on the ground.
   const wallsFor = (key) => [...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
@@ -842,6 +848,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       arrived = true;
       passing = false;
       Object.assign(body, pass.position);
+      // 🛗 Come by the car: its door is shut for what is left of the ride (world.mjs `shut`).
+      if (pass.ride) {
+        member.ride = pass.ride;
+        body.shut = Math.max(0, shutTicks(pass.ride.seconds, HZ) - Math.round(((Date.now() - pass.at) * HZ) / 1000));
+      }
       // The time on the way was lived: the commands given in it are owed a run.
       room.match.owe(member.seat, Math.round(((Date.now() - pass.at) * HZ) / 1000));
       sendTower(ws, key, member); // whose floor this is, known with the passage
@@ -1152,7 +1163,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const receipt = randomUUID();
         // 🛗 A rider stays where they stand in the car, looking where they look: the car moves, they do not. (No facing is given, so the page keeps its own.)
         const stood = { x: p.x, z: p.z };
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, at: Date.now(), until: Date.now() + 30000 });
+        // 🚪 How long the car runs, as the page counts it (asked while it ran, it starts from where it is): the door is shut for that long, and the rider walks about inside.
+        const was = member.ride, since = was ? (Date.now() - was.at) / 1000 : Infinity;
+        const running = was && since < was.seconds ? was.span * (1 - rideEase(since / was.seconds)) : 0;
+        const span = altitude(here ? here.number : 0) - altitude(found ? found.number : 0) + running;
+        const run = { at: Date.now(), span, seconds: rideSeconds(span) };
+        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, ride: run, at: Date.now(), until: Date.now() + 30000 });
         // ⚽ A ball in the car rides with it.
         if (ball.ball.room === key && inCar(ball.ball)) { ball.ball.room = destination; keepBall(); }
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...stood },

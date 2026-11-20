@@ -226,7 +226,7 @@ test('one message from a guest does not wipe the plaza\'s builds, paint and scre
     const guest = await d.enter('guest-passer-by');
     guest.send({ type: 'clear-room' }); // no menu sends this any more; the socket still takes it
     await delay(200);
-    const left = { builds: d.app.store.objects('lobby').length, paint: Object.keys(d.app.store.tiles('lobby')).length, screens: d.app.store.screens('lobby').length };
+    const left = { builds: d.app.store.objects('lobby').length, paint: Object.keys(d.app.store.tiles('lobby')).length, screens: d.app.store.screens('lobby').filter((s) => s.owner).length }; // (the lobby's own three are not anyone's)
     assert.deepEqual(left, { builds: 2, paint: 3, screens: 1 });
   } finally { await d.close(); }
 });
