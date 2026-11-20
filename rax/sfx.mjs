@@ -195,6 +195,12 @@ export class Sfx {
   }
 
   // Game.
+  // 🌀 A drone warps home: a tone falling away, a breath of hiss, and one rising where it lands.
+  warp() {
+    this.voice(880, 0.3, { slide: 0.2, volume: 0.03, type: 'square' });
+    this.noise(0.6, { volume: 0.025, from: 3200, to: 200 });
+    this.voice(140, 0.3, { slide: 5, volume: 0.03, type: 'square', at: 0.35 });
+  }
   jump() {
     this.voice(220, 0.09, { slide: 1.8, volume: 0.025, type: 'square' });
   }

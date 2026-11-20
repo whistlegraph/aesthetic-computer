@@ -62,12 +62,12 @@ const DRONE_LEGEND = {
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['space', 'Space'], ' up / ', ['shift', ['ShiftLeft', 'ShiftRight']], ' down'],
     [['q', 'KeyQ'], ['r', 'KeyR'], ' roll / ', ['e', 'KeyE'], ' fast / ', ['v', 'KeyV'], ' drone'],
-    [['z', 'KeyZ'], ' lock on / ', ['f', 'KeyF'], ' full screen'],
+    [['z', 'KeyZ'], ' lock / ', ['b', 'KeyB'], ' warp / ', ['f', 'KeyF'], ' full screen'],
   ],
   pad: [
     '[LS] move / [RS] look / [LB] down / [RB] up',
     '[LT] [RT] roll / [A] fast / [Y] drone',
-    '[X] lock on / [BACK] full screen',
+    '[X] lock on / [B] warp / [BACK] full screen',
   ],
   touch: ['look'],
 };
@@ -76,9 +76,9 @@ const DRONE_LEGEND = {
 const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
-  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
+  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, lock: 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
-  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, fast: 0xffe066, drone: 0xb46bff, 'full screen': 0xb0b0ff,
+  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, 'full screen': 0xb0b0ff,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
@@ -2271,7 +2271,7 @@ export async function createView(canvas) {
       const { unit } = hud;
       // 📍 World position in metres (x y z), small, after a handle: yours
       // bottom left, everyone else's over their head.
-      const where = (p) => [[p.x.toFixed(1), AXIS.x], [(p.y || 0).toFixed(1), AXIS.y], [p.z.toFixed(1), AXIS.z]];
+      const where = (p) => [['x ' + p.x.toFixed(1), AXIS.x], ['y ' + (p.y || 0).toFixed(1), AXIS.y], ['z ' + p.z.toFixed(1), AXIS.z]];
       const m = model(({ rect: worldRect, text, handleText, small }) => {
         const place = (p, left, y, n = 0, beside = false) => {
           // 🍄 In the arena the count is the point; elsewhere it follows the position.
@@ -2281,7 +2281,7 @@ export async function createView(canvas) {
             const cx = left + (smallWidth(t) / 2) * unit;
             small(t, cx + unit, y - unit, 0.000002, unit, INK);
             small(t, cx, y, 0, unit, c);
-            left += (smallWidth(t) + 3) * unit;
+            left += (smallWidth(t) + 6) * unit;
           }
         };
         // (Your own position is in the column beside the face cam.)
@@ -3052,11 +3052,11 @@ export async function createView(canvas) {
           row -= 10;
         }
         let left = x0;
-        for (const [t, c] of [[(camera.x + (place?.x || 0)).toFixed(1), AXIS.x], [(camera.y || 0).toFixed(1), AXIS.y], [(camera.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
+        for (const [t, c] of [['x ' + (camera.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (camera.y || 0).toFixed(1), AXIS.y], ['z ' + (camera.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
           const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + row * unit;
           small(t, cx + unit, cy - unit, 0.000002, unit, INK);
           small(t, cx, cy, 0, unit, c);
-          left += (smallWidth(t) + 3) * unit;
+          left += (smallWidth(t) + 6) * unit;
         }
       });
       projector.overlay(m, W, H);
@@ -3120,11 +3120,11 @@ export async function createView(canvas) {
           if (me) {
             const pt = nextSlot();
             let left = x0 + 27 * unit;
-            for (const [t, c] of [[(me.x + (place?.x || 0)).toFixed(1), AXIS.x], [(me.y || 0).toFixed(1), AXIS.y], [(me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
+            for (const [t, c] of [['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
               const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
               small(t, cx + unit, cy - unit, 0.000002, unit, INK);
               small(t, cx, cy, 0, unit, c);
-              left += (smallWidth(t) + 3) * unit;
+              left += (smallWidth(t) + 6) * unit;
             }
           }
         // Braincells beside the cam: a pixel brain and the count, in purple.

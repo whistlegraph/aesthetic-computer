@@ -630,7 +630,29 @@ let holdTime = 0,
   devLog = [];
 // Behind the curtain the camera looks into a corner, so two walls, the
 // ceiling and the dotted floor all show and the room reads as a room.
-let freecam = { x: -3, y: 2.1, z: -WORLD + 2, yaw: 28, pitch: -7 };
+const DRONE_HOME = { x: -3, y: 2.1, z: -WORLD + 2, yaw: 28, pitch: -7 };
+let freecam = { ...DRONE_HOME };
+// 🌀 Warp: a drone, however far it has flown, jumps back to where drones begin (B, on the keys and on a pad). The picture comes apart on the way out and together again on the way in; it is moved at the middle, when least can be seen.
+const WARP_MS = 700;
+let warp = null; // { at, moved } while one is under way
+function startWarp() {
+  if (seat >= 0 || warp || game()) return;
+  warp = { at: performance.now(), moved: false };
+  sfx.warp();
+}
+function stepWarp(now) {
+  if (!warp) return 0;
+  const t = (now - warp.at) / WARP_MS;
+  if (t >= 0.5 && !warp.moved) {
+    warp.moved = true;
+    setLock(null);
+    freecam = { x: DRONE_HOME.x, y: DRONE_HOME.y, z: DRONE_HOME.z };
+    yaw = DRONE_HOME.yaw; pitch = DRONE_HOME.pitch;
+    droneRoll = 0;
+  }
+  if (t >= 1) return (warp = null), 0;
+  return 0.9 * Math.sin(Math.PI * t);
+}
 let freecamPlaced = false;
 let lookAt = 0, lookSaid = ''; // When and what this eye last told the room of itself.
 // Just arrived and not seated yet (the seat waits for a signed-in handle):
@@ -1947,6 +1969,7 @@ document.addEventListener('keydown', (e) => {
   // 🚁 Looking on, F fills the screen (as VIEW does on a pad) and Escape lets a lock go (as B does).
   if (seat < 0 && e.code === 'KeyF' && !e.repeat && !typing()) fullScreen();
   if (seat < 0 && lockOn && e.code === 'Escape') { setLock(null); e.preventDefault(); return; }
+  if (seat < 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) startWarp(); // 🌀 (as B does on a pad)
   // 🚁 Looking on, V steps back to see your own drone.
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
@@ -2261,7 +2284,10 @@ function step(now) {
   // LB toggles a lock on the aimed object; while locked, B removes it (the
   // lock is the confirmation) and RB changes it.
   // (Looking on, LB flies down, so the lock is on X; B lets go.)
-  if (seat < 0 && lockOn && gamepad.cancel) setLock(null);
+  if (seat < 0 && gamepad.cancel && !radial.open && !prompt.open && !chalkMode) {
+    if (lockOn) setLock(null);
+    else { startWarp(); gamepad.cancel = false; } // 🌀 with nothing to let go, B warps it home
+  }
   if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !prompt.open) {
     setLock(lockOn ? null : focusObject?.id || null);
     sfx[lockOn ? 'ringOpen' : 'ringBack']();
@@ -2850,7 +2876,7 @@ function step(now) {
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
     // 📉 Going down, the picture comes apart: how far gone, 0 to 1, over the outage's first five seconds.
-    decay: sfx.down(sheetOpen && down ? Math.min(1, (now - (downSince ?? now)) / 5000) : 0) || sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0),
+    decay: Math.max(stepWarp(now), sfx.down(sheetOpen && down ? Math.min(1, (now - (downSince ?? now)) / 5000) : 0) || sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0)),
     // 📟 The server quiet for a moment (not yet an outage), or the page just back on new code.
     wire: !sheetOpen || down ? null
       : ws?.readyState === WebSocket.OPEN && connection.lastSnapshot !== null && now - connection.lastSnapshot > 400 && !held
