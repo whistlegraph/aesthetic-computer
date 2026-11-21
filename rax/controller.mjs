@@ -79,7 +79,7 @@ export class Controller {
       // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
       result.jump = edge(0);
       result.select = edge(0);
-      // LB locks on while seated. RB builds or uses an item.
+      // LB enters a screen or locks onto an object while seated. RB builds or uses an item.
       result.ring = edge(4);
       result.use = edge(5);
       result.dup = edge(12);

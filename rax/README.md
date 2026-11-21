@@ -40,10 +40,10 @@ message bubble) and build (a cube). What the thing in view offers (paint, chalk,
 remove, lock on, use, drop) appears as a cap above them; typing a build, a ring cap opens
 the build ring. Chat types on the top line, as a build does.
 
-**Controller:** A jumps and the left trigger zooms. LB locks onto a target on foot
-(X as a drone). Press it again to focus on a screen. D-pad left/right cycles targets
-even while focused. On a kiosk, move the pointer with the left stick and press A to
-interact. B backs out. With an object locked on foot, B removes it.
+**Controller:** A jumps and the left trigger zooms. Aim at a screen and press LB once to go in (X as a drone).
+On other objects the same button locks on. The right stick moves the reticle within
+the selected target. Releasing the stick leaves it in place. On a kiosk, A presses
+at the reticle. D-pad left/right cycles targets. B or the entry button leaves a screen. With an object locked on foot, B removes it.
 RB opens the build ring or uses the item in hand. X paints floor squares or drops an
 item. Start returns to the prompt. D-pad right opens the $ menu when there is no
 lock. In the elevator, d-pad up/down selects a floor. In the build ring, point with

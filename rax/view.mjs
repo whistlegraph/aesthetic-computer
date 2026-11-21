@@ -35,7 +35,11 @@ import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
 import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
-import { cursorOver } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
+import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
+
+// The HUD cannot sample the world behind it. Draw the shared cursor's solid
+// strokes there; interactive panels blend the full cursor into their pixels.
+const reticleStrokes = cursorCells().filter(([, , ink]) => ink !== cursorInks.glow);
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
@@ -48,7 +52,7 @@ export const LEGEND = {
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint'],
-    [['z', 'KeyZ'], ' lock on / ', ['del', ['Delete', 'Backspace']], ' remove'],
+    [['z', 'KeyZ'], ' lock or go in / ', ['del', ['Delete', 'Backspace']], ' remove'],
     [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
   pad: [
@@ -56,7 +60,7 @@ export const LEGEND = {
     '[A] jump / [LT] zoom / [Y] camera',
     '[RB] build / [RB] use / [X] drop',
     '[X] paint',
-    '[LB] lock on / [B] remove',
+    '[LB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
   ],
   touch: [], // The thumb areas and the icons name themselves.
@@ -80,7 +84,7 @@ const DRONE_LEGEND = {
 const ACTION_COLORS = {
   move: 0x6bb6ff, turn: 0x8fd3ff, look: 0x8fd3ff, jump: 0x3fb950, jumps: 0x3fb950,
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
-  paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, lock: 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
+  cursor: 0x00ffff, paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, lock: 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
   up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, zoom: 0x8fd3ff, density: 0xb0b0ff, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, 'full screen': 0xb0b0ff,
 };
@@ -1319,8 +1323,10 @@ export async function createView(canvas) {
     menu = null,
     removeArmed = null,
     lockedOn = false,
+    lockCursor = null,
+    screenCursor = null,
     nearZoom = 1, // 🔎 the focus zoom (client.mjs): the lens closed on what is looked at
-    docked = false, // 🖥️ gone in to the locked screen (client.mjs, dock.mjs): it fills the picture and the look is its mouse
+    docked = false,
     notices = [],
     braincells = null,
     spending = false,
@@ -1537,6 +1543,7 @@ export async function createView(canvas) {
     projector.card = backend === 'webgpu';
     projector.under = projector.card ? 1 : 0;
     projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS * curvature;
+    if (camera?.flat) projector.lens *= 1 - camera.flat;
     if (projector.lens) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
@@ -2065,11 +2072,11 @@ export async function createView(canvas) {
           : `chalk ${chalkMode.text}: hold c or right click / enter build / esc cancel`
         : null;
       const whose = (o) =>
-        o.panel // 🧩 a piece on a panel: pressed when in reach, locked on to from anywhere
-          ? `${panels.some((p) => p.cursor) ? (input === 'touch' ? 'tap: press / ' : pad ? '[A] press / ' : '{enter} or click: press / ') : ''}${pad ? '[LB] lock on' : '{z} lock on'}`
+        o.panel || o.screen
+          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[LB]'} go in` : '{z} go in'
         : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
           ? pad ? `[RB] ${o.source ? 'change' : 'build'}` : `{f} ${o.source ? 'change' : 'build'}`
-          : o.owner === owner
+          : spectator ? pad ? '[X] lock on' : '{z} lock on' : o.owner === owner
             ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
             : pad ? '[LB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
@@ -2077,21 +2084,20 @@ export async function createView(canvas) {
       // Locked on, the top-right controls become the lock's own, row for
       // row in the hand in use (2026-11-08).
       const mine = focusObject && focusObject.owner === owner;
+      const screenHint = docked && focusObject
+        ? [named(focusObject),
+            ...(input === 'touch' ? [focusObject.panel ? 'tap: press' : 'leave'] : [
+              pad ? `[RS] cursor${focusObject.panel ? ' / [A] press' : ''}` : focusObject.panel ? '{enter} or click: press' : '',
+              pad ? '[DH] next / [B] leave' : '{[} {]} next / {esc} leave',
+            ])].filter(Boolean).join('\n')
+        : null;
       const lockHint = lockedOn && focusObject
         ? [
             `${named(focusObject)} locked`,
-            ...(focusObject.panel
-              ? docked // 🖥️ gone in: the look is its mouse, and the way out is named
-                ? [input === 'touch' ? 'tap: press' : pad ? '[A] press / [DH] next' : '{enter} or click: press / {[} {]} next', ...(input === 'touch' ? [] : [pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave'])]
-                : [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? `${spectator ? '[X]' : '[LB]'} go in` : '{z} go in'}`, pad ? '[DH] next / [B] unlock' : `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
-              : focusObject.screen // 📺 a standing screen is gone in to as well, to fill the picture
-              ? docked
-                ? [...(input === 'touch' ? [] : [pad ? '[DH] next' : '{[} {]} next']), pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave']
-                : pad ? [`${spectator ? '' : '[RB] build / '}${spectator ? '[X]' : '[LB]'} go in`, '[DH] next / [B] unlock'] : [`${spectator ? '' : '{f} build / '}{z} go in`, `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
-              : pad
-              ? focusObject.wall
-                ? [`[RB] ${focusObject.source ? 'change' : 'build'} / [LB] unlock`]
-                : [`${mine ? '[RB] change / ' : ''}[B] remove`, '[DH] next / [LB] unlock']
+            ...(pad
+              ? spectator ? ['[RS] cursor / [DH] next', '[X] unlock'] : focusObject.wall
+                ? ['[RS] cursor / [LB] unlock']
+                : [`${mine ? '[RB] change / ' : ''}[B] remove`, '[RS] cursor / [DH] next', '[LB] unlock']
               : focusObject.wall
                 ? [`{f} ${focusObject.source ? 'change' : 'build'} / {z} unlock`]
                 : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
@@ -2100,13 +2106,13 @@ export async function createView(canvas) {
       // What the highlighted object offers ([B] remove, [LB] unlock, its
       // name and owner) is drawn at the object itself (2026-11-03); the
       // corner keeps only the general hint.
-      const objectHint = lockHint
+      const objectHint = screenHint || (lockHint
         ? lockHint
         : confirming
           ? confirming
           : focusObject
             ? `${named(focusObject)}${focusObject.wall ? '' : ` v${focusObject.version}`}\n${whose(focusObject)}`
-            : null;
+            : null);
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       // In the car the floor comes first: before paint, and on touch too.
       const waterHint = basement && me && (me.boat ? 'move to row / jump to swim'
@@ -2198,8 +2204,8 @@ export async function createView(canvas) {
                     // and taking a handle belong to the paper, 2026-11-18.)
                     // (Three short rows, as a walker's are: each key lights while it is down, each action in its colour.)
                     ...legendRows(input === 'touch' ? 'touch' : controller ? 'pad' : 'keys', held, DRONE_LEGEND),
-                    // 🖥️ Locked on to a screen or a piece on a panel, a drone is told how to go in to it and come out.
-                    ...(lockHint && (focusObject.panel || focusObject.screen) ? lockHint.split('\n').map((l) => colourRow(hintSpans(l, THEME.text))) : []),
+                    // Target controls for the drone.
+                    ...(objectHint && (focusObject?.panel || focusObject?.screen || lockedOn) ? objectHint.split('\n').map((l) => colourRow(hintSpans(l, THEME.text))) : []),
                   ]
                 : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint
@@ -2926,7 +2932,7 @@ export async function createView(canvas) {
     // prompt's crosshair fades with the paper, so this one must already be
     // there, solid, under it, and stay until the paper is whole again.
     const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
+    if ((me?.alive || reticle || (spectator && (lockCursor || screenCursor))) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
@@ -2937,7 +2943,7 @@ export async function createView(canvas) {
       // Locked on: the corners surround the object on screen instead of
       // closing in on the centre. Its world box projects to a screen box,
       // padded a little and kept at least as big as the resting reticle.
-      let box = null;
+      let box = null, cursorRegion = null;
       if (lockedOn && focusObject) {
         let world = null;
         if (focusObject.box) world = focusObject.box; // (a standing screen, or a thing in another room: its box is told)
@@ -2975,16 +2981,14 @@ export async function createView(canvas) {
           if (Number.isFinite(l) && Number.isFinite(r)) {
             const pad = 3 * unit;
             const clamp = (v, lim) => Math.max(-lim, Math.min(lim, v));
-            const left = clamp(Math.round((l * W) / 2) - pad, W / 2 - 2 * unit),
-              right = clamp(Math.round((r * W) / 2) + pad, W / 2 - 2 * unit),
-              bottom = clamp(Math.round((b * H) / 2) - pad, H / 2 - 2 * unit),
-              top = clamp(Math.round((u * H) / 2) + pad, H / 2 - 2 * unit);
-            const min = 2 * half;
+            const limitX = W / 2 - 2 * unit, limitY = H / 2 - 2 * unit;
+            cursorRegion = {
+              left: clamp(Math.round(l * W / 2), limitX), right: clamp(Math.round(r * W / 2), limitX),
+              bottom: clamp(Math.round(b * H / 2), limitY), top: clamp(Math.round(u * H / 2), limitY),
+            };
             box = {
-              left: Math.min(left, -min / 2),
-              right: Math.max(right, min / 2),
-              bottom: Math.min(bottom, -min / 2),
-              top: Math.max(top, min / 2),
+              left: clamp(cursorRegion.left - pad, limitX), right: clamp(cursorRegion.right + pad, limitX),
+              bottom: clamp(cursorRegion.bottom - pad, limitY), top: clamp(cursorRegion.top + pad, limitY),
             };
             // Arms grow with the box, up to a quarter of its shorter side.
             arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
@@ -2998,10 +3002,21 @@ export async function createView(canvas) {
       const shifted = projector.shiftX || projector.shiftY;
       const cx0 = shifted ? Math.round((projector.shiftX * W) / 2) : reticleShift ? reticleShift.x : cursor && !box ? Math.round(cursor.x * pxc - W / 2) : 0,
         cy0 = shifted ? Math.round((projector.shiftY * H) / 2) : reticleShift ? reticleShift.y : cursor && !box ? Math.round(H / 2 - cursor.y * pxc) : 0;
+      let cursorX, cursorY;
+      if (screenCursor) {
+        const { face, cursor } = screenCursor;
+        const across = (0.5 - cursor.x / face.cols) * face.w, angle = face.yaw * Math.PI / 180;
+        const point = projector.project(face.x + across * Math.cos(angle), face.y + (0.5 - cursor.y / face.rows) * face.h, face.z - across * Math.sin(angle));
+        if (point) { cursorX = Math.round(point.x * W / 2); cursorY = Math.round(point.y * H / 2); }
+      } else if (lockCursor) {
+        const region = cursorRegion || { left: -half, right: half, top: half, bottom: -half };
+        cursorX = Math.round(region.left + (region.right - region.left) * lockCursor.x);
+        cursorY = Math.round(region.top + (region.bottom - region.top) * lockCursor.y);
+      }
       const m = model(({ rect: worldRect, text }) => {
         // rect(left, bottom, w, h): screen x right, y up, whole pixels.
         const rect0 = flip(worldRect);
-        const rect = (x, y, z, w, h, color) => rect0(x + cx0, y + cy0, z, w, h, color);
+        const rect = lockCursor || screenCursor ? rect0 : (x, y, z, w, h, color) => rect0(x + cx0, y + cy0, z, w, h, color);
         // The highlighted object's offer, under its bracket (or the reticle).
         if (objectHintSpans) {
           const cx = box ? (box.left + box.right) / 2 : 0, under = (box ? box.bottom : -half) - 4 * unit;
@@ -3011,7 +3026,7 @@ export async function createView(canvas) {
           rect(x + t, y - t, 0.000002, w, h, INK);
           rect(x, y, 0, w, h, color);
         };
-        for (const sx of [-1, 1])
+        if (!screenCursor) for (const sx of [-1, 1])
           for (const sy of [-1, 1]) {
             // The corner's outer pixel, then arms running inward.
             const x = box ? (sx < 0 ? box.left - t : box.right) : sx < 0 ? -half - t : half,
@@ -3019,13 +3034,12 @@ export async function createView(canvas) {
             L(sx < 0 ? x : x - arm + t, y, arm, t);
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
-        if (lockedOn) {
-          // A small diamond instead of a dot.
-          L(-t / 2, t, t, t);
-          L(-t / 2 - t, 0, t, t);
-          L(-t / 2 + t, 0, t, t);
-          L(-t / 2, -t, t, t);
-        } else L(-t, -t, 2 * t, 2 * t);
+        if (Number.isFinite(cursorX)) {
+          for (const [dx, dy, ink] of reticleStrokes) {
+            const shadow = ink === cursorInks.shadow;
+            rect(cursorX + dx * t, cursorY - dy * t, shadow ? 0.000002 : 0, t, t, shadow ? INK : 0x00ffff);
+          }
+        } else if (!screenCursor) L(-t, -t, 2 * t, 2 * t);
       });
       projector.overlay(m, W, H);
     }
