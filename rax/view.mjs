@@ -32,7 +32,7 @@ import { Projector } from './project.mjs';
 import { PLANET, FAR, landTiles } from './planet.mjs';
 import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
-import { cursorCells } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
+import { cursorOver } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
@@ -3602,14 +3602,18 @@ export async function createView(canvas) {
       if (!p.cursor) continue;
       // The mouse: AC's one software cursor (lib/cursor-shape.mjs, the same mark a pad's stick moves on the prompt's paper), laid on the panel's own pixels a hair proud of the face: a soft dab of light, and over it a dot and four arms on their shadow; closed up and yellow while pressed.
       const cell = p.w / p.cols, row = p.h / p.rows, mx = Math.floor(p.cursor.x), my = Math.floor(p.cursor.y);
+      // (Nothing here is see-through, so the glow is mixed into the panel's own pixels under it: lib/cursor-shape.mjs cursorOver. One face a pixel, a hair proud of the glass.)
+      const lit = cursorOver((dx, dy) => {
+        const px = mx + dx, py = my + dy;
+        if (px < 0 || py < 0 || px >= p.cols || py >= p.rows) return null;
+        const k = (py * p.cols + px) * 4;
+        return [p.pixels[k], p.pixels[k + 1], p.pixels[k + 2]];
+      }, !!p.cursor.down);
       projector.draw(model(({ quad }) => {
-        // (Three layers, the dab nearest the glass: the cells come in that order.)
-        for (const [dx, dy, [r, g, b], layer] of cursorCells(!!p.cursor.down)) {
-          const px = mx + dx, py = my + dy;
-          if (px < 0 || py < 0 || px >= p.cols || py >= p.rows) continue;
-          const z = [-0.0015, -0.003, -0.005][layer];
-          const x = p.w / 2 - (px + 0.5) * cell, y = p.h / 2 - (py + 0.5) * row;
-          quad([x + cell / 2, y - row / 2, z], [x - cell / 2, y - row / 2, z], [x - cell / 2, y + row / 2, z], [x + cell / 2, y + row / 2, z], (r << 16) | (g << 8) | b);
+        for (const [key, [r, g, b]] of lit) {
+          const [dx, dy] = key.split(',').map(Number), z = -0.003;
+          const x = p.w / 2 - (mx + dx + 0.5) * cell, y = p.h / 2 - (my + dy + 0.5) * row;
+          quad([x + cell / 2, y - row / 2, z], [x - cell / 2, y - row / 2, z], [x - cell / 2, y + row / 2, z], [x + cell / 2, y + row / 2, z], (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b));
         }
       }), p.x, p.y, p.z, yaw);
     }

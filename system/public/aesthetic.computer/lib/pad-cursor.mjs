@@ -57,8 +57,8 @@ html.pad-cursor #pad-cursor { display: block; }`;
 
   function draw() {
     g.clearRect(0, 0, SIZE, SIZE);
-    for (const [dx, dy, [r, gr, b]] of cursorCells(down)) {
-      g.fillStyle = `rgb(${r}, ${gr}, ${b})`;
+    for (const [dx, dy, [r, gr, b], a] of cursorCells(down)) {
+      g.fillStyle = `rgba(${r}, ${gr}, ${b}, ${a})`;
       g.fillRect(MID + dx, MID + dy, 1, 1);
     }
   }
