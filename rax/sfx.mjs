@@ -165,17 +165,28 @@ export class Sfx {
     r.out.gain.setTargetAtTime(n ? (0.006 + 0.008 * w) * n * n * MASTER : 0, t, 0.3);
     r.depth.gain.setTargetAtTime(n ? 0.0006 * n * n * MASTER : 0, t, 0.3);
   }
-  // Two quiet sines cross as the body accelerates and the head turns.
-  motion(travel = 0, turn = 0) {
+  motion(travel = 0, turn = 0, onFoot = false) {
     if (!this.ready) return;
     const active = travel > 0 || turn > 0;
     if (!active && !this.motionActive) return;
     this.motionActive = active;
     const a = this.audio, t = a.currentTime;
+    if (onFoot && travel > 0) {
+      if (this.lastStrideAt == null || t - this.lastStrideAt > 0.2) this.stride = 1;
+      else this.stride += (t - this.lastStrideAt) * (1.15 + 2 * travel);
+      this.lastStrideAt = t;
+      if (this.stride >= 1) {
+        this.stride %= 1;
+        this.leftFoot = !this.leftFoot;
+        const pitch = this.leftFoot ? 184 : 165;
+        this.voice(pitch, 0.105, { slide: 0.52, volume: 0.022 + 0.014 * travel });
+        this.noise(0.055, { from: 1800 + 900 * travel, to: 420, volume: 0.012 + 0.008 * travel });
+      }
+    } else this.lastStrideAt = null;
     if (!this.motionVoices) {
-      this.motionVoices = [0, 1].map(() => {
+      this.motionVoices = ['sine', 'triangle'].map(type => {
         const tone = a.createOscillator(), out = a.createGain();
-        tone.type = 'sine';
+        tone.type = type;
         out.gain.value = 0;
         tone.connect(out).connect(a.destination);
         tone.start();
@@ -184,10 +195,10 @@ export class Sfx {
     }
     const [body, head] = this.motionVoices;
     body.tone.frequency.setTargetAtTime(125 + 85 * travel, t, 0.09);
-    head.tone.frequency.setTargetAtTime(255 - 80 * turn, t, 0.05);
+    head.tone.frequency.setTargetAtTime(360 + 260 * turn, t, 0.035);
     // Give each frame a short audio-clock lease. A suspended render loop
     // releases both notes even if it never delivers the final idle frame.
-    for (const [voice, level, fade] of [[body, 0.002 * travel, 0.08], [head, 0.0025 * turn, 0.06]]) {
+    for (const [voice, level, fade] of [[body, onFoot ? 0 : 0.002 * travel, 0.08], [head, 0.024 * Math.sqrt(turn), 0.025]]) {
       const gain = voice.out.gain;
       gain.cancelScheduledValues(t);
       gain.setTargetAtTime(level * MASTER, t, fade);

@@ -350,6 +350,7 @@ function focusStep(elapsed) {
 }
 let padHolds = false, keyHolds = false; // a panel pressed and held by a pad's A, or by Enter
 let lastMotionLook = null;
+let sticksMoving = false;
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
@@ -2777,7 +2778,9 @@ function step(now) {
       send({ type: 'chalk-dust' });
     }
   }
-  if (gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
+  const sticksNow = sheetOpen && !!(gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY);
+  if ((!sfx.ready && sticksNow && !sticksMoving) || gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
+  sticksMoving = sticksNow;
   dragBrush();
   // START goes to the prompt, as the corner says: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it leaves for the prompt, as Escape does. (The $ is on the d-pad.)
   if (gamepad.start && !hosted) leave();
@@ -3272,11 +3275,13 @@ function step(now) {
     const flyingInput = gamepad.fwd || gamepad.right || gamepad.up || pad.fwd || pad.right ||
       ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].some(key => keys.has(key));
     const speed = seat < 0 ? (flyingInput ? Math.hypot(movingBody.vx, movingBody.vy, movingBody.vz) : 0)
-      : movingBody.onGround ? Math.hypot(movingBody.vx, movingBody.vz) : 0;
+      : movingBody.onGround && !movingBody.swimming && !movingBody.boat ? Math.hypot(movingBody.vx, movingBody.vz) : 0;
     const prev = lastMotionLook;
     const continuous = prev && prev.room === room && prev.seat === seat && prev.life === movingBody.life && elapsed > 0 && elapsed < 0.2;
     const angle = continuous && !lockOn ? Math.hypot(((yaw - prev.yaw + 540) % 360) - 180, pitch - prev.pitch) : 0;
-    sfx.motion(clamp((speed - 0.6) / 8, 0, 1), clamp((angle / Math.max(elapsed, 1 / 240) - 10) / 145, 0, 1));
+    const travel = clamp((speed - 0.1) / 10, 0, 1);
+    const turn = clamp(angle / Math.max(elapsed, 1 / 240) / 145, 0, 1);
+    sfx.motion(travel, turn, seat >= 0);
     lastMotionLook = { room, seat, life: movingBody.life, yaw, pitch };
   } else if (lastMotionLook) {
     lastMotionLook = null;
