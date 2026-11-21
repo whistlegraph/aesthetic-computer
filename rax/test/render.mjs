@@ -72,6 +72,23 @@ try {
     await page.evaluate(() => view.render(state));
     const backend = await page.evaluate(() => document.getElementById('game').dataset.engine);
     assert.equal(backend, fallback ? 'webgl2' : 'webgpu');
+    const orbitSizes = await page.evaluate(() => {
+      const canvas = document.getElementById('game');
+      const bounds = () => {
+        const {left, top, width, height} = canvas.getBoundingClientRect();
+        return [left, top, width, height, canvas.width, canvas.height];
+      };
+      view.grid({pixel: 2, left: 10, top: 4, width: 630, height: 390});
+      view.render({bare: true, orbit: 1});
+      const parked = bounds();
+      view.render({bare: true, orbit: 0.9, reticle: true});
+      const flying = bounds();
+      view.grid(null);
+      view.render(state);
+      return {parked, flying};
+    });
+    assert.deepEqual(orbitSizes.parked, [1182, 696, 88, 88, 176, 176], 'display-density globe centered on the inset paper cursor');
+    assert.deepEqual(orbitSizes.flying, [0, 0, 1280, 800, 640, 400], 'the flight restores the full paper grid');
     // Observe the same fence from the same world position before and after
     // the local origin moves to the neighbouring block.
     const fencePixels = async (east) => {

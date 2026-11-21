@@ -1053,8 +1053,10 @@ export async function createView(canvas) {
   }
   let aspect = 1,
     pixelScale = 1,
-    paperLeft = 0, paperBottom = 0,
+    paperLeft = 0, paperRight = 0, paperBottom = 0,
     grid = null; // The host's pixel grid, when the prompt is the paper over us.
+  const orbitInset = 22; // Prompt pixels from the paper edge to the reticle center.
+  let cornerViewport = false;
   function resize() {
     if (grid) {
       // Pixel-matched to the prompt (2026-11-03): one buffer pixel is one of
@@ -1072,14 +1074,31 @@ export async function createView(canvas) {
       const cols = Math.ceil((innerWidth - left) / p),
         rows = Math.ceil((innerHeight - top) / p);
       paperLeft = Math.round((grid.left - left) / p);
+      paperRight = Number.isFinite(grid.width) ? cols - paperLeft - grid.width : 0;
       paperBottom = Number.isFinite(grid.height)
         ? rows - Math.round((grid.top - top) / p) - grid.height : 0;
+      // Behind the paper, only this patch contains a picture. Sample the same
+      // live scene at display density, with extra samples along its silhouette.
+      if (cornerViewport) {
+        const side = 2 * orbitInset * p;
+        const samples = Math.max(1, Math.min(512, Math.ceil(side * devicePixelRatio * 2)));
+        Object.assign(canvas.style, {
+          position: 'absolute', left: `${left + (cols - paperRight) * p - side}px`,
+          top: `${top + (rows - paperBottom) * p - side}px`,
+          width: `${side}px`, height: `${side}px`, imageRendering: 'auto',
+        });
+        host.resize(samples, samples);
+        aspect = 1;
+        pixelScale = side / samples;
+        return;
+      }
       Object.assign(canvas.style, {
         position: 'absolute',
         left: `${left}px`,
         top: `${top}px`,
         width: `${cols * p}px`,
         height: `${rows * p}px`,
+        imageRendering: '',
       });
       host.resize(cols, rows);
       aspect = (cols * p) / (rows * p);
@@ -1406,6 +1425,11 @@ export async function createView(canvas) {
     const ledges = game?.ledges || null;
     const start = performance.now(),
       now = start;
+    const parked = !!grid && bare && orbit === 1 && !reticle;
+    if (parked !== cornerViewport) {
+      cornerViewport = parked;
+      resize();
+    }
     const solidObjects = objects.filter((o) => !o.item);
     lastWorldTime = worldTime;
     // 👀 Looking on, the connection's meter stays away: it sat over the controls.
@@ -1478,13 +1502,15 @@ export async function createView(canvas) {
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
       const height = atlasRadius * 1.8;
       const natural = atlasRadius / Math.sqrt(height * (height + 2 * atlasRadius)) * canvas.height / (2 * tan);
-      orbitZoom = Math.pow((15 * cornerScale) / natural, orbit * orbit * (3 - 2 * orbit));
+      const samplesPerCell = cornerViewport ? canvas.width / (2 * orbitInset) : 1;
+      orbitZoom = Math.pow((15 * cornerScale * samplesPerCell) / natural, orbit * orbit * (3 - 2 * orbit));
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
       // the host's grid a buffer pixel is a prompt pixel.
-      const inset = grid ? 22 : 22 * px;
-      const cornerX = (canvas.width - inset) / canvas.width * 2 - 1, cornerY = 1 - (canvas.height - inset) / canvas.height * 2;
+      const inset = grid ? orbitInset : orbitInset * px;
+      const cornerX = cornerViewport ? 0 : 1 - 2 * (inset + (grid ? paperRight : 0)) / canvas.width;
+      const cornerY = cornerViewport ? 0 : 2 * (inset + (grid ? paperBottom : 0)) / canvas.height - 1;
       const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
       projector.shiftX = cornerX * (1 - e0);
       projector.shiftY = cornerY * (1 - e0);
@@ -1568,7 +1594,7 @@ export async function createView(canvas) {
     if (nearZoom !== 1 && !docked && orbit <= 0) { projector.sx *= nearZoom; projector.sy *= nearZoom; } // 🔎 (after `natural`: going in to a screen works its own zoom from the lens as it is without this)
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
-    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
+    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: cornerViewport ? 0 : FOVEA, aa: cornerViewport ? 1 : AA } : null;
     const radius = orbit > 0 ? orbitalRadius : PLANET;
     projector.planet = (game?.camera || basement) && orbit <= 0 ? 0 :
       TRY.planet ?? (curvature > 0 ? radius / curvature : 0);
@@ -3931,7 +3957,7 @@ export async function createView(canvas) {
       hostDark = typeof dark === 'boolean' ? dark : null;
     },
     grid(g) {
-      const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0, height: g.height } : null;
+      const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0, width: g.width, height: g.height } : null;
       if (JSON.stringify(next) === JSON.stringify(grid)) return;
       grid = next;
       if (!grid) canvas.style.cssText = '';
