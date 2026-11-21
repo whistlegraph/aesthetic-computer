@@ -53,7 +53,7 @@ export const LEGEND = {
     '[RB] build / [RB] use / [X] drop',
     '[X] paint',
     '[LB] lock on / [B] remove',
-    '[START] prompt / dpad right: $ menu',
+    '[START] prompt / [D>] $ menu',
   ],
   touch: [], // The thumb areas and the icons name themselves.
 };
@@ -2253,7 +2253,7 @@ export async function createView(canvas) {
         const place = (p, left, y, n = 0, beside = false) => {
           // 🍄 In the arena the count is the point; elsewhere it follows the position.
           const count = `${n} bop${n === 1 ? '' : 's'}`;
-          const parts = [...(ledges || beside ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : [])];
+          const parts = [...(ledges || beside || !stats ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : [])]; // (metres are the debugging layer's)
           for (const [t, c] of parts) {
             const cx = left + (smallWidth(t) / 2) * unit;
             small(t, cx + unit, y - unit, 0.000002, unit, INK);
@@ -2617,7 +2617,7 @@ export async function createView(canvas) {
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
       // Beside it, what Escape does next: with the mouse held it frees the mouse, and with the mouse free it goes to the prompt.
-      const label = hintSpans(locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim);
+      const label = hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
       const labelW = smallSpanWidth(label, unit);
       cornerRect = { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
       const m = model(({ rect: worldRect, text, small }) => {
@@ -3039,7 +3039,7 @@ export async function createView(canvas) {
           row -= 10;
         }
         let left = x0;
-        for (const [t, c] of [['x ' + (camera.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (camera.y || 0).toFixed(1), AXIS.y], ['z ' + (camera.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
+        for (const [t, c] of !stats ? [] : [['x ' + (camera.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (camera.y || 0).toFixed(1), AXIS.y], ['z ' + (camera.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
           const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + row * unit;
           small(t, cx + unit, cy - unit, 0.000002, unit, INK);
           small(t, cx, cy, 0, unit, c);
@@ -3103,8 +3103,8 @@ export async function createView(canvas) {
             small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
             small(ping, tx, ty, 0, unit, pingColor);
           }
-          // 📍 Where you stand, in metres, each axis in its colour.
-          if (me) {
+          // 📍 Where you stand, in metres, each axis in its colour (the debugging layer's).
+          if (me && stats) {
             const pt = nextSlot();
             let left = x0 + 27 * unit;
             for (const [t, c] of [['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {

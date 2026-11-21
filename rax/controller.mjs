@@ -16,6 +16,7 @@ const zero = () => ({
   ddown: false,
   dleft: false,
   dright: false,
+  debug: false,
   camera: false,
   cancel: false,
   start: false,
@@ -90,6 +91,7 @@ export class Controller {
       result.prompt = edge(2);
       result.camera = edge(3);
       result.start = edge(9);
+      result.debug = edge(11); // the right stick, clicked: the debugging layer
       result.swap = edge(8);
       result.up = Number(buttons[5]) - Number(buttons[4]);
       result.boost = !!buttons[7];

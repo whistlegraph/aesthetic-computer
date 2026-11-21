@@ -2,11 +2,11 @@
 // under the eye, what the ball hides, and how depth is shared out between
 // what is near and what is far. Pure, so the eye that draws (project.mjs),
 // the view and the drone agree, and so they can be tested.
-// The planet's radius, metres: 880 m round, fifty-five blocks. (It was 900.
-// At 140 every far shape had to be halved many times to bend so sharply, the
-// far side cost as much as the near, and layers on the land tore; now what
-// is over the horizon is not worked on, and it costs about what 900 did.)
-export const PLANET = 140;
+// The planet's radius, metres: 300 m round, nineteen blocks: a very small
+// planet, the tower and its yard most of one side of it (2026-11-20; it was
+// 140, 880 m round, and 900 before that). What is over the horizon is not
+// worked on, so a sharper bend costs about what a gentle one did.
+export const PLANET = 48;
 
 // A place in the flat world, measured from the eye (dx, dz across the
 // ground; y its height over the ground), where the ball of radius R puts it:

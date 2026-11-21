@@ -2345,6 +2345,12 @@ function step(now) {
   }
   // VIEW (back) fills the screen with the room, and gives it back.
   if (gamepad.swap) fullScreen();
+  // 🧰 The right stick, clicked, shows and hides the debugging layer, as ` does: the frame meter, where you stand in metres, and the fences on the lines between rooms.
+  if (gamepad.debug) {
+    statsShown = !statsShown;
+    try { localStorage.setItem('rax-stats', statsShown ? '1' : ''); } catch {}
+    sfx.ringMove(statsShown ? 7 : 2);
+  }
   if (menu) {
     // Move with the d-pad or the stick, choose with A, close with B.
     let step = opened ? 0 : (gamepad.ddown ? 1 : 0) - (gamepad.dup ? 1 : 0);
@@ -2869,7 +2875,7 @@ function step(now) {
   tendScreens(now);
   view.render({
     half: half(),
-    seam: { crossing: !!held || now - crossedAt < 400, shown: query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
+    seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
     weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
       ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
