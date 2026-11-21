@@ -69,7 +69,7 @@ export class Pen {
 
   // `point` is a transform function for projecting coordinates from screen
   // space to virtual screen space.
-  constructor(point) {
+  constructor(point, contactChanged) {
     this.point = point;
 
     // Add pointer events.
@@ -197,6 +197,7 @@ export class Pen {
       pen.penCursor = true;
       if (e.pointerType !== "mouse") pen.penCursor = false;
       pen.#event("touch", pointer);
+      contactChanged?.();
       // console.log(pointer.drawing, pointer.device, e.device, pen.penCursor);
     });
 
@@ -318,6 +319,7 @@ export class Pen {
         delete pen.pointers[pointerId];
         if (keys(pen.pointers).length === 0) pen.pointerCount = 0;
       }
+      contactChanged?.();
     }
 
     window.addEventListener("pointerup", up);

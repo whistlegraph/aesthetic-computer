@@ -83,3 +83,43 @@ frame waits does not remove browser scheduling or device buffering. The browser
 reported 24 ms output latency. Menu Band's earlier startup log on this host
 reported 256 frames at 44.1 kHz (5.80 ms) and 1.45 ms presentation time; the
 sample rates differ and this is not a matched keypress comparison.
+
+## Mobile grid and General MIDI taps
+
+From the repository root, run a dedicated headless Chrome session with Pixel 7
+touch emulation and the working tree’s Notepat and input code:
+
+```sh
+node system/scripts/benchmark-notepat-taps.mjs --worktree > taps.json
+```
+
+The runner verifies the grid selection, waits for each of the 128 GM programs
+to decode, and alternates between the two octave blocks. It counts missed taps,
+duplicate starts, and loading-tone substitutions. The default input is a DOM
+pointer press held for 45 ms. Use `--touchscreen` for Chromium’s touchscreen
+tap gesture, or `--batched` to compare the regular display-frame queue.
+`--first 1 --last 1 --taps 48` repeats one program. Omit `--worktree` to test
+the served revision, or pass `--url` to select another running Notepat instance.
+
+Dispatch runs from the browser’s pointer-down handler to the sampled voice’s
+Web Audio `start()` call. Estimated output start maps the scheduled source
+start to the output clock with `getOutputTimestamp()`. A patch’s attack can take
+longer to become audible. The suite measures warm playback and reports
+program-selection time separately. Phone touch hardware and speaker onset
+require a physical-device measurement.
+
+In the November 21, 2026 piano comparison, Chrome 158 on Apple Silicon ran
+48 warm presses in each mode at 48 kHz. Median / p95 dispatch dropped from
+7.3 / 14.9 ms with frame batching to 0.7 / 1.3 ms with the immediate input
+frame. Estimated output start moved from 35.8 / 43.0 ms to 27.8 / 30.6 ms.
+
+A separate Chromium touchscreen run produced exactly one sampled start for
+each of 1,024 taps across all 128 programs. Its dispatch median / p95 was
+14.5 / 16.7 ms. Sample attacks also varied. At the two tested pitches,
+Helicopter took 78–109 ms after source start to cross 0.001 full scale in the
+decoded sample.
+
+The 45 ms press sweep produced one sampled start on all 1,024 presses.
+Across the bank, median / p95 dispatch was 0.6 / 1.2 ms and estimated output
+start was 27.7 / 30.6 ms. Both sweeps and the piano comparison are in the
+[per-program timing report](../reports/notepat-mobile-grid/taps.json).

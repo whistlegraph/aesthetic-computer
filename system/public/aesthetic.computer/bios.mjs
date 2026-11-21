@@ -6043,19 +6043,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Update & Render
   let frameAlreadyRequested = false;
-  let promptRenderPending = false;
+  let inputRenderPending = false;
 
   // Text changes already reach disk immediately. Submit their paint without
   // waiting another display tick, or coalesce behind the one in-flight frame.
   // Zero simulation steps keeps the regular RAF clock authoritative.
   function requestPromptRender() {
     if (!currentPieceHasKeyboard || window.acInputLatencyProbe?.animationFrameOnly) return;
-    promptRenderPending = true;
-    flushPromptRender();
+    requestInputRender();
   }
 
-  function flushPromptRender() {
-    if (!promptRenderPending || frameAlreadyRequested || needsReframe ||
+  function requestInputRender() {
+    inputRenderPending = true;
+    flushInputRender();
+  }
+
+  function flushInputRender() {
+    if (!inputRenderPending || frameAlreadyRequested || needsReframe ||
         document.hidden || window.__acLoopPaused || !screen?.pixels || !keyboard || !gamepad) return;
     requestFrame(true, 0, performance.now());
   }
@@ -6151,7 +6155,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (frameAlreadyRequested) return;
 
-    promptRenderPending = false;
+    inputRenderPending = false;
     frameAlreadyRequested = true;
     if (frameMeter.on) frameMeter.sentAt = performance.now();
     frameCount += 1n;
@@ -14705,6 +14709,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           y: floor(((y - canvasRect.y) / projectedHeight) * screen.height),
         };
         return p;
+      }, () => {
+        // Deliver the ordinary pen queue with its current multi-touch state as
+        // soon as the worker is free. The display clock still owns simulation.
+        if (/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece || "") &&
+            !resolution.tv && window.acNotepatLatency?.mode !== "batched") requestInputRender();
       });
 
       // ⌨️ Keyboard
@@ -22104,7 +22113,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } finally {
       frameAlreadyRequested = false; // 🗨️ Signal readiness for the next frame.
       clearFrameStallWatchdog();
-      flushPromptRender();
+      flushInputRender();
     }
     // if (lastRender) console.log(performance.now() - lastRender)
     // lastRender = performance.now()

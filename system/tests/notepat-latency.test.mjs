@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fastNotepatKey, createNotepatLatency, summarizeLatency } from '../public/aesthetic.computer/lib/notepat-latency.mjs';
 import { notepatModeBar } from '../public/aesthetic.computer/lib/notepat-mode-bar.mjs';
-import { classicNotepatLayout, notepatGridHeight } from '../public/aesthetic.computer/lib/notepat-layout.mjs';
+import { classicNotepatLayout, filledNotepatPad, notepatGridHeight } from '../public/aesthetic.computer/lib/notepat-layout.mjs';
 
 test('only musical keys bypass frames, preserving pending shortcut order and cold audio', () => {
   for (const key of ['c', 'z', '9', ';', "'", ']', 'shift']) for (const action of ['down', 'up']) {
@@ -74,5 +74,28 @@ test('cached pad bitmap includes the octave gap and the entire bottom row', () =
     const l=classicNotepatLayout(screen,{top:21});
     const lastRowY=l.splitLayout ? 2*l.buttonHeight : 5*l.buttonHeight+l.octaveGap;
     assert.equal(notepatGridHeight(l),lastRowY+l.buttonHeight);
+  }
+});
+
+test('mobile grid covers every playing pixel once, including odd sizes and both octave seams', () => {
+  for (const [width, height, side] of [[195, 409, 0], [409, 195, 0], [243, 443, 17], [443, 243, 17]]) {
+    const top = 21;
+    const layout = classicNotepatLayout({ width, height }, { top, bottom: 0, side, fill: true });
+    const usableWidth = width - side;
+    const pixels = new Uint8Array(usableWidth * (height - top));
+    for (let i = 0; i < 24; i++) {
+      const pad = filledNotepatPad(layout, i);
+      assert.ok([pad.x, pad.y, pad.w, pad.h].every(Number.isInteger));
+      assert.ok(pad.x >= 0 && pad.y >= top && pad.x + pad.w <= usableWidth && pad.y + pad.h <= height);
+      for (let y = pad.y; y < pad.y + pad.h; y++) {
+        for (let x = pad.x; x < pad.x + pad.w; x++) pixels[(y - top) * usableWidth + x]++;
+      }
+      if (i < 12) {
+        const other = filledNotepatPad(layout, i + 12);
+        if (layout.splitLayout) assert.deepEqual([pad.y, pad.h], [other.y, other.h]);
+        else assert.deepEqual([pad.x, pad.w], [other.x, other.w]);
+      }
+    }
+    assert.ok(pixels.every(count => count === 1));
   }
 });
