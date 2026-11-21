@@ -191,7 +191,8 @@ export function createPanels() {
     point(hit) {
       if (pinned) return; // a finger is on a panel: the crosshair waits
       if (hot && hot.panel !== hit?.panel) {
-        if (held === hot.panel) { held.act('lift', -1, -1); held = null; }
+        // (An instrument's panel, `completes`, is let go where it was held, so a note pressed is a note finished when its player turns or walks away; any other is let go out in the open.)
+        if (held === hot.panel) { held.completes ? held.act('lift', held.pen.x, held.pen.y) : held.act('lift', -1, -1); held = null; }
         off(hot.panel);
       }
       hot = hit;

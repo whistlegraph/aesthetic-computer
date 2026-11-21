@@ -185,7 +185,7 @@ async function mountYard() {
         return voice;
       } };
       const { piece, host } = await acPiece(slug, { sound, seed: id, clock: () => Date.now() + (clockOffset || 0) });
-      const panel = panels.mount({ id, label: slug, piece, host, x, y, z, yaw: 0, ...face, deep: 0.1 });
+      const panel = panels.mount({ id, label: slug, completes: true, piece, host, x, y, z, yaw: 0, ...face, deep: 0.1 });
       // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
       const act = panel.act;
       let toldAt = 0;
@@ -200,6 +200,26 @@ async function mountYard() {
       yardPanels.push(panel);
       yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: y + face.h / 2 + 0.17, z, yaw: 0, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     }
+    // 🎹 The big notepat surface: across the courtyard's south-west side, facing the tower. Two octaves, a pad the size of a hand.
+    const { notepatPiece } = await import('./ac-piece.mjs');
+    const at = { x: -4.9, y: 1.5, z: -7.6 }, id = 'yard-notepat';
+    const piece = await notepatPiece({ sound: { synth: ({ type, tone }) => {
+      const tones = sfx.hold(Number(tone), { type, at }), voice = { update: (to) => tones.update(to), kill: (fade) => { yardVoices.delete(voice); tones.kill(fade); } };
+      yardVoices.add(voice);
+      return voice;
+    } } });
+    const board = panels.mount({ id, label: 'notepat', completes: true, piece, ...at, yaw: 180, w: 4.8, h: 2, cols: 240, rows: 100, deep: 0.12 });
+    const act = board.act;
+    let toldAt = 0;
+    board.act = (name, px, py, device) => {
+      act(name, px, py, device);
+      if (name === 'move' || seat < 0 || room !== 'lobby') return;
+      const now = performance.now();
+      if (name === 'draw' && now - toldAt < 50) return;
+      toldAt = now;
+      send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
+    };
+    yardPanels.push(board);
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
 let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen

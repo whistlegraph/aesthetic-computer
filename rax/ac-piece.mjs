@@ -85,6 +85,58 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   return { slug, piece: { boot: disk.boot, paint: disk.paint, sim: disk.sim, leave: disk.leave, act }, host };
 }
 
+// 🎹 A big notepat surface: notepat's two classic octaves of pads, laid out
+// and coloured by notepat's own libraries (lib/notepat-layout.mjs,
+// lib/notepat-render.mjs), each note in its hue. A pad held is a note held;
+// a slide to the next pad moves the note; every hand in the room has its own
+// (panel.mjs tells whose). The whole notepat disk is not hosted here: it
+// asks for far more of AC than a panel has. This is its playing surface.
+const PAD_NOTES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+export async function notepatPiece({ sound, wave = 'sine', octave = 4, base = AC } = {}) {
+  const [{ classicNotepatLayout }, { notepatNoteColor, notepatPadColors, notepatPalette }] = await Promise.all(
+    ['notepat-layout', 'notepat-render'].map((lib) => import(new URL(`lib/${lib}.mjs`, base).href)));
+  const palette = notepatPalette(true);
+  let pads = [];
+  const held = new Map(); // pointer → { pad, voice }
+  const padAt = (x, y) => pads.find((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h) || null;
+  const start = (pointer, pad) => held.set(pointer, { pad, voice: sound.synth({ type: wave, tone: freq(`${pad.octave}${pad.note}`), duration: '🔁' }) });
+  const stop = (pointer, fade = 0.08) => { held.get(pointer)?.voice?.kill(fade); held.delete(pointer); };
+  return {
+    boot({ screen }) {
+      const lay = classicNotepatLayout(screen, { top: 11, bottom: 1 });
+      pads = [];
+      for (let side = 0; side < 2; side++)
+        for (let n = 0; n < 12; n++) {
+          const col = n % 4, row = Math.floor(n / 4);
+          const x = (side ? lay.rightOctaveX : lay.leftOctaveX) + col * lay.buttonWidth;
+          const y = lay.topButtonY + (lay.splitLayout ? row : row + side * 3) * lay.buttonHeight + (lay.splitLayout ? 0 : side * lay.octaveGap);
+          pads.push({ note: PAD_NOTES[n], octave: octave + side, x: lay.splitLayout ? x : lay.leftOctaveX + col * lay.buttonWidth, y, w: lay.buttonWidth, h: lay.buttonHeight });
+        }
+    },
+    paint({ wipe, ink, box, write, text, screen }) {
+      wipe(palette.background);
+      ink(palette.bar).box(0, 0, screen.width, 10);
+      ink(palette.text).write('notepat', { x: 3, y: 1 });
+      const sounding = [...held.values()].map((h) => `${h.pad.note}${h.pad.octave}`.toUpperCase()).join(' ');
+      if (sounding) ink(palette.accent).write(sounding, { x: screen.width - text.width(sounding) - 3, y: 1 });
+      for (const pad of pads) {
+        const sharp = pad.note.includes('#'), active = [...held.values()].some((h) => h.pad === pad);
+        const colors = notepatPadColors(notepatNoteColor(pad.note), sharp, true, active);
+        ink(colors.fill).box(pad.x + 1, pad.y + 1, pad.w - 2, pad.h - 2);
+        const label = pad.note.toUpperCase();
+        ink(colors.text).write(label, { x: pad.x + Math.floor((pad.w - text.width(label)) / 2), y: pad.y + Math.floor((pad.h - text.height()) / 2) });
+      }
+    },
+    act({ event: e }) {
+      const pointer = e.pointer || 1, pad = e.x >= 0 ? padAt(e.x, e.y) : null;
+      if (e.is('touch')) { stop(pointer, 0.02); if (pad) start(pointer, pad); }
+      else if (e.is('draw')) { const now = held.get(pointer); if (now && pad && pad !== now.pad) { stop(pointer, 0.04); start(pointer, pad); } }
+      else if (e.is('lift')) stop(pointer);
+    },
+    leave() { for (const pointer of [...held.keys()]) stop(pointer, 0.05); },
+  };
+}
+
 // 🪧 The sign over a panel: what runs on it, as it would be typed.
 export const signPiece = (label) => ({
   paint({ wipe, ink, write, screen, text }) {
