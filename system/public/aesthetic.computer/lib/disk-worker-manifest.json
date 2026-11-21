@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.4b2e6b26ad1e.mjs",
-  "sha256": "4b2e6b26ad1eea633f21bb9cf4913770f96c42d39c3631e3c2ce2d2d66200a7e",
-  "bytes": 1853976,
-  "sourceSha256": "26291b6f47d725b0004a7d501a4fc64079da9a5524f1435b3878535a986d920c",
+  "filename": "disk.worker.d47aaa223373.mjs",
+  "sha256": "d47aaa223373966b45500c6349d1aa6c7f1fff5183a441e80a5550d5ed1ff137",
+  "bytes": 1856105,
+  "sourceSha256": "d47d91430a343e481048562e0f0e6e77063493f9f0ac4bf8bf30b20b6dd795af",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -62,6 +62,7 @@
     "public/aesthetic.computer/lib/redact.mjs",
     "public/aesthetic.computer/lib/restricted-api.mjs",
     "public/aesthetic.computer/lib/rich-text.mjs",
+    "public/aesthetic.computer/lib/scream.mjs",
     "public/aesthetic.computer/lib/shop.mjs",
     "public/aesthetic.computer/lib/site-metadata.mjs",
     "public/aesthetic.computer/lib/socket.mjs",
