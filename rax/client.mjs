@@ -223,6 +223,27 @@ async function mountYard() {
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
 let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen
+// 🤖 Agents linked to this handle (the presence relay AC's own pages join: lib/agent-presence.mjs). rax takes a place in the handle's room itself and draws the mark after the name, on its own grid: no page element over the picture.
+const agentLink = { room: null, socket: null, agents: 0, tryAt: 0 };
+function linkAgents(handle, now) {
+  const room = String(handle || '').toLowerCase().replace(/^@/, '');
+  const fits = /^[a-z0-9_-]{1,32}$/.test(room) && !/^(localhost|127\.)/.test(location.hostname);
+  if (agentLink.room !== (fits ? room : null)) {
+    try { agentLink.socket?.close(); } catch {}
+    Object.assign(agentLink, { room: fits ? room : null, socket: null, agents: 0, tryAt: 0 });
+  }
+  if (!agentLink.room || agentLink.socket || now < agentLink.tryAt) return;
+  agentLink.tryAt = now + 30000;
+  let socket;
+  try { socket = new WebSocket(`wss://session-server.aesthetic.computer/agent-presence?room=${agentLink.room}&role=surface`); } catch { return; }
+  agentLink.socket = socket;
+  socket.onmessage = (e) => {
+    try { const said = JSON.parse(e.data); if (said.type === 'agent-presence:status' && agentLink.socket === socket) agentLink.agents = (said.content?.agents || []).length; } catch {}
+  };
+  socket.onclose = () => { if (agentLink.socket === socket) { agentLink.socket = null; agentLink.agents = 0; } };
+  socket.onerror = () => { try { socket.close(); } catch {} };
+}
+let padHolds = false, keyHolds = false; // a panel pressed and held by a pad's A, or by Enter
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
@@ -2019,7 +2040,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Enter' && !e.repeat) {
     e.preventDefault();
     // 🖼️ Aimed at a world panel, Enter presses it.
-    if (!prompt.open && !menu && !radial.open && !chalkMode && panels.hot) return void panels.tap(performance.now());
+    if (!prompt.open && !menu && !radial.open && !chalkMode && panels.hot) return void (e.repeat || (keyHolds = panels.press())); // (held while the key is down)
     if (seat < 0) return; // Looking on: Enter asks for nothing.
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
@@ -2141,7 +2162,10 @@ function dragBrush() {
   brush.key = key;
   if ((tiles[key] || 0) !== brush.colour) layTile(at, brush.colour);
 }
-document.addEventListener('keyup', (e) => keys.delete(e.code));
+document.addEventListener('keyup', (e) => {
+  keys.delete(e.code);
+  if (keyHolds && (e.code === 'Enter' || e.code === 'NumpadEnter')) { keyHolds = false; panels.release(); }
+});
 document.addEventListener('mousedown', (e) => {
   // 🖼️ A click on a world panel is that panel's (panel.mjs): down now, up on the mouse's release.
   if (locked() && e.button === 0 && panels.hot && !menu && !radial.open && !prompt.open) {
@@ -2387,10 +2411,13 @@ function step(now) {
     gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
   }
   // 🖼️ Aimed at a world panel, A or RB presses it, and does nothing else.
+  // (A is held for as long as it is down, so a pad is played and slid across as a mouse does it; RB is a tap.)
   if (!menu && !radial.open && !prompt.open && panels.hot && (gamepad.select || gamepad.use)) {
-    panels.tap(now);
+    if (gamepad.select) padHolds = panels.press();
+    else panels.tap(now);
     gamepad = { ...gamepad, select: false, use: false };
   }
+  if (padHolds && !gamepad.hold) { padHolds = false; panels.release(); }
   // 🛗 In the car the d-pad rides a floor up or down.
   if (!menu && seat >= 0 && hasCar() && inCar(player) && (gamepad.dup || gamepad.ddown)) send({ type: 'elevator', to: gamepad.dup ? 'up' : 'down' });
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
@@ -2845,6 +2872,7 @@ function step(now) {
     logNet(`paper away → body there in ${ms} ms`, { good: true });
     console.info(`⏱️ rax tab in: ${ms} ms`);
   }
+  linkAgents(members.find((m) => (seat >= 0 ? m.seat === seat : owner && m.owner === owner))?.handle, now);
   const lift = liftAt(now), sky = plazaFrom();
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
@@ -2915,6 +2943,7 @@ function step(now) {
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
     controller: controller.id,
     stats: statsShown && sheetOpen && sheetShown, // (not over the prompt's paper)
+    agents: agentLink.agents,
     // 🚁 The drone's dials, bottom centre: miles an hour, the rotors' turns a minute, feet up.
     gauge: seat < 0 && !held && sheetOpen && snapshot ? (() => {
       const v = Math.hypot(freecam.vx || 0, freecam.vy || 0, freecam.vz || 0);

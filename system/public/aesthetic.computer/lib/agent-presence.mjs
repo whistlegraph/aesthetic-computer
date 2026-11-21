@@ -47,32 +47,18 @@ function drawMark(canvas, tick) {
   px(PINK, 2, 14, 12, 2);
 }
 
-// Where the mark stands. A piece that shows the handle (the prompt) says
-// where the label ends and the mark is a small postfix there, raised like a
-// superscript; anywhere else it keeps the bottom-right corner, with its count.
-let anchor = null; // { x, y, h, canvas() } in the piece's own pixels
-export function anchorAgentMark(at, canvas) {
-  anchor = at && Number.isFinite(at.x) && Number.isFinite(at.y) ? { ...at, canvas } : null;
+// Where the mark stands: the bottom-right corner, with its count. A piece
+// that shows the handle (the prompt) draws the mark itself, after the name
+// and in its own pixels, and so does rax; this one stands down for them, so
+// no page element is ever laid over a picture's own interface.
+let pieceDraws = false;
+export function anchorAgentMark(at) {
+  pieceDraws = !!at;
   place();
 }
 function place() {
   if (!mark) return;
-  const { box, canvas, label } = mark;
-  const piece = anchor?.canvas?.(), frame = piece?.getBoundingClientRect?.();
-  const postfix = !!(frame && piece.width && frame.width);
-  // (As a postfix it is sized by the piece's own pixels, a little under the handle's letters.)
-  const k = postfix ? frame.width / piece.width : 1;
-  const size = postfix ? Math.min(3, Math.max(1, Math.round(k * 0.55 * 2) / 2)) : SCALE;
-  canvas.style.width = `${W * size}px`;
-  canvas.style.height = `${H * size}px`;
-  label.style.display = postfix ? "none" : "";
-  if (postfix) {
-    Object.assign(box.style, {
-      left: `${Math.round(frame.left + (anchor.x - 1) * k)}px`,
-      top: `${Math.round(frame.top + anchor.y * k - H * size * 0.5)}px`,
-      right: "auto", bottom: "auto",
-    });
-  } else Object.assign(box.style, { left: "auto", top: "auto", right: "8px", bottom: "8px" });
+  mark.box.style.visibility = pieceDraws || window.acRaxSheet?.up ? "hidden" : "visible";
 }
 
 function ensureMark() {

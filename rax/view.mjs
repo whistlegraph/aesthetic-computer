@@ -1228,6 +1228,7 @@ export async function createView(canvas) {
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
     sunAt = null, shadows = true, // 🌑 a fixed sun and a switch, for measuring shadows
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
+    agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
@@ -2144,7 +2145,7 @@ export async function createView(canvas) {
       }));
       if (labels.length && me && !bare)
         ownTag = {
-          x: -width / 2 + safeX + 2 + (labels[0].label.length * 6 + 3) * unit,
+          x: -width / 2 + safeX + 2 + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0)) * unit, // (past the linked-agent mark, when one stands there)
           y: Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit),
         };
       const meter = (connection?.label || '').toLowerCase();
@@ -2154,6 +2155,7 @@ export async function createView(canvas) {
           : '';
       const key = JSON.stringify([
         labels,
+        agents,
         meter,
         jitter,
         connection?.bars,
@@ -2203,6 +2205,14 @@ export async function createView(canvas) {
               unit,
               handle ? colors : PAPER,
             );
+            // 🤖 An agent linked to your handle stands after it: an antenna and a head, drawn on this grid as the name is, in the space the position beside it leaves.
+            if (agents && handle && i === labels.length - 1) {
+              const gx = x + (label.length * 6 + 2) * unit;
+              for (const [dx, dy, w, h, color] of [[2, 7, 3, 1, 0x46c85a], [3, 6, 1, 1, 0x46c85a], [1, 5, 5, 1, 0xb44887], [0, 2, 7, 3, 0xb44887], [1, 1, 5, 1, 0x782c5c], [1, 3, 1, 1, 0xffffff], [5, 3, 1, 1, 0xffffff]]) {
+                rect(gx + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
+                rect(gx + dx * unit, y - 7 * unit + dy * unit, 0, w * unit, h * unit, color);
+              }
+            }
           });
           if ((meter || (SHOW_FPS && fps)) && !face && !bare && !game) {
             // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.

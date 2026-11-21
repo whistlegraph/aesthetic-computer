@@ -7813,16 +7813,16 @@ function paint($) {
       );
     }
 
-    // 🤖 A linked agent's mark stands on the handle as a postfix (lib/agent-presence.mjs): bios is told where the label ends, when that moves and now and then.
-    if (profile) {
-      const at = profile.btn.box, key = `${at.x + at.w},${at.y},${at.h}`;
-      if (key !== agentAnchor.key || ++agentAnchor.paints > 240) {
-        agentAnchor = { key, paints: 0 };
-        $.send({ type: "agent-mark:anchor", content: { x: at.x + at.w, y: at.y, h: at.h } });
-      }
-    } else if (agentAnchor.key) {
-      agentAnchor = { key: null, paints: 0 };
-      $.send({ type: "agent-mark:anchor", content: null });
+    // 🤖 An agent linked to this handle stands after it, in the prompt's own pixels: an antenna and a head, at the scale the handle is drawn at. The prompt takes its own place in the handle's presence room (the relay lib/agent-presence.mjs joins), and tells bios it draws the mark so no page element is laid over the picture.
+    linkAgents(profile && profileAction === "profile" ? $.handle?.() : null);
+    if (profile && agentLink.agents) {
+      const at = profile.btn.box, gx = at.x + at.w + 2, gy = at.y + Math.max(0, Math.floor((at.h - 8) / 2));
+      for (const [dx, dy, w, h, color] of [[2, 0, 3, 1, [70, 200, 90]], [3, 1, 1, 1, [70, 200, 90]], [1, 2, 5, 1, [180, 72, 135]], [0, 3, 7, 3, [180, 72, 135]], [1, 6, 5, 1, [120, 44, 92]], [1, 4, 1, 1, [255, 255, 255]], [5, 4, 1, 1, [255, 255, 255]]])
+        $.ink(color).box(gx + dx, gy + dy, w, h);
+    }
+    if (!agentAnchor.key || ++agentAnchor.paints > 240) {
+      agentAnchor = { key: "own", paints: 0 };
+      $.send({ type: "agent-mark:anchor", content: { own: true } });
     }
 
     // ꜩ Tezos wallet button (positioned to the right of handle button)
@@ -7836,7 +7836,7 @@ function paint($) {
       const btnTextWithSymbol = "  " + balanceText; // 2 spaces for the ꜩ symbol
 
       // Position to the right of profile button with a gap
-      const gap = 6; // Gap between handle and wallet buttons
+      const gap = 6 + (agentLink.agents ? 10 : 0); // Gap between handle and wallet buttons (and room for the linked-agent mark)
       const profileBox = profile.btn.box;
       const walletBtnY = profileBox.y; // Same Y as profile button
 
@@ -9531,7 +9531,8 @@ function meta() {
 function leave(api) {
   motdController?.abort(); // Abort any motd update.
   agentAnchor = { key: null, paints: 0 };
-  api?.send?.({ type: "agent-mark:anchor", content: null }); // The mark goes back to its own corner.
+  linkAgents(null);
+  api?.send?.({ type: "agent-mark:anchor", content: null }); // The page's own mark stands in again.
   // The mime sheet answers only on the prompt's curtain (2026-11-03): disarm
   // it on the way out, or a scroll in the next piece pulls it up.
   api?.send?.({ type: "mime:sheet", content: { action: "armed", on: false } });
@@ -10330,7 +10331,26 @@ function poePlayClear(synth, style) {
 // bottom-left corner (2026-11-03), clear of the mime wordmark at the bottom
 // centre and rax's crosshair at the bottom right.
 const WELCOME_MARGIN = 6;
-let agentAnchor = { key: null, paints: 0 }; // where the linked-agent mark was last told to stand
+let agentAnchor = { key: null, paints: 0 }; // when bios was last told the prompt draws the linked-agent mark itself
+const agentLink = { room: null, socket: null, agents: 0, tryAt: 0 };
+function linkAgents(handle) {
+  const room = String(handle || "").toLowerCase().replace(/^@/, "");
+  const fits = /^[a-z0-9_-]{1,32}$/.test(room), now = Date.now();
+  if (agentLink.room !== (fits ? room : null)) {
+    try { agentLink.socket?.close(); } catch {}
+    Object.assign(agentLink, { room: fits ? room : null, socket: null, agents: 0, tryAt: 0 });
+  }
+  if (!agentLink.room || agentLink.socket || now < agentLink.tryAt || typeof WebSocket === "undefined") return;
+  agentLink.tryAt = now + 30000;
+  let socket;
+  try { socket = new WebSocket(`wss://session-server.aesthetic.computer/agent-presence?room=${agentLink.room}&role=surface`); } catch { return; }
+  agentLink.socket = socket;
+  socket.onmessage = (e) => {
+    try { const said = JSON.parse(e.data); if (said.type === "agent-presence:status" && agentLink.socket === socket) agentLink.agents = (said.content?.agents || []).length; } catch {}
+  };
+  socket.onclose = () => { if (agentLink.socket === socket) { agentLink.socket = null; agentLink.agents = 0; } };
+  socket.onerror = () => { try { socket.close(); } catch {} };
+}
 function welcomePos(screen) {
   return { left: WELCOME_MARGIN, bottom: WELCOME_MARGIN, screen };
 }
