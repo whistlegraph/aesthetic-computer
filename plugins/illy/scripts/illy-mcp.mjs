@@ -201,6 +201,7 @@ function falInput(plan, model) {
   const [width, height] = plan.size.split("x").map(Number);
   const input = { ...(model.defaults || { num_images: 1 }), [fields.prompt || "prompt"]: plan.prompt };
   if (fields.size) input[fields.size] = { width, height };
+  if (fields.quality && plan.quality) input[fields.quality] = plan.quality;
   if (fields.aspectRatio) input[fields.aspectRatio] = nearestRatio(width, height, model.aspectRatios || ["1:1"]);
   if (fields.reference && plan.refs[0]) input[fields.reference] = dataUri(plan.refs[0]);
   if (fields.references && plan.refs.length) input[fields.references] = plan.refs.map(dataUri);
