@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
-import { geometry, objectBoxes, poseObject } from '../objects.mjs';
+import { geometry, objectBoxes, poseObject, distantBoxes } from '../objects.mjs';
+import { sourceGeometry } from '../object-language.mjs';
 import { ObjectStore } from '../object-store.mjs';
 import { createRaxServer } from '../server.mjs';
 import { connectBuilder } from '../aesel.mjs';
@@ -26,6 +27,14 @@ const stairs = {
     color: 0x69bfff,
   })),
 };
+test('distant builds keep separated parts and their source colours within eight boxes', () => {
+  const shape = sourceGeometry({ name: 'lights', source: '(ink 255 0 0) (repeat 7 i (move -3 (* i .4) 0 (slab 0 0 0 .2 .2 .2))) (ink 0 0 255) (repeat 7 i (move 3 (* i .4) 0 (slab 0 0 0 .2 .2 .2)))' });
+  const coarse = distantBoxes(shape);
+  assert.ok(coarse.length >= 2 && coarse.length <= 8);
+  assert.ok(coarse.every(b => b.w < 1), 'the gap between the lights stays open');
+  assert.ok(coarse.some(b => b.x < 0 && b.color >> 16 > 100));
+  assert.ok(coarse.some(b => b.x > 0 && (b.color & 255) > 100));
+});
 const wait = async (fn) => {
   for (let i = 0; i < 200; i++) {
     if (fn()) return;

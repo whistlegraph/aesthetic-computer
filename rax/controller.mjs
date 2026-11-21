@@ -10,7 +10,9 @@ const zero = () => ({
   prompt: false,
   hold: false,
   select: false,
-  ring: false,
+  focus: false,
+  build: false,
+  triggerHeld: false,
   use: false,
   dup: false,
   ddown: false,
@@ -79,9 +81,10 @@ export class Controller {
       // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
       result.jump = edge(0);
       result.select = edge(0);
-      // LB enters a screen or locks onto an object while seated. RB builds or uses an item.
-      result.ring = edge(4);
-      result.use = edge(5);
+      result.build = edge(4);
+      result.focus = edge(5);
+      result.use = edge(7);
+      result.triggerHeld = !!buttons[7] && !changed && this.focused;
       result.dup = edge(12);
       result.ddown = edge(13);
       result.floorDirection = Number(!!buttons[12]) - Number(!!buttons[13]);

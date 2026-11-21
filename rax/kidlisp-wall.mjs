@@ -3,6 +3,7 @@
 // view lays onto a wall as a grid of coloured cells. Fades, rainbows, spin,
 // zoom, scroll, blur and contrast all come from the same code AC runs.
 
+import { pointerEvent } from './panel.mjs';
 import { KidLisp } from './ac/lib/kidlisp.mjs';
 import * as graph from './ac/lib/graph.mjs';
 
@@ -83,11 +84,18 @@ export async function kidlispWall(code, { width = 96, height = 54, source: given
   try {
     piece?.boot?.(api);
   } catch {}
+  let pen = { x: 0, y: 0 };
   return {
     source,
     width,
     height,
     pixels: display.pixels,
+    point(name, x, y) {
+      graph.setBuffer(display);
+      const event = { ...pointerEvent(name, x, y, 'gamepad'), delta: { x: x - pen.x, y: y - pen.y } };
+      pen = { x, y };
+      piece?.act?.({ event, api });
+    },
     // One frame of the program; errors leave the last good frame.
     step() {
       try {

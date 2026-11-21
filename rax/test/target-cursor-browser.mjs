@@ -8,6 +8,8 @@ import { kioskPlan } from '../kiosks-plan.mjs';
 
 const app = createRaxServer({ guests: true, listHandles: async () => [] });
 await app.ready;
+await app.store.commit({ room: 'lobby', objectId: 'poker', item: 'poke', owner: 'fixture', baseVersion: -1, x: 6, z: -2 },
+  { name: 'poker', boxes: [{ x: 0, y: 0.2, z: 0, w: 0.2, h: 0.4, d: 0.2, color: 0xff44dd }] });
 await app.store.commit({ room: 'lobby', objectId: 'cube', owner: 'fixture', baseVersion: -1, x: 0, z: -6 },
   { name: 'cube', boxes: [{ x: 0, y: 1, z: 0, w: 1, h: 2, d: 1, color: 0x2299ff }] });
 app.server.listen(0, '127.0.0.1');
@@ -21,12 +23,16 @@ try {
     const event = JSON.parse(payload);
     if (event.type === 'panel' && event.name === 'touch') panelPresses.push(event);
   }));
+  page.on('websocket', ws => ws.on('framereceived', ({ payload }) => {
+    if (JSON.parse(payload).events?.some(e => e.type === 'poke')) void page.evaluate(() => { window.testPoked = true; }).catch(() => {});
+  }));
   page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => {
     window.testPad = { connected: true, id: 'test', index: 0, axes: [0, 0, 0, 0],
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
     Object.defineProperty(navigator, 'getGamepads', { value: () => [testPad] });
   });
+  await page.route('**/kidlisp-source?*', route => route.fulfill({ json: { source: '(wipe 0 220 255) (if down (wipe 255 0 0))' } }));
   await page.goto(`http://127.0.0.1:${app.server.address().port}/?debug&room=lobby`);
   await page.waitForFunction(() => window.raxDebug?.().player && raxDebug().panels.includes('yard-0'));
   const sample = () => page.evaluate(() => raxDebug());
@@ -77,15 +83,20 @@ try {
 
   const kiosk = kioskPlan('lobby')[0];
   await aim('panel:' + kiosk.id, kiosk.x, kiosk.z - 1.8, 0);
-  await button(4);
+  await button(5);
   await page.waitForFunction(id => raxDebug().dock?.id === id && raxDebug().dock.t === 1, 'panel:' + kiosk.id);
   assert.equal((await sample()).lock, null);
   await exerciseCursor(true);
+  const before = await sample();
+  await page.evaluate(() => { testPad.axes[0] = 0.8; });
+  await page.waitForFunction(x => Math.abs(raxDebug().player.x - x) > 0.3, before.player.x);
+  await page.evaluate(() => { testPad.axes[0] = 0; });
+  assert.deepEqual((await sample()).dock.cursor, before.dock.cursor);
   const { cursor, hot } = (await sample()).dock;
   assert.equal(hot.id, kiosk.id);
   assert.equal(hot.x, cursor.x);
   assert.equal(hot.y, cursor.y);
-  await button(0);
+  await button(7);
   const press = panelPresses.at(-1);
   assert.deepEqual([press?.id, press?.x, press?.y], [kiosk.id, Math.round(cursor.x), Math.round(cursor.y)]);
   await button(1);
@@ -93,22 +104,36 @@ try {
 
   const cube = app.store.get('lobby', 'cube');
   await aim('cube', cube.x, cube.z + 2.5, 180);
-  await button(4);
+  await button(5);
   await page.waitForFunction(() => raxDebug().lock === 'cube');
   await exerciseCursor(false, { x: 1, y: 1 });
-  await button(15);
+  for (let n = 0; n < 12 && !(await sample()).dock; n++) await button(15);
   await page.waitForFunction(() => !!raxDebug().dock && !raxDebug().lock);
-  await button(4);
+  await button(5);
   await page.waitForFunction(() => !raxDebug().dock && !raxDebug().lock);
 
   await aim('screen:lobby-bop', -5, 4.6, 270);
-  await button(4);
+  await button(5);
   await page.waitForFunction(() => raxDebug().dock?.id === 'screen:lobby-bop' && raxDebug().dock.t === 1);
   await exerciseCursor(true, { x: 159.99, y: 89.99 });
+  await page.waitForFunction(() => raxDebug().dock.pixel?.[1] === 220);
+  await page.evaluate(() => { testPad.buttons[7].pressed = true; });
+  await page.waitForFunction(() => raxDebug().dock.pixel?.[0] === 255 && raxDebug().dock.pixel?.[1] === 0);
+  await page.evaluate(() => { testPad.buttons[7].pressed = false; });
+  await page.waitForFunction(() => raxDebug().dock.pixel?.[1] === 220);
   await button(1);
   await page.waitForFunction(() => !raxDebug().dock);
-  await aim('panel:car-pad', CAR_PAD.x, CAR_Z, CAR_PAD.yaw);
+  const match = app.rooms.get('lobby').match;
+  match.items.get('poker').holder = match.seats.find(Boolean).player.seat;
+  await page.waitForFunction(() => raxDebug().holding === 'poker');
+  await button(7);
+  await page.waitForFunction(() => window.testPoked);
+  await button(2);
   await button(4);
+  await page.waitForFunction(() => !!document.querySelector('canvas').raxStats.radial);
+  await button(1);
+  await aim('panel:car-pad', CAR_PAD.x, CAR_Z, CAR_PAD.yaw);
+  await button(5);
   await page.waitForFunction(() => raxDebug().dock?.id === 'panel:car-pad' && raxDebug().dock.t === 1);
   assert.equal((await sample()).lock, null);
   // Move off the up arrow, park on down, and take the elevator to B1.
@@ -120,10 +145,10 @@ try {
   assert.ok(arrow.y < 93);
   await page.waitForTimeout(250);
   assert.deepEqual((await sample()).dock.hot, arrow);
-  await button(0);
+  await button(7);
   await page.waitForFunction(() => raxDebug().room === 'basement' && !raxDebug().dock);
   assert.deepEqual(errors, []);
-  console.log('Single-press screen entry, cycling, exit, and persistent right-stick reticles passed on kiosk, screen, object, and elevator keypad. Rode to B1.');
+  console.log('RB focus, LB build, walking while focused, persistent cursor, RT kiosk click, KidLisp press and release, held poke, and keypad ride to B1 passed.');
 } finally {
   await browser.close();
   await app.close();

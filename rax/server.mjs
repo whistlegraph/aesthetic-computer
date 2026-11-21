@@ -13,7 +13,7 @@ import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
 import { createDispenser, DISPENSER_WALL, MAX_BALLS } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
-import { objectBoxes } from './objects.mjs';
+import { objectBoxes, distantBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
@@ -496,33 +496,53 @@ export function createRaxServer({
       const asked = url.searchParams.get('room') || '';
       const at = asked === 'lobby' ? { i: 0, j: 0 } : parseBlock(asked);
       const blocks = [];
-      if (onLap(at))
+      const contents = (id, distant = false) => {
+        const items = rooms.get(id)?.match.items;
+        const objects = store.objects(id).map(o => {
+          const pose = o.item && items?.get(o.id);
+          const placed = pose ? { ...o, x: pose.x, y: pose.y, z: pose.z } : o;
+          if (!distant) return placed;
+          return { id: o.id, x: placed.x, y: placed.y || 0, z: placed.z, version: o.version,
+            geometry: { name: o.geometry.name, boxes: distantBoxes(o.geometry) }, coarse: true };
+        });
+        return { objects, screens: store.screens(id) };
+      };
+      if (onLap(at)) {
+        const near = new Set();
         for (let dj = -1; dj <= 1; dj++)
           for (let di = -1; di <= 1; di++) {
-            const b = { i: wrap(at.i + di), j: wrap(at.j + dj) }; // 🌍 round the lap
-            const id = blockId(b);
-            blocks.push({
-              id, di, dj, plaza: id === 'lobby',
-              neighbours: geography.geography.neighbours(id),
-              objects: store.objects(id).filter((o) => !o.item),
-              tiles: store.tiles(id),
-            });
+            const id = blockId({ i: wrap(at.i + di), j: wrap(at.j + dj) });
+            near.add(id);
+            blocks.push({ id, di, dj, plaza: id === 'lobby', neighbours: geography.geography.neighbours(id),
+              ...contents(id), tiles: store.tiles(id) });
           }
+        // Beyond the ground tiles only occupied blocks need a record. Send
+        // full models several blocks before their distance tier needs them.
+        const occupied = new Set([...Object.keys(store.data.rooms), ...Object.keys(store.data.screens || {}), 'lobby']);
+        for (const id of occupied) {
+          const cell = parseBlock(id);
+          if (near.has(id) || !onLap(cell)) continue;
+          const di = wrap(cell.i - at.i), dj = wrap(cell.j - at.j);
+          const scenery = contents(id, Math.max(Math.abs(di), Math.abs(dj)) > 5);
+          if (scenery.objects.length || scenery.screens.length)
+            blocks.push({ id, di, dj, sceneryOnly: true, ...scenery });
+        }
+      }
       // 🏢 And the floors of the tower near a height asked for (an eye flying
       // up its side, or standing on one): what stands on each, to be drawn
       // where the floor is. Three storeys either way.
       const y = Number(url.searchParams.get('y')), floors = [];
-      if (asked === 'lobby' && url.searchParams.has('y') && Number.isFinite(y)) {
+      if (onLap(at) && url.searchParams.has('y') && Number.isFinite(y)) {
         for (const n of floorsNear(y, 3)) { // (a short tower: only the floors with a storey of their own)
           const f = tower.tower.at(n);
           if (!f) continue;
           const id = floorRoom(f.id);
-          floors.push({ id, number: n, y: altitude(n), objects: store.objects(id).filter((o) => !o.item), tiles: store.tiles(id) });
+          floors.push({ id, number: n, y: altitude(n), ...contents(id), tiles: store.tiles(id) });
         }
         // 🏙️ And the roof, when it is that near: what its keeper stood on it.
         const top = tower.tower.top;
         if (top && Math.abs(storeyOf(top) + 1 - storeyAt(Math.max(0, y))) <= 3)
-          floors.push({ id: ROOF, number: roofNumber(top), y: roofOf(top), objects: store.objects(ROOF).filter((o) => !o.item), tiles: store.tiles(ROOF) });
+          floors.push({ id: ROOF, number: roofNumber(top), y: roofOf(top), ...contents(ROOF), tiles: store.tiles(ROOF) });
       }
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })

@@ -195,6 +195,47 @@ export function poseObject(object, time = 0) {
   });
   return pose;
 }
+// Large builds keep a coloured silhouette in each occupied octant. Simple
+// builds keep every part. Both sides of a block crossing use the same mesh.
+const silhouettes = new WeakMap();
+function enclose(parts) {
+  const volume = b => b.w * b.h * b.d;
+  const largest = parts.reduce((a, b) => volume(a) >= volume(b) ? a : b);
+  const box = { color: largest.color };
+  for (const [axis, size] of [['x', 'w'], ['y', 'h'], ['z', 'd']]) {
+    const lo = Math.min(...parts.map(p => p[axis] - p[size] / 2));
+    const hi = Math.max(...parts.map(p => p[axis] + p[size] / 2));
+    box[axis] = (lo + hi) / 2;
+    box[size] = Math.max(0.01, hi - lo);
+  }
+  return box;
+}
+export function distantBoxes(shape) {
+  if (silhouettes.has(shape)) return silhouettes.get(shape);
+  let parts = shape.boxes;
+  if (shape.format === OBJECT_FORMAT) {
+    const { boxes, ranges, vertices } = sourceFrame(shape, 0);
+    parts = boxes.map((box, i) => {
+      const [start, end] = ranges[i];
+      if (end <= start) return box;
+      const channel = at => Math.round(vertices[start + at] * 255);
+      return { ...box, color: (channel(3) << 16) | (channel(4) << 8) | channel(5) };
+    });
+  }
+  let result = parts;
+  if (parts.length > 8) {
+    const center = enclose(parts), groups = new Map();
+    for (const p of parts) {
+      const octant = Number(p.x >= center.x) + 2 * Number(p.y >= center.y) + 4 * Number(p.z >= center.z);
+      if (!groups.has(octant)) groups.set(octant, []);
+      groups.get(octant).push(p);
+    }
+    result = Array.from(groups.values(), enclose);
+  }
+  silhouettes.set(shape, result);
+  return result;
+}
+
 export function objectBoxes(objects = [], time = 0) {
   const sampleTime = objects.some(
     (o) => o.geometry.motion || o.geometry.animated,

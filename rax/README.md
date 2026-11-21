@@ -40,11 +40,11 @@ message bubble) and build (a cube). What the thing in view offers (paint, chalk,
 remove, lock on, use, drop) appears as a cap above them; typing a build, a ring cap opens
 the build ring. Chat types on the top line, as a build does.
 
-**Controller:** A jumps and the left trigger zooms. Aim at a screen and press LB once to go in (X as a drone).
+**Controller:** A jumps and the left trigger zooms. Aim at a screen and press RB once to go in (X as a drone).
 On other objects the same button locks on. The right stick moves the reticle within
-the selected target. Releasing the stick leaves it in place. On a kiosk, A presses
-at the reticle. D-pad left/right cycles targets. B or the entry button leaves a screen. With an object locked on foot, B removes it.
-RB opens the build ring or uses the item in hand. X paints floor squares or drops an
+the selected target. Releasing the stick leaves it in place. The left stick still walks while a screen fills the view. RT presses or holds
+at the reticle on kiosks, KidLisp screens, and the elevator keypad. D-pad left/right cycles targets. B or the entry button leaves a screen. With an object locked on foot, B removes it.
+LB opens the build ring. RT uses the item in hand, including a poke. X paints floor squares or drops an
 item. Start returns to the prompt. D-pad right opens the $ menu when there is no
 lock. In the elevator, d-pad up/down selects a floor. In the build ring, point with
 a stick, A adds the highlighted choice, X builds, B undoes the last choice and
@@ -426,7 +426,7 @@ per-character colors from the handle-colors API.
 8BitDo/standard gamepad: left stick moves, right stick looks, bottom face button
 jumps, left face button opens the prompt, top face button switches first/third
 person, right face button closes/cancels the prompt. Typing still uses the keyboard.
-In freecam, LB lowers, RB raises and RT moves faster. Select switches the focused
+In freecam, LB lowers, RB raises and A moves faster. Select switches the focused
 rig pane; Start toggles fullscreen. Only the focused pane consumes controller
 input. Deadzones suppress stick drift, actions trigger on press edges, and
 unplugging clears movement. Chromium may require a button press before exposing

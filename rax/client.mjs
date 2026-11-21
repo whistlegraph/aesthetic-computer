@@ -348,7 +348,7 @@ function focusStep(elapsed) {
   if (Math.abs(focusZoom - want) < 0.002) focusZoom = want;
   return elapsed > 0 ? Math.min(1, Math.abs(Math.log2(focusZoom / was)) / Math.min(0.1, elapsed)) : 0; // how fast the lens moves, for its whirr
 }
-let padHolds = false, keyHolds = false; // a panel pressed and held by a pad's A, or by Enter
+let padHolds = false, keyHolds = false; // a panel held by A or RT on a pad, or by Enter
 let lastMotionLook = null;
 let sticksMoving = false;
 // The tower's height in floors, as last heard: it stands on every skyline.
@@ -559,49 +559,45 @@ function fixedBoxes() {
 }
 // The blocks beside the one underfoot, placed in metres from its middle.
 function around() {
-  if (!world) return [];
-  // 🏢 From a floor of the tower, or its roof, the plaza and its blocks lie below.
-  if (aloft(room) || room === BASEMENT) {
-    const at = plazaFrom();
-    return at ? [...world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
-      home: null })), ...floorsAround(at.dy)] : [];
-  }
-  const here = world.blocks.find((b) => b.id === room);
-  if (!here) return [];
-  return world.blocks
-    .filter((b) => b !== here && Math.abs(b.di - here.di) <= 1 && Math.abs(b.dj - here.dj) <= 1)
-    .map((b) => ({ ...b, dx: (b.di - here.di) * SPAN, dz: (b.dj - here.dj) * SPAN,
-      home: home && home.room === b.id ? home.lot : null }))
-    .concat(room === 'lobby' ? floorsAround(0) : []);
+  const sky = plazaFrom();
+  if (!world || !sky) return [];
+  const here = cellOf(room) || { i: 0, j: 0 };
+  return world.blocks.filter(b => b.id !== room).map(b => {
+    const cell = cellOf(b.id);
+    const di = wrap(cell.i - here.i), dj = wrap(cell.j - here.j);
+    return { ...b, dx: di * SPAN, dz: dj * SPAN, dy: sky.dy,
+      sceneryOnly: b.sceneryOnly || Math.abs(di) > 1 || Math.abs(dj) > 1,
+      home: home && home.room === b.id ? home.lot : null };
+  }).concat(floorsAround(sky.dy).map(f => ({ ...f, dx: sky.dx, dz: sky.dz })));
 }
 // 🏢 What stands on the tower's floors near the eye, each where its floor is
 // (the floor you are on is the room itself, and is not drawn twice).
 function floorsAround(dy) {
   return (world?.floors || []).filter((f) => f.id !== room)
-    .map((f) => ({ id: f.id, floor: true, dx: 0, dz: 0, dy: f.y + dy, objects: f.objects, tiles: f.tiles, neighbours: {}, plaza: false, home: null }));
+    .map((f) => ({ id: f.id, floor: true, dx: 0, dz: 0, dy: f.y + dy, objects: f.objects, screens: f.screens, tiles: f.tiles, neighbours: {}, plaza: false, home: null }));
 }
 // 🏢 How high the eye is in the world: on a floor of the tower, that floor's
 // height; flying over the plaza, the drone's. The world is asked again when
 // it has moved a storey, for the floors now beside it.
-let worldY = 0;
+let worldY = 0, worldRequest = 0;
 function eyeHeight() {
   const up = -(plazaFrom()?.dy || 0);
   return up + (seat < 0 && !held ? freecam?.y || 0 : player?.y || 0);
 }
 async function streamWorld() {
-  const asked = room;
+  const asked = room, request = ++worldRequest;
   worldAt = performance.now();
   const about = aloft(asked) || asked === BASEMENT ? 'lobby' : asked;
   try {
     worldY = eyeHeight();
-    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}${about === 'lobby' ? `&y=${Math.round(worldY)}` : ''}`, import.meta.url), { cache: 'no-store' });
+    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}&y=${Math.round(worldY)}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok || room !== asked) return;
     const data = await r.json();
-    if (!Array.isArray(data.blocks)) return;
+    if (room !== asked || request !== worldRequest || !Array.isArray(data.blocks)) return;
     world = data;
     if (!sheetOpen) {
       const here = data.blocks.find(block => block.id === room);
-      if (here) { park = { neighbours: here.neighbours, plaza: here.plaza }; objects = here.objects; tiles = here.tiles; }
+      if (here) { park = { neighbours: here.neighbours, plaza: here.plaza }; objects = here.objects; tiles = here.tiles; setScreens(here.screens || []); }
     }
     worlds.delete(about);
     worlds.set(about, data);
@@ -833,34 +829,64 @@ const cube = [];
 // Standing KidLisp screens: a `$code` prompt stands that piece on the field.
 // The room lists them. A screen's program runs here at the pixel grid the
 // view asks for (`want`, from how far the eye is: screen-lod.mjs), one
-// program for each code at each grid, shared by the screens that show it.
+// program per screen and grid so each screen receives its own input.
 let screens = [];
-const screenPrograms = new Map(); // `${code}@${cols}` → program, or null while it loads
+const screenPrograms = new Map(); // per-screen grid → program, or null while it loads
 const screenSources = new Map(); // code → source, fetched once
-function screenProgram(code, cols, from = null) {
-  const key = `${code}@${cols}`;
-  if (screenPrograms.has(key)) return;
+let screenLoads = 0;
+const screenRetry = new Map();
+function screenProgram(s) {
+  const { code, want: cols } = s, key = `${s.programKey}@${cols}`;
+  if (screenPrograms.has(key) || screenLoads >= 4 || performance.now() < (screenRetry.get(key) || 0)) return;
+  screenLoads++;
+  screenRetry.delete(key);
   screenPrograms.set(key, null);
   kidlispWall(code, { width: cols, height: screenRows(cols), source: screenSources.get(code) || null })
     .then((w) => {
       screenSources.set(code, w.source);
       // Start from the picture the coarser (or finer) grid was showing.
-      const old = from && screenPrograms.get(`${code}@${from}`);
+      const old = screenPrograms.get(`${s.programKey}@${s.cols}`);
       if (old) carryPixels(old.pixels, old.width, old.height, w.pixels, w.width, w.height);
       w.usedAt = performance.now();
       screenPrograms.set(key, w);
     })
-    .catch((e) => console.info(`KidLisp screen $${code}:`, e.message));
+    .catch((e) => {
+      screenPrograms.delete(key);
+      screenRetry.set(key, performance.now() + 15000);
+      console.info(`KidLisp screen $${code}:`, e.message);
+    }).finally(() => { screenLoads--; });
 }
 function setScreens(list) {
   // Keep the same objects for screens that stay, so their frame caches hold.
   // A screen stood on the car before 2026-11-18 is shown beside it.
   screens = list.map((s) => Object.assign(screens.find((o) => o.id === s.id) || {}, s, hasCar() ? clearOfCar(s.x, s.z) : null));
 }
-// Once a frame: load the grid each screen wants, and let go of a program no
-// screen has drawn from for a while.
-function tendScreens(now) {
-  for (const s of screens) screenProgram(s.code, s.want || 64, s.cols || null);
+// Render instances keep their last grid when the same screen changes from
+// local to neighbouring scenery. Simulation and input still use room-local positions.
+const screenInstances = new Map();
+function visibleScreens(blocks) {
+  const list = [], seen = new Set();
+  function place(id, source, dx, dy, dz) {
+    for (const s of source || []) {
+      const key = id + '/' + s.id;
+      seen.add(key);
+      let instance = screenInstances.get(key);
+      if (!instance || instance.code !== s.code) {
+        instance = { id: key, code: s.code, programKey: key + "/" + s.code };
+        screenInstances.set(key, instance);
+      }
+      const at = id === 'lobby' || aloft(id) || id === BASEMENT ? clearOfCar(s.x, s.z) : s;
+      Object.assign(instance, { x: at.x + dx, y: dy, z: at.z + dz, yaw: s.yaw });
+      list.push(instance);
+    }
+  }
+  place(room, screens, 0, 0, 0);
+  for (const b of blocks) place(b.id, b.screens, b.dx, b.dy || 0, b.dz);
+  for (const id of screenInstances.keys()) if (!seen.has(id)) screenInstances.delete(id);
+  return list;
+}
+function tendScreens(now, list) {
+  for (const s of list) if (s.want) screenProgram(s);
   for (const [key, w] of screenPrograms) if (w && now - w.usedAt > 8000) screenPrograms.delete(key);
 }
 // What the face cam reacts to: when you were hurt and from which side, when
@@ -1048,7 +1074,7 @@ function selectTarget(id) {
   lockedAt = performance.now();
   nearing = lockOn && seat < 0 ? approach(id) : null;
 }
-// A screen carries the eye square to its face. The body stays where it stands.
+// A screen carries the eye square to its face. The body can walk independently.
 let dock = null,
   nearing = null, // 🚁 { from, to, at, ms }: a drone on its way up to what it has just locked on to
   lockedAt = -Infinity,
@@ -1088,7 +1114,9 @@ function goIn(id, face) {
   const from = { x: at.x, y: at.y, z: at.z, yaw: ((Math.atan2(f.x, f.z) * 180) / Math.PI + 360) % 360, pitch: (Math.asin(clamp(f.y, -1, 1)) * 180) / Math.PI, zoom: zoomFrom };
   // (One of the mouse's pixels is one of the picture's: so many of the face's pixels to a degree of look.)
   const perDegree = (1 / 0.12) / (((face.h / face.rows) / to.back) * scale.sy * to.zoom * (canvas.clientHeight / 2));
-  dock = { id, face, from, to, eye: from, home: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null, t: 0, way: 1,
+  const bodyAt = dock?.bodyAt || (player && { x: player.x, y: player.y, z: player.z });
+  dock = { id, face, from, to, eye: from, returnEye: dock?.returnEye || from, bodyAt,
+    home: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null, t: 0, way: 1,
     seconds: clamp(0.6 + Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z) * 0.06, 0.8, 2.2),
     cursor: { x: face.cols / 2, y: face.rows / 2 }, perDegree, headYaw: yaw, headPitch: pitch };
   nearing = null;
@@ -1099,7 +1127,31 @@ function comeOut() {
   dock.way = -1;
   if (padHolds || keyHolds) { padHolds = keyHolds = false; panels.release(); }
 }
-// LB on foot, X in a drone, or Z on the keyboard.
+let screenPress = null;
+function pressScreen() {
+  if (!dock || dock.way < 0 || dock.id.startsWith('panel:')) return false;
+  const instance = screenInstances.get(room + '/' + dock.id.slice(7));
+  const program = instance?.program || walls.find(w => 'wall:' + w.code === dock.id);
+  if (program) {
+    if (instance) instance.pressed = program;
+    screenPress = { dock, instance, program, x: -1, y: -1 };
+    pointScreen('touch');
+  }
+  return true;
+}
+function pointScreen(name) {
+  if (!screenPress) return;
+  const p = screenPress, { cursor, face } = p.dock;
+  const x = Math.floor(cursor.x * p.program.width / face.cols), y = Math.floor(cursor.y * p.program.height / face.rows);
+  if (name !== 'draw' || p.x !== x || p.y !== y) p.program.point(name, x, y);
+  p.x = x;
+  p.y = y;
+  if (name === 'lift') {
+    if (p.instance) p.instance.pressed = null;
+    screenPress = null;
+  }
+}
+// RB on foot, X in a drone, or Z on the keyboard.
 function pressLock() {
   if (dock) comeOut();
   else selectTarget(lockOn ? null : focusObject?.id || null);
@@ -1148,7 +1200,11 @@ function carry(elapsed, now, turned) {
     const was = dock.eye;
     dock.t = clamp(dock.t + (dock.way * dt) / (dock.way > 0 ? dock.seconds : dock.seconds * 0.8), 0, 1);
     const e = smooth(dock.t);
-    dock.eye = glide(dock.from, dock.to, e);
+    const returning = dock.way < 0 && dock.bodyAt && player;
+    const from = returning ? { ...dock.returnEye,
+      x: dock.returnEye.x + player.x - dock.bodyAt.x, y: dock.returnEye.y + player.y - dock.bodyAt.y,
+      z: dock.returnEye.z + player.z - dock.bodyAt.z } : dock.from;
+    dock.eye = glide(from, dock.to, e);
     if (dt) heard = rates(was, dock.eye, dt);
     if (seat < 0) {
       freecam = { ...freecam, x: dock.home.x + (dock.to.x - dock.home.x) * e, y: dock.home.y + (dock.to.y - dock.home.y) * e, z: dock.home.z + (dock.to.z - dock.home.z) * e, vx: 0, vy: 0, vz: 0 };
@@ -1317,6 +1373,7 @@ if (hosted) void peekRoom();
 // A read-only window into the aim, for end-to-end checks (?debug only).
 if (query.has('debug'))
   window.raxDebug = () => ({
+    holding: snapshot?.items?.find(it => it.holder === seat && seat >= 0)?.id,
     seat,
     builds: builds.rows(),
     room, park, home, tower, ride,
@@ -1333,7 +1390,7 @@ if (query.has('debug'))
     focus: focusObject?.id || null,
     lock: lockOn?.id || null,
     lockCursor: lockOn?.cursor || null,
-    dock: dock ? { id: dock.id, t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
+    dock: dock ? { id: dock.id, pixel: screenInstances.get(room + '/' + dock.id.slice(7))?.program?.pixels?.slice(0, 3), t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
     fov: dock?.eye.zoom || 1, // (the lens's zoom: 1 as the room is walked about)
     nearing: !!nearing,
     whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
@@ -1388,6 +1445,22 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (chosen) roamed = true;
   selectTarget(null);
   yardQuiet(); // (a tone held on a piece in the yard does not follow into the next room)
+  // The live room may have changed since the neighbourhood was fetched.
+  if (cellOf(from) && heardRoom === from) {
+    world ||= { blocks: [], floors: [] };
+    let departing = world.blocks.find(b => b.id === from);
+    if (!departing) {
+      departing = { id: from, plaza: from === 'lobby', neighbours: park?.neighbours || {} };
+      world.blocks.push(departing);
+    }
+    const poses = new Map((snapshot?.items || []).map(it => [it.id, it]));
+    departing.objects = objects.map(o => {
+      const it = poses.get(o.id);
+      return it ? { ...o, x: it.x, y: it.y, z: it.z } : o;
+    });
+    departing.screens = screens.map(({ id, x, z, yaw, code }) => ({ id, x, z, yaw, code }));
+    departing.tiles = tiles;
+  }
   room = to;
   if (riding) {
     // 🛗 The car leaves at once and the next floor is already known: the
@@ -1414,17 +1487,17 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   tiles = {};
   // What the world stream already knows of the place stands there at once:
   // the ground and things were on screen a block away a moment ago.
-  const known = world?.blocks.find((b) => b.id === to);
+  const known = world?.blocks.find(b => b.id === to) || world?.floors?.find(f => f.id === to);
   if (known) {
-    park = { neighbours: known.neighbours, plaza: known.plaza };
+    park = known.neighbours ? { neighbours: known.neighbours, plaza: known.plaza } : null;
     objects = known.objects || [];
     tiles = known.tiles || {};
   } else if (walk && walkEdge && oldCell && newCell) {
     // Nothing known of the place yet but the way in: that side leads back.
     park = { neighbours: { [BACK[walkEdge]]: from }, plaza: false };
   }
+  setScreens(known?.screens || []);
   void streamWorld();
-  setScreens([]);
   chalkStrokes = [];
   chalkVersion++;
   if (joinURL) joinURL = new URL(`?room=${room}`, location.href).href;
@@ -2009,7 +2082,7 @@ canvas.addEventListener('paste', (e) => {
 // Where chalk lands: the aimed surface, or 3 m ahead in the air.
 function chalkPoint() {
   if (!CHALK) return null;
-  const held = (gamepad?.boost || chalkMouse || keys.has('KeyC')) && seat >= 0 && !prompt.open;
+  const held = ((chalkMode && gamepad?.triggerHeld) || chalkMouse || keys.has('KeyC')) && seat >= 0 && !prompt.open;
   if (!held || !player) return null;
   const dir = direction(yaw, pitch);
   const reach = Math.min(3, wallDistance(player, dir, 3, solids(), 0, half()) - 0.05);
@@ -2528,7 +2601,7 @@ document.addEventListener('keydown', (e) => {
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
-  // Lock on, as the pad's LB does (2026-11-08): Z toggles it, [ and ]
+  // Lock on, as the pad's RB does (2026-11-08): Z toggles it, [ and ]
   // change it like the d-pad, and delete removes the locked object at once
   // (the lock is the confirmation, as B on the pad).
   if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) pressLock();
@@ -2796,7 +2869,7 @@ function step(now) {
     }
   }
   const sticksNow = sheetOpen && !!(gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY);
-  if ((!sfx.ready && sticksNow && !sticksMoving) || gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
+  if ((!sfx.ready && sticksNow && !sticksMoving) || gamepad.focus || gamepad.build || gamepad.use || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
   sticksMoving = sticksNow;
   dragBrush();
   // START goes to the prompt, as the corner says: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it leaves for the prompt, as Escape does. (The $ is on the d-pad.)
@@ -2831,16 +2904,17 @@ function step(now) {
     }
     if (gamepad.select) chooseMenu();
     if (gamepad.cancel) closeMenu();
-    gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, ring: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
+    gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, focus: false, build: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
   }
-  // 🖼️ Aimed at a world panel, A or RB presses it, and does nothing else.
-  // (A is held for as long as it is down, so a pad is played and slid across as a mouse does it; RB is a tap.)
-  if (!menu && !radial.open && !prompt.open && panels.hot && (gamepad.select || gamepad.use)) {
-    if (gamepad.select) padHolds = panels.press();
-    else panels.tap(now);
-    gamepad = { ...gamepad, select: false, use: false, jump: false }; // (A on a screen presses it; it does not jump as well)
+  // A and RT both hold a panel at its cursor until the last button lifts.
+  if (!menu && !radial.open && !typing() && !chalkMode && panels.hot && (gamepad.select || gamepad.use)) {
+    if (!padHolds) padHolds = panels.press();
+    gamepad = { ...gamepad, select: false, use: false, jump: false };
   }
-  if (padHolds && !gamepad.hold) { padHolds = false; panels.release(); }
+  if (!menu && !radial.open && !typing() && (gamepad.select || gamepad.use) && (screenPress || pressScreen()))
+    gamepad = { ...gamepad, select: false, use: false, jump: false };
+  if (screenPress && (dock !== screenPress.dock || dock.way < 0 || !(gamepad.hold || gamepad.triggerHeld))) pointScreen('lift');
+  if (padHolds && !gamepad.hold && !gamepad.triggerHeld) { padHolds = false; panels.release(); }
   // 🛗 In the car the d-pad rides a floor up or down.
   if (!menu && riding && gamepad.floorDirection && (gamepad.dup || gamepad.ddown || (padFloorRepeat && now >= padFloorRepeat))) {
     if (!padFloorRepeat || gamepad.dup || gamepad.ddown) padFloorStart = now;
@@ -2862,8 +2936,8 @@ function step(now) {
       } else backRadial();
     }
   }
-  // LB toggles a lock on the aimed object; while locked, B removes it (the
-  // lock is the confirmation) and RB changes it.
+  // RB toggles a lock on the aimed object; while locked, B removes it (the
+  // lock is the confirmation) and LB changes it.
   // (Looking on, LB flies down, so the lock is on X; B lets go.)
   if (dock && gamepad.cancel && !radial.open && !prompt.open && !chalkMode) {
     comeOut();
@@ -2874,7 +2948,7 @@ function step(now) {
     if (lockOn) selectTarget(null);
     else { startWarp(); gamepad.cancel = false; } // 🌀 with nothing to let go, B warps it home
   }
-  if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !typing() && !radial.open && !menu) pressLock();
+  if ((seat >= 0 ? gamepad.focus : gamepad.prompt) && !typing() && !radial.open && !menu) pressLock();
   if ((lockOn || dock) && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1); // (in at a screen too: the d-pad steps on to the next)
   if (lockOn && seat >= 0 && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
     send({ type: 'remove', objectId: lockOn.id });
@@ -2914,14 +2988,10 @@ function step(now) {
       sfx.ringBack();
     }
   }
-  // RB adds: with nothing held it builds (or changes what you aim at, or
-  // rewrites a KidLisp wall); with an item in hand it uses the item.
-  if (gamepad.use && seat >= 0 && !prompt.open && !holding()) {
-    if (!focusObject?.panel) openRadial(focusObject?.wall ? focusObject : null);
-    gamepad.use = false;
-  }
-  if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
-  // X paints (as the legend says); RB builds. With an item in hand X drops it.
+  if (gamepad.build && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode)
+    openRadial(focusObject?.wall && !focusObject.panel ? focusObject : null);
+  if (gamepad.use && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode && holding())
+    useQueued = true;
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
     dropQueued = true;
     gamepad.prompt = false;
@@ -2951,6 +3021,7 @@ function step(now) {
     if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
   moveTargetCursor(elapsed);
+  if (screenPress) pointScreen('draw');
   const yawBefore = yaw, pitchBefore = pitch;
   if (lockOn && (player || seat < 0)) {
     const target = spotOf(lockOn.id), from = player || freecam; // (a drone turns its eye to it)
@@ -3009,7 +3080,7 @@ function step(now) {
       // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
       {
         const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
-        const turn = (keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0); // (the left trigger is the focus zoom now: Q rolls left, the right trigger or R rolls right)
+        const turn = (keys.has('KeyQ') ? 0.6 : 0) - Math.max(panels.hot ? 0 : squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0); // (the left trigger is the focus zoom now: Q rolls left, the right trigger or R rolls right)
         if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
         // (Held where it was left for two seconds, then brought level slowly.)
         else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
@@ -3101,7 +3172,6 @@ function step(now) {
       })(),
       fire: (firing || fireQueued) && locked(),
     };
-    if (dock) c.fwd = c.right = 0; // 🖥️ gone in to a screen the body stands where it is: the eye comes back to it
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
       // Up jumps and down ducks (the arrows as well as WASD; the stick too).
@@ -3220,6 +3290,7 @@ function step(now) {
     }
     // 🔭 What stands in the rooms around is aimed at too, where it is seen.
     for (const b of around()) {
+      if (b.sceneryOnly) continue;
       const things = (b.objects || []).filter((o) => !o.item && o.geometry);
       if (!things.length) continue;
       const dy = b.dy || 0;
@@ -3344,13 +3415,30 @@ function step(now) {
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
   // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first seen: by a body standing there or by a drone over it.
-  if (room === 'lobby') void mountYard();
+  const yardDistance = sky ? Math.hypot(sky.dx - (displayed || freecam).x, sky.dy - (displayed || freecam).y, sky.dz - (displayed || freecam).z) : Infinity;
+  if (sky) void mountYard();
   for (const p of yardPanels) p.hidden = room !== 'lobby';
   hushIdleKiosks(now);
   carPad.y = CAR_PAD.y + lift;
   const orbit = orbitStep(now);
   const miniature = orbit >= 0.94;
   if (!miniature) panels.frame(now);
+  // Away from the plaza the kiosks are scenery. Their pixels and frame cache
+  // survive the crossing, while their input and sound stay in the plaza.
+  const sceneryPanels = [];
+  if (sky && room !== 'lobby') {
+    for (const p of yardPanels) {
+      if (!p.frame || (!miniature && yardDistance < 90 && now >= (p.nextSceneryFrame || 0))) {
+        p.step();
+        p.nextSceneryFrame = now + (yardDistance < 28 ? 80 : 400);
+      }
+      sceneryPanels.push({ ...p, x: p.x + sky.dx, y: p.y + sky.dy, z: p.z + sky.dz, cursor: null });
+    }
+    if (!hasCar()) {
+      if (!carPad.frame) carPad.step();
+      sceneryPanels.push({ ...carPad, x: CAR_PAD.x + sky.dx, y: CAR_PAD.y + sky.dy, z: CAR_PAD.z + sky.dz, cursor: null });
+    }
+  }
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
   sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
   liftWas = { lift, at: now };
@@ -3390,8 +3478,10 @@ function step(now) {
   filmRide = rideNow;
   const filmShot = film?.camera(now) || null;
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
-  if (!miniature) tendScreens(now);
+  const blocks = around(), sceneScreens = visibleScreens(blocks);
+  if (!miniature) tendScreens(now, sceneScreens);
   view.render({
+    inspectScenery: query.has('debug'),
     basement: room === BASEMENT,
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
@@ -3430,7 +3520,7 @@ function step(now) {
     combos: snapshot?.combos || [],
     boomLength,
     rockets: snapshot?.rockets || [],
-    items: snapshot?.items || [],
+    items: snapshot?.items,
     bullets: snapshot?.bullets || [],
     since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
@@ -3492,7 +3582,7 @@ function step(now) {
     spending: braincells !== null && shownBraincells > braincells + 0.5,
     tiles,
     park,
-    around: around(),
+    around: blocks,
     field: groundsOf(room),
     home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen || game()?.hud?.aim === false ? null : floorAim,
@@ -3533,9 +3623,9 @@ function step(now) {
     flash: escFlash,
     legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
     corner: sheetOpen && !down && !film,
-    screens,
+    screens: sceneScreens,
     screenPrograms,
-    panels: panels.list.filter((p) => !p.hidden),
+    panels: panels.list.filter((p) => !p.hidden).concat(sceneryPanels),
     bare: !sheetOpen || !sheetShown || down || !!film,
     held: {
       keys: [...keys],

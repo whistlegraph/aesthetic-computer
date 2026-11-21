@@ -213,7 +213,7 @@ test('the elevator rides to the roof and back; the roof is kept as it is', async
     back.close();
     // From the roof the plaza's blocks are asked for, and the roof is among the floors near its own height.
     const world = await (await fetch(`http://127.0.0.1:${port}/world?room=lobby&y=${roof}`)).json();
-    assert.deepEqual(world.floors.find((f) => f.id === ROOF), { id: ROOF, number: 4, y: roof, objects: [], tiles: {} });
+    assert.deepEqual(world.floors.find((f) => f.id === ROOF), { id: ROOF, number: 4, y: roof, objects: [], screens: [], tiles: {} });
   } finally {
     await app.close();
   }

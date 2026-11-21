@@ -5,7 +5,7 @@ import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER, roofSolids, standsOn } from './elevator.mjs';
-import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
+import { SCREEN_SPAN, screenDetail, screenSeen, carryPixels } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
@@ -27,7 +27,7 @@ try {
     };
   }
 } catch {}
-import { poseObject, objectBoxes } from './objects.mjs';
+import { poseObject, objectBoxes, distantBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { BALL, DISPENSER } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
@@ -58,9 +58,9 @@ export const LEGEND = {
   pad: [
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom / [Y] camera',
-    '[RB] build / [RB] use / [X] drop',
+    '[LB] build / [RT] use / [X] drop',
     '[X] paint',
-    '[LB] lock or go in / [B] remove',
+    '[RB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
   ],
   touch: [], // The thumb areas and the icons name themselves.
@@ -865,7 +865,7 @@ export async function createView(canvas) {
     const h = hurt ? 0.02 : blinking(now, i) ? 0.012 : 0.07;
     return eyes(-dx, dy, h);
   }
-  const objectModels = new Map(),
+  const objectModels = new WeakMap(),
     previewModels = new Map();
   let promptKey, promptModel;
   let presenceKey, presenceModel;
@@ -902,7 +902,13 @@ export async function createView(canvas) {
   let qrRect = null, qrURL = null; // The aimed object's code tag, a button.
   let pairAt = null; // 📱 The sign-in code bottom left (pair-view.mjs), a button too.
   let qrModel = null; // Retain the tag until its code or pixel dimensions change.
-  const screenFrames = new Map(); // Standing screens' frames, by screen id.
+  // One frame fits every four-metre standing screen, including those whose
+  // KidLisp program is still loading.
+  const standingFrame = model(({ box }) => {
+    box(0, 1.525, 0.14, 4.3, 2.55, 0.16, 0x2a2d3a, 0x22252f, 0x2a2d3a);
+    for (const x of [-1.6, 1.6]) box(x, 0.2, 0.14, 0.16, 0.4, 0.16, 0x22252f, 0x22252f, 0x22252f);
+  });
+  const distantModels = new WeakMap();
   const chalkModels = new Map();
   let boom = 4;
   let cubeModel = null, cubeAt = 0;
@@ -1302,7 +1308,7 @@ export async function createView(canvas) {
     objects = [],
     prompt,
     radial = null,
-    items = [],
+    items = null,
     bullets = [],
     since = 0,
     holding = null,
@@ -1333,6 +1339,7 @@ export async function createView(canvas) {
     tiles = {},
     park = null, basement = false,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
+    inspectScenery = false,
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
     sunAt = null, shadows = true, // 🌑 a fixed sun and a switch, for measuring shadows
@@ -1650,7 +1657,7 @@ export async function createView(canvas) {
       // its beds do not appear only on stepping into the block before them.
       {
         const t = towerParts();
-        const shown = (dx, dz) => (dx === 0 && dz === 0 && !skyline.dy) || around.some((b) => b.dx === dx && b.dz === dz);
+        const shown = (dx, dz) => (dx === 0 && dz === 0 && !skyline.dy) || around.some((b) => !b.sceneryOnly && b.dx === dx && b.dz === dz);
         projector.halvings = 13; // (its far squares are kilometres across: halved until they lie round the ball)
         // (From inside, the grass is not drawn: the bubble's skin is the land there. On the card it is seen through, and so drawn last: at the frame's end.)
         if (!under) draw(t.land, skyline.dx, skyline.dy, skyline.dz);
@@ -1667,6 +1674,7 @@ export async function createView(canvas) {
       }
     }
     for (const b of around) {
+      if (b.sceneryOnly) continue;
       const by = b.dy || 0; // a block seen from up the tower lies below
       if (b.plaza && !basement) draw(cellar, b.dx, by - DEPTH, b.dz);
       if (!b.floor) draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz); // (a floor of the tower has its own slab)
@@ -1681,21 +1689,38 @@ export async function createView(canvas) {
         grounds.delete(id); tileSets.delete(id);
       }
     // A thing standing on the ground, drawn where its block stands.
+    const scenery = inspectScenery ? { objects: [], screens: [], panels: [] } : null;
     const stand = (object, ox, oz, oy = 0) => {
+      if (scenery) scenery.objects.push({ id: object.id, x: ox + object.x, y: oy, z: oz + object.z });
+      const distance = Math.hypot(ox + object.x - eye.x, oy - eye.y, oz + object.z - eye.z);
+      // Grow the distant silhouette within the detailed model before retiring
+      // the details. Both tiers are available well before a block handoff.
+      if (distance > 48 || object.coarse) {
+        const shape = object.geometry;
+        let proxy = distantModels.get(shape);
+        if (!proxy) {
+          proxy = model(({ box }) => {
+            for (const b of distantBoxes(shape)) box(b.x, b.y, b.z, b.w, b.h, b.d, b.color, INK, PAPER);
+          });
+          distantModels.set(shape, proxy);
+        }
+        const k = object.coarse ? 1 : Math.min(1, (distance - 48) / 16);
+        draw(proxy, ox + object.x, oy, oz + object.z, 0, 0, k);
+        if (k === 1) return;
+      }
       if (object.geometry.format === OBJECT_FORMAT) {
         draw(
-          sourceFrame(object.geometry, worldTime).vertices,
+          sourceFrame(object.geometry, distance < 22 ? worldTime : Math.floor(worldTime * 12) / 12).vertices,
           ox + object.x,
           oy,
           oz + object.z,
         );
-        drawHair(object.geometry, ox + object.x, oy, oz + object.z);
+        if (distance < 22) drawHair(object.geometry, ox + object.x, oy, oz + object.z);
         return;
       }
-      let cached = objectModels.get(object.id);
-      if (!cached || cached.version !== object.version) {
+      let cached = objectModels.get(object.geometry);
+      if (!cached) {
         cached = {
-          version: object.version,
           parts: object.geometry.boxes.map((b) =>
             model(({ box }) =>
               box(0, 0, 0, b.w, b.h, b.d, b.color, INK, PAPER),
@@ -1706,7 +1731,7 @@ export async function createView(canvas) {
               box(b.x, b.y, b.z, b.w, b.h, b.d, b.color, INK, PAPER);
           }),
         };
-        objectModels.set(object.id, cached);
+        objectModels.set(object.geometry, cached);
       }
       if (object.geometry.motion) {
         const pose = poseObject(object, worldTime);
@@ -1724,15 +1749,11 @@ export async function createView(canvas) {
         );
       } else draw(cached.model, ox + object.x, oy, oz + object.z);
     };
-    const aliveObjects = new Set(objects.map((o) => o.id));
-    for (const b of around) for (const o of b.objects || []) aliveObjects.add(o.id);
-    for (const id of objectModels.keys())
-      if (!aliveObjects.has(id)) objectModels.delete(id);
-    const poses = new Map(items.map((it) => [it.id, it]));
+    const poses = new Map(items?.map(it => [it.id, it]));
     for (const object of objects) {
       if (object.item) {
-        const it = poses.get(object.id);
-        if (!it || object.geometry.format !== OBJECT_FORMAT) continue;
+        const it = poses.get(object.id) || (!items && { x: object.x, y: object.y || 0, z: object.z, holder: -1 });
+        if (!it) continue;
         // In hand: follow the holder's aim; loose: tumble with its spin.
         let at = it, yaw = (now / 1000) * (it.spin || 0), pitch = 0;
         const holder = it.holder >= 0 ? (it.holder === seat && me ? me : players[it.holder]) : null;
@@ -1749,14 +1770,16 @@ export async function createView(canvas) {
           // First person: keep your own item out of the middle of the view.
           if (it.holder === seat && !third) at = { x: at.x, y: at.y - 0.1, z: at.z };
         }
-        draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
+        if ((holder || it.spin) && object.geometry.format === OBJECT_FORMAT)
+          draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
+        else stand(object, at.x - object.x, at.z - object.z, at.y);
         continue;
       }
       stand(object, 0, 0);
     }
     for (const b of around)
       for (const object of b.objects || [])
-        if (!object.item && object.geometry) stand(object, b.dx, b.dz, b.dy || 0);
+        if (object.geometry) stand(object, b.dx, b.dz, (b.dy || 0) + (object.y || 0));
     for (const id of previewModels.keys())
       if (!jobs.some((j) => j.id === id)) previewModels.delete(id);
     for (const job of jobs) {
@@ -2061,7 +2084,7 @@ export async function createView(canvas) {
       const verb = holding ? { shoot: 'shoot', poke: 'poke', throw: 'throw' }[holding.item] : null;
       const carry = holding
         ? pad
-          ? `[RB] ${verb} / [X] drop`
+          ? `[RT] ${verb} / [X] drop`
           : input === 'touch'
             ? null
             : `f or click ${verb} / q drop`
@@ -2073,12 +2096,12 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.panel || o.screen
-          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[LB]'} go in` : '{z} go in'
+          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : '{z} go in'
         : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
-          ? pad ? `[RB] ${o.source ? 'change' : 'build'}` : `{f} ${o.source ? 'change' : 'build'}`
+          ? pad ? `[LB] ${o.source ? 'change' : 'build'}` : `{f} ${o.source ? 'change' : 'build'}`
           : spectator ? pad ? '[X] lock on' : '{z} lock on' : o.owner === owner
-            ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
-            : pad ? '[LB] lock on' : '{z} lock on';
+            ? pad ? '[LB] change / [RB] lock on' : '{enter} change / {z} lock on'
+            : pad ? '[RB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
       // Locked on, the top-right controls become the lock's own, row for
@@ -2087,7 +2110,7 @@ export async function createView(canvas) {
       const screenHint = docked && focusObject
         ? [named(focusObject),
             ...(input === 'touch' ? [focusObject.panel ? 'tap: press' : 'leave'] : [
-              pad ? `[RS] cursor${focusObject.panel ? ' / [A] press' : ''}` : focusObject.panel ? '{enter} or click: press' : '',
+              pad ? `[RS] cursor${focusObject.panel ? ' / [RT] press' : ''}` : focusObject.panel ? '{enter} or click: press' : '',
               pad ? '[DH] next / [B] leave' : '{[} {]} next / {esc} leave',
             ])].filter(Boolean).join('\n')
         : null;
@@ -2096,14 +2119,14 @@ export async function createView(canvas) {
             `${named(focusObject)} locked`,
             ...(pad
               ? spectator ? ['[RS] cursor / [DH] next', '[X] unlock'] : focusObject.wall
-                ? ['[RS] cursor / [LB] unlock']
-                : [`${mine ? '[RB] change / ' : ''}[B] remove`, '[RS] cursor / [DH] next', '[LB] unlock']
+                ? ['[RS] cursor / [RB] unlock']
+                : [`${mine ? '[LB] change / ' : ''}[B] remove`, '[RS] cursor / [DH] next', '[RB] unlock']
               : focusObject.wall
                 ? [`{f} ${focusObject.source ? 'change' : 'build'} / {z} unlock`]
                 : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
           ].join('\n')
         : null;
-      // What the highlighted object offers ([B] remove, [LB] unlock, its
+      // What the highlighted object offers ([B] remove, [RB] unlock, its
       // name and owner) is drawn at the object itself (2026-11-03); the
       // corner keeps only the general hint.
       const objectHint = screenHint || (lockHint
@@ -2119,14 +2142,14 @@ export async function createView(canvas) {
         : me.y < POOL.level + 2 && berths.some(b => Math.hypot(me.x-b.x,me.z-b.z)<0.86) ? 'jump to board'
         : me.swimming ? 'look down and swim to dive' : null);
       const hint = waterHint || objectHint || drawing || carry || (panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
-          ? input === 'touch' ? 'tap the screen' : pad ? '[A] press' : '{enter} or click: press'
+          ? input === 'touch' ? 'tap the screen' : pad ? '[RT] press' : '{enter} or click: press'
         : car
           ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[DV] tap a floor / hold for roof or B1' : '{enter} pick a floor'
         : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
           : pad
-            ? '[RB] to build'
+            ? '[LB] to build'
             : '{enter} to build');
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
@@ -2956,7 +2979,7 @@ export async function createView(canvas) {
               : { xMin: -d, xMax: -d, yMin: 1.5, yMax: top, zMin: -16, zMax: 16 };
           }
         } else if (focusObject.item) {
-          const it = items.find((x) => x.id === focusObject.id);
+          const it = poses.get(focusObject.id);
           if (it) world = { xMin: it.x - 0.6, xMax: it.x + 0.6, yMin: it.y, yMax: it.y + 1.2, zMin: it.z - 0.6, zMax: it.z + 0.6 };
         } else {
           for (const b of objectBoxes([focusObject], worldTime)) {
@@ -3625,24 +3648,29 @@ export async function createView(canvas) {
     const gaze = Math.hypot(aim.x - eye.x, aim.z - eye.z) || 1;
     const look = { x: (aim.x - eye.x) / gaze, z: (aim.z - eye.z) / gaze };
     for (const s of screens) {
-      const span = SCREEN_SPAN, base = 0.4;
-      const far = Math.hypot(s.x - eye.x, s.z - eye.z);
+      const span = SCREEN_SPAN, base = 0.4, y = s.y || 0;
+      const far = Math.hypot(s.x - eye.x, y + 1.525 - eye.y, s.z - eye.z);
       const detail = screenDetail(far, { cols: s.cols || 0, seen: screenSeen(eye, look, s) });
-      s.want = detail.cols;
-      const ready = screenPrograms.get(`${s.code}@${detail.cols}`);
-      const w = ready || (s.cols && screenPrograms.get(`${s.code}@${s.cols}`));
-      if (!w) continue;
+      const yaw = ((s.yaw || 0) * Math.PI) / 180;
+      draw(standingFrame, s.x, y, s.z, yaw);
+      if (scenery) scenery.screens.push({ id: s.id, x: s.x, y, z: s.z, cols: s.cols || 0 });
+      s.want = detail.hz || far < 32 ? detail.cols : 0;
+      const ready = screenPrograms.get(`${s.programKey}@${detail.cols}`);
+      const w = s.pressed || ready || (s.cols && screenPrograms.get(`${s.programKey}@${s.cols}`));
+      s.program = w;
+      if (!w) {
+        if (s.model) draw(s.model, s.x, y, s.z, yaw);
+        continue;
+      }
       w.usedAt = now;
       const cols = w.width, rows = w.height, cell = span / cols, tall = (span * rows) / cols;
-      // The program steps at its rate once, whichever of its screens asks;
-      // a screen redraws when its program has a newer frame or a new grid.
+      // Keep the current grid on screen until the next tier has pixels.
       if (w.steppedAt == null || (detail.hz && now - w.steppedAt >= 1000 / detail.hz)) {
         w.steppedAt = now;
         w.step();
         w.frames = (w.frames || 0) + 1;
       }
-      const yaw = ((s.yaw || 0) * Math.PI) / 180;
-      const glass = detail.hz ? glassAt(eye, s.x, base + tall / 2, s.z, yaw, span, today?.horizon ?? PALETTES[paletteName].sky, s.id) : null;
+      const glass = detail.hz ? glassAt(eye, s.x, y + base + tall / 2, s.z, yaw, span, today?.horizon ?? PALETTES[paletteName].sky, s.id) : null;
       if (!s.model || s.cols !== cols || s.drawn !== w.frames || s.glassKey !== glass?.key) {
         s.glassKey = glass?.key;
         s.cols = cols;
@@ -3650,18 +3678,7 @@ export async function createView(canvas) {
         const px = w.pixels;
         s.model = gridModel(px, cols, rows, span, tall, base, glass);
       }
-      let frame = screenFrames.get(s.id);
-      if (!frame) {
-        const c = 0x2a2d3a, side = 0x22252f;
-        frame = model(({ box }) => {
-          box(0, base + tall / 2, 0.14, span + 0.3, tall + 0.3, 0.16, c, side, c);
-          box(-span / 2 + 0.4, base / 2, 0.14, 0.16, base, 0.16, c, side, c);
-          box(span / 2 - 0.4, base / 2, 0.14, 0.16, base, 0.16, c, side, c);
-        });
-        screenFrames.set(s.id, frame);
-      }
-      draw(s.model, s.x, 0, s.z, yaw);
-      draw(frame, s.x, 0, s.z, yaw);
+      draw(s.model, s.x, y, s.z, yaw);
     }
     // 🖼️ World panels (panel.mjs): a piece's pixels on a rectangle in the
     // room, drawn as a standing screen's are, on a slab. Where the aim meets
@@ -3673,14 +3690,25 @@ export async function createView(canvas) {
       const yaw = ((p.yaw || 0) * Math.PI) / 180;
       const glass = p.label || p.id === 'car-pad'
         ? glassAt(eye, p.x, p.y, p.z, yaw, p.w, today?.horizon ?? PALETTES[paletteName].sky, p.id) : null;
-      if (kept.frame !== p.frame || kept.glassKey !== glass?.key) {
+      const distance = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+      const tier = screenDetail(distance * SCREEN_SPAN / p.w, { cols: kept.tier });
+      kept.tier = tier.cols;
+      const cols = p.cursor ? p.cols : Math.min(p.cols, tier.cols);
+      if (kept.frame !== p.frame || kept.glassKey !== glass?.key || kept.cols !== cols) {
         kept.glassKey = glass?.key;
         kept.frame = p.frame;
-        kept.face = gridModel(p.pixels, p.cols, p.rows, p.w, p.h, -p.h / 2, glass);
+        const rows = Math.max(1, Math.round(cols * p.rows / p.cols));
+        if (cols !== p.cols) {
+          if (kept.cols !== cols) kept.pixels = new Uint8ClampedArray(cols * rows * 4);
+          carryPixels(p.pixels, p.cols, p.rows, kept.pixels, cols, rows);
+        }
+        kept.cols = cols;
+        kept.face = gridModel(cols === p.cols ? p.pixels : kept.pixels, cols, rows, p.w, p.h, -p.h / 2, glass);
       }
       kept.slab ||= model(({ box }) => box(0, 0, 0.004 + p.deep / 2, p.w + 0.06, p.h + 0.06, p.deep, 0x2a2d3a, 0x22252f, 0x2a2d3a));
       draw(kept.slab, p.x, p.y, p.z, yaw);
       draw(kept.face, p.x, p.y, p.z, yaw);
+      if (scenery) scenery.panels.push({ id: p.id, x: p.x, y: p.y, z: p.z, cols: kept.cols });
       if (!p.cursor) continue;
       // The mouse: AC's one software cursor (lib/cursor-shape.mjs, the same mark a pad's stick moves on the prompt's paper), laid on the panel's own pixels a hair proud of the face: a soft dab of light, and over it a dot and four arms on their shadow; closed up and yellow while pressed.
       const cell = p.w / p.cols, row = p.h / p.rows, mx = Math.floor(p.cursor.x), my = Math.floor(p.cursor.y);
@@ -3853,6 +3881,7 @@ export async function createView(canvas) {
     }
     // Local inspection only; no telemetry, labels or DOM overlays.
     canvas.raxStats = {
+      ...(scenery ? { scenery } : {}),
       backend,
       bare,
       tool: 'hands',
