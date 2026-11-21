@@ -17,6 +17,9 @@ import { fileURLToPath } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
 import { loadTokens } from "./ac-token.mjs";
 import { pairScreen } from "./acin-pair.mjs";
+import { appDoor } from "./acin-app.mjs";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 
 const pexec = promisify(execFile);
 // Resolve puppeteer against the repo root (this file lives at toolchain/mcp/),
@@ -270,6 +273,19 @@ async function toolPair(args) {
   });
 }
 
+// The native Mac app's own door (acin-app.mjs): where it is, a line of
+// JavaScript in its page, a picture of it.
+async function toolApp(args) {
+  const said = await appDoor({ machine: args.machine, action: args.action || "info", js: args.js });
+  if (said.png) {
+    const file = join(await mkdtemp(join(tmpdir(), "acin-app-")), "app.png");
+    await writeFile(file, said.png);
+    return text({ ok: true, image: file });
+  }
+  if (!said.ok) throw new Error(said.error || "The app did not answer");
+  return text(said);
+}
+
 const TOOLS = [
   {
     name: "acin_in",
@@ -310,6 +326,24 @@ const TOOLS = [
     },
   },
   {
+    name: "acin_app",
+    description:
+      "Claude in to the native Aesthetic Computer Mac app (a WKWebView, so " +
+      "it has no debugging port): `info` says where it is, `eval` runs " +
+      "JavaScript in its page (the inside of an async function: `return` " +
+      "what is wanted), `shot` saves a picture of it and returns the path. " +
+      "`machine` is the ssh name of the Mac it runs on (blueberry); left " +
+      "out, this Mac. The app signs itself in from ~/.ac-token at launch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["info", "eval", "shot"], description: "default info" },
+        js: { type: "string", description: "For eval: the body of an async function" },
+        machine: { type: "string", description: "ssh name of the Mac the app runs on (default: this one)" },
+      },
+    },
+  },
+  {
     name: "acin_status",
     description: "Report the current claude-in attachment: room, label, and the latest presence counts (surfaces watching, agents linked).",
     inputSchema: { type: "object", properties: {} },
@@ -325,6 +359,7 @@ async function callTool(name, args) {
   switch (name) {
     case "acin_in": return toolIn(args || {});
     case "acin_pair": return toolPair(args || {});
+    case "acin_app": return toolApp(args || {});
     case "acin_status": return toolStatus();
     case "acin_out": return toolOut();
     default: throw new Error(`Unknown tool: ${name}`);

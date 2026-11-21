@@ -12,6 +12,17 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- 🦀 Claude in (ContentView.swift): a door on 127.0.0.1 for an agent on
+	     this Mac. Nothing listens beyond the loopback. -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<!-- 🪪 The suite's shared login, renewed and written back as every AC tool
+	     does, and the card that says where the Claude-in door is. -->
+	<key>com.apple.security.temporary-exception.files.home-relative-path.read-write</key>
+	<array>
+		<string>/.ac-token</string>
+		<string>/.ac-claude-in.json</string>
+	</array>
 	<key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
 	<array>
 		<string>/.local/share/slab/wallpaper/desktop/current-color.json</string>

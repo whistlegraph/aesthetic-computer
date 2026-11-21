@@ -441,6 +441,8 @@ struct WebView: ACWebViewRepresentable {
         URLCache.shared.removeAllCachedResponses()
 
         #if os(macOS)
+        // 🪪 The suite's shared login (~/.ac-token), handed to the page before it boots.
+        if let script = SharedSession.userScript() { config.userContentController.addUserScript(script) }
         config.applicationNameForUserAgent = "AestheticMac"
         config.userContentController.addUserScript(WKUserScript(
             source: "window.acNativeWindowColor = true;",
@@ -488,6 +490,7 @@ struct WebView: ACWebViewRepresentable {
         // this Mac → Aesthetic Computer): Timelines, Graphics and Layers for
         // the real WKWebView, which has no CDP (2026-11-08).
         if #available(macOS 13.3, *) { webView.isInspectable = true }
+        ClaudeIn.shared.attach(webView)
         context.coordinator.observePiece(in: webView)
         if let rgb = navigation.pageColor {
             webView.underPageBackgroundColor = NSColor(srgbRed: rgb[0] / 255,
@@ -715,3 +718,222 @@ struct ContentView_Previews: PreviewProvider {
         ContentView()
     }
 }
+
+#if os(macOS)
+import CryptoKit
+
+// MARK: - 🪪 The shared AC login
+//
+// The AC suite (ac-login, the desktop app, the MCP servers, slab) shares one
+// login in ~/.ac-token. This app takes it as they do: the page is handed the
+// session in `session-aesthetic`, the form boot.mjs reads, before it boots.
+// An expired token is renewed with its refresh token and written back, as
+// toolchain/mcp/ac-token.mjs does, so every tool goes on reading one file.
+// A sign-in made in the page itself is left alone: the shared session is
+// written only where there is none, or where the one there was ours.
+enum SharedSession {
+    static let home = String(cString: getpwuid(getuid()).pointee.pw_dir)
+    static var file: String { "\(home)/.ac-token" }
+    private static let domain = "hi.aesthetic.computer"
+    private static let client = "LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt"
+
+    static func read() -> [String: Any]? {
+        guard let data = FileManager.default.contents(atPath: file) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+    static func expiry(_ raw: [String: Any]) -> Double { (raw["expires_at"] as? NSNumber)?.doubleValue ?? 0 }
+    static func live(_ raw: [String: Any]) -> Bool { expiry(raw) > Date().timeIntervalSince1970 * 1000 + 60_000 }
+
+    /// `session-aesthetic` as boot.mjs takes it: URI-encoded base64 JSON.
+    static func param(_ raw: [String: Any]) -> String? {
+        guard let token = raw["access_token"] as? String,
+              let user = raw["user"] as? [String: Any], let sub = user["sub"] as? String,
+              let json = try? JSONSerialization.data(withJSONObject: [
+                "accessToken": token, "account": ["label": user["email"] as? String ?? "", "id": sub],
+              ]) else { return nil }
+        return json.base64EncodedString().addingPercentEncoding(withAllowedCharacters: .alphanumerics)
+    }
+
+    /// The page's side: written where no session is, or where ours was, and
+    /// never over a newer one or in the middle of a sign-in's return.
+    static func js(_ raw: [String: Any]) -> String? {
+        guard let param = param(raw) else { return nil }
+        let expires = Int(expiry(raw))
+        return """
+        (() => {
+          try {
+            if (!/(^|\\.)(aesthetic\\.computer|prompt\\.ac)$/.test(location.hostname)) return false;
+            if (/[?&](code|state)=/.test(location.search)) return false;
+            const had = localStorage.getItem('session-aesthetic'), ours = Number(localStorage.getItem('ac-shared-session') || 0);
+            if ((had && !ours) || \(expires) <= Date.now() || \(expires) <= ours) return false;
+            localStorage.setItem('session-aesthetic', '\(param)');
+            localStorage.setItem('ac-shared-session', '\(expires)');
+            return true;
+          } catch { return false; }
+        })();
+        """
+    }
+
+    static func userScript() -> WKUserScript? {
+        guard let raw = read(), live(raw), let source = js(raw) else { return nil }
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    }
+
+    /// Renew an expired token and write the file back. → the new record.
+    static func renew() async -> [String: Any]? {
+        guard var raw = read(), !live(raw), let refresh = raw["refresh_token"] as? String,
+              let url = URL(string: "https://\(domain)/oauth/token") else { return nil }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "grant_type": "refresh_token", "client_id": client, "refresh_token": refresh,
+        ])
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let next = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let access = next["access_token"] as? String else { return nil }
+        raw["access_token"] = access
+        if let rotated = next["refresh_token"] as? String { raw["refresh_token"] = rotated }
+        if let id = next["id_token"] as? String { raw["id_token"] = id }
+        let seconds = (next["expires_in"] as? NSNumber)?.doubleValue ?? 3600
+        raw["expires_at"] = Int(Date().timeIntervalSince1970 * 1000 + seconds * 1000)
+        guard let out = try? JSONSerialization.data(withJSONObject: raw, options: [.prettyPrinted]),
+              (try? out.write(to: URL(fileURLWithPath: file), options: [.atomic])) != nil else { return nil }
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file)
+        return raw
+    }
+}
+
+// MARK: - 🦀 Claude in
+//
+// A door on this Mac's loopback for an agent working with whoever is at the
+// keys: it can ask where the app is, run a line of JavaScript in the page and
+// take a picture of it. The Electron app has Chromium's debugging port for
+// this; a WKWebView has none, so this is the native app's.
+//
+// The door is 127.0.0.1 only, on a port the system picks, and every request
+// must carry a secret made at launch. Port and secret are written to
+// ~/.ac-claude-in.json (mode 600), so only this user's own tools can knock;
+// a request with an Origin (a web page's) is refused. It also keeps the
+// shared login fresh while the app runs.
+final class ClaudeIn {
+    static let shared = ClaudeIn()
+    private weak var webView: WKWebView?
+    private var listener: NWListener?
+    private var timer: Timer?
+    private let secret = SymmetricKey(size: .bits256).withUnsafeBytes { Data($0).map { String(format: "%02x", $0) }.joined() }
+    private var card: String { "\(SharedSession.home)/.ac-claude-in.json" }
+
+    func attach(_ webView: WKWebView) {
+        self.webView = webView
+        if listener == nil { listen() }
+        if timer == nil {
+            timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in self?.keepSession() }
+            keepSession()
+        }
+    }
+
+    /// An expired shared login is renewed; the page is told, and loaded again
+    /// once if it had booted without one.
+    private func keepSession() {
+        Task { @MainActor in
+            guard let raw = await SharedSession.renew(), let source = SharedSession.js(raw), let webView = self.webView else { return }
+            guard let wrote = try? await webView.evaluateJavaScript(source) as? Bool, wrote else { return }
+            if let signedIn = try? await webView.evaluateJavaScript("!!window.acUSER") as? Bool, !signedIn { webView.reload() }
+        }
+    }
+
+    private func listen() {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        guard let listener = try? NWListener(using: parameters) else { return }
+        self.listener = listener
+        listener.stateUpdateHandler = { [weak self] state in
+            guard let self, case .ready = state, let port = listener.port?.rawValue else { return }
+            let record: [String: Any] = ["port": Int(port), "secret": self.secret, "pid": Int(ProcessInfo.processInfo.processIdentifier),
+                                         "app": Bundle.main.bundleIdentifier ?? "", "at": Int(Date().timeIntervalSince1970 * 1000)]
+            guard let data = try? JSONSerialization.data(withJSONObject: record) else { return }
+            FileManager.default.createFile(atPath: self.card, contents: data, attributes: [.posixPermissions: 0o600])
+        }
+        listener.newConnectionHandler = { [weak self] connection in
+            connection.start(queue: .main)
+            self?.read(connection, Data())
+        }
+        listener.start(queue: .main)
+    }
+
+    private func read(_ connection: NWConnection, _ soFar: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 16) { [weak self] chunk, _, done, error in
+            guard let self else { return connection.cancel() }
+            var data = soFar
+            if let chunk { data.append(chunk) }
+            if data.count > 1 << 20 { return connection.cancel() }
+            guard let split = data.range(of: Data("\r\n\r\n".utf8)) else {
+                return done || error != nil ? connection.cancel() : self.read(connection, data)
+            }
+            let head = String(decoding: data[..<split.lowerBound], as: UTF8.self).components(separatedBy: "\r\n")
+            var headers: [String: String] = [:]
+            for line in head.dropFirst() {
+                guard let colon = line.firstIndex(of: ":") else { continue }
+                headers[line[..<colon].lowercased()] = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            }
+            let body = data[split.upperBound...]
+            if body.count < Int(headers["content-length"] ?? "0") ?? 0 {
+                return done || error != nil ? connection.cancel() : self.read(connection, data)
+            }
+            let request = (head.first ?? "").split(separator: " ").map(String.init)
+            self.answer(connection, method: request.first ?? "", path: request.count > 1 ? request[1] : "", headers: headers, body: Data(body))
+        }
+    }
+
+    private func send(_ connection: NWConnection, _ status: String, _ type: String, _ body: Data) {
+        let head = "HTTP/1.1 \(status)\r\nContent-Type: \(type)\r\nContent-Length: \(body.count)\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+        connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
+    }
+    private func json(_ connection: NWConnection, _ status: String, _ value: [String: Any]) {
+        let data = (try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed])) ?? Data("{}".utf8)
+        send(connection, status, "application/json", data)
+    }
+
+    private func answer(_ connection: NWConnection, method: String, path: String, headers: [String: String], body: Data) {
+        let given = Data((headers["authorization"] ?? "").utf8), wanted = Data("Bearer \(secret)".utf8)
+        guard headers["origin"] == nil, given.count == wanted.count,
+              zip(given, wanted).reduce(UInt8(0), { $0 | ($1.0 ^ $1.1) }) == 0 else {
+            return json(connection, "403 Forbidden", ["ok": false, "error": "refused"])
+        }
+        guard let webView else { return json(connection, "503 Service Unavailable", ["ok": false, "error": "no page"]) }
+        switch (method, path) {
+        case ("GET", "/info"):
+            json(connection, "200 OK", [
+                "ok": true, "app": Bundle.main.bundleIdentifier ?? "",
+                "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "",
+                "url": webView.url?.absoluteString ?? "", "title": webView.title ?? "",
+                "width": Int(webView.bounds.width), "height": Int(webView.bounds.height),
+            ])
+        case ("POST", "/eval"):
+            // The body is the inside of an async function: `return` what is wanted.
+            webView.callAsyncJavaScript(String(decoding: body, as: UTF8.self), arguments: [:], in: nil, in: .page) { [weak self] result in
+                switch result {
+                case .success(let value):
+                    let plain = JSONSerialization.isValidJSONObject([value]) ? value : String(describing: value)
+                    self?.json(connection, "200 OK", ["ok": true, "value": plain])
+                case .failure(let error):
+                    let detail = (error as NSError).userInfo["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription
+                    self?.json(connection, "200 OK", ["ok": false, "error": detail])
+                }
+            }
+        case ("GET", "/shot"):
+            webView.takeSnapshot(with: nil) { [weak self] image, _ in
+                guard let tiff = image?.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff),
+                      let png = bitmap.representation(using: .png, properties: [:]) else {
+                    self?.json(connection, "500 Internal Server Error", ["ok": false, "error": "no picture"]); return
+                }
+                self?.send(connection, "200 OK", "image/png", png)
+            }
+        default:
+            json(connection, "404 Not Found", ["ok": false, "error": "no such door"])
+        }
+    }
+}
+#endif
