@@ -9,6 +9,14 @@
 // about what a gentle one did.
 export const PLANET = 24;
 
+// Fraction of spherical curvature in the camera projection. The simulation
+// always uses metres along the surface. A low eye sees its local tangent map.
+export function viewCurvature(height, orbit = 0) {
+  const t = Math.min(1, Math.max(0, (Math.abs(height) - 4) / 36));
+  const rise = t * t * (3 - 2 * t);
+  return rise + (1 - rise) * orbit * orbit * (3 - 2 * orbit);
+}
+
 // A place in the flat world, measured from the eye (dx, dz across the
 // ground; y its height over the ground), where the ball of radius R puts it:
 // as far round the ball as it is off along the ground, upright on the ball.

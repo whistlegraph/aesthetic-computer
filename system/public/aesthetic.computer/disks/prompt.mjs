@@ -281,7 +281,7 @@ let histScrub = null;
 
 // 🎭 Mime swipe: an upward drag on the curtain drops into the mime feed.
 let mimeSwipe = null;
-let promptGlazeEnabled = true;
+let promptGlazeEnabled = true, promptGlazeType;
 let mimeArmed = false; // Last curtain state sent to bios's mime sheet.
 let mimeMarkTop = null; // Top of the mime wordmark this frame, or null when it isn't drawn.
 
@@ -1193,7 +1193,8 @@ async function boot({
   // `prompt:noglaze` skips the glaze post-effect — a quick way to isolate the
   // glaze's (GPU) cost from everything else when diagnosing frame rate.
   promptGlazeEnabled = !colon?.includes("noglaze");
-  glaze({ on: promptGlazeEnabled, day: !dark });
+  promptGlazeType = colon?.includes("webgpu") ? "prompt-webgpu" : "prompt";
+  glaze({ on: promptGlazeEnabled, day: !dark, type: promptGlazeType });
   // if (vscode) console.log("🟣 Running `prompt` in the VSCode extension.");
 
   net.requestDocs().then((d) => {
@@ -8401,7 +8402,7 @@ function act({
   ui,
 }) {
   if (e.is("dark-mode") || e.is("light-mode"))
-    glaze({ on: promptGlazeEnabled, day: !api.dark });
+    glaze({ on: promptGlazeEnabled, day: !api.dark, type: promptGlazeType });
 
   // 🎚️ A press on the bare curtain charges the caret before the release
   // opens the prompt: a soft rising tone now, the chime on the release.

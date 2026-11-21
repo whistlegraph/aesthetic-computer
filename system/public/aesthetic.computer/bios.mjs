@@ -20,7 +20,7 @@ import { createOutputWaveform } from "./lib/output-waveform.mjs";
 import { startCapturingMotion, stopCapturingMotion } from "./lib/motion.mjs";
 import { speak, speakAPI } from "./lib/speech.mjs";
 import * as UI from "./lib/ui.mjs";
-import * as Glaze from "./lib/glaze.mjs";
+import * as Glaze from "./lib/paper-glaze.mjs";
 import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";

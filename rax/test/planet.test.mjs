@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { PLANET, bend, sight, hidden, depthRange, depthAt, widest, ballOf, landTiles, NEAR, FAR, SPLIT, SHARE } from '../planet.mjs';
+import { PLANET, viewCurvature, bend, sight, hidden, depthRange, depthAt, widest, ballOf, landTiles, NEAR, FAR, SPLIT, SHARE } from '../planet.mjs';
 import { Projector, layerBias } from '../project.mjs';
 import { moveFreecam, FLOOR, DEEP } from '../freecam.mjs';
 import { OskiewarScene3D } from '../../xbox/live/scene3d.mjs';
 
 let seed = 11;
 const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+
+test('local map is flat at walking height and blends continuously into the orbital globe', () => {
+  assert.equal(viewCurvature(1.7), 0);
+  assert.equal(viewCurvature(4), 0);
+  assert.equal(viewCurvature(40), 1);
+  assert.equal(viewCurvature(1.7, 1), 1);
+  let previous = 0;
+  for (let h = 4; h <= 40; h += 0.1) {
+    const current = viewCurvature(h);
+    assert.ok(current >= previous && current - previous < 0.005);
+    previous = current;
+  }
+});
 
 test('the ball puts the land a radius from its middle, keeps its bearing, and stands things upright on it', () => {
   for (const R of [25, 140, 900]) for (const eye of [1.7, 300, -40]) {

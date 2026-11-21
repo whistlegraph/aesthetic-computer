@@ -31,7 +31,7 @@ import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-lan
 import { BALL } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector } from './project.mjs';
-import { PLANET, FAR, landTiles } from './planet.mjs';
+import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
 import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
 import { cursorOver } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
@@ -1459,17 +1459,14 @@ export async function createView(canvas) {
       projector.sy *= orbitZoom;
     }
     orbitZoom = 1;
-    // 🔭 The lens (project.mjs): walking or flying, the middle of the picture
-    // is drawn a little larger than a flat picture of this width would have
-    // it, and the edges are drawn in, so more is seen to either side and
-    // nothing there is stretched. Not from overhead, nor side-on in a game.
+    // At walking height the source coordinates are already a local map in metres.
+    // Ease in both the planet and the wide-angle lens as the camera leaves it.
+    const curvature = viewCurvature(eye.y, orbit);
     projector.decay = decay;
     projector.decayAt = now;
-    // It is how rax is seen, always; flying in from overhead it comes on as the eye comes down.
-    // 🔭 The card bends the finished picture (lens-host.mjs), so nothing tears; without WebGPU there is no lens.
     projector.card = backend === 'webgpu';
     projector.under = projector.card ? 1 : 0;
-    projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS;
+    projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS * curvature;
     if (projector.lens) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
@@ -1478,9 +1475,9 @@ export async function createView(canvas) {
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
-    // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
-    projector.planet = orbit > 0 ? orbitalRadius : game?.camera || basement ? 0 : PLANET;
-    if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
+    const radius = orbit > 0 ? orbitalRadius : PLANET;
+    projector.planet = (game?.camera || basement) && orbit <= 0 ? 0 :
+      TRY.planet ?? (curvature > 0 ? radius / curvature : 0);
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
     if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
     // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
@@ -2175,6 +2172,10 @@ export async function createView(canvas) {
       }
       projector.overlay(promptModel, width, height);
     }
+    // Prompt's profile button has a six-pixel margin, four pixels of padding,
+    // and a ten-row font. handleText places row zero one unit above its origin.
+    const handleX = -canvas.width / 2 + 10 * hud.unit;
+    const handleY = -canvas.height / 2 + 19 * hud.unit;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells) {
       const width = canvas.width,
@@ -2189,8 +2190,8 @@ export async function createView(canvas) {
       }));
       if (labels.length && me && !bare)
         ownTag = {
-          x: -width / 2 + safeX + 2 + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0)) * unit, // (past the linked-agent mark, when one stands there)
-          y: Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit),
+          x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0) + (labels[0].seat < 0 ? 11 : 0)) * unit, // (past the linked-agent mark, when one stands there)
+          y: handleY,
         };
       const meter = (connection?.label || '').toLowerCase();
       const jitter =
@@ -2217,17 +2218,17 @@ export async function createView(canvas) {
           const rect = (x, y, z, w, h, color) =>
             worldRect(-x - w, y, z, w, h, color);
           // Bottom left is the local identity; other names stay on their heads.
-          const floor = Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
+          const floor = handleY;
           labels.forEach(({ label, seat, handle, colors }, i) => {
             const y = floor + (labels.length - 1 - i) * 12 * unit;
-            let x = -width / 2 + safeX + 2;
-            // 🚁 Looking on, the name wears a small drone before it: two rotors, a body, two feet.
+            const x = handleX;
+            // 🚁 Looking on, the name carries a small drone after it: two rotors, a body, two feet.
             if (seat < 0) {
+              const droneX = x + (label.length * 6 + 3 + (agents ? 10 : 0)) * unit;
               for (const [dx, dy, w, h, color] of [[0, 5, 3, 1, 0x7fd4ff], [6, 5, 3, 1, 0x7fd4ff], [1, 4, 1, 1, PAPER], [7, 4, 1, 1, PAPER], [1, 2, 7, 2, PAPER], [3, 1, 3, 1, 0xff6b9d], [1, 0, 1, 1, PAPER], [7, 0, 1, 1, PAPER]]) {
-                rect(x + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
-                rect(x + dx * unit, y - 7 * unit + dy * unit, 0, w * unit, h * unit, color);
+                rect(droneX + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
+                rect(droneX + dx * unit, y - 7 * unit + dy * unit, 0, w * unit, h * unit, color);
               }
-              x += 11 * unit;
             }
             // No seat chip: the handle's own colours identify the player.
             const cx = x + ((label.length * 6 - 1) * unit) / 2;
@@ -2975,7 +2976,7 @@ export async function createView(canvas) {
     }
     if (face && me && !bare) {
       const { unit, safeX, safeY } = hud;
-      const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
+      const floor = handleY;
       const listTop = floor + 4 * unit;
       const S = 24 * unit, x0 = -W / 2 + safeX + 2, y0 = listTop + 4 * unit;
       const base = me.y - CFG.eyeHeight,
@@ -3076,7 +3077,7 @@ export async function createView(canvas) {
       // A face cam, bottom left above your handle: an original pixel portrait
       // in the player's own look that reacts to what happens to them.
       const { unit, safeX, safeY } = hud;
-      const floor = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
+      const floor = handleY;
       const listTop = floor + 4 * unit;
       const S = 24 * unit,
         x0 = -W / 2 + safeX + 2,
