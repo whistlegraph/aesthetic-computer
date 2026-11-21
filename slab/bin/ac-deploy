@@ -4,6 +4,9 @@
 //
 //   ac-deploy                  deploy the knot's main to lith, then prove it
 //   ac-deploy --verify         only prove what production is serving
+//   ac-deploy --wait           follow the deploy a commit on main started in
+//                              the background (.githooks/post-commit), then
+//                              prove what production is serving
 //   ac-deploy aesel            release Aesel alone from the knot's main
 //   ac-deploy aesel --verify   only prove what Aesel release is served
 //   ac-deploy products         ship only the private products (the vault's
@@ -36,7 +39,8 @@ import { workspace, releaseState } from "../../toolchain/private-products.mjs";
 
 const ROOT = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "../..");
 const SITE = "https://aesthetic.computer";
-const verifyOnly = process.argv.includes("--verify");
+const waiting = process.argv.includes("--wait");
+const verifyOnly = waiting || process.argv.includes("--verify");
 const aeselOnly = process.argv[2] === "aesel";
 const productsOnly = process.argv[2] === "products";
 
@@ -109,14 +113,36 @@ async function cleanVault() {
   return releaseState(workspace(ROOT, clone));
 }
 
+// One read of what production serves. lith restarts during a deploy and the
+// edge resets or answers 5xx for a few seconds either side of it, so a dropped
+// connection, a timeout or a 5xx is waited out (about a minute in all) and
+// only then reported, in a line, not a stack. A 4xx is an answer: it is
+// returned at once.
+const WAITS = [1, 2, 3, 5, 8, 10, 15, 15];
+async function production(path, as = "text") {
+  let trouble = "";
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(`${SITE}${path}?t=${Date.now()}`, {
+        headers: { "cache-control": "no-cache" }, signal: AbortSignal.timeout(20_000),
+      });
+      if (response.ok) return as === "bytes" ? Buffer.from(await response.arrayBuffer()) : await response.text();
+      trouble = `answered ${response.status}`;
+      if (response.status < 500) throw Object.assign(new Error(trouble), { final: true });
+    } catch (error) {
+      if (error.final) fail(`${SITE}${path} ${trouble}`);
+      trouble = error.name === "TimeoutError" ? "timed out" : (error.cause?.code || error.cause?.errors?.[0]?.code || error.code || error.message);
+    }
+    if (attempt >= WAITS.length) fail(`${SITE}${path} unreachable after ${attempt + 1} tries (${trouble}) — production was not checked; run ac-deploy --verify again`);
+    if (attempt === 0) say("·", `${path} ${trouble}; lith may be restarting — waiting`);
+    await new Promise((done) => setTimeout(done, WAITS[attempt] * 1000));
+  }
+}
+
 // `sha` is the core commit production should be serving: the knot's main
 // after a full deploy, or whatever lith already runs after a products release.
 async function verify(sha) {
-  const get = async (path) => {
-    const response = await fetch(`${SITE}${path}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } });
-    if (!response.ok) throw new Error(`${path} answered ${response.status}`);
-    return response.text();
-  };
+  const get = (path) => production(path);
   let ok = true;
   const served = (await get("/.commit-ref")).trim();
   if (served === sha) say("✓", `serving ${sha.slice(0, 10)}`);
@@ -139,11 +165,11 @@ async function verify(sha) {
 // tarball it names hashes to what the manifest says.
 async function verifyAesel(sha) {
   const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
-  const manifest = await (await fetch(`${SITE}/aesel.json?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })).json();
+  const manifest = JSON.parse(await production("/aesel.json"));
   let ok = true;
   if (manifest.version === want) say("✓", `aesel.json ${manifest.version}`);
   else { ok = false; say("✕", `aesel.json ${manifest.version}, expected ${want}`); }
-  const tarball = Buffer.from(await (await fetch(`${SITE}${manifest.tarball}?t=${Date.now()}`, { headers: { "cache-control": "no-cache" } })).arrayBuffer());
+  const tarball = await production(manifest.tarball, "bytes");
   const sum = createHash("sha256").update(tarball).digest("hex");
   if (sum === manifest.sha256 && tarball.length === manifest.bytes) say("✓", `${manifest.tarball} ${(tarball.length / 1024).toFixed(0)} KB · sha256 matches`);
   else { ok = false; say("✕", `${manifest.tarball} does not match its manifest`); }
@@ -276,8 +302,44 @@ rm -rf "$R"
   } finally { done(); }
 }
 
+// The post-commit hook deploys in the background and writes only to a log.
+// This follows that log from the run in progress until its lock is gone, so
+// the caller gets the deploy's own words and then the verdict below. With no
+// deploy running there is nothing to follow and it goes straight to the proof.
+async function follow() {
+  const lock = join(ROOT, ".git/auto-deploy.lock");
+  const log = join(ROOT, ".git/auto-deploy.log");
+  const alive = () => {
+    if (!existsSync(lock)) return false;
+    try { process.kill(Number(readFileSync(join(lock, "pid"), "utf8")), 0); return true; }
+    catch { return false; }
+  };
+  if (!alive()) {
+    if (existsSync(lock)) say("·", "a deploy lock is here but its process is gone; the next deployable commit clears it");
+    else say("·", "no background deploy is running");
+    return;
+  }
+  const read = () => (existsSync(log) ? readFileSync(log, "utf8") : "");
+  let seen = Math.max(0, read().lastIndexOf("\n=== "));
+  const started = Date.now();
+  for (;;) {
+    const text = read();
+    if (text.length > seen) { process.stdout.write(text.slice(seen)); seen = text.length; }
+    if (!alive()) break;
+    if (Date.now() - started > 20 * 60_000) fail("the background deploy is still running after 20 minutes — see .git/auto-deploy.log");
+    await new Promise((done) => setTimeout(done, 1000));
+  }
+  const run = read().slice(Math.max(0, read().lastIndexOf("\n=== ")));
+  if (run.includes("⚠")) say("✕", "the background deploy reported trouble (above); checking what production serves anyway");
+}
+
 whoami();
+if (waiting) await follow();
 git("fetch", "-q", "origin", "main");
+if (waiting) {
+  const ahead = git("rev-list", "--count", "origin/main..main");
+  if (ahead !== "0") fail(`local main is ${ahead} commit(s) ahead of the knot — they were not pushed, so they are not deployed`);
+}
 const sha = git("rev-parse", "origin/main");
 
 if (aeselOnly) {

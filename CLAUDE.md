@@ -102,6 +102,9 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
 - **compushloy** - always commit, push, and deploy. Land the changes on the
   intended deployment branch, deploy from that branch, and verify production
   serves the pushed revision — by comparing bytes, not status codes.
+  **A commit on `main` that touches `system/`, `lith/` or `shared/` already
+  pushes and deploys itself** in the background (`.githooks/post-commit`);
+  run `ac-deploy --wait` to follow that deploy and get its verdict.
   **Deploy lith with `ac-deploy`** (`slab/bin/ac-deploy`, on PATH): it
   refuses unless git says you are @jeffrey and can reach the knot, refuses
   if local `main` is unpushed, always deploys `main`, then checks the served

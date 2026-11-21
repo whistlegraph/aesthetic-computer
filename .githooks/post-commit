@@ -104,10 +104,23 @@ if [ "${AC_NO_AUTO_DEPLOY:-}" != "1" ] && [ "$CURRENT_BRANCH" = "main" ]; then
     LOCK="$REPO_ROOT/.git/auto-deploy.lock"
     PENDING="$REPO_ROOT/.git/auto-deploy.pending"
     LOG="$REPO_ROOT/.git/auto-deploy.log"
+    # A deploy that was killed outright (a reboot, a closed terminal) never
+    # runs its trap and leaves the lock behind; every later commit then
+    # queued behind a deploy that did not exist (2026-11-06 to 11-21). The
+    # lock names its process, and a lock whose process is gone is taken over.
+    if [ -d "$LOCK" ]; then
+      LOCK_PID="$(cat "$LOCK/pid" 2>/dev/null || true)"
+      if [ -z "$LOCK_PID" ] || ! kill -0 "$LOCK_PID" 2>/dev/null; then
+        echo "🚀 clearing a stale deploy lock (its process is gone)"
+        rm -rf "$LOCK"
+      fi
+    fi
     if mkdir "$LOCK" 2>/dev/null; then
+      echo $$ > "$LOCK/pid"
       echo "🚀 main commit touches deployable code — pushing and deploying lith in the background (log: .git/auto-deploy.log)"
       (
-        trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+        trap 'rm -rf "$LOCK"' EXIT
+        sh -c 'echo $PPID' > "$LOCK/pid"
         while :; do
           rm -f "$PENDING"
           printf "\n=== %s commit=%s ===\n" "$(date -Iseconds)" "$(git -C "$REPO_ROOT" rev-parse --short HEAD)" >> "$LOG"
