@@ -1948,7 +1948,9 @@ export async function createView(canvas) {
           : `chalk ${chalkMode.text}: hold c or right click / enter build / esc cancel`
         : null;
       const whose = (o) =>
-        o.wall
+        o.panel // 🧩 a piece on a panel: pressed when in reach, locked on to from anywhere
+          ? `${panels.some((p) => p.cursor) ? (input === 'touch' ? 'tap: press / ' : pad ? '[A] press / ' : '{enter} or click: press / ') : ''}${pad ? '[LB] lock on' : '{z} lock on'}`
+        : o.wall
           ? pad ? '[RB] change' : '{f} change'
           : o.owner === owner
             ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
@@ -1961,7 +1963,9 @@ export async function createView(canvas) {
       const lockHint = lockedOn && focusObject
         ? [
             `${named(focusObject)} locked`,
-            ...(pad
+            ...(focusObject.panel
+              ? [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? 'dpad next / [LB] unlock' : '{[} {]} next / {z} unlock'}`]
+              : pad
               ? focusObject.wall
                 ? ['[RB] change / [LB] unlock']
                 : [`${mine ? '[RB] change / ' : ''}[B] remove`, 'dpad next / [LB] unlock']

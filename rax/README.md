@@ -455,6 +455,10 @@ as that handle. A click on the QR signs in on the device itself instead.
   between rooms keeps the handle (a passage carries it).
 - Codes and approvals are limited per socket and per address (`PAIR_LIMITS`);
   five refused approvals discard a code. Codes and tokens are never logged.
+- An agent does the phone's part with `acin_pair` (`toolchain/mcp/acin-pair.mjs`):
+  it reads the QR out of a Frame capture of the screen and posts the code with
+  the shared `~/.ac-token`. `node toolchain/mcp/acin-pair.mjs <picture>` is the
+  same from a shell.
 
 Rotation bounds now evaluate sine/cosine over each actual angle interval. A small
 leg swing no longer reserves a full circle and falsely crosses the floor. The

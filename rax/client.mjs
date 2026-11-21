@@ -174,7 +174,7 @@ async function mountYard() {
         return voice;
       } };
       const { piece, host } = await acPiece(slug, { sound, seed: id });
-      const panel = panels.mount({ id, piece, host, x, y, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 });
+      const panel = panels.mount({ id, label: slug, piece, host, x, y, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 });
       // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
       const act = panel.act;
       let toldAt = 0;
@@ -785,16 +785,22 @@ function spotOf(id) {
   if (w) return w.face === 'north' ? { x: 0, y: 10, z: SCREEN } : { x: -SCREEN, y: 10, z: 0 };
   const s = screens.find((x) => `screen:${x.id}` === id);
   if (s) return { x: s.x, y: 1.5, z: s.z };
+  const panel = panelOf(id);
+  if (panel) return { x: panel.x, y: panel.y, z: panel.z };
   const far = farThings.get(id)?.box;
   if (far) return { x: (far.xMin + far.xMax) / 2, y: (far.yMin + far.yMax) / 2, z: (far.zMin + far.zMax) / 2 };
   return null;
 }
 const screenBox = (s) => { const wide = direction((s.yaw || 0) - 90), hx = Math.abs(wide.x) * 2 + 0.08, hz = Math.abs(wide.z) * 2 + 0.08; return { xMin: s.x - hx, xMax: s.x + hx, yMin: 0.4, yMax: 2.65, zMin: s.z - hz, zMax: s.z + hz }; };
 const screenFocus = (s) => ({ id: `screen:${s.id}`, wall: true, screen: true, code: s.code, version: 0, owner: null, geometry: { name: `$${s.code}` }, box: screenBox(s) });
+// 🧩 A piece on a world panel is a thing in the world like any other: aimed at from any distance, named, and locked on to (within reach the aim is also its mouse). A panel with a `label` is one; the car's pad and the signs are not.
+const panelOf = (id) => (id?.startsWith('panel:') ? panels.list.find((p) => !p.hidden && p.label && `panel:${p.id}` === id) || null : null);
+const panelBox = (p) => { const wide = direction((p.yaw || 0) - 90), hx = Math.abs(wide.x) * (p.w / 2) + 0.08, hz = Math.abs(wide.z) * (p.w / 2) + 0.08; return { xMin: p.x - hx, xMax: p.x + hx, yMin: p.y - p.h / 2, yMax: p.y + p.h / 2, zMin: p.z - hz, zMax: p.z + hz }; };
+const panelFocus = (p) => ({ id: `panel:${p.id}`, wall: true, panel: true, version: 0, owner: null, geometry: { name: p.label }, box: panelBox(p) });
 // 🔭 Things that stand in the rooms around (another block, a floor of the tower): where each is in this room's metres, as last aimed at.
 const farThings = new Map();
 function selectables() {
-  return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`), ...screens.map((s) => `screen:${s.id}`)];
+  return [...objects.map((o) => o.id), ...walls.map((w) => `wall:${w.code}`), ...screens.map((s) => `screen:${s.id}`), ...panels.list.filter((p) => !p.hidden && p.label).map((p) => `panel:${p.id}`)];
 }
 function setLock(id) {
   if (id && !lockOn) {
@@ -802,7 +808,7 @@ function setLock(id) {
     if (seat >= 0) third = true;
   }
   if (!id && lockOn) third = thirdBeforeLock;
-  lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') || farThings.has(id) } : null; // (a wall or a standing screen is looked at, never removed by a lock)
+  lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') || id.startsWith('panel:') || farThings.has(id), panel: id.startsWith('panel:') } : null; // (a wall, a standing screen or a piece on a panel is looked at, never removed by a lock)
 }
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
@@ -933,6 +939,9 @@ if (query.has('debug'))
     pending: pending.length,
     rtt: connection.rtt,
     focus: focusObject?.id || null,
+    lock: lockOn?.id || null,
+    eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
+    panels: panels.list.filter((p) => !p.hidden).map((p) => p.id),
     cursorAim,
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
   });
@@ -1748,7 +1757,8 @@ function touchContext() {
     return [CONTEXT.use({ shoot: 'shoot', poke: 'poke', throw: 'throw' }[item?.item] || 'use'), CONTEXT.drop];
   }
   // Locked on, a remove is at once (the lock is the confirmation).
-  if (lockOn) return [CONTEXT.unlock, lockOn.wall ? CONTEXT.change : CONTEXT.remove];
+  if (lockOn) return lockOn.panel ? [CONTEXT.unlock] : [CONTEXT.unlock, lockOn.wall ? CONTEXT.change : CONTEXT.remove];
+  if (focusObject?.panel) return [CONTEXT.lock];
   if (focusObject?.wall) return [CONTEXT.change, CONTEXT.lock];
   if (focusObject) {
     const armed = removeArmed?.id === focusObject.id && performance.now() - removeArmed.at < 2000;
@@ -2043,7 +2053,8 @@ document.addEventListener('keydown', (e) => {
   // 🚁 Looking on, V steps back to see your own drone.
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
-    if (focusObject?.wall && !holding()) openRadial(focusObject);
+    if (focusObject?.panel) {} // (a piece on a panel is pressed, not changed)
+    else if (focusObject?.wall && !holding()) openRadial(focusObject);
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
@@ -2404,7 +2415,7 @@ function step(now) {
   // RB adds: with nothing held it builds (or changes what you aim at, or
   // rewrites a KidLisp wall); with an item in hand it uses the item.
   if (gamepad.use && seat >= 0 && !prompt.open && !holding()) {
-    openRadial(focusObject?.wall ? focusObject : null);
+    if (!focusObject?.panel) openRadial(focusObject?.wall ? focusObject : null);
     gamepad.use = false;
   }
   if (gamepad.use && seat >= 0 && !prompt.open) useQueued = true;
@@ -2716,9 +2727,10 @@ function step(now) {
     }
     // 🖼️ A world panel within reach, with nothing before it, takes the aim
     // as its mouse (panel.mjs): the primary action presses there.
-    const onPanel = panels.aim(origin, dir, Math.min(PANEL_REACH, nearest));
+    const seen = panels.aim(origin, dir, nearest), onPanel = seen && seen.t <= PANEL_REACH ? seen : null;
     panels.point(onPanel);
-    if (onPanel) { nearest = onPanel.t; focusObject = null; }
+    // 🧩 A piece on a panel is aimed at from any distance, as anything that stands here is.
+    if (seen) { nearest = seen.t; focusObject = seen.panel.label ? panelFocus(seen.panel) : onPanel ? null : focusObject; }
     // The floor square under the crosshair, within reach, if nothing nearer.
     floorAim = null;
     if (dir.y < -0.02 && player) {
@@ -2737,6 +2749,7 @@ function step(now) {
       const w = walls.find((x) => `wall:${x.code}` === lockOn.id);
       const s = screens.find((x) => `screen:${x.id}` === lockOn.id);
       if (locked) focusObject = locked;
+      else if (panelOf(lockOn.id)) focusObject = panelFocus(panelOf(lockOn.id));
       else if (s) focusObject = screenFocus(s);
       else if (farThings.has(lockOn.id)) focusObject = farThings.get(lockOn.id);
       else if (w)
@@ -2789,8 +2802,8 @@ function step(now) {
   const lift = liftAt(now), sky = plazaFrom();
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
-  // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first stood on.
-  if (room === 'lobby' && seat >= 0) void mountYard();
+  // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first seen: by a body standing there or by a drone over it.
+  if (room === 'lobby') void mountYard();
   for (const p of yardPanels) p.hidden = room !== 'lobby';
   carPad.y = CAR_PAD.y + lift;
   panels.frame(now);

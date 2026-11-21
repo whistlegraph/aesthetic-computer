@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
 import { loadTokens } from "./ac-token.mjs";
+import { pairScreen } from "./acin-pair.mjs";
 
 const pexec = promisify(execFile);
 // Resolve puppeteer against the repo root (this file lives at toolchain/mcp/),
@@ -249,6 +250,26 @@ function toolOut() {
   return text({ linked: false, note: `Detached from @${room}; the mark goes dark on every surface.` });
 }
 
+// A rax screen with nobody signed in is seated as the shared session's handle
+// (acin-pair.mjs), and this session is linked to that handle's room after.
+async function toolPair(args) {
+  const said = await pairScreen({ image: args.image, url: args.url, code: args.code });
+  if (!said.ok) throw new Error(said.why);
+  let linked = null;
+  const room = canonicalRoom(said.handle);
+  if (args.link !== false && room && state.room !== room) {
+    try { linked = await attach(room, "claude"); } catch { /* the screen is signed in all the same */ }
+  }
+  return text({
+    paired: true,
+    handle: `@${said.handle}`,
+    server: said.server,
+    linked: !!state.socket,
+    surfaces: (linked || state.lastStatus)?.surfaces,
+    note: "That one screen is seated as the handle until it reloads or its connection drops; then capture its QR and pair again.",
+  });
+}
+
 const TOOLS = [
   {
     name: "acin_in",
@@ -269,6 +290,26 @@ const TOOLS = [
     },
   },
   {
+    name: "acin_pair",
+    description:
+      "Claude in to a rax screen that is signed out (the desktop app driven " +
+      "by a controller, a TV, a kiosk): reads the pairing QR it shows bottom " +
+      "left out of a picture of that screen and signs that one screen in as " +
+      "the shared ~/.ac-token handle, as a phone scanning it would, then " +
+      "links this session to the handle's room. Capture the screen with " +
+      "frame_focus on the QR and pass the image path it returns. A code " +
+      "lives two minutes and works once, so pair straight after capturing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image: { type: "string", description: "Path to a picture of the screen showing the QR (a Frame capture)" },
+        url: { type: "string", description: "The pairing address, if already read (…/rax/pair#code)" },
+        code: { type: "string", description: "The bare pairing code" },
+        link: { type: "boolean", description: "Also attach agent presence to the handle's room (default true)" },
+      },
+    },
+  },
+  {
     name: "acin_status",
     description: "Report the current claude-in attachment: room, label, and the latest presence counts (surfaces watching, agents linked).",
     inputSchema: { type: "object", properties: {} },
@@ -283,6 +324,7 @@ const TOOLS = [
 async function callTool(name, args) {
   switch (name) {
     case "acin_in": return toolIn(args || {});
+    case "acin_pair": return toolPair(args || {});
     case "acin_status": return toolStatus();
     case "acin_out": return toolOut();
     default: throw new Error(`Unknown tool: ${name}`);
@@ -304,7 +346,9 @@ async function handleMessage(message) {
               "Claude in / claude out of aesthetic.computer. acin_in attaches " +
               "agent presence to a handle's room and opens a dedicated Chrome " +
               "window signed in via ~/.ac-token; the claude crab shows " +
-              "top-right while attached. Presence drops when this session ends.",
+              "top-right while attached. Presence drops when this session ends. " +
+              "A signed-out rax screen is signed in with acin_pair from a Frame " +
+              "capture of its QR.",
           },
         };
       case "initialized":
@@ -327,4 +371,4 @@ async function handleMessage(message) {
 
 const port = httpPort(process.argv, 0);
 if (port) serveHttp({ handleMessage, port, banner: "🛰️ acin-mcp shared daemon" });
-else serveStdio({ handleMessage, banner: "🛰️ acin-mcp started (acin_in, acin_status, acin_out)" });
+else serveStdio({ handleMessage, banner: "🛰️ acin-mcp started (acin_in, acin_pair, acin_status, acin_out)" });
