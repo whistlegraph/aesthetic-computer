@@ -3329,7 +3329,12 @@ export async function createView(canvas) {
           const [i, j] = key.split(',').map(Number);
           const x = -18 + i * 2, z = -18 + j * 2, col = TILE_COLORS[(c - 1) % TILE_COLORS.length];
           // Edge to edge: neighbours of one colour read as one field (2026-11-10).
-          quad([x, 0.005, z], [x + 2, 0.005, z], [x + 2, 0.005, z + 2], [x, 0.005, z + 2], col);
+          // 🧩 Laid as sixteen half-metre pieces, not one two-metre square: on a planet this small (and a floor of the tower bends with it) a straight two-metre edge cuts more than a centimetre under the round, and the floor beneath, cut finer, came up through the paint in dark shards (2026-11-20). Half a metre cuts under by less than a millimetre.
+          for (let a = 0; a < 4; a++)
+            for (let b = 0; b < 4; b++) {
+              const x0 = x + a * 0.5, z0 = z + b * 0.5;
+              quad([x0, 0.005, z0], [x0 + 0.5, 0.005, z0], [x0 + 0.5, 0.005, z0 + 0.5], [x0, 0.005, z0 + 0.5], col);
+            }
         }
       });
     }
@@ -3344,8 +3349,12 @@ export async function createView(canvas) {
         const ink = [0x6f8794, 0x7b94a1, 0x87a1ae, 0x7b94a1][beat];
         floorGlow = model(({ quad }) => {
           const flat = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], ink);
-          flat(x, z, x + 2, z + rim); flat(x, z + 2 - rim, x + 2, z + 2);
-          flat(x, z + rim, x + rim, z + 2 - rim); flat(x + 2 - rim, z + rim, x + 2, z + 2 - rim);
+          // (The rim in quarter-metre lengths: a long straight strip sinks under the round of a small planet.)
+          for (let k = 0; k < 8; k++) {
+            const t = k * 0.25;
+            flat(x + t, z, x + t + 0.25, z + rim); flat(x + t, z + 2 - rim, x + t + 0.25, z + 2);
+            flat(x, z + t, x + rim, z + t + 0.25); flat(x + 2 - rim, z + t, x + 2, z + t + 0.25);
+          }
           // (No see-through faces in this engine: softness is a stipple, every other cell a small dot.)
           for (let a = 0; a < 10; a++)
             for (let b = (a + beat) % 2; b < 10; b += 2) {
