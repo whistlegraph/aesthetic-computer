@@ -279,7 +279,7 @@ async function mountYard() {
     }
     // 🪧 And over a group of them, what they are (the song hall's `songs`).
     for (const { text, ...at } of kioskSigns('lobby')) yardPanels.push(panels.mount({ piece: signPiece(text), ...at, deep: 0.06 }));
-    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its two grids of pads (the layout a kiosk is kept at), a pad the size of a hand; its mode bar's buttons work, and what its sound panel chooses is played by the one voice there is here.
+    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its piano keys (the layout a kiosk is kept at); its mode bar's buttons work, and what its sound panel chooses is played by the one voice there is here.
     const { notepatPiece } = await import('./ac-piece.mjs');
     const id = 'yard-notepat', spot = (({ x, z }) => ({ x, z }))(plan.find((k) => k.id === id)); // (where the plan stands it)
     // (notepat says how loud each voice is: its composite is one loud partial and four faint ones.)
@@ -290,7 +290,7 @@ async function mountYard() {
     // (If the disk does not load, the stand-in is mounted: notepat's pads, drawn here, on the smaller board they were made for.)
     let board;
     try {
-      const fresh = () => acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'grid' } });
+      const fresh = () => acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'piano' } });
       const { piece, host, ready } = await fresh();
       board = panels.mount({ id, label: 'notepat', completes: true, piece, host, ...spot, y: 1.6, yaw: 180, w: 4.8, h: 2.4, cols: 320, rows: 160, deep: 0.12 });
       board.fresh = fresh;
