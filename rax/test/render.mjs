@@ -89,6 +89,22 @@ try {
     });
     assert.deepEqual(orbitSizes.parked, [0, 0, 1280, 800, 640, 400], 'the globe is drawn on the full Prompt pixel grid');
     assert.deepEqual(orbitSizes.flying, orbitSizes.parked, 'the globe and the flight share one pixel grid');
+    // A build placed in the room must appear even at the far end of the flight.
+    const distantRoom = async built => {
+      await page.evaluate(built => {
+        performance.now = () => 1000;
+        try {
+          view.grid({pixel: 2, left: 0, top: 0, width: 640, height: 400});
+          view.render({bare: true, orbit: 1, park: {plaza: true, neighbours: {}},
+            skyline: {top: 0, dx: 0, dy: 0, dz: 0}, sunAt: 0.5,
+            objects: built ? [{id: 'landmark', x: 5, z: -7, version: 1,
+              geometry: {boxes: [{x: 0, y: 3, z: 0, w: 8, h: 6, d: 5, color: 0xff3296}]}}] : []});
+        } finally { delete performance.now; }
+      }, built);
+      return PNG.sync.read(await page.screenshot({clip: {x: 1160, y: 680, width: 120, height: 120}})).data;
+    };
+    assert.ok(!(await distantRoom(false)).equals(await distantRoom(true)), 'a room build changes the pixels at the paper cursor');
+    await page.evaluate(() => view.grid(null));
     // Observe the same fence from the same world position before and after
     // the local origin moves to the neighbouring block.
     const fencePixels = async (east) => {

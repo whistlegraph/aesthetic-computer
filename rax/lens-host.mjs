@@ -49,7 +49,7 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 // lens: 0 (none) to 1 (all of it); fovea: how much of the wide picture, from
 // its middle out, the sharp texture holds (0: there is none).
 const LENS = `
-struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32, soft: f32, shade: vec3f }
+struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32, soft: f32, dither: f32, shade: vec3f }
 @group(0) @binding(0) var picture: texture_2d<f32>;
 @group(0) @binding(1) var nearest: sampler;
 @group(0) @binding(2) var<uniform> u: Lens;
@@ -94,7 +94,13 @@ struct Out { @builtin(position) position: vec4f, @location(0) at: vec2f }
   let sharp = textureSampleLevel(middle, nearest, sharpAt, 0.);
   let within = u.fovea > 0. && max(abs(inner.x), abs(inner.y)) < .985;
   let light = select(lit(picture, farAt), lit(middle, sharpAt), within);
-  return vec4f(select(far, sharp, within).rgb * mix(u.shade, vec3f(1.), light), 1.);
+  let rgb = select(far, sharp, within).rgb * mix(u.shade, vec3f(1.), light);
+  // Quantize only mixed edge pixels. The ordered pattern stays on the paper grid.
+  let cell = vec2u(in.position.xy) % 4u;
+  let bayer = array<u32,16>(0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5);
+  let threshold = (f32(bayer[cell.y*4u+cell.x]) + 0.5) / 16.;
+  let edge = clamp(length(fwidth(rgb)) * 6., 0., 1.);
+  return vec4f(mix(rgb, floor(rgb * 31. + threshold) / 31., edge * u.dither), 1.);
 }`;
 
 // How far out (as a tangent) the flat picture must reach for a place r out on
@@ -209,7 +215,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     // The whole picture at half sharpness and the middle at all of it; or, with no fovea, the whole at all of it (and a middle of one pixel, unused).
     this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)], aa > 1);
     if (scene.triangleCount) device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
-    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, l.soft ?? 1, 0, 0, ...(shadow?.shade || [1, 1, 1]), 0]));
+    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, l.soft ?? 1, l.dither || 0, 0, ...(shadow?.shade || [1, 1, 1]), 0]));
     device.queue.writeBuffer(this.layers[0].zoom, 0, new Float32Array([1, 0, 0, 0]));
     device.queue.writeBuffer(this.layers[1].zoom, 0, new Float32Array([fovea ? 1 / fovea : 1, 0, 0, 0]));
     const stencil = this.shadows ? { stencilClearValue: 0, stencilLoadOp: 'clear', stencilStoreOp: 'discard' } : {};

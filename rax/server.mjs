@@ -530,6 +530,7 @@ export function createRaxServer({
       return;
     }
     if (path === '/room' && req.method === 'GET') {
+      await ready;
       const id = url.searchParams.get('room') || 'lobby';
       if (!/^[a-z0-9-]{1,32}$/.test(id)) {
         res.writeHead(400).end();
@@ -540,6 +541,7 @@ export function createRaxServer({
         .end(
           JSON.stringify({
             park: parkData(id),
+            tower: { top: tower.tower.top, listed: tower.tower.listed() },
             objects: store.objects(id),
             tiles: store.tiles(id),
             screens: store.screens(id),
@@ -787,7 +789,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // 🛗 In a room with the car, bodies land in a row south of the middle,
       // facing the car: never inside it, never against a planter.
-      if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
+      if (key === BASEMENT) rooms.get(key).match.spawnAt = seat => ({ x: seat % 4 * 1.2, z: -5 - Math.floor(seat / 4)*0.65, yaw: 0 });
+      else if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
         : { x: (seat % 2 ? -1 : 1) * 1.5 * Math.ceil((seat % 8 || 8) / 2), z: seat < 9 ? -6.3 : -7.2, yaw: 0 };
       if (isArena(key)) rooms.get(key).match.setArena(LEDGES);
       return rooms.get(key);
@@ -1440,6 +1443,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   // A place's cell of the lattice and how high it is: a floor of the tower
   // stands over the plaza's cell.
   const cellOf = (key) => {
+    if (key === BASEMENT) return { i: 0, j: 0, h: altitude(-1), floor: -1 };
     if (key === GROUND) return { i: 0, j: 0, h: 0 };
     const floor = tower.tower.forRoom(key);
     if (floor) return { i: 0, j: 0, h: altitude(floor.number), floor: floor.number };
@@ -1551,7 +1555,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const people = [], eyes = [];
       room.match.seats.forEach((s, seat) => {
         const p = s?.player, m = room.members[seat];
-        if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0]);
+        if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0, !!p.boat]);
       });
       // 🚁 Whoever looks on is a small drone where their eye is (heard of in the last four seconds).
       for (const m of room.sessions.values())
@@ -1568,8 +1572,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, name, x, y, z, yaw] of there.eyes)
           drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
         if (there === here) continue; // (its own people are in its snapshot)
-        for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz] of there.people)
-          seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz)]);
+        for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat] of there.people)
+          seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz), boat]);
       }
       if (!seen.length && !drones.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
       here.room.beyondSeen = seen.length + drones.length;

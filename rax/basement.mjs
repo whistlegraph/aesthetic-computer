@@ -1,3 +1,5 @@
+import { PLANET } from './planet.mjs';
+
 // The basement uses metres above its own floor. Its upper landing meets the plaza.
 export const BASEMENT = 'basement';
 export const DEPTH = 4;
@@ -13,13 +15,13 @@ export const treads = Array.from({ length: steps }, (_, i) =>
   ({ ...block(left, right, lip + i * tread, lip + (i + 1) * tread, 0, DEPTH * (steps - i) / steps, i % 2 ? stone : edge), stair: true }));
 treads.push({ ...block(left, right, landing, lip, 0, DEPTH, edge), stair: true });
 export const cellarWalls = [
-  block(-8,-7.8,-8,8,0,DEPTH,stone), block(7.8,8,-8,8,0,DEPTH,stone),
-  block(-7.8,7.8,-8,-7.8,0,DEPTH,stone), block(-7.8,7.8,7.8,8,0,DEPTH,stone),
+  block(7.8,8,-8,8,0,DEPTH,stone),
+  block(-1.7,7.8,-8,-7.8,0,DEPTH,stone), block(-1.7,7.8,7.8,8,0,DEPTH,stone),
   block(left-0.12,left,lip,end,0,DEPTH+0.35,edge), block(right,right+0.12,lip,end,0,DEPTH+0.35,edge),
   ...[0].map(x => block(x-0.24,x+0.24,-2.25,-1.75,0,DEPTH,edge)),
 ];
 export const ceiling = [
-  [-8,left,-8,8], [right,8,-8,8], [left,right,-8,landing], [left,right,end,8],
+  [-1.7,left,-8,8], [right,8,-8,8], [left,right,-8,landing], [left,right,end,8],
 ].map(([a,b,c,d]) => ({ ...block(a,b,c,d,DEPTH-0.18,DEPTH,0x354352), ceiling: true }));
 
 export function stairPassage(room, p) {
@@ -31,27 +33,31 @@ export function stairPassage(room, p) {
   return null;
 }
 
-// The west pool has a sloping lip, two launch berths and a scaffold along
-// its east bank. Water is a movement volume shared by prediction and authority.
-export const POOL = { water: true, xMin: -7.15, xMax: -1.7, zMin: -6.85, zMax: 5.7, bottom: -1.65 };
-export const berths = [{ x: -2.55, z: -4.7 }, { x: -2.55, z: 3.85 }];
-export const inPool = (p) => Math.min(p.x - POOL.xMin, POOL.xMax - p.x, p.z - POOL.zMin, POOL.zMax - p.z);
+// The inner sea follows the same sphere as the terrain, eight metres below B1.
+export const POOL = { water: true, level: -8, bottom: -11 };
+export const SEA_HALF = Math.PI * PLANET;
+export const deck = { ...block(-1.7,8,-8,8,-0.2,0,stone), stair: true };
+export const seaStairs = Array.from({ length: 40 }, (_, i) => {
+  const x = deck.xMin - i * 0.38, top = -(i + 1) * 0.24;
+  return { ...block(x-0.38,x,3.4,5.4,top-0.14,top,i % 2 ? stone : edge), stair: true };
+});
+export const berths = [{ x: -14.4, z: 2.65 }, { x: -14.4, z: 6.15 }];
 const plank = (x0, x1, z0, z1, top) => ({ ...block(x0,x1,z0,z1,0,top,0xba956b), stair: true });
 export const scaffold = [
   plank(-1.7,-0.35,-3.4,0.8,0.88),
   ...Array.from({length: 4}, (_, i) => plank(-1.7,-0.35,0.8+i*0.4,1.2+i*0.4,0.88-i*0.22)),
 ];
-// A waist-high sill on the scaffold. The opening above it faces the water.
+// Open rail on the scaffold, with a sightline down to the sea.
 export const windowFrame = [
-  block(-1.78,-1.66,-3.25,-0.38,0.94,1.34,0x438a91),
+  block(-1.78,-1.66,-3.25,-0.38,1.32,1.38,0x438a91),
   ...[-3.25,-0.5].map(z => block(-1.78,-1.66,z,z+0.12,0.88,3.72,0x789398)),
   { ...block(-1.78,-1.66,-3.25,-0.38,3.58,3.72,0x789398), ceiling: true },
 ];
-export const cellarFixtures = [...treads, ...cellarWalls, ...ceiling, ...scaffold, ...windowFrame, POOL];
+export const cellarFixtures = [deck, ...seaStairs, ...treads, ...cellarWalls, ...ceiling, ...scaffold, ...windowFrame, POOL];
 
 export function floatInPool(previous, next, cmd, dt) {
-  const edge = inPool(next), pressed = !!(cmd.buttons & 1);
-  if (edge < 0 || previous.y > 2.6 && !previous.swimming && !previous.boat) {
+  const pressed = !!(cmd.buttons & 1);
+  if (next.y > POOL.level + 1.75 || next.onGround && next.y > POOL.level + 0.5) {
     next.boat = false; next.swimming = false; next.poolJump = pressed;
     return;
   }
@@ -61,10 +67,9 @@ export function floatInPool(previous, next, cmd, dt) {
   next.boat = boat;
   next.swimming = !boat;
   next.poolJump = pressed;
-  const deep = Math.min(1, Math.max(0, edge / 0.8));
   const diving = (cmd.buttons & 2) || (cmd.fwd > 0.1 && cmd.pitch < -25);
   const afloat = boat ? 1.42 : diving ? -0.42 : 0.48;
-  const target = 1.7 + (afloat - 1.7) * deep;
+  const target = POOL.level + afloat;
   next.y = previous.y + (target - previous.y) * (1 - Math.exp(-dt * 10));
   next.vy = (next.y - previous.y) / dt;
   next.onGround = false;

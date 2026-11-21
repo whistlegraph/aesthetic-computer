@@ -1,4 +1,4 @@
-import { POOL, inPool, floatInPool } from './basement.mjs';
+import { BASEMENT, SEA_HALF, POOL, floatInPool } from './basement.mjs';
 import { objectBoxes } from './objects.mjs';
 import { towerSides, carDoor } from './elevator.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
@@ -29,9 +29,9 @@ export const CHALK = false;
 // The tower's rooms (the plaza and every floor) share one size. It is the
 // studio's for now; the rest of rax no longer assumes so.
 export const TOWER_HALF = WORLD;
-export const halfOf = (room) => (room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
+export const halfOf = (room) => (room === BASEMENT ? SEA_HALF : room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
 // The farthest a point in any room can be from its middle.
-export const MAX_HALF = Math.max(WORLD, TOWER_HALF);
+export const MAX_HALF = Math.max(WORLD, TOWER_HALF, SEA_HALF);
 export const SCREEN = 40;
 // The floor's paints, by the number a painted square stores (1 to 6).
 export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
@@ -123,16 +123,16 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // and on the ground the head is lower (bop.mjs).
   const duck = flat && !!cmd.duck;
   const poolRoom = fixed.includes(POOL);
-  const afloat = poolRoom && inPool(player) >= 0 && player.y <= 2.6;
+  const afloat = poolRoom && (player.swimming || player.boat);
   const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling && !b.water) : fixed,
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
-  const grounded = player.onGround && (feet < 0.02 || !!support);
-  const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
+  const grounded = player.onGround && (feet < (poolRoom ? POOL.bottom : 0) + 0.02 || !!support);
+  const step = (grounded || afloat) && !(cmd.buttons & 1) ? 0.32 : 0.001;
   const cfg = {
     ...CFG,
     airCapSpeed: poolRoom || fixed.some(b => b.window) || open === towerSides ? 4.3 : CFG.airCapSpeed,
-    groundY: afloat ? POOL.bottom : support?.yMax || 0,
+    groundY: support?.yMax ?? (poolRoom ? POOL.bottom : 0),
     ...(afloat ? {runSpeed: player.boat ? 4.3 : 2.4, walkSpeed: 1.7, hVelDecay: player.boat ? 0.955 : 0.88, jumpVelocity: 0, airAccel: undefined} : {}),
     obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
       ...(player.shut > 0 ? [CAR_DOOR] : [])], // 🛗 riding: the car's door is shut for this body (`shut` ticks to go)
@@ -145,7 +145,7 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   if (player.shut > 0) next.shut = player.shut - 1;
   // Shared step-up, landing and head collision; generated boxes are solid on all sides.
   const nextFeet = next.y - CFG.eyeHeight;
-  let floor = 0;
+  let floor = poolRoom ? POOL.bottom : 0;
   for (const b of boxes) {
     if (!under(b, next)) continue;
     if (b.yMax <= feet + step && (nextFeet <= b.yMax || (grounded && nextFeet <= b.yMax + step)))
@@ -157,7 +157,7 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   }
   // A ledge catches only what was above it.
   for (const b of ledges)
-    if (under(b, next) && feet + (b.stair && grounded ? step : 0.02) >= b.yMax && nextFeet <= b.yMax + (b.stair && grounded ? step : 0.001)) floor = Math.max(floor, b.yMax);
+    if (under(b, next) && feet + (b.stair && (grounded || afloat) ? step : 0.02) >= b.yMax && nextFeet <= b.yMax + (b.stair && (grounded || afloat) ? step : 0.001)) floor = Math.max(floor, b.yMax);
   if (next.vy <= 0 && next.y - CFG.eyeHeight <= floor + (grounded ? step : 0.001)) {
     next.y = floor + CFG.eyeHeight;
     next.vy = 0;

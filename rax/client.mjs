@@ -1,4 +1,4 @@
-import { BASEMENT, cellarFixtures } from './basement.mjs';
+import { BASEMENT, DEPTH, cellarFixtures } from './basement.mjs';
 import { edgeAt, SPAN, groundsOf, cellOf, wrap } from './park.mjs';
 import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
@@ -490,6 +490,7 @@ const askWeather = () => fetch(new URL('./weather', import.meta.url)).then((r) =
 void askWeather();
 setInterval(askWeather, 5 * 60 * 1000);
 function plazaFrom() {
+  if (room === BASEMENT) return { dx: 0, dy: DEPTH, dz: 0 };
   if (room === 'lobby') return { dx: 0, dy: 0, dz: 0 };
   if (aloft(room)) return tower?.here?.number ? { dx: 0, dy: -altitude(tower.here.number), dz: 0 } : null; // (a floor, or the roof: its number is its height)
   const m = /^([ew])(\d{1,4})([ns])(\d{1,4})$/.exec(room);
@@ -560,7 +561,7 @@ function fixedBoxes() {
 function around() {
   if (!world) return [];
   // 🏢 From a floor of the tower, or its roof, the plaza and its blocks lie below.
-  if (aloft(room)) {
+  if (aloft(room) || room === BASEMENT) {
     const at = plazaFrom();
     return at ? [...world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
       home: null })), ...floorsAround(at.dy)] : [];
@@ -582,23 +583,15 @@ function floorsAround(dy) {
 // 🏢 How high the eye is in the world: on a floor of the tower, that floor's
 // height; flying over the plaza, the drone's. The world is asked again when
 // it has moved a storey, for the floors now beside it.
-let worldY = 0, cellarAtlas = null;
+let worldY = 0;
 function eyeHeight() {
-  const up = aloft(room) ? -(plazaFrom()?.dy || 0) : 0;
+  const up = -(plazaFrom()?.dy || 0);
   return up + (seat < 0 && !held ? freecam?.y || 0 : player?.y || 0);
 }
 async function streamWorld() {
   const asked = room;
   worldAt = performance.now();
-  if (asked === BASEMENT) {
-    try {
-      const response = await fetch(new URL('./map', import.meta.url), {cache: 'no-store'});
-      if (response.ok && room === asked) cellarAtlas = await response.json();
-    } catch {}
-    return;
-  }
-  // A floor of the tower looks down on the plaza's neighbourhood.
-  const about = aloft(asked) ? 'lobby' : asked;
+  const about = aloft(asked) || asked === BASEMENT ? 'lobby' : asked;
   try {
     worldY = eyeHeight();
     const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}${about === 'lobby' ? `&y=${Math.round(worldY)}` : ''}`, import.meta.url), { cache: 'no-store' });
@@ -606,6 +599,10 @@ async function streamWorld() {
     const data = await r.json();
     if (!Array.isArray(data.blocks)) return;
     world = data;
+    if (!sheetOpen) {
+      const here = data.blocks.find(block => block.id === room);
+      if (here) { park = { neighbours: here.neighbours, plaza: here.plaza }; objects = here.objects; tiles = here.tiles; }
+    }
     worlds.delete(about);
     worlds.set(about, data);
     while (worlds.size > 6) worlds.delete(worlds.keys().next().value);
@@ -614,7 +611,7 @@ async function streamWorld() {
     } catch {}
   } catch {}
 }
-world = worlds.get(aloft(room) ? 'lobby' : room) || null;
+world = worlds.get(aloft(room) || room === BASEMENT ? 'lobby' : room) || null;
 void streamWorld();
 // Under the prompt the host may not have said who is signed in when this
 // loads: look again shortly, so the room behind the curtain is theirs too.
@@ -1291,6 +1288,7 @@ async function peekRoom() {
     if (ws && ws.readyState !== WebSocket.CLOSED) return; // Joined meanwhile: the live state wins.
     if (room !== peeking) return;
     park = data.park || null;
+    if (data.tower) { towerTop = data.tower.top; listFloors(data.tower.listed); }
     if (Array.isArray(data.objects)) objects = data.objects;
     if (data.tiles && typeof data.tiles === 'object') tiles = data.tiles;
     if (Array.isArray(data.screens)) setScreens(data.screens);
@@ -1655,9 +1653,9 @@ function connect(adopt = null) {
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();
-      for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz] of data.people) {
+      for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat] of data.people) {
         const was = beyond.get(id), from = was ? beyondAt(was, now) : null;
-        next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, alive: true, from, at: now });
+        next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, alive: true, from, at: now });
       }
       beyond = next;
       // 🚁 And who looks on from the air, each a drone (your own is not drawn).
@@ -3377,7 +3375,7 @@ function step(now) {
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
   if (!miniature) tendScreens(now);
   view.render({
-    basement: room === BASEMENT, cellarAtlas,
+    basement: room === BASEMENT,
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
     weather,
@@ -3386,7 +3384,7 @@ function step(now) {
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     balls: balls.filter(b => now - b.at < 4000).map(b => ({ ...b, ...ballAt(b, (now - b.at) / 1000) })),
-    courtyard: miniature ? null : sky,
+    courtyard: sky,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
@@ -3426,7 +3424,7 @@ function step(now) {
     connection: sheetOpen
       ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
       : null,
-    objects: miniature ? [] : objects,
+    objects,
     prompt,
     chat: {
       // The elevator's line is typed on the car's screen, not the top line.
@@ -3438,7 +3436,7 @@ function step(now) {
       lift: liftLine && chat.open,
     },
     tower: hasCar() ? { ...(tower || { here: null }), count: standing(), lift, screen: carScreen(rideNow) } : null,
-    skyline: sky && towerTop ? { top: towerTop, ...sky } : null,
+    skyline: sky ? { top: towerTop, ...sky } : null,
     car: hasCar() && seat >= 0 && inCar(player) && !rideMoving(now),
     plainTags: !!film,
     ride: rideNow,
@@ -3455,7 +3453,7 @@ function step(now) {
     touchZones: shownZones(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     stallNote: stalls.note(),
-    walls: miniature ? [] : walls,
+    walls,
     cube: miniature ? [] : cube,
     menu,
     lockedOn: !!lockOn,
@@ -3514,9 +3512,9 @@ function step(now) {
     flash: escFlash,
     legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
     corner: sheetOpen && !down && !film,
-    screens: miniature ? [] : screens,
+    screens,
     screenPrograms,
-    panels: miniature ? [] : panels.list.filter((p) => !p.hidden),
+    panels: panels.list.filter((p) => !p.hidden),
     bare: !sheetOpen || !sheetShown || down || !!film,
     held: {
       keys: [...keys],

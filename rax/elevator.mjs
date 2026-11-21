@@ -139,7 +139,7 @@ export function carDoor() {
 // How many ticks the door stays shut for a ride of so many seconds: the ride and a moment after the bell.
 export const shutTicks = (seconds, hz = 60) => Math.round(seconds * hz) + 12;
 // Standing in the car, feet on its floor.
-export const inCar = (p) => !!p && Math.abs(p.x) < CAR && Math.abs(p.z - CAR_Z) < CAR && p.y < 2.3;
+export const inCar = (p) => !!p && Math.abs(p.x) < CAR && Math.abs(p.z - CAR_Z) < CAR && p.y >= 0 && p.y < 2.3;
 // Where a rider steps out: the car's middle, facing the door.
 export const CAR_ARRIVAL = { x: 0, z: CAR_Z, yaw: 180, pitch: 0 };
 // How long a ride between two heights takes: a floor or two is a few seconds,

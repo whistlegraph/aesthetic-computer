@@ -1,9 +1,9 @@
 import { poolFloor, poolView } from './pool-view.mjs';
-import { STAIR, DEPTH, treads, cellarWalls, ceiling, berths } from './basement.mjs';
+import { STAIR, DEPTH, POOL, treads, cellarWalls, ceiling, berths } from './basement.mjs';
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { groundsOf, promenade, GROUNDS, SPAN, LAP } from './park.mjs';
+import { groundsOf, promenade, GROUNDS, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER, roofSolids, standsOn } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
@@ -343,7 +343,7 @@ export async function createView(canvas) {
       box((b.xMin + b.xMax) / 2, (b.yMin + b.yMax) / 2, (b.zMin + b.zMax) / 2,
         b.xMax - b.xMin, b.yMax - b.yMin - (b.ceiling ? 0.03 : 0), b.zMax - b.zMin, b.ink, tint(b.ink, 0.74), b.ink);
     }
-    for (const x of [-7.76, 7.76]) for (const z of [-5, 0, 5])
+    for (const x of [7.76]) for (const z of [-5, 0, 5])
       box(x, 2.4, z, 0.08, 0.14, 2.4, 0xffce81, 0xffb56a, 0xffce81);
     text('B1', 0, 2.4, -7.74, 0.14, 0xffce81);
     const signX = STAIR.left - 0.12;
@@ -890,35 +890,6 @@ export async function createView(canvas) {
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let natural = null; // 🖥️ The picture's scale last frame before any zoom a camera asked for: what going in to a screen works its own zoom from (dock.mjs).
   let snow = null, snowAt = 0; // The room's falling snow.
-  // Low-detail ground under the surveyed blocks in the orbital view. Its
-  // surface sits slightly below the real terrain and turns with the room.
-  const orbitalGround = model(({ quad }) => {
-    const radius = PLANET - 0.14;
-    // Tilt the meridians toward the eye so their curves describe the limb.
-    const point = (lat, lon, radiusScale = 1) => {
-      const x = radius * Math.cos(lat) * Math.sin(lon);
-      const y = radius * Math.sin(lat), z = radius * Math.cos(lat) * Math.cos(lon);
-      return [x * radiusScale, (y * 0.6 - z * 0.8) * radiusScale, (y * 0.8 + z * 0.6) * radiusScale];
-    };
-    for (let row = 0; row < 14; row++) {
-      const lat = (row / 14 - 0.5) * Math.PI, next = lat + Math.PI / 14;
-      for (let col = 0; col < 28; col++) {
-        const lon = col * Math.PI / 14, end = lon + Math.PI / 14;
-        const a = point(lat, lon), b = point(next, lon), c = point(next, end), d = point(lat, end);
-        const light = (0.4 * b[0] + 0.65 * b[1] + 0.6 * b[2]) / radius;
-        const tile = (Math.floor(col / 2) + Math.floor(row / 2)) % 2 ? 1 : 0.89;
-        const shade = (0.69 + light * 0.38) * tile;
-        quad(a, d, c, b, tint(0x478ca3, shade));
-        // Fine latitude and longitude bands remain legible at thirty pixels.
-        const line = tint(0x83babb, shade);
-        if (col % 4 === 0) quad(point(lat, lon, 1.003), point(lat, lon + 0.038, 1.003), point(next, lon + 0.038, 1.003), point(next, lon, 1.003), line);
-        if (row % 3 === 1) quad(point(lat, lon, 1.003), point(lat, end, 1.003), point(lat + 0.035, end, 1.003), point(lat + 0.035, lon, 1.003), line);
-      }
-    }
-  });
-  // At the paper cursor's scale a block is a patch and the tower is a silhouette.
-  const atlasBlock = model(({ quad }) => quad([-8,0,-8],[-8,0,8],[8,0,8],[8,0,-8],0x8eaf88));
-  const atlasTower = model(({ box }) => box(0,0.5,0,0.45,1,0.45,0xcaaf81,0xa89675,0xffdd98));
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
@@ -1352,7 +1323,7 @@ export async function createView(canvas) {
     braincells = null,
     spending = false,
     tiles = {},
-    park = null, basement = false, cellarAtlas = null,
+    park = null, basement = false,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
@@ -1424,17 +1395,17 @@ export async function createView(canvas) {
     // 🌞 In the world the room follows the world's own day (sky.mjs), the
     // same for everyone; behind the prompt's curtain it keeps the page's
     // theme, and a game arena its own.
-    const skyStep = !ledges && orbit < 1 ? stepOf(phase()) : -1;
+    const skyStep = !ledges ? stepOf(phase()) : -1;
     const today = skyStep >= 0 ? skyAt(skyStep / STEPS) : null;
     dress(today ? (today.day ? 'day' : 'night') : paletteFor());
-    sky = [...rgb(today ? today.horizon : PALETTES[paletteName].sky), 1];
+    sky = [...rgb(orbit === 1 ? PALETTES[paletteFor()].sky : today ? today.horizon : PALETTES[paletteName].sky), 1];
     host.beginFrame();
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
     // (`sunAt`: a time of day to light by, 0 to 1, for looking at shadows; `shadows: false` casts none.)
     const sunNow = today ? skyAt(Number.isFinite(sunAt) ? sunAt : SUN_AT ?? phase()).sun : null;
     // 🌙 With the sun down the moon casts (it stands across the sky from the sun: sky.mjs), and its shadows are faint: the night is lit a little all over.
     const lamp = !sunNow ? null : sunNow.y >= 0 ? sunNow : { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
-    const shade = lamp && host.shadows && shadows ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
+    const shade = lamp && host.shadows && shadows && orbit < 0.6 ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
     casters.length = 0;
     casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
@@ -1472,17 +1443,16 @@ export async function createView(canvas) {
     // curtain's crosshair (a lens shift puts the room's centre there), so the
     // curtain stays mostly 2D and the corner is the way in (2026-11-03).
     projector.shiftX = projector.shiftY = 0;
-    const atlasRadius = LAP * SPAN / (2 * Math.PI);
-    const orbitalRadius = PLANET + (atlasRadius - PLANET) * orbit * orbit * (3 - 2 * orbit);
+    const ground = skyline?.dy ?? (basement ? DEPTH : 0);
     if (orbit > 0) {
       const a = now / 3200; // a slow spin, about one turn in twenty seconds
       // Fit the entire planetary limb under the cursor, including a margin
       // at maximum hover. Use its apparent radius from this camera height.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
-      const height = atlasRadius * 1.8;
-      const natural = atlasRadius / Math.sqrt(height * (height + 2 * atlasRadius)) * canvas.height / (2 * tan);
+      const height = PLANET * 10;
+      const natural = PLANET / Math.sqrt(height * (height + 2 * PLANET)) * canvas.height / (2 * tan);
       orbitZoom = Math.pow((15 * cornerScale) / natural, orbit * orbit * (3 - 2 * orbit));
-      const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
+      const far = { x: Math.sin(a) * PLANET, y: ground + height, z: -Math.cos(a) * PLANET };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
       // the host's grid a buffer pixel is a prompt pixel.
@@ -1492,7 +1462,7 @@ export async function createView(canvas) {
       const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
       projector.shiftX = cornerX * (1 - e0);
       projector.shiftY = cornerY * (1 - e0);
-      const centre = { x: 0, y: 0, z: 0 };
+      const centre = { x: far.x * 0.98, y: ground - PLANET, z: far.z * 0.98 };
       const me0 = me || flyTo; // Before the seat is granted, fly toward the spawn.
       if (!me0 || orbit >= 1) {
         eye = far;
@@ -1507,28 +1477,8 @@ export async function createView(canvas) {
           aim = along(eye, direction(me0.yaw, 0), 10);
         }
         const bez = (p, q, r) => (1 - e) * (1 - e) * p + 2 * (1 - e) * e * q + e * e * r;
-        // 🧭 Straight down, which way is up hangs on a hair: the first step
-        // of the flight used to snap the room round to the curve's own
-        // heading. Now the curve leaves the overhead view on that heading
-        // (`out`), and the whole flight is turned about the room's middle by
-        // what is left between it and the slow spin, eased away to nothing
-        // by the time the eye is the player's (2026-11-19).
-        const ox = aim.x - centre.x - 2 * behind.x, oz = aim.z - centre.z - 2 * behind.z, on = Math.hypot(ox, oz) || 1;
-        const lean = height * 0.002;
-        const out = { x: (-ox / on) * lean, y: height, z: (-oz / on) * lean };
-        eye = { x: bez(out.x, behind.x, eye.x), y: bez(out.y, behind.y, eye.y), z: bez(out.z, behind.z, eye.z) };
-        aim = {
-          x: centre.x + (aim.x - centre.x) * e,
-          y: centre.y + (aim.y - centre.y) * e,
-          z: centre.z + (aim.z - centre.z) * e,
-        };
-        let turn = Math.atan2(-Math.sin(a), Math.cos(a)) - Math.atan2(ox, oz);
-        turn = (((turn + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; // the short way round
-        turn *= 1 - e;
-        const c = Math.cos(turn), n = Math.sin(turn);
-        const about = (p) => ({ x: p.x * c + p.z * n, y: p.y, z: -p.x * n + p.z * c });
-        eye = about(eye);
-        aim = about(aim);
+        eye = { x: bez(far.x, behind.x, eye.x), y: bez(far.y, behind.y, eye.y), z: bez(far.z, behind.z, eye.z) };
+        aim = { x: centre.x + (aim.x-centre.x)*e, y: centre.y + (aim.y-centre.y)*e, z: centre.z + (aim.z-centre.z)*e };
       }
     }
     const roll = camera?.roll || 0;
@@ -1558,7 +1508,7 @@ export async function createView(canvas) {
     orbitZoom = 1;
     // At walking height the source coordinates are already a local map in metres.
     // Ease in both the planet and the wide-angle lens as the camera leaves it.
-    const curvature = viewCurvature(eye.y, orbit);
+    const curvature = eye.y < ground || basement ? 1 : viewCurvature(eye.y - ground, orbit);
     projector.decay = decay;
     projector.decayAt = now;
     projector.card = backend === 'webgpu';
@@ -1573,10 +1523,9 @@ export async function createView(canvas) {
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     // Resolve the far globe into paper pixels before the canvas is enlarged.
-    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: parked ? 0 : FOVEA, aa: parked ? 2 : AA } : null;
-    const radius = orbit > 0 ? orbitalRadius : PLANET;
-    projector.planet = (game?.camera || basement) && orbit <= 0 ? 0 :
-      TRY.planet ?? (curvature > 0 ? radius / curvature : 0);
+    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
+    projector.planet = game?.camera && orbit <= 0 ? 0 :
+      TRY.planet ?? (curvature > 0 ? PLANET / curvature : 0);
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
     if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
     // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
@@ -1584,8 +1533,13 @@ export async function createView(canvas) {
     else if (plain > 0 && cost < [4.5, 6.5, 9][plain - 1]) plain--;
     projector.fine = Math.max(lensFull < 0.3 ? 0.16 : lensFull < 0.55 ? 0.22 : 0.3, [0, 0.24, 0.34, 0.5][plain]);
     // The land lies at the plaza's height (far below, seen from a floor of the tower).
-    projector.ground = skyline?.dy || 0;
+    projector.ground = ground;
     projector.frame();
+    // Daylight follows the normals of the wrapped terrain as the camera climbs.
+    projector.orbitLight = lamp && orbit > 0 ? [projector.right, projector.up, projector.forward]
+      .map(axis => axis[0]*lamp.x + axis[1]*lamp.y + axis[2]*lamp.z) : null;
+    projector.orbitShade = 0.48 * orbit * orbit;
+
     // 🕳️ An eye under the land is inside the hollow planet: the land is a dome over it, and no sun comes in.
     const under = !!projector.planet && eye.y < projector.ground;
     if (under) casting = false;
@@ -1594,28 +1548,18 @@ export async function createView(canvas) {
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground.
-    if (today) {
+    if (today && orbit < 1) {
       projector.bends = false; // (the sky is not wrapped round the planet)
       draw(skyDome(skyStep), eye.x, eye.y, eye.z, 0, 0, SKY);
       projector.bends = true;
     }
-    if (orbit > 0 && projector.planet > 0) {
-      projector.bends = false;
-      draw(orbitalGround, eye.x, projector.ground - orbitalRadius, eye.z, 0, 0, orbitalRadius / PLANET);
-      projector.bends = true;
+    if (under && !ledges) {
+      const riders = basement ? players.slice() : beyond.filter(p => p.boat).map(p => ({ ...p, x: p.x - (skyline?.dx || 0), z: p.z - (skyline?.dz || 0) }));
+      if (basement && me && seat >= 0) riders[seat] = me;
+      const plaza = skyline || { dx: 0, dy: ground, dz: 0 };
+      drawPool(draw, eye, { ...plaza, dy: plaza.dy - DEPTH }, riders, now);
     }
-    const miniature = orbit >= 0.94;
-    if (miniature) {
-      draw(atlasBlock, 0, projector.ground, 0);
-      for (const block of around) if (!block.floor) draw(atlasBlock, block.dx, projector.ground, block.dz);
-      if (skyline?.top) draw(atlasTower, skyline.dx, skyline.dy, skyline.dz, 0, 0, heightOf(storeyOf(skyline.top) + 1));
-    } else if (basement) {
-      draw(cellar);
-      const riders = players.slice();
-      if (me && seat >= 0) riders[seat] = me;
-      drawPool(draw, orbitalGround, cellarAtlas, riders, now);
-      if (eye.y > DEPTH - 1) draw(lobbyFor(), 0, DEPTH, 0);
-    }
+    if (basement) draw(cellar);
     else if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(tower.here.roof ? towerParts().deck : towerParts().floor); // a floor of the tower: no walls, the world outside (on the roof no ceiling either)
     else if (park?.neighbours) {
@@ -1642,7 +1586,7 @@ export async function createView(canvas) {
       ballRoll.set(ball.id, angle);
       draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, angle);
     }
-    if (!miniature && tower && !ledges) {
+    if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
       // (The screen that hung over the door inside is gone: the pad on the back wall is the one thing in the car that tells and is told.)
       // 🚪 The doors answer whoever is near: the car's stay shut while it
@@ -1662,7 +1606,7 @@ export async function createView(canvas) {
       }
     }
     // Bring in building detail as the flight comes down from the globe.
-    if (skyline && !ledges && orbit < 0.6) {
+    if (skyline && !ledges) {
       // (Who is seen on the tower from here, and what is built on its floors, as feet in the tower's own metres.)
       const feet = [];
       for (const b of beyond) feet.push({ x: b.x - skyline.dx, y: b.y - CFG.eyeHeight - skyline.dy, z: b.z - skyline.dz }); // (a body's y is its eye)
@@ -1692,9 +1636,9 @@ export async function createView(canvas) {
         }
       }
     }
-    for (const b of miniature ? [] : around) {
+    for (const b of around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
-      if (b.plaza) draw(cellar, b.dx, by - DEPTH, b.dz);
+      if (b.plaza && !basement) draw(cellar, b.dx, by - DEPTH, b.dz);
       if (!b.floor) draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz); // (a floor of the tower has its own slab)
       const painted = tilesFor(b.id, b.tiles);
       if (painted) draw(painted, b.dx, by, b.dz);
@@ -1780,7 +1724,7 @@ export async function createView(canvas) {
       }
       stand(object, 0, 0);
     }
-    for (const b of miniature ? [] : around)
+    for (const b of around)
       for (const object of b.objects || [])
         if (!object.item && object.geometry) stand(object, b.dx, b.dz, b.dy || 0);
     for (const id of previewModels.keys())
@@ -2143,7 +2087,7 @@ export async function createView(canvas) {
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       // In the car the floor comes first: before paint, and on touch too.
       const waterHint = basement && me && (me.boat ? 'move to row / jump to swim'
-        : berths.some(b => Math.hypot(me.x-b.x,me.z-b.z)<0.86) ? 'jump to board'
+        : me.y < POOL.level + 2 && berths.some(b => Math.hypot(me.x-b.x,me.z-b.z)<0.86) ? 'jump to board'
         : me.swimming ? 'look down and swim to dive' : null);
       const hint = waterHint || objectHint || drawing || carry || (panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
           ? input === 'touch' ? 'tap the screen' : pad ? '[A] press' : '{enter} or click: press'
@@ -2510,7 +2454,7 @@ export async function createView(canvas) {
         }
         const placedTags = [];
         tags.sort((p, q) => Math.hypot(p.x - eye.x, p.z - eye.z) - Math.hypot(q.x - eye.x, q.z - eye.z));
-        for (const t of tags) {
+        for (const t of orbit > 0.5 ? [] : tags) {
           const s = projector.project(t.x, t.y, t.z);
           if (!s || Math.abs(s.x) > 1.1 || Math.abs(s.y) > 1.1) continue;
           // Hidden behind walls and built objects, as a real tag would be.

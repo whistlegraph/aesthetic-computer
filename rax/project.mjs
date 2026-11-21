@@ -333,6 +333,15 @@ export class Projector {
         return;
       }
     }
+    if (r0 && this.orbitLight) {
+      const axis = this.orbitLight, center = 3 * (this.planet + this.eye.y - this.ground);
+      const nx = x0 + x1 + x2 + center * this.right[1];
+      const ny = y0 + y1 + y2 + center * this.up[1];
+      const nz = z0 + z1 + z2 + center * this.forward[1];
+      const diffuse = Math.max(0, (nx*axis[0] + ny*axis[1] + nz*axis[2]) / (r0 + r1 + r2));
+      const light = 1 - this.orbitShade * (1 - diffuse);
+      cr *= light; cg *= light; cb *= light;
+    }
     if (!behind) return this.emit(ax, ay, z0 * (1 - d0), bx, by, z1 * (1 - d1), cx, cy, z2 * (1 - d2), cr, cg, cb);
     for (let j = 1; j + 1 < kept; j++) this.emit(q[0], q[1], q[2], q[j * 3], q[j * 3 + 1], q[j * 3 + 2], q[j * 3 + 3], q[j * 3 + 4], q[j * 3 + 5], cr, cg, cb);
   }

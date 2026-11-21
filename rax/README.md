@@ -32,7 +32,7 @@ scaling keep the pixel edges sharp. Resizing is supported.
 Walk up to the football dispenser in the courtyard to roll out a ball. Step away
 and return for another. Everyone nearby can kick the balls across park boundaries.
 
-The east side inside the plaza lobby has stairs marked B1. Walk down into the basement or take the elevator down from G. Tap the car’s up or down arrow once per floor, or hold it to scroll. Hold for two seconds for the roof or B1. The car departs after a short pause. Jump through an open tower window to the block below. In B1, jump from the scaffold into the pool, look down while swimming to dive, and jump beside a rowboat to board or dismount.
+The east side inside the plaza lobby has stairs marked B1. Walk down into the basement or take the elevator down from G. Tap the car’s up or down arrow once per floor, or hold it to scroll. Hold for two seconds for the roof or B1. The car departs after a short pause. Jump through an open tower window to the block below. B1 opens onto the inner sea beneath the planet’s surface. Jump from the scaffold or take the dock stairs to the water. Look down while swimming to dive. Jump beside a rowboat to board, then jump again to dismount.
 
 **Touch:** the left half is a floating move stick and the right half drags to look; both
 are outlined on the lower half of the screen. Four icons sit bottom right: the $ menu, jump, chat (a
