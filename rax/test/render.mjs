@@ -87,8 +87,8 @@ try {
       view.render(state);
       return {parked, flying};
     });
-    assert.deepEqual(orbitSizes.parked, [1182, 696, 88, 88, 176, 176], 'display-density globe centered on the inset paper cursor');
-    assert.deepEqual(orbitSizes.flying, [0, 0, 1280, 800, 640, 400], 'the flight restores the full paper grid');
+    assert.deepEqual(orbitSizes.parked, [0, 0, 1280, 800, 640, 400], 'the globe is drawn on the full Prompt pixel grid');
+    assert.deepEqual(orbitSizes.flying, orbitSizes.parked, 'the globe and the flight share one pixel grid');
     // Observe the same fence from the same world position before and after
     // the local origin moves to the neighbouring block.
     const fencePixels = async (east) => {
