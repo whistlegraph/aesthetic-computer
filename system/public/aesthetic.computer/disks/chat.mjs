@@ -38,6 +38,7 @@ import { getCommandDescription, isPromptOnlyCommand } from "../lib/prompt-comman
 import { parseFightCommand } from "../lib/fight/challenge.mjs";
 import { FIGHT_MANIFEST } from "../lib/fight/protocol.mjs";
 import { createHandleAutocomplete } from "../lib/autocomplete.mjs";
+import { roomRoster } from "../lib/mention-roster.mjs";
 import {
   escapeColorCodes,
   escapeInvalidColorCodes,
@@ -1184,7 +1185,14 @@ async function boot(
   ellipsisTicker = new gizmo.EllipsisTicker();
 
   // 🔍 Initialize @handle autocomplete
-  handleAutocomplete = createHandleAutocomplete();
+  // A bare "@" lists the room: newest speaker first, then whoever is present.
+  handleAutocomplete = createHandleAutocomplete({
+    room: () => roomRoster(
+      chatClient?.messages,
+      [...(chatClient?.onlineHandles || []), ...(chatClient?.hereHandles || [])],
+      handle(),
+    ),
+  });
 
   // 📰 News ticker deprecated — skip fetch unless explicitly enabled
   fetchNewsHeadlines();

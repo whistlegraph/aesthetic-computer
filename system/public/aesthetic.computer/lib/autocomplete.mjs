@@ -38,6 +38,8 @@
     }
 #endregion */
 
+import { rankRoster } from "./mention-roster.mjs";
+
 const { floor, min, max } = Math;
 
 class Autocomplete {
@@ -604,13 +606,24 @@ function ago(when) {
 // triggers alongside `@` without disturbing callers that only want handles
 // (e.g. chat.mjs). Each extra trigger is a normal Autocomplete trigger config
 // ({ fetch, minChars, color, prefix, cache, ... }).
+//
+// Pass `room` (a function returning the room's handles, likeliest first; see
+// lib/mention-roster.mjs) and a bare "@" opens that list at once. Typing
+// narrows it by start, nickname, inside, or letters in order, and the
+// AC-wide handle search answers only when nobody in the room matches.
 function createHandleAutocomplete(options = {}) {
-  const { extraTriggers = {}, maxResults, ...rest } = options;
+  const { extraTriggers = {}, maxResults, room, ...rest } = options;
+  const limit = maxResults || 8;
+  const handleRow = (text) => ({ text, display: `@${text}`, kind: "handle" });
   return new Autocomplete({
-    maxResults: maxResults || 8,
+    maxResults: limit,
     triggers: {
       "@": {
         fetch: async (query) => {
+          if (room) {
+            const here = rankRoster(query, room()).slice(0, limit).map(handleRow);
+            if (here.length || !query) return here;
+          }
           console.log("🔍 Handle autocomplete fetch:", query);
           try {
             const url = `/api/handles?search=${encodeURIComponent(query)}&limit=20`;
@@ -645,10 +658,10 @@ function createHandleAutocomplete(options = {}) {
             return [];
           }
         },
-        minChars: 1,
+        minChars: room ? 0 : 1,
         color: [255, 100, 180], // pink
         prefix: "@",
-        cache: true,
+        cache: !room, // a room's roster moves as people speak
       },
       ...extraTriggers,
     },
