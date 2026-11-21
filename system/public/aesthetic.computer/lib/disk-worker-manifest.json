@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.d47aaa223373.mjs",
-  "sha256": "d47aaa223373966b45500c6349d1aa6c7f1fff5183a441e80a5550d5ed1ff137",
-  "bytes": 1856105,
-  "sourceSha256": "d47d91430a343e481048562e0f0e6e77063493f9f0ac4bf8bf30b20b6dd795af",
+  "filename": "disk.worker.d0439979187c.mjs",
+  "sha256": "d0439979187ca6df9991a560dd50b1f5cb824efae15568e01416662dea9f1fc2",
+  "bytes": 1854981,
+  "sourceSha256": "bcc1460b7e73aea4889d12414a2d59f19ecd46036e4a8e77608bd5ca9d024f57",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -28,6 +28,7 @@
     "public/aesthetic.computer/lib/disk.mjs",
     "public/aesthetic.computer/lib/fade-state.mjs",
     "public/aesthetic.computer/lib/frame-capture.mjs",
+    "public/aesthetic.computer/lib/frame-chart.mjs",
     "public/aesthetic.computer/lib/gamepad-mappings.mjs",
     "public/aesthetic.computer/lib/geo.mjs",
     "public/aesthetic.computer/lib/gizmo.mjs",

@@ -5,6 +5,7 @@
 //   left stick   move            right stick   move slowly
 //   A (0)        the mouse button: down on press, up on release (a drag is
 //                the stick moving while A is held)
+//   R3 (11)      toggle the frame chart
 //   B (1)        Escape
 //   START (9)    off the prompt: back to it (Escape, as the keyboard has it).
 //                On the prompt lib/rax-sheet.mjs hears START itself.
@@ -31,11 +32,11 @@ const PAD_PIECES = /(?:^|\/)(?:1v1|arena|fight|gamepad|gameboy|land|nes|nopaint|
 export function padCursor({ canvas, piece }) {
   let x, y; // Where the cursor is, in CSS pixels (kept fractional).
   let cell; // The piece pixel last told to the pen, as "x,y".
-  let point = { clientX: 0, clientY: 0 }; // That pixel's middle, on the page.
+  let point = { clientX: 0, clientY: 0 }; // The visible hotspot, in page coordinates.
   let shown = false, down = false, target = null;
-  let raf = 0, last = 0, held = 0; // `held`: seconds the left stick has been out.
+  let raf = 0, last = 0;
   let mouse; // The real pointer's last place, to tell a move from a re-sent one.
-  const was = { a: false, b: false, start: false };
+  const was = { a: false, b: false, start: false, r3: false };
 
   // The app replaces the system cursor with `html, body, body * { cursor:
   // url(...) !important }`; a class on <html> makes these selectors heavier.
@@ -64,20 +65,20 @@ html.pad-cursor #pad-cursor { display: block; }`;
   }
   draw();
 
-  // Lay the cursor on the piece's pixel grid and tell the pen when it has
-  // come to a new pixel. The pen floors a point to a pixel, so it is sent the
-  // pixel's middle.
-  function place(force) {
-    const r = canvas.getBoundingClientRect(), s = r.width / canvas.width;
-    if (!s) return;
-    x = min(max(x ?? r.x + r.width / 2, r.x), r.right - 0.01);
-    y = min(max(y ?? r.y + r.height / 2, r.y), r.bottom - 0.01);
-    const px = floor((x - r.x) / s), py = floor((y - r.y) / s);
-    face.style.width = face.style.height = `${SIZE * s}px`;
-    face.style.transform = `translate(${r.x + (px - MID) * s}px, ${r.y + (py - MID) * s}px)`;
-    if (!force && cell === `${px},${py}`) return;
-    cell = `${px},${py}`;
-    point = { clientX: r.x + (px + 0.5) * s, clientY: r.y + (py + 0.5) * s };
+  // Draw every stick sample. The piece only needs a move when its pixel changes.
+  function place(force = false, dx = 0, dy = 0) {
+    const r = canvas.getBoundingClientRect();
+    const sx = r.width / canvas.width, sy = r.height / canvas.height;
+    if (!sx || !sy) return;
+    x = min(max((x ?? r.x + r.width / 2) + dx, r.x), r.right - 0.01);
+    y = min(max((y ?? r.y + r.height / 2) + dy, r.y), r.bottom - 0.01);
+    face.style.width = `${SIZE * sx}px`;
+    face.style.height = `${SIZE * sy}px`;
+    face.style.transform = `translate3d(${x - SIZE * sx / 2}px, ${y - SIZE * sy / 2}px, 0)`;
+    point = { clientX: x, clientY: y };
+    const next = `${floor((x - r.x) / sx)},${floor((y - r.y) / sy)}`;
+    if (!force && cell === next) return;
+    cell = next;
     send("pointermove", -1);
   }
   // A mouse's events, at the cursor, to whatever is under it. (The cursor's
@@ -120,7 +121,6 @@ html.pad-cursor #pad-cursor { display: block; }`;
     release(false);
     if (!shown) return;
     shown = false;
-    held = 0;
     document.documentElement.classList.remove("pad-cursor");
   }
 
@@ -139,15 +139,15 @@ html.pad-cursor #pad-cursor { display: block; }`;
     raf = 0;
     let pads = [];
     try { pads = Array.from(navigator.getGamepads?.() || []).filter((p) => p?.connected); } catch {}
-    if (!pads.length) return hide(); // Woken again by `gamepadconnected`.
+    if (!pads.length) { was.r3 = false; return hide(); } // Woken again by `gamepadconnected`.
     raf = requestAnimationFrame(tick);
     const dt = min(0.05, (now - last) / 1000); // A stalled frame is not a leap.
     last = now;
 
     const btn = (i) => pads.some((p) => p.buttons[i]?.pressed);
-    const a = btn(0), b = btn(1), start = btn(9);
-    const edge = { a: a && !was.a, b: b && !was.b, start: start && !was.start, up: !a && was.a };
-    Object.assign(was, { a, b, start });
+    const a = btn(0), b = btn(1), start = btn(9), r3 = btn(11);
+    const edge = { r3: r3 && !was.r3, a: a && !was.a, b: b && !was.b, start: start && !was.start, up: !a && was.a };
+    Object.assign(was, { a, b, start, r3 });
 
     // Rax has the screen and the pad while its sheet is up; a window nobody
     // is looking at moves nothing.
@@ -158,6 +158,11 @@ html.pad-cursor #pad-cursor { display: block; }`;
       hide();
       if (edge.start && !PAD_PIECES.test(name)) escape();
       return;
+    }
+
+    // The Mac app receives the same button directly through GameController.
+    if (edge.r3 && !navigator.userAgent.includes("AestheticMac")) {
+      window.acFpsHud?.(localStorage.getItem("ac:fps-hud") !== "1");
     }
 
     // The stick pushed furthest leads. (The 8BitDo Micro's axes past the
@@ -172,16 +177,12 @@ html.pad-cursor #pad-cursor { display: block; }`;
 
     if (left || right) {
       show();
-      // Full tilt crosses the screen's longer side in about a second. The
-      // square of the push leaves the middle of the stick fine, and the first
-      // third of a second eases in, so a flick is a nudge.
       const full = max(innerWidth, innerHeight) * 1.1;
-      held = left ? min(1, held + dt / 0.3) : 0;
-      const l = left ? full * left.t * (0.4 + 0.6 * held) : 0, r = right ? full * SLOW * right.t : 0;
-      x += ((left?.x || 0) * l + (right?.x || 0) * r) * dt;
-      y += ((left?.y || 0) * l + (right?.y || 0) * r) * dt;
-      place();
-    } else held = 0;
+      const l = left ? full * (0.65 + 0.35 * left.t) : 0;
+      const r = right ? full * SLOW * right.t : 0;
+      place(false, ((left?.x || 0) * l + (right?.x || 0) * r) * dt,
+        ((left?.y || 0) * l + (right?.y || 0) * r) * dt);
+    }
 
     // A first press of A with no cursor up shows where it is; it does not
     // click somewhere unseen.

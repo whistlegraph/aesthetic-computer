@@ -210,3 +210,18 @@ test('a side with a neighbour has no wall: the body walks on past the line; a cl
   for (let i = 1; i <= 30; i++) { p = move(p, { ...command(i), yaw: 90 }, [], 0, [], false, ['east']); if (i > 20) slowest = Math.min(slowest, p.vx); }
   assert.ok(p.x > WORLD && slowest > 9);
 });
+
+test('a room line preserves the interpolated eye and its pending correction', () => {
+  const eye = new LocalPresentation();
+  const p = { x: 8, y: 2, z: 3, alive: true, life: 1 };
+  eye.reset(p);
+  eye.step({ ...p, x: 8.2, y: 2.1 });
+  eye.correct({ ...p, x: 8.25, y: 2.1 });
+  const before = eye.sample(0.3, 0);
+  eye.translate(-16, 0);
+  eye.correct({ ...p, x: 8.25 - 16, y: 2.1 });
+  const after = eye.sample(0.3, 0);
+  assert.ok(Math.abs(after.x + 16 - before.x) < 1e-9);
+  assert.equal(after.y, before.y);
+  assert.equal(after.z, before.z);
+});

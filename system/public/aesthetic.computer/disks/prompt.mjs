@@ -6819,7 +6819,7 @@ function paint($) {
       // and a tight teal inner one, hinting at locking on (2026-11-03); the
       // room inside follows its size exactly (lib/rax-sheet.mjs "near").
       const lockBlink = hot && Math.floor(now / 260) % 2 === 0;
-      const grow = lockBlink ? 2 : 0;
+      const grow = hot ? 1 : 0;
       if (hot) $.needsPaint?.();
       // Sent on every whole-pixel change, so the room is always exactly the
       // crosshair's size (no easing on either side).
@@ -6848,19 +6848,28 @@ function paint($) {
       // keeps its strokes on top on its own.
       const parts = [];
       const L = (x, y, w, h) => parts.push([x, y, w, h]);
-      for (const sx of [-1, 1])
-        for (const sy of [-1, 1]) {
-          // The corner's outer pixel, then arms running inward.
-          const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
-          L(sx < 0 ? x : x - arm + t, y, arm, t);
-          L(x, sy < 0 ? y : y - arm + t, t, arm);
-        }
-      L(-t, -t, 2 * t, 2 * t);
+      if (!raxFlight || raxFlight.phase === "held") {
+        // Leave the planet's face unobstructed. Four ticks mark the extent
+        // of the round target and stay outside its visible limb on hover.
+        const r = hot ? 19 : 17;
+        L(-1, -r - 1, 2, 2);
+        L(-1, r, 2, 2);
+        L(-r - 1, -1, 2, 2);
+        L(r, -1, 2, 2);
+      } else {
+        for (const sx of [-1, 1])
+          for (const sy of [-1, 1]) {
+            const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
+            L(sx < 0 ? x : x - arm + t, y, arm, t);
+            L(x, sy < 0 ? y : y - arm + t, t, arm);
+          }
+        L(-t, -t, 2 * t, 2 * t);
+      }
       for (const [x, y, w, h] of parts) $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
       for (const [x, y, w, h] of parts) $.ink(color).box(ox + x, oy + y, w, h);
       if (!raxFlight) {
         // A Button hit-tests through its Box, so hand it a real one.
-        const hit = { x: home.x - 6, y: home.y - 6, w: side(1) + 12, h: side(1) + 12 };
+        const hit = { x: ox - 20, y: oy - 20, w: 40, h: 40 };
         raxBtn = raxBtn || new $.ui.Button(hit.x, hit.y, hit.w, hit.h);
         raxBtn.box = $.geo.Box.from(hit);
       } else raxBtn = undefined;

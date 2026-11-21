@@ -20,13 +20,17 @@ const fixture = `<!doctype html><meta name="viewport" content="width=device-widt
 <script type="module">
 import {createView} from './view.mjs';import {spawn} from './world.mjs';
 window.view=await createView(document.getElementById('game'));
-window.state={me:spawn(0),players:[spawn(0),spawn(1)],scores:[3,7],status:'FIRST TO 10'};
+window.state={shadows:false,me:spawn(0),players:[spawn(0),spawn(1)],scores:[3,7],status:'FIRST TO 10'};
 state.joinURL='https://rax.example.com/?room=studio';
 state.members=[{seat:0,handle:'Jeffrey',colors:null}];
 state.connection={label:'12 MS',bars:4};
 state.prompt={open:false,text:'',cursor:0};
 state.players[1].z=3;
-view.render(state);window.ready=true;
+// Capture the same breathing and idle animation phase on both backends.
+performance.now = () => 1000;
+view.render(state);
+delete performance.now;
+window.ready=true;
 </script>`;
 try {
   const images = [];
@@ -45,11 +49,27 @@ try {
       if (m.type() === 'error') errors.push(m.text());
     });
     await page.route('**/favicon.ico', (r) => r.fulfill({ status: 204 }));
-    await page.route('**/rax/render-test', (r) =>
+    await page.route('**/rax/render-test?*', (r) =>
       r.fulfill({ contentType: 'text/html', body: fixture }),
     );
-    await page.goto(base + 'render-test');
+    await page.goto(base + 'render-test?lens=0&fovea=0');
     await page.waitForFunction(() => window.ready);
+    // A continuous walk seen from adjoining 16 m blocks. The camera's
+    // world-space position and sightline must agree on both sides.
+    for (const third of [false, true]) {
+      const seam = await page.evaluate(third => {
+        const sample = x => {
+          view.render({ ...state, third, me: { ...state.me, x, z: 0, yaw: 90, pitch: 0, vx: 10 } });
+          return { eye: view.aimOrigin(), direction: view.aimForward() };
+        };
+        return [sample(8.24), sample(8.24 - 16)];
+      }, third);
+      const [before, after] = seam;
+      assert.ok(Math.abs(before.eye.x - after.eye.x - 16) < 0.001);
+      assert.ok(Math.abs(before.eye.y - after.eye.y) < 0.001);
+      assert.ok(Math.abs(before.direction.y - after.direction.y) < 0.001, 'open edge preserves camera pitch');
+    }
+    await page.evaluate(() => view.render(state));
     const backend = await page.evaluate(() => document.getElementById('game').dataset.engine);
     assert.equal(backend, fallback ? 'webgl2' : 'webgpu');
     images.push(
@@ -73,7 +93,7 @@ try {
       await page.waitForFunction(
         ({ width, height }) => {
           const c = document.getElementById('game'),
-            s = Math.max(1, Math.floor(Math.min(width / 480, height / 270)));
+            s = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
           return c.width === Math.ceil(width / s) && c.height === Math.ceil(height / s);
         },
         { width, height },

@@ -1,4 +1,4 @@
-import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
+import { edgeAt, SPAN, groundsOf, cellOf, wrap } from './park.mjs';
 import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
 import { PLANET } from './planet.mjs';
@@ -34,7 +34,6 @@ import { Sfx, SpatialTones } from './sfx.mjs';
 const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kidlispWall(...given));
 import { screenRows, carryPixels } from './screen-lod.mjs';
 import { ballAt } from './ball.mjs';
-import { SPAN as BLOCK_SPAN } from './park.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
 // ⏱️ How long the way in takes, once: when this module ran, when the view
@@ -599,7 +598,19 @@ try {
 } catch {}
 let downSince = null; // when this outage began, for the picture's decay
 let statsShown = false;
-try { statsShown = localStorage.getItem('rax-stats') === '1'; } catch {}
+const chartKey = 'ac:fps-hud';
+try {
+  const saved = localStorage.getItem(chartKey);
+  statsShown = (saved ?? localStorage.getItem('rax-stats')) === '1';
+  if (saved === null && statsShown) localStorage.setItem(chartKey, '1');
+} catch {}
+addEventListener('storage', event => {
+  if (event.key === chartKey || event.key === null) statsShown = event.newValue === '1';
+});
+function toggleStats() {
+  statsShown = !statsShown;
+  try { localStorage.setItem(chartKey, statsShown ? '1' : '0'); } catch {}
+}
 const extrasSeen = new Set(); // a controller's buttons past the standard ones, as they are first pressed
 // 🔄 New code reaches a page that is up over the room (parked) too: it asks
 // the server's revision every half minute and loads again, unseen, when
@@ -769,9 +780,7 @@ function toneSources() {
   return out;
 }
 let claimedAt = 0;
-let fps = 0,
-  fpsFrames = 0,
-  fpsAt = performance.now();
+
 let holdTime = 0,
   holdSpent = false,
   devLog = [];
@@ -1205,9 +1214,12 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (walk) crossing = { from, to, at: performance.now() };
   // The ball stays where it is in the world: over a seam it is a block
   // away in the new room's metres; by any other way it is out of sight.
-  if (walk && ball && player && at) {
-    ball = { ...ball, x: ball.x + Math.round((at.x - player.x) / BLOCK_SPAN) * BLOCK_SPAN, z: ball.z + Math.round((at.z - player.z) / BLOCK_SPAN) * BLOCK_SPAN };
-  } else ball = null;
+  const oldCell = walk && cellOf(from), newCell = walk && cellOf(to);
+  const continuous = here && player && oldCell && newCell;
+  const dx = oldCell && newCell ? wrap(oldCell.i - newCell.i) * SPAN : 0;
+  const dz = oldCell && newCell ? wrap(oldCell.j - newCell.j) * SPAN : 0;
+  ball = walk && ball ? { ...ball, x: ball.x + dx, z: ball.z + dz } : null;
+  if (continuous) presentation.translate(dx, dz);
   held = (receipt || here) && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
@@ -1234,7 +1246,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   beyond = new Map(); // (the next room tells them in its own metres)
   drones = new Map();
   park = null;
-  walkAt = performance.now() + 1000;
+  walkAt = walk ? 0 : performance.now() + 1000;
   objects = [];
   tiles = {};
   // What the world stream already knows of the place stands there at once:
@@ -1267,7 +1279,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     // 🧵 The socket stays: the server has moved the body, and the next room's
     // words are next on this wire. Only what was known of the room left goes.
     coolDown();
-    unseat();
+    unseat(continuous);
   } else if (ws && ws.readyState !== WebSocket.CLOSED) {
     const old = ws;
     ws = null; // its close is ours, not an outage
@@ -1287,6 +1299,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     seq = pending.length;
     for (const c of pending) held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk, until: held.until };
   }
+  if (continuous && held) presentation.correct(held);
 }
 // 🚪 The rooms next door, held open while you are near their seam: each
 // has answered and knows who you are, and waits (wait=1). Stepping over,
@@ -1350,7 +1363,7 @@ function tendWarm() {
 }
 // What was known of a room's match goes when the body leaves it: its
 // snapshots, its count of commands, what was predicted in it.
-function unseat() {
+function unseat(keepMotion = false) {
   history = [];
   pending = [];
   player = null;
@@ -1359,8 +1372,10 @@ function unseat() {
   resetPrediction = false;
   seq = sentSeq = 0;
   eventId = 0;
-  debt = 0;
-  presentation.reset(null);
+  if (!keepMotion) {
+    debt = 0;
+    presentation.reset(null);
+  }
   playback.reset();
   freecamPlaced = false;
   gate = null;
@@ -2280,10 +2295,9 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  // 🧰 ` anywhere else opens the debugging panel, bottom right (not while typing).
+  // 🧰 ` anywhere else toggles the shared frame chart (not while typing).
   if (e.code === 'Backquote' && !e.repeat && !typing()) {
-    statsShown = !statsShown;
-    try { localStorage.setItem('rax-stats', statsShown ? '1' : ''); } catch {}
+    toggleStats();
     e.preventDefault();
     return;
   }
@@ -2473,7 +2487,7 @@ function applyPrediction() {
   }
   pending = result.pending;
   player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
-  presentation.correct(player, changedLife || resetPrediction);
+  presentation.correct(player, (changedLife && !held?.walk) || resetPrediction);
   resetPrediction = false;
   // 👀 A body set down where it was left looks where it was looking (the eye is this page's own; the server's word on facing is for a body it has put somewhere new).
   const woke = changedLife && !carried && lastBody?.room === room && Math.hypot(own.x - lastBody.x, own.z - lastBody.z) < 1.5;
@@ -2571,12 +2585,6 @@ function step(now) {
   }
   if (gamepad.ring || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
   dragBrush();
-  fpsFrames++;
-  if (now - fpsAt >= 500) {
-    fps = Math.round((fpsFrames * 1000) / (now - fpsAt));
-    fpsFrames = 0;
-    fpsAt = now;
-  }
   // START goes to the prompt, as the corner says: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it leaves for the prompt, as Escape does. (The $ is on the d-pad.)
   if (gamepad.start && !hosted) leave();
   // ➡️ Right on the d-pad opens the $ (not while locked on, where it steps the lock, nor while typing); once open the d-pad moves in it.
@@ -2593,8 +2601,7 @@ function step(now) {
   if (gamepad.swap) fullScreen();
   // 🧰 The right stick, clicked, shows and hides the debugging layer, as ` does: the frame meter, where you stand in metres, and the fences on the lines between rooms.
   if (gamepad.debug) {
-    statsShown = !statsShown;
-    try { localStorage.setItem('rax-stats', statsShown ? '1' : ''); } catch {}
+    toggleStats();
     sfx.ringMove(statsShown ? 7 : 2);
   }
   if (menu) {
@@ -3221,7 +3228,6 @@ function step(now) {
     touchButtons: shownButtons().map((b) => ({ ...b, held: [...touch.pressed.values()].some((p) => p.name === b.name) })),
     touchZones: shownZones(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
-    fps: sheetOpen ? fps : 0,
     stallNote: stalls.note(),
     walls,
     cube,
@@ -3296,13 +3302,6 @@ function step(now) {
   });
   postProcess(elapsed);
   film?.frame(now);
-}
-// 📊 AC's fps switch, shared through localStorage with the prompt (and every
-// other AC window), live through the storage event.
-{
-  const fpsOn = () => { try { return localStorage.getItem('ac:fps-hud') === '1'; } catch { return false; } };
-  view.showFps?.(fpsOn());
-  window.addEventListener('storage', (e) => { if (e.key === 'ac:fps-hud') view.showFps?.(fpsOn()); });
 }
 let hushTimer = 0;
 if (hosted) {

@@ -10,6 +10,14 @@ export class LocalPresentation {
     this.error = { x: 0, y: 0, z: 0 };
   }
 
+  // Both interpolation endpoints describe the same walk on either side of a block line.
+  translate(dx, dz) {
+    if (!this.current) return;
+    const shift = (p) => ({ ...p, x: p.x + dx, z: p.z + dz });
+    this.previous = shift(this.previous);
+    this.current = shift(this.current);
+  }
+
   step(player) {
     if (!this.current || this.current.life !== player.life || this.current.alive !== player.alive) {
       this.reset(player);

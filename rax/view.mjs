@@ -1,6 +1,7 @@
+import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { groundsOf, promenade, GROUNDS, EDGE, SPAN } from './park.mjs';
+import { groundsOf, promenade, GROUNDS, EDGE, SPAN, LAP } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
@@ -189,8 +190,6 @@ import {
   direction,
   wallDistance,
   along,
-  rayBox,
-  bodyBox,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -819,9 +818,6 @@ export async function createView(canvas) {
   let presenceKey, presenceModel;
   let ringKey, ringModel, devKey, devModel, fpsKey, fpsModel, netKey, netModel;
   let netSince = null; // When the connection went down, for the log's typing.
-  // The frame-rate readout follows AC's shared fps switch (localStorage
-  // "ac:fps-hud", toggled by backtick on the prompt; client.mjs sets it).
-  let SHOW_FPS = false;
   // 🔭 The lens: how much of it (1: straight lines near the edge bow a good deal), and how much larger the middle is drawn under all of it. It is done to the finished picture on the card (lens-host.mjs): corner by corner it could not keep two things that lie on one another in order, and holes opened in them.
   const LENS = 0.65, LENS_ZOOM = 1.3;
   let lensNow = null; // what the card is told of the lens this frame
@@ -835,18 +831,43 @@ export async function createView(canvas) {
   let lensFull = 0; // how full of triangles the last frame was, 0 to 1: the lens halves edges less finely when it runs high
   let density = 0;
   try { density = Math.max(-5, Math.min(5, Math.round(Number(localStorage.getItem('rax-density')) || 0))); } catch {}
-  const statsRun = new Float32Array(56); let statsHead = 0; // the last 56 frames' gaps, a ring (a short graph: it keeps to its corner)
-  let statsAt = 0, statsGap = 16.7, statsWorst = 0, statsWorstAt = 0; // 🧰 the last frame's start, the time between frames (eased), the worst lately
+  const frameChart = createFrameChart();
+  let chartVisible = false;
   // 📐 The axes' colours, as in any 3D tool: x red, y green, z blue.
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
   let panelTop = null;
-  let stride = 0, strideAt = performance.now(); // The walk's step phase, for the camera's bob.
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let menuBox = null; // The open menu's panel and rows, in buffer pixels about the centre.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let natural = null; // 🖥️ The picture's scale last frame before any zoom a camera asked for: what going in to a screen works its own zoom from (dock.mjs).
   let snow = null, snowAt = 0; // The room's falling snow.
+  // Low-detail ground under the surveyed blocks in the orbital view. Its
+  // surface sits slightly below the real terrain and turns with the room.
+  const orbitalGround = model(({ quad }) => {
+    const radius = PLANET - 0.14;
+    // Tilt the meridians toward the eye so their curves describe the limb.
+    const point = (lat, lon, radiusScale = 1) => {
+      const x = radius * Math.cos(lat) * Math.sin(lon);
+      const y = radius * Math.sin(lat), z = radius * Math.cos(lat) * Math.cos(lon);
+      return [x * radiusScale, (y * 0.6 - z * 0.8) * radiusScale, (y * 0.8 + z * 0.6) * radiusScale];
+    };
+    for (let row = 0; row < 14; row++) {
+      const lat = (row / 14 - 0.5) * Math.PI, next = lat + Math.PI / 14;
+      for (let col = 0; col < 28; col++) {
+        const lon = col * Math.PI / 14, end = lon + Math.PI / 14;
+        const a = point(lat, lon), b = point(next, lon), c = point(next, end), d = point(lat, end);
+        const light = (0.4 * b[0] + 0.65 * b[1] + 0.6 * b[2]) / radius;
+        const tile = (Math.floor(col / 2) + Math.floor(row / 2)) % 2 ? 1 : 0.89;
+        const shade = (0.69 + light * 0.38) * tile;
+        quad(a, d, c, b, tint(0x478ca3, shade));
+        // Fine latitude and longitude bands remain legible at thirty pixels.
+        const line = tint(0x83babb, shade);
+        if (col % 4 === 0) quad(point(lat, lon, 1.003), point(lat, lon + 0.038, 1.003), point(next, lon + 0.038, 1.003), point(next, lon, 1.003), line);
+        if (row % 3 === 1) quad(point(lat, lon, 1.003), point(lat, end, 1.003), point(lat + 0.035, end, 1.003), point(lat + 0.035, lon, 1.003), line);
+      }
+    }
+  });
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
@@ -1208,7 +1229,6 @@ export async function createView(canvas) {
     touchZones = [],
     input = 'keys',
     devLog = [],
-    fps = 0,
     stallNote = '',
     chat = null,
     tower = null, // 🏢 { count, top, here: { number, handle, colors }, lift } where a car stands
@@ -1233,7 +1253,7 @@ export async function createView(canvas) {
     sunAt = null, shadows = true, // 🌑 a fixed sun and a switch, for measuring shadows
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
-    stats = false, // 🧰 the debugging panel, bottom right (the ` key): frames, the picture's size, triangles, the backend
+    stats = false, // Shared frame chart and Rax diagnostics.
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
@@ -1288,6 +1308,7 @@ export async function createView(canvas) {
     // The corner join code is retired for now: rax is joining the AC homepage.
     const cells = null;
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale, grid ? 1 : 0);
+    let chartTop = 21 * hud.unit;
     // 🌞 In the world the room follows the world's own day (sky.mjs), the
     // same for everyone; behind the prompt's curtain it keeps the page's
     // theme, and a game arena its own.
@@ -1324,12 +1345,9 @@ export async function createView(canvas) {
         eye.y = Math.max(eye.y, me.y - CFG.eyeHeight + 0.3);
         through = true;
       }
-      let distance = wallDistance(origin, dir, 100, solidObjects, worldTime, half);
-      players.forEach((p, i) => {
-        if (i !== seat && p?.alive)
-          distance = Math.min(distance, rayBox(origin, dir, bodyBox(p), 100));
-      });
-      aim = along(origin, dir, Math.max(0.1, distance - 0.1));
+      // Keep the camera on the player's sightline through open block edges.
+      // Picking a surface is a separate ray; its distance must not steer the camera.
+      aim = along(origin, dir, 20);
     }
     if (camera) {
       eye = camera;
@@ -1342,19 +1360,16 @@ export async function createView(canvas) {
     // curtain's crosshair (a lens shift puts the room's centre there), so the
     // curtain stays mostly 2D and the corner is the way in (2026-11-03).
     projector.shiftX = projector.shiftY = 0;
+    const atlasRadius = LAP * SPAN / (2 * Math.PI);
+    const orbitalRadius = PLANET + (atlasRadius - PLANET) * orbit * orbit * (3 - 2 * orbit);
     if (orbit > 0) {
       const a = now / 3200; // a slow spin, about one turn in twenty seconds
-      // Straight down from high above, far enough that the room fits inside
-      // the crosshair's 16 px box (half 7 px) when square to it; a slight
-      // tilt sets which way is up, and as it circles the room turns
-      // (2026-11-03). sy = 1 on a landscape screen (Projector.camera).
-      // The camera hovers 25 m up (depth stays precise; from hundreds of
-      // metres the floor and its marks z-fought) and a zoom factor shrinks
-      // the picture instead of distance, eased back to 1 as it flies in.
+      // Fit the entire planetary limb under the cursor, including a margin
+      // at maximum hover. Use its apparent radius from this camera height.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
-      const height = 25;
-      const natural = ((half + 0.3) / height) * (1 / tan) * (canvas.height / 2); // room half-size in px
-      orbitZoom = Math.pow((7 * cornerScale) / natural, 1 - (1 - orbit) * (1 - orbit) * (3 - 2 * (1 - orbit)));
+      const height = atlasRadius * 1.8;
+      const natural = atlasRadius / Math.sqrt(height * (height + 2 * atlasRadius)) * canvas.height / (2 * tan);
+      orbitZoom = Math.pow((15 * cornerScale) / natural, orbit * orbit * (3 - 2 * orbit));
       const far = { x: Math.sin(a) * height * 0.002, y: height, z: -Math.cos(a) * height * 0.002 };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
@@ -1403,21 +1418,12 @@ export async function createView(canvas) {
         aim = about(aim);
       }
     }
-    // Breathing: a slow rise and fall with a slighter sway, so the room is
-    // never quite still, from the first frame behind the curtain on. Walking
-    // adds a step-paced bob with a small roll and a nod (2026-11-03): the
-    // head tilts side to side with each stride and dips as the foot lands.
-    let roll = camera?.roll || 0; // (a drone rolled over on its triggers)
-    {
-      const breath = Math.sin(now / 1900) * 0.03, sway = Math.sin(now / 3100) * 0.015;
-      const pace = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 6) : 0;
-      stride += (pace * (now - strideAt)) / 1000 * 9; // about 1.4 steps a second at full pace
-      strideAt = now;
-      const bob = Math.sin(stride) * 0.045 * pace, lean = Math.sin(stride / 2) * 0.02 * pace;
-      roll += Math.sin(stride / 2) * 0.012 * pace + Math.sin(now / 2600) * 0.0025;
-      const r = projector.right || [1, 0, 0];
-      eye = { ...eye, x: eye.x + sway + r[0] * lean, y: eye.y + breath + bob, z: eye.z + r[2] * lean };
-      aim = { ...aim, x: aim.x + sway + r[0] * lean, y: aim.y + breath + bob * 0.6, z: aim.z + r[2] * lean };
+    const roll = camera?.roll || 0;
+    // Keep the idle orbital motion out of the player's walk and the drone's controls.
+    if (orbit > 0) {
+      const breath = Math.sin(now / 1900) * 0.03 * orbit;
+      eye = { ...eye, y: eye.y + breath };
+      aim = { ...aim, y: aim.y + breath };
     }
     projector.camera(eye, aim, aspect, roll);
     // 👻 Head, chest, feet and both shoulders: what the eye must still see.
@@ -1457,7 +1463,7 @@ export async function createView(canvas) {
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
-    projector.planet = !game?.camera && orbit <= 0 ? PLANET : 0;
+    projector.planet = orbit > 0 ? orbitalRadius : game?.camera ? 0 : PLANET;
     if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
     if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
@@ -1481,14 +1487,18 @@ export async function createView(canvas) {
       draw(skyDome(skyStep), eye.x, eye.y, eye.z, 0, 0, SKY);
       projector.bends = true;
     }
+    if (orbit > 0 && projector.planet > 0) {
+      projector.bends = false;
+      draw(orbitalGround, eye.x, projector.ground - orbitalRadius, eye.z, 0, 0, orbitalRadius / PLANET);
+      projector.bends = true;
+    }
     if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
       // This room's seams stand where it lets go of a walker (EDGE, a step
       // past the block's line), so the net is seen to hop on the way over.
-      // (Not behind the curtain: the small room in the prompt's corner is the
-      // block alone, fitted to the crosshair's square.)
+      // Keep seam guides out of the orbital preview.
       if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
     else if (half === WORLD) draw(arena);
@@ -1521,10 +1531,7 @@ export async function createView(canvas) {
         for (const side of [-1, 1]) draw(leaf, side * (DOOR / 2 + e * (DOOR - 0.12)), 0, LOBBY_FRONT + 0.14);
       }
     }
-    // Behind the curtain the room is a small square under the crosshair, seen
-    // from 25 m straight up: the tower's storeys, the lobby's glass and the
-    // land around would stand between that camera and the floor and fill the
-    // screen. They come in once the drop is most of the way down.
+    // Bring in building detail as the flight comes down from the globe.
     if (skyline && !ledges && orbit < 0.6) {
       drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y);
       draw(lobbyFor(), skyline.dx, skyline.dy, skyline.dz);
@@ -2105,6 +2112,8 @@ export async function createView(canvas) {
       const typing = (saying || (prompt.open && !radial && !prompt.busy)) && input !== 'touch';
       const enterHint = typing ? hintSpans(chat?.lift ? '{enter} ride / {up} {down} a floor' : saying ? '{enter} say' : '{enter} build', THEME.dim) : null;
       const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
+      // Stack the chart below the controls while their help is visible.
+      if (!prompt.open && !saying && visible.length) chartTop = Math.max(chartTop, safeY + (14 * visible.length + 2) * unit);
       const key = JSON.stringify([visible, width, height, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
@@ -2147,7 +2156,7 @@ export async function createView(canvas) {
       projector.overlay(promptModel, width, height);
     }
     let ownTag = null; // Where your own handle ends, for your world position beside it.
-    if (members.length || connection || cells || fps) {
+    if (members.length || connection || cells) {
       const width = canvas.width,
         height = canvas.height,
         { unit, safeX, safeY, qrSize } = hud;
@@ -2178,8 +2187,6 @@ export async function createView(canvas) {
         height,
         joinURL,
         panelTop,
-        fps,
-        stallNote,
         !!face,
         bare,
       ]);
@@ -2229,13 +2236,12 @@ export async function createView(canvas) {
               }
             }
           });
-          if ((meter || (SHOW_FPS && fps)) && !face && !bare && !game) {
+          if (meter && !face && !bare && !game) {
             // No face cam to sit under: shadowed text right-aligned under the QR, coloured by health.
             const ping = (connection?.label || '').toLowerCase();
             const bars = connection?.bars || 0;
             const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
             const pingColor = !ping ? THEME.dim : bars >= 3 ? good : bars >= 2 ? fair : poor;
-            const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
             const right = width / 2 - safeX;
             let y = height / 2 - safeY - (cells ? qrSize + 16 * unit : 2 * unit);
             const line = (spans) => {
@@ -2259,7 +2265,6 @@ export async function createView(canvas) {
               }
               line([{ text: ping, color: pingColor }]);
             }
-            if (SHOW_FPS && fps) line([{ text: `${fps} fps`, color: fpsColor }, ...(stallNote ? [{ text: `  ${stallNote}`, color: fair }] : [])]);
           }
         });
       }
@@ -2567,72 +2572,41 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // 🧰 The debugging panel (the ` key), bottom right: how fast the picture
-    // comes, how big it is, how many triangles it took and what draws them.
-    {
-      const t = performance.now(), gap = statsAt ? t - statsAt : 16.7;
-      statsAt = t;
-      statsGap += (gap - statsGap) * 0.1;
-      statsRun[statsHead] = gap; statsHead = (statsHead + 1) % statsRun.length;
-      lensFull = (projector.scene?.triangleCount || 0) / (projector.scene?.maxTriangles || 1);
-      if (gap > statsWorst || t - statsWorstAt > 3000) { statsWorst = gap; statsWorstAt = t; }
-    }
+    lensFull = (projector.scene?.triangleCount || 0) / (projector.scene?.maxTriangles || 1);
+    if (stats && !chartVisible) frameChart.reset();
+    if (stats) frameChart.sample(now);
+    chartVisible = stats;
     // 📦 This frame's places at the edges (hud.mjs createPack). The aimed object's code tag is the corner's first tenant; what else stands bottom right takes its room after it.
     const hudPack = createPack(W, H, { safeX: 4, safeY: 4, gap: 2 * hud.unit });
     const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
     const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
     if (stats) {
-      // A meter, not a table: the last two seconds of frames as bars (each as
-      // tall as the frame was long, green under a sixtieth, yellow under a
-      // thirtieth, red over), a line where sixty a second lies; under it how
-      // full the triangle budget is; beside it the wind as an arrow that
-      // points where the air goes, longer the harder it blows, with a tick
-      // up or down for lift. One number: frames a second.
-      const { unit, safeX, safeY } = hud;
-      const tris = projector.scene?.triangleCount || 0, most = projector.scene?.maxTriangles || 0;
-      const rate = Math.round(1000 / Math.max(1, statsGap));
-      const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
-      const at = camera || me;
-      const air = weather && at ? airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) }) : null;
+      const { unit } = hud, at = camera || me;
+      const rows = [`${backend === 'webgpu' ? 'gpu' : 'gl'}  tris ${Math.round(lensFull * 100)}%`];
+      if (weather && at) {
+        const air = airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
+        const bearing = (Math.round(Math.atan2(air.x, air.z) / (Math.PI / 4)) + 8) % 8;
+        const compass = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'][bearing];
+        rows.push(`wind ${compass} ${Math.hypot(air.x, air.z).toFixed(1)}`, `lift ${air.y.toFixed(1)}`);
+      }
+      if (stallNote) {
+        let line = '';
+        for (const word of stallNote.split(' ')) {
+          if (line && smallWidth(line + ' ' + word) > frameChart.width - 6) {
+            rows.push(line);
+            line = '';
+          }
+          line += (line ? ' ' : '') + word;
+        }
+        rows.push(line);
+      }
+      const left = Math.max(0, W - (frameChart.width + 5) * unit) - W / 2, top = H / 2 - Math.min(chartTop, Math.max(0, H - (30 + 9 * rows.length) * unit));
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
-        const BARS = statsRun.length, tall = 16 * unit, wide = BARS * unit;
-        // 📦 Its room is asked for (hud.mjs createPack): the meter, its number over it, the budget under it and the wind's dial beside it, clear of the code tag in the same corner.
-        const slot = hudPack.reserve('stats', 'br', wide + (air ? 25 : 2) * unit, tall + 26 * unit);
-        const right = slot.x + slot.w - W / 2 - unit, foot = H / 2 - (slot.y + slot.h) + 7 * unit, left = right - wide;
-        rect(left - unit, foot - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, INK);
-        rect(left, foot, 0.000003, wide, tall, 0x15171e);
-        for (let i = 0; i < BARS; i++) {
-          const gap = statsRun[(statsHead + i) % BARS];
-          if (!gap) continue;
-          const h = Math.max(unit, Math.min(tall, Math.round((gap / 50) * 16) * unit)); // the box is 50 ms tall
-          rect(left + i * unit, foot, 0.000002, unit, h, gap <= 18 ? good : gap <= 34 ? fair : poor);
-        }
-        rect(left, foot + Math.round((16.7 / 50) * 16) * unit, 0.000001, wide, unit, 0x5a5f70); // sixty a second
-        // The triangle budget: a bar under the frames, red when nearly full.
-        const full = most ? Math.min(1, tris / most) : 0;
-        rect(left - unit, foot - 6 * unit, 0.000004, wide + 2 * unit, 4 * unit, INK);
-        rect(left, foot - 5 * unit, 0.000003, wide, 2 * unit, 0x15171e);
-        rect(left, foot - 5 * unit, 0.000002, Math.max(unit, Math.round((wide * full) / unit) * unit), 2 * unit, full > 0.85 ? poor : 0x6aa8ff);
-        // Frames a second, over the box, in its health's colour; the backend's initial beside it.
-        const words = `${rate}`, ink = rate >= 55 ? good : rate >= 30 ? fair : poor, wx = right - (smallWidth(words) / 2) * unit, wy = foot + tall + 10 * unit;
-        small(words, wx + unit, wy - unit, 0.000002, unit, INK);
-        small(words, wx, wy, 0, unit, ink);
-        const kind = backend === 'webgpu' ? 'gpu' : 'gl', kx = left + (smallWidth(kind) / 2) * unit;
-        small(kind, kx + unit, wy - unit, 0.000002, unit, INK);
-        small(kind, kx, wy, 0, unit, backend === 'webgpu' ? good : fair);
-        // The wind: a dial left of the box, north up on the screen as on a map.
-        if (air) {
-          const cx = left - 13 * unit, cy = foot + tall / 2, R = 8 * unit;
-          const speed = Math.hypot(air.x, air.z), reach = Math.min(R, (2 + speed * 1.2) * unit), a = Math.atan2(air.x, air.z);
-          rect(cx - R - unit, cy - R - unit, 0.000004, 2 * R + 2 * unit, 2 * R + 2 * unit, INK);
-          rect(cx - R, cy - R, 0.000003, 2 * R, 2 * R, 0x15171e);
-          for (let k = 0; k <= reach; k += unit) rect(Math.round((cx + Math.sin(a) * k) / unit) * unit, Math.round((cy + Math.cos(a) * k) / unit) * unit, 0.000002, unit, unit, k > reach - 3 * unit ? 0xffffff : 0x9db4d6);
-          rect(cx - unit / 2, cy - unit / 2, 0.000001, unit, unit, 0x5a5f70);
-          // Lift: a bar on the dial's right edge, up from the middle when the air rises.
-          const lift = Math.max(-R, Math.min(R, Math.round(air.y * 6) * unit));
-          rect(cx + R - 2 * unit, lift >= 0 ? cy : cy + lift, 0.000002, 2 * unit, Math.max(unit, Math.abs(lift)), lift >= 0 ? good : poor);
-        }
+        frameChart.draw({
+          box: (x, y, w, h, color, layer) => rect(left + x * unit, top - (y + h) * unit, (4 - layer) * 0.000001, w * unit, h * unit, color),
+          text: (line, x, y, color) => small(line, left + (x + smallWidth(line) / 2) * unit, top - (y + 1) * unit, 0, unit, color),
+        }, rows);
       });
       projector.overlay(m, W, H);
     }
@@ -3105,21 +3079,18 @@ export async function createView(canvas) {
         px(-1, 24, 26, 1, edge);
         px(-1, 0, 1, 24, edge);
         px(24, 0, 1, 24, edge);
-        // The column beside the cam — braincells, the connection, the frame
-        // rate — in even 10-row slots from the frame's top edge down, so no
+        // Braincells and connection details sit in even 10-row slots, so no
         // two overlap (2026-11-08). A slot's number is the top of small()'s
         // 8-row glyph box; the glyphs themselves start a row lower.
         let slot = 26;
         const nextSlot = () => ((slot -= 10), slot + 10); // (a clear row between each line)
         // Three rows, the cam's own height: the connection (four rising bars
-        // and its ping), where you stand, your braincells. The frame rate,
-        // when shown, goes under them.
+        // and its ping), where you stand, your braincells.
         {
           const ping = (connection?.label || '').toLowerCase();
           const bars = connection?.bars || 0;
           const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
           const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
-          const fpsColor = fps >= 55 ? good : fps >= 30 ? fair : poor;
           if (ping) {
             const pt = nextSlot();
             const base = pt - 7; // The bars' foot on the glyphs' foot.
@@ -3169,18 +3140,6 @@ export async function createView(canvas) {
             px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
           }
         }
-          if (SHOW_FPS && fps) {
-            const f = `${fps} fps`;
-            const fx = x0 + (27 + smallWidth(f) / 2) * unit, fy = y0 + nextSlot() * unit;
-            small(f, fx + unit, fy - unit, 0.000002, unit, INK); // Shadowed like the rest.
-            small(f, fx, fy, 0, unit, fpsColor);
-            // 🧊 After it: how many times the picture stopped, and why last (stalls.mjs).
-            if (stallNote) {
-              const sx = fx + (smallWidth(f) / 2 + 4 + smallWidth(stallNote) / 2) * unit;
-              small(stallNote, sx + unit, fy - unit, 0.000002, unit, INK);
-              small(stallNote, sx, fy, 0, unit, fair);
-            }
-          }
         }
         // The health bar under it, in health colours.
         const hpc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
@@ -3829,9 +3788,6 @@ export async function createView(canvas) {
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
     density: setDensity,
-    showFps(on) {
-      SHOW_FPS = !!on;
-    },
     // The host's theme: true for dark, false for light, null to follow the system.
     theme(dark) {
       hostDark = typeof dark === 'boolean' ? dark : null;
