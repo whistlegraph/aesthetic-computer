@@ -650,6 +650,7 @@ let jumpQueued = false,
 let last = performance.now(),
   debt = 0;
 let resting = false; // The host window is in the background (lib/rax-sheet.mjs).
+let away = false; // Another piece has the host's stage: nobody can see the room, so it draws nothing.
 const BACKGROUND_FPS = 60; // The room's top rate behind a background window's paper.
 let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
@@ -2710,11 +2711,12 @@ function frame(now) {
   // Schedule first: one bad frame must never stop the loop.
   requestAnimationFrame(frame);
   // 🧊 A gap since the last frame, while someone is in the room looking.
-  stalls.begin(now, !document.hidden && document.hasFocus() && (hosted ? sheetShown : true) && !resting, {
+  stalls.begin(now, !document.hidden && document.hasFocus() && (hosted ? sheetShown : true) && !resting && !away, {
     building: jobs.length, objects: objects.length, pending: pending.length,
     rtt: Number.isFinite(connection.rtt) ? connection.rtt : undefined,
     backend: canvas.raxStats?.backend, agent: AGENT, hosted,
   });
+  if (away && !sheetOpen) return; // Unseen under another piece: no step, no draw.
   // With the host window in the background and the paper down, the room
   // still turns smoothly but draws at most 60 times a second, half the work
   // on a 120 Hz display (2026-11-08).
@@ -3568,6 +3570,13 @@ if (hosted) {
       resting = e.data.rest === true;
       if (!resting) {
         last = performance.now(); // No catch-up for the time spent resting.
+        debt = 0;
+      }
+    }
+    if ('away' in e.data && away !== (e.data.away === true)) {
+      away = e.data.away === true;
+      if (!away) {
+        last = performance.now(); // No catch-up for the time spent unseen.
         debt = 0;
       }
     }

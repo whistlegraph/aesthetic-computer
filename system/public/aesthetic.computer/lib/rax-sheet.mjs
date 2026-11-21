@@ -368,7 +368,7 @@ addEventListener("message", (e) => {
     loading(false);
     // This module can load after bios last reported focus: ask the window.
     if (!document.hasFocus() && state === "parked") resting = true;
-    post({ type: "rax:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting, ...(dark === null ? {} : { dark }) });
+    post({ type: "rax:sheet", open: state === "open" || toward === "open", grid: grid(), rest: resting, away, ...(dark === null ? {} : { dark }) });
     // A server restart reloads the guest without moving the host's paper.
     // Restore the completed transition too: otherwise its HUD stays hidden
     // and the native frame meter is still attached to the discarded document.
@@ -411,6 +411,19 @@ function windowFocus(focused) {
   rest(!focused && (state === "parked" || state === "cold"));
 }
 
+// 🚪 Another piece has the stage (notepat, a painting): the world under it is
+// unseen, so its frame leaves the render tree and the guest stops stepping
+// and drawing until the prompt is back. A background window still turns
+// (`rest`); a covered one does nothing. bios calls this on every piece load.
+let away = false;
+function offstage(on) {
+  on = !!on && state !== "open" && state !== "moving";
+  if (on === away) return;
+  away = on;
+  if (frame) frame.style.display = away ? "none" : "";
+  if (said) post({ type: "rax:sheet", away });
+}
+
 // The Mac app reasserts its own cursor on every mouse event; tell it when the
 // world hides the pointer, or the two fight and it flickers (2026-11-08).
 function nativeCursorHidden(on) {
@@ -434,7 +447,7 @@ function theme(value) {
   if (said && dark !== null) post({ type: "rax:sheet", dark });
 }
 
-window.acRaxSheet = { popstate, framed, windowFocus, get up() { return state === "open" || state === "moving"; } }; // (`up`: rax has the screen, and the pad with it)
+window.acRaxSheet = { popstate, framed, windowFocus, offstage, get up() { return state === "open" || state === "moving"; } }; // (`up`: rax has the screen, and the pad with it)
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle

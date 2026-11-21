@@ -15563,6 +15563,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       }
       whens = coreHandlers;
 
+      // The rax world under the prompt's paper draws only while the prompt has the stage.
+      window.acRaxSheet?.offstage?.(typeof content.text === "string" &&
+        !["", "prompt"].includes(content.text.replace(/^\//, "").split("~")[0]));
       // Close (defocus) software keyboard if we are NOT entering the prompt.
       if (content.text && content.text.split("~")[0] !== "prompt") {
         document.querySelector("#software-keyboard-input")?.blur();
