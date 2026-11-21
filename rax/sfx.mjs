@@ -145,7 +145,7 @@ export class Sfx {
       air.start();
       hum.type = 'sine';
       hum.frequency.value = 86;
-      humGain.gain.value = 0.05;
+      humGain.gain.value = 0.03;
       hum.connect(humGain).connect(out);
       hum.start();
       // The blades' beat: a slow, soft tremble in the loudness.
@@ -158,11 +158,12 @@ export class Sfx {
     }
     const n = Math.max(0, Math.min(1, near)), w = Math.max(0, Math.min(1, work)), r = this.rotors;
     // Working harder it opens up (more of the air is heard) and its hum rises a little.
-    r.band.frequency.setTargetAtTime(380 + 700 * w, t, 0.25);
-    r.soft.frequency.setTargetAtTime(800 + 1400 * w, t, 0.25);
+    r.band.frequency.setTargetAtTime(320 + 380 * w, t, 0.4);
+    r.soft.frequency.setTargetAtTime(700 + 600 * w, t, 0.4);
     r.hum.frequency.setTargetAtTime(86 + 34 * w, t, 0.2);
-    r.out.gain.setTargetAtTime(n ? (0.05 + 0.05 * w) * n * n * MASTER : 0, t, 0.2);
-    r.depth.gain.setTargetAtTime(n ? 0.004 * n * n * MASTER : 0, t, 0.2);
+    // (Barely there: a hush at a hover, a little more when it works. It was eight times this and filled the room.)
+    r.out.gain.setTargetAtTime(n ? (0.006 + 0.008 * w) * n * n * MASTER : 0, t, 0.3);
+    r.depth.gain.setTargetAtTime(n ? 0.0006 * n * n * MASTER : 0, t, 0.3);
   }
   // 📉 Going down: as the picture comes apart (`gone`, 0 to 1) a tone falls
   // and breaks up into steps, under a rising hiss; at the end only a low hum.
