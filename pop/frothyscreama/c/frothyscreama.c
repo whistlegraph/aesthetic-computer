@@ -22,7 +22,7 @@
 //         f32le stereo 48k, the premaster — run-c.mjs masters it.
 //
 // Score (text, one item per line, written by the renderer's --bake):
-//   sr / frames / bpm / material <name|none> / gain <bus> <x>   — globals
+//   sr / frames / bpm / material <name|none> / gain <bus> <x> / lean <gtr|drums> <x> / drumhall <x> / drumcrush <x>   — globals
 //   smp <id> <path.f32>                                         — a decoded sample
 //   place <gtr|clean> t gain pan drive <take.wav>
 //   pick t midi gain pan
@@ -192,6 +192,7 @@ static void vox_layer(const char *path, long i0, double gain, double pan, int sc
         hp += 0.02 * (src[k] - hp);
         double v = (src[k] - hp) / pk;
         if (scream) v = tanh(v * 2.6) * 0.8;          // the scream into the mic pre, hard
+        else v = tanh(v * 1.6) * 0.75;                // the whisper's plosives rounded off
         const long j = (i0 + k) * 2;
         ac_add(vox, j, v * gl); ac_add(vox, j + 1, v * gr);
         ac_add(rev, j, v * gl * wet); ac_add(rev, j + 1, v * gr * wet);   // dry and up front; the room is for the band
@@ -247,6 +248,58 @@ static void room(void) {
     }
 }
 
+// the kit's hall: six long damped combs and two allpasses per ear, fed after a
+// short predelay with the lows held back, so the kick stays one thing
+static void drum_hall(double mix) {
+    static const int COMB[6] = { 2455, 2613, 2809, 2983, 3128, 3280 }, AP[2] = { 1112, 882 };
+    if (!(mix > 0)) return;
+    const double scale = SR / 44100;
+    const long PRE = ac_round(0.018 * SR);
+    float *wet = ac_alloc((size_t)N * 2, sizeof(float));
+    for (int ch = 0; ch < 2; ch++) {
+        float *cb[6], *ab[2];
+        long cn[6], ci[6] = { 0 }, an[2], ai[2] = { 0 };
+        double clp[6] = { 0 }, hp = 0;
+        for (int c = 0; c < 6; c++) { cn[c] = ac_round((COMB[c] + ch * 37) * scale); cb[c] = ac_alloc((size_t)cn[c], sizeof(float)); }
+        for (int a = 0; a < 2; a++) { an[a] = ac_round((AP[a] + ch * 37) * scale); ab[a] = ac_alloc((size_t)an[a], sizeof(float)); }
+        for (long i = 0; i < N; i++) {
+            const double d = i >= PRE ? drums[(i - PRE) * 2 + ch] : 0;
+            hp += 0.016 * (d - hp);
+            const double x = d - hp;
+            double y = 0;
+            for (int c = 0; c < 6; c++) {
+                const double o = cb[c][ci[c]];
+                y += o; clp[c] = o * 0.55 + clp[c] * 0.45;
+                cb[c][ci[c]] = (float)(x + clp[c] * 0.74);
+                if (++ci[c] == cn[c]) ci[c] = 0;
+            }
+            for (int a = 0; a < 2; a++) {
+                const double o = ab[a][ai[a]];
+                ab[a][ai[a]] = (float)(y + o * 0.5); y = o - y;
+                if (++ai[a] == an[a]) ai[a] = 0;
+            }
+            wet[i * 2 + ch] = (float)(y * 0.12);
+        }
+        for (int c = 0; c < 6; c++) free(cb[c]);
+        for (int a = 0; a < 2; a++) free(ab[a]);
+    }
+    for (long j = 0; j < N * 2; j++) drums[j] = (float)(drums[j] + wet[j] * mix);
+    free(wet);
+}
+
+// the crush: the whole kit, hall and all, flattened hard and laid under itself —
+// the hits barely move, everything between them comes up
+static void drum_crush(double mix) {
+    if (!(mix > 0)) return;
+    double e = 0;
+    for (long i = 0; i < N; i++) {
+        const double l = drums[i * 2], r = drums[i * 2 + 1], a = 0.5 * (fabs(l) + fabs(r));
+        e += (a > e ? 0.02 : 0.00017) * (a - e);
+        const double g = (e > 0.04 ? 0.04 / e : 1) * 4 * mix;
+        drums[i * 2] = (float)(l + l * g); drums[i * 2 + 1] = (float)(r + r * g);
+    }
+}
+
 int main(int argc, char **argv) {
     ac_engine = "frothyscreama";
     const char *scorePath = NULL, *rawPath = NULL, *voxPath = NULL;
@@ -260,7 +313,9 @@ int main(int argc, char **argv) {
     FILE *f = fopen(scorePath, "r");
     if (!f) ac_die("cannot open", scorePath);
     char material[64] = "tape", line[8192], *tok[16];
-    double Ggtr = 0.85, Gclean = 1.0, Gdrums = 1.1, Gbass = 0.85, Gvox = 1.8, Grev = 1.0;
+    double Ggtr = 0.85, Gclean = 1.0, Gdrums = 1.1, Gbass = 0.95, Gvox = 3.1, Grev = 1.0;
+    double drumHall = 0, drumCrush = 0;                // the drum bus's own hall and parallel crush
+    double Lgtr = 0.38, Ldrums = 0;                   // how far the wall and the kit lean back under a scream
     long events = 0;
     while (fgets(line, sizeof line, f)) {
         const int n = ac_split(line, tok, 16);
@@ -277,6 +332,12 @@ int main(int argc, char **argv) {
             else if (!strcmp(tok[1], "drums")) Gdrums = g; else if (!strcmp(tok[1], "bass")) Gbass = g;
             else if (!strcmp(tok[1], "vox")) Gvox = g; else if (!strcmp(tok[1], "rev")) Grev = g;
         }
+        else if (!strcmp(v, "lean")) {
+            ARGS(2);
+            if (!strcmp(tok[1], "gtr")) Lgtr = ac_num(tok[2]); else if (!strcmp(tok[1], "drums")) Ldrums = ac_num(tok[2]);
+        }
+        else if (!strcmp(v, "drumhall")) { ARGS(1); drumHall = ac_num(tok[1]); }
+        else if (!strcmp(v, "drumcrush")) { ARGS(1); drumCrush = ac_num(tok[1]); }
         else if (!strcmp(v, "frames")) {
             ARGS(1);
             N = (long)ac_num(tok[1]);
@@ -305,6 +366,8 @@ int main(int argc, char **argv) {
 
     ping_pong();
     room();
+    drum_hall(drumHall);
+    drum_crush(drumCrush);
 
     // the sum — the wall leans back a little whenever he is screaming
     float *mix = ac_alloc((size_t)N * 2, sizeof(float));
@@ -313,8 +376,8 @@ int main(int argc, char **argv) {
     for (long i = 0; i < N; i++) for (int ch = 0; ch < 2; ch++) {
         const long j = i * 2 + ch;
         if (ch == 0) { const double a = fabs(vox[j]) + fabs(vox[j + 1]); env += (a > env ? 0.002 : 0.00012) * (a - env); }
-        const double lean = 1 - 0.32 * fmin(1, env / 0.25);
-        const double v = gtr[j] * Ggtr * lean + clean[j] * Gclean + tanh(drums[j] * 1.5) * 0.75 * Gdrums
+        const double u = fmin(1, env / 0.25), lean = 1 - Lgtr * u, leanD = 1 - Ldrums * u;
+        const double v = gtr[j] * Ggtr * lean + clean[j] * Gclean + tanh(drums[j] * 1.5) * 0.75 * Gdrums * leanD
                        + bass[i] * Gbass + vox[j] * Gvox + rev[j] * Grev;
         if (!isfinite(v)) bad++;
         mix[j] = (float)v;

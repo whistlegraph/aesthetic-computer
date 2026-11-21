@@ -7,8 +7,8 @@
 // into the vault: voice/<voice>-phonemes/phrases/. Syllables are marked in the lyric with
 // spaces and hyphens ("com-pu-ter"); their times come from the character alignment.
 //
-//   node pop/aesthetina/bin/phrases.mjs [--force]
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+//   node pop/aesthetina/bin/phrases.mjs [--force] [--only=jeffrey/name-gentle,…]
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,7 +19,10 @@ const env = readFileSync(join(VAULT, "lith", ".env"), "utf8");
 const envv = (k) => process.env[k] || env.match(new RegExp(`^${k}=(.*)$`, "m"))?.[1].replace(/^"|"$/g, "");
 
 // the lines live in ../lyrics.json (slug → lyric, syllables marked with spaces and hyphens)
-export const LINES = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "lyrics.json"), "utf8"));
+// a side cut keeps its own lines beside it, in lyrics.<cut>.json
+const LYRICS = join(dirname(fileURLToPath(import.meta.url)), "..");
+export const LINES = Object.assign({}, ...readdirSync(LYRICS).filter((f) => /^lyrics(\.[\w-]+)?\.json$/.test(f)).sort()
+  .map((f) => JSON.parse(readFileSync(join(LYRICS, f), "utf8"))));
 // cadence: v4 audio tag + end punctuation
 const CADENCES = {
   plain: ["", ""], excited: ["[excited] ", "!"], deadpan: ["[deadpan] ", "."],
@@ -28,12 +31,27 @@ const CADENCES = {
 };
 // the lines Prutti sings. "amail" and "gamelan" are his own typed words from the clock chat
 // (2026-11-13/15); "wise" and "chubby" were written for him. All of it is draft until he approves.
-const PRUTTI = ["chubby", "wise", "amail", "gamelan"];
+const PRUTTI = ["chubby", "wise", "amail", "gamelan", "verkko"];   // "verkko": @jeffrey's words for him, 2026-11-20 (Verkkokauppa, spelt as it should be said)
+// spot takes: one line in one inflection, where the eight moods left a hole. A whispered or
+// [softly] take loses its words once it is pitched onto the melody (it has no voicing to carry
+// the note), so the quiet lines are asked for with tags that keep the voice on, and recog.py
+// decides. v4 reads any free-text tag; they combine.
+const SPOT_CADENCES = {
+  gentle: ["[gently] ", "."], sly: ["[mischievously] [softly] ", "."], warm: ["[warmly] [quietly] ", "."],
+  mischief: ["[mischievously] ", "."], playful: ["[playfully] ", "!"], clear: ["[speaking slowly and clearly] ", "."],
+};
+const SPOT = [
+  ...["name", "sleep", "hand"].flatMap((l) => ["gentle", "sly", "warm"].map((c) => ["jeffrey", l, c])), // the opening, the bells and the last line
+  ["jeffrey", "moved", "mischief"], ["jeffrey", "moved", "playful"], // the second drop's reply, without the shout
+  ...["mischief", "clear", "gentle"].map((c) => ["prutti", "amail", c]), ["prutti", "gamelan", "clear"], ["prutti", "gamelan", "mischief"],
+];
+Object.assign(CADENCES, SPOT_CADENCES);
+
 const TAKES = [
   ...Object.keys(LINES).filter((l) => !PRUTTI.includes(l) || l === "chubby").flatMap((l) => Object.keys(CADENCES).map((c) => ["jeffrey", l, c])),
   // Prutti (Pruttivox IVC) — DRAFT ONLY until he approves clone + performance (Klokkentales release gate)
   ...PRUTTI.flatMap((l) => Object.keys(CADENCES).map((c) => ["prutti", l, c])),
-];
+].filter(([, , c]) => !SPOT_CADENCES[c]).concat(SPOT);
 
 function voiceOf(v) {
   const lib = JSON.parse(readFileSync(join(VAULT, "voice", `${v}-phonemes`, "library.json"), "utf8"));
@@ -75,4 +93,6 @@ async function take(voice, line, cadence) {
   return `${voice}/${slug} ${syllables.length} syllables · ${syllables.at(-1)[1].toFixed(2)} s`;
 }
 
-for (const t of TAKES) console.log(await take(...t));
+// --only=voice/line-cadence,… renders just those takes (and never the rest of the table)
+const ONLY = process.argv.find((a) => a.startsWith("--only="))?.slice(7).split(",");
+for (const t of TAKES) if (!ONLY || ONLY.includes(`${t[0]}/${t[1]}-${t[2]}`)) console.log(await take(...t));

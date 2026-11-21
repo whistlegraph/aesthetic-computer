@@ -20,10 +20,13 @@ OUT = HERE.parent / "out"
 MODEL = os.environ.get("WHISPER_MODEL", str(Path.home() / "Models/ggml-large-v3-turbo-q5_0.bin"))
 FFMPEG = "/opt/homebrew/bin/ffmpeg"  # not the shim
 # what each line should say: ../lyrics.json, hyphens and punctuation dropped
-TEXT = {k: re.sub(r"[-?.!]", "", v) for k, v in json.load(open(HERE.parent / "lyrics.json")).items()}
-NSYL = {k: len(re.split(r"[ -]", v)) for k, v in json.load(open(HERE.parent / "lyrics.json")).items()}
+# a side cut keeps its own lines beside it, in lyrics.<cut>.json
+LYRICS = {k: v for f in sorted(HERE.parent.glob("lyrics*.json")) for k, v in json.load(open(f)).items()}
+TEXT = {k: re.sub(r"[-?.!]", "", v) for k, v in LYRICS.items()}
+NSYL = {k: len(re.split(r"[ -]", v)) for k, v in LYRICS.items()}
 # "a-mail" is AC's mail; whisper writes it "email" or "a mail"
-norm = lambda s: re.sub(r"[^a-z ]", "", re.sub(r"\b(e-?mail|a[- ]mail)", "amail", s.lower())).split()
+# and "a male" for the same sound; "superstar" is the lyric's "super star"
+norm = lambda s: re.sub(r"[^a-z ]", "", re.sub(r"\b(e-?mail|a[- ]mail|a male)\b", "amail", s.lower()).replace("superstar", "super star")).split()
 TMP = Path(tempfile.mkdtemp(prefix="recog-"))
 
 
@@ -50,6 +53,7 @@ def takes():
         for meta in sorted(d.glob("*.json")):
             line = meta.stem.split("-")[0]
             if f"{who}/{meta.stem}" in table: continue  # already heard (--force to hear everything again)
+            if line not in NSYL: continue  # another lane's take (the vault's phrases are shared)
             st = list(rel); mid = [V.KEY[V.HOOK[i]] + 12 * octv for i in range(10)]
             st, mid = st[:NSYL[line]], mid[:NSYL[line]]  # a shorter line stops on an earlier note
             if NSYL[line] == 11: st = [V.at(0, -3)] + st; mid = [V.KEY["a"] + 12 * octv] + mid
@@ -57,7 +61,8 @@ def takes():
             f = TMP / f"{who}-{meta.stem}-solo.wav"
             sf.write(f, np.concatenate([np.zeros(16000), y * 0.5, np.zeros(16000)]), V.PFS)
             got = hear(f, tag=f"{who}-{meta.stem}"); h, n = recall(TEXT[line], got)
-            table[f"{who}/{meta.stem}"] = dict(recall=h / n, heard=got)
+            table[f"{who}/{meta.stem}"] = dict(recall=h / max(n, 1), heard=got)
+            json.dump(table, open(OUT / "recog-takes.json", "w"), indent=1)  # kept as it goes: a crash loses nothing
             print(f"{'ok ' if h == n else 'NO '} {who:<8}{meta.stem:<16}{h}/{n}  {got}", flush=True)
     json.dump(table, open(OUT / "recog-takes.json", "w"), indent=1)
     print(OUT / "recog-takes.json")
@@ -72,6 +77,7 @@ def arrangement(arr, floor):
         want = TEXT[p["slug"].split("-")[0]]
         if p["reveal"]: want = " ".join(want.split()[: p["reveal"]])  # the opening words are one syllable each
         dur = 4.3 if not p["reveal"] else 2.6
+        if i + 1 < len(plan): dur = min(dur, plan[i + 1]["t"] - p["t"] + 0.4)  # stop before the next line: its first syllable read as a stray word
         s = hear(stem, p["t"] - 0.45, dur, f"s{i}"); hs, n = recall(want, s)
         m = hear(mast, p["t"] - 0.45, dur, f"m{i}") if mast.exists() else ""; hm, _ = recall(want, m)
         bad += hs < n; tot += hm / n

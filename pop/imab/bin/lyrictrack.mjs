@@ -184,8 +184,14 @@ const addrSec = (a) => {
 // boundaries every run, so drawnFix repairs feed the tuner (the 'a'
 // lesson: stale targets tune the wrong windows).
 const PY = `${REPO}/pop/.venv/bin/python`;
-const AVOX = `${OUT}/imab-aesthetivox.wav`;
-const RVOX = `${OUT}/imab-aesthetivox-retimed.wav`;
+// IMAB_LOCK_TAG=<name> IMAB_LOCK=<strength>,<preserve>,<glide-ms> renders an
+// alternate note-lock of the same take beside the canonical stem
+// (out/imab-aesthetivox-<name>[-retimed].wav) and stops before the timing
+// JSONs — the default run is unchanged.
+const LOCK_TAG = process.env.IMAB_LOCK_TAG ? `-${process.env.IMAB_LOCK_TAG}` : "";
+const [LOCK_S, LOCK_P, LOCK_G] = (process.env.IMAB_LOCK ?? "1.0,0.0,0").split(",");
+const AVOX = `${OUT}/imab-aesthetivox${LOCK_TAG}.wav`;
+const RVOX = `${OUT}/imab-aesthetivox${LOCK_TAG}-retimed.wav`;
 const GT = ["C4", "G4", "C4", "C4", "C4", "C4", "C5", "C4", "C4", "C4",
             "G4", "F4", "E4", "D4", "E4", "E4", "D4", "C4", "C4", "C4"];
 writeFileSync(`${OUT}/imab-gt-targets.json`, JSON.stringify(sylls.map((s, i) => ({
@@ -194,7 +200,7 @@ writeFileSync(`${OUT}/imab-gt-targets.json`, JSON.stringify(sylls.map((s, i) => 
 console.log("→ aesthetivox note-lock (targets from current boundaries)");
 sh(PY, [`${REPO}/pop/bin/autotune.py`, `${OUT}/imab-sacredvox.wav`, AVOX,
   "--targets", `${OUT}/imab-gt-targets.json`, "--register-fit",
-  "--strength", "1.0", "--preserve", "0.0", "--glide-ms", "0"]);   // EXTREME: stepped, no scoop, no ride
+  "--strength", LOCK_S, "--preserve", LOCK_P, "--glide-ms", LOCK_G]);   // default EXTREME: stepped, no scoop, no ride
 let stemFile = "out/imab-sacredvox.wav";
 const gridOvr = Object.entries(ovr.overrides ?? {});
 if (gridOvr.length && existsSync(AVOX)) {
@@ -256,6 +262,7 @@ if (gridOvr.length && existsSync(AVOX)) {
   stemFile = "out/imab-aesthetivox-retimed.wav";
   console.log(`✓ ${RVOX} (dictation applied)`);
 } else if (existsSync(AVOX)) stemFile = "out/imab-aesthetivox.wav";
+if (LOCK_TAG) process.exit(0);
 
 writeFileSync(`${OUT}/imab-sacredvox.lyrics.json`, JSON.stringify({
   take: TAKE, source: "boundaries-drawn", bpm: BPM,

@@ -312,6 +312,34 @@ def main():
             y = y[:cut].copy(); y[-fade:] *= np.linspace(1, 0, fade)
         i = int(round((starts[0] - pick) * PFS)); y = y[: 2 * n - i]
         lr = np.array([np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)]) * np.sqrt(2)
+        ang = META.get("angel", {}).get(voice)
+        if ang:
+            # meta "angel": {voice: {...}} — that voice lighter and in a hall of its own (@jeffrey 2026-11-20, of
+            # Prutti: "a little too loud not angelic enough needs some more reverb"). Less chest (a high-pass
+            # at `chest` Hz), more air (a shelf of `air` dB from 6 kHz), a quiet double an octave up on the
+            # other side (`halo`), and a bright hall: `rt` seconds, `pre` seconds of pre-delay so the words
+            # stay in front, nothing under 500 Hz in the return, the send rising through the line so the
+            # tail blooms at its end.
+            from scipy.signal import butter, sosfilt, fftconvolve
+            f = lambda kind, hz, order=2: butter(order, hz, kind, fs=PFS, output="sos")
+            y = sosfilt(f("highpass", ang.get("chest", 220)), y)
+            y = y + (10 ** (ang.get("air", 4) / 20) - 1) * sosfilt(f("highpass", 6000, 1), y)
+            dry = np.zeros((len(y), 2)); dry += y[:, None] * lr
+            if ang.get("halo"):
+                hkey = ("phrase", voice, slug, tuple(np.round(rel, 4)), tuple(m + 12 for m in midis), round(end_hold, 3))
+                if hkey not in cache: cache[hkey] = sing_phrase(voice, slug, rel, [m + 12 for m in midis], end_hold, seed=k)
+                hp, hy = cache[hkey]; off = int(round((pick - hp) * PFS)); hy = sosfilt(f("highpass", 400), hy)
+                a, b2 = max(0, off), max(0, -off); m2 = min(len(y) - a, len(hy) - b2)
+                if m2 > 0: dry[a: a + m2] += ang["halo"] * hy[b2: b2 + m2, None] * lr[::-1]
+            rt, pre = ang.get("rt", 2.8), ang.get("pre", 0.07); rng = np.random.default_rng(7)
+            nir = int(rt * 1.2 * PFS); tt = np.arange(nir) / PFS
+            ir = rng.standard_normal((nir, 2)) * np.exp(-6.91 * tt / rt)[:, None]
+            ir = sosfilt(f("highpass", 500), ir, axis=0); ir = np.r_[np.zeros((int(pre * PFS), 2)), ir]; ir /= np.sqrt((ir ** 2).sum(0)).mean()
+            send = y * np.linspace(0.55, 1.0, len(y))
+            wet = np.stack([fftconvolve(send, ir[:, c]) for c in (0, 1)], 1) * ang.get("send", 0.3)
+            out = np.zeros((len(wet), 2)); out[: len(dry)] += dry; out += wet; out = out[: 2 * n - i]
+            lyric_hi[i: i + len(out)] += 0.4 * g * out
+            continue
         lyric_hi[i: i + len(y)] += 0.4 * g * y[:, None] * lr
     missing = set()
     for t, nm, style, g, pan, b in accents:

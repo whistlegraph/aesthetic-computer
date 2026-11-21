@@ -44,6 +44,11 @@ export function chordAt(bar) {
 // the verses and the last lap is the top. Each change ramps over the half bar before it.
 export const LEVELS = [[0, 0], [8, -2], [16, -1.5], [32, -0.5], [40, 0], [56, -1.5], [64, -1], [72, -0.5], [76, 0], [84, 0.5], [92, -1]];
 
+// the stereo story (bin/master.mjs, the pop law): bar → gain on the sides above 120 Hz, linear between
+// the points. The image folds toward the middle through each ladder and springs open on the drop's
+// downbeat; the last lap is the widest the track gets, and the outro settles back.
+export const WIDTH = [[0, 1], [36, 1], [39.9, 0.6], [40, 1.15], [44, 1.05], [56, 1], [72, 1], [75.9, 0.55], [76, 1.2], [84, 1.3], [92, 1.3], [93, 1]];
+
 // the room's impacts (bin/master.mjs): every stem is a body on a spring around the listener.
 // An impact throws them outward, each by its own mass and direction; they slide out (a
 // Doppler bend), ring across the head and settle. keepTime grounds the drums on the long ones.
@@ -60,7 +65,7 @@ export const IMPACTS = [
   { bar: 92, kind: "exhale", duration: 5, strength: 0.45, hz: 0.55, damping: 0.55, glitch: 0.05, attack: 0.2, release: 1.1 },
 ];
 
-export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spacebar, ocarina, typeLine, kick, clap, snare, crash, tomFill, guitar, synthPad, pluck, piano, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, E7_16, E9_16, E3_8, E7_12, E5_8 }) {
+export function play({ START = 0, BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spacebar, ocarina, typeLine, kick, clap, snare, crash, tomFill, guitar, synthPad, pluck, piano, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, E7_16, E9_16, E3_8, E7_12, E5_8 }) {
   const word = (key, bar, o = {}) => { const [w, st, until] = WORDS[key]; typeLine(w, at(bar), st, { until, amp: 0.16, ...o }); };
   const hook = (bar, o = {}) => typeLine(HOOK, at(bar), HOOK_STEPS, { until: 30, amp: 0.16, ...o });
   const bembe = (bar, vel = 0.45) => E7_12.forEach((x, j) => x && keyDown(B.keys, at(bar) + j * BAR / 12, "bembe" + (j % 3), vel, { pan: 0.5, send: 0.1 }));
@@ -69,7 +74,13 @@ export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spac
     [2, 6, 10, 14].forEach((s16, j) => bell(at(bar, s16), tn[j % tn.length], "handbell", "brass", amp, [-0.5, 0.5][j % 2], 2));
   };
 
+  // the cut that starts on the kick has no opening to build from, and its first minute was a voice over
+  // drums (@jeffrey 2026-11-20: "mix could be more balanced in first minute"): there the bass is in from the
+  // first bar instead of the ninth, the guitar and the strummed chord from the ninth instead of the
+  // seventeenth (the guitar 3 dB up), and the piano keeps comping under the first verse instead of leaving
+  const FULL = START > 0;
   for (let bar = 0; bar < 96; bar++) {
+    if (bar < START) continue;   // --start: the cut begins here (@jeffrey 2026-11-20: "should just start with the my name when the kick starts")
     const sec = section(bar), even = bar % 2 === 0, ch = chordAt(bar);
     const big = sec === "drop" || sec === "drop2";
 
@@ -97,7 +108,7 @@ export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spac
     // ── electric guitar: one ringing chord per change as the band rolls in, a swung strum in the drops ──
     {
       const r = ROOT[ch];
-      if (sec === "a" && bar >= 24 && even) guitar(at(bar), r, BAR * 2 - 0.1, { amp: 0.07, pan: 0.3, drive: 2.2 });
+      if (sec === "a" && bar >= (FULL ? 16 : 24) && even) guitar(at(bar), r, BAR * 2 - 0.1, { amp: FULL ? 0.1 : 0.07, pan: 0.3, drive: 2.2 });
       // the drops: power chords (root, fifth, octave), double-tracked hard left and right and driven hard:
       // one rings from the downbeat, two palm-muted chugs, a pushed one rings into the next bar, an upstroke out
       if (big) for (const [side, det] of [[-0.75, -0.05], [0.75, 0.05]])
@@ -121,7 +132,7 @@ export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spac
     if (sec === "c") bembe(bar);
 
     // ── bass: in at A, out for the keys and bells sections ──
-    if (sec === "a" || big || sec === "c" || (sec === "outro" && bar < 94)) subBar(bar);
+    if (sec === "a" || big || sec === "c" || (sec === "outro" && bar < 94) || (FULL && sec === "kick")) subBar(bar);
 
     // ── the melodies ──
     // boot: the word typed with a typo, then typed as switches gaining breath letter by letter
@@ -162,7 +173,7 @@ export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spac
     // ── harmony ──
     if (bar === 0 || bar === 4) teaPad(bar, 4, 0.05);
     if (sec === "kick" && bar % 4 === 0) teaPad(bar, 4, 0.05);
-    if ((sec === "a" && bar >= 24) || sec === "c" || big) { if (even) strum(ch, at(bar), BAR * 2 - 0.05, { amp: sec === "c" ? 0.06 : 0.045 }); }
+    if ((sec === "a" && bar >= (FULL ? 16 : 24)) || sec === "c" || big) { if (even) strum(ch, at(bar), BAR * 2 - 0.05, { amp: sec === "c" ? 0.06 : 0.045 }); }
     if (sec === "keys" || sec === "build") strum(ch, at(bar), BAR - 0.05, { amp: 0.065 });
     if (sec === "bells" && even) strum(ch, at(bar), BAR * 2 - 0.05, { amp: 0.05, attack: 0.2 });
     if (bar === 92) teaPad(92, 4, 0.06);
@@ -181,6 +192,10 @@ export function play({ BAR, S16, BEAT, at, KEY_MIDI, hz, B, keyDown, keyUp, spac
     if (sec === "kick") {
       piano(at(bar), ROOT[ch] - 12, BEAT * 3, 0.45, -0.3);
       for (const st of [6, 14]) [...ch].forEach((c, j) => piano(at(bar, st) + j * 0.012, KEY_MIDI[c], BEAT * 0.9, 0.34, 0.2));
+    }
+    if (FULL && sec === "a") {
+      piano(at(bar), ROOT[ch] - 12, BEAT * 3, 0.38, -0.3);
+      for (const st of [6, 14]) [...ch].forEach((c, j) => piano(at(bar, st) + j * 0.012, KEY_MIDI[c], BEAT * 0.9, 0.3, 0.2));
     }
     if (sec === "bells") {
       const tn = [...ch].map((c) => KEY_MIDI[c]).sort((x, y) => x - y), up = [tn[0] - 12, ...tn, tn[0] + 12, tn[1] + 12, tn[2] + 12, tn[1] + 12];

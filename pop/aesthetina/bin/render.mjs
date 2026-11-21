@@ -25,6 +25,11 @@ const BARS = META.bars;
 const ROOM = { club: { verb: [0.82, 0.3, 1], hall: [0.93, 0.2, 1], wet: 0.55, hallWet: 0.5, voxSend: 0.7 },
   bedroom: { verb: [0.62, 0.5, 0.3], hall: [0.72, 0.45, 0.42], wet: 0.34, hallWet: 0.2, voxSend: 0.3, pump: 2, plate: 0.5 } }[META.room ?? "club"];
 const LEN = Math.ceil((BARS * BAR + 3) * SR);
+// --start=<bar> (or meta "start"): the cut begins at that bar. Nothing before it is played, by the band or
+// by the voice, so no tail of an opening that is not there rings into the first downbeat; the stems keep
+// their length and bin/master.mjs --start trims the silence off the front.
+const START = Number(process.argv.find((a) => a.startsWith("--start="))?.slice(8) ?? META.start ?? 0);
+const START_I = START ? Math.max(0, Math.round((START * BAR - 0.08) * SR)) : 0;
 const TAU = Math.PI * 2;
 
 // ── deterministic randomness ────────────────────────────────────────────
@@ -54,6 +59,10 @@ for (const [note, key] of Object.entries(NOTE_TO_KEY)) {
 }
 const hz = (m) => 440 * 2 ** ((m - 69) / 12);
 
+// how loud the noise-made layers are (meta "quiet": linear gains; 1 = as written). The hats, the clap
+// mash, the typing rolls, the vessels' breath and chiff, the cabin air and the crash are all noise, and
+// together they stood 2–3 dB over a dance record's top end against a thin bottom
+const Q = { hat: 1, clap: 1, roll: 1, breath: 1, chiff: 1, air: 1, crash: 1, wires: 1, ...(META.quiet ?? {}) };
 // ── buses ───────────────────────────────────────────────────────────────
 const bus = () => ({ L: new Float32Array(LEN), R: new Float32Array(LEN) });
 const B = { drums: bus(), keys: bus(), bass: bus(), pad: bus(), lead: bus(), bells: bus(), guitar: bus(), synth: bus(), piano: bus(), verb: bus(), hall: bus() };
@@ -158,7 +167,7 @@ function ocarina(b, t, f, dur, amp, o = {}) {
     lp += fq * bp; const hp = x - lp - damp * bp; bp += fq * hp;
     const chiff = s < 0.03 ? (rand() * 2 - 1) * 0.18 * (1 - s / 0.03) : 0;
     const tone = Math.sin(TAU * ph) + h2 * Math.sin(TAU * ph2) + h3 * Math.sin(TAU * ph3);
-    put(b, i0 + k, amp * env * (tone + 0.07 * bp + chiff), pan, send);
+    put(b, i0 + k, amp * env * (tone + 0.07 * Q.breath * bp + chiff * Q.chiff), pan, send);
   }
 }
 
@@ -221,7 +230,7 @@ function slideVoice(b, notes, stop, o = {}) {
     lp += fq * bp; const hp = (rand() * 2 - 1) - lp - 0.12 * bp; bp += fq * hp;
     const chiff = since < 0.02 ? (rand() * 2 - 1) * (prev ? 0.06 : 0.18) * (1 - since / 0.02) : 0;
     const tone = Math.sin(TAU * ph) + 0.035 * Math.sin(TAU * ph2) + 0.018 * Math.sin(TAU * ph3);
-    put(b, i0 + k, amp * env * (tone + 0.07 * bp + chiff), pan, send);
+    put(b, i0 + k, amp * env * (tone + 0.07 * Q.breath * bp + chiff * Q.chiff), pan, send);
   }
 }
 
@@ -232,6 +241,26 @@ function kick(t, vel = 1) {
   // the huff: a hard breath into a big vessel
   const i0 = Math.round(t * SR), n = Math.ceil(0.5 * SR);
   let ph = 0;
+  if (META.kick === "club") {
+    // the club kick: the same spacebar and huff, built like a dance record's. The pitch falls from a
+    // beater's knock to 45 Hz and stays there for a long chest (−20 dB at half a second, where the hard
+    // kick's body was cut away under 70 Hz in the master); it is driven into odd harmonics, and a short
+    // 190 Hz thump and the two clicks carry it on small speakers
+    const n2 = Math.ceil(0.66 * SR);
+    for (let k = 0; k < n2; k++) {
+      const s = k / SR;
+      const f = 45 + 52 * Math.exp(-s / 0.05) + 210 * Math.exp(-s / 0.008);
+      ph += f / SR; if (ph >= 1) ph -= 1;
+      const env = Math.min(1, s / 0.0015) * (0.8 * Math.exp(-s / 0.25) + 0.2 * Math.exp(-s / 0.05)) * Math.min(1, (0.66 - s) / 0.06);
+      const x = Math.sin(TAU * ph);
+      put(B.drums, i0 + k, vel * 1.0 * Math.tanh(2.4 * env * (x + 0.18 * Math.sin(2 * TAU * ph))));
+    }
+    mode(B.drums, t, 190, 0.3 * vel, 0.022, 0, 0.02);
+    burst(B.drums, t, 3300, 1.4, 0.3 * vel, 0.0022, 0, 0.02);
+    burst(B.drums, t, 1100, 1.0, 0.26 * vel, 0.006, 0, 0.02);
+    spacebar(B.drums, t, 0.55 * vel);
+    return;
+  }
   if (META.kick === "hard") {
     // the hard kick: a faster, higher drop (a beater's knock), driven into odd harmonics so it
     // speaks above 180 Hz on small speakers, a longer chest, and a click on the front
@@ -259,23 +288,23 @@ function kick(t, vel = 1) {
 }
 function hat(t, vel, open = false) {
   const name = "hat" + (Math.floor(t / S16) % 3);
-  burst(B.drums, t, 7200 + rand() * 1400, 2.5, 0.22 * vel, open ? 0.006 : 0.0016, 0.25, 0.04);
-  keyUp(B.drums, t, name, vel * 0.8, { pan: 0.3, ping: open ? 3 : 1, ring: open ? 2.2 : 1 });
+  burst(B.drums, t, 7200 + rand() * 1400, 2.5, 0.22 * vel * Q.hat, open ? 0.006 : 0.0016, 0.25, 0.04);
+  keyUp(B.drums, t, name, vel * 0.8 * Q.hat, { pan: 0.3, ping: open ? 3 : 1, ring: open ? 2.2 : 1 });
 }
 function clap(t, vel = 1) {
   const mash = ["j", "k", "l", ";", "h"];
-  mash.forEach((k, i) => keyDown(B.drums, t + i * 0.0028 + rand() * 0.002, k, vel * 0.7, { pan: (i - 2) * 0.12, send: 0.22 }));
-  burst(B.drums, t + 0.008, 1800, 1.2, 0.3 * vel, 0.03, 0, 0.3);
+  mash.forEach((k, i) => keyDown(B.drums, t + i * 0.0028 + rand() * 0.002, k, vel * 0.7 * Q.clap, { pan: (i - 2) * 0.12, send: 0.22 }));
+  burst(B.drums, t + 0.008, 1800, 1.2, 0.3 * vel * Q.clap, 0.03, 0, 0.3);
 }
 // ── the rock kit and the electric guitar (outside the switch/breath law, by request) ──
 function snare(t, vel = 1) {
-  burst(B.drums, t, 3400, 0.7, 0.55 * vel, 0.045, 0, 0.18); // wires
-  burst(B.drums, t, 7000, 1.2, 0.25 * vel, 0.03, 0, 0.18);
+  burst(B.drums, t, 3400, 0.7, 0.55 * vel * Q.wires, 0.045, 0, 0.18); // wires
+  burst(B.drums, t, 7000, 1.2, 0.25 * vel * Q.wires, 0.03, 0, 0.18);
   mode(B.drums, t, 186, 0.5 * vel, 0.045, 0, 0.1); mode(B.drums, t, 331, 0.28 * vel, 0.03, 0, 0.1); // shell
 }
 function crash(t, vel = 1) {
-  burst(B.drums, t, 5200, 0.5, 0.26 * vel, 0.45, -0.3, 0.3);
-  burst(B.drums, t, 9000, 0.7, 0.2 * vel, 0.65, 0.3, 0.3);
+  burst(B.drums, t, 5200, 0.5, 0.26 * vel * Q.crash, 0.45, -0.3, 0.3);
+  burst(B.drums, t, 9000, 0.7, 0.2 * vel * Q.crash, 0.65, 0.3, 0.3);
 }
 function tom(t, f, vel = 1, pan = 0) {
   const i0 = Math.round(t * SR), n = Math.ceil(0.7 * SR); let ph = 0;
@@ -345,7 +374,7 @@ function synthPad(t, midis, dur, o = {}) {
       const sT = k / SR, env = Math.min(1, sT / att) ** 1.5 * (sT < dur ? 1 : Math.exp(-(sT - dur) / rel));
       if (sT > dur && env < 1e-4) break;
       let x = 0; for (const v of ph) { v.p += v.inc; if (v.p >= 1) v.p -= 1; x += 2 * v.p - 1; }
-      const fc = f0 + (f1 - f0) * Math.min(1, sT / dur), fq = 2 * Math.sin(Math.PI * Math.min(fc, SR / 6) / SR);
+      const fc = (f0 + (f1 - f0) * Math.min(1, sT / dur)) * (META.padDark ?? 1), fq = 2 * Math.sin(Math.PI * Math.min(fc, SR / 6) / SR);
       lp += fq * bp; bp += fq * (x / ph.length - lp - 0.7 * bp);
       const i = i0 + k; if (i < 0 || i >= LEN) continue;
       const v = amp * env * lp * 3; B.synth[ch][i] += v; B.verb[ch][i] += v * (o.send ?? 0.35);
@@ -368,7 +397,7 @@ function roll(t0, n16, vel = 0.5) {
   const letters = "asdfjkl;ghqwer";
   for (let i = 0; i < n16 * 2; i++) {
     const t = t0 + i * S16 / 2 + (rand() - 0.5) * 0.008;
-    keyDown(B.keys, t, letters[Math.floor(rand() * letters.length)], vel * (0.5 + i / (n16 * 4)));
+    keyDown(B.keys, t, letters[Math.floor(rand() * letters.length)], vel * Q.roll * (0.5 + i / (n16 * 4)));
   }
 }
 
@@ -449,6 +478,10 @@ function subBar(bar) {
   const word = chordAt(bar), r = ROOT[word], fifth = r + 7 <= 52 ? r + 7 : r - 5;
   [r, fifth].forEach((m, k) => ocarina(B.bass, at(bar, k * 8), hz(m), BEAT * 0.8, 0.36,
     { h2: 0.5, h3: 0.25, vib: 0, scoop: -1.5, send: 0.03, attack: 0.004, release: 0.05, decay: 0.2 }));
+  // meta "sub": a plain sine an octave under each bass note, held for the half bar (the bass vessel is a
+  // pluck at 110 Hz and nothing sat under it). It is on the bass bus, so every kick pushes it down
+  if (META.sub) [r, fifth].forEach((m, k) => ocarina(B.bass, at(bar, k * 8), hz(m - 12), BEAT * 1.9, META.sub,
+    { h2: 0.12, h3: 0.03, vib: 0, scoop: 0, send: 0, attack: 0.02, release: 0.06 }));
   for (const beat of [1, 3]) {
     const t = at(bar, beat * 4);
     [...word].forEach((ch, i) => {
@@ -460,6 +493,7 @@ function subBar(bar) {
 // Menu Band's cabin air: a resonant bandpass whistle at each chord pitch and
 // its octave over a brown + pink floor; swells in (0.7 s), drifts out (2.4 s)
 function air(t0, dur, midis, amp = 0.05) {
+  amp *= Q.air;
   const n = Math.ceil((dur + 6) * SR), i0 = Math.round(t0 * SR);
   for (const ch of ["L", "R"]) {
     const bp = [];
@@ -524,10 +558,11 @@ function teaPad(bar, bars, amp = 0.05) {
   ocarina(B.pad, at(bar), hz(57), BAR * bars - 0.1, amp, { pan: -0.4, send: 0.5, attack: 0.6, release: 0.8, vib: 0.06 });
   ocarina(B.pad, at(bar), hz(61), BAR * bars - 0.1, amp * 0.7, { pan: 0.1, send: 0.5, attack: 0.8, release: 0.8, vib: 0.06 });
   ocarina(B.pad, at(bar), hz(64), BAR * bars - 0.1, amp * 0.8, { pan: 0.4, send: 0.5, attack: 0.9, release: 0.8, vib: 0.06 });
+  if (META.padLow) ocarina(B.pad, at(bar), hz(45), BAR * bars - 0.1, amp * META.padLow, { pan: 0, send: 0.3, attack: 1.2, release: 0.8, vib: 0.04, h2: 0.2 }); // the pad's own low A
 }
 
 // the arrangement plays every part through the instruments above
-ARR.play({ SR, BPM, BEAT, BAR, S16, BARS, LEN, TAU, at, sw, KEY_MIDI, hz, rand, B, put, mode, burst, keyDown, keyUp, spacebar, ocarina, slideVoice, typeLine, kick, hat, clap, snare, crash, tom, tomFill, guitar, synthPad, pluck, piano, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, chordAt, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, pat, E7_16, E9_16, E3_8, E7_12, E5_8, B1_WORDS, DROP_WORDS });
+ARR.play({ START, SR, BPM, BEAT, BAR, S16, BARS, LEN, TAU, at, sw, KEY_MIDI, hz, rand, B, put, mode, burst, keyDown, keyUp, spacebar, ocarina, slideVoice, typeLine, kick, hat, clap, snare, crash, tom, tomFill, guitar, synthPad, pluck, piano, roll, strum, augmented, bootHook, ladder, hatsBar, subBar, teaPad, air, bell, dtmf, chordAt, ROOT, HOOK, HOOK_STEPS, COUNTER, COUNTER_STEPS, VESPER, ADIEU, ADIEU_STEPS, AEIOU, pat, E7_16, E9_16, E3_8, E7_12, E5_8, B1_WORDS, DROP_WORDS });
 
 // ── MIX ─────────────────────────────────────────────────────────────────
 // sidechain: the kick is a breath, so everything else inhales around it
@@ -535,7 +570,7 @@ const duck = new Float32Array(LEN).fill(1);
 for (const t of kicks) {
   const i0 = Math.round(t * SR);
   for (let k = 0; k < 0.4 * SR && i0 + k < LEN; k++) {
-    const s = k / SR, g = 1 - 0.82 * Math.min(1, s / 0.004) * Math.exp(-s / 0.11);
+    const s = k / SR, g = 1 - 0.82 * Math.min(1, s / 0.004) * Math.exp(-s / (META.kick === "club" ? 0.16 : 0.11)); // the longer kick holds the bottom longer
     duck[i0 + k] = Math.min(duck[i0 + k], g);
   }
 }
@@ -562,7 +597,7 @@ B.vox = bus();
 if (existsSync(VOX)) {
   const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", VOX, "-f", "f32le", "-ac", "2", "-ar", String(SR), "-"], { maxBuffer: 1 << 30 });
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
-  for (let i = 0; i < Math.min(LEN, v.length / 2); i++) {
+  for (let i = START_I; i < Math.min(LEN, v.length / 2); i++) {
     B.vox.L[i] += v[2 * i] * 1.6; B.vox.R[i] += v[2 * i + 1] * 1.6;
     B.verb.L[i] += v[2 * i] * ROOM.voxSend; B.verb.R[i] += v[2 * i + 1] * ROOM.voxSend;
   }
@@ -571,15 +606,44 @@ if (existsSync(VOX)) {
 // hit and blooms back in the gap. Pumping reverb is meta "room".pump (club: none).
 B.plate = bus();
 if (ROOM.plate) for (let i = 0; i < LEN; i++) { B.plate.L[i] = B.vox.L[i] * 0.5; B.plate.R[i] = B.vox.R[i] * 0.5; }
+// meta "screams": "bank" — the two rising screams are takes from the frothyscreama chaos bank, lengthened
+// to their two bars and sung up the scale by bin/bank-screams.py (out/screams/scream-<bar>.wav, at the level
+// the synthesized rise had); they go where the old ones went, on the vox bus
+if (META.screams === "bank") for (const bar of [38, 74]) {
+  const f = join(OUT, "screams", `scream-${bar}.wav`);
+  if (bar < START || !existsSync(f)) { if (bar >= START) console.log(`(no ${f}: run bin/bank-screams.py)`); continue; }
+  const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", f, "-f", "f32le", "-ac", "2", "-ar", String(SR), "-"], { maxBuffer: 1 << 28 });
+  const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4), i0 = Math.round(at(bar) * SR);
+  for (let i = 0; i < v.length / 2 && i0 + i < LEN; i++) {
+    B.vox.L[i0 + i] += v[2 * i]; B.vox.R[i0 + i] += v[2 * i + 1];
+    B.verb.L[i0 + i] += v[2 * i] * ROOM.voxSend / 1.6; B.verb.R[i0 + i] += v[2 * i + 1] * ROOM.voxSend / 1.6;
+  }
+}
+// meta "background": [[bar, sixteenth, clip, gain, pan], …] — the calls behind the track (owls and far-off
+// screams, made by bin/background.py into out/bg/): on the vox bus, which the master tucks under the words,
+// quiet, out to the sides and mostly in the hall
+for (const [bar, s16, id, gain, pan] of META.background ?? []) {
+  const f = join(OUT, "bg", `${id}.wav`);
+  if (bar < START) continue;
+  if (!existsSync(f)) { console.log(`(no ${f}: run bin/background.py)`); continue; }
+  const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", f, "-f", "f32le", "-ac", "1", "-ar", String(SR), "-"], { maxBuffer: 1 << 26 });
+  const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4), i0 = Math.round(at(bar, s16) * SR);
+  const l = Math.cos((pan + 1) * Math.PI / 4), r = Math.sin((pan + 1) * Math.PI / 4);
+  for (let i = 0; i < v.length && i0 + i < LEN; i++) {
+    B.vox.L[i0 + i] += v[i] * gain * l; B.vox.R[i0 + i] += v[i] * gain * r;
+    B.hall.L[i0 + i] += v[i] * gain * l * 1.2; B.hall.R[i0 + i] += v[i] * gain * r * 1.2;
+  }
+}
 // the lyric stem (sung phrases + stitched lyric lines): its own group, almost dry
 B.lyric = bus();
+const LYRIC_SEND = META.lyricSend ?? 0.2; // how much of the words reaches the room (reveal: half that, the voice dry and on top)
 const LYR = VOX.replace(/\.wav$/, "-lyric.wav");
 if (existsSync(LYR)) {
   const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", LYR, "-f", "f32le", "-ac", "2", "-ar", String(SR), "-"], { maxBuffer: 1 << 30 });
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
-  for (let i = 0; i < Math.min(LEN, v.length / 2); i++) {
+  for (let i = START_I; i < Math.min(LEN, v.length / 2); i++) {
     B.lyric.L[i] += v[2 * i] * 1.6; B.lyric.R[i] += v[2 * i + 1] * 1.6;
-    B.verb.L[i] += v[2 * i] * 0.2; B.verb.R[i] += v[2 * i + 1] * 0.2;
+    B.verb.L[i] += v[2 * i] * LYRIC_SEND; B.verb.R[i] += v[2 * i + 1] * LYRIC_SEND;
   }
 }
 // the choir stem (stretched vowels + vowel arpeggios), when voice.py wrote it apart: bin/master.mjs moves it around the head
@@ -588,7 +652,7 @@ const CHO = VOX.replace(/\.wav$/, "-choir.wav");
 if (existsSync(CHO)) {
   const raw = execFileSync("ffmpeg", ["-loglevel", "error", "-i", CHO, "-f", "f32le", "-ac", "2", "-ar", String(SR), "-"], { maxBuffer: 1 << 30 });
   const v = new Float32Array(raw.buffer, raw.byteOffset, raw.length / 4);
-  for (let i = 0; i < Math.min(LEN, v.length / 2); i++) {
+  for (let i = START_I; i < Math.min(LEN, v.length / 2); i++) {
     B.choir.L[i] += v[2 * i] * 1.6; B.choir.R[i] += v[2 * i + 1] * 1.6;
     B.verb.L[i] += v[2 * i] * ROOM.voxSend; B.verb.R[i] += v[2 * i + 1] * ROOM.voxSend;
     if (ROOM.plate) { B.plate.L[i] += B.choir.L[i] * 0.5; B.plate.R[i] += B.choir.R[i] * 0.5; }

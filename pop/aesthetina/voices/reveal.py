@@ -47,50 +47,91 @@ NSYL = {k: len(v.replace("-", " ").split()) for k, v in LINES.items()}
 HEARD = json.load(open(OUT / "recog-takes.json"))
 BANNED = {("jeffrey", "buy", "deadpan")}  # reads as "i don't want to buy"
 MOODS = ("plain", "excited", "deadpan", "curious", "shout", "sad", "tired", "whisper")
+# spot takes (bin/phrases.mjs SPOT): the quiet lines with the voice kept on. A whispered take has no
+# pitch to carry the note, and reads back as other words once the band is in
+MOODS += ("gentle", "sly", "warm", "mischief", "playful", "clear")
 
 
 def cast(voice, line, want=()):
     """the first of the wanted moods that reads back whole; failing that, any take that does."""
     # whisper cannot spell "Prutti", "a mail" or "gamelan"; the rest of those lines must be whole
-    need = {"wise": 0.85, "hear": 0.85, "amail": 0.6, "gamelan": 0.8}.get(line, 1)
+    need = {"wise": 0.85, "hear": 0.85, "amail": 0.6, "gamelan": 0.8, "verkko": 0.6, "costco": 0.85, "laklok": 0, "bat": 0.7}.get(line, 1)   # nor "lær klokken"; "lack lock dot com" it hears right and writes "Lacklock.com", which matches no word   # nor "Verkkokauppa"
     clean = [c for c in MOODS if (voice, line, c) not in BANNED and HEARD.get(f"{voice}/{line}-{c}", {}).get("recall", 0) >= need]
     assert clean, f"no clean take of {voice}/{line}: run bin/phrases.mjs --force, then bin/recog.py takes"
     return next((c for c in want if c in clean), clean[0])
 
 
-def sung(bar, line, want=(), voice="jeffrey", gain=1.3, oct=-1, pan=0.0):
-    """one voice, alone: the line in the first clean mood of `want`."""
+# the lead's octave under the typed hook. −1 sings A3–B4; −2 sings A2–B3, inside the clone's own speaking
+# range (a candidate: AESTHETINA_LEAD_OCT=-2, mastered apart with bin/master.mjs --lyric=… --tag=low)
+LEAD_OCT = int(__import__("os").environ.get("AESTHETINA_LEAD_OCT", META.get("leadOct", -1)))
+
+
+def sung(bar, line, want=(), voice="jeffrey", gain=1.3, oct=None, pan=0.0, until=None):
+    """one voice, alone: the line in the first clean mood of `want`. until: when the next line
+    starts; the last note lets go just before it, so a line never sings over the one after."""
+    if oct is None: oct = LEAD_OCT
     starts = [at(bar, st) for st in HOOK_STEPS]
     midis = [KEY[HOOK[i]] + 12 * oct for i in range(10)]
     n = NSYL[line]
     if n == 11: starts = [at(bar, -3)] + starts; midis = [KEY["a"] + 12 * oct] + midis  # a pickup syllable
     starts, midis = starts[:n], midis[:n]  # a shorter line stops on an earlier note and holds it
-    phrase_ev(starts, voice, f"{line}-{cast(voice, line, want)}", midis, at(bar, 30) - starts[-1] + 0.45, gain, "lyric", pan)
+    end = at(bar, 30) + 0.45
+    if until is not None: end = min(end, until - 0.1)
+    phrase_ev(starts, voice, f"{line}-{cast(voice, line, want)}", midis, end - starts[-1], gain, "lyric", pan)
 
 
 # a statement every two bars wherever the band is in, and the mood has an arc: spoken plainly
 # and asked curiously as the track arrives, shouted in the drops, sad and tired when the
-# drums leave, whispered at the very end. Shouting is kept for two lines only (the first and
-# last of the second drop): the lead should stay smooth
+# drums leave, gentle at the very end. Shouting is kept for three lines of the second drop:
+# the lead should stay smooth. The quiet lines are voiced (sly, warm, gentle), not whispered,
+# and the reply at bar 80 is the plain take: shouted, it sank under the band
 J, P = "jeffrey", "prutti"
 STATEMENTS = [
-    (8, "name", ("plain", "excited"), J), (10, "hand", ("plain",), J), (12, "chubby", ("curious", "plain"), J), (14, "plug", ("plain",), J),
-    (16, "borrow", ("curious",), J), (18, "buy", ("plain",), J), (20, "get", ("plain",), J), (22, "typing", ("excited",), J),
-    (24, "sounds", ("curious", "plain"), J), (26, "letter", ("excited",), J), (28, "cables", ("curious", "excited"), J), (30, "sleep", ("tired", "deadpan"), J),
+    (4, "name", ("warm",), J),  # before the kick, once: quiet, with the voice on (the whispered take read as other words)
+    # the opening is the two of them (@jeffrey 2026-11-20: "can the aesthetina opening be like a dialogue between prutti
+    # and jeffrey"), from the first kick, a line each in turn, jeffrey a little left and Prutti a little right:
+    # the two names, then where to buy the computer. The lines that opened the track before follow
+    # as the first verse ("i want to buy / i need to get another computer" are out of it).
+    # ("stereo l and r back and forth … can we have the narrative make more sense? and rhyme a bit?": jeffrey hard-ish
+    # left, Prutti right; the two names, then the shopping — costco / verkkokauppa — and then he is typing on it)
+    (8, "name", ("plain", "excited"), J), (10, "wise", ("plain",), P), (12, "costco", ("plain", "excited"), J), (14, "verkko", ("excited", "plain"), P),
+    (16, "neo", ("excited", "plain"), J), (18, "bat", ("plain",), J),   # @jeffrey 2026-11-20: "laer klokken is the best chat to drain my bat"
+    (20, "chubby", ("curious", "plain"), J), (22, "plug", ("plain",), J),
+    (24, "sounds", ("curious", "plain"), J), (26, "letter", ("excited",), J), (28, "cables", ("deadpan", "curious"), J), (30, "sleep", ("tired", "deadpan"), J),
     # the first drop is a conversation. Prutti types in the clock chat and has no phone; the Pruttivox
     # clone is how he is heard. "where is a mail?", "you are a super star", "copy that" and "gamelan
     # tonight" are his own typed messages (chat-clock, 2026-11-13/15); "a mail moved out…" is jeffrey's reply.
-    (40, "hear", ("plain", "excited"), J), (42, "wise", ("plain",), P), (44, "amail", ("plain",), P), (46, "moved", ("plain",), J),
-    (48, "buy", ("excited", "plain"), J), (50, "gamelan", ("curious", "shout"), P), (52, "letter", ("excited",), J), (54, "chubby", ("plain",), P),
-    (58, "cables", ("sad", "tired"), J), (60, "buy", ("sad", "tired"), J), (62, "sleep", ("whisper", "tired", "sad"), J),
-    (76, "typing", ("shout", "excited"), J), (78, "amail", ("plain",), P), (80, "moved", ("shout", "plain"), J), (82, "get", ("excited",), J),
-    (84, "chubby", ("plain",), P), (86, "cables", ("excited",), J), (88, "sleep", ("excited",), J), (90, "name", ("shout", "excited"), J),
-    (94, "hand", ("whisper", "tired"), J),
+    (40, "hear", ("plain", "excited"), J), (42, "wise", ("plain",), P), (44, "amail", ("clear", "plain"), P), (46, "moved", ("plain",), J),
+    (48, "buy", ("excited", "plain"), J), (50, "gamelan", ("curious", "clear"), P), (52, "letter", ("excited",), J), (54, "chubby", ("plain",), P),
+    (58, "cables", ("sad", "tired"), J), (60, "costco", ("sad", "plain"), J), (62, "sleep", ("sly", "warm", "tired"), J),
+    # @jeffrey 2026-11-20, his words for both: "maybe ill buy the computer on amazon or costco" / "oh no i wana buy it at
+    # verkokauppa!" — the pair follows the macbook neo (sung as eleven syllables each: "the computer" and "it" left out)
+    (76, "neo", ("shout", "excited"), J), (78, "costco", ("excited", "plain"), J), (80, "verkko", ("excited", "plain"), P), (82, "amail", ("clear", "plain"), P),
+    (84, "moved", ("plain",), J), (86, "cables", ("shout", "deadpan"), J), (88, "sleep", ("excited",), J), (90, "name", ("shout", "excited"), J),
+    (94, "hand", ("gentle", "tired"), J),
 ]
+# ── the sign-off (@jeffrey 2026-11-20: "and lets say laklok.com lack lock dot com"): four even syllables on the four
+# beats of the outro's first bar, jeffrey, dry and in the middle, climbing the A chord — where the two of them meet
+phrase_ev([at(92, 0), at(92, 4), at(92, 8), at(92, 12)], J, f"laklok-{cast(J, 'laklok', ('plain',))}", [57, 57, 61, 64], BEAT * 1.5, 1.4, "lyric", 0.0)
+
+
+# ── behind it all: hoos and has (@jeffrey 2026-11-20: "in the background screams hoos and has"; the owls and the
+# far screams are bin/background.py's, laid in by bin/render.mjs). jeffrey's own shouted syllables, quiet and out to
+# the sides: a "hoo" at a phrase's end on a note of the chord's (it answers the owls, and they it), a "hah" on the
+# last off-beat. None under the jeffrey/Prutti exchange (bars 40-56 and 76-86). meta "background" turns them on.
+if META.get("background"):
+    for j, bar in enumerate((9, 17, 29, 37, 67, 91)):
+        ev(at(bar, 12), "hoo", (64, 61, 66, 64, 69, 64)[j], 0.4, None, 0.32, "toot", pan=(-0.7, 0.7)[j % 2], halo=0, vib=0.05)
+    for j, bar in enumerate((13, 21, 65, 69, 87)):
+        accent(at(bar, 14), "hah", "shout", 0.3, (0.7, -0.7)[j % 2], "toot")
+
+
 # ── Prutti (Pruttivox IVC, eleven_v4) — DRAFT: his clone + performance need his approval before release ──
-for bar, line, want, who in STATEMENTS:
-    if who == P: sung(bar, line, want, voice=P, gain=1.5, pan=0.3)
-    else: sung(bar, line, want, gain={94: 1.0}.get(bar, 1.3))
+first = lambda bar, line: at(bar, -3) if NSYL[line] == 11 else at(bar)  # an eleven-syllable line has a pickup
+for k, (bar, line, want, who) in enumerate(STATEMENTS):
+    nxt = first(*STATEMENTS[k + 1][:2]) if k + 1 < len(STATEMENTS) else None
+    if who == P: sung(bar, line, want, voice=P, gain=2.1 * 10 ** (-META.get("pruttiDown", 0) / 20), pan={10: 0.6, 14: 0.6}.get(bar, 0.3), until=nxt)  # his takes peak high and sit 4 dB under jeffrey at the same peak
+    else: sung(bar, line, want, gain={4: 0.9, 58: 1.6, 60: 1.6, 94: 1.0}.get(bar, 1.3), pan={8: -0.6, 12: -0.6}.get(bar, 0.0), until=nxt)  # the opening line sits inside the music box (at 0.6 it read as other words); the sad takes are quiet at the same peak, and the piano and bells stand level with them
 
 
 def prutti_echo(bar, gain=0.9):  # lands on the statement's ringing last note
@@ -132,7 +173,7 @@ for bar in (32, 33, 34, 35):
            pan=[-0.4, 0.4][bar % 2])
 for bar in (33, 35):
     for st in (4, 15): accent(at(bar, st), "toh", "shout", 0.9, 0.0)
-ev(at(38), "ah", 52, BAR * 2, None, 0.9, "toot", path=tuple((j * BEAT, 52 + [0, 2, 4, 5, 7, 9, 11, 12][j]) for j in range(8)), **SCREAM)
+if META.get("screams") != "bank": ev(at(38), "ah", 52, BAR * 2, None, 0.9, "toot", path=tuple((j * BEAT, 52 + [0, 2, 4, 5, 7, 9, 11, 12][j]) for j in range(8)), **SCREAM)   # meta "screams": "bank" — the rise is a real scream from the frothyscreama bank instead (bin/bank-screams.py; bin/render.mjs lays it in)
 accent(at(39, 12), "yee", "shout", 0.8, -0.2, "toot"); accent(at(39, 14), "haw", "shout", 0.9, 0.2, "toot")
 
 # ── drop 40–56 ──
@@ -156,7 +197,7 @@ for j, (bar, key) in enumerate(((64, "mountain"), (66, "rainbow"), (68, "adventu
 
 # ── build 72–76 ──
 for j, bar in enumerate(range(72, 76)): chord_word(bar, ["tea", "daw", "rib", "ace"][j], BAR * 0.97)
-ev(at(74), "ah", 57, BAR * 2, None, 0.9, "toot", path=tuple((j * BEAT, 57 + [0, 2, 4, 5, 7, 9, 11, 12][j]) for j in range(8)), **SCREAM)
+if META.get("screams") != "bank": ev(at(74), "ah", 57, BAR * 2, None, 0.9, "toot", path=tuple((j * BEAT, 57 + [0, 2, 4, 5, 7, 9, 11, 12][j]) for j in range(8)), **SCREAM)   # meta "screams": "bank" — the rise is a real scream from the frothyscreama bank instead (bin/bank-screams.py; bin/render.mjs lays it in)
 accent(at(75, 12), "yee", "shout", 0.8, -0.2, "toot"); accent(at(75, 14), "haw", "shout", 0.9, 0.2, "toot")
 
 # ── drop II 76–92 ──

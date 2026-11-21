@@ -1,1 +1,10 @@
-{ "bars": 96, "bpm": 128, "swing": 0.62, "room": "bedroom", "kick": "hard" }
+{ "bars": 96, "bpm": 128, "swing": 0.62, "room": "bedroom", "kick": "club",
+  "sub": 0.3, "padLow": 0.8, "padDark": 0.65,
+  "quiet": { "hat": 0.5, "clap": 0.7, "roll": 0.6, "breath": 0.5, "chiff": 0.5, "air": 0.6, "crash": 0.7, "wires": 0.8 },
+  "lyricSend": 0.1, "lyricGain": 10, "lyricClip": 6, "duck": 7,
+  "background": [[25, 12, "owl-a", 0.16, -0.75], [33, 0, "owl-b", 0.2, 0.7], [35, 0, "owl-a", 0.2, -0.7], [57, 8, "owl-b", 0.16, -0.8], [61, 8, "owl-a", 0.16, 0.8], [93, 8, "owl-b", 0.18, 0.6],
+    [71, 8, "far-a", 0.14, 0.8], [73, 12, "far-b", 0.14, -0.8], [89, 12, "far-a", 0.12, -0.8]],
+  "screams": "bank", "pruttiDown": 2, "angel": { "prutti": { "chest": 220, "air": 4, "halo": 0.2, "rt": 2.8, "pre": 0.07, "send": 0.3 } },
+  "lyricEq": [{ "type": "peak", "f": 320, "q": 0.9, "g": -3.5 }, { "type": "highshelf", "f": 3000, "q": 0.7, "g": 4 }, { "type": "highshelf", "f": 8500, "q": 0.7, "g": 3 }],
+  "drumSubcut": 0.68, "drumGain": -1, "lowGain": -1, "shelf": 0.5, "tilt": -0.5,
+  "law": { "lowDrive": 12, "teeth": 1.0, "glue": "threshold=-16dB:ratio=3:attack=3:release=90:makeup=1:knee=8", "shoulder": 1.5, "lufs": -10.4, "ceiling": -2.6 } }

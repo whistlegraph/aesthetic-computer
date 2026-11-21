@@ -66,13 +66,22 @@ Everything jeffrey sings comes from his ElevenLabs PVC (eleven_v4) through WORLD
   statement back from the dry lyric stem and from the finished master.
 - **phrases**: `bin/phrases.mjs` speaks whole lyric lines in eight moods (plain, excited, deadpan,
   whisper, sad, tired, shout, curious) with character
-  timestamps; `sing_phrase` stretches them onto the hook's notes (unvoiced runs keep their
+  timestamps; `SPOT` adds single takes in other inflections (`--only=jeffrey/name-warm` renders
+  just those). A whispered take has no voicing to carry a note and reads back as other words
+  once the band is in, so the quiet lines are asked for with tags that keep the voice on
+  (`[warmly] [quietly]`, `[mischievously] [softly]`, `[gently]`); `sing_phrase` stretches them onto the hook's notes (unvoiced runs keep their
   spoken length, voiced runs share one ratio, every span fills its slot, one WORLD pass,
   f0 replaced). The lyrics are their own stem, dry and centred in the master.
 
 `bin/master.mjs` places each stem through the measured KEMAR head, glues with acdsp's
 `danceMasterBus`, and finishes with `pop/notespatial/bin/master.sh` (house target in
-`pop/MASTERING.md`).
+`pop/MASTERING.md`). An arrangement whose json has a `law` object (reveal) finishes with the
+pop law inside `master.mjs` instead: lows to mono through tanh with their harmonics mixed back,
+a fast glue compressor, a clip just over the ceiling, then the limiter; it prints how far the
+peaks stand over the ceiling per 100 ms and how much of that is left to the limiter. The
+arrangement's `WIDTH` is the side gain over the form. `--law-only` redoes that last step from
+the kept bus print. Per-arrangement mix settings live in the json too: `lyricGain`, `duck`,
+`lyricSend`, `lyricClip`.
 
 **Prutti** sings in the radio cut (his Pruttivox IVC, `--voice prutti`). Per the Klokkentales
 release gate, that cut is a draft until Prutti approves his clone and the performance.
