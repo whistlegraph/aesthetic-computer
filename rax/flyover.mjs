@@ -1,54 +1,93 @@
 // 🛫 The idle flyover
-// A drone nobody is flying takes itself on a tour of the plaza and comes
-// round again, about three minutes a lap. Five movements, each handing on
-// to the next where it ends:
-//   1. the climb     a rising turn and a quarter round the tower, foot to
-//                    above the roof, eye on the tower all the way
-//   2. the pull-out  back and up until the whole small planet is in view
-//   3. the far turn  a slow arc round the planet at that distance
-//   4. the approach  down to head height at the far end of the promenade,
-//                    then low over the pool and up the walk to the door
-//   5. the skim      a figure of eight through the yard at treetop height,
-//                    looking where it goes
+// A drone nobody is flying takes itself on a tour and comes round again. The
+// tour is not written down: it is worked out from what there is to see when
+// the drone is let go, and worked out afresh each lap, so it finds what was
+// built or who came in since. Four movements, each handing on to the next:
+//   1. the climb     a rising turn round the tower, foot to above the roof,
+//                    eye on the tower all the way
+//   2. the pull-out  back and up until the whole small planet is in view,
+//                    and a slow arc round it at that distance
+//   3. the sights    down among whatever is worth a look (`sights`: a pad to
+//                    play, a screen, a build, the ball, whoever is about),
+//                    nearest first from wherever it is, a part-turn round
+//                    each with the eye held on it; one that moves (a person,
+//                    the ball) is followed as it goes
+//   4. the return    back to the foot of the climb
+// With nothing told to it, it looks over the yard itself: the door, the walk
+// up to it, and a turn through the trees.
 // It is a list of places to pass through, each with a thing to look at and a
 // speed to arrive at, joined by a smooth curve (Catmull-Rom), so the path has
-// no corners and can be read off for any moment. Metres, in the plaza's own
-// (x east, z north, y up; the tower's door faces south, the promenade runs
-// south from it).
+// no corners and can be read off for any moment; a leg that would cut
+// through the tower goes round its corner instead. Metres, in the plaza's
+// own (x east, z north, y up; the tower's door faces south).
 const TOWER = { x: 0, z: 4 };
+const TOWER_HALF = 11; // the tower's footprint and a drone's width of air round it
+// What of the tower is solid to a drone: the glass hall on the ground (the north half of its footprint, up to the first floor), and the floors over it up to the roof. Under the first floor, south of the hall's front, is open air between the legs.
+export const solidAt = (x, y, z, roof) =>
+  (Math.abs(x) < 8.6 && z > 0.9 && z < 8.6 && y < 12.5) || (Math.abs(x) < 8.8 && Math.abs(z) < 8.8 && y > 11.5 && y < roof + 1);
 
-// roof: how high the tower stands. Back comes { seconds, at(t) }, where at()
-// gives { x, y, z } and what to look at { lx, ly, lz }, for t in seconds
-// (any t: it goes round).
-export function flyover(roof = 33) {
-  const keys = []; // [x, y, z, look ('tower' | 'ahead' | [x, y, z]), metres a second on the way here]
-  const mid = roof * 0.55;
-  // 1. The climb: one and a quarter turns, 24 m out widening to 32.
-  for (let k = 0; k <= 10; k++) {
-    const s = k / 10, a = -Math.PI / 2 + s * Math.PI * 2.5, r = 24 + 8 * s;
+// A sight: { x, y, z } its middle, r how big it is (metres), and if it moves, at() → { x, y, z } | null where it is now.
+// roof: how high the tower stands. planet: the planet's radius. Back comes
+// { seconds, keys, at(t) }, where at() gives { x, y, z } and what to look at
+// { lx, ly, lz }, for t in seconds (any t: it goes round).
+export function flyover(roof = 33, { sights = [], planet = 140 } = {}) {
+  const keys = []; // [x, y, z, look ('ahead' | [x, y, z] | () => [x, y, z]), metres a second on the way here]
+  const mid = roof * 0.55, towerLook = [TOWER.x, mid, TOWER.z];
+  // A leg from the last place to (x, z) that would pass through the tower below its roof goes by the corner on its nearer side.
+  const reach = (x, y, z, look, speed) => {
+    const last = keys[keys.length - 1];
+    if (last) {
+      for (const u of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+        const mx = last[0] + (x - last[0]) * u, mz = last[2] + (z - last[2]) * u, my = last[1] + (y - last[1]) * u;
+        if (solidAt(mx, my, mz, roof)) {
+          // Out along the side of the leg its middle already lies on, well clear of the corner.
+          const dx = x - last[0], dz = z - last[2], len = Math.hypot(dx, dz) || 1, side = (-dz * mx + dx * mz) >= 0 ? 1 : -1;
+          keys.push([mx + ((-dz * side) / len) * (TOWER_HALF + 9), (last[1] + y) / 2, mz + ((dx * side) / len) * (TOWER_HALF + 9), look, speed]);
+          break;
+        }
+      }
+    }
+    keys.push([x, y, z, look, speed]);
+  };
+  // 1. The climb: three quarters of a turn, 24 m out widening to 30.
+  for (let k = 0; k <= 6; k++) {
+    const s = k / 6, a = -Math.PI / 2 + s * Math.PI * 1.5, r = 24 + 6 * s;
     keys.push([TOWER.x + Math.cos(a) * r, 5 + (roof + 9 - 5) * s * s * (3 - 2 * s), TOWER.z + Math.sin(a) * r, [TOWER.x, mid * (0.5 + 0.5 * s), TOWER.z], 7]);
   }
-  // 2. The pull-out: away to the south-west and up.
-  keys.push([-70, roof + 40, -60, [TOWER.x, mid, TOWER.z], 16]);
-  keys.push([-170, 150, -190, [0, -40, 0], 24]);
-  // 3. The far turn: a third of the way round, the whole ball under the eye.
-  for (let k = 1; k <= 4; k++) {
-    const a = Math.atan2(-190, -170) + (k / 4) * (Math.PI * 0.7), r = 255;
-    keys.push([Math.cos(a) * r, 150 - 12 * k, Math.sin(a) * r, [0, -40, 0], 22]);
+  // 2. The pull-out: away and up until the whole ball is under the eye, then a third of the way round it.
+  const far = Math.max(90, planet * 3.4), high = Math.max(108, planet * 2.2), ball = [0, -planet * 0.7, 0];
+  const out = Math.atan2(keys[keys.length - 1][2], keys[keys.length - 1][0]);
+  keys.push([Math.cos(out) * far * 0.45, roof + 30, Math.sin(out) * far * 0.45, towerLook, 16]);
+  for (let k = 0; k <= 3; k++) {
+    const a = out + (k / 3) * (Math.PI * 0.7);
+    keys.push([Math.cos(a) * far, high - 10 * k, Math.sin(a) * far, ball, 22]);
   }
-  // 4. The approach: down to the promenade's far end, then up it to the door.
-  keys.push([40, 45, -110, [0, 2, -30], 20]);
-  keys.push([4, 9, -66, [0, 2, -20], 13]);
-  keys.push([0, 3.2, -46, [0, 5, 0], 8]);
-  keys.push([0, 2.6, -30, [0, 6, 2], 6]);
-  keys.push([0, 3.4, -15, [0, 8, 4], 5]);
-  // 5. The skim: a figure of eight across the yard, east loop then west.
-  for (let k = 1; k <= 12; k++) {
-    const a = (k / 12) * Math.PI * 2;
-    keys.push([Math.sin(a) * 46, 9 + 3 * Math.sin(a * 2), -8 + Math.sin(a * 2) * 26, 'ahead', 10]);
+  // 3. The sights: nearest first from wherever the eye is, a part-turn round each.
+  const todo = (sights.length ? sights : [
+    { x: 0, y: 3, z: -5, r: 3 }, { x: 0, y: 2, z: -30, r: 6 }, { x: 34, y: 6, z: -14, r: 9 }, { x: -34, y: 6, z: -14, r: 9 }, { x: 0, y: 4, z: -52, r: 8 },
+  ]).filter((s) => s && [s.x, s.y, s.z].every(Number.isFinite)).slice(0, 16);
+  let from = keys[keys.length - 1];
+  while (todo.length) {
+    let best = 0;
+    for (let i = 1; i < todo.length; i++)
+      if (Math.hypot(todo[i].x - from[0], todo[i].z - from[2]) < Math.hypot(todo[best].x - from[0], todo[best].z - from[2])) best = i;
+    const [s] = todo.splice(best, 1);
+    const r = Math.max(3.5, Math.min(28, (s.r || 1) * 2.2 + 3)), y = Math.max(1.8, s.y + Math.max(0.6, (s.r || 1) * 0.5));
+    const still = [s.x, s.y, s.z], look = s.at ? () => { const p = s.at(); return p ? [p.x, p.y, p.z] : still; } : still;
+    // Come in on the side it is reached from, and turn about it the way that leads on from there.
+    const a0 = Math.atan2(from[2] - s.z, from[0] - s.x), turn = todo.length % 2 ? 1 : -1;
+    for (const [k, da] of [0, 0.9, 1.8].entries()) {
+      const a = a0 + da * turn, x = s.x + Math.cos(a) * r, z = s.z + Math.sin(a) * r;
+      // (Never inside the tower: a sight that stands in or against it is looked at only from its open side.)
+      if (solidAt(x, y, z, roof)) continue;
+      reach(x, y + 0.5 * k, z, look, k ? Math.max(2.5, r * 0.7) : 11);
+    }
+    // (One wholly inside, a screen on the hall's wall: from before the hall's front, through the glass.)
+    if (keys[keys.length - 1] === from) reach(s.x * 0.8, Math.min(y, 4), -r - 1, look, 11);
+    from = keys[keys.length - 1];
   }
-  // Back to the foot of the climb.
-  keys.push([TOWER.x + 6, 6, TOWER.z - 30, [TOWER.x, mid * 0.5, TOWER.z], 8]);
+  // 4. Back to the foot of the climb.
+  reach(TOWER.x + 6, 6, TOWER.z - 30, [TOWER.x, mid * 0.5, TOWER.z], 8);
   // When each is reached: the way there, at the speed asked.
   const n = keys.length, when = [0];
   for (let i = 1; i <= n; i++) {
@@ -57,18 +96,20 @@ export function flyover(roof = 33) {
   }
   const seconds = when[n];
   const key = (i) => keys[((i % n) + n) % n];
-  const curve = (p0, p1, p2, p3, u) => 0.5 * (2 * p1 + (p2 - p0) * u + (2 * p0 - 5 * p1 + 4 * p2 - p3) * u * u + (3 * p1 - p0 - 3 * p2 + p3) * u * u * u);
+  // The curve between two places, by the clock: each place has the velocity that carries its neighbours' places into one another in the time between them (so a short leg beside a long one is not flung through), and the leg between is the smooth one with those ends.
+  const span = (i) => when[(((i % n) + n) % n) + 1] - when[((i % n) + n) % n];
+  const velocity = (i, c) => (key(i + 1)[c] - key(i - 1)[c]) / (span(i - 1) + span(i));
   const place = (t) => {
     const s = ((t % seconds) + seconds) % seconds;
     let i = 0;
     while (i < n - 1 && when[i + 1] <= s) i++;
-    const u = (s - when[i]) / (when[i + 1] - when[i]);
-    const a = key(i - 1), b = key(i), c = key(i + 1), d = key(i + 2);
-    return { i, u, x: curve(a[0], b[0], c[0], d[0], u), y: Math.max(1.6, curve(a[1], b[1], c[1], d[1], u)), z: curve(a[2], b[2], c[2], d[2], u) };
+    const T = when[i + 1] - when[i], u = (s - when[i]) / T, u2 = u * u, u3 = u2 * u;
+    const at = (c) => (2 * u3 - 3 * u2 + 1) * key(i)[c] + (u3 - 2 * u2 + u) * T * velocity(i, c) + (-2 * u3 + 3 * u2) * key(i + 1)[c] + (u3 - u2) * T * velocity(i + 1, c);
+    return { i, u, x: at(0), y: Math.max(1.6, at(1)), z: at(2) };
   };
   const looked = (k, from, t) => {
     if (k[3] === 'ahead') { const on = place(t + 1.2); return [on.x, on.y - 0.6, on.z]; }
-    return k[3];
+    return typeof k[3] === 'function' ? k[3]() : k[3];
   };
   return {
     seconds,

@@ -1,6 +1,7 @@
 import { edgeAt, SPAN, groundsOf, cellOf } from './park.mjs';
 import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
+import { PLANET } from './planet.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf } from './elevator.mjs';
@@ -340,6 +341,18 @@ let weather = null;
 const IDLE_MS = 25000;
 let tour = null, touring = null, inputAt = performance.now();
 const roofNow = () => { try { return roofOf(towerTop) || 33; } catch { return 33; } };
+// 🔭 What is worth a look in this room now, for the tour to find: the pieces on the panels, the screens, what people built, the ball, and whoever is about (those that move are followed as they go).
+function sightsNow() {
+  const out = [];
+  for (const p of yardPanels) if (p.label && !p.hidden) out.push({ x: p.x, y: p.y, z: p.z, r: Math.max(p.w, p.h) / 2 });
+  for (const s of screens) out.push({ x: s.x, y: 1.5, z: s.z, r: 2 });
+  for (const o of objects) if (!o.item && Number.isFinite(o.x)) out.push({ x: o.x, y: 1, z: o.z, r: 1 });
+  (snapshot?.players || []).forEach((p, i) => {
+    if (p) out.push({ x: p.x, y: p.y + 1.2, z: p.z, r: 1, at: () => { const q = snapshot?.players?.[i]; return q ? { x: q.x, y: q.y + 1.2, z: q.z } : null; } });
+  });
+  if (ball && Number.isFinite(ball.x)) out.push({ x: ball.x, y: ball.y || 0.3, z: ball.z, r: 0.6, at: () => (ball && Number.isFinite(ball.x) ? { x: ball.x, y: ball.y || 0.3, z: ball.z } : null) });
+  return out;
+}
 // Where on the tour is nearest a place: it is joined there, not at its start.
 function nearestOnTour(t, at) {
   let best = 0, least = Infinity;
@@ -2577,9 +2590,14 @@ function step(now) {
     if (moving) inputAt = now;
     const idle = sheetOpen && room === 'lobby' && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && now - inputAt > IDLE_MS;
     if (idle) {
-      tour ||= flyover(roofNow());
-      // (Taken up gently: for four seconds it eases from where it was to where the tour is.)
-      if (!touring) touring = { at: now, from: { ...freecam }, clock: nearestOnTour(tour, freecam) };
+      // The tour is worked out from what there is to see now (flyover.mjs), when the drone is let go and again at the end of each lap: what was built, or who came in, since is on the next one.
+      if (!touring || now > touring.until) {
+        const again = !!touring;
+        tour = flyover(roofNow(), { sights: sightsNow(), planet: PLANET });
+        // (Taken up gently: for four seconds it eases from where it was to where the tour is. A new lap begins where the last one ended.)
+        const clock = again ? 0 : nearestOnTour(tour, freecam);
+        touring = { at: now, from: { ...freecam }, clock, until: now + (tour.seconds - clock) * 1000 };
+      }
       const dt = Math.min(0.1, elapsed), t = touring.clock + (now - touring.at) / 1000, to = tour.at(t);
       const ease = Math.min(1, (now - touring.at) / 4000), e = ease * ease * (3 - 2 * ease);
       const x = touring.from.x + (to.x - touring.from.x) * e, y = touring.from.y + (to.y - touring.from.y) * e, z = touring.from.z + (to.z - touring.from.z) * e;
