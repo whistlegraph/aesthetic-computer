@@ -15802,8 +15802,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // It does still fire the focus event though, which would flip
       // keyboardOpen=true and make the next real tap take the blur branch
       // (wasting the first tap). Skip programmatic focus on iOS — the first
-      // user pointerup will open it inside the gesture.
-      if (iOS) {
+      // user pointerup will open it inside the gesture. The native app's UA
+      // is exactly "Aesthetic" (no iPhone token), so `iOS` alone misses it.
+      if (iOS || AestheticIOSApp) {
         console.log("⌨️🟢 [bios keyboard:open handler] iOS — deferring focus to next user pointerup");
         return;
       }
