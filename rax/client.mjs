@@ -170,6 +170,22 @@ const carPad = panels.mount({
 const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9],
   ...['twinkle', 'row', 'weasel', 'kid', 'mmm'].map((name, k) => [`song ${name}`, 2.4 + k * 1.25, { w: 1.1, h: 1.1, cols: 128, rows: 128 }])];
 const yardPanels = [], yardVoices = new Set();
+// 🧩 The server keeps what has been done to each piece (kiosks.mjs): `yardKept` is its last word, and each panel counts the presses and lets-go its own copy has had (`done`). The difference is done silently, so a page that comes later stands where everyone's stands.
+let yardKept = null, yardMuted = false;
+const QUIET = { kill() {}, update() {} };
+function catchUp() {
+  if (!yardKept) return;
+  yardMuted = true;
+  try {
+    for (const panel of yardPanels) {
+      const kept = yardKept[panel.id];
+      if (!kept || !panel.hear) continue;
+      const todo = kept.total > (panel.done || 0) ? kept.events.slice(-Math.min(kept.events.length, kept.total - (panel.done || 0))) : [];
+      for (const [name, x, y, seat] of todo) panel.hear(name, x, y, seat + 2);
+      panel.done = Math.max(panel.done || 0, kept.total);
+    }
+  } finally { yardMuted = false; }
+}
 let yardAsked = false;
 const yardQuiet = () => { for (const v of [...yardVoices]) v.kill(0.05); };
 async function mountYard() {
@@ -180,6 +196,7 @@ async function mountYard() {
     for (const [k, [slug, x, face = { w: 1.2, h: 1.2, cols: 64, rows: 64 }]] of YARD_PIECES.entries()) {
       const z = 0.95, y = 1.35, id = `yard-${k}`; // a step out from the lobby's front glass, facing the yard
       const sound = { synth: ({ type, tone }) => {
+        if (yardMuted) return QUIET;
         const held = sfx.hold(Number(tone), { type, at: { x, y, z } }), voice = { update: (to) => held.update(to), kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
         yardVoices.add(voice);
         return voice;
@@ -195,6 +212,7 @@ async function mountYard() {
         const now = performance.now();
         if (name === 'draw' && now - toldAt < 50) return;
         toldAt = now;
+        if (name !== 'draw') panel.done = (panel.done || 0) + 1;
         send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
       };
       yardPanels.push(panel);
@@ -204,6 +222,7 @@ async function mountYard() {
     const { notepatPiece } = await import('./ac-piece.mjs');
     const at = { x: -4.9, y: 1.5, z: -7.6 }, id = 'yard-notepat';
     const piece = await notepatPiece({ sound: { synth: ({ type, tone }) => {
+      if (yardMuted) return QUIET;
       const tones = sfx.hold(Number(tone), { type, at }), voice = { update: (to) => tones.update(to), kill: (fade) => { yardVoices.delete(voice); tones.kill(fade); } };
       yardVoices.add(voice);
       return voice;
@@ -217,9 +236,11 @@ async function mountYard() {
       const now = performance.now();
       if (name === 'draw' && now - toldAt < 50) return;
       toldAt = now;
+      if (name !== 'draw') board.done = (board.done || 0) + 1;
       send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
     };
     yardPanels.push(board);
+    catchUp();
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
 let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen
@@ -1292,7 +1313,14 @@ function connect(adopt = null) {
     }
     if (data.type === 'ball') { ball = { ...data, at: performance.now() }; return; }
     // 👥 Someone else's hand on a kiosk: its piece hears their pointer, numbered by their seat.
-    if (data.type === 'panel') { yardPanels.find((p) => p.id === data.id)?.hear?.(data.name, data.x, data.y, data.seat + 2); return; }
+    if (data.type === 'panel') {
+      const panel = yardPanels.find((p) => p.id === data.id);
+      panel?.hear?.(data.name, data.x, data.y, data.seat + 2);
+      if (panel && data.name !== 'draw') panel.done = (panel.done || 0) + 1;
+      return;
+    }
+    // 🧩 Where the room's pieces stand: what this page's copies have not had done to them is done now, silently.
+    if (data.type === 'panels') { if (room === 'lobby') { yardKept = data.kept || {}; catchUp(); } return; }
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();

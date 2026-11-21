@@ -29,6 +29,7 @@ import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK } from './wo
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
+import { createKiosks } from './kiosks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Lith installs this dependency in production; standalone development can resolve root's copy.
@@ -877,6 +878,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const letGo = () => {
       if (!member.pressing || member.seat < 0) return;
       const word = JSON.stringify({ type: 'panel', id: member.pressing, seat: member.seat, name: 'lift', x: -1, y: -1 });
+      kiosks.record(key, member.pressing, 'lift', -1, -1, member.seat);
       member.pressing = null;
       for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
     };
@@ -918,6 +920,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, { type: 'role', seat: member.seat, role: member.seat < 0 ? 'spectator' : 'player' });
       if (devRoom(key) && devRecent.length) send(ws, { type: 'dev-log', entries: devRecent });
       send(ws, { type: 'chalk', strokes: room.match.chalk });
+    send(ws, { type: 'panels', kept: kiosks.of(key) }); // 🧩 where the room's pieces stand
       sendPark(ws, key);
       sendTower(ws, key, member);
       send(ws, { type: 'arrival', yaw: position.yaw, pitch: position.pitch });
@@ -1027,6 +1030,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     if (devRoom(key) && devRecent.length)
       send(ws, { type: 'dev-log', entries: devRecent });
     send(ws, { type: 'chalk', strokes: room.match.chalk });
+      send(ws, { type: 'panels', kept: kiosks.of(key) }); // 🧩 where the room's pieces stand
     sendPark(ws, key);
     sendTower(ws, key, member);
     send(ws, room.match.snapshot());
@@ -1161,7 +1165,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (data?.type === 'panel') {
         if (member.seat < 0 || typeof data.id !== 'string' || !/^[a-z0-9-]{1,24}$/.test(data.id) || !['touch', 'draw', 'lift'].includes(data.name) || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
         member.pressing = data.name === 'lift' ? null : data.id;
-        const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: data.name, x: clamp(Math.round(data.x), -1, 1024), y: clamp(Math.round(data.y), -1, 1024) });
+        const px = clamp(Math.round(data.x), -1, 1024), py = clamp(Math.round(data.y), -1, 1024);
+        kiosks.record(key, data.id, data.name, px, py, member.seat); // 🧩 kept, so the piece is one piece for whoever comes later (kiosks.mjs)
+        const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: data.name, x: px, y: py });
         for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
         return;
       }
@@ -1419,6 +1425,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   });
   // It lies where it was left: kept in the state directory when it comes to
   // rest, every few seconds while it rolls, and when the server closes.
+  const kiosks = createKiosks({ directory: stateDir }); // 🧩 what has been done to the pieces on the panels
   const ballFile = stateDir && resolve(stateDir, 'ball.json');
   let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0;
   const keepBall = () => {
@@ -1594,6 +1601,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await tower.queue;
       await walks.close();
       await keepBall();
+      await kiosks.keep();
       await keepFlights();
       if (server.listening)
         await new Promise((resolve) => server.close(resolve));
