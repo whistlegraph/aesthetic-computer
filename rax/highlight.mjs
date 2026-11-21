@@ -30,7 +30,19 @@ export const BUTTONS = {
 };
 // A badge lights white while its button is held.
 const LIT = { fill: 0xffffff, ink: 0x181818 };
-const badgeWidth = (b) => (b.length * 6 + 4);
+// 🎮 The d-pad is drawn, not spelled: a small cross with the arm that is meant lit ([D>] right, [D<] left, [D^] up, [Dv] down, [DH] left and right, [DV] up and down, [D+] any). Seven units square.
+const DPAD = /^D[<>^v+HV]$/;
+const DPAD_ARMS = { up: [2, 0, 3, 2], down: [2, 5, 3, 2], left: [0, 2, 2, 3], right: [5, 2, 2, 3] }; // [x, y from the top, w, h]
+const DPAD_LIT = { '>': ['right'], '<': ['left'], '^': ['up'], v: ['down'], H: ['left', 'right'], V: ['up', 'down'], '+': ['up', 'down', 'left', 'right'] };
+function drawDpad(rect, name, left, top, unit, z, step, shadow, held) {
+  const lit = DPAD_LIT[name[1]], body = 0x5a5f70, on = held ? 0xffffff : 0xffe066;
+  const part = (x, y, w, h, color, dz) => rect(left + x * unit, top - (y + h) * unit, z + dz, w * unit, h * unit, color);
+  if (shadow !== null) for (const [x, y, w, h] of [...Object.values(DPAD_ARMS), [2, 2, 3, 3]]) part(x + 1, y + 1, w, h, shadow, 2 * step);
+  part(2, 2, 3, 3, body, step);
+  for (const [arm, [x, y, w, h]] of Object.entries(DPAD_ARMS)) part(x, y, w, h, lit.includes(arm) ? on : body, step);
+  part(3, 3, 1, 1, 0x2c3040, 0);
+}
+const badgeWidth = (b) => (DPAD.test(b) ? 7 : b.length * 6 + 4);
 
 const TOKEN =
   /("(?:[^"\\]|\\.)*"?)|(-?\d+(?:\.\d+)?)|([()[\]{}])|([A-Za-z_][\w-]*)(?=\s*")?|(\s+)|([^\s])/g;
@@ -81,7 +93,7 @@ export function animateSpans(spans, now) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|START|BACK|[ABXY])\]|\{([^}]+)\}/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|START|BACK|D[<>^v+HV]|[ABXY])\]|\{([^}]+)\}/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     if (m[1]) spans.push({ badge: m[1] });
     else spans.push({ cap: m[2] });
@@ -127,7 +139,7 @@ const SMALL_ARROWS = {
   '↑': ['..#..', '.###.', '#.#.#', '..#..', '..#..'],
   '↓': ['..#..', '..#..', '#.#.#', '.###.', '..#..'],
 };
-const smallBoxWidth = (k) => (SMALL_ARROWS[k] ? 5 : smallWidth(k)) + 4;
+const smallBoxWidth = (k) => (DPAD.test(k) ? 7 : (SMALL_ARROWS[k] ? 5 : smallWidth(k)) + 4);
 // The rows a label's ink actually covers, counted down from small()'s y
 // (row k is the band from y - k to y - k + 1): tall letters start at 0,
 // x-height at 2; the baseline ends at 6, descenders at 7. A cap's outline sits
@@ -179,6 +191,7 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   if (tiny && small) {
     let left = cx - smallSpanWidth(spans, unit) / 2;
     for (const s of spans) {
+      if (s.badge && DPAD.test(s.badge)) { drawDpad(rect, s.badge, left, y, unit, z, step, shadow, s.lit); left += 8 * unit; continue; }
       if (s.badge || s.cap) {
         const name = s.badge || s.cap;
         const bw = smallBoxWidth(name) * unit;
@@ -228,6 +241,7 @@ export function drawSpans({ rect, text, small }, spans, cx, y, unit, { z = 0, sh
   }
   let left = cx - spanWidth(spans, unit) / 2;
   for (const s of spans) {
+    if (s.badge && DPAD.test(s.badge)) { drawDpad(rect, s.badge, left, y + unit, unit, z, step, shadow, s.lit); left += 8 * unit; continue; }
     if (s.badge) {
       const { fill, ink } = s.lit ? LIT : BUTTONS[s.badge];
       const bw = badgeWidth(s.badge) * unit;

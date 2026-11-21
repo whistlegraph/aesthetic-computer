@@ -53,7 +53,7 @@ export const LEGEND = {
     '[RB] build / [RB] use / [X] drop',
     '[X] paint',
     '[LB] lock on / [B] remove',
-    '[START] prompt / [D>] $ menu',
+    '[START] prompt / [D>] $ menu / [DV] density',
   ],
   touch: [], // The thumb areas and the icons name themselves.
 };
@@ -1965,11 +1965,11 @@ export async function createView(canvas) {
         ? [
             `${named(focusObject)} locked`,
             ...(focusObject.panel
-              ? [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? 'dpad next / [LB] unlock' : '{[} {]} next / {z} unlock'}`]
+              ? [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? '[DH] next / [LB] unlock' : '{[} {]} next / {z} unlock'}`]
               : pad
               ? focusObject.wall
                 ? ['[RB] change / [LB] unlock']
-                : [`${mine ? '[RB] change / ' : ''}[B] remove`, 'dpad next / [LB] unlock']
+                : [`${mine ? '[RB] change / ' : ''}[B] remove`, '[DH] next / [LB] unlock']
               : focusObject.wall
                 ? ['{f} change / {z} unlock']
                 : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
@@ -1991,7 +1991,7 @@ export async function createView(canvas) {
         : panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
           ? input === 'touch' ? 'tap the screen' : pad ? '[A] press' : '{enter} or click: press'
         : car
-          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[D-PAD] up / down a floor' : '{enter} pick a floor'
+          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[DV] up / down a floor' : '{enter} pick a floor'
         : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
