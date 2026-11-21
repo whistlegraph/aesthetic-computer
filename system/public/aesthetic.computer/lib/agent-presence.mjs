@@ -60,15 +60,16 @@ function place() {
   const { box, canvas, label } = mark;
   const piece = anchor?.canvas?.(), frame = piece?.getBoundingClientRect?.();
   const postfix = !!(frame && piece.width && frame.width);
-  const size = postfix ? 1 : SCALE;
+  // (As a postfix it is sized by the piece's own pixels, a little under the handle's letters.)
+  const k = postfix ? frame.width / piece.width : 1;
+  const size = postfix ? Math.min(3, Math.max(1, Math.round(k * 0.55 * 2) / 2)) : SCALE;
   canvas.style.width = `${W * size}px`;
   canvas.style.height = `${H * size}px`;
   label.style.display = postfix ? "none" : "";
   if (postfix) {
-    const k = frame.width / piece.width;
     Object.assign(box.style, {
-      left: `${Math.round(frame.left + anchor.x * k + 2)}px`,
-      top: `${Math.round(frame.top + anchor.y * k - H * 0.45)}px`,
+      left: `${Math.round(frame.left + (anchor.x - 1) * k)}px`,
+      top: `${Math.round(frame.top + anchor.y * k - H * size * 0.5)}px`,
       right: "auto", bottom: "auto",
     });
   } else Object.assign(box.style, { left: "auto", top: "auto", right: "8px", bottom: "8px" });
