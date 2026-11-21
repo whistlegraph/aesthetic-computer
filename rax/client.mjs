@@ -6,6 +6,8 @@ import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf } from './elevator.mjs';
 import { createPanels, PANEL_REACH } from './panel.mjs';
+import { dockPose, faceStandoff, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
+import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK } from './world.mjs';
@@ -219,16 +221,27 @@ async function mountYard() {
       yardPanels.push(panel);
       yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: y + face.h / 2 + 0.17, z, yaw: 0, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     }
-    // 🎹 The big notepat surface: across the courtyard's south-west side, facing the tower. Two octaves, a pad the size of a hand.
+    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its two grids of pads (the layout a kiosk is kept at), a pad the size of a hand; its mode bar's buttons work, and what its sound panel chooses is played by the one voice there is here.
     const { notepatPiece } = await import('./ac-piece.mjs');
-    const at = { x: -4.9, y: 1.5, z: -7.6 }, id = 'yard-notepat';
-    const piece = await notepatPiece({ sound: { synth: ({ type, tone }) => {
+    const id = 'yard-notepat', spot = { x: -4.9, z: -7.6 };
+    // (notepat says how loud each voice is: its composite is one loud partial and four faint ones.)
+    const sound = { synth: ({ type, tone, volume = 1 }) => {
       if (yardMuted) return QUIET;
-      const tones = sfx.hold(Number(tone), { type, at }), voice = { update: (to) => tones.update(to), kill: (fade) => { yardVoices.delete(voice); tones.kill(fade); } };
+      const tones = sfx.hold(Number(tone), { type, volume: 0.035 * Math.max(0, Math.min(1, Number(volume) || 0)), at: { ...spot, y: 1.6 } }), voice = { update: (to) => tones.update?.(to), kill: (fade) => { yardVoices.delete(voice); tones.kill(fade); } };
       yardVoices.add(voice);
       return voice;
-    } } });
-    const board = panels.mount({ id, label: 'notepat', completes: true, piece, ...at, yaw: 180, w: 4.8, h: 2, cols: 240, rows: 100, deep: 0.12 });
+    } };
+    // (If the disk does not load, the stand-in is mounted: notepat's pads, drawn here, on the smaller board they were made for.)
+    let board;
+    try {
+      const { piece, host, ready } = await acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'grid' } });
+      board = panels.mount({ id, label: 'notepat', completes: true, piece, host, ...spot, y: 1.6, yaw: 180, w: 4.8, h: 2.4, cols: 320, rows: 160, deep: 0.12 });
+      await ready(); // (its boot waits on its store: nothing is heard by it until then, so what the room has kept is done after)
+    } catch (e) {
+      console.warn('rax: notepat itself did not load, so its stand-in is up:', e?.message || e);
+      if (board) panels.unmount(id);
+      board = panels.mount({ id, label: 'notepat', completes: true, piece: await notepatPiece({ sound }), ...spot, y: 1.5, yaw: 180, w: 4.8, h: 2, cols: 240, rows: 100, deep: 0.12 });
+    }
     const act = board.act;
     let toldAt = 0;
     board.act = (name, px, py, device) => {
@@ -897,11 +910,142 @@ function setLock(id) {
   }
   if (!id && lockOn) third = thirdBeforeLock;
   lockOn = id ? { id, wall: id.startsWith('wall:') || id.startsWith('screen:') || id.startsWith('panel:') || farThings.has(id), panel: id.startsWith('panel:') } : null; // (a wall, a standing screen or a piece on a panel is looked at, never removed by a lock)
+  if (dock && dock.id !== id) dock = null; // (the lock taken away from under it: a warp, another room)
+  lockedAt = performance.now();
+  nearing = id && seat < 0 && !dock ? approach(id) : null; // 🚁 a drone goes up to what it locks on to
+}
+// 🖥️ Going in to a screen, as a panel in The Witness is gone in to: locked on to
+// a piece on a panel or a standing screen, the lock's own control pressed again
+// carries the eye to stand square before it and closes the lens until it fills
+// the picture (dock.mjs has the sums). There the look is its mouse over its
+// whole face, however far the body stands, and the head does not turn. Pressed
+// once more, the eye is carried back to where it was and the lock let go;
+// Escape (B) comes back out and keeps the lock. A body stays where it stands
+// and only its eye goes, as it does behind it in third person; a drone flies
+// there itself. Only what stands in this room is gone in to, and the eye is
+// stood no further back than the open air before the face.
+let dock = null, // { id, from, to, eye, home, t, way, seconds, cursor, perDegree, headYaw, headPitch, unlock }
+  nearing = null, // 🚁 { from, to, at, ms }: a drone on its way up to what it has just locked on to
+  lockedAt = -Infinity,
+  whirr = { lens: 0, travel: 0, turn: 0 }; // what the servos were last asked for (raxDebug)
+const faceOf = (id) => {
+  const s = screens.find((x) => `screen:${x.id}` === id);
+  return s ? { x: s.x, y: 1.525, z: s.z, yaw: s.yaw || 0, w: 4, h: 2.25 } : panelOf(id);
+};
+// (How far the air is open from a place along a way, to `most`: the room's walls, what is built in it but for `but`, and the tower.)
+function airFrom(origin, dir, most, but = null) {
+  let clear = wallDistance(origin, dir, most, but ? solids().filter((o) => o.id !== but) : solids(), (snapshot?.tick || 0) / HZ, half());
+  for (const box of [...fixedBoxes(), ...(room === 'lobby' ? YARD_TREES : [])]) clear = Math.min(clear, rayBox(origin, dir, box, clear));
+  return clear;
+}
+// 🌳 The courtyard's two trees (view.mjs draws them on their planters): nothing walks into one, but an eye is not stood behind one.
+const YARD_TREES = PLANTERS.flatMap((p) => [
+  { xMin: p.x - 0.14, xMax: p.x + 0.14, yMin: 0.55, yMax: 2.45, zMin: p.z - 0.14, zMax: p.z + 0.14 },
+  { xMin: p.x - 0.95, xMax: p.x + 0.95, yMin: 2.35, yMax: 3.85, zMin: p.z - 0.95, zMax: p.z + 0.95 },
+]);
+// (Before a face: straight out from its middle and from a third of the way to either side, the least of the three.)
+const airBefore = (face, most) => {
+  const out = direction((face.yaw || 0) + 180), side = direction((face.yaw || 0) + 90);
+  return Math.min(...[-0.3, 0, 0.3].map((k) => airFrom({ x: face.x + out.x * 0.12 + side.x * face.w * k, y: face.y, z: face.z + out.z * 0.12 + side.z * face.w * k }, out, most))) + 0.12;
+};
+function goIn() {
+  const face = lockOn && faceOf(lockOn.id), scale = view.scale(), at = view.aimOrigin(), f = view.aimForward();
+  if (!face || !scale || !at || !f || game()?.camera || held) return false;
+  const to = dockPose(face, scale, { clear: airBefore(face, 14) });
+  if (!to) return false;
+  const from = { x: at.x, y: at.y, z: at.z, yaw: ((Math.atan2(f.x, f.z) * 180) / Math.PI + 360) % 360, pitch: (Math.asin(clamp(f.y, -1, 1)) * 180) / Math.PI, zoom: 1 };
+  // (One of the mouse's pixels is one of the picture's: so many of the face's pixels to a degree of look.)
+  const perDegree = face.cols ? (1 / 0.12) / (((face.h / face.rows) / to.back) * scale.sy * to.zoom * (canvas.clientHeight / 2)) : 0;
+  dock = { id: lockOn.id, from, to, eye: from, home: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null, t: 0, way: 1,
+    seconds: clamp(0.6 + Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z) * 0.06, 0.8, 2.2),
+    cursor: face.cols ? { x: face.cols / 2, y: face.rows / 2 } : null, perDegree, headYaw: yaw, headPitch: pitch, unlock: false };
+  nearing = null;
+  return true;
+}
+function comeOut(unlock = false) {
+  if (!dock) return;
+  dock.way = -1;
+  dock.unlock ||= unlock;
+  if (padHolds || keyHolds) { padHolds = keyHolds = false; panels.release(); }
+}
+// The lock's control (Z; LB seated, X as a drone): on, then in, then out and off.
+function pressLock() {
+  if (dock) comeOut(true);
+  else if (!(lockOn && goIn())) setLock(lockOn ? null : focusObject?.id || null);
+  sfx[lockOn && !dock?.unlock ? 'ringOpen' : 'ringBack']();
+}
+// 🚁 Where a drone goes to look over what it has locked on to (dock.mjs): before a
+// face, or off a build by about its size on the side it came from, and no
+// nearer anything solid than the air allows. A wall of the room, and a thing
+// in the next room, are looked at from where it is.
+function approach(id) {
+  const face = faceOf(id), o = face ? null : objects.find((x) => x.id === id);
+  let to = null;
+  if (face) to = faceStandoff(face, airBefore(face, 16));
+  else if (o) {
+    const at = spotOf(id), boxes = o.item ? [] : objectBoxes([o], (snapshot?.tick || 0) / HZ);
+    const box = boxes.reduce((w, q) => (w ? { xMin: Math.min(w.xMin, q.xMin), xMax: Math.max(w.xMax, q.xMax), yMin: Math.min(w.yMin, q.yMin), yMax: Math.max(w.yMax, q.yMax), zMin: Math.min(w.zMin, q.zMin), zMax: Math.max(w.zMax, q.zMax) } : { ...q }), null)
+      || { xMin: at.x - 0.6, xMax: at.x + 0.6, yMin: at.y - 1, yMax: at.y + 0.2, zMin: at.z - 0.6, zMax: at.z + 0.6 };
+    to = boxStandoff(box, freecam, airFrom(boxMiddle(box), bearingFrom(box, freecam), 60, id));
+  }
+  const far = to ? Math.hypot(to.x - freecam.x, to.y - freecam.y, to.z - freecam.z) : 0;
+  return far > 0.3 ? { from: { x: freecam.x, y: freecam.y, z: freecam.z }, to, at: performance.now(), ms: clamp(500 + far * 70, 700, 2600) } : null;
+}
+// Each frame, before the lock turns the head: gone in, what the mouse, the
+// stick or the arrows turned it by is the face's mouse instead, and the head
+// is put back (a stick at half its pace, for a finer hand).
+function dockLook(elapsed) {
+  if (!dock) return;
+  const stick = gamepad?.lookX || gamepad?.lookY ? Math.min(0.1, elapsed) * 0.5 : 0;
+  const dx = ((yaw - dock.headYaw + 540) % 360) - 180 + (gamepad?.lookX || 0) * 160 * stick, dy = pitch - dock.headPitch + (gamepad?.lookY || 0) * 120 * stick;
+  yaw = dock.headYaw;
+  pitch = dock.headPitch;
+  const face = dock.cursor && dock.way > 0 && panelOf(dock.id);
+  if (face && (dx || dy)) dock.cursor = cursorStep(dock.cursor, face, -dx * dock.perDegree, -dy * dock.perDegree);
+}
+// And after it: the eye is carried along its glide (a drone with it), and a
+// drone on its way up to a thing is flown there. What comes back is how fast
+// the eye is changing each way (dock.mjs `rates`), for the servos' whirr; all
+// nothing when it is not being carried.
+function carry(elapsed, now, turned) {
+  const dt = Math.min(0.1, Math.max(0, elapsed));
+  let heard = { lens: 0, travel: 0, turn: 0 };
+  if (dock && !faceOf(dock.id)) dock = null; // (the screen itself went)
+  if (dock) {
+    const was = dock.eye;
+    dock.t = clamp(dock.t + (dock.way * dt) / (dock.way > 0 ? dock.seconds : dock.seconds * 0.8), 0, 1);
+    const e = smooth(dock.t);
+    dock.eye = glide(dock.from, dock.to, e);
+    if (dt) heard = rates(was, dock.eye, dt);
+    if (seat < 0) {
+      freecam = { ...freecam, x: dock.home.x + (dock.to.x - dock.home.x) * e, y: dock.home.y + (dock.to.y - dock.home.y) * e, z: dock.home.z + (dock.to.z - dock.home.z) * e, vx: 0, vy: 0, vz: 0 };
+      yaw = dock.eye.yaw;
+      pitch = dock.eye.pitch;
+      droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI;
+      droneRoll *= Math.exp(-dt * 6);
+    }
+    dock.headYaw = yaw;
+    dock.headPitch = pitch;
+    if (dock.way < 0 && dock.t <= 0) {
+      const off = dock.unlock;
+      dock = null;
+      if (off) setLock(null);
+    }
+  } else if (nearing && seat < 0) {
+    const e = smooth((now - nearing.at) / nearing.ms), mix = (k) => nearing.from[k] + (nearing.to[k] - nearing.from[k]) * e;
+    const to = { x: mix('x'), y: mix('y'), z: mix('z') };
+    if (dt) heard.travel = Math.min(1, Math.hypot(to.x - freecam.x, to.y - freecam.y, to.z - freecam.z) / dt / 8);
+    freecam = { ...freecam, ...to, vx: 0, vy: 0, vz: 0 };
+    if (now - nearing.at >= nearing.ms) nearing = null;
+  } else nearing = null;
+  // (The lock's own turn to its thing is heard as it swings round, for a moment after it is set: not for as long as the thing is walked about.)
+  if (!dock && lockOn && now - lockedAt < 1500 && dt) heard.turn = Math.max(heard.turn, Math.min(1, turned / dt / 120));
+  return heard;
 }
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
   const from = player || (seat < 0 ? freecam : null);
-  if (!from || !lockOn) return;
+  if (!from || !lockOn || dock) return;
   const bearing = (id) => {
     const p = spotOf(id);
     return p ? (((Math.atan2(p.x - from.x, p.z - from.z) * 180) / Math.PI - yaw + 540) % 360) - 180 : null;
@@ -1028,6 +1172,10 @@ if (query.has('debug'))
     rtt: connection.rtt,
     focus: focusObject?.id || null,
     lock: lockOn?.id || null,
+    dock: dock ? { id: dock.id, t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
+    fov: dock?.eye.zoom || 1, // (the lens's zoom: 1 as the room is walked about)
+    nearing: !!nearing,
+    whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
     eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
     panels: panels.list.filter((p) => !p.hidden).map((p) => p.id),
     cursorAim,
@@ -1854,6 +2002,8 @@ function touchContext() {
     return [CONTEXT.use({ shoot: 'shoot', poke: 'poke', throw: 'throw' }[item?.item] || 'use'), CONTEXT.drop];
   }
   // Locked on, a remove is at once (the lock is the confirmation).
+  if (dock) return [{ ...CONTEXT.unlock, name: 'leave' }]; // 🖥️ gone in to a screen: the one cap comes out and lets go
+  if (lockOn && faceOf(lockOn.id)) return [{ ...CONTEXT.unlock, name: 'go in' }, ...(lockOn.panel ? [] : [CONTEXT.change])];
   if (lockOn) return lockOn.panel ? [CONTEXT.unlock] : [CONTEXT.unlock, lockOn.wall ? CONTEXT.change : CONTEXT.remove];
   if (focusObject?.panel) return [CONTEXT.lock];
   if (focusObject?.wall) return [CONTEXT.change, CONTEXT.lock];
@@ -1922,7 +2072,7 @@ canvas.addEventListener('pointerdown', (e) => {
   // 🖼️ A finger on a world panel presses it there (panel.mjs), and is not a look or a button.
   if (!menu && !radial.open && padFinger === null) {
     const ray = view.aimRay(e.offsetX, e.offsetY), eye = view.aimOrigin();
-    if (ray && eye && panels.pressAt(panels.aim(eye, ray))) return void (padFinger = e.pointerId);
+    if (ray && eye && panels.pressAt(panels.aim(eye, ray, dock ? 60 : PANEL_REACH))) return void (padFinger = e.pointerId); // (gone in to one, a finger reaches it from where the eye stands)
   }
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
@@ -2074,6 +2224,13 @@ document.addEventListener('keydown', (e) => {
   // prompt's paper back. Tab is the one-press way out. A browser may end the
   // lock itself and then hand over the same press; that press has done its
   // work, so the moment just after an unlock does not leave.
+  // 🖥️ Gone in to a screen, Escape comes back out of it first (and, pressed again on the way, lets the lock go too).
+  if (dock && e.code === 'Escape' && !e.repeat && !prompt.open && !chat.open) {
+    e.preventDefault();
+    comeOut(dock.way < 0);
+    sfx.ringBack();
+    return;
+  }
   if (hosted && e.code === 'Escape' && !e.repeat && !prompt.open) {
     e.preventDefault();
     if (locked()) document.exitPointerLock();
@@ -2158,12 +2315,9 @@ document.addEventListener('keydown', (e) => {
   // Lock on, as the pad's LB does (2026-11-08): Z toggles it, [ and ]
   // change it like the d-pad, and delete removes the locked object at once
   // (the lock is the confirmation, as B on the pad).
-  if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) { // (a drone locks on too, to look a thing over)
-    setLock(lockOn ? null : focusObject?.id || null);
-    sfx[lockOn ? 'ringOpen' : 'ringBack']();
-  }
-  // (the arrows step it too: a lock holds the eye, so they have no turning to do)
-  if (lockOn && !e.repeat && !typing() && ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight'].includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
+  if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) pressLock(); // (a drone locks on too, to look a thing over; on a screen a second press goes in to it)
+  // (the arrows step it too: a lock holds the eye, so they have no turning to do; gone in to a screen they move its mouse)
+  if (lockOn && !dock && !e.repeat && !typing() && ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight'].includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
   if (seat >= 0 && (e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
     if (lockOn && !lockOn.wall) {
       send({ type: 'remove', objectId: lockOn.id });
@@ -2486,15 +2640,19 @@ function step(now) {
   // LB toggles a lock on the aimed object; while locked, B removes it (the
   // lock is the confirmation) and RB changes it.
   // (Looking on, LB flies down, so the lock is on X; B lets go.)
+  // 🖥️ Gone in to a screen, B comes back out of it (again on the way: and lets the lock go); seated, B lets go a lock on a screen or a panel, which it has nothing to remove from.
+  if (gamepad.cancel && !radial.open && !prompt.open && !chalkMode && (dock || (seat >= 0 && lockOn && faceOf(lockOn.id)))) {
+    if (dock) comeOut(dock.way < 0);
+    else setLock(null);
+    gamepad.cancel = false;
+    sfx.ringBack();
+  }
   if (seat < 0 && gamepad.cancel && !radial.open && !prompt.open && !chalkMode) {
     if (lockOn) setLock(null);
     else { startWarp(); gamepad.cancel = false; } // 🌀 with nothing to let go, B warps it home
   }
-  if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !prompt.open) {
-    setLock(lockOn ? null : focusObject?.id || null);
-    sfx[lockOn ? 'ringOpen' : 'ringBack']();
-  }
-  if (lockOn && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1);
+  if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !prompt.open) pressLock();
+  if (lockOn && !dock && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1);
   if (lockOn && seat >= 0 && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
     send({ type: 'remove', objectId: lockOn.id });
     setLock(null);
@@ -2570,6 +2728,8 @@ function step(now) {
     if (seat >= 0 && gamepad.camera) third = !third;
     if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
+  dockLook(elapsed); // 🖥️ gone in to a screen, that look was its mouse
+  const yawBefore = yaw, pitchBefore = pitch;
   if (lockOn && (player || seat < 0)) {
     const target = spotOf(lockOn.id), from = player || freecam; // (a drone turns its eye to it)
     if (!target) setLock(null);
@@ -2582,6 +2742,12 @@ function step(now) {
       yaw = (yaw + dyaw * k + 360) % 360;
       pitch = clamp(pitch + (wantPitch - pitch) * k, -85, 85);
     }
+  }
+  // 🎥 The eye carried to a screen and back, and a drone up to what it locked on to; its servos are heard only while it is.
+  {
+    const heard = carry(elapsed, now, Math.abs(((yaw - yawBefore + 540) % 360) - 180) + Math.abs(pitch - pitchBefore));
+    sfx.servo(heard.lens, heard.travel, heard.turn);
+    whirr = heard;
   }
   if (elapsed > 0.25) presentation.reset(player);
   debt += Math.min(0.1, elapsed);
@@ -2614,8 +2780,10 @@ function step(now) {
       yaw = (yaw + dyaw * k + 360) % 360;
       pitch = clamp(pitch + (wantPitch - pitch) * k, -85, 85);
       droneRoll += (clamp(-dyaw * 0.012, -0.35, 0.35) - droneRoll) * (1 - Math.exp(-dt * 2));
+    } else if (dock || (nearing && !(keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD') || keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight') || gamepad.fwd || gamepad.right || gamepad.up || pad.fwd || pad.right))) {
+      touring = null; // 🖥️ carried (`carry`): in to a screen, or up to what it has locked on to, until its own stick asks otherwise
     } else {
-      touring = null;
+      touring = nearing = null;
       // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
       {
         const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
@@ -2711,6 +2879,7 @@ function step(now) {
       })(),
       fire: (firing || fireQueued) && locked(),
     };
+    if (dock) c.fwd = c.right = 0; // 🖥️ gone in to a screen the body stands where it is: the eye comes back to it
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
       // Up jumps and down ducks (the arrows as well as WASD; the stick too).
@@ -2854,7 +3023,9 @@ function step(now) {
     // 🖼️ A world panel within reach, with nothing before it, takes the aim
     // as its mouse (panel.mjs): the primary action presses there.
     const seen = panels.aim(origin, dir, nearest), onPanel = seen && seen.t <= PANEL_REACH ? seen : null;
-    panels.point(onPanel);
+    // 🖥️ Gone in to one, its mouse is the one moved over its whole face (`dockLook`), however far off the eye stands.
+    const inside = dock?.cursor && dock.way > 0 ? panelOf(dock.id) : null;
+    panels.point(inside ? { panel: inside, x: dock.cursor.x, y: dock.cursor.y, t: dock.to.back } : onPanel);
     // 🧩 A piece on a panel is aimed at from any distance, as anything that stands here is.
     if (seen) { nearest = seen.t; focusObject = seen.panel.label ? panelFocus(seen.panel) : onPanel ? null : focusObject; }
     // The floor square under the crosshair, within reach, if nothing nearer.
@@ -2979,7 +3150,7 @@ function step(now) {
     seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
     weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
-      ...(droneView && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
+      ...(droneView && !dock && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
@@ -2990,7 +3161,7 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
@@ -3056,6 +3227,7 @@ function step(now) {
     cube,
     menu,
     lockedOn: !!lockOn,
+    docked: !!dock && dock.way > 0,
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
     notices: [], // The "ready v0" build notices are retired (2026-11-03); the prompt block tells the story.

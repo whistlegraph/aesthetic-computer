@@ -79,6 +79,7 @@ const assets = new Map([
     'games',
     'elevator',
     'panel', // 🖼️ world panels, and the pieces on them
+    'dock', // 🖥️ going in to a screen: its sums
     'pieces/keypad',
     'ac-piece', // 🧩 real AC disks on world panels
     'solids',

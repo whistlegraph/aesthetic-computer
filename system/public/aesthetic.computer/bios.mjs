@@ -15096,6 +15096,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
       // 🎮 Gamepad
       gamepad = new Gamepad();
+      // A pad's stick is a cursor on the prompt and A its click (lib/pad-cursor.mjs).
+      import("./lib/pad-cursor.mjs").then(({ padCursor }) => padCursor({ canvas, piece: () => currentPiece })).catch(() => {});
 
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {

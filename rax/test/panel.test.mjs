@@ -56,6 +56,68 @@ test('a piece draws with wipe, ink, box, line and write', () => {
   g.box(-5, -5, 100, 100); // off the edges: nothing thrown
 });
 
+test('a colour with an alpha is laid over what is there, and a wipe replaces it', () => {
+  const g = painter(4, 4), at = (x, y, p = g.screen) => [...p.pixels.slice((y * p.width + x) * 4, (y * p.width + x) * 4 + 4)];
+  g.wipe(0).ink(255, 255, 255, 128).box(0, 0, 2, 2);
+  assert.deepEqual(at(0, 0), [128, 128, 128, 255], 'half white over black');
+  assert.deepEqual(at(2, 2), [0, 0, 0, 255]);
+  g.ink(200, 64).plot(3, 3); // (a grey and its alpha)
+  assert.deepEqual(at(3, 3), [50, 50, 50, 255]);
+  g.ink('red', 0).box(0, 0, 4, 4);
+  assert.deepEqual(at(0, 0), [128, 128, 128, 255], 'nothing of a clear colour');
+  g.wipe(10, 20, 30, 0);
+  assert.deepEqual(at(1, 1), [10, 20, 30, 0], 'a wipe is the colour, its alpha too');
+  g.wipe(0).ink(255, 128).box(0, 0, 4, 4, 'outline');
+  assert.deepEqual([at(0, 0), at(3, 3), at(1, 1)], [[128, 128, 128, 255], [128, 128, 128, 255], [0, 0, 0, 255]], 'an outline\'s corners are laid once');
+});
+
+test('a painting is a buffer of its own, pasted over the screen where it is not clear', () => {
+  const g = painter(8, 8), at = (x, y, p = g.screen) => [...p.pixels.slice((y * p.width + x) * 4, (y * p.width + x) * 4 + 4)];
+  g.wipe(0, 0, 255);
+  const stamp = g.painting(2, 2, (p) => { p.ink('red').plot(0, 0); p.ink(0, 255, 0, 128).plot(1, 1); });
+  assert.deepEqual([stamp.width, stamp.height, stamp.pixels.length], [2, 2, 16]);
+  assert.deepEqual([at(0, 0, stamp), at(1, 0, stamp)], [[255, 0, 0, 255], [0, 0, 0, 0]], 'clear where nothing was drawn');
+  assert.deepEqual(at(0, 0), [0, 0, 255, 255], 'painting one leaves the screen alone');
+  g.paste(stamp, 1, 1);
+  assert.deepEqual([at(1, 1), at(2, 1), at(2, 2)], [[255, 0, 0, 255], [0, 0, 255, 255], [0, 128, 127, 255]]);
+  g.wipe(0).paste(stamp, 4, 4, 2); // twice the size, nearest pixel
+  assert.deepEqual([at(4, 4), at(5, 5), at(6, 4), at(3, 4)], [[255, 0, 0, 255], [255, 0, 0, 255], [0, 0, 0, 255], [0, 0, 0, 255]]);
+  g.wipe(0).paste(stamp, 0, 0, { width: 8, height: 4 }); // stretched to a size
+  assert.deepEqual([at(3, 1), at(4, 1), at(0, 2)], [[255, 0, 0, 255], [0, 0, 0, 255], [0, 0, 0, 255]]);
+  g.paste(stamp, -1, 7).paste(stamp, 7, -1, 3).paste(null, 0, 0); // off the edges, or nothing: nothing thrown
+});
+
+test('page turns the drawing to a painting and back; write heeds a background and no more of AC\'s arguments', () => {
+  const g = painter(12, 10), at = (x, y, p = g.screen) => [...p.pixels.slice((y * p.width + x) * 4, (y * p.width + x) * 4 + 3)];
+  g.wipe(0);
+  const side = g.painting(6, 8);
+  g.page(side).wipe(9).ink('white').write('1', { center: 'x' });
+  assert.deepEqual(at(0, 0), [0, 0, 0], 'the screen was not drawn on');
+  assert.deepEqual([at(0, 0, side), at(2, 0, side)], [[9, 9, 9], [255, 255, 255]], 'centred on the painting, not the screen');
+  g.page(g.screen).ink('white').write('1', { x: 1, y: 0 }, [0, 0, 200], undefined, false, 'unifont');
+  assert.deepEqual([at(2, 0), at(1, 0), at(4, 0)], [[255, 255, 255], [0, 0, 200], [0, 0, 0]], 'the letter, its background under it, and no further');
+  assert.equal(g.text.width('10', { name: 'font_1' }), 7, 'a typeface where a size is taken is the one face');
+  assert.equal(g.text.width('10', 2), 14);
+  assert.equal(g.layer(2), g);
+});
+
+test('scroll moves the picture over and wraps it round', () => {
+  const g = painter(4, 3), at = (x, y) => [...g.screen.pixels.slice((y * 4 + x) * 4, (y * 4 + x) * 4 + 3)];
+  g.wipe(0).ink('red').plot(3, 0);
+  g.scroll(2, 1);
+  assert.deepEqual([at(1, 1), at(3, 0)], [[255, 0, 0], [0, 0, 0]]);
+  g.scroll(-1, -1);
+  assert.deepEqual(at(0, 0), [255, 0, 0]);
+});
+
+test('a panel\'s piece is handed the api whole, and its frames counted', () => {
+  const seen = [], piece = { sim: ($) => seen.push(['sim', $.simCount, $.api === $]), paint: ($) => seen.push(['paint', $.paintCount]), act: ($) => seen.push(['act', $.api.screen === $.screen]) };
+  const panels = createPanels(), p = panels.mount({ id: 'p', piece, ...pad });
+  panels.frame(0); panels.frame(16);
+  p.act('touch', 1, 1);
+  assert.deepEqual(seen, [['sim', 0, true], ['paint', 0], ['sim', 1, true], ['paint', 1], ['act', true]]);
+});
+
 test('a pointer event answers is() as an AC event does', () => {
   const e = pointerEvent('touch', 3, 4);
   assert.ok(e.is('touch') && !e.is('lift') && !e.is('tou'));

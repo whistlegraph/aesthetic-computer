@@ -165,6 +165,40 @@ export class Sfx {
     r.out.gain.setTargetAtTime(n ? (0.006 + 0.008 * w) * n * n * MASTER : 0, t, 0.3);
     r.depth.gain.setTargetAtTime(n ? 0.0006 * n * n * MASTER : 0, t, 0.3);
   }
+  // 🎥 The eye's own servos, heard while it is carried to a thing and back
+  // (dock.mjs `rates`): one for the lens closing or opening, one for its
+  // travel, one for its turning, each 0 to 1 by how fast that is changing.
+  // A small motor each: a saw through a narrow band and a low-pass, its pitch
+  // rising with the rate. Asked every frame; a rate under a hundredth is
+  // silence, and each comes in and goes out over a few hundredths of a second,
+  // so none clicks. Very quiet: at its fastest under the drone's own hush.
+  servo(lens = 0, travel = 0, turn = 0) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime, asked = [lens, travel, turn];
+    if (!this.servos) {
+      if (!asked.some((v) => v > 0.01)) return;
+      // (Where each sits when barely moving and at full rate, in hertz: the lens a small high motor, the travel a low one, the turning between.)
+      this.servos = [[310, 560], [96, 170], [170, 300]].map(([low, high]) => {
+        const motor = a.createOscillator(), band = a.createBiquadFilter(), soft = a.createBiquadFilter(), out = a.createGain();
+        motor.type = 'sawtooth';
+        motor.frequency.value = low;
+        band.type = 'bandpass';
+        band.frequency.value = low * 2;
+        band.Q.value = 2.5;
+        soft.type = 'lowpass';
+        soft.frequency.value = 1500;
+        out.gain.value = 0;
+        motor.connect(band).connect(soft).connect(out).connect(a.destination);
+        motor.start();
+        return { motor, band, out, low, high };
+      });
+    }
+    this.servos.forEach((s, i) => {
+      const r = Math.max(0, Math.min(1, asked[i] || 0)), on = r > 0.01, pitch = s.low + (s.high - s.low) * Math.sqrt(r);
+      if (on) { s.motor.frequency.setTargetAtTime(pitch, t, 0.06); s.band.frequency.setTargetAtTime(pitch * 2, t, 0.06); } // (let go, it fades at the pitch it had: no falling whine)
+      s.out.gain.setTargetAtTime(on ? (0.004 + 0.006 * r) * MASTER : 0, t, on ? 0.04 : 0.09);
+    });
+  }
   // 📉 Going down: as the picture comes apart (`gone`, 0 to 1) a tone falls
   // and breaks up into steps, under a rising hiss; at the end only a low hum.
   down(gone) {

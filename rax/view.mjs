@@ -32,6 +32,7 @@ import { Projector } from './project.mjs';
 import { PLANET, FAR, landTiles } from './planet.mjs';
 import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
+import { cursorCells } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
 // controls: the same world plays from a keyboard alone, a pad or a touchscreen.
@@ -844,6 +845,7 @@ export async function createView(canvas) {
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let menuBox = null; // The open menu's panel and rows, in buffer pixels about the centre.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
+  let natural = null; // 🖥️ The picture's scale last frame before any zoom a camera asked for: what going in to a screen works its own zoom from (dock.mjs).
   let snow = null, snowAt = 0; // The room's falling snow.
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
@@ -857,6 +859,7 @@ export async function createView(canvas) {
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
+  let floorGlowKey = '', floorGlow = null; // the aimed floor square's soft light
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -1218,6 +1221,7 @@ export async function createView(canvas) {
     menu = null,
     removeArmed = null,
     lockedOn = false,
+    docked = false, // 🖥️ gone in to the locked screen (client.mjs, dock.mjs): it fills the picture and the look is its mouse
     notices = [],
     braincells = null,
     spending = false,
@@ -1448,12 +1452,15 @@ export async function createView(canvas) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
     }
+    natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
     projector.planet = !game?.camera && orbit <= 0 ? PLANET : 0;
     if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
+    // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
+    if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
     // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
     if (plain < 3 && cost > [7, 10, 14][plain]) plain++;
     else if (plain > 0 && cost < [4.5, 6.5, 9][plain - 1]) plain--;
@@ -1965,7 +1972,13 @@ export async function createView(canvas) {
         ? [
             `${named(focusObject)} locked`,
             ...(focusObject.panel
-              ? [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? '[DH] next / [LB] unlock' : '{[} {]} next / {z} unlock'}`]
+              ? docked // 🖥️ gone in: the look is its mouse, and the way out is named
+                ? [input === 'touch' ? 'tap: press' : pad ? '[A] press / [B] back' : '{enter} or click: press', ...(input === 'touch' ? [] : [pad ? `${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave'])]
+                : [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? `${spectator ? '[X]' : '[LB]'} go in` : '{z} go in'}`, pad ? '[DH] next / [B] unlock' : `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
+              : focusObject.screen // 📺 a standing screen is gone in to as well, to fill the picture
+              ? docked
+                ? [pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave']
+                : pad ? [`${spectator ? '' : '[RB] change / '}${spectator ? '[X]' : '[LB]'} go in`, '[DH] next / [B] unlock'] : [`${spectator ? '' : '{f} change / '}{z} go in`, `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
               : pad
               ? focusObject.wall
                 ? ['[RB] change / [LB] unlock']
@@ -2074,6 +2087,8 @@ export async function createView(canvas) {
                     // and taking a handle belong to the paper, 2026-11-18.)
                     // (Three short rows, as a walker's are: each key lights while it is down, each action in its colour.)
                     ...legendRows(input === 'touch' ? 'touch' : controller ? 'pad' : 'keys', held, DRONE_LEGEND),
+                    // 🖥️ Locked on to a screen or a piece on a panel, a drone is told how to go in to it and come out.
+                    ...(lockHint && (focusObject.panel || focusObject.screen) ? lockHint.split('\n').map((l) => colourRow(hintSpans(l, THEME.text))) : []),
                   ]
                 : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint
@@ -2798,7 +2813,7 @@ export async function createView(canvas) {
     // facing a wall, an object or the sky it is this 2D reticle.
     const onFloor = floorAim && !focusObject && !lockedOn && !radial && !menu && !bare && orbit <= 0 && !cursor;
     const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onFloor && !onPanel && game?.hud?.reticle !== false) {
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) { // (over the floor too: the aimed square is lit where it lies, below)
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
@@ -3320,47 +3335,27 @@ export async function createView(canvas) {
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
     if (floorAim && !menu && !radial && !bare && orbit <= 0) {
-      // The cursor projected onto the aimed square, drawn in screen space
-      // (2026-11-03): the square's four corners go through the camera and
-      // the reticle's L corners and centre dot are drawn between them as
-      // whole-pixel HUD lines with their shadow, not as quads on the floor.
-      const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, y = 0.02, k = 0.275;
-      const P = [[x, z], [x + 2, z], [x + 2, z + 2], [x, z + 2]].map(([px, pz]) => projector.project(px, y, pz));
-      const mid = projector.project(x + 1, y, z + 1);
-      if (P.every(Boolean) && mid) {
-        const S = P.map((p) => [Math.round((p.x * W) / 2), Math.round((p.y * H) / 2)]);
-        // The corners stay on the aimed square; the dot is the exact point
-        // the aim meets the floor, so it glides inside the square instead of
-        // jumping square to square (2026-11-08).
-        let C = [Math.round((mid.x * W) / 2), Math.round((mid.y * H) / 2)];
-        const f = projector.forward, e = lastEye;
-        if (f && e && f[1] < -1e-4) {
-          const t = (y - e.y) / f[1];
-          const hit = projector.project(e.x + f[0] * t, y, e.z + f[2] * t);
-          if (hit) C = [Math.round((hit.x * W) / 2), Math.round((hit.y * H) / 2)];
-        }
-        const { unit } = hud;
-        const m = model(({ rect: worldRect }) => {
-          const rect = flip(worldRect);
-          const dot = (px, py, color, z0) => rect(px, py, z0, unit, unit, color);
-          const line = (a, b, color, z0, off) => {
-            const steps = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / unit;
-            for (let i = 0; i <= steps; i++) {
-              const t = steps ? i / steps : 0;
-              dot(Math.round((a[0] + (b[0] - a[0]) * t) / unit) * unit + off, Math.round((a[1] + (b[1] - a[1]) * t) / unit) * unit - off, color, z0);
+      // ✨ The aimed square is softly lit where it lies: a pale rim and a sparse stipple over it, breathing a little. The cursor itself stays the crosshair in the middle of the screen: it used to leave the middle and lay itself on the square, jumping in and out of place as the aim crossed from floor to wall (2026-11-20).
+      const beat = Math.floor(now / 220) % 4, key = `${floorAim.i},${floorAim.j},${beat}`;
+      if (key !== floorGlowKey) {
+        floorGlowKey = key;
+        const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, y = 0.012, rim = 0.02;
+        // (A dim, cool grey a little over the floor's own tone: light enough to find, never a bright frame.)
+        const ink = [0x6f8794, 0x7b94a1, 0x87a1ae, 0x7b94a1][beat];
+        floorGlow = model(({ quad }) => {
+          const flat = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], ink);
+          flat(x, z, x + 2, z + rim); flat(x, z + 2 - rim, x + 2, z + 2);
+          flat(x, z + rim, x + rim, z + 2 - rim); flat(x + 2 - rim, z + rim, x + 2, z + 2 - rim);
+          // (No see-through faces in this engine: softness is a stipple, every other cell a small dot.)
+          for (let a = 0; a < 10; a++)
+            for (let b = (a + beat) % 2; b < 10; b += 2) {
+              const cx = x + 0.1 + a * 0.2, cz = z + 0.1 + b * 0.2;
+              if (cx < x + 0.15 || cx > x + 1.85 || cz < z + 0.15 || cz > z + 1.85) continue;
+              flat(cx - 0.018, cz - 0.018, cx + 0.018, cz + 0.018);
             }
-          };
-          for (const [color, z0, off] of [[INK, 0.000002, unit], [0x00ffff, 0, 0]]) {
-            S.forEach((p, i) => {
-              const nx = S[(i + 1) % 4], pv = S[(i + 3) % 4];
-              line(p, [p[0] + (nx[0] - p[0]) * k, p[1] + (nx[1] - p[1]) * k], color, z0, off);
-              line(p, [p[0] + (pv[0] - p[0]) * k, p[1] + (pv[1] - p[1]) * k], color, z0, off);
-            });
-            rect(C[0] - unit + off, C[1] - unit - off, z0, 2 * unit, 2 * unit, color);
-          }
         });
-        projector.overlay(m, W, H);
       }
+      draw(floorGlow, 0, 0, 0);
     }
     // Chalk: a cached model per stroke, rebuilt only while it grows; your
     // own newest points draw at once, before the server echoes them.
@@ -3596,20 +3591,16 @@ export async function createView(canvas) {
       draw(kept.slab, p.x, p.y, p.z, yaw);
       draw(kept.face, p.x, p.y, p.z, yaw);
       if (!p.cursor) continue;
-      // The mouse: four arms about a dot, most of a panel pixel thick, a hair
-      // proud of the face, with a shadow down and across; closed up and
-      // yellow while pressed.
-      const u = (p.w / p.cols) * 0.7, cx =p.w / 2 - (p.cursor.x / p.cols) * p.w, cy = p.h / 2 - (p.cursor.y / p.rows) * p.h;
-      const gap = p.cursor.down ? 1.5 : 2.5, ink = p.cursor.down ? 0xffe066 : 0x00ffff;
+      // The mouse: AC's one software cursor (lib/cursor-shape.mjs, the same mark a pad's stick moves on the prompt's paper), laid on the panel's own pixels a hair proud of the face: a soft dab of light, and over it a dot and four arms on their shadow; closed up and yellow while pressed.
+      const cell = p.w / p.cols, row = p.h / p.rows, mx = Math.floor(p.cursor.x), my = Math.floor(p.cursor.y);
       projector.draw(model(({ quad }) => {
-        const bar = (x, y, w, h, z, c) => quad([x + w, y - h, z], [x - w, y - h, z], [x - w, y + h, z], [x + w, y + h, z], c);
-        for (const [dx, dy, z, c] of [[-u, -u, -0.003, 0x000000], [0, 0, -0.005, ink]]) {
-          const x = cx + dx, y = cy + dy;
-          bar(x, y, u / 2, u / 2, z, c);
-          for (const side of [-1, 1]) {
-            bar(x + side * (gap + 2) * u, y, 2 * u, u / 2, z, c);
-            bar(x, y + side * (gap + 2) * u, u / 2, 2 * u, z, c);
-          }
+        // (Three layers, the dab nearest the glass: the cells come in that order.)
+        for (const [dx, dy, [r, g, b], layer] of cursorCells(!!p.cursor.down)) {
+          const px = mx + dx, py = my + dy;
+          if (px < 0 || py < 0 || px >= p.cols || py >= p.rows) continue;
+          const z = [-0.0015, -0.003, -0.005][layer];
+          const x = p.w / 2 - (px + 0.5) * cell, y = p.h / 2 - (py + 0.5) * row;
+          quad([x + cell / 2, y - row / 2, z], [x - cell / 2, y - row / 2, z], [x - cell / 2, y + row / 2, z], [x + cell / 2, y + row / 2, z], (r << 16) | (g << 8) | b);
         }
       }), p.x, p.y, p.z, yaw);
     }
@@ -3847,6 +3838,10 @@ export async function createView(canvas) {
     // so a free mouse aims where it points instead of at the view's centre.
     aimOrigin() {
       return lastEye;
+    },
+    // 🖥️ How large the picture draws a thing, zoom apart: one metre off the middle at one metre away is `sx` of the half-width across, `sy` of the half-height up.
+    scale() {
+      return natural;
     },
     // The camera's centre ray: exactly the crosshair's normal, bob, nod and
     // third-person offset included (2026-11-03).

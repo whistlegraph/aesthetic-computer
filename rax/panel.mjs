@@ -26,15 +26,18 @@ const NAMED = {
   pink: [255, 192, 203], purple: [128, 0, 128], brown: [165, 42, 42],
 };
 // A colour as AC's `ink` and `wipe` take it: r, g, b; [r, g, b]; one number
-// for a grey; a name; or "#rrggbb".
+// for a grey; a name; or "#rrggbb"; each with an alpha after it if it likes
+// (r, g, b, a; grey, a; name, a). → [r, g, b, a], a 255 when none is said.
 export function colorOf(args) {
   const a = Array.isArray(args[0]) ? args[0] : args;
   if (typeof a[0] === 'string') {
-    if (a[0][0] === '#') { const n = parseInt(a[0].slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
-    return NAMED[a[0].toLowerCase()] || NAMED.white;
+    const alpha = a[1] ?? 255;
+    if (a[0][0] === '#') { const n = parseInt(a[0].slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255, alpha]; }
+    return [...(NAMED[a[0].toLowerCase()] || NAMED.white), alpha];
   }
-  if (a.length === 1) return [a[0], a[0], a[0]];
-  return a.length ? [a[0], a[1], a[2]] : NAMED.white;
+  if (a.length === 1) return [a[0], a[0], a[0], 255];
+  if (a.length === 2) return [a[0], a[0], a[0], a[1]];
+  return a.length ? [a[0], a[1], a[2], a[3] ?? 255] : [...NAMED.white, 255];
 }
 
 // How wide a line of text is, in pixels (MatrixChunky8, as AC has it).
@@ -42,30 +45,45 @@ const glyph = (ch) => glyphs[ch] || glyphs['?'];
 export const textWidth = (text, size = 1) =>
   Math.max(0, [...String(text)].reduce((w, ch) => w + glyph(ch)[4], 0) - 1) * size;
 
-// 🎨 A pixel buffer and the few things a piece draws on it with.
+// 🎨 A pixel buffer and the few things a piece draws on it with. A buffer is
+// { width, height, pixels } (RGBA), as AC's `screen` and its paintings are.
 export function painter(width, height) {
-  const pixels = new Uint8ClampedArray(width * height * 4).fill(255);
-  let color = NAMED.white;
+  const screen = { width, height, pixels: new Uint8ClampedArray(width * height * 4).fill(255) };
+  let on = screen; // 📄 what is drawn on now: the screen, or a painting it was turned to (`page`)
+  let color = [255, 255, 255, 255];
+  // (A colour with an alpha is laid over what is there, which may itself be part clear, as a painting is; a whole one replaces it.)
+  const put = (px, k, r, g, b, a) => {
+    if (a >= 255) { px[k] = r; px[k + 1] = g; px[k + 2] = b; px[k + 3] = 255; return; }
+    if (!(a > 0)) return;
+    const under = px[k + 3] * (1 - a / 255), all = a + under;
+    px[k] = (r * a + px[k] * under) / all; px[k + 1] = (g * a + px[k + 1] * under) / all; px[k + 2] = (b * a + px[k + 2] * under) / all;
+    px[k + 3] = all;
+  };
   const plot = (x, y) => {
     x = Math.floor(x); y = Math.floor(y);
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const k = (y * width + x) * 4;
-    pixels[k] = color[0]; pixels[k + 1] = color[1]; pixels[k + 2] = color[2];
+    if (x < 0 || y < 0 || x >= on.width || y >= on.height) return;
+    put(on.pixels, (y * on.width + x) * 4, color[0], color[1], color[2], color[3]);
   };
   const fill = (x, y, w, h) => {
-    const x1 = Math.min(width, Math.floor(x + w)), y1 = Math.min(height, Math.floor(y + h));
+    const x1 = Math.min(on.width, Math.floor(x + w)), y1 = Math.min(on.height, Math.floor(y + h));
     for (let j = Math.max(0, Math.floor(y)); j < y1; j++)
       for (let i = Math.max(0, Math.floor(x)); i < x1; i++) plot(i, j);
   };
   const g = {
-    screen: { width, height, pixels },
+    screen,
     ink: (...c) => { color = colorOf(c); return g; }, // (it chains: ink('red').box(…))
-    wipe: (...c) => { if (c.length) color = colorOf(c); fill(0, 0, width, height); return g; },
+    // (A wipe is not laid over: every pixel becomes the colour, its alpha too, so `wipe(0, 0, 0, 0)` clears a painting to nothing.)
+    wipe: (...c) => {
+      if (c.length) color = colorOf(c);
+      const px = on.pixels;
+      for (let k = 0; k < px.length; k += 4) { px[k] = color[0]; px[k + 1] = color[1]; px[k + 2] = color[2]; px[k + 3] = color[3]; }
+      return g;
+    },
     plot: (x, y) => { plot(x, y); return g; },
     box(x, y, w, h, mode = 'fill') {
       if (x && typeof x === 'object') { mode = y || 'fill'; ({ x, y, w, h } = x); } // (a Box, as AC's ui hands one: box(button.box, 'in'))
       if (mode === 'fill') fill(x, y, w, h);
-      else { fill(x, y, w, 1); fill(x, y + h - 1, w, 1); fill(x, y, 1, h); fill(x + w - 1, y, 1, h); }
+      else { fill(x, y, w, 1); fill(x, y + h - 1, w, 1); fill(x, y + 1, 1, h - 2); fill(x + w - 1, y + 1, 1, h - 2); }
       return g;
     },
     line(x0, y0, x1, y1) {
@@ -81,11 +99,21 @@ export function painter(width, height) {
       return g;
     },
     // write(text, { x, y, size, center }): the top left of the line, or
-    // centred on the screen along 'x', 'y' or 'xy'.
-    write(text, { x = 0, y = 0, size = 1, center = '' } = {}) {
+    // centred on what is drawn on along 'x', 'y' or 'xy'. AC's write takes
+    // more after it (a background, bounds, word wrap, a typeface): the
+    // background is drawn; the rest is not heeded, for there is the one face
+    // and a line is never wrapped.
+    write(text, at = {}, bg) {
       text = String(text);
-      if (center.includes('x')) x = Math.floor((width - textWidth(text, size)) / 2);
-      if (center.includes('y')) y = Math.floor((height - ascent * size) / 2);
+      let { x = 0, y = 0, size = 1, center = '' } = at || {};
+      if (center.includes('x')) x = Math.floor((on.width - textWidth(text, size)) / 2);
+      if (center.includes('y')) y = Math.floor((on.height - ascent * size) / 2);
+      if (bg !== undefined && bg !== null) {
+        const fore = color;
+        color = colorOf([bg]);
+        fill(x, y, textWidth(text, size), ascent * size);
+        color = fore;
+      }
       for (const ch of text) {
         const [w, h, xoff, yoff, advance, rows] = glyph(ch);
         for (let r = 0; r < h; r++)
@@ -95,7 +123,43 @@ export function painter(width, height) {
       }
       return g;
     },
-    text: { width: textWidth, height: (size = 1) => ascent * size },
+    // (AC's `text.width` takes a typeface where a size is taken here: anything that is not a number is the one face at its own size.)
+    text: { width: (text, size) => textWidth(text, Number.isFinite(size) ? size : 1), height: (size) => ascent * (Number.isFinite(size) ? size : 1) },
+    // 🖼️ painting(w, h, fn): a buffer of its own, clear until `fn` draws on it with a painter of its own. → { width, height, pixels }
+    painting(w, h, fn) {
+      const p = painter(Math.max(1, Math.floor(w)), Math.max(1, Math.floor(h)));
+      p.screen.pixels.fill(0);
+      fn?.(p);
+      return p.screen;
+    },
+    // paste(buffer, x, y, scale): a buffer laid over what is drawn on, its clear pixels left clear; `scale` is a number, { scale }, or { width, height } to stretch it to. Nearest pixel, as AC enlarges.
+    paste(from, x = 0, y = 0, scale = 1) {
+      if (!from?.pixels) return g;
+      const sx = scale?.width ? scale.width / from.width : Number(scale?.scale ?? scale) || 1, sy = scale?.height ? scale.height / from.height : sx;
+      const w = Math.round(from.width * sx), h = Math.round(from.height * sy), px = on.pixels, src = from.pixels;
+      x = Math.floor(x); y = Math.floor(y);
+      for (let j = Math.max(0, -y); j < h && y + j < on.height; j++)
+        for (let i = Math.max(0, -x); i < w && x + i < on.width; i++) {
+          const s = (Math.min(from.height - 1, Math.floor(j / sy)) * from.width + Math.min(from.width - 1, Math.floor(i / sx))) * 4;
+          put(px, ((y + j) * on.width + x + i) * 4, src[s], src[s + 1], src[s + 2], src[s + 3]);
+        }
+      return g;
+    },
+    // 📄 page(buffer): what is drawn from now goes on this buffer (a painting, or `screen` to come back).
+    page(buffer) { if (buffer?.pixels) on = buffer; return g; },
+    // scroll(dx, dy): what is drawn on, moved over and wrapped round its edges.
+    scroll(dx = 0, dy = 0) {
+      const { width: w, height: h, pixels: px } = on, was = px.slice();
+      dx = ((Math.floor(dx) % w) + w) % w; dy = ((Math.floor(dy) % h) + h) % h;
+      if (!dx && !dy) return g;
+      for (let j = 0; j < h; j++)
+        for (let i = 0; i < w; i++) px.set(was.subarray((j * w + i) * 4, (j * w + i) * 4 + 4), (((j + dy) % h) * w + ((i + dx) % w)) * 4);
+      return g;
+    },
+    // (AC's `layer` orders what is drawn across its layers: a panel has the one, and things lie in the order they are drawn.)
+    layer: () => g,
+    // ⚠️ Not done here: a picture a piece blurs, sharpens or zooms is left as it was drawn. (Nothing hosted asks for these on what it shows a kiosk: notepat's are in its picture overlay and its perf view, which only a keyboard opens.)
+    blur: () => g, sharpen: () => g, zoom: () => g,
   };
   return g;
 }
@@ -125,7 +189,9 @@ export function panelHit(panel, origin, dir, reach = Infinity) {
 // counts the pictures that differed, so the view rebuilds only on a new one.
 export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...place }) {
   const g = painter(cols, rows), pen = { x: -1, y: -1, down: false };
-  const api = { ...g, pen, ...host };
+  // (A piece may take the whole api as one of its parts (`api`), and count its frames: `paintCount`, `simCount`.)
+  const api = { ...g, pen, paintCount: 0, simCount: 0, ...host };
+  api.api = api;
   let shown = null;
   const panel = {
     id, cols, rows, yaw: 0, deep: 0.04, ...place,
@@ -142,7 +208,9 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
     },
     step() {
       piece.sim?.(api);
+      api.simCount++;
       piece.paint?.(api);
+      api.paintCount++;
       const px = g.screen.pixels;
       if (shown && shown.every((v, k) => v === px[k])) return;
       shown = px.slice();

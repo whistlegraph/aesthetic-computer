@@ -2,12 +2,14 @@
 // from AC's own disks/ as it is written, and handed the parts of the api it
 // asks for. disk.mjs is not loaded: what a piece takes beyond the painter is
 // given here from AC's own libraries (num, geo, ui.Button), and its sound is
-// the host's.
+// the host's. A kiosk has no keyboard, no MIDI, no samples, no net and no
+// device to keep things on: those parts are there, and quiet.
 //
 // A slug is read as the prompt reads it: `bleep:sine 4x4` is the piece
 // `bleep`, colon ['sine'], params ['4x4'].
 // AC's own libraries and disks are served beside rax's pages (server.mjs: /ac/lib, /ac/disks); a test names where they are on disk instead.
 const AC = new URL('./ac/', import.meta.url).href;
+import { glyphs as chunky, ascent } from './chunky-font.mjs';
 
 // 🎼 A note's name as a frequency and back, as AC's `sound.freq` and `sound.note` say them (disk.mjs keeps its own table; this is the same one): `5C#`, `c#5`, `a`, or a number as it is.
 const SEMITONES = { c: 0, 'c#': 1, db: 1, d: 2, 'd#': 3, eb: 3, e: 4, f: 5, 'f#': 6, gb: 6, g: 7, 'g#': 8, ab: 8, a: 9, 'a#': 10, bb: 10, b: 11 };
@@ -45,8 +47,33 @@ function dice(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-// sound: { synth } (the host's voice: → { kill(fade), update({ tone }) }); seed: the dice; clock: () => the shared clock's ms; base: where AC's lib/ and disks/ are.
-export async function acPiece(slug, { sound, seed = null, clock = Date.now, base = AC } = {}) {
+// 🔤 The one face a panel writes in, as a piece asks after it (`typeface.glyphs['0'].resolution`, `data.advances`): every letter is there, none still loading.
+const FACE = { name: 'MatrixChunky8', glyphs: {}, data: { advances: {} }, blockWidth: 4, blockHeight: ascent };
+for (const [ch, [w, , , , advance]] of Object.entries(chunky)) { FACE.glyphs[ch] = { resolution: [w, ascent] }; FACE.data.advances[ch] = advance; }
+const SILENT = { kill() {}, update() {} };
+const midiHz = (n) => 440 * 2 ** ((n - 69) / 12);
+
+// 🎹 notepat's services, which AC's page gives it (bios.mjs: lib/notepat-controls.mjs, loaded here as it is written): the piece asks for its instrument, its sound panel and its MIDI through `send({ type: 'notepat:host' })`, and is answered with events. A kiosk has no MIDI (the panel says "MIDI unavailable").
+// ⚠️ There is no General MIDI here: every GM program (the piece's own first choice, "piano") sounds as the host's plain triangle, held until let go, not as its sampled instrument.
+async function notepatControls(base, sound, tell) {
+  const { createNotepatControls } = await import(new URL('lib/notepat-controls.mjs', base).href);
+  const voices = new Map(), stop = (id, fade) => { voices.get(id)?.voice.kill(fade > 0 ? Math.min(fade, 0.4) : 0.08); voices.delete(id); };
+  const none = () => {};
+  return createNotepatControls({
+    send: tell, context: () => null, destination: none, events: null, visibility: null,
+    createMidi: () => ({ state: () => ({ supported: false, connected: false, inputs: [], outputs: [], inputId: 'all', outputId: '', channel: 0 }),
+      connect: none, selectInput: none, selectOutput: none, selectChannel: none, program: none, noteOn: none, noteOff: none, panic: none, disconnect: none }),
+    createGm: ({ status }) => ({
+      program: async (program) => status({ ready: true, program }),
+      note({ id, note }) { stop(id); voices.set(id, { hz: midiHz(note), voice: sound.synth({ type: 'triangle', tone: midiHz(note), duration: '🔁' }) }); },
+      update({ id, semitones = 0 }) { const v = voices.get(id); v?.voice.update?.({ tone: v.hz * 2 ** (semitones / 12) }); },
+      stop, panic() { for (const id of [...voices.keys()]) stop(id, 0.05); },
+    }),
+  });
+}
+
+// sound: { synth } (the host's voice: → { kill(fade), update({ tone }) }); seed: the dice; clock: () => the shared clock's ms; base: where AC's lib/ and disks/ are; kept: what the kiosk's `store` holds from the start (a setting the piece would have kept on a device).
+export async function acPiece(slug, { sound, seed = null, clock = Date.now, base = AC, kept = {} } = {}) {
   const [head, ...params] = String(slug).trim().split(/\s+/), [name, ...colon] = head.split(':');
   if (!/^[a-z0-9-]{1,32}$/.test(name)) throw Error(`no piece ${name}`);
   // (Each panel has the disk to itself: a piece keeps its state in its module, so two of one piece are two loads. AC's buttons are loaded for each panel too: ui.mjs keeps one list of the buttons held down for the whole page, and tidies it as one screen's, so with a row of kiosks one panel's press was let go, or left stuck, by another's: 2026-11-20.)
@@ -63,17 +90,43 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   const synth = (options = {}) => {
     const voice = sound.synth({ ...options, tone: freq(options.tone) });
     if (Number.isFinite(options.duration)) setTimeout(() => voice.kill(Math.min(0.08, options.duration * 0.2)), options.duration * 1000);
-    return { kill: (fade) => voice.kill(fade), update: (to = {}) => voice.update?.({ ...to, ...(to.tone === undefined ? {} : { tone: freq(to.tone) }) }) };
+    return { startedAt: performance.now() / 1000, kill: (fade) => voice.kill(fade), update: (to = {}) => voice.update?.({ ...to, ...(to.tone === undefined ? {} : { tone: freq(to.tone) }) }) };
+  };
+  // 📮 What the page would answer a piece with (`notepat:state`, `notepat:control`) is heard as an event, after whatever the piece is in the middle of.
+  let controls = null, last = null, busy = false, booting = false;
+  const post = [];
+  const deliver = () => {
+    if (busy || booting || !last) return;
+    busy = true;
+    try { for (let m; (m = post.shift()); ) disk.act?.({ ...last, event: { ...m.content, name: m.type, device: m.type, is: (q) => q === m.type } }); }
+    finally { busy = false; }
+  };
+  // (The services are loaded at the first thing asked of them; what is asked meanwhile waits its turn.)
+  let early = null;
+  const send = (message) => {
+    if (name !== 'notepat' || message?.type !== 'notepat:host') return; // (anything else a piece sends is for AC's page: a visit counted, a window asked for)
+    if (controls) return controls.message(message.content);
+    if (early) return early.push(message.content);
+    early = [message.content];
+    notepatControls(base, { synth }, (m) => { post.push(m); deliver(); }).then((c) => { controls = c; for (const content of early) c.message(content); })
+      .catch((e) => console.warn('rax: notepat has no sound panel:', e?.message || e));
   };
   const host = {
     params, colon, num: nums, geo, ui: { Button, TextButton },
-    sound: { ...sound, synth, freq, note },
+    // 🔇 The parts of AC's sound a kiosk has none of: no DAW to keep time with (`daw` is not there, as on any page outside one), a speaker that reports silence (so a piece's scope is a flat line), samples that play nothing (`play`: notepat's stample voice is silent here), no MIDI.
+    sound: { ...sound, synth, freq, note, play: () => ({ ...SILENT }), sampleRate: 48000, get time() { return performance.now() / 1000; },
+      speaker: { poll() {}, waveforms: { left: [], right: [] }, amplitudes: { left: 0, right: 0 } },
+      kill() {}, room: { toggle() {}, set() {}, setMix() {}, get() {} }, glitch: { toggle() {}, set() {}, get() {} }, registerSample() {}, midi: { noteOn() {}, noteOff() {} } },
     // 🕰️ The shared clock, so a song played as a guide keeps the room's time.
     clock: { time: () => new Date(clock()), resync() {} },
-    // 💾 A kiosk keeps nothing for a visitor: what a piece would store on a device is not kept here.
-    store: { retrieve: async () => undefined, persist() {}, delete() {} },
-    send() {}, jump() {}, dark: true,
-    hud: { label() {} }, needsPaint() {}, cursor() {}, pens: () => [],
+    // 💾 A kiosk keeps nothing for a visitor: what a piece would store on a device is held only while the page is open.
+    store: { ...kept, retrieve: async (key) => host.store[key], persist() {}, delete(key) { delete host.store[key]; } },
+    send, jump() {}, beep() {}, dark: true, typeface: FACE, glyphs: () => FACE.glyphs, query: {}, handle: () => null, fps() {},
+    // 🌐 No net: nothing is fetched (a sample asked for comes back as nothing), and nothing is told to a relay.
+    net: { preload: async () => undefined, udp: () => ({ send() {}, receive() {}, connected: false }), socket: () => ({ send() {}, close() {}, connected: false }), log() {} },
+    help: { resampleArray: (from, n) => Array.from({ length: n }, (_, k) => from[Math.floor((k / n) * from.length)] ?? 0) },
+    // 🏷️ The corner label is AC's page's to draw, and a panel has none (its sign is over it).
+    hud: { label() {}, suffix() {}, currentLabel: () => undefined }, needsPaint() {}, cursor() {}, pens: () => [],
   };
   // AC numbers its pointers (`touch:1`, `draw:1`, `lift:1`), and a piece may ask for any of them (`touch:any`); a panel has the one.
   const act = ($) => {
@@ -81,17 +134,35 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
     const e = $.event, n = e.pointer || 1, name = e.name === 'move' ? 'move' : `${e.name}:${n}`;
     // 🎯 The pointer here is a crosshair, and it is never quite still: a drag has no `delta`, so a note held is held true (song bends its pitch by a drag's delta, and wavered with every breath of the aim: 2026-11-20).
     const delta = { x: 0, y: 0 };
-    disk.act?.({ ...$, event: { ...e, name, pointer: n, delta, is: (q) => name === q || name.startsWith(`${q}:`) || (q.endsWith(':any') && name.startsWith(q.slice(0, -3))) } });
+    if (booting) return;
+    busy = true;
+    try { disk.act?.({ ...$, event: { ...e, name, pointer: n, delta, is: (q) => name === q || name.startsWith(`${q}:`) || (q.endsWith(':any') && name.startsWith(q.slice(0, -3))) } }); }
+    finally { busy = false; }
+    deliver();
   };
-  return { slug, piece: { boot: disk.boot, paint: disk.paint, sim: disk.sim, leave: disk.leave, act }, host };
+  // ⏳ A piece whose boot waits on something (notepat's, on its store) is not painted, stepped or pressed until it has booted, as AC holds a piece: `ready()` is when. One that boots at once is running at once.
+  let booted, isReady;
+  const ready = new Promise((yes) => { isReady = yes; });
+  const boot = ($) => {
+    last = $;
+    booted = disk.boot?.($);
+    if (!booted?.then) return isReady();
+    booting = true;
+    booted.catch((e) => console.warn(`rax: ${name} did not boot:`, e?.message || e)).then(() => { booting = false; isReady(); deliver(); });
+  };
+  const when = (f) => f && (($) => { if (!booting) { last = $; f($); } });
+  const sim = ($) => { if (booting) return; last = $; deliver(); disk.sim?.($); };
+  const leave = ($) => { disk.leave?.($); controls?.dispose(); };
+  return { slug, piece: { boot, paint: when(disk.paint), sim, leave, act }, host, ready: () => ready };
 }
 
 // 🎹 A big notepat surface: notepat's two classic octaves of pads, laid out
 // and coloured by notepat's own libraries (lib/notepat-layout.mjs,
 // lib/notepat-render.mjs), each note in its hue. A pad held is a note held;
 // a slide to the next pad moves the note; every hand in the room has its own
-// (panel.mjs tells whose). The whole notepat disk is not hosted here: it
-// asks for far more of AC than a panel has. This is its playing surface.
+// (panel.mjs tells whose). This is not the notepat disk, only its playing
+// surface: the disk itself is hosted by `acPiece('notepat…')`, and this
+// stands in for it where the disk does not load.
 const PAD_NOTES = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
 export async function notepatPiece({ sound, wave = 'sine', octave = 4, base = AC } = {}) {
   const [{ classicNotepatLayout }, { notepatNoteColor, notepatPadColors, notepatPalette }] = await Promise.all(
