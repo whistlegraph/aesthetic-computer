@@ -1019,6 +1019,7 @@ export async function createView(canvas) {
   }
   let aspect = 1,
     pixelScale = 1,
+    paperLeft = 0, paperBottom = 0,
     grid = null; // The host's pixel grid, when the prompt is the paper over us.
   function resize() {
     if (grid) {
@@ -1036,6 +1037,9 @@ export async function createView(canvas) {
         top = shift(grid.top);
       const cols = Math.ceil((innerWidth - left) / p),
         rows = Math.ceil((innerHeight - top) / p);
+      paperLeft = Math.round((grid.left - left) / p);
+      paperBottom = Number.isFinite(grid.height)
+        ? rows - Math.round((grid.top - top) / p) - grid.height : 0;
       Object.assign(canvas.style, {
         position: 'absolute',
         left: `${left}px`,
@@ -2174,8 +2178,8 @@ export async function createView(canvas) {
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
     // and a ten-row font. handleText places row zero one unit above its origin.
-    const handleX = -canvas.width / 2 + 10 * hud.unit;
-    const handleY = -canvas.height / 2 + 19 * hud.unit;
+    const handleX = -canvas.width / 2 + (grid ? paperLeft : 0) + 10 * hud.unit;
+    const handleY = -canvas.height / 2 + (grid ? paperBottom : 0) + 19 * hud.unit;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells) {
       const width = canvas.width,
@@ -2200,7 +2204,7 @@ export async function createView(canvas) {
           : '';
       const key = JSON.stringify([
         labels,
-        agents,
+        agents, handleX, handleY,
         meter,
         jitter,
         connection?.bars,
@@ -3786,7 +3790,7 @@ export async function createView(canvas) {
       hostDark = typeof dark === 'boolean' ? dark : null;
     },
     grid(g) {
-      const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0 } : null;
+      const next = g && g.pixel > 0 ? { pixel: g.pixel, left: g.left || 0, top: g.top || 0, height: g.height } : null;
       if (JSON.stringify(next) === JSON.stringify(grid)) return;
       grid = next;
       if (!grid) canvas.style.cssText = '';
