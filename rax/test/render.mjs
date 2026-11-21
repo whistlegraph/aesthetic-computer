@@ -39,6 +39,8 @@ try {
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 1,
     });
+    // Exact colours are checked below: the screens' glaze and the world's grade (lens-host.mjs) are left off.
+    await context.addInitScript(() => { try { localStorage.setItem('rax:glaze', 'off'); } catch {} });
     if (fallback)
       await context.addInitScript(() =>
         Object.defineProperty(navigator, 'gpu', { value: undefined }),

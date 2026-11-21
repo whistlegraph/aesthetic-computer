@@ -31,7 +31,7 @@ import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
 import { BALL, DISPENSER } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
-import { Projector } from './project.mjs';
+import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
 import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
@@ -251,6 +251,7 @@ export async function createView(canvas) {
   }
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
+  projector.marks = backend === 'webgpu'; // 📺 screens tagged for the lens's glaze (lens-host.mjs)
   const facecam = new Projector(host.scene);
   // A small studio: a floor marked only by faint dots every two metres, four
   // plain walls and a low ceiling, all at the world's edges.
@@ -1259,14 +1260,14 @@ export async function createView(canvas) {
       }
     }
   }
-  const gridModel = (px, cols, rows, wide, tall, base, glass) => model(({ quad }) => {
+  const gridModel = (px, cols, rows, wide, tall, base, glass) => screen(model(({ quad }) => {
     const cw = wide / cols, ch = tall / rows;
     gridRuns(px, cols, rows, glass, (i, end, j, color) => {
       const u0 = wide / 2 - i * cw, u1 = wide / 2 - end * cw;
       const y1 = base + tall - j * ch, y0 = y1 - ch;
       quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], color);
     });
-  });
+  }));
   const panelModels = new Map(); // a world panel's face and slab, by its id
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
@@ -3545,7 +3546,7 @@ export async function createView(canvas) {
         const cols = w.width, rows = w.height;
         const span = w.face === 'north' ? 32 : 32, tall = (span * rows) / cols;
         const cell = span / cols, base = 1.5;
-        w.model = model(({ quad }) => {
+        w.model = screen(model(({ quad }) => {
           const north = w.face === 'north';
           const glass = glassAt(eye, north ? 0 : -SCREEN, base + tall / 2, north ? SCREEN : 0,
             north ? 0 : Math.PI / 2, span, today?.horizon ?? PALETTES[paletteName].sky, w.code);
@@ -3560,7 +3561,7 @@ export async function createView(canvas) {
             if (w.face === 'north') quad([a, y0, d], [b, y0, d], [b, y1, d], [a, y1, d], c);
             else quad([-d, y0, -a], [-d, y0, -b], [-d, y1, -b], [-d, y1, -a], c);
           });
-        });
+        }));
       }
       draw(w.model, 0, 0, 0);
       const tall = (32 * w.height) / w.width;

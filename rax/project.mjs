@@ -1,6 +1,11 @@
 // Project/clamp at the camera near plane, then write directly into Oskiewar's
 // reusable scene buffer. Every face and letter participates in the depth test.
 import { bend, sight, hidden, depthRange, widest, ballOf, NEAR, SPLIT, SHARE } from './planet.mjs';
+// 📺 Screens: models whose pixels are a picture shown, not a thing lit. The
+// lens (lens-host.mjs) glazes them as the Prompt's paper is glazed.
+const SCREENS = new WeakSet();
+export const screen = (made) => (SCREENS.add(made), made);
+const isScreen = (made) => SCREENS.has(made);
 const BOW = 0.006; // how far a straight edge may cut under the ball's round, in the picture (about a pixel and a half)
 // 🧻 What lies flat on the land (the grass, a path a few millimetres over it,
 // paint, the far land a little under it) is one thin layer on another. A
@@ -403,6 +408,8 @@ export class Projector {
       a = this.input,
       b = this.clipped;
     const near = NEAR;
+    // 📺 A screen's green is lifted by 4 so the lens knows its pixels (marks: on for the WebGPU host only).
+    const lift = this.marks && isScreen(vertices) ? 4 : 0;
     if (vertices.length >= 216 && this.unseen(vertices, x, y, z, yaw, pitch, scale, roll)) return; // (a dozen triangles and up: fewer are as soon drawn as asked about)
     // 🕳️ Inside the ball the land is overhead and all round: what is behind
     // the eye in the flat world may be ahead of it on the ball, so nothing
@@ -430,7 +437,7 @@ export class Projector {
       if (this.cut && this.veils(a)) continue;
       if (whole) {
         if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; }
-        this.put(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], vertices[i + 3], vertices[i + 4], vertices[i + 5], halvings);
+        this.put(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], vertices[i + 3], vertices[i + 4] + lift, vertices[i + 5], halvings);
         continue;
       }
       let count = 0;
@@ -457,7 +464,7 @@ export class Projector {
         // so two shapes that share an edge always halve it alike and no crack
         // opens; the view sets it from how full the last frame was.)
         if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; } // (by the count, never by the flag: that is only lowered where shadows are cast)
-        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4], vertices[i + 5], halvings);
+        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4] + lift, vertices[i + 5], halvings);
       }
     }
   }
