@@ -482,6 +482,16 @@ extension Image {
         revision += 1
     }
 
+    /// The last https page the web view was on (kept on macOS).
+    var lastPage: String?
+    /// Where a reload goes back to: the page the web view is on, or the last
+    /// one if its process ended and it no longer says. Never the bundled
+    /// offline page, which is not a place to come back to.
+    private var currentPage: String? {
+        if let url = webView?.url { return url.scheme == "https" ? url.absoluteString : nil }
+        return lastPage
+    }
+
     func reload() {
         if pendingReload != nil { hardReload(); return } // Pressed again: insist.
         reloadStartedAt = Date()
@@ -489,7 +499,7 @@ extension Image {
         pendingReload = (id, Date())
         holdLastFrame { [weak self] in
             guard let self, self.pendingReload?.id == id else { return }
-            if let current = self.webView?.url?.absoluteString { self.url = current }
+            if let current = self.currentPage { self.url = current }
             self.revision = id
         }
         // A web process that can't commit a navigation in time is busy or hung.
@@ -504,7 +514,7 @@ extension Image {
         reloadStartedAt = Date()
         holdLastFrame { [weak self] in
             guard let self else { return }
-            if let current = self.webView?.url?.absoluteString { self.url = current }
+            if let current = self.currentPage { self.url = current }
             self.bypassCache = true
             self.instance += 1
         }

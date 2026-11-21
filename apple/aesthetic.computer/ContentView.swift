@@ -36,7 +36,8 @@ final class AppNetworkMonitor: ObservableObject {
 // runtime sends a heartbeat (window.iOSReportBootHeartbeat) at boot and
 // periodically afterwards via webkit.messageHandlers.iOSApp. If we don't
 // hear from it for STALL_TIMEOUT seconds while a navigation is in flight,
-// we surface a "Reload" overlay so the user can recover without force-quitting.
+// the page is brought back in a fresh instance. Why it is being brought back
+// is kept in `trouble`, which the recovery line (below ContentView) reads out.
 //
 // Bumping `reloadTrigger` causes WebView.updateUIView to issue a fresh load
 // (with a per-launch _iosbust query param). `forceLiveTrigger` asks the
@@ -57,6 +58,107 @@ final class BootStatus: ObservableObject {
 
     private let stallTimeout: TimeInterval = 25
     private let pollInterval: TimeInterval = 5
+
+    /// Why the page is being brought back, for the recovery line. Nil on a
+    /// normal launch and on a reload somebody asked for.
+    struct Trouble: Equatable {
+        var reason: String
+        /// A load that could not be made, not a page that went quiet.
+        var failed = false
+        /// When the trouble began: the line waits a moment before it shows.
+        var since = Date()
+        /// The next try, when the last one was too recent to try again now.
+        var retryAt: Date? = nil
+
+        /// Nothing for a recovery that is over in a moment.
+        func shows(at now: Date) -> Bool {
+            retryAt != nil || now.timeIntervalSince(since) > 1.5
+        }
+
+        func line(at now: Date) -> String {
+            if reason == BootStatus.offline { return "offline: waiting for the network" }
+            let wait = retryAt.map { max(1, Int($0.timeIntervalSince(now).rounded(.up))) }
+            if failed {
+                return "could not load: \(reason) · trying again" + (wait.map { " in \($0) s" } ?? "")
+            }
+            if let wait { return "\(reason) · reloading in \(wait) s" }
+            return "reloading: \(reason)"
+        }
+    }
+    @Published var trouble: Trouble? = nil
+    static let offline = "offline"
+    /// The last recovery, wherever it was started from: at most one every 20 s.
+    private(set) var lastRecoveryAt = Date.distantPast
+    private var retry: DispatchWorkItem?
+
+    /// A recovery starts now: say why. The trouble's first moment is kept
+    /// through every further try.
+    func recovering(_ reason: String, failed: Bool = false) {
+        retry?.cancel()
+        retry = nil
+        lastRecoveryAt = Date()
+        trouble = Trouble(reason: reason, failed: failed, since: trouble?.since ?? Date())
+    }
+
+    /// Too soon to try again: say why and when, then try.
+    func wait(_ reason: String, failed: Bool, seconds: TimeInterval, then go: @escaping () -> Void) {
+        retry?.cancel()
+        stopWatchdog() // The retry is the way back now, not a second stall.
+        trouble = Trouble(reason: reason, failed: failed, since: trouble?.since ?? Date(),
+                          retryAt: Date().addingTimeInterval(seconds))
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, self.trouble != nil else { return }
+            self.retry = nil
+            go()
+        }
+        retry = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
+    /// The page is up, or an ordinary load took over: no line, no retry.
+    func settle() {
+        retry?.cancel()
+        retry = nil
+        if trouble != nil { trouble = nil }
+    }
+
+    /// A load that failed, in a few plain words.
+    func fail(_ error: Error) {
+        let e = error as NSError
+        // A load a newer one took the place of, or one we turned away
+        // ourselves, is no failure.
+        if e.domain == NSURLErrorDomain, e.code == NSURLErrorCancelled { return }
+        if e.domain == "WebKitErrorDomain", e.code == 102 { return }
+        fail(Self.words(for: e))
+    }
+
+    func fail(_ reason: String) {
+        stopWatchdog()
+        setError(reason)
+    }
+
+    static func words(for e: NSError) -> String {
+        if e.domain == NSURLErrorDomain {
+            switch e.code {
+            case NSURLErrorNotConnectedToInternet, NSURLErrorDataNotAllowed,
+                 NSURLErrorInternationalRoamingOff:
+                return offline
+            case NSURLErrorTimedOut: return "the server took too long"
+            case NSURLErrorCannotFindHost, NSURLErrorDNSLookupFailed: return "the server was not found"
+            case NSURLErrorCannotConnectToHost: return "the server did not answer"
+            case NSURLErrorNetworkConnectionLost: return "the connection was lost"
+            case NSURLErrorSecureConnectionFailed, NSURLErrorServerCertificateUntrusted,
+                 NSURLErrorServerCertificateHasBadDate, NSURLErrorServerCertificateNotYetValid,
+                 NSURLErrorServerCertificateHasUnknownRoot:
+                return "no secure connection"
+            default: break
+            }
+        }
+        var words = e.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        while words.hasSuffix(".") { words.removeLast() }
+        if words.count > 56 { words = String(words.prefix(55)) + "…" }
+        return words.prefix(1).lowercased() + words.dropFirst()
+    }
 
     func startWatchdog() {
         stopWatchdog()
@@ -94,6 +196,7 @@ final class BootStatus: ObservableObject {
         }
         DispatchQueue.main.async {
             if self.stalled { self.stalled = false }
+            if ready { self.settle() }
         }
     }
 
@@ -108,6 +211,7 @@ final class BootStatus: ObservableObject {
         DispatchQueue.main.async {
             self.stalled = false
             self.lastError = nil
+            self.settle()
             self.reloadTrigger += 1
         }
     }
@@ -148,6 +252,8 @@ final class BootStatus: ObservableObject {
         urlObservation = webView.observe(\.url, options: [.initial, .new]) { [weak webView, weak self] _, _ in
             Task { @MainActor in
                 guard let webView else { return }
+                // A page whose process has ended no longer says where it was.
+                if let url = webView.url, url.scheme == "https" { self?.navigation.lastPage = url.absoluteString }
                 let title = AppRoute.windowTitle(for: webView.url)
                 self?.navigation.windowTitle = title
                 webView.window?.title = title
@@ -202,13 +308,13 @@ final class BootStatus: ObservableObject {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        bootStatus?.setError("Load failed — \(error.localizedDescription)")
+        bootStatus?.fail(error)
     }
 
     func webView(_ webView: WKWebView,
                  didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {
-        bootStatus?.setError("Cannot reach aesthetic.computer\n\(error.localizedDescription)")
+        bootStatus?.fail(error)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -226,13 +332,35 @@ final class BootStatus: ObservableObject {
         PointerLock.release(notifyPage: false)
         #endif
         // Come back on our own, in a fresh instance — unless it keeps dying.
+        // Twice in 10 s waits out the 20 s between recoveries (see `recover`).
         if let last = lastTermination, Date().timeIntervalSince(last) < 10 {
-            bootStatus?.setError("The page stopped.")
+            bootStatus?.fail("the page's process keeps ending")
         } else {
+            bootStatus?.recovering("the page's process ended")
             navigation.hardReload()
         }
         lastTermination = Date()
     }
+
+    #if os(macOS)
+    /// Start the page's audio graph, then look once more. Every fresh page
+    /// gets this at its `boot:ready`: a first launch, a reload, a new
+    /// instance after a stall or an ended process. The first call makes the
+    /// AudioContext and asks it to run; the second, 1.5 s on, asks again if
+    /// it is still not running (it was asked once and never checked before).
+    /// A page with no `window.AC` (rax opened on its own) answers "none" and
+    /// is left alone.
+    private func startAudio(in webView: WKWebView?, again: Bool = true) {
+        let js = "(() => { const a = window.AC?.startAudio?.(); return a ? String(a.state) : 'none'; })()"
+        webView?.evaluateJavaScript(js) { [weak self, weak webView] state, error in
+            if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
+            guard again, (state as? String) != "running", (state as? String) != "none" else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                self?.startAudio(in: webView, again: false)
+            }
+        }
+    }
+    #endif
 
     #if os(iOS)
     // MARK: pull-to-refresh
@@ -315,9 +443,7 @@ final class BootStatus: ObservableObject {
                 // Autoplay is allowed in our native host. Warm the worklet
                 // before the first curtain click or key so its feedback isn't
                 // lost while the audio graph is still being constructed.
-                message.webView?.evaluateJavaScript("window.AC?.startAudio?.()") { _, error in
-                    if let error { NSLog("AC audio startup: %@", error.localizedDescription) }
-                }
+                startAudio(in: message.webView)
                 MacPromptLatencyProbe.run(in: message.webView)
                 LaunchTrace.ready(message.webView)
                 message.webView?.evaluateJavaScript("window.acFrameMeter?.(false)") { _, _ in }
@@ -576,7 +702,6 @@ struct ContentView: View {
     @State private var lastBackgroundedAt: Date? = nil
     @State private var lastForceLiveTrigger: Int = 0
     @State private var wasOffline = false
-    @State private var lastRecovery = Date.distantPast
     @State private var usageScene = UUID()
 
     private var liveURL: String { navigation.url }
@@ -626,6 +751,10 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
 
+                // The offline page says its own piece; the line is for the rest.
+                if let trouble = bootStatus.trouble, monitor.isOnline != false {
+                    RecoveryLine(trouble: trouble)
+                }
             }
             .padding(.bottom, geometry.safeAreaInsets.bottom > 0 ? 24 : 0)
             .background(backdrop)
@@ -658,17 +787,22 @@ struct ContentView: View {
                 // hands them back a connection.
                 // Only offline → online: the monitor's first report (unknown →
                 // online) at launch used to reload the page mid-load.
-                if newValue == false { wasOffline = true }
+                if newValue == false { wasOffline = true; bootStatus.settle() }
                 if newValue == true, wasOffline {
                     wasOffline = false
                     bootStatus.requestReload()
                 }
             }
             // A stalled boot or a failed load recovers on its own, quietly, in
-            // a fresh instance — no overlay (retired 2026-11-11); at most every
-            // 20 s so a server that's down isn't hammered.
-            .onChange(of: bootStatus.stalled) { stalled in if stalled { recover() } }
-            .onChange(of: bootStatus.lastError) { error in if error != nil { recover() } }
+            // a fresh instance — no overlay (retired 2026-11-11), only the
+            // recovery line saying why; at most every 20 s so a server that's
+            // down isn't hammered.
+            .onChange(of: bootStatus.stalled) { stalled in
+                if stalled { recover("the page stopped answering") }
+            }
+            .onChange(of: bootStatus.lastError) { error in
+                if let error { recover(error, failed: true) }
+            }
             .onChange(of: bootStatus.forceLiveTrigger) { newValue in
                 // forceLive bumped → cause WebView.updateUIView to refire by
                 // also bumping reloadTrigger (URL alone wouldn't change if we
@@ -681,11 +815,16 @@ struct ContentView: View {
         }
     }
 
-    private func recover() {
+    private func recover(_ reason: String, failed: Bool = false) {
         bootStatus.clear()
-        guard Date().timeIntervalSince(lastRecovery) > 20 else { return }
-        lastRecovery = Date()
-        navigation.hardReload()
+        let go = { [bootStatus, navigation] in
+            bootStatus.recovering(reason, failed: failed)
+            navigation.hardReload()
+        }
+        // Too soon after the last one: the try is kept for when the 20 s are
+        // up (it used to be dropped, and the next stall picked it up).
+        let wait = 20 - Date().timeIntervalSince(bootStatus.lastRecoveryAt)
+        if wait > 0 { bootStatus.wait(reason, failed: failed, seconds: wait, then: go) } else { go() }
     }
 
     private func handleScenePhase(_ phase: ScenePhase) {
@@ -710,6 +849,36 @@ struct ContentView: View {
         @unknown default:
             break
         }
+    }
+}
+
+// MARK: - Recovery line
+//
+// One quiet line, low in the corner, while the page is being brought back or
+// could not be: why, and when the next try is. It is not the overlay retired
+// on 2026-11-11: it covers nothing, takes no clicks or keys, and is gone the
+// moment the page says `boot:ready`. A recovery over in 1.5 s shows nothing.
+struct RecoveryLine: View {
+    let trouble: BootStatus.Trouble
+    @State private var now = Date()
+    private let tick = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        Group {
+            if trouble.shows(at: now) {
+                Text(trouble.line(at: now))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(Color.white.opacity(0.9))
+                    .lineLimit(1)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.black.opacity(0.55)))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        .padding(10)
+        .allowsHitTesting(false)
+        .onReceive(tick) { now = $0 }
     }
 }
 

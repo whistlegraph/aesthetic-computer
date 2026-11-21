@@ -624,6 +624,8 @@ const touch = new TouchPad();
 // A phone shows its buttons before the first touch.
 touch.active = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
 const sfx = new Sfx();
+// 🍎 AC's native app starts a page's sound itself once the page has booted (it may play with no gesture), by the word AC's own pages answer to. Standing alone, rax answers to it too, so its sound comes back after the app loads it afresh. (Under the prompt the prompt's page has the word.)
+try { if (window.parent === window && !window.AC) window.AC = { startAudio: () => { void sfx.wake(); return { state: sfx.audio?.state || 'suspended' }; } }; } catch {}
 // Two walls run real KidLisp: $roz on the far wall, $bop on the left.
 // The room says which $code is on each wall; a change loads the new one.
 const walls = [];
