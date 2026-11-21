@@ -5,79 +5,170 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aesel — easily make and share new media</title>
 <meta name="description" content="Easily make and share new media with Aesel. Describe a piece; an engine writes it; it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers, Game Boy and NES ROMs.">
-<meta name="theme-color" content="#f5f0df">
+<meta name="theme-color" content="#fcf0e9">
 <link rel="canonical" href="https://aesel.app/">
 <meta property="og:title" content="Aesel">
 <meta property="og:description" content="Easily make and share new media with Aesel. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
-<link rel="stylesheet" href="/style.css?v=099">
-<script type="module" src="/site.js?v=089"></script>
+<style>
+@font-face{font-family:Pixel;src:url('/pixel.woff') format('woff');font-display:swap}
+:root{color-scheme:light}
+body{margin:0 auto;padding:12px 16px 32px;max-width:900px;background:#fcf0e9;color:#221b2b;font:15px/1.4 Georgia,"Times New Roman",serif}
+a{color:#0000c8}a:visited{color:#6a1b8a}
+h1{font:normal 64px/1 Pixel,monospace;color:#79568b;margin:0}
+h2{font:bold 17px/1.2 Georgia,serif;margin:22px 0 6px;padding:2px 6px;background:#e2cdea;border-bottom:1px solid #79568b}
+p{margin:6px 0}
+hr{border:0;border-top:1px solid #79568b;margin:14px 0}
+code,pre,kbd{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace}
+pre{margin:0}
+table{border-collapse:collapse;width:100%}
+th,td{border:1px solid #b7a3bd;padding:3px 6px;text-align:left;vertical-align:top}
+thead th{background:#f3e3ee;font-size:13px}
+tbody th{white-space:nowrap}
+td code,p code,li code{overflow-wrap:anywhere}
+.wide{overflow-x:auto}
+.art{float:right;width:150px;height:150px;margin:0 0 4px 14px}
+h2{clear:both}
+.nw,.nwd{white-space:nowrap}
+.toc{font-size:14px}
+ol{margin:6px 0;padding-left:22px}
+.shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
+.shots a{flex:1;min-width:0;font-size:12.5px;color:inherit;text-decoration:none}
+.shots img{display:block;width:100%;height:auto;border:1px solid #79568b}
+.zone th[colspan]{background:#f3e3ee;font-size:13px}
+footer{font-size:13px;margin-top:18px}
+@media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:128px;height:128px}.shots{flex-direction:column}tbody th,.nwd{white-space:normal}}
+</style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-<main>
-<section class="hero" aria-labelledby="title">
-<figure class="hero-art easel" role="img" aria-label="Aesel the donkey, in colored pencil, painting a pink heart at a small wooden easel">
-<img class="easel-poster" src="/aesel-pencil.webp" alt="" width="720" height="720">
-<svg width="0" height="0" class="defs" aria-hidden="true"><filter id="pencil-grain"><feTurbulence type="fractalNoise" baseFrequency="1.1" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" result="d"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -1.4 1.45" result="g"/><feComposite in="d" in2="g" operator="in"/></filter></svg>
-<div class="easel-canvas" aria-hidden="true">
-<svg class="slide" data-mime="image/png" data-tool="brush" viewBox="0 0 200 300"><path class="pencil" fill="#ee5c9c" d="M100 214C64 186 34 158 34 122c0-24 18-40 38-40 13 0 23 7 28 18 5-11 15-18 28-18 20 0 38 16 38 40 0 36-30 64-66 92z"/></svg>
-<svg class="slide" data-mime="audio/wav" data-tool="baton" viewBox="0 0 200 300"><g class="pencil" stroke="#79568b" stroke-width="5" stroke-linecap="round"><path d="M24 142v16M34 126v48M44 136v28M54 104v92M64 118v64M74 92v116M84 128v44M94 108v84M104 82v136M114 116v68M124 98v104M134 130v40M144 112v76M154 134v32M164 124v52M174 144v12"/></g><path stroke="#ee5c9c" stroke-width="3" d="M108 70v160"/></svg>
-<svg class="slide" data-mime="text/x-lisp" data-tool="pencil" viewBox="0 0 200 300"><g class="pencil code" font-size="15"><text x="14" y="108"><tspan>(</tspan><tspan class="fn">wipe</tspan> <tspan class="str">"pink"</tspan><tspan>)</tspan></text><text x="14" y="144"><tspan>(</tspan><tspan class="fn">ink</tspan> <tspan class="str">"yellow"</tspan><tspan>)</tspan></text><text x="14" y="180"><tspan>(</tspan><tspan class="fn">circle</tspan> 100 150 64<tspan>)</tspan></text></g></svg>
-<svg class="slide" data-mime="application/pdf" data-tool="pen" viewBox="0 0 200 300"><g class="pencil"><rect x="28" y="30" width="144" height="236" fill="#fffdf8" stroke="#cdbfcf" stroke-width="2"/><path stroke="#393047" stroke-width="7" d="M52 62h96"/><path stroke="#65546e" stroke-width="3" d="M70 78h60"/><g stroke="#a99bab" stroke-width="3"><path d="M46 100h108M46 110h108M46 120h86"/><path d="M46 140h50M46 150h50M46 160h50M46 170h50M46 180h40M104 186h50M104 196h50M104 206h50M104 216h50M104 226h34M46 196h50M46 206h50M46 216h50M46 226h50M46 236h30"/></g><rect x="104" y="138" width="50" height="38" fill="#e2cdea" stroke="#79568b" stroke-width="2"/><path stroke="#ee5c9c" stroke-width="3" fill="none" d="M108 170l12-14 10 8 18-20"/></g></svg>
-<svg class="slide" data-mime="video/mp4" data-tool="clapper" viewBox="0 0 200 300"><g class="pencil"><rect x="14" y="84" width="172" height="112" rx="6" fill="#3b2c4d"/><rect x="22" y="92" width="156" height="96" fill="#f6b8d4"/><circle cx="132" cy="124" r="16" fill="#ffe08a"/><path fill="#79568b" d="M22 188v-30c26-18 46-20 70-4 22-16 52-18 86 6v28z"/><path fill="#fff" d="M88 120l30 20-30 20z"/><path stroke="#cdbfcf" stroke-width="5" stroke-linecap="round" d="M20 214h160"/><path stroke="#ee5c9c" stroke-width="5" stroke-linecap="round" d="M20 214h64"/><circle cx="84" cy="214" r="7" fill="#ee5c9c"/></g></svg>
-<svg class="slide" data-mime="application/x-gameboy-rom" data-tool="joypad" viewBox="0 0 200 300"><g class="pencil"><path fill="#c6c1cb" stroke="#8e8796" stroke-width="3" d="M40 44h104l16 16v178a8 8 0 0 1-8 8H48a8 8 0 0 1-8-8V52a8 8 0 0 1 8-8z"/><path stroke="#a59fab" stroke-width="3" d="M56 56h72M56 64h72"/><rect x="54" y="84" width="92" height="104" rx="4" fill="#3b2c4d"/><path fill="#ee5c9c" d="M76 116h12v8h8v-8h12v24h-8v8h-8v8h-8v-8h-8v-8h-8z" transform="translate(4 0)"/><text class="pixel" x="100" y="176" text-anchor="middle" font-size="16" fill="#f6d9ea">AESEL</text><path fill="#a59fab" d="M88 210h24l-12 14z"/></g></svg>
-<svg class="slide" data-mime="application/x-nes-rom" data-tool="joypad" viewBox="0 0 200 300"><g class="pencil"><path fill="#c6c1cb" stroke="#8e8796" stroke-width="3" d="M30 50h140v178h-22v18H52v-18H30z"/><path stroke="#a59fab" stroke-width="3" d="M42 66h32M42 76h32M42 86h32M42 96h32M42 106h32"/><rect x="86" y="64" width="72" height="124" rx="4" fill="#3b2c4d"/><path fill="#ee5c9c" d="M122 88l18 18-18 18-18-18z"/><path fill="#f6d9ea" d="M122 98l8 8-8 8-8-8z"/><text class="pixel" x="122" y="170" text-anchor="middle" font-size="16" fill="#f6d9ea">AESEL</text><path fill="#a59fab" d="M88 206h24l-12 14z"/></g></svg>
-<svg class="slide" data-mime="application/javascript" data-tool="wand" viewBox="0 0 200 300"><g class="pencil"><rect x="10" y="10" width="180" height="280" fill="#ffc0cb"/><circle cx="100" cy="166" r="56" fill="#ffe14a"/><text class="pixel" x="18" y="36" font-size="16" fill="#79568b">meadow</text><g fill="#fff"><circle cx="40" cy="240" r="3"/><circle cx="160" cy="88" r="3"/><circle cx="150" cy="250" r="2"/><circle cx="54" cy="96" r="2"/></g></g></svg>
-</div>
-<img class="easel-tool" data-tool="brush" data-src="/aesel-tool-brush.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="baton" data-src="/aesel-tool-baton.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="pencil" data-src="/aesel-tool-pencil.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="pen" data-src="/aesel-tool-pen.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="clapper" data-src="/aesel-tool-clapper.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="joypad" data-src="/aesel-tool-joypad.webp" alt="" width="720" height="720">
-<img class="easel-tool" data-tool="wand" data-src="/aesel-tool-wand.webp" alt="" width="720" height="720">
-<figcaption class="easel-mime" aria-hidden="true"><code>image/png</code></figcaption>
-</figure>
-<h1 id="title">aesel</h1>
-<p class="slogan">easily make and share new media with aesel</p>
-<p class="mimes-head">Aesel’s got MIMEs</p>
-<ul class="mimes"><li><code>application/javascript</code></li><li><code>text/x-lisp</code></li><li><code>image/png</code></li><li><code>image/jpeg</code></li><li><code>image/webp</code></li><li><code>audio/wav</code></li><li><code>audio/mpeg</code></li><li><code>audio/ogg</code></li><li><code>application/pdf</code></li><li><code>text/plain</code></li><li><code>application/x-gameboy-rom</code></li><li><code>application/x-nes-rom</code></li></ul>
-<div class="get">
-<div class="get-app">
-<a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>Mac beta <span aria-hidden="true">↓</span></a>
-<p class="requirements">Apple silicon · macOS 14+</p>
-</div>
-<div class="get-app">
-<a class="download" href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">Windows beta <span aria-hidden="true">↓</span></a>
-<p class="requirements">Windows 10/11 · x64 · hosted engine</p>
-</div>
-<div class="get-app">
-<code class="terminal">curl -fsSL https://prompt.ac/aesel.sh | sh</code>
-<p class="requirements">the terminal harness, then type <code>a</code></p>
-</div>
-</div>
-<p class="more"><a href="/try/">or open it in a browser</a> · <a href="/using/">using aesel →</a></p>
-</section>
+<img class="art" id="art" src="/aesel-pencil.webp" width="720" height="720" alt="Aesel the donkey, in colored pencil, painting a pink heart at a small wooden easel">
+<h1>aesel</h1>
+<p><b>Easily make and share new media with Aesel.</b> Describe a piece in plain words. A brain writes it, it plays live on your phone, and it publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic Computer</a>.</p>
+<p class="toc">[ <a href="#get">get it</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
 
-<section class="shots" aria-label="Screenshots">
-<figure class="shot-main"><img src="/shot-session.jpg" width="1400" height="844" alt="Aesel in a terminal: the prompt “a meadow of soft pastel flowers swaying in a breeze”, the engine’s reply, the live piece in a wood-framed preview, and @jeffrey/vili v2 on the status line"><figcaption>A session in the terminal, with the live piece in its frame.</figcaption></figure>
-<figure class="shot-wall"><img src="/shot-piece.jpg" width="930" height="780" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky" loading="lazy"><figcaption>The <code>.p5</code> piece it made, running on Aesthetic Computer.</figcaption></figure>
-</section>
+<h2 id="get">Get it</h2>
+<div class="wide"><table>
+<thead><tr><th>where</th><th>how</th><th>notes</th></tr></thead>
+<tbody>
+<tr><th>Mac</th><td><a href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>aesel-0.8.19-arm64.dmg</a></td><td>Beta. Apple silicon, macOS 14+. Drag to Applications, open, sign in. <code>aesel</code> opens it from a terminal.</td></tr>
+<tr><th>Windows</th><td><a href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">aesel-0.8.19-windows-x64-setup.exe</a></td><td>Beta. Windows 10/11, x64, WebView2 Runtime. Hosted brain only. The installer is unsigned, so SmartScreen may warn first.</td></tr>
+<tr><th>Terminal</th><td class="nwd"><code>curl -fsSL https://prompt.ac/aesel.sh | sh</code></td><td>Links <code>a</code>, <code>ac</code> and <code>aesel</code>. Type <code>a</code> to start; <code>/update</code> keeps it current.</td></tr>
+<tr><th>Browser</th><td><a href="/try/">aesel.app/try</a></td><td>Nothing to install. Sign in and describe a piece; edits publish to your @handle.</td></tr>
+<tr><th>AC prompt</th><td><a href="https://aesthetic.computer">aesthetic.computer</a></td><td>Type a word the prompt doesn’t know. Aesel sketches it in KidLisp, with a tune, and runs it under a new <code>$code</code>.</td></tr>
+<tr><th>Install card</th><td><a href="https://prompt.ac/aesel">prompt.ac/aesel</a></td><td>The terminal install line as a piece. Tap the line to copy it.</td></tr>
+</tbody>
+</table></div>
 
-<section class="band" aria-labelledby="network">
-<h2 id="network">In Aesthetic Computer</h2>
-<div class="uses">
-<article class="use"><h3>at the prompt</h3><p><a class="use-link" href="https://aesthetic.computer">aesthetic.computer</a></p><p>Type a word the prompt doesn’t know and Aesel sketches it in KidLisp, with a tune, then runs it under a new <code>$code</code>.</p></article>
-<article class="use"><h3>under your @handle</h3><p><a class="use-link" href="https://aesthetic.computer/@jeffrey">aesthetic.computer/@you/name</a></p><p>Signed in, every save publishes the piece. A QR code opens it on any phone, live.</p></article>
-<article class="use"><h3>in KidLisp</h3><p><a class="use-link" href="https://kidlisp.com">kidlisp.com</a></p><p>Aesel writes <code>.lisp</code> pieces. Each one gets a <code>$code</code> and opens in KidLisp Lab.</p></article>
-<article class="use"><h3>as a brush</h3><p><a class="use-link" href="https://nopaint.art">nopaint.art</a></p><p>Describe a brush and paint with it. The painting, undo and zoom come with it.</p></article>
-<article class="use"><h3>in the feed</h3><p><a class="use-link" href="https://mime.ac">mime.ac</a></p><p>Pictures, sound, video and ROMs up to 8 MiB post under your @handle.</p></article>
-<article class="use"><h3>as a paper</h3><p><a class="use-link" href="https://papers.aesthetic.computer">papers.aesthetic.computer</a></p><p>The same conversation writes an archival LaTeX paper with its source inside.</p></article>
+<h2 id="session">A session</h2>
+<ol>
+<li><b>Pick a start.</b> A blank Aesthetic Computer piece, or a <a href="https://nopaint.art">nopaint.art</a> brush.</li>
+<li><b>Describe it.</b> The brain writes the code and reads the canvas back to check its work.</li>
+<li><b>Watch it.</b> A QR code opens the piece on any phone, and every save arrives there live.</li>
+<li><b>Keep it.</b> Signed in, each save publishes to <code>aesthetic.computer/@you/name</code>. <code>/versions</code> lists them; <code>/rollback</code> adds, never erases.</li>
+</ol>
+<div class="shots">
+<a href="/shot-session.jpg"><img src="/shot-session.jpg" width="1400" height="844" loading="lazy" alt="Aesel in a terminal: the prompt “a meadow of soft pastel flowers swaying in a breeze”, the engine’s reply, the live piece in a wood-framed preview, and @jeffrey/vili v2 on the status line">Fig. 1. A session in the terminal, with the live piece in its frame.</a>
+<a href="/shot-piece.jpg"><img src="/shot-piece.jpg" width="930" height="780" loading="lazy" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky">Fig. 2. The <code>.p5</code> piece it made, running on Aesthetic Computer.</a>
 </div>
-</section>
-</main>
-<footer><a href="/using/">Using Aesel</a><a href="/bts/">Behind the scenes</a><a href="/support.html">Support</a><a href="/privacy.html">Privacy</a></footer>
+
+<h2 id="runtimes">Four runtimes</h2>
+<p>Pick with <code>/runtime</code> or <code>--runtime</code>. All four push live and publish to your @handle.</p>
+<div class="wide"><table>
+<thead><tr><th>ext</th><th>runtime</th><th>what it is</th><th>a whole piece</th></tr></thead>
+<tbody>
+<tr><th><code>.mjs</code></th><td>Aesthetic Computer</td><td>JavaScript against AC’s own API: <code>paint</code>, <code>wipe</code>, <code>ink</code>, sound, input, multiplayer.</td><td><pre>function paint({ wipe }) {
+  wipe("pink");
+}
+export { paint };</pre></td></tr>
+<tr><th><code>.lisp</code></th><td>KidLisp</td><td>AC’s small Lisp for generative art.</td><td><pre>(wipe "pink")
+(ink "yellow")
+(circle 128 128 64)</pre></td></tr>
+<tr><th><code>.p5</code></th><td>p5.js (<code>processing</code>)</td><td>Real p5.js, running inside an AC piece.</td><td><pre>function setup() {
+  createCanvas(windowWidth, windowHeight);
+}
+function draw() {
+  background(255, 184, 220);
+}</pre></td></tr>
+<tr><th><code>.l5</code></th><td>L5</td><td>Aesthetic Computer’s own Processing, in Lua.</td><td><pre>function draw()
+  background(255, 184, 220)
+  circle(width / 2, height / 2, 64)
+end</pre></td></tr>
+</tbody>
+</table></div>
+
+<h2 id="mimes">Aesel’s got MIMEs</h2>
+<p><code>/medium</code> turns the same conversation toward another kind of work.</p>
+<div class="wide"><table id="mime-table">
+<thead><tr><th>medium</th><th>MIME</th><th>what you get</th></tr></thead>
+<tbody>
+<tr><th rowspan="2">piece</th><td class="nw"><code>application/javascript</code></td><td rowspan="2">A live, published Aesthetic Computer piece (<code>.mjs</code>, <code>.lisp</code>, <code>.p5</code>, <code>.l5</code>). A nopaint.art brush is a piece too; the painting, undo and zoom come with it.</td></tr>
+<tr><td class="nw"><code>text/x-lisp</code></td></tr>
+<tr><th rowspan="3">picture</th><td class="nw"><code>image/png</code></td><td rowspan="3">A layered 512 × 512 picture. Each accepted change adds a layer.</td></tr>
+<tr><td class="nw"><code>image/jpeg</code></td></tr>
+<tr><td class="nw"><code>image/webp</code></td></tr>
+<tr><th rowspan="3">sound</th><td class="nw"><code>audio/wav</code></td><td rowspan="3">A score on a shared beat grid, synthesized.</td></tr>
+<tr><td class="nw"><code>audio/mpeg</code></td></tr>
+<tr><td class="nw"><code>audio/ogg</code></td></tr>
+<tr><th rowspan="2">paper</th><td class="nw"><code>application/pdf</code></td><td rowspan="2">An archival LaTeX paper with its source inside.</td></tr>
+<tr><td class="nw"><code>text/plain</code></td></tr>
+<tr><th>Game Boy</th><td class="nw"><code>application/x-gameboy-rom</code></td><td>A real ROM, built with GBDK and checked, playing in AC’s emulator.</td></tr>
+<tr><th>NES</th><td class="nw"><code>application/x-nes-rom</code></td><td>A real ROM in 6502 assembly. The assembler is built in, and it plays as a piece in AC’s own screen.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="goes">Where the work goes</h2>
+<div class="wide"><table>
+<tbody>
+<tr><th><a href="https://aesthetic.computer/@jeffrey">aesthetic.computer/@you/name</a></th><td>Signed in, every save publishes the piece. A QR code opens it on any phone, live.</td></tr>
+<tr><th><a href="https://kidlisp.com">kidlisp.com</a></th><td>Each <code>.lisp</code> piece gets a <code>$code</code> and opens in KidLisp Lab.</td></tr>
+<tr><th><a href="https://nopaint.art">nopaint.art</a></th><td>Describe a brush and paint with it.</td></tr>
+<tr><th><a href="https://mime.ac">mime.ac</a></th><td>Pictures, sound, video and ROMs up to 8 MiB post under your @handle: <code>aesthetic mime file "caption"</code>.</td></tr>
+<tr><th><a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a></th><td>Papers, as PDF with the LaTeX source inside.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="brains">Brains</h2>
+<p>Switch any time with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness that runs with your own settings, skills and MCP servers.</p>
+<div class="wide"><table>
+<thead><tr><th>brain</th><th>runs through</th><th>you pay with</th></tr></thead>
+<tbody>
+<tr><th>AC hosted (default)</th><td>OpenRouter on AC’s account: Claude Opus and Sonnet 5.5, Luna, DeepSeek, Kimi, Qwen, MiniMax. Nothing to install.</td><td>Braincells on your @handle: a daily allowance, then a wallet. Top up by Stripe, in-app purchase or Tezos.</td></tr>
+<tr><th>Claude</th><td>The <code>claude</code> CLI on your machine, over stdio.</td><td>Your own subscription.</td></tr>
+<tr><th>Codex</th><td>The <code>codex</code> CLI on your machine, over stdio.</td><td>Your own subscription.</td></tr>
+<tr><th>Open</th><td>OpenRouter over https; open-weight models.</td><td>Your own key.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="stack">Behind the scenes</h2>
+<p>Surveyed 2026-11-08 from the source. <a href="/stack.pdf">Diagram (PDF)</a>.</p>
+<div class="wide"><table class="zone">
+<tbody>
+<tr><th colspan="3">your machine</th></tr>
+<tr><th>aesel</th><td>terminal <code>a</code>, Mac, Windows, iPhone, <code>aesel.app/try</code></td><td>Holds the conversation and the files.</td></tr>
+<tr><th>workspace</th><td><code>.aesel/</code></td><td>Transcript, revisions v1 → v<i>n</i>, artifacts.</td></tr>
+<tr><th>tools</th><td><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></td><td>What the brain holds. The preview writes its pixels back here.</td></tr>
+<tr><th>made here</th><td>XeLaTeX, GBDK, 6502</td><td>Papers, ROMs, synthesized sound and brush-step pictures are built and kept on this disk.</td></tr>
+<tr><th colspan="3">aesthetic computer</th></tr>
+<tr><th>Cloudflare</th><td><code>aesthetic.computer</code> <code>prompt.ac</code> <code>aesel.app</code></td><td>DNS, proxy, cache.</td></tr>
+<tr><th>lith</th><td><code>lith.aesthetic.computer</code></td><td>One Express monolith behind Caddy on a DigitalOcean VPS.</td></tr>
+<tr><th>inference relay</th><td><code>/api/easel-inference</code></td><td>Model allowlist; meters braincells; streams from the hosted brain.</td></tr>
+<tr><th>live channel</th><td><code>/api/easel-live</code></td><td>Redis. Every save, pushed to whoever is watching.</td></tr>
+<tr><th>publish</th><td><code>/api/register-piece</code></td><td>A presigned PUT to your bucket on DigitalOcean Spaces, served at <code>@you/name</code>.</td></tr>
+<tr><th>transcripts</th><td><code>/api/easel-transcripts</code></td><td>MongoDB. Shared with AC to improve Aesel.</td></tr>
+<tr><th>picture tools</th><td><code>/api/easel-image</code></td><td>OpenAI or fal. Five a day.</td></tr>
+<tr><th>sign-in</th><td><code>hi.aesthetic.computer</code></td><td>Auth0. One @handle everywhere.</td></tr>
+<tr><th>releases</th><td><code>prompt.ac/aesel.sh</code></td><td>Self-update, DMG, EXE.</td></tr>
+<tr><th colspan="3">anywhere</th></tr>
+<tr><th>any phone</th><td>QR code</td><td>Joins the live channel; each save arrives and hot-reloads.</td></tr>
+</tbody>
+</table></div>
+
+<h2 id="help">Help and privacy</h2>
+<p>Email <a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> with your Aesel version, your OS version and what happened. Leave out passwords, tokens and private conversations. <a href="/support.html">Support notes</a>.</p>
+<p>Conversation context goes to the brain that writes your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a>.</p>
+<hr>
+<footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic Computer</a>.</footer>
 </body>
 </html>
