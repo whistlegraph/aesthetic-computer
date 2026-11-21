@@ -10,6 +10,7 @@ const enums = {
   reason: ['identity', 'allowance', 'invalid_request', 'busy', 'ownership', 'stale_version',
     'version_limit', 'capacity', 'offline', 'timeout', 'relay_auth', 'relay', 'geometry', 'storage', 'unknown'],
   kind: ['object', 'kidlisp', 'restore'],
+  gyroState: ['idle', 'activation', 'pending', 'denied', 'enabled', 'unavailable'],
   backend: ['webgpu', 'webgl2', 'unknown'],
 };
 const numbers = new Set(['elapsedMs', 'phaseMs', 'previewCount', 'previewRejected', 'previewMaxMs',
@@ -17,7 +18,7 @@ const numbers = new Set(['elapsedMs', 'phaseMs', 'previewCount', 'previewRejecte
   'snapshotGapMaxMs', 'longTasks', 'longTaskMaxMs', 'frameErrors', 'messageMaxMs',
   'reconcileMaxMs', 'pendingCommandsMax', 'snapshotsCoalesced',
   'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'loopGapMaxMs', 'tickMaxMs',
-  'clients', 'builds', 'closeCode']);
+  'gyroSamples', 'gyroValid', 'gyroTurns', 'clients', 'builds', 'closeCode']);
 const uuid = (v) => typeof v === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(v);
 
 export function buildReason(error) {

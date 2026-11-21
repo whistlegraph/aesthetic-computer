@@ -43,11 +43,11 @@ export function createKiosks({ directory = null, limit = KIOSK_EVENTS, later = (
   };
   return {
     // A press or a letting go on a room's panel, by a seat.
-    record(room, id, name, x, y, seat) {
+    record(room, id, name, x, y, seat, finger = 1) {
       if (!NAMES.has(name)) return;
       const k = ((rooms[room] ||= {})[id] ||= { total: 0, events: [] });
       k.total++;
-      k.events.push([name, x, y, seat]);
+      k.events.push(finger === 1 ? [name, x, y, seat] : [name, x, y, seat, finger]);
       if (k.events.length > limit) k.events.splice(0, k.events.length - limit);
       if (!waiting) { waiting = true; later(keep, 5000); }
     },

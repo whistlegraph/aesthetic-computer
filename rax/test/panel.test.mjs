@@ -253,3 +253,20 @@ test('the car\'s pad is on its back wall, facing the door, in reach of anyone in
   const hit = panelHit(CAR_PAD, eye, { x: 0, y: to.y / l, z: to.z / l }, PANEL_REACH);
   assert.ok(hit && Math.abs(hit.x - 32) < 1e-6 && Math.abs(hit.y - 48) < 1e-6);
 });
+
+test('two local fingers have independent held state and drag deltas', () => {
+  const events = [];
+  const panel = createPanels().mount({ id: 'keys', ...pad, piece: { act({ event, pens }) {
+    events.push([event.pointer, event.delta, pens().map(p => p.pointer)]);
+  } } });
+  panel.act('touch', 3, 5, 'touch', 1);
+  panel.act('touch', 10, 15, 'touch', 2);
+  panel.act('draw', 4, 7, 'touch', 1);
+  panel.act('lift', 4, 7, 'touch', 1);
+  assert.equal(panel.pen.down, true);
+  panel.act('draw', 7, 11, 'touch', 2);
+  assert.deepEqual(events[2], [1, { x: 1, y: 2 }, [1, 2]]);
+  assert.deepEqual(events.at(-1), [2, { x: -3, y: -4 }, [2]]);
+  panel.act('lift', 7, 11, 'touch', 2);
+  assert.equal(panel.pen.down, false);
+});

@@ -9,11 +9,11 @@ export const KEYS = [
 ];
 export const keyAt = (x, y) => KEYS.find((k) => x >= k.x && x < k.x + k.w && y >= k.y && y < k.y + k.h) || null;
 
-let over = null, down = null; // the key under the mouse, and the one pressed
-
-let repeatAt = 0, pressedAt = 0, repeated = false;
+let over = null;
+const presses = new Map();
 function boot() {
-  over = down = null;
+  over = null;
+  presses.clear();
 }
 
 function paint({ wipe, ink, box, write, text, screen, car }) {
@@ -27,7 +27,7 @@ function paint({ wipe, ink, box, write, text, screen, car }) {
   const size = text.width(number, 2) > screen.width - 30 ? 1 : 2; // (a word, `roof`, is written small)
   ink(typed ? [255, 224, 102] : [255, 50, 150]).write(number, { x: screen.width - 6 - text.width(number, size), y: size === 2 ? 8 : 12, size });
   for (const k of KEYS) {
-    const pressed = k === down && k === over, sink = pressed ? 1 : 0;
+    const pressed = [...presses.values()].some(p => p.key === k && p.over === k), sink = pressed ? 1 : 0;
     ink(pressed ? [255, 224, 102] : k === over ? [70, 84, 116] : [44, 52, 74]).box(k.x, k.y + sink, k.w, k.h - 1);
     if (!pressed) ink(8, 10, 16).box(k.x, k.y + k.h - 1, k.w, 1); // the key's foot: it goes when the key is down
     // A big arrow: a head of widening rows and a short shaft, pointing the way the car will go.
@@ -42,30 +42,26 @@ function paint({ wipe, ink, box, write, text, screen, car }) {
 }
 
 function sim({ car }, now = performance.now()) {
-  if (!down || over !== down || now < repeatAt) return;
-  car.go(down.do, now - pressedAt);
-  repeated = true;
-  repeatAt = now + 140;
+  for (const p of presses.values()) {
+    if (!p.key || p.over !== p.key || now < p.repeatAt) continue;
+    car.go(p.key.do, now - p.start);
+    p.repeated = true;
+    p.repeatAt = now + 140;
+  }
 }
 
 function act({ event: e, car }) {
-  if (e.is('move') || e.is('draw')) over = keyAt(e.x, e.y);
+  over = keyAt(e.x, e.y);
+  const id = e.pointer ?? 1, p = presses.get(id);
   if (e.is('touch')) {
-    over = down = keyAt(e.x, e.y);
-    pressedAt = performance.now();
-    repeatAt = pressedAt + 400;
-    repeated = false;
-  }
-  if (e.is('lift')) {
-    // A key is pressed when the lift is on the key the touch began on.
-    const k = keyAt(e.x, e.y);
-    if (k && k === down && !repeated) car.go(k.do);
-    down = null;
+    const start = performance.now();
+    presses.set(id, { key: over, over, start, repeatAt: start + 400, repeated: false });
+  } else if (p && e.is('draw')) p.over = over;
+  else if (p && e.is('lift')) {
+    presses.delete(id);
+    if (over && over === p.key && !p.repeated) car.go(over.do);
   }
 }
-
-function leave() {
-  over = down = null;
-}
+const leave = boot;
 
 export { boot, sim, paint, act, leave };

@@ -84,17 +84,26 @@ export async function kidlispWall(code, { width = 96, height = 54, source: given
   try {
     piece?.boot?.(api);
   } catch {}
-  let pen = { x: 0, y: 0 };
+  const hands = new Map();
+  base.pens = () => [...hands.values()];
   return {
     source,
     width,
     height,
     pixels: display.pixels,
-    point(name, x, y) {
+    point(name, x, y, pointer = 0, device = 'gamepad') {
       graph.setBuffer(display);
-      const event = { ...pointerEvent(name, x, y, 'gamepad'), delta: { x: x - pen.x, y: y - pen.y } };
-      pen = { x, y };
+      const previous = hands.get(pointer) || { x, y };
+      if (name === 'lift') hands.delete(pointer);
+      else hands.set(pointer, { pointer, x, y, down: true });
+      const event = { ...pointerEvent(name, x, y, device), pointer, delta: { x: x - previous.x, y: y - previous.y } };
       piece?.act?.({ event, api });
+      // KidLisp exposes one pen and a combined down flag. When a finger
+      // lifts, leave that pen on a finger which is still touching the screen.
+      if (name === 'lift' && hands.size) {
+        const held = [...hands.values()].at(-1);
+        Object.assign(lisp.globalDef, { down: 1, penx: held.x, peny: held.y });
+      }
     },
     // One frame of the program; errors leave the last good frame.
     step() {

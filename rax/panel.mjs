@@ -190,21 +190,31 @@ export function panelHit(panel, origin, dir, reach = Infinity) {
 export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...place }) {
   const g = painter(cols, rows), pen = { x: -1, y: -1, down: false };
   // (A piece may take the whole api as one of its parts (`api`), and count its frames: `paintCount`, `simCount`.)
-  const api = { ...g, pen, paintCount: 0, simCount: 0, ...host };
+  const hands = new Map();
+  const api = { ...g, pen, paintCount: 0, simCount: 0, ...host, pens: () => [...hands.values()] };
+  function dispatch(name, px, py, device, pointer) {
+    const x = Math.floor(px), y = Math.floor(py), before = hands.get(pointer);
+    const down = name === 'touch' || name === 'draw';
+    if (down) hands.set(pointer, { pointer, x, y, down, device });
+    if (name === 'lift') hands.delete(pointer);
+    if (device !== 'remote') {
+      pen.x = px; pen.y = py;
+      pen.down = down || (hands.size > 0 && [...hands.values()].some(p => p.device !== 'remote'));
+    }
+    const delta = (device === 'touch' || device === 'remote') && before && name === 'draw' ? { x: x - before.x, y: y - before.y } : { x: 0, y: 0 };
+    piece.act?.({ ...api, event: { ...pointerEvent(name, x, y, device), pointer, delta } });
+  }
   api.api = api;
   let shown = null;
   const panel = {
     id, cols, rows, yaw: 0, deep: 0.04, ...place,
     pixels: g.screen.pixels, frame: 0, cursor: null, hidden: false, pen,
-    act(name, x, y, device) {
-      pen.x = x; pen.y = y;
-      if (name === 'touch') pen.down = true;
-      if (name === 'lift') pen.down = false;
-      piece.act?.({ ...api, event: pointerEvent(name, Math.floor(x), Math.floor(y), device) });
+    act(name, x, y, device, pointer = 1) {
+      dispatch(name, x, y, device, pointer);
     },
     // 👥 Someone else in the room presses here: the piece hears their pointer (numbered, so two hands are two), and this page's own pen is left alone.
     hear(name, x, y, pointer) {
-      piece.act?.({ ...api, event: { ...pointerEvent(name, Math.floor(x), Math.floor(y), 'remote'), pointer } });
+      dispatch(name, x, y, 'remote', pointer);
     },
     step() {
       piece.sim?.(api);
@@ -223,6 +233,7 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
       piece = next.piece;
       Object.assign(api, next.host || {});
       api.paintCount = api.simCount = 0;
+      hands.clear();
       pen.down = false;
       shown = null;
       piece.boot?.(api);

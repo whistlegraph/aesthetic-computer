@@ -15,16 +15,22 @@ function axes(alpha, beta, gamma) {
 
 export function gyroLook(host, active, turn) {
   let previous = null, previousAngle, previousTime, permission = 'idle';
+  let samples = 0, valid = 0, turns = 0, disposed = false;
   const reset = () => { previous = null; };
+  const status = () => ({ gyroState: permission, gyroSamples: samples, gyroValid: valid, gyroTurns: turns });
   function read({ alpha, beta, gamma, timeStamp }) {
-    if (!active() || ![alpha, beta, gamma].every(Number.isFinite)) return reset();
+    samples++;
+    if (!Number.isFinite(beta) || !Number.isFinite(gamma)) return reset();
+    valid++;
+    if (!active()) return reset();
     const angle = host.screen.orientation?.angle ?? host.orientation ?? 0;
-    const next = axes(alpha, beta, gamma);
+    const next = axes(Number.isFinite(alpha) ? alpha : 0, beta, gamma);
     if (previous && angle === previousAngle && timeStamp - previousTime < 500) {
       const x = dot(next.z, previous.x), y = dot(next.z, previous.y);
       const c = Math.cos(angle * radians), s = Math.sin(angle * radians);
       const yaw = Math.atan2(c * x - s * y, dot(next.z, previous.z)) / radians;
       const pitch = Math.asin(Math.max(-1, Math.min(1, -s * x - c * y))) / radians;
+      if (Math.hypot(yaw, pitch) > 0.08) turns++;
       turn(yaw, pitch);
     }
     previous = next;
@@ -33,19 +39,27 @@ export function gyroLook(host, active, turn) {
   }
   async function enable() {
     const sensor = host.DeviceOrientationEvent;
-    if (!sensor || permission !== 'idle' || !host.isSecureContext) return;
+    if (disposed) return;
+    if (!sensor || !host.isSecureContext) { permission = 'unavailable'; return; }
+    if (permission !== 'idle' && permission !== 'activation') return;
     permission = 'pending';
     try {
       if (sensor.requestPermission && await sensor.requestPermission() !== 'granted') {
         permission = 'denied';
         return;
       }
+      if (disposed) return;
       host.addEventListener('deviceorientation', read);
       permission = 'enabled';
     } catch (error) {
       // A transient activation failure can be retried on the next touch.
-      permission = error.name === 'NotAllowedError' ? 'idle' : 'denied';
+      permission = error.name === 'NotAllowedError' ? 'activation' : 'denied';
     }
   }
-  return { enable, reset };
+  function dispose() {
+    disposed = true;
+    host.removeEventListener('deviceorientation', read);
+    reset();
+  }
+  return { enable, reset, status, dispose };
 }

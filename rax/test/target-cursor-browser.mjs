@@ -16,12 +16,15 @@ app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');
 const browser = await chromium.launch({ ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}), headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ hasTouch: true, viewport: { width: 390, height: 844 } });
+  const cdp = await page.context().newCDPSession(page);
+  const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+  const left = { x: 166, y: 410, id: 1 }, right = { x: 222, y: 430, id: 2 };
   page.setDefaultTimeout(9000);
   const errors = [], panelPresses = [];
   page.on('websocket', ws => ws.on('framesent', ({ payload }) => {
     const event = JSON.parse(payload);
-    if (event.type === 'panel' && event.name === 'touch') panelPresses.push(event);
+    if (event.type === 'panel') panelPresses.push(event);
   }));
   page.on('websocket', ws => ws.on('framereceived', ({ payload }) => {
     if (JSON.parse(payload).events?.some(e => e.type === 'poke')) void page.evaluate(() => { window.testPoked = true; }).catch(() => {});
@@ -87,6 +90,19 @@ try {
   await page.waitForFunction(id => raxDebug().dock?.id === id && raxDebug().dock.t === 1, 'panel:' + kiosk.id);
   assert.equal((await sample()).lock, null);
   await exerciseCursor(true);
+  await touch('touchStart', [left]);
+  await touch('touchStart', [left, right]);
+  await touch('touchMove', [{ ...left, x: 146 }, { ...right, x: 247 }]);
+  await touch('touchMove', [right]);
+  await touch('touchMove', [{ ...right, y: 445 }]);
+  await touch('touchEnd', []);
+  await page.waitForTimeout(100);
+  for (const finger of [1, 2]) {
+    const events = panelPresses.filter(e => e.finger === finger && e.id === kiosk.id);
+    assert.equal(events[0]?.name, 'touch');
+    assert.ok(events.some(e => e.name === 'draw' && e.x !== events[0].x));
+    assert.equal(events.at(-1)?.name, 'lift');
+  }
   const before = await sample();
   const home = await page.evaluate(() => document.querySelector('canvas').raxStats.camera);
   await button(10);
@@ -111,7 +127,7 @@ try {
   assert.equal(hot.x, cursor.x);
   assert.equal(hot.y, cursor.y);
   await button(7);
-  const press = panelPresses.at(-1);
+  const press = panelPresses.findLast(e => e.name === 'touch');
   assert.deepEqual([press?.id, press?.x, press?.y], [kiosk.id, Math.round(cursor.x), Math.round(cursor.y)]);
   await button(10);
   await page.waitForFunction(z => Math.abs(raxDebug().fov / z - 2.5) < 0.01, before.fov);
@@ -134,6 +150,13 @@ try {
   await button(5);
   await page.waitForFunction(() => raxDebug().dock?.id === 'screen:lobby-bop' && raxDebug().dock.t === 1);
   await exerciseCursor(true, { x: 159.99, y: 89.99 });
+  await page.waitForFunction(() => raxDebug().dock.pixel?.[1] === 220);
+  await touch('touchStart', [left, right]);
+  await page.waitForFunction(() => raxDebug().dock.pixel?.[0] === 255);
+  await touch('touchMove', [right]);
+  await page.waitForTimeout(150);
+  assert.equal((await sample()).dock.pixel[0], 255, 'one finger is still holding KidLisp down');
+  await touch('touchEnd', []);
   await page.waitForFunction(() => raxDebug().dock.pixel?.[1] === 220);
   await page.evaluate(() => { testPad.buttons[7].pressed = true; });
   await page.waitForFunction(() => raxDebug().dock.pixel?.[0] === 255 && raxDebug().dock.pixel?.[1] === 0);
@@ -169,7 +192,7 @@ try {
   await button(7);
   await page.waitForFunction(() => raxDebug().room === 'basement' && !raxDebug().dock);
   assert.deepEqual(errors, []);
-  console.log('RB focus, bumper shortcut removed, spring look, L3 and LT zoom, persistent cursor, RT kiosk click, KidLisp press and release, held poke, and keypad ride to B1 passed.');
+  console.log('Two-finger kiosk drags, KidLisp holds, focused cursor, zoom, RT use and elevator ride passed.');
 } finally {
   await browser.close();
   await app.close();

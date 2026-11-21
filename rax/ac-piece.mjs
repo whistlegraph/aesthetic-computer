@@ -126,14 +126,13 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
     net: { preload: async () => undefined, udp: () => ({ send() {}, receive() {}, connected: false }), socket: () => ({ send() {}, close() {}, connected: false }), log() {} },
     help: { resampleArray: (from, n) => Array.from({ length: n }, (_, k) => from[Math.floor((k / n) * from.length)] ?? 0) },
     // 🏷️ The corner label is AC's page's to draw, and a panel has none (its sign is over it).
-    hud: { label() {}, suffix() {}, currentLabel: () => undefined }, needsPaint() {}, cursor() {}, pens: () => [],
+    hud: { label() {}, suffix() {}, currentLabel: () => undefined }, needsPaint() {}, cursor() {},
   };
-  // AC numbers its pointers (`touch:1`, `draw:1`, `lift:1`), and a piece may ask for any of them (`touch:any`); a panel has the one.
+  // AC numbers its pointers (`touch:1`, `draw:1`, `lift:1`), and a piece may ask for any of them (`touch:any`).
   const act = ($) => {
-    // (This page's own pointer is 1; anyone else's is their seat's, told by the panel: panel.mjs `hear`.)
     const e = $.event, n = e.pointer || 1, name = e.name === 'move' ? 'move' : `${e.name}:${n}`;
-    // 🎯 The pointer here is a crosshair, and it is never quite still: a drag has no `delta`, so a note held is held true (song bends its pitch by a drag's delta, and wavered with every breath of the aim: 2026-11-20).
-    const delta = { x: 0, y: 0 };
+    // Touch gestures carry their own deltas; a drifting crosshair keeps its note steady.
+    const delta = e.delta || { x: 0, y: 0 };
     if (booting) return;
     busy = true;
     try { disk.act?.({ ...$, event: { ...e, name, pointer: n, delta, is: (q) => name === q || name.startsWith(`${q}:`) || (q.endsWith(':any') && name.startsWith(q.slice(0, -3))) } }); }

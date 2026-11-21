@@ -915,12 +915,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, room.match.snapshot());
     };
     // 👥 Leaving with a hand still on a kiosk: the room is told it was let go.
+    const pressing = new Map();
     const letGo = () => {
-      if (!member.pressing || member.seat < 0) return;
-      const word = JSON.stringify({ type: 'panel', id: member.pressing, seat: member.seat, name: 'lift', x: -1, y: -1 });
-      kiosks.record(key, member.pressing, 'lift', -1, -1, member.seat);
-      member.pressing = null;
-      for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
+      for (const [finger, id] of pressing) {
+        const word = JSON.stringify({ type: 'panel', id, seat: member.seat, finger, name: 'lift', x: -1, y: -1 });
+        kiosks.record(key, id, 'lift', -1, -1, member.seat, finger);
+        for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
+      }
+      pressing.clear();
     };
     // 🧵 The body goes to another room and the socket stays. Nothing is
     // closed or opened and nobody is asked again who they are: the same
@@ -1146,7 +1148,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const k of ['durationMs', 'frames', 'frameGapMaxMs', 'frameWorkMaxMs', 'renderMaxMs',
           'snapshotGapMaxMs', 'longTasks', 'longTaskMaxMs', 'frameErrors', 'messageMaxMs',
           'reconcileMaxMs', 'pendingCommandsMax', 'snapshotsCoalesced',
-          'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'backend']) fields[k] = data[k];
+          'rttMs', 'jitterMs', 'queuedBytes', 'objects', 'triangles', 'backend', 'gyroState', 'gyroSamples', 'gyroValid', 'gyroTurns']) fields[k] = data[k];
         diagnostics.emit('client.sample', { ...fields, session: ws.diagnosticSession,
           buildIds: Array.isArray(data.buildIds) ? data.buildIds.slice(0, 12).filter((id) =>
             ws.diagnosticJobs.has(id) && Date.now() - ws.diagnosticJobs.get(id) <= 300000) : [] });
@@ -1229,10 +1231,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           for (const client of room.clients.keys()) if (client !== ws) sendText(client, again);
           return;
         }
-        member.pressing = data.name === 'lift' ? null : data.id;
+        const finger = data.finger ?? 1;
+        if (!Number.isInteger(finger) || finger < 1 || finger > 16) return;
+        if (data.name === 'touch') {
+          if (pressing.has(finger)) return;
+          pressing.set(finger, data.id);
+        } else if (pressing.get(finger) !== data.id) return;
+        if (data.name === 'lift') pressing.delete(finger);
         const px = clamp(Math.round(data.x), -1, 1024), py = clamp(Math.round(data.y), -1, 1024);
-        kiosks.record(key, data.id, data.name, px, py, member.seat); // 🧩 kept, so the piece is one piece for whoever comes later (kiosks.mjs)
-        const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: data.name, x: px, y: py });
+        kiosks.record(key, data.id, data.name, px, py, member.seat, finger); // 🧩 kept, so the piece is one piece for whoever comes later (kiosks.mjs)
+        const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, finger, name: data.name, x: px, y: py });
         for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
         return;
       }

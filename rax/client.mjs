@@ -7,7 +7,7 @@ import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls } from './elevator.mjs';
 import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
-import { createPanels, PANEL_REACH } from './panel.mjs';
+import { createPanels, panelHit, PANEL_REACH } from './panel.mjs';
 import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
@@ -203,7 +203,7 @@ function tendKiosk(panel) {
     try { tell(); } finally { yardActing = null; }
     if (name === 'lift') for (const v of [...yardVoices]) if (v.id === id && v.held && (v.pointer === pointer || !hands.size)) v.kill(0.06);
   };
-  panel.act = (name, px, py, device) => under(1, name, () => act(name, px, py, device));
+  panel.act = (name, px, py, device, pointer = 1) => under(pointer, name, () => act(name, px, py, device, pointer));
   panel.hear = (name, px, py, pointer) => under(pointer, name, () => hear(name, px, py, pointer));
   return panel;
 }
@@ -240,13 +240,27 @@ function catchUp() {
       // (Begun again by someone while this page was away: begin it again here first, then do what has been done since.)
       if ((kept.epoch || 0) > (panel.epoch || 0)) { if (panel.fresh) { void resetKiosk(panel.id, false, kept.epoch); continue; } panel.epoch = kept.epoch; }
       const todo = kept.total > (panel.done || 0) ? kept.events.slice(-Math.min(kept.events.length, kept.total - (panel.done || 0))) : [];
-      for (const [name, x, y, seat] of todo) panel.hear(name, x, y, seat + 2);
+      for (const [name, x, y, seat, finger] of todo) panel.hear(name, x, y, remotePointer(seat, finger));
       panel.done = Math.max(panel.done || 0, kept.total);
     }
   } finally { yardMuted = false; }
 }
 let yardAsked = false;
 const yardQuiet = () => { yardTouched.clear(); for (const hands of yardPointers.values()) hands.clear(); for (const v of [...yardVoices]) v.kill(0.05); };
+function sharePanel(panel) {
+  const act = panel.act, toldAt = new Map();
+  panel.act = (name, x, y, device, finger = 1) => {
+    act(name, x, y, device, finger);
+    if (name === 'move' || seat < 0 || room !== 'lobby') return;
+    const now = performance.now();
+    if (name === 'draw' && now - (toldAt.get(finger) ?? -Infinity) < 50) return;
+    if (name === 'draw') toldAt.set(finger, now);
+    if (name === 'lift') toldAt.delete(finger);
+    if (name !== 'draw') panel.done = (panel.done || 0) + 1;
+    send({ type: 'panel', id: panel.id, name, finger, x: Math.round(x), y: Math.round(y) });
+  };
+}
+const remotePointer = (seat, finger = 1) => 16 * (seat + 1) + finger;
 async function mountYard() {
   if (yardAsked) return;
   yardAsked = true;
@@ -263,17 +277,7 @@ async function mountYard() {
       const { piece, host } = await fresh();
       const panel = tendKiosk(panels.mount({ id, label: slug, completes: true, piece, host, x, y, z, yaw, ...face, deep: KIOSK_DEEP }));
       // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
-      const act = panel.act;
-      let toldAt = 0;
-      panel.act = (name, px, py, device) => {
-        act(name, px, py, device);
-        if (name === 'move' || seat < 0 || room !== 'lobby') return;
-        const now = performance.now();
-        if (name === 'draw' && now - toldAt < 50) return;
-        toldAt = now;
-        if (name !== 'draw') panel.done = (panel.done || 0) + 1;
-        send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
-      };
+      sharePanel(panel);
       panel.fresh = fresh;
       yardPanels.push(panel);
       if (sign) yardPanels.push(panels.mount({ id: `${id}-sign`, piece: signPiece(slug, () => void resetKiosk(id, true)), x, y: y + face.h / 2 + 0.17, z, yaw, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
@@ -302,24 +306,14 @@ async function mountYard() {
       board = panels.mount({ id, label: 'notepat', completes: true, piece: await notepatPiece({ sound }), ...spot, y: 1.5, yaw: 180, w: 4.8, h: 2, cols: 240, rows: 100, deep: 0.12 });
     }
     tendKiosk(board);
-    const act = board.act;
-    let toldAt = 0;
-    board.act = (name, px, py, device) => {
-      act(name, px, py, device);
-      if (name === 'move' || seat < 0 || room !== 'lobby') return;
-      const now = performance.now();
-      if (name === 'draw' && now - toldAt < 50) return;
-      toldAt = now;
-      if (name !== 'draw') board.done = (board.done || 0) + 1;
-      send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
-    };
+    sharePanel(board);
     yardPanels.push(board);
     // (Its name at its top left, as every piece on a panel has: pressed, the piece begins again.)
     yardPanels.push(panels.mount({ id: `${id}-sign`, piece: signPiece('notepat', () => void resetKiosk(id, true)), x: spot.x - (board.w / 2 - 0.6), y: board.y + board.h / 2 + 0.17, z: spot.z, yaw: 180, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     catchUp();
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
-let padFinger = null; // the finger (a pointer's id) pressing a panel on a touch screen
+const screenFingers = new Map(); // Browser pointer id → captured screen and piece pointer.
 // 🤖 Agents linked to this handle (the presence relay AC's own pages join: lib/agent-presence.mjs). rax takes a place in the handle's room itself and draws the mark after the name, on its own grid: no page element over the picture.
 const agentLink = { room: null, socket: null, agents: 0, tryAt: 0 };
 function linkAgents(handle, now) {
@@ -665,6 +659,7 @@ let chatLog = []; // { at, handle, name, colors, text }
 const connection = new Connection();
 let selfMember = null;
 const diagnostics = new ClientDiagnostics((sample) => {
+  if (query.get('debug') === 'motion') Object.assign(sample, gyro.status());
   if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048) send(sample);
 });
 let longTaskObserver;
@@ -1152,7 +1147,7 @@ function pointScreen(name) {
   p.x = x;
   p.y = y;
   if (name === 'lift') {
-    if (p.instance) p.instance.pressed = null;
+    if (p.instance && ![...screenFingers.values()].some(f => f.instance === p.instance)) p.instance.pressed = null;
     screenPress = null;
   }
 }
@@ -1385,6 +1380,7 @@ if (hosted) void peekRoom();
 // A read-only window into the aim, for end-to-end checks (?debug only).
 if (query.has('debug'))
   window.raxDebug = () => ({
+    gyro: gyro.status(),
     holding: snapshot?.items?.find(it => it.holder === seat && seat >= 0)?.id,
     seat,
     builds: builds.rows(),
@@ -1473,6 +1469,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     departing.screens = screens.map(({ id, x, z, yaw, code }) => ({ id, x, z, yaw, code }));
     departing.tiles = tiles;
   }
+  for (const id of screenFingers.keys()) endScreenFinger(id, null);
   room = to;
   if (riding) {
     // 🛗 The car leaves at once and the next floor is already known: the
@@ -1745,7 +1742,7 @@ function connect(adopt = null) {
     if (data.type === 'panel') {
       const panel = yardPanels.find((p) => p.id === data.id);
       if (data.name === 'reset') { if (yardKept?.[data.id]) yardKept[data.id] = { total: 0, events: [], epoch: (panel?.epoch || 0) + 1 }; return void resetKiosk(data.id); }
-      panel?.hear?.(data.name, data.x, data.y, data.seat + 2);
+      panel?.hear?.(data.name, data.x, data.y, remotePointer(data.seat, data.finger));
       if (panel && data.name !== 'draw') panel.done = (panel.done || 0) + 1;
       return;
     }
@@ -2340,15 +2337,72 @@ function touchButton(button, isDown) {
     softKeys.focus({ preventScroll: true });
   } else syncSoftKeys();
 }
+function beginScreenFinger(e) {
+  const eye = view.aimOrigin(), ray = view.aimRay(e.offsetX, e.offsetY);
+  if (!eye || !ray || dock?.way < 0) return false;
+  const reach = dock ? Infinity : PANEL_REACH;
+  let hit = panels.aim(eye, ray, reach);
+  if (dock && hit?.panel !== panelOf(dock.id)) hit = null;
+  let face = hit?.panel, panel = face, program = null, instance = null;
+  const ids = dock ? [dock.id] : [...screens.map(s => 'screen:' + s.id), ...walls.map(w => 'wall:' + w.code)];
+  for (const id of ids) {
+    if (id.startsWith('panel:')) continue;
+    const candidate = faceOf(id);
+    if (!candidate) continue;
+    const at = panelHit(candidate, eye, ray, hit?.t ?? reach);
+    if (!at) continue;
+    const grid = id.startsWith('screen:') ? screenInstances.get(room + '/' + id.slice(7)) : null;
+    const piece = grid?.pressed || grid?.program || walls.find(w => 'wall:' + w.code === id);
+    if (!piece?.point) continue;
+    face = candidate; hit = at; program = piece; instance = grid; panel = null;
+  }
+  if (!hit) return false;
+  const used = new Set([...screenFingers.values()].map(f => f.pointer));
+  let pointer = padHolds || keyHolds || screenPress ? 2 : 1;
+  while (used.has(pointer)) pointer++;
+  if (pointer > 16) return true;
+  const finger = { pointer, panel, program, instance, face, x: hit.x, y: hit.y };
+  if (instance) instance.pressed = program;
+  screenFingers.set(e.pointerId, finger);
+  canvas.setPointerCapture(e.pointerId);
+  tellScreenFinger(finger, 'touch', hit);
+  return true;
+}
+function tellScreenFinger(f, name, hit) {
+  f.x = hit?.x ?? -1; f.y = hit?.y ?? -1;
+  if (f.panel) {
+    f.panel.act(name, f.x, f.y, 'touch', f.pointer);
+  } else {
+    const x = Math.floor(f.x * f.program.width / f.face.cols), y = Math.floor(f.y * f.program.height / f.face.rows);
+    f.program.point(name, x, y, f.pointer, 'touch');
+  }
+}
+function endScreenFinger(id, hit) {
+  const f = screenFingers.get(id);
+  if (!f) return;
+  screenFingers.delete(id);
+  tellScreenFinger(f, 'lift', hit);
+  if (f.instance && screenPress?.instance !== f.instance && ![...screenFingers.values()].some(other => other.instance === f.instance))
+    f.instance.pressed = null;
+}
+function trackScreenFinger(e, lift = false) {
+  const f = screenFingers.get(e.pointerId);
+  if (!f) return false;
+  const eye = view.aimOrigin(), ray = view.aimRay(e.offsetX, e.offsetY);
+  const hit = eye && ray && panelHit(f.face, eye, ray);
+  if (lift) endScreenFinger(e.pointerId, hit);
+  else if (Math.floor(f.x) !== Math.floor(hit?.x ?? -1) || Math.floor(f.y) !== Math.floor(hit?.y ?? -1)) tellScreenFinger(f, 'draw', hit);
+  return true;
+}
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
   if (view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
-  // 🖼️ A finger on a world panel presses it there (panel.mjs), and is not a look or a button.
-  if (!menu && !radial.open && padFinger === null) {
-    const ray = view.aimRay(e.offsetX, e.offsetY), eye = view.aimOrigin();
-    if (ray && eye && panels.pressAt(panels.aim(eye, ray, dock ? 60 : PANEL_REACH))) return void (padFinger = e.pointerId); // (gone in to one, a finger reaches it from where the eye stands)
+  if (!typing() && !chalkMode && !menu && !radial.open && beginScreenFinger(e)) {
+    touch.active = true;
+    void sfx.wake();
+    return;
   }
   // An open menu takes the tap: a row is chosen, anywhere off the panel closes it.
   if (menu) {
@@ -2366,29 +2420,38 @@ canvas.addEventListener('pointerdown', (e) => {
   if (first) void capture();
 });
 canvas.addEventListener('pointermove', (e) => {
-  if (touchy(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
+  if (touchy(e) && !trackScreenFinger(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
 });
-const gyro = gyroLook(window,
-  () => touch.active && sheetOpen && !document.hidden && document.hasFocus() && !down &&
-    !typing() && !menu && !radial.open && !dock && !lockOn && !game()?.camera && !away && !resting,
+// The prompt and its room share an origin. Subscribe in the visible top-level page on phones.
+const motionHost = hosted && document.referrer && new URL(document.referrer).origin === location.origin ? window.parent : window;
+const gyro = gyroLook(motionHost,
+  () => touch.active && sheetOpen && !document.hidden && !down &&
+    !typing() && !menu && !radial.open && !dock && !lockOn && !screenFingers.size && !game()?.camera && !away && !resting,
   (dx, dy) => {
     yaw = (yaw + dx / focusZoom + 360) % 360;
     pitch = clamp(pitch + dy / focusZoom, -85, 85);
     if (Math.hypot(dx, dy) > 0.08) inputAt = performance.now();
   });
+window.addEventListener('pagehide', e => { if (!e.persisted) gyro.dispose(); else gyro.reset(); });
+function enablePhoneLook() {
+  if (sheetOpen && !typing() && !menu && !radial.open) void gyro.enable();
+}
+canvas.addEventListener('touchend', enablePhoneLook, { passive: true });
 canvas.addEventListener('pointerup', (e) => {
   if (!touchy(e)) return;
-  if (e.pointerType === 'touch' && sheetOpen && !typing() && !menu && !radial.open) void gyro.enable();
-  if (e.pointerId === padFinger) { padFinger = null; return void panels.release(); }
+  if (e.pointerType === 'touch') enablePhoneLook();
+  if (trackScreenFinger(e, true)) return;
   touchButton(touch.up(e, performance.now()), false);
 });
 canvas.addEventListener('pointercancel', (e) => {
   if (!touchy(e)) return;
-  if (e.pointerId === padFinger) { padFinger = null; return void panels.release(); }
+  endScreenFinger(e.pointerId, null);
   const held = touch.cancel(e);
   if (held && !held.act) pressKey('keyup', held.code, held.key);
 });
+canvas.addEventListener('lostpointercapture', e => endScreenFinger(e.pointerId, null));
 function releaseInput() {
+  for (const id of screenFingers.keys()) endScreenFinger(id, null);
   gyro.reset();
   lastMotionLook = null;
   sfx.motion();
@@ -3243,7 +3306,7 @@ function step(now) {
   cursorAim = CURSOR_AIM && !locked() && !!mouseAt && now - mouseAt.at < 6000 && !touch.active && !prompt.open;
   // 🚁 Someone looking on aims too (their drone's eye): to scan what stands there and lock on to it.
   const aimer = player || (seat < 0 && !held && snapshot && sheetOpen ? freecam : null), hand = seat >= 0 ? seat : -2;
-  if (!aimer) panels.point(null);
+  if (!aimer && !screenFingers.size) panels.point(null);
   if (aimer) {
     // The aim ray: from the camera, through the free mouse or along the
     // camera's own centre (the crosshair's normal), never from the player's
@@ -3314,7 +3377,7 @@ function step(now) {
     const seen = panels.aim(origin, dir, nearest), onPanel = seen && seen.t <= PANEL_REACH ? seen : null;
     // 🖥️ Gone in to one, its mouse is the one moved over its whole face (`dockLook`), however far off the eye stands.
     const inside = dock?.cursor && dock.way > 0 ? panelOf(dock.id) : null;
-    panels.point(inside ? { panel: inside, x: dock.cursor.x, y: dock.cursor.y, t: dock.to.back } : dock || lockOn ? null : onPanel);
+    if (!screenFingers.size) panels.point(inside ? { panel: inside, x: dock.cursor.x, y: dock.cursor.y, t: dock.to.back } : dock || lockOn ? null : onPanel);
     // 🧩 A piece on a panel is aimed at from any distance, as anything that stands here is.
     if (seen) { nearest = seen.t; focusObject = seen.panel.label ? panelFocus(seen.panel) : onPanel ? null : focusObject; }
     // The floor square under the crosshair, within reach, if nothing nearer.
