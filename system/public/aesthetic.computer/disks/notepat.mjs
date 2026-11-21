@@ -450,6 +450,7 @@ function panicNotepat() {
   clearHeldVoices();
   for(const group of [...chordVoices.values()])group.kill(.015);
   chordVoices.clear();
+  for (const note of Object.keys(trail)) delete trail[note];
   host({ op: "panic" });
 }
 const midiPerformance = createMidiPerformance({
@@ -458,7 +459,10 @@ const midiPerformance = createMidiPerformance({
     const oct = Math.floor(voice.note / 12) - 1;
     voice.tone = `${oct}${name.toUpperCase()}`;
     voice.button = oct === lowerBaseOctave() ? name : oct === upperBaseOctave() ? `+${name}` : null;
-    if (voice.button && buttons[voice.button]) buttons[voice.button].down = true;
+    if (voice.button && buttons[voice.button]) {
+      buttons[voice.button].down = true;
+      delete trail[voice.button];
+    }
     tonestack[`midi:${voice.id}`] = { tone: voice.tone, count: Object.keys(tonestack).length };
     autopatApi?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     return makeNoteSound(voice.tone, voice.velocity, 0, { output: false });
@@ -467,7 +471,10 @@ const midiPerformance = createMidiPerformance({
     voice.handle?.kill?.(0.08);
     delete tonestack[`midi:${voice.id}`];
     if (voice.button && buttons[voice.button] && !sounds[voice.button] &&
-        ![...midiPerformance.notes.values()].some(v => v.button === voice.button)) buttons[voice.button].down = false;
+        ![...midiPerformance.notes.values()].some(v => v.button === voice.button)) {
+      buttons[voice.button].down = false;
+      trail[voice.button] = 1;
+    }
   },
   bend(voice, semitones) { voice.handle?.update?.({ tone: soundContext?.freq(voice.tone) * 2 ** (semitones / 12) }); },
   program(program) { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(program, autopatApi, true); },
@@ -1358,6 +1365,16 @@ function paintClassicNotepat(api, amplitude, waveforms) {
       if(btn.over) colors.fill=colors.fill.map(c=>Math.min(255,c+8));
     }
     painter.ink(...colors.fill).box(b.x,b.y,b.w,b.h);
+    const remaining = trail[note];
+    if (!active && remaining > 0) {
+      // The original ghost contracts toward the center as its opacity falls.
+      const w = Math.round(b.w * remaining), h = Math.round(b.h * remaining);
+      const x = b.x + Math.round((b.w - w) / 2), y = b.y + Math.round((b.h - h) / 2);
+      const alpha = Math.round(180 * remaining);
+      if (piano ? sharp : dark) painter.ink(222, 92, 126, alpha);
+      else painter.ink(128, 0, 0, alpha);
+      painter.box(x, y, w, h);
+    }
     if(piano) {
       painter.ink(...palette.rail).line(b.x+b.w-1,b.y,b.x+b.w-1,b.y+b.h-1);
       painter.ink(...color).box(b.x,b.y+b.h-2,b.w-1,2);
@@ -7778,12 +7795,12 @@ function act({
             },
             // TODO: The order of over and out will be important...
             out: (btn) => {
+              if (btn.down || sounds[note]) trail[note] = 1;
               releaseDrum(note);
               // Only stop the sound when dragging off, but don't affect button down state
               sounds[note]?.sound?.kill(killFade);
               delete tonestack[note]; // Remove from notestack  
               delete sounds[note]; // Remove sound reference
-              delete trail[note]; // Clean up trail
               
               // If this was the song note, reset the flag so it doesn't advance on wrong note
               if (song && note.toUpperCase() === song?.[songIndex][0] && songNoteDown) {
@@ -7791,12 +7808,12 @@ function act({
               }
             },
             cancel: (btn) => {
+              if (sounds[note] || drumVoices.get(note)?.released === false) trail[note] = 1;
               releaseDrum(note,true);
               // Force cleanup when button gets stuck - stop the sound immediately
               sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
               delete tonestack[note]; // Remove from notestack
               delete sounds[note]; // Remove sound reference
-              delete trail[note]; // Clean up trail
             },
             up: (btn) => { stopButtonNote(note); },
           },
