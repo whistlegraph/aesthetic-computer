@@ -49,9 +49,10 @@ function dice(seed) {
 export async function acPiece(slug, { sound, seed = null, clock = Date.now, base = AC } = {}) {
   const [head, ...params] = String(slug).trim().split(/\s+/), [name, ...colon] = head.split(':');
   if (!/^[a-z0-9-]{1,32}$/.test(name)) throw Error(`no piece ${name}`);
-  const [num, geo, { Button, TextButtonSmall }] = await Promise.all(['num', 'geo', 'ui'].map((lib) => import(new URL(`lib/${lib}.mjs`, base).href)));
-  // (Each panel has the disk to itself: a piece keeps its state in its module, so two of one piece are two loads.)
-  const disk = await import(`${new URL(`disks/${name}.mjs`, base).href}?panel=${++mounted}`);
+  // (Each panel has the disk to itself: a piece keeps its state in its module, so two of one piece are two loads. AC's buttons are loaded for each panel too: ui.mjs keeps one list of the buttons held down for the whole page, and tidies it as one screen's, so with a row of kiosks one panel's press was let go, or left stuck, by another's: 2026-11-20.)
+  const mine = ++mounted;
+  const [num, geo, { Button, TextButtonSmall }] = await Promise.all(['num', 'geo', `ui`].map((lib) => import(`${new URL(`lib/${lib}.mjs`, base).href}${lib === 'ui' ? `?panel=${mine}` : ''}`)));
+  const disk = await import(`${new URL(`disks/${name}.mjs`, base).href}?panel=${mine}`);
   // 🔤 A panel writes in the one small face (MatrixChunky8), so a piece's text buttons are AC's small ones.
   class TextButton extends TextButtonSmall {
     replaceLabel(text) { this.txt = text; }
