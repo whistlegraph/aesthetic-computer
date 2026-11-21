@@ -12,25 +12,27 @@
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
 <link rel="stylesheet" href="/web1.css">
+<link id="night-palette" rel="stylesheet" href="/night.css" media="(prefers-color-scheme: dark)">
+<script src="/theme.js"></script>
 <style>
 body{margin:0 auto;padding:12px 16px 32px;max-width:900px}
-h1{font:normal 64px/1 Pixel,monospace;color:#79568b;margin:0}
+h1{font:normal 64px/1 Pixel,monospace;color:var(--rule);margin:0}
 h2.web-ribbon{margin:22px 0 6px}
 p{margin:6px 0}
-hr{border:0;border-top:1px solid #79568b;margin:14px 0}
+hr{border:0;border-top:1px solid var(--rule);margin:14px 0}
 code,pre,kbd{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace}
 pre{margin:0}
 table{border-collapse:collapse;width:100%}
 table{border-style:hidden}
-th,td{border:1px solid #b0a8ba;padding:3px 7px;text-align:left;vertical-align:top}
-thead th{background:rgba(0,0,0,.07);font-size:13px}
+th,td{border:1px solid var(--edge);padding:3px 7px;text-align:left;vertical-align:top}
+thead th{background:var(--shade);font-size:13px}
 tbody th{white-space:nowrap}
 td code,p code,li code{overflow-wrap:anywhere}
 .wide{overflow-x:auto}
-.t-plum{background:#f1ecf7}.t-pink{background:#fcf0f6}.t-teal{background:#e8f4f3}
+.t-plum{background:var(--plum)}.t-pink{background:var(--pink-wash)}.t-teal{background:var(--teal)}
 .art{float:right;width:250px;margin:0 0 6px 14px;text-align:center}
 
-.art img{display:block;width:100%;height:auto;border:1px solid #79568b}
+.art img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
 h2{overflow:hidden}
 .ill{width:76px;padding:2px}.ill img{display:block;width:72px;height:72px}
 .nw,.nwd{white-space:nowrap}
@@ -39,11 +41,11 @@ h2{overflow:hidden}
 ol{margin:6px 0;padding-left:22px}
 .shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
 .shots a{flex:1;min-width:0;font-size:12.5px;color:inherit;text-decoration:none}
-.shots img{display:block;width:100%;height:auto;border:1px solid #79568b}
-.zone th[colspan]{background:rgba(0,0,0,.07);font-size:13px}
+.shots img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.zone th[colspan]{background:var(--shade);font-size:13px}
 footer{font-size:13px;margin-top:18px}
 @media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:150px}.shots{flex-direction:column}tbody th,.nwd,.nw{white-space:normal}.ill{width:52px}.ill img{width:48px;height:48px}}
-.dot{color:#b44887}</style>
+.dot{color:var(--accent)}</style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
@@ -172,7 +174,7 @@ end</pre></td></tr>
 <h2 class="web-ribbon" id="help">Help and privacy</h2>
 <p><a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> · <a href="/support.html">support notes</a> · <a href="/privacy.html">privacy policy</a>. Your conversation goes to the brain that writes your work; pieces publish to your @handle; notebooks and versions stay on your device.</p>
 <hr>
-<footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</footer>
+<footer><label class="appearance" hidden>Theme <select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label> · Aesel is made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</footer>
 <script type="module" src="/media-slides.js"></script>
 </body>
 </html>

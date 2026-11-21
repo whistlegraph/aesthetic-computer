@@ -1,12 +1,12 @@
 @font-face{font-family:Pixel;src:url('/pixel.woff') format('woff');font-display:swap}
-:root{color-scheme:light;--paper:#fcf0e9;--ink:#221b2b;--rule:#79568b;--ribbon:#e2cdea;--edge:#b0a8ba;--sheet:#fffaf1}
+:root{color-scheme:light;--paper:#fcf0e9;--ink:#221b2b;--rule:#79568b;--ribbon:#e2cdea;--edge:#b0a8ba;--sheet:#fffaf1;--link:#0000b4;--visited:#6a1b8a;--muted:#705d77;--accent:#ac437f;--button:#714f81;--hover-button:#4d2e65;--hover:#f4deed;--danger:#942748;--plum:#f1ecf7;--pink-wash:#fcf0f6;--teal:#e8f4f3;--stage:#e8ddcd;--shade:rgba(0,0,0,.07)}
 body{background:var(--paper);color:var(--ink);font:15px/1.4 Georgia,"Times New Roman",serif}
-a{color:#0000c8}a:visited{color:#6a1b8a}
+a{color:var(--link)}a:visited{color:var(--visited)}
 .web-panel,.wide{border:1px solid var(--edge);border-radius:4px;background:var(--sheet)}
 .web-ribbon{margin:0;padding:3px 8px;font:bold 17px/1.3 Georgia,serif;background:var(--ribbon);border-bottom:1px solid var(--rule)}
 .web-button{background:var(--sheet);color:var(--ink);border:1px outset var(--rule);border-radius:2px;padding:4px 10px;font:inherit;cursor:pointer}
-.web-button:enabled:hover{background:#f4deed}.web-button:active{border-style:inset}
-:focus-visible{outline:2px solid #87538d;outline-offset:2px}
+.web-button:enabled:hover{background:var(--hover)}.web-button:active{border-style:inset}
+:focus-visible{outline:2px solid var(--rule);outline-offset:2px}
 .mime{display:inline-block;padding:1px 6px;border:1px solid var(--c);border-left-width:5px;background:#fffdf8;background:color-mix(in srgb,var(--c) 10%,#fffdf8);font-size:12.5px}
 .mime b{font-weight:normal}.mime s{text-decoration:none;color:#9a8ea0;padding:0 1px}.mime i{font-style:italic;color:#9a8ea0}.mime u{text-decoration:none;font-weight:bold;color:var(--c)}
 .ty-text b{color:#2a6f3f}.ty-image b{color:#a1306f}.ty-audio b{color:#5a3ea8}.ty-application b{color:#8a5a00}
@@ -15,3 +15,7 @@ a{color:#0000c8}a:visited{color:#6a1b8a}
 [data-mime-slides] img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
 [data-mime-slides] figcaption{margin-top:4px}
 [data-mime-slides] .byline{display:block;font:italic 14px/1.3 Georgia,serif;margin:4px 0;min-height:2.6em}
+
+.appearance{font:14px/1.3 Georgia,serif;color:var(--muted);white-space:nowrap}
+.appearance select{font:inherit;padding:2px;border:1px solid var(--edge);color:var(--ink);background:var(--sheet);border-radius:2px}
+.appearance[hidden]{display:none}

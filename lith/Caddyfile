@@ -1947,6 +1947,12 @@ aesel.app {
 try.aesel.app {
     import security_headers
     import machine_discovery
+    tls {
+        protocols tls1.2 tls1.3
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+        }
+    }
     redir / https://aesel.app/try/ 302
     redir https://aesel.app{uri} 302
 }

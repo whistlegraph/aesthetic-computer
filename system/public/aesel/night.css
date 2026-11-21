@@ -1,0 +1,5 @@
+:root{color-scheme:dark;--paper:#211c29;--ink:#f4e8ed;--rule:#b89acb;--ribbon:#46324f;--edge:#746778;--sheet:#2c2531;--link:#bdcaff;--visited:#e2b4eb;--muted:#cbbacd;--accent:#f29bc6;--button:#654376;--hover-button:#7e568e;--hover:#493248;--danger:#ffadc5;--plum:#352c40;--pink-wash:#3a2a35;--teal:#23383a;--stage:#332b39;--shade:rgba(255,255,255,.08)}
+:root .mime{background:#322a38;color:var(--ink)}
+:root .mime u{color:#fff0db;color:color-mix(in srgb,var(--c) 28%,white)}
+:root .mime i,:root .mime s{color:var(--muted)}
+:root .ty-text b{color:#a3dbae}:root .ty-image b{color:#f9add5}:root .ty-audio b{color:#cab8ff}:root .ty-application b{color:#f3cc8c}

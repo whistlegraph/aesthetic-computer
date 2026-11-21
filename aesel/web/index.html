@@ -3,17 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f4eddb">
+  <meta name="theme-color" content="#fcf0e9">
   <title>Aesel — easily make and share new media</title>
   <link rel="icon" href="/icon.png">
   <link rel="stylesheet" href="/web1.css">
+<link id="night-palette" rel="stylesheet" href="/night.css" media="(prefers-color-scheme: dark)">
+<script src="/theme.js"></script>
   <link rel="stylesheet" href="./app.css">
   <script defer src="./auth0.js"></script>
   <script defer src="./app.js"></script>
   <script type="module" src="/media-slides.js"></script>
 </head>
 <body>
-  <header><a class="brand" href="/try/"><img src="/icon.png" width="44" height="44" alt="">Aesel<span>by Aesthetic Computer</span></a><div class="account"><a href="/about/">About Aesel</a><span id="credits"></span><a id="handle"></a><button id="logout" hidden>Sign out</button></div></header>
+  <header><a class="brand" href="/try/"><img src="/icon.png" width="44" height="44" alt="">Aesel<span>by Aesthetic Computer</span></a><div class="account"><label class="appearance" hidden>Theme <select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label><a href="/about/">About Aesel</a><span id="credits"></span><a id="handle"></a><button id="logout" hidden>Sign out</button></div></header>
   <main id="gate">
     <figure class="desk-illy" data-mime-slides><img src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code><span class="byline">A little world that follows your cursor.</span></figcaption></figure>
     <h1>Your Aesel desk</h1>
