@@ -40,6 +40,11 @@ const SERVICES = {
     ] },
   bluesky: { files: ["at/.env"], repoFile: "at/.env", optionalKeys: ["BSKY_SERVICE"],
     variants: [{ auth: "app-password", keys: ["BSKY_IDENTIFIER", "BSKY_APP_PASSWORD"] }] },
+  // Auth0 Management API (machine-to-machine) per tenant; toolchain/auth0/auth0.mjs.
+  "auth0:aesthetic": { files: ["auth0.env", ".devcontainer/envs/devcontainer.env"],
+    variants: [{ auth: "m2m", keys: ["AUTH0_M2M_CLIENT_ID", "AUTH0_M2M_SECRET"] }] },
+  "auth0:sotce": { files: ["auth0.env", ".devcontainer/envs/devcontainer.env"],
+    variants: [{ auth: "m2m", keys: ["SOTCE_AUTH0_M2M_CLIENT_ID", "SOTCE_AUTH0_M2M_SECRET"] }] },
   "apple-notary": { files: ["apple/app-specific-password.env"], optionalKeys: ["APPLE_TEAM_ID"],
     variants: [
       { auth: "app-password", keys: ["APPLE_ID", "APPLE_APP_PASSWORD"] },

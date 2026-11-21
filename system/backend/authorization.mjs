@@ -9,6 +9,7 @@ import * as KeyValue from "./kv.mjs";
 import { shell } from "./shell.mjs";
 import { accountLocked } from "./account-lock.mjs";
 import { sotceBanned } from "../../shared/sotce-ban.mjs";
+import { recordRefusal } from "./auth-refusals.mjs";
 
 async function sotceAccessDenied(user) {
   try {
@@ -43,10 +44,12 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
     // A lock can land after a token was cached, in this or another process.
     if (tenant === "aesthetic" && (await accountLocked(cached.user?.sub))) {
       userinfoCache.delete(cacheKey);
+      recordRefusal({ tenant, user: cached.user, reason: "account-locked" });
       return undefined;
     }
     if (tenant === "sotce" && (await sotceAccessDenied(cached.user))) {
       userinfoCache.delete(cacheKey);
+      recordRefusal({ tenant, user: cached.user, reason: "sotce-ban" });
       return undefined;
     }
     return { ...cached.user }; // Shallow copy so callers can't mutate the cache.
@@ -66,10 +69,13 @@ export async function authorize({ authorization }, tenant = "aesthetic") {
     shell.log(`✅ Authorization successful for \`${tenant}\` user: ${result?.sub}`);
     // An account waiting to be deleted is locked (account-lock.mjs).
     if (tenant === "aesthetic" && (await accountLocked(result?.sub))) {
-      shell.log(`🔒 Refused locked account: ${result.sub}`);
+      recordRefusal({ tenant, user: result, reason: "account-locked" });
       return undefined;
     }
-    if (tenant === "sotce" && (await sotceAccessDenied(result))) return undefined;
+    if (tenant === "sotce" && (await sotceAccessDenied(result))) {
+      recordRefusal({ tenant, user: result, reason: "sotce-ban" });
+      return undefined;
+    }
     if (result?.sub) {
       if (userinfoCache.size >= USERINFO_CACHE_MAX) {
         userinfoCache.delete(userinfoCache.keys().next().value); // Drop oldest.
