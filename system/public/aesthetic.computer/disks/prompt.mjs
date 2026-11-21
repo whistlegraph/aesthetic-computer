@@ -6815,14 +6815,11 @@ function paint($) {
         }
       }
       const hot = !raxFlight && raxBtn?.over;
-      // Hovered, the crosshair blinks between a wide yellow select outline
-      // and a tight teal inner one, hinting at locking on (2026-11-03); the
-      // room inside follows its size exactly (lib/rax-sheet.mjs "near").
+      // The square reticle blinks between wide yellow and tight teal over the globe.
       const lockBlink = hot && Math.floor(now / 260) % 2 === 0;
       const grow = hot ? 1 : 0;
       if (hot) $.needsPaint?.();
-      // Sent on every whole-pixel change, so the room is always exactly the
-      // crosshair's size (no easing on either side).
+      // The globe stays enlarged throughout the hover.
       if (grow !== raxNearSent) {
         raxNearSent = grow;
         $.send({ type: "rax:sheet", content: { action: "near", value: (7 + grow) / 7 } });
@@ -6835,7 +6832,7 @@ function paint($) {
       }
       raxHover = !!hot;
       const s = Math.max(1, Math.round(scale));
-      const t = s, arm = 4 * s, half = (7 + (raxFlight ? 0 : grow)) * s;
+      const t = s, arm = 4 * s, half = (7 + (lockBlink ? 2 : 0)) * s;
       // (No glow on hover: the lock-on blink is the whole hover.)
       // The centre stays put as the arms spread (it used to grow from the corner).
       const ox = at.x + 8 * s, oy = at.y + 8 * s; // the reticle's centre
@@ -6848,23 +6845,13 @@ function paint($) {
       // keeps its strokes on top on its own.
       const parts = [];
       const L = (x, y, w, h) => parts.push([x, y, w, h]);
-      if (!raxFlight || raxFlight.phase === "held") {
-        // Leave the planet's face unobstructed. Four ticks mark the extent
-        // of the round target and stay outside its visible limb on hover.
-        const r = hot ? 19 : 17;
-        L(-1, -r - 1, 2, 2);
-        L(-1, r, 2, 2);
-        L(-r - 1, -1, 2, 2);
-        L(r, -1, 2, 2);
-      } else {
-        for (const sx of [-1, 1])
-          for (const sy of [-1, 1]) {
-            const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
-            L(sx < 0 ? x : x - arm + t, y, arm, t);
-            L(x, sy < 0 ? y : y - arm + t, t, arm);
-          }
-        L(-t, -t, 2 * t, 2 * t);
-      }
+      for (const sx of [-1, 1])
+        for (const sy of [-1, 1]) {
+          const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
+          L(sx < 0 ? x : x - arm + t, y, arm, t);
+          L(x, sy < 0 ? y : y - arm + t, t, arm);
+        }
+      L(-t, -t, 2 * t, 2 * t);
       for (const [x, y, w, h] of parts) $.ink(24, 24, 24).box(ox + x + t, oy + y + t, w, h);
       for (const [x, y, w, h] of parts) $.ink(color).box(ox + x, oy + y, w, h);
       if (!raxFlight) {
