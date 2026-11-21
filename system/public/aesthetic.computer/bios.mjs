@@ -15249,6 +15249,10 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     } // 💾 Disk Loading
     // Initialize some global stuff after the first piece loads.
     // Unload some already initialized stuff if this wasn't the first load.
+    if (type === "fonts-ready") {
+      window.acFontsReady = content?.error ? "error" : true; // 🔥 See piece-paint-ready.
+      return;
+    }
     if (type === "disk-loaded") {
       accountActivity.load(content.path);
       // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
@@ -20362,6 +20366,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "piece-paint-ready") {
+      // 🔥 The oven's grabber polls these on the page. disk.mjs sets them
+      // itself only when it runs on the main thread (noWorker); in a worker it
+      // has no `window`, so the signal has to be raised here.
+      if (window.acPieceReady !== true) {
+        window.acPieceReady = true;
+        window.acPieceReadyTime = Date.now();
+      }
       if (window.acHIDE_BOOT_LOG) {
         window.acHIDE_BOOT_LOG();
       }

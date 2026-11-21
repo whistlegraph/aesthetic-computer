@@ -9673,8 +9673,12 @@ async function load(
         if (typeof window !== "undefined") {
           window.acFontsReady = true;
           window.__acTypeface = tf;
+        } else {
+          send({ type: "fonts-ready" }); // In a worker: bios raises window.acFontsReady.
         }
-      }).catch(() => {});
+      }).catch(() => {
+        if (typeof window === "undefined") send({ type: "fonts-ready", content: { error: true } });
+      });
     }
     const typefaceLoadEndTime = performance.now();
     // console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
