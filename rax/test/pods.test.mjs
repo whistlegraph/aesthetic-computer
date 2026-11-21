@@ -252,7 +252,16 @@ test('a door held open: a walker near a seam waits in the next room unseated, an
 
 test('the houses come down when the server starts: what stood inside goes up to the handle\'s floor, both ledgers are kept, and nobody is left resting in a house', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-retire-'));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  let app;
+  async function start() {
+    if (app) await app.close();
+    app = createRaxServer({ stateDir: dir, listHandles: async () => [] });
+    await app.ready;
+  }
+  t.after(async () => {
+    try { await app?.close(); }
+    finally { await rm(dir, { recursive: true, force: true }); }
+  });
   const seed = new GeographyStore(dir);
   await seed.change(g => { g.settle('jeffrey'); g.settle('oskie'); });
   const j = seed.geography.forHandle('jeffrey').id, o = seed.geography.forHandle('oskie').id;
@@ -262,9 +271,7 @@ test('the houses come down when the server starts: what stood inside goes up to 
     rooms: { [j]: [thing('chair', 1), thing('lamp', 2)], [o]: [], lobby: [thing('fountain', 0)] },
     tiles: { [j]: { '1,1': 2 } }, history: { [j]: [{ code: 'abc' }] } }));
   const before = await readFile(join(dir, 'objects.json'), 'utf8'), ledger = await readFile(join(dir, 'geography.json'), 'utf8');
-  const app = createRaxServer({ stateDir: dir });
-  t.after(() => app.close?.());
-  await app.ready;
+  await start();
   const floor = 'floor-' + app.tower.tower.forHandle('jeffrey').id;
   assert.deepEqual(app.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
   assert.deepEqual(app.store.data.tiles[floor], { '1,1': 2 });
@@ -280,15 +287,11 @@ test('the houses come down when the server starts: what stood inside goes up to 
   assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
   assert.equal(await readFile(join(dir, 'geography.before-houses.json'), 'utf8'), ledger);
   // A second start finds nothing to do and keeps the copies as they were.
-  const again = createRaxServer({ stateDir: dir });
-  t.after(() => again.close?.());
-  await again.ready;
-  assert.deepEqual(again.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
+  await start();
+  assert.deepEqual(app.store.data.rooms[floor].map(x => x.id), ['chair', 'lamp']);
   // A build made on the ground afterwards stays: the clearing is once.
-  await again.store.transact((d) => { d.rooms.lobby = [{ id: 'bench', owner: 'owner', x: 0, z: 0, versions: [{ version: 1, code: null, geometry: [] }] }]; });
-  const third = createRaxServer({ stateDir: dir });
-  t.after(() => third.close?.());
-  await third.ready;
-  assert.deepEqual(third.store.data.rooms.lobby.map(x => x.id), ['bench']);
+  await app.store.transact((d) => { d.rooms.lobby = [{ id: 'bench', owner: 'owner', x: 0, z: 0, versions: [{ version: 1, code: null, geometry: [] }] }]; });
+  await start();
+  assert.deepEqual(app.store.data.rooms.lobby.map(x => x.id), ['bench']);
   assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
 });

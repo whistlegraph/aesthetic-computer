@@ -1,4 +1,4 @@
-import { BASEMENT, cellarWalls, treads, ceiling, STAIR, stairHeight, stairPassage } from './basement.mjs';
+import { BASEMENT, cellarFixtures, STAIR, stairHeight, stairPassage } from './basement.mjs';
 import http from 'node:http';
 import { stateHome } from './env.mjs'; // first: it reads the old DOOL_* names
 import { tailDevLog } from './dev-log.mjs';
@@ -8,17 +8,18 @@ import { resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
-import { GeographyStore, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
+import { GeographyStore, fromWorld, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
-import { createBall } from './ball.mjs';
+import { createDispenser, DISPENSER_WALL, MAX_BALLS } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
 import { objectBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks } from './elevator.mjs';
-import { TowerStore, GROUND, floorRoom, isFloorRoom, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
+import { aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf } from './elevator.mjs';
+import { TowerStore, GROUND, floorRoom, isFloorRoom, carTo, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
+import { kioskPlan } from './kiosks-plan.mjs';
 import { isArena, LEDGES } from './bop.mjs';
 import { handleColors } from './handle-style.mjs';
 import { ObjectStore } from './object-store.mjs';
@@ -47,6 +48,7 @@ const assets = new Map([
     'pair-view',
     'client',
     'view',
+    'pool-view',
     'paint',
     'project',
     'presentation',
@@ -60,6 +62,7 @@ const assets = new Map([
     'controller',
     'freecam',
     'hud',
+    'build-line',
     'radial',
     'touch',
     'sfx',
@@ -79,6 +82,7 @@ const assets = new Map([
     'bop',
     'games',
     'elevator', 'basement',
+    'kiosks-plan', // 🧩 which kiosks stand where
     'panel', // 🖼️ world panels, and the pieces on them
     'dock', // 🖥️ going in to a screen: its sums
     'pieces/keypad',
@@ -225,7 +229,7 @@ export function createRaxServer({
   const sendPark = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
     rooms.get(key)?.match.setWalls(wallsFor(key)); // the elevator and the lobby are solid
-    if (rooms.has(key)) rooms.get(key).match.open = Object.keys(geography.geography.neighbours(key) || {});
+    if (rooms.has(key)) rooms.get(key).match.open = aloft(key) ? towerSides : Object.keys(geography.geography.neighbours(key) || {});
   };
   // 🏠 Home is the handle's floor of the tower.
   const sendHome = (ws, handle) => {
@@ -234,9 +238,9 @@ export function createRaxServer({
   };
   // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
   // which floor is theirs.
-  const hasCar = (key) => key === BASEMENT || key === GROUND || isFloorRoom(key);
-  // The elevator is solid on every floor; the lobby's glass on the ground.
-  const wallsFor = (key) => [...(key === BASEMENT ? [...treads, ...cellarWalls, ...ceiling] : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
+  const hasCar = (key) => key === BASEMENT || key === GROUND || key === ROOF || isFloorRoom(key);
+  // The elevator is solid on every floor; the lobby's glass on the ground; the parapet on the roof.
+  const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
@@ -251,7 +255,9 @@ export function createRaxServer({
     }
     inside.sort((a, b) => a[0] - b[0]);
     send(ws, { type: 'tower', count: t.count, top: t.top, listed: t.listed(), revision: t.revision, inside: inside.slice(0, 8),
-      here: key === BASEMENT ? { room: BASEMENT, number: -1 } : here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
+      here: key === BASEMENT ? { room: BASEMENT, number: -1 } : here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null }
+        : key === ROOF ? { room: ROOF, number: roofNumber(t.top), roof: true } // 🏙️ nobody's: its number is one over the highest floor
+        : { room: GROUND, number: 0 },
       yours: t.public(mine), owner: !!here && t.owns(here, member) });
     if (here && !profiles.get(here.handle)?.colors)
       void colorsFor(here.handle).promise.then((colors) => {
@@ -513,6 +519,10 @@ export function createRaxServer({
           const id = floorRoom(f.id);
           floors.push({ id, number: n, y: altitude(n), objects: store.objects(id).filter((o) => !o.item), tiles: store.tiles(id) });
         }
+        // 🏙️ And the roof, when it is that near: what its keeper stood on it.
+        const top = tower.tower.top;
+        if (top && Math.abs(storeyOf(top) + 1 - storeyAt(Math.max(0, y))) <= 3)
+          floors.push({ id: ROOF, number: roofNumber(top), y: roofOf(top), objects: store.objects(ROOF).filter((o) => !o.item), tiles: store.tiles(ROOF) });
       }
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
@@ -760,6 +770,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     let key = roomId;
     if ((key.startsWith('pod-') && !geography.geography.pod(key)) ||
         (key.startsWith('floor-') && !tower.tower.forRoom(key)) ||
+        (key === ROOF && !tower.tower.top) || // (the roof lies on the highest floor: no floors, no roof)
         (parseBlock(key) && !onLap(parseBlock(key)))) {
       ws.close(1008, 'Place is not open'); return;
     }
@@ -930,6 +941,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, builders.state(key, member));
       return true;
     };
+    member.crossWindow = () => {
+      const seat = room.match.seats[member.seat], p = seat?.player;
+      if (!stays || !p?.alive || p.shut > 0 || Math.max(Math.abs(p.x), Math.abs(p.z)) <= SLAB + 0.4) return;
+      const {block, local} = fromWorld(p);
+      const height = cellOf(key).h;
+      relocate(blockId(block), { ...local, y: height + p.y, yaw: p.yaw, pitch: p.pitch,
+        vx: p.vx, vy: p.vy, vz: p.vz, onGround: false }, { told: {ack: seat.ack} });
+    };
     member.crossStairs = () => {
       if (!stays || !member.owner || member.seat < 0 || (key !== GROUND && key !== BASEMENT)) return;
       const seat = room.match.seats[member.seat], p = seat?.player;
@@ -968,7 +987,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // visit that has not gone anywhere yet picks up there. A first
         // visit starts on the plaza, at the foot of the tower.
         const last = geography.geography.whereabouts(handle)?.room;
-        const open = last && (last === BASEMENT || last === 'lobby' || tower.tower.forRoom(last) ||
+        const open = last && (last === BASEMENT || last === 'lobby' || tower.tower.forRoom(last) || (last === ROOF && !!tower.tower.top) ||
           onLap(parseBlock(last)));
         const place = open ? last : 'lobby';
         passing = place !== key && !arrived;
@@ -1174,7 +1193,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // 👥 A press on a world panel (a kiosk: panel.mjs) is told to everyone else in the room, with whose it is, so the piece on it is worked by all of them together.
       if (data?.type === 'panel') {
-        if (member.seat < 0 || typeof data.id !== 'string' || !/^[a-z0-9-]{1,24}$/.test(data.id) || !['touch', 'draw', 'lift'].includes(data.name) || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
+        // (Only a kiosk that stands in this room: kiosks-plan.mjs. Any other id is dropped.)
+        if (member.seat < 0 || typeof data.id !== 'string' || !kioskPlan(key).some((k) => k.id === data.id) || !['touch', 'draw', 'lift', 'reset'].includes(data.name) || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
+        // ↻ The kiosk's name was pressed: its piece begins again, for everyone here and whoever comes later.
+        if (data.name === 'reset') {
+          kiosks.reset(key, data.id);
+          const again = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: 'reset', x: -1, y: -1 });
+          for (const client of room.clients.keys()) if (client !== ws) sendText(client, again);
+          return;
+        }
         member.pressing = data.name === 'lift' ? null : data.id;
         const px = clamp(Math.round(data.x), -1, 1024), py = clamp(Math.round(data.y), -1, 1024);
         kiosks.record(key, data.id, data.name, px, py, member.seat); // 🧩 kept, so the piece is one piece for whoever comes later (kiosks.mjs)
@@ -1234,39 +1261,23 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const p = room.match.seats[member.seat]?.player, t = tower.tower;
         // Asked from outside the car: say so, rather than nothing.
         if (!inCar(p)) return void send(ws, { type: 'elevator-result', error: 'step into the car' });
-        const asked = String(data.to ?? '').trim().toLowerCase().slice(0, 24), here = t.forRoom(key);
-        const to = ['my floor', 'my', 'mine'].includes(asked) ? 'home' : asked;
-        let destination = null, found = null;
-        if (['basement', 'b1', '-1'].includes(to) || (key === GROUND && to === 'down')) destination = BASEMENT;
-        else if (to === 'down' && key === BASEMENT) return void send(ws, { type: 'elevator-result', error: 'this is the basement' });
-        else if (key === BASEMENT && to === 'up') destination = GROUND;
-        else if (['0', 'g', 'ground', 'plaza', 'lobby'].includes(to)) destination = GROUND;
-        else {
-          found = to === 'up' ? t.step(here ? here.number : 0, 1)
-            : to === 'down' ? (here ? t.step(here.number, -1) : null)
-            : to === 'home' ? (member.handle ? t.forHandle(member.handle) : null)
-            : ['top', 'roof', 'penthouse', 'the top'].includes(to) ? t.at(t.top) // 🔝 the highest floor there is
-            : t.resolve(to);
-          if (to === 'down' && here && !found) destination = GROUND;
-          else if (found) destination = floorRoom(found.id);
-        }
-        if (!destination) return void send(ws, { type: 'elevator-result',
-          error: to === 'home' ? 'sign in for a floor' : to === 'up' ? 'this is the top' : `no floor ${to}` });
-        if (destination === key) return void send(ws, { type: 'elevator-result', error: 'you are here' });
+        // 🛗 Where to, for what was asked (tower.mjs carTo): a floor, the ground, or the roof.
+        const went = carTo(t, key, data.to, member.handle);
+        if (went.error) return void send(ws, { type: 'elevator-result', error: went.error });
+        const destination = went.room;
         // 🛗 A rider stays where they stand in the car, looking where they look: the car moves, they do not. (No facing is given, so the page keeps its own.)
         const stood = { x: p.x, z: p.z };
         // 🚪 How long the car runs, as the page counts it (asked while it ran, it starts from where it is): the door is shut for that long, and the rider walks about inside.
         const was = member.ride, since = was ? (Date.now() - was.at) / 1000 : Infinity;
         const running = was && since < was.seconds ? was.span * (1 - rideEase(since / was.seconds)) : 0;
-        const fromNumber = key === BASEMENT ? -1 : here?.number || 0;
-        const toNumber = destination === BASEMENT ? -1 : found?.number || 0;
-        const span = altitude(fromNumber) - altitude(toNumber) + running;
+        const span = altitude(went.from) - altitude(went.number) + running; // (the roof's number is its height too: elevator.mjs roofNumber)
         const run = { at: Date.now(), span, seconds: rideSeconds(span) };
-        const riding = { from: fromNumber, to: toNumber, handle: found?.handle || null };
+        const riding = { from: went.from, to: went.number, handle: went.handle };
         // 🧵 On a socket that stays, the rider is on the next floor now (and a ball in the car with them).
-        const carried = ball.ball.room === key && inCar(ball.ball);
+        const carried = dispenser.balls.map(s => s.ball).filter(b => b.room === key && inCar(b));
+        const moveCargo = () => { for (const b of carried) b.room = destination; if (carried.length) keepBall(); };
         if (relocate(destination, stood, { ride: run, told: { ride: riding } })) {
-          if (carried) { ball.ball.room = destination; keepBall(); }
+          moveCargo();
           return;
         }
         // Asked again before the answer got there (a slow link): the same
@@ -1277,7 +1288,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const receipt = randomUUID();
         passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, ride: run, at: Date.now(), until: Date.now() + 30000 });
         // ⚽ A ball in the car rides with it.
-        if (ball.ball.room === key && inCar(ball.ball)) { ball.ball.room = destination; keepBall(); }
+        moveCargo();
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...stood },
           ride: riding } };
         send(ws, leaving.message);
@@ -1299,7 +1310,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // 🧹 The keeper may revise an object where it stands, in anyone's pod.
       const keeping = data?.type === 'prompt' && typeof data.objectId === 'string' && !!member.handle && member.handle.toLowerCase() === keeper;
       if (pod && !ownPod && !keeping && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
-        send(ws, { type: 'build-result', error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' });
+        send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' }); // (`rid`: the page's own name for what it asked, said back so it knows which asking was refused)
+        if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
+        return;
+      }
+      // 🏙️ The roof is nobody's floor and is kept as it is, as the plaza is: only the keeper arranges it.
+      if (key === ROOF && member.handle?.toLowerCase() !== keeper && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+        send(ws, { type: 'build-result', error: 'The roof is kept as it is: build on your floor' });
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
         return;
       }
@@ -1312,7 +1329,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const handle = member.handle?.toLowerCase();
         const lives = key !== GROUND && handle && geography.geography.home(handle)?.block === blockIndex(block);
         if (handle !== keeper && !lives) {
-          send(ws, { type: 'build-result', error: key === GROUND ? 'The plaza is kept as it is: build on your floor' : 'Only someone who lives on this block arranges it' });
+          send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: key === GROUND ? 'The plaza is kept as it is: build on your floor' : 'Only someone who lives on this block arranges it' });
           if (data.type === 'paint') builders.broadcast(key);
           return;
         }
@@ -1335,7 +1352,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             creditRefreshes.add(timer);
           }
         }
-        else send(ws, { type: 'build-result', error: 'Spectators cannot build' });
+        else send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: 'Spectators cannot build' });
       }
       if (data?.type === 'chalk-clear' && member.seat >= 0) room.match.clearChalk(member.seat);
       if (data?.type === 'chalk-dust' && member.seat >= 0) {
@@ -1388,7 +1405,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
         void store.paintTile(key, data.i, data.j, data.c).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
-        void builders.restore(ws, key, owner, member.seat, data.code);
+        void builders.restore(ws, key, owner, member.seat, data.code, Builders.rid(data) || undefined);
       if (data?.type === 'input' && member.seat >= 0) {
         if (passing && Array.isArray(data.commands) && data.commands.some((c) => c?.fwd || c?.right || c?.buttons)) passing = false;
         room.match.input(member.seat, data.commands);
@@ -1419,26 +1436,27 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     });
   });
 
-  // ⚽ The park's one ball (ball.mjs): the world's clock rolls it, and every
-  // page within a block of it hears where it is, in its own room's metres.
+  // The world clock runs the dispenser and its balls across room boundaries.
   // A place's cell of the lattice and how high it is: a floor of the tower
   // stands over the plaza's cell.
   const cellOf = (key) => {
     if (key === GROUND) return { i: 0, j: 0, h: 0 };
     const floor = tower.tower.forRoom(key);
     if (floor) return { i: 0, j: 0, h: altitude(floor.number), floor: floor.number };
+    if (key === ROOF) return tower.tower.top ? { i: 0, j: 0, h: roofOf(tower.tower.top), floor: roofNumber(tower.tower.top) } : null;
     const block = parseBlock(key);
     return block ? { ...block, h: 0 } : null;
   };
   // 🏬 Two floors on one storey of the short tower (elevator.mjs SHORT) are
   // different rooms in the same place: neither sees into the other.
   const overlaid = (a, b) => !!a.floor && !!b.floor && a.floor !== b.floor && a.h === b.h;
-  const ball = createBall({
+  const dispenser = createDispenser({
     neighbours: (key) => geography.geography.neighbours(key),
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
     bodies: (key) => (rooms.get(key)?.match.seats || []).filter((s) => s?.player?.alive).map((s) => s.player),
-    below: (key) => { const floor = tower.tower.forRoom(key); return floor ? { room: GROUND, dy: altitude(floor.number) } : null; },
+    below: (key) => { const floor = tower.tower.forRoom(key); return floor ? { room: GROUND, dy: altitude(floor.number) } : key === ROOF && tower.tower.top ? { room: GROUND, dy: roofOf(tower.tower.top) } : null; },
   });
+  const ball = dispenser.balls[0]; // first ball for readers of the original map format
   // It lies where it was left: kept in the state directory when it comes to
   // rest, every few seconds while it rolls, and when the server closes.
   const kiosks = createKiosks({ directory: stateDir }); // 🧩 what has been done to the pieces on the panels
@@ -1446,7 +1464,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0;
   const keepBall = () => {
     if (!ballFile) return ballSaved;
-    const { room, x, y, z, vx, vy, vz } = ball.ball, text = JSON.stringify({ room, x, y, z, vx, vy, vz });
+    const [first, ...others] = dispenser.balls.map(sim => sim.ball);
+    const text = JSON.stringify({ ...first, others });
     ballKeptAt = Date.now();
     return (ballSaved = ballSaved.then(async () => {
       await mkdirBall(stateDir, { recursive: true });
@@ -1456,8 +1475,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   };
   try {
     const was = ballFile && JSON.parse(readBall(ballFile, 'utf8'));
-    if (was && cellOf(String(was.room)) && ['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(was[k])))
-      Object.assign(ball.ball, { room: was.room, x: clamp(was.x, -SPAN / 2, SPAN / 2), y: Math.max(0, was.y), z: clamp(was.z, -SPAN / 2, SPAN / 2), vx: was.vx, vy: was.vy, vz: was.vz });
+    const saved = [was, ...(Array.isArray(was?.others) ? was.others : [])].filter(b => b && cellOf(String(b.room)) &&
+      ['x', 'y', 'z', 'vx', 'vy', 'vz'].every(k => Number.isFinite(b[k]))).slice(0, MAX_BALLS);
+    for (const [i, b] of saved.entries()) {
+      const sim = i ? dispenser.make() : ball;
+      Object.assign(sim.ball, { room: b.room, x: clamp(b.x, -SPAN / 2, SPAN / 2), y: Math.max(0, b.y),
+        z: clamp(b.z, -SPAN / 2, SPAN / 2), vx: b.vx, vy: b.vy, vz: b.vz });
+      if (i) dispenser.balls.push(sim);
+    }
   } catch {} // none kept yet: it starts in the courtyard
   let ballTick = 0;
   // ✈️ What was in the air in a room that emptied, or when the server last
@@ -1480,20 +1505,33 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await renameBall(`${flightFile}.tmp`, flightFile);
     }).catch(() => {}));
   };
+  const seeingBalls = new WeakSet();
   const tellBall = (moved) => {
     if (ballRolling && !moved) keepBall(); // come to rest
     else if (moved && Date.now() - ballKeptAt > 5000) keepBall();
     ballRolling = moved;
     if (!moved && ++ballTick % 30) return; // at rest: twice a second, for whoever just came
-    const b = ball.ball, at = cellOf(b.room);
-    if (!at) return;
+    const positions = dispenser.balls.map(({ ball: b }, id) => ({ b, id, at: cellOf(b.room) }));
+    const r = n => Math.round(n * 1000) / 1000;
     for (const [key, room] of rooms) {
       const here = cellOf(key);
-      // (As far as people are seen: tellBeyond. The shorter way round the lap.)
-      const bi = here ? wrap(at.i - here.i) : 0, bj = here ? wrap(at.j - here.j) : 0;
-      if (!here || Math.abs(bi) > 2 || Math.abs(bj) > 2 || !room.clients.size || overlaid(at, here)) continue;
-      const r = (n) => Math.round(n * 1000) / 1000;
-      const word = JSON.stringify({ type: 'ball', x: r(b.x + bi * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + bj * SPAN), vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
+      if (!here || !room.clients.size) continue;
+      const visible = [];
+      for (const { b, id, at } of positions) {
+        if (!at || overlaid(at, here)) continue;
+        const bi = wrap(at.i - here.i), bj = wrap(at.j - here.j);
+        if (Math.abs(bi) > 2 || Math.abs(bj) > 2) continue;
+        visible.push({ id, x: r(b.x + bi * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + bj * SPAN),
+          vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
+      }
+      if (!visible.length) {
+        if (seeingBalls.delete(room)) for (const ws of room.clients.keys()) send(ws, { type: 'balls-away' });
+        continue;
+      }
+      seeingBalls.add(room);
+      // Older clients draw the first ball. New clients draw all visible slots.
+      const [first, ...others] = visible;
+      const word = JSON.stringify({ type: 'ball', ...first, ...(others.length ? { others } : {}) });
       for (const ws of room.clients.keys()) sendText(ws, word);
     }
   };
@@ -1559,13 +1597,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     previous = now;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;
-      if (rooms.size) tellBall(ball.step());
+      if (rooms.size) tellBall(dispenser.step());
       tellBeyond();
       if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
         room.match.step();
         walks.tick(key, room);
         if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
+        if (aloft(key)) for (const m of room.sessions.values()) m.crossWindow?.();
         for (const m of room.sessions.values())
           if (m.walk) { if (m.walk.until < Date.now()) m.walk = null; else m.walk.ask(); }
         if (room.match.chalkDirty && room.match.tick % 3 === 0)

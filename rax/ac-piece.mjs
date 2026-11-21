@@ -210,9 +210,21 @@ export async function notepatPiece({ sound, wave = 'sine', octave = 4, base = AC
 }
 
 // 🪧 The sign over a panel: what runs on it, as it would be typed.
-export const signPiece = (label) => ({
-  paint({ wipe, ink, write, screen, text }) {
-    wipe(16, 20, 30);
-    ink(255, 224, 102).write(label, { x: Math.max(1, Math.floor((screen.width - text.width(label)) / 2)), y: Math.floor((screen.height - text.height()) / 2) });
-  },
-});
+// ↻ Given `press`, the sign is a button: pointed at it reads `reset`, and pressed it begins the piece under it again (a rule for every AC piece on a panel: its name is the way back to its beginning).
+export const signPiece = (label, press = null) => {
+  let over = false, down = false;
+  return {
+    paint({ wipe, ink, write, screen, text }) {
+      const words = press && over ? 'reset' : label;
+      wipe(...(press && down ? [70, 60, 20] : press && over ? [34, 40, 58] : [16, 20, 30]));
+      // (Its name at the top left, where AC's own pages write theirs.)
+      ink(...(press && over ? [255, 255, 255] : [255, 224, 102])).write(words, { x: 3, y: Math.floor((screen.height - text.height()) / 2) });
+    },
+    act({ event: e }) {
+      if (!press) return;
+      over = e.x >= 0 && e.y >= 0;
+      if (e.is('touch') && over) down = true;
+      if (e.is('lift')) { if (down && over) press(); down = false; }
+    },
+  };
+};

@@ -28,8 +28,22 @@ Floors are given out oldest handle first, read from
   number, so what is built there moves with its owner.
 - **The elevator** is a glass car on the north edge of the plaza and of every
   floor (`elevator.mjs`), open to the south. Stand in it and press Enter: a number,
-  a handle, `home`, `g` for the ground, or the up and down arrows for the
-  next floor. The server checks that the rider stands in the car.
+  a handle, `home`, `g` for the ground, `top` for the roof, or the up and down
+  arrows for the next floor. The server checks that the rider stands in the car.
+- **The roof** (2026-11-20) is a room of its own, `roof`, on the slab over the
+  highest floor: open air, a parapet round its edge, the car as on every floor.
+  It is nobody's floor and is kept as it is (only the keeper arranges it). Up
+  from the highest floor is the roof and down from the roof is that floor. In
+  a ride's sums, in the `tower` message and on the map its number is one over
+  the highest floor (`roofNumber`), with `roof: true`.
+- **Nobody stands on air.** Whoever is seen on the tower from outside has the
+  slab of their storey drawn under them, and the car if they stand in the
+  shaft, on a storey that many numbers share as on one with a number of its
+  own (`standsOn` in `elevator.mjs`).
+- **Kiosks** (the pieces on panels: two `bleep` pads on the lobby's front, the
+  song hall inside it east of the door, the notepat board in the yard) stand
+  where `kiosks-plan.mjs` works them out from the tower's measurements. The
+  page mounts them from it and the server takes a press only on one of them.
 - **A floor is public to visit; only its handle arranges it.**
 - **One world, one address.** The plaza, the park and every floor are all
   `aesthetic.computer/rax`. Entering rax sets a handle down where it last

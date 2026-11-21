@@ -170,18 +170,6 @@ test('holding an arrow repeats until release, with no extra floor on lift', () =
   assert.deepEqual(car.went, ['down', 'down']);
 });
 
-test('holding an arrow repeats until release, with no extra floor on lift', () => {
-  const car = fakeCar(), start = performance.now();
-  keypad.boot();
-  keypad.act({ event: pointerEvent('touch', ...middle('down')), car });
-  keypad.sim({ car }, start + 420);
-  keypad.sim({ car }, start + 480);
-  keypad.sim({ car }, start + 580);
-  keypad.act({ event: pointerEvent('lift', ...middle('down')), car });
-  keypad.sim({ car }, start + 1000);
-  assert.deepEqual(car.went, ['down', 'down']);
-});
-
 test('the keypad shows what is dialled, and the floor when nothing is', () => {
   const car = fakeCar({ here: 3 }), g = painter(64, 96);
   keypad.boot();

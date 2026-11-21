@@ -1,9 +1,10 @@
-import { STAIR, DEPTH, treads, cellarWalls, ceiling } from './basement.mjs';
+import { poolFloor, poolView } from './pool-view.mjs';
+import { STAIR, DEPTH, treads, cellarWalls, ceiling, berths } from './basement.mjs';
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, SPAN, LAP } from './park.mjs';
-import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER } from './elevator.mjs';
+import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER, roofSolids, standsOn } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
@@ -28,7 +29,7 @@ try {
 } catch {}
 import { poseObject, objectBoxes } from './objects.mjs';
 import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-language.mjs';
-import { BALL } from './ball.mjs';
+import { BALL, DISPENSER } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
@@ -52,7 +53,7 @@ export const LEGEND = {
   ],
   pad: [
     '[LS] move / [RS] look',
-    '[LT] jump / [Y] camera',
+    '[A] jump / [LT] zoom / [Y] camera',
     '[RB] build / [RB] use / [X] drop',
     '[X] paint',
     '[LB] lock on / [B] remove',
@@ -69,7 +70,7 @@ const DRONE_LEGEND = {
   ],
   pad: [
     '[LS] move / [RS] look / [LB] down / [RB] up',
-    '[LT] [RT] roll / [A] fast / [Y] drone',
+    '[LT] zoom / [RT] roll / [A] fast / [Y] drone',
     '[X] lock on / [B] warp / [BACK] full screen',
   ],
   touch: ['look'],
@@ -81,7 +82,7 @@ const ACTION_COLORS = {
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
   paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, lock: 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
-  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, 'full screen': 0xb0b0ff,
+  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, zoom: 0x8fd3ff, density: 0xb0b0ff, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, 'full screen': 0xb0b0ff,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
@@ -335,8 +336,9 @@ export async function createView(canvas) {
   // A block's ground: the plaza's floor or a residential block's grass and
   // lanes. A side with an open neighbour is left open; the world's edge gets
   // the plaza's wall or the park's hedge.
+  const drawPool = poolView();
   const cellar = model(({ box, text }) => {
-    box(0, -0.1, 0, 16, 0.2, 16, 0x334050, 0x283540, 0x536476);
+    poolFloor({box});
     for (const b of [...treads, ...cellarWalls, ...ceiling]) {
       box((b.xMin + b.xMax) / 2, (b.yMin + b.yMax) / 2, (b.zMin + b.zMax) / 2,
         b.xMax - b.xMin, b.yMax - b.yMin - (b.ceiling ? 0.03 : 0), b.zMax - b.zMin, b.ink, tint(b.ink, 0.74), b.ink);
@@ -425,6 +427,12 @@ export async function createView(canvas) {
         frame: [frame, frame, frame],
       };
       for (const s of carSolids()) box(s.x, s.y, s.z, s.w, s.h, s.d, ...inks[s.ink]);
+      // Reflections mark the three glazed panes of the car.
+      const glint = day ? 0xacdce5 : 0x608b9b;
+      for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
+        box(side * (CAR + CAR_WALL / 2), 1.85 + i * 0.09, CAR_Z + 0.55 - i * 0.12, 0.03, 0.07, 0.16, glint);
+        box(side * 0.8 + i * 0.08, 1.85 + i * 0.09, CAR_Z + CAR + CAR_WALL / 2, 0.13, 0.07, 0.03, glint);
+      }
     });
     carSet = { key, model: made };
     return made;
@@ -507,7 +515,8 @@ export async function createView(canvas) {
       for (const x of [-CAR - 0.3, CAR + 0.3]) box(x, ATRIUM / 2, E, 0.14, ATRIUM, 0.14, post, post, post);
     });
     // The floor you stand on: the room's own floor and dots, no walls.
-    const floor = model(({ quad, box }) => {
+    // (`roofed`: under the floor above. The roof's deck is the same floor under the sky.)
+    const floorOf = (roofed) => model(({ quad, box }) => {
       const cut = (x0, x1, z0, z1) => [Math.max(-W, x0), Math.min(W, x1), Math.max(-W, z0), Math.min(W, z1)];
       sheet((...r) => { const [a, b, c, d] = cut(...r); quad([a, 0, c], [a, 0, d], [b, 0, d], [b, 0, c], p.floor); });
       for (let x = -W + 2; x < W; x += 2)
@@ -515,7 +524,13 @@ export async function createView(canvas) {
           if (!(Math.abs(x) < bayX && z > bayZ)) box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
       // The underside of the floor above is this floor's ceiling.
       const top = STOREY - 0.42;
-      sheet((...r) => { const [a, b, c, d] = cut(...r); quad([a, top, c], [b, top, c], [b, top, d], [a, top, d], under); });
+      if (roofed) sheet((...r) => { const [a, b, c, d] = cut(...r); quad([a, top, c], [b, top, c], [b, top, d], [a, top, d], under); });
+    });
+    const floor = floorOf(true), deck = floorOf(false);
+    // 🏙️ What stands on the roof (elevator.mjs roofSolids): the parapet round its edge and the curbs beside the car.
+    const parapet = model(({ box }) => {
+      const inks = { sill: [sill, edge, sill], frame: [post, post, post] };
+      for (const s of roofSolids()) box(s.x, s.y, s.z, s.w, s.h, s.d, ...inks[s.ink]);
     });
     // The land around the plaza and its blocks, out to the horizon: four
     // fields around the middle 48 m, which the blocks themselves fill.
@@ -537,7 +552,7 @@ export async function createView(canvas) {
     const earth = day ? [0xcfeaff, 0xb4dcf8] : [0x4a6a9c, 0x3c5a8a];
     const dome = model(({ tri }) => tiled(tri, landTiles(47, LAND_REACH, 3), -0.5, (t) => earth[t.odd]));
     const lawn = model(({ quad }) => quad([-8, -0.02, -8], [-8, -0.02, 8], [8, -0.02, 8], [8, -0.02, -8], grass));
-    towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, land, dome, lawn };
+    towerSet = { key: paletteName, slabModel, columns1: columns(1), columns10: columns(10), glass, rails, legs, floor, deck, parapet, land, dome, lawn };
     return towerSet;
   }
   // 🚪 Automatic doors: two glass leaves that slide apart when someone comes
@@ -636,8 +651,10 @@ export async function createView(canvas) {
   }
   // Draw the tower standing at (ox, oy, oz), `top` floors tall, as seen from
   // a height: full storeys near the eye, slabs further off, columns to the
-  // limit of sight.
-  function drawTower(top, ox, oy, oz, eyeY) {
+  // limit of sight. `stood` is what must be drawn under whoever is seen on
+  // it (elevator.mjs standsOn), and `own` the height of this room's own car
+  // (null where the room has none).
+  function drawTower(top, ox, oy, oz, eyeY, stood = null, own = null) {
     const t = towerParts();
     if (!top) return;
     draw(t.legs, ox, oy, oz);
@@ -655,7 +672,21 @@ export async function createView(canvas) {
       if (Math.abs(n - at) <= near) { draw(t.glass, ox, y, oz); draw(t.rails, ox, y, oz); }
       n++;
     }
-    if (hi === top) draw(t.slabModel, ox, oy + heightOf(top + 1), oz); // the roof
+    if (hi === top) { // the roof, and its parapet
+      draw(t.slabModel, ox, oy + heightOf(top + 1), oz);
+      draw(t.parapet, ox, oy + heightOf(top + 1), oz);
+    }
+    if (!stood) return;
+    // 🧍 Nobody stands on air: a storey someone is seen on has its slab,
+    // however far off it is, and whoever stands in the shaft (where every
+    // slab is open) has a car under them. This room's own car is drawn with
+    // the room, so not again where it stands.
+    for (const n of stood.slabs)
+      if (n <= top + 1 && !(n >= lo && n <= hi && Math.abs(n - at) <= mid) && !(n === top + 1 && hi === top)) draw(t.slabModel, ox, oy + heightOf(n), oz);
+    for (const n of stood.cars) {
+      const y = oy + heightOf(n);
+      if (n <= top + 1 && !(own !== null && !ox && !oz && Math.abs(y - own) < CAR_HEIGHT)) draw(carFor(), ox, y, oz);
+    }
   }
   // 🍄 botbop's ledges: slabs lit on top, rebuilt with the palette.
   // 🤖 A drone: a squat grey box on a tread, one cyan eye, a pink aerial.
@@ -885,6 +916,9 @@ export async function createView(canvas) {
       }
     }
   });
+  // At the paper cursor's scale a block is a patch and the tower is a silhouette.
+  const atlasBlock = model(({ quad }) => quad([-8,0,-8],[-8,0,8],[8,0,8],[8,0,-8],0x8eaf88));
+  const atlasTower = model(({ box }) => box(0,0.5,0,0.45,1,0.45,0xcaaf81,0xa89675,0xffdd98));
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
@@ -1141,7 +1175,13 @@ export async function createView(canvas) {
   };
   // ⚽ The ball: a small sphere in black and white patches, turned by how
   // far it has rolled.
-  let ballModel = null, ballRoll = 0, ballSeen = null;
+  let ballModel = null, ballSeen = null;
+  const ballRoll = new Map();
+  const dispenserModel = model(({ box }) => {
+    const { width, height, depth } = DISPENSER;
+    box(0, height / 2, 0, width, height, depth, 0x26adc2, 0x185a6b, 0xc7f5ed);
+    box(-width / 2, 0.55, 0, 0.06, 0.78, 0.72, 0x142329, 0x142329, 0x27404b);
+  });
   // 🚁 A looker-on's drone: a small body, four arms to four rotors (two
   // frames of them, turned, for the blur), a light at the nose.
   const droneModels = [];
@@ -1261,12 +1301,13 @@ export async function createView(canvas) {
     menu = null,
     removeArmed = null,
     lockedOn = false,
+    nearZoom = 1, // 🔎 the focus zoom (client.mjs): the lens closed on what is looked at
     docked = false, // 🖥️ gone in to the locked screen (client.mjs, dock.mjs): it fills the picture and the look is its mouse
     notices = [],
     braincells = null,
     spending = false,
     tiles = {},
-    park = null, basement = false,
+    park = null, basement = false, cellarAtlas = null,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
@@ -1279,7 +1320,7 @@ export async function createView(canvas) {
     eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
-    ball = null, // ⚽ { x, y, z, vx, vz } in this room's metres
+    balls = [], courtyard = null,
     home = null,
     floorAim = null,
     chalk = [],
@@ -1302,6 +1343,7 @@ export async function createView(canvas) {
     wire = null, // 📟 { text, color }: one line of the connection's story, top left, while the room is still up (the server quiet, or just back on new code)
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
     jobs = [],
+    builds = [], // 🧱 this page's own builds, each with its state (client.mjs buildRows): { state, text, note, phase, parts, seconds, tries, name, where, version }
     worldTime = 0,
     locked = false,
     flash = null, // ⎋ { color, at }: a step of Escape just taken, shown around the screen
@@ -1328,7 +1370,11 @@ export async function createView(canvas) {
     // The corner join code is retired for now: rax is joining the AC homepage.
     const cells = null;
     const hud = hudLayout(canvas.width, canvas.height, cells, pixelScale, grid ? 1 : 0);
-    let chartTop = 21 * hud.unit;
+    const flashAge = flash ? (now - flash.at) / 360 : 1;
+    const bump = flashAge >= 0 && flashAge < 1 ? Math.round(7 * (1 - flashAge) ** 2) * hud.unit : 0;
+    hud.safeX += bump;
+    hud.safeY += bump;
+    let chartTop = 21 * hud.unit + bump;
     // 🌞 In the world the room follows the world's own day (sky.mjs), the
     // same for everyone; behind the prompt's curtain it keeps the page's
     // theme, and a game arena its own.
@@ -1476,6 +1522,7 @@ export async function createView(canvas) {
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
     }
     natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
+    if (nearZoom !== 1 && !docked && orbit <= 0) { projector.sx *= nearZoom; projector.sy *= nearZoom; } // 🔎 (after `natural`: going in to a screen works its own zoom from the lens as it is without this)
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
@@ -1509,12 +1556,20 @@ export async function createView(canvas) {
       draw(orbitalGround, eye.x, projector.ground - orbitalRadius, eye.z, 0, 0, orbitalRadius / PLANET);
       projector.bends = true;
     }
-    if (basement) {
+    const miniature = orbit >= 0.94;
+    if (miniature) {
+      draw(atlasBlock, 0, projector.ground, 0);
+      for (const block of around) if (!block.floor) draw(atlasBlock, block.dx, projector.ground, block.dz);
+      if (skyline?.top) draw(atlasTower, skyline.dx, skyline.dy, skyline.dz, 0, 0, heightOf(storeyOf(skyline.top) + 1));
+    } else if (basement) {
       draw(cellar);
+      const riders = players.slice();
+      if (me && seat >= 0) riders[seat] = me;
+      drawPool(draw, orbitalGround, cellarAtlas, riders, now);
       if (eye.y > DEPTH - 1) draw(lobbyFor(), 0, DEPTH, 0);
     }
     else if (ledges) draw(ledgesFor(ledges));
-    else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
+    else if (tower?.here?.number > 0) draw(tower.here.roof ? towerParts().deck : towerParts().floor); // a floor of the tower: no walls, the world outside (on the roof no ceiling either)
     else if (park?.neighbours) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
       if (park.plaza) draw(cellar, 0, -DEPTH, 0);
@@ -1526,13 +1581,20 @@ export async function createView(canvas) {
       if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
       draw(arenas.get(half));
     }
-    if (ball) {
-      const pace = Math.hypot(ball.vx || 0, ball.vz || 0);
-      if (ballSeen !== null) ballRoll += (pace * Math.min(0.1, (now - ballSeen) / 1000)) / BALL.r;
-      ballSeen = now;
-      draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, ballRoll);
+    if (courtyard) {
+      const x = courtyard.dx + DISPENSER.x, z = courtyard.dz + DISPENSER.z;
+      draw(dispenserModel, x, courtyard.dy, z);
+      draw(ballFor(), x, courtyard.dy + DISPENSER.height + BALL.r, z);
     }
-    if (tower && !ledges) {
+    const ballDt = ballSeen === null ? 0 : Math.min(0.1, (now - ballSeen) / 1000);
+    ballSeen = now;
+    for (const ball of balls) {
+      const pace = Math.hypot(ball.vx, ball.vz);
+      const angle = ((ballRoll.get(ball.id) || 0) + pace * ballDt / BALL.r) % (2 * Math.PI);
+      ballRoll.set(ball.id, angle);
+      draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, angle);
+    }
+    if (!miniature && tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
       // (The screen that hung over the door inside is gone: the pad on the back wall is the one thing in the car that tells and is told.)
       // 🚪 The doors answer whoever is near: the car's stay shut while it
@@ -1553,7 +1615,11 @@ export async function createView(canvas) {
     }
     // Bring in building detail as the flight comes down from the globe.
     if (skyline && !ledges && orbit < 0.6) {
-      drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y);
+      // (Who is seen on the tower from here, and what is built on its floors, as feet in the tower's own metres.)
+      const feet = [];
+      for (const b of beyond) feet.push({ x: b.x - skyline.dx, y: b.y - CFG.eyeHeight - skyline.dy, z: b.z - skyline.dz }); // (a body's y is its eye)
+      for (const b of around) if (b.floor) feet.push({ x: 0, y: (b.dy || 0) - skyline.dy, z: 0 });
+      drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y, standsOn(feet), tower && !ledges ? tower.lift || 0 : null);
       draw(lobbyFor(), skyline.dx, skyline.dy, skyline.dz);
       // The land the tower stands on, seen from the plaza and from every floor:
       // fields to the horizon, and a lawn wherever a block around the plaza is
@@ -1578,7 +1644,7 @@ export async function createView(canvas) {
         }
       }
     }
-    for (const b of around) {
+    for (const b of miniature ? [] : around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
       if (b.plaza) draw(cellar, b.dx, by - DEPTH, b.dz);
       if (!b.floor) draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz); // (a floor of the tower has its own slab)
@@ -1666,7 +1732,7 @@ export async function createView(canvas) {
       }
       stand(object, 0, 0);
     }
-    for (const b of around)
+    for (const b of miniature ? [] : around)
       for (const object of b.objects || [])
         if (!object.item && object.geometry) stand(object, b.dx, b.dz, b.dy || 0);
     for (const id of previewModels.keys())
@@ -1986,8 +2052,8 @@ export async function createView(canvas) {
       const whose = (o) =>
         o.panel // 🧩 a piece on a panel: pressed when in reach, locked on to from anywhere
           ? `${panels.some((p) => p.cursor) ? (input === 'touch' ? 'tap: press / ' : pad ? '[A] press / ' : '{enter} or click: press / ') : ''}${pad ? '[LB] lock on' : '{z} lock on'}`
-        : o.wall
-          ? pad ? '[RB] change' : '{f} change'
+        : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
+          ? pad ? `[RB] ${o.source ? 'change' : 'build'}` : `{f} ${o.source ? 'change' : 'build'}`
           : o.owner === owner
             ? pad ? '[RB] change / [LB] lock on' : '{enter} change / {z} lock on'
             : pad ? '[LB] lock on' : '{z} lock on';
@@ -2001,18 +2067,18 @@ export async function createView(canvas) {
             `${named(focusObject)} locked`,
             ...(focusObject.panel
               ? docked // 🖥️ gone in: the look is its mouse, and the way out is named
-                ? [input === 'touch' ? 'tap: press' : pad ? '[A] press / [B] back' : '{enter} or click: press', ...(input === 'touch' ? [] : [pad ? `${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave'])]
+                ? [input === 'touch' ? 'tap: press' : pad ? '[A] press / [DH] next' : '{enter} or click: press / {[} {]} next', ...(input === 'touch' ? [] : [pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave'])]
                 : [`${panels.some((p) => p.cursor) ? (pad ? '[A] press / ' : '{enter} press / ') : ''}${pad ? `${spectator ? '[X]' : '[LB]'} go in` : '{z} go in'}`, pad ? '[DH] next / [B] unlock' : `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
               : focusObject.screen // 📺 a standing screen is gone in to as well, to fill the picture
               ? docked
-                ? [pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave']
-                : pad ? [`${spectator ? '' : '[RB] change / '}${spectator ? '[X]' : '[LB]'} go in`, '[DH] next / [B] unlock'] : [`${spectator ? '' : '{f} change / '}{z} go in`, `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
+                ? [...(input === 'touch' ? [] : [pad ? '[DH] next' : '{[} {]} next']), pad ? `[B] back / ${spectator ? '[X]' : '[LB]'} leave` : '{esc} back / {z} leave']
+                : pad ? [`${spectator ? '' : '[RB] build / '}${spectator ? '[X]' : '[LB]'} go in`, '[DH] next / [B] unlock'] : [`${spectator ? '' : '{f} build / '}{z} go in`, `{[} {]} next / ${spectator ? '{esc}' : '{z} {z}'} unlock`]
               : pad
               ? focusObject.wall
-                ? ['[RB] change / [LB] unlock']
+                ? [`[RB] ${focusObject.source ? 'change' : 'build'} / [LB] unlock`]
                 : [`${mine ? '[RB] change / ' : ''}[B] remove`, '[DH] next / [LB] unlock']
               : focusObject.wall
-                ? ['{f} change / {z} unlock']
+                ? [`{f} ${focusObject.source ? 'change' : 'build'} / {z} unlock`]
                 : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
           ].join('\n')
         : null;
@@ -2028,17 +2094,19 @@ export async function createView(canvas) {
             : null;
       objectHintSpans = null; // The lock-on shows only its bracket; its offers read in the corner.
       // In the car the floor comes first: before paint, and on touch too.
-      const hint = objectHint ? objectHint : drawing ? drawing : carry ? carry
-        : panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
+      const waterHint = basement && me && (me.boat ? 'move to row / jump to swim'
+        : berths.some(b => Math.hypot(me.x-b.x,me.z-b.z)<0.86) ? 'jump to board'
+        : me.swimming ? 'look down and swim to dive' : null);
+      const hint = waterHint || objectHint || drawing || carry || (panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
           ? input === 'touch' ? 'tap the screen' : pad ? '[A] press' : '{enter} or click: press'
         : car
-          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[DV] up / down a floor' : '{enter} pick a floor'
+          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[DV] tap a floor / hold for roof or B1' : '{enter} pick a floor'
         : paintHint ? paintHint
         : input === 'touch'
           ? 'tap the cube to build'
           : pad
             ? '[RB] to build'
-            : '{enter} to build';
+            : '{enter} to build');
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
         ? Math.max(0, Math.floor((Date.now() - building.startedAt) / 1000))
@@ -2135,7 +2203,7 @@ export async function createView(canvas) {
       const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
       // Stack the chart below the controls while their help is visible.
       if (!prompt.open && !saying && visible.length) chartTop = Math.max(chartTop, safeY + (14 * visible.length + 2) * unit);
-      const key = JSON.stringify([visible, width, height, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
+      const key = JSON.stringify([visible, width, height, bump, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
@@ -2149,7 +2217,7 @@ export async function createView(canvas) {
           panelTop = null;
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
           if (panel) {
-            const ox = grid ? 6 : safeX, oy = grid ? 6 : safeY;
+            const ox = grid ? 6 + bump : safeX, oy = grid ? 6 + bump : safeY;
             visible.forEach((spans, i) => {
               const y = height / 2 - oy - 2 * unit - i * 10 * unit;
               drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, y, unit, { shadow: INK });
@@ -2178,8 +2246,8 @@ export async function createView(canvas) {
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
     // and a ten-row font. handleText places row zero one unit above its origin.
-    const handleX = -canvas.width / 2 + (grid ? paperLeft : 0) + 10 * hud.unit;
-    const handleY = -canvas.height / 2 + (grid ? paperBottom : 0) + 19 * hud.unit;
+    const handleX = -canvas.width / 2 + (grid ? paperLeft : 0) + 10 * hud.unit + bump;
+    const handleY = -canvas.height / 2 + (grid ? paperBottom : 0) + 19 * hud.unit + bump;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells) {
       const width = canvas.width,
@@ -2602,9 +2670,41 @@ export async function createView(canvas) {
     if (stats) frameChart.sample(now);
     chartVisible = stats;
     // 📦 This frame's places at the edges (hud.mjs createPack). The aimed object's code tag is the corner's first tenant; what else stands bottom right takes its room after it.
-    const hudPack = createPack(W, H, { safeX: 4, safeY: 4, gap: 2 * hud.unit });
+    const hudPack = createPack(W, H, { safeX: 4 + bump, safeY: 4 + bump, gap: 2 * hud.unit });
     const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
     const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
+    // 🧱 The build line: every build this page has asked for, a row each, in the middle of the top edge, wherever you look (the status that floats over a build's own square is only seen while it is aimed at). A row says where the build stands in words: asking (the server's word awaited), aesel has it, building (its step, its parts, its seconds), ready (the thing named and where it stands from here), failed or not sent (why). Nothing is drawn when nothing is asked for.
+    if (builds.length && !bare) {
+      const { unit } = hud;
+      const WORDS = { asked: ['asking', THEME.verb], accepted: ['aesel has it', THEME.head], building: ['building', THEME.string], done: ['ready', 0x3fb950], failed: ['failed', 0xff6b6b], refused: ['not sent', 0xff6b6b], cancelled: ['cancelled', THEME.dim] };
+      const dots = '.'.repeat(1 + (Math.floor(now / 330) % 3)).padEnd(3, ' ');
+      const cut = (t, n) => (t.length > n ? t.slice(0, n - 2).trimEnd() + '..' : t);
+      const rows = builds.map((b) => {
+        const [word, color] = WORDS[b.state] || [b.state, THEME.text], live = ['asked', 'accepted', 'building'].includes(b.state);
+        const what = b.state === 'done' ? b.name || b.text : b.text;
+        const more = b.state === 'asked' ? `${b.tries > 1 ? 'asked again ' : ''}${b.seconds}s`
+          : b.state === 'accepted' ? `${b.seconds}s`
+          : b.state === 'building' ? `${b.phase}${b.parts ? ` ${b.parts} part${b.parts === 1 ? '' : 's'}` : ''} ${b.seconds}s`
+          : b.state === 'done' ? [b.kidlisp ? `$${b.kidlisp} is on the wall` : b.version !== undefined ? `v${b.version}` : '', b.where].filter(Boolean).join(' ')
+          : b.note || '';
+        const spans = (most) => [
+          { text: live ? `${word}${dots}` : word, color: b.fade < 0.5 ? THEME.dim : color },
+          ...(what ? [{ text: `  ${cut(what.toLowerCase(), 28)}`, color: b.fade < 0.5 ? THEME.dim : THEME.text }] : []),
+          ...(more ? [{ text: `  ${cut(more.toLowerCase(), most)}`, color: live || b.state === 'done' || b.fade < 0.5 ? THEME.dim : THEME.number }] : []),
+        ];
+        // A long reason is cut to what the screen holds.
+        let most = 72, row = spans(most);
+        while (most > 12 && smallSpanWidth(row, unit) > W - 16 * unit) row = spans((most -= 8));
+        return row;
+      });
+      const wide = Math.max(...rows.map((r) => smallSpanWidth(r, unit)));
+      // 📦 Its room is asked for (hud.mjs createPack): the middle of the top edge, which nothing else stands on.
+      const slot = hudPack.reserve('builds', 'tc', wide + 2 * unit, rows.length * 10 * unit);
+      const m = model(({ rect: worldRect, text, small }) =>
+        rows.forEach((spans, i) => drawSpans({ rect: flip(worldRect), text, small }, spans, slot.x + slot.w / 2 - W / 2, H / 2 - slot.y - 2 * unit - i * 10 * unit, unit, { shadow: INK, tiny: true })),
+      );
+      projector.overlay(m, W, H);
+    }
     if (stats) {
       const { unit } = hud, at = camera || me;
       const rows = [`${backend === 'webgpu' ? 'gpu' : 'gl'}  tris ${Math.round(lensFull * 100)}%`];
@@ -2641,7 +2741,7 @@ export async function createView(canvas) {
     cornerRect = null;
     if (corner && !prompt?.open && !chat?.open && !jobs.some((j) => j.owner === owner)) {
       const { unit } = hud;
-      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
+      const safeX = grid ? 6 + bump : hud.safeX, safeY = grid ? 6 + bump : hud.safeY;
       const w = 6 * unit,
         h = 10 * unit;
       const left = -W / 2 + safeX,
@@ -2755,7 +2855,7 @@ export async function createView(canvas) {
     if (offline && !menu) {
       const { unit } = hud;
       netSince ??= now;
-      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
+      const safeX = grid ? 6 + bump : hud.safeX, safeY = grid ? 6 + bump : hud.safeY;
       const cols = Math.max(12, Math.min(48, Math.floor((W - 2 * safeX) / (6 * unit))));
       // Only this outage: from the first bad word after the last good one
       // that came before it.
@@ -2796,7 +2896,7 @@ export async function createView(canvas) {
     // 📟 Not down, but worth a word: one line where the outage's log goes.
     if (wire && !offline && !menu && !prompt.open) {
       const { unit } = hud;
-      const safeX = grid ? 6 : hud.safeX, safeY = grid ? 6 : hud.safeY;
+      const safeX = grid ? 6 + bump : hud.safeX, safeY = grid ? 6 + bump : hud.safeY;
       const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
         const spans = [{ text: wire.text, color: wire.color ?? THEME.text }];
@@ -3751,6 +3851,7 @@ export async function createView(canvas) {
       promptMessage: prompt?.message || '',
       builder,
       owner,
+      builds: builds.map((b) => ({ state: b.state, text: b.text, note: b.note, phase: b.phase, tries: b.tries, where: b.where || '' })),
       jobs: jobs.map((j) => ({
         id: j.id,
         phase: j.phase,

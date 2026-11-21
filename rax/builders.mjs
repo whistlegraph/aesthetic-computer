@@ -82,6 +82,7 @@ function scaleShape(shape, k) {
 // number of builder processes may connect and share the work.
 export const PER_PLAYER = 3;
 export const PER_WORKER = 3;
+export const ASKED_MS = 15 * 60000; // how long a page's own request id is remembered (Builders.rid)
 
 // The middle of the 2 m floor square a player's view lands on, as the page
 // works its highlight out (client.mjs floorAim): null when they look at no
@@ -106,6 +107,22 @@ export class Builders {
     this.workers = new Map();
     this.names = new Map(); // Each builder's name, from its hello.
     this.jobs = new Map();
+    this.asked = new Map(); // 🔁 `owner:rid` → { id, at, result }: what each page's own request became
+  }
+  // 🔁 A page names each asking itself (`rid`) and may say it twice: its
+  // first word got no answer in time, or its socket dropped before the
+  // answer came. The same name from the same owner is the same job: while it
+  // runs the page is told so again (and the job's results go to the socket
+  // that asked last); once it has ended the page is told how. A page that
+  // sends no `rid` (an older one) is answered as it always was.
+  static rid(input) {
+    return typeof input?.rid === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(input.rid) ? input.rid : null;
+  }
+  remember(owner, rid, id) {
+    const now = Date.now();
+    // Kept a quarter of an hour: far longer than a build runs or a page waits.
+    for (const [key, kept] of this.asked) if (now - kept.at > ASKED_MS || this.asked.size > 512) this.asked.delete(key);
+    this.asked.set(`${owner}:${rid}`, { id, at: now, result: null });
   }
   record(event, job, fields = {}) {
     this.diagnostics?.emit(event, { id: job.id, session: job.client?.diagnosticSession,
@@ -143,6 +160,7 @@ export class Builders {
         .map((j) => ({
           id: j.id,
           owner: j.owner,
+          asker: j.asker || j.owner, // (a keeper's change to someone's object is the keeper's build)
           objectId: j.objectId,
           version: j.baseVersion + 1,
           x: j.x,
@@ -165,7 +183,7 @@ export class Builders {
     this.broadcast(room);
   }
   // Put a copy of a remembered $code in front of the player, no Aesel needed.
-  async restore(client, room, owner, seat, code) {
+  async restore(client, room, owner, seat, code, rid = undefined) {
     try {
       let entry = this.store.historyEntry(room, code);
       if (!entry) {
@@ -187,10 +205,10 @@ export class Builders {
       const shape = geometry(entry.geometry);
       const committed = await this.store.commit(job, shape, () => this.place(job, shape));
       await this.store.setCode(room, committed.id, committed.version, code);
-      this.send(client, { type: 'build-result', id: job.id, objectId: committed.id, version: committed.version });
+      this.send(client, { type: 'build-result', id: job.id, rid, objectId: committed.id, version: committed.version });
       this.broadcast(room);
     } catch (e) {
-      this.send(client, { type: 'build-result', error: e.message });
+      this.send(client, { type: 'build-result', rid, error: e.message });
     }
   }
   // Give versions that predate $codes theirs.
@@ -371,6 +389,12 @@ export class Builders {
   // Results go to the player who asked, found by identity: their socket may
   // have changed since (a reload or a server restart).
   deliver(job, message) {
+    // 🔁 Named by its page: the answer carries the name, and how it ended is kept for a page that asks again.
+    if (job.rid) {
+      message = { ...message, rid: job.rid };
+      const kept = this.asked.get(`${job.asker || job.owner}:${job.rid}`);
+      if (kept && kept.id === job.id && message.type === 'build-result') kept.result = message;
+    }
     const room = this.rooms.get(job.room);
     const open = (ws) => ws && ws.readyState === 1;
     let to = open(job.client) ? job.client : null;
@@ -406,9 +430,21 @@ export class Builders {
   // `keeper`: the world's keeper may revise an object they do not own. It
   // stays its maker's; the new version is signed and published by the keeper.
   request(client, room, owner, seat, input, { guest = false, keeper = false } = {}) {
-    const requestId = randomUUID(), startedAt = Date.now();
+    const requestId = randomUUID(), startedAt = Date.now(), rid = Builders.rid(input);
     try {
       if (!owner) throw Error('Identity is not ready');
+      // 🔁 Said before: the same job, not a second one (and nothing more is spent).
+      const before = rid && this.asked.get(`${owner}:${rid}`);
+      const running = before && this.jobs.get(before.id);
+      if (running) {
+        running.client = client;
+        this.send(client, { type: 'build-accepted', id: running.id, objectId: running.objectId, rid, again: true });
+        return running.id;
+      }
+      if (before?.result) {
+        this.send(client, { ...before.result, again: true });
+        return null;
+      }
       if (guest && this.guestRemaining(owner) <= 0)
         throw Error(`Guest braincells spent (${GUEST_BUILDS} a day). Sign in to keep building.`);
       const prompt =
@@ -482,6 +518,7 @@ export class Builders {
         client,
         worker,
         startedAt,
+        rid,
       };
       // Reserve a visible initial footprint even before the first code arrives.
       try {
@@ -497,7 +534,8 @@ export class Builders {
         if (job.finishing) return;
         job.outcome = 'timeout';
         this.send(worker, { type: 'cancel', id: job.id });
-        this.send(client, {
+        // (To whoever asked, on the socket they have now: the one they asked on may be gone.)
+        this.deliver(job, {
           type: 'build-result',
           id: job.id,
           error: 'Aesel timed out. Try again.',
@@ -506,6 +544,7 @@ export class Builders {
       }, 180000);
       if (guest) this.spendGuest(owner);
       this.jobs.set(job.id, job);
+      if (rid) this.remember(owner, rid, job.id);
       this.record('build.accepted', job);
       this.workers.get(worker).add(job.id);
       this.send(worker, {
@@ -519,22 +558,23 @@ export class Builders {
         type: 'build-accepted',
         id: job.id,
         objectId: job.objectId,
+        rid: rid || undefined,
       });
       this.broadcast(room);
       return job.id;
     } catch (e) {
       this.record('build.rejected', { id: requestId, startedAt, client }, { reason: buildReason(e) });
-      this.send(client, { type: 'build-result', id: requestId, error: e.message });
+      this.send(client, { type: 'build-result', id: requestId, rid: rid || undefined, error: e.message });
       return null;
     }
   }
   static meta(job) {
-    const { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code } = job;
-    return { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code };
+    const { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code, rid } = job;
+    return { id, objectId, owner, asker, room, prompt, item, effect, baseVersion, x, z, sketch, startedAt, kind, face, code, rid };
   }
   // Change a wall's KidLisp: a job of its own kind, handed to a builder.
   async requestKidlisp(client, room, owner, input) {
-    const requestId = randomUUID(), startedAt = Date.now();
+    const requestId = randomUUID(), startedAt = Date.now(), rid = Builders.rid(input) || undefined;
     try {
       const face = ['north', 'west'].includes(input.face) ? input.face : null;
       const prompt = typeof input.prompt === 'string' ? input.prompt.trim().slice(0, 280) : '';
@@ -546,7 +586,7 @@ export class Builders {
       const code = this.store.walls(room)[face];
       const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
       const { source } = await r.json();
-      const job = { id: requestId, kind: 'kidlisp', face, code, owner, room, prompt, objectId: null, baseVersion: 0, x: 0, z: 0, client, worker, startedAt };
+      const job = { id: requestId, kind: 'kidlisp', face, code, owner, room, prompt, objectId: null, baseVersion: 0, x: 0, z: 0, client, worker, startedAt, rid };
       job.timer = setTimeout(() => {
         if (job.finishing) return;
         job.outcome = 'timeout';
@@ -558,11 +598,11 @@ export class Builders {
       this.record('build.accepted', job);
       this.workers.get(worker).add(job.id);
       this.send(worker, { type: 'build', kind: 'kidlisp', id: job.id, prompt, source, meta: { ...Builders.meta(job), kind: 'kidlisp', face, code } });
-      this.send(client, { type: 'build-accepted', id: job.id, kidlisp: true, face });
+      this.send(client, { type: 'build-accepted', id: job.id, kidlisp: true, face, rid });
       this.broadcast(room);
     } catch (e) {
       this.record('build.rejected', { id: requestId, startedAt, client, kind: 'kidlisp' }, { reason: buildReason(e) });
-      this.send(client, { type: 'build-result', id: requestId, error: e.message });
+      this.send(client, { type: 'build-result', id: requestId, rid, error: e.message });
     }
   }
   // A builder that reconnects hands back the jobs it was still working on.
@@ -580,6 +620,7 @@ export class Builders {
         this.finish(job);
       }, 180000);
       this.jobs.set(job.id, job);
+      if (Builders.rid(job)) this.remember(job.asker || job.owner, job.rid, job.id); // 🔁 (a page asking again after the restart finds it)
       work.add(job.id);
       this.broadcast(job.room);
     }

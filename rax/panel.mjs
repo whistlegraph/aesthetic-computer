@@ -217,6 +217,16 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
       panel.frame++;
     },
     leave() { piece.leave?.(api); },
+    // ↻ The piece begun again from nothing: the old one is told it is leaving, and a fresh load of it (`next.piece`, with its own host parts) boots on the same screen.
+    renew(next) {
+      try { piece.leave?.(api); } catch {}
+      piece = next.piece;
+      Object.assign(api, next.host || {});
+      api.paintCount = api.simCount = 0;
+      pen.down = false;
+      shown = null;
+      piece.boot?.(api);
+    },
   };
   piece.boot?.(api);
   return panel;

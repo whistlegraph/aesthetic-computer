@@ -90,12 +90,9 @@ cover) instead of a fish. Feeder categories may bring their own `glyph`,
 
 ## rax from the air
 
-In the bottom left corner, above "came from", sits rax as a small wireframe
-model (`Sources/FlyBy.swift`): the plaza with the tower over it (legs, glass
-lobby, the car and its shaft, a slab a floor), every open block with its lots
-and houses, the next six blocks of the spiral drawn faint, and what stands in
-each room. It is seen whole from an isometric angle, with no perspective and
-no frame, and swings slowly side to side; the census sits under it.
+The bottom-left Rax globe rotates once every 48 seconds. East and west
+follow longitude. North and south span the map from pole to pole. The
+courtyard, tower, open blocks, builds and live visitors sit on the surface.
 
 The model is drawn from rax's own map and from nothing else:
 
@@ -112,10 +109,10 @@ A shape is a `flat`, `box`, `stack` or `panel` with a `role`; FlyBy colours
 the roles it knows and draws any other in plain ink. To put something new on
 the wallpaper, add its shapes to `rax/map.mjs` and deploy rax.
 
-The ground is to scale. The tower is to scale for as many floors as fit
-(`rise` in FlyBy), then broken: three dots, its top two slabs, and the number
-of the top floor. Someone on a floor above the break stands on the top slab
-with their floor number after their handle.
+The map feed supplies the wrap distance and the planet's radius. Heights
+are compressed as they rise to keep the roof and airborne visitors in
+the frame. The top slab remains visible when storeys get too close to draw
+individually.
 
 The fast lane is two files. world.json is the map, asked for every five
 seconds and looked for twice a second. people.json is only who is where

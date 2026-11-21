@@ -414,6 +414,10 @@ export class Sfx {
     this.voice(140, 0.1, { volume: 0.03, type: 'square' });
   }
 
+  // 🧱 A build asked for and on its way to the server: one small note going up, under the ring's own level (the launch below is the server's yes); said again after a silence, the same note lower.
+  buildAsk(again = false) {
+    this.voice(note(again ? 2 : 7), 0.09, { volume: 0.016, type: 'sine', slide: 1.25 });
+  }
   // Aesel building: a soft launch, a rising pluck per new part, a resolve.
   buildStart() {
     [0, 4, 7].forEach((s) => this.voice(note(s, 196), 0.5, { volume: 0.018, type: 'sine' }));

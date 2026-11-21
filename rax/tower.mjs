@@ -13,7 +13,7 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { listFloors } from './elevator.mjs';
+import { listFloors, ROOF, roofNumber } from './elevator.mjs';
 export * from './elevator.mjs';
 
 export const GROUND = 'lobby'; // floor 0: the plaza the elevator leaves from
@@ -143,6 +143,33 @@ export class Tower {
     return [...this.byNumber.values()].sort((a, b) => a.number - b.number)
       .map((f) => [f.number, f.handle, f.held ? 1 : 0]);
   }
+}
+
+// 🛗 Where the car goes for what a rider asked: a number or a handle, `home`,
+// the ground, the roof (`top`), or the next place `up` or `down` (the roof is
+// the next up from the highest floor, and that floor the next down from the
+// roof). `from` is the room the car stands in and `handle` the rider's.
+// → { room, number, handle, from } (`from` and `number`: the two ends, as the
+// ride's sums count them; the roof is roofNumber), or { error } to say.
+const GROUND_WORDS = ['0', 'g', 'ground', 'plaza', 'lobby'], ROOF_WORDS = ['top', 'roof', 'the top', 'the roof', 'penthouse'];
+export function carTo(t, from, asked, handle = null) {
+  const here = t.forRoom(from), onRoof = from === ROOF, top = t.top;
+  const at = from === 'basement' ? -1 : onRoof ? roofNumber(top) : here ? here.number : 0;
+  const q = String(asked ?? '').trim().toLowerCase().slice(0, 24), to = ['my floor', 'my', 'mine'].includes(q) ? 'home' : q;
+  const floor = (f) => (f ? { room: floorRoom(f.id), number: f.number, handle: f.handle } : null);
+  const ground = { room: GROUND, number: 0, handle: null }, roof = top ? { room: ROOF, number: roofNumber(top), handle: null } : null;
+  const dest = ['basement', 'b1', '-1'].includes(to) || (to === 'down' && from === GROUND) ? { room: 'basement', number: -1, handle: null }
+    : to === 'up' && from === 'basement' ? ground
+    : GROUND_WORDS.includes(to) ? ground
+    : ROOF_WORDS.includes(to) ? roof
+    : to === 'up' ? (onRoof ? null : floor(t.step(at, 1)) || (here ? roof : null))
+    : to === 'down' ? (onRoof ? floor(t.at(top)) : here ? floor(t.step(at, -1)) || ground : null)
+    : to === 'home' ? floor(handle ? t.forHandle(handle) : null)
+    : floor(t.resolve(to));
+  if (to === 'down' && from === 'basement') return { error: 'this is the basement' };
+  if (!dest) return { error: to === 'home' ? 'sign in for a floor' : to === 'up' ? 'this is the top' : `no floor ${to}` };
+  if (dest.room === from) return { error: 'you are here' };
+  return { ...dest, from: at };
 }
 
 // The ledger on disk, written whole and swapped in, one change at a time.

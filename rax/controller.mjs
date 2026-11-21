@@ -76,10 +76,10 @@ export class Controller {
       result.fwd = -left[1];
       result.lookX = Math.sign(right[0]) * Math.abs(right[0]) ** 1.4;
       result.lookY = Math.sign(right[1]) * Math.abs(right[1]) ** 1.4;
-      // Left trigger jumps; A is kept for choosing (hold opens the ring).
-      result.jump = edge(6);
+      // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
+      result.jump = edge(0);
       result.select = edge(0);
-      // LB picks the aimed object (or empty floor) and opens the build ring.
+      // LB locks on while seated. RB builds or uses an item.
       result.ring = edge(4);
       result.use = edge(5);
       result.dup = edge(12);
@@ -96,7 +96,7 @@ export class Controller {
       result.swap = edge(8);
       result.up = Number(buttons[5]) - Number(buttons[4]);
       result.boost = !!buttons[7];
-      // How far each trigger is squeezed, 0 to 1 (a drone rolls on them).
+      // Analog pressure for focus zoom (left) and drone roll (right).
       result.lt = pad.buttons[6]?.value ?? Number(buttons[6]);
       result.rt = pad.buttons[7]?.value ?? Number(buttons[7]);
       // Past the standard seventeen: a pad's own extras (back paddles, L4 and R4), just pressed.

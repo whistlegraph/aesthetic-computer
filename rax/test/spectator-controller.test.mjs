@@ -36,7 +36,9 @@ test('the looking eye flies as a drone: it takes up speed, never more on a diago
 test('controller deadzone, edge actions, disconnect and pane focus',()=>{
  assert.deepEqual(stick(.1,.05),[0,0]);assert.deepEqual(stick(1,0),[1,0]);
  const c=new Controller();const p={id:'8BitDo Pro test',index:0,connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
- c.sample([p]);p.axes=[1,0,.6,-.5];p.buttons[6].pressed=true;
+ c.sample([p]);p.axes=[1,0,.6,-.5];p.buttons[6]={pressed:true,value:0.75};
+ const zoom=c.sample([p]);assert.equal(zoom.lt,0.75);assert.equal(zoom.jump,false);
+ p.buttons[0].pressed=true;
  const active=c.sample([p]);assert.equal(active.right,1);assert.equal(active.jump,true);assert.ok(active.lookX>0&&active.lookY<0);
  assert.equal(c.sample([p]).jump,false);assert.equal(c.sample([p],false).right,0);
  assert.equal(c.sample([p],true).jump,false,'held button cannot fire when pane gains focus');

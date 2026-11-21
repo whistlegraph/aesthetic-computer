@@ -1,5 +1,5 @@
 // ⚽ The ball
-// One football for the whole park. It belongs to no room: the world's clock
+// A dispensed football belongs to no room: the world's clock
 // rolls it, and a room only lends it what stands there (walls, builds,
 // bodies). At a block's line it goes on into the next block at the same
 // speed, the same way a walker does, and where no block is open it comes
@@ -9,6 +9,50 @@ import { DT, CFG, reflect } from './world.mjs';
 import { SPAN } from './park.mjs';
 
 export const BALL = { r: 0.34, room: 'lobby', x: 3, z: -5 };
+export const DISPENSER = { x: BALL.x, z: BALL.z, width: 1, depth: 0.8, height: 1.3 };
+export const DISPENSER_WALL = {
+  type: 'box', xMin: DISPENSER.x - DISPENSER.width / 2, xMax: DISPENSER.x + DISPENSER.width / 2,
+  zMin: DISPENSER.z - DISPENSER.depth / 2, zMax: DISPENSER.z + DISPENSER.depth / 2,
+  yMin: 0, yMax: DISPENSER.height,
+};
+// The west-facing chute opens onto the walk, clear of the benches to the south.
+const chute = { room: BALL.room, x: DISPENSER_WALL.xMin - BALL.r - 0.04, z: BALL.z };
+export const MAX_BALLS = 12;
+
+// Each approach trips the chute once. At capacity, reuse a resting ball.
+export function createDispenser(world) {
+  const make = () => createBall({ ...world, start: chute });
+  const balls = [make()];
+  let nearby = new Set(), next = 0;
+  return {
+    balls, make,
+    step() {
+      const visitors = new Set();
+      for (const p of world.bodies(BALL.room)) {
+        if (Math.abs(p.y - CFG.eyeHeight) < 1 && Math.hypot(p.x - BALL.x, p.z - BALL.z) <= 1.55)
+          visitors.add(p.seat);
+      }
+      for (const seat of visitors) {
+        if (nearby.has(seat)) continue;
+        let slot = balls.find(b => b.still() && b.ball.room === chute.room &&
+          Math.hypot(b.ball.x - chute.x, b.ball.z - chute.z) < 0.1);
+        if (!slot && balls.length < MAX_BALLS) { slot = make(); balls.push(slot); }
+        if (!slot) {
+          for (let i = 0; i < balls.length; i++) {
+            const index = (next + i) % balls.length;
+            if (balls[index].still()) { slot = balls[index]; next = (index + 1) % balls.length; break; }
+          }
+        }
+        if (slot) Object.assign(slot.ball, chute, { y: 0.65, vx: -3, vy: 1.4, vz: 0 });
+      }
+      nearby = visitors;
+      let moved = false;
+      for (const sim of balls) if (sim.step()) moved = true;
+      return moved;
+    },
+  };
+}
+
 const G = 22, BOUNCE = 0.55, ROLL = 0.6, REACH = 0.4 + BALL.r, KICK = 1.5, LOFT = 0.35;
 const SIDES = [['east', 'x', 1], ['west', 'x', -1], ['north', 'z', 1], ['south', 'z', -1]];
 

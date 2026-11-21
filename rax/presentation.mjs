@@ -11,9 +11,9 @@ export class LocalPresentation {
   }
 
   // Both interpolation endpoints describe the same walk on either side of a block line.
-  translate(dx, dz) {
+  translate(dx, dz, dy = 0) {
     if (!this.current) return;
-    const shift = (p) => ({ ...p, x: p.x + dx, z: p.z + dz });
+    const shift = (p) => ({ ...p, x: p.x + dx, y: p.y + dy, z: p.z + dz });
     this.previous = shift(this.previous);
     this.current = shift(this.current);
   }

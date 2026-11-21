@@ -61,7 +61,7 @@ try {
     () =>
       document.querySelector('canvas').raxStats.promptText === 'add a small eight-step staircase',
   );
-  assert.equal(await a.locator('input,textarea,button,form,div,span').count(), 0);
+  assert.equal(await a.locator(':is(input,textarea,button,form,div,span):not([aria-hidden="true"])').count(), 0);
   await a.screenshot({ path: 'tmp/rax/prompt-entry.png' });
   await a.keyboard.press('Enter');
   await a.waitForFunction(

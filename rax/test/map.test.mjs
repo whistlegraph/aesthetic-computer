@@ -9,7 +9,9 @@ import { Geography, BLOCK } from '../geography.mjs';
 import { Tower, floorRoom, carWalls, lobbyWalls, altitude, ATRIUM, STOREY, SLAB, LEG, SHORT, listFloors, storeyOf, roofOf } from '../tower.mjs';
 import { WORLD } from '../world.mjs';
 import { worldMap, peopleNow, towerShapes, place, MAP_VERSION } from '../map.mjs';
-import { REACH } from '../park.mjs';
+import { PLANET } from '../planet.mjs';
+import { DISPENSER_WALL } from '../ball.mjs';
+import { REACH, LAP } from '../park.mjs';
 import { createRaxServer } from '../server.mjs';
 
 const world = () => {
@@ -25,7 +27,8 @@ test('every solid the server walks people against is on the map', () => {
   const { geography, tower } = world();
   const map = worldMap({ geography, tower });
   assert.equal(map.version, MAP_VERSION);
-  for (const w of [...lobbyWalls(), ...carWalls()])
+  assert.deepEqual(map.planet, { radius: PLANET, lap: LAP * BLOCK });
+  for (const w of [...lobbyWalls(), ...carWalls(), DISPENSER_WALL])
     assert.ok(map.structure.some((s) => holds(s, w)), `missing ${JSON.stringify(w)}`);
 });
 

@@ -33,13 +33,12 @@ async function focus(page) {
 }
 
 try {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-  // Keep the user's desktop pointer from steering the visible test window.
-  // Relative aim below still goes through the real client input listener.
-  await context.addInitScript(() => document.addEventListener('mousemove', e => {
-    if (e.isTrusted) e.stopImmediatePropagation();
-  }, true));
   async function tab() {
+    // Each visitor needs their own guest identity in local storage.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await context.addInitScript(() => document.addEventListener('mousemove', e => {
+      if (e.isTrusted) e.stopImmediatePropagation();
+    }, true));
     const page = await context.newPage();
     const state = { page, snap: null };
     page.on('pageerror', e => errors.push(e.message));
@@ -53,19 +52,18 @@ try {
   }
   const a = await tab();
   await wait(() => a.snap?.phase === 'waiting', 'automatic room entry');
-  assert.equal(await a.page.locator('form,button,input,select,div,span').count(), 0, 'no DOM interface');
+  assert.equal(await a.page.locator(':is(form,button,input,select,div,span):not([aria-hidden="true"])').count(), 0, 'no DOM interface');
   await a.page.screenshot({ path: new URL('entry.png', shots).pathname });
   await focus(a.page);
   await a.page.locator('canvas').click();
   await a.page.waitForFunction(() => !!document.pointerLockElement);
   assert.equal(await a.page.evaluate(() => !!document.pointerLockElement), true, 'pointer lock');
-  await a.page.dispatchEvent('canvas', 'mousedown', { button: 0, bubbles: true });
+  await a.page.keyboard.press('Enter');
   await a.page.waitForFunction(() => document.querySelector('canvas').raxStats.promptOpen);
   assert.equal(a.snap.rockets.length, 0);
   await a.page.keyboard.press('Escape');
-  await a.page.dispatchEvent('canvas', 'mouseup', { button: 0, bubbles: true });
   const b = await tab();
-  await wait(() => a.snap?.phase === 'playing' && b.snap?.phase === 'playing', 'two player countdown');
+  await wait(() => a.snap?.phase === 'playing' && b.snap?.phase === 'playing', 'two players seated');
   await focus(a.page);
   if (!await a.page.evaluate(() => !!document.pointerLockElement)) await a.page.locator('canvas').click();
   await a.page.waitForFunction(() => !!document.pointerLockElement);
@@ -96,12 +94,12 @@ try {
   await a.page.keyboard.press('Escape');
   await a.page.reload();
   await wait(() => a.snap?.phase === 'waiting', 'reload');
-  assert.equal(await a.page.locator('form,button,input,select,div,span').count(), 0);
+  assert.equal(await a.page.locator(':is(form,button,input,select,div,span):not([aria-hidden="true"])').count(), 0);
   for (const [width, height] of [[390, 844], [1600, 700], [1280, 800]]) {
     await a.page.setViewportSize({ width, height });
     await a.page.waitForFunction(({ width, height }) => {
       const canvas = document.getElementById('game');
-      const scale = Math.max(1, Math.floor(Math.min(width / 480, height / 270)));
+      const scale = Math.max(1, Math.floor(Math.min(width / 640, height / 360)));
       return canvas.clientWidth === width && canvas.clientHeight === height &&
         canvas.width === Math.ceil(width / scale) && canvas.height === Math.ceil(height / scale) &&
         getComputedStyle(canvas).imageRendering === 'pixelated';

@@ -1,5 +1,6 @@
+import { POOL, inPool, floatInPool } from './basement.mjs';
 import { objectBoxes } from './objects.mjs';
-import { carDoor } from './elevator.mjs';
+import { towerSides, carDoor } from './elevator.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -28,7 +29,7 @@ export const CHALK = false;
 // The tower's rooms (the plaza and every floor) share one size. It is the
 // studio's for now; the rest of rax no longer assumes so.
 export const TOWER_HALF = WORLD;
-export const halfOf = (room) => (room === 'lobby' || /^floor-/.test(room || '') ? TOWER_HALF : WORLD);
+export const halfOf = (room) => (room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
 // The farthest a point in any room can be from its middle.
 export const MAX_HALF = Math.max(WORLD, TOWER_HALF);
 export const SCREEN = 40;
@@ -121,14 +122,18 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🦆 Ducking (flat rooms): ledges let the body through, a fall is faster,
   // and on the ground the head is lower (bop.mjs).
   const duck = flat && !!cmd.duck;
-  const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling) : fixed,
+  const poolRoom = fixed.includes(POOL);
+  const afloat = poolRoom && inPool(player) >= 0 && player.y <= 2.6;
+  const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling && !b.water) : fixed,
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
   const grounded = player.onGround && (feet < 0.02 || !!support);
   const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
   const cfg = {
     ...CFG,
-    groundY: support?.yMax || 0,
+    airCapSpeed: poolRoom || fixed.some(b => b.window) || open === towerSides ? 4.3 : CFG.airCapSpeed,
+    groundY: afloat ? POOL.bottom : support?.yMax || 0,
+    ...(afloat ? {runSpeed: player.boat ? 4.3 : 2.4, walkSpeed: 1.7, hVelDecay: player.boat ? 0.955 : 0.88, jumpVelocity: 0, airAccel: undefined} : {}),
     obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
       ...(player.shut > 0 ? [CAR_DOOR] : [])], // 🛗 riding: the car's door is shut for this body (`shut` ticks to go)
   };
@@ -173,6 +178,8 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   const past = (side) => (open?.includes(side) ? OVERRUN : 0);
   next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
   next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
+  if (poolRoom) floatInPool(player, next, cmd, DT);
+  else if (next.boat || next.swimming) { delete next.boat; delete next.swimming; delete next.poolJump; }
   if (flat) {
     next.z = next.vz = 0;
     next.duck = duck;

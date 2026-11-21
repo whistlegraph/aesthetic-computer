@@ -155,16 +155,99 @@ export const LOBBY_FRONT = 1.2, DOOR = 1.6, DOOR_HEIGHT = 2.7;
 // 🌳 The courtyard: the plaza's south half, before the entrance. A paved walk
 // runs up the middle to the door between two planters, each with a tree.
 export const PLANTERS = [{ x: -5, z: -3.4 }, { x: 5, z: -3.4 }], PLANTER = 2.2;
+export const towerSides = ['west', 'east', 'south', 'north'];
+function windowBay(alongX, at, from, to, sill, posts, height) {
+  const box = (a, b, low, high, thick) => ({
+    type: 'box', window: true, yMin: low, yMax: high,
+    xMin: alongX ? a : at - thick, xMax: alongX ? b : at + thick,
+    zMin: alongX ? at - thick : a, zMax: alongX ? at + thick : b,
+  });
+  return [box(from, to, 0, sill, 0.1), ...posts.map(p => box(p-0.06, p+0.06, sill, height, 0.06))];
+}
+export function storeyWindows() {
+  const edge = LEG.at;
+  const bay = (alongX, at, from, to) => {
+    const posts = [from, to];
+    for (let p = from + 4; p < to - 0.5; p += 4) posts.push(p);
+    return windowBay(alongX, at, from, to, 1.08, posts, STOREY - 0.4);
+  };
+  return [...bay(true,-edge,-8,8), ...bay(false,-edge,-8,8), ...bay(false,edge,-8,8),
+    ...bay(true,edge,-8,-CAR-0.3), ...bay(true,edge,CAR+0.3,8)];
+}
 // The ground floor's solid parts: the front either side of the entrance, the
 // two ends, and the courtyard's planters.
 export function lobbyWalls() {
-  const t = 0.1, f = LOBBY_FRONT, e = 7.9;
+  const f = LOBBY_FRONT;
   const slab = (xMin, xMax, zMin, zMax, yMax = ATRIUM) => ({ type: 'box', xMin, xMax, yMin: 0, yMax, zMin, zMax });
+  const bay = (alongX, at, a, b) => {
+    const posts = Array.from({length: 4}, (_, i) => Math.round((a + (b-a)*i/3) * 100) / 100);
+    const frame = windowBay(alongX, at, a, b, 0.5, posts, ATRIUM - 0.4);
+    for (const y of [3.2, 6.2, 9.2]) frame.push({ ...frame[0], yMin: y-0.06, yMax: y+0.06, ceiling: true });
+    return frame;
+  };
   return [
-    slab(-8, -DOOR, f - t, f + t),
-    slab(DOOR, 8, f - t, f + t),
-    slab(-8, -e, f + t, 8),
-    slab(e, 8, f + t, 8),
+    ...bay(true, f, -8, -DOOR), ...bay(true, f, DOOR, 8),
+    ...bay(false, -7.95, f, 8), ...bay(false, 7.95, f, 8),
     ...PLANTERS.map((p) => slab(p.x - PLANTER / 2, p.x + PLANTER / 2, p.z - PLANTER / 2, p.z + PLANTER / 2, 0.55)),
   ];
+}
+
+// 🏙️ The roof: the open deck on top of the tower, a room of its own (ROOF)
+// and nobody's floor. The car comes up through it as it does through every
+// floor, and `top` in the car is here. It is a place only while the tower
+// has a floor to lie on.
+export const ROOF = 'roof';
+// A room of the tower that stands over the plaza: a floor, or the roof.
+export const aloft = (room) => room === ROOF || /^floor-/.test(room || '');
+// In a ride's sums and in every `number` the roof is one over the highest
+// floor: altitude() already puts that number on the roof's slab (the highest
+// floor is always listed), so a ride to the roof is counted like any other.
+export const roofNumber = (top) => (top > 0 ? top + 1 : 0);
+// 🧱 What stands on the roof besides the car: a parapet to the hip round the
+// slab's edge, where the storeys below have their glass, and a curb down each
+// side of the car, over the gap the slab leaves for the shaft. As solids
+// (see carSolids): none shares volume with another or with the car.
+export const PARAPET = { at: LEG.at, wide: 0.2, height: 1.1 };
+export function roofSolids() {
+  const { at, wide: t, height: H } = PARAPET, o = CAR + CAR_WALL, out = at + t / 2, bay = o + 0.35;
+  const solids = [];
+  const run = (name, x0, x1, z0, z1) => {
+    const x = (x0 + x1) / 2, z = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+    solids.push({ name, ink: 'sill', color: 'sill', x, y: (H - 0.1) / 2, z, w, h: H - 0.1, d });
+    solids.push({ name: `${name} cap`, ink: 'frame', color: 'frame', x, y: H - 0.05, z, w, h: 0.1, d });
+  };
+  run('south parapet', -out, out, -out, -out + t);
+  run('west parapet', -out, -out + t, -out + t, out - t);
+  run('east parapet', out - t, out, -out + t, out - t);
+  // North, either side of the shaft: the car's glass back is the edge there.
+  run('north-west parapet', -out, -bay, out - t, out);
+  run('north-east parapet', bay, out, out - t, out);
+  run('west curb', -bay, -o, CAR_Z - o, out);
+  run('east curb', o, bay, CAR_Z - o, out);
+  return solids;
+}
+// The same, as the boxes a body is walked against (a sill and its cap are one).
+export function roofWalls() {
+  return roofSolids().filter((s) => s.ink === 'sill').map((s) =>
+    ({ type: 'box', xMin: s.x - s.w / 2, xMax: s.x + s.w / 2, yMin: 0, yMax: PARAPET.height, zMin: s.z - s.d / 2, zMax: s.z + s.d / 2 }));
+}
+
+// 🧍 Nobody stands on air. Whoever is drawn on the tower from outside (the
+// people of its other rooms, what is built on its floors) is given as feet,
+// { x, y, z } in the tower's own metres (the plaza's middle, the ground at
+// 0), and this says what must be drawn under them: `slabs`, the storeys
+// someone stands on, and `cars`, the storeys where someone stands in the
+// shaft, where a slab is open and the car is the floor (0 is the car on the
+// ground). A storey is a storey: one that many numbers share (SHORT) counts
+// as one with a number of its own, and the roof is the storey over the last.
+export function standsOn(feet = []) {
+  const slabs = new Set(), cars = new Set(), o = CAR + CAR_WALL;
+  for (const p of feet) {
+    if (!p || !(Math.abs(p.x) <= SLAB && Math.abs(p.z) <= SLAB)) continue; // (off the tower: on the land, or in the air beside it)
+    const s = storeyAt((p.y || 0) + 0.5); // (half a metre of grace: a height is told rounded)
+    if (s > 0) slabs.add(s);
+    if (Math.abs(p.x) < o && Math.abs(p.z - CAR_Z) < o) cars.add(s);
+  }
+  const up = (a, b) => a - b;
+  return { slabs: [...slabs].sort(up), cars: [...cars].sort(up) };
 }

@@ -16,9 +16,11 @@
 //   panel  an upright rectangle, turned by `yaw`:   x z yaw w h y
 // A shape may carry a `color` (0xrrggbb) and a `label`.
 import { BLOCK, LOBBY, blockAt, parseBlock, toWorld } from './geography.mjs';
-import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, storeyOf, roofOf, carWalls, lobbyWalls } from './elevator.mjs';
+import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, storeyOf, roofOf, carWalls, lobbyWalls, ROOF, roofNumber, roofWalls } from './elevator.mjs';
 import { TILE_COLORS } from './world.mjs';
-import { REACH } from './park.mjs';
+import { PLANET } from './planet.mjs';
+import { DISPENSER_WALL } from './ball.mjs';
+import { REACH, LAP, GROUNDS } from './park.mjs';
 
 export const MAP_VERSION = 1;
 const round = (n) => Math.round(n * 100) / 100;
@@ -45,6 +47,9 @@ export function towerShapes(top) {
   for (const w of carWalls()) out.push(solid('car', w));
   out.push(shape('box', 'shaft', { x0: -o, z0: CAR_Z - CAR, x1: o, z1: CAR_Z + o, y0: CAR_HEIGHT, y1: roofOf(top) }));
   out.push(shape('stack', 'floor', { x0: -SLAB, z0: -SLAB, x1: SLAB, z1: SLAB, y: ATRIUM, step: STOREY }, { count: storeyOf(top) + 1 }));
+  // 🏙️ The roof's parapet, and the car's place up there, standing on the last slab.
+  const roof = roofOf(top), lift = (w) => ({ ...w, yMin: w.yMin + roof, yMax: w.yMax + roof });
+  for (const w of roofWalls()) out.push(solid('parapet', lift(w)));
   return out;
 }
 
@@ -56,6 +61,8 @@ export function landShapes(geography, ahead = 6) {
   // 🌳 The tower's yard (park.mjs): open field REACH blocks out on every side.
   const yard = (REACH + 0.5) * BLOCK;
   out.push(shape('flat', 'yard', { x0: -yard, z0: -yard, x1: yard, z1: yard }));
+  const settled = new Set(census.blocks.map(b => `${b.i},${b.j}`));
+  for (const [i, j] of GROUNDS) if (!settled.has(`${i},${j}`)) out.push(square('grounds', { i, j }));
   for (let k = 1; k <= ahead; k++) out.push(square('next', blockAt(census.opened + k)));
   for (const b of census.blocks) {
     out.push(Object.assign(square(b.n === 0 ? 'plaza' : 'block', b), { id: b.id }));
@@ -86,8 +93,11 @@ export function contentShapes(block, room = {}) {
 }
 
 // Where a body in `room` at its own (x, y, z) stands in the world, or null
-// for a room that is not a place in it (a game, a studio).
+// for a room that is not a place in it (a game, a studio). `floor` is the
+// floor's number, 0 on the ground; on the roof it is one over the highest
+// floor (roofNumber) and `roof` is true.
 export function place(room, p, { geography, tower }) {
+  if (room === ROOF) return tower?.top ? { x: round(p.x), y: round(roofOf(tower.top) + (p.y || 0)), z: round(p.z), floor: roofNumber(tower.top), roof: true } : null;
   const f = tower?.forRoom(room);
   if (f) return { x: round(p.x), y: round(altitude(f.number) + (p.y || 0)), z: round(p.z), floor: f.number };
   const block = room === LOBBY ? { i: 0, j: 0 } : parseBlock(room);
@@ -108,13 +118,14 @@ export function worldMap({ geography, tower = null, contents = () => ({}), seate
     version: MAP_VERSION,
     revision: `${census.revision}.${tower?.revision || 0}`,
     block: BLOCK,
+    planet: { radius: PLANET, lap: LAP * BLOCK },
     extent: {
       x0: Math.min(...is) * BLOCK - half, z0: Math.min(...js) * BLOCK - half,
       x1: Math.max(...is) * BLOCK + half, z1: Math.max(...js) * BLOCK + half,
     },
     census: { settled: census.settled, opened: census.opened, across: census.span.metres },
     tower: { floors: tower?.count || 0, top, atrium: ATRIUM, storey: STOREY, height: roofOf(top) },
-    structure: [...landShapes(geography), ...towerShapes(top)],
+    structure: [...landShapes(geography), solid('dispenser', DISPENSER_WALL), ...towerShapes(top)],
     content: census.blocks.flatMap((b) => contentShapes(b, contents(b.id))),
     people: seated.flatMap((s) => {
       const at = s.handle ? place(s.room, s, { geography, tower }) : null;

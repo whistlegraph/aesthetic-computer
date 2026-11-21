@@ -11,7 +11,7 @@ export const keyAt = (x, y) => KEYS.find((k) => x >= k.x && x < k.x + k.w && y >
 
 let over = null, down = null; // the key under the mouse, and the one pressed
 
-let repeatAt = 0, repeated = false;
+let repeatAt = 0, pressedAt = 0, repeated = false;
 function boot() {
   over = down = null;
 }
@@ -43,7 +43,7 @@ function paint({ wipe, ink, box, write, text, screen, car }) {
 
 function sim({ car }, now = performance.now()) {
   if (!down || over !== down || now < repeatAt) return;
-  car.go(down.do);
+  car.go(down.do, now - pressedAt);
   repeated = true;
   repeatAt = now + 140;
 }
@@ -52,7 +52,8 @@ function act({ event: e, car }) {
   if (e.is('move') || e.is('draw')) over = keyAt(e.x, e.y);
   if (e.is('touch')) {
     over = down = keyAt(e.x, e.y);
-    repeatAt = performance.now() + 400;
+    pressedAt = performance.now();
+    repeatAt = pressedAt + 400;
     repeated = false;
   }
   if (e.is('lift')) {

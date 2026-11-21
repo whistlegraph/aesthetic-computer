@@ -1,11 +1,12 @@
-import { BASEMENT, cellarWalls, treads, ceiling } from './basement.mjs';
+import { BASEMENT, cellarFixtures } from './basement.mjs';
 import { edgeAt, SPAN, groundsOf, cellOf, wrap } from './park.mjs';
 import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
 import { PLANET } from './planet.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf } from './elevator.mjs';
+import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls } from './elevator.mjs';
+import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
 import { createPanels, PANEL_REACH } from './panel.mjs';
 import { dockPose, faceStandoff, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
@@ -24,6 +25,7 @@ import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
 import { Controller } from './controller.mjs';
+import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
@@ -34,7 +36,7 @@ import { Sfx, SpatialTones } from './sfx.mjs';
 // or wall asks for a program, and the room is up before it.
 const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kidlispWall(...given));
 import { screenRows, carryPixels } from './screen-lod.mjs';
-import { ballAt } from './ball.mjs';
+import { ballAt, DISPENSER_WALL } from './ball.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
 // ⏱️ How long the way in takes, once: when this module ran, when the view
@@ -124,7 +126,7 @@ let held = null;
 // long the body was between two rooms goes in the connection's log.
 let crossing = null, crossedAt = -Infinity;
 // ⚽ The park's ball as last heard, in this room's metres, and when.
-let ball = null;
+let balls = [];
 let sentSeq = 0; // The newest command handed to the socket.
 // 🏢 The tower as the server tells it here ({ count, top, here, yours }), the
 // ride in progress ({ from, to, handle, at }), and whether the top line is
@@ -152,7 +154,7 @@ const carPad = panels.mount({
       key: (digit) => { dial = { text: (dial.text + digit).slice(-4), at: performance.now(), wait: PAD_MS }; sfx.ringMove(Number(digit)); },
       clear: () => { dial = { text: '', at: 0 }; sfx.ringBack(); },
       go: selectFloor,
-      floor: () => (ride && rideMoving(performance.now()) ? floorAt(altitude(ride.to) + liftAt(performance.now()) + 0.5, [ride.to, ride.from]) : tower?.here?.number ?? 0),
+      floor: () => floorName(ride && rideMoving(performance.now()) ? floorAt(altitude(ride.to) + liftAt(performance.now()) + 0.5, [ride.to, ride.from]) : tower?.here?.number ?? 0), // (a number, or 'roof')
       home: () => home?.floor || 0,
       moving: () => rideMoving(performance.now()),
     },
@@ -165,13 +167,13 @@ const carPad = panels.mount({
 // down and hears the tone from where the kiosk stands, and each piece rolls
 // its dice from its place's name so the pads are the same on every page.
 // Every held tone stops when the room is left.
-// East of the door, the songs AC knows (disks/song.mjs), one to a kiosk: tap a song's big button through its syllables, or `play` it as a guide on the room's clock.
-const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9],
-  ...['twinkle', 'row', 'weasel', 'kid', 'mmm'].map((name, k) => [`song ${name}`, 2.4 + k * 1.25, { w: 1.1, h: 1.1, cols: 128, rows: 128 }])];
+// Inside, the song hall: the songs AC knows (disks/song.mjs), one to a kiosk in a row along the back of the lobby's front glass, under a sign that says `songs`: tap a song's big button through its syllables, or `play` it as a guide on the room's clock.
+// 🗺️ Which kiosks stand where is the world's to say, not this page's: kiosks-plan.mjs works their places out from the tower's measurements, and the server takes a press only on one of them.
 const yardPanels = [], yardVoices = new Set();
 // 🧩 The server keeps what has been done to each piece (kiosks.mjs): `yardKept` is its last word, and each panel counts the presses and lets-go its own copy has had (`done`). The difference is done silently, so a page that comes later stands where everyone's stands.
 let yardKept = null, yardMuted = false;
 const QUIET = { kill() {}, update() {} };
+// 🔇 A note cannot be left sounding. Every voice a kiosk's piece starts is kept with whose pointer it was started under, and that pointer's letting go ends it whatever the piece made of the event (a lift that came from outside the panel, or from someone who left the room, used to leave a pad droning: one did for eight minutes, 2026-11-20). And a kiosk nobody has touched for a quarter of a minute is hushed: a held note needs a hand on it.
 let yardActing = null; // { id, pointer } while a panel's piece is being told of a pointer
 const yardTouched = new Map(); // panel id → when it was last worked
 const KIOSK_HUSH_MS = 15000;
@@ -204,6 +206,26 @@ function tendKiosk(panel) {
   panel.hear = (name, px, py, pointer) => under(pointer, name, () => hear(name, px, py, pointer));
   return panel;
 }
+// ↻ A kiosk's piece begun again from nothing: a fresh load of its disk boots on the same screen, its voices are ended, and its count of what has been done to it starts over. Asked for by pressing its name (`tell`: the room is told, and the server forgets what was done to it), heard from someone else who did, or found on coming in (the server's `epoch` for it is past this page's).
+async function resetKiosk(id, tell = false, epoch = null) {
+  const panel = yardPanels.find((p) => p.id === id);
+  if (!panel?.fresh || panel.renewing) return;
+  panel.renewing = true;
+  yardPointers.get(id)?.clear();
+  yardTouched.delete(id);
+  for (const v of [...yardVoices]) if (v.id === id) v.kill(0.05);
+  try {
+    const next = await panel.fresh();
+    panel.renew(next);
+    await next.ready?.();
+  } catch (e) { console.warn(`rax: ${id} did not begin again:`, e?.message || e); }
+  panel.done = 0;
+  panel.epoch = epoch ?? (panel.epoch || 0) + 1;
+  panel.renewing = false;
+  sfx.ringBack();
+  if (tell && seat >= 0 && room === 'lobby') send({ type: 'panel', id, name: 'reset', x: 0, y: 0 });
+  else catchUp(); // (what has been done to it since, if this page was behind)
+}
 function hushIdleKiosks(now) {
   for (const v of [...yardVoices]) if (now - (yardTouched.get(v.id) ?? -Infinity) > KIOSK_HUSH_MS) v.kill(0.4);
 }
@@ -214,6 +236,8 @@ function catchUp() {
     for (const panel of yardPanels) {
       const kept = yardKept[panel.id];
       if (!kept || !panel.hear) continue;
+      // (Begun again by someone while this page was away: begin it again here first, then do what has been done since.)
+      if ((kept.epoch || 0) > (panel.epoch || 0)) { if (panel.fresh) { void resetKiosk(panel.id, false, kept.epoch); continue; } panel.epoch = kept.epoch; }
       const todo = kept.total > (panel.done || 0) ? kept.events.slice(-Math.min(kept.events.length, kept.total - (panel.done || 0))) : [];
       for (const [name, x, y, seat] of todo) panel.hear(name, x, y, seat + 2);
       panel.done = Math.max(panel.done || 0, kept.total);
@@ -227,16 +251,17 @@ async function mountYard() {
   yardAsked = true;
   try {
     const { acPiece, signPiece } = await import('./ac-piece.mjs');
-    for (const [k, [slug, x, face = { w: 1.2, h: 1.2, cols: 64, rows: 64 }]] of YARD_PIECES.entries()) {
-      const z = 0.95, y = 1.35, id = `yard-${k}`; // a step out from the lobby's front glass, facing the yard
+    const plan = kioskPlan('lobby');
+    for (const { id, piece: slug, x, y, z, yaw, sign, ...face } of plan) {
+      if (id === 'yard-notepat') continue; // (the big board is mounted below, with its own voice and its stand-in)
       const sound = { synth: ({ type, tone, duration }) => {
         if (!kioskAudible(id, duration)) return QUIET;
         return yardVoice(id, sfx.hold(Number(tone), { type, at: { x, y, z } }), duration);
       } };
-      const { piece, host } = await acPiece(slug, { sound, seed: id, clock: () => Date.now() + (clockOffset || 0) });
-      const panel = panels.mount({ id, label: slug, completes: true, piece, host, x, y, z, yaw: 0, ...face, deep: 0.1 });
+      const fresh = () => acPiece(slug, { sound, seed: id, clock: () => Date.now() + (clockOffset || 0) });
+      const { piece, host } = await fresh();
+      const panel = tendKiosk(panels.mount({ id, label: slug, completes: true, piece, host, x, y, z, yaw, ...face, deep: KIOSK_DEEP }));
       // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
-      tendKiosk(panel);
       const act = panel.act;
       let toldAt = 0;
       panel.act = (name, px, py, device) => {
@@ -248,12 +273,15 @@ async function mountYard() {
         if (name !== 'draw') panel.done = (panel.done || 0) + 1;
         send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
       };
+      panel.fresh = fresh;
       yardPanels.push(panel);
-      yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: y + face.h / 2 + 0.17, z, yaw: 0, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
+      if (sign) yardPanels.push(panels.mount({ id: `${id}-sign`, piece: signPiece(slug, () => void resetKiosk(id, true)), x, y: y + face.h / 2 + 0.17, z, yaw, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     }
+    // 🪧 And over a group of them, what they are (the song hall's `songs`).
+    for (const { text, ...at } of kioskSigns('lobby')) yardPanels.push(panels.mount({ piece: signPiece(text), ...at, deep: 0.06 }));
     // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its two grids of pads (the layout a kiosk is kept at), a pad the size of a hand; its mode bar's buttons work, and what its sound panel chooses is played by the one voice there is here.
     const { notepatPiece } = await import('./ac-piece.mjs');
-    const id = 'yard-notepat', spot = { x: -4.9, z: -7.6 };
+    const id = 'yard-notepat', spot = (({ x, z }) => ({ x, z }))(plan.find((k) => k.id === id)); // (where the plan stands it)
     // (notepat says how loud each voice is: its composite is one loud partial and four faint ones.)
     const sound = { synth: ({ type, tone, volume = 1, duration }) => {
       if (!kioskAudible(id, duration)) return QUIET;
@@ -262,8 +290,10 @@ async function mountYard() {
     // (If the disk does not load, the stand-in is mounted: notepat's pads, drawn here, on the smaller board they were made for.)
     let board;
     try {
-      const { piece, host, ready } = await acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'grid' } });
+      const fresh = () => acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'grid' } });
+      const { piece, host, ready } = await fresh();
       board = panels.mount({ id, label: 'notepat', completes: true, piece, host, ...spot, y: 1.6, yaw: 180, w: 4.8, h: 2.4, cols: 320, rows: 160, deep: 0.12 });
+      board.fresh = fresh;
       await ready(); // (its boot waits on its store: nothing is heard by it until then, so what the room has kept is done after)
     } catch (e) {
       console.warn('rax: notepat itself did not load, so its stand-in is up:', e?.message || e);
@@ -283,6 +313,8 @@ async function mountYard() {
       send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
     };
     yardPanels.push(board);
+    // (Its name at its top left, as every piece on a panel has: pressed, the piece begins again.)
+    yardPanels.push(panels.mount({ id: `${id}-sign`, piece: signPiece('notepat', () => void resetKiosk(id, true)), x: spot.x - (board.w / 2 - 0.6), y: board.y + board.h / 2 + 0.17, z: spot.z, yaw: 180, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     catchUp();
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
@@ -307,7 +339,17 @@ function linkAgents(handle, now) {
   socket.onclose = () => { if (agentLink.socket === socket) { agentLink.socket = null; agentLink.agents = 0; } };
   socket.onerror = () => { try { socket.close(); } catch {} };
 }
+// 🔎 The focus zoom: the left trigger (as far as it is squeezed) or C closes the lens on what is looked at, up to two and a half times, on foot and in the air alike; let go, it opens again. (Not while in at a screen: that has the lens.)
+let focusZoom = 1;
+function focusStep(elapsed) {
+  const want = dock || prompt.open || menu ? 1 : 1 + 1.5 * Math.max(gamepad?.lt > 0.06 ? gamepad.lt : 0, keys.has('KeyC') && !typing() ? 1 : 0);
+  const was = focusZoom;
+  focusZoom += (want - focusZoom) * (1 - Math.exp(-Math.min(0.1, elapsed) * 9));
+  if (Math.abs(focusZoom - want) < 0.002) focusZoom = want;
+  return elapsed > 0 ? Math.min(1, Math.abs(Math.log2(focusZoom / was)) / Math.min(0.1, elapsed)) : 0; // how fast the lens moves, for its whirr
+}
 let padHolds = false, keyHolds = false; // a panel pressed and held by a pad's A, or by Enter
+let lastMotionLook = null;
 // The tower's height in floors, as last heard: it stands on every skyline.
 let towerTop = 0;
 try { towerTop = Number(localStorage.getItem('rax-tower-top')) || 0; } catch {}
@@ -339,17 +381,17 @@ async function readDirectory(revision) {
 }
 // A short pause commits a run of taps. Holding either arrow keeps changing
 // this same destination until the rider lets go.
-let padFloorRepeat = 0;
-function selectFloor(direction) {
+let padFloorRepeat = 0, padFloorStart = 0;
+function selectFloor(direction, heldMs = 0) {
   if (seat < 0 || !inCar(player)) return;
-  const floors = [-1, 0, ...directory.keys()].sort((a, b) => a - b);
-  const here = Number(dial.text || (ride?.to ?? tower?.here?.number ?? 0));
-  const next = direction === 'up' ? floors.find(n => n > here) : floors.findLast(n => n < here);
-  if (next === undefined) {
+  const floors = [-1, 0, ...directory.keys(), ...(towerTop ? [towerTop + 1] : [])].sort((a, b) => a - b);
+  const here = Number((dial.text === 'roof' ? towerTop + 1 : dial.text) || ride?.to || tower?.here?.number || 0);
+  const next = heldMs >= 2000 ? (direction === 'up' ? floors.at(-1) : -1) : direction === 'up' ? floors.find(n => n > here) : floors.findLast(n => n < here);
+  if (next === undefined || next === here) {
     if (dial.text) dial.at = performance.now();
     return;
   }
-  dial = { text: String(next), at: performance.now(), wait: 360 };
+  dial = { text: next === towerTop + 1 && towerTop ? 'roof' : String(next), at: performance.now(), wait: 360 };
   sfx.ringMove(direction === 'up' ? 6 : 3);
 }
 // What the typed line would reach, said on the screen before Enter.
@@ -358,6 +400,7 @@ function floorAsked(text) {
   if (!q) return 'number, @handle or take N';
   if (/^(take|claim)\b/.test(q)) return /^(?:take|claim)\s+#?\d{1,4}$/.test(q) ? 'enter: make it yours' : 'take which number?';
   if (['g', '0', 'ground', 'plaza', 'lobby'].includes(q)) return 'the plaza';
+  if (['top', 'roof', 'the top', 'the roof', 'penthouse'].includes(q)) return 'the roof';
   if (['b1', 'basement', '-1'].includes(q)) return 'the basement';
   if (q === 'home') return home?.floor ? `your floor, ${home.floor}` : 'sign in for a floor';
   if (/^#?\d{1,4}$/.test(q)) {
@@ -370,6 +413,8 @@ function floorAsked(text) {
   for (const [n, handle] of directory) if (name && handle.startsWith(name)) return `@${handle}? floor ${n}`;
   return 'nobody by that name';
 }
+// 🏙️ A floor's number as it is said: a number over the highest floor there is, is the roof's (elevator.mjs roofNumber).
+const floorName = (n) => (n > 0 && tower?.top > 0 && n > tower.top ? 'roof' : n);
 function carScreen(rideNow) {
   // Asked where to: the line being typed is on the screen itself.
   if (dial.text) return { number: dial.text, moving: true, handle: floorAsked(dial.text), note: 'going in a moment', entry: true };
@@ -379,12 +424,12 @@ function carScreen(rideNow) {
   }
   const moving = !!rideNow?.moving, n = moving ? rideNow.floor : tower?.here?.number ?? 0;
   // The floor you stand on is named by the server's last word, not the directory.
-  const who = n ? (n === tower?.here?.number && tower.here.handle) || directory.get(n) : null;
+  const who = n ? (n === tower?.here?.number && tower.here.handle) || directory.get(n) : null, roof = floorName(n) === 'roof';
   return {
-    number: n === -1 ? 'B1' : n ? `${n}` : 'G',
+    number: n === -1 ? 'B1' : n ? `${floorName(n)}` : 'G',
     moving,
-    handle: n ? (who ? `@${who}` : 'empty') : 'plaza',
-    note: moving ? `${rideNow.to > rideNow.from ? 'up' : 'down'} to ${rideNow.to || 'G'}${rideNow.handle ? ` @${rideNow.handle}` : ''}`
+    handle: n === -1 ? 'basement' : roof ? 'open air' : n ? (who ? `@${who}` : 'empty') : 'plaza',
+    note: moving ? `${rideNow.to > rideNow.from ? 'up' : 'down'} to ${floorName(rideNow.to) || 'G'}${rideNow.handle ? ` @${rideNow.handle}` : ''}`
       : n ? `${altitude(n)} m up` : standing() ? `${standing()} floors` : '',
   };
 }
@@ -408,7 +453,7 @@ function sightsNow() {
   (snapshot?.players || []).forEach((p, i) => {
     if (p) out.push({ x: p.x, y: p.y + 1.2, z: p.z, r: 1, at: () => { const q = snapshot?.players?.[i]; return q ? { x: q.x, y: q.y + 1.2, z: q.z } : null; } });
   });
-  if (ball && Number.isFinite(ball.x)) out.push({ x: ball.x, y: ball.y || 0.3, z: ball.z, r: 0.6, at: () => (ball && Number.isFinite(ball.x) ? { x: ball.x, y: ball.y || 0.3, z: ball.z } : null) });
+  for (const b of balls) out.push({ ...b, r: 0.6, at: () => balls.find(other => other.id === b.id) || null });
   return out;
 }
 // Where on the tour is nearest a place: it is joined there, not at its start.
@@ -445,7 +490,7 @@ void askWeather();
 setInterval(askWeather, 5 * 60 * 1000);
 function plazaFrom() {
   if (room === 'lobby') return { dx: 0, dy: 0, dz: 0 };
-  if (room.startsWith('floor-')) return tower?.here?.number ? { dx: 0, dy: -altitude(tower.here.number), dz: 0 } : null;
+  if (aloft(room)) return tower?.here?.number ? { dx: 0, dy: -altitude(tower.here.number), dz: 0 } : null; // (a floor, or the roof: its number is its height)
   const m = /^([ew])(\d{1,4})([ns])(\d{1,4})$/.exec(room);
   return m ? { dx: (m[1] === 'w' ? 1 : -1) * Number(m[2]) * SPAN, dy: 0, dz: (m[3] === 's' ? 1 : -1) * Number(m[4]) * SPAN } : null;
 }
@@ -458,10 +503,10 @@ if (query.has('film'))
       world: () => ({ room, members, players: filmPlayers, connected: ws?.readyState === WebSocket.OPEN, ride: filmRide }) });
   }).catch(() => {});
 let filmPlayers = [], filmRide = null;
-const hasCar = () => room === BASEMENT || room === 'lobby' || room.startsWith('floor-');
+const hasCar = () => room === BASEMENT || room === 'lobby' || aloft(room);
 // 📐 This room's half-width (world.mjs): the same number the server moves us by.
 const half = () => halfOf(room);
-const CAR_BOXES = carWalls(), LOBBY_BOXES = lobbyWalls();
+const CAR_BOXES = carWalls(), LOBBY_BOXES = [...lobbyWalls(), DISPENSER_WALL], ROOF_BOXES = roofWalls(), WINDOW_BOXES = storeyWindows();
 // 🌍 The world around this block, streamed from the server and kept between
 // visits: the last answer of /world for each block it was asked about.
 let world = null, worldAt = 0;
@@ -495,6 +540,7 @@ function gameCamera(me, players, elapsed) {
 // The sides of this place that lead to a neighbour: no wall stands there.
 let openFor = null, openSides = null;
 function openEdges() {
+  if (aloft(room)) return towerSides;
   if (openFor !== park) {
     openFor = park;
     openSides = park?.neighbours ? Object.keys(park.neighbours).filter((k) => park.neighbours[k]) : null;
@@ -505,15 +551,15 @@ const NO_BOXES = [];
 function fixedBoxes() {
   if (game()?.ledges) return game().ledges;
   if (!hasCar()) return NO_BOXES;
-  // (Rebuilt when the room changes: only the plaza has the lobby.)
+  // (Rebuilt when the room changes: only the plaza has the lobby, only the roof its parapet.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
-  return (carBoxes ||= [...CAR_BOXES, ...(room === BASEMENT ? [...treads, ...cellarWalls, ...ceiling] : []), ...(room === 'lobby' ? LOBBY_BOXES : [])]);
+  return (carBoxes ||= [...CAR_BOXES, ...(room === BASEMENT ? cellarFixtures : []), ...(room === 'lobby' ? LOBBY_BOXES : room === ROOF ? ROOF_BOXES : aloft(room) ? WINDOW_BOXES : [])]);
 }
 // The blocks beside the one underfoot, placed in metres from its middle.
 function around() {
   if (!world) return [];
-  // 🏢 From a floor of the tower the plaza and its blocks lie below.
-  if (room.startsWith('floor-')) {
+  // 🏢 From a floor of the tower, or its roof, the plaza and its blocks lie below.
+  if (aloft(room)) {
     const at = plazaFrom();
     return at ? [...world.blocks.map((b) => ({ ...b, dx: b.di * SPAN, dz: b.dj * SPAN, dy: at.dy,
       home: null })), ...floorsAround(at.dy)] : [];
@@ -535,16 +581,23 @@ function floorsAround(dy) {
 // 🏢 How high the eye is in the world: on a floor of the tower, that floor's
 // height; flying over the plaza, the drone's. The world is asked again when
 // it has moved a storey, for the floors now beside it.
-let worldY = 0;
+let worldY = 0, cellarAtlas = null;
 function eyeHeight() {
-  const up = room.startsWith('floor-') ? -(plazaFrom()?.dy || 0) : 0;
+  const up = aloft(room) ? -(plazaFrom()?.dy || 0) : 0;
   return up + (seat < 0 && !held ? freecam?.y || 0 : player?.y || 0);
 }
 async function streamWorld() {
   const asked = room;
   worldAt = performance.now();
+  if (asked === BASEMENT) {
+    try {
+      const response = await fetch(new URL('./map', import.meta.url), {cache: 'no-store'});
+      if (response.ok && room === asked) cellarAtlas = await response.json();
+    } catch {}
+    return;
+  }
   // A floor of the tower looks down on the plaza's neighbourhood.
-  const about = asked.startsWith('floor-') ? 'lobby' : asked;
+  const about = aloft(asked) ? 'lobby' : asked;
   try {
     worldY = eyeHeight();
     const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}${about === 'lobby' ? `&y=${Math.round(worldY)}` : ''}`, import.meta.url), { cache: 'no-store' });
@@ -560,7 +613,7 @@ async function streamWorld() {
     } catch {}
   } catch {}
 }
-world = worlds.get(room.startsWith('floor-') ? 'lobby' : room) || null;
+world = worlds.get(aloft(room) ? 'lobby' : room) || null;
 void streamWorld();
 // Under the prompt the host may not have said who is signed in when this
 // loads: look again shortly, so the room behind the curtain is theirs too.
@@ -866,7 +919,6 @@ const joining = () => seat < 0 && performance.now() < joiningUntil;
 let gate = null;
 // 📱 Signed out and looking on, a phone can sign this tab in (pair-desk.mjs).
 const pairDesk = createPairDesk();
-let lastMotionLook = null;
 let gamepad;
 let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
   ? null : new URL(`?room=${room}`, location.href).href;
@@ -1004,12 +1056,12 @@ const airBefore = (face, most) => {
   const out = direction((face.yaw || 0) + 180), side = direction((face.yaw || 0) + 90);
   return Math.min(...[-0.3, 0, 0.3].map((k) => airFrom({ x: face.x + out.x * 0.12 + side.x * face.w * k, y: face.y, z: face.z + out.z * 0.12 + side.z * face.w * k }, out, most))) + 0.12;
 };
-function goIn() {
+function goIn(zoomFrom = 1) { // (zoomFrom: the lens as it is now, when stepping from one screen straight to the next)
   const face = lockOn && faceOf(lockOn.id), scale = view.scale(), at = view.aimOrigin(), f = view.aimForward();
   if (!face || !scale || !at || !f || game()?.camera || held) return false;
   const to = dockPose(face, scale, { clear: airBefore(face, 14) });
   if (!to) return false;
-  const from = { x: at.x, y: at.y, z: at.z, yaw: ((Math.atan2(f.x, f.z) * 180) / Math.PI + 360) % 360, pitch: (Math.asin(clamp(f.y, -1, 1)) * 180) / Math.PI, zoom: 1 };
+  const from = { x: at.x, y: at.y, z: at.z, yaw: ((Math.atan2(f.x, f.z) * 180) / Math.PI + 360) % 360, pitch: (Math.asin(clamp(f.y, -1, 1)) * 180) / Math.PI, zoom: zoomFrom };
   // (One of the mouse's pixels is one of the picture's: so many of the face's pixels to a degree of look.)
   const perDegree = face.cols ? (1 / 0.12) / (((face.h / face.rows) / to.back) * scale.sy * to.zoom * (canvas.clientHeight / 2)) : 0;
   dock = { id: lockOn.id, from, to, eye: from, home: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null, t: 0, way: 1,
@@ -1052,12 +1104,20 @@ function approach(id) {
 // is put back (a stick at half its pace, for a finer hand).
 function dockLook(elapsed) {
   if (!dock) return;
-  const stick = gamepad?.lookX || gamepad?.lookY ? Math.min(0.1, elapsed) * 0.5 : 0;
-  const dx = ((yaw - dock.headYaw + 540) % 360) - 180 + (gamepad?.lookX || 0) * 160 * stick, dy = pitch - dock.headPitch + (gamepad?.lookY || 0) * 120 * stick;
+  const dt = Math.min(0.1, elapsed);
+  // (What the mouse, a finger or the arrows turned the head by this frame is the pointer's move; the head is put back.)
+  const dx = ((yaw - dock.headYaw + (gamepad?.lookX || 0) * 160 * dt + 540) % 360) - 180, dy = pitch - dock.headPitch + (gamepad?.lookY || 0) * 120 * dt; // (the right stick's own turn is taken back out: it is the world's look, below)
   yaw = dock.headYaw;
   pitch = dock.headPitch;
   const face = dock.cursor && dock.way > 0 && panelOf(dock.id);
-  if (face && (dx || dy)) dock.cursor = cursorStep(dock.cursor, face, -dx * dock.perDegree, -dy * dock.perDegree);
+  if (face) {
+    // 🕹️ The left stick is the pointer (the body does not walk while in at a screen): across the face in a little over a second at full tilt, gently at first.
+    const sx = gamepad?.right || 0, sy = gamepad?.fwd || 0, rate = Math.max(face.cols, face.rows) / 1.1;
+    if (dx || dy || sx || sy) dock.cursor = cursorStep(dock.cursor, face, -dx * dock.perDegree + sx * Math.abs(sx) * rate * dt, -dy * dock.perDegree - sy * Math.abs(sy) * rate * dt);
+  }
+  // 👀 The right stick looks about the world from where the eye stands, and comes back to the screen when it is let go.
+  const k = 1 - Math.exp(-dt * 9), was = dock.peek || { yaw: 0, pitch: 0 };
+  dock.peek = { yaw: was.yaw + (-(gamepad?.lookX || 0) * 55 - was.yaw) * k, pitch: was.pitch + (-(gamepad?.lookY || 0) * 30 - was.pitch) * k };
 }
 // And after it: the eye is carried along its glide (a drone with it), and a
 // drone on its way up to a thing is flown there. What comes back is how fast
@@ -1101,10 +1161,12 @@ function carry(elapsed, now, turned) {
 // Step the lock to the next selectable clockwise (dir 1) or anticlockwise.
 function cycleLock(dir) {
   const from = player || (seat < 0 ? freecam : null);
-  if (!from || !lockOn || dock) return;
+  if (!from || !lockOn) return;
+  // 🖥️ In at a screen, the step goes on to the next thing all the same: to another screen the eye glides straight across, lens as it is; to anything else it comes back out to look at it.
+  const inAt = dock && dock.way > 0 ? dock : null, head = inAt ? inAt.headYaw : yaw;
   const bearing = (id) => {
     const p = spotOf(id);
-    return p ? (((Math.atan2(p.x - from.x, p.z - from.z) * 180) / Math.PI - yaw + 540) % 360) - 180 : null;
+    return p ? (((Math.atan2(p.x - from.x, p.z - from.z) * 180) / Math.PI - head + 540) % 360) - 180 : null;
   };
   const list = selectables()
     .map((id) => ({ id, b: bearing(id) }))
@@ -1112,7 +1174,9 @@ function cycleLock(dir) {
     .sort((a, b) => a.b - b.b);
   const at = list.findIndex((x) => x.id === lockOn.id);
   if (list.length < 2 || at < 0) return;
+  if (inAt && (padHolds || keyHolds)) { padHolds = keyHolds = false; panels.release(); }
   setLock(list[(at - dir + list.length) % list.length].id);
+  if (inAt) goIn(inAt.eye?.zoom || 1);
   sfx.ringMove(at);
 }
 // Removing takes two presses: the first arms it for two seconds.
@@ -1164,6 +1228,32 @@ const send = (data) => {
   }
   return false;
 };
+// 🧱 What this page has asked Aesel for, each with its one state from the press to the end (build-line.mjs): the view draws them as a line at the top of the screen, wherever you look. An asking that cannot be sent is put there too with its reason: no control here is ever simply dead.
+const builds = createBuilds({
+  send,
+  ready: (askedRoom) => !!owner && askedRoom === room,
+  // (An asking not yet answered outlives the page loading itself again after a dropped socket: the tab's own storage.)
+  kept: { read: () => { try { return sessionStorage.getItem('rax-asked'); } catch { return null; } }, write: (text) => { try { sessionStorage.setItem('rax-asked', text); } catch {} } },
+});
+const mineJob = (j) => !!owner && (j.asker || j.owner) === owner;
+let heardRoom = null; // the room whose `objects` this socket last said (the line is only checked against a room that has spoken)
+function refuseBuild(text, why) {
+  builds.refuse(text, why);
+  prompt.message = why.toUpperCase();
+}
+// The line's rows with what the room knows of each: a finished thing's name and where it stands from here.
+function buildRows() {
+  return builds.rows().map((b) => {
+    const o = b.state === 'done' && b.objectId ? objects.find((x) => x.id === b.objectId) : null;
+    if (!o) return b;
+    let where = '';
+    if (player) {
+      const dx = o.x - player.x, dz = o.z - player.z, turn = ((((Math.atan2(dx, dz) * 180) / Math.PI - yaw) % 360) + 540) % 360 - 180;
+      where = `${Math.round(Math.hypot(dx, dz))} m ${Math.abs(turn) < 45 ? 'ahead' : Math.abs(turn) > 135 ? 'behind you' : turn > 0 ? 'to your left' : 'to your right'}`;
+    }
+    return { ...b, name: o.geometry?.name || '', code: o.code || '', where };
+  });
+}
 
 function tone(frequency, duration, volume = 0.04) {
   sfx.voice(frequency, duration, { volume });
@@ -1215,6 +1305,7 @@ if (hosted) void peekRoom();
 if (query.has('debug'))
   window.raxDebug = () => ({
     seat,
+    builds: builds.rows(),
     room, park, home, tower, ride,
     player: player ? { x: player.x, y: player.y, z: player.z } : null,
     yaw,
@@ -1237,12 +1328,20 @@ if (query.has('debug'))
     cursorAim,
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
   });
+// 🎥 And a way to set the eye down for a picture (?debug only): where a drone hovers, and which way anyone looks.
+if (query.has('debug'))
+  window.raxLook = (at = {}) => {
+    if (seat < 0) freecam = { ...freecam, ...Object.fromEntries(['x', 'y', 'z'].filter((k) => Number.isFinite(at[k])).map((k) => [k, at[k]])), vx: 0, vy: 0, vz: 0 };
+    if (Number.isFinite(at.yaw)) yaw = at.yaw;
+    if (Number.isFinite(at.pitch)) pitch = at.pitch;
+    inputAt = performance.now(); // (not left to the idle tour)
+  };
 
 // 🚪 To another room of the one world: the same page, a new socket. What
 // stood in the old room is put away first so it never shows in the new one.
 // A place in the one world (the plaza, a block of the park, a floor of the
 // tower), as against an instance: a game's arena or a named room.
-const inWorld = (id) => id === BASEMENT || id === 'lobby' || id.startsWith('floor-') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
+const inWorld = (id) => id === BASEMENT || id === 'lobby' || aloft(id) || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
 // 🧭 This place's AC address, for the host's address bar: a game's own word
 // (botbop, botbop~name), else rax~room; the lobby and your home are rax.
 function placePath() {
@@ -1261,12 +1360,14 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   if (walk) crossing = { from, to, at: performance.now() };
   // The ball stays where it is in the world: over a seam it is a block
   // away in the new room's metres; by any other way it is out of sight.
-  const oldCell = walk && cellOf(from), newCell = walk && cellOf(to);
+  const leavingTower = walk && aloft(from) && !!cellOf(to);
+  const oldCell = walk && cellOf(leavingTower ? 'lobby' : from), newCell = walk && cellOf(to);
+  const floorHeight = leavingTower ? altitude(tower?.here?.number || 0) : 0;
   const continuous = here && player && oldCell && newCell;
   const dx = oldCell && newCell ? wrap(oldCell.i - newCell.i) * SPAN : 0;
   const dz = oldCell && newCell ? wrap(oldCell.j - newCell.j) * SPAN : 0;
-  ball = walk && ball ? { ...ball, x: ball.x + dx, z: ball.z + dz } : null;
-  if (continuous) presentation.translate(dx, dz);
+  balls = walk ? balls.map(b => ({ ...b, x: b.x + dx, z: b.z + dz })) : [];
+  if (continuous) presentation.translate(dx, dz, floorHeight);
   held = (receipt || here) && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
@@ -1281,7 +1382,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     const now = performance.now(), running = rideMoving(now) ? liftAt(now) : 0;
     const span = altitude(riding.from) - altitude(riding.to) + running;
     ride = { ...riding, ...(running ? { from: floorAt(altitude(riding.from) + running + 0.5, [riding.from, ride?.from]) } : {}), at: now, span, seconds: rideSeconds(span), rung: false };
-    tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null } : { room: 'lobby', number: 0 }, owner: false };
+    tower = { ...(tower || {}), here: riding.to ? { number: riding.to, handle: riding.handle, colors: null, ...(to === ROOF ? { room: ROOF, roof: true } : {}) } : { room: 'lobby', number: 0 }, owner: false };
     // 🚪 The door is shut while it runs: the rider walks about inside (world.mjs `shut`); the next room says the same when it seats them.
     if (held) held.shut = shutTicks(ride.seconds, HZ);
     sfx.ringMove(ride.to > ride.from ? 9 : 4);
@@ -1367,7 +1468,7 @@ function warmUp(to) {
     let type = '';
     try { type = JSON.parse(e.data).type; } catch { return; }
     // (What only happened once is not heard again: a line said, a pong, an answer to an asking.)
-    if (['whereabouts', 'ball', 'gate', 'said', 'pong', 'dev-log', 'input', 'travel', 'build-result', 'build-accepted', 'elevator-result'].includes(type)) return;
+    if (['whereabouts', 'ball', 'balls-away', 'gate', 'said', 'pong', 'dev-log', 'input', 'travel', 'build-result', 'build-accepted', 'elevator-result'].includes(type)) return;
     if (entry.words.length < 256) entry.words.push(e.data);
     if (type === 'welcome') {
       // Say who is at the door now, so the step in has nothing to wait for.
@@ -1534,10 +1635,16 @@ function connect(adopt = null) {
         else if (account) send({ type: 'account-none' }); // Nobody after all: seat the guest now.
       })();
     }
-    if (data.type === 'ball') { ball = { ...data, at: performance.now() }; return; }
+    if (data.type === 'balls-away') { balls = []; return; }
+    if (data.type === 'ball') {
+      const at = performance.now();
+      balls = [data, ...(data.others || [])].map(b => ({ ...b, at }));
+      return;
+    }
     // 👥 Someone else's hand on a kiosk: its piece hears their pointer, numbered by their seat.
     if (data.type === 'panel') {
       const panel = yardPanels.find((p) => p.id === data.id);
+      if (data.name === 'reset') { if (yardKept?.[data.id]) yardKept[data.id] = { total: 0, events: [], epoch: (panel?.epoch || 0) + 1 }; return void resetKiosk(data.id); }
       panel?.hear?.(data.name, data.x, data.y, data.seat + 2);
       if (panel && data.name !== 'draw') panel.done = (panel.done || 0) + 1;
       return;
@@ -1654,6 +1761,9 @@ function connect(adopt = null) {
     if (data.type === 'identity') {
       owner = data.owner;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
+      // 🧱 Known to the room again (a new socket): a build of ours it already spoke of joins the line, and an asking it never answered is said again under its own name.
+      if (heardRoom === room) builds.room(room, jobs, objects, mineJob);
+      builds.rejoined();
       try {
         localStorage.setItem('rax-owner', data.token);
       } catch {}
@@ -1671,8 +1781,15 @@ function connect(adopt = null) {
       if (Array.isArray(data.screens)) setScreens(data.screens);
       jobs = data.jobs;
       prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
+      heardRoom = room;
+      // 🧱 The line follows the room's word; a build of ours moving on a step (generating, validating…) is a small tick, each higher.
+      for (const b of builds.room(room, jobs, objects, mineJob)) {
+        const step = ['generating', 'correcting', 'validating', 'waiting'].indexOf(b.phase);
+        if (step >= 0) sfx.ringMove(5 + step);
+      }
     }
     if (data.type === 'build-accepted') {
+      builds.hear(data);
       sfx.buildStart();
       if (player) view.effect({ type: 'think', at: { x: player.x, y: player.y + 0.35, z: player.z } });
       prompt.busy = true;
@@ -1680,6 +1797,7 @@ function connect(adopt = null) {
       prompt.open = false;
     }
     if (data.type === 'build-result') {
+      builds.hear(data);
       if (data.error) sfx.buildFail(data.id);
       else if (data.cancelled) sfx.ringBack();
       else sfx.buildDone(data.id);
@@ -1829,6 +1947,7 @@ function connect(adopt = null) {
     watchHealth(!!snapshot);
     if (locked()) document.exitPointerLock();
     notice = e.reason || 'DISCONNECTED — CLICK TO REJOIN';
+    heardRoom = null;
     prompt.busy = false;
     owner = null;
     builder = false;
@@ -1909,7 +2028,7 @@ function menuItems() {
     .filter((h) => !seen.has(h.code) && seen.add(h.code))
     .map((h) => ({ ...h, thumb: thumbs.get(h.code) || null }));
   return list.length
-    ? list.map((h) => ({ ...h, act: () => send({ type: 'restore', code: h.code }) }))
+    ? list.map((h) => ({ ...h, act: () => { builds.ask({ type: 'restore', code: h.code }, `$${h.code}`, room); sfx.buildAsk(); } }))
     : [{ label: historyPending ? 'loading' : 'nothing made yet', act: () => {} }];
 }
 function toggleMenu() {
@@ -1935,7 +2054,11 @@ function holding() {
   return !!snapshot?.items?.some((it) => it.holder === seat && seat >= 0);
 }
 function submitPrompt(gesture = true) {
-  if (!prompt.text.trim() || prompt.busy) return false;
+  if (!prompt.text.trim()) return false;
+  if (prompt.busy) {
+    refuseBuild(prompt.text, builds.live >= 3 ? 'aesel is already making three things for you' : 'still waiting for word of the last one');
+    return false;
+  }
   // A bare $code stands that KidLisp piece on the field, a few steps ahead
   // and facing you. The room keeps it; Aesel is not involved.
   const code = /^\$([a-z0-9]{2,16})$/i.exec(prompt.text.trim());
@@ -1956,7 +2079,8 @@ function submitPrompt(gesture = true) {
       closeBuild();
       return true;
     }
-    send({ type: 'kidlisp-mod', face, prompt: prompt.text });
+    builds.ask({ type: 'kidlisp-mod', face, prompt: prompt.text }, prompt.text, room);
+    sfx.buildAsk();
     prompt.busy = true;
     closeBuild();
     return true;
@@ -1967,7 +2091,8 @@ function submitPrompt(gesture = true) {
     return true;
   }
   if (!owner || !builder) {
-    prompt.message = !owner ? 'CONNECTING' : 'AESEL IS OFFLINE';
+    // Not sent, and said so on the build line (the prompt's own message is one small row, top left, gone when the ring closes).
+    refuseBuild(prompt.text, !owner ? 'the room does not know you yet: try again in a moment' : 'aesel is offline: nothing can be built just now');
     return false;
   }
   prompt.busy = true;
@@ -1976,19 +2101,28 @@ function submitPrompt(gesture = true) {
   releaseInput();
   // Pointer capture must start inside the gesture, not the later server reply.
   if (gesture) void capture();
-  send({
+  // 🧱 Asked through the build line: it names the asking, says it again if no answer comes, and shows where it stands until it ends.
+  builds.ask({
     type: 'prompt',
     prompt: prompt.text,
     objectId: prompt.target?.id,
     baseVersion: prompt.target?.version,
     item,
     chalk,
-  });
+  }, prompt.text, room);
+  sfx.buildAsk();
   return true;
 }
+// 🧱 Only a KidLisp wall of this room is changed as one. A standing screen, a piece on a panel and a thing in a room beside this one are marked `wall` as well (looked at, never removed), and used to take this ring for themselves: it offered a wall's changes, its [X] asked for a change to a wall that is not there, and no build was asked for at all. Aimed at one of those, the ring is for a new thing.
+const wallOf = (o) => (o?.wall && walls.some((w) => `wall:${w.code}` === o.id) ? o : null);
 function openRadial(wall = null) {
-  if (seat < 0 || prompt.busy || radial.open) return;
-  const target = wall?.wall ? wall : focusObject?.owner === owner && !focusObject?.wall ? focusObject : null;
+  if (seat < 0 || radial.open) return;
+  if (prompt.busy) {
+    refuseBuild('', builds.live >= 3 ? 'aesel is already making three things for you' : 'still waiting for word of the last one');
+    sfx.refuse();
+    return;
+  }
+  const target = wallOf(wall) || (focusObject?.owner === owner && !focusObject?.wall ? focusObject : null);
   releaseInput();
   document.exitPointerLock();
   canvas.focus();
@@ -2272,9 +2406,9 @@ document.addEventListener('keydown', (e) => {
     closeBuild();
     return;
   }
-  if (e.code === 'Escape' && prompt.busy && !e.repeat) {
+  if (e.code === 'Escape' && !e.repeat && (prompt.busy || (!prompt.open && jobs.some(mineJob)))) {
     e.preventDefault();
-    send({ type: 'cancel-build' });
+    send({ type: 'cancel-build', in: room });
     prompt.open = false;
     releaseInput();
     return;
@@ -2323,8 +2457,8 @@ document.addEventListener('keydown', (e) => {
       releaseInput();
       document.exitPointerLock();
       canvas.focus();
-      prompt.begin(focusObject?.owner === owner ? focusObject : null);
-    } else submitPrompt();
+      prompt.begin(focusObject?.owner === owner && !focusObject.wall ? focusObject : null); // (a thing of yours seen in the room beside this one is not changed from here: a new thing is asked for)
+    } else if (!submitPrompt() && prompt.text.trim()) sfx.refuse();
     return;
   }
   if (prompt.open && radial.open && e.key.length === 1) radial.close();
@@ -2382,7 +2516,8 @@ document.addEventListener('keydown', (e) => {
   // (the lock is the confirmation, as B on the pad).
   if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) pressLock(); // (a drone locks on too, to look a thing over; on a screen a second press goes in to it)
   // (the arrows step it too: a lock holds the eye, so they have no turning to do; gone in to a screen they move its mouse)
-  if (lockOn && !dock && !e.repeat && !typing() && ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight'].includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
+  // (In at a screen the arrows are its mouse; the brackets still step.)
+  if (lockOn && !e.repeat && !typing() && (dock ? ['BracketLeft', 'BracketRight'] : ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight']).includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
   if (seat >= 0 && (e.code === 'Delete' || e.code === 'Backspace') && !e.repeat) {
     if (lockOn && !lockOn.wall) {
       send({ type: 'remove', objectId: lockOn.id });
@@ -2616,6 +2751,14 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
+  // 🧱 The build line's clock: an asking unheard is said once more (the same note, lower), then given up with the failing two notes and its row saying so.
+  for (const e of builds.tick()) {
+    if (e.type === 'again') sfx.buildAsk(true);
+    else {
+      sfx.buildFail(e.build.id);
+      prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
+    }
+  }
   // Walking through chalk dusts it: the points within reach fall as motes
   // here at once, and the server cuts the strokes for everyone.
   if (player && seat >= 0 && now - dustedAt > 120 && Math.hypot(player.vx || 0, player.vz || 0) > 0.5) {
@@ -2675,12 +2818,13 @@ function step(now) {
   if (!menu && !radial.open && !prompt.open && panels.hot && (gamepad.select || gamepad.use)) {
     if (gamepad.select) padHolds = panels.press();
     else panels.tap(now);
-    gamepad = { ...gamepad, select: false, use: false };
+    gamepad = { ...gamepad, select: false, use: false, jump: false }; // (A on a screen presses it; it does not jump as well)
   }
   if (padHolds && !gamepad.hold) { padHolds = false; panels.release(); }
   // 🛗 In the car the d-pad rides a floor up or down.
   if (!menu && riding && gamepad.floorDirection && (gamepad.dup || gamepad.ddown || (padFloorRepeat && now >= padFloorRepeat))) {
-    selectFloor(gamepad.floorDirection > 0 ? 'up' : 'down');
+    if (!padFloorRepeat || gamepad.dup || gamepad.ddown) padFloorStart = now;
+    selectFloor(gamepad.floorDirection > 0 ? 'up' : 'down', now - padFloorStart);
     padFloorRepeat = now + (gamepad.dup || gamepad.ddown ? 300 : 140);
   } else if (!gamepad.floorDirection || !riding || menu) padFloorRepeat = 0;
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
@@ -2713,7 +2857,7 @@ function step(now) {
     else { startWarp(); gamepad.cancel = false; } // 🌀 with nothing to let go, B warps it home
   }
   if ((seat >= 0 ? gamepad.ring : gamepad.prompt) && !prompt.open) pressLock();
-  if (lockOn && !dock && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1);
+  if (lockOn && !menu && (gamepad.dleft || gamepad.dright)) cycleLock(gamepad.dright ? 1 : -1); // (in at a screen too: the d-pad steps on to the next)
   if (lockOn && seat >= 0 && gamepad.cancel && !prompt.open && !radial.open && !lockOn.wall) {
     send({ type: 'remove', objectId: lockOn.id });
     setLock(null);
@@ -2771,9 +2915,9 @@ function step(now) {
   if (!prompt.open) {
     yaw = (yaw - pad.dx * 0.25 + 360) % 360;
     pitch = clamp(pitch - pad.dy * 0.25, -85, 85);
-    yaw = (yaw - gamepad.lookX * 160 * Math.min(0.1, elapsed) + 360) % 360;
+    yaw = (yaw - (gamepad.lookX * 160 * Math.min(0.1, elapsed)) / focusZoom + 360) % 360; // (zoomed in, the stick turns less: the same sweep across the picture)
     pitch = clamp(
-      pitch - gamepad.lookY * 120 * Math.min(0.1, elapsed),
+      pitch - (gamepad.lookY * 120 * Math.min(0.1, elapsed)) / focusZoom,
       -85,
       85,
     );
@@ -2782,7 +2926,7 @@ function step(now) {
       turnY = Number(keys.has('ArrowDown')) - Number(keys.has('ArrowUp'));
     yaw = (yaw - turnX * 130 * Math.min(0.1, elapsed) + 360) % 360;
     pitch = clamp(pitch - turnY * 90 * Math.min(0.1, elapsed), -85, 85);
-    if (seat >= 0 && gamepad.jump) {
+    if (seat >= 0 && gamepad.jump && !dock && !radial.open) {
       jumpQueued = true;
       sfx.jump();
     }
@@ -2807,7 +2951,7 @@ function step(now) {
   // 🎥 The eye carried to a screen and back, and a drone up to what it locked on to; its servos are heard only while it is.
   {
     const heard = carry(elapsed, now, Math.abs(((yaw - yawBefore + 540) % 360) - 180) + Math.abs(pitch - pitchBefore));
-    sfx.servo(heard.lens, heard.travel, heard.turn);
+    sfx.servo(Math.max(heard.lens, focusStep(elapsed)), heard.travel, heard.turn);
     whirr = heard;
   }
   if (elapsed > 0.25) presentation.reset(player);
@@ -2848,7 +2992,7 @@ function step(now) {
       // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
       {
         const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
-        const turn = Math.max(squeeze(gamepad.lt || 0), keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0);
+        const turn = (keys.has('KeyQ') ? 0.6 : 0) - Math.max(squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0); // (the left trigger is the focus zoom now: Q rolls left, the right trigger or R rolls right)
         if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
         // (Held where it was left for two seconds, then brought level slowly.)
         else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
@@ -2880,7 +3024,7 @@ function step(now) {
         // 🌬️ The air where the eye is, in the world's metres at this moment.
         weather && freecam.y >= 0 ? airAt(weather, freecam.x + (placeOf(room)?.x || 0), freecam.y, freecam.z + (placeOf(room)?.z || 0), Date.now() / 1000, { day: sun(skyPhase()) }) : null, // (no wind inside the planet)
         // 🕳️ Under the land the planet is hollow (freecam.mjs); a floor of the tower, and a game's arena, are only floors.
-        !room.startsWith('floor-') && !game(),
+        !aloft(room) && !game(),
       );
     }
   }
@@ -3182,9 +3326,11 @@ function step(now) {
   // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first seen: by a body standing there or by a drone over it.
   if (room === 'lobby') void mountYard();
   for (const p of yardPanels) p.hidden = room !== 'lobby';
-  carPad.y = CAR_PAD.y + lift;
   hushIdleKiosks(now);
-  panels.frame(now);
+  carPad.y = CAR_PAD.y + lift;
+  const orbit = orbitStep(now);
+  const miniature = orbit >= 0.94;
+  if (!miniature) panels.frame(now);
   // 🛗 The car is heard: its hum and the shaft's wind follow how fast it goes.
   sfx.lift(ride && liftWas ? Math.min(1, Math.abs(lift - liftWas.lift) / Math.max(0.001, (now - liftWas.at) / 1000) / 14) : 0);
   liftWas = { lift, at: now };
@@ -3224,9 +3370,9 @@ function step(now) {
   filmRide = rideNow;
   const filmShot = film?.camera(now) || null;
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
-  tendScreens(now);
+  if (!miniature) tendScreens(now);
   view.render({
-    basement: room === BASEMENT,
+    basement: room === BASEMENT, cellarAtlas,
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
     weather,
@@ -3234,7 +3380,8 @@ function step(now) {
       ...(droneView && !dock && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
-    ball: ball && now - ball.at < 4000 ? { ...ballAt(ball, (now - ball.at) / 1000), vx: ball.vx, vz: ball.vz } : null,
+    balls: balls.filter(b => now - b.at < 4000).map(b => ({ ...b, ...ballAt(b, (now - b.at) / 1000) })),
+    courtyard: miniature ? null : sky,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
@@ -3242,7 +3389,7 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, yaw: dock.eye.yaw + (dock.peek?.yaw || 0), pitch: clamp(dock.eye.pitch + (dock.peek?.pitch || 0), -85, 85), flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
@@ -3274,7 +3421,7 @@ function step(now) {
     connection: sheetOpen
       ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
       : null,
-    objects,
+    objects: miniature ? [] : objects,
     prompt,
     chat: {
       // The elevator's line is typed on the car's screen, not the top line.
@@ -3303,11 +3450,12 @@ function step(now) {
     touchZones: shownZones(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     stallNote: stalls.note(),
-    walls,
-    cube,
+    walls: miniature ? [] : walls,
+    cube: miniature ? [] : cube,
     menu,
     lockedOn: !!lockOn,
     docked: !!dock && dock.way > 0,
+    nearZoom: focusZoom,
     removeArmed:
       removeArmed && focusObject?.id === removeArmed.id && performance.now() - removeArmed.at < 2000 ? removeArmed.id : null,
     notices: [], // The "ready v0" build notices are retired (2026-11-03); the prompt block tells the story.
@@ -3350,19 +3498,20 @@ function step(now) {
     cursor: cursorAim ? mouseAt : null,
     reticle: hosted && sheetOpen && !down,
     reticleShift: reticleShift(now),
-    orbit: orbitStep(now),
+    orbit,
     cornerScale,
     // (Before the seat is given back, the flight in aims at where this body last stood here, looking where it looked: it used to aim at the room's spawn and jump to the real place, and the real facing, as it landed.)
     flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : lastBody?.room === room ? { ...lastBody } : spawn(lastSeat >= 0 ? lastSeat : 0, 1, half()) : null,
     jobs,
+    builds: sheetOpen ? buildRows() : [],
     worldTime,
     locked: locked(),
     flash: escFlash,
     legend: sheetOpen && sheetShown && seat >= 0 && legendShown(),
     corner: sheetOpen && !down && !film,
-    screens,
+    screens: miniature ? [] : screens,
     screenPrograms,
-    panels: panels.list.filter((p) => !p.hidden),
+    panels: miniature ? [] : panels.list.filter((p) => !p.hidden),
     bare: !sheetOpen || !sheetShown || down || !!film,
     held: {
       keys: [...keys],

@@ -26,11 +26,11 @@ const old = (id, x, z, geometry, code = null) => ({
   versions: [{ version: 0, prompt: geometry.name, at: 1, geometry, ...(code ? { code } : {}) }],
 });
 
-// A private rax. `seed` is objects.json as it lay on disk before the server
-// came up (what the plaza already held when the tower was laid over it).
+// A private plaza with the one-time ground clearing already recorded.
+// Seeded builds must still be standing when the visitor arrives.
 async function rax(seed = null) {
   const stateDir = await mkdtemp(join(tmpdir(), 'rax-spell-walk-in-'));
-  if (seed) await writeFile(join(stateDir, 'objects.json'), JSON.stringify({ owners: {}, rooms: {}, ...seed }));
+  if (seed) await writeFile(join(stateDir, 'objects.json'), JSON.stringify({ owners: {}, rooms: {}, marks: { groundCleared: 1 }, ...seed }));
   const app = createRaxServer({ guests: true,
     stateDir,
     builderToken: BUILDER_TOKEN,
@@ -141,7 +141,10 @@ test('a build left where the car now stands does not keep a visitor out of the c
   try {
     const a = await d.enter('jeffrey');
     await north(a, 4, { jumping: true });
-    assert.ok(inCar(a.me) && a.me.y < 2.3, `ended at ${spot(a)} (eyes at ${a.me.y.toFixed(2)} m), not standing on the car's floor`);
+    // The last requested jump may still be airborne. Check what it lands on.
+    const landingDeadline = Date.now() + 2500;
+    while (!a.me.onGround && Date.now() < landingDeadline) await delay(20);
+    assert.ok(a.me.onGround && inCar(a.me) && a.me.y < 2.3, `ended at ${spot(a)} (eyes at ${a.me.y.toFixed(2)} m), not standing on the car's floor`);
   } finally { await d.close(); }
 });
 

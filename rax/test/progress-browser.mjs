@@ -122,6 +122,10 @@ try {
       'tell application "Google Chrome" to activate',
     ]);
   await a.locator('canvas').focus();
+  if (!renderOnly) {
+    await a.locator('canvas').click();
+    await a.waitForFunction(() => !!document.pointerLockElement);
+  }
   await a.keyboard.press('Enter');
   await a.keyboard.type(
     butterfly
@@ -233,7 +237,7 @@ try {
     await a.keyboard.press('KeyV');
     await a.screenshot({ path: 'tmp/rax/hands-third.png' });
     await a.keyboard.press('KeyV');
-    await a.mouse.click(450, 325);
+    await a.keyboard.press('Enter');
     await a.waitForFunction(() => document.querySelector('canvas').raxStats.promptOpen);
     assert.equal(await a.evaluate(() => !!document.pointerLockElement), false);
     assert.equal(app.rooms.get('progress').match.rockets.length, 0, 'hands open prompt without firing');
@@ -249,7 +253,10 @@ try {
     );
     await a.keyboard.press('Escape');
     await a.waitForFunction(
-      () => document.querySelector('canvas').raxStats.jobs.length === 0,
+      () => {
+        const stats = document.querySelector('canvas').raxStats;
+        return !stats.jobs.length && stats.builds.some(b => b.state === 'cancelled');
+      },
     );
     assert.equal(app.store.objects('progress').length, 1);
     assert.equal(app.store.objects('progress')[0].version, 0);

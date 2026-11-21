@@ -1,26 +1,9 @@
 import AppKit
 import QuartzCore
+import simd
 
-/// ✈️ rax from the air, a small wireframe model in a corner, drawn from
-/// rax's own map (GET /rax/map, rax/map.mjs): the plaza with the tower
-/// over it, every open block with its lots and houses, the blocks that open
-/// next drawn faint, what stands in the rooms, and who is there now. The
-/// whole world is seen from an isometric angle, with no perspective, and
-/// swings slowly side to side.
-///
-/// This file knows how to draw four kinds of shape and how to colour the
-/// roles it has met. It holds none of rax's measurements: when rax
-/// changes, the map changes and this follows.
-///
-/// Everything is a plain colour layer or a text layer under one transform, so
-/// it stays sharp. The swing is one keyframe animation on the rig, sampled
-/// ten times a second and looped by Core Animation. Nothing here runs per
-/// frame.
-///
-/// 👣 Who is there is kept apart from what stands: `move` takes only the
-/// people (GET /rax/people, several times a second) and slides each walker
-/// to where they now are over the time between two readings, leaving a line
-/// along the ground where they have been for the last minute and a half.
+/// The Rax atlas. Longitude follows the east-west lap and latitude shows
+/// its north-south range. The wallpaper turns the model with Core Animation.
 final class WorldFlyLayer: CALayer {
     /// `watching` is someone looking on from the air: x, y, z is their eye,
     /// and `handle` is the name to show ("@jeffrey", or a guest's two words).
@@ -67,6 +50,7 @@ final class WorldFlyLayer: CALayer {
         var revision = ""
         /// West, south, width and depth of the open blocks, in metres.
         var extent = CGRect.zero
+        var lap: CGFloat = 0, planetRadius: CGFloat = 0
         /// What stands for good, and what people have put in the rooms.
         var structure: [Shape] = []
         var content: [Shape] = []
@@ -79,6 +63,10 @@ final class WorldFlyLayer: CALayer {
             revision = map["revision"] as? String ?? ""
             let e = map["extent"] as? [String: Any] ?? [:]
             extent = CGRect(x: num(e["x0"]), y: num(e["z0"]), width: num(e["x1"]) - num(e["x0"]), height: num(e["z1"]) - num(e["z0"]))
+            let planet = map["planet"] as? [String: Any]
+            // Older cached maps only contain the extent of the surveyed land.
+            lap = max(1, num(planet?["lap"]) > 0 ? num(planet?["lap"]) : max(extent.width, extent.height) * 2)
+            planetRadius = num(planet?["radius"])
             structure = (map["structure"] as? [[String: Any]] ?? []).map(Shape.init)
             content = (map["content"] as? [[String: Any]] ?? []).map(Shape.init)
             people = WorldFlyLayer.everyone(in: map)
@@ -96,9 +84,9 @@ final class WorldFlyLayer: CALayer {
             if across > 0 { parts.append("\(across) m across") }
             return parts.joined(separator: " · ")
         }
-        /// What the swing depends on: what stands for good, and whether the
+        /// What the orbit depends on: what stands for good, and whether the
         /// rooms hold anything. A room filling up does not start it over.
-        var shape: String { "\(revision)/\(structure.count)/\(extent)/\(content.isEmpty)" }
+        var shape: String { "\(revision)/\(lap)/\(planetRadius)/\(structure.count)/\(extent)/\(content.isEmpty)" }
     }
     struct Style {
         var font: NSFont
@@ -106,34 +94,29 @@ final class WorldFlyLayer: CALayer {
         var halo: CGColor
         var scale: CGFloat
     }
-    /// One place the camera rests: what it looks at, from where, for how long.
-    private struct Stop {
-        var x: CGFloat = 0, z: CGFloat = 0
-        var yaw: CGFloat = 0, pitch: CGFloat = 0
-        /// Metres across the screen at the point looked at.
-        var span: CGFloat = 16
-        /// Radians the camera swings round the point while it rests.
-        var sway: CGFloat = 0
-        var travel: Double = 0, hold: Double = 0
-    }
-
+    private let outline = CAShapeLayer()
     private let rig = CATransformLayer()
     private let land = CATransformLayer()
     private let crowd = CATransformLayer()
-    private var stops: [Stop] = []
-    private var started: CFTimeInterval = 0
-    private var total: Double = 0
+    private var lap: CGFloat = 1
+    private var radius: CGFloat { lap / (2 * .pi) }
     private var flightKey = ""
     /// Thinnest line, in metres, that still shows at the model's size.
     private var hair: CGFloat = 0
     /// What the last `show` worked out, kept so `move` can place people alone.
     private var perMetre: CGFloat = 1
     private var mark: CGFloat = 0.42
-    private var crown: (y: CGFloat, floor: Int, cut: CGFloat)?
+    private var heightScale: CGFloat = 1
+    // Heights near the ground use the planet's physical radius. Compress tall
+    // towers and high-flying spectators to keep them inside the atlas panel.
+    private func elevation(_ height: CGFloat) -> CGFloat {
+        let h = height * heightScale
+        return radius * h / (radius + abs(h))
+    }
     private var styled: Style?
     /// One person standing in the model, and the line behind them.
     private struct Walker {
-        var pole: CALayer, head: CALayer, sign: CALayer, trail: CAShapeLayer
+        var frame: CATransformLayer, pole: CALayer, head: CALayer, sign: CALayer, trail: CATransformLayer
         var label: String
     }
     private var walkers: [String: Walker] = [:]
@@ -158,19 +141,13 @@ final class WorldFlyLayer: CALayer {
     /// mid-swing. Nil when they are not in rax.
     func spot(_ handle: String) -> CGPoint? {
         guard !isHidden, let w = walkers.first(where: { $0.key.lowercased() == handle })?.value else { return nil }
-        let pole = w.pole.presentation() ?? w.pole, m = (rig.presentation() ?? rig).transform
-        let x = pole.position.x, y = pole.position.y, z = pole.zPosition
-        return CGPoint(x: rig.position.x + x * m.m11 + y * m.m21 + z * m.m31 + m.m41,
-                       y: rig.position.y + x * m.m12 + y * m.m22 + z * m.m32 + m.m42)
+        let pole = w.pole.presentation() ?? w.pole
+        let m = CATransform3DConcat((w.frame.presentation() ?? w.frame).transform, (rig.presentation() ?? rig).transform)
+        let h = pole.zPosition
+        return CGPoint(x: rig.position.x + h * m.m31 + m.m41,
+                       y: rig.position.y + h * m.m32 + m.m42)
     }
-    /// Radians the resting view is turned from square-on, so the blocks run
-    /// on the diagonal and the tower shows two faces.
-    private static let turn: CGFloat = 0.5
 
-    /// Panel heights of tower drawn to scale above the ground.
-    private static let rise: CGFloat = 1.15
-    /// Radians down from overhead: the isometric angle.
-    private static let pitch: CGFloat = 0.955
     private static let lobbyPink = NSColor(srgbRed: 1.0, green: 0.2, blue: 0.59, alpha: 1)
     private static let homePurple = NSColor(srgbRed: 0.71, green: 0.42, blue: 1.0, alpha: 1)
     private static let buildGold = NSColor(srgbRed: 1.0, green: 0.80, blue: 0.30, alpha: 1)
@@ -191,12 +168,68 @@ final class WorldFlyLayer: CALayer {
         for l in [rig, land, crowd] { l.actions = Self.still }
         rig.addSublayer(land)
         rig.addSublayer(crowd)
+        addSublayer(outline)
         addSublayer(rig)
     }
     override init(layer: Any) { super.init(layer: layer) }
     required init?(coder: NSCoder) { nil }
 
     // ── drawing: one metre is one layer unit ─────────────────────────────
+
+    // Local layer axes are east, north and up. Rotate that frame onto
+    // the globe at the supplied world coordinates.
+    private func globeFrame(_ x: CGFloat, _ z: CGFloat) -> CATransform3D {
+        let longitude = 2 * .pi * x / lap
+        let latitude = .pi * min(0.5, max(-0.5, z / lap))
+        var m = CATransform3DMakeTranslation(0, 0, radius)
+        m = CATransform3DConcat(m, CATransform3DMakeRotation(-latitude, 1, 0, 0))
+        return CATransform3DConcat(m, CATransform3DMakeRotation(longitude, 0, 1, 0))
+    }
+
+    private func circle(_ r: CGFloat, transform: CATransform3D, color: NSColor, into group: CALayer) {
+        let ring = CAShapeLayer()
+        ring.path = CGPath(ellipseIn: CGRect(x: -r, y: -r, width: 2*r, height: 2*r), transform: nil)
+        ring.strokeColor = color.cgColor
+        ring.fillColor = nil
+        ring.lineWidth = hair
+        ring.transform = transform
+        group.addSublayer(ring)
+    }
+
+    // A chord in three dimensions, for surveyed borders and walkers' trails.
+    private func segment(_ a: CGPoint, _ b: CGPoint, lift: CGFloat, color: NSColor, into group: CALayer) {
+        func point(_ p: CGPoint) -> SIMD3<Double> {
+            let m = globeFrame(p.x, p.y)
+            return SIMD3(Double(m.m41 + lift*m.m31), Double(m.m42 + lift*m.m32), Double(m.m43 + lift*m.m33))
+        }
+        let start = point(a), end = point(b), d = end - start, length = simd_length(d)
+        guard length > 0.0001 else { return }
+        let mid = (start + end) / 2
+        let l = CALayer()
+        l.actions = Self.still
+        l.bounds = CGRect(x: 0, y: 0, width: length, height: hair)
+        l.position = CGPoint(x: mid.x, y: mid.y)
+        l.zPosition = mid.z
+        l.backgroundColor = color.cgColor
+        l.transform = CATransform3DConcat(CATransform3DMakeRotation(-asin(max(-1, min(1, d.z/length))), 0, 1, 0),
+                                          CATransform3DMakeRotation(atan2(d.y, d.x), 0, 0, 1))
+        group.addSublayer(l)
+    }
+
+    private func border(_ r: CGRect, lift: CGFloat, color: NSColor) {
+        let corners = [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
+                       CGPoint(x: r.maxX, y: r.maxY), CGPoint(x: r.minX, y: r.maxY)]
+        for i in corners.indices {
+            let a = corners[i], b = corners[(i+1) % 4]
+            let n = max(1, Int(ceil(hypot(b.x-a.x, b.y-a.y) / (lap/64))))
+            var last = a
+            for j in 1...n {
+                let t = CGFloat(j)/CGFloat(n), next = CGPoint(x: a.x+(b.x-a.x)*t, y: a.y+(b.y-a.y)*t)
+                segment(last, next, lift: lift, color: color, into: land)
+                last = next
+            }
+        }
+    }
 
     /// An outline lying flat, on the ground or `lift` metres up, with an optional fill.
     private func flat(_ r: CGRect, _ color: NSColor, width: CGFloat, fill: NSColor? = nil, lift: CGFloat = 0, into group: CALayer) {
@@ -271,55 +304,61 @@ final class WorldFlyLayer: CALayer {
             let id = (p.watching ? "eye " : "") + p.handle
             let tint = p.watching ? Self.screenCyan : Self.awakeGreen
             here.insert(id)
-            // Someone above the break stands on the top slab drawn.
-            var y = p.y, name = p.watching ? p.handle : "@" + p.handle
-            if let c = crown, p.y > c.cut { y = c.y; name += " \(p.floor)" }
+
+            let y = elevation(p.y)
+            let name = (p.watching ? p.handle : "@"+p.handle) + (p.floor > 0 ? " \(p.floor)" : "")
             let at = CGPoint(x: p.x, y: p.z)
-            let foot: CGFloat = p.watching ? 0 : y, tall: CGFloat = p.watching ? max(0.2, y) : 1.3
-            if var w = walkers[id] {
-                if w.label != name {
-                    w.sign.removeFromSuperlayer()
-                    w.sign = sign(name, tint, x: p.x, z: p.z, lift: foot + tall + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
-                    w.sign.actions = Self.walking
-                    w.label = name
-                    walkers[id] = w
-                }
-                w.pole.position = at; w.pole.zPosition = foot
-                if p.watching { w.pole.bounds = CGRect(x: 0, y: 0, width: hair, height: tall) } // the hair follows the eye up and down
-                w.head.position = at; w.head.zPosition = foot + tall
-                w.sign.position = at; w.sign.zPosition = foot + tall + mark * 1.4
-            } else {
-                let trail = CAShapeLayer()
-                trail.actions = Self.still.merging(["path": NSNull()]) { a, _ in a }
-                trail.fillColor = nil
-                trail.strokeColor = tint.withAlphaComponent(p.watching ? 0.35 : 0.55).cgColor
-                trail.lineWidth = max(hair * 1.4, 0.05)
-                trail.lineJoin = .round
-                trail.lineCap = .round
+            let foot: CGFloat = p.watching ? min(0, y) : y
+            let headY = p.watching ? y : foot + mark
+            let tall: CGFloat = p.watching ? max(0.2, abs(y)) : mark
+            if walkers[id] == nil {
+                let frame = CATransformLayer(), trail = CATransformLayer()
+                frame.transform = globeFrame(p.x, p.z)
+                crowd.addSublayer(frame)
                 crowd.addSublayer(trail)
-                let pole = upright(CGSize(width: hair, height: tall), x: p.x, z: p.z, lift: foot,
-                                   fill: tint.withAlphaComponent(p.watching ? 0.45 : 1), into: crowd)
-                let head = upright(CGSize(width: mark, height: mark), x: p.x, z: p.z, lift: foot + tall, border: tint, width: 0.07,
-                                   fill: p.watching ? tint.withAlphaComponent(0.35) : nil, into: crowd)
-                let words = sign(name, tint, x: p.x, z: p.z, lift: foot + tall + mark * 1.4, style: style, perMetre: perMetre, into: crowd)
-                for l in [pole, head, words] { l.actions = Self.walking }
-                walkers[id] = Walker(pole: pole, head: head, sign: words, trail: trail, label: name)
+                let history = trails[id] ?? []
+                for (a, b) in zip(history, history.dropFirst()) {
+                    segment(a.at, b.at, lift: p.watching ? 0 : b.y, color: tint.withAlphaComponent(0.55), into: trail)
+                }
+                let pole = upright(CGSize(width: hair, height: tall), x: 0, z: 0, lift: foot, fill: tint, into: frame)
+                let head = upright(CGSize(width: mark, height: mark), x: 0, z: 0, lift: headY, border: tint, width: hair, into: frame)
+                let words = sign(name, tint, x: 0, z: 0, lift: headY + mark, style: style, perMetre: perMetre, into: frame)
+                for layer in [pole, head, words] { layer.actions = Self.walking }
+                walkers[id] = Walker(frame: frame, pole: pole, head: head, sign: words, trail: trail, label: name)
             }
-            // The line behind them: a new point for every step, none for standing.
+            guard var w = walkers[id] else { continue }
+            w.frame.transform = globeFrame(p.x, p.z)
+            w.pole.zPosition = foot
+            w.pole.bounds.size.height = tall
+            w.head.zPosition = headY
+            if w.label != name {
+                w.sign.removeFromSuperlayer()
+                w.sign = sign(name, tint, x: 0, z: 0, lift: headY + mark, style: style, perMetre: perMetre, into: w.frame)
+                w.sign.actions = Self.walking
+                w.label = name
+                walkers[id] = w
+            }
+            w.sign.zPosition = headY + mark
             var line = trails[id] ?? []
-            if !p.watching, let last = line.last, abs(last.y - y) > 2 { line.removeAll() } // another floor: a new line
-            if line.last.map({ hypot($0.at.x - at.x, $0.at.y - at.y) > 0.15 }) ?? true { line.append((at, y, now)) }
-            line.removeAll { now - $0.t > Self.trailSeconds }
-            trails[id] = line
-            if let trail = walkers[id]?.trail {
-                let path = CGMutablePath()
-                if line.count > 1 { path.addLines(between: line.map { $0.at }) }
-                trail.path = path
-                trail.zPosition = foot
+            if let last = line.last, abs(last.y-y) > 2 * heightScale || hypot(last.at.x-at.x, last.at.y-at.y) > lap/4 {
+                line.removeAll()
+                w.trail.sublayers = nil
             }
+            while let first = line.first, now-first.t > Self.trailSeconds {
+                line.removeFirst()
+                w.trail.sublayers?.first?.removeFromSuperlayer()
+            }
+            if let last = line.last {
+                if hypot(last.at.x-at.x, last.at.y-at.y) > 0.15 {
+                    segment(last.at, at, lift: foot, color: tint.withAlphaComponent(0.55), into: w.trail)
+                    line.append((at, y, now))
+                }
+            } else { line.append((at, y, now)) }
+            trails[id] = line
         }
         for (handle, w) in walkers where !here.contains(handle) {
-            for l in [w.pole, w.head, w.sign, w.trail as CALayer] { l.removeFromSuperlayer() }
+            w.frame.removeFromSuperlayer()
+            w.trail.removeFromSuperlayer()
             walkers[handle] = nil
             trails[handle] = nil
         }
@@ -334,6 +373,7 @@ final class WorldFlyLayer: CALayer {
         switch s.role {
         case "plaza": return (Self.lobbyPink.withAlphaComponent(0.85), 0.09, Self.lobbyPink.withAlphaComponent(0.05))
         case "block": return (ink.withAlphaComponent(0.42), 0.07, nil)
+        case "grounds": return (Self.awakeGreen.withAlphaComponent(0.42), 0.05, nil)
         case "yard": return (Self.awakeGreen.withAlphaComponent(0.22), 0.05, Self.awakeGreen.withAlphaComponent(0.03))
         case "next": return (ink.withAlphaComponent(0.10), 0.06, nil)
         case "lot": return (ink.withAlphaComponent(0.16), 0.035, nil)
@@ -376,70 +416,88 @@ final class WorldFlyLayer: CALayer {
     }
 
     /// Draws the world and, when its shape or the space changed, starts the
-    /// swing over. `size` is the space the model sits in, in points.
+    /// rotation over. `size` is the space the model sits in, in points.
     ///
-    /// The ground is to scale. The tower is to scale as far up as `rise`
-    /// allows; past that it is broken and its top two slabs are set just
-    /// above the break, with the number of floors over them.
     func show(_ world: World, size: CGSize, style: Style) {
         bounds = CGRect(origin: .zero, size: size)
         let ink = style.ink
-        // The world's diagonal fits the width, so it clears the space at any turn.
-        let e = world.extent
-        let span = max(1, hypot(e.width, e.height) * 1.1)
-        let perMetre = size.width / span
-        hair = 0.75 / perMetre
+        guard size.width > 0, size.height > 0 else { return }
+        lap = world.lap
+        heightScale = world.planetRadius > 0 ? radius / world.planetRadius : 1
+        let perMetre = min(size.width / (3.8*radius), size.height / (2.55*radius))
+        hair = 0.8 / perMetre
         let mark = max(0.42, 3 / perMetre)
         self.perMetre = perMetre
         self.mark = mark
         self.styled = style
-        // Metres of height drawn to scale: what stands `Self.rise` panel
-        // heights above the ground at this size.
-        let ceiling = size.height * Self.rise / (perMetre * sin(Self.pitch))
-        /// Where a broken tower's top is drawn, and the floor it stands for.
-        var crown: (y: CGFloat, floor: Int, cut: CGFloat)?
-
+        let globeRadius = radius * perMetre
+        outline.path = CGPath(ellipseIn: CGRect(x: size.width/2 - globeRadius, y: size.height/2 - globeRadius,
+                                                width: 2*globeRadius, height: 2*globeRadius), transform: nil)
+        outline.strokeColor = ink.withAlphaComponent(0.48).cgColor
+        outline.fillColor = Self.screenCyan.withAlphaComponent(0.045).cgColor
+        outline.lineWidth = 0.8
         land.sublayers?.forEach { $0.removeFromSuperlayer() }
+        // Six meridians and five parallels trace both hemispheres of the atlas.
+        let grid = ink.withAlphaComponent(0.36)
+        for k in 0..<6 {
+            circle(radius, transform: CATransform3DMakeRotation(CGFloat(k) * .pi/6, 0, 1, 0), color: grid, into: land)
+        }
+        for k in -2...2 {
+            let lat = CGFloat(k) * .pi/6
+            var m = CATransform3DMakeRotation(.pi/2, 1, 0, 0)
+            m.m42 = radius*sin(lat)
+            circle(radius*cos(lat), transform: m, color: grid, into: land)
+        }
         for s in world.structure + world.content {
-            let l = look(s, ink: ink), r = CGRect(x: s.x0, y: s.z0, width: s.x1 - s.x0, height: s.z1 - s.z0)
+            let l = look(s, ink: ink)
+            var r = CGRect(x: s.x0, y: s.z0, width: s.x1-s.x0, height: s.z1-s.z0)
+            if s.kind == "flat", s.role != "paint" {
+                border(r, lift: s.y0, color: l.line)
+                continue
+            }
+            let x = s.kind == "panel" ? s.x : r.midX, z = s.kind == "panel" ? s.z : r.midY
+            let width = r.width * cos(.pi * min(0.5, abs(z / lap)))
+            let patch = CATransformLayer()
+            patch.transform = globeFrame(x, z)
+            land.addSublayer(patch)
+            // North-south spans pole to pole in one lap, east-west goes all the way around.
+            r = CGRect(x: -width/2, y: -r.height/4, width: width, height: r.height/2)
             switch s.kind {
             case "flat":
                 flat(r.insetBy(dx: s.role == "lot" || s.role == "home" ? 0.15 : 0, dy: s.role == "lot" || s.role == "home" ? 0.15 : 0),
-                     l.line, width: l.width, fill: l.fill, lift: s.y0, into: land)
+                     l.line, width: l.width, fill: l.fill, lift: s.y0, into: patch)
             case "box":
-                // Anything taller than the scale allows stops at the break.
-                box(r, from: s.y0, to: min(s.y1, max(ceiling, s.y0 + 1)), l, into: land)
-                // Something low and wide also shows its top.
-                if s.y1 <= ceiling, r.width >= 0.9, r.height >= 0.9, s.y1 - s.y0 < 2 {
-                    flat(r, l.line, width: l.width, lift: s.y1, into: land)
+                let bottom = elevation(s.y0), top = elevation(s.y1)
+                box(r, from: bottom, to: top, l, into: patch)
+                if r.width >= 0.9, r.height >= 0.45, s.y1-s.y0 < 2 {
+                    flat(r, l.line, width: l.width, lift: top, into: patch)
                 }
             case "stack":
                 guard s.step > 0, s.count > 0 else { continue }
-                let whole = Int(max(1, ((ceiling - s.y0) / s.step).rounded(.down)))
-                let shown = s.count <= whole + 2 ? s.count : whole
-                for k in 0..<shown { flat(r, l.line, width: l.width, fill: l.fill, lift: s.y0 + CGFloat(k) * s.step, into: land) }
-                guard shown < s.count else { continue }
-                // The break: two storeys of nothing, then the last two slabs.
-                let cut = s.y0 + CGFloat(shown - 1) * s.step, y = cut + 3 * s.step
-                for k in 0..<2 { flat(r, l.line, width: l.width, fill: l.fill, lift: y + CGFloat(k) * s.step, into: land) }
-                for dot in 1...3 {
-                    flat(CGRect(x: r.midX - mark / 2, y: r.midY - mark / 2, width: mark, height: mark), l.line, width: l.width,
-                         fill: l.line, lift: cut + CGFloat(dot) * s.step * 0.75, into: land)
+                var last = -CGFloat.infinity
+                for k in 0..<s.count {
+                    let y = elevation(s.y0 + CGFloat(k)*s.step)
+                    if y-last < 2*hair { break }
+                    flat(r, l.line, width: l.width, fill: l.fill, lift: y, into: patch)
+                    last = y
                 }
-                crown = (y, s.count - 1, cut)
-                sign("\(world.top)", Self.lobbyPink, x: r.midX, z: r.midY, lift: y + s.step * 2.5, style: style, perMetre: perMetre, into: land)
+                let roof = elevation(s.y0 + CGFloat(s.count-1)*s.step)
+                if roof > last {
+                    flat(r, l.line, width: l.width, fill: l.fill, lift: roof, into: patch)
+                    sign("\(world.top)", Self.lobbyPink, x: 0, z: 0, lift: roof+mark, style: style, perMetre: perMetre, into: patch)
+                }
             case "panel":
-                upright(CGSize(width: s.w, height: s.h), x: s.x, z: s.z, yaw: s.yaw, lift: s.y0, border: l.line, width: l.width,
-                        fill: l.fill, into: land)
+                upright(CGSize(width: s.w, height: elevation(s.y0+s.h)-elevation(s.y0)), x: 0, z: 0, yaw: s.yaw, lift: elevation(s.y0), border: l.line, width: l.width,
+                        fill: l.fill, into: patch)
             default: continue
             }
         }
 
         // The model may have changed size: everyone is stood again at the new
         // scale, in place, keeping the lines of where they have been.
-        self.crown = crown
         crowd.sublayers?.forEach { $0.removeFromSuperlayer() }
         walkers.removeAll()
+        trails = trails.filter { id, _ in world.people.contains { ($0.watching ? "eye " : "")+$0.handle == id } }
         move(world.people)
 
         let key = "\(world.shape)\(Int(size.width))x\(Int(size.height))"
@@ -448,63 +506,18 @@ final class WorldFlyLayer: CALayer {
 
         sublayerTransform = CATransform3DIdentity
         rig.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        // One pose: the whole world, turned a little, swung a third of a turn and back.
-        stops = [Stop(x: e.midX, z: e.midY, yaw: Self.turn, pitch: Self.pitch, span: span, sway: 0.55, travel: 24, hold: 24)]
-        fly(size: size)
-    }
-
-    /// The camera for one pose: the world slid so the point looked at is in
-    /// the middle, turned, tipped away, and sized.
-    private func camera(_ s: Stop, size: CGSize) -> CATransform3D {
-        let k = size.width / max(1, s.span)
-        var m = CATransform3DMakeTranslation(-s.x, -s.z, 0)
-        m = CATransform3DConcat(m, CATransform3DMakeRotation(-s.yaw, 0, 0, 1))
-        m = CATransform3DConcat(m, CATransform3DMakeRotation(-s.pitch, 1, 0, 0))
-        m = CATransform3DConcat(m, CATransform3DMakeScale(k, k, k))
-        return m
-    }
-
-    private func fly(size: CGSize) {
-        let ease = { (t: CGFloat) -> CGFloat in t * t * (3 - 2 * t) }
-        let mix = { (a: CGFloat, b: CGFloat, t: CGFloat) -> CGFloat in a + (b - a) * t }
-        // A stop's pose `t` of the way through its rest: a slow swing.
-        let rest = { (s: Stop, t: CGFloat) -> Stop in
-            var p = s
-            p.yaw = s.yaw - s.sway * cos(.pi * t)
-            return p
+        // A complete revolution exposes the back of the map. Core Animation
+        // interpolates these transforms without a wallpaper render loop.
+        let frames = (0...120).map { n -> NSValue in
+            var m = CATransform3DMakeRotation(CGFloat(n) * .pi/60 + 0.45, 0, 1, 0)
+            m = CATransform3DConcat(m, CATransform3DMakeRotation(-0.45, 1, 0, 0))
+            return NSValue(caTransform3D: CATransform3DConcat(m, CATransform3DMakeScale(perMetre, perMetre, perMetre)))
         }
-        let step = 0.1
-        var frames: [NSValue] = []
-        for (n, s) in stops.enumerated() {
-            let from = rest(stops[(n + stops.count - 1) % stops.count], 1), to = rest(s, 0)
-            let far = hypot(to.x - from.x, to.z - from.z)
-            for i in 0..<Int((s.travel / step).rounded()) {
-                let e = ease(CGFloat(Double(i) * step / s.travel))
-                var p = Stop()
-                p.x = mix(from.x, to.x, e); p.z = mix(from.z, to.z, e)
-                p.yaw = mix(from.yaw, to.yaw, e); p.pitch = mix(from.pitch, to.pitch, e)
-                // A long hop climbs on the way.
-                p.span = mix(from.span, to.span, e) + far * 0.2 * sin(.pi * e)
-                frames.append(NSValue(caTransform3D: camera(p, size: size)))
-            }
-            for i in 0..<Int((s.hold / step).rounded()) {
-                frames.append(NSValue(caTransform3D: camera(rest(s, CGFloat(Double(i) * step / s.hold)), size: size)))
-            }
-        }
-        rig.removeAnimation(forKey: "fly")
-        total = 0
-        guard frames.count > 1 else { return }
-        total = Double(frames.count) * step
-        frames.append(frames[0])
-        started = CACurrentMediaTime()
-        let a = CAKeyframeAnimation(keyPath: "transform")
-        a.values = frames
-        a.calculationMode = .linear
-        a.duration = total
-        a.repeatCount = .infinity
-        a.isRemovedOnCompletion = false
-        a.beginTime = rig.convertTime(started, from: nil)
+        let spin = CAKeyframeAnimation(keyPath: "transform")
+        spin.values = frames
+        spin.duration = 48
+        spin.repeatCount = .infinity
         rig.transform = frames[0].caTransform3DValue
-        rig.add(a, forKey: "fly")
+        rig.add(spin, forKey: "fly")
     }
 }

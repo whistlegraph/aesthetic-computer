@@ -39,3 +39,16 @@ test('it survives a restart', async () => {
   const b = createKiosks({ directory, later() {} });
   assert.deepEqual(b.of('lobby')['yard-3'], { total: 2, events: [['touch', 5, 6, 1], ['lift', 5, 6, 1]] });
 });
+
+test('a piece begun again forgets what was done to it and counts its beginnings', () => {
+  const k = createKiosks({ later() {} });
+  k.record('lobby', 'yard-2', 'touch', 1, 1, 0);
+  k.record('lobby', 'yard-2', 'lift', 1, 1, 0);
+  k.reset('lobby', 'yard-2');
+  assert.deepEqual(k.of('lobby')['yard-2'], { total: 0, events: [], epoch: 1 });
+  k.record('lobby', 'yard-2', 'touch', 3, 3, 1);
+  k.reset('lobby', 'yard-2');
+  assert.equal(k.of('lobby')['yard-2'].epoch, 2);
+  k.reset('lobby', 'yard-9');
+  assert.equal(k.of('lobby')['yard-9'].epoch, 1, 'one never touched can be begun again too');
+});

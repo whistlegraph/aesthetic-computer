@@ -198,7 +198,7 @@ test('on the plaza a build lands on the highlighted square too', async () => {
   let aim, cube;
   try {
     await walker.enter('lobby');
-    await mark(walker, 5, -7, 270, -30); // the courtyard's east side, looking west along its south edge
+    await mark(walker, -5, -7, 90, -30); // clear ground opposite the courtyard dispenser
     aim = highlighted(walker.me, walker.control.yaw, walker.control.pitch);
     cube = await build(walker);
     await clear(walker);

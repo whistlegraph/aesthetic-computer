@@ -26,7 +26,7 @@ export function createKiosks({ directory = null, limit = KIOSK_EVENTS, later = (
     for (const [room, panels] of Object.entries(was || {}))
       for (const [id, k] of Object.entries(panels || {}))
         if (Number.isInteger(k?.total) && Array.isArray(k.events))
-          ((rooms[room] ||= {})[id] = { total: k.total, events: k.events.filter((e) => Array.isArray(e) && NAMES.has(e[0])).slice(-limit) });
+          ((rooms[room] ||= {})[id] = { total: k.total, events: k.events.filter((e) => Array.isArray(e) && NAMES.has(e[0])).slice(-limit), ...(Number.isInteger(k.epoch) ? { epoch: k.epoch } : {}) });
   } catch {} // none kept yet
   let saved = Promise.resolve(), waiting = false, text = '';
   const keep = () => {
@@ -51,7 +51,13 @@ export function createKiosks({ directory = null, limit = KIOSK_EVENTS, later = (
       if (k.events.length > limit) k.events.splice(0, k.events.length - limit);
       if (!waiting) { waiting = true; later(keep, 5000); }
     },
-    // What a page coming into a room is told: { id: { total, events } }.
+    // ↻ A piece begun again (its name over the kiosk was pressed): what was done to it is forgotten, and its `epoch` goes up by one, so a page that comes later, or was away, begins its own copy again too before doing what has been done since.
+    reset(room, id) {
+      const was = rooms[room]?.[id];
+      (rooms[room] ||= {})[id] = { total: 0, events: [], epoch: (was?.epoch || 0) + 1 };
+      if (!waiting) { waiting = true; later(keep, 5000); }
+    },
+    // What a page coming into a room is told: { id: { total, events, epoch? } }.
     of(room) { return rooms[room] || {}; },
     keep,
   };

@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import WebSocket from 'ws';
-import { createBall, BALL, ballAt } from '../ball.mjs';
+import { createBall, createDispenser, MAX_BALLS, BALL, ballAt } from '../ball.mjs';
 import { createRaxServer } from '../server.mjs';
 import { Match } from '../match.mjs';
 import { CFG, DT, PROTOCOL } from '../world.mjs';
@@ -21,6 +21,24 @@ const pair = (bodies = () => []) => createBall({
   bodies, start: { room: 'a', x: 6, z: 0 },
 });
 const world = (b) => b.x + (b.room === 'b' ? SPAN : 0);
+
+test('the dispenser releases once per approach and keeps active balls in play', () => {
+  const p = { seat: 1, x: BALL.x + 1, y: CFG.eyeHeight, z: BALL.z };
+  let bodies = [p];
+  const dispenser = createDispenser({ neighbours: () => ({}), bodies: () => bodies });
+  dispenser.step();
+  assert.ok(dispenser.balls[0].ball.vx < 0);
+  for (let i = 0; i < 10; i++) dispenser.step();
+  assert.equal(dispenser.balls.length, 1);
+  for (let i = 0; i < MAX_BALLS; i++) {
+    bodies = [];
+    dispenser.step();
+    bodies = [p];
+    dispenser.step();
+    assert.equal(dispenser.balls.length, Math.min(MAX_BALLS, i + 2));
+  }
+  assert.ok(dispenser.balls[0].ball.x < BALL.x - 1.5);
+});
 
 test('rolled over a seam the ball keeps its place in the world and its speed', () => {
   const { ball, step } = pair();
@@ -158,4 +176,39 @@ test('what is in the air is put by and taken up: rounds, rockets and a thrown th
   const rock = b.items.get('rock');
   assert.deepEqual([rock.x, rock.y, rock.z, rock.vx, rock.fuseAt - b.tick], [4, 2, -3, 5, 60]);
   assert.equal(new Match().flight(), null, 'nothing in the air is nothing to keep');
+});
+
+test('the dispenser keeps an old single-ball save and restores the additional balls it dispenses', async t => {
+  const { readFile, writeFile, rm } = await import('node:fs/promises');
+  const stateDir = await mkdtemp(join(tmpdir(), 'rax-dispenser-'));
+  t.after(() => rm(stateDir, { recursive: true, force: true }));
+  const file = join(stateDir, 'ball.json');
+  const old = { room: 'lobby', x: -2, y: BALL.r, z: -3, vx: 0, vy: 0, vz: 0 };
+  await writeFile(file, JSON.stringify(old));
+  const first = createRaxServer({ guests: true, stateDir });
+  await first.ready;
+  let ws;
+  try {
+    first.server.listen(0, '127.0.0.1');
+    await once(first.server, 'listening');
+    ws = new WebSocket(`ws://127.0.0.1:${first.server.address().port}/play?room=lobby&protocol=${PROTOCOL}`);
+    const packets = [];
+    ws.on('message', raw => { const m = JSON.parse(raw); if (m.type === 'ball') packets.push(m); });
+    await once(ws, 'open');
+    ws.send(JSON.stringify({ type: 'identity' }));
+    for (let i = 0; i < 200 && !first.rooms.get('lobby')?.members.some(Boolean); i++) await delay(10);
+    const seat = first.rooms.get('lobby').match.seats.find(Boolean);
+    Object.assign(seat.player, { x: BALL.x + 1, z: BALL.z, y: CFG.eyeHeight });
+    for (let i = 0; i < 200 && !packets.some(m => m.others?.length); i++) await delay(10);
+    const m = packets.find(m => m.others?.length);
+    assert.ok(m);
+    assert.equal(m.x, old.x);
+    assert.equal(m.others[0].id, 1);
+    assert.ok(m.others[0].vx < 0);
+  } finally { ws?.close(); await first.close(); }
+  const saved = JSON.parse(await readFile(file));
+  const second = createRaxServer({ guests: true, stateDir });
+  await second.ready;
+  await second.close();
+  assert.deepEqual(JSON.parse(await readFile(file)), saved);
 });
