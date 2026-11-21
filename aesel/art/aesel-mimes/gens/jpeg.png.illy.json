@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T17:47:59.793Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/jpeg.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/jpeg.txt",
+  "researchPath": null,
+  "promptHash": "5ea0be0042f90387372f9283aad17992bdb225e7c7407868a1570d928100a460",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 48.889,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2583,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 535
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4339
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "3799da5faf8c789442f4662a7da09147c46b66d11c01553e699103f3e9e0297e",
+    "checkedAt": "2026-11-21T17:52:43.248Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: small silver camera; canvas: white-bordered photo of a sunset over violet hills and a lake. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; small silver camera is oriented toward the canvas or the donkey as prompted."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (small silver camera); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+      }
+    }
+  }
+}

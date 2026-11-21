@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T17:55:07.140Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/nes.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/nes.txt",
+  "researchPath": null,
+  "promptHash": "31ed0a662453cc7b65fc5104981e9547dfe50b1c3893415b5423513ad1860af3",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 60.492,
+  "archived": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/archive/nes-2026-11-21T17-55-06-376Z.png",
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2645,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 597
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4401
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "19216aefb85855e2c90686af16af1a36b82d7dc78249f2043e01ce5fffca051a",
+    "checkedAt": "2026-11-21T17:55:35.685Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "Inspected alone at 900px. One donkey with red glasses, tan bridle and chest harness; one easel; junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only a flat gray two-button controller with cord, and on the canvas a navy night sky, six white pixel stars, a pale pixel moon, a pink pixel diamond with lighter inner diamond, a teal ground strip. No bricks, hills, clouds, characters, faces or text."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right as in the base; the pixel scene follows the canvas three-quarter perspective inside its edges; controller face toward the viewer, d-pad left, red buttons right."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Three hooves on the ground shadow; raised hoof supports the controller from below; its cord hangs to the floor and ends in a loop; easel legs grounded; cables enter box and rack ports as in the base."
+      }
+    }
+  }
+}

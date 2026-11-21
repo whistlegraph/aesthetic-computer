@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T17:48:51.023Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/ogg.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/ogg.txt",
+  "researchPath": null,
+  "promptHash": "75166dbd479c6c723ae16526f25f13a01dca1a12c3e166a5dcc2481e6733d409",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 50.831,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2578,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 530
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4334
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "8bfb31a09002ea2cc8f32706c6a3855ca1b6998e7ec8ffc14902a1b6840bfd4b",
+    "checkedAt": "2026-11-21T17:52:44.657Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: steel tuning fork with vibration lines; canvas: teal speaker cone with arcs spreading out in teal to violet. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; steel tuning fork with vibration lines is oriented toward the canvas or the donkey as prompted."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (steel tuning fork with vibration lines); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+      }
+    }
+  }
+}

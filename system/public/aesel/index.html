@@ -28,9 +28,12 @@ thead th{background:#f3e3ee;font-size:13px}
 tbody th{white-space:nowrap}
 td code,p code,li code{overflow-wrap:anywhere}
 .wide{overflow-x:auto}
-.art{float:right;width:150px;height:150px;margin:0 0 4px 14px}
-h2{clear:both}
+.art{float:right;width:250px;margin:0 0 6px 14px;text-align:center}
+.art img{display:block;width:100%;height:auto;border:1px solid #79568b}
+h2{overflow:hidden}
+.ill{width:76px;padding:2px}.ill img{display:block;width:72px;height:72px}
 .nw,.nwd{white-space:nowrap}
+.nw code{overflow-wrap:normal}
 .toc{font-size:14px}
 ol{margin:6px 0;padding-left:22px}
 .shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
@@ -38,12 +41,12 @@ ol{margin:6px 0;padding-left:22px}
 .shots img{display:block;width:100%;height:auto;border:1px solid #79568b}
 .zone th[colspan]{background:#f3e3ee;font-size:13px}
 footer{font-size:13px;margin-top:18px}
-@media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:128px;height:128px}.shots{flex-direction:column}tbody th,.nwd{white-space:normal}}
+@media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:150px}.shots{flex-direction:column}tbody th,.nwd,.nw{white-space:normal}.ill{width:52px}.ill img{width:48px;height:48px}}
 </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-<img class="art" id="art" src="/aesel-pencil.webp" width="720" height="720" alt="Aesel the donkey, in colored pencil, painting a pink heart at a small wooden easel">
+<figure class="art"><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption><code id="art-mime">application/javascript</code></figcaption></figure>
 <h1>aesel</h1>
 <p><b>Easily make and share new media with Aesel.</b> Describe a piece in plain words. A brain writes it, it plays live on your phone, and it publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic Computer</a>.</p>
 <p class="toc">[ <a href="#get">get it</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
@@ -101,20 +104,20 @@ end</pre></td></tr>
 <h2 id="mimes">Aesel’s got MIMEs</h2>
 <p><code>/medium</code> turns the same conversation toward another kind of work.</p>
 <div class="wide"><table id="mime-table">
-<thead><tr><th>medium</th><th>MIME</th><th>what you get</th></tr></thead>
+<thead><tr><th>medium</th><th>illy</th><th>MIME</th><th>what you get</th></tr></thead>
 <tbody>
-<tr><th rowspan="2">piece</th><td class="nw"><code>application/javascript</code></td><td rowspan="2">A live, published Aesthetic Computer piece (<code>.mjs</code>, <code>.lisp</code>, <code>.p5</code>, <code>.l5</code>). A nopaint.art brush is a piece too; the painting, undo and zoom come with it.</td></tr>
-<tr><td class="nw"><code>text/x-lisp</code></td></tr>
-<tr><th rowspan="3">picture</th><td class="nw"><code>image/png</code></td><td rowspan="3">A layered 512 × 512 picture. Each accepted change adds a layer.</td></tr>
-<tr><td class="nw"><code>image/jpeg</code></td></tr>
-<tr><td class="nw"><code>image/webp</code></td></tr>
-<tr><th rowspan="3">sound</th><td class="nw"><code>audio/wav</code></td><td rowspan="3">A score on a shared beat grid, synthesized.</td></tr>
-<tr><td class="nw"><code>audio/mpeg</code></td></tr>
-<tr><td class="nw"><code>audio/ogg</code></td></tr>
-<tr><th rowspan="2">paper</th><td class="nw"><code>application/pdf</code></td><td rowspan="2">An archival LaTeX paper with its source inside.</td></tr>
-<tr><td class="nw"><code>text/plain</code></td></tr>
-<tr><th>Game Boy</th><td class="nw"><code>application/x-gameboy-rom</code></td><td>A real ROM, built with GBDK and checked, playing in AC’s emulator.</td></tr>
-<tr><th>NES</th><td class="nw"><code>application/x-nes-rom</code></td><td>A real ROM in 6502 assembly. The assembler is built in, and it plays as a piece in AC’s own screen.</td></tr>
+<tr><th rowspan="2">piece</th><td class="ill"><a href="/mime/javascript.webp"><img src="/mime/javascript.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."></a></td><td class="nw"><code>application/<wbr>javascript</code></td><td rowspan="2">A live, published Aesthetic Computer piece (<code>.mjs</code>, <code>.lisp</code>, <code>.p5</code>, <code>.l5</code>). A nopaint.art brush is a piece too; the painting, undo and zoom come with it.</td></tr>
+<tr><td class="ill"><a href="/mime/lisp.webp"><img src="/mime/lisp.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a yellow pencil; the canvas shows three rows of plum parentheses enclosing small pink, yellow and teal shapes."></a></td><td class="nw"><code>text/<wbr>x-lisp</code></td></tr>
+<tr><th rowspan="3">picture</th><td class="ill"><a href="/mime/png.webp"><img src="/mime/png.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a paintbrush loaded with pink; the canvas shows a pixel-art pink heart on a transparency checkerboard."></a></td><td class="nw"><code>image/<wbr>png</code></td><td rowspan="3">A layered 512 × 512 picture. Each accepted change adds a layer.</td></tr>
+<tr><td class="ill"><a href="/mime/jpeg.webp"><img src="/mime/jpeg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a small silver camera; the canvas shows a white-bordered photo of a sunset over violet hills and a lake."></a></td><td class="nw"><code>image/<wbr>jpeg</code></td></tr>
+<tr><td class="ill"><a href="/mime/webp.webp"><img src="/mime/webp.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a teal paint roller; the canvas shows a browser window with a white daisy on teal."></a></td><td class="nw"><code>image/<wbr>webp</code></td></tr>
+<tr><th rowspan="3">sound</th><td class="ill"><a href="/mime/wav.webp"><img src="/mime/wav.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a conductor's baton; the canvas shows a dense violet waveform with a pink playhead."></a></td><td class="nw"><code>audio/<wbr>wav</code></td><td rowspan="3">A score on a shared beat grid, synthesized.</td></tr>
+<tr><td class="ill"><a href="/mime/mpeg.webp"><img src="/mime/mpeg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He wears pink headphones and holds a microphone; the canvas shows two beamed eighth notes over five equalizer bars."></a></td><td class="nw"><code>audio/<wbr>mpeg</code></td></tr>
+<tr><td class="ill"><a href="/mime/ogg.webp"><img src="/mime/ogg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a tuning fork; the canvas shows a teal speaker cone with arcs spreading out in teal to violet."></a></td><td class="nw"><code>audio/<wbr>ogg</code></td></tr>
+<tr><th rowspan="2">paper</th><td class="ill"><a href="/mime/pdf.webp"><img src="/mime/pdf.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a black fountain pen; the canvas shows a typeset page with a title bar, two columns of text and a boxed pink chart."></a></td><td class="nw"><code>application/<wbr>pdf</code></td><td rowspan="2">An archival LaTeX paper with its source inside.</td></tr>
+<tr><td class="ill"><a href="/mime/plain.webp"><img src="/mime/plain.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a feather quill, an ink pot on the floor; the canvas shows twelve ragged rows of gray scribble."></a></td><td class="nw"><code>text/<wbr>plain</code></td></tr>
+<tr><th>Game Boy</th><td class="ill"><a href="/mime/gameboy.webp"><img src="/mime/gameboy.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a gray handheld console; the canvas shows a four-shade olive pixel scene with a heart over two shrubs."></a></td><td class="nw"><code>application/<wbr>x-gameboy-rom</code></td><td>A real ROM, built with GBDK and checked, playing in AC’s emulator.</td></tr>
+<tr><th>NES</th><td class="ill"><a href="/mime/nes.webp"><img src="/mime/nes.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses, bridle and harness at an easel cabled to three server racks. He holds a flat gray two-button controller with a hanging cord; the canvas shows an 8-bit night scene with a navy sky, white pixel stars, a pale moon and a pink pixel diamond over a strip of teal ground."></a></td><td class="nw"><code>application/<wbr>x-nes-rom</code></td><td>A real ROM in 6502 assembly. The assembler is built in, and it plays as a piece in AC’s own screen.</td></tr>
 </tbody>
 </table></div>
 
@@ -170,5 +173,11 @@ end</pre></td></tr>
 <p>Conversation context goes to the brain that writes your work. Pieces publish to your @handle; notebooks and versions stay on your device. <a href="/privacy.html">Privacy policy</a>.</p>
 <hr>
 <footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic Computer</a>.</footer>
+<script>
+// The hero steps through the MIME table's pictures; a row's picture is also a link to the full size.
+(function(){var rows=[].slice.call(document.querySelectorAll("#mime-table .ill img")),art=document.getElementById("art"),cap=document.getElementById("art-mime"),i=0;
+if(!rows.length||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+setInterval(function(){if(document.hidden)return;i=(i+1)%rows.length;var r=rows[i],pre=new Image();pre.onload=function(){art.src=pre.src;art.alt=r.alt;cap.textContent=r.closest("td").nextElementSibling.textContent};pre.src=r.getAttribute("src")},3400)})();
+</script>
 </body>
 </html>

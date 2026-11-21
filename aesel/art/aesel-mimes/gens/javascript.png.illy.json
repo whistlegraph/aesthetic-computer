@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T17:47:58.527Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/javascript.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/javascript.txt",
+  "researchPath": null,
+  "promptHash": "1b7c1f5d404b7ba713d0dbf1ea4b2319cbe294a1897e9cef63ef1d49dff6bcea",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 47.768,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2588,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 540
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4344
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "e78cee276d1fb2b879059ae7a246c02552e16f23efb21ea5fde9b7ab30ecad05",
+    "checkedAt": "2026-11-21T17:52:40.874Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: magic wand with a yellow star tip; canvas: pink field, large yellow circle, white dots, arrow cursor. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; magic wand with a yellow star tip is oriented toward the canvas or the donkey as prompted."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (magic wand with a yellow star tip); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+      }
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T17:27:44.893Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/base.txt",
+  "researchPath": null,
+  "promptHash": "537625c15f48c7cef7a81855b879e08887531c90b09e3d71b9e44a00327d8cbe",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 53.734,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1855,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 831
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3611
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "870a52aefc62211fd4bdabea1a8cf456c2bd668a1af5e4022589a4d88e99d29e",
+    "checkedAt": "2026-11-21T17:31:40.949Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red reading glasses, tan bridle (browband, cheek strap, noseband, brass ring) and chest harness with girth and three buckles; one easel with one blank canvas; one brass junction box with three cables pink/teal/violet running to three racks; one teal lead clipped to harness ring. No text, logos or extras."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right toward canvas; canvas face turned three-quarters to camera, blank; racks face camera with lights and patch loops; glasses sit on the muzzle right way up."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Four legs: three hooves on the ground shadow, one front hoof raised and empty; easel three legs on ground; cables droop on the floor and enter rack ports and junction box sockets; lead clips to brass ring. Glasses temple runs back to the cheek buckle rather than the ear base: minor, accepted. Light is even pencil, no unexplained glow."
+      }
+    }
+  }
+}
