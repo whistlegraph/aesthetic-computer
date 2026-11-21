@@ -23,11 +23,13 @@ hr{border:0;border-top:1px solid #79568b;margin:14px 0}
 code,pre,kbd{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace}
 pre{margin:0}
 table{border-collapse:collapse;width:100%}
-th,td{border:1px solid #b7a3bd;padding:3px 6px;text-align:left;vertical-align:top}
-thead th{background:#f3e3ee;font-size:13px}
+table{border-style:hidden}
+th,td{border:1px solid #b0a8ba;padding:3px 7px;text-align:left;vertical-align:top}
+thead th{background:rgba(0,0,0,.07);font-size:13px}
 tbody th{white-space:nowrap}
 td code,p code,li code{overflow-wrap:anywhere}
-.wide{overflow-x:auto}
+.wide{overflow-x:auto;border:1px solid #b0a8ba;border-radius:4px;background:#fbf4e8}
+.t-plum{background:#f1ecf7}.t-pink{background:#fcf0f6}.t-teal{background:#e8f4f3}
 .art{float:right;width:250px;margin:0 0 6px 14px;text-align:center}
 .art figcaption{margin-top:4px}
 .art img{display:block;width:100%;height:auto;border:1px solid #79568b}
@@ -43,16 +45,16 @@ ol{margin:6px 0;padding-left:22px}
 .shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
 .shots a{flex:1;min-width:0;font-size:12.5px;color:inherit;text-decoration:none}
 .shots img{display:block;width:100%;height:auto;border:1px solid #79568b}
-.zone th[colspan]{background:#f3e3ee;font-size:13px}
+.zone th[colspan]{background:rgba(0,0,0,.07);font-size:13px}
 footer{font-size:13px;margin-top:18px}
 @media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:150px}.shots{flex-direction:column}tbody th,.nwd,.nw{white-space:normal}.ill{width:52px}.ill img{width:48px;height:48px}}
-</style>
+.dot{color:#b44887}</style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <figure class="art"><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption id="art-mime"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code></figcaption></figure>
 <h1>Aesel</h1>
-<p><b>Easily make and share new media.</b> Describe a piece; a brain writes it; it plays live on your phone and publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic Computer</a>.</p>
+<p><b>Easily make and share new media.</b> Describe a piece; a brain writes it; it plays live on your phone and publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</p>
 <p class="toc">[ <a href="#get">get it</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
 
 <h2 id="get">Get it</h2>
@@ -81,10 +83,10 @@ footer{font-size:13px;margin-top:18px}
 
 <h2 id="runtimes">Four runtimes</h2>
 <p>Pick with <code>/runtime</code>.</p>
-<div class="wide"><table>
+<div class="wide t-plum"><table>
 <thead><tr><th>ext</th><th>runtime</th><th>what it is</th><th>a whole piece</th></tr></thead>
 <tbody>
-<tr><th><code>.mjs</code></th><td>Aesthetic Computer</td><td>JavaScript on AC’s own API.</td><td><pre>function paint({ wipe }) {
+<tr><th><code>.mjs</code></th><td>Aesthetic<span class="dot">.</span>Computer</td><td>JavaScript on AC’s own API.</td><td><pre>function paint({ wipe }) {
   wipe("pink");
 }
 export { paint };</pre></td></tr>
@@ -106,7 +108,7 @@ end</pre></td></tr>
 
 <h2 id="mimes">Aesel’s got MIMEs</h2>
 <p>Pick with <code>/medium</code>.</p>
-<div class="wide"><table id="mime-table">
+<div class="wide t-pink"><table id="mime-table">
 <thead><tr><th>medium</th><th>illy</th><th>MIME</th><th>what you get</th></tr></thead>
 <tbody>
 <tr><th rowspan="3">piece</th><td class="ill"><a href="/mime/javascript.webp"><img src="/mime/javascript.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."></a></td><td class="nw"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code></td><td rowspan="3">A live, published AC piece or nopaint.art brush.</td></tr>
@@ -126,7 +128,7 @@ end</pre></td></tr>
 </table></div>
 
 <h2 id="goes">Where the work goes</h2>
-<div class="wide"><table>
+<div class="wide t-teal"><table>
 <tbody>
 <tr><th><a href="https://aesthetic.computer/@jeffrey">aesthetic.computer/@you/name</a></th><td>Every save, published and live.</td></tr>
 <tr><th><a href="https://kidlisp.com">kidlisp.com</a></th><td>Each <code>.lisp</code> piece gets a <code>$code</code>.</td></tr>
@@ -138,7 +140,7 @@ end</pre></td></tr>
 
 <h2 id="brains">Brains</h2>
 <p>Switch with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness with your own skills and MCP servers.</p>
-<div class="wide"><table>
+<div class="wide t-plum"><table>
 <thead><tr><th>brain</th><th>runs through</th><th>you pay with</th></tr></thead>
 <tbody>
 <tr><th>AC hosted (default)</th><td>OpenRouter on AC’s account: Claude, Luna, DeepSeek, Kimi, Qwen, MiniMax.</td><td>Braincells: a daily allowance, then a wallet (Stripe, in-app, Tezos).</td></tr>
@@ -157,7 +159,7 @@ end</pre></td></tr>
 <tr><th>workspace</th><td><code>.aesel/</code></td><td>Transcript, revisions v1 → v<i>n</i>, artifacts.</td></tr>
 <tr><th>tools</th><td><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></td><td>What the brain holds.</td></tr>
 <tr><th>made here</th><td>XeLaTeX, GBDK, 6502</td><td>Papers, ROMs, sound and pictures are built on this disk.</td></tr>
-<tr><th colspan="3">aesthetic computer</th></tr>
+<tr><th colspan="3">Aesthetic<span class="dot">.</span>Computer</th></tr>
 <tr><th>Cloudflare</th><td><code>aesthetic.computer</code> <code>prompt.ac</code> <code>aesel.app</code></td><td>DNS, proxy, cache.</td></tr>
 <tr><th>lith</th><td><code>lith.aesthetic.computer</code></td><td>Express behind Caddy on a DigitalOcean VPS.</td></tr>
 <tr><th>inference relay</th><td><code>/api/easel-inference</code></td><td>Model allowlist; meters braincells.</td></tr>
@@ -175,7 +177,7 @@ end</pre></td></tr>
 <h2 id="help">Help and privacy</h2>
 <p><a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> · <a href="/support.html">support notes</a> · <a href="/privacy.html">privacy policy</a>. Your conversation goes to the brain that writes your work; pieces publish to your @handle; notebooks and versions stay on your device.</p>
 <hr>
-<footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic Computer</a>.</footer>
+<footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</footer>
 <script>
 // The hero steps through the MIME table's pictures; a row's picture is also a link to the full size.
 (function(){var rows=[].slice.call(document.querySelectorAll("#mime-table .ill img")),art=document.getElementById("art"),cap=document.getElementById("art-mime"),i=0;
