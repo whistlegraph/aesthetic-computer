@@ -4,7 +4,7 @@ const zero = () => ({
   fwd: 0,
   lookX: 0,
   lookY: 0,
-  up: 0,
+  roll: 0,
   boost: false,
   jump: false,
   prompt: false,
@@ -97,9 +97,9 @@ export class Controller {
       result.start = edge(9);
       result.debug = edge(11); // the right stick, clicked: the debugging layer
       result.swap = edge(8);
-      result.up = Number(buttons[5]) - Number(buttons[4]);
+      result.roll = Number(!!buttons[4]) - Number(!!buttons[5]);
       result.boost = !!buttons[7];
-      // Analog pressure for focus zoom (left) and drone roll (right).
+      // Analog trigger pressure, including LT focus zoom.
       result.lt = pad.buttons[6]?.value ?? Number(buttons[6]);
       result.rt = pad.buttons[7]?.value ?? Number(buttons[7]);
       // Past the standard seventeen: a pad's own extras (back paddles, L4 and R4), just pressed.

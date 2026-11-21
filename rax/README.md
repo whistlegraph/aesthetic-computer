@@ -34,11 +34,7 @@ and return for another. Everyone nearby can kick the balls across park boundarie
 
 The east side inside the plaza lobby has stairs marked B1. Walk down into the basement or take the elevator down from G. Tap the car’s up or down arrow once per floor, or hold it to scroll. Hold for two seconds for the roof or B1. The car departs after a short pause. Jump through an open tower window to the block below. B1 opens onto the inner sea beneath the planet’s surface. Jump from the scaffold or take the dock stairs to the water. Look down while swimming to dive. Jump beside a rowboat to board, then jump again to dismount.
 
-**Touch:** the left half is a floating move stick and the right half drags to look; both
-are outlined on the lower half of the screen. Four icons sit bottom right: the $ menu, jump, chat (a
-message bubble) and build (a cube). What the thing in view offers (paint, chalk, change,
-remove, lock on, use, drop) appears as a cap above them; typing a build, a ring cap opens
-the build ring. Chat types on the top line, as a build does.
+**Touch.** Drag on the left to move or on the right to look. Tap kiosks and the elevator keypad directly. Tap the colored block at the upper left to return to the prompt.
 
 **Controller:** A jumps. Squeeze LT to zoom up to 2.5×. Screens sharpen and objects gain detail as they would if you walked closer. Aim at a screen and press RB once to go in (X as a drone).
 On other objects the same button locks on. The right stick moves the reticle within
@@ -419,14 +415,14 @@ spectator takes the open slot. Rooms hold up to sixteen players (`MAX_PLAYERS`) 
 spectators again. The second player to arrive starts a match; later arrivals drop into it on a
 spawn ring facing the middle, and a departure only stops the match when it leaves one player alone.
 
-Spectator freecam: WASD and mouse, Space up, Shift down. It starts looking at the
+In spectator freecam, WASD moves and the mouse aims. Fly forward while looking up or down to change altitude. Q and R roll the drone. It starts looking at the
 active player. Handles use AC's canonical pixel font, exact casing, and saved
 per-character colors from the handle-colors API.
 
 8BitDo/standard gamepad: left stick moves, right stick looks, bottom face button
 jumps, left face button opens the prompt, top face button switches first/third
 person, right face button closes/cancels the prompt. Typing still uses the keyboard.
-In freecam, LB lowers, RB raises and A moves faster. Select switches the focused
+In freecam, LB rolls left, RB rolls right and A moves faster. Select switches the focused
 rig pane; Start toggles fullscreen. Only the focused pane consumes controller
 input. Deadzones suppress stick drift, actions trigger on press edges, and
 unplugging clears movement. Chromium may require a button press before exposing

@@ -1,63 +1,16 @@
-// Multitouch: the left half is a floating move stick anchored where the thumb
-// lands; the right half drags to look. Both are outlined on the lower half of
-// the screen. While the build ring is open every touch is a tap on the ring.
-// Four icons sit bottom right (2026-11-15): the $ menu (travel, your $ list,
-// the view's switches), jump, chat (a message bubble) and build (a cube). Whatever else can be done to the thing in view appears
-// as a cap above them and goes when the thing does. Each presses and
-// releases its key. The left column, and tap and hold on the look side, are
-// retired.
-const B = (name, code, key, color, icon = null) => ({ name, code, key, color, icon });
-// Eleven columns of ink on the cap's colour.
-export const ICONS = {
-  cube: ['..########.', '.#......##.', '########.#.', '#......#.#.', '#......#.#.', '#......#.#.', '#......#.#.', '#......#.#.', '#......##..', '########...'],
-  bubble: ['.#########.', '#.........#', '#.........#', '#.##.#.##.#', '#.##.#.##.#', '#.........#', '#.........#', '.#########.', '..###......', '..##.......', '..#........'],
-  dollar: ['.....#.....', '...######..', '..##.#.....', '..##.#.....', '...#####...', '.....#.##..', '.....#.##..', '..######...', '.....#.....'],
-  jump: ['.....#.....', '....###....', '...#####...', '..#######..', '.#########.', '....###....', '....###....', '....###....', '....###....', '....###....'],
-};
-export const TOUCH_BUTTONS = {
-  // Right to left along the bottom.
-  play: [B('build', 'Enter', 'Enter', 0xffe066, 'cube'), B('chat', 'KeyT', 't', 0x9be7a0, 'bubble'), B('jump', 'Space', ' ', 0x6bb6ff, 'jump'), B('menu', 'Digit4', '$', 0xffd28a, 'dollar')],
+// During play, each half of the screen is a gesture surface. Only an open
+// editor needs buttons, positioned above the keyboard or the home indicator.
+const B = (name, code, key, color) => ({ name, code, key, color });
+const buttons = {
   typing: [B('send', 'Enter', 'Enter', 0xffe066), B('cancel', 'Escape', 'Escape', 0xff6b6b)],
   // Chalk in the air: hold draw and look around, then build what you drew.
   chalk: [B('build', 'Enter', 'Enter', 0xffe066), B('cancel', 'Escape', 'Escape', 0xff6b6b), B('draw', 'KeyC', 'c', 0xe8e8e8)],
 };
-// What the thing in view offers, as caps: an item in hand, a wall, an object
-// of your own, the floor.
-export const CONTEXT = {
-  use: (verb) => B(verb, 'KeyF', 'f', 0xff9f43),
-  drop: B('drop', 'KeyQ', 'q', 0xff6b6b),
-  change: B('change', 'KeyF', 'f', 0xffe066),
-  remove: B('remove', 'Delete', 'Delete', 0xff6b6b),
-  paint: B('paint', 'KeyX', 'x', 0xff7ac8),
-  lock: B('lock on', 'KeyZ', 'z', 0x00ffff),
-  unlock: B('unlock', 'KeyZ', 'z', 0x00ffff),
-  chalk: B('chalk', 'KeyC', 'c', 0xe8e8e8),
-  ring: B('ring', '', '', 0x9be7a0), // The client gives it its act.
-};
-const SIZE = 44, GAP = 6, EDGE = 10;
-// Where they sit, in CSS pixels. `height` is what the phone's keyboard leaves
-// in view; `inset` is the home bar's.
 export function touchButtons(mode, width, height, { context = [], inset = 0 } = {}) {
-  const list = TOUCH_BUTTONS[mode] || [];
-  const bottom = height - inset - EDGE;
-  // Words, not icons: one row, with what the moment adds to its left.
-  if (mode === 'typing' || mode === 'chalk')
-    return [...list, ...context].map((b, i) => ({ ...b, x: width - EDGE - 62 - i * (62 + GAP), y: bottom - 36, w: 62, h: 36 }));
-  const row = list.map((b, i) => ({ ...b, x: width - EDGE - SIZE - i * (SIZE + GAP), y: bottom - SIZE, w: SIZE, h: SIZE }));
-  if (!row.length) return row;
-  const caps = context.map((b, i) => ({ ...b, x: width - EDGE - 68, y: bottom - SIZE - (i + 1) * (34 + GAP), w: 68, h: 34 }));
-  return [...row, ...caps];
-}
-// The two thumb areas, outlined on the lower half above the icons.
-export function touchZones(width, height, inset = 0) {
-  // Clear of the avatar's face and name, bottom left.
-  const top = Math.round(height / 2), bottom = height - inset - 104;
-  if (bottom - top < 60) return [];
-  const h = bottom - top, mid = width / 2;
-  return [
-    { name: 'move', side: 'left', x: EDGE, y: top, w: mid - EDGE - GAP / 2, h },
-    { name: 'look', side: 'right', x: mid + GAP / 2, y: top, w: mid - EDGE - GAP / 2, h },
-  ];
+  if (!buttons[mode]) return [];
+  return [...buttons[mode], ...context].map((b, i) => ({
+    ...b, x: width - 10 - 62 - i * 68, y: height - inset - 10 - 36, w: 62, h: 36,
+  }));
 }
 export class TouchPad {
   constructor() {

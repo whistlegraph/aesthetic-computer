@@ -44,6 +44,23 @@ test('controller deadzone, edge actions, disconnect and pane focus',()=>{
  assert.equal(c.sample([p],true).jump,false,'held button cannot fire when pane gains focus');
  assert.equal(c.sample([]).right,0);assert.equal(c.id,null);
 });
+test('drone roll follows the held bumpers and cancels when both are held', () => {
+  const controller = new Controller();
+  const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+  const pads = [{ id: 'roll test', index: 0, connected: true, buttons, axes: [0, 0, 0, 0] }];
+  assert.equal(controller.sample(pads).roll, 0);
+  buttons[4].pressed = true;
+  assert.equal(controller.sample(pads).roll, 1);
+  assert.equal(controller.sample(pads).roll, 1);
+  buttons[5].pressed = true;
+  assert.equal(controller.sample(pads).roll, 0);
+  buttons[4].pressed = false;
+  assert.equal(controller.sample(pads).roll, -1);
+  buttons[5].pressed = false;
+  buttons[7].value = 1;
+  assert.equal(controller.sample(pads).roll, 0);
+});
+
 test('the rejected Big friend walks within its actual swept bounds',async()=>{
  const source=await readFile(new URL('./fixtures/big-friend.lisp',import.meta.url),'utf8');const g=parseSource(source);
  assert.equal(g.animated,true);assert.equal(g.boxes.length,12);

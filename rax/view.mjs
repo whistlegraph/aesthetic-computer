@@ -63,21 +63,21 @@ export const LEGEND = {
     '[RB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
   ],
-  touch: [], // The thumb areas and the icons name themselves.
+  touch: [],
 };
 // 🚁 A drone's controls (looking on), in the same shape.
 const DRONE_LEGEND = {
   keys: [
-    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['space', 'Space'], ' up / ', ['shift', ['ShiftLeft', 'ShiftRight']], ' down'],
+    [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move'],
     [['q', 'KeyQ'], ['r', 'KeyR'], ' roll / ', ['e', 'KeyE'], ' fast / ', ['v', 'KeyV'], ' drone'],
     [['z', 'KeyZ'], ' lock / ', ['b', 'KeyB'], ' warp / ', ['f', 'KeyF'], ' full screen'],
   ],
   pad: [
-    '[LS] move / [RS] look / [LB] down / [RB] up',
-    '[LT] zoom / [RT] roll / [A] fast / [Y] drone',
+    '[LS] move / [RS] look / [LB][RB] roll',
+    '[LT] zoom / [A] fast / [Y] drone',
     '[X] lock on / [B] warp / [BACK] full screen',
   ],
-  touch: ['look'],
+  touch: [],
 };
 // Each action has its own colour, shared by its words and its key caps, so
 // the eye finds a control by colour (2026-11-08). Separators stay dim.
@@ -128,7 +128,6 @@ function colourRow(spans) {
   return out;
 }
 import { radialSlots, ringGeometry } from './radial.mjs';
-import { ICONS } from './touch.mjs';
 import {
   THEME,
   codeSpans,
@@ -1315,7 +1314,6 @@ export async function createView(canvas) {
     holding = null,
     touch = null,
     touchButtons = [],
-    touchZones = [],
     input = 'keys',
     devLog = [],
     stallNote = '',
@@ -2152,13 +2150,9 @@ export async function createView(canvas) {
       const hint = waterHint || objectHint || drawing || carry || (panels.some((p) => p.cursor) // 🖼️ the aim is a world panel's mouse
           ? input === 'touch' ? 'tap the screen' : pad ? '[RT] press' : '{enter} or click: press'
         : car
-          ? input === 'touch' ? 'tap the cube: pick a floor' : pad ? '[DV] tap a floor / hold for roof or B1' : '{enter} pick a floor'
+          ? pad ? '[DV] tap a floor / hold for roof or B1' : '{enter} pick a floor'
         : paintHint ? paintHint
-        : input === 'touch'
-          ? 'tap the cube to build'
-          : pad
-            ? null
-            : '{enter} to build');
+        : pad ? null : '{enter} to build');
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
         ? Math.max(0, Math.floor((Date.now() - building.startedAt) / 1000))
@@ -2225,6 +2219,8 @@ export async function createView(canvas) {
                 ]
               : []),
           ]
+        : input === 'touch'
+        ? (focusObject ? [[{ text: named(focusObject), color: THEME.verb }]] : [])
         : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
@@ -2587,7 +2583,7 @@ export async function createView(canvas) {
       }
       projector.overlay(ringModel, W, H);
     }
-    if (touch?.stick || touchButtons.length || touchZones.length) {
+    if (touch?.stick || touchButtons.length) {
       // Pixel squares, like everything else: a ring for the anchor, a knob for the thumb.
       const { unit } = hud;
       const m = model(({ rect: worldRect, text }) => {
@@ -2601,38 +2597,7 @@ export async function createView(canvas) {
             sink = b.held ? unit : 0;
           rect(x + unit, top - h - unit, 0.000004, w, h, INK);
           rect(x + sink, top - h - sink, 0.000003, w, h, b.held ? 0xffffff : b.color);
-          const art = ICONS[b.icon];
-          if (!art) {
-            text(b.name, x + w / 2 + sink, top - h / 2 + 3 * unit - sink, 0.000001, unit, INK);
-            continue;
-          }
-          // An icon: whole units, as large as leaves a margin, centred.
-          const k = Math.max(unit, Math.floor((h * 0.6) / art.length / unit) * unit);
-          const ix = Math.round((x + sink + (w - art[0].length * k) / 2) / unit) * unit,
-            iy = Math.round((top - sink - (h - art.length * k) / 2) / unit) * unit;
-          art.forEach((row, r) => {
-            for (let c = 0; c < row.length;) {
-              if (row[c] !== '#') { c++; continue; }
-              const from = c++;
-              while (row[c] === '#') c++;
-              rect(ix + from * k, iy - (r + 1) * k, 0.000001, (c - from) * k, k, INK);
-            }
-          });
-        }
-        // The two thumb areas: corner brackets and a name, dim until a thumb
-        // is down in one.
-        for (const zone of touchZones) {
-          const [x, top] = at(zone.x, zone.y), w = zone.w * pixel, h = zone.h * pixel;
-          const on = zone.side === 'left' ? !!touch?.stick : !!touch?.look;
-          const color = on ? PAPER : 0x5a6072, arm = 7 * unit, t = unit;
-          for (const [cx, sx] of [[x, 1], [x + w, -1]])
-            for (const [cy, sy] of [[top, -1], [top - h, 1]]) {
-              rect(Math.min(cx, cx + sx * arm), sy < 0 ? cy - t : cy, 0.000004, arm, t, color);
-              rect(sx > 0 ? cx : cx - t, Math.min(cy, cy + sy * arm), 0.000004, t, arm, color);
-            }
-          const tx = x + w / 2, ty = top - 5 * unit;
-          text(zone.name, tx + unit, ty - unit, 0.000004, unit, INK);
-          text(zone.name, tx, ty, 0.000003, unit, color);
+          text(b.name, x + w / 2 + sink, top - h / 2 + 3 * unit - sink, 0.000001, unit, INK);
         }
         const frame = (cx, cy, size, thick, color, z) => {
           rect(cx - size / 2, cy + size / 2 - thick, z, size, thick, color);
@@ -2799,9 +2764,11 @@ export async function createView(canvas) {
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
       // Beside it, what Escape does next: with the mouse held it frees the mouse, and with the mouse free it goes to the prompt.
-      const label = hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
+      const label = input === 'touch' ? [] : hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
       const labelW = smallSpanWidth(label, unit);
-      cornerRect = { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
+      cornerRect = input === 'touch'
+        ? { x: safeX, y: safeY, w: Math.max(w, 44 * pixel - safeX), h: Math.max(h, 44 * pixel - safeY) }
+        : { x: safeX, y: safeY, w: w + 4 * unit + labelW, h };
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
         drawSpans({ rect, text, small }, label, left + w + 4 * unit + labelW / 2, H / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });

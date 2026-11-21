@@ -28,7 +28,7 @@ import { Controller } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
-import { TouchPad, touchButtons, touchZones, CONTEXT } from './touch.mjs';
+import { TouchPad, touchButtons } from './touch.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 // 🐌 KidLisp is some thirty modules deep (its runtime and AC's graphics): it
 // was fetched before the room could start at all, about 0.4 s of the way in
@@ -2279,7 +2279,7 @@ function pressKey(type, code, key) {
   document.dispatchEvent(e);
 }
 const typing = () => prompt.open || chat.open;
-const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : 'play');
+const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : null);
 // The home bar's inset, measured once from a probe (env() has no script API).
 const insetProbe = Object.assign(document.createElement('div'), { ariaHidden: 'true' });
 insetProbe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
@@ -2290,38 +2290,16 @@ const visibleHeight = () => {
   const v = window.visualViewport;
   return v ? Math.min(canvas.clientHeight, v.height + v.offsetTop) : canvas.clientHeight;
 };
-// 📱 The caps above the icons: what the thing in view offers, and nothing else.
-function touchContext() {
-  if (holding()) {
-    const item = objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat));
-    return [CONTEXT.use({ shoot: 'shoot', poke: 'poke', throw: 'throw' }[item?.item] || 'use'), CONTEXT.drop];
-  }
-  // Locked on, a remove is at once (the lock is the confirmation).
-  if (dock) return [{ ...CONTEXT.unlock, name: 'leave' }]; // 🖥️ gone in to a screen: the one cap comes out and lets go
-  if (lockOn) return [CONTEXT.unlock, lockOn.wall ? CONTEXT.change : CONTEXT.remove];
-  if (focusObject?.panel || focusObject?.screen) {
-    const enter = { ...CONTEXT.lock, name: 'go in' };
-    return focusObject.panel ? [enter] : [CONTEXT.change, enter];
-  }
-  if (focusObject?.wall) return [CONTEXT.change, CONTEXT.lock];
-  if (focusObject) {
-    const armed = removeArmed?.id === focusObject.id && performance.now() - removeArmed.at < 2000;
-    return [armed ? { ...CONTEXT.remove, name: 'again?' } : CONTEXT.remove, CONTEXT.lock];
-  }
-  // The floor takes paint; the open air takes chalk.
-  return floorAim ? [CONTEXT.paint] : CHALK ? [CONTEXT.chalk] : [];
-}
-// The build ring, for a build without typing: a cap beside send and cancel.
-const ringCap = { ...CONTEXT.ring, act: () => { softKeys.blur(); openRadial(); } };
+const ringCap = { name: 'ring', color: 0x9be7a0, act: () => { softKeys.blur(); openRadial(); } };
 const shownButtons = () => {
-  if (!touch.active) return [];
-  const mode = touchMode(), keyboardUp = mode === 'typing';
+  const mode = touch.active && touchMode();
+  if (!mode) return [];
+  const keyboardUp = mode === 'typing';
   return touchButtons(mode, canvas.clientWidth, keyboardUp ? visibleHeight() : canvas.clientHeight, {
-    context: mode === 'play' ? touchContext() : mode === 'typing' && prompt.open && !prompt.busy ? [ringCap] : [],
+    context: mode === 'typing' && prompt.open && !prompt.busy ? [ringCap] : [],
     inset: keyboardUp && visibleHeight() < canvas.clientHeight ? 0 : bottomInset(),
   });
 };
-const shownZones = () => (touch.active && ['play', 'chalk'].includes(touchMode()) ? touchZones(canvas.clientWidth, canvas.clientHeight, bottomInset()) : []);
 const softKeys = Object.assign(document.createElement('input'), {
   type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, enterKeyHint: 'send', tabIndex: -1,
 });
@@ -2949,7 +2927,7 @@ function step(now) {
   }
   // RB toggles a lock on the aimed object; while locked, B removes it (the
   // lock is the confirmation).
-  // (Looking on, LB flies down, so the lock is on X; B lets go.)
+  // (Looking on, the bumpers roll, so the lock is on X; B lets go.)
   if (dock && gamepad.cancel && !radial.open && !prompt.open && !chalkMode) {
     comeOut();
     gamepad.cancel = false;
@@ -3059,7 +3037,7 @@ function step(now) {
   const connected = ws?.readyState === WebSocket.OPEN && snapshot;
   if (seat < 0 && connected && !joining()) {
     // 🛫 Nobody at the stick for a while, over the plaza: the drone takes itself on its tour (flyover.mjs). Any key, stick or look gives it back.
-    const moving = keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || gamepad.up || gamepad.lt > 0.06 || gamepad.rt > 0.06 || gamepad.hold || pad.fwd || pad.right || pad.dx || pad.dy;
+    const moving = keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || gamepad.roll || gamepad.lt > 0.06 || gamepad.rt > 0.06 || gamepad.hold || pad.fwd || pad.right || pad.dx || pad.dy;
     if (moving) inputAt = now;
     const idle = sheetOpen && room === 'lobby' && !dock && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && now - inputAt > IDLE_MS;
     if (idle) {
@@ -3082,14 +3060,14 @@ function step(now) {
       yaw = (yaw + dyaw * k + 360) % 360;
       pitch = clamp(pitch + (wantPitch - pitch) * k, -85, 85);
       droneRoll += (clamp(-dyaw * 0.012, -0.35, 0.35) - droneRoll) * (1 - Math.exp(-dt * 2));
-    } else if (dock || (nearing && !(keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD') || keys.has('Space') || keys.has('ShiftLeft') || keys.has('ShiftRight') || gamepad.fwd || gamepad.right || gamepad.up || pad.fwd || pad.right))) {
+    } else if (dock || (nearing && !(keys.has('KeyW') || keys.has('KeyA') || keys.has('KeyS') || keys.has('KeyD') || gamepad.fwd || gamepad.right || gamepad.roll || pad.fwd || pad.right))) {
       touring = null; // 🖥️ carried (`carry`): in to a screen, or up to what it has locked on to, until its own stick asks otherwise
     } else {
       touring = nearing = null;
-      // 🌀 The triggers (or Q and R) roll it over, the left one to the left: as fast as each is squeezed, a turn in four seconds at the most; let go, its gyro brings it level the short way.
+      // Hold a bumper to roll one turn in four seconds. The gyro levels the drone after release.
       {
-        const squeeze = (v) => (v > 0.06 ? v * v : 0); // (gentle at first)
-        const turn = (keys.has('KeyQ') ? 0.6 : 0) - Math.max(panels.hot ? 0 : squeeze(gamepad.rt || 0), keys.has('KeyR') ? 0.6 : 0); // (the left trigger is the focus zoom now: Q rolls left, the right trigger or R rolls right)
+        const keyRoll = 0.6 * (Number(keys.has('KeyQ')) - Number(keys.has('KeyR')));
+        const turn = clamp(gamepad.roll + keyRoll, -1, 1);
         if (turn) droneRoll += turn * (Math.PI / 2) * Math.min(0.1, elapsed);
         // (Held where it was left for two seconds, then brought level slowly.)
         else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
@@ -3108,14 +3086,8 @@ function step(now) {
             -1,
             1,
           ),
-          up: clamp(
-            Number(keys.has('Space')) -
-              Number(keys.has('ShiftLeft') || keys.has('ShiftRight')) +
-              gamepad.up,
-            -1,
-            1,
-          ),
-          boost: gamepad.hold || keys.has('KeyE'), // A held, or E (the triggers roll it)
+          up: 0,
+          boost: gamepad.hold || keys.has('KeyE'),
         },
         elapsed,
         // 🌬️ The air where the eye is, in the world's metres at this moment.
@@ -3371,8 +3343,8 @@ function step(now) {
   const movingBody = seat < 0 ? freecam : player?.alive ? player : null;
   if (movingBody && connected && !down && sheetOpen && !document.hidden && document.hasFocus() &&
       !typing() && !menu && !radial.open && !dock && !nearing && !touring && !warp && !held && !joining()) {
-    const flyingInput = gamepad.fwd || gamepad.right || gamepad.up || pad.fwd || pad.right ||
-      ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].some(key => keys.has(key));
+    const flyingInput = gamepad.fwd || gamepad.right || pad.fwd || pad.right ||
+      ['KeyW', 'KeyA', 'KeyS', 'KeyD'].some(key => keys.has(key));
     const speed = seat < 0 ? (flyingInput ? Math.hypot(movingBody.vx, movingBody.vy, movingBody.vz) : 0)
       : movingBody.onGround && !movingBody.swimming && !movingBody.boat ? Math.hypot(movingBody.vx, movingBody.vz) : 0;
     const prev = lastMotionLook;
@@ -3570,7 +3542,6 @@ function step(now) {
       : null,
     touch: touch.state(),
     touchButtons: shownButtons().map((b) => ({ ...b, held: [...touch.pressed.values()].some((p) => p.name === b.name) })),
-    touchZones: shownZones(),
     input: touch.active ? 'touch' : controller.id ? 'pad' : 'keys',
     stallNote: stalls.note(),
     walls,
