@@ -58,7 +58,7 @@ export const LEGEND = {
   pad: [
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom / [Y] camera',
-    '[LB] build / [RT] use / [X] drop',
+    '[RT] use / [X] drop',
     '[X] paint',
     '[RB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
@@ -1558,7 +1558,7 @@ export async function createView(canvas) {
     }
     natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
     // Zoom changes the apparent distance used for detail as well as the projection.
-    const zoom = !docked && orbit <= 0 ? nearZoom : 1;
+    const zoom = orbit <= 0 ? nearZoom : 1;
     projector.sx *= zoom;
     projector.sy *= zoom;
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
@@ -2105,9 +2105,9 @@ export async function createView(canvas) {
         o.panel || o.screen
           ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : '{z} go in'
         : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
-          ? pad ? `[LB] ${o.source ? 'change' : 'build'}` : `{f} ${o.source ? 'change' : 'build'}`
+          ? pad ? `${spectator ? '[X]' : '[RB]'} ${o.far ? 'lock on' : 'go in'}` : `{f} ${o.source ? 'change' : 'build'}`
           : spectator ? pad ? '[X] lock on' : '{z} lock on' : o.owner === owner
-            ? pad ? '[LB] change / [RB] lock on' : '{enter} change / {z} lock on'
+            ? pad ? '[RB] lock on' : '{enter} change / {z} lock on'
             : pad ? '[RB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
@@ -2117,7 +2117,8 @@ export async function createView(canvas) {
       const screenHint = docked && focusObject
         ? [named(focusObject),
             ...(input === 'touch' ? [focusObject.panel ? 'tap: press' : 'leave'] : [
-              pad ? `[RS] cursor${focusObject.panel ? ' / [RT] press' : ''}` : focusObject.panel ? '{enter} or click: press' : '',
+              ...(pad ? ['[LS] look / [L3] 2x zoom'] : []),
+              pad ? '[RS] cursor / [RT] press' : focusObject.panel ? '{enter} or click: press' : '',
               pad ? '[DH] next / [B] leave' : '{[} {]} next / {esc} leave',
             ])].filter(Boolean).join('\n')
         : null;
@@ -2127,7 +2128,7 @@ export async function createView(canvas) {
             ...(pad
               ? spectator ? ['[RS] cursor / [DH] next', '[X] unlock'] : focusObject.wall
                 ? ['[RS] cursor / [RB] unlock']
-                : [`${mine ? '[LB] change / ' : ''}[B] remove`, '[RS] cursor / [DH] next', '[RB] unlock']
+                : ['[B] remove', '[RS] cursor / [DH] next', '[RB] unlock']
               : focusObject.wall
                 ? [`{f} ${focusObject.source ? 'change' : 'build'} / {z} unlock`]
                 : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
@@ -2156,7 +2157,7 @@ export async function createView(canvas) {
         : input === 'touch'
           ? 'tap the cube to build'
           : pad
-            ? '[LB] to build'
+            ? null
             : '{enter} to build');
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
@@ -2239,7 +2240,7 @@ export async function createView(canvas) {
                   ]
                 : !me ? [] // Still arriving: no seat yet, so no controls to offer.
                 : game && !moded ? [] // a game's legend is its whole hint
-                : hint.split('\n').map((l, i) =>
+                : !hint ? [] : hint.split('\n').map((l, i) =>
                     i === 0 && moded && hint.includes('\n')
                       ? [{ text: l, color: THEME.verb }]
                       : colourRow(hintSpans(l, confirming ? 0xff6b6b : THEME.text)),

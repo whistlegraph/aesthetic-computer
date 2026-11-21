@@ -29,7 +29,7 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.addInitScript(() => {
     window.testPad = { connected: true, id: 'test', index: 0, axes: [0, 0, 0, 0],
-      buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) };
+      buttons: Array.from({ length: 18 }, () => ({ pressed: false, value: 0 })) };
     Object.defineProperty(navigator, 'getGamepads', { value: () => [testPad] });
   });
   await page.route('**/kidlisp-source?*', route => route.fulfill({ json: { source: '(wipe 0 220 255) (if down (wipe 255 0 0))' } }));
@@ -88,10 +88,24 @@ try {
   assert.equal((await sample()).lock, null);
   await exerciseCursor(true);
   const before = await sample();
-  await page.evaluate(() => { testPad.axes[0] = 0.8; });
-  await page.waitForFunction(x => Math.abs(raxDebug().player.x - x) > 0.3, before.player.x);
-  await page.evaluate(() => { testPad.axes[0] = 0; });
-  assert.deepEqual((await sample()).dock.cursor, before.dock.cursor);
+  const home = await page.evaluate(() => document.querySelector('canvas').raxStats.camera);
+  await button(10);
+  await page.waitForFunction(z => Math.abs(raxDebug().fov / z - 2) < 0.01, before.fov);
+  await page.evaluate(() => { testPad.buttons[6].value = 1; });
+  await page.waitForFunction(z => Math.abs(raxDebug().fov / z - 5) < 0.01, before.fov);
+  await page.evaluate(() => { testPad.axes[0] = 0.8; testPad.axes[1] = -0.5; });
+  await page.waitForFunction(home => {
+    const camera = document.querySelector('canvas').raxStats.camera;
+    return camera.yaw < home.yaw - 1 && camera.pitch > home.pitch + 1;
+  }, home);
+  await page.evaluate(() => { testPad.axes[0] = testPad.axes[1] = 0; });
+  await page.waitForFunction(home => {
+    const camera = document.querySelector('canvas').raxStats.camera;
+    return Math.abs(camera.yaw - home.yaw) < 0.01 && Math.abs(camera.pitch - home.pitch) < 0.01;
+  }, home);
+  const recentered = await sample();
+  assert.deepEqual(recentered.dock.cursor, before.dock.cursor);
+  assert.ok(Math.hypot(recentered.player.x - before.player.x, recentered.player.z - before.player.z) < 0.05, 'looking stays in place');
   const { cursor, hot } = (await sample()).dock;
   assert.equal(hot.id, kiosk.id);
   assert.equal(hot.x, cursor.x);
@@ -99,8 +113,12 @@ try {
   await button(7);
   const press = panelPresses.at(-1);
   assert.deepEqual([press?.id, press?.x, press?.y], [kiosk.id, Math.round(cursor.x), Math.round(cursor.y)]);
+  await button(10);
+  await page.waitForFunction(z => Math.abs(raxDebug().fov / z - 2.5) < 0.01, before.fov);
+  await page.evaluate(() => { testPad.buttons[6].value = 0; });
+  await button(10);
   await button(1);
-  await page.waitForFunction(() => !raxDebug().dock && !raxDebug().lock);
+  await page.waitForFunction(() => !raxDebug().dock && !raxDebug().lock && raxDebug().fov === 1);
 
   const cube = app.store.get('lobby', 'cube');
   await aim('cube', cube.x, cube.z + 2.5, 180);
@@ -130,8 +148,11 @@ try {
   await page.waitForFunction(() => window.testPoked);
   await button(2);
   await button(4);
-  await page.waitForFunction(() => !!document.querySelector('canvas').raxStats.radial);
-  await button(1);
+  await button(17);
+  assert.ok(await page.evaluate(() => {
+    const s = document.querySelector('canvas').raxStats;
+    return !s.radial && !s.promptOpen;
+  }), 'bumper and rear button leave the build menu closed');
   await aim('panel:car-pad', CAR_PAD.x, CAR_Z, CAR_PAD.yaw);
   await button(5);
   await page.waitForFunction(() => raxDebug().dock?.id === 'panel:car-pad' && raxDebug().dock.t === 1);
@@ -148,7 +169,7 @@ try {
   await button(7);
   await page.waitForFunction(() => raxDebug().room === 'basement' && !raxDebug().dock);
   assert.deepEqual(errors, []);
-  console.log('RB focus, LB build, walking while focused, persistent cursor, RT kiosk click, KidLisp press and release, held poke, and keypad ride to B1 passed.');
+  console.log('RB focus, bumper shortcut removed, spring look, L3 and LT zoom, persistent cursor, RT kiosk click, KidLisp press and release, held poke, and keypad ride to B1 passed.');
 } finally {
   await browser.close();
   await app.close();

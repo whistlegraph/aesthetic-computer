@@ -11,7 +11,7 @@ const zero = () => ({
   hold: false,
   select: false,
   focus: false,
-  build: false,
+  zoomClick: false,
   triggerHeld: false,
   use: false,
   dup: false,
@@ -81,7 +81,7 @@ export class Controller {
       // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
       result.jump = edge(0);
       result.select = edge(0);
-      result.build = edge(4);
+      result.zoomClick = edge(10);
       result.focus = edge(5);
       result.use = edge(7);
       result.triggerHeld = !!buttons[7] && !changed && this.focused;

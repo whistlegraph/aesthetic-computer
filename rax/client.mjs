@@ -339,10 +339,13 @@ function linkAgents(handle, now) {
   socket.onclose = () => { if (agentLink.socket === socket) { agentLink.socket = null; agentLink.agents = 0; } };
   socket.onerror = () => { try { socket.close(); } catch {} };
 }
-// 🔎 The focus zoom: the left trigger (as far as it is squeezed) or C closes the lens on what is looked at, up to two and a half times, on foot and in the air alike; let go, it opens again. (Not while in at a screen: that has the lens.)
+// LT sets the optical zoom. A click of the left stick doubles it for this screen.
 let focusZoom = 1;
 function focusStep(elapsed) {
-  const want = dock || prompt.open || menu ? 1 : 1 + (MAX_FOCUS_ZOOM - 1) * Math.max(gamepad?.lt > 0.06 ? gamepad.lt : 0, keys.has('KeyC') && !typing() ? 1 : 0);
+  const active = !typing() && !menu && !radial.open && !chalkMode;
+  if (active && dock?.way > 0 && gamepad.zoomClick) dock.extended = !dock.extended;
+  const pressure = Math.max(gamepad.lt > 0.06 ? gamepad.lt : 0, Number(keys.has('KeyC')));
+  const want = active ? (1 + (MAX_FOCUS_ZOOM - 1) * pressure) * (dock?.way > 0 && dock.extended ? 2 : 1) : 1;
   const was = focusZoom;
   focusZoom += (want - focusZoom) * (1 - Math.exp(-Math.min(0.1, elapsed) * 9));
   if (Math.abs(focusZoom - want) < 0.002) focusZoom = want;
@@ -1119,7 +1122,7 @@ function goIn(id, face) {
   dock = { id, face, from, to, eye: from, returnEye: dock?.returnEye || from, bodyAt,
     home: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null, t: 0, way: 1,
     seconds: clamp(0.6 + Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z) * 0.06, 0.8, 2.2),
-    cursor: { x: face.cols / 2, y: face.rows / 2 }, perDegree, headYaw: yaw, headPitch: pitch };
+    peekX: 0, peekY: 0, extended: false, cursor: { x: face.cols / 2, y: face.rows / 2 }, perDegree, headYaw: yaw, headPitch: pitch };
   nearing = null;
   return true;
 }
@@ -1206,6 +1209,13 @@ function carry(elapsed, now, turned) {
       x: dock.returnEye.x + player.x - dock.bodyAt.x, y: dock.returnEye.y + player.y - dock.bodyAt.y,
       z: dock.returnEye.z + player.z - dock.bodyAt.z } : dock.from;
     dock.eye = glide(from, dock.to, e);
+    const looking = dock.way > 0 && !typing() && !menu && !radial.open && !chalkMode;
+    const spring = 1 - Math.exp(-dt * 12);
+    dock.peekX += ((looking ? gamepad.right : 0) - dock.peekX) * spring;
+    dock.peekY += ((looking ? gamepad.fwd : 0) - dock.peekY) * spring;
+    // Aim towards the edges of this face. Releasing the stick restores the square-on view.
+    dock.eye.yaw -= e * dock.peekX * Math.atan2(dock.face.w / 2, dock.to.back) * 180 / Math.PI;
+    dock.eye.pitch += e * dock.peekY * Math.atan2(dock.face.h / 2, dock.to.back) * 180 / Math.PI;
     if (dt) heard = rates(was, dock.eye, dt);
     if (seat < 0) {
       freecam = { ...freecam, x: dock.home.x + (dock.to.x - dock.home.x) * e, y: dock.home.y + (dock.to.y - dock.home.y) * e, z: dock.home.z + (dock.to.z - dock.home.z) * e, vx: 0, vy: 0, vz: 0 };
@@ -1392,7 +1402,7 @@ if (query.has('debug'))
     lock: lockOn?.id || null,
     lockCursor: lockOn?.cursor || null,
     dock: dock ? { id: dock.id, pixel: screenInstances.get(room + '/' + dock.id.slice(7))?.program?.pixels?.slice(0, 3), t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
-    fov: dock?.eye.zoom || focusZoom,
+    fov: (dock?.eye.zoom || 1) * focusZoom,
     nearing: !!nearing,
     whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
     eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
@@ -2870,7 +2880,7 @@ function step(now) {
     }
   }
   const sticksNow = sheetOpen && !!(gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY);
-  if ((!sfx.ready && sticksNow && !sticksMoving) || gamepad.focus || gamepad.build || gamepad.use || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
+  if ((!sfx.ready && sticksNow && !sticksMoving) || gamepad.focus || gamepad.zoomClick || gamepad.use || gamepad.select || gamepad.jump || gamepad.prompt || gamepad.cancel || gamepad.start) void sfx.wake();
   sticksMoving = sticksNow;
   dragBrush();
   // START goes to the prompt, as the corner says: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it leaves for the prompt, as Escape does. (The $ is on the d-pad.)
@@ -2905,7 +2915,7 @@ function step(now) {
     }
     if (gamepad.select) chooseMenu();
     if (gamepad.cancel) closeMenu();
-    gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, focus: false, build: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
+    gamepad = { ...gamepad, select: false, cancel: false, jump: false, use: false, focus: false, zoomClick: false, prompt: false, fwd: 0, right: 0, lookX: 0, lookY: 0 };
   }
   // A and RT both hold a panel at its cursor until the last button lifts.
   if (!menu && !radial.open && !typing() && !chalkMode && panels.hot && (gamepad.select || gamepad.use)) {
@@ -2938,7 +2948,7 @@ function step(now) {
     }
   }
   // RB toggles a lock on the aimed object; while locked, B removes it (the
-  // lock is the confirmation) and LB changes it.
+  // lock is the confirmation).
   // (Looking on, LB flies down, so the lock is on X; B lets go.)
   if (dock && gamepad.cancel && !radial.open && !prompt.open && !chalkMode) {
     comeOut();
@@ -2989,8 +2999,6 @@ function step(now) {
       sfx.ringBack();
     }
   }
-  if (gamepad.build && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode)
-    openRadial(focusObject?.wall && !focusObject.panel ? focusObject : null);
   if (gamepad.use && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode && holding())
     useQueued = true;
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
@@ -3133,6 +3141,8 @@ function step(now) {
     ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048,
   );
   if (probe) send(probe);
+  const walkFwd = prompt.open ? 0 : (dock ? 0 : gamepad.fwd) + pad.fwd;
+  const walkRight = prompt.open ? 0 : (dock ? 0 : gamepad.right) + pad.right;
   const firstSequence = seq;
   while (debt >= DT) {
     debt -= DT;
@@ -3151,14 +3161,14 @@ function step(now) {
       fwd: clamp(
         Number(keys.has('KeyW')) -
           Number(keys.has('KeyS')) +
-          (prompt.open ? 0 : gamepad.fwd + pad.fwd),
+          walkFwd,
         -1,
         1,
       ),
       right: clamp(
         Number(keys.has('KeyD')) -
           Number(keys.has('KeyA')) +
-          (prompt.open ? 0 : gamepad.right + pad.right),
+          walkRight,
         -1,
         1,
       ),
@@ -3633,7 +3643,7 @@ function step(now) {
     held: {
       keys: [...keys],
       pad: [
-        ...['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'BACK', 'START'].filter((_, i) => controller.previous[i]),
+        ...['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'BACK', 'START', 'L3'].filter((_, i) => controller.previous[i]),
         ...(gamepad.fwd || gamepad.right ? ['LS'] : []),
         ...(gamepad.lookX || gamepad.lookY ? ['RS'] : []),
       ],

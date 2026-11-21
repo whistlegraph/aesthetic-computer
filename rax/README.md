@@ -42,9 +42,9 @@ the build ring. Chat types on the top line, as a build does.
 
 **Controller:** A jumps. Squeeze LT to zoom up to 2.5×. Screens sharpen and objects gain detail as they would if you walked closer. Aim at a screen and press RB once to go in (X as a drone).
 On other objects the same button locks on. The right stick moves the reticle within
-the selected target. Releasing the stick leaves it in place. The left stick still walks while a screen fills the view. RT presses or holds
+the selected target. Releasing the stick leaves it in place. While focused on a screen, tilt the left stick to look around and release it to recenter the view. Click the stick to toggle an extra 2× zoom. It combines with LT for up to 5× and resets when you leave the screen. RT presses or holds
 at the reticle on kiosks, KidLisp screens, and the elevator keypad. D-pad left/right cycles targets. B or the entry button leaves a screen. With an object locked on foot, B removes it.
-LB opens the build ring. RT uses the item in hand, including a poke. X paints floor squares or drops an
+RT uses the item in hand, including a poke. X paints floor squares or drops an
 item. Start returns to the prompt. D-pad right opens the $ menu when there is no
 lock. In the elevator, d-pad up/down selects a floor. In the build ring, point with
 a stick, A adds the highlighted choice, X builds, B undoes the last choice and

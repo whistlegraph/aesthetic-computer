@@ -23,6 +23,7 @@ export const BUTTONS = {
   RB: { fill: 0x5a5f70, ink: 0xffffff },
   RT: { fill: 0x5a5f70, ink: 0xffffff },
   LT: { fill: 0x5a5f70, ink: 0xffffff },
+  L3: { fill: 0x5a5f70, ink: 0xffffff },
   LS: { fill: 0x5a5f70, ink: 0xffffff },
   RS: { fill: 0x5a5f70, ink: 0xffffff },
   START: { fill: 0x5a5f70, ink: 0xffffff },
@@ -93,7 +94,7 @@ export function animateSpans(spans, now) {
 export function hintSpans(line, color = THEME.text) {
   const spans = [];
   let at = 0;
-  for (const m of line.matchAll(/\[(LB|LT|RB|RT|LS|RS|START|BACK|D[<>^v+HV]|[ABXY])\]|\{([^}]+)\}/g)) {
+  for (const m of line.matchAll(/\[(LB|LT|RB|RT|L3|LS|RS|START|BACK|D[<>^v+HV]|[ABXY])\]|\{([^}]+)\}/g)) {
     if (m.index > at) spans.push({ text: line.slice(at, m.index), color });
     if (m[1]) spans.push({ badge: m[1] });
     else spans.push({ cap: m[2] });
