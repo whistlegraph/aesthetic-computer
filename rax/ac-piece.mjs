@@ -75,12 +75,11 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
     hud: { label() {} }, needsPaint() {}, cursor() {}, pens: () => [],
   };
   // AC numbers its pointers (`touch:1`, `draw:1`, `lift:1`), and a piece may ask for any of them (`touch:any`); a panel has the one.
-  const last = new Map(); // where each pointer last was, for the `delta` a drag is read by
   const act = ($) => {
     // (This page's own pointer is 1; anyone else's is their seat's, told by the panel: panel.mjs `hear`.)
     const e = $.event, n = e.pointer || 1, name = e.name === 'move' ? 'move' : `${e.name}:${n}`;
-    const was = last.get(n), delta = was && e.x >= 0 && was.x >= 0 ? { x: e.x - was.x, y: e.y - was.y } : { x: 0, y: 0 };
-    last.set(n, { x: e.x, y: e.y });
+    // 🎯 The pointer here is a crosshair, and it is never quite still: a drag has no `delta`, so a note held is held true (song bends its pitch by a drag's delta, and wavered with every breath of the aim: 2026-11-20).
+    const delta = { x: 0, y: 0 };
     disk.act?.({ ...$, event: { ...e, name, pointer: n, delta, is: (q) => name === q || name.startsWith(`${q}:`) || (q.endsWith(':any') && name.startsWith(q.slice(0, -3))) } });
   };
   return { slug, piece: { boot: disk.boot, paint: disk.paint, sim: disk.sim, leave: disk.leave, act }, host };
