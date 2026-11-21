@@ -1082,7 +1082,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     keyboard,
     gamepad,
     keyboardFocusLock = false,
-    keyboardSoftLock = false;
+    keyboardSoftLock = false,
+    // Notepat's own modal (its controls panel) is the only thing that mutes
+    // note keys. The prompt and the corner label set keyboardFocusLock for the
+    // text keyboard and can leave it set, which used to silence every note.
+    notepatModal = false;
   let handData; // Hand-tracking.
 
   let frameCount = 0n;
@@ -1385,7 +1389,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const wrapper = document.createElement("div");
   wrapper.id = "aesthetic-computer";
   function focusNotepatKeyboard() {
-    if(!keyboardFocusLock && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||""))
+    if(!notepatModal && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||""))
       focusNotepatSurface(wrapper,keyboard?.input);
   }
 
@@ -7186,7 +7190,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (generation !== notepatGeneration) return null;
         notepatControls = createNotepatControls({
           send, context: () => audioContext,
-          focus: locked => { keyboardFocusLock = locked; if(!locked) focusNotepatKeyboard(); },
+          focus: locked => { notepatModal = locked; if(!locked) focusNotepatKeyboard(); },
           destination: ctx => {
             if (notepatGMContext !== ctx) {
               notepatGMGain?.disconnect();
@@ -14707,7 +14711,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       keyboard = new Keyboard(event => {
         if (!/(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece || "")) return false;
         // Modal typing must never play a note; releases still clear held notes.
-        if (event.name.startsWith("keyboard:down") && (keyboardFocusLock ||
+        if (event.name.startsWith("keyboard:down") && (notepatModal ||
             notepatHasEditor(document.activeElement,keyboard?.input))) return true;
         const probe = window.acNotepatLatency;
         if (event.name.startsWith("keyboard:down") && !event.repeat) {
@@ -14719,7 +14723,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         })) return false;
         send({ type: "notepat:keyboard", content: event });
         return true;
-      }, {isNotepat:()=>!keyboardFocusLock && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||"")});
+      }, {isNotepat:()=>!notepatModal && /(?:^|\/)notepat(?:[.:~]|$)/.test(currentPiece||"")});
       {
         // console.log("⌨️ 🤖 Initializing Virtual Keyboard");
         /**
