@@ -432,7 +432,7 @@ function theme(value) {
   if (said && dark !== null) post({ type: "rax:sheet", dark });
 }
 
-window.acRaxSheet = { popstate, framed, windowFocus };
+window.acRaxSheet = { popstate, framed, windowFocus, get up() { return state === "open" || state === "moving"; } }; // (`up`: rax has the screen, and the pad with it)
 
 // Messages from the prompt piece:
 //   { action: "warm" }   load the guest on idle

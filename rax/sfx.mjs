@@ -75,6 +75,11 @@ export class Sfx {
       o.stop(t + f + 0.03);
     } };
   }
+  // 📷 A shutter: two short clicks, brighter going sharper (the picture's density changed).
+  shutter(step = 1) {
+    this.noise(0.016, { volume: 0.05, from: step < 0 ? 1800 : 2800, to: step < 0 ? 900 : 1600 });
+    this.noise(0.02, { volume: 0.04, at: 0.045, from: step < 0 ? 1200 : 3400, to: step < 0 ? 600 : 2000 });
+  }
   noise(duration, { volume = 0.03, at = 0, from = 1800, to = 300 } = {}) {
     if (!this.ready) return;
     volume *= MASTER;

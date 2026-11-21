@@ -2322,9 +2322,16 @@ function step(now) {
   }
   // START is Tab: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it opens the $.
   if (gamepad.start && !hosted) toggleMenu();
-  // ⬇️ Down on the d-pad opens the $ (not in the car, where it rides down, nor while typing); once open the d-pad moves in it.
+  // ➡️ Right on the d-pad opens the $ (not while locked on, where it steps the lock, nor while typing); once open the d-pad moves in it.
   let opened = false;
-  if (gamepad.ddown && !menu && !prompt.open && !radial.open && !(seat >= 0 && hasCar() && inCar(player))) { toggleMenu(); opened = true; }
+  const riding = seat >= 0 && hasCar() && inCar(player);
+  if (gamepad.dright && !lockOn && !menu && !prompt.open && !radial.open) { toggleMenu(); opened = true; }
+  // 🔬 Up and down on the d-pad make the picture sharper or chunkier, live (in the car they ride a floor, and in the $ they move): under the prompt the density is the page's (lib/rax-sheet.mjs), which clicks like a shutter as it changes.
+  if ((gamepad.dup || gamepad.ddown) && !menu && !opened && !riding && !prompt.open && !radial.open) {
+    const step = gamepad.dup ? 1 : -1;
+    if (hosted) toHost({ type: 'rax:sheet:density', step });
+    else { view.density?.(step); sfx.shutter?.(step); }
+  }
   // VIEW (back) fills the screen with the room, and gives it back.
   if (gamepad.swap) fullScreen();
   if (menu) {

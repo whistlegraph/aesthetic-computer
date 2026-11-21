@@ -53,7 +53,7 @@ export const LEGEND = {
     '[RB] build / [RB] use / [X] drop',
     '[X] paint / [RT] chalk',
     '[LB] lock on / [B] remove',
-    '[START] prompt / dpad down: $ menu',
+    '[START] prompt / dpad right: $ menu',
   ],
   touch: [], // The thumb areas and the icons name themselves.
 };

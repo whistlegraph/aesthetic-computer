@@ -4588,8 +4588,49 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // Trigger reframe to apply new density
     frame();
+    densityShutter(newDensity > current ? 1 : -1); // 📷 heard, as a camera's is
 
     console.log(`🔍 Density: ${newDensity}`);
+  }
+
+  // 📷 The density changed: two short clicks, like a shutter, brighter going
+  // sharper. Whatever asked for it (⌘+ ⌘− ⌘0, a pad's d-pad, rax under the
+  // paper) sounds the same. Silent until the page's audio is running.
+  function densityShutter(step) {
+    const a = audioContext;
+    if (!a || a.state !== "running") return;
+    try {
+      for (const [at, f] of [[0, step < 0 ? 1500 : 2600], [0.045, step < 0 ? 1000 : 3400]]) {
+        const length = Math.floor(a.sampleRate * 0.02), buffer = a.createBuffer(1, length, a.sampleRate), data = buffer.getChannelData(0);
+        for (let i = 0; i < length; i += 1) data[i] = (Math.random() * 2 - 1) * (1 - i / length) ** 2;
+        const source = a.createBufferSource(), band = a.createBiquadFilter(), gain = a.createGain();
+        source.buffer = buffer;
+        band.type = "bandpass";
+        band.frequency.value = f;
+        band.Q.value = 1.4;
+        gain.gain.value = 0.3;
+        source.connect(band).connect(gain).connect(a.destination);
+        source.start(a.currentTime + at);
+      }
+    } catch {}
+  }
+
+  // 🎮 Up and down on a pad's d-pad change the density too, on the paper as
+  // in rax. While rax has the screen it hears the pad itself (in its car the
+  // d-pad rides a floor) and hands the step up, so this side keeps quiet then.
+  {
+    const held = new Map(); // pad index → the d-pad button down last look
+    setInterval(() => {
+      if (document.hidden || window.acRaxSheet?.up) return void held.clear();
+      let pads = [];
+      try { pads = navigator.getGamepads?.() || []; } catch {}
+      for (const pad of pads) {
+        if (!pad) continue;
+        const now = pad.buttons[12]?.pressed ? 1 : pad.buttons[13]?.pressed ? -1 : 0;
+        if (now && held.get(pad.index) !== now) changeDensity(now);
+        held.set(pad.index, now);
+      }
+    }, 50);
   }
 
   window.acChangeDensity = changeDensity; // rax under the paper hands its ⌘± up here.
