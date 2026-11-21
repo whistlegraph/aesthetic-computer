@@ -13,6 +13,7 @@ import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
 import { createDispenser, DISPENSER_WALL, MAX_BALLS } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
+import { MAX_FOCUS_ZOOM, OBJECT_PROXY_DISTANCE } from './screen-lod.mjs';
 import { objectBoxes, distantBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
@@ -518,12 +519,14 @@ export function createRaxServer({
           }
         // Beyond the ground tiles only occupied blocks need a record. Send
         // full models several blocks before their distance tier needs them.
+        const zoom = url.searchParams.get('detail') === 'zoom' ? MAX_FOCUS_ZOOM : 1;
+        const fullRadius = Math.ceil(OBJECT_PROXY_DISTANCE * zoom / SPAN) + 1;
         const occupied = new Set([...Object.keys(store.data.rooms), ...Object.keys(store.data.screens || {}), 'lobby']);
         for (const id of occupied) {
           const cell = parseBlock(id);
           if (near.has(id) || !onLap(cell)) continue;
           const di = wrap(cell.i - at.i), dj = wrap(cell.j - at.j);
-          const scenery = contents(id, Math.max(Math.abs(di), Math.abs(dj)) > 5);
+          const scenery = contents(id, Math.max(Math.abs(di), Math.abs(dj)) > fullRadius);
           if (scenery.objects.length || scenery.screens.length)
             blocks.push({ id, di, dj, sceneryOnly: true, ...scenery });
         }

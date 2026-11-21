@@ -5,7 +5,7 @@ import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER, roofSolids, standsOn } from './elevator.mjs';
-import { SCREEN_SPAN, screenDetail, screenSeen, carryPixels } from './screen-lod.mjs';
+import { OBJECT_PROXY_DISTANCE, SCREEN_SPAN, screenDetail, screenSeen, carryPixels } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
@@ -196,6 +196,7 @@ import {
   direction,
   wallDistance,
   along,
+  clamp,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -659,11 +660,11 @@ export async function createView(canvas) {
   // limit of sight. `stood` is what must be drawn under whoever is seen on
   // it (elevator.mjs standsOn), and `own` the height of this room's own car
   // (null where the room has none).
-  function drawTower(top, ox, oy, oz, eyeY, stood = null, own = null) {
+  function drawTower(top, ox, oy, oz, eyeY, zoom, stood = null, own = null) {
     const t = towerParts();
     if (!top) return;
     draw(t.legs, ox, oy, oz);
-    const near = 9, mid = 70, sight = 2300;
+    const near = 9 * zoom, mid = 70 * zoom, sight = 2300;
     // (Counted in storeys, n: one for every floor in the full tower, a few
     // while it is short. elevator.mjs SHORT.)
     top = storeyOf(top);
@@ -1219,10 +1220,10 @@ export async function createView(canvas) {
   // standing KidLisp screens and the world panels are both drawn with it.
   // The glass picks up the sky at grazing angles. Quantize its reflection
   // so a still piece can keep its mesh as the camera drifts slightly.
-  function glassAt(eye, x, y, z, yaw, wide, sky, id) {
+  function glassAt(eye, x, y, z, yaw, wide, sky, id, zoom) {
     const dx = eye.x - x, dz = eye.z - z, dy = eye.y - y;
     const distance = Math.hypot(dx, dy, dz);
-    if (distance > wide * 8 || distance < 0.001) return null;
+    if (distance > wide * 8 * zoom || distance < 0.001) return null;
     const side = Math.round(12 * (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / distance);
     const height = Math.round(10 * dy / distance);
     const ink = blendInk(sky, 0xc5d7e4, 0.45);
@@ -1556,11 +1557,17 @@ export async function createView(canvas) {
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
     }
     natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
-    if (nearZoom !== 1 && !docked && orbit <= 0) { projector.sx *= nearZoom; projector.sy *= nearZoom; } // 🔎 (after `natural`: going in to a screen works its own zoom from the lens as it is without this)
+    // Zoom changes the apparent distance used for detail as well as the projection.
+    const zoom = !docked && orbit <= 0 ? nearZoom : 1;
+    projector.sx *= zoom;
+    projector.sy *= zoom;
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     // Resolve the far globe into paper pixels before the canvas is enlarged.
-    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
+    // Sample fine world edges at higher resolution as the lens closes. Keep
+    // the HUD on its own grid and cap the existing GPU targets at 2×.
+    const over = Math.min(2, Math.max(1 / projector.stretch, Math.round(zoom * 2) / 2));
+    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over, fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
     projector.planet = game?.camera && orbit <= 0 ? 0 :
       TRY.planet ?? (curvature > 0 ? PLANET / curvature : 0);
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
@@ -1648,7 +1655,7 @@ export async function createView(canvas) {
       const feet = [];
       for (const b of beyond) feet.push({ x: b.x - skyline.dx, y: b.y - CFG.eyeHeight - skyline.dy, z: b.z - skyline.dz }); // (a body's y is its eye)
       for (const b of around) if (b.floor) feet.push({ x: 0, y: (b.dy || 0) - skyline.dy, z: 0 });
-      drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y, standsOn(feet), tower && !ledges ? tower.lift || 0 : null);
+      drawTower(skyline.top, skyline.dx, skyline.dy, skyline.dz, eye.y, zoom, standsOn(feet), tower && !ledges ? tower.lift || 0 : null);
       draw(lobbyFor(), skyline.dx, skyline.dy, skyline.dz);
       // The land the tower stands on, seen from the plaza and from every floor:
       // fields to the horizon, and a lawn wherever a block around the plaza is
@@ -1691,11 +1698,12 @@ export async function createView(canvas) {
     // A thing standing on the ground, drawn where its block stands.
     const scenery = inspectScenery ? { objects: [], screens: [], panels: [] } : null;
     const stand = (object, ox, oz, oy = 0) => {
-      if (scenery) scenery.objects.push({ id: object.id, x: ox + object.x, y: oy, z: oz + object.z });
-      const distance = Math.hypot(ox + object.x - eye.x, oy - eye.y, oz + object.z - eye.z);
+      const distance = Math.hypot(ox + object.x - eye.x, oy - eye.y, oz + object.z - eye.z) / zoom;
       // Grow the distant silhouette within the detailed model before retiring
       // the details. Both tiers are available well before a block handoff.
-      if (distance > 48 || object.coarse) {
+      const proxyScale = object.coarse ? 1 : clamp((distance - 48) / (OBJECT_PROXY_DISTANCE - 48), 0, 1);
+      if (scenery) scenery.objects.push({ id: object.id, x: ox + object.x, y: oy, z: oz + object.z, proxyScale });
+      if (proxyScale > 0) {
         const shape = object.geometry;
         let proxy = distantModels.get(shape);
         if (!proxy) {
@@ -1704,9 +1712,8 @@ export async function createView(canvas) {
           });
           distantModels.set(shape, proxy);
         }
-        const k = object.coarse ? 1 : Math.min(1, (distance - 48) / 16);
-        draw(proxy, ox + object.x, oy, oz + object.z, 0, 0, k);
-        if (k === 1) return;
+        draw(proxy, ox + object.x, oy, oz + object.z, 0, 0, proxyScale);
+        if (proxyScale === 1) return;
       }
       if (object.geometry.format === OBJECT_FORMAT) {
         draw(
@@ -3590,7 +3597,7 @@ export async function createView(canvas) {
         w.model = screen(model(({ quad }) => {
           const north = w.face === 'north';
           const glass = glassAt(eye, north ? 0 : -SCREEN, base + tall / 2, north ? SCREEN : 0,
-            north ? 0 : Math.PI / 2, span, today?.horizon ?? PALETTES[paletteName].sky, w.code);
+            north ? 0 : Math.PI / 2, span, today?.horizon ?? PALETTES[paletteName].sky, w.code, zoom);
           gridRuns(px, cols, rows, glass, (i, end, j, c) => {
             const u0 = span / 2 - i * cell, u1 = span / 2 - end * cell;
             const y1 = base + tall - j * cell, y0 = y1 - cell;
@@ -3649,7 +3656,7 @@ export async function createView(canvas) {
     const look = { x: (aim.x - eye.x) / gaze, z: (aim.z - eye.z) / gaze };
     for (const s of screens) {
       const span = SCREEN_SPAN, base = 0.4, y = s.y || 0;
-      const far = Math.hypot(s.x - eye.x, y + 1.525 - eye.y, s.z - eye.z);
+      const far = Math.hypot(s.x - eye.x, y + 1.525 - eye.y, s.z - eye.z) / zoom;
       const detail = screenDetail(far, { cols: s.cols || 0, seen: screenSeen(eye, look, s) });
       const yaw = ((s.yaw || 0) * Math.PI) / 180;
       draw(standingFrame, s.x, y, s.z, yaw);
@@ -3670,7 +3677,7 @@ export async function createView(canvas) {
         w.step();
         w.frames = (w.frames || 0) + 1;
       }
-      const glass = detail.hz ? glassAt(eye, s.x, y + base + tall / 2, s.z, yaw, span, today?.horizon ?? PALETTES[paletteName].sky, s.id) : null;
+      const glass = detail.hz ? glassAt(eye, s.x, y + base + tall / 2, s.z, yaw, span, today?.horizon ?? PALETTES[paletteName].sky, s.id, zoom) : null;
       if (!s.model || s.cols !== cols || s.drawn !== w.frames || s.glassKey !== glass?.key) {
         s.glassKey = glass?.key;
         s.cols = cols;
@@ -3689,8 +3696,8 @@ export async function createView(canvas) {
       if (!kept) panelModels.set(p.id, (kept = { frame: -1 }));
       const yaw = ((p.yaw || 0) * Math.PI) / 180;
       const glass = p.label || p.id === 'car-pad'
-        ? glassAt(eye, p.x, p.y, p.z, yaw, p.w, today?.horizon ?? PALETTES[paletteName].sky, p.id) : null;
-      const distance = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z);
+        ? glassAt(eye, p.x, p.y, p.z, yaw, p.w, today?.horizon ?? PALETTES[paletteName].sky, p.id, zoom) : null;
+      const distance = Math.hypot(p.x - eye.x, p.y - eye.y, p.z - eye.z) / zoom;
       const tier = screenDetail(distance * SCREEN_SPAN / p.w, { cols: kept.tier });
       kept.tier = tier.cols;
       const cols = p.cursor ? p.cols : Math.min(p.cols, tier.cols);
@@ -3823,8 +3830,8 @@ export async function createView(canvas) {
           const top = (b.y + b.h / 2) * scale + y, foot = (b.y - b.h / 2) * scale + y;
           if (top < 0.05 || foot > eye.y + 40) continue;
           const wx = (b.x * cy + b.z * sy) * scale + x, wz = (-b.x * sy + b.z * cy) * scale + z, far = Math.hypot(wx - eye.x, wz - eye.z);
-          if (far > shadowReach + Math.max(b.w, b.d) * scale) continue;
-          castFar[n] = far; castFrom[n] = i; castBox[n] = b; castTop[n] = top; castOrder[n] = n; n++;
+          if (far > shadowReach * zoom + Math.max(b.w, b.d) * scale) continue;
+          castFar[n] = far / zoom; castFrom[n] = i; castBox[n] = b; castTop[n] = top; castOrder[n] = n; n++;
         }
       }
       // 🌑 Each box's solid is drawn by itself, the nearest the eye first

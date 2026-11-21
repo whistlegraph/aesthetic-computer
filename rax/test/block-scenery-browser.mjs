@@ -15,6 +15,7 @@ for (const [id, room] of [['west-build', 'lobby'], ['east-build', 'e1n0'], ['far
     { name: id, boxes: [{ x: 0, y: 1, z: 0, w: 1, h: 2, d: 1, color: 0x22ffcc }] });
 }
 await app.store.addScreen('e1n0', { id: 'east-screen', code: 'eee', x: 3, z: -3, yaw: 0 });
+await app.store.addScreen('e4n0', { id: 'zoom-screen', code: 'eee', x: -2.4, z: 3, yaw: 270 });
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');
 const browser = await chromium.launch({ headless: true, args: ['--enable-unsafe-webgpu'],
@@ -29,6 +30,12 @@ try {
   assert.deepEqual(distant.geometry.boxes, distantBoxes(nearer.geometry));
   const page = await browser.newPage();
   page.setDefaultTimeout(15000);
+  await page.addInitScript(() => {
+    const pad = { id: 'zoom test', index: 0, connected: true, axes: [0, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({ value: 0, pressed: false })) };
+    Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
+    window.squeezeLT = pressure => { pad.buttons[6].value = pressure; };
+  });
   await page.route('**/kidlisp-source?*', route => route.fulfill({ json: { source: '(wipe cyan)' } }));
   const blocked = new Promise(r => { unblock = r; });
   let pending = false;
@@ -46,9 +53,29 @@ try {
       s.screens.some(p => p.id === 'e1n0/east-screen') && s.objects.some(o => o.id === 'far-build');
   });
   const body = app.rooms.get('lobby').match.seats.find(Boolean).player;
-  Object.assign(body, { x: 7, z: -2, y: 1.7, yaw: 270, pitch: 0 });
+  Object.assign(body, { x: 7, z: 3, y: 1.7, yaw: 90, pitch: 0 });
   body.life++;
   await page.waitForFunction(() => raxDebug().player?.x > 6.8);
+  await page.evaluate(() => raxLook({ yaw: 90, pitch: 0 }));
+  async function checkZoom(pressure, cols, model, panelCols) {
+    await page.evaluate(p => squeezeLT(p), pressure);
+    await page.waitForFunction(({ cols, model, panelCols }) => {
+      const s = document.querySelector('canvas').raxStats.scenery;
+      const proxy = s.objects.find(o => o.id === 'far-build')?.proxyScale;
+      return s.screens.find(o => o.id === 'e4n0/zoom-screen')?.cols === cols &&
+        s.panels.find(p => p.id === 'yard-notepat')?.cols === panelCols &&
+        (model === 'mixed' ? proxy > 0 && proxy < 1 : proxy === model);
+    }, { cols, model, panelCols });
+  }
+  await checkZoom(0, 16, 1, 64);
+  await checkZoom(0.5, 32, 'mixed', 128);
+  await checkZoom(1, 64, 0, 128);
+  await checkZoom(0, 16, 1, 64);
+  console.log('LT at rest, half and full gave the 55 m screen 16, 32 and 64 columns and resolved the distant build and kiosk. Release restored the original detail.');
+  const walker = app.rooms.get('lobby').match.seats.find(Boolean).player;
+  Object.assign(walker, { z: -2, yaw: 270 });
+  walker.life++;
+  await page.waitForFunction(() => Math.abs(raxDebug().player.z + 2) < 0.1);
   await page.evaluate(() => raxLook({ yaw: 270, pitch: 0 }));
   const panel = kioskPlan('lobby').find(p => p.id === 'yard-notepat');
   const expected = [

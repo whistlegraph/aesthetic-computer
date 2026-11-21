@@ -4,13 +4,14 @@ import { SCREEN_TIERS, screenDetail, screenSeen, screenRows, carryPixels } from 
 import { clearOfCar, inCar, CAR, CAR_Z, CAR_WALL } from '../elevator.mjs';
 
 test('a screen sharpens and speeds up as the eye walks up to it', () => {
-  const walk = [60, 30, 15, 6, 2].map((d) => screenDetail(d));
+  const walk = [60, 30, 15, 6, 2, 1].map((d) => screenDetail(d));
   for (let i = 1; i < walk.length; i++) {
     assert.ok(walk[i].cols > walk[i - 1].cols, 'finer grid nearer');
     assert.ok(walk[i].hz >= walk[i - 1].hz, 'never slower nearer');
   }
   assert.deepEqual(walk[0], { cols: 16, hz: 2 });
-  assert.deepEqual(walk.at(-1), { cols: 192, hz: 20 });
+  assert.deepEqual(walk.at(-2), { cols: 192, hz: 20 });
+  assert.deepEqual(walk.at(-1), { cols: 256, hz: 20 });
   for (const t of SCREEN_TIERS) assert.equal(screenRows(t.cols) * 16, t.cols * 9, 'every grid is 16:9');
 });
 

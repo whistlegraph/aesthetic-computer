@@ -6,8 +6,11 @@
 //
 // The tiers are for a screen SCREEN_SPAN metres wide. `within` is metres
 // from the eye to the screen's middle.
+export const MAX_FOCUS_ZOOM = 2.5;
+export const OBJECT_PROXY_DISTANCE = 64;
 export const SCREEN_SPAN = 4;
 export const SCREEN_TIERS = [
+  { within: 1.5, cols: 256, hz: 20 },
   { within: 4, cols: 192, hz: 20 },
   { within: 10, cols: 128, hz: 20 },
   { within: 22, cols: 64, hz: 12 },

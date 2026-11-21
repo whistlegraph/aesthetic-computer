@@ -35,7 +35,7 @@ import { Sfx, SpatialTones } from './sfx.mjs';
 // on a cold cache (measured 2026-11-19). Now it comes when the first screen
 // or wall asks for a program, and the room is up before it.
 const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kidlispWall(...given));
-import { screenRows, carryPixels } from './screen-lod.mjs';
+import { MAX_FOCUS_ZOOM, screenRows, carryPixels } from './screen-lod.mjs';
 import { ballAt, DISPENSER_WALL } from './ball.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 
@@ -342,7 +342,7 @@ function linkAgents(handle, now) {
 // 🔎 The focus zoom: the left trigger (as far as it is squeezed) or C closes the lens on what is looked at, up to two and a half times, on foot and in the air alike; let go, it opens again. (Not while in at a screen: that has the lens.)
 let focusZoom = 1;
 function focusStep(elapsed) {
-  const want = dock || prompt.open || menu ? 1 : 1 + 1.5 * Math.max(gamepad?.lt > 0.06 ? gamepad.lt : 0, keys.has('KeyC') && !typing() ? 1 : 0);
+  const want = dock || prompt.open || menu ? 1 : 1 + (MAX_FOCUS_ZOOM - 1) * Math.max(gamepad?.lt > 0.06 ? gamepad.lt : 0, keys.has('KeyC') && !typing() ? 1 : 0);
   const was = focusZoom;
   focusZoom += (want - focusZoom) * (1 - Math.exp(-Math.min(0.1, elapsed) * 9));
   if (Math.abs(focusZoom - want) < 0.002) focusZoom = want;
@@ -579,7 +579,7 @@ function floorsAround(dy) {
 // 🏢 How high the eye is in the world: on a floor of the tower, that floor's
 // height; flying over the plaza, the drone's. The world is asked again when
 // it has moved a storey, for the floors now beside it.
-let worldY = 0, worldRequest = 0;
+let worldY = 0, worldRequest = 0, worldZoomed = false;
 function eyeHeight() {
   const up = -(plazaFrom()?.dy || 0);
   return up + (seat < 0 && !held ? freecam?.y || 0 : player?.y || 0);
@@ -589,8 +589,9 @@ async function streamWorld() {
   worldAt = performance.now();
   const about = aloft(asked) || asked === BASEMENT ? 'lobby' : asked;
   try {
+    worldZoomed = focusZoom > 1;
     worldY = eyeHeight();
-    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}&y=${Math.round(worldY)}`, import.meta.url), { cache: 'no-store' });
+    const r = await fetch(new URL(`./world?room=${encodeURIComponent(about)}&y=${Math.round(worldY)}${worldZoomed ? '&detail=zoom' : ''}`, import.meta.url), { cache: 'no-store' });
     if (!r.ok || room !== asked) return;
     const data = await r.json();
     if (room !== asked || request !== worldRequest || !Array.isArray(data.blocks)) return;
@@ -1391,7 +1392,7 @@ if (query.has('debug'))
     lock: lockOn?.id || null,
     lockCursor: lockOn?.cursor || null,
     dock: dock ? { id: dock.id, pixel: screenInstances.get(room + '/' + dock.id.slice(7))?.program?.pixels?.slice(0, 3), t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
-    fov: dock?.eye.zoom || 1, // (the lens's zoom: 1 as the room is walked about)
+    fov: dock?.eye.zoom || focusZoom,
     nearing: !!nearing,
     whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
     eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
@@ -3208,7 +3209,9 @@ function step(now) {
       sentSeq = part.at(-1).seq;
     }
   }
-  if (!document.hidden && (performance.now() - worldAt > 6000 || (performance.now() - worldAt > 700 && Math.abs(eyeHeight() - worldY) > 7))) void streamWorld();
+  const worldAge = now - worldAt;
+  const needZoomModels = focusZoom > 1 && !worldZoomed;
+  if (!document.hidden && (needZoomModels || worldAge > 6000 || (worldAge > 700 && Math.abs(eyeHeight() - worldY) > 7))) void streamWorld();
   tendWarm();
   if (park?.neighbours && player && seq !== firstSequence) {
     // A home is its lot: walking over a front is only walking. Off a side
@@ -3415,7 +3418,7 @@ function step(now) {
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
   // 🧩 The yard's pieces stand on the plaza only, and are asked for when it is first seen: by a body standing there or by a drone over it.
-  const yardDistance = sky ? Math.hypot(sky.dx - (displayed || freecam).x, sky.dy - (displayed || freecam).y, sky.dz - (displayed || freecam).z) : Infinity;
+  const yardDistance = sky ? Math.hypot(sky.dx - (displayed || freecam).x, sky.dy - (displayed || freecam).y, sky.dz - (displayed || freecam).z) / focusZoom : Infinity;
   if (sky) void mountYard();
   for (const p of yardPanels) p.hidden = room !== 'lobby';
   hushIdleKiosks(now);
