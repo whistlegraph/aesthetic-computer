@@ -27,7 +27,9 @@
 //   bass t dur midi g soft            pad t dur midi g pan bright
 //   air t dur midi g pan              pluck t midi g pan decay
 //   lead t dur midi vel g pan         flyby t dir          riser t dur g
-//   acidrow t0 level cut0 cut1 reso n   then n lines:  . t midi accent slide
+//   acidrow t0 level cut0 cut1 reso n   then n lines:  . t midi accent slide atk len fdec out whis lvl
+//   elastic t duration strength hz damping glitch attack release dispersion   (the bomb, after the reverb)
+//   temper t depth back   (after the bombs: music, drums, kick and bass fall back and return) atk len fdec out whis
 //   acidchord t dur level cut0 cut1 n midi…
 //   wub t0 level dropLast bass×8
 //   bell <smp> t dur amp pan wet      vox <smp> t rate gain pan from to wet echo
@@ -53,12 +55,12 @@ static double cfg(const char *name) {
     ac_die("the score has no cfg", name);
     return 0;
 }
-static struct { double start, end, attack, decay, gain; } K;
+static struct { double start, end, attack, decay, sweep, gain; } K;
 static struct { double bloop, air, arp, fly, riser, vox; } G;
 static void cfg_freeze(void) {
     BEAT = 60 / cfg("bpm"); BAR = 4 * BEAT; SIX = BEAT / 4;
     K.start = cfg("kick.start"); K.end = cfg("kick.end"); K.attack = cfg("kick.attack");
-    K.decay = cfg("kick.decay"); K.gain = cfg("kick.gain");
+    K.decay = cfg("kick.decay"); K.sweep = cfg("kick.sweep"); K.gain = cfg("kick.gain");
     G.bloop = cfg("gain.bloop"); G.air = cfg("gain.air"); G.arp = cfg("gain.arp");
     G.fly = cfg("gain.fly"); G.riser = cfg("gain.riser"); G.vox = cfg("gain.vox");
 }
@@ -80,6 +82,8 @@ static inline double blep_saw(double p, double dt) {
 typedef struct { double t, g; } Hit;
 static Hit *kicks;
 static long nkicks, capkicks;
+static Hit *snares;                    // every clap: ducks the voice/bell bus
+static long nsnares, capsnares;
 
 // ── voices ──────────────────────────────────────────────────────────────
 static void kick(double t, double g, int tight) {
@@ -88,7 +92,7 @@ static void kick(double t, double g, int tight) {
     double ph = 0;
     for (long k = 0; k < n && i0 + k < N; k++) {
         const double x = k / SR;
-        ph += (K.end + (K.start - K.end) * exp(-x / 0.045)) / SR;
+        ph += (K.end + (K.start - K.end) * exp(-x / K.sweep)) / SR;
         ac_add(kickBus, i0 + k, sin(AC_TAU * ph) * fmin(1, x / K.attack) * exp(-x / dec) * g * K.gain);
     }
     if (nkicks == capkicks) { capkicks = capkicks ? capkicks * 2 : 1024; kicks = realloc(kicks, (size_t)capkicks * sizeof *kicks); if (!kicks) ac_die("out of memory", NULL); }
@@ -141,6 +145,22 @@ static void bloop(double t, double midi, double g, double pan, double len) {
     }
 }
 
+// A donk: a sine that starts 2.2 times too high and drops to its note in a few milliseconds, a touch of
+// FM on the front, 60 ms long. The tone under the intro's wonky snares.
+static void donk(double t, double midi, double g, double pan) {
+    const double f = ac_mtof(midi), gl = g * panL(pan), gr = g * panR(pan);
+    const long i0 = ac_round(t * SR), n = (long)floor(0.3 * SR);
+    double ph = 0;
+    for (long k = 0; k < n && i0 + k < N; k++) {
+        const double x = k / SR;
+        ph += f * (1 + 1.2 * exp(-x / 0.012)) / SR;
+        const double v = sin(AC_TAU * ph + 0.8 * exp(-x / 0.03) * sin(AC_TAU * 2.7 * ph)) * fmin(1, x / 0.002) * exp(-x / 0.06);
+        const long j = (i0 + k) * 2;
+        ac_add(music, j, v * gl); ac_add(music, j + 1, v * gr);
+        ac_add(rev, j, v * gl * 0.2); ac_add(rev, j + 1, v * gr * 0.2);
+    }
+}
+
 static void bass_note(double t, double dur, double midi, double g, int soft) {
     const double f = ac_mtof(midi), att = soft ? 0.12 : 0.006;
     const long i0 = ac_round(t * SR), n = (long)floor((dur + 0.12) * SR);
@@ -189,34 +209,39 @@ static void acid_chord(double t, double dur, double level, double cut0, double c
 // Acid: one saw through a four-pole resonant ladder whose cutoff snaps open
 // on every note and harder on the accents; tied steps slide instead of
 // retriggering. One continuous voice per row, so slides and filter state carry.
-typedef struct { double t, midi; int acc, slide; } Step;
+// Each step carries its own shape: atk, len (sixteenths), fdec, out (a pitch-out
+// in semitones when the gate shuts) and whis (the ladder as a whistle).
+typedef struct { double t, midi; int acc, slide; double atk, len, fdec, out; int whis; double lvl; } Step;   // lvl: the step's own level, eased
 static void acid_row(double t0, double level, double cut0, double cut1, double reso, const Step *evs, int nevs) {
     const long i0 = ac_round(t0 * SR), n = ac_round(8 * BAR * SR);
-    const double k = reso * 3.8;
-    double ph = 0, f = 0, ft = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0, fenv = 0, aenv = 0, gateEnd = 0;
-    int acc = 0, e = 0, tied = 0;
+    const double k = reso * 3.8, kw = 0.95 * 3.8;
+    double ph = 0, f = 0, ft = 0, base = 0, y1 = 0, y2 = 0, y3 = 0, y4 = 0, fenv = 0, aenv = 0, gateEnd = 0;
+    double atk = 0.02, fdec = 0.99988, out = 0, lvl = 1, lv = 1;
+    int acc = 0, e = 0, tied = 0, whis = 0, outDone = 0;
     for (long i = 0; i < n && i0 + i < N; i++) {
         const double t = t0 + i / SR;
         while (e < nevs && evs[e].t <= t) {
             const Step *ev = &evs[e++];
-            ft = ac_mtof(ev->midi);
+            ft = base = ac_mtof(ev->midi);
             if (!tied || f == 0) { f = ft; fenv = 1; acc = ev->acc; }
-            gateEnd = ev->t + (ev->slide ? SIX * 1.1 : SIX * 0.62);
-            tied = ev->slide;
+            gateEnd = ev->t + SIX * ev->len;
+            tied = ev->slide; atk = ev->atk; fdec = ev->fdec; out = ev->out; whis = ev->whis; outDone = 0; lvl = ev->lvl;
         }
         if (f == 0) continue;
-        f += (ft - f) * 0.0008;
         const int gate = t < gateEnd;
-        aenv += ((gate ? 1 : 0) - aenv) * (gate ? 0.02 : 0.004);
-        fenv *= acc ? 0.99975 : 0.99988;
+        if (!gate && out != 0 && !outDone) { ft = base * pow(2.0, out / 12); outDone = 1; }
+        f += (ft - f) * (gate ? 0.0008 : 0.003);
+        aenv += ((gate ? 1 : 0) - aenv) * (gate ? atk : out != 0 ? 0.0007 : 0.004);
+        fenv *= fdec;
+        lv += (lvl - lv) * 0.002;
         const double dt = f / SR;
         ph += dt; if (ph >= 1) ph -= 1;
         const double saw = blep_saw(ph, dt);
-        const double fc = fmin(9000, 150 * pow(2.0, (cut0 + (cut1 - cut0) * ((double)i / n)) * 4.5 + (1.6 + acc) * fenv));
-        const double g = 1 - exp(-AC_TAU * fc / SR);
-        const double x = tanh(saw * 0.8 - k * y4);
+        const double fc = whis ? fmin(9000, f * 2) : fmin(9000, 150 * pow(2.0, (cut0 + (cut1 - cut0) * ((double)i / n)) * 4.5 + (1.6 + acc) * fenv));
+        const double g = 1 - exp(-AC_TAU * fc / SR), kk = whis ? kw : k;
+        const double x = tanh(saw * (whis ? 0.25 : 0.8) - kk * y4);
         y1 += g * (x - y1); y2 += g * (y1 - y2); y3 += g * (y2 - y3); y4 += g * (y3 - y4);
-        ac_add(acidBus, i0 + i, tanh(y4 * (1 + k * 0.6) * 1.4) * aenv * (0.75 + 0.35 * acc) * level);
+        ac_add(acidBus, i0 + i, tanh(y4 * (1 + kk * 0.6) * 1.4) * aenv * (0.75 + 0.35 * acc) * level * (whis ? 0.8 : 1) * lv);
     }
 }
 
@@ -332,17 +357,30 @@ static void flyby(double t, double dir) {
 }
 
 // Riser: spray climbing through a moving band, into a seam.
-static void riser(double t, double dur, double g) {
+// The build: cabin air (see the renderer). Per side: sweep lo, bd · brown,
+// floor · six whistles' lo, bd.
+static void riser(double t, double dur, double g, const double *hz) {
     const long i0 = ac_round(t * SR), n = (long)floor(dur * SR);
-    double lo = 0, bd = 0, lo2 = 0, bd2 = 0;
+    double S[2][16] = {{0}};
     for (long k = 0; k < n && i0 + k < N; k++) {
-        const double u = (double)k / n, f = 2 * sin(M_PI * (350 * pow(16.0, u)) / SR);
-        double hi = ac_noise(&nz) - lo - 0.3 * bd; bd += f * hi; lo += f * bd;
-        hi = ac_noise(&nz) - lo2 - 0.3 * bd2; bd2 += f * hi; lo2 += f * bd2;
+        const double u = (double)k / n, f = 2 * sin(M_PI * (110 * pow(12.0, u)) / SR), up = pow(2.0, u - 1);
         const double a = u * u * g * G.riser;
         const long j = (i0 + k) * 2;
-        ac_add(music, j, bd * a); ac_add(music, j + 1, bd2 * a);
-        ac_add(rev, j, bd * a * 0.6); ac_add(rev, j + 1, bd2 * a * 0.6);
+        for (int ch = 0; ch < 2; ch++) {
+            double *s = S[ch];
+            const double x = ac_noise(&nz);
+            const double hi = x - s[0] - 0.3 * s[1]; s[1] += f * hi; s[0] += f * s[1];
+            s[2] = s[2] * 0.995 + x * 0.05; s[3] += 0.06 * (s[2] - s[3]);
+            double w = 0;
+            for (int i = 0; i < 6; i++) {
+                const int o = 4 + i * 2;
+                const double ff = 2 * sin(M_PI * hz[i >> 1] * ((i & 1) ? 2 : 1) * up / SR);
+                const double h = x - s[o] - 0.03 * s[o + 1]; s[o + 1] += ff * h; s[o] += ff * s[o + 1];
+                w += s[o + 1] * ((i & 1) ? 0.35 : 1);
+            }
+            const double v = (s[1] * 0.9 + s[3] * 1.3 + w * 0.6) * a;
+            ac_add(music, j + ch, v); ac_add(rev, j + ch, v * 0.6);
+        }
     }
 }
 
@@ -407,6 +445,55 @@ static void underwater(int row) {
         l += k * (music[i * 2] - l); r += k * (music[i * 2 + 1] - r);
         music[i * 2] = (float)l; music[i * 2 + 1] = (float)r;
     }
+}
+
+// The bomb: wannadash's elasticizeBus (pop/cult/c/cultremix.c) on this engine's four stereo buses.
+// An impulse gives each bus its own velocity; a damped spring carries it out and back (the
+// displacement is a propagation delay and its sign the azimuth); the first excursion holds and
+// repeats a few milliseconds of the bus. The kick and the bass are mono and stay put.
+typedef struct { double t, duration, strength, hz, damping, glitch, attack, release, dispersion; } Bomb;
+static inline double el_clamp(double v, double a, double b) { return fmax(a, fmin(b, v)); }
+static inline double el_smooth(double u) { return u * u * (3 - 2 * u); }
+static inline double el_read(const float *src, long len, int ch, double p) {
+    if (p <= 0) return src[ch];
+    const long q = (long)floor(p);
+    if (q + 1 >= len) return src[(len - 1) * 2 + ch];
+    const double f = p - q;
+    return src[q * 2 + ch] + ((double)src[(q + 1) * 2 + ch] - src[q * 2 + ch]) * f;
+}
+static void elasticize(float *bus, double dir, double mass, double shard, int bodyIndex, const Bomb *ex) {
+    long start = ac_round((ex->t - 0.08) * SR); if (start < 0) start = 0;
+    long end = ac_round((ex->t + ex->duration + 0.10) * SR); if (end > N) end = N;
+    const long len = end - start; if (len < 4) return;
+    float *src = ac_alloc((size_t)len * 2, sizeof(float));
+    memcpy(src, bus + start * 2, (size_t)len * 2 * sizeof(float));
+    long anchor = ac_round((ex->t + 0.035 + bodyIndex * 0.009) * SR) - start; if (anchor < 0) anchor = 0;
+    long grain = ac_round(shard * SR); if (grain < 16) grain = 16;
+    long from = ac_round(ex->t * SR); if (from < start) from = start;
+    for (long i = from; i < end; i++) {
+        const double age = i / SR - ex->t;
+        if (age < 0 || age > ex->duration) continue;
+        const double edge = el_smooth(el_clamp(age / ex->attack, 0, 1)) * el_smooth(el_clamp((ex->duration - age) / ex->release, 0, 1));
+        const double bodyHz = ex->hz * (1 + ex->dispersion * (bodyIndex - 2) / 2);
+        const double spring = ex->strength / mass * exp(-ex->damping * age) * sin(AC_TAU * bodyHz * age) * edge;
+        const double travel = fabs(spring), delay = travel * (0.012 + 0.021 / mass) * SR;
+        const long local = i - start; const double pos = fmax(0, local - delay);
+        double ml = el_read(src, len, 0, pos), mr = el_read(src, len, 1, pos);
+        const double distance = (1 + 0.11 * travel) / (1 + 0.24 * travel), pan = el_clamp(dir * spring * 0.86, -0.92, 0.92);
+        ml *= sqrt(1 - pan) * distance; mr *= sqrt(1 + pan) * distance;
+        const double fracture = ex->glitch * exp(-2.7 * age) * el_smooth(el_clamp(age / 0.035, 0, 1)) * edge;
+        if (fracture > 0.012) {
+            long gp = anchor + ((local - anchor + grain * 64) % grain); if (gp > len - 2) gp = len - 2;
+            const double gl = el_read(src, len, 0, (double)gp), gr = el_read(src, len, 1, (double)gp);
+            const int swap = bodyIndex & 1;
+            ml = ml * (1 - 0.34 * fracture) + (swap ? gr : gl) * 0.34 * fracture;
+            mr = mr * (1 - 0.34 * fracture) + (swap ? gl : gr) * 0.34 * fracture;
+        }
+        const double wet = edge * el_clamp(0.14 + 0.58 * travel + 0.08 * fracture, 0, 0.90);
+        bus[i * 2] = (float)(src[local * 2] * (1 - wet) + ml * wet);
+        bus[i * 2 + 1] = (float)(src[local * 2 + 1] * (1 - wet) + mr * wet);
+    }
+    free(src);
 }
 
 // Phaser on everything acid: six swept allpass stages a side, the two ears a
@@ -498,7 +585,9 @@ int main(int argc, char **argv) {
     if (!f) ac_die("cannot open", scorePath);
     char material[64] = "tape", line[4096], *tok[32];
     double amount = 1;
-    int under[32], nunder = 0, frozen = 0;
+    int under[32], nunder = 0, frozen = 0, nbombs = 0, ntempers = 0;
+    Bomb bombs[8];
+    double tempers[8][3];
     long events = 0;
     while (fgets(line, sizeof line, f)) {
         const int n = ac_split(line, tok, 32);
@@ -523,21 +612,29 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(v, "smp")) { ARGS(2); ac_smp_load(atoi(tok[1]), tok[2]); }
         else if (!strcmp(v, "under")) { ARGS(1); if (nunder < 32) under[nunder++] = atoi(tok[1]); }
+        else if (!strcmp(v, "temper")) { ARGS(3); if (ntempers < 8) { tempers[ntempers][0] = A(1); tempers[ntempers][1] = A(2); tempers[ntempers][2] = A(3); ntempers++; } }
+        else if (!strcmp(v, "elastic")) { ARGS(9); if (nbombs < 8) bombs[nbombs++] = (Bomb){ A(1), A(2), A(3), A(4), A(5), A(6), A(7), A(8), A(9) }; }
         else {
             if (!N) ac_die("an event came before `frames`:", v);
             if (!frozen) { cfg_freeze(); frozen = 1; }
             events++;
             if (!strcmp(v, "kick")) { ARGS(3); kick(A(1), A(2), atoi(tok[3])); }
+            else if (!strcmp(v, "snare")) {
+                ARGS(2);
+                if (nsnares == capsnares) { capsnares = capsnares ? capsnares * 2 : 256; snares = realloc(snares, (size_t)capsnares * sizeof *snares); if (!snares) ac_die("out of memory", NULL); }
+                snares[nsnares++] = (Hit){ A(1), A(2) };
+            }
             else if (!strcmp(v, "spray")) { ARGS(10); spray(A(1), A(2), A(3), atoi(tok[4]), A(5), A(6), A(7), A(8), A(9), A(10)); }
             else if (!strcmp(v, "tick")) { ARGS(4); tick(A(1), A(2), A(3), A(4)); }
             else if (!strcmp(v, "bloop")) { ARGS(5); bloop(A(1), A(2), A(3), A(4), A(5)); }
+            else if (!strcmp(v, "donk")) { ARGS(4); donk(A(1), A(2), A(3), A(4)); }
             else if (!strcmp(v, "bass")) { ARGS(5); bass_note(A(1), A(2), A(3), A(4), atoi(tok[5])); }
             else if (!strcmp(v, "pad")) { ARGS(6); pad_note(A(1), A(2), A(3), A(4), A(5), A(6)); }
             else if (!strcmp(v, "air")) { ARGS(5); air_note(A(1), A(2), A(3), A(4), A(5)); }
             else if (!strcmp(v, "pluck")) { ARGS(5); pluck(A(1), A(2), A(3), A(4), A(5)); }
             else if (!strcmp(v, "lead")) { ARGS(6); lead(A(1), A(2), A(3), A(4), A(5), A(6)); }
             else if (!strcmp(v, "flyby")) { ARGS(2); flyby(A(1), A(2)); }
-            else if (!strcmp(v, "riser")) { ARGS(3); riser(A(1), A(2), A(3)); }
+            else if (!strcmp(v, "riser")) { ARGS(6); const double hz[3] = { A(4), A(5), A(6) }; riser(A(1), A(2), A(3), hz); }
             else if (!strcmp(v, "acidchord")) {
                 ARGS(6);
                 const int nn = atoi(tok[6]);
@@ -551,10 +648,10 @@ int main(int argc, char **argv) {
                 const double t0 = A(1), level = A(2), cut0 = A(3), cut1 = A(4), reso = A(5);
                 const int nevs = atoi(tok[6]);
                 Step *evs = ac_alloc((size_t)nevs, sizeof *evs);
-                char sub[256], *st[8];
+                char sub[256], *st[12];
                 for (int i = 0; i < nevs; i++) {
-                    if (!fgets(sub, sizeof sub, f) || ac_split(sub, st, 8) < 5 || strcmp(st[0], ".")) ac_die("acidrow is missing a step", NULL);
-                    evs[i] = (Step){ ac_num(st[1]), ac_num(st[2]), atoi(st[3]), atoi(st[4]) };
+                    if (!fgets(sub, sizeof sub, f) || ac_split(sub, st, 12) < 11 || strcmp(st[0], ".")) ac_die("acidrow is missing a step", NULL);
+                    evs[i] = (Step){ ac_num(st[1]), ac_num(st[2]), atoi(st[3]), atoi(st[4]), ac_num(st[5]), ac_num(st[6]), ac_num(st[7]), ac_num(st[8]), atoi(st[9]), ac_num(st[10]) };
                 }
                 acid_row(t0, level, cut0, cut1, reso, evs, nevs);
                 free(evs);
@@ -583,12 +680,31 @@ int main(int argc, char **argv) {
     phaser(Gacid / Gmusic);
     ping_pong();
     reverb();
+    for (int b = 0; b < nbombs; b++) {
+        elasticize(music, -0.86, 1.10, 0.021, 0, &bombs[b]);
+        elasticize(drums, 0.70, 1.42, 0.017, 1, &bombs[b]);
+        elasticize(bells, -0.42, 0.74, 0.026, 2, &bombs[b]);
+        elasticize(rev, 0.96, 0.92, 0.031, 3, &bombs[b]);
+    }
+    // temper: everything that is not a bell falls back by `depth` and returns over `back` seconds
+    for (int b = 0; b < ntempers; b++) {
+        const double tt = tempers[b][0], depth = tempers[b][1], back = tempers[b][2];
+        const long i0 = ac_round(tt * SR), n = ac_round(back * 5 * SR);
+        for (long k = 0; k < n && i0 + k < N; k++) {
+            const double age = k / SR, g = 1 - depth * fmin(1, age / 0.06) * exp(-age / back);
+            const long i = i0 + k;
+            music[i * 2] = (float)(music[i * 2] * g); music[i * 2 + 1] = (float)(music[i * 2 + 1] * g);
+            drums[i * 2] = (float)(drums[i * 2] * g); drums[i * 2 + 1] = (float)(drums[i * 2 + 1] * g);
+            kickBus[i] = (float)(kickBus[i] * g); bassBus[i] = (float)(bassBus[i] * g);
+        }
+    }
 
     // Sum, in place on the music bus. The kick opens a hole in everything that isn't the kick.
     float *mix = music;
     const double Dmusic = cfg("duck.music"), Dbass = cfg("duck.bass"), Dbells = cfg("duck.bells"), Dwet = cfg("duck.wet"), Drel = cfg("duck.release");
+    const double Dsnare = cfg("duck.snare"), Dsrel = cfg("duck.snareRelease");
     const double cr = cfg("crunch"), nrm = 1 / tanh(cr);
-    long kp = 0;
+    long kp = 0, sp = 0;
     double peak = 0;
     for (long i = 0; i < N; i++) {
         const double t = i / SR;
@@ -598,13 +714,19 @@ int main(int argc, char **argv) {
             const double dt = t - kicks[kp].t;
             d = kicks[kp].g * (dt < 0.012 ? dt / 0.012 : exp(-(dt - 0.012) / Drel));
         }
+        while (sp + 1 < nsnares && snares[sp + 1].t <= t) sp++;
+        double ds = 0;
+        if (nsnares && snares[sp].t <= t) {
+            const double dt = t - snares[sp].t;
+            ds = fmin(1, snares[sp].g) * (dt < 0.008 ? dt / 0.008 : exp(-(dt - 0.008) / Dsrel));
+        }
         const double k = tanh(kickBus[i] * cr * 1.6) * nrm * Gkick;
         const double b = tanh(bassBus[i] * cr * Gbass * 1.4) * nrm * (1 - Dbass * d) * 0.7;
         for (int ch = 0; ch < 2; ch++) {
             const long j = i * 2 + ch;
             const double dr = tanh(drums[j] * cr * 2) * nrm * 0.5 * Gdrums * 2;
             const double v = k + b + dr + music[j] * Gmusic * (1 - Dmusic * d)
-                + bells[j] * Gbells * (1 - Dbells * d) + rev[j] * (1 - Dwet * d);
+                + bells[j] * Gbells * (1 - Dbells * d) * (1 - Dsnare * ds) + rev[j] * (1 - Dwet * d);
             mix[j] = (float)v;
             if (fabs(v) > peak) peak = fabs(v);
         }

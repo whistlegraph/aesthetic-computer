@@ -7,6 +7,42 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## wada jetter QD UR — MASTERING (2026-11-20)
+
+- **Current listening cut:** `pop/wattajetta/out/pocket-single/wada-jetter-weirdest-liner.wav`, 2:55.
+  The earlier handbell pickup leads into “put the weirdest lip liner on”; the choir holds “weird.”
+
+- **Title / artist:** `wada jetter QD UR`, lowercase with QD UR in capitals (@jeffrey 2026-11-20, renamed from `wattajetta qd` the same day; tick preserve-caps) ·
+  Aesthetic Dot Computer. The lane and its files keep the working name `wattajetta-cutie`.
+- **Lane:** `pop/wattajetta/` · the wattajetta composition as a slow, bloopy, airy dance
+  track · 112 BPM · E. Composition `bin/render-wattajetta-cutie.mjs`, bit-matched C engine
+  `c/wattajetta-cutie.c`; `node pop/wattajetta/c/run-cutie.mjs` bakes, renders and masters.
+- **Single cut (2026-11-20):** 96 bars, 3:34 — twelve of the twenty rows: intro · verse 1' ·
+  chorus 1 · chorus 1' · verse 2' · chorus 2' · bridge' · machine · final a · final b' ·
+  outro' · mist. The intro is one row with the kick four-on-the-floor from bar 1 (it was two
+  rows, half-time from bar 5), so the verse lands at 0:17. `--long` renders all twenty (5:50).
+- **Stereo:** the master carries a side-gain curve from the form (`out/wattajetta-cutie.width.json`):
+  the machine folds to 0.2 over its last four bars (side 11 dB under mid) and the finale
+  opens from it; final b' stands at 1.15. Rim clicks moved left, across from the hats.
+  Still leans right by 0.3–1.8 dB (most in outro' and mist); the cause is not found.
+- **Master:** `bin/cutie-master.mjs`, one chain for both engines: lows mono under 120 Hz and
+  driven through tanh, their harmonics mixed back at 180–1100 Hz, +3 dB at 3.4 k, +4.5 dB
+  shelf over 9 k, the width curve, 3:1 glue, +12 dB static into a 4× oversampled limiter.
+  `out/wattajetta-cutie-c-master.wav` (24-bit/48 k) — **−10.9 LUFS · −2.1 dBTP · LRA 3.8 ·
+  PLR 8.8** · mono loss −1.3 dB · phone loss −3.4 dB. The first master (2026-11-16, 6:08) was
+  −12.9 LUFS · −0.9 dBTP · PLR 12.0 · phone loss −6.1 dB. The 320 k mp3 decodes to
+  −1.8 dBTP; deliver the WAV or a FLAC.
+- **Reference:** profiled against Fcukers' *Only One* (released 2026-11-20; lossy YouTube and
+  Apple preview copies, unversioned in `tmp/mastering-references/`): −8.2 LUFS, LRA 4.9,
+  side 21 dB under mid below 120 Hz, and 6 dB more 2–6 k / 10 dB more 6–16 k than the first
+  cutie master. The new master closes the low-end and treble gaps; it stays 3 dB quieter.
+- **Cover:** the unsharpened portrait and cover studies are in the track's private recovery archive.
+  Attribution and clearance for the circuit-board artwork remain open.
+- **Open:** DistroKid packet · a 24-bit FLAC of 3:34 is ~35 MB, over the ~10 MB browser
+  upload cap, so the upload is a manual drag (a 16-bit/44.1 FLAC may fit).
+
+---
+
 ## sailor song (sage oc) — RELEASED on AC 2026-10-06 (self-hosted, not on DistroKid)
 
 - **What:** @jeffrey's niece Sage (**sage oc**, O'Connor) singing Gigi Perez's *Sailor Song* with
