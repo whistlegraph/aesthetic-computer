@@ -43,6 +43,15 @@ const boot = {};
 const bootMark = (name) => { if (!(name in boot)) boot[name] = Math.round(performance.now()); };
 try { window.raxBoot = boot; } catch {}
 bootMark('module');
+// 🍎 Standing alone in AC's native app (no prompt page around it), rax says it
+// is alive and then that it is there, as AC's own boot does. The app watches
+// every page it loads for that word and loads the page again if 25 seconds
+// pass without it: until 2026-11-20 rax never said it, so the app took a rax
+// opened on its own for a page that had hung and loaded it again and again,
+// and whoever was in it froze and was set down afresh each time.
+const tellApp = (type) => { try { if (window.parent === window) window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type })); } catch {} };
+let appTold = false;
+tellApp('boot:heartbeat');
 const view = await createView(document.getElementById('game'));
 bootMark('view');
 const canvas = view.canvas,
@@ -1170,6 +1179,7 @@ function connect(adopt = null) {
     const messageAt = performance.now();
     const data = JSON.parse(e.data);
     if (data.type === 'welcome' || data.type === 'role') {
+      if (!appTold) { appTold = true; tellApp('boot:ready'); } // 🍎 in the room: the native app stops watching the load
       if (data.eye) myEye = data.eye;
       const old = player;
       seat = data.seat;

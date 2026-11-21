@@ -2175,8 +2175,16 @@ export async function createView(canvas) {
           // Bottom left is the local identity; other names stay on their heads.
           const floor = Math.max(-height / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit);
           labels.forEach(({ label, seat, handle, colors }, i) => {
-            const x = -width / 2 + safeX + 2,
-              y = floor + (labels.length - 1 - i) * 12 * unit;
+            const y = floor + (labels.length - 1 - i) * 12 * unit;
+            let x = -width / 2 + safeX + 2;
+            // 🚁 Looking on, the name wears a small drone before it: two rotors, a body, two feet.
+            if (seat < 0) {
+              for (const [dx, dy, w, h, color] of [[0, 5, 3, 1, 0x7fd4ff], [6, 5, 3, 1, 0x7fd4ff], [1, 4, 1, 1, PAPER], [7, 4, 1, 1, PAPER], [1, 2, 7, 2, PAPER], [3, 1, 3, 1, 0xff6b9d], [1, 0, 1, 1, PAPER], [7, 0, 1, 1, PAPER]]) {
+                rect(x + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
+                rect(x + dx * unit, y - 7 * unit + dy * unit, 0, w * unit, h * unit, color);
+              }
+              x += 11 * unit;
+            }
             // No seat chip: the handle's own colours identify the player.
             const cx = x + ((label.length * 6 - 1) * unit) / 2;
             (handle ? handleText : text)(

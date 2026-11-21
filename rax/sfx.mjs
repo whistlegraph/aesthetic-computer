@@ -111,32 +111,58 @@ export class Sfx {
     const a = this.audio, t = a.currentTime;
     if (!this.rotors) {
       if (near <= 0) return;
-      const out = a.createGain(), band = a.createBiquadFilter(), flutter = a.createOscillator(), depth = a.createGain();
+      // 🌬️ Air, not a buzz (2026-11-20): the sound of a cabin, as Menu Band's
+      // Air makes it (MenuBandAirNoise.swift `cabin`): dark noise with a low
+      // body and a little mid, breathing slowly, behind two gentle low-pass
+      // stages. The rotors are only a soft tremble in it, and a faint low hum
+      // that rises as it works.
+      const rate = a.sampleRate, length = Math.floor(rate * 4), buffer = a.createBuffer(1, length, rate), data = buffer.getChannelData(0);
+      const k = 44100 / rate;
+      let brown = 0, dc = 0, low = 0, mid = 0;
+      for (let i = 0; i < length; i++) {
+        const white = Math.random() * 2 - 1;
+        brown += Math.min(1, 0.004 * k) * (white - brown);
+        dc += Math.min(1, 0.0007 * k) * (brown - dc);
+        low += Math.min(1, 0.017 * k) * (white - low);
+        mid += Math.min(1, 0.085 * k) * (white - mid);
+        data[i] = Math.tanh(((brown - dc) * 12 * 0.65 + low * 2.5 + mid * 0.35) * (0.96 + 0.04 * Math.sin((2 * Math.PI * 0.25 * i) / rate)));
+      }
+      // (The loop's ends are eased into one another so it has no seam.)
+      const fade = Math.floor(rate * 0.25);
+      for (let i = 0; i < fade; i++) { const m = i / fade; data[i] = data[i] * m + data[length - fade + i] * (1 - m); }
+      const air = a.createBufferSource(), out = a.createGain(), band = a.createBiquadFilter(), soft = a.createBiquadFilter(), flutter = a.createOscillator(), depth = a.createGain(), hum = a.createOscillator(), humGain = a.createGain();
+      air.buffer = buffer;
+      air.loop = true;
+      air.loopEnd = (length - fade) / rate;
       out.gain.value = 0;
-      band.type = 'bandpass';
-      band.frequency.value = 900;
-      band.Q.value = 0.9;
-      const pair = [0, 7].map((cents) => {
-        const o = a.createOscillator();
-        o.type = 'sawtooth';
-        o.detune.value = cents;
-        o.connect(band);
-        o.start();
-        return o;
-      });
-      // The blades' beat: a quick tremble in the loudness.
-      flutter.frequency.value = 31;
+      band.type = 'lowpass';
+      band.frequency.value = 420;
+      band.Q.value = 0.5;
+      soft.type = 'lowpass';
+      soft.frequency.value = 900;
+      soft.Q.value = 0.5;
+      air.connect(band).connect(soft).connect(out);
+      air.start();
+      hum.type = 'sine';
+      hum.frequency.value = 86;
+      humGain.gain.value = 0.05;
+      hum.connect(humGain).connect(out);
+      hum.start();
+      // The blades' beat: a slow, soft tremble in the loudness.
+      flutter.frequency.value = 11;
       depth.gain.value = 0;
       flutter.connect(depth).connect(out.gain);
       flutter.start();
-      band.connect(out).connect(a.destination);
-      this.rotors = { out, band, pair, depth };
+      out.connect(a.destination);
+      this.rotors = { out, band, soft, hum, depth };
     }
     const n = Math.max(0, Math.min(1, near)), w = Math.max(0, Math.min(1, work)), r = this.rotors;
-    for (const o of r.pair) o.frequency.setTargetAtTime(150 + 90 * w, t, 0.12);
-    r.band.frequency.setTargetAtTime(700 + 900 * w, t, 0.15);
-    r.out.gain.setTargetAtTime(n ? (0.006 + 0.01 * w) * n * n * MASTER : 0, t, 0.15);
-    r.depth.gain.setTargetAtTime(n ? 0.002 * n * n * MASTER : 0, t, 0.15);
+    // Working harder it opens up (more of the air is heard) and its hum rises a little.
+    r.band.frequency.setTargetAtTime(380 + 700 * w, t, 0.25);
+    r.soft.frequency.setTargetAtTime(800 + 1400 * w, t, 0.25);
+    r.hum.frequency.setTargetAtTime(86 + 34 * w, t, 0.2);
+    r.out.gain.setTargetAtTime(n ? (0.05 + 0.05 * w) * n * n * MASTER : 0, t, 0.2);
+    r.depth.gain.setTargetAtTime(n ? 0.004 * n * n * MASTER : 0, t, 0.2);
   }
   // 📉 Going down: as the picture comes apart (`gone`, 0 to 1) a tone falls
   // and breaks up into steps, under a rising hiss; at the end only a low hum.
