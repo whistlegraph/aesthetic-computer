@@ -165,6 +165,35 @@ export class Sfx {
     r.out.gain.setTargetAtTime(n ? (0.006 + 0.008 * w) * n * n * MASTER : 0, t, 0.3);
     r.depth.gain.setTargetAtTime(n ? 0.0006 * n * n * MASTER : 0, t, 0.3);
   }
+  // Two quiet sines cross as the body accelerates and the head turns.
+  motion(travel = 0, turn = 0) {
+    if (!this.ready) return;
+    const active = travel > 0 || turn > 0;
+    if (!active && !this.motionActive) return;
+    this.motionActive = active;
+    const a = this.audio, t = a.currentTime;
+    if (!this.motionVoices) {
+      this.motionVoices = [0, 1].map(() => {
+        const tone = a.createOscillator(), out = a.createGain();
+        tone.type = 'sine';
+        out.gain.value = 0;
+        tone.connect(out).connect(a.destination);
+        tone.start();
+        return { tone, out };
+      });
+    }
+    const [body, head] = this.motionVoices;
+    body.tone.frequency.setTargetAtTime(125 + 85 * travel, t, 0.09);
+    head.tone.frequency.setTargetAtTime(255 - 80 * turn, t, 0.05);
+    // Give each frame a short audio-clock lease. A suspended render loop
+    // releases both notes even if it never delivers the final idle frame.
+    for (const [voice, level, fade] of [[body, 0.002 * travel, 0.08], [head, 0.0025 * turn, 0.06]]) {
+      const gain = voice.out.gain;
+      gain.cancelScheduledValues(t);
+      gain.setTargetAtTime(level * MASTER, t, fade);
+      if (level) gain.setTargetAtTime(0, t + 0.15, fade);
+    }
+  }
   // 🎥 The eye's own servos, heard while it is carried to a thing and back
   // (dock.mjs `rates`): one for the lens closing or opening, one for its
   // travel, one for its turning, each 0 to 1 by how fast that is changing.

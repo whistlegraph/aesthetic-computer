@@ -84,6 +84,7 @@ export class Controller {
       result.use = edge(5);
       result.dup = edge(12);
       result.ddown = edge(13);
+      result.floorDirection = Number(!!buttons[12]) - Number(!!buttons[13]);
       result.dleft = edge(14);
       result.dright = edge(15);
       result.hold = !!buttons[0] && !changed && this.focused;

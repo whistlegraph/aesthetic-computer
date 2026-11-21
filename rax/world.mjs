@@ -121,8 +121,8 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🦆 Ducking (flat rooms): ledges let the body through, a fall is faster,
   // and on the ground the head is lower (bop.mjs).
   const duck = flat && !!cmd.duck;
-  const solid = fixed.some((b) => b.platform) ? fixed.filter((b) => !b.platform) : fixed,
-    ledges = duck ? [] : fixed.filter((b) => b.platform);
+  const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling) : fixed,
+    ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
   const grounded = player.onGround && (feet < 0.02 || !!support);
   const step = grounded && !(cmd.buttons & 1) ? 0.32 : 0.001;
@@ -152,12 +152,18 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   }
   // A ledge catches only what was above it.
   for (const b of ledges)
-    if (under(b, next) && feet >= b.yMax - 0.02 && nextFeet <= b.yMax) floor = Math.max(floor, b.yMax);
+    if (under(b, next) && feet + (b.stair && grounded ? step : 0.02) >= b.yMax && nextFeet <= b.yMax + (b.stair && grounded ? step : 0.001)) floor = Math.max(floor, b.yMax);
   if (next.vy <= 0 && next.y - CFG.eyeHeight <= floor + (grounded ? step : 0.001)) {
     next.y = floor + CFG.eyeHeight;
     next.vy = 0;
     next.onGround = true;
   } else if (next.y - CFG.eyeHeight > floor + 0.001) next.onGround = false;
+  if (next.vy > 0) for (const b of fixed) {
+    if (b.ceiling && under(b, next) && player.y + 0.15 <= b.yMin && next.y + 0.15 >= b.yMin) {
+      next.y = b.yMin - 0.15;
+      next.vy = 0;
+    }
+  }
   // Bound speed also bounds discrete collision steps.
   const speed = Math.hypot(next.vx, next.vz);
   if (speed > 22) {

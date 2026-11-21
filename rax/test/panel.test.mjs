@@ -138,39 +138,48 @@ const press = (car, label) => {
   for (const name of ['move', 'touch', 'lift']) keypad.act({ event: pointerEvent(name, ...middle(label)), car });
 };
 
-test('the keypad dials digits, clears, and goes', () => {
+test('the keypad rides up a floor and down a floor', () => {
   const car = fakeCar();
   keypad.boot();
-  press(car, '8'); press(car, '9');
-  assert.equal(car.text, '89');
-  press(car, 'C');
-  assert.equal(car.text, '');
-  press(car, 'go');
-  assert.deepEqual(car.went, [], 'nothing dialled: go goes nowhere');
-  press(car, '1'); press(car, '0'); press(car, 'go');
-  assert.deepEqual(car.went, ['10']);
-  for (const d of '12345') press(car, d);
-  assert.equal(car.text, '2345', 'four digits, as the keys dial');
-});
-
-test('the quick keys ride to the lobby, the top and home', () => {
-  const car = fakeCar();
-  keypad.boot();
-  press(car, 'G'); press(car, 'top'); press(car, 'home');
-  assert.deepEqual(car.went, ['lobby', 'top', 'home']);
+  press(car, 'up'); press(car, 'down'); press(car, 'up');
+  assert.deepEqual(car.went, ['up', 'down', 'up']);
 });
 
 test('a key is pressed only when the lift is on the key the touch began on', () => {
   const car = fakeCar();
   keypad.boot();
-  keypad.act({ event: pointerEvent('touch', ...middle('5')), car });
-  keypad.act({ event: pointerEvent('draw', ...middle('6')), car });
-  keypad.act({ event: pointerEvent('lift', ...middle('6')), car });
-  keypad.act({ event: pointerEvent('touch', ...middle('5')), car });
+  keypad.act({ event: pointerEvent('touch', ...middle('up')), car });
+  keypad.act({ event: pointerEvent('draw', ...middle('down')), car });
+  keypad.act({ event: pointerEvent('lift', ...middle('down')), car });
+  keypad.act({ event: pointerEvent('touch', ...middle('up')), car });
   keypad.act({ event: pointerEvent('lift', -1, -1), car });
-  assert.equal(car.text, '');
+  assert.deepEqual(car.went, []);
   assert.equal(keypad.keyAt(0, 0), null);
   assert.equal(new Set(keypad.KEYS.map((k) => keypad.keyAt(k.x, k.y))).size, keypad.KEYS.length, 'no key lies over another');
+});
+
+test('holding an arrow repeats until release, with no extra floor on lift', () => {
+  const car = fakeCar(), start = performance.now();
+  keypad.boot();
+  keypad.act({ event: pointerEvent('touch', ...middle('down')), car });
+  keypad.sim({ car }, start + 420);
+  keypad.sim({ car }, start + 480);
+  keypad.sim({ car }, start + 580);
+  keypad.act({ event: pointerEvent('lift', ...middle('down')), car });
+  keypad.sim({ car }, start + 1000);
+  assert.deepEqual(car.went, ['down', 'down']);
+});
+
+test('holding an arrow repeats until release, with no extra floor on lift', () => {
+  const car = fakeCar(), start = performance.now();
+  keypad.boot();
+  keypad.act({ event: pointerEvent('touch', ...middle('down')), car });
+  keypad.sim({ car }, start + 420);
+  keypad.sim({ car }, start + 480);
+  keypad.sim({ car }, start + 580);
+  keypad.act({ event: pointerEvent('lift', ...middle('down')), car });
+  keypad.sim({ car }, start + 1000);
+  assert.deepEqual(car.went, ['down', 'down']);
 });
 
 test('the keypad shows what is dialled, and the floor when nothing is', () => {

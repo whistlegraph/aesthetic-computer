@@ -5,6 +5,7 @@
 // metres up, so the plaza keeps its sky, and every floor after that is one
 // STOREY higher. A floor is a real place at a real height: in the full tower
 // floor 89 is 628 m above the plaza.
+import { DEPTH } from './basement.mjs';
 export const STOREY = 7, ATRIUM = 12;
 // 🏬 A short tower, for now (2026-11-19). Every handle keeps its floor and its
 // number, but only the listed floors (tower.mjs `listed`: @jeffrey's and the
@@ -35,7 +36,7 @@ export function storeyOf(number) {
 }
 // Every height in the tower comes from these: a storey's, a floor's, the roof's.
 export const heightOf = (storey) => (storey > 0 ? ATRIUM + (storey - 1) * STOREY : 0);
-export const altitude = (number) => heightOf(storeyOf(number));
+export const altitude = (number) => number === -1 ? -DEPTH : heightOf(storeyOf(number));
 export const roofOf = (top) => (top > 0 ? heightOf(storeyOf(top) + 1) : 0);
 // The storey a height falls in (0 below the first).
 export const storeyAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / STOREY));
@@ -43,6 +44,7 @@ export const storeyAt = (y) => (y < ATRIUM ? 0 : 1 + Math.floor((y - ATRIUM) / S
 // one of `among` (the floors a ride runs between) if one stands there, or the
 // lowest number of that storey.
 export function floorAt(y, among = []) {
+  if (y < -DEPTH / 2) return -1;
   const s = storeyAt(y);
   if (!SHORT || !s) return s;
   const known = [...among, ...listed].find((n) => storeyOf(n) === s);

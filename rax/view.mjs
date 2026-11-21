@@ -1,3 +1,4 @@
+import { STAIR, DEPTH, treads, cellarWalls, ceiling } from './basement.mjs';
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
@@ -257,7 +258,8 @@ export async function createView(canvas) {
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
       // centimetre under the floor it z-fought from any distance.)
-      quad([-W, 0, -W], [-W, 0, W], [W, 0, W], [W, 0, -W], p.floor);
+      for (const b of ceiling)
+          quad([b.xMin, 0, b.zMin], [b.xMin, 0, b.zMax], [b.xMax, 0, b.zMax], [b.xMax, 0, b.zMin], p.floor);
       for (let x = -W + 2; x < W; x += 2)
         for (let z = -W + 2; z < W; z += 2)
           box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot); // clear of the floor and the paint
@@ -333,6 +335,21 @@ export async function createView(canvas) {
   // A block's ground: the plaza's floor or a residential block's grass and
   // lanes. A side with an open neighbour is left open; the world's edge gets
   // the plaza's wall or the park's hedge.
+  const cellar = model(({ box, text }) => {
+    box(0, -0.1, 0, 16, 0.2, 16, 0x334050, 0x283540, 0x536476);
+    for (const b of [...treads, ...cellarWalls, ...ceiling]) {
+      box((b.xMin + b.xMax) / 2, (b.yMin + b.yMax) / 2, (b.zMin + b.zMax) / 2,
+        b.xMax - b.xMin, b.yMax - b.yMin - (b.ceiling ? 0.03 : 0), b.zMax - b.zMin, b.ink, tint(b.ink, 0.74), b.ink);
+    }
+    for (const x of [-7.76, 7.76]) for (const z of [-5, 0, 5])
+      box(x, 2.4, z, 0.08, 0.14, 2.4, 0xffce81, 0xffb56a, 0xffce81);
+    text('B1', 0, 2.4, -7.74, 0.14, 0xffce81);
+    const signX = STAIR.left - 0.12;
+    box(signX, DEPTH + 0.64, STAIR.lip, 0.66, 0.48, 0.09, 0x223448, 0x223448, 0x536476);
+    text('B1', signX, DEPTH + 0.78, STAIR.lip - 0.055, 0.044, 0xffce81);
+    for (const step of treads.slice(0, STAIR.steps))
+      box((STAIR.left + STAIR.right) / 2, step.yMax - 0.025, step.zMax, STAIR.right - STAIR.left, 0.05, 0.025, 0xd8ae7c, 0xd8ae7c, 0xd8ae7c);
+  });
   function groundFor(id, neighbours, plaza, field = null) {
     const W = TOWER_HALF; // the plaza is the tower's ground floor
     const key = JSON.stringify([neighbours, !!plaza, paletteName, field, W]);
@@ -344,7 +361,7 @@ export async function createView(canvas) {
         quad([-W, 0, -W], [-W, 0, W], [W, 0, W], [W, 0, -W], p.floor);
         for (let x = -W + 2; x < W; x += 2)
           for (let z = -W + 2; z < W; z += 2)
-            box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
+            if (!(x >= STAIR.left && x <= STAIR.right && z >= STAIR.landing && z <= STAIR.end)) box(x, 0.014, z, 0.08, 0.008, 0.08, p.dot, p.dot, p.dot);
         const h = ROOM_HEIGHT, t = 0.3, outside = 2 * W + 2 * t, inside = 2 * W;
         if (!open.south) box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
         if (!open.north) box(0, h / 2, W + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
@@ -1245,7 +1262,7 @@ export async function createView(canvas) {
     braincells = null,
     spending = false,
     tiles = {},
-    park = null,
+    park = null, basement = false,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
     around = [], // the open blocks beside this one: { id, dx, dz, neighbours, plaza, objects, tiles }
     seam = null, // 🫧 { crossing, shown }: the body is between two rooms; shown: draw the rooms' lines as walls (rax?seams)
@@ -1462,7 +1479,7 @@ export async function createView(canvas) {
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over: Math.min(2, 1 / projector.stretch), fovea: FOVEA, aa: AA } : null;
     // 🌍 A small planet: the land falls away to a near horizon (only with the lens, which halves the long edges that must bend).
-    projector.planet = orbit > 0 ? orbitalRadius : game?.camera ? 0 : PLANET;
+    projector.planet = orbit > 0 ? orbitalRadius : game?.camera || basement ? 0 : PLANET;
     if (TRY.planet !== null && projector.planet) projector.planet = TRY.planet || 0; // (?planet=0: flat land; ?planet=900: a bigger ball)
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
     if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
@@ -1491,10 +1508,15 @@ export async function createView(canvas) {
       draw(orbitalGround, eye.x, projector.ground - orbitalRadius, eye.z, 0, 0, orbitalRadius / PLANET);
       projector.bends = true;
     }
-    if (ledges) draw(ledgesFor(ledges));
+    if (basement) {
+      draw(cellar);
+      if (eye.y > DEPTH - 1) draw(lobbyFor(), 0, DEPTH, 0);
+    }
+    else if (ledges) draw(ledgesFor(ledges));
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
+      if (park.plaza) draw(cellar, 0, -DEPTH, 0);
       // Both rooms draw the fence on their common boundary.
       if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
@@ -1557,6 +1579,7 @@ export async function createView(canvas) {
     }
     for (const b of around) {
       const by = b.dy || 0; // a block seen from up the tower lies below
+      if (b.plaza) draw(cellar, b.dx, by - DEPTH, b.dz);
       if (!b.floor) draw(groundFor(b.id, b.neighbours, b.plaza, groundsOf(b.id)), b.dx, by, b.dz); // (a floor of the tower has its own slab)
       const painted = tilesFor(b.id, b.tiles);
       if (painted) draw(painted, b.dx, by, b.dz);

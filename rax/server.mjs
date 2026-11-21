@@ -1,3 +1,4 @@
+import { BASEMENT, cellarWalls, treads, ceiling, STAIR, stairHeight, stairPassage } from './basement.mjs';
 import http from 'node:http';
 import { stateHome } from './env.mjs'; // first: it reads the old DOOL_* names
 import { tailDevLog } from './dev-log.mjs';
@@ -77,7 +78,7 @@ const assets = new Map([
     'park',
     'bop',
     'games',
-    'elevator',
+    'elevator', 'basement',
     'panel', // 🖼️ world panels, and the pieces on them
     'dock', // 🖥️ going in to a screen: its sums
     'pieces/keypad',
@@ -233,9 +234,9 @@ export function createRaxServer({
   };
   // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
   // which floor is theirs.
-  const hasCar = (key) => key === GROUND || isFloorRoom(key);
+  const hasCar = (key) => key === BASEMENT || key === GROUND || isFloorRoom(key);
   // The elevator is solid on every floor; the lobby's glass on the ground.
-  const wallsFor = (key) => [...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
+  const wallsFor = (key) => [...(key === BASEMENT ? [...treads, ...cellarWalls, ...ceiling] : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? lobbyWalls() : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
@@ -250,7 +251,7 @@ export function createRaxServer({
     }
     inside.sort((a, b) => a[0] - b[0]);
     send(ws, { type: 'tower', count: t.count, top: t.top, listed: t.listed(), revision: t.revision, inside: inside.slice(0, 8),
-      here: here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
+      here: key === BASEMENT ? { room: BASEMENT, number: -1 } : here ? { ...t.public(here), colors: profiles.get(here.handle)?.colors || null } : { room: GROUND, number: 0 },
       yours: t.public(mine), owner: !!here && t.owns(here, member) });
     if (here && !profiles.get(here.handle)?.colors)
       void colorsFor(here.handle).promise.then((colors) => {
@@ -929,6 +930,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, builders.state(key, member));
       return true;
     };
+    member.crossStairs = () => {
+      if (!stays || !member.owner || member.seat < 0 || (key !== GROUND && key !== BASEMENT)) return;
+      const seat = room.match.seats[member.seat], p = seat?.player;
+      const pass = stairPassage(key, p);
+      if (pass) relocate(pass.room, { x: p.x, y: pass.y, z: p.z, yaw: p.yaw, pitch: p.pitch,
+        vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround }, { told: { ack: seat.ack } });
+    };
     // 🪪 This socket is now this verified account, whichever way it was
     // verified: by the page's own token (`account`), or by a phone's
     // (pairing.mjs). → whether the socket took a handle.
@@ -960,7 +968,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // visit that has not gone anywhere yet picks up there. A first
         // visit starts on the plaza, at the foot of the tower.
         const last = geography.geography.whereabouts(handle)?.room;
-        const open = last && (last === 'lobby' || tower.tower.forRoom(last) ||
+        const open = last && (last === BASEMENT || last === 'lobby' || tower.tower.forRoom(last) ||
           onLap(parseBlock(last)));
         const place = open ? last : 'lobby';
         passing = place !== key && !arrived;
@@ -981,6 +989,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         body.x = Math.max(-edge, Math.min(edge, rest.x));
         body.z = Math.max(-edge, Math.min(edge, rest.z));
         body.yaw = rest.yaw;
+        if (key === BASEMENT && body.x >= STAIR.left && body.x <= STAIR.right && body.z >= STAIR.landing && body.z <= STAIR.end)
+          body.y += stairHeight(body.z);
       }
       arrive();
       void colorsFor(handle).promise.then((colors) => {
@@ -1227,7 +1237,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const asked = String(data.to ?? '').trim().toLowerCase().slice(0, 24), here = t.forRoom(key);
         const to = ['my floor', 'my', 'mine'].includes(asked) ? 'home' : asked;
         let destination = null, found = null;
-        if (['0', 'g', 'ground', 'plaza', 'lobby'].includes(to)) destination = GROUND;
+        if (['basement', 'b1', '-1'].includes(to) || (key === GROUND && to === 'down')) destination = BASEMENT;
+        else if (to === 'down' && key === BASEMENT) return void send(ws, { type: 'elevator-result', error: 'this is the basement' });
+        else if (key === BASEMENT && to === 'up') destination = GROUND;
+        else if (['0', 'g', 'ground', 'plaza', 'lobby'].includes(to)) destination = GROUND;
         else {
           found = to === 'up' ? t.step(here ? here.number : 0, 1)
             : to === 'down' ? (here ? t.step(here.number, -1) : null)
@@ -1245,9 +1258,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // 🚪 How long the car runs, as the page counts it (asked while it ran, it starts from where it is): the door is shut for that long, and the rider walks about inside.
         const was = member.ride, since = was ? (Date.now() - was.at) / 1000 : Infinity;
         const running = was && since < was.seconds ? was.span * (1 - rideEase(since / was.seconds)) : 0;
-        const span = altitude(here ? here.number : 0) - altitude(found ? found.number : 0) + running;
+        const fromNumber = key === BASEMENT ? -1 : here?.number || 0;
+        const toNumber = destination === BASEMENT ? -1 : found?.number || 0;
+        const span = altitude(fromNumber) - altitude(toNumber) + running;
         const run = { at: Date.now(), span, seconds: rideSeconds(span) };
-        const riding = { from: here ? here.number : 0, to: found ? found.number : 0, handle: found?.handle || null };
+        const riding = { from: fromNumber, to: toNumber, handle: found?.handle || null };
         // 🧵 On a socket that stays, the rider is on the next floor now (and a ball in the car with them).
         const carried = ball.ball.room === key && inCar(ball.ball);
         if (relocate(destination, stood, { ride: run, told: { ride: riding } })) {
@@ -1550,6 +1565,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const [key, room] of rooms) {
         room.match.step();
         walks.tick(key, room);
+        if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
         for (const m of room.sessions.values())
           if (m.walk) { if (m.walk.until < Date.now()) m.walk = null; else m.walk.ask(); }
         if (room.match.chalkDirty && room.match.tick % 3 === 0)

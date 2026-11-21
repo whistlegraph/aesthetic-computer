@@ -29,6 +29,8 @@ The renderer follows canvas resizes, adapts portrait camera framing and draws
 without antialiasing. Solid triangle faces, geometric bitmap letters and pixelated canvas
 scaling keep the pixel edges sharp. Resizing is supported.
 
+The east side inside the plaza lobby has stairs marked B1. Walk down into the basement or take the elevator down from G. Tap the car’s up or down arrow once per floor, or hold it to scroll. The car departs after a short pause.
+
 **Touch:** the left half is a floating move stick and the right half drags to look; both
 are outlined on the lower half of the screen. Four icons sit bottom right: the $ menu, jump, chat (a
 message bubble) and build (a cube). What the thing in view offers (paint, chalk, change,
