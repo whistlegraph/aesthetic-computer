@@ -50,6 +50,17 @@ export class Connection {
     this.lastSnapshot = now;
     this.lastTick = tick;
   }
+  // 📶 How shoddy the line is, 0 to 1: the room's word late, arriving
+  // unevenly, or the echo slow or wobbling. 0 until the room has spoken.
+  shoddy(now) {
+    if (this.lastSnapshot === null) return 0;
+    const clamp = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
+    const late = clamp((now - this.lastSnapshot - 120) / 1500);
+    const uneven = clamp((this.arrivalJitter - 12) / 60);
+    const slow = this.rtt === null ? 0 : clamp((this.rtt - 180) / 400);
+    const wobble = clamp((this.jitter - 30) / 150);
+    return Math.max(late, 0.6 * uneven, 0.4 * slow, 0.5 * wobble);
+  }
   state(now, open, queued = 0) {
     const stale = this.lastSnapshot !== null && now - this.lastSnapshot > 1000;
     const noEcho = this.lastReply !== null && now - this.lastReply > 3500;

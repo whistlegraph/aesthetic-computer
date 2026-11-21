@@ -272,6 +272,31 @@ export class Sfx {
     f.chopGain.gain.setTargetAtTime(g ? 0.012 * g * MASTER : 0, t, 0.08);
     f.hissGain.gain.setTargetAtTime(g ? 0.03 * Math.sin(Math.PI * Math.min(1, g * 1.2)) * MASTER : 0, t, 0.1);
   }
+  // 📶 A shoddy line (0 to 1): a crackle of held-sample hiss that comes in
+  // gusts, thicker as the line gets worse; nothing on a good line.
+  shoddy(bad) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.crackle) {
+      if (bad <= 0.05) return;
+      const buffer = a.createBuffer(1, a.sampleRate, a.sampleRate), data = buffer.getChannelData(0);
+      // (Pops on silence: sparse held samples, the bits taken away.)
+      for (let i = 0, held = 0; i < data.length; i++) { if (i % 9 === 0) held = Math.random() < 0.08 ? Math.round((Math.random() * 2 - 1) * 3) / 3 : held * 0.6; data[i] = held; }
+      const src = a.createBufferSource(), band = a.createBiquadFilter(), gain = a.createGain();
+      src.buffer = buffer;
+      src.loop = true;
+      band.type = 'bandpass';
+      band.frequency.value = 2400;
+      band.Q.value = 0.7;
+      gain.gain.value = 0;
+      src.connect(band).connect(gain).connect(a.destination);
+      src.start();
+      this.crackle = { gain, band };
+    }
+    const g = bad > 0.05 ? Math.min(1, bad) : 0, gust = g ? 0.4 + 0.6 * Math.random() : 0;
+    this.crackle.gain.gain.setTargetAtTime(0.035 * g * gust * MASTER, t, 0.03);
+    this.crackle.band.frequency.setTargetAtTime(3200 - 1800 * g, t, 0.1);
+  }
   lift(speed) {
     if (!this.ready) return;
     const a = this.audio, t = a.currentTime;

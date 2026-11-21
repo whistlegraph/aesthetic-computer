@@ -1358,6 +1358,8 @@ export async function createView(canvas) {
     netLog = [], // The connection's own story, newest last, shown while it is down.
     connected = true,
     decay = 0, // 📉 0 to 1: the server is gone and the picture is coming apart into blocks and bits
+    chunk = 0, // 🧱 0 to 1: the room not yet spoken (a drop, a rejoin): coarse blocks, pieces still missing
+    fuzz = 0, // 📶 0 to 1: the line is shoddy: bands of the picture tear sideways
     wire = null, // 📟 { text, color }: one line of the connection's story, top left, while the room is still up (the server quiet, or just back on new code)
     offline = false, // The sheet is open and the connection is down: the log panel, nothing else.
     jobs = [],
@@ -1529,6 +1531,8 @@ export async function createView(canvas) {
     // Ease in both the planet and the wide-angle lens as the camera leaves it.
     const curvature = eye.y < ground || basement ? 1 : viewCurvature(eye.y - ground, orbit);
     projector.decay = decay;
+    projector.chunk = chunk;
+    projector.fuzz = fuzz;
     projector.decayAt = now;
     projector.card = backend === 'webgpu';
     projector.under = projector.card ? 1 : 0;

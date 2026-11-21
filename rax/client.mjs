@@ -694,6 +694,29 @@ try {
   if (onto !== null) { sessionStorage.removeItem('rax-rebooted'); rebooted = { text: `the server restarted: back on ${onto || 'new code'}`, until: performance.now() + 9000 }; }
 } catch {}
 let downSince = null; // when this outage began, for the picture's decay
+// 📉 Going down, the picture comes apart: how far gone, 0 to 1, over the outage's first five seconds.
+function decayOf(now) {
+  if (!(sheetOpen && down)) { downSince = null; return 0; }
+  downSince ??= now;
+  return Math.min(1, (now - downSince) / 5000);
+}
+// 🧱 Chunking in: from a drop (or a rejoin) until the room's first snapshot
+// the picture is coarse blocks with pieces still missing; when the room
+// speaks it fills in over half a second, from wherever it got to.
+let chunkAt = null, chunkPeak = 0, landedAt = null;
+function chunkOf(now) {
+  if (!sheetOpen || down) { chunkAt = landedAt = null; chunkPeak = 0; return 0; }
+  if (connection.lastSnapshot === null && !held) {
+    landedAt = null;
+    chunkAt ??= now;
+    return (chunkPeak = Math.min(0.85, (now - chunkAt) / 180)); // (a quick join barely shows)
+  }
+  if (chunkAt === null) return 0;
+  landedAt ??= now;
+  const left = chunkPeak * (1 - (now - landedAt) / 500);
+  if (left <= 0) { chunkAt = landedAt = null; chunkPeak = 0; return 0; }
+  return left;
+}
 let statsShown = false;
 const chartKey = 'ac:fps-hud';
 try {
@@ -735,7 +758,7 @@ const CURSOR_AIM = false; // A free mouse does not drag the aim around (2026-11-
 // Down: the socket is closed, or it is open but the server has said nothing
 // for three seconds (a restart in progress, or the network gone).
 function netDown(now) {
-  if (parked) return false; // Left on purpose: not an outage.
+  if (parked || ws?.left) return false; // Left on purpose: not an outage.
   if (ws && ws.readyState === WebSocket.CLOSED) return true;
   const open = ws?.readyState === WebSocket.OPEN;
   const silent = open && connection.lastSnapshot !== null && now - connection.lastSnapshot > 3000;
@@ -1926,7 +1949,7 @@ function connect(adopt = null) {
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
-    if (parked) {
+    if (parked || socket.left) {
       // Our own leave: drop the seat quietly; the room stays as it was seen.
       seat = -1;
       player = null;
@@ -3491,8 +3514,10 @@ function step(now) {
     netLog,
     connected: !down, // connecting counts; a dead or long-silent socket shows the log
     offline: sheetOpen && down,
-    // 📉 Going down, the picture comes apart: how far gone, 0 to 1, over the outage's first five seconds.
-    decay: Math.max(stepWarp(now), sfx.down(sheetOpen && down ? Math.min(1, (now - (downSince ?? now)) / 5000) : 0) || sheetOpen && down ? Math.min(1, (now - (downSince ??= now)) / 5000) : ((downSince = null), 0)),
+    decay: (() => { const g = decayOf(now); sfx.down(g); return Math.max(stepWarp(now), g); })(),
+    chunk: chunkOf(now),
+    // 📶 Not down but shoddy (late, uneven or slow word from the server): the picture tears and the line crackles.
+    fuzz: (() => { const f = sheetOpen && !down && !document.hidden ? connection.shoddy(now) : 0; sfx.shoddy(f); return f; })(),
     // 📟 The server quiet for a moment (not yet an outage), or the page just back on new code.
     wire: !sheetOpen || down ? null
       : ws?.readyState === WebSocket.OPEN && connection.lastSnapshot !== null && now - connection.lastSnapshot > 400 && !held
@@ -3563,6 +3588,7 @@ if (hosted) {
     // given up at once, as if teleported out, and taken fresh on the next drop.
     if (!sheetOpen && ws && ws.readyState !== WebSocket.CLOSED) {
       parked = true;
+      ws.left = true;
       logNet('left the room (back on the curtain)');
       ws.close(1000, 'left');
     }
@@ -3575,7 +3601,8 @@ if (hosted) {
     if (sheetOpen) {
       last = performance.now();
       debt = 0;
-      if (!ws || ws.readyState === WebSocket.CLOSED) connect();
+      // (A socket still closing from the last trip to the curtain is not the room going down: a new one at once.)
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.left) connect();
       canvas.focus();
       clearTimeout(hushTimer);
       void sfx.wake().then(() => sheetOpen && sfx.enter());

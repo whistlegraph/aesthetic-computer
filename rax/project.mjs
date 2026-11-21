@@ -378,6 +378,24 @@ export class Projector {
       ay = snap(ay) - drop; by = snap(by) - drop; cy = snap(cy) - drop;
       if (roll() < g * 0.45) { const lit = 0.25 + 0.75 * roll(); cr = 0.05 * lit; cg = lit; cb = 0.3 * lit; }
       else if (roll() < g * 0.3) { const t = cr; cr = cb; cb = cg; cg = t; } // the colours' wires crossed
+    } else {
+      // 🧱 Chunking in: each shape's own number (not the clock's, so it
+      // stays put) says when it arrives; until then the rest sit on a
+      // coarse grid that fines down as the room fills in.
+      if (this.chunk > 0) {
+        const g = this.chunk, h = ((Math.imul((ax * 512) | 0, 73856093) ^ Math.imul((ay * 512) | 0, 19349663) ^ Math.imul((z0 * 4) | 0, 83492791)) >>> 0) / 4294967296;
+        if (h < g * 0.8) return; // not here yet
+        const cell = 1 / (24 + 600 * (1 - g) * (1 - g)), snap = (n) => Math.round(n / cell) * cell;
+        ax = snap(ax); bx = snap(bx); cx = snap(cx); ay = snap(ay); by = snap(by); cy = snap(cy);
+      }
+      // 📶 A shoddy line: bands across the picture tear sideways, a few
+      // at a time, fresh every 50 ms; a rare one crosses its colours.
+      if (this.fuzz > 0) {
+        const f = this.fuzz, tick = Math.floor((this.decayAt || 0) / 50), band = Math.floor((ay + 1) * 14);
+        const h = (Math.imul(band + 7, 2654435761) ^ Math.imul(tick + 3, 40503)) >>> 0;
+        if ((h % 1000) / 1000 < f * 0.45) { const s = ((((h >>> 10) % 1000) / 1000) - 0.5) * 0.14 * f; ax += s; bx += s; cx += s; }
+        if (((h >>> 20) % 1000) / 1000 < f * 0.12) { const t = cr; cr = cb; cb = cg; cg = t; }
+      }
     }
     // Depth (planet.mjs depthAt): all one part, or the eye's own few metres and then the far.
     const a = range.a, b = range.b;
