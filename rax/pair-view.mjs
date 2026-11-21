@@ -15,7 +15,8 @@ export function pairLayout(pair, hud, W, H, panelTop, scale = 1) {
   if (!cells) return null;
   const { unit, safeX, safeY } = hud, across = cells.length + 2 * QUIET;
   // A module is one HUD unit, as every code on the screen is drawn (2026-11-20): it sits on the same grid as the letters beside it. (It was sized on its own, a pixel or two a module whatever the unit, and read as another resolution.) On a screen too small for that it is as many whole pixels as fit.
-  const module = Math.max(1, Math.min(unit, Math.floor(Math.min(W, H) / 2 / across)));
+  // (Half a unit, in whole pixels: small in its corner. A whole unit a module stood a third of the way up a drone's screen.)
+  const module = Math.max(1, Math.min(Math.ceil(unit / 2), Math.floor(Math.min(W, H) / 2 / across)));
   const size = across * module;
   const x = -W / 2 + safeX + 2, y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
   return { cells, module, size, x, y, unit, number: pair.number, key: `${pair.url}:${W}:${H}:${x}:${y}:${module}:${unit}`,
