@@ -89,6 +89,35 @@ try {
     });
     assert.deepEqual(orbitSizes.parked, [0, 0, 1280, 800, 640, 400], 'the globe is drawn on the full Prompt pixel grid');
     assert.deepEqual(orbitSizes.flying, orbitSizes.parked, 'the globe and the flight share one pixel grid');
+    const spin = await page.evaluate(async () => {
+      let clock = 5400;
+      performance.now = () => clock;
+      try {
+        const sample = (orbit, elapsed) => {
+          clock += elapsed;
+          view.render({bare: true, orbit, me: {...state.me, x: 0, z: -5, yaw: 60, pitch: 0}});
+          const ray = view.aimForward();
+          return Math.atan2(ray.x, ray.z) * 180 / Math.PI;
+        };
+        const turn = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+        let previous = sample(1, 0), largest = 0;
+        for (let i = 1; i <= 84; i++) {
+          const heading = sample(1 - i / 84, 1000 / 60);
+          largest = Math.max(largest, turn(heading, previous));
+          previous = heading;
+          if (i % 21 === 0) await new Promise(requestAnimationFrame);
+        }
+        const parked = sample(1, 16);
+        const afterPause = sample(1, 800);
+        const camera = {x: 9, y: 15, z: -8, yaw: 20, pitch: -24};
+        view.render({bare: true, orbit: 0.001, camera, spectator: true});
+        const eye = view.aimOrigin();
+        return {largest, pause: turn(afterPause, parked), drone: Math.hypot(eye.x-camera.x, eye.y-camera.y, eye.z-camera.z)};
+      } finally { delete performance.now; }
+    });
+    assert.ok(spin.largest < 5, 'heading eases throughout the flight');
+    assert.ok(spin.pause < 1, 'a paused corner resumes without skipping around the globe');
+    assert.ok(spin.drone < 0.01, 'the flight reaches a spectator’s camera');
     // A build placed in the room must appear even at the far end of the flight.
     const distantRoom = async built => {
       await page.evaluate(built => {

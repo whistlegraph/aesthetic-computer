@@ -890,6 +890,7 @@ export async function createView(canvas) {
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
   let natural = null; // 🖥️ The picture's scale last frame before any zoom a camera asked for: what going in to a screen works its own zoom from (dock.mjs).
   let snow = null, snowAt = 0; // The room's falling snow.
+  let orbitAngle = 0, spinAt = null, flightTurn = null;
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
@@ -1444,14 +1445,19 @@ export async function createView(canvas) {
     // curtain stays mostly 2D and the corner is the way in (2026-11-03).
     projector.shiftX = projector.shiftY = 0;
     const ground = skyline?.dy ?? (basement ? DEPTH : 0);
+    const landing = 1 - orbit;
+    const landed = landing * landing * (3 - 2 * landing);
+    if (orbit === 0 || orbit === 1) flightTurn = null;
     if (orbit > 0) {
-      const a = now / 3200; // a slow spin, about one turn in twenty seconds
+      // A late frame or a resumed tab should advance at most one visible step.
+      if (spinAt !== null) orbitAngle += Math.min(50, Math.max(0, now - spinAt)) * (1 - landed) / 3200;
+      const a = orbitAngle;
       // Fit the entire planetary limb under the cursor, including a margin
       // at maximum hover. Use its apparent radius from this camera height.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
       const height = PLANET * 10;
       const natural = PLANET / Math.sqrt(height * (height + 2 * PLANET)) * canvas.height / (2 * tan);
-      orbitZoom = Math.pow((15 * cornerScale) / natural, orbit * orbit * (3 - 2 * orbit));
+      orbitZoom = Math.pow((15 * cornerScale) / natural, (1 - landed));
       const far = { x: Math.sin(a) * PLANET, y: ground + height, z: -Math.cos(a) * PLANET };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
@@ -1459,29 +1465,41 @@ export async function createView(canvas) {
       const inset = grid ? orbitInset : orbitInset * px;
       const cornerX = 1 - 2 * (inset + (grid ? paperRight : 0)) / canvas.width;
       const cornerY = 2 * (inset + (grid ? paperBottom : 0)) / canvas.height - 1;
-      const k0 = 1 - orbit, e0 = k0 * k0 * (3 - 2 * k0);
-      projector.shiftX = cornerX * (1 - e0);
-      projector.shiftY = cornerY * (1 - e0);
+      projector.shiftX = cornerX * (1 - landed);
+      projector.shiftY = cornerY * (1 - landed);
       const centre = { x: far.x * 0.98, y: ground - PLANET, z: far.z * 0.98 };
-      const me0 = me || flyTo; // Before the seat is granted, fly toward the spawn.
+      const me0 = me || flyTo || camera; // Before the seat is granted, fly toward the spawn.
       if (!me0 || orbit >= 1) {
         eye = far;
         aim = centre;
       } else {
-        const k = 1 - orbit, e = k * k * (3 - 2 * k); // smoothstep along the curve
+        const e = landed;
         const f = direction(me0.yaw, 0);
         const behind = { x: me0.x - f.x * 3.2, y: me0.y + 1.4, z: me0.z - f.z * 3.2 };
-        if (!me) {
+        if (!me && flyTo && (!camera || !spectator)) {
           // No seat yet: the eye and aim the seat will have.
           eye = { x: me0.x, y: me0.y, z: me0.z };
-          aim = along(eye, direction(me0.yaw, 0), 10);
+          aim = along(eye, direction(me0.yaw, me0.pitch || 0), 10);
         }
+        const nearYaw = Math.atan2(aim.x - eye.x, aim.z - eye.z);
+        // The overhead eye's heading is -a. Keep the chosen arc across the
+        // +/-pi seam, including when the paper reverses mid-flight.
+        const rawTurn = nearYaw + a;
+        const tau = 2 * Math.PI;
+        flightTurn = rawTurn - tau * Math.round((rawTurn - (flightTurn ?? 0)) / tau);
+        const heading = -a + e * flightTurn;
         const bez = (p, q, r) => (1 - e) * (1 - e) * p + 2 * (1 - e) * e * q + e * e * r;
         eye = { x: bez(far.x, behind.x, eye.x), y: bez(far.y, behind.y, eye.y), z: bez(far.z, behind.z, eye.z) };
-        aim = { x: centre.x + (aim.x-centre.x)*e, y: centre.y + (aim.y-centre.y)*e, z: centre.z + (aim.z-centre.z)*e };
+        // Follow the landing point in elevation. Heading stays defined even
+        // when the sightline passes directly beneath the camera.
+        const targetX = centre.x + (aim.x - centre.x) * e;
+        const targetZ = centre.z + (aim.z - centre.z) * e;
+        const reach = Math.max(0.0001, Math.hypot(targetX - eye.x, targetZ - eye.z));
+        aim = { x: eye.x + Math.sin(heading) * reach, y: centre.y + (aim.y - centre.y) * e, z: eye.z + Math.cos(heading) * reach };
       }
     }
-    const roll = camera?.roll || 0;
+    spinAt = orbit > 0 ? now : null;
+    const roll = (camera?.roll || 0) * landed;
     // Keep the idle orbital motion out of the player's walk and the drone's controls.
     if (orbit > 0) {
       const breath = Math.sin(now / 1900) * 0.03 * orbit;
