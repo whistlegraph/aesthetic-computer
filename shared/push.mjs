@@ -313,9 +313,9 @@ export const APNS_HOSTS = Object.freeze({
   sandbox: "https://api.sandbox.push.apple.com",
 });
 
-function apnsPayload(note) {
+export function apnsPayload(note) {
   const aps = {
-    alert: { title: note.title, body: note.body },
+    alert: { title: note.title, ...(note.subtitle ? { subtitle: note.subtitle } : {}), body: note.body },
     sound: "default",
     "mutable-content": 1,
   };
@@ -466,7 +466,7 @@ export async function sendToUser(db, userSub, note, { device } = {}, log = conso
 // 🛰️ AC network notifications: send to a device, a person, or a group in the
 //    app device registry (Mongo `app-devices`, shared/app-devices.mjs).
 //      target: { app, deviceId } | { user, app? } | { app, topic }
-//      note:   { title, body, data?, thread?, collapse?, urgent?, expiresAt? }
+//      note:   { title, subtitle?, body, image?, data?, thread?, collapse?, urgent?, expiresAt? }
 //    Each device is reached through its own app's APNs topic or Web Push.
 //    Registrations the push service reports gone are cleared from their row.
 export async function sendToTarget(db, target, note, log = console.log) {

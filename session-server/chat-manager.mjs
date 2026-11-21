@@ -15,6 +15,7 @@ import { ensureIndexes as ensureHeartsIndexes, toggleHeart, countHearts } from "
 import { MongoClient, ObjectId } from "mongodb";
 import { sotceBanned } from "../shared/sotce-ban.mjs";
 import { broadcastToTopic } from "../shared/push.mjs"; // Standard push (no Firebase).
+import { mediaFor } from "../shared/push-media.mjs"; // A picture for each notification.
 import {
   MAX_CHARS,
   chatCapabilities,
@@ -1011,14 +1012,19 @@ export class ChatManager {
     }
 
     if (!this.db) return;
-    broadcastToTopic(this.db, instance.config.topic, {
+    // The room names the notification's second line, groups its stack on the
+    // lock screen, and is where a tap lands.
+    const room = { "chat-clock": "laklok", "chat-system": "chat" }[instance.config.name];
+    mediaFor(this.db, handle, text).then((image) => broadcastToTopic(this.db, instance.config.topic, {
       title,
+      ...(room ? { subtitle: room, thread: room } : {}),
       body: text,
       icon: instance.config.icon, // undefined keeps the default mark
+      ...(image ? { image } : {}), // the message's media, or the sender's newest painting
       urgent: true, // time-sensitive on iOS, Urgency: high on web
       ttl: 0, // don't store undelivered chat pings
-      data: { piece: "chat" },
-    }).then((summary) => {
+      data: { piece: room || "chat" },
+    })).then((summary) => {
       console.log("💬 Notification sent:", summary);
     }).catch((err) => {
       console.log("💬 Notification error:", err);
