@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-bigger-text",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "small",
+  "requests": ["the word HI in the middle of the screen", "make the text bigger"]
+}

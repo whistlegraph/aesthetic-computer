@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-slower",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "small",
+  "requests": ["a square spinning in the middle", "slower"]
+}

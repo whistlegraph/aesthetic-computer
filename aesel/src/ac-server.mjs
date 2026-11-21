@@ -38,6 +38,8 @@ import { validatePieceSource } from "./revisions.mjs";
 import { readRuntimeFeedback, runtimeFeedbackContext } from "./runtime-feedback.mjs";
 import { PREVIEW_TOOL, TOOLS, callTool, loadMap } from "./tools.mjs";
 import { API_WORKFLOW_HOSTED } from "./api-context.mjs";
+import { ESCALATE_AFTER, askParts, escalate, routeAsk } from "./model-router.mjs";
+import { HOSTED_MODELS } from "./open-models.mjs";
 import { harnessText } from "./harness-text.mjs";
 import { createHash, randomUUID } from "node:crypto";
 import { configuredJev } from "./jev-advisor.mjs";
@@ -154,7 +156,13 @@ export class AcServer extends EventEmitter {
     this.reasoning = reasoning && typeof reasoning === "object" ? reasoning : null;
     this.thinking = thinking && typeof thinking === "object" ? thinking : null;
     this.approvals = new Map();
-    this.model = (Object.hasOwn(models, model) ? models[model] : model) || fallbackModel;
+    // "auto" routes each piece turn by the complexity of its ask
+    // (model-router.mjs); a repository session has no piece to judge.
+    this.routing = model === "auto" && !workspace;
+    this.route = null;
+    this.failedChecks = 0;
+    this.failedRevision = null;
+    this.model = this.routing || model === "auto" ? fallbackModel : (Object.hasOwn(models, model) ? models[model] : model) || fallbackModel;
     // No model named on the relay is Automatic: the request names none, and
     // aesthetic.computer runs its default.
     this.automatic = !model && !endpoint;
@@ -338,6 +346,11 @@ export class AcServer extends EventEmitter {
     this.emit("notification", { method: "turn/started", params: { turn } });
 
     this.messages.push({ role: "user", content: text });
+    if (this.routing) {
+      let source = "";
+      try { if (this.piece?.file && existsSync(this.piece.file)) source = readFileSync(this.piece.file, "utf8"); } catch {}
+      this.#useRoute(routeAsk({ ...askParts(text), source }));
+    }
 
     try {
       // Round and round until the model stops asking for tools. Bounded because
@@ -383,6 +396,28 @@ export class AcServer extends EventEmitter {
     return { turn };
   }
 
+  // Take a route: its model for the rest of the turn, said aloud so the
+  // transcript shows which model is working and why.
+  #useRoute(route) {
+    this.route = route;
+    this.failedChecks = 0;
+    this.model = HOSTED_MODELS[route.model] || this.model;
+    this.emit("notification", { method: "model/routed", params: { tier: route.tier, model: this.model, reasons: route.reasons, escalated: !!route.escalated } });
+  }
+
+  // Each revision that fails its check counts against the route, once — a
+  // round spent reading the API leaves the same revision and is not a second
+  // failure. Enough of them hand the turn up a tier.
+  #noteCheck(feedback) {
+    if (!this.routing || !this.route) return;
+    if (!feedback?.logs?.some((line) => line.level === "error")) return;
+    if (feedback.revision === this.failedRevision) return;
+    this.failedRevision = feedback.revision;
+    if (++this.failedChecks < ESCALATE_AFTER) return;
+    const next = escalate(this.route);
+    if (next !== this.route) this.#useRoute(next);
+  }
+
   // One request, streamed. Returns why the model stopped.
   async #round(advise = true) {
     const controller = this.controller = new AbortController();
@@ -407,6 +442,7 @@ export class AcServer extends EventEmitter {
       tools.push({name:api.name,description:api.description,input_schema:api.inputSchema});
     }
     const feedback=previewing?this.runtimeFeedback():null;
+    this.#noteCheck(feedback);
     const messages=this.workspace?elideOldResults(this.messages):[...this.messages];
     if (this.pendingTriage) {
       const advice = this.pendingTriage;

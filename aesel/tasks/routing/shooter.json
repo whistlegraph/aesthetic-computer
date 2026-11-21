@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-shooter",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "hard",
+  "requests": ["a space shooter with waves of enemies, power-ups, a high score and a pause menu"]
+}

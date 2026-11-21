@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-blue",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "small",
+  "requests": ["a circle bouncing around the screen", "make it blue"]
+}

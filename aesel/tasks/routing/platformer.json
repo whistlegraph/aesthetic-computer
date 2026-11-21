@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-platformer",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "hard",
+  "requests": ["a platformer with gravity, three levels, enemies that patrol, coins for score and a lives counter"]
+}

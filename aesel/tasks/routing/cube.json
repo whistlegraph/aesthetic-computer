@@ -1,0 +1,7 @@
+{
+  "id": "piece-routing-cube",
+  "kind": "piece",
+  "domain": "routing",
+  "expectTier": "hard",
+  "requests": ["a 3D wireframe cube with perspective that you can rotate by dragging"]
+}
