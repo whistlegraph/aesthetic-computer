@@ -29,6 +29,7 @@ import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons } from './touch.mjs';
+import { gyroLook } from './gyro.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 // 🐌 KidLisp is some thirty modules deep (its runtime and AC's graphics): it
 // was fetched before the room could start at all, about 0.4 s of the way in
@@ -800,7 +801,7 @@ function watchHealth(hadSnapshot) {
 const controller = new Controller();
 const radial = new Radial();
 const touch = new TouchPad();
-// A phone shows its buttons before the first touch.
+// Use the touch HUD before the first gesture on a phone.
 touch.active = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
 const sfx = new Sfx();
 // 🍎 AC's native app starts a page's sound itself once the page has booted (it may play with no gesture), by the word AC's own pages answer to. Standing alone, rax answers to it too, so its sound comes back after the app loads it afresh. (Under the prompt the prompt's page has the word.)
@@ -2367,8 +2368,17 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   if (touchy(e)) touch.move(e, canvas.clientWidth, canvas.clientHeight);
 });
+const gyro = gyroLook(window,
+  () => touch.active && sheetOpen && !document.hidden && document.hasFocus() && !down &&
+    !typing() && !menu && !radial.open && !dock && !lockOn && !game()?.camera && !away && !resting,
+  (dx, dy) => {
+    yaw = (yaw + dx / focusZoom + 360) % 360;
+    pitch = clamp(pitch + dy / focusZoom, -85, 85);
+    if (Math.hypot(dx, dy) > 0.08) inputAt = performance.now();
+  });
 canvas.addEventListener('pointerup', (e) => {
   if (!touchy(e)) return;
+  if (e.pointerType === 'touch' && sheetOpen && !typing() && !menu && !radial.open) void gyro.enable();
   if (e.pointerId === padFinger) { padFinger = null; return void panels.release(); }
   touchButton(touch.up(e, performance.now()), false);
 });
@@ -2379,6 +2389,7 @@ canvas.addEventListener('pointercancel', (e) => {
   if (held && !held.act) pressKey('keyup', held.code, held.key);
 });
 function releaseInput() {
+  gyro.reset();
   lastMotionLook = null;
   sfx.motion();
   panels.release();
