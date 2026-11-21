@@ -7,7 +7,7 @@ Use the release manifests for current versions; do not infer support or availabi
 ## Resources
 
 - [Website](https://aesel.app/): Public entry point.
-- [Browser app](https://aesel.app/try/): Sign in with an Aesthetic Computer account and handle to make pieces using AC braincells.
+- [Browser app](https://aesel.app/try/): Sign in with your AC handle to read account threads, reopen browser drafts and make pieces with AC braincells.
 - [Mac release manifest](https://releases.aesthetic.computer/aesel/mac/latest.json): Current signed Mac release and SHA-256 checksum; follow its dmg field.
 - [Windows release manifest](https://releases.aesthetic.computer/aesel/windows/latest.json): Current Windows x64 beta installer, SHA-256 checksum and signing status. AC braincells; vendor CLI providers and automatic updating are not included.
 - [Terminal release manifest](https://prompt.ac/aesel.json): Current terminal build and archive.

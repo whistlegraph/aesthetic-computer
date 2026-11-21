@@ -119,7 +119,8 @@
       "summary": "An assistant for making and publishing Aesthetic Computer pieces.",
       "llms": "https://aesel.app/llms.txt",
       "aliases": [
-        "www.aesel.app"
+        "www.aesel.app",
+        "try.aesel.app"
       ],
       "note": "Use the release manifests for current versions; do not infer support or availability from an old download filename. Account notebooks and provider credentials are not public resources.",
       "resources": [
@@ -131,7 +132,7 @@
         {
           "title": "Browser app",
           "url": "https://aesel.app/try/",
-          "description": "Sign in with an Aesthetic Computer account and handle to make pieces using AC braincells."
+          "description": "Sign in with your AC handle to read account threads, reopen browser drafts and make pieces with AC braincells."
         },
         {
           "title": "Mac release manifest",
