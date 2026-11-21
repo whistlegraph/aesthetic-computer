@@ -2405,8 +2405,8 @@ function step(now) {
     fpsFrames = 0;
     fpsAt = now;
   }
-  // START is Tab: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it opens the $.
-  if (gamepad.start && !hosted) toggleMenu();
+  // START goes to the prompt, as the corner says: under the prompt it turns the paper (the prompt's page hears the pad itself, so it works from both sides: lib/rax-sheet.mjs); standing alone it leaves for the prompt, as Escape does. (The $ is on the d-pad.)
+  if (gamepad.start && !hosted) leave();
   // ➡️ Right on the d-pad opens the $ (not while locked on, where it steps the lock, nor while typing); once open the d-pad moves in it.
   let opened = false;
   const riding = seat >= 0 && hasCar() && inCar(player);

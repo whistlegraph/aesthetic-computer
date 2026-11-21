@@ -14,9 +14,8 @@ export function pairLayout(pair, hud, W, H, panelTop, scale = 1) {
   const cells = pair && joinCode(pair.url);
   if (!cells) return null;
   const { unit, safeX, safeY } = hud, across = cells.length + 2 * QUIET;
-  const module = Math.max(1, Math.min(
-    Math.max(Math.ceil(2 / Math.max(0.5, scale)), Math.floor((30 * unit) / across)), // (about the face cam's size: two screen pixels a module at the least)
-    Math.floor(Math.min(W, H) / 2 / across)));
+  // A module is one HUD unit, as every code on the screen is drawn (2026-11-20): it sits on the same grid as the letters beside it. (It was sized on its own, a pixel or two a module whatever the unit, and read as another resolution.) On a screen too small for that it is as many whole pixels as fit.
+  const module = Math.max(1, Math.min(unit, Math.floor(Math.min(W, H) / 2 / across)));
   const size = across * module;
   const x = -W / 2 + safeX + 2, y = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
   return { cells, module, size, x, y, unit, number: pair.number, key: `${pair.url}:${W}:${H}:${x}:${y}:${module}:${unit}`,
