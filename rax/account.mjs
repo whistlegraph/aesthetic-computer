@@ -16,12 +16,21 @@ const stored = () => {
     return false;
   }
 };
+// 🪪 A session handed to AC's pages by a host (the native app's shared login, the desktop app, the VS Code extension) is kept by boot.mjs as `session-aesthetic`, on this same origin: base64 JSON of { accessToken, account }. rax opened on its own (a page loaded again at /rax/, with no prompt around it) reads it there, so it comes up as who the prompt was, not as a guest (2026-11-20). An expired one is refused by the server and the visit is a guest's, as before.
+const handed = () => {
+  try {
+    const kept = localStorage.getItem('session-aesthetic');
+    return (kept && JSON.parse(atob(decodeURIComponent(kept)))?.accessToken) || null;
+  } catch {
+    return null;
+  }
+};
 // Known at once, before any network: is someone signed in here? The server
 // holds the seat for the handle when this says yes, so a slow sign-in never
 // shows as a guest first.
 export function accountExpected() {
   const h = host();
-  return !!(window.acTOKEN || h?.acTOKEN || h?.acUSER || stored());
+  return !!(window.acTOKEN || h?.acTOKEN || h?.acUSER || stored() || handed());
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function accountToken() {
@@ -43,6 +52,7 @@ export async function accountToken() {
     }
     if (window.auth0Client) return await window.auth0Client.getTokenSilently();
     if (location.hostname !== 'aesthetic.computer') return null;
+    if (!h && !stored() && handed()) return handed(); // (standing alone, with a host's session and none of its own)
     if (!stored()) return null;
     await import('./auth0.js');
     const auth = new window.auth0.Auth0Client({
