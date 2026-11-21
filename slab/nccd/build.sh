@@ -21,20 +21,30 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 FRAMEWORKS=(-framework AppKit -framework Network -framework Security -framework CoreImage
             -framework AVFoundation -framework ImageIO -framework SceneKit -framework WebKit -framework UserNotifications)
+# The Signal engine inside the app (engine/, a Rust library on libsignal). It is
+# linked when its library is there: engine/lib/libnccd_engine.a, a universal
+# static library (engine/README.md says how it is made). Without it the app is
+# built as before, on signal-cli alone.
+ENGINE=()
+if [[ -f engine/lib/libnccd_engine.a ]]; then
+    ENGINE=(-D ENGINE_LIB -import-objc-header engine/include/nccd_engine.h engine/lib/libnccd_engine.a
+            -framework SystemConfiguration -framework CoreFoundation -lresolv -liconv -lc++)
+    echo "› with the Signal engine (engine/lib/libnccd_engine.a)"
+fi
 if [[ -n "${DONUT_ARCHS:-}" ]]; then
     SDK="$(xcrun --sdk macosx --show-sdk-path)"
     SLICES=()
     for arch in $DONUT_ARCHS; do
         echo "› compiling Sources/*.swift ($arch)"
         xcrun swiftc -O -swift-version 5 -suppress-warnings -sdk "$SDK" -target "$arch-apple-macosx13.0" \
-            "${FRAMEWORKS[@]}" Sources/*.swift Launch/main.swift -o "build/NCCd-$arch"
+            "${FRAMEWORKS[@]}" ${ENGINE[@]+"${ENGINE[@]}"} Sources/*.swift Launch/main.swift -o "build/NCCd-$arch"
         SLICES+=("build/NCCd-$arch")
     done
     lipo -create -output "$APP/Contents/MacOS/NCCd" "${SLICES[@]}"
     rm -f "${SLICES[@]}"
 else
     echo "› compiling Sources/*.swift"
-    swiftc -O -swift-version 5 -suppress-warnings "${FRAMEWORKS[@]}" Sources/*.swift Launch/main.swift -o "$APP/Contents/MacOS/NCCd"
+    swiftc -O -swift-version 5 -suppress-warnings "${FRAMEWORKS[@]}" ${ENGINE[@]+"${ENGINE[@]}"} Sources/*.swift Launch/main.swift -o "$APP/Contents/MacOS/NCCd"
 fi
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"

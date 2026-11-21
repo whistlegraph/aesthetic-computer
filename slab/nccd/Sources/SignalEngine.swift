@@ -13,6 +13,46 @@ struct SignalAccount {
     let uuid: String
 }
 
+#if ENGINE_LIB
+// What the library's thread hands back: one JSON line. It goes to the main queue,
+// and to an engine that is still there.
+private final class EngineBox {
+    weak var engine: SignalEngine?
+}
+
+private let engineSaid: @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>?) -> Void = { ctx, json in
+    guard let ctx, let json else { return }
+    let line = Data(bytes: json, count: strlen(json))
+    let box = Unmanaged<EngineBox>.fromOpaque(ctx).takeUnretainedValue()
+    DispatchQueue.main.async { box.engine?.said(line) }
+}
+
+// The key of the library's store: 32 random bytes, in the login Keychain, as the log's key is.
+enum EngineKey {
+    private static let service = Paths.id + ".engine"
+    private static var query: [CFString: Any] { [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: "key"] }
+
+    static func get() -> String? {
+        // Test aid: NCC_ENGINE_KEY names the key (64 hex characters), and the Keychain is not asked.
+        if let k = ProcessInfo.processInfo.environment["NCC_ENGINE_KEY"], k.count == 64, k.allSatisfy({ $0.isHexDigit }) { return k.lowercased() }
+        var read = query
+        read[kSecReturnData] = true
+        var out: CFTypeRef?
+        let status = SecItemCopyMatching(read as CFDictionary, &out)
+        if status == errSecSuccess, let d = out as? Data, d.count == 32 { return d.map { String(format: "%02x", $0) }.joined() }
+        guard status == errSecItemNotFound else { return nil }      // refused, or locked: never make a second key
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, 32, &bytes) == errSecSuccess else { return nil }
+        var add = query
+        add[kSecValueData] = Data(bytes)
+        add[kSecAttrLabel] = "NCCd Signal store key"
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess ? bytes.map { String(format: "%02x", $0) }.joined() : nil
+    }
+
+    static func forget() { SecItemDelete(query as CFDictionary) }
+}
+#endif
+
 final class SignalEngine {
     private var proc: Process?
     private var stdin: FileHandle?
@@ -26,8 +66,92 @@ final class SignalEngine {
 
     struct EngineError: Error { let message: String }
 
+    // ─── the engine inside the app ───────────────────────────────────────────
+    // engine/ is a library on libsignal. It takes the same requests and gives the same
+    // answers as signal-cli's jsonRpc, so the rest of this file's callers see no difference.
+    #if ENGINE_LIB
+    private var lib: OpaquePointer?
+    private var box: Unmanaged<EngineBox>?
+    private var linkURI: ((String) -> Void)?
+    private var linkDone: ((Result<Void, EngineError>) -> Void)?
+    var onIdentityChanged: ((String) -> Void)?       // a member's safety number is not the one seen before
+
+    private static var accountFile: URL { Config.shared.signalConfigDir.appendingPathComponent("account.json") }
+
+    private func startLibrary(link name: String?) throws {
+        guard lib == nil else { return }
+        guard let key = EngineKey.get() else { throw EngineError(message: "the Keychain did not give the Signal store's key") }
+        let dir = Config.shared.signalConfigDir
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        Vault.lock(dir, dir: true)
+        var conf: [String: Any] = ["db": dir.appendingPathComponent("store.db").path, "key": key,
+                                   "attachments": dir.appendingPathComponent("attachments").path]
+        if let name { conf["link"] = name }
+        guard let d = try? JSONSerialization.data(withJSONObject: conf), let text = String(data: d, encoding: .utf8) else { return }
+        let holder = EngineBox()
+        holder.engine = self
+        let kept = Unmanaged.passRetained(holder)
+        guard let made = nccd_engine_start(text, engineSaid, kept.toOpaque()) else {
+            kept.release()
+            throw EngineError(message: "the Signal engine did not start")
+        }
+        lib = made
+        box = kept
+    }
+
+    private func stopLibrary() {
+        guard let lib else { return }
+        self.lib = nil
+        box?.takeUnretainedValue().engine = nil      // lines on their way to the main queue reach no one
+        nccd_engine_stop(lib)                        // no line is made after this returns
+        box?.release()
+        box = nil
+        let waiting = pending
+        pending = [:]
+        for (_, cb) in waiting { cb(.failure(EngineError(message: "Signal stopped"))) }
+    }
+
+    fileprivate func said(_ line: Data) {
+        guard let j = try? JSONSerialization.jsonObject(with: line) as? [String: Any] else { return }
+        let params = (j["params"] as? [String: Any]) ?? [:]
+        switch j["method"] as? String {
+        case "linkUri":
+            if let uri = params["uri"] as? String { linkURI?(uri) }
+        case "account":
+            // The account is linked. Its id and number are kept beside the store: they say "linked" at the next launch.
+            if let d = try? JSONSerialization.data(withJSONObject: ["uuid": params["uuid"] ?? "", "number": params["number"] ?? ""]) {
+                try? d.write(to: Self.accountFile, options: .atomic)
+                Vault.lock(Self.accountFile)
+            }
+            let done = linkDone
+            linkDone = nil; linkURI = nil
+            done?(.success(()))
+        case "exit":
+            let why = (params["reason"] as? String) ?? "stopped"
+            if why == "not linked" { try? FileManager.default.removeItem(at: Self.accountFile) }
+            let done = linkDone
+            linkDone = nil; linkURI = nil
+            stopLibrary()
+            if let done { done(.failure(EngineError(message: why == "stopped" ? "linking was cancelled" : why))) }
+            else if why != "stopped" { onExit?(why) }
+        case "identityChanged":
+            if let who = params["uuid"] as? String { onIdentityChanged?(who) }
+        default:
+            feed(line + Data([0x0A]))                // a reply, or a message: the same lines signal-cli gives
+        }
+    }
+    #endif
+
     // The linked account, read from signal-cli's own accounts file.
     static func account() -> SignalAccount? {
+        #if ENGINE_LIB
+        if Config.shared.usesLibrary {
+            guard let d = try? Data(contentsOf: accountFile),
+                  let j = try? JSONSerialization.jsonObject(with: d) as? [String: String],
+                  let uuid = j["uuid"], !uuid.isEmpty else { return nil }
+            return SignalAccount(number: j["number"] ?? "", uuid: uuid)
+        }
+        #endif
         let f = Config.shared.signalConfigDir.appendingPathComponent("data/accounts.json")
         guard let d = try? Data(contentsOf: f),
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
@@ -37,6 +161,9 @@ final class SignalEngine {
     }
 
     func start(account: SignalAccount) throws {
+        #if ENGINE_LIB
+        if Config.shared.usesLibrary { return try startLibrary(link: nil) }
+        #endif
         guard let cli = Config.shared.signalCli else {
             throw EngineError(message: "signal-cli is not installed (brew install signal-cli)")
         }
@@ -75,6 +202,9 @@ final class SignalEngine {
     }
 
     func stop() {
+        #if ENGINE_LIB
+        stopLibrary()
+        #endif
         proc?.terminationHandler = nil
         proc?.terminate()
         proc = nil
@@ -83,6 +213,20 @@ final class SignalEngine {
     // One JSON-RPC request. The completion runs on the main queue.
     func call(_ method: String, _ params: [String: Any] = [:],
               done: @escaping (Result<Any, EngineError>) -> Void) {
+        #if ENGINE_LIB
+        if Config.shared.usesLibrary {
+            guard let lib else { return done(.failure(EngineError(message: "Signal is not running"))) }
+            let id = String(nextId)
+            nextId += 1
+            let req: [String: Any] = ["jsonrpc": "2.0", "id": id, "method": method, "params": params]
+            guard let d = try? JSONSerialization.data(withJSONObject: req), let text = String(data: d, encoding: .utf8),
+                  nccd_engine_request(lib, text) == 0 else {
+                return done(.failure(EngineError(message: "Signal did not take the request")))
+            }
+            pending[id] = done
+            return
+        }
+        #endif
         guard let stdin, proc?.isRunning == true else {
             return done(.failure(EngineError(message: "signal-cli is not running")))
         }
@@ -123,6 +267,19 @@ final class SignalEngine {
 
     func link(deviceName: String, onURI: @escaping (String) -> Void,
               done: @escaping (Result<Void, EngineError>) -> Void) {
+        #if ENGINE_LIB
+        if Config.shared.usesLibrary {
+            // The engine that links is the engine that then runs: it is not started a second time.
+            stopLibrary()
+            linkURI = onURI
+            linkDone = done
+            do { try startLibrary(link: deviceName) } catch {
+                linkURI = nil; linkDone = nil
+                done(.failure((error as? EngineError) ?? EngineError(message: error.localizedDescription)))
+            }
+            return
+        }
+        #endif
         guard let cli = Config.shared.signalCli else {
             return done(.failure(EngineError(message: "signal-cli is not installed (brew install signal-cli)")))
         }
@@ -162,5 +319,24 @@ final class SignalEngine {
         }
     }
 
-    func cancelLink() { linkProc?.terminate(); linkProc = nil }
+    func cancelLink() {
+        #if ENGINE_LIB
+        if linkDone != nil { linkDone = nil; linkURI = nil; stopLibrary() }
+        #endif
+        linkProc?.terminate(); linkProc = nil
+    }
+
+    // The library's own unlink: Signal takes the device off the account, and its keys go from this Mac.
+    func unlinkLibrary(done: @escaping () -> Void) {
+        #if ENGINE_LIB
+        call("unlink") { [weak self] _ in
+            self?.stopLibrary()
+            try? FileManager.default.removeItem(at: Config.shared.signalConfigDir)
+            EngineKey.forget()
+            done()
+        }
+        #else
+        done()
+        #endif
+    }
 }

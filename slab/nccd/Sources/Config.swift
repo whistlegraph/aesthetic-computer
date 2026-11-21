@@ -17,6 +17,7 @@ struct CircleConf: Codable {
 
 struct AppConf: Codable {
     var signalCli: String?        // default: Homebrew's signal-cli
+    var engine: String?           // "lib": the Signal engine inside the app (engine/), not signal-cli
     var signalConfigDir: String?  // default: this app's own linked device
     var peopleLedger: String?     // optional people.json (names, colours, roles, badges)
     var assetsDir: String?        // optional club artwork
@@ -30,6 +31,10 @@ struct AppConf: Codable {
 
 enum Paths {
     static let home = FileManager.default.homeDirectoryForCurrentUser
+    // The name of this copy in the Keychain. A trial copy (trial.sh) has its own
+    // bundle identifier, so its keys and its wiki session are apart from NCCd's.
+    static let id = Bundle.main.bundleIdentifier ?? "computer.aesthetic.ncc-circles"
+    static let appName = Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String ?? "NCCd"
     static var root: URL {
         if let h = ProcessInfo.processInfo.environment["NCC_CIRCLES_HOME"] { return URL(fileURLWithPath: h) }
         return home.appendingPathComponent("Library/Application Support/NCC Circles")
@@ -79,7 +84,18 @@ final class Config {
         }
     }
 
+    // The Signal engine inside the app (engine/, on libsignal), in place of signal-cli.
+    // It is in a build only when the library was there to link (build.sh).
+    var usesLibrary: Bool {
+        #if ENGINE_LIB
+        return conf.engine == "lib" || ProcessInfo.processInfo.environment["NCC_ENGINE"] == "lib"
+        #else
+        return false
+        #endif
+    }
+
     var signalConfigDir: URL {
+        if usesLibrary { return Paths.root.appendingPathComponent("engine") }
         if let e = ProcessInfo.processInfo.environment["NCC_SIGNAL_CONFIG"] { return Paths.expand(e) }
         if let p = conf.signalConfigDir { return Paths.expand(p) }
         return Paths.root.appendingPathComponent("signal")
@@ -101,6 +117,7 @@ final class Config {
     var hideEngine = ProcessInfo.processInfo.environment["NCC_NO_SIGNAL_CLI"] != nil     // test aid: as if signal-cli were not installed
 
     var signalCli: String? {
+        if usesLibrary { return "library" }      // nothing to install: the engine is in the app
         if hideEngine { return nil }
         let fm = FileManager.default
         for p in [conf.signalCli, "/opt/homebrew/bin/signal-cli", "/usr/local/bin/signal-cli"] {

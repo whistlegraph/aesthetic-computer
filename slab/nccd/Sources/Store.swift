@@ -40,7 +40,7 @@ struct Msg: Codable {
 // The key that seals the logs. It is made on the first run and kept in the
 // login Keychain, which lets this app read it and asks before another does.
 enum Vault {
-    private static let service = "computer.aesthetic.ncc-circles.log"
+    private static let service = Paths.id + ".log"
     private static let mark = "1:"   // the format of a sealed line
 
     // nil when the Keychain does not give the key. The app then keeps what

@@ -944,40 +944,116 @@ final class LinkPanel: NSView {
         }
     }
 
-    // The moment Link Signal is pressed: the pane is already laid out as it will
-    // be with the code in it (an empty white square, one line under it), so
-    // nothing jumps when the code arrives a second later.
+    // The moment Link Signal is pressed: the white card is there at once, the
+    // size it has with the code in it, and dots come and go on it while Signal
+    // makes the code. When the code arrives its dots grow into place.
+    private var codeTimer: Timer?
+    private static let codeWords = "Signal on your phone → Settings → Linked devices → scan"
+
+    private func animate(_ frame: @escaping (CGFloat) -> Bool) {     // false ends it
+        codeTimer?.invalidate()
+        let began = Date()
+        let t = Timer(timeInterval: 1.0 / 30, repeats: true) { timer in
+            if !frame(CGFloat(Date().timeIntervalSince(began))) { timer.invalidate() }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        codeTimer = t
+        _ = frame(0)
+    }
+
     func waitForCode() {
-        let side: CGFloat = 330
-        let blank = NSImage(size: NSSize(width: side, height: side))
-        blank.lockFocus()
-        NSColor.white.setFill()
-        NSRect(x: 0, y: 0, width: side, height: side).fill()
-        let words = NSAttributedString(string: "making your code…", attributes: [
-            .font: NSFont.monospacedSystemFont(ofSize: 15, weight: .medium), .foregroundColor: NSColor(white: 0, alpha: 0.45)])
-        words.draw(at: NSPoint(x: (side - words.size().width) / 2, y: (side - words.size().height) / 2))
-        blank.unlockFocus()
-        signalPane.showCode(blank, "Signal on your phone → Settings → Linked devices → scan")
         focus = signalPane
+        animate { [weak self] t in
+            guard let self else { return false }
+            let img = Self.card(side: 33) { x, y in
+                let twinkle = sin(Double(t) * 3.2 + Double(Self.chance(x, y)) * 2 * .pi)
+                return CGFloat(pow(max(0, twinkle), 8)) * 0.85
+            }
+            self.signalPane.showCode(img, Self.codeWords)
+            return true
+        }
+    }
+
+    // A number from 0 to 1 for a module, the same each time.
+    static func chance(_ x: Int, _ y: Int) -> CGFloat {
+        let v = sin(Double(x) * 12.9898 + Double(y) * 78.233) * 43758.5453
+        return CGFloat(v - v.rounded(.down))
+    }
+
+    // The white card with round corners, and a round dot for each module.
+    // `size` gives how much of its dot a module shows, from 0 to 1. `eyes`
+    // does the same for the three corner marks, which are round rings with a
+    // round middle (nil: the card has none).
+    static func card(side m: Int, eyes: CGFloat? = nil, size: (Int, Int) -> CGFloat) -> NSImage {
+        let side: CGFloat = 390, pad: CGFloat = 30, u = (side - 2 * pad) / CGFloat(m)
+        let ink = NSColor(srgbRed: 0.09, green: 0.16, blue: 0.48, alpha: 1)
+        let img = NSImage(size: NSSize(width: side, height: side))
+        img.lockFocus()
+        NSColor.white.setFill()
+        NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: side, height: side), xRadius: 28, yRadius: 28).fill()
+        func rect(_ x: Int, _ y: Int, _ w: Int, _ part: CGFloat = 1) -> NSRect {      // modules from the top left
+            let r = NSRect(x: pad + CGFloat(x) * u, y: side - pad - CGFloat(y + w) * u, width: CGFloat(w) * u, height: CGFloat(w) * u)
+            let cut = r.width * (1 - part) / 2
+            return r.insetBy(dx: cut, dy: cut)
+        }
+        let marks = eyes == nil ? [] : [(0, 0), (m - 7, 0), (0, m - 7)]
+        ink.setFill()
+        for y in 0..<m { for x in 0..<m {
+            if marks.contains(where: { x >= $0.0 && x < $0.0 + 7 && y >= $0.1 && y < $0.1 + 7 }) { continue }
+            let part = size(x, y)
+            if part > 0.02 { NSBezierPath(ovalIn: rect(x, y, 1, min(part, 1) * 0.94)).fill() }
+        } }
+        if let part = eyes, part > 0.02 {
+            for (x, y) in marks {
+                for (inset, w, colour) in [(0, 7, ink), (1, 5, NSColor.white), (2, 3, ink)] {
+                    let r = rect(x + inset, y + inset, w, inset == 0 ? part : 1)
+                    colour.setFill()
+                    NSBezierPath(roundedRect: r, xRadius: r.width * 0.34, yRadius: r.width * 0.34).fill()
+                }
+            }
+        }
+        img.unlockFocus()
+        return img
+    }
+
+    // The modules of a code that Core Image made: how many a side, and which are dark.
+    static func modules(_ qr: CIImage) -> (side: Int, dark: (Int, Int) -> Bool)? {
+        let n = Int(qr.extent.width)                    // the quiet zone included
+        guard n > 21, let cg = CIContext().createCGImage(qr, from: qr.extent) else { return nil }
+        var px = [UInt8](repeating: 255, count: n * n)
+        guard let ctx = CGContext(data: &px, width: n, height: n, bitsPerComponent: 8, bytesPerRow: n,
+                                  space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return nil }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: n, height: n))
+        var lo = n, hi = 0                               // the code itself, inside the quiet zone
+        for y in 0..<n { for x in 0..<n where px[y * n + x] < 128 { lo = min(lo, x, y); hi = max(hi, x, y) } }
+        let m = hi - lo + 1
+        guard m >= 21 else { return nil }
+        let grid = px
+        return (m, { x, y in grid[(lo + y) * n + lo + x] < 128 })
     }
 
     // The code to scan, in Signal's pane (nil: the button again).
     func showQR(_ uri: String?) {
-        guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else { signalPane.showCode(nil); return settle() }
+        guard let uri, let f = CIFilter(name: "CIQRCodeGenerator") else {
+            codeTimer?.invalidate()
+            signalPane.showCode(nil)
+            return settle()
+        }
         f.setValue(Data(uri.utf8), forKey: "inputMessage")
         f.setValue("M", forKey: "inputCorrectionLevel")
-        guard let out = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 10, y: 10)) else { return }
-        // on white, with a white margin round it, so it scans on any pane colour
-        let rep = NSCIImageRep(ciImage: out)
-        let pad: CGFloat = 24
-        let img = NSImage(size: NSSize(width: rep.size.width + 2 * pad, height: rep.size.height + 2 * pad))
-        img.lockFocus()
-        NSColor.white.setFill()
-        NSRect(origin: .zero, size: img.size).fill()
-        rep.draw(in: NSRect(x: pad, y: pad, width: rep.size.width, height: rep.size.height))
-        img.unlockFocus()
-        signalPane.showCode(img, "Signal on your phone → Settings → Linked devices → scan")
+        guard let out = f.outputImage, let code = Self.modules(out) else { return }
         focus = signalPane
+        let length: CGFloat = 0.7
+        animate { [weak self] t in
+            guard let self else { return false }
+            let p = min(t / length, 1)
+            let img = Self.card(side: code.side, eyes: min(p * 2.5, 1)) { x, y in
+                guard code.dark(x, y) else { return 0 }
+                return p >= 1 ? 1 : max(0, min(1, (p * 1.5 - Self.chance(x, y) * 0.5) * 2))
+            }
+            self.signalPane.showCode(img, Self.codeWords)
+            return p < 1
+        }
     }
 }
 

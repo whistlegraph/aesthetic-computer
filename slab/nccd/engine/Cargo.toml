@@ -1,0 +1,50 @@
+# nccd-engine — NCCd's Signal engine, as a library inside the app.
+#
+# It wraps presage (a Signal client library on Signal's own libsignal) behind
+# a small C interface that speaks JSON, so the Swift app needs no second
+# program and no Homebrew. presage is pinned to one commit: a new one comes in
+# by a change to this file that a person reads.
+[package]
+name = "nccd-engine"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+presage = { git = "https://github.com/whisperfish/presage", rev = "7a5c2c723cf92b9c6abf39b169e4368e07d2165b" }
+presage-store-sqlite = { git = "https://github.com/whisperfish/presage", rev = "7a5c2c723cf92b9c6abf39b169e4368e07d2165b" }
+# Only for the ConnectOptions trait (to turn statement logging off). No features of its own.
+sqlx = { version = "0.9.0", default-features = false }
+tokio = { version = "1.48", features = ["rt", "macros", "sync", "time"] }
+futures = "0.3"
+serde_json = "1"
+base64 = "0.22"
+sha2 = "0.10"
+hex = "0.4"
+
+[dev-dependencies]
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tempfile = "3.9"
+log = "0.4"
+
+# The same patches presage's own workspace builds with.
+[patch.crates-io]
+quickcheck_async = { git = 'https://github.com/nytopop/quickcheck_async', rev = '76b13525ca93e0725e757f841fc6ccab8bae1913' }
+libsqlite3-sys = { version = "0.36.0", git = "https://github.com/whisperfish/rusqlite", rev = '2a42b3354c9194700d08aa070f70a131a470e7dc' }
+
+# unoptimized ML-KEM can stack-overflow when decrypting PQXDH prekey messages
+[profile.dev.package.libcrux-ml-kem]
+opt-level = 3
+
+[profile.release]
+# macOS 27 refuses a library that `strip` has touched ("mis-aligned LINKEDIT string pool").
+strip = "none"
+panic = "unwind"
+
+[profile.release.build-override]
+strip = "none"

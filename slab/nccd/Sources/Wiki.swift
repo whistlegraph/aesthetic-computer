@@ -18,7 +18,7 @@ struct WikiRow {
 
 final class Wiki {
     let base: String
-    private let service = "computer.aesthetic.ncc-circles.wiki"
+    private let service = Paths.id + ".wiki"
     private var collections: [(id: String, name: String)] = []
     private(set) var userColors: [String: String] = [:]   // lowercase first name → hex
     private var collectionColors: [String: String] = [:]  // collection id → hex

@@ -146,6 +146,13 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         main.onBack = { [weak self] in self?.openDoc = nil; self?.wikiTouched = true; self?.drawWiki() }
         main.menuFor = { [weak self] i in self?.circleMenu(i) }
         engine.onEnvelope = { [weak self] e in self?.handle(e) }
+        #if ENGINE_LIB
+        // Signal Desktop says "safety number changed". This is the same notice.
+        engine.onIdentityChanged = { [weak self] who in
+            guard let self else { return }
+            self.main.setStatus("\(self.people.person(who, fallback: nil).name)'s safety number changed. They may have installed Signal again. If that is a surprise, ask them.")
+        }
+        #endif
         engine.onExit = { [weak self] why in
             self?.main.setStatus("signal-cli stopped" + (why.isEmpty ? "" : ": " + String(why.suffix(160))))
         }
@@ -432,6 +439,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func updateEngine() {
+        if Config.shared.usesLibrary { return main.setStatus("the Signal engine is in the app; it updates with the app") }
         guard Config.brew != nil else { return main.setStatus("the Signal engine is updated with Homebrew, which is not on this Mac") }
         main.setStatus("updating the Signal engine…")
         brew(["upgrade", "signal-cli"], line: { [weak self] s in self?.main.setStatus("Signal engine: " + s) }) { [weak self] ok, tail in
@@ -486,6 +494,20 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alert.addButton(withTitle: "Unlink")
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if Config.shared.usesLibrary {
+            // The engine asks Signal to take the device off the account, and then its keys go.
+            return engine.unlinkLibrary { [weak self] in
+                guard let self else { return }
+                self.satellites.forEach { $0.window.close() }
+                self.account = nil
+                self.circles = []
+                self.pending = [:]
+                self.main.setStatus("")
+                self.buildRail()
+                self.refreshAccounts()
+                self.go(-4)
+            }
+        }
         engine.stop()
         if own {
             try? FileManager.default.removeItem(at: Config.shared.signalConfigDir)
@@ -561,7 +583,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
               !Self.dev, !Self.snapshotRun, ProcessInfo.processInfo.environment["NCC_LOGGED_OUT"] == nil else { return }
         linkRunning = true
         let began = Date()
-        engine.link(deviceName: "NCCd", onURI: { [weak self] uri in
+        engine.link(deviceName: Paths.appName, onURI: { [weak self] uri in
             guard let self else { return }
             self.linkURI = uri
             if self.linking { self.main.link.showQR(uri) }
@@ -663,6 +685,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             main.setStatus((error as? SignalEngine.EngineError)?.message ?? error.localizedDescription)
             return
         }
+        nameGroups()
         engine.call("listContacts") { [weak self] r in
             if case .success(let v) = r, let list = v as? [[String: Any]] { self?.people.setContacts(list) }
             self?.refreshAccounts()                 // Signal's own name for this account is known now
@@ -684,6 +707,13 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     ? "No club groups on this Signal account yet. A new link can take a minute to sync." : "")
             }
         }
+    }
+
+    // The engine inside the app gives out only what is in the club's groups, and
+    // writes only to them. This is where the app says which groups those are.
+    func nameGroups() {
+        guard Config.shared.usesLibrary else { return }
+        engine.call("setGroups", ["ids": Config.shared.conf.circles.map { $0.groupId }]) { _ in }
     }
 
     func loadCircles() {
@@ -720,6 +750,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
             Config.shared.conf = conf
             Config.shared.save()
             loadCircles()
+            nameGroups()
         }
         for i in circles.indices {
             guard let g = groups.first(where: { ($0["id"] as? String) == circles[i].conf.groupId }) else { continue }
@@ -1378,7 +1409,7 @@ final class App: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // The app, and the Signal engine under it (when Homebrew keeps it).
     @objc func checkForUpdates() {
         updater.check(asked: true)
-        if Config.brew != nil, Config.shared.signalCli != nil, !Self.dev { updateEngine() }
+        if Config.brew != nil, Config.shared.signalCli != nil, !Config.shared.usesLibrary, !Self.dev { updateEngine() }
     }
     // ─── tabs, as a browser moves through them ───────────────────────────────
 

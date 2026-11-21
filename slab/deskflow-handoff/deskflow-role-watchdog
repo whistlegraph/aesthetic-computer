@@ -21,6 +21,11 @@ note() {
   logger -t deskflow-role-watchdog "$1"
 }
 
+# macOS raises awdl0 again within minutes of any AirDrop or Continuity touch,
+# and the cursor stutters until it is lowered. deskflow-seat-ready lowers it
+# only at login, so lower it on every pass. A no-op without the sudoers rule.
+/usr/bin/sudo -n /sbin/ifconfig awdl0 down >/dev/null 2>&1 || true
+
 ROLE=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("role", "client"))' "$STATE" 2>/dev/null || echo client)
 SERVER_NAME=$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("serverName", ""))' "$STATE" 2>/dev/null || echo "")
 
