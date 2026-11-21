@@ -22,7 +22,7 @@ export const ITEM_CATEGORIES = ['shoot', 'poke', 'throw'];
 export const KIDLISP_MODS = ['sharper', 'chunkier', 'remix it', 'surprise me', 'faster', 'slower', 'more colorful', 'spin it', 'zoom in', 'add blur', 'make it pulse', 'invert it'];
 // Chalk: build what you drew in the air (hold RT to draw), or wipe it.
 CATALOG.chalk = ['a sculpture', 'a creature', 'a building', 'a vehicle', 'a plant', 'a machine', 'a sign', 'erase my chalk'];
-export const CATEGORIES = Object.keys(CATALOG);
+export const CATEGORIES = Object.keys(CATALOG).filter((c) => c !== 'chalk'); // (chalk is retired: world.mjs CHALK)
 export const THINGS = CATALOG.play;
 export const TRAITS = [
   'humming',

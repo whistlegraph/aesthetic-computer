@@ -25,7 +25,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -1297,6 +1297,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       if (pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
         data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
+      // ✏️ Chalk is retired (world.mjs CHALK): a stroke sent by a page that still has it is not taken.
+      else if (!CHALK && data?.type === 'input' && Array.isArray(data.commands))
+        for (const c of data.commands) if (c && c.chalk) c.chalk = null;
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
           const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token, keeper: keeping });

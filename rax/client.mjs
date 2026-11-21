@@ -7,7 +7,7 @@ import { carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors,
 import { createPanels, PANEL_REACH } from './panel.mjs';
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { LocalPresentation, SnapshotClock } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
@@ -1580,6 +1580,7 @@ canvas.addEventListener('paste', (e) => {
 // Keyboard Enter, the controller's X and the ring's centre all land here.
 // Where chalk lands: the aimed surface, or 3 m ahead in the air.
 function chalkPoint() {
+  if (!CHALK) return null;
   const held = (gamepad?.boost || chalkMouse || keys.has('KeyC')) && seat >= 0 && !prompt.open;
   if (!held || !player) return null;
   const dir = direction(yaw, pitch);
@@ -1777,7 +1778,7 @@ function touchContext() {
     return [armed ? { ...CONTEXT.remove, name: 'again?' } : CONTEXT.remove, CONTEXT.lock];
   }
   // The floor takes paint; the open air takes chalk.
-  return [floorAim ? CONTEXT.paint : CONTEXT.chalk];
+  return floorAim ? [CONTEXT.paint] : CHALK ? [CONTEXT.chalk] : [];
 }
 // The build ring, for a build without typing: a cap beside send and cancel.
 const ringCap = { ...CONTEXT.ring, act: () => { softKeys.blur(); openRadial(); } };
@@ -2965,7 +2966,7 @@ function step(now) {
     field: groundsOf(room),
     home: home && home.room === room ? home.lot : null,
     floorAim: focusObject || !sheetOpen || game()?.hud?.aim === false ? null : floorAim,
-    chalk: chalkStrokes,
+    chalk: CHALK ? chalkStrokes : [],
     chalkVersion,
     chalkLocal,
     chalkMode,

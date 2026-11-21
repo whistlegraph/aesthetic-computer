@@ -23,6 +23,8 @@ export const seatColor = (seat) => COLORS[((seat % COLORS.length) + COLORS.lengt
 // small studio. A room's own half-width comes from halfOf (2026-11-18);
 // everything that bounds a body, a ray or a build takes it as `half`.
 export const WORLD = 8;
+// ✏️ Chalk (drawing in the air, and building from the drawing) is retired (2026-11-20): nothing offers it, nobody's strokes are taken or shown. The code stands behind this one word until it is cut out.
+export const CHALK = false;
 // The tower's rooms (the plaza and every floor) share one size. It is the
 // studio's for now; the rest of rax no longer assumes so.
 export const TOWER_HALF = WORLD;
