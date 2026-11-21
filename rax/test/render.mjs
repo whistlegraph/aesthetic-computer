@@ -72,6 +72,45 @@ try {
     await page.evaluate(() => view.render(state));
     const backend = await page.evaluate(() => document.getElementById('game').dataset.engine);
     assert.equal(backend, fallback ? 'webgl2' : 'webgpu');
+    // Observe the same fence from the same world position before and after
+    // the local origin moves to the neighbouring block.
+    const fencePixels = async (east) => {
+      await page.evaluate(east => {
+        performance.now = () => 1000;
+        try {
+          view.render({ ...state, bare: true, seam: { shown: true },
+            park: { neighbours: east ? { west: true } : { east: true } },
+            me: { ...state.me, x: east ? -10 : 6, z: 0, yaw: 90, pitch: 0 } });
+        } finally { delete performance.now; }
+      }, east);
+      const { width, height, data } = PNG.sync.read(await page.screenshot());
+      const pixels = [];
+      // Sample the posts at eye height, clear of the ground and HUD.
+      for (let x = 0; x < width; x++) {
+        const i = 4 * (Math.floor(height / 2) * width + x);
+        if (data[i] === 79 && data[i + 1] === 240 && data[i + 2] === 255) pixels.push(x);
+      }
+      return pixels;
+    };
+    const before = await fencePixels(false), after = await fencePixels(true);
+    assert.ok(before.length > 10, 'fence visible from the approach');
+    assert.deepEqual(after, before, 'fence stays on the shared edge');
+    const paintTargetFrame = async (floorAim) => {
+      await page.evaluate(floorAim => view.render({ ...state, input: 'touch', floorAim,
+        me: { ...state.me, x: 1, z: 0, yaw: 0, pitch: -55 } }), floorAim);
+      return page.screenshot({ clip: { x: 480, y: 400, width: 320, height: 200 } });
+    };
+    const floor = await paintTargetFrame(null);
+    assert.ok(floor.equals(await paintTargetFrame({ i: 9, j: 9 })), 'aiming at a paint tile leaves the floor clear');
+    for (const color of [0xffe066, 0xff3296]) {
+      await page.evaluate(color => view.render({ ...state, flash: { color, at: performance.now() } }), color);
+      const { width, height, data } = PNG.sync.read(await page.screenshot());
+      for (const [x, y] of [[0, height >> 1], [width - 1, height >> 1], [width >> 1, 0], [width >> 1, height - 1]]) {
+        const i = 4 * (y * width + x);
+        assert.deepEqual([...data.subarray(i, i + 3)], [color >> 16, color >> 8 & 255, color & 255]);
+      }
+    }
+    await page.evaluate(() => view.render(state));
     images.push(
       PNG.sync.read(
         await page.screenshot({ path: new URL(`flat-${backend}-first.png`, shots).pathname }),

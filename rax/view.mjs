@@ -1,7 +1,7 @@
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide } from './lens-host.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
-import { groundsOf, promenade, GROUNDS, EDGE, SPAN, LAP } from './park.mjs';
+import { groundsOf, promenade, GROUNDS, SPAN, LAP } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER } from './elevator.mjs';
 import { SCREEN_SPAN, screenDetail, screenSeen } from './screen-lod.mjs';
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
@@ -880,7 +880,6 @@ export async function createView(canvas) {
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
-  let floorGlowKey = '', floorGlow = null; // the aimed floor square's soft light
   // The Lisp tree in space: labels and the lines between them, per source.
   const trees = new Map(),
     labels = new Map(),
@@ -1091,7 +1090,7 @@ export async function createView(canvas) {
   // The boxes that cast this frame: how far each is, which thing it is part of, the box, its top; and the order they are cast in.
   const castFar = new Float32Array(Math.floor(SHADOW_BUDGET / VOLUME_TRIANGLES)), castFrom = new Int32Array(castFar.length), castTop = new Float32Array(castFar.length), castBox = [], castOrder = [];
   // 🫧 A seam: the line where one room of the world hands a walker to the
-  // next (each block is its own room, on its own socket). A net of threads
+  // next. A net of threads
   // you can see through: posts that stand and rungs that climb. Cyan at
   // rest, amber while your body is between the two rooms, dim on the blocks
   // around.
@@ -1110,11 +1109,11 @@ export async function createView(canvas) {
       }));
     return seams.get(key);
   };
-  const drawSeams = (neighbours, dx, dy, dz, line, ink, now, skip = null) => {
+  const drawSeams = (neighbours, dx, dy, dz, ink, now, skip = null) => {
     const climb = ((now / 2400) % 1) * SEAM_STEP;
     for (const [side, sx, sz] of [['east', 1, 0], ['west', -1, 0], ['north', 0, 1], ['south', 0, -1]]) {
       if (!neighbours?.[side] || skip?.(sx, sz)) continue;
-      const x = dx + sx * line, z = dz + sz * line, turn = sx ? Math.PI / 2 : 0;
+      const x = dx + sx * SPAN / 2, z = dz + sz * SPAN / 2, turn = sx ? Math.PI / 2 : 0;
       projector.draw(seamFor(ink, 'posts'), x, dy, z, turn);
       projector.draw(seamFor(ink, 'rungs'), x, dy + climb, z, turn);
     }
@@ -1284,7 +1283,7 @@ export async function createView(canvas) {
     jobs = [],
     worldTime = 0,
     locked = false,
-    flash = null, // ⎋ { color, at }: a step of Escape just taken, shown down both sides of the screen
+    flash = null, // ⎋ { color, at }: a step of Escape just taken, shown around the screen
     legend = false,
     held = {},
     corner = false,
@@ -1496,10 +1495,8 @@ export async function createView(canvas) {
     else if (tower?.here?.number > 0) draw(towerParts().floor); // a floor of the tower: no walls, the world outside
     else if (park?.neighbours) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
-      // This room's seams stand where it lets go of a walker (EDGE, a step
-      // past the block's line), so the net is seen to hop on the way over.
-      // Keep seam guides out of the orbital preview.
-      if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, EDGE, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
+      // Both rooms draw the fence on their common boundary.
+      if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
     else if (half === WORLD) draw(arena);
     else {
@@ -1565,7 +1562,7 @@ export async function createView(canvas) {
       if (painted) draw(painted, b.dx, by, b.dz);
       // The seams between the blocks around, on their lines; the ones that
       // face this block are its own, drawn above.
-      if (!by && orbit < 1 && seam?.shown) drawSeams(b.neighbours, b.dx, 0, b.dz, SPAN / 2, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
+      if (!by && orbit < 1 && seam?.shown) drawSeams(b.neighbours, b.dx, 0, b.dz, SEAM.far, now, (sx, sz) => b.dx + sx * SPAN === 0 && b.dz + sz * SPAN === 0);
     }
     for (const id of grounds.keys())
       if (id !== 'here' && !id.startsWith('grounds ') && !around.some((b) => b.id === id)) {
@@ -2646,13 +2643,15 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // ⎋ A step of Escape: a bar of its colour down each side, drawn in over a third of a second.
+    // ⎋ A step of Escape: the full border narrows over a third of a second.
     if (flash && now - flash.at < 360) {
       const wide = Math.max(1, Math.round(8 * (1 - (now - flash.at) / 360))) * hud.unit;
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
         rect(-W / 2, -H / 2, 0.000004, wide, H, flash.color);
         rect(W / 2 - wide, -H / 2, 0.000004, wide, H, flash.color);
+        rect(-W / 2, H / 2 - wide, 0.000004, W, wide, flash.color);
+        rect(-W / 2, -H / 2, 0.000004, W, wide, flash.color);
       });
       projector.overlay(m, W, H);
     }
@@ -2783,11 +2782,8 @@ export async function createView(canvas) {
     // The reticle holds through the paper's drop and return (2026-11-03): the
     // prompt's crosshair fades with the paper, so this one must already be
     // there, solid, under it, and stay until the paper is whole again.
-    // On the floor the cursor is laid on the aimed square in 3D (below);
-    // facing a wall, an object or the sky it is this 2D reticle.
-    const onFloor = floorAim && !focusObject && !lockedOn && !radial && !menu && !bare && orbit <= 0 && !cursor;
     const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
-    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) { // (over the floor too: the aimed square is lit where it lies, below)
+    if ((me?.alive || reticle) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
@@ -3298,33 +3294,6 @@ export async function createView(canvas) {
       });
     }
     if (tileModel) draw(tileModel, 0, 0, 0);
-    if (floorAim && !menu && !radial && !bare && orbit <= 0) {
-      // ✨ The aimed square is softly lit where it lies: a pale rim and a sparse stipple over it, breathing a little. The cursor itself stays the crosshair in the middle of the screen: it used to leave the middle and lay itself on the square, jumping in and out of place as the aim crossed from floor to wall (2026-11-20).
-      const beat = Math.floor(now / 220) % 4, key = `${floorAim.i},${floorAim.j},${beat}`;
-      if (key !== floorGlowKey) {
-        floorGlowKey = key;
-        const x = -18 + floorAim.i * 2, z = -18 + floorAim.j * 2, y = 0.012, rim = 0.02;
-        // (A dim, cool grey a little over the floor's own tone: light enough to find, never a bright frame.)
-        const ink = [0x6f8794, 0x7b94a1, 0x87a1ae, 0x7b94a1][beat];
-        floorGlow = model(({ quad }) => {
-          const flat = (x0, z0, x1, z1) => quad([x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1], ink);
-          // (The rim in quarter-metre lengths: a long straight strip sinks under the round of a small planet.)
-          for (let k = 0; k < 8; k++) {
-            const t = k * 0.25;
-            flat(x + t, z, x + t + 0.25, z + rim); flat(x + t, z + 2 - rim, x + t + 0.25, z + 2);
-            flat(x, z + t, x + rim, z + t + 0.25); flat(x + 2 - rim, z + t, x + 2, z + t + 0.25);
-          }
-          // (No see-through faces in this engine: softness is a stipple, every other cell a small dot.)
-          for (let a = 0; a < 10; a++)
-            for (let b = (a + beat) % 2; b < 10; b += 2) {
-              const cx = x + 0.1 + a * 0.2, cz = z + 0.1 + b * 0.2;
-              if (cx < x + 0.15 || cx > x + 1.85 || cz < z + 0.15 || cz > z + 1.85) continue;
-              flat(cx - 0.018, cz - 0.018, cx + 0.018, cz + 0.018);
-            }
-        });
-      }
-      draw(floorGlow, 0, 0, 0);
-    }
     // Chalk: a cached model per stroke, rebuilt only while it grows; your
     // own newest points draw at once, before the server echoes them.
     // Chalk as a rounded tube (2026-11-03): a six-sided prism per segment,

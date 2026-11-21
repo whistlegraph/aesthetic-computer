@@ -82,10 +82,10 @@ const toHost = (message) => {
   window.parent.postMessage(message, location.origin);
   window.parent.postMessage({ ...message, type: message.type.replace(/^rax:/, 'dool:') }, location.origin);
 };
-// ⎋ The step of Escape just taken, { color, at }: the view flashes it down both sides.
+// ⎋ The step of Escape just taken, { color, at }: the view flashes the screen border.
 let escFlash = null;
 function leave() {
-  // Escape's second step, to the prompt: pink down the sides and two notes falling.
+  // Escape's second step, to the prompt: a pink border and two notes falling.
   escFlash = { color: 0xff3296, at: performance.now() };
   sfx.escStep(2);
   if (hosted) {
@@ -2126,7 +2126,7 @@ document.addEventListener('pointerlockchange', () => {
   releaseInput();
   if (!locked()) {
     unlockedAt = performance.now();
-    // ⎋ Escape's first step, the mouse let go: yellow down the sides and a ding. (Not over the second step's, when leaving let it go.)
+    // ⎋ Escape's first step, the mouse let go: a yellow border and a ding. (Not over the second step's, when leaving let it go.)
     if (!escFlash || unlockedAt - escFlash.at > 400) { escFlash = { color: 0xffe066, at: unlockedAt }; sfx.escStep(1); }
   }
 });
@@ -2341,7 +2341,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (seat >= 0 && e.code === 'KeyX' && !e.repeat && !holding() && !chalkMode) paintSquare();
 });
-// Paint the floor square the aim ray lands on (the highlighted one), never
+// Paint the floor square the aim ray lands on, never
 // the one underfoot (2026-11-03).
 // A press steps the square to its next colour and loads the brush with it;
 // held, the brush paints every square the aim crosses (2026-11-10), so a
