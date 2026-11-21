@@ -1232,23 +1232,66 @@ export async function createView(canvas) {
   // 🟦 A grid of pixels (RGBA) as a model: `wide` by `tall` metres about x = 0,
   // its foot at `base`, facing -z; a row's run of one colour is one quad. The
   // standing KidLisp screens and the world panels are both drawn with it.
-  const gridModel = (px, cols, rows, wide, tall, base) => model(({ quad }) => {
-    const cw = wide / cols, ch = tall / rows;
-    for (let j = 0; j < rows; j++)
-      for (let i = 0; i < cols; ) {
-        const k = (j * cols + i) * 4;
-        const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
-        let n = 1;
-        while (i + n < cols) {
-          const q = (j * cols + i + n) * 4;
-          if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
-          n++;
-        }
-        const u0 = wide / 2 - i * cw, u1 = wide / 2 - (i + n) * cw;
-        const y1 = base + tall - j * ch, y0 = y1 - ch;
-        quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], c);
-        i += n;
+  // The glass picks up the sky at grazing angles. Quantize its reflection
+  // so a still piece can keep its mesh as the camera drifts slightly.
+  function glassAt(eye, x, y, z, yaw, wide, sky, id) {
+    const dx = eye.x - x, dz = eye.z - z, dy = eye.y - y;
+    const distance = Math.hypot(dx, dy, dz);
+    if (distance > wide * 8 || distance < 0.001) return null;
+    const side = Math.round(12 * (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / distance);
+    const height = Math.round(10 * dy / distance);
+    const ink = blendInk(sky, 0xc5d7e4, 0.45);
+    let seed = 0;
+    for (const ch of id) seed = (31 * seed + ch.charCodeAt(0)) >>> 0;
+    return { key: `${side}/${height}/${ink}`, side, height, ink, seed };
+  }
+  function gridRuns(px, cols, rows, glass, drawRun) {
+    for (let j = 0; j < rows; j++) {
+      const v = (j + 0.5) / rows;
+      const band = glass ? Math.round(cols * (0.42 + glass.side / 28 + 0.28 * (v - 0.5))) : cols;
+      const bandEnd = band + Math.max(1, Math.round(cols * 0.085));
+      const horizon = glass ? 0.5 - glass.height / 12 : 0;
+      const reflected = glass ? (v < horizon ? 0.035 : 0.01) + Math.abs(glass.side) * 0.003 : 0;
+      // One forked hairline at a fixed edge of each pane. Its position
+      // follows the glass when resolution or viewing angle changes.
+      let crack = cols, fork = cols;
+      if (glass && v < 0.21 && cols >= 32) {
+        const edge = (glass.seed % 13 + 5) / 100;
+        const zig = v < 0.08 ? v * 0.48 : 0.038 - (v - 0.08) * 0.23;
+        const col = u => Math.floor(cols * (glass.seed % 2 ? u : 1 - u));
+        crack = col(edge + zig);
+        if (v > 0.08 && v < 0.14) fork = col(edge + 0.038 + (v - 0.08) * 0.74);
       }
+      const cuts = glass ? [band, bandEnd, crack, crack + 1, fork, fork + 1]
+        .filter(x => x > 0 && x < cols).sort((a, b) => a - b) : [];
+      let cut = 0;
+      for (let i = 0; i < cols;) {
+        while (cut < cuts.length && cuts[cut] <= i) cut++;
+        const end = cuts[cut] ?? cols;
+        const k = (j * cols + i) * 4;
+        let color = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
+        if (glass) {
+          const chipped = i === crack || i === fork;
+          color = blendInk(color, chipped ? 0xccdae2 : glass.ink,
+            chipped ? 0.34 : reflected + (i >= band && i < bandEnd ? 0.085 : 0));
+        }
+        let next = i + 1;
+        for (; next < end; next++) {
+          const q = (j * cols + next) * 4;
+          if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
+        }
+        drawRun(i, next, j, color);
+        i = next;
+      }
+    }
+  }
+  const gridModel = (px, cols, rows, wide, tall, base, glass) => model(({ quad }) => {
+    const cw = wide / cols, ch = tall / rows;
+    gridRuns(px, cols, rows, glass, (i, end, j, color) => {
+      const u0 = wide / 2 - i * cw, u1 = wide / 2 - end * cw;
+      const y1 = base + tall - j * ch, y0 = y1 - ch;
+      quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], color);
+    });
   });
   const panelModels = new Map(); // a world panel's face and slab, by its id
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
@@ -3536,28 +3579,20 @@ export async function createView(canvas) {
         const span = w.face === 'north' ? 32 : 32, tall = (span * rows) / cols;
         const cell = span / cols, base = 1.5;
         w.model = model(({ quad }) => {
-          for (let j = 0; j < rows; j++)
-            for (let i = 0; i < cols; ) {
-              const k = (j * cols + i) * 4;
-              const c = (px[k] << 16) | (px[k + 1] << 8) | px[k + 2];
-              // Merge runs of one colour into one quad.
-              let n = 1;
-              while (i + n < cols) {
-                const q = (j * cols + i + n) * 4;
-                if (px[q] !== px[k] || px[q + 1] !== px[k + 1] || px[q + 2] !== px[k + 2]) break;
-                n++;
-              }
-              const u0 = span / 2 - i * cell, u1 = span / 2 - (i + n) * cell;
-              const y1 = base + tall - j * cell, y0 = y1 - cell;
-              const d = SCREEN - 0.03;
-              // While Aesel remixes it, the screen splits in two in space:
-              // the program keeps the left half, the new source the right.
-              const sq = remix ? 0.5 : 1, shift = remix ? span / 4 : 0;
-              const a = u0 * sq + shift, b = u1 * sq + shift;
-              if (w.face === 'north') quad([a, y0, d], [b, y0, d], [b, y1, d], [a, y1, d], c);
-              else quad([-d, y0, -a], [-d, y0, -b], [-d, y1, -b], [-d, y1, -a], c);
-              i += n;
-            }
+          const north = w.face === 'north';
+          const glass = glassAt(eye, north ? 0 : -SCREEN, base + tall / 2, north ? SCREEN : 0,
+            north ? 0 : Math.PI / 2, span, today?.horizon ?? PALETTES[paletteName].sky, w.code);
+          gridRuns(px, cols, rows, glass, (i, end, j, c) => {
+            const u0 = span / 2 - i * cell, u1 = span / 2 - end * cell;
+            const y1 = base + tall - j * cell, y0 = y1 - cell;
+            const d = SCREEN - 0.03;
+            // While Aesel remixes it, the screen splits in two in space:
+            // the program keeps the left half, the new source the right.
+            const sq = remix ? 0.5 : 1, shift = remix ? span / 4 : 0;
+            const a = u0 * sq + shift, b = u1 * sq + shift;
+            if (w.face === 'north') quad([a, y0, d], [b, y0, d], [b, y1, d], [a, y1, d], c);
+            else quad([-d, y0, -a], [-d, y0, -b], [-d, y1, -b], [-d, y1, -a], c);
+          });
         });
       }
       draw(w.model, 0, 0, 0);
@@ -3620,11 +3655,14 @@ export async function createView(canvas) {
         w.step();
         w.frames = (w.frames || 0) + 1;
       }
-      if (!s.model || s.cols !== cols || s.drawn !== w.frames) {
+      const yaw = ((s.yaw || 0) * Math.PI) / 180;
+      const glass = detail.hz ? glassAt(eye, s.x, base + tall / 2, s.z, yaw, span, today?.horizon ?? PALETTES[paletteName].sky, s.id) : null;
+      if (!s.model || s.cols !== cols || s.drawn !== w.frames || s.glassKey !== glass?.key) {
+        s.glassKey = glass?.key;
         s.cols = cols;
         s.drawn = w.frames;
         const px = w.pixels;
-        s.model = gridModel(px, cols, rows, span, tall, base);
+        s.model = gridModel(px, cols, rows, span, tall, base, glass);
       }
       let frame = screenFrames.get(s.id);
       if (!frame) {
@@ -3636,7 +3674,6 @@ export async function createView(canvas) {
         });
         screenFrames.set(s.id, frame);
       }
-      const yaw = ((s.yaw || 0) * Math.PI) / 180;
       draw(s.model, s.x, 0, s.z, yaw);
       draw(frame, s.x, 0, s.z, yaw);
     }
@@ -3647,12 +3684,15 @@ export async function createView(canvas) {
     for (const p of panels) {
       let kept = panelModels.get(p.id);
       if (!kept) panelModels.set(p.id, (kept = { frame: -1 }));
-      if (kept.frame !== p.frame) {
+      const yaw = ((p.yaw || 0) * Math.PI) / 180;
+      const glass = p.label || p.id === 'car-pad'
+        ? glassAt(eye, p.x, p.y, p.z, yaw, p.w, today?.horizon ?? PALETTES[paletteName].sky, p.id) : null;
+      if (kept.frame !== p.frame || kept.glassKey !== glass?.key) {
+        kept.glassKey = glass?.key;
         kept.frame = p.frame;
-        kept.face = gridModel(p.pixels, p.cols, p.rows, p.w, p.h, -p.h / 2);
+        kept.face = gridModel(p.pixels, p.cols, p.rows, p.w, p.h, -p.h / 2, glass);
       }
       kept.slab ||= model(({ box }) => box(0, 0, 0.004 + p.deep / 2, p.w + 0.06, p.h + 0.06, p.deep, 0x2a2d3a, 0x22252f, 0x2a2d3a));
-      const yaw = ((p.yaw || 0) * Math.PI) / 180;
       draw(kept.slab, p.x, p.y, p.z, yaw);
       draw(kept.face, p.x, p.y, p.z, yaw);
       if (!p.cursor) continue;

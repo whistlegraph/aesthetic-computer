@@ -111,3 +111,28 @@ test('a press on a kiosk is told to everyone else in the room, and let go for wh
   const last = b.messages.filter((m) => m.type === 'panel')[1];
   assert.deepEqual({ name: last.name, seat: last.seat, x: last.x }, { name: 'lift', seat: heard.seat, x: -1 });
 });
+
+test('clearing a tower window carries height, facing and speed into the block below', async t => {
+  const { app, connect, bodyIn } = await fixture(t);
+  await app.tower.change(tower => tower.admit(['jeffrey']));
+  const floor = 'floor-' + app.tower.tower.forHandle('jeffrey').id;
+  const a = await connect(floor, { stay: '1' });
+  Object.assign(bodyIn(floor), { x: 8.9, y: 3.18, z: 2, onGround: false, vx: 4, vy: -2, yaw: 90, pitch: -20 });
+  await wait(() => a.messages.some(m => m.type === 'travel'));
+  const travel = a.messages.find(m => m.type === 'travel');
+  assert.equal(travel.room, 'e1n0');
+  assert.equal(travel.here, true);
+  assert.equal(travel.at.onGround, false);
+  assert.ok(travel.at.x < -6.8 && travel.at.x > -7.2);
+  assert.ok(travel.at.y > 14.9 && travel.at.y < 15.3);
+  assert.equal(travel.at.yaw, 90);
+  assert.ok(travel.at.vx > 3 && travel.at.vy < 0);
+  // The server advances a connected player's body from their fixed-tick commands.
+  for (let seq = 1; seq <= 120 && !bodyIn('e1n0')?.onGround; seq += 5) {
+    const commands = Array.from({length: 5}, (_, i) => ({seq: seq+i, yaw: 90, pitch: -20, fwd: 0, right: 0, buttons: 0}));
+    a.say({type: 'input', in: 'e1n0', commands});
+    await delay(80);
+  }
+  assert.equal(bodyIn('e1n0')?.onGround, true);
+  assert.equal(a.closed(), false);
+});

@@ -18,6 +18,7 @@
 import { BLOCK, LOBBY, blockAt, parseBlock, toWorld } from './geography.mjs';
 import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, storeyOf, roofOf, carWalls, lobbyWalls, ROOF, roofNumber, roofWalls } from './elevator.mjs';
 import { TILE_COLORS } from './world.mjs';
+import { BASEMENT, DEPTH } from './basement.mjs';
 import { PLANET } from './planet.mjs';
 import { DISPENSER_WALL } from './ball.mjs';
 import { REACH, LAP, GROUNDS } from './park.mjs';
@@ -97,6 +98,7 @@ export function contentShapes(block, room = {}) {
 // floor's number, 0 on the ground; on the roof it is one over the highest
 // floor (roofNumber) and `roof` is true.
 export function place(room, p, { geography, tower }) {
+  if (room === BASEMENT) return { x: round(p.x), y: round((p.y || 0) - DEPTH), z: round(p.z), floor: -1 };
   if (room === ROOF) return tower?.top ? { x: round(p.x), y: round(roofOf(tower.top) + (p.y || 0)), z: round(p.z), floor: roofNumber(tower.top), roof: true } : null;
   const f = tower?.forRoom(room);
   if (f) return { x: round(p.x), y: round(altitude(f.number) + (p.y || 0)), z: round(p.z), floor: f.number };

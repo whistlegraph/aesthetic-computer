@@ -27,6 +27,7 @@ test('every solid the server walks people against is on the map', () => {
   const { geography, tower } = world();
   const map = worldMap({ geography, tower });
   assert.equal(map.version, MAP_VERSION);
+  assert.deepEqual(place('basement', { x: 0, y: 1.7, z: 2 }, { geography, tower }), { x: 0, y: -2.3, z: 2, floor: -1 });
   assert.deepEqual(map.planet, { radius: PLANET, lap: LAP * BLOCK });
   for (const w of [...lobbyWalls(), ...carWalls(), DISPENSER_WALL])
     assert.ok(map.structure.some((s) => holds(s, w)), `missing ${JSON.stringify(w)}`);
