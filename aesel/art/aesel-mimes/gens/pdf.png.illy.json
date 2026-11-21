@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:49:43.463Z",
+  "createdAt": "2026-11-21T18:17:14.826Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/pdf.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/pdf.txt",
   "researchPath": null,
-  "promptHash": "a2d3aa18be53d56fda50baa462989db7e1c79e90a4471a74fc47edfafad00d96",
+  "promptHash": "0184c0998205a459b39a90e33d700ea9efe6bac253d382668019b1204eccad82",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-sit.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 50.042,
+  "durationSeconds": 55.26,
   "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2591,
+    "input_tokens": 2639,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 543
+      "text_tokens": 591
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4347
+    "total_tokens": 4395
   },
   "check": {
     "status": "passed",
-    "imageSha256": "b91703cf44f1a48867305fc6883b774a294ddbc7401deac402bea232d5f3d8fa",
-    "checkedAt": "2026-11-21T17:52:45.002Z",
+    "imageSha256": "d510f5db43c01b107094e3043e0d6a240995de5cd3dcb4e86c78fd0ffc6ba63c",
+    "checkedAt": "2026-11-21T18:17:56.782Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: black fountain pen with gold nib; canvas: typeset page: title bar, two columns of text lines, boxed pink chart. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: black fountain pen. Canvas: typeset page: title bar, two columns of lines, boxed pink chart. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; black fountain pen with gold nib is oriented toward the canvas or the donkey as prompted."
+        "notes": "Donkey in profile facing right, sitting on his haunches, hind hooves and one front hoof on the ground, other front hoof raised; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (black fountain pen with gold nib); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: black fountain pen; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }

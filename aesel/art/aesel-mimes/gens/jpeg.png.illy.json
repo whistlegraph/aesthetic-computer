@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:47:59.793Z",
+  "createdAt": "2026-11-21T18:17:20.427Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/jpeg.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/jpeg.txt",
   "researchPath": null,
-  "promptHash": "5ea0be0042f90387372f9283aad17992bdb225e7c7407868a1570d928100a460",
+  "promptHash": "cadcc7e905d76124ee1a5384dbe90a3a405616ba3b0093f8ca0c53db8902aa2c",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-sit.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 48.889,
+  "durationSeconds": 61.03,
   "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2583,
+    "input_tokens": 2633,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 535
+      "text_tokens": 585
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4339
+    "total_tokens": 4389
   },
   "check": {
     "status": "passed",
-    "imageSha256": "3799da5faf8c789442f4662a7da09147c46b66d11c01553e699103f3e9e0297e",
-    "checkedAt": "2026-11-21T17:52:43.248Z",
+    "imageSha256": "5f3d6ba7b51c6e273eff599ed6343cb300b61b445658145bdf5339e5926b4bc5",
+    "checkedAt": "2026-11-21T18:17:55.599Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: small silver camera; canvas: white-bordered photo of a sunset over violet hills and a lake. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: small silver camera. Canvas: white-bordered sunset photo over violet hills and a lake. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; small silver camera is oriented toward the canvas or the donkey as prompted."
+        "notes": "Donkey in profile facing right, sitting on his haunches, hind hooves and one front hoof on the ground, other front hoof raised; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (small silver camera); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: small silver camera; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }

@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:12:01.017Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-wav.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/pencil-wav.txt",
+  "researchPath": null,
+  "promptHash": "bf410f31b8e4c8d5ba6297946a4cd7b7c62564132666e888568f8a5ba682801b",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-far.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 56.567,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1681,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 657
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3437
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "214a4e555342fbd94a54216ac5811f08303a90fc4513d8648b5c1fc748b11edf"
+  }
+}

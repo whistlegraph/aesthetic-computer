@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:49:44.036Z",
+  "createdAt": "2026-11-21T18:17:19.065Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/gameboy.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/gameboy.txt",
   "researchPath": null,
-  "promptHash": "42b143d20776c83cda8d9cdda43dc5e0bdf6da27b0871dd7210923bb52336422",
+  "promptHash": "999ce0d90430b8e42cb6d86fd38860b813dcdd9934f9f5c02f1f42a5b9309fb3",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-sit.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 50.615,
+  "durationSeconds": 59.455,
   "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2597,
+    "input_tokens": 2657,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 549
+      "text_tokens": 609
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4353
+    "total_tokens": 4413
   },
   "check": {
     "status": "passed",
-    "imageSha256": "81fe85e9a40ecab45c37b5bad44e65381b3427a605f5000a9c9f384627c6086c",
-    "checkedAt": "2026-11-21T17:52:45.835Z",
+    "imageSha256": "94b2c6337a06aff313ce82f3338cac81780e742ea7efa2501e485dbcbc555a32",
+    "checkedAt": "2026-11-21T18:17:57.155Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: gray handheld console with green screen; canvas: four-shade olive pixel scene: heart over two shrubs and a block ground. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: gray handheld console. Canvas: olive four-shade pixel scene: heart over two shrubs. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; gray handheld console with green screen is oriented toward the canvas or the donkey as prompted."
+        "notes": "Donkey in profile facing right, sitting on his haunches, hind hooves and one front hoof on the ground, other front hoof raised; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (gray handheld console with green screen); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: gray handheld console; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }

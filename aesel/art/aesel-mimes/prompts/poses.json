@@ -1,0 +1,15 @@
+{
+ "javascript": "tripod",
+ "lisp": "sit",
+ "lua": "tripod",
+ "png": "tripod",
+ "jpeg": "sit",
+ "webp": "tripod",
+ "wav": "tripod",
+ "mpeg": "tripod",
+ "ogg": "tripod",
+ "pdf": "sit",
+ "plain": "sit",
+ "gameboy": "sit",
+ "nes": "sit"
+}

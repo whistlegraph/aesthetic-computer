@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:11:45.028Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-tripod.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/pencil-tripod.txt",
+  "researchPath": null,
+  "promptHash": "538b39fba1579513996d33cbfc2fe7adec3e532645c0bcee898151297d2f61ec",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-far.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 84.581,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1643,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 619
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3399
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "b8cf9f7d2f9bb9f64f2f30c5475f324cf047fe953752dcbfdc49c5b30083340b"
+  }
+}

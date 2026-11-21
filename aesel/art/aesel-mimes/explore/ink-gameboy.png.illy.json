@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:12:06.571Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-gameboy.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/ink-gameboy.txt",
+  "researchPath": null,
+  "promptHash": "d274736cdd972f945658e7351a0ccd66b3aab3923cd455bc55eb3acbc7bb0c56",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-wash.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 62.142,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1763,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 739
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3519
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "d5321b578ec4bbe707a8bd765e94ada857cfa50d39596852cfe886729d0ed873"
+  }
+}

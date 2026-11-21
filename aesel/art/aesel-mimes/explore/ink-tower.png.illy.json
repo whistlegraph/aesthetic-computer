@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:12:02.372Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-tower.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/ink-tower.txt",
+  "researchPath": null,
+  "promptHash": "d228c2bdf4a338a4c5efa1a15dd96632e00015fe93014de555f6fa72895a3fce",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-wash.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 57.94,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1570,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 546
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3326
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "cc82983c53199d3adc6b2f3a8a82beddcca184e367010944a72e8a34dd527645"
+  }
+}

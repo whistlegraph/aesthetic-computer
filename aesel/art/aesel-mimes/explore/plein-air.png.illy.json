@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:07:18.148Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1536x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/plein-air.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/plein-air.txt",
+  "researchPath": null,
+  "promptHash": "a52be53f811c8d6ba10bb2297883d726972464b582c4db3799beea0b525137a4",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 79.457,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1703,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 679
+    },
+    "output_tokens": 1372,
+    "output_tokens_details": {
+      "image_tokens": 1372,
+      "text_tokens": 0
+    },
+    "total_tokens": 3075
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "2f355953eb16ba389ccd5ff4e7a01fa8272169561eaffcf36475c6b87b5e224c"
+  }
+}

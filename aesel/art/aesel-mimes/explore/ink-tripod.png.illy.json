@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:11:45.017Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-tripod.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/ink-tripod.txt",
+  "researchPath": null,
+  "promptHash": "61942fb50416219be76fa72da105291eb8a4f72cc2a9060ca27a0214ae56a554",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-wash.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 84.562,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1658,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 634
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3414
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "39414be0a8cfbf938d429531cee4bedab1cc62dad6c4d0e3e832bcbd7e7e895c"
+  }
+}

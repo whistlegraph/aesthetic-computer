@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:12:03.253Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-gameboy.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/pencil-gameboy.txt",
+  "researchPath": null,
+  "promptHash": "fa105cf37c9c7ee5eae617b95764f76f2075a0d1dd83ab354dd8802cc9e46d40",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-far.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 58.664,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1718,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 694
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3474
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "066d70c123494f34fa50a99a9a2618e379690613e7ee71123025a5e5e3b54e43"
+  }
+}

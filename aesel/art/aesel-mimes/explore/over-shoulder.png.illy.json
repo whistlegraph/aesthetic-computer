@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:07:20.340Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/over-shoulder.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/over-shoulder.txt",
+  "researchPath": null,
+  "promptHash": "653334e60d6da677dba192f85e5b26f79e4eaf02237cf9cfdb2bef67df3f6d29",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 82.125,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1706,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 682
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3462
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "c128014fc27458fdc4a477af3012da09e4d2755e303c192d759ba0940615a96b"
+  }
+}

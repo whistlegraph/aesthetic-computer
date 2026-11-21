@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:55:07.140Z",
+  "createdAt": "2026-11-21T18:17:15.781Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/nes.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/nes.txt",
   "researchPath": null,
-  "promptHash": "31ed0a662453cc7b65fc5104981e9547dfe50b1c3893415b5423513ad1860af3",
+  "promptHash": "cb8b2f435ca075ab555a83f2cbf0123cba88a7e4e9cf672e9000fcf5fa0dbe55",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-sit.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 60.492,
-  "archived": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/archive/nes-2026-11-21T17-55-06-376Z.png",
+  "durationSeconds": 56.441,
+  "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2645,
+    "input_tokens": 2694,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 597
+      "text_tokens": 646
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4401
+    "total_tokens": 4450
   },
   "check": {
     "status": "passed",
-    "imageSha256": "19216aefb85855e2c90686af16af1a36b82d7dc78249f2043e01ce5fffca051a",
-    "checkedAt": "2026-11-21T17:55:35.685Z",
+    "imageSha256": "db15efbc91048157ea6428dd30c871588d0aa8b789e5446ca75fda98dd53f65a",
+    "checkedAt": "2026-11-21T18:17:57.350Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "Inspected alone at 900px. One donkey with red glasses, tan bridle and chest harness; one easel; junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only a flat gray two-button controller with cord, and on the canvas a navy night sky, six white pixel stars, a pale pixel moon, a pink pixel diamond with lighter inner diamond, a teal ground strip. No bricks, hills, clouds, characters, faces or text."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: flat gray controller with red buttons and cord. Canvas: 8-bit navy night sky, stars, moon, pink diamond over teal ground; nothing from a real game. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; the pixel scene follows the canvas three-quarter perspective inside its edges; controller face toward the viewer, d-pad left, red buttons right."
+        "notes": "Donkey in profile facing right, sitting on his haunches, hind hooves and one front hoof on the ground, other front hoof raised; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow; raised hoof supports the controller from below; its cord hangs to the floor and ends in a loop; easel legs grounded; cables enter box and rack ports as in the base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: flat gray controller with red buttons and cord; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }

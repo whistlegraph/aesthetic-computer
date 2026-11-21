@@ -1,0 +1,10 @@
+A new pixel-art picture in exactly the manner of the reference image: the same chunky square pixels, the same limited soft pastel palette, crisp hard pixel edges with no anti-aliasing blur, no gradients.
+
+A small side-on diorama on a plain flat pastel background.
+
+THE DONKEY: Aesel, a small friendly donkey: oversized upright ears with pink insides, blue-gray lavender fur, cream muzzle and belly, short dark plum mane, dark hooves, tufted tail, a gentle smile. He wears small bright-red reading glasses sitting low on his cream muzzle, clear lenses, and a small pink bandana round his neck. He wears NOTHING else: no bridle, no halter, no harness, no straps, no buckles, no lead, no tack of any kind. (Drawn as pixel art; the red glasses are a few bright red pixels across his cream muzzle and must be clearly visible.)
+He stands at the left-center facing right, one front hoof raised holding a paintbrush with a pink tip, painting at a small wooden A-frame easel. The canvas faces us at three-quarter angle and shows a chunky pink pixel heart.
+
+In the FAR upper-right corner, very small, as if far away on a thin horizon line, is a tiny data center: three little pale violet server-rack towers side by side with single-pixel pink and teal blinking lights. It is tiny, about the size of one of the donkey's ears or smaller. A one-pixel-wide teal cable runs from the foot of the easel along the ground and away up to it in a long stepped line.
+
+Lots of empty background. No words, letters, numbers, captions, logos or brand marks anywhere in the picture.

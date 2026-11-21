@@ -1,0 +1,51 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:07:17.935Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-far.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/pencil-far.txt",
+  "researchPath": null,
+  "promptHash": "20a40cca530a3c6fdeae3969d95bd2c296cccb20698330d9f1bbe232e71cb8d4",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 79.56,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2736,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 688
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4492
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "4ff8b18dc42720309603e6ba05ae8d0ec53a6fad593d0ae8933578346e68c827"
+  }
+}

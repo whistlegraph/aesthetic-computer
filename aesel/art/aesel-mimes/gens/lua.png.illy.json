@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:17:22.656Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/lua.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/lua.txt",
+  "researchPath": null,
+  "promptHash": "7b0659e34c6f63633a712af2c7e2da57c06200a1f9a944f5967e4b27c0663e57",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-tripod.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 63.088,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2645,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 597
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4401
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "3822ef542327e3bc2d30ecaac0e6fbc53c5062cc00bf602a20dc4174d2f49612",
+    "checkedAt": "2026-11-21T18:17:55.164Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: stubby teal crayon. Canvas: blue-violet night field, pale crescent moon, small pink circle; no ring or orbit. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right, reaching on three legs, hindquarters low and back, one front leg planted, other extended; canvas content follows the canvas's three-quarter perspective inside its edges."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: stubby teal crayon; easel legs on the ground; cable meets the easel foot and the tower base."
+      }
+    }
+  }
+}

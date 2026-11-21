@@ -1,0 +1,67 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:15:54.307Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-tripod.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/base-tripod.txt",
+  "researchPath": null,
+  "promptHash": "e61c6a719138003192863137c91711f77e612c2eb2ea2dbd044b290abdf91adb",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/pencil-tripod.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 73.567,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 2826,
+    "input_tokens_details": {
+      "image_tokens": 2048,
+      "text_tokens": 778
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 4582
+  },
+  "check": {
+    "status": "passed",
+    "imageSha256": "2cbeac1b3a0d1b51228b66e590f3451442e04c1b7b4e14d6a06af1d026f9e526",
+    "checkedAt": "2026-11-21T18:17:54.246Z",
+    "reviewer": "claude-fork",
+    "passes": {
+      "inventory": {
+        "verdict": "pass",
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: empty extended hoof. Canvas: blank canvas. No text or logos. Inspected alone at 900px."
+      },
+      "orientation": {
+        "verdict": "pass",
+        "notes": "Donkey in profile facing right, reaching on three legs, hindquarters low and back, one front leg planted, other extended; canvas content follows the canvas's three-quarter perspective inside its edges."
+      },
+      "contact": {
+        "verdict": "pass",
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: empty extended hoof; easel legs on the ground; cable meets the easel foot and the tower base."
+      }
+    }
+  }
+}

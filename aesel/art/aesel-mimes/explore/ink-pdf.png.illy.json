@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:12:08.154Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-pdf.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/ink-pdf.txt",
+  "researchPath": null,
+  "promptHash": "e9bb7c8f2c2f0677e5ddd77f5a6275fbfa3873a35d933708054d2b2d94086349",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-wash.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 63.559,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1745,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 721
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3501
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "9b543142cfc630831363bc23bc138f6b3878f25951cbe6eb2f2ef89c86bcd04d"
+  }
+}

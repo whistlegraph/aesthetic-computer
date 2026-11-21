@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:48:43.669Z",
+  "createdAt": "2026-11-21T18:17:20.906Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/mpeg.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/mpeg.txt",
   "researchPath": null,
-  "promptHash": "e79eff24934b566a53c784cd363103adc6bc1cf96a42d72d3aa50d5646e8889f",
+  "promptHash": "5e3e65216a635c2c020678f9cea3482b261101db5955fdc0931698b61844b0e1",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-tripod.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 43.352,
+  "durationSeconds": 61.328,
   "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2593,
+    "input_tokens": 2653,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 545
+      "text_tokens": 605
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4349
+    "total_tokens": 4409
   },
   "check": {
     "status": "passed",
-    "imageSha256": "113d5d4a30787696844be71ee852e0e1e9d24086bab75d33b663d56269769799",
-    "checkedAt": "2026-11-21T17:52:44.400Z",
+    "imageSha256": "90cb3372efe842d20d6078bfa7dfe0757a0a28e68f7b0452d035b8715a59ddcd",
+    "checkedAt": "2026-11-21T18:17:56.300Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: silver microphone, pink headphones on his head; canvas: two beamed plum eighth notes over five equalizer bars. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: silver microphone, pink headphones. Canvas: two beamed plum eighth notes over five equalizer bars. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; silver microphone, pink headphones on his head is oriented toward the canvas or the donkey as prompted."
+        "notes": "Donkey in profile facing right, reaching on three legs, hindquarters low and back, one front leg planted, other extended; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (silver microphone, pink headphones on his head); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: silver microphone, pink headphones; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }

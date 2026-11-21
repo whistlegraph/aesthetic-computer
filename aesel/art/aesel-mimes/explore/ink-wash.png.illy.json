@@ -1,0 +1,50 @@
+{
+  "schema": "illy/v1",
+  "createdAt": "2026-11-21T18:07:23.185Z",
+  "pipeline": "marketing",
+  "provider": "openai",
+  "model": "gpt-image-2.6-sunburst",
+  "mode": "edit",
+  "size": "1024x1024",
+  "quality": "high",
+  "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/ink-wash.png",
+  "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/explore/prompts/ink-wash.txt",
+  "researchPath": null,
+  "promptHash": "0b6a9f32ec9fec594b7634a57e8ff2c42cb853b794d2f95722f85386eab6cb34",
+  "references": [
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
+  ],
+  "contracts": [
+    "physical-accuracy"
+  ],
+  "stages": [
+    "resolve-inputs",
+    "apply-contracts",
+    "select-provider",
+    "generate",
+    "archive",
+    "provenance",
+    "check"
+  ],
+  "durationSeconds": 84.497,
+  "archived": null,
+  "framed": null,
+  "requestId": null,
+  "usage": {
+    "input_tokens": 1702,
+    "input_tokens_details": {
+      "image_tokens": 1024,
+      "text_tokens": 678
+    },
+    "output_tokens": 1756,
+    "output_tokens_details": {
+      "image_tokens": 1756,
+      "text_tokens": 0
+    },
+    "total_tokens": 3458
+  },
+  "check": {
+    "status": "unverified",
+    "imageSha256": "2c91f27aebc7c608aa12b6098aa934bc2b2a2cca5effa0ca1ac323c9ca1e45ba"
+  }
+}

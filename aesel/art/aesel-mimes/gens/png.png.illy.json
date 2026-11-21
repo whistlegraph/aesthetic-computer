@@ -1,6 +1,6 @@
 {
   "schema": "illy/v1",
-  "createdAt": "2026-11-21T17:47:56.893Z",
+  "createdAt": "2026-11-21T18:17:20.303Z",
   "pipeline": "marketing",
   "provider": "openai",
   "model": "gpt-image-2.6-sunburst",
@@ -10,9 +10,9 @@
   "output": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/png.png",
   "promptPath": "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/prompts/png.txt",
   "researchPath": null,
-  "promptHash": "6f7e06da670845d2b1470ce820fa4cb6cf8600bfbdfa8da531512af7a0121592",
+  "promptHash": "f5c57b07f1061743591206148265a27339e2d74af0f0ce3082206d52aab114a5",
   "references": [
-    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base.png",
+    "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/gens/base-tripod.png",
     "/Users/jas/aesthetic-computer/aesel/art/aesel-mimes/refs/aesel-pencil-v2.png"
   ],
   "contracts": [
@@ -27,40 +27,40 @@
     "provenance",
     "check"
   ],
-  "durationSeconds": 45.771,
+  "durationSeconds": 60.858,
   "archived": null,
   "framed": null,
   "requestId": null,
   "usage": {
-    "input_tokens": 2572,
+    "input_tokens": 2633,
     "input_tokens_details": {
       "image_tokens": 2048,
-      "text_tokens": 524
+      "text_tokens": 585
     },
     "output_tokens": 1756,
     "output_tokens_details": {
       "image_tokens": 1756,
       "text_tokens": 0
     },
-    "total_tokens": 4328
+    "total_tokens": 4389
   },
   "check": {
     "status": "passed",
-    "imageSha256": "b19d95fd8ba73ed5524390b633da288a262448adc362aef989151cb63463dd52",
-    "checkedAt": "2026-11-21T17:52:42.606Z",
+    "imageSha256": "cf352b82e6b55707e242fd20d7e4d021e51b250bd622a17885b7f6329a57b0f5",
+    "checkedAt": "2026-11-21T18:17:55.393Z",
     "reviewer": "claude-fork",
     "passes": {
       "inventory": {
         "verdict": "pass",
-        "notes": "One donkey with red glasses, tan bridle and chest harness; one easel; brass junction box with pink/teal/violet cables to three racks; teal lead on harness ring. Added only: round paintbrush loaded with pink; canvas: pixel-art pink heart on a gray-and-white transparency checkerboard. No text or logos. Inspected at 760px on a contact sheet, not on quadrant crops."
+        "notes": "One donkey with red glasses and pink bandana, no tack; four legs counted; one easel; one teal cable to one small pale server tower on the horizon. Tool: paintbrush loaded with pink. Canvas: pixel-art pink heart on a transparency checkerboard. No text or logos. Inspected at 554px on a contact sheet and at 72px, not on quadrant crops."
       },
       "orientation": {
         "verdict": "pass",
-        "notes": "Donkey in profile facing right as in the base; canvas content follows the canvas's three-quarter perspective and stays inside its edges; round paintbrush loaded with pink is oriented toward the canvas or the donkey as prompted."
+        "notes": "Donkey in profile facing right, reaching on three legs, hindquarters low and back, one front leg planted, other extended; canvas content follows the canvas's three-quarter perspective inside its edges."
       },
       "contact": {
         "verdict": "pass",
-        "notes": "Three hooves on the ground shadow, raised front hoof holds the tool (round paintbrush loaded with pink); easel legs on the ground; cables enter junction box and rack ports unchanged from base."
+        "notes": "Grounded hooves sit on the ground shadow; the raised hoof holds: paintbrush loaded with pink; easel legs on the ground; cable meets the easel foot and the tower base."
       }
     }
   }
