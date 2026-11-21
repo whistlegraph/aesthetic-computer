@@ -43,6 +43,54 @@ export function hudLayout(width, height, cells, scale = 1, fixedUnit = 0) {
   return { safeX, safeY, unit, module, qrSize };
 }
 
+// 📦 A place for everything on the screen, and nothing on anything else.
+// Each frame the view makes one of these and every part of the interface
+// that stands at an edge asks it for room before it draws: `reserve` gives
+// a rectangle of the size asked for, in the corner asked for, that touches
+// nothing given out before it (a `gap` apart at the least); `claim` writes
+// down a rectangle a part has already taken for itself. What is asked for
+// first sits nearest its corner; the next stands clear of it, away from the
+// edge (up from the bottom, down from the top), and in the next column
+// inward when a corner's column is full. Rectangles are in the picture's own
+// pixels, x from the left and y from the top.
+export function createPack(width, height, { safeX = 4, safeY = 4, gap = 2 } = {}) {
+  const taken = [];
+  const hits = (r) => taken.find((t) => r.x < t.x + t.w + gap && t.x < r.x + r.w + gap && r.y < t.y + t.h + gap && t.y < r.y + r.h + gap);
+  const pack = {
+    taken,
+    claim(id, rect) { if (rect) taken.push({ id, x: rect.x, y: rect.y, w: rect.w, h: rect.h }); return rect; },
+    // corner: 'tl' 'tr' 'bl' 'br', or 'tc' 'bc' for the middle of the top or bottom edge.
+    reserve(id, corner, w, h) {
+      const bottom = corner[0] === 'b', side = corner[1];
+      const xAt = (column) => side === 'l' ? safeX + column : side === 'r' ? width - safeX - w - column : Math.round((width - w) / 2) + column;
+      let column = 0, rect = null;
+      for (let tries = 0; tries < 12; tries++) {
+        let y = bottom ? height - safeY - h : safeY;
+        rect = { id, x: xAt(column), y, w, h };
+        for (let other = hits(rect), n = 0; other && n < 64; other = hits(rect), n++)
+          rect.y = y = bottom ? other.y - gap - h : other.y + other.h + gap;
+        // Within the half of the screen its edge is on, it stands; past that, the next column inward.
+        if (!hits(rect) && (bottom ? rect.y >= height * 0.35 : rect.y + h <= height * 0.65)) break;
+        const blocker = hits({ ...rect, y: bottom ? height - safeY - h : safeY }) || rect;
+        column += (blocker.w || w) + gap;
+      }
+      taken.push(rect);
+      return rect;
+    },
+    // Any two parts that share pixels: [idA, idB]. Empty when the screen is in order.
+    overlaps() {
+      const out = [];
+      for (let i = 0; i < taken.length; i++)
+        for (let j = i + 1; j < taken.length; j++) {
+          const a = taken[i], b = taken[j];
+          if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) out.push([a.id, b.id]);
+        }
+      return out;
+    },
+  };
+  return pack;
+}
+
 export function drawJoinCode(rect, text, cells, width, height, layout) {
   if (!cells) return;
   const { safeX, safeY, module, qrSize, unit } = layout;

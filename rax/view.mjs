@@ -30,7 +30,7 @@ import { BALL } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector } from './project.mjs';
 import { PLANET, FAR, landTiles } from './planet.mjs';
-import { joinCode, hudLayout } from './hud.mjs';
+import { joinCode, hudLayout, createPack } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
 
 // What each kind of input does, one line per hand, as Oskiewar lists its
@@ -2562,6 +2562,10 @@ export async function createView(canvas) {
       lensFull = (projector.scene?.triangleCount || 0) / (projector.scene?.maxTriangles || 1);
       if (gap > statsWorst || t - statsWorstAt > 3000) { statsWorst = gap; statsWorstAt = t; }
     }
+    // 📦 This frame's places at the edges (hud.mjs createPack). The aimed object's code tag is the corner's first tenant; what else stands bottom right takes its room after it.
+    const hudPack = createPack(W, H, { safeX: 4, safeY: 4, gap: 2 * hud.unit });
+    const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
+    const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
     if (stats) {
       // A meter, not a table: the last two seconds of frames as bars (each as
       // tall as the frame was long, green under a sixtieth, yellow under a
@@ -2578,7 +2582,9 @@ export async function createView(canvas) {
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
         const BARS = statsRun.length, tall = 16 * unit, wide = BARS * unit;
-        const right = W / 2 - safeX - 2 * unit, foot = -H / 2 + safeY + 14 * unit, left = right - wide;
+        // 📦 Its room is asked for (hud.mjs createPack): the meter, its number over it, the budget under it and the wind's dial beside it, clear of the code tag in the same corner.
+        const slot = hudPack.reserve('stats', 'br', wide + (air ? 25 : 2) * unit, tall + 26 * unit);
+        const right = slot.x + slot.w - W / 2 - unit, foot = H / 2 - (slot.y + slot.h) + 7 * unit, left = right - wide;
         rect(left - unit, foot - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, INK);
         rect(left, foot, 0.000003, wide, tall, 0x15171e);
         for (let i = 0; i < BARS; i++) {
@@ -2904,17 +2910,17 @@ export async function createView(canvas) {
       qrURL = url;
       const cells = joinCode(url);
       if (cells) {
-        const n = cells.length, margin = 4, qrOffsetY = 9;
-        const width = n + 1, height = qrOffsetY + n + 2;
-        const left = W - width - margin, top = H - height - margin;
+        // (A module is one HUD unit, as every code on the screen is drawn: 2026-11-20. It was one buffer pixel, finer than the pairing code beside it.)
+        const n = cells.length, qrOffsetY = 9, s = hud.unit;
+        const { x: left, y: top, w: width, h: height } = codeAt || { x: W - (n + 1) * s - 4, y: H - (qrOffsetY + n + 2) * s - 4, w: (n + 1) * s, h: (qrOffsetY + n + 2) * s };
         qrRect = { x: left, y: top, w: width, h: height };
-        const key = `${url}:${W}:${H}`;
+        const key = `${url}:${W}:${H}:${left}:${top}:${s}`;
         if (qrModel?.key !== key) {
           const m = model(({ rect: worldRect, small }) => {
             const rect = flip(worldRect);
             // Coordinates share the 2D runtime's top-left pixel convention.
             const pixel = (x, y, w, h, color, z = 0.000001) =>
-              rect(-W / 2 + left + x, H / 2 - top - y - h, z, w, h, color);
+              rect(-W / 2 + left + x * s, H / 2 - top - (y + h) * s, z, w * s, h * s, color);
             pixel(0, qrOffsetY, n, n, 0xffffff, 0.000003);
             cells.forEach((row, y) => {
               for (let c = 0; c < row.length;) {
@@ -2930,8 +2936,8 @@ export async function createView(canvas) {
             const labelX = n - labelWidth;
             // Keep the label clear of the first QR row.
             pixel(labelX, 0, labelWidth, qrOffsetY, 0x000000, 0);
-            small(label, -W / 2 + left + labelX + 1 + smallWidth(label) / 2,
-              H / 2 - top - 2, -0.000001, 1, 0xffffff);
+            small(label, -W / 2 + left + (labelX + 1 + smallWidth(label) / 2) * s,
+              H / 2 - top - 2 * s, -0.000001, s, 0xffffff);
             pixel(n, 1, 1, qrOffsetY + n, 0x808080);
             pixel(1, qrOffsetY + n, n, 1, 0x808080);
             // Native corner tags have a subtle white top/left highlight.
