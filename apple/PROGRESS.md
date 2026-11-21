@@ -5,6 +5,39 @@ Append a new section on top for each App Store build.
 
 ---
 
+## 1.4 (7) — in progress, 2026-11-18
+
+Not uploaded. Built unsigned on neo (`xcodebuild -scheme aesthetic.computer
+-sdk iphoneos CODE_SIGNING_ALLOWED=NO`): the app embeds `notify.appex` and
+`aesthetic.appex`, and all three carry 1.4 (7). The Mac app and Dock tile
+stay at 1.3 (6).
+
+New target `notify` (bundle `aesthetic.computer.notify`), a notification
+service extension in `apple/notify/`. The server already sent
+`mutable-content` and an `image` URL with every alert; nothing on the phone
+attached it. The extension downloads that URL (20 s, 10 MB) and attaches it,
+so a banner shows a thumbnail and opens to the image, GIF or clip. JPEG, PNG,
+GIF, MP4, MP3 and M4A attach as sent; anything else that decodes as a picture
+(WebP) goes as a PNG. No image, a failed download or the extension's time
+limit all deliver the plain alert.
+
+Server (`shared/push-media.mjs`, `shared/push.mjs`,
+`session-server/chat-manager.mjs`): a chat alert's picture is the message's
+own media (`#code` painting, `$code` KidLisp still, an image link, a YouTube
+thumbnail), else the sender's newest public painting. Alerts gain a subtitle
+naming the room and a thread id, so a room stacks on the lock screen, and a
+tap on a laklok alert opens laklok rather than chat.
+
+Signing: the new bundle id needs an App ID and an App Store profile. The
+`build` lane passes `-allowProvisioningUpdates` with the Admin key, which
+mints both for the iMessage extension today; the notify extension has not
+been through it yet.
+
+Not checked: no alert has been received on a device with this build. A
+TestFlight install on a phone is the first real test of the attachment.
+
+---
+
 ## 1.2 (5) — 2026-10-15
 
 Submitted at 20:12 UTC; App Store Connect reports `WAITING_FOR_REVIEW`.

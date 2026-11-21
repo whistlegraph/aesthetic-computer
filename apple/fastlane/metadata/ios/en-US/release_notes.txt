@@ -1,7 +1,1 @@
-Now called Aesthetic.Computer.
-
-After you sign in, the app offers once to turn on notifications for mail, moods and screams. You can still enter “notifs” to turn them on and “nonotifs” to turn them off on this device.
-
-Turning notifications on now retries if the connection stalls instead of giving up.
-
-Optional app usage counts now see taps on every piece, not just some. Manage “Share app usage” in iOS Settings → Apps → Aesthetic. Usage counts are separate from your account and never include your paintings, messages or typed input.
+New store screenshots and description.

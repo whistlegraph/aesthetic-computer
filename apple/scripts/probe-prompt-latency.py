@@ -2,6 +2,7 @@
 """Exercise the installed macOS app with real AppKit key events and save timings."""
 import argparse
 import json
+import plistlib
 from pathlib import Path
 import subprocess
 import shutil
@@ -11,11 +12,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--interval', type=int, default=80, help='Milliseconds between keys; 16 tests held-key pressure')
 parser.add_argument('--baseline', action='store_true', help='Use the prior animation-frame-only input scheduling for an A/B comparison')
 parser.add_argument('--output', type=Path, default=Path('/tmp/ac-input-latency.json'))
-parser.add_argument('--app', type=Path, default=Path('/Applications/Aesthetic Computer.app'))
+parser.add_argument('--app', type=Path, default=Path('/Applications/Aesthetic.Computer.app'))
 args = parser.parse_args()
 args.output = args.output.resolve()
 script = Path(__file__).with_name('prompt-latency.js').resolve()
-executable = args.app / 'Contents/MacOS/Aesthetic Computer'
+with (args.app / 'Contents/Info.plist').open('rb') as stream:
+    executable = args.app / 'Contents/MacOS' / plistlib.load(stream)['CFBundleExecutable']
 args.output.parent.mkdir(parents=True, exist_ok=True)
 args.output.unlink(missing_ok=True)
 # Keep App Sandbox enabled. Stage this explicit test's script/results inside

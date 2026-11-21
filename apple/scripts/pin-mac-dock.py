@@ -17,7 +17,7 @@ tile = {
     "tile-type": "file-tile",
     "tile-data": {
         "bundle-identifier": bundle,
-        "file-label": "Aesthetic Computer",
+        "file-label": app.stem,
         "file-type": 41,
         "dock-extra": True,
         "file-data": {"_CFURLString": url, "_CFURLStringType": 15},
@@ -44,4 +44,4 @@ def xml_value(value):
 
 subprocess.run(["defaults", "write", "com.apple.dock", "persistent-apps", "-array", *map(xml_value, apps)], check=True)
 subprocess.run(["killall", "Dock"], check=False, stdout=subprocess.DEVNULL)
-print("Pinned Aesthetic Computer. Dock backup:", backup)
+print(f"Pinned {app.stem}. Dock backup:", backup)

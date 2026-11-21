@@ -3,6 +3,7 @@ import UserNotifications
 import WebKit
 #if os(macOS)
 import AppKit
+import GameController
 import UniformTypeIdentifiers
 #endif
 
@@ -16,7 +17,7 @@ struct aesthetic_computerApp: App {
 
     var body: some Scene {
         #if os(macOS)
-        WindowGroup("Aesthetic Computer", id: "prompt") {
+        WindowGroup("Aesthetic.Computer", id: "prompt") {
             ContentView()
                 .frame(width: MacPromptLatencyProbe.enabled ? 640 : nil,
                        height: MacPromptLatencyProbe.enabled ? 480 : nil)
@@ -96,9 +97,32 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         LaunchTrace.mark("didFinishLaunching")
         startNotifications()
+        NotificationCenter.default.addObserver(self, selector: #selector(controllerConnected(_:)),
+                                               name: .GCControllerDidConnect, object: nil)
+        for pad in GCController.controllers() { bindFrameChart(to: pad) }
         let pals = DockIcon.pals(in: .main)
         dockIcon = DockIconWatcher { NSApp.applicationIconImage = DockIcon.image(look: $0, pals: pals) }
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func controllerConnected(_ note: Notification) {
+        if let pad = note.object as? GCController { bindFrameChart(to: pad) }
+    }
+
+    private func bindFrameChart(to pad: GCController) {
+        pad.extendedGamepad?.rightThumbstickButton?.pressedChangedHandler = { _, _, pressed in
+            guard pressed else { return }
+            DispatchQueue.main.async {
+                guard NSApp.isActive, let webView = AppNavigation.active?.webView,
+                      webView.url?.host == "aesthetic.computer" else { return }
+                // The open Rax sheet handles R3 in its own renderer.
+                webView.evaluateJavaScript("""
+                    if (!window.acRaxSheet?.up && typeof window.acFpsHud === 'function') {
+                        window.acFpsHud(localStorage.getItem('ac:fps-hud') !== '1');
+                    }
+                    """, completionHandler: nil)
+            }
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

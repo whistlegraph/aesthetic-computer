@@ -8,8 +8,8 @@
 # The record already exists (id 6450940883, live as 1.0 since 2023-07-04), so
 # there is no `create` lane. The version and build number that land in App
 # Store Connect come from the Xcode project (MARKETING_VERSION and
-# CURRENT_PROJECT_VERSION on both targets — the iMessage extension has to
-# match the app), not from this file. VERSION and BUILD_NUMBER below only say
+# CURRENT_PROJECT_VERSION on all three iOS targets — the iMessage and notify
+# extensions have to match the app), not from this file. VERSION and BUILD_NUMBER below only say
 # which App Store version the metadata and ship lanes address, so keep them
 # in step with the project when you bump it.
 
@@ -20,8 +20,8 @@ API_ISSUER = "69a6de78-fa3c-47e3-e053-5b8c7c11a4d1"
 API_KEY_PATH = File.expand_path("~/.appstoreconnect/private_keys/AuthKey_S4TQKG6U99.p8")
 BUNDLE = "aesthetic.computer"
 TEAM = "FB5948YR3S"
-VERSION = ENV.fetch("AC_IOS_VERSION", "1.2")
-BUILD_NUMBER = ENV.fetch("AC_IOS_BUILD_NUMBER", "5")
+VERSION = ENV.fetch("AC_IOS_VERSION", "1.4")
+BUILD_NUMBER = ENV.fetch("AC_IOS_BUILD_NUMBER", "7")
 
 # Everything is anchored to this Fastfile's own location so the lanes resolve
 # no matter where fastlane is invoked from.

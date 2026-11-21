@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Aesthetic Computer</string>
+	<string>Aesthetic.Computer</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
