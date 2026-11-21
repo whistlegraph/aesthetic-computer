@@ -18,6 +18,12 @@ const result=await build({
     // The Node harness loads its parser lazily with createRequire. Browser
     // bundles use the same vendored grammar through its native ESM exports.
     b.onResolve({filter:/^\.\/source-parser\.mjs$/},()=>({path:resolve(root,'aesel/src/vendor/acorn.mjs')}));
+    // The piece-only web client has no desktop ROM workspace to capture.
+    b.onResolve({filter:/^(?:\.\/cores|\.\.\/media\/picture\/png)\.mjs$/},args=>{
+      if(args.kind==='dynamic-import'&&args.importer===resolve(root,'aesel/src/tools.mjs'))
+        return {path:args.path,namespace:'native-rom'};
+    });
+    b.onLoad({filter:/.*/,namespace:'native-rom'},()=>({contents:'throw new Error("ROM capture requires desktop Aesel.");'}));
     b.onResolve({filter:/^node:/},args=>{
       const name=shims[args.path];if(!name) throw new Error(`Unmapped browser dependency: ${args.path}`);
       return {path:resolve(root,`aesel/phone/shim/${name}.mjs`)};

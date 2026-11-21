@@ -120,3 +120,18 @@ test('both the easel and the aesel names parse; the journal still writes easel',
  assert.throws(()=>parseTranscript(serializeTranscript({...header,format:'aesthetic.other'},[record])),/format/);
  assert.throws(()=>serializeTranscript({...header,provenance:{application:'other'}},[record]),/provenance/);
 });
+
+test('account history binds reads to the verified subject even if two owners share a session ID',async()=>{
+ const {request}=endpointFixture();
+ for(const sub of ['alice','bob'])await request('POST',sub,serializeTranscript(header,[{...record,text:sub+' notebook'}]));
+ const query={scope:'mine',sessionId:header.id};
+ assert.equal((await request('GET','','',query)).statusCode,401);
+ assert.equal((await request('GET','alice','',{...query,owner:'bob'})).statusCode,400);
+ const read=await request('GET','alice','',query);
+ assert.equal(read.statusCode,200);
+ assert.deepEqual(JSON.parse(read.body).records.map(r=>r.text),['alice notebook']);
+ assert.equal(JSON.parse(read.body).nextAfterSeq,null);
+ const next=await request('GET','alice','',{...query,afterSeq:'1'});
+ assert.deepEqual(JSON.parse(next.body).records,[]);
+ assert.equal((await request('GET','alice','',{scope:'mine',before:'invalid'})).statusCode,400);
+});

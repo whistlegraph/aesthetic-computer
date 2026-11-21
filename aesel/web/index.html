@@ -6,23 +6,31 @@
   <meta name="theme-color" content="#f4eddb">
   <title>Aesel — easily make and share new media</title>
   <link rel="icon" href="/icon.png">
+  <link rel="stylesheet" href="/web1.css">
   <link rel="stylesheet" href="./app.css">
   <script defer src="./auth0.js"></script>
   <script defer src="./app.js"></script>
+  <script type="module" src="/media-slides.js"></script>
 </head>
 <body>
-  <header><a class="brand" href="/">Aesel<span>by Aesthetic Computer</span></a><div class="account"><span id="credits"></span><span id="handle"></span><button id="logout" hidden>Sign out</button></div></header>
+  <header><a class="brand" href="/try/"><img src="/icon.png" width="44" height="44" alt="">Aesel<span>by Aesthetic Computer</span></a><div class="account"><a href="/about/">About Aesel</a><span id="credits"></span><a id="handle"></a><button id="logout" hidden>Sign out</button></div></header>
   <main id="gate">
-    <img src="/icon.png" width="112" height="112" alt="">
-    <h1>What shall we make?</h1>
-    <p>Describe a piece. Play it as it takes shape.</p>
+    <figure class="desk-illy" data-mime-slides><img src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code><span class="byline">A little world that follows your cursor.</span></figcaption></figure>
+    <h1>Your Aesel desk</h1>
+    <p>Open your threads or make a piece with your AC handle.</p>
     <button id="login" class="primary" disabled>Sign in with Aesthetic Computer</button>
     <p id="gate-status" role="status">Loading…</p>
-    <p class="disclosure">Pieces publish to your public @handle as you work. Conversations and revisions are shared with authorized AC staff. <a href="/privacy.html">Privacy</a></p>
+    <p class="disclosure">Pieces publish to your public @handle as you work. Browser drafts stay on this device. <a href="/privacy.html">Privacy</a></p>
     <noscript>Enable JavaScript to use Aesel.</noscript>
   </main>
   <main id="workspace" hidden>
-    <nav class="pieces" aria-label="Saved pieces"><button id="new">+ New piece</button><label for="history">Saved here</label><select id="history" aria-label="Saved pieces in this browser"></select><span id="status" role="status"></span></nav>
+    <section id="desk" class="web-panel" aria-labelledby="desk-title">
+      <h1 id="desk-title" class="web-ribbon">Your threads</h1>
+      <div class="desk-columns"><section><h2>Account archive</h2><p id="threads-status" role="status"></p><ul id="account-threads" class="thread-list"></ul><button id="more-threads" hidden>More threads</button></section>
+      <section><h2>Saved in this browser</h2><ul id="browser-threads" class="thread-list"></ul></section></div>
+      <section id="thread-reader" aria-label="Selected account thread"></section>
+    </section>
+    <nav class="pieces" aria-label="Saved pieces"><button id="new">+ New piece</button><span id="status" role="status"></span></nav>
     <div class="workbench">
       <section class="notebook" aria-label="Conversation">
         <ol id="log" aria-label="Messages"></ol>

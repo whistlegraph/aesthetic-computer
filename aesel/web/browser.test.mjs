@@ -24,6 +24,13 @@ await context.route('**/*',async route=>{
   if(url.pathname==='/userinfo')return json(route,{sub:'auth0|alice'});
   if(url.pathname==='/handle')return json(route,{handle:'alice'});
   if(url.pathname==='/api/easel-credits')return json(route,{remaining:500,purchased:0});
+  if(url.pathname==='/api/easel-transcripts'){
+    assert.equal(url.searchParams.get('scope'),'mine');
+    assert.equal(url.searchParams.has('owner'),false);
+    assert.equal(route.request().headers().authorization,'Bearer test-only-token');
+    if(url.searchParams.has('sessionId'))return json(route,{records:[{type:'message',role:'user',text:'A saved field chime <img>'}],nextAfterSeq:null});
+    return json(route,{threads:[{id:'thread-1',title:'Field chime',medium:'sound',createdAt:'2026-11-20T00:00:00.000Z'}],nextBefore:null});
+  }
   if(url.pathname==='/api/easel-inference'){
     rounds++;
     const body=route.request().postDataJSON();
@@ -48,6 +55,11 @@ await context.route('**/*',async route=>{
 try {
   await page.goto('http://localhost:8771/try/');
   await page.locator('#workspace').waitFor({state:'visible'});
+  await page.getByRole('button',{name:'Field chime',exact:true}).click();
+  await page.getByText('A saved field chime <img>',{exact:false}).waitFor();
+  assert.equal(await page.locator('#thread-reader img').count(),0);
+  assert.equal(uploaded,'','Opening the desk must not publish a starter');
+  await page.getByRole('button',{name:'Close thread'}).click();
   await page.locator('#input').fill('Make a pink circle.');
   await page.locator('#send').click();
   await page.locator('#log .answer').waitFor();
@@ -55,15 +67,15 @@ try {
   await page.waitForFunction(()=>!document.getElementById('send').disabled);
   assert.equal(uploaded,source);assert.equal(rounds,2);
   assert.equal(await page.locator('#log img').count(),0);
-  const firstId=await page.locator('#history').inputValue();
+  const firstId=await page.locator('#browser-threads [aria-current]').getAttribute('data-id');
   await page.reload();
   await page.locator('#workspace').waitFor({state:'visible'});
-  assert.equal(await page.locator('#history').inputValue(),firstId);
+  assert.equal(await page.locator('#browser-threads [aria-current]').getAttribute('data-id'),firstId);
   assert.match(await page.locator('#log').innerText(),/Make a pink circle/);
   await page.locator('#new').click();
-  await page.waitForFunction(id=>document.getElementById('history').value!==id,firstId);
+  await page.waitForFunction(id=>document.querySelector('#browser-threads [aria-current]').dataset.id!==id,firstId);
   assert.equal(await page.locator('#log li').count(),0);
-  await page.locator('#history').selectOption(firstId);
+  await page.locator('#browser-threads button').filter({hasText:'Make a pink circle.'}).click();
   await page.locator('#log .answer').waitFor();
   await mkdir(new URL('./test-results/',import.meta.url),{recursive:true});
   await page.screenshot({path:new URL('./test-results/desktop.png',import.meta.url).pathname});
@@ -78,7 +90,7 @@ try {
   await page.reload();
   await page.locator('#workspace').waitFor({state:'visible'});
   assert(!((await page.locator('#log').innerText()).includes('pink circle')));
-  assert.equal(await page.locator('#history option').count(),1);
+  assert.equal(await page.locator('#browser-threads button').count(),1);
   assert.deepEqual(errors,[]);
   console.log('PASS: generation, upload, preview, reload, thread switching, text safety, account isolation, sign-out and mobile layout. Network mocked.');
 }finally {await browser.close();}

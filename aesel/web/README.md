@@ -1,5 +1,7 @@
 # Aesel in a browser
 
+The account desk at `aesel.app/try/` also opens from `aesel.app` and `try.aesel.app`. The illustrated guide lives at `/about/`. All sign-ins and browser drafts use the original apex origin.
+
 The `/try/` client uses `phone/session.mjs` and the shared AC engine. The first
 release makes JavaScript pieces using hosted AC braincells, publishes edits to
 the signed-in handle and embeds the public piece. It does not run a local CLI.
@@ -30,7 +32,7 @@ Append these settings without replacing other AC URLs:
 Auth0 owns token storage and refresh. Engine credentials stay in memory. Drafts,
 conversation context and the last-opened piece are stored separately per Auth0
 subject in this browser's localStorage. They survive sign-out but are not synced
-between computers. Download source before clearing browser data. Model output
+between computers. The account archive reads previously uploaded terminal journals through `easel-transcripts?scope=mine`. Ownership comes from the verified token. Selecting a journal opens it for reading. Download source before clearing browser data. Model output
 is rendered as text; preview code runs on the separate AC origin in a sandboxed
 iframe. The gate discloses public publishing and existing staff access.
 

@@ -1938,7 +1938,15 @@ aesel.app {
     root * /opt/ac/system/public/aesel
     header X-Content-Type-Options nosniff
     header Referrer-Policy strict-origin-when-cross-origin
+    redir / /try/ 302
+    redir /about /about/ 308
+    rewrite /about/ /index.html
     file_server
+}
+try.aesel.app {
+    import security_headers
+    redir / https://aesel.app/try/ 302
+    redir https://aesel.app{uri} 302
 }
 www.aesel.app {
     import security_headers

@@ -91,7 +91,7 @@ const memoryStore = () => {
   };
 };
 
-export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, renewToken = null, retryOptions = {}, accountFetch = (...args) => fetch(...args) } = {}) {
+export function createSession({ storage = memoryStore(), emit = () => {}, hostRPC = null, renewToken = null, publishStarter = true, retryOptions = {}, accountFetch = (...args) => fetch(...args) } = {}) {
   const state = {
     accountVerified: false,
     token: "",
@@ -269,7 +269,7 @@ export function createSession({ storage = memoryStore(), emit = () => {}, hostRP
 
   let blankPublication = null;
   function prepublishBlank() {
-    if (!state.accountVerified || !state.token || !state.handle || !state.id ||
+    if (!publishStarter || !state.accountVerified || !state.token || !state.handle || !state.id ||
         !state.autoPublish || state.published || state.selectedRevision !== null ||
         vfs.readFileSync(state.file) !== STARTER) return Promise.resolve();
     // Account restoration and opening a notebook can finish in either order.

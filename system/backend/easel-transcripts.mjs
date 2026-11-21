@@ -21,7 +21,12 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
     let user;
     try{user=await authorize({authorization:event.headers?.authorization??event.headers?.Authorization});}catch{return reply(503,{error:'Could not verify authentication'});}
     if(typeof user?.sub!=='string'||!user.sub)return reply(401,{error:'Authentication required'});
-    if(event.httpMethod==='GET'&&!String(staffSubs()).split(',').map(s=>s.trim()).filter(Boolean).includes(user.sub))return reply(403,{error:'Company staff authorization required'});
+    const args=event.queryStringParameters || {};
+    const mine=event.httpMethod==='GET' && args.scope==='mine';
+    if(mine && Object.keys(args).some(key=>!['scope','sessionId','afterSeq','before','beforeId'].includes(key)))return reply(400,{error:'Unexpected account history filter'});
+    const listing=mine && args.sessionId===undefined;
+    if(listing && (args.afterSeq!==undefined || ((args.before!==undefined || args.beforeId!==undefined) && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(args.before||'') || !ID.test(args.beforeId||'')))))return reply(400,{error:'Invalid thread cursor'});
+    if(event.httpMethod==='GET'&&!mine&&!String(staffSubs()).split(',').map(s=>s.trim()).filter(Boolean).includes(user.sub))return reply(403,{error:'Company staff authorization required'});
     let database;
     try{
       // Validate the complete request before connecting or writing anything.
@@ -33,10 +38,10 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
         // Apply credential redaction again to direct clients; never trust a client flag.
         document=parseTranscript(serializeTranscript(document.header,document.records,{redact:true,maxBytes:MAX_BATCH_BYTES}));
       }else if(event.httpMethod==='GET'){
-        const args=event.queryStringParameters||{};
-        if(typeof args.owner!=='string'||!args.owner||args.owner.length>200||!ID.test(args.sessionId||''))return reply(400,{error:'Explicit owner and sessionId required'});
+        const owner=mine?user.sub:args.owner;
+        if(!listing && (typeof owner!=='string'||!owner||owner.length>200||!ID.test(args.sessionId||'')))return reply(400,{error:'Explicit owner and sessionId required'});
         const after=Number(args.afterSeq??0);if(!Number.isSafeInteger(after)||after<0)return reply(400,{error:'Invalid sequence cursor'});
-        query={owner:args.owner,sessionId:args.sessionId,'record.seq':{$gt:after}};
+        query={owner,sessionId:args.sessionId,'record.seq':{$gt:after}};
       }else{
         let args;try{if(Buffer.byteLength(event.body||'')>1024)throw new Error();args=JSON.parse(event.body||'{}');if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).some(k=>!['sessionId','all'].includes(k)))throw new Error();}catch{return reply(400,{error:'Invalid delete request'});}
         if(!ID.test(args.sessionId||'')&&args.all!==true)return reply(400,{error:'Provide sessionId or explicit all:true'});
@@ -45,9 +50,27 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
       database=await connect();const db=database.db;
       if(!initialized.has(db)){await ensureTranscriptIndexes(db);initialized.add(db);}
       const collection=db.collection(COLLECTION);
+      if(listing){
+        // Renewed sharing consent may produce several headers for one session.
+        const pipeline=[
+          {$match:{owner:user.sub,'record.type':'session'}},{$sort:{receivedAt:-1}},
+          {$group:{_id:'$sessionId',title:{$first:'$record.metadata.title'},medium:{$first:'$record.metadata.medium'},createdAt:{$first:'$record.createdAt'}}},
+        ];
+        if(args.before)pipeline.push({$match:{$or:[{createdAt:{$lt:args.before}},{createdAt:args.before,_id:{$lt:args.beforeId}}]}});
+        pipeline.push({$sort:{createdAt:-1,_id:-1}},{$limit:51},
+          {$lookup:{from:COLLECTION,let:{thread:'$_id'},pipeline:[
+            {$match:{owner:user.sub,'record.role':'user','record.seq':{$gt:0},$expr:{$eq:['$sessionId','$$thread']}}},
+            {$sort:{'record.seq':1}},{$limit:1},{$project:{_id:0,text:{$substrCP:['$record.text',0,90]}}},
+          ],as:'opening'}});
+        const rows=await collection.aggregate(pipeline).toArray();
+        const threads=rows.slice(0,50).map(row=>({id:row._id,title:row.title||row.opening[0]?.text,medium:row.medium,createdAt:row.createdAt}));
+        const last=threads.at(-1);
+        return reply(200,{threads,nextBefore:rows.length>50?{before:last.createdAt,beforeId:last.id}:null});
+      }
       if(event.httpMethod==='DELETE'){const result=await collection.deleteMany(query);return reply(200,{deleted:result.deletedCount});}
       if(event.httpMethod==='GET'){
         const records=await collection.find(query,{projection:{_id:0,record:1,expiresAt:1}}).sort({'record.seq':1}).limit(100).toArray();
+        if(mine)return reply(200,{records:records.map(row=>row.record),nextAfterSeq:records.length===100?records.at(-1).record.seq:null});
         const readAt=now();
         const expiredSeqs=records.filter(row=>row.expiresAt&&row.expiresAt<=readAt).map(row=>row.record.seq);
         return reply(200,{records:records.map(row=>row.record),expiredSeqs,nextAfterSeq:records.at(-1)?.record.seq??null});

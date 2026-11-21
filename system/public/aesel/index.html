@@ -6,18 +6,16 @@
 <title>Aesel — easily make and share new media</title>
 <meta name="description" content="Easily make and share new media with Aesel. Describe a piece; an engine writes it; it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers, Game Boy and NES ROMs.">
 <meta name="theme-color" content="#fcf0e9">
-<link rel="canonical" href="https://aesel.app/">
+<link rel="canonical" href="https://aesel.app/about/">
 <meta property="og:title" content="Aesel">
 <meta property="og:description" content="Easily make and share new media with Aesel. Describe a piece; watch it live on your phone; publish it to your @handle.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/web1.css">
 <style>
-@font-face{font-family:Pixel;src:url('/pixel.woff') format('woff');font-display:swap}
-:root{color-scheme:light}
-body{margin:0 auto;padding:12px 16px 32px;max-width:900px;background:#fcf0e9;color:#221b2b;font:15px/1.4 Georgia,"Times New Roman",serif}
-a{color:#0000c8}a:visited{color:#6a1b8a}
+body{margin:0 auto;padding:12px 16px 32px;max-width:900px}
 h1{font:normal 64px/1 Pixel,monospace;color:#79568b;margin:0}
-h2{font:bold 17px/1.2 Georgia,serif;margin:22px 0 6px;padding:2px 6px;background:#e2cdea;border-bottom:1px solid #79568b}
+h2.web-ribbon{margin:22px 0 6px}
 p{margin:6px 0}
 hr{border:0;border-top:1px solid #79568b;margin:14px 0}
 code,pre,kbd{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace}
@@ -28,18 +26,15 @@ th,td{border:1px solid #b0a8ba;padding:3px 7px;text-align:left;vertical-align:to
 thead th{background:rgba(0,0,0,.07);font-size:13px}
 tbody th{white-space:nowrap}
 td code,p code,li code{overflow-wrap:anywhere}
-.wide{overflow-x:auto;border:1px solid #b0a8ba;border-radius:4px;background:#fbf4e8}
+.wide{overflow-x:auto}
 .t-plum{background:#f1ecf7}.t-pink{background:#fcf0f6}.t-teal{background:#e8f4f3}
 .art{float:right;width:250px;margin:0 0 6px 14px;text-align:center}
-.art figcaption{margin-top:4px}
+
 .art img{display:block;width:100%;height:auto;border:1px solid #79568b}
 h2{overflow:hidden}
 .ill{width:76px;padding:2px}.ill img{display:block;width:72px;height:72px}
 .nw,.nwd{white-space:nowrap}
 .nw code{overflow-wrap:normal}
-.mime{display:inline-block;padding:1px 6px;border:1px solid var(--c);border-left-width:5px;background:#fffdf8;background:color-mix(in srgb,var(--c) 10%,#fffdf8);font-size:12.5px}
-.mime b{font-weight:normal}.mime s{text-decoration:none;color:#9a8ea0;padding:0 1px}.mime i{font-style:italic;color:#9a8ea0}.mime u{text-decoration:none;font-weight:bold;color:var(--c)}
-.ty-text b{color:#2a6f3f}.ty-image b{color:#a1306f}.ty-audio b{color:#5a3ea8}.ty-application b{color:#8a5a00}
 .toc{font-size:14px}
 ol{margin:6px 0;padding-left:22px}
 .shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
@@ -52,12 +47,12 @@ footer{font-size:13px;margin-top:18px}
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-<figure class="art"><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption id="art-mime"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code></figcaption></figure>
+<figure class="art" data-mime-slides><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption id="art-mime"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code><span class="byline">A little world that follows your cursor.</span></figcaption></figure>
 <h1>Aesel</h1>
 <p><b>Easily make and share new media.</b> Describe a piece; a brain writes it; it plays live on your phone and publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</p>
 <p class="toc">[ <a href="#get">get it</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
 
-<h2 id="get">Get it</h2>
+<h2 class="web-ribbon" id="get">Get it</h2>
 <div class="wide"><table>
 <thead><tr><th>where</th><th>how</th><th>notes</th></tr></thead>
 <tbody>
@@ -69,7 +64,7 @@ footer{font-size:13px;margin-top:18px}
 </tbody>
 </table></div>
 
-<h2 id="session">A session</h2>
+<h2 class="web-ribbon" id="session">A session</h2>
 <ol>
 <li><b>Start</b> from a blank piece or a <a href="https://nopaint.art">nopaint.art</a> brush.</li>
 <li><b>Describe it.</b> The brain writes the code and checks the canvas.</li>
@@ -81,7 +76,7 @@ footer{font-size:13px;margin-top:18px}
 <a href="/shot-piece.jpg"><img src="/shot-piece.jpg" width="930" height="780" loading="lazy" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky">Fig. 2. The <code>.p5</code> piece it made.</a>
 </div>
 
-<h2 id="runtimes">Four runtimes</h2>
+<h2 class="web-ribbon" id="runtimes">Four runtimes</h2>
 <p>Pick with <code>/runtime</code>.</p>
 <div class="wide t-plum"><table>
 <thead><tr><th>ext</th><th>runtime</th><th>what it is</th><th>a whole piece</th></tr></thead>
@@ -106,7 +101,7 @@ end</pre></td></tr>
 </tbody>
 </table></div>
 
-<h2 id="mimes">Aesel’s got MIMEs</h2>
+<h2 class="web-ribbon" id="mimes">Aesel’s got MIMEs</h2>
 <p>Pick with <code>/medium</code>.</p>
 <div class="wide t-pink"><table id="mime-table">
 <thead><tr><th>medium</th><th>illy</th><th>MIME</th><th>what you get</th></tr></thead>
@@ -127,7 +122,7 @@ end</pre></td></tr>
 </tbody>
 </table></div>
 
-<h2 id="goes">Where the work goes</h2>
+<h2 class="web-ribbon" id="goes">Where the work goes</h2>
 <div class="wide t-teal"><table>
 <tbody>
 <tr><th><a href="https://aesthetic.computer/@jeffrey">aesthetic.computer/@you/name</a></th><td>Every save, published and live.</td></tr>
@@ -138,7 +133,7 @@ end</pre></td></tr>
 </tbody>
 </table></div>
 
-<h2 id="brains">Brains</h2>
+<h2 class="web-ribbon" id="brains">Brains</h2>
 <p>Switch with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness with your own skills and MCP servers.</p>
 <div class="wide t-plum"><table>
 <thead><tr><th>brain</th><th>runs through</th><th>you pay with</th></tr></thead>
@@ -150,7 +145,7 @@ end</pre></td></tr>
 </tbody>
 </table></div>
 
-<h2 id="stack">Behind the scenes</h2>
+<h2 class="web-ribbon" id="stack">Behind the scenes</h2>
 <p>Surveyed 2026-11-08 from the source. <a href="/stack.pdf">Diagram (PDF)</a>.</p>
 <div class="wide"><table class="zone">
 <tbody>
@@ -174,15 +169,10 @@ end</pre></td></tr>
 </tbody>
 </table></div>
 
-<h2 id="help">Help and privacy</h2>
+<h2 class="web-ribbon" id="help">Help and privacy</h2>
 <p><a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> · <a href="/support.html">support notes</a> · <a href="/privacy.html">privacy policy</a>. Your conversation goes to the brain that writes your work; pieces publish to your @handle; notebooks and versions stay on your device.</p>
 <hr>
 <footer>Aesel is made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</footer>
-<script>
-// The hero steps through the MIME table's pictures; a row's picture is also a link to the full size.
-(function(){var rows=[].slice.call(document.querySelectorAll("#mime-table .ill img")),art=document.getElementById("art"),cap=document.getElementById("art-mime"),i=0;
-if(!rows.length||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-setInterval(function(){if(document.hidden)return;i=(i+1)%rows.length;var r=rows[i],pre=new Image();pre.onload=function(){art.src=pre.src;art.alt=r.alt;cap.innerHTML=r.closest("td").nextElementSibling.innerHTML};pre.src=r.getAttribute("src")},3400)})();
-</script>
+<script type="module" src="/media-slides.js"></script>
 </body>
 </html>

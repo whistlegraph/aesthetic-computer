@@ -28,11 +28,12 @@ work=$(mktemp -d "$release_root/.build.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 if [ ! -f "$release/build.json" ]; then
   mkdir "$work/source"
-  git archive "$revision" aesel/web aesel/phone aesel/src aesel/context \
+  git archive "$revision" aesel/web aesel/phone aesel/src aesel/context aesel/native/automation.mjs aesel/native/preview.mjs \
     system/public/aesthetic.computer/lib/visit-tracker.mjs \
     system/public/aesthetic.computer/lib/visit-model.mjs \
     system/public/aesthetic.computer/lib/account-activity.mjs \
     system/public/aesthetic.computer/lib/account-activity-model.mjs \
+    system/public/aesthetic.computer/lib/feed-activity.mjs \
     system/public/aesthetic.computer/lib/laklok-activity.mjs \
     system/public/aesthetic.computer/lib/network-recognition.mjs \
     system/public/aesthetic.computer/lib/network-recognition-model.mjs \

@@ -1,5 +1,6 @@
 import '../phone/shim/globals.js';
 import { createSession } from '../phone/session.mjs';
+import { accountThreads } from './dashboard.mjs';
 import { accountStorage } from './storage.mjs';
 import { startVisitTracker } from '../../system/public/aesthetic.computer/lib/visit-tracker.mjs';
 import { startAccountActivity } from '../../system/public/aesthetic.computer/lib/account-activity.mjs';
@@ -43,14 +44,14 @@ function busy(value) {
   $('send').disabled = value;
   $('stop').hidden = !value;
   $('new').disabled = value;
-  $('history').disabled = value;
+  for(const b of $('browser-threads').querySelectorAll('button'))b.disabled=value;
   $('logout').disabled = value;
 }
 function event(e) {
   if(e.type === 'you' || e.type === 'note' || e.type === 'bad') follow(()=>line(e.type,e.text));
   if(e.type === 'busy') busy(e.busy);
   if(e.type === 'status') $('status').textContent = e.text;
-  if(e.type === 'signedIn') { $('handle').textContent = e.handle ? `@${e.handle}` : ''; $('logout').hidden = false; }
+  if(e.type === 'signedIn') { if(e.handle)$('handle').href='https://aesthetic.computer/@'+encodeURIComponent(e.handle); $('handle').textContent = e.handle ? `@${e.handle}` : ''; $('logout').hidden = false; }
   if(e.type === 'credits') $('credits').textContent = Number.isFinite(e.total) ? `${e.total.toLocaleString()} braincells` : '';
   if(e.type === 'piece' || e.type === 'source') { source = e.source || ''; $('download').disabled = !source; }
   if(e.type === 'thread') {
@@ -66,7 +67,13 @@ function event(e) {
   }
   if(e.type === 'history') {
     const selected = session?.state.id;
-    $('history').replaceChildren(...e.items.map(item => { const o=document.createElement('option');o.value=item.id;o.textContent=item.title;o.selected=item.id===selected;return o; }));
+    $('browser-threads').replaceChildren(...e.items.map(item=>{
+      const row=document.createElement('li'),open=document.createElement('button');
+      open.className='thread-link';open.textContent=item.title || item.route;open.dataset.id=item.id;
+      if(item.id===selected)open.setAttribute('aria-current','true');
+      open.onclick=async()=>{if(submitting||session.state.busy)return;try{await session.resumeSession(item.id);$('input').focus();}catch(error){line('bad',error.message);}};
+      row.append(open);return row;
+    }));
   }
   if(e.type === 'bridge') {
     const p=e.params || {};
@@ -97,7 +104,7 @@ async function enter() {
   });
   activity?.load('aesthetic.computer/disks/aesel');
   const token=await auth.getTokenSilently();
-  session=createSession({storage:accountStorage(localStorage,user.sub),emit:event});
+  session=createSession({publishStarter:false,storage:accountStorage(localStorage,user.sub),emit:event});
   await session.adoptToken(token);
   activity?.ready();
   if(!session.state.handle) {
@@ -109,7 +116,15 @@ async function enter() {
   await session.begin();
   await session.open();
   $('gate').hidden=true;$('workspace').hidden=false;
-  $('input').focus({preventScroll:true});
+  const dashboard=accountThreads({
+    root:$('desk'),valid:()=>signedInUser?.sub===user.sub,
+    token:async()=>{
+      const access=await auth.getTokenSilently();
+      if((await auth.getUser())?.sub!==user.sub)throw Error('Your account changed. Reload your desk.');
+      return access;
+    },
+  });
+  void dashboard.load(true);
 }
 
 async function boot() {
@@ -138,6 +153,8 @@ $('login').onclick=()=>{
 $('logout').onclick=async()=>{
   if(session?.state.busy || session?.state.publishing) { line('note','Wait for this turn and upload to finish before signing out.');return; }
   signedInUser=null; activity?.stop();
+  $('account-threads').replaceChildren();$('thread-reader').replaceChildren();$('browser-threads').replaceChildren();
+  $('log').replaceChildren();gate('Signing out…');
   session?.signOut();
   await auth.logout({logoutParams:{returnTo:callback}});
 };
@@ -165,7 +182,6 @@ $('composer').onsubmit=async e=>{
 $('input').onkeydown=e=>{if(e.key==='Enter' && !e.shiftKey && !e.isComposing && matchMedia('(hover: hover)').matches){e.preventDefault();$('send').click();}};
 $('stop').onclick=()=>session?.stop();
 $('new').onclick=async()=>{try{await session.newPiece();$('input').focus();}catch(error){line('bad',error.message);}};
-$('history').onchange=async()=>{try{await session.resumeSession($('history').value);}catch(error){line('bad',error.message);}};
 $('download').onclick=()=>{
   if(!source) return;
   const url=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
