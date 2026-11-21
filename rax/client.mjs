@@ -2270,6 +2270,7 @@ document.addEventListener('visibilitychange', () => {
 // 20 fps there (2026-11-03) so the prompt's own drawing keeps the frame
 // budget, and comes back to full rate the moment the paper drops.
 let bareAt = 0, sheetClosedAt = 0, sheetShown = !hosted, closingAt = 0;
+let lastBody = null; // { room, x, y, z, yaw, pitch }: where this page's body last stood, and how it looked
 // The far, turning view behind the curtain: 1 there, easing to 0 over 1.4 s
 // once the paper drops, and back out as it returns.
 let orbitMix = hosted ? 1 : 0, orbitAt = performance.now();
@@ -2277,7 +2278,7 @@ function orbitStep(now) {
   const want = hosted && (!sheetOpen || closingAt) ? 1 : 0;
   const dt = Math.min(0.1, (now - orbitAt) / 1000);
   orbitAt = now;
-  const rate = want ? 1 / 0.36 : 1 / 1.4; // back out on the paper's own beat
+  const rate = want ? 1 / 0.64 : 1 / 1.4; // back out on the paper's own beat home (lib/rax-sheet.mjs HOME_BEAT)
   orbitMix = want > orbitMix ? Math.min(want, orbitMix + rate * dt) : Math.max(want, orbitMix - rate * dt);
   return orbitMix;
 }
@@ -2286,7 +2287,7 @@ function orbitStep(now) {
 // to 14 px in from the bottom-right), in buffer pixels from the centre, y up.
 function reticleShift(now) {
   if (!closingAt) return null;
-  const t = Math.min(1, (now - closingAt) / 360), ease = 1 - (1 - t) * (1 - t);
+  const t = Math.min(1, (now - closingAt) / 640), ease = 1 - (1 - t) * (1 - t);
   const px = canvas.width / Math.max(1, canvas.clientWidth);
   const hx = canvas.width / 2 - 22 * px, hy = -(canvas.height / 2 - 22 * px);
   return { x: Math.round(hx * ease), y: Math.round(hy * ease) };
@@ -2320,7 +2321,11 @@ function applyPrediction() {
   player = data.phase === 'playing' || data.phase === 'waiting' ? result.player : { ...own };
   presentation.correct(player, changedLife || resetPrediction);
   resetPrediction = false;
-  if (changedLife && !carried) { yaw = own.yaw; pitch = own.pitch; }
+  // 👀 A body set down where it was left looks where it was looking (the eye is this page's own; the server's word on facing is for a body it has put somewhere new).
+  const woke = changedLife && !carried && lastBody?.room === room && Math.hypot(own.x - lastBody.x, own.z - lastBody.z) < 1.5;
+  if (woke) { yaw = lastBody.yaw; pitch = lastBody.pitch; }
+  else if (changedLife && !carried) { yaw = own.yaw; pitch = own.pitch; }
+  if (player) lastBody = { room, x: player.x, y: player.y, z: player.z, yaw, pitch };
   diagnostics.max('reconcileMaxMs', performance.now() - began);
   diagnostics.max('pendingCommandsMax', pending.length);
 }
@@ -3095,7 +3100,8 @@ function step(now) {
     reticleShift: reticleShift(now),
     orbit: orbitStep(now),
     cornerScale,
-    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : spawn(lastSeat >= 0 ? lastSeat : 0, 1, half()) : null,
+    // (Before the seat is given back, the flight in aims at where this body last stood here, looking where it looked: it used to aim at the room's spawn and jump to the real place, and the real facing, as it landed.)
+    flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : lastBody?.room === room ? { ...lastBody } : spawn(lastSeat >= 0 ? lastSeat : 0, 1, half()) : null,
     jobs,
     worldTime,
     locked: locked(),

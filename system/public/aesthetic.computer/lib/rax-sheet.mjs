@@ -187,6 +187,8 @@ let y = 0;
 let goal = 0;
 let toward = null; // A move in flight: "open" or "home".
 const BEAT = 360; // ms, the whole move: the crosshair's flight takes the same
+// 🏠 The way home takes longer: the eye has the whole room to back out of, and at the drop's beat it was flung (2026-11-20). The prompt's crosshair (disks/prompt.mjs `back`) and the guest's far view and reticle (rax/client.mjs) fly home on this same beat: change one, change all three.
+const HOME_BEAT = 640;
 let loop = 0;
 let lastStep = 0;
 let from = 0, began = 0; // The move's start value and time.
@@ -220,7 +222,7 @@ function run2() {
 function step(now) {
   loop = 0;
   lastStep = now;
-  const t = straight ? 1 : Math.min(1, (now - began) / BEAT);
+  const t = straight ? 1 : Math.min(1, (now - began) / (goal === 0 ? HOME_BEAT : BEAT));
   const ease = t < 0.5 ? 2 * t * t : 1 - 2 * (1 - t) * (1 - t);
   y = t >= 1 ? goal : from + (goal - from) * ease;
   write();

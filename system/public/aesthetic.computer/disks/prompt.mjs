@@ -6784,7 +6784,7 @@ function paint($) {
       const unitAway = 1;
       let at = home, scale = 1, lit = false;
       if (raxFlight) {
-        const t = Math.min(1, (now - raxFlight.at) / 360);
+        const t = Math.min(1, (now - raxFlight.at) / (raxFlight.phase === "back" ? 640 : 360)); // (home on the paper's own, longer beat: lib/rax-sheet.mjs HOME_BEAT)
         const ease = 1 - (1 - t) * (1 - t);
         scale = 1 + ease * (unitAway - 1);
         if (raxFlight.phase === "out") {
