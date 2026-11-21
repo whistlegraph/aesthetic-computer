@@ -7436,6 +7436,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
+    if (type === "agent-mark:anchor") {
+      // 🤖 The prompt says where its handle label ends (in the piece's pixels): the linked-agent mark stands there as a postfix.
+      import("./lib/agent-presence.mjs")
+        .then((mod) => mod.anchorAgentMark(content, () => (typeof canvas === "undefined" ? null : canvas)))
+        .catch(() => {});
+      return;
+    }
+
     if (type === "kidlisp:cached-code") {
       // Update recording options with the newly cached code
       if (window.currentRecordingOptions) {

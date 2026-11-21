@@ -7813,6 +7813,18 @@ function paint($) {
       );
     }
 
+    // 🤖 A linked agent's mark stands on the handle as a postfix (lib/agent-presence.mjs): bios is told where the label ends, when that moves and now and then.
+    if (profile) {
+      const at = profile.btn.box, key = `${at.x + at.w},${at.y},${at.h}`;
+      if (key !== agentAnchor.key || ++agentAnchor.paints > 240) {
+        agentAnchor = { key, paints: 0 };
+        $.send({ type: "agent-mark:anchor", content: { x: at.x + at.w, y: at.y, h: at.h } });
+      }
+    } else if (agentAnchor.key) {
+      agentAnchor = { key: null, paints: 0 };
+      $.send({ type: "agent-mark:anchor", content: null });
+    }
+
     // ꜩ Tezos wallet button (positioned to the right of handle button)
     if (tezosWalletAddress && profile) {
       // Format balance
@@ -9518,6 +9530,8 @@ function meta() {
 // 👋 Leave
 function leave(api) {
   motdController?.abort(); // Abort any motd update.
+  agentAnchor = { key: null, paints: 0 };
+  api?.send?.({ type: "agent-mark:anchor", content: null }); // The mark goes back to its own corner.
   // The mime sheet answers only on the prompt's curtain (2026-11-03): disarm
   // it on the way out, or a scroll in the next piece pulls it up.
   api?.send?.({ type: "mime:sheet", content: { action: "armed", on: false } });
@@ -10316,6 +10330,7 @@ function poePlayClear(synth, style) {
 // bottom-left corner (2026-11-03), clear of the mime wordmark at the bottom
 // centre and rax's crosshair at the bottom right.
 const WELCOME_MARGIN = 6;
+let agentAnchor = { key: null, paints: 0 }; // where the linked-agent mark was last told to stand
 function welcomePos(screen) {
   return { left: WELCOME_MARGIN, bottom: WELCOME_MARGIN, screen };
 }
