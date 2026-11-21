@@ -62,7 +62,10 @@ export class Sfx {
     o.connect(g).connect(out);
     o.start();
     let gone = false;
-    return { kill: (fade = 0.05) => {
+    return {
+      // (A voice bent while it is held: the pitch glides to the new one.)
+      update: ({ tone } = {}) => { if (!gone && tone > 0) o.frequency.setTargetAtTime(tone, a.currentTime, 0.015); },
+      kill: (fade = 0.05) => {
       if (gone) return;
       gone = true;
       const t = a.currentTime, f = Math.max(0.01, Number(fade) || 0.05);

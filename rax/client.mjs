@@ -157,7 +157,9 @@ const carPad = panels.mount({
 // down and hears the tone from where the kiosk stands, and each piece rolls
 // its dice from its place's name so the pads are the same on every page.
 // Every held tone stops when the room is left.
-const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9]];
+// East of the door, the songs AC knows (disks/song.mjs), one to a kiosk: tap a song's big button through its syllables, or `play` it as a guide on the room's clock.
+const YARD_PIECES = [['bleep:sine 4x4', -4.5], ['bleep:sine 4x4', -2.9],
+  ...['twinkle', 'row', 'weasel', 'kid', 'mmm'].map((name, k) => [`song ${name}`, 2.4 + k * 1.25, { w: 1.1, h: 1.1, cols: 128, rows: 128 }])];
 const yardPanels = [], yardVoices = new Set();
 let yardAsked = false;
 const yardQuiet = () => { for (const v of [...yardVoices]) v.kill(0.05); };
@@ -166,15 +168,15 @@ async function mountYard() {
   yardAsked = true;
   try {
     const { acPiece, signPiece } = await import('./ac-piece.mjs');
-    for (const [k, [slug, x]] of YARD_PIECES.entries()) {
+    for (const [k, [slug, x, face = { w: 1.2, h: 1.2, cols: 64, rows: 64 }]] of YARD_PIECES.entries()) {
       const z = 0.95, y = 1.35, id = `yard-${k}`; // a step out from the lobby's front glass, facing the yard
       const sound = { synth: ({ type, tone }) => {
-        const held = sfx.hold(Number(tone), { type, at: { x, y, z } }), voice = { kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
+        const held = sfx.hold(Number(tone), { type, at: { x, y, z } }), voice = { update: (to) => held.update(to), kill: (fade) => { yardVoices.delete(voice); held.kill(fade); } };
         yardVoices.add(voice);
         return voice;
       } };
-      const { piece, host } = await acPiece(slug, { sound, seed: id });
-      const panel = panels.mount({ id, label: slug, piece, host, x, y, z, yaw: 0, w: 1.2, h: 1.2, cols: 64, rows: 64, deep: 0.1 });
+      const { piece, host } = await acPiece(slug, { sound, seed: id, clock: () => Date.now() + (clockOffset || 0) });
+      const panel = panels.mount({ id, label: slug, piece, host, x, y, z, yaw: 0, ...face, deep: 0.1 });
       // 👥 What this page's pointer does on it is told to the room: a press, a slide while down (twenty a second at the most), a letting go.
       const act = panel.act;
       let toldAt = 0;
@@ -187,7 +189,7 @@ async function mountYard() {
         send({ type: 'panel', id, name, x: Math.round(px), y: Math.round(py) });
       };
       yardPanels.push(panel);
-      yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: 2.12, z, yaw: 0, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
+      yardPanels.push(panels.mount({ id: `yard-${k}-sign`, piece: signPiece(slug), x, y: y + face.h / 2 + 0.17, z, yaw: 0, w: face.w, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     }
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
