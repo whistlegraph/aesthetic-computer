@@ -64,7 +64,15 @@ export class Actor {
     if (!this.me) throw Error(`@${this.handle} was seated but never appeared`);
     this.control.yaw = this.me.yaw || 0;
     clearInterval(this.timer);
-    this.timer = setInterval(() => this.tick(), 1000 / HZ);
+    const dt = 1000 / HZ;
+    let stepped = performance.now();
+    this.timer = setInterval(() => {
+      const now = performance.now();
+      const due = Math.floor((now - stepped) / dt);
+      if (!due) return;
+      stepped += due * dt;
+      this.tick(Math.min(12, due));
+    }, dt);
     return this;
   }
   leave() {
@@ -77,11 +85,13 @@ export class Actor {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(data));
   }
   // One command a tick, the last twelve sent again so a lost message costs nothing.
-  tick() {
+  tick(count = 1) {
     if (!this.me || this.ws?.readyState !== WebSocket.OPEN) return;
     const c = this.control;
-    this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump ? 1 : 0 });
-    c.jump = false;
+    for (let i = 0; i < count; i++) {
+      this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump ? 1 : 0 });
+      c.jump = false;
+    }
     this.sent = this.sent.slice(-12);
     this.send({ type: 'input', commands: this.sent });
   }

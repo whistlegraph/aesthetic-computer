@@ -87,6 +87,10 @@ before(async () => {
   jeffrey = new Actor({ base, handle: 'jeffrey' });
   await rideFromLobby(jeffrey, 'home');
   floor = jeffrey.room;
+  // These tests place the builder around the floor. The arrival ride must finish first.
+  const end = Date.now() + 12000;
+  while (jeffrey.me.shut > 0 && Date.now() < end) await delay(20);
+  assert.ok(!(jeffrey.me.shut > 0), 'the elevator opened on the builder’s floor');
 });
 after(async () => {
   jeffrey?.leave();

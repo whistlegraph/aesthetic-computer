@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { createRaxServer } from '../server.mjs';
@@ -27,9 +26,6 @@ const shots = new URL('../../tmp/rax/', import.meta.url);
 await mkdir(shots, { recursive: true });
 async function focus(page) {
   await page.bringToFront();
-  if (process.platform === 'darwin' && process.env.RAX_HEADLESS !== '1') {
-    execFileSync('osascript', ['-e', 'tell application "Google Chrome" to activate']);
-  }
 }
 
 try {
@@ -53,11 +49,13 @@ try {
   const a = await tab();
   await wait(() => a.snap?.phase === 'waiting', 'automatic room entry');
   assert.equal(await a.page.locator(':is(form,button,input,select,div,span):not([aria-hidden="true"])').count(), 0, 'no DOM interface');
-  await a.page.screenshot({ path: new URL('entry.png', shots).pathname });
   await focus(a.page);
   await a.page.locator('canvas').click();
+  try { await a.page.waitForFunction(() => !!document.pointerLockElement, null, { timeout: 1000 }); }
+  catch { await a.page.locator('canvas').click(); }
   await a.page.waitForFunction(() => !!document.pointerLockElement);
   assert.equal(await a.page.evaluate(() => !!document.pointerLockElement), true, 'pointer lock');
+  await a.page.screenshot({ path: new URL('entry.png', shots).pathname });
   await a.page.keyboard.press('Enter');
   await a.page.waitForFunction(() => document.querySelector('canvas').raxStats.promptOpen);
   assert.equal(a.snap.rockets.length, 0);

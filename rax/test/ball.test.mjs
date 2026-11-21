@@ -185,7 +185,7 @@ test('the dispenser keeps an old single-ball save and restores the additional ba
   const file = join(stateDir, 'ball.json');
   const old = { room: 'lobby', x: -2, y: BALL.r, z: -3, vx: 0, vy: 0, vz: 0 };
   await writeFile(file, JSON.stringify(old));
-  const first = createRaxServer({ guests: true, stateDir });
+  const first = createRaxServer({ guests: true, stateDir, listHandles: async () => [] });
   await first.ready;
   let ws;
   try {
@@ -207,7 +207,7 @@ test('the dispenser keeps an old single-ball save and restores the additional ba
     assert.ok(m.others[0].vx < 0);
   } finally { ws?.close(); await first.close(); }
   const saved = JSON.parse(await readFile(file));
-  const second = createRaxServer({ guests: true, stateDir });
+  const second = createRaxServer({ guests: true, stateDir, listHandles: async () => [] });
   await second.ready;
   await second.close();
   assert.deepEqual(JSON.parse(await readFile(file)), saved);
