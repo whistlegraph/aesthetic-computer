@@ -916,6 +916,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       sendTower(ws, key, member); // whose floor this is, known with the passage
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
+      bringWatchers();
+    };
+    // 🪞 The same handle looking on from another screen, and following (the
+    // page's `follow`): where the body goes, that drone is brought.
+    const bringWatchers = () => {
+      const body = room.match.seats[member.seat]?.player, person = member.handle?.toLowerCase();
+      if (!body || !person) return;
+      for (const r of [...connections])
+        if (r !== member && r.following && r.ready && r.seat < 0 && r.room !== room && r.handle?.toLowerCase() === person)
+          r.followBody?.(key, bodyPose(body));
     };
     // 👥 Leaving with a hand still on a kiosk: the room is told it was let go.
     const pressing = new Map();
@@ -971,6 +981,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, { type: 'arrival', yaw: position.yaw, pitch: position.pitch });
       send(ws, room.match.snapshot());
       send(ws, builders.state(key, member));
+      if (member.seat >= 0) bringWatchers();
       return true;
     };
     member.followBody = (destination, position) => relocate(destination, position);
@@ -1159,6 +1170,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         diagnostics.emit('client.sample', { ...fields, session: ws.diagnosticSession,
           buildIds: Array.isArray(data.buildIds) ? data.buildIds.slice(0, 12).filter((id) =>
             ws.diagnosticJobs.has(id) && Date.now() - ws.diagnosticJobs.get(id) <= 300000) : [] });
+        return;
+      }
+      // 🪞 A drone that follows its own body (or has been taken back by hand).
+      if (data?.type === 'follow') {
+        member.following = data.on === true;
+        if (!member.following || !member.ready || member.seat >= 0 || !member.handle) return;
+        const other = room.counterpart(member.handle, member, true);
+        const body = other && other.room !== room && other.room.match.seats[other.seat]?.player;
+        if (body) relocate(other.room.key, bodyPose(body));
         return;
       }
       if (data?.type === 'take-body') {

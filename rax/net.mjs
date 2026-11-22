@@ -37,8 +37,24 @@ export function reconcile(authority, pending, ack, objects = [], tick = 0, fixed
   };
 }
 
-export function interpolate(history, tick, seat) {
+// `ahead`: ticks the picture has run past the newest snapshot (the wire went
+// quiet: SnapshotClock.ahead). The walk is carried on along its last heading
+// for that long, across the ground only, so a late packet is a body still
+// walking, not one stopped and then thrown forward.
+const GUESS_SPEED = 12 / 60; // metres a tick: nobody is guessed faster than a sprint
+export function interpolate(history, tick, seat, ahead = 0) {
   if (!history.length) return null;
+  if (ahead > 0 && history.length > 1 && tick >= history.at(-1).tick) {
+    const b = history.at(-1), a = history.at(-2), p = a.players[seat], q = b.players[seat];
+    const ticks = b.tick - a.tick;
+    if (p && q && ticks > 0 && ticks <= 6 && p.life === q.life && q.alive && p.alive) {
+      let vx = (q.x - p.x) / ticks, vz = (q.z - p.z) / ticks;
+      const speed = Math.hypot(vx, vz);
+      if (speed > GUESS_SPEED) { vx *= GUESS_SPEED / speed; vz *= GUESS_SPEED / speed; }
+      return { ...q, x: q.x + vx * ahead, z: q.z + vz * ahead };
+    }
+    return q || p;
+  }
   let a = history[0],
     b = history.at(-1);
   for (const snap of history) {

@@ -14,7 +14,7 @@ import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
-import { LocalPresentation, SnapshotClock } from './presentation.mjs';
+import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
 import { direction, rayBox, wallDistance, along, SCREEN, WORLD, halfOf } from './world.mjs';
@@ -677,7 +677,8 @@ let away = false; // Another piece has the host's stage: nobody can see the room
 const BACKGROUND_FPS = 60; // The room's top rate behind a background window's paper.
 let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
-  playback = new SnapshotClock();
+  playback = new SnapshotClock(),
+  remoteEase = new RemoteEase();
 const prompt = new Prompt();
 // 💬 Room chat: T opens a line (Quake's say key), Enter says it, Escape drops
 // it. The same text entry as the build prompt, with a flat cursor.
@@ -690,6 +691,13 @@ const diagnostics = new ClientDiagnostics((sample) => {
   if (query.get('debug') === 'motion') Object.assign(sample, gyro.status());
   if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048) send(sample);
 });
+// 🪞 A drone signed in as someone who walks here on another screen follows that body and looks where it looks, from just behind it. Its own stick, keys or look take it back; let go for a few seconds, it follows again.
+const FOLLOW_AFTER_MS = 6000;
+let following = false, followSaid = null, followLook = null, flownAt = -Infinity;
+const ownBodySeat = () => {
+  const mine = selfMember?.handle?.toLowerCase();
+  return mine && seat < 0 ? members.find((m) => m.seat >= 0 && m.handle?.toLowerCase() === mine)?.seat ?? -1 : -1;
+};
 let longTaskObserver;
 function configureDiagnostics(enabled) {
   diagnostics.enabled = enabled;
@@ -1718,6 +1726,7 @@ function connect(adopt = null) {
       // Between two rooms the body is still walking: its keys stay down and
       // its commands wait for the seat.
       if (!held) {
+        followLook = null;
         pending = [];
         seq = 0;
         debt = 0;
@@ -1821,7 +1830,7 @@ function connect(adopt = null) {
         text: String(data.error || data.note || '').slice(0, CHAT_MAX) }].slice(-8);
     if (data.type === 'arrival') {
       // A walker looks where they were looking; a door or the car sets the facing.
-      if (!held?.walk && Number.isFinite(data.yaw)) { yaw = data.yaw; pitch = data.pitch || 0; } // (a rider is given none: they look where they looked)
+      if (!held?.walk && Number.isFinite(data.yaw)) { yaw = data.yaw; pitch = data.pitch || 0; } followLook = null; // (a rider is given none: they look where they looked)
       passage = null;
     }
     if (data.type === 'home' && /^[a-z0-9-]{1,32}$/.test(data.room || '')) {
@@ -2099,6 +2108,7 @@ function connect(adopt = null) {
 }
 
 canvas.addEventListener('click', (e) => {
+    remoteEase.reset();
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
   // The code tag in the bottom-right is a button: it opens the $code's page.
   if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
@@ -3187,8 +3197,34 @@ function step(now) {
     // 🛫 Nobody at the stick for a while, over the plaza: the drone takes itself on its tour (flyover.mjs). Any key, stick or look gives it back.
     const moving = keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY || gamepad.roll || gamepad.lt > 0.06 || gamepad.rt > 0.06 || gamepad.hold || pad.fwd || pad.right || pad.dx || pad.dy;
     if (moving) inputAt = now;
-    const idle = sheetOpen && room === 'lobby' && !dock && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && now - inputAt > IDLE_MS;
-    if (idle) {
+    // (A look given by hand, mouse or finger, shows as a turn the follow did not make.)
+    if (moving || (followLook && (Math.abs(yaw - followLook.yaw) > 0.01 || Math.abs(pitch - followLook.pitch) > 0.01))) flownAt = now;
+    followLook = null;
+    following = !!selfMember?.canTakeBody && !dock && !lockOn && !nearing && !query.has('film') && !held && !warp && now - flownAt > FOLLOW_AFTER_MS;
+    // The room is told, so the drone is brought along when the body goes to another room (server.mjs `follow`).
+    if (followSaid?.ws !== ws || followSaid.on !== following) { followSaid = { ws, on: following }; send({ type: 'follow', on: following }); }
+    const followed = following ? interpolate(history, playback.tick ?? snapshot.tick, ownBodySeat(), playback.ahead || 0) : null;
+    const idle = sheetOpen && room === 'lobby' && !dock && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && !following && now - inputAt > IDLE_MS;
+    if (followed?.alive) {
+      touring = null;
+      // Behind the body and a little over it, along the way it looks, and never the far side of a wall.
+      const dt = Math.min(0.1, elapsed), look = direction(followed.yaw, 0), len = Math.hypot(1, 0.32);
+      const out = { x: -look.x / len, y: 0.32 / len, z: -look.z / len };
+      const origin = { x: followed.x, y: followed.y + 0.15, z: followed.z };
+      const far = Math.max(0.5, Math.min(3.4, airFrom(origin, out, 3.7) - 0.3));
+      const to = { x: origin.x + out.x * far, y: origin.y + out.y * far, z: origin.z + out.z * far };
+      const gap = Math.hypot(to.x - freecam.x, to.y - freecam.y, to.z - freecam.z);
+      // (Come to from a long way off at once; held to after that on a soft spring, so a step of the body's is not a step of the eye's.)
+      const k = gap > 40 ? 1 : 1 - Math.exp(-dt * 9);
+      const x = freecam.x + (to.x - freecam.x) * k, y = freecam.y + (to.y - freecam.y) * k, z = freecam.z + (to.z - freecam.z) * k;
+      freecam = { ...freecam, x, y, z, vx: dt ? (x - freecam.x) / dt : 0, vy: dt ? (y - freecam.y) / dt : 0, vz: dt ? (z - freecam.z) / dt : 0 };
+      const turn = ((followed.yaw - yaw + 540) % 360) - 180, kl = gap > 40 ? 1 : 1 - Math.exp(-dt * 12);
+      yaw = (yaw + turn * kl + 360) % 360;
+      pitch = clamp(pitch + (clamp(followed.pitch - 8, -85, 85) - pitch) * kl, -85, 85);
+      droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI;
+      droneRoll *= Math.exp(-dt * 6);
+      followLook = { yaw, pitch };
+    } else if (idle) {
       // The tour is worked out from what there is to see now (flyover.mjs), when the drone is let go and again at the end of each lap: what was built, or who came in, since is on the next one.
       if (!touring || now > touring.until) {
         const again = !!touring;
@@ -3515,7 +3551,10 @@ function step(now) {
       tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
     }
   }
-  const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => interpolate(history, tick, i)) : [];
+  // (Everyone but this page's own body is carried on through a quiet wire and eased back: presentation.mjs.)
+  const guessed = (playback.ahead || 0) > 0;
+  const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) =>
+    i === seat ? interpolate(history, tick, i) : remoteEase.sample(i, interpolate(history, tick, i, playback.ahead || 0), guessed, elapsed)) : [];
   // 🤖 Drones glide between the two snapshots around the playback tick.
   const shownDrones = (() => {
     if (!connected || !snapshot.drones?.length) return [];

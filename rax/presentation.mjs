@@ -1,6 +1,7 @@
 import { clamp, HZ, INTERP_TICKS } from './world.mjs';
 
 const axes = ['x', 'y', 'z'];
+export const AHEAD_TICKS = 12; // a fifth of a second of a walk carried on past the newest snapshot
 
 // Presentation alone runs between simulation ticks. Never feed these positions
 // back into prediction, collision, commands or authoritative hit detection.
@@ -71,6 +72,7 @@ export class SnapshotClock {
   reset() {
     this.tick = this.latest = this.at = this.sampledAt = undefined;
     this.late = 0;
+    this.ahead = 0;
   }
 
   // How far behind the newest word the picture plays, in ticks: the usual
@@ -83,6 +85,9 @@ export class SnapshotClock {
 
   receive(tick, now) {
     if (this.latest !== undefined && tick <= this.latest) return;
+    // What was guessed while the wire was quiet has been lived: playback goes
+    // on from there, not back over ticks the picture has already shown.
+    if (this.ahead) { this.tick = Math.min(tick, this.tick + this.ahead); this.ahead = 0; }
     if (this.latest !== undefined && now - this.at < 2000)
       this.late = Math.max((this.late || 0) * 0.995, ((now - this.at) * HZ) / 1000 - (tick - this.latest));
     this.latest = tick;
@@ -107,6 +112,32 @@ export class SnapshotClock {
       const rate = 1 + clamp((target - this.tick) * 0.1, -0.1, 0.1);
       this.tick = Math.min(this.latest, this.tick + elapsed * HZ * rate);
     }
+    // 🕰️ Out of snapshots: how far past the newest the picture has run, for
+    // net.mjs `interpolate` to carry a walk on with (a fifth of a second at
+    // the most; after that it stands where it was guessed to).
+    this.ahead = this.tick >= this.latest && elapsed <= 0.25 ? Math.min(AHEAD_TICKS, (this.ahead || 0) + elapsed * HZ) : 0;
     return this.tick;
+  }
+}
+
+// A guess is put right over a moment, not at once: when the wire speaks again
+// each body is where the snapshots say, and what the picture showed instead is
+// kept as an offset that fades. Ground only; a new life or a long way is a cut.
+export class RemoteEase {
+  constructor() { this.seats = new Map(); }
+  reset() { this.seats.clear(); }
+  sample(seat, p, guessed, seconds) {
+    if (!p) return void this.seats.delete(seat), p;
+    let s = this.seats.get(seat);
+    if (!s || s.life !== p.life) this.seats.set(seat, (s = { life: p.life, ex: 0, ez: 0, guessed: false, x: p.x, z: p.z }));
+    const decay = Math.exp(-Math.max(0, seconds) / 0.12);
+    s.ex *= decay; s.ez *= decay;
+    if (s.guessed && !guessed) {
+      const ex = s.x - p.x, ez = s.z - p.z;
+      if (Math.hypot(ex, ez) < 2) { s.ex = ex; s.ez = ez; } else s.ex = s.ez = 0;
+    }
+    s.guessed = guessed;
+    s.x = p.x + s.ex; s.z = p.z + s.ez;
+    return s.ex || s.ez ? { ...p, x: s.x, z: s.z } : p;
   }
 }
