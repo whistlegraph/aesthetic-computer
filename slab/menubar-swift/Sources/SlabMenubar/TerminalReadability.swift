@@ -12,6 +12,12 @@ enum TerminalReadability {
         agentType == "codex" ? (startupDark ?? seatDark) : seatDark
     }
 
+    /// Codex never re-reads the terminal's colors, so a session started on the
+    /// other appearance can only follow the seat by being relaunched.
+    static func needsAppearanceRelaunch(agentType: String, startupDark: Bool?, seatDark: Bool) -> Bool {
+        agentType == "codex" && startupDark != nil && startupDark != seatDark
+    }
+
     // Conventional ANSI roles, with orange and indigo in the bright bank.
     // Preserve each hue when adjusting it against the actual status page.
     static let ansiNames = ["Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White",

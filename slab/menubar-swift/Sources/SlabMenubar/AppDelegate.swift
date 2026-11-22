@@ -2245,6 +2245,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state.forceBright ? false : Self.isDarkAppearance()
     }
 
+    /// Codex sessions being relaunched onto the seat's appearance.
+    private var appearanceRelaunching = Set<String>()
+
+    /// Codex caches its composer and history backgrounds at startup and never
+    /// re-reads them, so its page stays pinned to the appearance it launched
+    /// in (see `TerminalReadability.darkAppearance`). When the seat flips,
+    /// relaunch each idle Codex session in its own tab, resuming the same
+    /// thread, so it comes back on the seat's appearance. A session mid-turn
+    /// or awaiting approval waits until it is idle.
+    private func relaunchCodexForAppearance(dark: Bool, loopboyLabels: [String: String]) {
+        for s in state.claudeSessions {
+            guard TerminalReadability.needsAppearanceRelaunch(
+                    agentType: s.agentType, startupDark: s.terminalDark, seatDark: dark),
+                  !appearanceRelaunching.contains(s.sessionId),
+                  !s.isRemote, s.subagentCount == 0, s.claudePid > 0, !s.cwd.isEmpty,
+                  loopboyLabels[s.sessionId] == nil,
+                  s.state == .complete || s.state == .interrupted
+                    || s.state == .stale || s.state == .blank,
+                  // A thread that has turns but no known id cannot be resumed.
+                  !s.providerSessionId.isEmpty || s.state == .blank,
+                  Date().timeIntervalSince(s.updated) >= 15 else { continue }
+            let ttyName = (s.tty as NSString).lastPathComponent
+            guard ttyName.hasPrefix("ttys"), ttyName.dropFirst(4).allSatisfy(\.isNumber) else { continue }
+            appearanceRelaunching.insert(s.sessionId)
+            let sid = s.sessionId, pid = pid_t(s.claudePid)
+            func quoted(_ v: String) -> String { "'" + v.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+            let command = "cd \(quoted(s.cwd)) && codex-slab"
+                + (s.providerSessionId.isEmpty ? "" : " resume \(quoted(s.providerSessionId))")
+            let escaped = command.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            NSLog("🌗 [appearance] relaunching codex %@ on %@ (dark=%d)", sid, ttyName, dark ? 1 : 0)
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                // Only stop a session whose tab Terminal can be told to relaunch.
+                let probe = "tell application \"Terminal\" to return (count of "
+                    + "(windows whose tty of tabs contains \"/dev/\(ttyName)\"))"
+                let found = ShellRunner.run("/usr/bin/osascript", args: ["-e", probe], timeout: 5)
+                guard found.status == 0,
+                      (Int(found.output.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0) > 0 else {
+                    // Leave it marked so a tab in another terminal is not re-probed every tick.
+                    return
+                }
+                kill(pid, SIGTERM)
+                // The wrapper returns the tab to its shell once Codex exits.
+                for _ in 0..<40 where kill(pid, 0) == 0 { Thread.sleep(forTimeInterval: 0.1) }
+                Thread.sleep(forTimeInterval: 0.8)
+                // `do script … in tab` reuses the window: no new window, no focus change.
+                let script = """
+                tell application "Terminal"
+                    repeat with w in windows
+                        repeat with t in tabs of w
+                            if tty of t is "/dev/\(ttyName)" then
+                                do script "\(escaped)" in t
+                                return
+                            end if
+                        end repeat
+                    end repeat
+                end tell
+                """
+                _ = ShellRunner.run("/usr/bin/osascript", args: ["-e", script], timeout: 5)
+                DispatchQueue.main.async { self?.appearanceRelaunching.remove(sid) }
+            }
+        }
+    }
+
     private func stateName(_ s: ClaudeSession.State) -> String {
         switch s {
         case .blank:       return "blank"
@@ -2578,6 +2642,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // pass corrects, or inline code and secondary text fade into the page.
         ClaudeTheme.align(dark: darkAppearance)
         let loopboyLabels = loopboySessionLabels()
+        relaunchCodexForAppearance(dark: darkAppearance, loopboyLabels: loopboyLabels)
         // Opt-in diagnostic (off unless the flag file exists): `touch
         // $SLAB_HOME/state/decor-debug` to log what the agent actually
         // computes (appearance, per-session state/tty, change set) to stderr

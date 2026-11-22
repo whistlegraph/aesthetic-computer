@@ -23,6 +23,13 @@ for startupDark in [false, true] {
         let dark = TerminalReadability.darkAppearance(
             agentType: "codex", startupDark: startupDark, seatDark: seatDark)
         precondition(dark == startupDark)
+        // Only a relaunch moves Codex to the seat's appearance.
+        precondition(TerminalReadability.needsAppearanceRelaunch(
+            agentType: "codex", startupDark: startupDark, seatDark: seatDark) == (startupDark != seatDark))
+        precondition(!TerminalReadability.needsAppearanceRelaunch(
+            agentType: "claude", startupDark: startupDark, seatDark: seatDark))
+        precondition(!TerminalReadability.needsAppearanceRelaunch(
+            agentType: "codex", startupDark: nil, seatDark: seatDark))
         let surfaces = startupDark ? [0x1f, 0x28] : [0xe8, 0xf4]
         for state in ClaudeSession.State.allCases {
             for blink in [false, true] {
