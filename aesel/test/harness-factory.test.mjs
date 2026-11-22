@@ -27,7 +27,7 @@ test("manifests name known inputs and a real MIME goal", () => {
   assert.equal(outputType("svg"), "image/svg+xml");
   assert.equal(validateManifest({ name: "x", output: "wav" }).inputs[0], "text");
   assert.throws(() => validateManifest({ name: "x", inputs: ["smell"], output: "svg" }), /unknown input/);
-  assert.throws(() => validateManifest({ name: "x", output: "video/mp4" }), /no output goal/);
+  assert.throws(() => validateManifest({ name: "x", output: "model/gltf-binary" }), /no output goal/);
   assert.throws(() => validateManifest({ name: "Bad Name", output: "svg" }), /lowercase/);
 });
 
