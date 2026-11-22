@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root=fileURLToPath(new URL('../../system/public/aesel/',import.meta.url));
-const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webp':'image/webp','.jpg':'image/jpeg','.png':'image/png','.woff':'font/woff'};
+const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.webp':'image/webp','.jpg':'image/jpeg','.svg':'image/svg+xml','.ps1':'text/plain; charset=utf-8','.png':'image/png','.woff':'font/woff'};
 createServer(async(req,res)=>{
   try {
     let path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);

@@ -3,3 +3,8 @@
 :root .mime u{color:#fff0db;color:color-mix(in srgb,var(--c) 28%,white)}
 :root .mime i,:root .mime s{color:var(--muted)}
 :root .ty-text b{color:#a3dbae}:root .ty-image b{color:#f9add5}:root .ty-audio b{color:#cab8ff}:root .ty-application b{color:#f3cc8c}
+.platform-badge.mac{--badge-bg:#36363f;--badge-ink:#e0dfe6}
+.platform-badge.linux{--badge-bg:#3c3222;--badge-ink:#ffdc77}
+.platform-badge.powershell{--badge-bg:#233751;--badge-ink:#9ecaff}
+.platform-badge.acos{--badge-bg:#223b33;--badge-ink:#9fe4c3}
+.platform-badge.prompt{--badge-bg:#432c40;--badge-ink:#ffb6d8}

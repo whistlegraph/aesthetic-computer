@@ -2187,9 +2187,7 @@ async function route($, text) {
     jump(`out:${nelaUrl}`);
     return true;
   } else if (slug === "aesel" || slug === "easel") {
-    const aeselUrl = "https://aesel.app";
-    if (openExternalFromIframe(aeselUrl)) return true;
-    jump(`out:${aeselUrl}`);
+    jump("aesel");
     return true;
   } else if (slug === "menuband") {
     // 🎹 Jump to Menu Band

@@ -52,19 +52,28 @@ footer{font-size:13px;margin-top:18px}
 <figure class="art" data-mime-slides><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption id="art-mime"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code><span class="byline">A little world that follows your cursor.</span></figcaption></figure>
 <h1>Aesel</h1>
 <p><b>Easily make and share new media.</b> Describe a piece; a brain writes it; it plays live on your phone and publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</p>
-<p class="toc">[ <a href="#get">get it</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
+<p class="toc">[ <a href="#install">Install</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> ]</p>
 
-<h2 class="web-ribbon" id="get">Get it</h2>
-<div class="wide"><table>
-<thead><tr><th>where</th><th>how</th><th>notes</th></tr></thead>
-<tbody>
-<tr><th>Mac</th><td><a href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-arm64.dmg" download>aesel-0.8.19-arm64.dmg</a></td><td>Beta. Apple silicon, macOS 14+.</td></tr>
-<tr><th>Windows</th><td><a href="https://aesthetic.computer/api/download?app=aesel&amp;file=aesel-0.8.19-windows-x64-setup.exe">aesel-0.8.19-windows-x64-setup.exe</a></td><td>Beta. Windows 10/11 x64. Hosted brain only; unsigned installer.</td></tr>
-<tr><th>Terminal</th><td class="nwd"><code>curl -fsSL https://prompt.ac/aesel.sh | sh</code></td><td>Then type <code>a</code>. <code>/update</code> keeps it current.</td></tr>
-<tr><th>Browser</th><td><a href="/try/">aesel.app/try</a></td><td>Nothing to install.</td></tr>
-<tr><th>AC prompt</th><td><a href="https://aesthetic.computer">aesthetic.computer</a></td><td>Type a word the prompt doesn’t know; Aesel sketches it in KidLisp.</td></tr>
-</tbody>
-</table></div>
+<h2 class="web-ribbon" id="install"><span id="get">Install</span></h2>
+<p><b>Aesel TUI.</b> The terminal installer needs Node.js 22 or newer. After installing, type <code>a</code> to start.</p>
+<div class="web-panel install-options">
+  <div class="install-row">
+    <div class="platforms"><span class="platform-badge mac">Mac Terminal</span><span class="platform-badge linux">Linux</span></div>
+    <code>curl -fsSL https://prompt.ac/aesel.sh | sh</code>
+  </div>
+  <div class="install-row">
+    <div class="platforms"><span class="platform-badge powershell">Windows PowerShell</span></div>
+    <code>irm https://aesel.app/install.ps1 | iex</code>
+  </div>
+  <div class="install-row">
+    <div class="platforms"><span class="platform-badge acos">AC OS</span></div>
+    <div>Type <code class="inline">aesel</code> at the device prompt. Use <code class="inline">link</code> to pair your handle.</div>
+  </div>
+  <div class="install-row">
+    <div class="platforms"><span class="platform-badge prompt">AC prompt</span></div>
+    <div>Type <code class="inline">aesel</code> at the web prompt, or <a href="https://aesthetic.computer/aesel">open Aesel TUI</a>.</div>
+  </div>
+</div>
 
 <h2 class="web-ribbon" id="session">A session</h2>
 <ol>
@@ -152,7 +161,7 @@ end</pre></td></tr>
 <div class="wide"><table class="zone">
 <tbody>
 <tr><th colspan="3">your machine</th></tr>
-<tr><th>Aesel</th><td>terminal <code>a</code>, Mac, Windows, iPhone, <code>aesel.app/try</code></td><td>The conversation and the files.</td></tr>
+<tr><th>Aesel</th><td>Aesel TUI on Mac, Linux and Windows; <code>aesel</code> at the AC prompt</td><td>The conversation and the files.</td></tr>
 <tr><th>workspace</th><td><code>.aesel/</code></td><td>Transcript, revisions v1 → v<i>n</i>, artifacts.</td></tr>
 <tr><th>tools</th><td><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></td><td>What the brain holds.</td></tr>
 <tr><th>made here</th><td>XeLaTeX, GBDK, 6502</td><td>Papers, ROMs, sound and pictures are built on this disk.</td></tr>
@@ -165,7 +174,7 @@ end</pre></td></tr>
 <tr><th>transcripts</th><td><code>/api/easel-transcripts</code></td><td>MongoDB. Shared with AC to improve Aesel.</td></tr>
 <tr><th>picture tools</th><td><code>/api/easel-image</code></td><td>OpenAI or fal. Five a day.</td></tr>
 <tr><th>sign-in</th><td><code>hi.aesthetic.computer</code></td><td>Auth0. One @handle everywhere.</td></tr>
-<tr><th>releases</th><td><code>prompt.ac/aesel.sh</code></td><td>Self-update, DMG, EXE.</td></tr>
+<tr><th>releases</th><td><code>prompt.ac/aesel.sh</code></td><td>Terminal release and update manifest.</td></tr>
 <tr><th colspan="3">anywhere</th></tr>
 <tr><th>any phone</th><td>QR code</td><td>Joins the live channel; saves hot-reload.</td></tr>
 </tbody>

@@ -36,7 +36,7 @@ h1{font-weight:normal;color:rgb(255,100,255)}p{color:rgb(220,180,255)}</style></
 export function openInBrowser(url) {
   const command =
     process.env.BROWSER ||
-    (process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open");
+    (process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer.exe" : "xdg-open");
   try {
     spawn(command, [url], { stdio: "ignore", detached: true }).unref();
     return true;
