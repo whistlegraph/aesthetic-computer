@@ -185,6 +185,13 @@ export const pointerEvent = (name, x, y, device = 'mouse') =>
 // it misses, comes from behind, or is further than `reach`. A panel is `w` by
 // `h` metres about (x, y, z), `cols` by `rows` pixels, and faces south (-z)
 // until turned by `yaw` degrees, as the view turns what it draws.
+// ⌨️ A key as AC's keyboard says it (lib/keyboard.mjs): `keyboard:down:a`, `keyboard:up:space`, with the key, its code and what was held with it. `is('keyboard:down')` is any key down; a name with the key in it is that key alone (disk.mjs).
+export function keyEvent(way, e) {
+  const key = e.key === 'Unidentified' && e.which === 8 ? 'Backspace' : String(e.key ?? '');
+  const name = `keyboard:${way}:${key === ' ' ? 'space' : key.toLowerCase()}`;
+  return { name, device: 'keyboard', key, code: e.code, repeat: !!e.repeat, shift: !!e.shiftKey, alt: !!e.altKey, ctrl: !!e.ctrlKey, meta: !!e.metaKey,
+    caps: !!e.getModifierState?.('CapsLock'), velocity: e.velocity ?? 127, is: (q) => (q.split(':').length > 2 ? name === q : name.startsWith(q)) };
+}
 export function panelHit(panel, origin, dir, reach = Infinity) {
   const a = ((panel.yaw || 0) * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
   const local = (x, z) => [x * c - z * s, x * s + z * c];
@@ -225,6 +232,9 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
     act(name, x, y, device, pointer = 1) {
       dispatch(name, x, y, device, pointer);
     },
+    // ⌨️ A key, for a piece that hears a keyboard (an AC disk: `takesKeys`). Only the page that has stepped in to the panel sends it any.
+    get takesKeys() { return !!piece.keys; },
+    key(way, e) { if (piece.keys) piece.act?.({ ...api, event: keyEvent(way, e) }); },
     // 👥 Someone else in the room presses here: the piece hears their pointer (numbered, so two hands are two), and this page's own pen is left alone.
     hear(name, x, y, pointer) {
       dispatch(name, x, y, 'remote', pointer);

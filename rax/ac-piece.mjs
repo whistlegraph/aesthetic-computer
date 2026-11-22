@@ -2,7 +2,7 @@
 // from AC's own disks/ as it is written, and handed the parts of the api it
 // asks for. disk.mjs is not loaded: what a piece takes beyond the painter is
 // given here from AC's own libraries (num, geo, ui.Button), and its sound is
-// the host's. A kiosk has no keyboard, no MIDI, no samples, no net and no
+// the host's. A kiosk has a keyboard only while someone has stepped in to it (client.mjs), and no MIDI, no samples, no net and no
 // device to keep things on: those parts are there, and quiet.
 //
 // A slug is read as the prompt reads it: `bleep:sine 4x4` is the piece
@@ -130,6 +130,13 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   };
   // AC numbers its pointers (`touch:1`, `draw:1`, `lift:1`), and a piece may ask for any of them (`touch:any`).
   const act = ($) => {
+    // ⌨️ A key is handed on as AC's own keyboard would say it (panel.mjs `keyEvent`).
+    if ($.event.device === 'keyboard') {
+      if (booting) return;
+      busy = true;
+      try { disk.act?.($); } finally { busy = false; }
+      return deliver();
+    }
     const e = $.event, n = e.pointer || 1, name = e.name === 'move' ? 'move' : `${e.name}:${n}`;
     // Touch gestures carry their own deltas; a drifting crosshair keeps its note steady.
     const delta = e.delta || { x: 0, y: 0 };
@@ -152,7 +159,7 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   const when = (f) => f && (($) => { if (!booting) { last = $; f($); } });
   const sim = ($) => { if (booting) return; last = $; deliver(); disk.sim?.($); };
   const leave = ($) => { disk.leave?.($); controls?.dispose(); };
-  return { slug, piece: { boot, paint: when(disk.paint), sim, leave, act }, host, ready: () => ready };
+  return { slug, piece: { boot, paint: when(disk.paint), sim, leave, act, keys: true }, host, ready: () => ready }; // (keys: an AC disk hears a keyboard)
 }
 
 // 🎹 A big notepat surface: notepat's two classic octaves of pads, laid out

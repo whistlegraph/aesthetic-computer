@@ -1159,8 +1159,20 @@ function goIn(id, face) {
   nearing = null;
   return true;
 }
+// ⌨️ The panel this page has stepped in to, if its piece hears a keyboard; the keys it holds there (let go when the eye comes out, so no note is left sounding); and the keys rax keeps while inside.
+const INSIDE_KEYS = new Set(['Escape', 'Tab']), pieceKeys = new Map();
+const keyPanel = () => {
+  if (!dock || dock.way < 0 || prompt.open || chat.open || menu || radial.open || chalkMode || typing()) return null;
+  const panel = panels.list.find((p) => !p.hidden && `panel:${p.id}` === dock.id);
+  return panel?.takesKeys ? panel : null;
+};
+function liftPieceKeys() {
+  for (const [code, held] of pieceKeys) held.panel.key('up', { key: held.key, code });
+  pieceKeys.clear();
+}
 function comeOut() {
   if (!dock) return;
+  liftPieceKeys();
   dock.way = -1;
   if (padHolds || keyHolds) { padHolds = keyHolds = false; panels.release(); }
 }
@@ -1438,6 +1450,7 @@ if (query.has('debug'))
     dock: dock ? { id: dock.id, pixel: screenInstances.get(room + '/' + dock.id.slice(7))?.program?.pixels?.slice(0, 3), t: dock.t, way: dock.way, cursor: dock.cursor, to: dock.to, hot: panels.hot ? { id: panels.hot.panel.id, x: panels.hot.x, y: panels.hot.y } : null } : null,
     fov: (dock?.eye.zoom || 1) * focusZoom,
     nearing: !!nearing,
+    inside: (() => { const p = keyPanel(); return p ? { id: p.id, keys: [...pieceKeys.keys()], ink: p.pixels.reduce((sum, v, i) => (sum + v * ((i % 251) + 1)) % 1000003, 0) } : null; })(), // ⌨️ the piece that has the keyboard, the keys it holds, and a sum of its picture
     whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
     eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
     panels: panels.list.filter((p) => !p.hidden).map((p) => p.id),
@@ -2579,6 +2592,14 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
+  // ⌨️ Stepped in to a screen that runs an AC piece, the keyboard is the piece's, as on its own page (notepat's notes and octaves). rax keeps two: Escape comes back out, and Tab is the prompt's paper. Anything held with ⌘ or Ctrl is the browser's. Out of the screen every key is rax's again.
+  const inside = keyPanel();
+  if (inside && !INSIDE_KEYS.has(e.code) && !e.metaKey && !e.ctrlKey) {
+    e.preventDefault();
+    pieceKeys.set(e.code, { panel: inside, key: e.key });
+    inside.key('down', e);
+    return;
+  }
   if (e.code === 'KeyT' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey && seat >= 0 &&
     !prompt.open && !menu && !radial.open && !chalkMode) {
     e.preventDefault();
@@ -2769,6 +2790,9 @@ function dragBrush() {
   if ((tiles[key] || 0) !== brush.colour) layTile(at, brush.colour);
 }
 document.addEventListener('keyup', (e) => {
+  // ⌨️ A key the piece was given goes up in the piece (wherever the eye is by then).
+  const given = pieceKeys.get(e.code);
+  if (given) { pieceKeys.delete(e.code); given.panel.key('up', e); return; }
   keys.delete(e.code);
   if (keyHolds && (e.code === 'Enter' || e.code === 'NumpadEnter')) { keyHolds = false; panels.release(); }
 });
@@ -2824,7 +2848,7 @@ function cancelBumper() {
   bumperStart = null;
   if (radial.bumper) closeBuild();
 }
-window.addEventListener('blur', () => { cancelBumper(); releaseInput(); });
+window.addEventListener('blur', () => { cancelBumper(); releaseInput(); liftPieceKeys(); });
 document.addEventListener('visibilitychange', () => {
   cancelBumper();
   diagnostics.reset();
