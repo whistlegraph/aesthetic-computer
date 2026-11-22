@@ -109,7 +109,11 @@ function boot(api) {
   });
   state.bridge.launch();
   state.model = String(state.bridge.model || "").split("/").pop();
-  state.fields = new api.ui.TextFields(api, [{name:"line", label:">", placeholder:"Describe a piece…"}], ({line}) => submit(api, state, line));
+  // The typing line takes Aesel's colours: white text on the purple ground,
+  // a light-purple block for the caret.
+  const scheme = { text: PALETTE.text, background: PALETTE.ground, block: PALETTE.soft, highlight: PALETTE.ground, guideline: PALETTE.muted };
+  state.fields = new api.ui.TextFields(api, [{name:"line", label:">", placeholder:"Describe a piece…"}], ({line}) => submit(api, state, line),
+    { scheme: { dark: scheme, light: scheme } });
   state.fields.input.mute = false;
   state.status = api.user?.sub ? "" : "Sign in with AC to start a thread.";
   readVersion(state);
@@ -118,7 +122,8 @@ function boot(api) {
 
 async function submit(api, state, line) {
   const text = line.trim();
-  if (!text || state.busy || !api.user?.sub) return;
+  if (!text || state.busy) return;
+  if (!api.user?.sub) { state.status = "Sign in to send it: tap “sign in” below."; return; }
   const turn = ++state.turn;
   state.busy = true;
   state.status = "Connecting…";
@@ -197,12 +202,12 @@ const statusRight = (s, emoji = true) => (s.busy ? "working…" : Number.isFinit
 function paintTerminal(api, layer, s) {
   const { screen, display } = api;
   const css = Number(display?.subdivisions) || 1; // CSS pixels per screen pixel
-  const W = screen.width * css, H = screen.height * css;
+  const W = screen.width * css, H = visibleBottom(api, s) * css;
   const ctx = layer.ctx;
   ctx.save();
   ctx.scale(1 / css, 1 / css);
   ctx.fillStyle = rgb(PALETTE.ground);
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, screen.height * css);
   ctx.font = FONT;
   ctx.textBaseline = "middle";
   const cw = ctx.measureText("M").width;
@@ -271,25 +276,44 @@ function paintTerminal(api, layer, s) {
   ctx.restore();
 }
 
+// Where the screen's visible part ends, in screen pixels: a phone's keyboard
+// covers the bottom of the page, and the visual viewport says how much of it
+// (the same signal AC's chat lays itself out by).
+function visibleBottom(api, s) {
+  const css = Number(api.display?.subdivisions) || 1;
+  const seen = Number(s.viewHeight) > 0 ? Math.floor(s.viewHeight / css) : api.screen.height;
+  return Math.max(80, Math.min(api.screen.height, seen));
+}
+
 // The terminal's screen in AC's own pixels and font: a letter is 6 by 12,
 // and the donkey's pixels are half a letter each way, as in the terminal.
 const CW = 6, RH = 12, EDGE = 6, LABEL = 22; // the corner label owns the top 22 rows
+const ORIGIN = 6; // AC's text input writes 6 pixels in from its frame's corner
 function paintPixels(api, s) {
   const { screen, ink } = api;
   const cols = Math.max(8, Math.floor((screen.width - EDGE * 2) / CW));
   const write = (text, x, y, color) => { ink(...color).write(text, { x, y }); return x + text.length * CW; };
-  const statusY = screen.height - RH - 1;
-  const inputY = statusY - RH - 4;
-  s.inputY = inputY + 5;
+  const statusY = visibleBottom(api, s) - RH - 1;
+
+  // The typing line wraps at its own width and grows up a row at a time, so
+  // what is typed stays inside it, over the status line, never under it.
+  const input = s.fields.input;
+  if (s.gutter !== cols) { input.gutter = cols; input.flow?.(); s.gutter = cols; }
+  const typed = input.text || "";
+  const lines = typed.split("\n").reduce((n, para) => n + Math.max(1, Math.ceil((para.length + 1) / cols)), 0);
+  const lineHeight = input.typeface?.blockHeight || 10;
+  const inputTop = statusY - 5 - lines * lineHeight;
+  s.inputFrame = { x: EDGE - ORIGIN, y: inputTop - ORIGIN, width: screen.width - (EDGE - ORIGIN), height: lines * lineHeight + ORIGIN + 2 };
+  const inputY = inputTop - 3;
 
   const tileCells = TILE[0].length / 2;
   const rows = transcript(s, cols);
-  const visible = Math.max(1, Math.floor((inputY - 4 - LABEL) / RH));
+  const visible = Math.max(1, Math.floor((inputY - LABEL) / RH));
   s.offset = Math.min(s.offset, Math.max(0, rows.length - visible));
   s.overflow = rows.length > visible;
   const shown = rows.slice(Math.max(0, rows.length - visible - s.offset), rows.length - s.offset);
   shown.forEach((row, i) => {
-    const top = inputY - 4 - (shown.length - i) * RH;
+    const top = inputY - (shown.length - i) * RH;
     if (row.tile !== undefined) {
       for (const [dy, line] of [TILE[row.tile * 2], TILE[row.tile * 2 + 1]].entries())
         for (let x = 0; x < line.length; x++) {
@@ -315,6 +339,14 @@ function paintPixels(api, s) {
   const right = statusRight(s, false);
   if (right && screen.width - EDGE - right.length * CW > x + CW) write(right, screen.width - EDGE - right.length * CW, statusY, s.busy ? PALETTE.highlight : PALETTE.muted);
   s.statusTop = statusY - 3;
+
+  // The text field itself, laid over its frame; until it has the keys, a
+  // hollow caret where the next letter goes, as idle in the terminal.
+  input.paint(api, false, s.inputFrame);
+  if (!input.canType) {
+    const at = typed.length % cols;
+    ink(...PALETTE.muted).box(EDGE + at * CW, statusY - 5 - lineHeight + 0, CW, lineHeight, "outline");
+  }
 }
 
 function paint(api) {
@@ -328,15 +360,13 @@ function paint(api) {
   if (layer) {
     s.fields.paint(api, { x: 2, y: Math.round((s.inputY ?? screen.height - 24) - 8), width: screen.width - 4, height: 16 });
     paintTerminal(api, layer, s);
-  } else {
-    paintPixels(api, s);
-    s.fields.paint(api, { x: EDGE - 2, y: s.inputY - 7, width: screen.width - EDGE * 2 + 4, height: 14 });
-  }
+  } else paintPixels(api, s);
 }
 
 function act(api) {
   const s = desk, e = api.event;
   if (!s) return;
+  if (e.is("viewport-height:changed")) { s.viewHeight = e.y; return; }
   if (e.is("touch") && s.statusTop !== undefined && e.y >= s.statusTop) {
     const hit = s.hits?.find((h) => e.x >= h.from && e.x <= h.to);
     if (hit?.action === "login") api.jump("prompt~login~!autorun");
@@ -348,8 +378,7 @@ function act(api) {
   }
   if (e.is("keyboard:down:pageup")) s.offset += 5;
   if (e.is("keyboard:down:pagedown")) s.offset = Math.max(0, s.offset - 5);
-  if (api.user?.sub) s.fields.act(api);
-  else if (e.is("touch")) api.jump("prompt~login~!autorun");
+  s.fields.act(api);
 }
 
 function leave() {
