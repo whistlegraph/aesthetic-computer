@@ -225,19 +225,16 @@ export function connectBuilder({
         }
       } catch (error) {
         console.log(`Aesel job failed: ${error.status || ''} ${error.message}`.trim());
-        if (!controller.signal.aborted || controller.timedOut)
-          deliver(
-            ({
-              type: 'build-error',
-              id: job.id,
-              error: controller.signal.aborted
-                ? 'Aesel timed out. Try a simpler object.'
-                : error.buildReason ||
-                  (error.status === 401 || error.status === 403
-                    ? 'Aesel needs its relay login refreshed.'
-                    : 'Aesel relay failed. Try again.'),
-            }),
-          );
+        if (!controller.signal.aborted || controller.timedOut) {
+          let reason = 'Aesel relay failed. Try again.';
+          if (controller.timedOut) reason = 'Aesel timed out. Try a simpler object.';
+          else if (error.buildReason) reason = error.buildReason;
+          else if (/disabled Claude subscription access/i.test(error.message))
+            reason = 'Claude subscription access is disabled for the relay.';
+          else if (error.status === 401 || error.status === 403)
+            reason = 'Aesel needs its relay login refreshed.';
+          deliver({ type: 'build-error', id: job.id, error: reason });
+        }
       } finally {
         clearTimeout(timeout);
         jobs.delete(job.id);

@@ -84,7 +84,8 @@ try {
   const after = await eye(), nb = body();
   console.log(`over the line: eye ${before.x.toFixed(1)} → ${after.x.toFixed(1)}, body at ${nb.x.toFixed(1)}`);
   assert.ok(Math.abs(after.x - (before.x - 16)) < 9, `carried over in the world's metres, not set down afresh: ${after.x.toFixed(1)}`);
-  assert.ok(Math.hypot(after.x - nb.x, after.z - nb.z) < 7, 'and still by the body');
+  // (It flies on after the body from there: by it again within a few seconds.)
+  await wait(async () => { const e = await eye(), b = body(); return Math.hypot(e.x - b.x, e.z - b.z) < 6; }, 6000, 'it did not fly on to the body in the next room').catch(async (e) => { const d = await drone.evaluate(() => raxDebug()); throw Error(`${e.message}: eye ${JSON.stringify(d.eye)}, body ${JSON.stringify({ x: body().x, y: body().y, z: body().z })}, following ${droneMember.following}, drone room ${d.room}, seat ${d.seat}`); });
   assert.deepEqual(errors, []);
   console.log('follow browser ok');
 } finally {

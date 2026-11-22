@@ -249,3 +249,27 @@ test('the server: a request said twice under one name is one build, answered aga
     await app.close();
   }
 });
+
+test('a disabled provider subscription reaches the player without exposing the raw relay error', async () => {
+  const app = createRaxServer({ guests: true, builderToken: token, listHandles: async () => [] });
+  await app.ready;
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const port = app.server.address().port;
+  const builder = connectBuilder({
+    url: `ws://127.0.0.1:${port}/builder`, token,
+    generate: async () => { throw Error('Your organization has disabled Claude subscription access for Claude Code. Provider details.'); },
+  });
+  const client = player(port);
+  try {
+    await client.wait((d) => d.type === 'identity');
+    await client.wait((d) => d.type === 'objects' && d.builder);
+    client.say({ type: 'prompt', prompt: 'a cube', rid: 'relay' });
+    const result = await client.wait((d) => d.type === 'build-result' && d.rid === 'relay');
+    assert.equal(result.error, 'Claude subscription access is disabled for the relay.');
+  } finally {
+    client.ws.close();
+    builder.close();
+    await app.close();
+  }
+});

@@ -442,22 +442,26 @@ let weather = null;
 // 🛫 The idle flyover (flyover.mjs): the tour, where on it this drone is, and when anyone last touched a control.
 const IDLE_MS = 25000;
 let tour = null, touring = null, inputAt = performance.now();
-let idleEntry = null;
+let idleEntry = null, droneIdleWeight = 0;
 for (const event of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'focus', 'visibilitychange'])
   window.addEventListener(event, () => { inputAt = performance.now(); }, { passive: true, capture: true });
 
 function idlePlayerCamera(now, body) {
-  const t = (now - inputAt - IDLE_MS) / 1000;
-  if (!body?.alive || t <= 0 || !sheetOpen || document.hidden || !document.hasFocus() || joining() || down ||
-      dock || lockOn || menu || typing() || chalkMode || rideMoving(now) || game() || held || film) {
+  if (!body?.alive || !sheetOpen || down || film || held || (idleEntry && idleEntry.room !== room)) {
     idleEntry = null;
     return null;
   }
-  if (!idleEntry) {
-    const origin = view.aimOrigin();
-    if (!origin) return null;
-    idleEntry = { ...origin, yaw, pitch, at: now };
+  const idle = now - inputAt >= IDLE_MS && !document.hidden && document.hasFocus() &&
+    !joining() && !dock && !lockOn && !menu && !typing() && !chalkMode && !rideMoving(now) && !game();
+  if (!idle) {
+    if (!idleEntry?.shot) return null;
+    idleEntry.exitAt ??= now;
+    const weight = idleEntry.shot.weight * (1 - smooth((now - idleEntry.exitAt) / 850));
+    if (weight > 0) return { ...idleEntry.shot, weight };
+    idleEntry = null;
+    return null;
   }
+  idleEntry ??= { room, yaw, at: now };
   const age = (now - idleEntry.at) / 1000;
   // A wide tracking arc, rising and easing back in over successive sweeps.
   const turn = idleEntry.yaw * Math.PI / 180 + age * 0.12;
@@ -468,7 +472,7 @@ function idlePlayerCamera(now, body) {
   const clear = Math.max(2, Math.min(distance, airFrom(body, out, distance + 0.3) - 0.3));
   const target = {x: body.x + out.x * clear, y: body.y + out.y * clear, z: body.z + out.z * clear,
     yaw: turn * 180 / Math.PI, pitch: -Math.atan2(out.y * clear + 0.35, clear / len) * 180 / Math.PI};
-  return { ...glide(idleEntry, target, smooth(age / 4)), cinematic: true };
+  return (idleEntry.shot = { ...target, weight: smooth(age / 4), cinematic: true });
 }
 const roofNow = () => { try { return roofOf(towerTop) || 33; } catch { return 33; } };
 // 🔭 What is worth a look in this room now, for the tour to find: the pieces on the panels, the screens, what people built, the ball, and whoever is about (those that move are followed as they go).
@@ -687,10 +691,6 @@ const CHAT_MAX = 140, CHAT_SHOWN_MS = 14000;
 let chatLog = []; // { at, handle, name, colors, text }
 const connection = new Connection();
 let selfMember = null;
-const diagnostics = new ClientDiagnostics((sample) => {
-  if (query.get('debug') === 'motion') Object.assign(sample, gyro.status());
-  if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048) send(sample);
-});
 // 🪞 A drone signed in as someone who walks here on another screen follows that body and looks where it looks, from just behind it. Its own stick, keys or look take it back; let go for a few seconds, it follows again.
 const FOLLOW_AFTER_MS = 6000;
 let following = false, followSaid = null, followLook = null, flownAt = -Infinity, followFlight = null, eyeCarried = false;
@@ -698,6 +698,10 @@ const ownBodySeat = () => {
   const mine = selfMember?.handle?.toLowerCase();
   return mine && seat < 0 ? members.find((m) => m.seat >= 0 && m.handle?.toLowerCase() === mine)?.seat ?? -1 : -1;
 };
+const diagnostics = new ClientDiagnostics((sample) => {
+  if (query.get('debug') === 'motion') Object.assign(sample, gyro.status());
+  if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048) send(sample);
+});
 let longTaskObserver;
 function configureDiagnostics(enabled) {
   diagnostics.enabled = enabled;
@@ -835,6 +839,10 @@ let bumperStart = null;
 const touch = new TouchPad();
 // Use the touch HUD before the first gesture on a phone.
 touch.active = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
+let pointerSource = touch.active ? 'touch' : 'mouse';
+for (const type of ['pointerdown', 'pointermove']) {
+  canvas.addEventListener(type, e => { pointerSource = e.pointerType === 'mouse' ? 'mouse' : 'touch'; });
+}
 const sfx = new Sfx();
 // 🍎 AC's native app starts a page's sound itself once the page has booted (it may play with no gesture), by the word AC's own pages answer to. Standing alone, rax answers to it too, so its sound comes back after the app loads it afresh. (Under the prompt the prompt's page has the word.)
 try { if (window.parent === window && !window.AC) window.AC = { startAudio: () => { void sfx.wake(); return { state: sfx.audio?.state || 'suspended' }; } }; } catch {}
@@ -1869,6 +1877,7 @@ function connect(adopt = null) {
     if (data.type === 'presence') {
       members = data.members;
       selfMember = data.self || null;
+      if (selfMember?.canTakeBody) joiningUntil = 0; // 🪞 its body walks on another screen: this one looks on, it is not waiting for a seat (so a drone brought to the next room flies on at once)
     }
     if (data.type === 'handle-history' && Array.isArray(data.items)) {
       handleHistory = data.items;
@@ -2130,6 +2139,7 @@ function connect(adopt = null) {
 
 canvas.addEventListener('click', (e) => {
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
+  if (e.pointerType !== 'touch' && !locked() && selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return send({ type: 'take-body' });
   // The code tag in the bottom-right is a button: it opens the $code's page.
   if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
   // 📱 The sign-in code is a button as well: sign in here, the ordinary way.
@@ -2403,7 +2413,7 @@ function touchButton(button, isDown) {
   } else syncSoftKeys();
 }
 function beginScreenFinger(e) {
-  if (dock && !view.insideScreen(e.offsetX, e.offsetY)) return false;
+  if (dock && view.overHud(e.offsetX, e.offsetY)) return false;
   const eye = view.aimOrigin(), ray = view.aimRay(e.offsetX, e.offsetY);
   if (!eye || !ray || dock?.way < 0) return false;
   const reach = dock ? Infinity : PANEL_REACH;
@@ -2990,8 +3000,11 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
-  if (keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY ||
-      Array.from(pads || []).some(p => p?.connected && p.buttons.some(b => b.pressed || b.value > 0.08))) inputAt = now;
+  if (gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY ||
+      Array.from(pads || []).some(p => p?.connected && p.buttons.some(b => b.pressed || b.value > 0.08))) {
+    pointerSource = 'pad';
+    inputAt = now;
+  } else if (keys.size) inputAt = now;
   if (seat < 0 && selfMember?.canTakeBody && gamepad.zoomClick && !dock && !menu && !typing()) send({ type: 'take-body' });
   const canBuild = sheetOpen && seat >= 0 && !down && !joining() && !menu && !chat.open && !chalkMode;
   if (gamepad.buildPress && canBuild && !typing() && !radial.open) bumperStart = now;
@@ -3695,6 +3708,9 @@ function step(now) {
   filmPlayers = shownPlayers;
   filmRide = rideNow;
   const idleShot = seat >= 0 ? idlePlayerCamera(now, displayed || player) : (idleEntry = null);
+  const droneTour = seat < 0 && touring && sheetOpen && !film && !held;
+  const fadeStep = Math.min(0.1, elapsed) / (droneTour ? 4 : 0.85);
+  droneIdleWeight = droneTour ? Math.min(1, droneIdleWeight + fadeStep) : Math.max(0, droneIdleWeight - fadeStep);
   const filmShot = film?.camera(now) || null;
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
   const blocks = around(), sceneScreens = visibleScreens(blocks);
@@ -3718,7 +3734,9 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: idleShot || (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, peeking: Math.abs(dock.peekX) + Math.abs(dock.peekY) > 0.01, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
+    idleCamera: idleShot,
+    idleEffect: idleShot?.weight ?? (seat < 0 ? smooth(droneIdleWeight) : 0),
+    camera: (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
@@ -3733,7 +3751,7 @@ function step(now) {
     })() : null,
     sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
-    third: third || !!game()?.camera || !!idleShot,
+    third: third || !!game()?.camera,
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
@@ -3829,6 +3847,8 @@ function step(now) {
         ? { text: `no word from the server ${((now - connection.lastSnapshot) / 1000).toFixed(1)} s`, color: 0xffe066 }
         : rebooted && now < rebooted.until ? { text: rebooted.text, color: 0x3fb950 } : null,
     cursor: cursorAim ? mouseAt : null,
+    pointerSource,
+    handlePoint: pointerSource === 'mouse' && !locked() ? mouseAt : null,
     reticle: hosted && sheetOpen && !down && !idleShot,
     reticleShift: reticleShift(now),
     orbit,

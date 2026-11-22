@@ -59,7 +59,7 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 // lens: 0 (none) to 1 (all of it); fovea: how much of the wide picture, from
 // its middle out, the sharp texture holds (0: there is none).
 const LENS = `
-struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32, _pad: f32, dither: f32, time: f32, shade: vec3f, glaze: f32 }
+struct Lens { sx: f32, sy: f32, wide: f32, lens: f32, fovea: f32, idle: f32, dither: f32, time: f32, shade: vec3f, glaze: f32 }
 @group(0) @binding(0) var picture: texture_2d<f32>;
 @group(0) @binding(1) var nearest: sampler;
 @group(0) @binding(2) var<uniform> u: Lens;
@@ -174,6 +174,15 @@ struct Out { @builtin(position) position: vec4f, @location(0) at: vec2f }
     rgb += spill(at, px, within) * .3 * u.glaze;
   } else {
     rgb *= mix(u.shade, vec3f(1.), light);
+  }
+  if (u.idle > 0.) {
+    let at = select(farAt, sharpAt, within);
+    let px = select(1. / vec2f(textureDimensions(picture)), 1. / vec2f(textureDimensions(middle)), within);
+    let neighbors = (look(at + vec2f(px.x, 0.), within) + look(at - vec2f(px.x, 0.), within)
+      + look(at + vec2f(0., px.y), within) + look(at - vec2f(0., px.y), within)) * .25;
+    let detail = clamp(select(far, sharp, within).rgb - neighbors, vec3f(-.1), vec3f(.1));
+    let edgeShade = 1. - .075 * smoothstep(.2, 1.3, length(in.at));
+    rgb = mix(rgb, (rgb + .32 * detail) * edgeShade, u.idle);
   }
   // Quantize only mixed edge pixels. The ordered pattern stays on the paper grid.
   let cell = vec2u(in.position.xy) % 4u;
@@ -301,7 +310,7 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     // The whole picture at half sharpness and the middle at all of it; or, with no fovea, the whole at all of it (and a middle of one pixel, unused).
     this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)], aa > 1);
     if (scene.triangleCount) device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
-    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, 0, l.dither || 0, (performance.now() / 1000) % 1000, ...(shadow?.shade || [1, 1, 1]), l.glaze ?? this.glaze]));
+    device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, l.idle || 0, l.dither || 0, (performance.now() / 1000) % 1000, ...(shadow?.shade || [1, 1, 1]), l.glaze ?? this.glaze]));
     device.queue.writeBuffer(this.layers[0].zoom, 0, new Float32Array([1, 0, 0, 0]));
     device.queue.writeBuffer(this.layers[1].zoom, 0, new Float32Array([fovea ? 1 / fovea : 1, 0, 0, 0]));
     const stencil = this.shadows ? { stencilClearValue: 0, stencilLoadOp: 'clear', stencilStoreOp: 'discard' } : {};

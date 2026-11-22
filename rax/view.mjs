@@ -35,7 +35,8 @@ import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
 import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
-import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
+import { glide } from './dock.mjs';
+import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs';
 
 // The HUD cannot sample the world behind it. Draw the shared cursor's solid
 // strokes there; interactive panels blend the full cursor into their pixels.
@@ -141,6 +142,51 @@ import {
 } from './highlight.mjs';
 import { smallWidth } from './paint.mjs';
 import { spanWidth as spanWidthOf } from './highlight.mjs';
+
+// Build status shares the input prompt's font and wraps on its six-pixel grid.
+function buildTextLines(builds, columns, now) {
+  const WORDS = { asked: ['asking', THEME.verb], accepted: ['aesel has it', THEME.head], building: ['building', THEME.string], done: ['ready', 0x3fb950], failed: ['failed', 0xff6b6b], refused: ['not sent', 0xff6b6b], cancelled: ['cancelled', THEME.dim] };
+  const dots = '.'.repeat(1 + (Math.floor(now / 330) % 3)).padEnd(3, ' ');
+  const lines = [];
+  for (const b of builds) {
+    const [word, color] = WORDS[b.state] || [b.state, THEME.text], live = ['asked', 'accepted', 'building'].includes(b.state);
+    const what = b.state === 'done' ? b.name || b.text : b.text;
+    const more = b.state === 'asked' ? `${b.tries > 1 ? 'asked again ' : ''}${b.seconds}s`
+      : b.state === 'accepted' ? `${b.seconds}s`
+      : b.state === 'building' ? `${b.phase}${b.parts ? ` ${b.parts} part${b.parts === 1 ? '' : 's'}` : ''} ${b.seconds}s`
+      : b.state === 'done' ? [b.kidlisp ? `$${b.kidlisp} is on the wall` : b.version !== undefined ? `v${b.version}` : '', b.where].filter(Boolean).join(' ')
+      : b.note || '';
+    const limit = Math.min(28, columns);
+    const subject = what?.length > limit ? what.slice(0, Math.max(0, limit - 2)).trimEnd() + '..'.slice(0, limit) : what;
+    const fields = [
+      [live ? word + dots : word, color],
+      [subject, THEME.text],
+      [more, live || b.state === 'done' ? THEME.dim : THEME.number],
+    ];
+    let row = [], used = 0;
+    for (const [value, ink] of fields) {
+      if (!value) continue;
+      const field = value.toLowerCase();
+      if (used && used + 2 + field.length > columns) {
+        lines.push(row);
+        row = [];
+        used = 0;
+      }
+      let rest = field;
+      while (rest.length > columns) {
+        const space = rest.lastIndexOf(' ', columns);
+        const split = space > 0 ? space : columns;
+        lines.push([{ text: rest.slice(0, split), color: b.fade < 0.5 ? THEME.dim : ink }]);
+        rest = rest.slice(split).trimStart();
+      }
+      const text = (used ? '  ' : '') + rest;
+      row.push({ text, color: b.fade < 0.5 ? THEME.dim : ink });
+      used += text.length;
+    }
+    lines.push(row);
+  }
+  return lines;
+}
 
 // A dark room: night floor, slate walls; the two seat colours stay bright.
 // Floor paint, cycled with X: red, yellow, green, blue, purple, pink.
@@ -302,9 +348,9 @@ export async function createView(canvas) {
   function skyDome(step) {
     if (domeKept?.step === step) return domeKept.model;
     const s = skyAt(step / STEPS), R = 2350, n = 24;
-    const made = model(({ quad }) => {
+    const bands = model(({ quad }) => {
       const edges = [-0.12, 0, 0.06, 0.16, 0.34, 0.65, 1.1, Math.PI / 2];
-      const at = (turn, e, r = R) => [Math.cos(turn) * r * Math.cos(e), r * Math.sin(e), Math.sin(turn) * r * Math.cos(e)];
+      const at = (turn, e) => [Math.cos(turn) * R * Math.cos(e), R * Math.sin(e), Math.sin(turn) * R * Math.cos(e)];
       for (let b = 0; b < edges.length - 1; b++) {
         const lo = edges[b], hi = edges[b + 1], color = skyColor(s, lo < 0 ? 0 : (lo + hi) / 2);
         for (let k = 0; k < n; k++) {
@@ -312,25 +358,28 @@ export async function createView(canvas) {
           quad(at(t0, lo), at(t1, lo), at(t1, hi), at(t0, hi), color);
         }
       }
-      // A square on the sky, facing the middle: `d` is where it stands.
-      const square = (d, r, size, color) => {
-        const flat = Math.hypot(d.x, d.z) || 1;
-        const right = [d.z / flat, 0, -d.x / flat];
-        const up = [d.y * right[2], d.z * right[0] - d.x * right[2], -d.y * right[0]];
-        const corner = (a, b) => [0, 1, 2].map((i) => [d.x, d.y, d.z][i] * r + (right[i] * a + up[i] * b) * size / 2);
-        quad(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1), color);
-      };
-      if (s.stars > 0.3)
-        for (const star of starField) square(star, R - 10, star.size, star.bright ? 0xffffff : 0xa9b8e6);
+    });
+    const square = (quad, d, size, color) => {
+      const flat = Math.hypot(d.x, d.z);
+      const right = flat ? [d.z / flat, 0, -d.x / flat] : [1, 0, 0];
+      const up = [d.y * right[2], d.z * right[0] - d.x * right[2], -d.y * right[0]];
+      const corner = (a, b) => [d.x, d.y, d.z].map((v, i) => v * R + (right[i] * a + up[i] * b) * size / 2);
+      quad(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1), color);
+    };
+    const lights = model(({ quad }) => {
+      if (s.stars > 0.3) for (const star of starField)
+        square(quad, star, star.size, star.bright ? 0xffffff : 0xa9b8e6);
       if (s.sun.y > -0.12) {
         const around = skyColor(s, Math.max(0, Math.asin(s.sun.y)));
-        square(s.sun, R - 30, 250, blendInk(around, s.sunColor, 0.35)); // its glow
-        square(s.sun, R - 50, 150, s.sunColor);
+        square(quad, s.sun, 250, blendInk(around, s.sunColor, 0.35));
       }
-      if (s.moon.y > -0.12) square(s.moon, R - 50, 110, 0xe9edf6);
     });
-    domeKept = { step, model: made };
-    return made;
+    const discs = model(({ quad }) => {
+      if (s.sun.y > -0.12) square(quad, s.sun, 150, s.sunColor);
+      if (s.moon.y > -0.12) square(quad, s.moon, 110, 0xe9edf6);
+    });
+    domeKept = { step, model: [bands, lights, discs] };
+    return domeKept.model;
   }
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
@@ -1162,7 +1211,20 @@ export async function createView(canvas) {
   };
   // ⚽ The ball: a small sphere in black and white patches, turned by how
   // far it has rolled.
-  let ballModel = null, ballSeen = null;
+  let ballModel = null, litBall = null, ballSeen = null;
+  const ballNormals = [];
+  const ballCasters = [];
+  const ballVolume = model(({ tri, quad }) => {
+    const r = BALL.r * 0.94, end = -70;
+    for (let i = 0; i < 12; i++) {
+      const a = i * Math.PI / 6, b = (i + 1) * Math.PI / 6;
+      const at = (t, y) => [r * Math.cos(t), y, r * Math.sin(t)];
+      const A = at(a, 0), B = at(b, 0), C = at(b, end), D = at(a, end);
+      quad(A, B, C, D, 0);
+      tri([0, 0, 0], B, A, 0);
+      tri([0, end, 0], D, C, 0);
+    }
+  });
   const ballRoll = new Map();
   const dispenserModel = model(({ box }) => {
     const { width, height, depth } = DISPENSER;
@@ -1209,6 +1271,7 @@ export async function createView(canvas) {
         const c = ring[k + 2] || ring[k + 1];
         quad(ring[0], ring[k], ring[k + 1], c, ink);
         quad(c, ring[k + 1], ring[k], ring[0], ink);
+        for (let i = 0; i < 4; i++) ballNormals.push(n[0] / R, n[1] / R, n[2] / R);
       }
     };
     corners.forEach((c, i) => face(near(i).map((j) => third(c, corners[j])), 0x16181d));
@@ -1302,6 +1365,7 @@ export async function createView(canvas) {
     me,
     camera,
     spectator = false,
+    idleCamera = null, idleEffect = 0,
     gate = null, // 'account' | 'handle': what a visitor needs before a seat.
     pair = null, // 📱 { url, number }: a code a phone signs this tab in with, while looking on signed out
     controller,
@@ -1329,6 +1393,7 @@ export async function createView(canvas) {
     touch = null,
     touchButtons = [],
     input = 'keys',
+    pointerSource = 'mouse', handlePoint = null,
     devLog = [],
     stallNote = '',
     chat = null,
@@ -1421,7 +1486,9 @@ export async function createView(canvas) {
     const bump = flashAge >= 0 && flashAge < 1 ? Math.round(7 * (1 - flashAge) ** 2) * hud.unit : 0;
     hud.safeX += bump;
     hud.safeY += bump;
+    const modeIcon = idleCamera ? 'cinematic' : spectator && !bare ? 'spectator' : null;
     const hudPack = createPack(canvas.width, canvas.height, { safeX: 4 + bump, safeY: 4 + bump, gap: 2 * hud.unit });
+    const modeBox = modeIcon ? hudPack.reserve(modeIcon, 'tr', 11 * hud.unit, 9 * hud.unit) : null;
     function hudOverlay(id, mesh, width, height) {
       if ((camera?.face || stats) && mesh.length) {
         let bounds = overlayBounds.get(mesh);
@@ -1439,17 +1506,23 @@ export async function createView(canvas) {
       projector.overlay(mesh, width, height);
     }
     let chartTop = 21 * hud.unit + bump;
+    const promptX = grid ? 6 + bump : hud.safeX, promptY = grid ? 6 + bump : hud.safeY;
+    const columns = Math.max(1, Math.floor((canvas.width - 2 * promptX) / (6 * hud.unit)));
+    const buildLines = bare || !builds.length ? [] : buildTextLines(builds, columns, now);
+    const buildWidth = Math.max(0, ...buildLines.map((row) => spanWidthOf(row, hud.unit)));
+    let promptRows = 0;
     // 🌞 In the world the room follows the world's own day (sky.mjs), the
     // same for everyone; behind the prompt's curtain it keeps the page's
     // theme, and a game arena its own.
-    const skyStep = !ledges ? stepOf(phase()) : -1;
+    const skyPhase = Number.isFinite(sunAt) ? sunAt : SUN_AT ?? phase();
+    const skyStep = !ledges ? stepOf(skyPhase) : -1;
     const today = skyStep >= 0 ? skyAt(skyStep / STEPS) : null;
     dress(today ? (today.day ? 'day' : 'night') : paletteFor());
     sky = [...rgb(orbit === 1 ? PALETTES[paletteFor()].sky : today ? today.horizon : PALETTES[paletteName].sky), 1];
     host.beginFrame();
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
     // (`sunAt`: a time of day to light by, 0 to 1, for looking at shadows; `shadows: false` casts none.)
-    const sunNow = today ? skyAt(Number.isFinite(sunAt) ? sunAt : SUN_AT ?? phase()).sun : null;
+    const sunNow = today ? skyAt(skyPhase).sun : null;
     // 🌙 With the sun down the moon casts (it stands across the sky from the sun: sky.mjs), and its shadows are faint: the night is lit a little all over.
     const lamp = !sunNow ? null : sunNow.y >= 0 ? sunNow : { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
     const shade = lamp && host.shadows && shadows && orbit < 0.6 ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
@@ -1482,6 +1555,13 @@ export async function createView(canvas) {
     if (camera) {
       eye = camera;
       aim = along(camera, direction(camera.yaw, camera.pitch), 100);
+    }
+    if (idleCamera) {
+      const dx = aim.x - eye.x, dy = aim.y - eye.y, dz = aim.z - eye.z;
+      const play = { ...eye, yaw: Math.atan2(dx, dz) * 180 / Math.PI, pitch: Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI };
+      camera = { ...glide(play, idleCamera, idleCamera.weight), cinematic: true, weight: idleCamera.weight };
+      eye = camera;
+      aim = along(eye, direction(camera.yaw, camera.pitch), 100);
     }
     // Behind the curtain the room turns slowly, seen from far off and above;
     // the drop flies the camera down a curve that passes behind the player's
@@ -1612,7 +1692,11 @@ export async function createView(canvas) {
     // Sample fine world edges at higher resolution as the lens closes. Keep
     // the HUD on its own grid and cap the existing GPU targets at 2×.
     const over = Math.min(2, Math.max(1 / projector.stretch, Math.round(zoom * 2) / 2));
-    lensNow = projector.card ? { sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over, fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
+    lensNow = projector.card ? { idle: idleEffect, sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over, fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
+    if (!projector.card) {
+      const grade = idleEffect ? `contrast(${1 + 0.08 * idleEffect}) saturate(${1 - 0.06 * idleEffect})` : '';
+      if (canvas.style.filter !== grade) canvas.style.filter = grade;
+    }
     projector.planet = game?.camera && orbit <= 0 ? 0 :
       TRY.planet ?? (curvature > 0 ? PLANET / curvature : 0);
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
@@ -1639,7 +1723,15 @@ export async function createView(canvas) {
     // stands: one continuous ground.
     if (today && orbit < 1) {
       projector.bends = false; // (the sky is not wrapped round the planet)
-      draw(skyDome(skyStep), eye.x, eye.y, eye.z, 0, 0, SKY);
+      // Keep sky layers at successive far-depth values. At this distance the
+      // flat dome cuts through the lights and depth precision can erase the glow.
+      const layers = skyDome(skyStep);
+      for (let i = 0; i < layers.length; i++) {
+        const first = host.scene.triangleCount;
+        draw(layers[i], eye.x, eye.y, eye.z, 0, 0, SKY);
+        const depth = 1 - (i + 1) / 0x400000;
+        for (let k = first * 18 + 2; k < host.scene.triangleCount * 18; k += 6) host.scene.vertices[k] = depth;
+      }
       projector.bends = true;
     }
     if (under && !ledges) {
@@ -1662,10 +1754,31 @@ export async function createView(canvas) {
       if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
       draw(arenas.get(half));
     }
+    ballCasters.length = 0;
+    function drawBall(x, y, z, yaw = 0, roll = 0) {
+      const base = ballFor();
+      litBall ||= base.slice();
+      // Turn the lamp into the rolling ball's local coordinates. Each leather
+      // panel keeps one normal, including across its internal triangles.
+      const skyLight = lamp || { x: 0, y: 1, z: 0 };
+      const c = Math.cos(yaw), s = Math.sin(yaw), a = Math.cos(roll), b = Math.sin(roll);
+      const lx = c * skyLight.x - s * skyLight.z, forward = s * skyLight.x + c * skyLight.z;
+      const ly = a * skyLight.y + b * forward, lz = -b * skyLight.y + a * forward;
+      const day = Math.min(1, Math.max(0, (sunNow?.y ?? 1) * 2 + 0.15));
+      for (let i = 0, j = 0; i < base.length; i += 18, j += 3) {
+        const diffuse = Math.max(0, lx * ballNormals[j] + ly * ballNormals[j+1] + lz * ballNormals[j+2]);
+        const light = 0.19 + day * 0.25 + diffuse * (0.17 + day * 0.32);
+        litBall[i+3] = base[i+3] * light * (0.82 + 0.18 * day);
+        litBall[i+4] = base[i+4] * light * (0.9 + 0.1 * day);
+        litBall[i+5] = base[i+5] * light;
+      }
+      draw(litBall, x, y, z, yaw, roll);
+      if (casting && Math.hypot(x-eye.x, z-eye.z) < shadowReach * zoom) ballCasters.push(x, y, z);
+    }
     if (courtyard) {
       const x = courtyard.dx + DISPENSER.x, z = courtyard.dz + DISPENSER.z;
       draw(dispenserModel, x, courtyard.dy, z);
-      draw(ballFor(), x, courtyard.dy + DISPENSER.height + BALL.r, z);
+      drawBall(x, courtyard.dy + DISPENSER.height + BALL.r, z);
     }
     const ballDt = ballSeen === null ? 0 : Math.min(0.1, (now - ballSeen) / 1000);
     ballSeen = now;
@@ -1673,7 +1786,7 @@ export async function createView(canvas) {
       const pace = Math.hypot(ball.vx, ball.vz);
       const angle = ((ballRoll.get(ball.id) || 0) + pace * ballDt / BALL.r) % (2 * Math.PI);
       ballRoll.set(ball.id, angle);
-      draw(ballFor(), ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, angle);
+      drawBall(ball.x, ball.y, ball.z, pace > 0.05 ? Math.atan2(ball.vx, ball.vz) : 0, angle);
     }
     if (tower && !ledges) {
       draw(carFor(tower), 0, tower.lift || 0, 0);
@@ -1976,7 +2089,7 @@ export async function createView(canvas) {
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
-      if (far || i !== seat || third || !me) {
+      if (far || i !== seat || third || !me || (idleCamera && Math.hypot(eye.x - me.x, eye.y - me.y, eye.z - me.z) > 0.7)) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
         draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
@@ -2293,13 +2406,21 @@ export async function createView(canvas) {
       const visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
+      promptRows = prompt.open || saying ? visible.length : 0;
       // A phone has send and cancel as caps; the key hints are for keys.
       const typing = (saying || (prompt.open && !radial && !prompt.busy)) && input !== 'touch';
       const enterHint = typing ? hintSpans(chat?.lift ? '{enter} ride / {up} {down} a floor' : saying ? '{enter} say' : '{enter} build', THEME.dim) : null;
       const escHint = typing ? hintSpans('{esc} cancel', THEME.dim) : null;
       // Stack the chart below the controls while their help is visible.
-      if (!prompt.open && !saying && visible.length) chartTop = Math.max(chartTop, safeY + (14 * visible.length + 2) * unit);
-      const key = JSON.stringify([visible, width, height, bump, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
+      let hintOffset = modeBox ? modeBox.h + 2 * unit : 0;
+      if (buildLines.length && !prompt.open && !saying) {
+        const rightWidth = Math.max(0, ...visible.map((row) => smallSpanWidth(row, unit)));
+        const wireWidth = wire && !menu ? wire.text.length * 6 * unit : 0;
+        if (promptX + Math.max(buildWidth, wireWidth) + 2 * unit > width - safeX - rightWidth)
+          hintOffset += (buildLines.length + (wireWidth ? 1 : 0)) * 10 * unit;
+      }
+      if (!prompt.open && !saying && visible.length) chartTop = Math.max(chartTop, safeY + hintOffset + (14 * visible.length + 2) * unit);
+      const key = JSON.stringify([visible, width, height, bump, hintOffset, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
@@ -2313,7 +2434,7 @@ export async function createView(canvas) {
           panelTop = null;
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
           if (panel) {
-            const ox = grid ? 6 + bump : safeX, oy = grid ? 6 + bump : safeY;
+            const ox = promptX, oy = promptY;
             visible.forEach((spans, i) => {
               const y = height / 2 - oy - 2 * unit - i * 10 * unit;
               drawSpans({ rect, text }, spans, -width / 2 + ox + widths[i] / 2, y, unit, { shadow: INK });
@@ -2325,7 +2446,7 @@ export async function createView(canvas) {
             // The way out sits top-right, where the legend rests while walking.
             if (escHint) {
               const ew = smallSpanWidth(escHint, unit);
-              drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - 2 * unit, unit, { shadow: INK, tiny: true });
+              drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - hintOffset - 2 * unit, unit, { shadow: INK, tiny: true });
             }
           } else {
             // The controls and the hint, top-right, compact: MatrixChunky8
@@ -2333,7 +2454,7 @@ export async function createView(canvas) {
             const right = width / 2 - safeX;
             visible.forEach((spans) => {
               const w = smallSpanWidth(spans, unit);
-              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - 2 * unit - visible.indexOf(spans) * 14 * unit, unit, { shadow: INK, tiny: true }); // (fourteen-pixel rows: a cap and its shadow clear the row under it)
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - hintOffset - 2 * unit - visible.indexOf(spans) * 14 * unit, unit, { shadow: INK, tiny: true }); // (fourteen-pixel rows: a cap and its shadow clear the row under it)
             });
           }
         });
@@ -2342,8 +2463,9 @@ export async function createView(canvas) {
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
     // and a ten-row font. handleText places row zero one unit above its origin.
-    const handleX = -canvas.width / 2 + (grid ? paperLeft : 0) + 10 * hud.unit + bump;
-    const handleY = -canvas.height / 2 + (grid ? paperBottom : 0) + 19 * hud.unit + bump;
+    // Match the paper only during its transition. In the room, use the visible viewport.
+    const handleX = -canvas.width / 2 + (grid ? paperLeft * orbit : 0) + 10 * hud.unit + bump;
+    const handleY = -canvas.height / 2 + (grid ? paperBottom * orbit : 0) + 19 * hud.unit + bump;
     handleRect = null;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells) {
@@ -2357,13 +2479,17 @@ export async function createView(canvas) {
         handle: m.handle,
         colors: m.colors,
       }));
-      if (labels.length && self?.canTakeBody && !bare) {
+      if (labels.length && !bare) {
         handleRect = { x: width / 2 + handleX - 4 * unit, y: height / 2 - handleY - 4 * unit,
           w: (labels[0].label.length * 6 + 22) * unit, h: 20 * unit };
       }
+      const hoverX = handlePoint && handlePoint.x * width / canvas.clientWidth;
+      const hoverY = handlePoint && handlePoint.y * height / canvas.clientHeight;
+      const handleHovered = !!(handlePoint && handleRect && hoverX >= handleRect.x && hoverX < handleRect.x + handleRect.w &&
+        hoverY >= handleRect.y && hoverY < handleRect.y + handleRect.h);
       if (labels.length && me && !bare)
         ownTag = {
-          x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0) + (labels[0].seat < 0 ? 11 : 0)) * unit, // (past the linked-agent mark, when one stands there)
+          x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0)) * unit, // (past the linked-agent mark, when one stands there)
           y: handleY,
         };
       const meter = (connection?.label || '').toLowerCase();
@@ -2373,7 +2499,7 @@ export async function createView(canvas) {
           : '';
       const key = JSON.stringify([
         labels,
-        agents, handleX, handleY,
+        agents, handleX, handleY, handleHovered,
         meter,
         jitter,
         connection?.bars,
@@ -2392,17 +2518,10 @@ export async function createView(canvas) {
             worldRect(-x - w, y, z, w, h, color);
           // Bottom left is the local identity; other names stay on their heads.
           const floor = handleY;
-          labels.forEach(({ label, seat, handle, colors }, i) => {
+          labels.forEach(({ label, handle, colors }, i) => {
             const y = floor + (labels.length - 1 - i) * 12 * unit;
             const x = handleX;
-            // 🚁 Looking on, the name carries a small drone after it: two rotors, a body, two feet.
-            if (seat < 0) {
-              const droneX = x + (label.length * 6 + 3 + (agents ? 10 : 0)) * unit;
-              for (const [dx, dy, w, h, color] of [[0, 5, 3, 1, 0x7fd4ff], [6, 5, 3, 1, 0x7fd4ff], [1, 4, 1, 1, PAPER], [7, 4, 1, 1, PAPER], [1, 2, 7, 2, PAPER], [3, 1, 3, 1, 0xff6b9d], [1, 0, 1, 1, PAPER], [7, 0, 1, 1, PAPER]]) {
-                rect(droneX + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
-                rect(droneX + dx * unit, y - 7 * unit + dy * unit, 0, w * unit, h * unit, color);
-              }
-            }
+            if (handleHovered) rect(x, y - 10 * unit, 0, (label.length * 6 - 1) * unit, unit, PAPER);
             // No seat chip: the handle's own colours identify the player.
             const cx = x + ((label.length * 6 - 1) * unit) / 2;
             (handle ? handleText : text)(
@@ -2743,36 +2862,17 @@ export async function createView(canvas) {
 
     const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
     const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
-    // 🧱 The build line: every build this page has asked for, a row each, in the middle of the top edge, wherever you look (the status that floats over a build's own square is only seen while it is aimed at). A row says where the build stands in words: asking (the server's word awaited), aesel has it, building (its step, its parts, its seconds), ready (the thing named and where it stands from here), failed or not sent (why). Nothing is drawn when nothing is asked for.
-    if (builds.length && !bare) {
+    if (buildLines.length) {
       const { unit } = hud;
-      const WORDS = { asked: ['asking', THEME.verb], accepted: ['aesel has it', THEME.head], building: ['building', THEME.string], done: ['ready', 0x3fb950], failed: ['failed', 0xff6b6b], refused: ['not sent', 0xff6b6b], cancelled: ['cancelled', THEME.dim] };
-      const dots = '.'.repeat(1 + (Math.floor(now / 330) % 3)).padEnd(3, ' ');
-      const cut = (t, n) => (t.length > n ? t.slice(0, n - 2).trimEnd() + '..' : t);
-      const rows = builds.map((b) => {
-        const [word, color] = WORDS[b.state] || [b.state, THEME.text], live = ['asked', 'accepted', 'building'].includes(b.state);
-        const what = b.state === 'done' ? b.name || b.text : b.text;
-        const more = b.state === 'asked' ? `${b.tries > 1 ? 'asked again ' : ''}${b.seconds}s`
-          : b.state === 'accepted' ? `${b.seconds}s`
-          : b.state === 'building' ? `${b.phase}${b.parts ? ` ${b.parts} part${b.parts === 1 ? '' : 's'}` : ''} ${b.seconds}s`
-          : b.state === 'done' ? [b.kidlisp ? `$${b.kidlisp} is on the wall` : b.version !== undefined ? `v${b.version}` : '', b.where].filter(Boolean).join(' ')
-          : b.note || '';
-        const spans = (most) => [
-          { text: live ? `${word}${dots}` : word, color: b.fade < 0.5 ? THEME.dim : color },
-          ...(what ? [{ text: `  ${cut(what.toLowerCase(), 28)}`, color: b.fade < 0.5 ? THEME.dim : THEME.text }] : []),
-          ...(more ? [{ text: `  ${cut(more.toLowerCase(), most)}`, color: live || b.state === 'done' || b.fade < 0.5 ? THEME.dim : THEME.number }] : []),
-        ];
-        // A long reason is cut to what the screen holds.
-        let most = 72, row = spans(most);
-        while (most > 12 && smallSpanWidth(row, unit) > W - 16 * unit) row = spans((most -= 8));
-        return row;
+      const top = promptY + promptRows * 10 * unit;
+      hudPack.claim('builds', { x: promptX, y: top, w: buildWidth, h: buildLines.length * 10 * unit });
+      const m = model(({ rect: worldRect, text }) => {
+        const rect = flip(worldRect);
+        buildLines.forEach((spans, i) => {
+          const y = H / 2 - top - (2 + i * 10) * unit;
+          drawSpans({ rect, text }, spans, -W / 2 + promptX + spanWidthOf(spans, unit) / 2, y, unit, { shadow: INK });
+        });
       });
-      const wide = Math.max(...rows.map((r) => smallSpanWidth(r, unit)));
-      // 📦 Its room is asked for (hud.mjs createPack): the middle of the top edge, which nothing else stands on.
-      const slot = hudPack.reserve('builds', 'tc', wide + 2 * unit, rows.length * 10 * unit);
-      const m = model(({ rect: worldRect, text, small }) =>
-        rows.forEach((spans, i) => drawSpans({ rect: flip(worldRect), text, small }, spans, slot.x + slot.w / 2 - W / 2, H / 2 - slot.y - 2 * unit - i * 10 * unit, unit, { shadow: INK, tiny: true })),
-      );
       projector.overlay(m, W, H);
     }
     if (stats) {
@@ -2809,7 +2909,7 @@ export async function createView(canvas) {
     // where the system label sits on every AC piece (SCREEN.md). A tap on it
     // goes back to the prompt.
     cornerRect = null;
-    if (corner && !prompt?.open && !chat?.open && !jobs.some((j) => j.owner === owner)) {
+    if (corner && !prompt?.open && !chat?.open && !jobs.some((j) => j.owner === owner) && !buildLines.length) {
       const { unit } = hud;
       const safeX = grid ? 6 + bump : hud.safeX, safeY = grid ? 6 + bump : hud.safeY;
       const w = 6 * unit,
@@ -2855,6 +2955,7 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    const occupiedRows = promptRows + buildLines.length + (cornerRect ? 1 : 0);
     if (devLog.length) {
       // A live feed: each step types in a character at a time with a block
       // cursor, its code and commands as sublines beneath it; the stack eases
@@ -2882,7 +2983,7 @@ export async function createView(canvas) {
       const left = -W / 2 + safeX + 2;
       // Anchored at the top, under the corner block: lines start there,
       // newest lowest; once the stack is full it eases upward as each line arrives.
-      const top = H / 2 - safeY - (cornerRect ? 13 * unit : 0);
+      const top = H / 2 - safeY - (occupiedRows ? (10 * occupiedRows + 3) * unit : 0);
       devModel = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
         // Characters revealed so far, across an entry and its sublines.
@@ -2950,7 +3051,7 @@ export async function createView(canvas) {
         budget -= l.text.length + 6;
       }
       const blink = now % 600 < 400;
-      const key = JSON.stringify([shown, blink, W, H]);
+      const key = JSON.stringify([shown, blink, W, H, safeX, safeY, occupiedRows, unit]);
       if (key !== netKey) {
         netKey = key;
         netModel = model(({ rect: worldRect, text }) => {
@@ -2958,7 +3059,7 @@ export async function createView(canvas) {
           shown.forEach((l, i) => {
             const last = i === shown.length - 1;
             const spans = [{ text: l.text, color: l.color }, ...(last && (blink || !l.done) ? [{ block: true }] : [])];
-            const y = H / 2 - safeY - 2 * unit - (i + (cornerRect ? 1 : 0)) * 10 * unit;
+            const y = H / 2 - safeY - 2 * unit - (i + occupiedRows) * 10 * unit;
             drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, y, unit, { shadow: INK });
           });
         });
@@ -2972,7 +3073,7 @@ export async function createView(canvas) {
       const m = model(({ rect: worldRect, text }) => {
         const rect = flip(worldRect);
         const spans = [{ text: wire.text, color: wire.color ?? THEME.text }];
-        drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, H / 2 - safeY - 2 * unit - (cornerRect ? 1 : 0) * 10 * unit, unit, { shadow: INK });
+        drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, H / 2 - safeY - 2 * unit - occupiedRows * 10 * unit, unit, { shadow: INK });
       });
       hudOverlay('connection', m, W, H);
     }
@@ -3077,7 +3178,7 @@ export async function createView(canvas) {
           rect(x + t, y - t, 0.000002, w, h, INK);
           rect(x, y, 0, w, h, color);
         };
-        if (!screenCursor) for (const sx of [-1, 1])
+        if (!screenCursor && (box || pointerSource === 'mouse')) for (const sx of [-1, 1])
           for (const sy of [-1, 1]) {
             // The corner's outer pixel, then arms running inward.
             const x = box ? (sx < 0 ? box.left - t : box.right) : sx < 0 ? -half - t : half,
@@ -3086,11 +3187,18 @@ export async function createView(canvas) {
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
         if (Number.isFinite(cursorX)) {
-          for (const [dx, dy, ink] of reticleStrokes) {
+          if (pointerSource === 'pad') {
+            rect(cursorX - t, cursorY - t, 0.000002, 3 * t, 3 * t, INK);
+            rect(cursorX, cursorY, 0, t, t, PAPER);
+          } else if (pointerSource === 'mouse') for (const [dx, dy, ink] of reticleStrokes) {
             const shadow = ink === cursorInks.shadow;
             rect(cursorX + dx * t, cursorY - dy * t, shadow ? 0.000002 : 0, t, t, shadow ? INK : 0x00ffff);
           }
-        } else if (!screenCursor) L(-t, -t, 2 * t, 2 * t);
+        } else if (!screenCursor && pointerSource === 'mouse') L(-t, -t, 2 * t, 2 * t);
+        else if (!screenCursor && pointerSource === 'pad') {
+          rect(-t, -t, 0.000002, 3 * t, 3 * t, INK);
+          rect(0, 0, 0, t, t, PAPER);
+        }
       });
       projector.overlay(m, W, H);
     }
@@ -3737,7 +3845,7 @@ export async function createView(canvas) {
       draw(kept.slab, p.x, p.y, p.z, yaw);
       draw(kept.face, p.x, p.y, p.z, yaw);
       if (scenery) scenery.panels.push({ id: p.id, x: p.x, y: p.y, z: p.z, cols: kept.cols });
-      if (!p.cursor) continue;
+      if (!p.cursor || pointerSource === 'touch') continue;
       // The mouse: AC's one software cursor (lib/cursor-shape.mjs, the same mark a pad's stick moves on the prompt's paper), laid on the panel's own pixels a hair proud of the face: a soft dab of light, and over it a dot and four arms on their shadow; closed up and yellow while pressed.
       const cell = p.w / p.cols, row = p.h / p.rows, mx = Math.floor(p.cursor.x), my = Math.floor(p.cursor.y);
       // (Nothing here is see-through, so the glow is mixed into the panel's own pixels under it: lib/cursor-shape.mjs cursorOver. One face a pixel, a hair proud of the glass.)
@@ -3746,7 +3854,7 @@ export async function createView(canvas) {
         if (px < 0 || py < 0 || px >= p.cols || py >= p.rows) return null;
         const k = (py * p.cols + px) * 4;
         return [p.pixels[k], p.pixels[k + 1], p.pixels[k + 2]];
-      }, !!p.cursor.down);
+      }, !!p.cursor.down, pointerSource === 'mouse');
       projector.draw(model(({ quad }) => {
         for (const [key, [r, g, b]] of lit) {
           const [dx, dy] = key.split(',').map(Number), z = -0.003;
@@ -3824,21 +3932,39 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    previousRegions = hudPack.taken;
-    if (stats || (screenFrame && camera.flat === 1 && (nearZoom > 1.01 || camera.peeking))) {
-      const mask = screenFrame && camera.flat === 1 && (nearZoom > 1.01 || camera.peeking);
-      const guides = model(({ rect: worldRect }) => {
-        const fill = (x,y,w,h,z,color) => {
-          if (w > 0 && h > 0) worldRect(W / 2 - x - w, H / 2 - y - h, z, w, h, color);
-        };
-        if (mask) {
-          const {x,y,w,h} = screenFrame;
-          for (const [l,t,a,b] of [[0,0,W,y],[0,y+h,W,H-y-h],[0,y,x,h],[x+w,y,W-x-w,h]])
-            fill(l,t,a,b,0.02,0x161822);
+    if (modeIcon) {
+      const u = hud.unit;
+      const { x, y } = modeBox;
+      const icon = model(({ rect }) => {
+        const pixel = (dx, dy, w, h, color, z = 0) => rect(W / 2 - x - (dx + w) * u, H / 2 - y - (dy + h) * u, z, w * u, h * u, color);
+        pixel(0, 0, 11, 9, INK, 0.000003);
+        if (modeIcon === 'cinematic') {
+          pixel(1, 3, 6, 5, PAPER);
+          pixel(2, 1, 2, 2, PAPER);
+          pixel(5, 1, 2, 2, PAPER);
+          pixel(7, 4, 1, 2, PAPER);
+          pixel(8, 3, 2, 4, PAPER);
+        } else {
+          pixel(1, 1, 3, 1, 0x7fd4ff);
+          pixel(7, 1, 3, 1, 0x7fd4ff);
+          pixel(2, 2, 1, 2, PAPER);
+          pixel(8, 2, 1, 2, PAPER);
+          pixel(2, 4, 7, 2, PAPER);
+          pixel(4, 5, 3, 1, 0xff6b9d, -0.000001);
+          pixel(2, 6, 1, 2, PAPER);
+          pixel(8, 6, 1, 2, PAPER);
         }
-        if (stats) for (const region of [...hudPack.taken, ...(screenFrame ? [{id:'screen', ...screenFrame}] : [])]) {
+      });
+      projector.overlay(icon, W, H);
+    }
+    previousRegions = hudPack.taken;
+    if (stats) {
+      const guides = model(({ rect }) => {
+        for (const region of [...hudPack.taken, ...(screenFrame ? [{id:'screen', ...screenFrame}] : [])]) {
           const {x,y,w,h} = region, ink = region.id === 'screen' ? 0xffdb67 : 0x41c6ce;
-          for (const [l,t,a,b] of [[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]]) fill(l,t,a,b,-0.000005,ink);
+          for (const [l,t,a,b] of [[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]]) {
+            if (a > 0 && b > 0) rect(W / 2 - l - a, H / 2 - t - b, -0.000005, a, b, ink);
+          }
         }
       });
       projector.overlay(guides, W, H);
@@ -3854,7 +3980,7 @@ export async function createView(canvas) {
     // 🌑 The shadow volumes go last in the stream; the host counts them in
     // its stencil and shades what lies inside (scene3d-webgpu.mjs).
     let shadow = null;
-    if (casting && casters.length) {
+    if (casting && (casters.length || ballCasters.length)) {
       const first = host.scene.triangleCount;
       // What the shadows may take of the frame: a share of it, so they cost no more than a few milliseconds to work out.
       const most = Math.min(first + SHADOW_MOST, host.scene.maxTriangles - 64);
@@ -3884,6 +4010,15 @@ export async function createView(canvas) {
       castOrder.sort((p, q) => castFar[p] - castFar[q]);
       projector.overflow = false;
       projector.horizon = Infinity; // (a solid is counted where it lies behind what is seen: its faces over the horizon are part of the count)
+      const lightYaw = Math.atan2(lamp.x, lamp.z), lightPitch = Math.acos(Math.min(1, lamp.y));
+      for (let i = 0; i < ballCasters.length; i += 3) {
+        const before = host.scene.triangleCount;
+        projector.draw(ballVolume, ballCasters[i], ballCasters[i+1], ballCasters[i+2], lightYaw, lightPitch);
+        if (projector.overflow || host.scene.triangleCount > most) {
+          host.scene.triangleCount = before;
+          break;
+        }
+      }
       let spilt = 0;
       castFrame++;
       for (const k of castOrder) {
@@ -4023,10 +4158,9 @@ export async function createView(canvas) {
       const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;
       return handleRect && x >= handleRect.x && y >= handleRect.y && x < handleRect.x + handleRect.w && y < handleRect.y + handleRect.h;
     },
-    insideScreen(cssX, cssY) {
-      if (!screenFrame) return true;
+    overHud(cssX, cssY) {
       const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;
-      return x >= screenFrame.x && y >= screenFrame.y && x < screenFrame.x + screenFrame.w && y < screenFrame.y + screenFrame.h;
+      return previousRegions.some(r => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h);
     },
     aimRay(cssX, cssY) {
       if (!projector.forward || !lastEye) return null;
