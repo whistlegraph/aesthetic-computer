@@ -2260,6 +2260,10 @@ function openRadial(wall = null, bumper = false) {
   sfx.ringOpen();
 }
 function closeBuild() {
+  if (radial.bumper) {
+    prompt.text = '';
+    prompt.cursor = 0;
+  }
   prompt.open = false;
   radial.close();
   releaseInput();

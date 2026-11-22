@@ -205,6 +205,7 @@ try {
   await page.evaluate(() => { testPad.buttons[4].pressed = false; });
   await page.waitForFunction(() => !document.querySelector('canvas').raxStats.radial);
   assert.equal(buildRequests.length, 0, 'release over a slice discards the draft');
+  assert.equal(await page.evaluate(() => document.querySelector('canvas').raxStats.promptText), '');
   await draft();
   await page.evaluate(() => { testPad.axes[3] = 0; });
   await page.waitForFunction(() => document.querySelector('canvas').raxStats.radial?.centered);
