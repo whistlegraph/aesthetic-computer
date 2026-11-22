@@ -7,6 +7,7 @@
 // their own room's metres, so it is seen rolling over a seam from both sides.
 import { DT, CFG, reflect } from './world.mjs';
 import { SPAN } from './park.mjs';
+import { carDoor, rideEase, shutTicks, aloft } from './elevator.mjs';
 
 export const BALL = { r: 0.34, room: 'lobby', x: 3, z: -5 };
 export const DISPENSER = { x: BALL.x, z: BALL.z, width: 1, depth: 0.8, height: 1.3 };
@@ -38,10 +39,16 @@ export function createDispenser(world) {
           Math.hypot(b.ball.x - chute.x, b.ball.z - chute.z) < 0.1);
         if (!slot && balls.length < MAX_BALLS) { slot = make(); balls.push(slot); }
         if (!slot) {
+          // Only a ball nobody is with is called back, and one left up the
+          // tower or in the cellar last of all: none is taken from under a foot.
+          let found = -1;
           for (let i = 0; i < balls.length; i++) {
-            const index = (next + i) % balls.length;
-            if (balls[index].still()) { slot = balls[index]; next = (index + 1) % balls.length; break; }
+            const index = (next + i) % balls.length, b = balls[index];
+            if (!b.still() || b.ball.ride || world.bodies(b.ball.room).length) continue;
+            if (!aloft(b.ball.room) && b.ball.room !== 'basement') { found = index; break; }
+            if (found < 0) found = index;
           }
+          if (found >= 0) { slot = balls[found]; next = (found + 1) % balls.length; }
         }
         if (slot) Object.assign(slot.ball, chute, { y: 0.65, vx: -3, vy: 1.4, vz: 0 });
       }
@@ -113,10 +120,14 @@ export function createBall({ neighbours, boxes = () => [], bodies = () => [], be
       for (const p of bodies(ball.room)) kick(p, 0, 0);
       for (const [side, axis, sign] of SIDES)
         if (near[side]) for (const p of bodies(near[side])) kick(p, axis === 'x' ? sign * SPAN : 0, axis === 'z' ? sign * SPAN : 0);
-      if (still()) return false;
+      // 🛗 In the car while it runs: the door is shut on it too, and it is
+      // somewhere new every tick though it lies still on the car's floor.
+      const riding = ball.ride;
+      if (riding && ++riding.ran >= riding.shut) delete ball.ride;
+      if (still()) return !!riding;
       ball.vy -= G * DT;
       const speed = Math.hypot(ball.vx, ball.vy, ball.vz);
-      const solid = boxes(ball.room);
+      const solid = riding ? [...boxes(ball.room), carDoor()] : boxes(ball.room);
       const steps = Math.max(1, Math.ceil((speed * DT) / 0.15));
       for (let k = 0; k < steps; k++) {
         const sp = Math.hypot(ball.vx, ball.vy, ball.vz);
@@ -163,10 +174,22 @@ export function createBall({ neighbours, boxes = () => [], bodies = () => [], be
   };
 }
 
+// 🛗 A ball in the car when it leaves goes with it: it is in the room the car
+// is bound for at once, as its rider is, and `ride` says how far short of
+// that floor the car still is. `span` is the height the car has to cover
+// (the floor left, less the floor bound for) and `seconds` how long it takes.
+export function carry(ball, span, seconds) {
+  ball.ride = { span, ticks: Math.max(1, Math.round(seconds / DT)), ran: 0, shut: shutTicks(seconds, 1 / DT) };
+}
+// How far the car a ball rides in still is from its floor (0 when it is not riding).
+export const liftOf = (ball) => (ball.ride ? ball.ride.span * (1 - rideEase(ball.ride.ran / ball.ride.ticks)) : 0);
+
 // The ball a moment after it was last heard of (the page, between words
-// from the server): on its way, falling, never under the ground.
+// from the server): on its way, falling, never under the ground. `g` is the
+// ground it lies on, in the metres it was told in: another floor of the
+// tower is that much above or below the one looked from.
 export function ballAt(b, seconds) {
-  const t = Math.max(0, Math.min(1, seconds));
-  const y = b.y + b.vy * t - (b.y > BALL.r || b.vy ? (G * t * t) / 2 : 0);
-  return { x: b.x + b.vx * t, y: Math.max(BALL.r, y), z: b.z + b.vz * t };
+  const t = Math.max(0, Math.min(1, seconds)), ground = (b.g || 0) + BALL.r;
+  const y = b.y + b.vy * t - (b.y > ground + 0.001 || b.vy ? (G * t * t) / 2 : 0);
+  return { x: b.x + b.vx * t, y: Math.max(ground, y), z: b.z + b.vz * t };
 }

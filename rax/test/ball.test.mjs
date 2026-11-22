@@ -9,7 +9,9 @@ import { join } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import WebSocket from 'ws';
-import { createBall, createDispenser, MAX_BALLS, BALL, ballAt } from '../ball.mjs';
+import { createBall, createDispenser, MAX_BALLS, BALL, ballAt, carry, liftOf } from '../ball.mjs';
+import { Actor } from '../film/actor.mjs';
+import { CAR, CAR_Z, altitude } from '../elevator.mjs';
 import { createRaxServer } from '../server.mjs';
 import { Match } from '../match.mjs';
 import { CFG, DT, PROTOCOL } from '../world.mjs';
@@ -211,4 +213,96 @@ test('the dispenser keeps an old single-ball save and restores the additional ba
   await second.ready;
   await second.close();
   assert.deepEqual(JSON.parse(await readFile(file)), saved);
+});
+
+test('a ball on another floor is drawn on that floor: it does not fall from it, nor come up through this one', () => {
+  // Seen from the plaza, at rest on a floor 19 m up.
+  const above = { x: 1, y: 19 + BALL.r, z: 2, vx: 0, vy: 0, vz: 0, g: 19 };
+  assert.equal(ballAt(above, 0.5).y, 19 + BALL.r, 'it lies where it lay');
+  // Seen from that floor, at rest on the plaza.
+  const under = { x: 1, y: -19 + BALL.r, z: 2, vx: 0, vy: 0, vz: 0, g: -19 };
+  assert.equal(ballAt(under, 0.5).y, -19 + BALL.r, 'it stays under the slab');
+  // Dropped on that floor it comes down on that floor.
+  assert.equal(ballAt({ ...above, y: 19.5 }, 1).y, 19 + BALL.r);
+});
+
+test('a ball in the car goes up with it, a little a tick, and the door is shut on it', () => {
+  const { ball, step } = createBall({ neighbours: () => null, start: { room: 'floor-x', x: 0, z: CAR_Z } });
+  carry(ball, -19, 4); // the car left the plaza for a floor 19 m up
+  assert.equal(liftOf(ball), -19, 'it starts where the car started');
+  ball.vz = -6; // kicked at the door
+  let last = liftOf(ball), ticks = 0;
+  while (ball.ride && ticks < 1000) {
+    assert.equal(step(), true, 'somewhere new every tick of the ride');
+    const now = liftOf(ball);
+    assert.ok(now >= last && now - last < 0.3, `no jump at tick ${ticks}: ${last} → ${now}`);
+    assert.ok(ball.z > CAR_Z - CAR, 'kept in by the door');
+    last = now; ticks++;
+  }
+  assert.ok(ticks >= 240 && ticks < 300, `the ride and a moment after the bell (${ticks} ticks)`);
+  assert.equal(liftOf(ball), 0);
+  ball.vz = -6;
+  for (let i = 0; i < 60; i++) step();
+  assert.ok(ball.z < CAR_Z - CAR, 'and out of the car when it has arrived');
+});
+
+test('the dispenser calls back no ball that someone is with', () => {
+  const p = { seat: 1, x: BALL.x + 1, y: CFG.eyeHeight, z: BALL.z };
+  let lobby = [p];
+  const friend = { seat: 2, x: 5, y: CFG.eyeHeight, z: 5 };
+  const dispenser = createDispenser({ neighbours: () => ({}), bodies: (room) => (room === 'lobby' ? lobby : room === 'floor-x' ? [friend] : []) });
+  const approach = () => { lobby = []; dispenser.step(); lobby = [p]; dispenser.step(); };
+  while (dispenser.balls.length < MAX_BALLS) approach();
+  // Every ball is taken off somewhere and left: one beside a friend up the tower, the rest out in the park.
+  dispenser.balls.forEach(({ ball }, i) => Object.assign(ball, { room: i ? 'e1n0' : 'floor-x', x: i - 6, y: BALL.r, z: 0, vx: 0, vy: 0, vz: 0 }));
+  for (let i = 0; i < MAX_BALLS * 2; i++) approach();
+  assert.deepEqual({ room: dispenser.balls[0].ball.room, x: dispenser.balls[0].ball.x }, { room: 'floor-x', x: -6 }, 'the one upstairs lies where it was left');
+  assert.ok(dispenser.balls.some(({ ball }) => ball.room === 'lobby'), 'the park\'s were called back');
+});
+
+test('a ball in the car rides up with its rider: the plaza sees it rise, the rider keeps it at their feet', async () => {
+  const handles = ['jeffrey'];
+  const app = createRaxServer({ guests: true, stateDir: await mkdtemp(join(tmpdir(), 'rax-ball-ride-')),
+    listHandles: async () => handles, resolveHandleColors: async () => null,
+    verifyIdentity: async (token) => { if (token.startsWith('guest')) throw Error('not signed in'); return { handle: token, sub: `acct-${token}` }; } });
+  await app.ready;
+  await app.tower.change((t) => t.admit(handles));
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const port = app.server.address().port;
+  const rider = new Actor({ base: `http://127.0.0.1:${port}`, handle: 'jeffrey' });
+  const below = new WebSocket(`ws://127.0.0.1:${port}/play?${new URLSearchParams({ room: 'lobby', protocol: PROTOCOL })}`);
+  const fromPlaza = [], fromCar = [];
+  try {
+    await once(below, 'open');
+    await rider.enter('lobby');
+    await rider.walkTo(0, -1.2, { pace: 1 });
+    await rider.walkTo(0, 3, { pace: 1 });
+    await rider.walkTo(0.6, CAR_Z, { pace: 0.6, within: 0.05 });
+    const b = app.ball.ball;
+    Object.assign(b, { room: 'lobby', x: -0.7, y: BALL.r, z: CAR_Z + 0.3, vx: 0, vy: 0, vz: 0 });
+    await delay(50);
+    below.on('message', (raw) => { const d = JSON.parse(raw); if (d.type === 'ball') fromPlaza.push(d); });
+    const floor = app.tower.tower.forHandle('jeffrey'), up = altitude(floor.number);
+    await rider.ride('home'); // (a scripted rider comes to the floor on a new socket)
+    rider.ws.on('message', (raw) => { const d = JSON.parse(raw); if (d.type === 'ball') fromCar.push(d); });
+    assert.equal(b.room, `floor-${floor.id}`, 'the ball is on its way to the floor');
+    for (let i = 0; i < 1000 && b.ride; i++) await delay(10);
+    await delay(100);
+    assert.ok(up > 5 && !b.ride);
+    // From the plaza: up from the car's floor to the floor above, never more than a step at a time.
+    assert.ok(fromPlaza.length > 100, `told all the way up (${fromPlaza.length} words)`);
+    for (let i = 1; i < fromPlaza.length; i++)
+      assert.ok(Math.abs(fromPlaza[i].y - fromPlaza[i - 1].y) < 0.6, `a jump of ${fromPlaza[i].y - fromPlaza[i - 1].y} m seen from the plaza`);
+    assert.ok(fromPlaza[0].y < 1 && Math.abs(fromPlaza.at(-1).y - (up + BALL.r)) < 0.01, `${fromPlaza[0].y} → ${fromPlaza.at(-1).y}`);
+    // From the car: it lies on the car's floor the whole way (`lift` is the car's own height, which the page counts for itself).
+    const riding = fromCar.filter((d) => d.lift !== undefined);
+    assert.ok(riding.length > 100, `the rider was told all the way (${riding.length} words)`);
+    for (const d of riding) assert.ok(Math.abs(d.y - d.lift - BALL.r) < 0.01 && Math.abs((d.g || 0) - d.lift) < 0.01, JSON.stringify(d));
+    assert.ok(riding[0].lift < -5, `still well under the floor when first told (${riding[0].lift})`);
+    assert.ok(Math.abs(fromCar.at(-1).y - BALL.r) < 0.01 && fromCar.at(-1).g === undefined, 'and on the floor when the car is there');
+  } finally {
+    below.close(); rider.leave();
+    await app.close();
+  }
 });

@@ -3732,7 +3732,11 @@ function step(now) {
       ...(droneView && !dock && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
-    balls: balls.filter(b => now - b.at < 4000).map(b => ({ ...b, ...ballAt(b, (now - b.at) / 1000) })),
+    // ⚽ A ball in the car you ride keeps to the car as this page counts it (the server's count is a moment behind).
+    balls: balls.filter(b => now - b.at < 4000).map(b => {
+      const at = ballAt(b, (now - b.at) / 1000), own = lift && b.lift !== undefined && Math.abs((b.g || 0) - b.lift) < 0.01;
+      return { ...b, ...at, y: own ? at.y - b.lift + lift : at.y };
+    }),
     courtyard: sky,
     drones: shownDrones,
     // Every seat the room holds, not only the original duel's two. Whoever

@@ -10,7 +10,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, fromWorld, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
-import { createDispenser, DISPENSER_WALL, MAX_BALLS } from './ball.mjs';
+import { createDispenser, DISPENSER_WALL, MAX_BALLS, carry as carryBall, liftOf } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
 import { MAX_FOCUS_ZOOM, OBJECT_PROXY_DISTANCE } from './screen-lod.mjs';
@@ -1350,7 +1350,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const riding = { from: went.from, to: went.number, handle: went.handle };
         // 🧵 On a socket that stays, the rider is on the next floor now (and a ball in the car with them).
         const carried = dispenser.balls.map(s => s.ball).filter(b => b.room === key && inCar(b));
-        const moveCargo = () => { for (const b of carried) b.room = destination; if (carried.length) keepBall(); };
+        const moveCargo = () => { for (const b of carried) { b.room = destination; carryBall(b, span, run.seconds); } if (carried.length) keepBall(); };
         if (relocate(destination, stood, { ride: run, told: { ride: riding } })) {
           moveCargo();
           return;
@@ -1603,8 +1603,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (!at || overlaid(at, here)) continue;
         const bi = wrap(at.i - here.i), bj = wrap(at.j - here.j);
         if (Math.abs(bi) > 2 || Math.abs(bj) > 2) continue;
-        visible.push({ id, x: r(b.x + bi * SPAN), y: r(b.y + at.h - here.h), z: r(b.z + bj * SPAN),
-          vx: r(b.vx), vy: r(b.vy), vz: r(b.vz) });
+        // `g`: the ground it lies on, here (another floor's, or the car's while it runs: `lift` is the car's share).
+        const lift = liftOf(b), g = at.h - here.h + lift;
+        visible.push({ id, x: r(b.x + bi * SPAN), y: r(b.y + g), z: r(b.z + bj * SPAN),
+          vx: r(b.vx), vy: r(b.vy), vz: r(b.vz), ...(g ? { g: r(g) } : {}), ...(b.ride ? { lift: r(lift) } : {}) });
       }
       if (!visible.length) {
         if (seeingBalls.delete(room)) for (const ws of room.clients.keys()) send(ws, { type: 'balls-away' });
