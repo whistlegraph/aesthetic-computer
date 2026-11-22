@@ -7,8 +7,9 @@ import { MAX_PLAYERS } from './world.mjs';
 export class Room {
   // `guests`: seat a session with no handle too. The server turns it off, so
   // only a handle holds a body and the rest look on.
-  constructor(send, { guests = true } = {}) {
+  constructor(send, { guests = true, connections = new Set() } = {}) {
     this.send = send;
+    this.connections = connections;
     this.guests = guests;
     this.match = new Match();
     this.clients = new Map();
@@ -17,7 +18,7 @@ export class Room {
   }
   add(ws, pending = false) {
     const record = {
-      ws,
+      ws, room: this,
       seat: -1,
       handle: null,
       colors: null,
@@ -25,6 +26,7 @@ export class Room {
       ready: !pending,
       welcomed: false,
     };
+    this.connections.add(record);
     this.sessions.set(ws, record);
     this.clients.set(ws, -1);
     this.assign();
@@ -34,12 +36,30 @@ export class Room {
   person(r) {
     return r.handle?.toLowerCase() || r.owner || r;
   }
-  assign() {
-    // The newest ready session of a person holds their seat (2026-11-12): a
-    // reload, or a second window, takes the body over in place, and the older
-    // session (often a socket still dying on a slow link) watches instead.
+  // Set insertion order is connection order, even after a room crossing.
+  counterpart(handle, except = null, seated = false) {
+    if (!handle) return null;
+    let newest = null;
+    for (const r of this.connections)
+      if (r !== except && r.ready && (!seated || r.seat >= 0) && r.handle?.toLowerCase() === handle.toLowerCase()) newest = r;
+    return newest;
+  }
+  assign(handle = null) {
+    const winners = new Map();
+    for (const r of this.connections)
+      if (r.handle && r.ready) winners.set(r.handle.toLowerCase(), r);
+    const affected = new Set([this]);
+    if (handle) for (const r of this.connections)
+      if (r.handle?.toLowerCase() === handle.toLowerCase()) affected.add(r.room);
+    for (const room of affected) room.assignLocal(winners);
+    for (const room of affected) room.broadcast();
+  }
+  assignLocal(winners) {
     const latest = new Map();
-    for (const r of this.sessions.values()) if (r.ready && (this.guests || r.handle)) latest.set(this.person(r), r);
+    for (const r of this.sessions.values()) {
+      if (!r.ready || (r.handle ? winners.get(r.handle.toLowerCase()) !== r : !this.guests)) continue;
+      latest.set(this.person(r), r);
+    }
     for (const [key, r] of latest) {
       if (r.seat >= 0) continue;
       for (const o of this.sessions.values())
@@ -69,7 +89,6 @@ export class Room {
           role: r.seat < 0 ? 'spectator' : 'player',
         });
     }
-    this.broadcast();
   }
   public(r) {
     return {
@@ -97,23 +116,25 @@ export class Room {
     };
     for (const r of this.sessions.values())
       // A member still waiting for its handle has no name to show yet.
-      if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? this.public(r) : null });
+      if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? { ...this.public(r), canTakeBody: r.seat < 0 && !!this.counterpart(r.handle, r, true) } : null });
   }
   // 🧵 Someone already known comes in from another room on the socket they
   // have: the same record, a new seat.
   adopt(record) {
+    record.room = this;
     record.seat = -1;
     this.sessions.set(record.ws, record);
     this.clients.set(record.ws, -1);
-    this.assign();
+    this.assign(record.handle);
     return record;
   }
-  remove(ws) {
+  remove(ws, transferring = false) {
     const r = this.sessions.get(ws);
     if (!r) return;
+    if (!transferring) this.connections.delete(r);
     this.clients.delete(ws);
     this.sessions.delete(ws);
     if (r.seat >= 0) this.match.leave(r.seat);
-    this.assign();
+    this.assign(transferring ? null : r.handle);
   }
 }

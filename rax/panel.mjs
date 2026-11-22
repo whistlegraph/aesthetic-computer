@@ -64,9 +64,20 @@ export function painter(width, height) {
     if (x < 0 || y < 0 || x >= on.width || y >= on.height) return;
     put(on.pixels, (y * on.width + x) * 4, color[0], color[1], color[2], color[3]);
   };
+  const packedColor = new Uint8ClampedArray(4);
+  const packedWord = new Uint32Array(packedColor.buffer);
+  const wordFor = () => { packedColor.set(color); return packedWord[0]; };
+  const words = () => new Uint32Array(on.pixels.buffer, on.pixels.byteOffset, on.pixels.length / 4);
   const fill = (x, y, w, h) => {
     const x1 = Math.min(on.width, Math.floor(x + w)), y1 = Math.min(on.height, Math.floor(y + h));
-    for (let j = Math.max(0, Math.floor(y)); j < y1; j++)
+    const x0 = Math.max(0, Math.floor(x)), y0 = Math.max(0, Math.floor(y));
+    if (x0 >= x1 || y0 >= y1) return;
+    if (color[3] >= 255 && x1 - x0 >= 8 && on.pixels.byteOffset % 4 === 0) {
+      const px = words(), c = wordFor();
+      for (let j = y0; j < y1; j++) px.fill(c, j * on.width + x0, j * on.width + x1);
+      return;
+    }
+    for (let j = y0; j < y1; j++)
       for (let i = Math.max(0, Math.floor(x)); i < x1; i++) plot(i, j);
   };
   const g = {
@@ -75,6 +86,7 @@ export function painter(width, height) {
     // (A wipe is not laid over: every pixel becomes the colour, its alpha too, so `wipe(0, 0, 0, 0)` clears a painting to nothing.)
     wipe: (...c) => {
       if (c.length) color = colorOf(c);
+      if (on.pixels.byteOffset % 4 === 0) { words().fill(wordFor()); return g; }
       const px = on.pixels;
       for (let k = 0; k < px.length; k += 4) { px[k] = color[0]; px[k + 1] = color[1]; px[k + 2] = color[2]; px[k + 3] = color[3]; }
       return g;
@@ -205,6 +217,7 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
     piece.act?.({ ...api, event: { ...pointerEvent(name, x, y, device), pointer, delta } });
   }
   api.api = api;
+  const livePixels = new Uint32Array(g.screen.pixels.buffer);
   let shown = null;
   const panel = {
     id, cols, rows, yaw: 0, deep: 0.04, ...place,
@@ -221,9 +234,12 @@ export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...pla
       api.simCount++;
       piece.paint?.(api);
       api.paintCount++;
-      const px = g.screen.pixels;
-      if (shown && shown.every((v, k) => v === px[k])) return;
-      shown = px.slice();
+      if (shown) {
+        let k = 0;
+        while (k < shown.length && shown[k] === livePixels[k]) k++;
+        if (k === shown.length) return;
+        shown.set(livePixels);
+      } else shown = livePixels.slice();
       panel.frame++;
     },
     leave() { piece.leave?.(api); },

@@ -109,3 +109,36 @@ export function drawJoinCode(rect, text, cells, width, height, layout) {
   rect(x, top - qrSize - 12 * unit, 0.000002, qrSize, 12 * unit, 0xffffff);
   text('JOIN', x + qrSize / 2, top - qrSize - 3 * unit, 0, unit, 0x181818);
 }
+
+// Fit the screen between the occupied HUD rectangles. Try each possible pair
+// of vertical edges, then fit the picture into the open spans between them.
+export function fitHudScreen(width, height, aspect, regions, gap = 2) {
+  const left = gap, right = width - gap, bottom = height - gap;
+  const edges = new Set([left, right]);
+  const obstacles = regions.map(r => ({
+    l: Math.max(left, r.x - gap), r: Math.min(right, r.x + r.w + gap),
+    t: Math.max(gap, r.y - gap), b: Math.min(bottom, r.y + r.h + gap),
+  })).filter(r => r.l < r.r && r.t < r.b).sort((a,b) => a.t - b.t);
+  for (const o of obstacles) { edges.add(o.l); edges.add(o.r); }
+  let best = null, distance = Infinity;
+  for (const l of edges) for (const r of edges) {
+    if (r <= l) continue;
+    let y = gap;
+    const fit = end => {
+      const w = Math.min(r - l, (end - y) * aspect), h = w / aspect;
+      if (w < 1 || h < 1 || (best && w < best.w)) return;
+      const x0 = Math.max(l, Math.min(r - w, (width - w) / 2));
+      const y0 = Math.max(y, Math.min(end - h, (height - h) / 2));
+      const d = Math.hypot(x0 + w / 2 - width / 2, y0 + h / 2 - height / 2);
+      if (!best || w > best.w || d < distance) {
+        best = { x: x0, y: y0, w, h }; distance = d;
+      }
+    };
+    for (const o of obstacles) if (o.l < r && o.r > l) {
+      fit(o.t);
+      y = Math.max(o.b, y);
+    }
+    fit(bottom);
+  }
+  return best;
+}

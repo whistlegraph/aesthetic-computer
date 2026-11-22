@@ -187,46 +187,70 @@ const checkedHours = (hours, max = 840) => {
 // sits well above that: it is for a stalled part, not a slow one.
 const PART_DEADLINE_MS = 15_000;
 
-async function networkReportLive({ hours = 24, scope = "all" } = {}) {
-  const timings = {};
-  const part = (name, promise) => {
+// The parts by name. The jasellite timer builds the first set: lith, public
+// APIs, and the social accounts whose env files are copied there. The second
+// set decrypts vault files with the GPG key, which stays on the Macs.
+const SNAPSHOT_PARTS = ["visits", "referrers", "pieces", "audience", "handles", "braincells", "nopaint", "tezos", "iosUsage", "social"];
+const VAULT_PARTS = ["search", "googleAnalytics", "appStore", "review"];
+
+// Apple's numbers lag a day and arrive sparse, so the app parts read at
+// least a week regardless of the visit window.
+const reportAppDays = hours => Math.min(Math.max(Math.ceil(hours / 24), 7), 35);
+
+function reportPart(name, { hours, scope }) {
+  const days = Math.max(1, Math.ceil(hours / 24));
+  switch (name) {
+    case "visits": return visitsReport({ hours, scope });
+    case "referrers": return journeyReport("referrers", { hours, scope, limit: 25 });
+    case "pieces": return journeyReport("pieces", { hours, scope, limit: 25 });
+    case "audience": return journeyReport("audience", { hours, scope, limit: 12 });
+    case "handles": return journeyReport("handles", { hours, scope, limit: 25 });
+    case "braincells": return braincellsReport({ hours, limit: 15 });
+    case "nopaint": return nopaintReport({ hours }).then(nopaintSummary);
+    case "tezos": return tezosRevenue({ hours });
+    case "iosUsage": return iosUsage({ days: reportAppDays(hours) });
+    case "social": return socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) });
+    case "search": return searchSummary({ days: Math.max(days, 7) });
+    case "googleAnalytics": return googleAnalytics({ days: Math.min(days, 90) });
+    case "appStore": return appDownloads({ days: reportAppDays(hours) });
+    case "review": return appReview();
+  }
+}
+
+// Run the named parts at once. Each gets the deadline and a timing in seconds.
+async function runParts(names, { hours = 24, scope = "all" } = {}) {
+  hours = checkedHours(hours);
+  const values = {}, timings = {};
+  await Promise.all(names.map(async name => {
     const began = Date.now();
     let timer;
     const late = new Promise(resolve => {
       timer = setTimeout(() => resolve({ unavailable: `no answer within ${PART_DEADLINE_MS / 1000} s` }), PART_DEADLINE_MS);
     });
-    return Promise.race([promise.then(value => value, error => ({ unavailable: String(error.message || error) })), late])
-      .finally(() => { clearTimeout(timer); timings[name] = Math.round((Date.now() - began) / 100) / 10; });
-  };
-  const days = Math.max(1, Math.ceil(checkedHours(hours) / 24));
-  // Apple's numbers lag a day and arrive sparse, so the app parts read at
-  // least a week regardless of the visit window.
-  const appDays = Math.min(Math.max(days, 7), 35);
-  const [visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
-    part("visits", visitsReport({ hours, scope })),
-    part("referrers", journeyReport("referrers", { hours, scope, limit: 25 })),
-    part("pieces", journeyReport("pieces", { hours, scope, limit: 25 })),
-    part("audience", journeyReport("audience", { hours, scope, limit: 12 })),
-    part("handles", journeyReport("handles", { hours, scope, limit: 25 })),
-    part("braincells", braincellsReport({ hours, limit: 15 })),
-    part("nopaint", nopaintReport({ hours }).then(nopaintSummary)),
-    part("tezos", tezosRevenue({ hours: checkedHours(hours) })),
-    part("social", socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
-    part("search", searchSummary({ days: Math.max(days, 7) })),
-    part("googleAnalytics", googleAnalytics({ days: Math.min(days, 90) })),
-    part("appStore", appDownloads({ days: appDays })),
-    part("iosUsage", iosUsage({ days: appDays })),
-    part("review", appReview()),
-  ]);
-  return { window: visits.window ?? { hours, scope }, timings, visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
-    apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
+    const failed = error => ({ unavailable: String(error.message || error) });
+    let work;
+    try { work = reportPart(name, { hours, scope }).then(value => value, failed); } catch (error) { work = failed(error); }
+    values[name] = await Promise.race([work, late]);
+    clearTimeout(timer);
+    timings[name] = Math.round((Date.now() - began) / 100) / 10;
+  }));
+  return { values, timings };
 }
 
-// 📸 A timer on jasellite builds the default report (24 hours, every scope)
-// every ten minutes: `node toolchain/mcp/analytics-mcp.mjs --snapshot`, set up
-// by toolchain/analytics/install-snapshot-timer.sh. Asking for that report
-// here reads the kept one in a single ssh hop. Anything else, a stale or
-// missing snapshot, or `fresh`, builds the report live.
+function assembleReport({ values: v, timings }, { hours = 24, scope = "all" } = {}) {
+  return { window: v.visits.window ?? { hours, scope }, timings, visits: v.visits, referrers: v.referrers, pieces: v.pieces, audience: v.audience,
+    handles: v.handles, braincells: v.braincells, nopaint: v.nopaint, tezos: v.tezos, social: v.social, search: v.search, googleAnalytics: v.googleAnalytics,
+    apps: { days: reportAppDays(Number(hours)), review: v.review, appStore: appStoreTotals(v.appStore), iosUsage: v.iosUsage.unavailable ? v.iosUsage : iosTotals(v.iosUsage) } };
+}
+
+const mergeParts = (...sets) => ({ values: Object.assign({}, ...sets.map(set => set.values)), timings: Object.assign({}, ...sets.map(set => set.timings)) });
+
+// 📸 A timer on jasellite builds most parts of the default report (24
+// hours, every scope) every ten minutes: `node toolchain/mcp/analytics-mcp.mjs
+// --snapshot`, set up by toolchain/analytics/install-snapshot-timer.sh. Asking
+// for that report here reads them in a single ssh hop while this Mac builds
+// the vault parts itself. Anything else, a stale or missing snapshot, or
+// `fresh`, builds every part live.
 const SNAPSHOT_FILE = ".local/share/ac/analytics/network-report.json"; // under $HOME
 const SNAPSHOT_HOST = process.env.AC_ANALYTICS_SNAPSHOT_HOST ?? "jasellite"; // "" turns it off
 const SNAPSHOT_MAX_AGE_MS = 25 * 60_000; // two missed runs, then go live
@@ -234,34 +258,33 @@ const SNAPSHOT_MAX_AGE_MS = 25 * 60_000; // two missed runs, then go live
 async function networkSnapshot() {
   const { stdout } = await pexec("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=4", SNAPSHOT_HOST, `cat ${SNAPSHOT_FILE}`],
     { timeout: 6000, maxBuffer: 8 * 1024 * 1024 });
-  const { at, report } = JSON.parse(stdout);
+  const { at, values, timings } = JSON.parse(stdout);
   const age = Date.now() - at;
   if (!(age >= 0 && age < SNAPSHOT_MAX_AGE_MS)) throw new Error(`snapshot is ${Math.round(age / 60_000)} min old`);
-  return { snapshotAt: new Date(at).toISOString(), ...report };
+  if (!SNAPSHOT_PARTS.every(name => values?.[name])) throw new Error("snapshot lacks parts this version expects");
+  return { at, values, timings };
 }
 
 async function networkReport({ hours = 24, scope = "all", fresh = false } = {}) {
-  if (fresh || !SNAPSHOT_HOST || Number(hours) !== 24 || scope !== "all") return networkReportLive({ hours, scope });
-  try { return await networkSnapshot(); }
-  catch (error) {
-    const reason = String(error.message || error).trim().split("\n").pop();
-    return { snapshotMissed: reason, ...(await networkReportLive({ hours, scope })) };
-  }
+  const options = { hours, scope };
+  if (fresh || !SNAPSHOT_HOST || Number(hours) !== 24 || scope !== "all") return assembleReport(await runParts([...SNAPSHOT_PARTS, ...VAULT_PARTS], options), options);
+  const [kept, vault] = await Promise.all([networkSnapshot().catch(error => error), runParts(VAULT_PARTS, options)]);
+  if (!(kept instanceof Error)) return { snapshotAt: new Date(kept.at).toISOString(), ...assembleReport(mergeParts(kept, vault), options) };
+  const reason = String(kept.message || kept).trim().split("\n").pop();
+  return { snapshotMissed: reason, ...assembleReport(mergeParts(await runParts(SNAPSHOT_PARTS, options), vault), options) };
 }
 
-// What the timer runs. A report with most parts unavailable means this host
-// lacks its credentials; keeping the last good snapshot is better than that.
+// What the timer runs. Most parts unavailable means this host cannot reach
+// lith; keeping the last good snapshot is better than that.
 async function writeSnapshot() {
-  const report = await networkReportLive({ hours: 24, scope: "all" });
-  const parts = [report.visits, report.referrers, report.pieces, report.audience, report.handles, report.braincells, report.nopaint,
-    report.tezos, report.social, report.search, report.googleAnalytics, report.apps.review, report.apps.appStore, report.apps.iosUsage];
-  const failed = parts.filter(value => value?.unavailable).length;
-  if (failed > parts.length / 2) throw new Error(`${failed} of ${parts.length} parts unavailable; snapshot not written`);
+  const { values, timings } = await runParts(SNAPSHOT_PARTS, { hours: 24, scope: "all" });
+  const failed = SNAPSHOT_PARTS.filter(name => values[name]?.unavailable);
+  if (failed.length > SNAPSHOT_PARTS.length / 2) throw new Error(`${failed.length} of ${SNAPSHOT_PARTS.length} parts unavailable; snapshot not written`);
   const file = join(homedir(), SNAPSHOT_FILE);
   await mkdir(dirname(file), { recursive: true });
-  await writeFile(`${file}.tmp`, JSON.stringify({ at: Date.now(), report }));
+  await writeFile(`${file}.tmp`, JSON.stringify({ at: Date.now(), values, timings }));
   await rename(`${file}.tmp`, file);
-  return `${file}: ${parts.length - failed} of ${parts.length} parts, slowest ${Math.max(...Object.values(report.timings))} s`;
+  return `${file}: ${SNAPSHOT_PARTS.length - failed.length} of ${SNAPSHOT_PARTS.length} parts, slowest ${Math.max(...Object.values(timings))} s${failed.length ? `, unavailable: ${failed.join(", ")}` : ""}`;
 }
 
 // The review queue: every app on the account with its newest version per
@@ -520,7 +543,7 @@ const TOOLS = [
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
-      fresh: { type: "boolean", description: "Build the report now instead of reading the snapshot. The default report (24 hours, all) comes from a snapshot at most 25 minutes old; snapshotAt says when it was built" },
+      fresh: { type: "boolean", description: "Build every part now. The default report (24 hours, all) takes its visit, audience, Braincell, No Paint, Tezos, iOS and social parts from a snapshot at most 25 minutes old (snapshotAt says when it was built); Google and App Store parts are always current" },
     } },
   },
   {

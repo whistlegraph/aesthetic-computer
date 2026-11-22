@@ -33,7 +33,7 @@ import { BALL, DISPENSER } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
-import { joinCode, hudLayout, createPack } from './hud.mjs';
+import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
 import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs'; // AC's one software cursor, shared with the prompt's pad cursor
 
@@ -59,7 +59,7 @@ export const LEGEND = {
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom / [Y] camera',
     '[RT] use / [X] drop',
-    '[X] paint',
+    '[X] paint / hold [LB] build',
     '[RB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
   ],
@@ -890,6 +890,8 @@ export async function createView(canvas) {
   const AXIS = { x: 0xff6b6b, y: 0x6fdc6f, z: 0x6aa8ff };
   let panelTop = null;
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
+  let previousRegions = [], screenFrame = null, frameLayoutKey = '', handleRect = null;
+  const overlayBounds = new WeakMap();
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let menuBox = null; // The open menu's panel and rows, in buffer pixels about the centre.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
@@ -1272,11 +1274,23 @@ export async function createView(canvas) {
   }
   const gridModel = (px, cols, rows, wide, tall, base, glass) => screen(model(({ quad }) => {
     const cw = wide / cols, ch = tall / rows;
+    // A vertical stretch of identical horizontal runs is one face. Preserve
+    // every pixel edge while avoiding two triangles per row of a piano key.
+    const active = new Array(cols);
+    const emit = (i, run) => {
+      const u0 = wide / 2 - i * cw, u1 = wide / 2 - run.end * cw;
+      const top = base + tall - run.first * ch, bottom = base + tall - run.after * ch;
+      quad([u0, bottom, 0], [u1, bottom, 0], [u1, top, 0], [u0, top, 0], run.color);
+    };
     gridRuns(px, cols, rows, glass, (i, end, j, color) => {
-      const u0 = wide / 2 - i * cw, u1 = wide / 2 - end * cw;
-      const y1 = base + tall - j * ch, y0 = y1 - ch;
-      quad([u0, y0, 0], [u1, y0, 0], [u1, y1, 0], [u0, y1, 0], color);
+      const prev = active[i];
+      if (prev && prev.end === end && prev.color === color && prev.after === j) prev.after++;
+      else {
+        if (prev) emit(i, prev);
+        active[i] = { end, color, first: j, after: j + 1 };
+      }
     });
+    active.forEach((run, i) => emit(i, run));
   }));
   const panelModels = new Map(); // a world panel's face and slab, by its id
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
@@ -1407,6 +1421,23 @@ export async function createView(canvas) {
     const bump = flashAge >= 0 && flashAge < 1 ? Math.round(7 * (1 - flashAge) ** 2) * hud.unit : 0;
     hud.safeX += bump;
     hud.safeY += bump;
+    const hudPack = createPack(canvas.width, canvas.height, { safeX: 4 + bump, safeY: 4 + bump, gap: 2 * hud.unit });
+    function hudOverlay(id, mesh, width, height) {
+      if ((camera?.face || stats) && mesh.length) {
+        let bounds = overlayBounds.get(mesh);
+        if (!bounds) {
+          let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+          for (let i = 0; i < mesh.length; i += 6) {
+            const x = -mesh[i], y = -mesh[i + 1];
+            l = Math.min(l, x); r = Math.max(r, x); t = Math.min(t, y); b = Math.max(b, y);
+          }
+          bounds = { x: l, y: t, w: r-l, h: b-t };
+          overlayBounds.set(mesh, bounds);
+        }
+        hudPack.claim(id, { ...bounds, x: width / 2 + bounds.x, y: height / 2 + bounds.y });
+      }
+      projector.overlay(mesh, width, height);
+    }
     let chartTop = 21 * hud.unit + bump;
     // 🌞 In the world the room follows the world's own day (sky.mjs), the
     // same for everyone; behind the prompt's curtain it keeps the page's
@@ -1523,7 +1554,7 @@ export async function createView(canvas) {
     }
     projector.camera(eye, aim, aspect, roll);
     // 👻 Head, chest, feet and both shoulders: what the eye must still see.
-    if (through && !camera && orbit <= 0) {
+    if (((through && !camera) || camera?.cinematic) && orbit <= 0) {
       const r = projector.right, feet = me.y - CFG.eyeHeight;
       projector.look([
         { x: me.x, y: me.y, z: me.z }, { x: me.x, y: feet + 1.1, z: me.z }, { x: me.x, y: feet + 0.15, z: me.z },
@@ -1555,6 +1586,22 @@ export async function createView(canvas) {
       projector.sy *= 1 + (LENS_ZOOM - 1) * projector.lens;
     }
     natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
+    if (camera?.face && orbit <= 0) {
+      const { w, h } = camera.face, W = canvas.width, H = canvas.height;
+      const layoutKey = JSON.stringify([W, H, w / h, hud.unit, previousRegions]);
+      if (layoutKey !== frameLayoutKey) {
+        frameLayoutKey = layoutKey;
+        screenFrame = fitHudScreen(W, H, w / h, previousRegions, 3 * hud.unit);
+      }
+      if (screenFrame) {
+        const f = camera.flat, box = screenFrame;
+        const scale = box.w * 2 * camera.back / (W * natural.sx * camera.dockZoom * w);
+        projector.sx *= 1 + f * (scale - 1);
+        projector.sy *= 1 + f * (scale - 1);
+        projector.shiftX = f * ((2 * box.x + box.w) / W - 1);
+        projector.shiftY = f * (1 - (2 * box.y + box.h) / H);
+      }
+    } else { screenFrame = null; frameLayoutKey = ''; }
     // Zoom changes the apparent distance used for detail as well as the projection.
     const zoom = orbit <= 0 ? nearZoom : 1;
     projector.sx *= zoom;
@@ -2209,7 +2256,7 @@ export async function createView(canvas) {
             ...(radial || prompt.busy
               ? [
                   hintSpans(
-                    radial
+                    radial?.bumper ? '[RS] aim / [A] add / release [LB] at centre to build' : radial
                       ? input === 'touch'
                         ? 'tap a choice / centre builds / outside undoes'
                         : '[A] choose / [X] build / [B] undo'
@@ -2231,6 +2278,7 @@ export async function createView(canvas) {
                     // and taking a handle belong to the paper, 2026-11-18.)
                     // (Three short rows, as a walker's are: each key lights while it is down, each action in its colour.)
                     ...legendRows(input === 'touch' ? 'touch' : controller ? 'pad' : 'keys', held, DRONE_LEGEND),
+                    ...(self?.canTakeBody && !docked ? [colourRow(hintSpans(pad ? '[L3] take body' : '{p} take body', THEME.text))] : []),
                     // Target controls for the drone.
                     ...(objectHint && (focusObject?.panel || focusObject?.screen || lockedOn) ? objectHint.split('\n').map((l) => colourRow(hintSpans(l, THEME.text))) : []),
                   ]
@@ -2290,12 +2338,13 @@ export async function createView(canvas) {
           }
         });
       }
-      projector.overlay(promptModel, width, height);
+      hudOverlay('controls', promptModel, width, height);
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
     // and a ten-row font. handleText places row zero one unit above its origin.
     const handleX = -canvas.width / 2 + (grid ? paperLeft : 0) + 10 * hud.unit + bump;
     const handleY = -canvas.height / 2 + (grid ? paperBottom : 0) + 19 * hud.unit + bump;
+    handleRect = null;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
     if (members.length || connection || cells) {
       const width = canvas.width,
@@ -2308,6 +2357,10 @@ export async function createView(canvas) {
         handle: m.handle,
         colors: m.colors,
       }));
+      if (labels.length && self?.canTakeBody && !bare) {
+        handleRect = { x: width / 2 + handleX - 4 * unit, y: height / 2 - handleY - 4 * unit,
+          w: (labels[0].label.length * 6 + 22) * unit, h: 20 * unit };
+      }
       if (labels.length && me && !bare)
         ownTag = {
           x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0) + (labels[0].seat < 0 ? 11 : 0)) * unit, // (past the linked-agent mark, when one stands there)
@@ -2409,7 +2462,7 @@ export async function createView(canvas) {
           }
         });
       }
-      projector.overlay(presenceModel, width, height);
+      hudOverlay('handle', presenceModel, width, height);
     }
     const W = canvas.width,
       H = canvas.height,
@@ -2573,11 +2626,11 @@ export async function createView(canvas) {
           });
           // The centre names what X (or a tap) does: build once there is a prompt.
           const centre = radial.ready
-            ? hintSpans(input === 'touch' ? 'build' : '[X] build', INK)
+            ? hintSpans(radial.bumper || input === 'touch' ? 'build' : '[X] build', INK)
             : [{ text: radial.title.toLowerCase(), color: INK }];
           const w = (centre.reduce((n, c) => n + (c.badge ? 10 : c.text.length * 6), 0) + 8) * unit;
           rect(-w / 2 + unit, cy - 6 * unit, 0.000005, w, 13 * unit, INK);
-          rect(-w / 2, cy - 5 * unit, 0.000004, w, 13 * unit, radial.ready ? 0xffe066 : PAPER);
+          rect(-w / 2, cy - 5 * unit, 0.000004, w, 13 * unit, radial.ready && (!radial.bumper || radial.centered) ? 0xffe066 : PAPER);
           drawSpans({ rect, text }, centre, 0, cy + 5 * unit, unit, { shadow: null });
         });
       }
@@ -2664,7 +2717,7 @@ export async function createView(canvas) {
         // Anything past the standard seventeen (L4, R4, paddles): a row beneath, as they come.
         held.forEach((on, i) => { if (i > 16 && on) key(cx + (i - 18.5) * step, oy - radius - b, true, 0xd7a6ff); });
       });
-      projector.overlay(m, W, H);
+      hudOverlay('controller', m, W, H);
     }
     // 🚁 A drone's dials along the bottom's middle: speed, the rotors, height.
     if (gauge && !bare && !menu) {
@@ -2680,14 +2733,14 @@ export async function createView(canvas) {
           left += (smallWidth(t) + 1) * unit;
         }
       });
-      projector.overlay(m, W, H);
+      hudOverlay('drone-gauges', m, W, H);
     }
     lensFull = (projector.scene?.triangleCount || 0) / (projector.scene?.maxTriangles || 1);
     if (stats && !chartVisible) frameChart.reset();
     if (stats) frameChart.sample(now);
     chartVisible = stats;
     // 📦 This frame's places at the edges (hud.mjs createPack). The aimed object's code tag is the corner's first tenant; what else stands bottom right takes its room after it.
-    const hudPack = createPack(W, H, { safeX: 4 + bump, safeY: 4 + bump, gap: 2 * hud.unit });
+
     const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
     const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
     // 🧱 The build line: every build this page has asked for, a row each, in the middle of the top edge, wherever you look (the status that floats over a build's own square is only seen while it is aimed at). A row says where the build stands in words: asking (the server's word awaited), aesel has it, building (its step, its parts, its seconds), ready (the thing named and where it stands from here), failed or not sent (why). Nothing is drawn when nothing is asked for.
@@ -2750,7 +2803,7 @@ export async function createView(canvas) {
           text: (line, x, y, color) => small(line, left + (x + smallWidth(line) / 2) * unit, top - (y + 1) * unit, 0, unit, color),
         }, rows);
       });
-      projector.overlay(m, W, H);
+      hudOverlay('debug-chart', m, W, H);
     }
     // The corner block: the prompt's own pink cursor block at the top left,
     // where the system label sits on every AC piece (SCREEN.md). A tap on it
@@ -2788,7 +2841,7 @@ export async function createView(canvas) {
           rect(left + i * unit, bottom + j * unit, 0.000002, unit, unit, col);
         });
       });
-      projector.overlay(m, W, H);
+      hudOverlay('prompt-button', m, W, H);
     }
     // ⎋ A step of Escape: the full border narrows over a third of a second.
     if (flash && now - flash.at < 360) {
@@ -2865,7 +2918,7 @@ export async function createView(canvas) {
             rect(x0 + w + unit, y - 7 * unit, 0, 3 * unit, 7 * unit, THEME.verb);
         });
       });
-      projector.overlay(devModel, W, H);
+      hudOverlay('dev-log', devModel, W, H);
     }
     // Offline: no panel over the room. The top-left text spits the
     // connection's log a letter at a time under the corner block, as a
@@ -2910,7 +2963,7 @@ export async function createView(canvas) {
           });
         });
       }
-      projector.overlay(netModel, W, H);
+      hudOverlay('network', netModel, W, H);
     }
     // 📟 Not down, but worth a word: one line where the outage's log goes.
     if (wire && !offline && !menu && !prompt.open) {
@@ -2921,7 +2974,7 @@ export async function createView(canvas) {
         const spans = [{ text: wire.text, color: wire.color ?? THEME.text }];
         drawSpans({ rect, text }, spans, -W / 2 + safeX + spanWidthOf(spans, unit) / 2, H / 2 - safeY - 2 * unit - (cornerRect ? 1 : 0) * 10 * unit, unit, { shadow: INK });
       });
-      projector.overlay(m, W, H);
+      hudOverlay('connection', m, W, H);
     }
     // A square reticle: four L-shaped corners on whole pixels, symmetric
     // about the centre, each with a one-pixel shadow. It opens with speed,
@@ -3174,7 +3227,7 @@ export async function createView(canvas) {
     // the world's metres, stand where the face's column would, bottom left.
     // 📱 Signed out, the sign-in code stands in the face's place and that column beside it.
     pairAt = pair && !face && !bare && !menu && !game ? pairLayout(pair, hud, W, H, panelTop, pixelScale) : null;
-    if (pairAt) projector.overlay(pairModel(pairAt, flip), W, H);
+    if (pairAt) hudOverlay('pairing', pairModel(pairAt, flip), W, H);
     if (!face && !bare && !game && camera && !me) {
       const { unit, safeX, safeY } = hud;
       const x0 = -W / 2 + safeX + 2 + (pairAt ? pairAt.size + 4 * unit : 0), y0 = Math.max(-H / 2 + safeY + 9 * unit, (panelTop ?? -Infinity) + 12 * unit) + 8 * unit;
@@ -3202,7 +3255,7 @@ export async function createView(canvas) {
           left += (smallWidth(t) + 6) * unit;
         }
       });
-      projector.overlay(m, W, H);
+      hudOverlay('drone-status', m, W, H);
     }
     if (face && !bare) {
       // A face cam, bottom left above your handle: an original pixel portrait
@@ -3343,7 +3396,7 @@ export async function createView(canvas) {
         px(0, -3, 24, 2, 0x2c3040, 0.000001);
         px(0, -3, Math.max(0, Math.round((24 * hp) / 100)), 2, hc);
       });
-      projector.overlay(m, W, H);
+      hudOverlay('avatar', m, W, H);
     }
     // ❄️ Snow falling into the open room (2026-11-03): small camera-facing
     // flakes in a volume over and around the room, depth-tested against the
@@ -3771,6 +3824,25 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    previousRegions = hudPack.taken;
+    if (stats || (screenFrame && camera.flat === 1 && (nearZoom > 1.01 || camera.peeking))) {
+      const mask = screenFrame && camera.flat === 1 && (nearZoom > 1.01 || camera.peeking);
+      const guides = model(({ rect: worldRect }) => {
+        const fill = (x,y,w,h,z,color) => {
+          if (w > 0 && h > 0) worldRect(W / 2 - x - w, H / 2 - y - h, z, w, h, color);
+        };
+        if (mask) {
+          const {x,y,w,h} = screenFrame;
+          for (const [l,t,a,b] of [[0,0,W,y],[0,y+h,W,H-y-h],[0,y,x,h],[x+w,y,W-x-w,h]])
+            fill(l,t,a,b,0.02,0x161822);
+        }
+        if (stats) for (const region of [...hudPack.taken, ...(screenFrame ? [{id:'screen', ...screenFrame}] : [])]) {
+          const {x,y,w,h} = region, ink = region.id === 'screen' ? 0xffdb67 : 0x41c6ce;
+          for (const [l,t,a,b] of [[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]]) fill(l,t,a,b,-0.000005,ink);
+        }
+      });
+      projector.overlay(guides, W, H);
+    }
     // 🫧 The bubble's skin, from inside the planet: after all the world, so what lies beyond shows through it (lens-host.mjs).
     if (under && projector.card && skyline && !ledges && orbit < 0.6) {
       const from = host.scene.triangleCount;
@@ -3875,6 +3947,7 @@ export async function createView(canvas) {
       })),
       promptOpen: !!prompt?.open,
       radial,
+      screenFrame, hudRegions: stats ? hudPack.taken : undefined,
       input,
       devLog: devLog.map((d) => d.text),
       promptText: prompt?.text || '',
@@ -3946,13 +4019,22 @@ export async function createView(canvas) {
       const f = projector.forward;
       return f && lastEye ? { x: f[0], y: f[1], z: f[2] } : null;
     },
+    handleHit(cssX, cssY) {
+      const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;
+      return handleRect && x >= handleRect.x && y >= handleRect.y && x < handleRect.x + handleRect.w && y < handleRect.y + handleRect.h;
+    },
+    insideScreen(cssX, cssY) {
+      if (!screenFrame) return true;
+      const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;
+      return x >= screenFrame.x && y >= screenFrame.y && x < screenFrame.x + screenFrame.w && y < screenFrame.y + screenFrame.h;
+    },
     aimRay(cssX, cssY) {
       if (!projector.forward || !lastEye) return null;
       const pxr = canvas.width / Math.max(1, canvas.clientWidth);
       const nx = (cssX * pxr - canvas.width / 2) / (canvas.width / 2), ny = (canvas.height / 2 - cssY * pxr) / (canvas.height / 2);
       const [f, r, u] = [projector.forward, projector.right, projector.up];
       // (Under the lens a place on the screen is 2 tan(a/2) from the middle: back to tan(a).)
-      let kx = nx / projector.sx, ky = ny / projector.sy;
+      let kx = (nx - projector.shiftX) / projector.sx, ky = (ny - projector.shiftY) / projector.sy;
       if (projector.lens) { const r = Math.hypot(kx, ky), back = r > 1e-6 ? Math.tan(2 * Math.atan(Math.min(1.9, r) / 2)) / r : 1; kx *= back; ky *= back; }
       let x = f[0] + r[0] * kx + u[0] * ky, y = f[1] + r[1] * kx + u[1] * ky, z = f[2] + r[2] * kx + u[2] * ky;
       const l = Math.hypot(x, y, z) || 1;

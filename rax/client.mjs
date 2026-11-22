@@ -24,7 +24,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { Controller } from './controller.mjs';
+import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
@@ -442,6 +442,34 @@ let weather = null;
 // 🛫 The idle flyover (flyover.mjs): the tour, where on it this drone is, and when anyone last touched a control.
 const IDLE_MS = 25000;
 let tour = null, touring = null, inputAt = performance.now();
+let idleEntry = null;
+for (const event of ['keydown', 'pointerdown', 'pointermove', 'wheel', 'focus', 'visibilitychange'])
+  window.addEventListener(event, () => { inputAt = performance.now(); }, { passive: true, capture: true });
+
+function idlePlayerCamera(now, body) {
+  const t = (now - inputAt - IDLE_MS) / 1000;
+  if (!body?.alive || t <= 0 || !sheetOpen || document.hidden || !document.hasFocus() || joining() || down ||
+      dock || lockOn || menu || typing() || chalkMode || rideMoving(now) || game() || held || film) {
+    idleEntry = null;
+    return null;
+  }
+  if (!idleEntry) {
+    const origin = view.aimOrigin();
+    if (!origin) return null;
+    idleEntry = { ...origin, yaw, pitch, at: now };
+  }
+  const age = (now - idleEntry.at) / 1000;
+  // A wide tracking arc, rising and easing back in over successive sweeps.
+  const turn = idleEntry.yaw * Math.PI / 180 + age * 0.12;
+  const distance = 7 + 5 * (1 - Math.cos(age * 0.13));
+  const rise = 0.22 + 0.16 * (1 + Math.sin(age * 0.19));
+  const len = Math.hypot(1, rise);
+  const out = { x: -Math.sin(turn) / len, y: rise / len, z: -Math.cos(turn) / len };
+  const clear = Math.max(2, Math.min(distance, airFrom(body, out, distance + 0.3) - 0.3));
+  const target = {x: body.x + out.x * clear, y: body.y + out.y * clear, z: body.z + out.z * clear,
+    yaw: turn * 180 / Math.PI, pitch: -Math.atan2(out.y * clear + 0.35, clear / len) * 180 / Math.PI};
+  return { ...glide(idleEntry, target, smooth(age / 4)), cinematic: true };
+}
 const roofNow = () => { try { return roofOf(towerTop) || 33; } catch { return 33; } };
 // 🔭 What is worth a look in this room now, for the tour to find: the pieces on the panels, the screens, what people built, the ball, and whoever is about (those that move are followed as they go).
 function sightsNow() {
@@ -795,6 +823,7 @@ function watchHealth(hadSnapshot) {
 }
 const controller = new Controller();
 const radial = new Radial();
+let bumperStart = null;
 const touch = new TouchPad();
 // Use the touch HUD before the first gesture on a phone.
 touch.active = !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia?.('(any-pointer: fine)').matches;
@@ -1435,6 +1464,8 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   // 🚶 The body goes on between the two rooms (held): it keeps walking by its
   // own commands, which the next room runs when it seats it. A walk across
   // a block's edge keeps its motion and the commands the old room never ran.
+  cancelBumper();
+  inputAt = performance.now();
   const walk = Number.isInteger(ack), from = room;
   if (walk) crossing = { from, to, at: performance.now() };
   // The ball stays where it is in the world: over a seam it is a block
@@ -2212,7 +2243,7 @@ function submitPrompt(gesture = true) {
 }
 // 🧱 Only a KidLisp wall of this room is changed as one. A standing screen, a piece on a panel and a thing in a room beside this one are marked `wall` as well (looked at, never removed), and used to take this ring for themselves: it offered a wall's changes, its [X] asked for a change to a wall that is not there, and no build was asked for at all. Aimed at one of those, the ring is for a new thing.
 const wallOf = (o) => (o?.wall && walls.some((w) => `wall:${w.code}` === o.id) ? o : null);
-function openRadial(wall = null) {
+function openRadial(wall = null, bumper = false) {
   if (seat < 0 || radial.open) return;
   if (prompt.busy) {
     refuseBuild('', builds.live >= 3 ? 'aesel is already making three things for you' : 'still waiting for word of the last one');
@@ -2225,7 +2256,7 @@ function openRadial(wall = null) {
   canvas.focus();
   prompt.text = '';
   prompt.begin(target);
-  radial.begin(target);
+  radial.begin(target, bumper);
   sfx.ringOpen();
 }
 function closeBuild() {
@@ -2236,7 +2267,7 @@ function closeBuild() {
 function pickRadial(index) {
   if (!radial.pick(index)) return;
   // Chalk category: erase, or step out of the ring to draw the shape.
-  if (radial.chalk && radial.picks.length === 1) {
+  if (!radial.bumper && radial.chalk && radial.picks.length === 1) {
     const thing = radial.picks[0];
     if (thing === 'erase my chalk') send({ type: 'chalk-clear' });
     else {
@@ -2338,6 +2369,7 @@ function touchButton(button, isDown) {
   } else syncSoftKeys();
 }
 function beginScreenFinger(e) {
+  if (dock && !view.insideScreen(e.offsetX, e.offsetY)) return false;
   const eye = view.aimOrigin(), ray = view.aimRay(e.offsetX, e.offsetY);
   if (!eye || !ray || dock?.way < 0) return false;
   const reach = dock ? Infinity : PANEL_REACH;
@@ -2399,6 +2431,7 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
   if (view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
+  if (selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return send({ type: 'take-body' });
   if (!typing() && !chalkMode && !menu && !radial.open && beginScreenFinger(e)) {
     touch.active = true;
     void sfx.wake();
@@ -2489,6 +2522,7 @@ document.addEventListener('keydown', (e) => {
     toHost({ type: 'rax:sheet:density', step: e.key === '0' ? 0 : e.key === '-' ? -1 : 1 });
     return;
   }
+  if (radial.bumper && e.code !== 'Escape') { e.preventDefault(); return; }
   if (down && e.code !== 'Escape') {
     e.preventDefault();
     return;
@@ -2657,6 +2691,7 @@ document.addEventListener('keydown', (e) => {
   if (seat < 0 && lockOn && e.code === 'Escape') { selectTarget(null); e.preventDefault(); return; }
   if (seat < 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) startWarp(); // 🌀 (as B does on a pad)
   // 🚁 Looking on, V steps back to see your own drone.
+  if (seat < 0 && selfMember?.canTakeBody && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) send({ type: 'take-body' });
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
     if (focusObject?.panel) {} // (a piece on a panel is pressed, not changed)
@@ -2764,8 +2799,13 @@ addEventListener('wheel', (e) => {
 canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if (!typing()) canvas.focus({ preventScroll: true }); }, { passive: false });
 for (const type of ['selectstart', 'dragstart', 'gesturestart'])
   document.addEventListener(type, (e) => e.preventDefault());
-window.addEventListener('blur', releaseInput);
+function cancelBumper() {
+  bumperStart = null;
+  if (radial.bumper) closeBuild();
+}
+window.addEventListener('blur', () => { cancelBumper(); releaseInput(); });
 document.addEventListener('visibilitychange', () => {
+  cancelBumper();
   diagnostics.reset();
   releaseInput();
   debt = 0;
@@ -2905,6 +2945,36 @@ function step(now) {
     releaseInput();
   }
   gamepad = controller.sample(down ? [] : pads, document.hasFocus());
+  if (keys.size || gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY ||
+      Array.from(pads || []).some(p => p?.connected && p.buttons.some(b => b.pressed || b.value > 0.08))) inputAt = now;
+  if (seat < 0 && selfMember?.canTakeBody && gamepad.zoomClick && !dock && !menu && !typing()) send({ type: 'take-body' });
+  const canBuild = sheetOpen && seat >= 0 && !down && !joining() && !menu && !chat.open && !chalkMode;
+  if (gamepad.buildPress && canBuild && !typing() && !radial.open) bumperStart = now;
+  if (bumperStart !== null && (!canBuild || !gamepad.buildHeld || typing())) bumperStart = null;
+  if (bumperStart !== null && now - bumperStart >= HOLD_SECONDS * 1000) {
+    bumperStart = null;
+    openRadial(focusObject, true);
+  }
+  if (radial.bumper) {
+    const { lookX, lookY } = gamepad;
+    radial.centered = Math.hypot(lookX, lookY) < 0.22;
+    const prev = radial.selected;
+    radial.point(lookX, -lookY);
+    if (!canBuild || !gamepad.buildHeld) {
+      if (canBuild && gamepad.buildRelease && radial.centered && prompt.text.trim()) {
+        if (radial.chalk && radial.picks[0] !== 'erase my chalk') {
+          chalkMode = { text: radial.picks[0], target: radial.target };
+          send({ type: 'chalk-clear' });
+        } else if (!submitPrompt(false)) sfx.refuse();
+      }
+      closeBuild();
+    } else {
+      if (radial.selected >= 0 && radial.selected !== prev) sfx.ringMove(radial.selected);
+      if (gamepad.select && radial.selected >= 0 && !(radial.chalk && radial.picks.length)) pickRadial(radial.selected);
+      if (gamepad.cancel) backRadial();
+    }
+    gamepad = neutralPad();
+  }
   // 🧱 The build line's clock: an asking unheard is said once more (the same note, lower), then given up with the failing two notes and its row saying so.
   for (const e of builds.tick()) {
     if (e.type === 'again') sfx.buildAsk(true);
@@ -2986,7 +3056,7 @@ function step(now) {
   } else if (!gamepad.floorDirection || !riding || menu) padFloorRepeat = 0;
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
   for (const event of pad.events) {
-    if (event.type === 'tap' && radial.open && event.menu) {
+    if (event.type === 'tap' && radial.open && !radial.bumper && event.menu) {
       const ring = touchRing();
       const x = (event.x - ring.cx) / ring.r,
         y = (ring.cy - event.y) / ring.r,
@@ -3019,7 +3089,7 @@ function step(now) {
     gamepad.cancel = false;
     sfx.ringBack();
   }
-  if (radial.open) {
+  if (radial.open && !radial.bumper) {
     const left = Math.hypot(gamepad.right, gamepad.fwd),
       right = Math.hypot(gamepad.lookX, gamepad.lookY);
     if (controller.id) {
@@ -3535,6 +3605,7 @@ function step(now) {
   // is in the car's frame: it goes up and down with it.
   filmPlayers = shownPlayers;
   filmRide = rideNow;
+  const idleShot = seat >= 0 ? idlePlayerCamera(now, displayed || player) : (idleEntry = null);
   const filmShot = film?.camera(now) || null;
   if (filmShot) { freecam = { ...freecam, x: filmShot.x, y: filmShot.y + (filmShot.rides ? lift : 0), z: filmShot.z }; yaw = filmShot.yaw; pitch = filmShot.pitch; }
   const blocks = around(), sceneScreens = visibleScreens(blocks);
@@ -3543,7 +3614,7 @@ function step(now) {
     inspectScenery: query.has('debug'),
     basement: room === BASEMENT,
     half: half(),
-    seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') !== '0' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=0 hides them
+    seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') === '1' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=1 opts in
     weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
       ...(droneView && !dock && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
@@ -3558,7 +3629,7 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    camera: game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null,
+    camera: idleShot || (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, peeking: Math.abs(dock.peekX) + Math.abs(dock.peekY) > 0.01, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
@@ -3573,7 +3644,7 @@ function step(now) {
     })() : null,
     sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
-    third: third || !!game()?.camera,
+    third: third || !!game()?.camera || !!idleShot,
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
@@ -3608,6 +3679,7 @@ function step(now) {
     ride: rideNow,
     radial: radial.open
       ? {
+          bumper: radial.bumper, centered: radial.centered,
           items: radial.items,
           selected: radial.selected,
           title: radial.title,
@@ -3668,7 +3740,7 @@ function step(now) {
         ? { text: `no word from the server ${((now - connection.lastSnapshot) / 1000).toFixed(1)} s`, color: 0xffe066 }
         : rebooted && now < rebooted.until ? { text: rebooted.text, color: 0x3fb950 } : null,
     cursor: cursorAim ? mouseAt : null,
-    reticle: hosted && sheetOpen && !down,
+    reticle: hosted && sheetOpen && !down && !idleShot,
     reticleShift: reticleShift(now),
     orbit,
     cornerScale,
@@ -3684,7 +3756,7 @@ function step(now) {
     screens: sceneScreens,
     screenPrograms,
     panels: panels.list.filter((p) => !p.hidden).concat(sceneryPanels),
-    bare: !sheetOpen || !sheetShown || down || !!film,
+    bare: !sheetOpen || !sheetShown || down || !!film || !!idleShot,
     held: {
       keys: [...keys],
       pad: [

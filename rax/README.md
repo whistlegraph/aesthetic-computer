@@ -42,11 +42,13 @@ the selected target. Releasing the stick leaves it in place. While focused on a 
 at the reticle on kiosks, KidLisp screens, and the elevator keypad. D-pad left/right cycles targets. B or the entry button leaves a screen. With an object locked on foot, B removes it.
 RT uses the item in hand, including a poke. X paints floor squares or drops an
 item. Start returns to the prompt. D-pad right opens the $ menu when there is no
-lock. In the elevator, d-pad up/down selects a floor. In the build ring, point with
-a stick, A adds the highlighted choice, X builds, B undoes the last choice and
-then closes. Aimed at your own object, the ring offers changes ("make it spin");
+lock. In the elevator, d-pad up/down selects a floor. Hold LB on foot to open the build wheel. Aim with the right stick and press A to add a choice, or B to undo. Release LB in the center to build. Release elsewhere to discard the draft. Aimed at your own object, the ring offers changes ("make it spin");
 otherwise you pick a thing and then traits ("a red spinning tower"). Typing on
-a keyboard while the ring is open hands the prompt over to the keyboard.
+a keyboard in the touch-opened ring hands the prompt over to the keyboard.
+
+A signed-in drone can take its handle’s body from another room with L3, P, or a tap on its own handle. The drone joins the body where it stands. After 25 idle seconds on foot, the camera pulls back and circles the player. Any input returns to play.
+
+Screen focus fits the panel between occupied HUD rectangles. Debug outlines the HUD in cyan and the screen frame in yellow. Add `?seams=1` to see the server room boundaries in debug.
 
 **Live dev strip:** set `RAX_DEV_LOG` to the transcript of the agent editing
 the game (a Claude Code or Codex `.jsonl`) and the server shows that agent's
@@ -226,6 +228,8 @@ npm run test:rax:browser
 npm run test:rax:render
 npm run test:rax:rig
 ```
+
+Run `node rax/test/performance-walkthrough.mjs` on a Mac with Aesthetic Computer open to watch the local build in that window. It records FPS, frame gaps, and render CPU time for each view and returns to the original URL.
 
 Simulation tests cover prediction parity, replay, malformed/duplicate/reordered
 input, synthetic loss/jitter, cover, rocket travel/cooldown, respawns,

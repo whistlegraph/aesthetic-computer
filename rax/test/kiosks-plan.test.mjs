@@ -146,12 +146,12 @@ test('the server takes a press only on a kiosk that stands in the room', async (
   };
   try {
     const a = await open('lobby'), b = await open('lobby'), c = await open('studio'), d = await open('studio');
-    const press = (ws, id) => ws.send(JSON.stringify({ type: 'panel', id, name: 'touch', x: 3, y: 4 }));
+    const press = (ws, id, finger = 1) => ws.send(JSON.stringify({ type: 'panel', id, finger, name: 'touch', x: 3, y: 4 }));
     press(a, 'yard-99'); // no such kiosk
     press(a, 'car-pad'); // a panel, but the page's own: not a kiosk
     press(a, 'yard-songs-sign'); // a sign is not pressed
     press(a, 'yard-2');
-    press(a, 'yard-notepat');
+    press(a, 'yard-notepat', 2);
     press(c, 'yard-2'); // a kiosk, but not in this room
     await delay(150);
     assert.deepEqual(b.got.filter((m) => m.type === 'panel').map((m) => m.id), ['yard-2', 'yard-notepat']);

@@ -156,6 +156,8 @@ export function createRaxServer({
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
     throw new Error('Invalid mount path');
   const rooms = new Map();
+  const connections = new Set();
+  const bodyPose = ({ x, y, z, yaw, pitch }) => ({ x, y, z, yaw, pitch });
   const diagnostics = createDiagnostics({ enabled: diagnosticsEnabled, write: diagnosticWrite });
   // AC's profanity filter, loaded on first use (a static import of a module
   // with its own dependencies has taken lith down before); without it the
@@ -804,7 +806,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const openRoom = (key) => {
       if (rooms.has(key)) return rooms.get(key);
       if (rooms.size >= 96) return null;
-      rooms.set(key, new Room(send, { guests }));
+      rooms.set(key, new Room(send, { guests, connections }));
+      rooms.get(key).key = key;
       rooms.get(key).match.half = halfOf(key);
       if (flights.has(key)) {
         rooms.get(key).match.setObjects(store.objects(key));
@@ -858,7 +861,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       clearTimeout(accountHold);
       if (room.sessions.has(ws) && !member.ready && !watching && !waiting) {
         member.ready = true;
-        room.assign();
+        room.assign(member.handle);
       }
       gate();
     };
@@ -897,7 +900,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       member.owner ||= pass.owner; // the page's own word may still be on its way
       // (Looking on until now, with no account of the page's own: a screen a
       // phone signed in. The handle it brought seats it.)
-      if (!member.ready || member.seat < 0) { clearTimeout(accountHold); member.ready = true; room.assign(); }
+      if (!member.ready || member.seat < 0) { clearTimeout(accountHold); member.ready = true; room.assign(member.handle); }
       const body = room.match.seats[member.seat]?.player;
       if (!body) return;
       arrived = true;
@@ -937,7 +940,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const from = room, fromKey = key;
       send(ws, { type: 'travel', room: destination, here: true, at: position, ...told });
       letGo();
-      from.remove(ws);
+      from.remove(ws, true);
       if (!from.clients.size) {
         const kept = from.match.flight();
         if (kept) flights.set(fromKey, kept);
@@ -970,6 +973,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       send(ws, builders.state(key, member));
       return true;
     };
+    member.followBody = (destination, position) => relocate(destination, position);
     member.crossWindow = () => {
       const seat = room.match.seats[member.seat], p = seat?.player;
       if (!stays || !p?.alive || p.shut > 0 || Math.max(Math.abs(p.x), Math.abs(p.z)) <= SLAB + 0.4) return;
@@ -1001,9 +1005,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // its avatar wakes where it rested if that was this room. A reload
       // that takes over a body already here leaves the body where it is.
       const person = handle.toLowerCase();
-      const takeover = [...room.sessions.values()].some(
-        (o) => o !== member && o.seat >= 0 && o.handle?.toLowerCase() === person,
-      );
+      const incumbent = room.counterpart(person, member, true);
+      const takeover = !!incumbent;
       member.handle = handle;
       member.accountId = account.sub;
       // 🏢 Its floor of the tower is its home, held for good from now on.
@@ -1011,7 +1014,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       void tower.change((t) => t.arrive(handle, account.sub)).then(() => {
         sendHome(ws, handle);
         sendTower(ws, key, member);
-        if (paired) return;
+        if (paired || takeover || arrived || waiting) return;
         // 🌍 One persistent world: say where this handle last stood, so a
         // visit that has not gone anywhere yet picks up there. A first
         // visit starts on the plaza, at the foot of the tower.
@@ -1022,14 +1025,18 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         passing = place !== key && !arrived;
         send(ws, { type: 'whereabouts', room: place });
       }).catch(() => {});
-      if (!waiting) member.ready = true;
+      if (!waiting && !watching) member.ready = true;
       // The $ history is the handle's, ready before the menu opens.
       member.wantsHistory = false;
       void sendHandleHistory(ws, handle);
       // Kept in memory only, to read this player's braincells.
       member.token = paired ? null : token;
       void refreshBraincells(ws, member);
-      room.assign();
+      if (incumbent && room !== incumbent.room && !passageAsked && room.counterpart(person) === member) {
+        const body = incumbent.room.match.seats[incumbent.seat]?.player;
+        if (body) relocate(incumbent.room.key, bodyPose(body));
+      }
+      room.assign(member.handle);
       const rest = geography.geography.whereabouts(handle),
         body = room.match.seats[member.seat]?.player;
       if (!arrived && !takeover && body && rest?.room === key) {
@@ -1063,9 +1070,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       } catch {
         /* Unverified sessions remain guests. */
       } finally {
-        if (room.sessions.has(ws) && !member.ready && !waiting) {
+        if (room.sessions.has(ws) && !member.ready && !waiting && !watching) {
           member.ready = true;
-          room.assign();
+          room.assign(member.handle);
         }
       }
     };
@@ -1154,6 +1161,19 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             ws.diagnosticJobs.has(id) && Date.now() - ws.diagnosticJobs.get(id) <= 300000) : [] });
         return;
       }
+      if (data?.type === 'take-body') {
+        if (!member.ready || watching || waiting || member.seat >= 0 || !member.handle) return;
+        const other = room.counterpart(member.handle, member, true);
+        if (!other) return;
+        const position = bodyPose(other.room.match.seats[other.seat].player);
+        // Move first as a spectator. A full destination leaves the incumbent in control.
+        if (other.room !== room && !relocate(other.room.key, position)) return;
+        connections.delete(member);
+        connections.add(member);
+        room.assign(member.handle);
+        send(ws, room.match.snapshot());
+        return;
+      }
       if (data?.type === 'identity' && !owner && !identifying) {
         identifying = true;
         store
@@ -1162,7 +1182,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             owner = identity.owner;
             if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) {
               member.owner = owner;
-              room.assign();
+              room.assign(member.handle);
               arrive();
               void refreshBraincells(ws, member);
             }
@@ -1215,7 +1235,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (!arrived) setTimeout(() => {
           if (arrived || member.ready || !room.sessions.has(ws)) return;
           member.ready = true;
-          room.assign();
+          room.assign(member.handle);
           gate();
         }, 1500).unref?.();
         return;
@@ -1462,6 +1482,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       walks.leave(member);
       pairing.drop(ws);
       letGo();
+      if (body) {
+        const next = room.counterpart(member.handle, member);
+        member.ready = false;
+        if (next?.room !== room) next?.followBody?.(key, bodyPose(body));
+        room.assign(member.handle);
+      }
       room.remove(ws);
       if (!room.clients.size) {
         const kept = room.match.flight();

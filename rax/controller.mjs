@@ -1,5 +1,5 @@
 // Standard Gamepad mapping covers 8BitDo Pro in XInput/Switch modes.
-const zero = () => ({
+export const neutralPad = () => ({
   right: 0,
   fwd: 0,
   lookX: 0,
@@ -58,7 +58,7 @@ export class Controller {
           }),
         }
       : null;
-    const result = zero();
+    const result = neutralPad();
     this.id = pad?.id || null;
     if (!pad) {
       this.previous = [];
@@ -82,6 +82,9 @@ export class Controller {
       result.jump = edge(0);
       result.select = edge(0);
       result.zoomClick = edge(10);
+      result.buildPress = edge(4);
+      result.buildHeld = !!buttons[4] && !changed && this.focused;
+      result.buildRelease = !buttons[4] && this.previous[4] && !changed && this.focused;
       result.focus = edge(5);
       result.use = edge(7);
       result.triggerHeld = !!buttons[7] && !changed && this.focused;

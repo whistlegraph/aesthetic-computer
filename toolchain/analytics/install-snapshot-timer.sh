@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Install the network-report snapshot timer. Run this on jasellite.
 #
-# Every ten minutes it builds the default network report and keeps it at
-# ~/.local/share/ac/analytics/network-report.json, where the analytics MCP on
-# any Mac reads it in one ssh hop instead of building the report itself.
+# Every ten minutes it builds most parts of the default network report and
+# keeps them at ~/.local/share/ac/analytics/network-report.json, where the
+# analytics MCP on any Mac reads them in one ssh hop. The parts locked behind
+# the vault GPG key (App Store, Google) are built on the Mac that asks.
 #
-# The checkout needs the vault beside it (the lith ssh key, and the GPG key for
-# the App Store and Google credentials). Without them the run fails and no
-# snapshot is written, so Macs keep building the report live.
+# This host needs a few vault files beside the checkout, under
+# aesthetic-computer-vault/: home/.ssh/id_rsa for lith (with lith in
+# ~/.ssh/known_hosts), and for the social part <account>/instagram.env and
+# promptdotac/x.env. Without the lith key the run fails and no snapshot is
+# written, so Macs build live. Re-copy an instagram.env after its token is
+# refreshed on a Mac.
 #
 #   toolchain/analytics/install-snapshot-timer.sh            install and start
 #   toolchain/analytics/install-snapshot-timer.sh --remove   stop and remove

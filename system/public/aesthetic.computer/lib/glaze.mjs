@@ -21,6 +21,7 @@ class Glaze {
 
   loaded = false;
   shadersLoaded = false;
+  compact = false;
   uniformNames;
   frag;
   type;
@@ -155,6 +156,9 @@ const displayUniformNames = defaultUniformNames;
 const displayUniformLocations = {};
 
 let offed = false;
+// Remember the normal targets across a temporary change to the prompt pass.
+let fullPromptSize, compactPrompt = false;
+let cadenceStart = 0, cadenceLast = 0, cadenceFrames = 0;
 let programsCompiled = false; // Track if shaders have been compiled for current glaze type
 
 // Compile shader programs - only needs to happen once per glaze type
@@ -302,6 +306,9 @@ export function frame(w, h, rect, nativeWidth, nativeHeight, wrapper) {
   }
   postWidth = Math.max(1, pw);
   postHeight = Math.max(1, ph);
+  fullPromptSize = [canvas.width, canvas.height, postWidth, postHeight];
+  compactPrompt = false;
+  cadenceStart = cadenceLast = cadenceFrames = 0;
 
   // Make surface texture.
   texSurf = gl.createTexture();
@@ -512,6 +519,35 @@ export function render(time, mouse, day = false) {
   if (glaze === undefined || glaze.loaded === false) return;
   lastRender = [time, mouse];
 
+  // A slow foreground prompt can spend most of a frame marching light through
+  // fog. Measure sustained paints before reducing the shader to the piece grid.
+  // Keep the source texture and the independently drawn UI at their own sizes.
+  if (glaze.type === "prompt" && fullPromptSize) {
+    const now = performance.now();
+    if (!glaze.usesDefaultUniforms || document.hidden || now - cadenceLast > 300) {
+      cadenceStart = now;
+      cadenceFrames = 0;
+    } else if (!compactPrompt && !glaze.compact && now > cadenceLast + 2) {
+      cadenceFrames++;
+      if (now - cadenceStart >= 1600) {
+        glaze.compact = cadenceFrames * 1000 / (now - cadenceStart) < 52;
+        cadenceStart = now;
+        cadenceFrames = 0;
+      }
+    }
+    cadenceLast = now;
+    const compact = !!glaze.compact && glaze.usesDefaultUniforms;
+    if (compact !== compactPrompt) {
+      compactPrompt = compact;
+      if (compact) {
+        canvas.width = postWidth = Math.min(texSurfWidth, fullPromptSize[2]);
+        canvas.height = postHeight = Math.min(texSurfHeight, fullPromptSize[3]);
+      } else {
+        [canvas.width, canvas.height, postWidth, postHeight] = fullPromptSize;
+      }
+    }
+  }
+
   // The prompt has no feedback, and its compute/display passes only copy
   // the result at 1:1 resolution. Draw straight to the canvas in that case.
   const direct = glaze.type === "prompt" &&
@@ -519,7 +555,7 @@ export function render(time, mouse, day = false) {
 
   let program = customProgram;
   let locations = customUniformLocations;
-  if (glaze.type === "prompt" && !glaze.usesDefaultUniforms) {
+  if (glaze.type === "prompt" && (compactPrompt || !glaze.usesDefaultUniforms)) {
     if (!generalCustomProgram) {
       const vert = createShader(gl, gl.VERTEX_SHADER, passthrough);
       const frag = createShader(gl, gl.FRAGMENT_SHADER, glaze.frag);
@@ -568,6 +604,10 @@ export function render(time, mouse, day = false) {
   gl.uniform2f(locations.iResolution, postWidth, postHeight);
 
   glaze.setCustomUniforms(locations, gl);
+  if (compactPrompt) {
+    gl.uniform1i(locations.fogIterations, 6);
+    gl.uniform1i(locations.shadowIterations, 2);
+  }
 
   gl.bindVertexArray(vao);
   gl.drawElementsInstanced(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0, 1);

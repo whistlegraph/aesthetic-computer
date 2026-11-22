@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { chromium } from 'playwright';
 import { existsSync } from 'node:fs';
+import { connectBuilder } from '../aesel.mjs';
 import { createRaxServer } from '../server.mjs';
 import { CAR_PAD, CAR_Z } from '../elevator.mjs';
 import { kioskPlan } from '../kiosks-plan.mjs';
 
-const app = createRaxServer({ guests: true, listHandles: async () => [] });
+const token = 'b'.repeat(64);
+const app = createRaxServer({ guests: true, builderToken: token, listHandles: async () => [] });
 await app.ready;
 await app.store.commit({ room: 'lobby', objectId: 'poker', item: 'poke', owner: 'fixture', baseVersion: -1, x: 6, z: -2 },
   { name: 'poker', boxes: [{ x: 0, y: 0.2, z: 0, w: 0.2, h: 0.4, d: 0.2, color: 0xff44dd }] });
@@ -14,6 +16,10 @@ await app.store.commit({ room: 'lobby', objectId: 'cube', owner: 'fixture', base
   { name: 'cube', boxes: [{ x: 0, y: 1, z: 0, w: 1, h: 2, d: 1, color: 0x2299ff }] });
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');
+const worker = connectBuilder({
+  url: 'ws://127.0.0.1:' + app.server.address().port + '/builder', token,
+  generate: async () => ({name:'wheel fixture', boxes:[{x:0,y:0.5,z:0,w:1,h:1,d:1,color:0x112233}]}),
+});
 const browser = await chromium.launch({ ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}), headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const page = await browser.newPage({ hasTouch: true, viewport: { width: 390, height: 844 } });
@@ -21,9 +27,10 @@ try {
   const touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
   const left = { x: 166, y: 410, id: 1 }, right = { x: 222, y: 430, id: 2 };
   page.setDefaultTimeout(9000);
-  const errors = [], panelPresses = [];
+  const errors = [], panelPresses = [], buildRequests = [];
   page.on('websocket', ws => ws.on('framesent', ({ payload }) => {
     const event = JSON.parse(payload);
+    if (event.type === 'prompt') buildRequests.push(event);
     if (event.type === 'panel') panelPresses.push(event);
   }));
   page.on('websocket', ws => ws.on('framereceived', ({ payload }) => {
@@ -103,6 +110,14 @@ try {
     assert.ok(events.some(e => e.name === 'draw' && e.x !== events[0].x));
     assert.equal(events.at(-1)?.name, 'lift');
   }
+  await button(11);
+  await page.waitForFunction(() => {
+    const { screenFrame:f, hudRegions:r } = document.querySelector('canvas').raxStats;
+    return f && r?.some(b => b.id === 'avatar') && r.some(b => b.id === 'debug-chart') &&
+      r.every(b => f.x + f.w <= b.x || b.x + b.w <= f.x || f.y + f.h <= b.y || b.y + b.h <= f.y);
+  });
+  if (process.env.RAX_SCREEN_CAPTURE) await page.screenshot({path:process.env.RAX_SCREEN_CAPTURE});
+  await button(11);
   const before = await sample();
   const home = await page.evaluate(() => document.querySelector('canvas').raxStats.camera);
   await button(10);
@@ -176,6 +191,26 @@ try {
     const s = document.querySelector('canvas').raxStats;
     return !s.radial && !s.promptOpen;
   }), 'bumper and rear button leave the build menu closed');
+  async function draft() {
+    await page.evaluate(() => { testPad.buttons[4].pressed = true; });
+    await page.waitForFunction(() => document.querySelector('canvas').raxStats.radial?.bumper);
+    await page.evaluate(() => { testPad.axes[3] = -1; });
+    await button(0);
+    await button(0);
+    await page.waitForFunction(() => document.querySelector('canvas').raxStats.radial?.ready);
+  }
+  await draft();
+  await button(2);
+  assert.equal(buildRequests.length, 0);
+  await page.evaluate(() => { testPad.buttons[4].pressed = false; });
+  await page.waitForFunction(() => !document.querySelector('canvas').raxStats.radial);
+  assert.equal(buildRequests.length, 0, 'release over a slice discards the draft');
+  await draft();
+  await page.evaluate(() => { testPad.axes[3] = 0; });
+  await page.waitForFunction(() => document.querySelector('canvas').raxStats.radial?.centered);
+  await page.evaluate(() => { testPad.buttons[4].pressed = false; });
+  await page.waitForFunction(() => !document.querySelector('canvas').raxStats.radial);
+  assert.equal(buildRequests.length, 1, 'release over Build sends one request');
   await aim('panel:car-pad', CAR_PAD.x, CAR_Z, CAR_PAD.yaw);
   await button(5);
   await page.waitForFunction(() => raxDebug().dock?.id === 'panel:car-pad' && raxDebug().dock.t === 1);
@@ -194,6 +229,7 @@ try {
   assert.deepEqual(errors, []);
   console.log('Two-finger kiosk drags, KidLisp holds, focused cursor, zoom, RT use and elevator ride passed.');
 } finally {
+  worker.close();
   await browser.close();
   await app.close();
 }

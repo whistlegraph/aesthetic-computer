@@ -37,10 +37,25 @@ try {
     results.push({name: "daylight", median: luma[Math.floor(luma.length / 2)],
       darkest: luma[0], restored: restored.every((v, i) => v === night[i]),
       transparent: clear.every((v, i) => i % 4 !== 3 || v === 0), error: actualGL.getError()});
+    const canvas = Glaze.getCan(), originalWidth = canvas.width;
+    let clock = performance.now();
+    Object.defineProperty(performance, 'now', {configurable:true, value:()=>clock});
+    try {
+      for (let i = 0; i < 60; i++) {
+        clock += 40;
+        Glaze.render(clock, {x:0, y:0}, false);
+      }
+      results[0].compact = canvas.width === input.width && canvas.height === input.height;
+      Glaze.setDynamicUniform('1i:fogIterations', 31);
+      Glaze.render(clock + 40, {x:0, y:0}, false);
+      results[0].customSize = canvas.width === originalWidth;
+      results[0].error = actualGL.getError();
+    } finally { delete performance.now; }
     return results[0];
   });
   console.log(JSON.stringify(result));
   assert.equal(result.error, 0);
+  assert.ok(result.compact && result.customSize, "slow prompt adapts and custom shader settings restore the full target");
   assert.ok(result.median > 180 && result.darkest < 100, "paper and ink must remain legible");
   assert.ok(result.restored && result.transparent, "theme switching and clear curtain must survive");
 } finally { await ac.close(); }

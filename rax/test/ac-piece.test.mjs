@@ -39,7 +39,9 @@ test('the real notepat on a panel: pads drawn, a press a note, a slide the next,
   panel.hear('lift', 220, 60, 3); panel.step();
   assert.deepEqual(v.on(), []);
   panel.act('move', -1, -1); panel.step();
-  assert.deepEqual([...panel.pixels], [...rest], 'and the board is as it was');
+  // Released notes leave a trail that fades by 0.0065 per simulation step.
+  for (let i = 0; i < 160; i++) panel.step();
+  assert.ok(panel.pixels.every((v, i) => v === rest[i]), 'the board returns to rest after the release trails fade');
   // Its mode bar: the octave's button takes the pads up one.
   panel.act('touch', 292, 10); panel.act('lift', 292, 10); panel.act('touch', 30, 50);
   assert.deepEqual(v.on(), [hz('5c')]);

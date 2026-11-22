@@ -295,3 +295,36 @@ test('the houses come down when the server starts: what stood inside goes up to 
   assert.deepEqual(app.store.data.rooms.lobby.map(x => x.id), ['bench']);
   assert.equal(await readFile(join(dir, 'objects.before-houses.json'), 'utf8'), before);
 });
+
+test('a signed-in drone takes its body across rooms, preserving the match and falling back on close', async t => {
+  const {app, base} = await fixture(t);
+  async function join(room) {
+    const ws = new WebSocket(base.replace('http','ws') + '/play?' + new URLSearchParams({room, protocol:PROTOCOL, account:'1', stay:'1'}));
+    const messages = [];
+    ws.on('message', raw => messages.push(JSON.parse(raw)));
+    await once(ws, 'open');
+    ws.send(JSON.stringify({type:'account', accessToken:'jeffrey'}));
+    await wait(() => messages.some(m => m.type === 'role' && m.seat >= 0));
+    return {ws, messages};
+  }
+  const first = await join('lobby');
+  const lobby = app.rooms.get('lobby'), original = [...lobby.sessions.values()][0];
+  const body = lobby.match.seats[original.seat].player;
+  body.score = 9;
+  const second = await join('e1n0');
+  assert.ok(second.messages.some(m => m.type === 'travel' && m.room === 'lobby' && m.here));
+  assert.equal(original.seat, -1);
+  const main = [...lobby.sessions.values()].find(m => m !== original);
+  assert.equal(lobby.match.seats[main.seat].player.score, 9);
+  original.followBody('e1n0', {x:0,y:2,z:0,yaw:0,pitch:0});
+  assert.equal(original.seat, -1, 'crossing as a drone keeps the role');
+  first.ws.send(JSON.stringify({type:'take-body', handle:'ignored'}));
+  await wait(() => original.seat >= 0 && main.seat < 0);
+  assert.equal(original.room, lobby);
+  assert.equal(lobby.match.seats[original.seat].player.score, 9);
+  main.followBody('e1n0', {x:0,y:2,z:0,yaw:0,pitch:0});
+  first.ws.close();
+  await wait(() => main.seat >= 0 && main.room === lobby);
+  assert.equal(lobby.match.seats[main.seat].player.score, 9);
+  second.ws.close();
+});

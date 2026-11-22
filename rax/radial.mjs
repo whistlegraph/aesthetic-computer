@@ -62,13 +62,16 @@ export class Radial {
   }
   close() {
     this.open = false;
+    this.bumper = false;
+    this.centered = false;
     this.target = null;
     this.category = null;
     this.picks = [];
     this.selected = -1;
   }
-  begin(target = null) {
+  begin(target = null, bumper = false) {
     this.open = true;
+    this.bumper = bumper;
     this.target = target;
     this.category = null;
     this.picks = [];
