@@ -4,9 +4,8 @@
 // It boots the way the terminal Aesel does: the letterhead donkey at his easel
 // with the version, engine, model and file beside him, the conversation
 // growing up from the typing line, and a status line with the handle and the
-// braincells. That screen is drawn on the hd() layer in a monospace face, at
-// the display's own resolution; previews and icons, which have no hd layer,
-// get the pixel edition underneath.
+// braincells. Drawn in AC's own pixels and font; `aesel:hd` draws the same
+// screen on the hd() layer in a monospace face at the display's resolution.
 import { AcBridge } from "../lib/aesel-os/aesel-ac.mjs";
 import { randomSlug, wrapRows } from "../lib/aesel-os/aesel-bridge.mjs";
 
@@ -100,7 +99,8 @@ async function readBraincells(api, state) {
 
 function boot(api) {
   const name = randomSlug() + ".mjs";
-  const state = desk = { source: "", name, lines: [], busy: false, turn: 0, status: "", offset: 0, version: "", braincells: null };
+  const state = desk = { source: "", name, lines: [], busy: false, turn: 0, status: "", offset: 0, version: "", braincells: null,
+    hd: (api.colon || []).includes("hd") };
   api.hud.label("Aesel TUI");
   state.bridge = new AcBridge({
     transport: transport(), file: name, readPiece: () => state.source,
@@ -156,7 +156,44 @@ function sim(api) {
   }
 }
 
-// 🖼️ The terminal's screen, on the hd layer.
+// The conversation as rows, the letterhead first so it scrolls away with the
+// history, as in the terminal.
+function transcript(s, cols) {
+  const facts = [
+    null,
+    [["Aesel", PALETTE.text, BOLD], [s.version ? ` v${s.version}` : "", PALETTE.muted]],
+    [[`aesthetic · ${s.model || ""}`, PALETTE.soft]],
+    [[`aesthetic.computer/aesel · ${s.name}`, PALETTE.muted]],
+    null,
+  ];
+  const rows = facts.map((fact, i) => ({ tile: i, fact }));
+  rows.push({ blank: true });
+  const inks = { you: PALETTE.you, reply: PALETTE.text, tool: PALETTE.edit };
+  for (const line of s.lines) {
+    const prefix = line.kind === "you" ? "› " : "";
+    for (const row of wrapRows(prefix + line.text, cols)) rows.push({ text: row.text, ink: inks[line.kind] || PALETTE.text });
+    if (line.kind === "you") rows.push({ blank: true });
+  }
+  if (s.status) rows.push({ text: s.status, ink: /fail|error|HTTP|not /i.test(s.status) ? PALETTE.error : PALETTE.muted });
+  return rows;
+}
+
+// The status line's words, left to right: [text, ink, action].
+function statusWords(api, s) {
+  const words = [];
+  const handle = api.handle?.();
+  if (api.user?.sub && handle) words.push([handle, PALETTE.handle]);
+  else if (api.user?.sub) words.push(["signed in", PALETTE.soft]);
+  else words.push(["sign in", PALETTE.highlight, "login"]);
+  words.push([" · aesthetic · ", PALETTE.muted], [s.model || "", PALETTE.muted]);
+  if (s.busy) words.push(["  ", PALETTE.muted], ["stop", PALETTE.highlight, "stop"]);
+  if (s.source) words.push(["  ", PALETTE.muted], ["save .mjs", PALETTE.highlight, "save"]);
+  if (s.overflow) words.push(["  ", PALETTE.muted], ["older", PALETTE.soft, "older"], [" ", PALETTE.muted], ["newer", PALETTE.soft, "newer"]);
+  return words;
+}
+const statusRight = (s, emoji = true) => (s.busy ? "working…" : Number.isFinite(s.braincells) ? `${Math.round(s.braincells).toLocaleString("en-US")}${emoji ? " 🧠" : " braincells"}` : "");
+
+// 🖼️ The terminal's screen, on the hd layer (aesel:hd).
 function paintTerminal(api, layer, s) {
   const { screen, display } = api;
   const css = Number(display?.subdivisions) || 1; // CSS pixels per screen pixel
@@ -178,25 +215,9 @@ function paintTerminal(api, layer, s) {
   const inputY = statusY - ROW * 1.6;
   s.inputY = inputY / css;
 
-  // The conversation, bottom-anchored above the typing line, the letterhead
-  // first so it scrolls away with the history, as in the terminal.
+  // The conversation, bottom-anchored above the typing line.
   const tileCells = TILE[0].length / 2;
-  const facts = [
-    null,
-    [["Aesel", PALETTE.text, BOLD], [s.version ? ` v${s.version}` : "", PALETTE.muted]],
-    [[`aesthetic · ${s.model || ""}`, PALETTE.soft]],
-    [[`aesthetic.computer/aesel · ${s.name}`, PALETTE.muted]],
-    null,
-  ];
-  const rows = facts.map((fact, i) => ({ tile: i, fact }));
-  rows.push({ blank: true });
-  const inks = { you: PALETTE.you, reply: PALETTE.text, tool: PALETTE.edit };
-  for (const line of s.lines) {
-    const prefix = line.kind === "you" ? "› " : "";
-    for (const row of wrapRows(prefix + line.text, cols)) rows.push({ text: row.text, ink: inks[line.kind] || PALETTE.text });
-    if (line.kind === "you") rows.push({ blank: true });
-  }
-  if (s.status) rows.push({ text: s.status, ink: /fail|error|HTTP|not /i.test(s.status) ? PALETTE.error : PALETTE.muted });
+  const rows = transcript(s, cols);
 
   const visible = Math.max(1, Math.floor((inputY - ROW - PAD) / ROW));
   s.offset = Math.min(s.offset, Math.max(0, rows.length - visible));
@@ -235,21 +256,12 @@ function paintTerminal(api, layer, s) {
   // done now, and the braincells on the right. Each word is a place to tap.
   s.hits = [];
   let x = PAD;
-  const word = (text, ink, action, font) => {
+  for (const [text, ink, action] of statusWords(api, s)) {
     const from = x;
-    x = say(text, x, statusY, ink, font);
+    x = say(text, x, statusY, ink);
     if (action) s.hits.push({ action, from: from / css, to: x / css });
-  };
-  const handle = api.handle?.();
-  if (api.user?.sub && handle) word(handle, PALETTE.handle);
-  else if (api.user?.sub) word("signed in", PALETTE.soft);
-  else word("sign in", PALETTE.highlight, "login");
-  word(" · aesthetic · ", PALETTE.muted);
-  word(s.model || "", PALETTE.muted);
-  if (s.busy) { word("  ", PALETTE.muted); word("stop", PALETTE.highlight, "stop"); }
-  if (s.source) { word("  ", PALETTE.muted); word("save .mjs", PALETTE.highlight, "save"); }
-  if (s.overflow) { word("  ", PALETTE.muted); word("older", PALETTE.soft, "older"); word(" ", PALETTE.muted); word("newer", PALETTE.soft, "newer"); }
-  const right = s.busy ? "working…" : Number.isFinite(s.braincells) ? `${Math.round(s.braincells).toLocaleString("en-US")} 🧠` : "";
+  }
+  const right = statusRight(s);
   if (right) {
     ctx.font = FONT;
     const at = W - PAD - ctx.measureText(right).width;
@@ -259,31 +271,67 @@ function paintTerminal(api, layer, s) {
   ctx.restore();
 }
 
-// The pixel edition, for previews and icons (no hd layer).
+// The terminal's screen in AC's own pixels and font: a letter is 6 by 12,
+// and the donkey's pixels are half a letter each way, as in the terminal.
+const CW = 6, RH = 12, EDGE = 6, LABEL = 22; // the corner label owns the top 22 rows
 function paintPixels(api, s) {
   const { screen, ink } = api;
-  const cols = Math.max(8, Math.floor((screen.width - 10) / 6)), visible = Math.max(1, Math.floor((screen.height - 65) / 10));
-  const rows = s.lines.flatMap((line) => wrapRows((line.kind === "you" ? "> " : "") + line.text, cols).map((row) => ({ text: row.text, you: line.kind === "you" })));
-  rows.slice(-visible).forEach((row, i) => ink(row.you ? "pink" : "white").write(row.text, { x: 5, y: 15 + i * 10 }));
-  for (let y = 0; y < TILE.length; y++) for (let x = 0; x < TILE[y].length; x++) {
-    const color = TILE_INKS[TILE[y][x]];
-    if (color) ink(...color).box(5 + x, screen.height - 60 + y, 1, 1);
+  const cols = Math.max(8, Math.floor((screen.width - EDGE * 2) / CW));
+  const write = (text, x, y, color) => { ink(...color).write(text, { x, y }); return x + text.length * CW; };
+  const statusY = screen.height - RH - 1;
+  const inputY = statusY - RH - 4;
+  s.inputY = inputY + 5;
+
+  const tileCells = TILE[0].length / 2;
+  const rows = transcript(s, cols);
+  const visible = Math.max(1, Math.floor((inputY - 4 - LABEL) / RH));
+  s.offset = Math.min(s.offset, Math.max(0, rows.length - visible));
+  s.overflow = rows.length > visible;
+  const shown = rows.slice(Math.max(0, rows.length - visible - s.offset), rows.length - s.offset);
+  shown.forEach((row, i) => {
+    const top = inputY - 4 - (shown.length - i) * RH;
+    if (row.tile !== undefined) {
+      for (const [dy, line] of [TILE[row.tile * 2], TILE[row.tile * 2 + 1]].entries())
+        for (let x = 0; x < line.length; x++) {
+          const color = TILE_INKS[line[x]];
+          if (color) ink(...color).box(EDGE + x * (CW / 2), top + dy * (RH / 2), CW / 2, RH / 2);
+        }
+      if (row.fact && cols > tileCells + 12) {
+        let x = EDGE + (tileCells + 2) * CW;
+        const room = cols - tileCells - 2;
+        for (const [text, color] of row.fact) x = write(text.length > room ? text.slice(0, room - 1) + "…" : text, x, top + 2, color);
+      }
+    } else if (!row.blank) write(row.text, EDGE, top + 2, row.ink);
+  });
+
+  // The status line; the typing line above it is AC's own text field.
+  s.hits = [];
+  let x = EDGE;
+  for (const [text, color, action] of statusWords(api, s)) {
+    const from = x;
+    x = write(text, x, statusY, color);
+    if (action) s.hits.push({ action, from, to: x });
   }
-  ink("wheat").write((s.status || "Describe a piece, then press Enter.").slice(0, cols), { x: 5, y: screen.height - 45 });
+  const right = statusRight(s, false);
+  if (right && screen.width - EDGE - right.length * CW > x + CW) write(right, screen.width - EDGE - right.length * CW, statusY, s.busy ? PALETTE.highlight : PALETTE.muted);
+  s.statusTop = statusY - 3;
 }
 
 function paint(api) {
   if (!desk) return;
   const { screen, wipe } = api, s = desk;
   wipe(...PALETTE.ground);
-  const layer = api.hd?.();
-  // The text field stays in the pixel buffer so a tap still reaches it (it
-  // opens the keyboard on a phone); the hd layer covers it with the
-  // terminal's own typing line.
-  const fieldY = layer && s.inputY !== undefined ? Math.round(s.inputY - 8) : screen.height - 32;
-  s.fields.paint(api, { x: 2, y: fieldY, width: screen.width - 4, height: 16 });
-  if (layer) paintTerminal(api, layer, s);
-  else { s.hits = []; s.statusTop = undefined; paintPixels(api, s); }
+  const layer = s.hd ? api.hd?.() : null;
+  // The text field is AC's own. Under aesel:hd it stays in the pixel buffer
+  // so a tap still reaches it (it opens the keyboard on a phone), and the hd
+  // layer covers it with the terminal's typing line.
+  if (layer) {
+    s.fields.paint(api, { x: 2, y: Math.round((s.inputY ?? screen.height - 24) - 8), width: screen.width - 4, height: 16 });
+    paintTerminal(api, layer, s);
+  } else {
+    paintPixels(api, s);
+    s.fields.paint(api, { x: EDGE - 2, y: s.inputY - 7, width: screen.width - EDGE * 2 + 4, height: 14 });
+  }
 }
 
 function act(api) {
