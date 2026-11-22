@@ -65,7 +65,8 @@ export function codeFor(root, { registry = REGISTRY } = {}) {
     writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
   }
   if (listed) {
-    const known = printers({ registry });
+    // A printer whose folder is gone gives its code back.
+    const known = Object.fromEntries(Object.entries(printers({ registry })).filter(([, listed]) => existsSync(path.join(listed.dir, "harness.json"))));
     known[manifest.printer.code] = { name: manifest.name, dir: root };
     mkdirSync(path.dirname(registry), { recursive: true });
     writeFileSync(registry, JSON.stringify(known, null, 2) + "\n");
