@@ -502,9 +502,14 @@ export async function makeP5WorkerModule({ slug, source }) {
       const dt = lastPaintTime ? t0 - lastPaintTime : 0;
       lastPaintTime = t0;
 
-      // A display whose subdivisions changed since boot lays the sketch out again.
+      // A screen that changed size, or a display whose subdivisions changed,
+      // since the sketch last laid itself out: lay it out again. (AC's
+      // `reframed` event carries no size, so the screen is the one to ask.)
       const nowCss = cssOf(display);
-      if (nowCss !== css && p5Instance && p5Instance._setupDone) { css = nowCss; relayout(screen.width, screen.height); }
+      if (p5Instance && p5Instance._setupDone && (nowCss !== css || screen.width !== lastWidth || screen.height !== lastHeight)) {
+        css = nowCss;
+        relayout(screen.width, screen.height);
+      }
 
       // The native-resolution layer, when this display has one. Its scale
       // over the CSS factor is the sketch's pixel density (the device's own
@@ -570,7 +575,7 @@ export async function makeP5WorkerModule({ slug, source }) {
     // sim is intentionally empty — reframe is handled via the `reframed`
     // event in act() (AC's canonical channel for screen-size changes).
 
-    act: ({ event: e, jump, handle, notice, display }) => {
+    act: ({ event: e, jump, handle, notice, display, screen }) => {
       // Lazy-expose an `ac` global so sketches can navigate / read AC state.
       if (!self.ac && jump) {
         self.ac = {
@@ -585,8 +590,8 @@ export async function makeP5WorkerModule({ slug, source }) {
       // 📐 Reframe → resize p5 canvas + fire windowResized
       if (e.is("reframed")) {
         if (display) css = cssOf(display);
-        const w = e.width ?? e.content?.width ?? lastWidth;
-        const h = e.height ?? e.content?.height ?? lastHeight;
+        const w = screen?.width ?? lastWidth;
+        const h = screen?.height ?? lastHeight;
         relayout(w, h);
         console.log(`[p5-worker] 📐 reframed → ${w}x${h} (css ${css})`);
         return;
