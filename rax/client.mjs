@@ -693,7 +693,7 @@ const diagnostics = new ClientDiagnostics((sample) => {
 });
 // 🪞 A drone signed in as someone who walks here on another screen follows that body and looks where it looks, from just behind it. Its own stick, keys or look take it back; let go for a few seconds, it follows again.
 const FOLLOW_AFTER_MS = 6000;
-let following = false, followSaid = null, followLook = null, flownAt = -Infinity;
+let following = false, followSaid = null, followLook = null, flownAt = -Infinity, followFlight = null, eyeCarried = false;
 const ownBodySeat = () => {
   const mine = selfMember?.handle?.toLowerCase();
   return mine && seat < 0 ? members.find((m) => m.seat >= 0 && m.handle?.toLowerCase() === mine)?.seat ?? -1 : -1;
@@ -1485,6 +1485,11 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   const dx = oldCell && newCell ? wrap(oldCell.i - newCell.i) * SPAN : 0;
   const dz = oldCell && newCell ? wrap(oldCell.j - newCell.j) * SPAN : 0;
   balls = walk ? balls.map(b => ({ ...b, x: b.x + dx, z: b.z + dz })) : [];
+  // 🪞 A drone brought after its body over a block's line is where it was in the world: it flies on from there, it is not set down again.
+  if (seat < 0 && here) {
+    const a = cellOf(from), b = cellOf(to);
+    if (a && b) { freecam = { ...freecam, x: freecam.x + wrap(a.i - b.i) * SPAN, z: freecam.z + wrap(a.j - b.j) * SPAN }; eyeCarried = true; followFlight = null; }
+  }
   if (continuous) presentation.translate(dx, dz, floorHeight);
   held = (receipt || here) && at && player && seat >= 0
     ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
@@ -1661,6 +1666,7 @@ function unseat(keepMotion = false) {
     presentation.reset(null);
   }
   playback.reset();
+  remoteEase.reset();
   freecamPlaced = false;
   gate = null;
   joiningUntil = performance.now() + 7000;
@@ -1717,7 +1723,9 @@ function connect(adopt = null) {
           : freecam;
         yaw = freecam.yaw;
         pitch = freecam.pitch;
-        freecamPlaced = false;
+        freecamPlaced = eyeCarried;
+        eyeCarried = false;
+        followLook = null;
       }
       player = null;
       prediction = null;
@@ -1726,7 +1734,6 @@ function connect(adopt = null) {
       // Between two rooms the body is still walking: its keys stay down and
       // its commands wait for the seat.
       if (!held) {
-        followLook = null;
         pending = [];
         seq = 0;
         debt = 0;
@@ -2100,6 +2107,7 @@ function connect(adopt = null) {
     history = [];
     presentation.reset(null);
     playback.reset();
+    remoteEase.reset();
   };
   socket.onerror = () => {
     if (socket === ws) logNet('socket error', { bad: true });
@@ -2108,7 +2116,6 @@ function connect(adopt = null) {
 }
 
 canvas.addEventListener('click', (e) => {
-    remoteEase.reset();
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
   // The code tag in the bottom-right is a button: it opens the $code's page.
   if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
@@ -3204,25 +3211,40 @@ function step(now) {
     // The room is told, so the drone is brought along when the body goes to another room (server.mjs `follow`).
     if (followSaid?.ws !== ws || followSaid.on !== following) { followSaid = { ws, on: following }; send({ type: 'follow', on: following }); }
     const followed = following ? interpolate(history, playback.tick ?? snapshot.tick, ownBodySeat(), playback.ahead || 0) : null;
+    if (!followed?.alive) followFlight = null;
     const idle = sheetOpen && room === 'lobby' && !dock && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && !following && now - inputAt > IDLE_MS;
     if (followed?.alive) {
       touring = null;
-      // Behind the body and a little over it, along the way it looks, and never the far side of a wall.
-      const dt = Math.min(0.1, elapsed), look = direction(followed.yaw, 0), len = Math.hypot(1, 0.32);
-      const out = { x: -look.x / len, y: 0.32 / len, z: -look.z / len };
+      // 🚁 It flies after the body as a drone does, never set down beside it: behind it and a little over it while it walks, looking where it looks; and when it has stood a moment, round it in a slow circle, looking at it.
+      const dt = Math.min(0.1, elapsed), was = followFlight;
+      const pace = was && dt ? Math.hypot(followed.x - was.x, followed.z - was.z) / dt : 0;
+      const stoodAt = pace > 0.4 || !was ? now : was.stoodAt;
+      const round = smooth((now - stoodAt - 1500) / 2500); // 0 walking → 1 circling
+      const behind = ((followed.yaw + 180) * Math.PI) / 180;
+      // (The circle is taken up from wherever the drone already is about the body.)
+      let angle = round > 0 ? (was?.round > 0 ? was.angle + dt * 0.3 : Math.atan2(freecam.x - followed.x, freecam.z - followed.z)) : behind;
+      const rise = 0.32 + 0.1 * round, len = Math.hypot(1, rise);
+      const out = { x: Math.sin(angle) / len, y: rise / len, z: Math.cos(angle) / len };
       const origin = { x: followed.x, y: followed.y + 0.15, z: followed.z };
-      const far = Math.max(0.5, Math.min(3.4, airFrom(origin, out, 3.7) - 0.3));
+      const far = Math.max(0.5, Math.min(3.4 + 0.8 * round, airFrom(origin, out, 4.5) - 0.3)); // (never the far side of a wall)
       const to = { x: origin.x + out.x * far, y: origin.y + out.y * far, z: origin.z + out.z * far };
-      const gap = Math.hypot(to.x - freecam.x, to.y - freecam.y, to.z - freecam.z);
-      // (Come to from a long way off at once; held to after that on a soft spring, so a step of the body's is not a step of the eye's.)
-      const k = gap > 40 ? 1 : 1 - Math.exp(-dt * 9);
-      const x = freecam.x + (to.x - freecam.x) * k, y = freecam.y + (to.y - freecam.y) * k, z = freecam.z + (to.z - freecam.z) * k;
-      freecam = { ...freecam, x, y, z, vx: dt ? (x - freecam.x) / dt : 0, vy: dt ? (y - freecam.y) / dt : 0, vz: dt ? (z - freecam.z) / dt : 0 };
-      const turn = ((followed.yaw - yaw + 540) % 360) - 180, kl = gap > 40 ? 1 : 1 - Math.exp(-dt * 12);
+      followFlight = { x: followed.x, z: followed.z, stoodAt, round, angle };
+      // Flown there: it leans into the way it must go and takes a moment to get up to speed, faster the further it has to come.
+      const gx = to.x - freecam.x, gy = to.y - freecam.y, gz = to.z - freecam.z, gap = Math.hypot(gx, gy, gz);
+      const top = clamp(gap * 1.5, 8, 70), want = Math.min(top, gap * 3.5) / (gap || 1), kv = 1 - Math.exp(-dt * 6);
+      const vx = (freecam.vx || 0) + (gx * want - (freecam.vx || 0)) * kv, vy = (freecam.vy || 0) + (gy * want - (freecam.vy || 0)) * kv, vz = (freecam.vz || 0) + (gz * want - (freecam.vz || 0)) * kv;
+      // The eye: where the body looks while it walks, at the body while circling (and while still a way off).
+      const head = { x: followed.x - freecam.x, y: followed.y - freecam.y, z: followed.z - freecam.z };
+      const at = Math.max(round, smooth((gap - 4) / 6));
+      const atYaw = (Math.atan2(head.x, head.z) * 180) / Math.PI, atPitch = (Math.atan2(head.y, Math.hypot(head.x, head.z)) * 180) / Math.PI;
+      const wantYaw = followed.yaw + ((((atYaw - followed.yaw + 540) % 360) - 180) * at);
+      const wantPitch = clamp(followed.pitch - 8 + (atPitch - (followed.pitch - 8)) * at, -85, 85);
+      const turn = ((wantYaw - yaw + 540) % 360) - 180, kl = 1 - Math.exp(-dt * 7);
       yaw = (yaw + turn * kl + 360) % 360;
-      pitch = clamp(pitch + (clamp(followed.pitch - 8, -85, 85) - pitch) * kl, -85, 85);
+      pitch = clamp(pitch + (wantPitch - pitch) * kl, -85, 85);
+      freecam = { ...freecam, x: freecam.x + vx * dt, y: freecam.y + vy * dt, z: freecam.z + vz * dt, vx, vy, vz, yaw, pitch };
       droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI;
-      droneRoll *= Math.exp(-dt * 6);
+      droneRoll += (clamp(-turn * 0.012, -0.3, 0.3) - droneRoll) * (1 - Math.exp(-dt * 3));
       followLook = { yaw, pitch };
     } else if (idle) {
       // The tour is worked out from what there is to see now (flyover.mjs), when the drone is let go and again at the end of each lap: what was built, or who came in, since is on the next one.
