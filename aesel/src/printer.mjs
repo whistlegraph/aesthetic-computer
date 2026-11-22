@@ -73,8 +73,8 @@ export function codeFor(root, { registry = REGISTRY } = {}) {
   }
   return manifest.printer.code;
 }
-const EXTENSIONS = { js: "text/javascript", mjs: "text/javascript", lisp: "text/x-lisp", svg: "image/svg+xml", html: "text/html", htm: "text/html",
-  md: "text/markdown", txt: "text/plain", json: "application/json", csv: "text/csv", png: "image/png", wav: "audio/wav" };
+const EXTENSIONS = { js: "text/javascript", mjs: "text/javascript", p5: "text/x-processing", lisp: "text/x-lisp", svg: "image/svg+xml", html: "text/html", htm: "text/html",
+  md: "text/markdown", txt: "text/plain", json: "application/json", csv: "text/csv", png: "image/png", wav: "audio/wav", mp4: "video/mp4" };
 
 /** The MIME goal a seed file implies, or undefined when its extension says nothing. */
 export const printerOutput = (file) => EXTENSIONS[path.extname(String(file || "")).slice(1).toLowerCase()];

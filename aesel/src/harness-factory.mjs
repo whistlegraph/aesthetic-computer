@@ -23,6 +23,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { decode, encode } from "../media/picture/png.mjs";
 import { sourceChecks } from "./edit-contract.mjs";
 import { renderScore, scoreProblems } from "./wav-score.mjs";
+import { filmProblems, renderFilm } from "./film.mjs";
 
 export const STARTERS = fileURLToPath(new URL("../workshop/starters/", import.meta.url));
 export const DEFAULT_MODEL = "anthropic/claude-sonnet-5.5";
@@ -59,6 +60,12 @@ export const OUTPUTS = {
     contract: "Answer with one KidLisp program inside one ```lisp block. KidLisp is Aesthetic Computer's Lisp for generative art: each line is an expression like (wipe \"navy\"), (ink \"yellow\"), (circle 128 128 64), (box x y w h), (line x1 y1 x2 y2); width and height are the screen size; the program runs every frame." },
   "text/javascript": { ext: "mjs", glyph: "🎮", kind: "AC piece", as: "text", lang: "(?:js|javascript|mjs)",
     contract: "Answer with one Aesthetic Computer piece inside one ```js block: an ES module with no imports that exports `paint` (and optionally `boot`, `sim`, `act`). Each function receives AC's API object, e.g. function paint({ wipe, ink, screen }) { wipe(\"navy\"); ink(\"yellow\").circle(screen.width / 2, screen.height / 2, 40); }." },
+  "video/mp4": { ext: "mp4", glyph: "🎬", kind: "film", as: "film", lang: "json",
+    contract: "You are the animator; this machine renders your film. Answer with one JSON film inside one ```json block: {\"seconds\": 8, \"fps\": 12, \"width\": 640, \"height\": 480, \"svg\": \"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'>…</svg>\", \"tracks\": [{\"id\": \"sun\", \"attr\": \"cy\", \"from\": 420, \"to\": 120, \"start\": 0, \"end\": 6, \"ease\": \"inout\"}]}. `svg` is the first frame, with a background rect; use double quotes for its attributes (escaped in the JSON) and give every element that changes an id. A track moves one attribute of one element between `start` and `end` seconds: numbers, #rrggbb colours, or strings whose numbers change (\"translate(0 0)\" to \"translate(200 0)\"). attr \"text\" with \"steps\": [\"one\", \"two\"] swaps an element's words; `steps` works for any attribute. ease is linear, in, out or inout. Before its start a track holds `from`, after its end `to`; fade things in with opacity. At most 12 seconds, 15 fps, 60 tracks, 960 pixels a side. An optional \"score\" is the soundtrack: {\"bpm\": 96, \"notes\": [{\"at\": 0, \"beats\": 1, \"pitch\": \"C4\", \"wave\": \"sine\", \"gain\": 0.5}]}." },
+  // A `.p5` piece: a global-mode p5.js sketch that AC runs as a piece (see
+  // runtimes.mjs). No export is what tells it from an .mjs piece.
+  "text/x-processing": { ext: "p5", glyph: "🌸", kind: "p5.js sketch", as: "text", lang: "(?:js|javascript|p5)",
+    contract: "Answer with one p5.js sketch inside one ```js block, written in global mode exactly as in the p5 web editor: top-level `function setup()` and `function draw()`, plus any event functions. No HTML, no imports, no exports, no loadImage or loadSound. Begin setup with createCanvas(windowWidth, windowHeight) and define windowResized() to resize it." },
   "image/png": { ext: "png", glyph: "🖼", kind: "picture", as: "image", lang: "prompt",
     contract: "You are the art director; an image model paints. Answer with the image prompt inside one ```prompt block: subject, composition, medium, palette, light and mood in concrete words, under 1,500 characters. Do not describe text you want legible unless it is short." },
   "audio/wav": { ext: "wav", glyph: "🔊", kind: "sound", as: "score", lang: "json",
@@ -67,7 +74,7 @@ export const OUTPUTS = {
 
 const ALIASES = { svg: "image/svg+xml", png: "image/png", image: "image/png", wav: "audio/wav", audio: "audio/wav", sound: "audio/wav",
   html: "text/html", md: "text/markdown", markdown: "text/markdown", txt: "text/plain", text: "text/plain", json: "application/json",
-  csv: "text/csv", lisp: "text/x-lisp", kidlisp: "text/x-lisp", js: "text/javascript", mjs: "text/javascript", piece: "text/javascript" };
+  csv: "text/csv", mp4: "video/mp4", video: "video/mp4", film: "video/mp4", p5: "text/x-processing", processing: "text/x-processing", "p5.js": "text/x-processing", lisp: "text/x-lisp", kidlisp: "text/x-lisp", js: "text/javascript", mjs: "text/javascript", piece: "text/javascript" };
 
 export function outputType(name) {
   const wanted = String(name || "").trim().toLowerCase();
@@ -194,6 +201,15 @@ export function builtInProblems(mime, body) {
   if (mime === "audio/wav") { try { return scoreProblems(JSON.parse(body)); } catch (error) { return [`The score is not valid JSON: ${error.message}`]; } }
   if (mime === "image/svg+xml" && !/<svg[\s>][\s\S]*<\/svg>\s*$/.test(body)) return ["Send one complete <svg>…</svg> document."];
   if (mime === "text/html" && !/<html[\s>]/i.test(body)) return ["Send one complete HTML page with an <html> element."];
+  if (mime === "video/mp4") { try { return filmProblems(JSON.parse(body)); } catch (error) { return [`The film is not valid JSON: ${error.message}`]; } }
+  if (mime === "text/x-processing") {
+    const problems = [];
+    if (!/^\s*function\s+(setup|draw)\s*\(/m.test(body)) problems.push("Define top-level `function setup()` and `function draw()`.");
+    if (/^\s*(export|import)\s/m.test(body)) problems.push("No import or export statements: a p5 sketch is global mode.");
+    if (/<html|<script/i.test(body)) problems.push("Send the sketch alone, not an HTML page.");
+    try { new Function(body); } catch (error) { problems.push(`The sketch does not parse: ${error.message}`); }
+    return problems;
+  }
   if (mime === "text/x-lisp") {
     let depth = 0;
     for (const ch of body.replace(/"(?:\\.|[^"\\])*"/g, "").replace(/;.*$/gm, "")) { depth += ch === "(" ? 1 : ch === ")" ? -1 : 0; if (depth < 0) break; }
@@ -272,6 +288,7 @@ export async function runHarness(harness, inputs, { infer, paint, cwd = process.
   if (!problems.length) {
     let bytes = Buffer.from(body + (goal.as === "text" ? "\n" : ""));
     if (goal.as === "score") bytes = renderScore(JSON.parse(body));
+    if (goal.as === "film") { bytes = await renderFilm(JSON.parse(body), { onstep }); writeFileSync(path.join(dir, "film.json"), body + "\n"); }
     if (goal.as === "image") {
       onstep(`painting with ${harness.image.model}`);
       const reference = inputs.images?.length && harness.image.provider === "openai" ? imagePng(path.resolve(cwd, inputs.images[0])) : null;
