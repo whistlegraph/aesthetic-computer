@@ -1149,6 +1149,15 @@
 
     @mainspa host aesthetic.computer www.aesthetic.computer lith.aesthetic.computer notepat.com www.notepat.com wipppps.world www.wipppps.world p5.aesthetic.computer sitemap.aesthetic.computer
     handle @mainspa {
+        # The guide's static directory shares the piece slug.
+        @aesel_tui {
+            host aesthetic.computer www.aesthetic.computer
+            path /aesel /aesel/
+        }
+        handle @aesel_tui {
+            rewrite * /aesel~tui
+            import lith_proxy
+        }
         # Assets → DO Spaces CDN. The bucket root maps directly to
         # assets.aesthetic.computer (no /assets/ prefix exists in the
         # bucket), so we use handle_path to strip the matched /assets/
