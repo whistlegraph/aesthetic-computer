@@ -304,7 +304,7 @@ function paintPixels(api, s) {
   const lineHeight = input.typeface?.blockHeight || 10;
   const inputTop = statusY - 5 - lines * lineHeight;
   s.inputFrame = { x: EDGE - ORIGIN, y: inputTop - ORIGIN, width: screen.width - (EDGE - ORIGIN), height: lines * lineHeight + ORIGIN + 2 };
-  const inputY = inputTop - 3;
+  const inputY = inputTop - ORIGIN - 1; // the transcript ends above the field's frame
 
   const tileCells = TILE[0].length / 2;
   const rows = transcript(s, cols);
