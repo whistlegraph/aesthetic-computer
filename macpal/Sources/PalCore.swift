@@ -331,6 +331,7 @@ final class PalController: NSObject {
     // the footage. Watched at 20Hz so it's gone before the first frame.
     private let reelStateFile = NSString(string: "~/.local/share/slab/state/reel.state").expandingTildeInPath
     private var hiddenForRecording = false
+    private var acFillsScreen = false, fullscreenTick = 0
     var draggingBadge = false
     var hovering = false
     // Menu Band "sing" easter egg state.
@@ -556,14 +557,36 @@ final class PalController: NSObject {
         } else {
             recording = false
         }
-        if recording && !hiddenForRecording {
+        // And while Aesthetic.Computer fills the screen in front: its full
+        // screen is the whole picture, with no badge in its corner. (Asked
+        // twice a second; the recording file is read every tick.)
+        fullscreenTick = (fullscreenTick + 1) % 10
+        if fullscreenTick == 0 { acFillsScreen = Self.aestheticFillsScreen() }
+        let hide = recording || acFillsScreen
+        if hide && !hiddenForRecording {
             hiddenForRecording = true
             window.orderOut(nil)
-        } else if !recording && hiddenForRecording {
+        } else if !hide && hiddenForRecording {
             hiddenForRecording = false
             window.orderFrontRegardless()
             layout()
         }
+    }
+
+    // Aesthetic.Computer is the app in front and one of its windows covers a
+    // whole display (its own full-screen space, or a borderless one). Window
+    // bounds need no screen-recording permission.
+    private static func aestheticFillsScreen() -> Bool {
+        guard let front = NSWorkspace.shared.frontmostApplication,
+              ["aesthetic.computer", "computer.aesthetic.app"].contains(front.bundleIdentifier ?? ""),
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return false }
+        let displays = NSScreen.screens.compactMap { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID).map(CGDisplayBounds) }
+        for w in list where (w[kCGWindowOwnerPID as String] as? pid_t) == front.processIdentifier && (w[kCGWindowLayer as String] as? Int) == 0 {
+            guard let b = w[kCGWindowBounds as String] as? NSDictionary, let r = CGRect(dictionaryRepresentation: b) else { continue }
+            if displays.contains(where: { abs($0.width - r.width) < 2 && abs($0.height - r.height) < 2 && abs($0.minX - r.minX) < 2 && abs($0.minY - r.minY) < 2 }) { return true }
+        }
+        return false
     }
 
     // ── agent contact ─────────────────────────────────────────────────────
