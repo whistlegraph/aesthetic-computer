@@ -13,6 +13,9 @@ import { execFile } from "node:child_process";
 import crypto from "node:crypto";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { serveStdio, serveHttp, httpPort } from "./http-front.mjs";
 import { fetchRetry } from "./fetch-retry.mjs";
 import { VISIT_ACTIONS, VISIT_DEPTHS, visitProperty, visitScopeMatch } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
@@ -178,30 +181,87 @@ const checkedHours = (hours, max = 840) => {
   return hours;
 };
 
-async function networkReport({ hours = 24, scope = "all" } = {}) {
-  const part = promise => promise.then(value => value, error => ({ unavailable: String(error.message || error) }));
+// The report is as slow as its slowest part, so each part gets a deadline and
+// comes back `unavailable` past it. `timings` (seconds) names the slow one.
+// Healthy lith parts take 4 to 8 s when they all run at once, so the deadline
+// sits well above that: it is for a stalled part, not a slow one.
+const PART_DEADLINE_MS = 15_000;
+
+async function networkReportLive({ hours = 24, scope = "all" } = {}) {
+  const timings = {};
+  const part = (name, promise) => {
+    const began = Date.now();
+    let timer;
+    const late = new Promise(resolve => {
+      timer = setTimeout(() => resolve({ unavailable: `no answer within ${PART_DEADLINE_MS / 1000} s` }), PART_DEADLINE_MS);
+    });
+    return Promise.race([promise.then(value => value, error => ({ unavailable: String(error.message || error) })), late])
+      .finally(() => { clearTimeout(timer); timings[name] = Math.round((Date.now() - began) / 100) / 10; });
+  };
   const days = Math.max(1, Math.ceil(checkedHours(hours) / 24));
   // Apple's numbers lag a day and arrive sparse, so the app parts read at
   // least a week regardless of the visit window.
   const appDays = Math.min(Math.max(days, 7), 35);
   const [visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, ga4, appStore, ios, review] = await Promise.all([
-    part(visitsReport({ hours, scope })),
-    part(journeyReport("referrers", { hours, scope, limit: 25 })),
-    part(journeyReport("pieces", { hours, scope, limit: 25 })),
-    part(journeyReport("audience", { hours, scope, limit: 12 })),
-    part(journeyReport("handles", { hours, scope, limit: 25 })),
-    part(braincellsReport({ hours, limit: 15 })),
-    part(nopaintReport({ hours }).then(nopaintSummary)),
-    part(tezosRevenue({ hours: checkedHours(hours) })),
-    part(socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
-    part(searchSummary({ days: Math.max(days, 7) })),
-    part(googleAnalytics({ days: Math.min(days, 90) })),
-    part(appDownloads({ days: appDays })),
-    part(iosUsage({ days: appDays })),
-    part(appReview()),
+    part("visits", visitsReport({ hours, scope })),
+    part("referrers", journeyReport("referrers", { hours, scope, limit: 25 })),
+    part("pieces", journeyReport("pieces", { hours, scope, limit: 25 })),
+    part("audience", journeyReport("audience", { hours, scope, limit: 12 })),
+    part("handles", journeyReport("handles", { hours, scope, limit: 25 })),
+    part("braincells", braincellsReport({ hours, limit: 15 })),
+    part("nopaint", nopaintReport({ hours }).then(nopaintSummary)),
+    part("tezos", tezosRevenue({ hours: checkedHours(hours) })),
+    part("social", socialReport({ root: REPO_ROOT, hours: checkedHours(hours, 2160) })),
+    part("search", searchSummary({ days: Math.max(days, 7) })),
+    part("googleAnalytics", googleAnalytics({ days: Math.min(days, 90) })),
+    part("appStore", appDownloads({ days: appDays })),
+    part("iosUsage", iosUsage({ days: appDays })),
+    part("review", appReview()),
   ]);
-  return { window: visits.window ?? { hours, scope }, visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
+  return { window: visits.window ?? { hours, scope }, timings, visits, referrers, pieces, audience, handles, braincells, nopaint, tezos, social, search, googleAnalytics: ga4,
     apps: { days: appDays, review, appStore: appStoreTotals(appStore), iosUsage: ios.unavailable ? ios : iosTotals(ios) } };
+}
+
+// 📸 A timer on jasellite builds the default report (24 hours, every scope)
+// every ten minutes: `node toolchain/mcp/analytics-mcp.mjs --snapshot`, set up
+// by toolchain/analytics/install-snapshot-timer.sh. Asking for that report
+// here reads the kept one in a single ssh hop. Anything else, a stale or
+// missing snapshot, or `fresh`, builds the report live.
+const SNAPSHOT_FILE = ".local/share/ac/analytics/network-report.json"; // under $HOME
+const SNAPSHOT_HOST = process.env.AC_ANALYTICS_SNAPSHOT_HOST ?? "jasellite"; // "" turns it off
+const SNAPSHOT_MAX_AGE_MS = 25 * 60_000; // two missed runs, then go live
+
+async function networkSnapshot() {
+  const { stdout } = await pexec("ssh", ["-o", "BatchMode=yes", "-o", "ConnectTimeout=4", SNAPSHOT_HOST, `cat ${SNAPSHOT_FILE}`],
+    { timeout: 6000, maxBuffer: 8 * 1024 * 1024 });
+  const { at, report } = JSON.parse(stdout);
+  const age = Date.now() - at;
+  if (!(age >= 0 && age < SNAPSHOT_MAX_AGE_MS)) throw new Error(`snapshot is ${Math.round(age / 60_000)} min old`);
+  return { snapshotAt: new Date(at).toISOString(), ...report };
+}
+
+async function networkReport({ hours = 24, scope = "all", fresh = false } = {}) {
+  if (fresh || !SNAPSHOT_HOST || Number(hours) !== 24 || scope !== "all") return networkReportLive({ hours, scope });
+  try { return await networkSnapshot(); }
+  catch (error) {
+    const reason = String(error.message || error).trim().split("\n").pop();
+    return { snapshotMissed: reason, ...(await networkReportLive({ hours, scope })) };
+  }
+}
+
+// What the timer runs. A report with most parts unavailable means this host
+// lacks its credentials; keeping the last good snapshot is better than that.
+async function writeSnapshot() {
+  const report = await networkReportLive({ hours: 24, scope: "all" });
+  const parts = [report.visits, report.referrers, report.pieces, report.audience, report.handles, report.braincells, report.nopaint,
+    report.tezos, report.social, report.search, report.googleAnalytics, report.apps.review, report.apps.appStore, report.apps.iosUsage];
+  const failed = parts.filter(value => value?.unavailable).length;
+  if (failed > parts.length / 2) throw new Error(`${failed} of ${parts.length} parts unavailable; snapshot not written`);
+  const file = join(homedir(), SNAPSHOT_FILE);
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(`${file}.tmp`, JSON.stringify({ at: Date.now(), report }));
+  await rename(`${file}.tmp`, file);
+  return `${file}: ${parts.length - failed} of ${parts.length} parts, slowest ${Math.max(...Object.values(report.timings))} s`;
 }
 
 // The review queue: every app on the account with its newest version per
@@ -328,11 +388,14 @@ async function dailyMetrics({ days = 14, appStore = true } = {}) {
 
 let ascKey;
 async function ascToken() {
-  ascKey ??= (await pexec("gpg", ["--batch", "--quiet", "--decrypt", vaultPath(`apple/AuthKey_${ASC_KEY_ID}.p8.gpg`)])).stdout;
+  // Hold the promise, not the key: parallel callers share one decrypt.
+  ascKey ??= pexec("gpg", ["--batch", "--quiet", "--decrypt", vaultPath(`apple/AuthKey_${ASC_KEY_ID}.p8.gpg`)])
+    .then(({ stdout }) => stdout, (error) => { ascKey = undefined; throw error; });
+  const key = await ascKey;
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
   const now = Math.floor(Date.now() / 1000);
   const input = `${b64({ alg: "ES256", kid: ASC_KEY_ID, typ: "JWT" })}.${b64({ iss: ASC_ISSUER, iat: now, exp: now + 1200, aud: "appstoreconnect-v1" })}`;
-  const sig = crypto.sign("sha256", Buffer.from(input), { key: ascKey, dsaEncoding: "ieee-p1363" });
+  const sig = crypto.sign("sha256", Buffer.from(input), { key, dsaEncoding: "ieee-p1363" });
   return `${input}.${sig.toString("base64url")}`;
 }
 
@@ -345,51 +408,74 @@ async function asc(path) {
 
 // Instances restate earlier dates, so for each row date only the instance
 // with the latest processingDate counts. Days with no downloads have no rows.
-async function appDownloads({ days = 7, apps = Object.keys(APPS) } = {}) {
-  days = Number(days);
-  if (!Number.isFinite(days) || days < 1 || days > 60) throw new Error("days must be 1..60");
-  const since = new Date(Date.now() - (days + 1) * 86400000).toISOString().slice(0, 10);
-  const out = {};
-  for (const name of apps) {
-    const id = APPS[name];
-    if (!id) throw new Error(`unknown app ${name}; known: ${Object.keys(APPS).join(", ")}`);
-    const requests = (await asc(`/v1/apps/${id}/analyticsReportRequests`)).data
-      .filter((r) => r.attributes.accessType === "ONGOING" && !r.attributes.stoppedDueToInactivity);
-    if (!requests.length) { out[name] = { note: "no ONGOING analytics report request" }; continue; }
-    const byDate = {}; // date -> { processed, counts }
-    for (const request of requests) {
-      const reports = await asc(`/v1/analyticsReportRequests/${request.id}/reports?filter[name]=${encodeURIComponent("App Downloads Standard")}`);
-      for (const report of reports.data) {
-        const instances = await asc(`/v1/analyticsReports/${report.id}/instances?filter[granularity]=DAILY&limit=200`);
-        for (const instance of instances.data) {
-          const processed = instance.attributes.processingDate;
-          if (processed < since) continue;
-          const segments = await asc(`/v1/analyticsReportInstances/${instance.id}/segments`);
-          const counts = {};
-          for (const segment of segments.data) {
-            const gz = Buffer.from(await (await fetchRetry(segment.attributes.url)).arrayBuffer());
-            const [head, ...lines] = zlib.gunzipSync(gz).toString().trim().split("\n");
-            const cols = head.split("\t");
-            for (const line of lines) {
-              const row = Object.fromEntries(line.split("\t").map((v, k) => [cols[k], v]));
-              const day = counts[row.Date] ??= {};
-              const key = `${row["Download Type"]} (${row.Device ?? row.Platform ?? "?"})`;
-              day[key] = (day[key] || 0) + Number(row.Counts || 0);
-            }
-          }
-          for (const [date, tally] of Object.entries(counts)) {
-            if (date < since) continue;
-            if (!byDate[date] || byDate[date].processed < processed) byDate[date] = { processed, tally };
-          }
-        }
+async function appDownloadsFor(name, since) {
+  const requests = (await asc(`/v1/apps/${APPS[name]}/analyticsReportRequests`)).data
+    .filter((r) => r.attributes.accessType === "ONGOING" && !r.attributes.stoppedDueToInactivity);
+  if (!requests.length) return { note: "no ONGOING analytics report request" };
+  const reports = (await Promise.all(requests.map((request) =>
+    asc(`/v1/analyticsReportRequests/${request.id}/reports?filter[name]=${encodeURIComponent("App Downloads Standard")}`)))).flatMap((r) => r.data);
+  const instances = (await Promise.all(reports.map((report) =>
+    asc(`/v1/analyticsReports/${report.id}/instances?filter[granularity]=DAILY&limit=200`)))).flatMap((r) => r.data)
+    .filter((instance) => instance.attributes.processingDate >= since);
+  const tallies = await Promise.all(instances.map(async (instance) => {
+    const segments = await asc(`/v1/analyticsReportInstances/${instance.id}/segments`);
+    const counts = {};
+    for (const segment of segments.data) {
+      const gz = Buffer.from(await (await fetchRetry(segment.attributes.url)).arrayBuffer());
+      const [head, ...lines] = zlib.gunzipSync(gz).toString().trim().split("\n");
+      const cols = head.split("\t");
+      for (const line of lines) {
+        const row = Object.fromEntries(line.split("\t").map((v, k) => [cols[k], v]));
+        const day = counts[row.Date] ??= {};
+        const key = `${row["Download Type"]} (${row.Device ?? row.Platform ?? "?"})`;
+        day[key] = (day[key] || 0) + Number(row.Counts || 0);
       }
     }
-    const dates = Object.keys(byDate).sort();
-    const firstTime = dates.reduce((n, d) => n + Object.entries(byDate[d].tally)
-      .filter(([k]) => k.startsWith("First-time")).reduce((m, [, v]) => m + v, 0), 0);
-    out[name] = { firstTimeDownloads: firstTime, daily: Object.fromEntries(dates.map((d) => [d, byDate[d].tally])) };
+    return { processed: instance.attributes.processingDate, counts };
+  }));
+  const byDate = {}; // date -> { processed, tally }
+  for (const { processed, counts } of tallies) for (const [date, tally] of Object.entries(counts)) {
+    if (date < since) continue;
+    if (!byDate[date] || byDate[date].processed < processed) byDate[date] = { processed, tally };
   }
-  return { since, note: "Apple's data lags about a day; dates absent from `daily` had no downloads.", apps: out };
+  const dates = Object.keys(byDate).sort();
+  const firstTime = dates.reduce((n, d) => n + Object.entries(byDate[d].tally)
+    .filter(([k]) => k.startsWith("First-time")).reduce((m, [, v]) => m + v, 0), 0);
+  return { firstTimeDownloads: firstTime, daily: Object.fromEntries(dates.map((d) => [d, byDate[d].tally])) };
+}
+
+// Apple restates these numbers about once a day, and the walk above is the
+// slowest part of network_report. Answers are kept on disk for three hours, so
+// they outlive the hub resting this server; `fresh` skips the kept answer.
+const APP_CACHE = join(homedir(), ".cache", "ac-analytics", "app-downloads.json");
+const APP_CACHE_MS = 3 * 3600_000;
+const appFlights = new Map(); // key -> the fetch in flight, shared by callers
+
+const appCacheRead = async () => { try { return JSON.parse(await readFile(APP_CACHE, "utf8")); } catch { return {}; } };
+
+async function appDownloads({ days = 7, apps = Object.keys(APPS), fresh = false } = {}) {
+  days = Number(days);
+  if (!Number.isFinite(days) || days < 1 || days > 60) throw new Error("days must be 1..60");
+  for (const name of apps) if (!APPS[name]) throw new Error(`unknown app ${name}; known: ${Object.keys(APPS).join(", ")}`);
+  const key = `${days}:${apps.join(",")}`;
+  const kept = fresh ? null : (await appCacheRead())[key];
+  if (kept && Date.now() - kept.at < APP_CACHE_MS) return { ...kept.report, cachedAt: new Date(kept.at).toISOString() };
+  if (!appFlights.has(key)) appFlights.set(key, (async () => {
+    const since = new Date(Date.now() - (days + 1) * 86400000).toISOString().slice(0, 10);
+    const rows = await Promise.all(apps.map((name) => appDownloadsFor(name, since)));
+    const report = { since, note: "Apple's data lags about a day; dates absent from `daily` had no downloads.",
+      apps: Object.fromEntries(apps.map((name, i) => [name, rows[i]])) };
+    try {
+      const now = Date.now();
+      const store = Object.fromEntries(Object.entries(await appCacheRead()).filter(([, entry]) => now - entry.at < APP_CACHE_MS));
+      store[key] = { at: now, report };
+      await mkdir(dirname(APP_CACHE), { recursive: true });
+      await writeFile(`${APP_CACHE}.${process.pid}.tmp`, JSON.stringify(store));
+      await rename(`${APP_CACHE}.${process.pid}.tmp`, APP_CACHE);
+    } catch (error) { console.error(`app-downloads cache not written: ${error.message}`); }
+    return report;
+  })().finally(() => appFlights.delete(key)));
+  return appFlights.get(key);
 }
 
 // 🔌 MCP
@@ -434,6 +520,7 @@ const TOOLS = [
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
+      fresh: { type: "boolean", description: "Build the report now instead of reading the snapshot. The default report (24 hours, all) comes from a snapshot at most 25 minutes old; snapshotAt says when it was built" },
     } },
   },
   {
@@ -568,6 +655,7 @@ const TOOLS = [
       properties: {
         days: { type: "number", description: "How many days back (default 7, max 60)" },
         apps: { type: "array", items: { type: "string", enum: Object.keys(APPS) }, description: "Default all" },
+        fresh: { type: "boolean", description: "Ask Apple again instead of using an answer kept from the last three hours (see cachedAt)" },
       },
     },
   },
@@ -632,5 +720,8 @@ async function handleMessage(message) {
 }
 
 const port = httpPort(process.argv, 0);
-if (port) serveHttp({ handleMessage, port, banner: "📈 analytics-mcp shared daemon" });
+if (process.argv.includes("--snapshot")) {
+  try { console.log(await writeSnapshot()); process.exit(0); }
+  catch (error) { console.error(String(error.message || error)); process.exit(1); }
+} else if (port) serveHttp({ handleMessage, port, banner: "📈 analytics-mcp shared daemon" });
 else serveStdio({ handleMessage, banner: "📈 analytics-mcp started (visits_report, direct_downloads, app_downloads)" });
