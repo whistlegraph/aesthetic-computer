@@ -26,7 +26,8 @@ test('settings rejects malformed and unsupported controls without applying them'
 });
 test('session socket executes the same controls, is private, and disappears on close',async t=>{
  const f=fixture(),bridge=await serveSettings(args=>f.controller.call(args));t.after(()=>bridge.close());
- assert.equal((await stat(bridge.socket)).mode&0o777,0o600);
+ if(process.platform==='win32')assert.ok(bridge.socket.startsWith('\\\\.\\pipe\\aesel-settings-'));
+ else assert.equal((await stat(bridge.socket)).mode&0o777,0o600);
  assert.equal((await callSettings({action:'read'},{socket:bridge.socket})).provider,'claude');
  assert.equal((await callSettings({action:'update',provider:'codex'},{socket:bridge.socket})).status,'queued');
  await assert.rejects(callSettings({action:'read'},{socket:''}),/outside a running session/);

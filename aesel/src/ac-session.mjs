@@ -34,11 +34,23 @@ h1{font-weight:normal;color:rgb(255,100,255)}p{color:rgb(220,180,255)}</style></
 <body><main><h1>Signed in</h1><p>Return to aesel. You can close this tab.</p></main></body></html>`;
 
 export function openInBrowser(url) {
-  const command =
-    process.env.BROWSER ||
-    (process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer.exe" : "xdg-open");
+  let command = process.env.BROWSER;
+  let args = [url];
+  const options = { stdio: "ignore", detached: true };
+  // Older Windows launchers set BROWSER=explorer.exe. Explorer can accept the
+  // request without opening a browser. Use the user's registered HTTPS handler.
+  if (process.platform === "win32" && (!command || /^explorer\.exe$/i.test(command))) {
+    command = "powershell.exe";
+    args = ["-NoProfile", "-NonInteractive", "-Command", "Start-Process -FilePath $env:AESEL_BROWSER_URL"];
+    options.env = { ...process.env, AESEL_BROWSER_URL: url };
+    options.windowsHide = true;
+  }
+  command ||= process.platform === "darwin" ? "open" : "xdg-open";
   try {
-    spawn(command, [url], { stdio: "ignore", detached: true }).unref();
+    const child = spawn(command, args, options);
+    // The login prompt also prints the link for a manual browser handoff.
+    child.on("error", () => {});
+    child.unref();
     return true;
   } catch {
     return false;

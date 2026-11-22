@@ -1,5 +1,6 @@
 // A session-local control path shared by hosted tools and the CLI MCP bridges.
 import {createServer} from 'node:http';
+import {randomUUID} from 'node:crypto';
 import {mkdtemp,chmod,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
@@ -40,7 +41,9 @@ export function createSettingsController({read,normalize,open,apply,isBusy,reify
 }
 export async function serveSettings(call){
  // Short path also fits macOS's 104-byte Unix-socket limit.
- const root=await mkdtemp(join(tmpdir(),'aesel-')),socket=join(root,'settings.sock');
+ const root=process.platform==='win32' ? null : await mkdtemp(join(tmpdir(),'aesel-'));
+ const socket=root ? join(root,'settings.sock') : `\\\\.\\pipe\\aesel-settings-${randomUUID()}`;
+ const removeRoot=async()=>{if(root)await rm(root,{recursive:true,force:true});};
  const server=createServer(async(req,res)=>{
   const send=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
   if(req.method!=='POST'||req.url!=='/settings'){send(404,{error:'Unknown control'});return;}
@@ -51,8 +54,8 @@ export async function serveSettings(call){
   }catch(error){send(400,{error:error.message});}
  });
  server.requestTimeout=10000;server.headersTimeout=10000;
- try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(socket,resolve);});await chmod(socket,0o600);}
- catch(error){server.close();await rm(root,{recursive:true,force:true});throw error;}
+ try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(socket,resolve);});if(root)await chmod(socket,0o600);}
+ catch(error){server.close();await removeRoot();throw error;}
  server.unref();
- return {socket,async close(){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await rm(root,{recursive:true,force:true});}};
+ return {socket,async close(){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));await removeRoot();}};
 }

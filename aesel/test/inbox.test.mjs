@@ -50,8 +50,12 @@ test("a line down the socket is acked, logged and emitted with a stamp", async (
   const inbox = new Inbox({ sessionId: "s1", slabHome: await home(context) });
   const socketPath = await inbox.open();
   context.after(() => inbox.close());
-  assert.equal(socketPath, join(inbox.dir, "inbox.sock"));
-  assert.equal((await stat(inbox.dir)).mode & 0o777, 0o700);
+  if (process.platform === "win32") {
+    assert.ok(socketPath.startsWith("\\\\.\\pipe\\aesel-inbox-"));
+  } else {
+    assert.equal(socketPath, join(inbox.dir, "inbox.sock"));
+    assert.equal((await stat(inbox.dir)).mode & 0o777, 0o700);
+  }
 
   const arrived = next(inbox);
   const ack = await send(socketPath, message());
@@ -65,7 +69,7 @@ test("a line down the socket is acked, logged and emitted with a stamp", async (
   const log = (await readFile(inbox.logPath, "utf8")).trim().split("\n").map(JSON.parse);
   assert.equal(log.length, 1);
   assert.equal(log[0].id, "m1");
-  assert.equal((await stat(inbox.logPath)).mode & 0o777, 0o600);
+  if (process.platform !== "win32") assert.equal((await stat(inbox.logPath)).mode & 0o777, 0o600);
 });
 
 test("malformed lines are refused with ok:false and never emitted", async (context) => {
@@ -123,7 +127,7 @@ test("messages queued in the file while the socket was down are delivered on ope
   assert.equal(got.at(-1).text, "third");
 });
 
-test("a stale socket from a dead session is replaced", async (context) => {
+test("a stale Unix socket from a dead session is replaced", { skip: process.platform === "win32" }, async (context) => {
   const root = await home(context);
   const socketPath = join(root, "inbox", "s1", "inbox.sock");
   await mkdir(join(root, "inbox", "s1"), { recursive: true, mode: 0o700 });
@@ -160,7 +164,8 @@ test("close stops listening and unlinks the socket", async (context) => {
 });
 
 test("a message id this session already holds is acked but not heard twice", async (context) => {
-  const inbox = new Inbox({ sessionId: "s1", slabHome: await home(context) });
+  const slabHome = await home(context);
+  const inbox = new Inbox({ sessionId: "s1", slabHome });
   const socketPath = await inbox.open();
   context.after(() => inbox.close());
   const heard = [];
@@ -176,7 +181,7 @@ test("a message id this session already holds is acked but not heard twice", asy
 
   // The log is the memory: a fresh Inbox on the same session still knows m1.
   await inbox.close();
-  const again = new Inbox({ sessionId: "s1", slabHome: inbox.dir.replace(/\/inbox\/s1$/, "") });
+  const again = new Inbox({ sessionId: "s1", slabHome });
   const path = await again.open();
   context.after(() => again.close());
   assert.deepEqual(await send(path, message()), { ok: true, duplicate: true });

@@ -75,7 +75,9 @@ export class Inbox extends EventEmitter {
     super();
     this.sessionId = sessionId;
     this.dir = join(slabHome, "inbox", sessionId);
-    this.socketPath = join(this.dir, "inbox.sock");
+    this.socketPath = process.platform === "win32"
+      ? `\\\\.\\pipe\\aesel-inbox-${randomUUID()}`
+      : join(this.dir, "inbox.sock");
     this.messagesPath = join(this.dir, "messages.jsonl");
     this.logPath = join(this.dir, "log.jsonl");
     this.server = null;
@@ -97,7 +99,7 @@ export class Inbox extends EventEmitter {
     mkdirSync(this.dir, { recursive: true, mode: 0o700 });
     // A socket left by a session that died is a file nobody answers; listening
     // on it would fail with EADDRINUSE, so it goes before we bind.
-    rmSync(this.socketPath, { force: true });
+    if (process.platform !== "win32") rmSync(this.socketPath, { force: true });
     this.logged = this.#countLog();
     this.seen = this.#loggedIds();
     this.server = createServer((socket) => this.#serve(socket));
@@ -109,7 +111,9 @@ export class Inbox extends EventEmitter {
       });
     });
     this.server.on("error", (error) => this.#fail(error));
-    try { chmodSync(this.socketPath, 0o600); } catch {}
+    if (process.platform !== "win32") {
+      try { chmodSync(this.socketPath, 0o600); } catch {}
+    }
     this.drainFile();
     return this.socketPath;
   }
@@ -152,7 +156,7 @@ export class Inbox extends EventEmitter {
     if (server) {
       await new Promise((resolve) => server.close(() => resolve()));
     }
-    rmSync(this.socketPath, { force: true });
+    if (process.platform !== "win32") rmSync(this.socketPath, { force: true });
   }
 
   #serve(socket) {
