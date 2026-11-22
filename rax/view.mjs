@@ -3178,7 +3178,7 @@ export async function createView(canvas) {
           rect(x + t, y - t, 0.000002, w, h, INK);
           rect(x, y, 0, w, h, color);
         };
-        if (!screenCursor && (box || pointerSource === 'mouse')) for (const sx of [-1, 1])
+        if (!screenCursor && (box || pointerSource !== 'touch')) for (const sx of [-1, 1]) // (a pad has the corners too: they are what goes green on a thing of yours)
           for (const sy of [-1, 1]) {
             // The corner's outer pixel, then arms running inward.
             const x = box ? (sx < 0 ? box.left - t : box.right) : sx < 0 ? -half - t : half,
