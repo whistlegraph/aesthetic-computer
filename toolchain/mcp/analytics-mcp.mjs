@@ -217,10 +217,44 @@ function reportPart(name, { hours, scope }) {
   }
 }
 
+// The Google and review-queue parts take 0.5 to 6 s depending on how busy this
+// Mac is, and change slowly. Beside a snapshot they are kept on disk: an
+// answer under fifteen minutes old is used as is, an older one (up to twelve
+// hours) is still returned at once while a new one is fetched behind it, and
+// the report's `kept` says when each was built. App Store downloads keep
+// themselves for three hours.
+const PART_KEEP_MS = 15 * 60_000;
+const PART_STALE_MS = 12 * 3600_000;
+const partRefreshes = new Map(); // name -> the fetch in flight
+async function keptPart(name, build) {
+  const file = join(homedir(), ".cache", "ac-analytics", `report-${name}.json`);
+  const refresh = () => {
+    if (!partRefreshes.has(name)) partRefreshes.set(name, (async () => {
+      const value = await build();
+      const at = Date.now();
+      try {
+        await mkdir(dirname(file), { recursive: true });
+        await writeFile(`${file}.${process.pid}.tmp`, JSON.stringify({ at, value }));
+        await rename(`${file}.${process.pid}.tmp`, file);
+      } catch (error) { console.error(`${name} not kept: ${error.message}`); }
+      return { value };
+    })().finally(() => partRefreshes.delete(name)));
+    return partRefreshes.get(name);
+  };
+  let kept;
+  try { kept = JSON.parse(await readFile(file, "utf8")); } catch {}
+  const age = kept ? Date.now() - kept.at : Infinity;
+  if (!(age >= 0 && age < PART_STALE_MS)) return refresh();
+  if (age >= PART_KEEP_MS) refresh().catch(() => {}); // the kept answer stands if this fails
+  return { value: kept.value, at: kept.at };
+}
+
 // Run the named parts at once. Each gets the deadline and a timing in seconds.
-async function runParts(names, { hours = 24, scope = "all" } = {}) {
+// A part past its deadline keeps running, so with `keep` its answer is still
+// on disk for the next call.
+async function runParts(names, { hours = 24, scope = "all" } = {}, { keep = false } = {}) {
   hours = checkedHours(hours);
-  const values = {}, timings = {};
+  const values = {}, timings = {}, kept = {};
   await Promise.all(names.map(async name => {
     const began = Date.now();
     let timer;
@@ -228,22 +262,25 @@ async function runParts(names, { hours = 24, scope = "all" } = {}) {
       timer = setTimeout(() => resolve({ unavailable: `no answer within ${PART_DEADLINE_MS / 1000} s` }), PART_DEADLINE_MS);
     });
     const failed = error => ({ unavailable: String(error.message || error) });
-    let work;
-    try { work = reportPart(name, { hours, scope }).then(value => value, failed); } catch (error) { work = failed(error); }
-    values[name] = await Promise.race([work, late]);
+    const build = async () => reportPart(name, { hours, scope });
+    const work = (keep && name !== "appStore" ? keptPart(name, build) : build().then(value => ({ value })))
+      .then(answer => answer, error => ({ value: failed(error) }));
+    const answer = await Promise.race([work, late.then(value => ({ value }))]);
+    values[name] = answer.value;
+    if (answer.at) kept[name] = new Date(answer.at).toISOString();
     clearTimeout(timer);
     timings[name] = Math.round((Date.now() - began) / 100) / 10;
   }));
-  return { values, timings };
+  return { values, timings, kept };
 }
 
-function assembleReport({ values: v, timings }, { hours = 24, scope = "all" } = {}) {
-  return { window: v.visits.window ?? { hours, scope }, timings, visits: v.visits, referrers: v.referrers, pieces: v.pieces, audience: v.audience,
+function assembleReport({ values: v, timings, kept = {} }, { hours = 24, scope = "all" } = {}) {
+  return { window: v.visits.window ?? { hours, scope }, timings, ...(Object.keys(kept).length ? { kept } : {}), visits: v.visits, referrers: v.referrers, pieces: v.pieces, audience: v.audience,
     handles: v.handles, braincells: v.braincells, nopaint: v.nopaint, tezos: v.tezos, social: v.social, search: v.search, googleAnalytics: v.googleAnalytics,
     apps: { days: reportAppDays(Number(hours)), review: v.review, appStore: appStoreTotals(v.appStore), iosUsage: v.iosUsage.unavailable ? v.iosUsage : iosTotals(v.iosUsage) } };
 }
 
-const mergeParts = (...sets) => ({ values: Object.assign({}, ...sets.map(set => set.values)), timings: Object.assign({}, ...sets.map(set => set.timings)) });
+const mergeParts = (...sets) => Object.fromEntries(["values", "timings", "kept"].map(key => [key, Object.assign({}, ...sets.map(set => set[key]))]));
 
 // 📸 A timer on jasellite builds most parts of the default report (24
 // hours, every scope) every ten minutes: `node toolchain/mcp/analytics-mcp.mjs
@@ -268,7 +305,7 @@ async function networkSnapshot() {
 async function networkReport({ hours = 24, scope = "all", fresh = false } = {}) {
   const options = { hours, scope };
   if (fresh || !SNAPSHOT_HOST || Number(hours) !== 24 || scope !== "all") return assembleReport(await runParts([...SNAPSHOT_PARTS, ...VAULT_PARTS], options), options);
-  const [kept, vault] = await Promise.all([networkSnapshot().catch(error => error), runParts(VAULT_PARTS, options)]);
+  const [kept, vault] = await Promise.all([networkSnapshot().catch(error => error), runParts(VAULT_PARTS, options, { keep: true })]);
   if (!(kept instanceof Error)) return { snapshotAt: new Date(kept.at).toISOString(), ...assembleReport(mergeParts(kept, vault), options) };
   const reason = String(kept.message || kept).trim().split("\n").pop();
   return { snapshotMissed: reason, ...assembleReport(mergeParts(await runParts(SNAPSHOT_PARTS, options), vault), options) };
@@ -543,7 +580,7 @@ const TOOLS = [
     inputSchema: { type: "object", additionalProperties: false, properties: {
       hours: { type: "number", exclusiveMinimum: 0, maximum: 840, description: "Lookback hours; default 24" },
       scope: { type: "string", enum: ["studio", "clients", "all"], description: "Visit scope; default all" },
-      fresh: { type: "boolean", description: "Build every part now. The default report (24 hours, all) takes its visit, audience, Braincell, No Paint, Tezos, iOS and social parts from a snapshot at most 25 minutes old (snapshotAt says when it was built); Google and App Store parts are always current" },
+      fresh: { type: "boolean", description: "Build every part now. The default report (24 hours, all) takes its visit, audience, Braincell, No Paint, Tezos, iOS and social parts from a snapshot at most 25 minutes old (snapshotAt says when it was built); the Google and review-queue parts may be kept answers, dated in `kept`" },
     } },
   },
   {
