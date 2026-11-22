@@ -87,16 +87,19 @@ export function model(build) {
     data[n++] = ink[1];
     data[n++] = ink[2];
   };
+  // 🌈 A colour, or one for each corner ([a, b, c]; a quad's [a, b, c, d]): the
+  // screen blends between corners, so a gradient costs what a flat face does.
   const tri = (a, b, c, color) => {
-    const ink = colorOf(color);
+    const each = Array.isArray(color), ink = each ? null : colorOf(color);
     room(18);
-    vertex(a[0], a[1], a[2], ink);
-    vertex(b[0], b[1], b[2], ink);
-    vertex(c[0], c[1], c[2], ink);
+    vertex(a[0], a[1], a[2], each ? colorOf(color[0]) : ink);
+    vertex(b[0], b[1], b[2], each ? colorOf(color[1]) : ink);
+    vertex(c[0], c[1], c[2], each ? colorOf(color[2]) : ink);
   };
   const quad = (a, b, c, d, color) => {
-    tri(a, b, c, color);
-    tri(a, c, d, color);
+    const each = Array.isArray(color);
+    tri(a, b, c, each ? [color[0], color[1], color[2]] : color);
+    tri(a, c, d, each ? [color[0], color[2], color[3]] : color);
   };
   const rect = (x, y, z, w, h, color) => {
     const ink = colorOf(color),

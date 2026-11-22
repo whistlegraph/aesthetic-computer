@@ -1174,7 +1174,7 @@ export async function createView(canvas) {
   const SOLIDS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('volumes');
   // (?lens=0.3, ?planet=0: for looking at what each bend does to the picture.)
   const TRY = (() => { const q = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new Map(); const n = (k) => (q.has(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : null); return { lens: n('lens'), planet: n('planet') }; })();
-  const MOON_SHADE = [0.8, 0.82, 0.9]; // how dark the moon's shadows are, beside the sun's (shadow.mjs shadeFor)
+  const MOON_SHADE = [0.9, 0.91, 0.95]; // how dark the moon's shadows are, beside the sun's (shadow.mjs shadeFor)
   const SUN_AT = typeof location !== 'undefined' && new URLSearchParams(location.search).has('sun') ? Number(new URLSearchParams(location.search).get('sun')) : null; // (?sun=0.42: a fixed time of day to light by)
   let shadowReach = 45, reachCut = 0; // metres from the eye a box still casts now (SHADOW_SIGHT at the most), and the frame it was last drawn in
   const castLate = new WeakMap(); let castFrame = 0; // boxes whose solid did not fit the frame, and the frame each may be tried again

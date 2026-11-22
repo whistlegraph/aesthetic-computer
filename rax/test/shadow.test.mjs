@@ -68,6 +68,6 @@ test('shadows reach the ground and no further than they must; a low sun casts no
   assert.equal(reach(3, { x: 1, y: -0.001, z: 0 }), 70, 'held, however low the sun');
   assert.equal(shadeFor(0.02), null);
   assert.equal(shadeFor(-0.5), null);
-  assert.deepEqual(shadeFor(0.9), [0.6, 0.63, 0.74]);
-  assert.ok(shadeFor(0.15)[0] > 0.6 && shadeFor(0.15)[0] < 1, 'fading in after sunrise');
+  assert.deepEqual(shadeFor(0.9), [0.8, 0.82, 0.88]);
+  assert.ok(shadeFor(0.15)[0] > 0.8 && shadeFor(0.15)[0] < 1, 'fading in after sunrise');
 });

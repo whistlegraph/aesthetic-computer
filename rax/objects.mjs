@@ -288,6 +288,8 @@ Signs, labels, shop fronts, name plates and anything asked to SAY something ALWA
 never blank tiles: (ink black) (move 0 1.9 -.06 (text "OPEN" .4)) letters a board whose front is at z -.05.
 Put text .01 in front of its surface, one text per line of words, and keep each line narrower than the surface.
 (ink white|black|gray|red|orange|yellow|green|cyan|blue|purple|pink|brown) or (ink r g b) with channels 0..255.
+Gradients: (fade pink blue) or (fade r g b r g b) is an ink that runs from the first colour at the bottom to the second at the top
+of what it paints; a last word x or z runs it sideways or front to back, e.g. (fade orange purple x). Use it for skies, glass, sunsets, glows.
 Transforms: (move x y z forms...), (rotate x|y|z radians forms...), (scale x y z forms...).
 Bindings: (def name constant), (let name expression). (repeat N i forms...) repeats 1..16 times.
 Math: + - * / sin cos abs min max, pi, tau. time is shared seconds. Use sin/cos for bounded movement.

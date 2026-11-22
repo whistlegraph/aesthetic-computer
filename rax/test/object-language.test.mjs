@@ -175,3 +175,33 @@ test('text letters a sign as one shape', () => {
   assert.throws(() => parseSource('; A\n(text "héllo")'), /cannot letter/);
   assert.throws(() => parseSource('; A\n(text "HI" (sin time))'), /constant/);
 });
+
+test('a fade paints a gradient: each corner its own colour, from the first at the bottom to the second at the top', () => {
+  const corners = (source) => {
+    const v = sourceFrame(parseSource(source), 0).vertices, out = [];
+    for (let i = 0; i < v.length; i += 6) out.push({ x: v[i], y: v[i + 1], z: v[i + 2], r: v[i + 3], g: v[i + 4], b: v[i + 5] });
+    return out;
+  };
+  // A wall: red at its foot, blue at its head. (A face's light dims all three channels alike.)
+  const wall = corners('; Wall\n(fade 255 0 0 0 0 255) (slab -1 0 0 1 2 .2)');
+  assert.equal(wall.length, 36);
+  for (const c of wall) {
+    assert.ok(c.g === 0 && (c.y === 0 ? c.r > 0.7 && c.b === 0 : c.b > 0.7 && c.r === 0), JSON.stringify(c));
+  }
+  // The same number of triangles as a flat ink: a gradient adds none.
+  assert.equal(corners('; Wall\n(ink red) (slab -1 0 0 1 2 .2)').length, wall.length);
+  // By name, along x, across two shapes: one run over both, halfway where they meet.
+  const pair = corners('; Pair\n(fade white black x) (slab -2 0 0 0 1 1) (slab 0 0 0 2 1 1)');
+  const top = (x) => pair.filter((c) => c.x === x && c.y === 1 && c.z === 0).map((c) => c.r);
+  const [west, mid, east] = [top(-2), top(0), top(2)].map((seen) => Math.max(...seen));
+  assert.ok(west > mid && mid > east && east === 0, `${west} > ${mid} > ${east}`);
+  assert.ok(Math.abs(mid - west / 2) < 0.02, 'the seam is the middle of the run');
+  // An ink after it is flat again, and a fade on a moving part goes with the part.
+  const mixed = corners('; Mixed\n(fade yellow blue) (move 0 (sin time) 0 (slab 0 0 0 1 1 1)) (ink green) (slab 2 0 0 3 1 1)');
+  assert.ok(mixed.filter((c) => c.x >= 2).every((c) => c.r > 0 && c.r < 0.16 && c.g > c.b));
+  const later = (() => { const v = sourceFrame(parseSource('; Mixed\n(fade yellow blue) (move 0 (sin time) 0 (slab 0 0 0 1 1 1)) (ink green) (slab 2 0 0 3 1 1)'), 1).vertices; return Array.from(v); })();
+  const lowest = Math.min(...later.filter((_, i) => i % 6 === 1 && later[i - 1] <= 1));
+  for (let i = 0; i < later.length; i += 6) if (later[i] <= 1 && later[i + 1] === lowest) assert.ok(later[i + 5] === 0 && later[i + 3] > 0.7, 'still yellow at its own foot, wherever it has got to');
+  assert.throws(() => parseSource('; Bad\n(fade red) (slab 0 0 0 1 1 1)'), /two colours/);
+  assert.throws(() => parseSource('; Bad\n(fade 0 0 300 red) (slab 0 0 0 1 1 1)'), /two colours/);
+});

@@ -70,7 +70,7 @@ export const reach = (top, light, most = 70) => Math.min(most, (top + 2) / Math.
 
 // How dark the shadows are for a sun at this height (its unit y): none near
 // the horizon, full once it is well up. Returns null when nothing is cast.
-export function shadeFor(sunY, full = [0.6, 0.63, 0.74]) {
+export function shadeFor(sunY, full = [0.8, 0.82, 0.88]) {
   if (sunY < 0.08) return null;
   const k = Math.min(1, (sunY - 0.08) / 0.25);
   return full.map((c) => 1 - (1 - c) * k);

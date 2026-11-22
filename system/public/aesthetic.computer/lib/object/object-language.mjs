@@ -3,6 +3,7 @@ import { read, compile, objectLight } from './object-compiler.mjs';
 export const OBJECT_FORMAT = 'oskiewar-object-v1';
 const cache = new Map();
 const identity = [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1];
+const FADE = 1000; // an ink's red at or over this names a fade (admit `fade`), never a colour
 const colors = {
   white: [255, 255, 255],
   black: [0, 0, 0],
@@ -242,6 +243,7 @@ function admit(source, lenient = false) {
   const tones = [];
   // Fur per primitive (null when bare), in box order.
   const furs = [];
+  const fades = [];
   let fur = null;
   const node = (parent, text) => {
     nodes.push({ id: nodes.length, parent, text, boxes: [] });
@@ -284,7 +286,7 @@ function admit(source, lenient = false) {
       // (fur length [density] forms...): strands grow from the surfaces of
       // the shapes inside, along their outward normals. Visual only.
       if (op === 'fur') {
-        const numeric = args.filter((a) => typeof a === 'number' || (Array.isArray(a) && !['slab', 'orb', 'capsule', 'tri', 'quad', 'move', 'rotate', 'scale', 'ink', 'repeat', 'let', 'def', 'fur', 'tone', 'text'].includes(a[0])));
+        const numeric = args.filter((a) => typeof a === 'number' || (Array.isArray(a) && !['slab', 'orb', 'capsule', 'tri', 'quad', 'move', 'rotate', 'scale', 'ink', 'fade', 'repeat', 'let', 'def', 'fur', 'tone', 'text'].includes(a[0])));
         const n = Math.min(2, numeric.length);
         const values = args.slice(0, n).map((a) => expression(a, local));
         if (!n || values.some((v) => !exact(v.range)))
@@ -347,6 +349,7 @@ function admit(source, lenient = false) {
                   'rotate',
                   'scale',
                   'ink',
+                  'fade',
                   'let',
                   'def',
                   'repeat',
@@ -398,6 +401,29 @@ function admit(source, lenient = false) {
         if (values.length !== 3 || values.some((v) => v < 0 || v > 255))
           fail('ink needs RGB values from 0 to 255');
         out.push(['ink', ...values]);
+        continue;
+      }
+      // 🌈 (fade from to [x|y|z]): an ink that runs from one colour to another
+      // across whatever it paints, up y unless another axis is named. Each
+      // colour is a name or r g b. It costs nothing to draw: a triangle's
+      // corners carry their own colours and the screen blends between them.
+      if (op === 'fade') {
+        const rest = [...args], ends = [];
+        const axis = ['x', 'y', 'z'].includes(rest.at(-1)) ? 'xyz'.indexOf(rest.pop()) : 1;
+        while (rest.length && ends.length < 2) {
+          if (typeof rest[0] === 'string' && colors[rest[0]]) { ends.push(colors[rest.shift()]); continue; }
+          const rgb = rest.splice(0, 3).map((a) => {
+            const e = expression(a, local);
+            if (!exact(e.range)) fail('Fade must be constant');
+            return e.range[0];
+          });
+          if (rgb.length !== 3 || rgb.some((v) => !(v >= 0 && v <= 255))) fail('fade needs two colours: names, or RGB values from 0 to 255');
+          ends.push(rgb);
+        }
+        if (ends.length !== 2 || rest.length) fail('fade needs two colours, then an optional axis x, y or z');
+        if (fades.length >= 32) fail('Object has too many fades');
+        fades.push({ from: ends[0], to: ends[1], axis });
+        out.push(['ink', FADE + fades.length - 1, 0, 0]); // (meshData reads it back)
         continue;
       }
       // (tone frequency [wave] [volume]): an oscillator at this point in the
@@ -559,7 +585,7 @@ function admit(source, lenient = false) {
   }
   const plan = body(program, env);
   if (!count) fail('Object needs at least one shape');
-  return { plan, boxes, animated, extent, tree: nodes, tones, furs };
+  return { plan, boxes, animated, extent, tree: nodes, tones, furs, fades };
 }
 function boundsOf(points) {
   return [0, 1, 2].map((i) => {
@@ -572,7 +598,18 @@ function boundsOf(points) {
     return [lo, hi];
   });
 }
-function meshData(mesh) {
+// 🌈 A fade's triangles are marked: their corners are coloured as they are
+// drawn (`compiled`), by where each lay in the whole object at rest.
+function faded(triangles, fades) {
+  for (const t of triangles) {
+    const fade = t.color[0] >= FADE ? fades[t.color[0] - FADE] : null;
+    if (!fade) continue;
+    t.fade = fade;
+    t.color = [0, 1, 2].map((c) => (fade.from[c] + fade.to[c]) / 2); // (its middle, for whoever wants one colour)
+  }
+  return triangles;
+}
+function meshData(mesh, fades = []) {
   const triangles = [];
   for (let i = 0; i < mesh.faces.length; i += 10) {
     const f = mesh.faces.slice(i, i + 10);
@@ -588,9 +625,9 @@ function meshData(mesh) {
         normal: Array.from(f.slice(7, 10)),
       });
   }
-  return { triangles, bounds: boundsOf(mesh.vertices) };
+  return { triangles: faded(triangles, fades), bounds: boundsOf(mesh.vertices) };
 }
-function sketchData(sketch) {
+function sketchData(sketch, fades = []) {
   const triangles = [],
     all = [];
   let i = 0;
@@ -614,7 +651,7 @@ function sketchData(sketch) {
       });
     i += 13 + n * 3;
   }
-  return { triangles, bounds: boundsOf(all) };
+  return { triangles: faded(triangles, fades), bounds: boundsOf(all) };
 }
 function compiled(source) {
   if (cache.has(source)) {
@@ -625,8 +662,8 @@ function compiled(source) {
   }
   const accepted = admit(source),
     run = compile(accepted.plan, 'rax'),
-    meshes = run.meshes.map(meshData),
-    sketches = run.sketches.map(sketchData);
+    meshes = run.meshes.map((m) => meshData(m, accepted.fades)),
+    sketches = run.sketches.map((k) => sketchData(k, accepted.fades));
   let vertices = new Float64Array(512 * 18),
     length = 0,
     boxes = [],
@@ -658,7 +695,8 @@ function compiled(source) {
       z: (minZ + maxZ) / 2, w: maxX - minX, h: maxY - minY,
       d: maxZ - minZ, color: 0xc0c0c0 });
     if (!render) return;
-    const start = length;
+    const start = length, runs = fadeRuns && fadeRuns[boxes.length - 1];
+    let corner = 0;
     for (const t of part.triangles) {
       if (length + 18 > vertices.length) fail('Object exceeds 512 triangles');
       const nx = t.normal[0] * xx + t.normal[1] * yx + t.normal[2] * zx,
@@ -667,9 +705,15 @@ function compiled(source) {
         norm = Math.hypot(nx, ny, nz);
       const shade = norm ? 0.72 + 0.28 * Math.max(0,
         (nx * objectLight[0] + ny * objectLight[1] + nz * objectLight[2]) / norm) : 1;
-      const red = (t.color[0] * shade) / 255,
-        green = (t.color[1] * shade) / 255, blue = (t.color[2] * shade) / 255;
+      const light = shade / 255, fade = runs && t.fade, from = fade && fade.from, to = fade && fade.to;
+      let red = t.color[0] * light, green = t.color[1] * light, blue = t.color[2] * light;
       for (let i = 0; i < 9; i += 3) {
+        if (fade) {
+          const k = runs[corner + i / 3];
+          red = (from[0] + (to[0] - from[0]) * k) * light;
+          green = (from[1] + (to[1] - from[1]) * k) * light;
+          blue = (from[2] + (to[2] - from[2]) * k) * light;
+        }
         const x = t.points[i], y = t.points[i + 1], z = t.points[i + 2];
         vertices[length++] = ox + x * xx + y * yx + z * zx;
         vertices[length++] = oy + x * xy + y * yy + z * zy;
@@ -678,8 +722,39 @@ function compiled(source) {
         vertices[length++] = green;
         vertices[length++] = blue;
       }
+      corner += 3;
     }
     ranges[boxes.length - 1] = [start, length];
+  }
+  // 🌈 A fade is one run across all it paints in the object as it stands at
+  // rest (time 0), and a part that moves takes its colours with it: every
+  // corner's place in the run (0 to 1) is worked out once, here, part by part
+  // in the order they are drawn, and drawing only looks it up.
+  let fadeRuns = null;
+  if (accepted.fades.length) {
+    const spans = new Map(), placed = [];
+    const note = (part, m, at) => {
+      const along = new Float32Array(part.triangles.length * 3);
+      part.triangles.forEach((t, n) => {
+        if (!t.fade) return;
+        const a = t.fade.axis, span = spans.get(t.fade) || spans.set(t.fade, [Infinity, -Infinity]).get(t.fade);
+        for (let i = 0; i < 3; i++) {
+          const v = m[at + a] + t.points[i * 3] * m[at + 3 + a] + t.points[i * 3 + 1] * m[at + 6 + a] + t.points[i * 3 + 2] * m[at + 9 + a];
+          along[n * 3 + i] = v;
+          span[0] = Math.min(span[0], v); span[1] = Math.max(span[1], v);
+        }
+      });
+      placed.push([part, along]);
+    };
+    run({ time: 0 }, identity, { model: (_r, id, _m, _f, m, at) => note(meshes[id], m, at), sketch: (id, m, at) => note(sketches[id], m, at), face: () => {} });
+    fadeRuns = placed.map(([part, along]) => {
+      part.triangles.forEach((t, n) => {
+        if (!t.fade) return;
+        const [lo, hi] = spans.get(t.fade);
+        for (let i = n * 3; i < n * 3 + 3; i++) along[i] = hi > lo ? (along[i] - lo) / (hi - lo) : 0;
+      });
+      return along;
+    });
   }
   const out = {
     model: (_radius, id, _mid, _far, m, at) => emit(meshes[id], m, at),
