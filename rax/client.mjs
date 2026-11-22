@@ -205,6 +205,9 @@ function tendKiosk(panel) {
   };
   panel.act = (name, px, py, device, pointer = 1) => under(pointer, name, () => act(name, px, py, device, pointer));
   panel.hear = (name, px, py, pointer) => under(pointer, name, () => hear(name, px, py, pointer));
+  // ⌨️ A key held on it is a hand on it, as a pointer is: its note is heard while it is down and ended when it comes up.
+  const key = panel.key;
+  panel.key = (way, e) => under(`key:${e.code}`, way === 'down' ? 'touch' : 'lift', () => key.call(panel, way, e));
   return panel;
 }
 // ↻ A kiosk's piece begun again from nothing: a fresh load of its disk boots on the same screen, its voices are ended, and its count of what has been done to it starts over. Asked for by pressing its name (`tell`: the room is told, and the server forgets what was done to it), heard from someone else who did, or found on coming in (the server's `epoch` for it is past this page's).
@@ -2731,7 +2734,8 @@ document.addEventListener('keydown', (e) => {
     if (!ws || ws.readyState === WebSocket.CLOSED) connect();
     notice = '';
   }
-  if (CONTROL_KEYS.includes(e.code)) e.preventDefault();
+  // (A letter is rax's too — C's lens, F, Q — and one left to the page is an error ding on every repeat in AC's Mac app.)
+  if (CONTROL_KEYS.includes(e.code) || (e.key.length === 1 && !e.metaKey && !e.ctrlKey)) e.preventDefault();
   keys.add(e.code);
   if (seat >= 0 && e.code === 'Space' && !e.repeat) {
     jumpQueued = true;
