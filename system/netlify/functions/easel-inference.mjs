@@ -34,7 +34,7 @@ import { stream } from "@netlify/functions";
 import { timingSafeEqual } from "node:crypto";
 import { inferenceProviderFailure } from "../../backend/easel-provider-error.mjs";
 import { relayInference } from "../../backend/easel-stream.mjs";
-import { requestInference } from "../../backend/easel-provider.mjs";
+import { requestHostedInference } from "../../backend/easel-provider.mjs";
 import { ANTHROPIC_DIRECT, EASEL_MODELS as MODELS, inferenceRequest, inferenceBudgetFailure } from "../../backend/easel-policy.mjs";
 
 // A coarse client label for the Braincell ledger: an explicit x-ac-client, or
@@ -170,20 +170,19 @@ export const handler = stream(async (event) => {
     await withWallets(w=>settleDurably(paidHold,braincells,w));
   };
 
-  console.log(`🎨 easel @${handle} — ${MODELS[model].label}${direct ? " (anthropic)" : ""}${budget ? ` · ${budget.remaining} left` : ""}`);
-
   const controller = new AbortController();
   const {INFERENCE_DEADLINE_MS}=await import("../../backend/easel-paid-credits.mjs");
   const deadline=setTimeout(()=>controller.abort(),INFERENCE_DEADLINE_MS);
   deadline.unref?.();
-  let upstream;
-  try { upstream = await requestInference({
+  let upstream, provider;
+  try { ({ response: upstream, provider } = await requestHostedInference({
     model, maxTokens, body, reasoning, thinking, credits, key,
     signal: controller.signal,
-  });
+  }));
 
   } catch(error) { clearTimeout(deadline); await settlePaid(0); return fail(502,"Inference provider could not be reached."); }
 
+  console.log(`🎨 easel @${handle} — ${MODELS[model].label} (${provider})${budget ? ` · ${budget.remaining} left` : ""}`);
   if (!upstream.ok) {
     clearTimeout(deadline);
     await settlePaid(0);
@@ -202,7 +201,7 @@ export const handler = stream(async (event) => {
     onUsage: async (tokens, usage) => {
       const { recordUsage } = await import("../../backend/ai-budget.mjs");
       const {usageBraincells,reservationSize,anthropicCost}=await import("../../backend/easel-paid-credits.mjs");
-      const braincells=usageBraincells({model,tokens,cost:direct?anthropicCost(model,usage):usage?.cost,
+      const braincells=usageBraincells({model,tokens,cost:provider==="anthropic"?anthropicCost(model,usage):usage?.cost,
         inputBound:paidHold?.inputBound??reservationSize(body,0)});
       if(paidHold) await settlePaid(braincells);
       else await recordUsage(handle, braincells, { model });

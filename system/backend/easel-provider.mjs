@@ -40,3 +40,19 @@ export function requestInference(options, fetchImpl = fetch) {
   const { url, init } = inferenceProviderRequest(options);
   return fetchImpl(url, init);
 }
+
+// A direct billing refusal precedes generation. Retry the same model once on
+// AC's router account, and tell the meter which provider actually served it.
+export async function requestHostedInference(options, fetchImpl = fetch) {
+  const direct = Boolean(options.credits && ANTHROPIC_DIRECT[options.model]);
+  const response = await requestInference(options, fetchImpl);
+  if (direct && options.key && [400, 402].includes(response.status)) {
+    const detail = await response.clone().json().catch(() => null);
+    if (/credit balance is too low/i.test(detail?.error?.message || "")) {
+      await response.body?.cancel();
+      const routed = await requestInference({ ...options, credits: undefined }, fetchImpl);
+      return { response: routed, provider: "openrouter" };
+    }
+  }
+  return { response, provider: direct ? "anthropic" : "openrouter" };
+}

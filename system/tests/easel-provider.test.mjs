@@ -1,9 +1,40 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { inferenceProviderRequest, requestInference } from "../backend/easel-provider.mjs";
+import { inferenceProviderRequest, requestHostedInference, requestInference } from "../backend/easel-provider.mjs";
 import { drawSketch } from "../backend/aesel-sketch.mjs";
 
 const body = { system: "Draw", messages: [{ role: "user", content: "otter" }], tools: [{ name: "draw" }] };
+test("direct credit refusal retries Sonnet on OpenRouter and identifies the billing source", async () => {
+  const model = "anthropic/claude-sonnet-5.5";
+  const requests = [];
+  const { response, provider } = await requestHostedInference({ model, body, credits: "direct", key: "router", maxTokens: 50 }, async (url, init) => {
+    requests.push({ url, init });
+    return requests.length === 1
+      ? Response.json({ error: { message: "Your credit balance is too low to access the Anthropic API." } }, { status: 400 })
+      : new Response("stream");
+  });
+  assert.equal(await response.text(), "stream");
+  assert.equal(provider, "openrouter");
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1].url, "https://openrouter.ai/api/v1/messages");
+  assert.equal(JSON.parse(requests[1].init.body).model, model);
+  assert.deepEqual(JSON.parse(requests[1].init.body).tools, body.tools);
+  assert.equal(requests[1].init.headers["x-api-key"], undefined);
+});
+
+test("bad input and in-stream errors do not replay a request", async () => {
+  for (const status of [400, 200]) {
+    let calls = 0;
+    const { response, provider } = await requestHostedInference({ model: "anthropic/claude-sonnet-5.5", body, credits: "direct", key: "router" }, () => {
+      calls++;
+      return status === 400 ? Response.json({ error: { message: "Invalid input" } }, { status }) : new Response("event: error");
+    });
+    assert.equal(calls, 1);
+    assert.equal(provider, "anthropic");
+    assert.equal(response.status, status);
+    assert.ok(await response.text());
+  }
+});
 test("hosted Aesel retains direct Anthropic routing, thinking and cancellation", () => {
   const controller = new AbortController();
   const request = inferenceProviderRequest({ model: "anthropic/claude-sonnet-5.5", maxTokens: 8192,
