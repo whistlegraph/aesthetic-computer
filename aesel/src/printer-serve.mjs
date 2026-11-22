@@ -292,6 +292,8 @@ export async function serve(harness, launcher, { out = process.stdout, input = p
         kept = path.join(folder, printName(sender, harness.name, goal.ext, new Date(Date.now() + (event.copy || 1) - 1)));
         copyFileSync(event.file, kept);
       } catch { kept = event.file; }
+      // A sound is heard as it comes out: there is nothing to look at.
+      if (goal.as === "score" && process.platform === "darwin") spawn("afplay", [kept], { stdio: "ignore" });
       state.prints.push({ n: state.prints.length + 1, at: clock(), name: state.job?.name || "print", from: sender, file: path.basename(kept), path: kept });
       log(`  ✓ ${kept.replace(homedir(), "~")} (${Math.round((Date.now() - started) / 1000)} s)`);
       if (++printed >= (event.copies || 1)) { state.job = null; ink(); }
