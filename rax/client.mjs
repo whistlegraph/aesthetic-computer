@@ -3600,7 +3600,10 @@ function step(now) {
     const travel = clamp((speed - 0.1) / 10, 0, 1);
     const turn = clamp(angle / Math.max(elapsed, 1 / 240) / 145, 0, 1);
     sfx.motion(travel, turn, seat >= 0);
-    lastMotionLook = { room, seat, life: movingBody.life, yaw, pitch };
+    // 🦶 A landing is heard: off the ground for a moment and falling, then on it (a step off a kerb is not one).
+    const aloft = seat >= 0 && !movingBody.onGround && !movingBody.swimming && !movingBody.boat;
+    if (continuous && prev.aloftAt != null && !aloft && movingBody.onGround && performance.now() - prev.aloftAt > 180 && prev.vy < -1.5) sfx.land(clamp(-prev.vy / 14, 0, 1));
+    lastMotionLook = { room, seat, life: movingBody.life, yaw, pitch, vy: movingBody.vy || 0, aloftAt: aloft ? (continuous && prev.aloftAt != null ? prev.aloftAt : performance.now()) : null };
   } else if (lastMotionLook) {
     lastMotionLook = null;
     sfx.motion();

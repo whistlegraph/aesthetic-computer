@@ -193,12 +193,34 @@ export class Sfx {
         return { tone, out };
       });
     }
+    // 🌬️ And the look's air: a band of noise that opens and brightens with the turn, over the hum.
+    if (!this.lookAir && turn > 0) {
+      const rate = a.sampleRate, buffer = a.createBuffer(1, rate, rate), data = buffer.getChannelData(0);
+      for (let i = 0; i < rate; i++) data[i] = Math.random() * 2 - 1;
+      const src = a.createBufferSource(), band = a.createBiquadFilter(), out = a.createGain();
+      src.buffer = buffer;
+      src.loop = true;
+      band.type = 'bandpass';
+      band.frequency.value = 500;
+      band.Q.value = 0.7;
+      out.gain.value = 0;
+      src.connect(band).connect(out).connect(a.destination);
+      src.start();
+      this.lookAir = { band, out };
+    }
+    if (this.lookAir) {
+      const gain = this.lookAir.out.gain;
+      this.lookAir.band.frequency.setTargetAtTime(450 + 900 * turn, t, 0.05);
+      gain.cancelScheduledValues(t);
+      gain.setTargetAtTime(0.03 * Math.sqrt(turn) * MASTER, t, 0.04);
+      if (turn) gain.setTargetAtTime(0, t + 0.15, 0.06);
+    }
     const [body, head] = this.motionVoices;
     body.tone.frequency.setTargetAtTime(125 + 85 * travel, t, 0.09);
-    head.tone.frequency.setTargetAtTime(360 + 260 * turn, t, 0.035);
+    head.tone.frequency.setTargetAtTime(150 + 110 * turn, t, 0.035); // (a low hum for the look: it was 360 to 620 Hz, a whine)
     // Give each frame a short audio-clock lease. A suspended render loop
     // releases both notes even if it never delivers the final idle frame.
-    for (const [voice, level, fade] of [[body, onFoot ? 0 : 0.002 * travel, 0.08], [head, 0.024 * Math.sqrt(turn), 0.025]]) {
+    for (const [voice, level, fade] of [[body, onFoot ? 0 : 0.002 * travel, 0.08], [head, 0.012 * Math.sqrt(turn), 0.025]]) {
       const gain = voice.out.gain;
       gain.cancelScheduledValues(t);
       gain.setTargetAtTime(level * MASTER, t, fade);
@@ -368,6 +390,11 @@ export class Sfx {
   }
   jump() {
     this.voice(220, 0.09, { slide: 1.8, volume: 0.025, type: 'square' });
+  }
+  // 🦶 Coming down from a jump or a drop: a low thud and a scuff, heavier the harder the landing (`hard`, 0 to 1).
+  land(hard = 0) {
+    this.voice(118, 0.11, { slide: 0.45, volume: 0.02 + 0.02 * hard });
+    this.noise(0.07, { from: 900 + 700 * hard, to: 220, volume: 0.01 + 0.012 * hard });
   }
   launch() {
     this.voice(65, 0.12, { volume: 0.04 });
