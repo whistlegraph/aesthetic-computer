@@ -332,6 +332,12 @@ export async function makeP5WorkerModule({ slug, source }) {
   // label and HUD stay at AC's density above it. 1 whenever there is no hd
   // layer (previews, icons), where the pixel buffer is what shows.
   let density = 1;
+  // CSS pixels per AC screen pixel. AC's screen is the window divided by its
+  // subdivisions; plain p5 sees the window in CSS pixels. The sketch is told
+  // the CSS size, so a textSize(14) or strokeWeight(2) comes out as it would
+  // on any web page, and its canvas is drawn back down onto AC's screen.
+  let css = 1;
+  const cssOf = (display) => { const s = Number(display?.subdivisions); return s > 0 ? s : 1; };
 
   // 📊 Perf instrumentation — logs every ~60 paints (~1s @ 60fps).
   let paintCount = 0;
@@ -362,13 +368,14 @@ export async function makeP5WorkerModule({ slug, source }) {
     if (!canvasShim) return;
     const oc = canvasShim.offscreen;
     if (!cachedCtx) cachedCtx = canvasShim.getContext("2d");
-    if (density !== 1) {
+    const k = density * css; // backing-store pixels per AC screen pixel
+    if (k !== 1) {
       if (!small || small.width !== screen.width || small.height !== screen.height) {
         small = new OffscreenCanvas(screen.width, screen.height);
         smallCtx = small.getContext("2d", { willReadFrequently: true });
       }
       smallCtx.clearRect(0, 0, screen.width, screen.height);
-      smallCtx.drawImage(oc, 0, 0, oc.width / density, oc.height / density);
+      smallCtx.drawImage(oc, 0, 0, oc.width / k, oc.height / k);
       screen.pixels.set(smallCtx.getImageData(0, 0, screen.width, screen.height).data);
       return;
     }
@@ -389,13 +396,36 @@ export async function makeP5WorkerModule({ slug, source }) {
     }
   };
 
+  // The window changed size (or AC's subdivisions did): tell the sketch the
+  // new CSS size, resize its canvas, and let it lay itself out again.
+  const relayout = (w, h) => {
+    lastWidth = w;
+    lastHeight = h;
+    const W = Math.round(w * css), H = Math.round(h * css);
+    setViewport(W, H);
+    try {
+      p5Instance?.resizeCanvas?.(W, H);
+      // Hard-reset the OffscreenCanvas as a fallback for any p5 path
+      // that doesn't propagate the resize to the underlying canvas.
+      const bw = Math.round(W * density), bh = Math.round(H * density);
+      if (canvasShim && (canvasShim.offscreen.width !== bw || canvasShim.offscreen.height !== bh)) {
+        canvasShim._oc.width = bw;
+        canvasShim._oc.height = bh;
+      }
+    } catch (err) { console.warn("[p5-worker] resizeCanvas:", err); }
+    if (typeof self.windowResized === "function") {
+      try { self.windowResized(); } catch (err) { console.warn("[p5-worker] windowResized:", err); }
+    }
+  };
+
   return {
-    boot: async ({ screen }) => {
-      console.log(`[p5-worker] 🟢 BOOT START v4 screen=${screen.width}x${screen.height} slug=${slug}`);
+    boot: async ({ screen, display }) => {
+      css = cssOf(display);
+      console.log(`[p5-worker] 🟢 BOOT START v5 screen=${screen.width}x${screen.height} css=${css} slug=${slug}`);
       try {
         clearSketchGlobals();
         if (self.__acP5CreatedCanvases) self.__acP5CreatedCanvases.length = 0;
-        setViewport(screen.width, screen.height);
+        setViewport(Math.round(screen.width * css), Math.round(screen.height * css));
         lastWidth = screen.width;
         lastHeight = screen.height;
 
@@ -460,7 +490,7 @@ export async function makeP5WorkerModule({ slug, source }) {
       }
     },
 
-    paint: ({ screen, ink, wipe, hd }) => {
+    paint: ({ screen, ink, wipe, hd, display }) => {
       if (bootError) {
         wipe(20, 0, 0);
         ink(255, 120, 120).write(`p5 boot error:`, { x: 8, y: 12 });
@@ -472,10 +502,15 @@ export async function makeP5WorkerModule({ slug, source }) {
       const dt = lastPaintTime ? t0 - lastPaintTime : 0;
       lastPaintTime = t0;
 
-      // The native-resolution layer, when this display has one. Its scale is
-      // the sketch's pixel density; null (previews, icons) means density 1.
+      // A display whose subdivisions changed since boot lays the sketch out again.
+      const nowCss = cssOf(display);
+      if (nowCss !== css && p5Instance && p5Instance._setupDone) { css = nowCss; relayout(screen.width, screen.height); }
+
+      // The native-resolution layer, when this display has one. Its scale
+      // over the CSS factor is the sketch's pixel density (the device's own
+      // ratio); null (previews, icons) means density 1.
       const layer = typeof hd === "function" ? hd() : null;
-      const want = layer ? layer.scale : 1;
+      const want = layer ? Math.max(0.25, layer.scale / css) : 1;
       if (p5Instance && p5Instance._setupDone && want !== density) {
         try { p5Instance.pixelDensity(want); density = want; }
         catch (err) { console.warn("[p5-worker] pixelDensity:", err); }
@@ -491,8 +526,12 @@ export async function makeP5WorkerModule({ slug, source }) {
         // hd()'s context is pre-scaled, so logical coordinates fill it at
         // native resolution. Cleared first: a sketch that never paints its
         // background must not smear over the last frame.
+        // Drawn at its own size, as p5 draws on a page: a full-window canvas
+        // fills the screen, a fixed createCanvas(400, 400) stays 400 CSS
+        // pixels square in the corner rather than stretching.
+        const oc = canvasShim.offscreen, k = density * css;
         layer.ctx.clearRect(0, 0, layer.width, layer.height);
-        layer.ctx.drawImage(canvasShim.offscreen, 0, 0, layer.width, layer.height);
+        layer.ctx.drawImage(oc, 0, 0, oc.width / k, oc.height / k);
       }
       blitPixelsToScreen(screen);
       const t2 = performance.now();
@@ -531,7 +570,7 @@ export async function makeP5WorkerModule({ slug, source }) {
     // sim is intentionally empty — reframe is handled via the `reframed`
     // event in act() (AC's canonical channel for screen-size changes).
 
-    act: ({ event: e, jump, handle, notice }) => {
+    act: ({ event: e, jump, handle, notice, display }) => {
       // Lazy-expose an `ac` global so sketches can navigate / read AC state.
       if (!self.ac && jump) {
         self.ac = {
@@ -545,38 +584,19 @@ export async function makeP5WorkerModule({ slug, source }) {
 
       // 📐 Reframe → resize p5 canvas + fire windowResized
       if (e.is("reframed")) {
+        if (display) css = cssOf(display);
         const w = e.width ?? e.content?.width ?? lastWidth;
         const h = e.height ?? e.content?.height ?? lastHeight;
-        lastWidth = w;
-        lastHeight = h;
-        setViewport(w, h);
-        try {
-          p5Instance.resizeCanvas?.(w, h);
-          // Hard-reset the OffscreenCanvas as a fallback for any p5 path
-          // that doesn't propagate the resize to the underlying canvas.
-          const bw = Math.round(w * density), bh = Math.round(h * density);
-          if (canvasShim && (canvasShim.offscreen.width !== bw || canvasShim.offscreen.height !== bh)) {
-            canvasShim._oc.width = bw;
-            canvasShim._oc.height = bh;
-          }
-        } catch (err) { console.warn("[p5-worker] resizeCanvas:", err); }
-        if (typeof self.windowResized === "function") {
-          try { self.windowResized(); } catch (err) { console.warn("[p5-worker] windowResized:", err); }
-        }
-        console.log(`[p5-worker] 📐 reframed → ${w}x${h}`);
+        relayout(w, h);
+        console.log(`[p5-worker] 📐 reframed → ${w}x${h} (css ${css})`);
         return;
       }
 
-      // Scale AC screen coords → p5 canvas coords (rarely matters once
-      // resize is honored, but covers sketches that lock a custom canvas size).
+      // AC screen coords → p5 coords: the canvas is drawn from the corner at
+      // one AC pixel per `css` CSS pixels, so the mouse scales the same way.
       const updateMouse = (x, y) => {
-        // Logical canvas size: the backing store divided by p5's density.
-        const cw = (canvasShim?.offscreen.width || lastWidth || 1) / density;
-        const ch = (canvasShim?.offscreen.height || lastHeight || 1) / density;
-        const sx = cw / (lastWidth || cw);
-        const sy = ch / (lastHeight || ch);
-        const mx = x * sx;
-        const my = y * sy;
+        const mx = x * css;
+        const my = y * css;
         self.window.pmouseX = self.window.mouseX ?? mx;
         self.window.pmouseY = self.window.mouseY ?? my;
         self.window.mouseX = mx;
