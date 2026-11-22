@@ -23,7 +23,7 @@
    "path": "page",
    "signature": "page(buffer)",
    "doc": "Point subsequent drawing at another painting buffer; page(screen) comes back.",
-   "source": "lib/disk.mjs:6656",
+   "source": "lib/disk.mjs:6650",
    "examples": [
     "disks/bits.mjs:33  page(sys.painting)",
     "disks/breathe.mjs:29  page(screen);",
@@ -43,7 +43,7 @@
    "path": "ink",
    "signature": "ink(r, g, b, a) | ink(gray, a) | ink(\"red\") | ink([r, g, b]) | ink() (random)",
    "doc": "Set the paint color for everything drawn next. Returns the API so calls chain: ink(255, 0, 0).line(0, 0, 10, 10).",
-   "source": "lib/disk.mjs:6686",
+   "source": "lib/disk.mjs:6680",
    "examples": [
     "disks/$.mjs:168  ink([160, 160, 160]).write(compressedText, { x, y, size: scale });",
     "disks/$.mjs:195  ink([160, 160, 160]).write(compressedText, { x: startX, y, size: scale });",
@@ -55,7 +55,7 @@
    "path": "ink2",
    "signature": "ink2(...color)",
    "doc": "Secondary color, used by gradient-aware primitives.",
-   "source": "lib/disk.mjs:6690",
+   "source": "lib/disk.mjs:6684",
    "examples": []
   },
   {
@@ -63,7 +63,7 @@
    "path": "wipe",
    "signature": "wipe(...color)",
    "doc": "Fill the whole screen with a color; the usual first line of paint().",
-   "source": "lib/disk.mjs:6696",
+   "source": "lib/disk.mjs:6690",
    "examples": [
     "disks/$.mjs:67  wipe(0);",
     "disks/$.mjs:324  wipe(0);",
@@ -75,7 +75,7 @@
    "path": "backgroundFill",
    "signature": "backgroundFill(color)",
    "doc": "Set background fill color for reframe operations (especially for KidLisp pieces)",
-   "source": "lib/disk.mjs:6755",
+   "source": "lib/disk.mjs:6749",
    "examples": []
   },
   {
@@ -223,7 +223,7 @@
    "path": "setBufferAlpha",
    "signature": "setBufferAlpha(buffer, alpha)",
    "doc": "Set the alpha of every non-transparent pixel in a buffer to a uniform value. Useful for per-stroke alpha — must be called after drawing on the buffer.",
-   "source": "lib/disk.mjs:6873",
+   "source": "lib/disk.mjs:6867",
    "examples": [
     "disks/line.mjs:215  setBufferAlpha(nopaint.buffer, strokeAlpha);"
    ]
@@ -396,7 +396,7 @@
    "examples": [
     "disks/baktok.mjs:133  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
     "disks/baktok.mjs:136  pan(noshake ? 0 : choose(-1, 0, 1), noshake ? 0 : choose(-1, 0, 1));",
-    "disks/clock.mjs:3761  const pan = 0;    // Centered pan (could be enhanced later)"
+    "disks/clock.mjs:3767  const pan = 0;    // Centered pan (could be enhanced later)"
    ]
   },
   {
@@ -438,7 +438,7 @@
    "doc": "Clip drawing to a rectangle until unmask().",
    "source": "lib/graph.mjs:1857",
    "examples": [
-    "disks/chat.mjs:1461  mask({",
+    "disks/chat.mjs:1471  mask({",
     "disks/clocks.mjs:152  mask({",
     "disks/commits.mjs:358  mask({ x: 0, y: topMargin, width: w, height: chatHeight });"
    ]
@@ -450,7 +450,7 @@
    "doc": "Lift the clip set by mask().",
    "source": "lib/graph.mjs:1862",
    "examples": [
-    "disks/chat.mjs:2400  unmask();",
+    "disks/chat.mjs:2410  unmask();",
     "disks/clocks.mjs:205  unmask(); // End masking",
     "disks/commits.mjs:517  unmask();"
    ]
@@ -509,9 +509,9 @@
    "doc": "Zoom the entire pixel buffer with 1.0 as neutral (no change) level < 1.0 zooms out, level > 1.0 zooms in, level = 1.0 does nothing anchorX, anchorY: 0.0 = top/left, 0.5 = center, 1.0 = bottom/right Uses bilinear sampling with hard-edge thresholding for smooth scaling with crisp output",
    "source": "lib/graph.mjs:6929",
    "examples": [
-    "disks/map.mjs:252  zoom(d / pinch.d, x, y);",
-    "disks/map.mjs:262  if (e.is(\"scroll\")) zoom(Math.exp(-e.y * 0.004), cursor?.x, cursor?.y);",
-    "disks/map.mjs:263  if (e.is(\"keyboard:down:=\") || e.is(\"keyboard:down:+\")) zoom(1.25);"
+    "disks/map.mjs:215  zoom(d / pinch.d, x, y);",
+    "disks/map.mjs:225  if (e.is(\"scroll\")) zoom(Math.exp(-e.y * 0.004), cursor?.x, cursor?.y);",
+    "disks/map.mjs:226  if (e.is(\"keyboard:down:=\") || e.is(\"keyboard:down:+\")) zoom(1.25);"
    ]
   },
   {
@@ -529,7 +529,7 @@
    "doc": "Efficient Gaussian blur using separable filtering with linear sampling optimization Creates smooth blur effect by applying horizontal then vertical Gaussian convolution",
    "source": "lib/graph.mjs:7496",
    "examples": [
-    "disks/notepat.mjs:8352  blur(0.5);"
+    "disks/notepat.mjs:8105  blur(0.5);"
    ]
   },
   {
@@ -539,7 +539,7 @@
    "doc": "Apply sharpening filter to enhance edges and details strength: 0 = no sharpening, 1 = normal sharpening, >1 = aggressive sharpening",
    "source": "lib/graph.mjs:7737",
    "examples": [
-    "disks/notepat.mjs:6054  sharpen(sharpenAmount);"
+    "disks/notepat.mjs:6084  sharpen(sharpenAmount);"
    ]
   },
   {
@@ -637,7 +637,7 @@
    "path": "pasteWithAlpha",
    "signature": "pasteWithAlpha(source, x, y, alpha)",
    "doc": "🎨 Alpha-blended paste for crossfade compositing",
-   "source": "lib/disk.mjs:6941",
+   "source": "lib/disk.mjs:6935",
    "examples": [
     "disks/merry-fade.mjs:85  if (outAlpha > 0) pasteWithAlpha(outgoing, 0, 0, outAlpha);"
    ]
@@ -647,7 +647,7 @@
    "path": "kidlisp",
    "signature": "kidlisp(x = 0, y = 0, width, height, source, options = {})",
    "doc": "🎯 Simplified KidLisp integration using global singleton instance",
-   "source": "lib/disk.mjs:6977",
+   "source": "lib/disk.mjs:6971",
    "examples": [
     "disks/$.mjs:369  kidlisp(",
     "disks/cross-tab-test.mjs:76  kidlisp(",
@@ -659,7 +659,7 @@
    "path": "sound.synth",
    "signature": "sound.synth(…)",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13604",
+   "source": "lib/disk.mjs:13617",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -671,7 +671,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13519",
+   "source": "lib/disk.mjs:13532",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -707,11 +707,11 @@
    "path": "hud.label",
    "signature": "hud.label(text, color, offset)",
    "doc": "Take over the system's corner label — the only sanctioned way to draw in the top-left.",
-   "source": "lib/disk.mjs:3869",
+   "source": "lib/disk.mjs:3863",
    "examples": [
     "disks/$.mjs:642  hud.label(`Previewing ${entry.codeText}`, \"cyan\");",
-    "disks/audio.mjs:81  hud.label(\"audio\");",
-    "disks/bgm.mjs:29  hud.label(`bgm ${setTrack}`);"
+    "disks/aesel.mjs:47  api.hud.label(\"Aesel TUI\");",
+    "disks/audio.mjs:81  hud.label(\"audio\");"
    ]
   },
   {
@@ -719,7 +719,7 @@
    "path": "write",
    "signature": "write(text, { x, y, size, center: \"x\" | \"xy\" }) | write(text, x, y)",
    "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
-   "source": "lib/disk.mjs:5847",
+   "source": "lib/disk.mjs:5841",
    "examples": [
     "disks/arena.mjs:2831  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
     "disks/arena.mjs:2841  write(t, { x, y }, undefined, undefined, false, font);",
@@ -819,7 +819,7 @@
    "examples": [
     "disks/hell_-world.mjs:873  prevBtn.box = new geo.Box(",
     "disks/hell_-world.mjs:901  nextBtn.box = new geo.Box(",
-    "disks/notepat.mjs:8508  for(const btn of Object.values(buttons)) {btn.box=new geo.Box(0,0,0,0);btn.box.contains=()=>false;}"
+    "disks/nes.mjs:112  for (const key in boxes) if (pads[key]) pads[key].box = new geo.Box(...boxes[key]);"
    ]
   },
   {

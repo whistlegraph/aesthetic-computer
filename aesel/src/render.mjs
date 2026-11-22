@@ -1582,7 +1582,8 @@ function statusSpend(text, useColor) {
 }
 
 export function proStatus(state, width, useColor, shape = state.layout || {}, position = null) {
-  const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
+  const facts = shape.status || ["handle", "workspace", "media", "model", "activity"];
+  const status = state.canPrinter ? ["printer", ...facts] : facts;
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
   const model = state.modelLabel || state.model || state.providerSettings?.model || "";
@@ -1595,6 +1596,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   // you look at rather than up on the preview card.
   const version = route && state.pieceVersion ? ` v${state.pieceVersion}` : "";
   const plain = {
+    printer: "[Printer F6]",
     handle: account + route + version,
     workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
     model,
@@ -1638,7 +1640,9 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
     // While the machine works the handle breathes: bright, then muted, on the
     // dance clock — a pulse you can see from across the room.
     let fact;
-    if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
+    if (name === "printer") {
+      fact = paint(useColor, state.hover === "printer" ? "block bold" : "highlight bold", text);
+    } else if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
       fact = paintedMascot(state, useColor) + statusFact(name, text.slice(MASCOT_ROW_WIDTH), state, useColor);
     } else if (name === "handle" && text.startsWith("@")) {
       fact = coloredHandle(account, breathingHandle(account, state), useColor)
@@ -1719,7 +1723,7 @@ export function headerAction(state, columns, rows, x, y) {
     if (letterhead) return letterhead;
     const row = shape.bottom.lastIndexOf("status");
     if (row < 0 || y !== rows - (shape.bottom.length - 1 - row)) return "";
-    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["handle", "model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + (span.name === 'handle' ? textWidth(state.account || '') : span.width));
+    const hit = proStatus(state, Math.max(32, columns), false, shape).spans.find((span) => ["printer", "handle", "model", "engine", "media"].includes(span.name) && x >= span.x + 1 && x <= span.x + (span.name === 'handle' ? textWidth(state.account || '') : span.width));
     return hit ? (hit.name === 'handle' ? state.account?.startsWith('@') ? 'profile' : '' : hit.name === "engine" ? "provider" : hit.name) : "";
   }
   if(y===rows-2){const hit=modelControls(state,columns).find(c=>x>=c.x&&x<c.x+c.width);return hit?.action||"";}

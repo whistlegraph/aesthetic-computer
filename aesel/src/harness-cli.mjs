@@ -9,9 +9,9 @@ import "./env.mjs";
 import path from "node:path";
 import process from "node:process";
 import { parseArgs } from "node:util";
-import { ACSession, SITE, USER_AGENT } from "./ac-session.mjs";
-import { INPUTS, OUTPUTS, harnessRequest, inputContent, latestRun, newHarness, outputType, readHarness, runHarness, starters, streamText } from "./harness-factory.mjs";
-import { planMime, postMime } from "./mime.mjs";
+import { ACSession } from "./ac-session.mjs";
+import { INPUTS, OUTPUTS, harnessRequest, inputContent, newHarness, outputType, readHarness, runHarness, starters } from "./harness-factory.mjs";
+import { hosted, postRun } from "./libaesel.mjs";
 
 const out = (text = "") => process.stdout.write(`${text}\n`);
 const note = (text) => process.stderr.write(`${text}\n`);
@@ -22,36 +22,7 @@ const shown = (file) => path.relative(process.cwd(), file) || file;
 const [command = "list", ...rest] = process.argv.slice(2);
 const session = new ACSession();
 
-// A room of laptops on one Wi-Fi drops connections; a request that never got
-// an answer is tried once more after a breath. An HTTP error is not retried.
-async function post(url, init, tries = 2) {
-  try { return await fetch(url, init); } catch (error) {
-    if (tries <= 1) throw new Error(`could not reach aesthetic.computer (${error.cause?.code || error.message})`);
-    note("  … connection dropped, trying again");
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return post(url, init, tries - 1);
-  }
-}
-
-async function infer(request) {
-  const token = await session.token();
-  const response = await post(`${SITE}/api/easel-inference`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT, "x-ac-client": "aesel-harness" },
-    body: JSON.stringify(request),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body?.error?.message || body?.error || `inference failed (HTTP ${response.status})`);
-  }
-  return streamText(response);
-}
-
-async function paint(plan) {
-  const { hostedPictureImage } = await import("./picture-image.mjs");
-  const jobId = `harness-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  return hostedPictureImage({ provider: plan.provider, model: plan.model, prompt: plan.prompt, size: plan.size, quality: plan.quality }, { reference: plan.reference, jobId, session });
-}
+const { infer, paint } = hosted(session, { note });
 
 try {
   if (command === "list") {
@@ -98,13 +69,9 @@ try {
     const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: { run: { type: "string" } } });
     if (!positionals.length) fail('usage: ac harness post <dir> [--run <id>] ["caption"]');
     const harness = readHarness(positionals[0]);
-    const run = latestRun(harness, values.run);
-    const said = run.inputs.texts.join(" ");
-    const caption = positionals.slice(1).join(" ") || `${harness.name}${said ? `: ${said}` : ""}`;
-    const plan = planMime(run.file, { caption });
-    if (process.env.AESEL_DRY_RUN === "1") out(JSON.stringify({ ...plan, path: undefined }));
+    const { plan, posted } = await postRun(harness, { session, run: values.run, caption: positionals.slice(1).join(" ") });
+    if (!posted) out(JSON.stringify({ ...plan, path: undefined }));
     else {
-      const posted = await postMime(plan, { session });
       out(posted.url);
       note(`  ${goal(harness.output)} on the ${posted.board || plan.type} board`);
     }

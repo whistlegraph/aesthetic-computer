@@ -56,7 +56,8 @@ KidLisp uses S-expressions (parentheses-based syntax):
 ### Core Functions
 The evaluator in `kidlisp.mjs` implements a comprehensive set of **118 functions** across 12 categories:
 
-- **Graphics**: `wipe`, `ink`, `line`, `box`, `circle`, `tri`, `plot`, `flood`, `shape`
+- **Graphics**: `wipe`, `ink`, `line`, `box`, `circle`, `tri`, `plot`, `flood`, `shape`, `mark`
+  - `(mark x1 y1 t1 x2 y2 t2 ...)` is a brush stroke: a smooth curve through the points, each with its own thickness in pixels, eased between them. `(line x1 y1 x2 y2 t)` takes a thickness too, and `"outline:3"` as a last word on `box`, `circle`, `tri` or `shape` draws a 3 pixel edge.
 - **Transformations**: `zoom`, `scroll`, `spin`, `blur`, `contrast` - 11 pixel-level effects
 - **Math**: `+`, `-`, `*`, `/`, `sin`, `cos`, `random`, `wiggle` - 14 mathematical operations  
 - **3D Graphics**: `cube`, `form`, `trans` - 8 three-dimensional functions

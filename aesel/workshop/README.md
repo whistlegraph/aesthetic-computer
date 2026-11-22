@@ -147,6 +147,59 @@ The post goes on the board for its MIME type, so the class's SVGs end up
 together, the WAVs together, and so on. Open mime.ac on the projector and
 walk the boards.
 
+## Printer: keep the one you liked
+
+When a run comes out right, or a piece made in Aesel does, make a printer from
+it. A printer is a small program that puts out more of that one kind of thing,
+which is to say a harness.
+
+```sh
+ac printer gigposter --from poster/runs/2026-…/output.svg "swiss poster" "huge number"
+./gigposter/gigposter "noise night, saturday 10pm"
+./gigposter/gigposter --dry "noise night"       # see the prompt, spend nothing
+./gigposter/gigposter --post "noise night"      # make one and put it on mime.ac
+```
+
+```
+gigposter/
+  harness.json   inputs in, one MIME type out
+  prompt.md      what you asked for, then the one that worked, then your taste
+  seed.svg       the one that worked
+  gigposter      the program; it runs on libaesel
+```
+
+### Switch it on
+
+```sh
+./gigposter/gigposter --serve      # or double-click gigposter/switch-on.command
+```
+
+The printer opens its own window and joins the Print dialog of every app on
+the laptop, and of phones and laptops on the same network, as
+“@yourhandle’s gigposter printer”. Print a page to it and the page comes out
+as what the printer makes. The owner's braincells pay for each job, and the
+prints land in `~/Documents/Aesel Prints/gigposter/`, a folder for each
+sender, named who-what-when. The sender asks the owner for theirs.
+
+Each job arrives as a picture of the page and a job sheet read on the laptop:
+the page's own text, title, links and the app it came from. The Print
+dialog's own controls are the printer's knobs:
+
+| in the dialog | the printer |
+| --- | --- |
+| copies | makes that many different takes (four at most) |
+| black & white | prints with no colour |
+| draft / normal / best | a quick rough one, the usual, or a careful one |
+| paper and orientation | gives the print the page's shape |
+| ink levels | show the owner's braincells |
+
+Every printer also has a short code to call it by (`sok`, `lal`), shown in
+its window. This part needs macOS.
+
+In the terminal, click **Printer** on the bottom row or press **F6**. Aesel names
+the new folder after the piece. The printer runs anywhere Aesel is installed and uses it as a library
+(`src/libaesel.mjs`), so the folder can be zipped and handed to a classmate.
+
 ## Going further
 
 - `--model` tries the same harness on another hosted model

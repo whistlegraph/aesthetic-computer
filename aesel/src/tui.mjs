@@ -70,6 +70,7 @@ import { BOTTOM_ROWS, Layout, STATUS_FACTS } from "./layout.mjs";
 import { DraftBroadcast } from "./draft-broadcast.mjs";
 import { applyUpdate, checkForUpdate, currentVersion, fetchManifest, installed, isNewer } from "./updates.mjs";
 import { publishPiece, publishedCommand } from "./publish.mjs";
+import { printer, printerOutput } from "./printer.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
@@ -1093,6 +1094,8 @@ function redraw(immediate = false) {
     state.providerSettings={backend:backend.id,model:state.model||model,effort};
     state.codexRateLimits = backend.id === "codex" ? engine.rateLimits : null;
     state.modelLabel = modelLabel(backend.id, state.model || model);
+    state.canPrinter = !process.env.AESEL_DESKTOP && !state.busy && !state.approval && !state.question &&
+      !state.about && !state.settings && Boolean(printerOutput(currentPrinterSource()));
     retitle();
     if (process.env.AESEL_DESKTOP) {
       const prompt=JSON.stringify({text:state.input,cursor:state.cursor,status:state.status,activity:publicActivity(state),feedback:state.busy?requestFeedback(state):state.queued.length?'Gathering your messages':'',hidden:!!(state.approval||state.settings||state.about)});
@@ -1459,7 +1462,11 @@ function errorText(error) {
 // retarget; only the name in the header changes.
 function notePiece(file) {
   // Pro has no piece to follow: the header names the directory and stays put.
-  if (state.medium !== "piece" || !file || pro) return;
+  if (state.medium !== "piece" || !file) return;
+  if (pro) {
+    if (/\.(mjs|lisp)$/i.test(file)) state.editedPiece = path.resolve(cwd, file);
+    return;
+  }
   // A private session follows the file but does not watch it — watching is
   // what pushes, and nothing leaves the machine.
   if (live.retarget(file) && networked) live.watch(liveError);
@@ -2431,7 +2438,31 @@ async function commandPublish(argumentText) {
   redraw();
 }
 
-// Publishing is an explicit user action; painting #codes are assigned by AC.
+function currentPrinterSource() {
+  if (state.media) return state.media.path;
+  if (state.medium === "piece") return pro ? state.editedPiece : live.file;
+  const preview = currentArtifact?.revision?.preview;
+  return preview?.path ? path.join(currentArtifact.root, preview.path) : "";
+}
+
+function commandPrinter(argumentText = "") {
+  const source = currentPrinterSource();
+  if (!printerOutput(source)) { addEntry("notice", "Choose a piece or supported media file to make a printer from."); return redraw(); }
+  const name = argumentText.trim().split(/\s+/)[0] || null;
+  try {
+    const asks = state.entries.filter((entry) => entry.kind === "user").map((entry) => entry.text);
+    const made = printer(name, { source, asks, cwd });
+    const at = path.relative(cwd, made.harness.dir) || made.harness.dir;
+    // The printer gets a window of its own, where its jobs arrive.
+    const opened = process.platform === "darwin" && !process.env.AESEL_NO_PRINTER_WINDOW;
+    if (opened) spawn("open", [made.on], { stdio: "ignore", detached: true }).unref();
+    addEntry("notice", `New printer ${made.harness.name}${made.code ? ` · ${made.code}` : ""}: ${at}/\n${opened
+      ? `It is on in its own window. Print from any app and choose “${made.harness.name} printer”.`
+      : `Switch it on with ./${at}/${made.harness.name} --serve`}\nEdit ${at}/prompt.md to change what it prints.`);
+  } catch (error) { addEntry("error", `Printer failed: ${errorText(error)}`); }
+  return redraw();
+}
+
 async function commandPublishPicture(argumentText) {
   if (argumentText.trim()) { addEntry('notice','/done finishes the accepted painting and locks its #code. Further painting starts a new copy.');return redraw(); }
   if (state.busy || manualPublishInFlight || autopublish.running || state.status === 'restoring') { addEntry('notice','Wait for the current operation before publishing.');return redraw(); }
@@ -2943,7 +2974,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /printer NAME · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -3007,6 +3038,7 @@ async function submitInput(submittedText, submittedMessages = null) {
       return redraw();
     }
     if (command === "/publish") return commandPublish(rest);
+    if (command === "/printer") return commandPrinter(rest);
     if (command === "/autopublish" || command === "/auto") return commandAutopublish(rest);
     if (["/backend", "/engine", "/mode"].includes(command)) return commandBackend(rest);
     if (command === "/frame") {
@@ -3487,6 +3519,7 @@ function handleKey(input) {
     redraw();
   }
   if (dropdownKey(input)) return;
+  if (input === "\x1b[17~" && state.canPrinter) return commandPrinter();
   // The approval modal in pro: arrows choose, Enter answers; y, a and n
   // still answer directly.
   if (pro && state.approval) {
@@ -3623,6 +3656,7 @@ function decodeKeys(buffer) {
         }
         if (mouse.click && action === "about") { if (desktopSessionPath) void requestDesktop("home"); else { state.about = !state.about; state.aboutScroll = 0; redraw(); } }
         if (mouse.click && action === "profile") openProfile();
+        if (mouse.click && action === "printer" && state.canPrinter) commandPrinter();
         if (mouse.click && action === "aesel") openAeselHome();
         if (mouse.click && action === "workspace") openWorkspace();
         if (mouse.click && action === "update") { void submitInput("/update"); return; }

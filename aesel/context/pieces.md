@@ -283,7 +283,9 @@ source piece-name          # Fork existing piece
 - Graphics are immediate-mode (no retained scene graph); coordinates in pixels
 - Default color depth is 8-bit RGB (0-255 per channel)
 - `wipe` clears the screen and should be called first in `paint`
-- Pieces are URL-addressable: `aesthetic.computer/piece-name`, params via
-  `piece-name:param1:param2`, user pieces via `@handle/piece-name`,
-  QR sharing via `share piece-name`
+- Pieces are URL-addressable: `aesthetic.computer/piece-name`. Words arrive
+  in `params` from `piece-name~a~b` (a `~` is a space, so it is the prompt
+  line `piece-name a b`); options arrive in `colon` from `piece-name:opt`.
+  User pieces via `@handle/piece-name`, QR sharing via `share piece-name`.
+  Give a feature an address this way, never a `?query` string (`SCORE.md`)
 - Leaves (pieces) stay small and can be loop-generated — see `HAND.md`

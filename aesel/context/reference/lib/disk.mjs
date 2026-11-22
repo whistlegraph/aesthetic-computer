@@ -1,13 +1,10 @@
+import { createFrameChart } from "./frame-chart.mjs";
 import { HUD_DEFAULT_OFFSET, HUD_TEXT_INSET_Y } from "./prompt-layout.mjs";
 import { createPreviewEvidence } from "./preview-evidence.mjs";
 import { createPlaybackClock } from "./playback-clock.mjs";
 import { createConnectionModal } from "./connection-modal.mjs";
 const connectionModal = createConnectionModal();
-function actConnection($) {
-  const handled = connectionModal.act($);
-  if (handled && !connectionModal.visible) $.send({ type: "connection:modal", content: { visible: false } });
-  return handled;
-}
+let connectionTicker; // Repaints while the lost-connection notice types and blinks.
 // Manages a piece and the transitions between pieces like a
 // hypervisor or shell.
 
@@ -51,6 +48,7 @@ import * as num from "./num.mjs";
 import * as text from "./text.mjs";
 import * as geo from "./geo.mjs";
 import * as gizmo from "./gizmo.mjs";
+import * as Scream from "./scream.mjs";
 import * as ui from "./ui.mjs";
 import * as help from "./help.mjs";
 import * as platform from "./platform.mjs";
@@ -2650,10 +2648,6 @@ let udp = {
   },
   udpReceive = undefined;
 
-let scream = null; // 😱 Allow priviledged users to send alerts to everyone.
-//                       (A great end<->end socket + redis test.)
-let screaming = false;
-let screamingTimer; // Keep track of scream duration.
 
 const fairies = []; // Render cursor points of other active users,
 //                              dumped each frame.
@@ -2754,8 +2748,8 @@ let lastActiveVideo;
 let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
-const fpsHud = { on: false, painted: [], stats: null, gc: 0, lastGcAt: 0, sentinel: null, lines: null, key: "", history: [], sampledAt: 0 }; // The fps readout (bios fps:hud).
-const fpsColor = (fps) => (fps >= 55 ? [90, 235, 140] : fps >= 30 ? [255, 205, 60] : [255, 85, 95]);
+const frameChart = createFrameChart();
+const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, rows: [] };
 // This worker's own collections, counted the way bios counts the page's: a
 // sentinel dropped every 100 ms that only a GC can finalize.
 const fpsHudRegistry = typeof FinalizationRegistry === "function"
@@ -9143,9 +9137,16 @@ async function load(
             // Globally receivable messages...
             // (There are also some messages handled in `Socket`)
             // 😱 Scream at everyone who is connected!
-            if (type === "scream" && socket?.id !== id) {
-              console.log("😱 Scream:", content, "❗");
-              scream = content;
+            if (type === "scream" && socket?.id !== id) Scream.hear(content);
+            if (type === "scream:vox") {
+              Scream.voice(JSON.parse(content), {
+                preload: $commonApi.net.preload,
+                play: (sfx) => {
+                  const id = sfx + "_scream_" + performance.now();
+                  send({ type: "sfx:play", content: { sfx, id } });
+                  return { kill: (fade) => send({ type: "sfx:kill", content: { id, fade } }) };
+                },
+              }).catch((err) => console.warn("😱 Scream has no voice:", err));
             }
             // 🎯 Jump to a specific piece!
             if (type === "jump") {
@@ -9672,8 +9673,12 @@ async function load(
         if (typeof window !== "undefined") {
           window.acFontsReady = true;
           window.__acTypeface = tf;
+        } else {
+          send({ type: "fonts-ready" }); // In a worker: bios raises window.acFontsReady.
         }
-      }).catch(() => {});
+      }).catch(() => {
+        if (typeof window === "undefined") send({ type: "fonts-ready", content: { error: true } });
+      });
     }
     const typefaceLoadEndTime = performance.now();
     // console.log(`⏰ Typeface load skipped (on-demand mode), Proxy initialized in ${Math.round(typefaceLoadEndTime - typefaceLoadStartTime)}ms`);
@@ -11632,7 +11637,15 @@ async function makeFrame({ data: { type, content } }) {
   // 📊 Twice a second while the readout is up: the page's collections and
   // long frames, and memory / CPU when the host can see its processes.
   if (type === "fps:stats") {
-    fpsHud.stats = { ...content, workerGc: fpsHud.gc * 2 };
+    const { native, long, worstMs, gc } = content;
+    const rows = [`long ${long}  ${worstMs}ms`, `gc ${gc.toFixed(1)}  wk ${(fpsHud.gc * 2).toFixed(1)}`];
+    for (const name of ["web", "gpu", "app"]) {
+      const proc = native?.[name];
+      if (proc) rows.push(`${name} ${Math.round(proc.mb)}M ${Math.round(proc.cpu)}%`);
+    }
+    if (native?.heapMB != null) rows.push(`heap ${native.heapMB}M`);
+    if (native?.reloadMs != null) rows.push(`load ${native.reloadMs}ms`);
+    fpsHud.rows = rows;
     fpsHud.gc = 0;
     return;
   }
@@ -11642,6 +11655,7 @@ async function makeFrame({ data: { type, content } }) {
     // opens behind another hears it before any piece runs, and dropping it
     // here left that window "focused" for good (2026-11-08).
     const changed = content !== inFocus;
+    if (changed && fpsHud.on) frameChart.reset();
     inFocus = content;
     if (!cachedAPI) return; // Hacky... 23.04.21.14.59
     const $api = cachedAPI;
@@ -11815,15 +11829,15 @@ async function makeFrame({ data: { type, content } }) {
 
   if (type === "connection:status") {
     connectionModal.update(content.status);
-    send({ type: "connection:modal", content: { visible: connectionModal.visible } });
     $commonApi.needsPaint();
-    return;
-  }
-
-  if (type === "connection:key") {
-    actConnection({ ...(cachedAPI || $commonApi), event: {
-      is: name => name === `keyboard:down:${content.key}`,
-    } });
+    // The notice is drawn by time, so keep frames coming until it has gone,
+    // and one more after that to hand the corner back.
+    connectionTicker ??= setInterval(() => {
+      $commonApi.needsPaint();
+      if (connectionModal.visible) return;
+      clearInterval(connectionTicker);
+      connectionTicker = undefined;
+    }, 50);
     return;
   }
 
@@ -12798,7 +12812,6 @@ async function makeFrame({ data: { type, content } }) {
 
     // 🌟 Global Keyboard Shortcuts (these could also be seen via `act`)
     content.keyboard.forEach((data) => {
-      if (connectionModal.visible) return;
       if (currentText && currentText.indexOf("botce") > -1) return; // No global keys on `botce`. 23.11.12.23.38
 
       // 📼 [Ctrl+R+R] Quick tape - start recording without leaving the piece
@@ -14060,7 +14073,6 @@ async function makeFrame({ data: { type, content } }) {
         //console.log(data)
         $api.event = data;
         // 🌐🖋️️ Global pen events.
-        if (actConnection($api)) return;
         try {
           // Always check to see if there was a tap on the corner.
           const { event: e, jump, send, sound, system, piece } = $api;
@@ -14365,7 +14377,7 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          if (!connectionModal.visible && !TV_MODE) act($api); // Skip 3D pen events in TV mode
+          if (!TV_MODE) act($api); // Skip 3D pen events in TV mode
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
         }
@@ -14403,7 +14415,6 @@ async function makeFrame({ data: { type, content } }) {
         $api.event = data;
         if (reel?.key(data)) return; // 🎞️ Page Up / Page Down step the reel.
         try {
-          if (actConnection($api)) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14418,7 +14429,6 @@ async function makeFrame({ data: { type, content } }) {
         });
         $api.event = data;
         try {
-          if (connectionModal.visible) return;
           if (!TV_MODE) act($api); // Execute piece shortcut (skip in TV mode).
         } catch (e) {
           console.warn("️ ✒ Act failure...", e);
@@ -14527,9 +14537,8 @@ async function makeFrame({ data: { type, content } }) {
       $api.inFocus = content.inFocus ?? inFocus;
       if ((content.fpsHud === true) !== fpsHud.on) {
         fpsHud.on = content.fpsHud === true;
-        fpsHud.painted.length = 0;
-        fpsHud.stats = null;
-        fpsHud.history.length = 0;
+        frameChart.reset();
+        fpsHud.rows = [];
         fpsHudSentinel(fpsHud.on);
         $commonApi.needsPaint(); // Show or clear it now.
       }
@@ -14838,10 +14847,11 @@ async function makeFrame({ data: { type, content } }) {
       if (
         previewMode === false &&
         iconMode === false &&
-        (noPaint === false || scream || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
+        (noPaint === false || Scream.busy() || fairies.length > 0 || (system === "nopaint" && nopaintPerf)) &&
         booted
       ) {
         let paintOut;
+        Scream.lift(screen); // 😱 The piece paints on its own pixels, not the takeover's.
 
         // Restore kidlisp's accumulated pan state from previous frame
         $api.loadpan();
@@ -15062,87 +15072,14 @@ async function makeFrame({ data: { type, content } }) {
 
         layer(1000); // Always make sure this stuff draws on top.
 
-        // 📊 FPS readout (bios's fps:hud, 2026-11-08): the frames this piece
-        // painted in the last second, in its own pixels — MatrixChunky8 on a
-        // dark box, top right under the prompt's version badge.
         if (fpsHud.on) {
-          const now = performance.now();
-          fpsHud.painted.push(now);
-          while (fpsHud.painted.length && fpsHud.painted[0] < now - 1000) fpsHud.painted.shift();
-          const fps = fpsHud.painted.length;
-          const st = fpsHud.stats;
-          // A short fps history for the graph under the numbers, one bar per
-          // quarter second.
-          if (now - fpsHud.sampledAt >= 250) {
-            fpsHud.sampledAt = now;
-            fpsHud.history.push(fps);
-            if (fpsHud.history.length > 48) fpsHud.history.shift();
-          }
-          // Lines change at most twice a second (and on the fps count), so
-          // they're built and measured then, not every frame. Each line is
-          // segments: a label in its own hue, values green / yellow / red by
-          // how healthy they are.
-          const key = fps + (st ? "|" + JSON.stringify(st) : "");
-          if (key !== fpsHud.key) {
-            fpsHud.key = key;
-            const GOOD = [90, 235, 140], WARN = [255, 205, 60], BAD = [255, 85, 95];
-            const grade = (v, ok, warn) => (v <= ok ? GOOD : v <= warn ? WARN : BAD);
-            const lines = [[[`${fps}`, fpsColor(fps)]]]; // The graph fills the rest.
-            if (st) {
-              const n = st.native;
-              const proc = (name, hue, p, okMb, warnMb) => p && lines.push([
-                [name, hue],
-                [`${Math.round(p.mb)}`, grade(p.mb, okMb, warnMb)],
-                [`${Math.round(p.cpu)}%`, grade(p.cpu, 30, 80)],
-              ]);
-              lines.push([["long", [255, 140, 205]], [`${st.long}`, grade(st.long, 0, 2)],
-                [`${st.worstMs}ms`, grade(st.worstMs, 34, 70)]]);
-              lines.push([["gc", [90, 200, 255]], [st.gc.toFixed(1), grade(st.gc, 1, 4)],
-                ["wk", [170, 150, 255]], [st.workerGc.toFixed(1), grade(st.workerGc, 1, 4)]]);
-              if (n) {
-                proc("web", [255, 165, 80], n.web, 300, 600);
-                proc("gpu", [190, 140, 255], n.gpu, 200, 500);
-                proc("app", [80, 220, 210], n.app, 100, 250);
-                if (n.heapMB !== undefined) lines.push([["heap", [255, 165, 80]], [`${n.heapMB}`, grade(n.heapMB, 150, 400)]]);
-                if (n.reloadMs !== undefined) lines.push([["load", [120, 180, 255]], [`${n.reloadMs}ms`, grade(n.reloadMs, 700, 1500)]]);
-              }
-            }
-            const gap = 4; // One MatrixChunky8 space.
-            let width = 0;
-            for (const line of lines) {
-              let x = 0;
-              for (const seg of line) {
-                seg[2] = x;
-                x += $api.text.box(seg[0], undefined, undefined, undefined, undefined, "MatrixChunky8").box.width + gap;
-              }
-              line.end = x - gap;
-              width = Math.max(width, x - gap);
-            }
-            fpsHud.lines = { lines, width: Math.max(width, lines[0].end + 3 + 24) };
-          }
-          const { lines, width } = fpsHud.lines;
-          const pad = 2, lineH = 8;
-          const boxW = width + pad * 2, boxH = lines.length * lineH - 1 + pad * 2;
-          const bx = screen.width - boxW - 5, by = 21; // Right edge on the version badge's.
-          // A soft box: its corner pixels left out.
-          ink(0, 0, 0, 160).box(bx + 1, by, boxW - 2, 1).box(bx, by + 1, boxW, boxH - 2).box(bx + 1, by + boxH - 1, boxW - 2, 1);
-          for (let i = 0; i < lines.length; i += 1) {
-            for (const [text, color, x] of lines[i]) {
-              ink(...color, 230).write(text, { x: bx + pad + x, y: by + pad + i * lineH },
-                undefined, undefined, false, "MatrixChunky8");
-            }
-          }
-          // The graph rides the fps line: a bar per quarter second, newest at
-          // the right edge, as tall as its fps against 60, coloured like it.
-          const graphH = 6, gx0 = bx + pad + lines[0].end + 3, gy = by + pad;
-          const history = fpsHud.history;
-          for (let i = 0; i < history.length; i += 1) {
-            const x = bx + pad + width - 1 - i;
-            if (x < gx0) break;
-            const v = history[history.length - 1 - i];
-            const h = Math.max(1, Math.round((Math.min(v, 60) / 60) * graphH));
-            ink(...fpsColor(v), 210).box(x, gy + graphH - h, 1, h);
-          }
+          frameChart.sample(performance.now());
+          const left = Math.max(0, screen.width - frameChart.width - 5), top = 21;
+          const color = value => ink(value >> 16, (value >> 8) & 255, value & 255);
+          frameChart.draw({
+            box: (x, y, w, h, c) => color(c).box(left + x, top + y, w, h),
+            text: (value, x, y, c) => color(c).write(value, { x: left + x, y: top + y }, undefined, undefined, false, "MatrixChunky8"),
+          }, fpsHud.rows);
         }
 
         // const piece = $api.slug?.split("~")[0];
@@ -15167,34 +15104,6 @@ async function makeFrame({ data: { type, content } }) {
         //   });
         // currentPromptButton.paint($api);
         // }
-
-        // 😱 Scream - Paint a scream if it exists.
-        // TODO: Should this overlay after the fact and not force a paint? 23.05.23.19.21
-        //       Yes probably, because of layering issues?
-        if (scream || screaming) {
-          ink("yellow").write(scream, { x: 6, y: 18 }, "red");
-          //ink("red").write(scream, { x: 6 + 1, y: 18 + 1 });
-
-          /*
-          ink(255)
-            .wipe(255, 0, 0)
-            .write(
-              scream,
-              { center: "xy", size: 3, thickness: 1 },
-              undefined,
-              $api.screen.width - 8,
-              needsPaint(),
-            );
-          */
-          if (!screaming) {
-            screaming = true;
-            clearTimeout(screamingTimer);
-            screamingTimer = setTimeout(() => {
-              screaming = false;
-              scream = null;
-            }, 1000);
-          }
-        }
 
         // 🧚 Ambient Pen Points - Paint if they exist.
         fairies.forEach(({ x, y }) => {
@@ -15268,6 +15177,14 @@ async function makeFrame({ data: { type, content } }) {
           }
         }
 
+        // 😱 A scream takes the whole frame, over everything flushed so far.
+        const screamed = Scream.paint($api);
+        if (screamed) {
+          painting.paint(true);
+          layer(0);
+          noPaint = false;
+        }
+
         if (connectionModal.visible) {
           connectionModal.capture(screen, $commonApi.slug);
           layer(1001);
@@ -15318,6 +15235,7 @@ async function makeFrame({ data: { type, content } }) {
         }
 
         if (paintOut) dirtyBox = paintOut;
+        if (screamed) dirtyBox = undefined;
 
         delete screen.resized; // Remove status from screen after painting.
         delete screen.created;
@@ -15353,6 +15271,7 @@ async function makeFrame({ data: { type, content } }) {
         !previewMode &&
         !iconMode &&
         !hideLabel &&
+        !connectionModal.visible && // The lost-connection notice has the corner.
         piece !== undefined &&
         piece.length > 0
       ) {

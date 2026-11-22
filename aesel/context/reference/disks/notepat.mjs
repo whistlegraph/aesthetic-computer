@@ -19,7 +19,8 @@ import { createNotepatModifiers, LINGER_SECONDS } from "../lib/notepat-modifiers
 import { playPercussion } from "../lib/percussion.mjs";
 import { gmDigitSelection } from "../lib/notepat-programs.mjs";
 import { createMidiPerformance } from "../lib/notepat-midi-performance.mjs";
-import { classicNotepatLayout, notepatGridHeight } from "../lib/notepat-layout.mjs";
+import { Android, iOS, AestheticIOSApp } from "../lib/platform.mjs";
+import { classicNotepatLayout, filledNotepatPad, notepatGridHeight } from "../lib/notepat-layout.mjs";
 import { notepatModeBar, MODE_BAR_HEIGHT } from "../lib/notepat-mode-bar.mjs";
 import { learningPadLabels } from "../lib/notepat-pad-labels.mjs";
 import { notepatPianoLayout, pianoKeyContains, pianoReachOffsets, pianoNoteName, pianoNoteOffset } from "../lib/notepat-piano-layout.mjs";
@@ -389,7 +390,7 @@ TODO: 💮 Daisy
 */
 
 // import { qrcode as qr } from "../dep/@akamfoad/qr/qr.mjs";
-// import { Android, iOS } from "../lib/platform.mjs";
+const mobileGrid = Android || iOS || AestheticIOSApp;
 
 let STARTING_OCTAVE = "4";
 // 🎨 Tab walks the waves in order of MEASURED brightness, darkest first, so
@@ -449,6 +450,7 @@ function panicNotepat() {
   clearHeldVoices();
   for(const group of [...chordVoices.values()])group.kill(.015);
   chordVoices.clear();
+  for (const note of Object.keys(trail)) delete trail[note];
   host({ op: "panic" });
 }
 const midiPerformance = createMidiPerformance({
@@ -457,7 +459,10 @@ const midiPerformance = createMidiPerformance({
     const oct = Math.floor(voice.note / 12) - 1;
     voice.tone = `${oct}${name.toUpperCase()}`;
     voice.button = oct === lowerBaseOctave() ? name : oct === upperBaseOctave() ? `+${name}` : null;
-    if (voice.button && buttons[voice.button]) buttons[voice.button].down = true;
+    if (voice.button && buttons[voice.button]) {
+      buttons[voice.button].down = true;
+      delete trail[voice.button];
+    }
     tonestack[`midi:${voice.id}`] = { tone: voice.tone, count: Object.keys(tonestack).length };
     autopatApi?.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     return makeNoteSound(voice.tone, voice.velocity, 0, { output: false });
@@ -466,7 +471,10 @@ const midiPerformance = createMidiPerformance({
     voice.handle?.kill?.(0.08);
     delete tonestack[`midi:${voice.id}`];
     if (voice.button && buttons[voice.button] && !sounds[voice.button] &&
-        ![...midiPerformance.notes.values()].some(v => v.button === voice.button)) buttons[voice.button].down = false;
+        ![...midiPerformance.notes.values()].some(v => v.button === voice.button)) {
+      buttons[voice.button].down = false;
+      trail[voice.button] = 1;
+    }
   },
   bend(voice, semitones) { voice.handle?.update?.({ tone: soundContext?.freq(voice.tone) * 2 ** (semitones / 12) }); },
   program(program) { wave = "gm"; waveIndex = wavetypes.indexOf(wave); setGmProgram(program, autopatApi, true); },
@@ -1261,6 +1269,12 @@ function updateModeBar(api) {
   modeBarLayout = notepatModeBar(api.screen.width, { sound, octave:octaveLabel, dark: api.dark, layout: mainLayout });
   modeBarButtons = modeBarLayout.controls.map(c => ({ ...c, button: new api.ui.Button(c.x, c.y, c.w, c.h) }));
 }
+// The runtime pads the corner label's hitbox past its visible baseline.
+function containsHeaderPoint(point) {
+  if (mainLayout === "grid" && classicControls() && point?.y >= MODE_BAR_HEIGHT) return false;
+  return Object.getPrototypeOf(this).contains.call(this, point);
+}
+
 function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   updateModeBar(api);
   const dark=api.dark !== false, palette=notepatPalette(dark);
@@ -1274,7 +1288,9 @@ function paintModeBar(api, amplitude, waveforms, painter = notepatPainter) {
   if (modeBarLayout.logo) {
     const word=learningGlyph(api,"notepat",[255,255,255],"font_1",6,10);
     const shadow=learningGlyph(api,"notepat",[0,0,0],"font_1",6,10);
-    const label=autopatHud?.currentLabel?.(), textX=(label?.btn?.box?.x??HUD_DEFAULT_OFFSET.x)+(label?.leftPad??0), textY=(label?.btn?.box?.y??HUD_DEFAULT_OFFSET.y)+HUD_TEXT_INSET_Y;
+    const label = autopatHud?.currentLabel?.();
+    if (mobileGrid && label?.btn?.box) label.btn.box.contains = containsHeaderPoint;
+    const textX=(label?.btn?.box?.x??HUD_DEFAULT_OFFSET.x)+(label?.leftPad??0), textY=(label?.btn?.box?.y??HUD_DEFAULT_OFFSET.y)+HUD_TEXT_INSET_Y;
     painter.glyph(shadow,textX+(word.left||0)+1,textY+(word.top||0)+1).glyph(word,textX+(word.left||0),textY+(word.top||0));
     if (modeBarLayout.logo.endsWith(".com")) {
       const com=learningGlyph(api,"com",[0,220,255],"MatrixChunky8",6,10);
@@ -1334,9 +1350,11 @@ function paintClassicNotepat(api, amplitude, waveforms) {
   const dark=api.dark !== false, palette=notepatPalette(dark), painter=notepatPainter.begin(api,palette.background);
   animatePianoReach(api);
   const piano=mainLayout==='piano' ? pianoLayout : null;
-  const notes=piano ? piano.keys.map(k=>k.note) : buttonNotes;
+  const count = piano ? piano.keys.length : buttonNotes.length;
   const activeNotes=new Set(heldPianoNotes());
-  for(const note of notes) {
+  for (let i = 0; i < count; i++) {
+    const pianoKey = piano?.keys[i];
+    const note = pianoKey?.note ?? buttonNotes[i];
     const btn=buttons[note]; if(!btn || btn.hidden) continue;
     const color=notepatNoteColor(note),sharp=note.includes('#'),active=activeNotes.has(note)||btn.down;
     const colors=notepatPadColors(color,sharp,dark,active,btn.over);
@@ -1347,15 +1365,25 @@ function paintClassicNotepat(api, amplitude, waveforms) {
       if(btn.over) colors.fill=colors.fill.map(c=>Math.min(255,c+8));
     }
     painter.ink(...colors.fill).box(b.x,b.y,b.w,b.h);
+    const remaining = trail[note];
+    if (!active && remaining > 0) {
+      // The original ghost contracts toward the center as its opacity falls.
+      const w = Math.round(b.w * remaining), h = Math.round(b.h * remaining);
+      const x = b.x + Math.round((b.w - w) / 2), y = b.y + Math.round((b.h - h) / 2);
+      const alpha = Math.round(180 * remaining);
+      if (piano ? sharp : dark) painter.ink(222, 92, 126, alpha);
+      else painter.ink(128, 0, 0, alpha);
+      painter.box(x, y, w, h);
+    }
     if(piano) {
       painter.ink(...palette.rail).line(b.x+b.w-1,b.y,b.x+b.w-1,b.y+b.h-1);
       painter.ink(...color).box(b.x,b.y+b.h-2,b.w-1,2);
     }
     const key=(noteToKeyboardKey(note)||'').toUpperCase();
     const glyph=learningGlyph(api,key,colors.text,'unifont',8,16);
-    const labelBox=piano?piano.keys.find(k=>k.note===note).label:b;
+    const labelBox = pianoKey?.label ?? b;
     const label=learningPadLabels(labelBox,key,note,glyph,piano?.fontScale).primary;
-    if(label) { if(piano)painter.clip(piano.keys.find(k=>k.note===note).clip); painter.glyph(glyph,label.x,label.y,label.size); painter.clip(null); }
+    if(label) { if(pianoKey)painter.clip(pianoKey.clip); painter.glyph(glyph,label.x,label.y,label.size); painter.clip(null); }
   }
   painter.ink(...palette.rail);
   if(piano) {
@@ -2888,7 +2916,9 @@ function getButtonLayoutMetrics(
     : baseBottomPadding;
 
   if (!songMode && !pictureOverlay && !projector && !recitalMode) {
-    return { ...classicNotepatLayout(screen, { top: MODE_BAR_HEIGHT, bottom: baseBottomPadding, side: reservedSide }), midiBadge: badgeMetrics };
+    return { ...classicNotepatLayout(screen, {
+      top: MODE_BAR_HEIGHT, bottom: mobileGrid ? 0 : baseBottomPadding, side: reservedSide, fill: mobileGrid,
+    }), midiBadge: badgeMetrics };
   }
   const totalButtons = buttonNotes.length;
   const margin = 2;
@@ -7443,25 +7473,6 @@ function act({
     });
   };
   
-  // Legacy makePerc for backwards compatibility (clicky sounds)
-  const makePerc = (hz) => {
-    synth({
-      type: "triangle",
-      tone: hz / 2,
-      duration: 0.01,
-      attack: 0,
-      volume: 0.5,
-    });
-    synth({ type: "sawtooth", tone: hz, duration: 0.0025, volume: 1 });
-    synth({
-      type: "square",
-      tone: hz / 4,
-      duration: 0.005,
-      volume: 0.95,
-      decay: 0.999,
-    });
-  };
-
   // Helper to trigger percussion keys (alt, arrows)
   // Note: Space is no longer percussion - it toggles metronome now
   const triggerPercKey = (key, velocity = 1, isDown = true) => {
@@ -7517,17 +7528,6 @@ function act({
       return true;
     }
     return false;
-  };
-
-  const lowerBaseOctave = () => parseInt(octave) + lowerOctaveShift;
-  const upperBaseOctave = () => parseInt(octave) + 1 + upperOctaveShift;
-
-  const flatToSharp = {
-    DB: "C#",
-    EB: "D#",
-    GB: "F#",
-    AB: "G#",
-    BB: "A#",
   };
 
   if (e.is("midi:keyboard")) {
@@ -7795,12 +7795,12 @@ function act({
             },
             // TODO: The order of over and out will be important...
             out: (btn) => {
+              if (btn.down || sounds[note]) trail[note] = 1;
               releaseDrum(note);
               // Only stop the sound when dragging off, but don't affect button down state
               sounds[note]?.sound?.kill(killFade);
               delete tonestack[note]; // Remove from notestack  
               delete sounds[note]; // Remove sound reference
-              delete trail[note]; // Clean up trail
               
               // If this was the song note, reset the flag so it doesn't advance on wrong note
               if (song && note.toUpperCase() === song?.[songIndex][0] && songNoteDown) {
@@ -7808,12 +7808,12 @@ function act({
               }
             },
             cancel: (btn) => {
+              if (sounds[note] || drumVoices.get(note)?.released === false) trail[note] = 1;
               releaseDrum(note,true);
               // Force cleanup when button gets stuck - stop the sound immediately
               sounds[note]?.sound?.kill(fastFade); // Use fast fade for force cleanup
               delete tonestack[note]; // Remove from notestack
               delete sounds[note]; // Remove sound reference
-              delete trail[note]; // Clean up trail
             },
             up: (btn) => { stopButtonNote(note); },
           },
@@ -7877,411 +7877,164 @@ function act({
   }
 
   // Individual Keyboard Notes
-  [...(octaves + notes + edges).split("")].forEach((key) => {
-    if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
-      // 📊 Track key press time for latency measurement
-      perfStats.lastKeyTime = performance.now();
-      
-      downs[key] = true;
+  if (e.is("keyboard")) actNoteKey(e, api, synth);
 
-      if (!tap) {
-        if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
-          keys = keys.slice(0, -1);
-        editable = true;
-      } else if (keys[tapIndex] === key) {
-        tapped = key;
-      }
+  if (Object.keys(downs).length === 0) cleanupOrphanedSounds(pens);
+}
 
-      if (octaves.includes(key)) {
-        // 🎹 Keyboard -> 🎼 Octave recognition.
-        octave = parseInt(key);
-        sounds[key] = "held";
-        keys += key.toUpperCase();
-      } else {
-        // 🎹 Keyboard -> 🎵 Note recognition.
-        let note = key.toUpperCase();
+function actNoteKey(e, api, synth) {
+  const key = e.name.split(":")[2];
+  if (key?.length !== 1 || !(octaves + notes + edges).includes(key)) return;
+  if (e.is(`keyboard:down:${key}`) && !e.repeat && !downs[key]) {
+    // 📊 Track key press time for latency measurement
+    perfStats.lastKeyTime = performance.now();
 
-        // console.log("🫐 Extended Note ?:", note);
+    downs[key] = true;
 
-        if ("ZX".includes(note) || note === "CONTROL") {
-          switch (note) {
-            case "CONTROL":
-              note = "-A";
-              break;
-            case "Z":
-              note = "-A#";
-              break;
-            case "X":
-              note = "-B";
-              break;
-          }
-        }
-
-        // console.log(note);
-
-        if (";']".includes(note)) {
-          switch (note) {
-            case ";":
-              note = "++C";
-              break;
-            case "'":
-              note = "++C#";
-              break;
-            case "]":
-              note = "++D";
-              break;
-          }
-        }
-
-        if ("VSWRQ".includes(note)) {
-          switch (note) {
-            case "V":
-              note = "C#";
-              break;
-            case "S":
-              note = "D#";
-              break;
-            case "W":
-              note = "F#";
-              break;
-            case "R":
-              note = "G#";
-              break;
-            case "Q":
-              note = "A#";
-              break;
-          }
-        }
-
-        let activeOctave = parseInt(octave); //parseInt(octave);
-        let buttonNote;
-
-        if (("HIJKLMN" + "TYUOP").includes(note)) {
-          switch (note) {
-            case "H":
-              note = "C";
-              break;
-            case "I":
-              note = "D";
-              break;
-            case "J":
-              note = "E";
-              break;
-            case "K":
-              note = "F";
-              break;
-            case "L":
-              note = "G";
-              break;
-            case "M":
-              note = "A";
-              break;
-            case "N":
-              note = "B";
-              break;
-            // Semitones
-            case "T":
-              note = "C#";
-              break;
-            case "Y":
-              note = "D#";
-              break;
-            case "U":
-              note = "F#";
-              break;
-            case "O":
-              note = "G#";
-              break;
-            case "P":
-              note = "A#";
-              break;
-          }
-          activeOctave += 1;
-          activeOctave += upperOctaveShift;
-          buttonNote = "+" + note.toLowerCase();
-        } else {
-          activeOctave += lowerOctaveShift;
-          buttonNote = note.toLowerCase();
-        }
-
-        // Adjust active octave based on extension note
-        // if needed.
-
-        if (note.startsWith("-")) {
-          note = note.replace("-", "");
-          activeOctave -= 1;
-        } else if (note.startsWith("++")) {
-          note = note.replace("++", "");
-          activeOctave += 2;
-          activeOctave += upperOctaveShift;
-        }
-
-        // if (activeOctave !== parseInt(octave)) {
-        // keys += activeOctave + note;
-        // } else {
-        keys += activeOctave + note;
-        // }
-
-        // const buttonNote =
-        //  (activeOctave === parseInt(octave) ? "" : "+") + note.toLowerCase();
-
-        // 🎵 Block wrong keyboard keys in song mode (melody learning mode)
-        if (song && buttonNote.toUpperCase() !== song?.[songIndex][0]) {
-          // Play white noise bump for wrong key press
-          synth({
-            type: "noise-white",
-            tone: 1000,
-            duration: 0.05,
-            volume: 0.3,
-            attack: 0,
-          });
-          return; // Block this wrong key in melody mode
-        }
-
-        if (buttons[buttonNote]) buttons[buttonNote].down = true;
-
-        const active = orderedByCount(sounds);
-
-        const tone = `${activeOctave}${note}`;
-
-        if (slide && active.length > 0) {
-          // TODO: Fix slide here... 24.08.16.06.18
-          //console.log("Fix slide...", active[0], sounds[active[0]]?.sound, tone, key);
-
-          sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
-
-          tonestack[buttonNote] = {
-            count: Object.keys(tonestack).length,
-            tone,
-          };
-          sounds[buttonNote] = sounds[active[0]]; // Switch the note label.
-          if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
-          delete sounds[active[0]]; // Swap the sound reference.
-          applyPitchBendToNotes([buttonNote], { immediate: true });
-        } else {
-          tonestack[buttonNote] = {
-            count: Object.keys(tonestack).length,
-            tone,
-          };
-          const pan = getPanForQwertyKey(key);
-          const voiceId=computeVoiceId(buttonNote);
-          heldVoices.get(voiceId)?.sound?.kill?.(.02); heldVoices.delete(voiceId);
-          sounds[buttonNote] = {
-            note: buttonNote, voiceId,
-            sustainMode: enterHeld ? "enter" : performanceModifiers.linger(buttonNote) ? "shift" : null,
-            count: active.length + 1,
-            sound: makeNoteSound(tone, e.velocity ?? 127, pan),
-          };
-
-          applyPitchBendToNotes([buttonNote], { immediate: true });
-
-          if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
-            songNoteDown = true;
-          }
-
-          delete trail[buttonNote];
-
-          pictureAdd(api, tone);
-          udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
-        }
-        api.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
-      }
+    if (!tap) {
+      if (octaves.includes(key) && octaves.includes(keys.slice(-1)))
+        keys = keys.slice(0, -1);
+      editable = true;
+    } else if (keys[tapIndex] === key) {
+      tapped = key;
     }
 
-    // Just for the notes, not the octaves...
-    if (e.is(`keyboard:up:${key}`) /*&& notes.indexOf(key) > -1*/) {
-      if (tap && tapped === key) {
-        tapIndex = (tapIndex + 1) % keys.length;
-        tapped = undefined;
+    if (octaves.includes(key)) {
+      // 🎹 Keyboard -> 🎼 Octave recognition.
+      octave = parseInt(key);
+      sounds[key] = "held";
+      keys += key.toUpperCase();
+    } else {
+      const buttonNote = keyboardKeyToNote(key);
+      const note = buttonNote.replace(/^[+-]+/, "").toUpperCase();
+      let activeOctave = lowerBaseOctave();
+      if (buttonNote.startsWith("++")) activeOctave += 2 + upperOctaveShift;
+      else if (buttonNote.startsWith("+")) activeOctave = upperBaseOctave();
+      else if (buttonNote.startsWith("-")) activeOctave--;
+      keys += activeOctave + note;
+
+      // 🎵 Block wrong keyboard keys in song mode (melody learning mode)
+      if (song && buttonNote.toUpperCase() !== song?.[songIndex][0]) {
+        // Play white noise bump for wrong key press
+        synth({
+          type: "noise-white",
+          tone: 1000,
+          duration: 0.05,
+          volume: 0.3,
+          attack: 0,
+        });
+        return; // Block this wrong key in melody mode
       }
 
-      if (downs[key]) {
-        delete downs[key];
+      if (buttons[buttonNote]) buttons[buttonNote].down = true;
 
-        // let buttonNote = key;
-        function noteFromKey(key) {
-          let buttonNote = key;
+      const active = orderedByCount(sounds);
 
-          if ("vswrq".includes(key)) {
-            switch (key) {
-              case "v":
-                buttonNote = "c#";
-                break;
-              case "s":
-                buttonNote = "d#";
-                break;
-              case "w":
-                buttonNote = "f#";
-                break;
-              case "r":
-                buttonNote = "g#";
-                break;
-              case "q":
-                buttonNote = "a#";
-                break;
-            }
-          }
-          // TODO: This matching code should be combined across event handlers. 24.08.15.06.40
-          let activeOctave = octave;
+      const tone = `${activeOctave}${note}`;
 
-          if (("hijklmn" + "tyuop").includes(buttonNote)) {
-            switch (buttonNote) {
-              case "h":
-                buttonNote = "c";
-                break;
-              case "i":
-                buttonNote = "d";
-                break;
-              case "j":
-                buttonNote = "e";
-                break;
-              case "k":
-                buttonNote = "f";
-                break;
-              case "l":
-                buttonNote = "g";
-                break;
-              case "m":
-                buttonNote = "a";
-                break;
-              case "n":
-                buttonNote = "b";
-                break;
-              // Semitones
-              case "t":
-                buttonNote = "c#";
-                break;
-              case "y":
-                buttonNote = "d#";
-                break;
-              case "u":
-                buttonNote = "f#";
-                break;
-              case "o":
-                buttonNote = "g#";
-                break;
-              case "p":
-                buttonNote = "a#";
-                break;
-            }
-            activeOctave = parseInt(octave) + 1;
-          }
+      if (slide && active.length > 0) {
+        sounds[active[0]]?.sound?.update({ tone, duration: 0.1 });
 
-          if (activeOctave !== octave) buttonNote = "+" + buttonNote;
+        tonestack[buttonNote] = {
+          count: Object.keys(tonestack).length,
+          tone,
+        };
+        sounds[buttonNote] = sounds[active[0]]; // Switch the note label.
+        if (sounds[buttonNote]) sounds[buttonNote].note = buttonNote;
+        delete sounds[active[0]]; // Swap the sound reference.
+        applyPitchBendToNotes([buttonNote], { immediate: true });
+      } else {
+        tonestack[buttonNote] = {
+          count: Object.keys(tonestack).length,
+          tone,
+        };
+        const pan = getPanForQwertyKey(key);
+        const voiceId=computeVoiceId(buttonNote);
+        heldVoices.get(voiceId)?.sound?.kill?.(.02); heldVoices.delete(voiceId);
+        sounds[buttonNote] = {
+          note: buttonNote, voiceId,
+          sustainMode: enterHeld ? "enter" : performanceModifiers.linger(buttonNote) ? "shift" : null,
+          count: active.length + 1,
+          sound: makeNoteSound(tone, e.velocity ?? 127, pan),
+        };
 
-          if ("zx".includes(buttonNote) || buttonNote === "control") {
-            switch (buttonNote) {
-              case "x":
-                buttonNote = "-b";
-                break;
-              case "z":
-                buttonNote = "-a#";
-                break;
-              case "control":
-                buttonNote = "-a";
-                break;
-            }
-          }
-
-          if (";']".includes(buttonNote)) {
-            switch (buttonNote) {
-              case ";":
-                buttonNote = "++c";
-                break;
-              case "'":
-                buttonNote = "++c#";
-                break;
-              case "]":
-                buttonNote = "++d";
-                break;
-            }
-          }
-
-          return buttonNote;
-        }
-
-        const buttonNote = noteFromKey(key);
-        if(sounds[buttonNote]?.sustainMode) {
-          stopButtonNote(buttonNote);
-          if(buttons[buttonNote]) buttons[buttonNote].down=false;
-          return;
-        }
-
-        const orderedTones = orderedByCount(tonestack);
-
-        // console.log(
-        //   "Ordered Tones:",
-        //   orderedTones,
-        //   "Sounds:",
-        //   sounds,
-        //   "Key:",
-        //   key,
-        // );
-
-        // In slide mode, the sound reference may have been moved to another key
-        // Only process if this note still has an active sound reference
-        const hasSound = sounds[buttonNote] !== undefined;
-
-        if (slide && orderedTones.length > 1 && hasSound) {
-          sounds[buttonNote]?.sound?.update({
-            tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
-            duration: 0.1,
-          });
-
-          // console.log(
-          //   "New sound key is:",
-          //   tonestack[orderedTones[orderedTones.length - 2]],
-          //   noteFromKey(orderedTones[orderedTones.length - 2]),
-          //   orderedTones,
-          //   sounds
-          // );
-
-          const previousKeyRaw = orderedTones[orderedTones.length - 2];
-          const n = noteFromKey(previousKeyRaw);
-          sounds[n] = sounds[buttonNote];
-          if (sounds[n]) sounds[n].note = n;
-          applyPitchBendToNotes([previousKeyRaw], { immediate: true });
-          // console.log("Replaced:", buttonNote, "with:", n);
-
-          // delete sounds[buttonNote];
-        } else if (hasSound) {
-          // Only kill the sound if we still have a reference to it
-          // console.log("Killing sound:", buttonNote);
-
-          if (sounds[buttonNote]?.sound) {
-            const fade = max(
-              0.075, //0.175,
-              min(
-                (performance.now() / 1000 - sounds[buttonNote].sound.startedAt),
-                0.15, //0.45,
-              ),
-            );
-            // console.log("🦋 Fade length:", fade);
-            // killFade
-            sounds[buttonNote]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
-          }
-          delete sounds[buttonNote];
-        }
-        // If hasSound is false in slide mode, the sound was already moved
-        // to another key, so we don't need to kill anything
+        applyPitchBendToNotes([buttonNote], { immediate: true });
 
         if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
-          songIndex = (songIndex + 1) % song.length;
-          songNoteDown = false;
-          songShifting = true;
+          songNoteDown = true;
         }
 
-        // Always clean up tonestack and trail
-        delete tonestack[buttonNote]; // Remove this key from the notestack.
-        trail[buttonNote] = 1;
-        if (buttons[buttonNote]) buttons[buttonNote].down = false;
+        delete trail[buttonNote];
+
+        pictureAdd(api, tone);
+        udpServer?.send("tv", { note: buttonNote }); // Send udp message for note.
       }
+      api.send?.({ type: "visit:action", content: { action: "notepat_note_played" } });
     }
-  });
-  
-  // After processing all key up events, check for orphaned sounds
-  if (Object.keys(downs).length === 0) {
-    cleanupOrphanedSounds(pens);
+  }
+
+  if (e.is(`keyboard:up:${key}`)) {
+    if (tap && tapped === key) {
+      tapIndex = (tapIndex + 1) % keys.length;
+      tapped = undefined;
+    }
+
+    if (downs[key]) {
+      delete downs[key];
+
+      const buttonNote = keyboardKeyToNote(key) ?? key;
+      if(sounds[buttonNote]?.sustainMode) {
+        stopButtonNote(buttonNote);
+        if(buttons[buttonNote]) buttons[buttonNote].down=false;
+        return;
+      }
+
+      const orderedTones = orderedByCount(tonestack);
+
+      // In slide mode, the sound reference may have been moved to another key
+      // Only process if this note still has an active sound reference
+      const hasSound = sounds[buttonNote] !== undefined;
+
+      if (slide && orderedTones.length > 1 && hasSound) {
+        sounds[buttonNote]?.sound?.update({
+          tone: tonestack[orderedTones[orderedTones.length - 2]].tone,
+          duration: 0.1,
+        });
+
+        const previousKeyRaw = orderedTones[orderedTones.length - 2];
+        const n = keyboardKeyToNote(previousKeyRaw) ?? previousKeyRaw;
+        sounds[n] = sounds[buttonNote];
+        if (sounds[n]) sounds[n].note = n;
+        applyPitchBendToNotes([previousKeyRaw], { immediate: true });
+
+      } else if (hasSound) {
+        if (sounds[buttonNote]?.sound) {
+          const fade = max(
+            0.075,
+            min(
+              (performance.now() / 1000 - sounds[buttonNote].sound.startedAt),
+              0.15,
+            ),
+          );
+
+          sounds[buttonNote]?.sound.kill(quickFade ? fastFade : fade); // Kill a sound if it exists.
+        }
+        delete sounds[buttonNote];
+      }
+      // If hasSound is false in slide mode, the sound was already moved
+      // to another key, so we don't need to kill anything
+
+      if (buttonNote.toUpperCase() === song?.[songIndex][0]) {
+        songIndex = (songIndex + 1) % song.length;
+        songNoteDown = false;
+        songShifting = true;
+      }
+
+      // Always clean up tonestack and trail
+      delete tonestack[buttonNote]; // Remove this key from the notestack.
+      trail[buttonNote] = 1;
+      if (buttons[buttonNote]) buttons[buttonNote].down = false;
+    }
   }
 }
 
@@ -8500,6 +8253,12 @@ function resetModeState() {
   // hold = sharps = flats = false;
 }
 
+// geo.Box includes its far edges. Adjacent pads must have one owner per pixel.
+function containsPadPixel(point) {
+  return point && point.x >= this.x && point.x < this.x + this.w &&
+    point.y >= this.y && point.y < this.y + this.h;
+}
+
 // Initialize and/or lay out the UI buttons on the bottom of the display.
 function setupButtons({ ui, screen, geo }) {
   padsViewport = `${screen.width}:${screen.height}`;
@@ -8537,8 +8296,6 @@ function setupButtons({ ui, screen, geo }) {
   padsBaseKey = null;
   padsBase = null;
   const {
-    buttonWidth,
-    buttonHeight,
     topButtonY,
     buttonsPerRow,
     totalRows,
@@ -8554,8 +8311,11 @@ function setupButtons({ ui, screen, geo }) {
 
   buttonNotes.forEach((label, i) => {
     let x, y;
-    
-    if (splitLayout) {
+    let { buttonWidth, buttonHeight } = layout;
+
+    if (layout.fill) {
+      ({ x, y, w: buttonWidth, h: buttonHeight } = filledNotepatPad(layout, i));
+    } else if (splitLayout) {
       // Split layout: first 12 notes on left, second 12 on right
       const isSecondOctave = i >= notesPerSide;
       const localIndex = isSecondOctave ? i - notesPerSide : i;
@@ -8589,6 +8349,8 @@ function setupButtons({ ui, screen, geo }) {
     } else {
       buttons[label].box = new geo.Box(...geometry);
     }
+
+    if (layout.fill) buttons[label].box.contains = containsPadPixel;
 
     const noteLabelText = label.toUpperCase();
     const noteFont = buttonWidth >= 22 && buttonHeight >= 20 ? "unifont" : "MatrixChunky8";

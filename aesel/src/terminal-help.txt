@@ -14,6 +14,7 @@ Usage: a [directory] [--runtime mjs|lisp|p5|l5]
        aesthetic run --task <task.json> --out <rundir> --live [--harness <dir>]
        aesthetic run --init-harness <dir>
        aesthetic harness list | new <dir> | run <dir> … | post <dir>
+       aesthetic printer <dir> --from <file> ["what you asked for"…]
 
 Open the aesel terminal interface in a workspace, or manage the
 shared Aesthetic Computer sign-in (~/.ac-token) and publish a piece under
@@ -33,6 +34,15 @@ knows) and an optional check.mjs. `harness run` sends the inputs to AC hosted
 inference, checks the answer, repairs once, and writes the file its MIME goal
 names under runs/; `harness post` puts the newest one on mime.ac. Starters
 and the 90-minute workshop route are in aesel/workshop/.
+
+printer turns a thing you made into a program that prints more of it. The
+folder it writes is a harness with a launcher named after it: prompt.md is
+drafted from what you asked for and the file that worked, kept beside it as
+the seed. The launcher runs on libaesel (src/libaesel.mjs), so
+./poster/poster "words" works from anywhere Aesel is installed. /printer NAME
+does the same from inside the interface, for the piece in hand.
+./poster/poster --serve switches it on: it joins the Print dialog (macOS),
+and a page printed to it comes out as what it makes.
 
 Each session starts by choosing an AC blank piece or a nopaint.art brush,
 then shows a QR code that runs it live on a phone. --genre makes that
