@@ -1,3 +1,4 @@
+import { apnsConfigured, webPushConfigured, sendToDevices } from "../../../shared/push.mjs";
 import { createHash } from "node:crypto";
 import { authorize, handleFor } from "../../backend/authorization.mjs";
 import { connect } from "../../backend/database.mjs";
@@ -16,11 +17,31 @@ async function prepare(messages) {
   await indexes;
 }
 
+const APP_SUBSCRIBERS = "whistlegraph-chat-app-subscribers";
+async function notifyRoom(db, author, handle, text, messageId, browserDevice) {
+  const users = await db.collection(APP_SUBSCRIBERS).distinct("_id", { _id: { $ne: author } });
+  const devices = await db.collection("push-tokens").find({
+    user: { $ne: author },
+    $or: [
+      { kind: "webpush", topics: "chat-whistlegraph", ...(typeof browserDevice === "string" && { deviceId: { $ne: browserDevice } }) },
+      { kind: "apns", user: { $in: users } },
+    ],
+  }).toArray();
+  await sendToDevices(db, devices, {
+    title: "@" + handle + " · Whistlegraph", body: [...text].slice(0, 180).join(""),
+    icon: "https://whistlegraph.org/favicon.png", thread: "whistlegraph",
+    ttl: 300, expiresAt: Date.now() + 300000, data: { piece: "whistlegraph", messageId },
+  }, () => {});
+}
+
 export async function handler(event) {
   const method = event.httpMethod;
   const action = event.queryStringParameters?.action || "messages";
   if (method === "OPTIONS") return reply(204, null);
   try {
+    if (method === "GET" && action === "push-config") {
+      return reply(200, { webKey: webPushConfigured() ? process.env.VAPID_PUBLIC_KEY : null, app: apnsConfigured() });
+    }
     if (method === "GET" && action === "messages") {
       const { db } = await connect();
       const messages = await db.collection("whistlegraph-chat").find({ removed: { $ne: true } })
@@ -30,6 +51,10 @@ export async function handler(event) {
     const user = await authorize(event.headers || {});
     if (!user?.sub) return error(401, "Sign in with Aesthetic Computer.");
     const host = isWhistlegraphAdmin(user);
+    if (method === "GET" && action === "app-alerts") {
+      const { db } = await connect();
+      return reply(200, { enabled: !!await db.collection(APP_SUBSCRIBERS).findOne({ _id: user.sub }) });
+    }
     if (method === "GET" && action === "session") {
       return reply(200, { handle: await handleFor(user.sub) || null, host });
     }
@@ -38,6 +63,14 @@ export async function handler(event) {
     try { body = JSON.parse(event.body); } catch { return error(400, "Invalid message."); }
     if (!body || typeof body !== "object") return error(400, "Invalid message.");
     const { db } = await connect();
+    if (action === "app-alerts") {
+      if (typeof body.enabled !== "boolean") return error(400, "Choose on or off.");
+      const subscribers = db.collection(APP_SUBSCRIBERS);
+      if (body.enabled) await subscribers.updateOne({ _id: user.sub }, { $set: { updatedAt: new Date() } }, { upsert: true });
+      else await subscribers.deleteOne({ _id: user.sub });
+      const device = body.enabled && await db.collection("push-tokens").findOne({ user: user.sub, kind: "apns" }, { projection: { _id: 1 } });
+      return reply(200, { enabled: body.enabled, hasDevice: !!device });
+    }
     const messages = db.collection("whistlegraph-chat");
     const mutes = db.collection("whistlegraph-chat-mutes");
 
@@ -65,7 +98,10 @@ export async function handler(event) {
     } catch (err) {
       if (err.code !== 11000) throw err;
       if (!await messages.findOne({ _id }, { projection: { _id: 1 } })) return error(429, "Give it a moment before sending again.");
+      return reply(200, { id: _id });
     }
+    // Lith is a persistent process. Provider latency never blocks the next message.
+    notifyRoom(db, user.sub, handle, text, _id, body.browserDevice).catch(err => console.error("Whistlegraph push unavailable", err?.name));
     return reply(200, { id: _id });
   } catch (err) {
     console.error("Whistlegraph chat unavailable", err?.name);

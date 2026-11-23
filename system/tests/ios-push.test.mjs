@@ -71,9 +71,10 @@ test("registration failure can retry on reconnect without a false acknowledgemen
   let online = false;
   const { win, requests, listeners } = setup({ fetch: async () => ({ ok: online, status: 503 }) });
   assert.equal((await win.iOSReceivePushToken(token)).ok, false);
+  assert.equal(requests.length, 2); // Initial 503 and the immediate retry.
   online = true;
   assert.deepEqual(await listeners.online(), { ok: true, enabled: true });
-  assert.equal(requests.length, 2);
+  assert.equal(requests.length, 3);
 });
 
 test("opt-out survives reload and opt-in can restore the same token", async () => {

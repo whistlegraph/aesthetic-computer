@@ -4,26 +4,36 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Whistlegraph group chat</title>
-<meta name="description" content="Join the Whistlegraph group chat. Read along or post with a free Aesthetic Computer handle.">
+<meta name="description" content="The public Whistlegraph group chat.">
 <link rel="canonical" href="https://whistlegraph.org/">
+<link rel="manifest" href="/room.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#f5e8ae">
+<script>
+try {
+  const saved = localStorage.getItem("whistlegraph-theme");
+  if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+} catch {}
+</script>
 <link rel="icon" href="/favicon.png">
 <style>
-:root{--ink:#25204a;--paper:#fffdf6;--rule:#d6ced7;--dim:#62597a;--pink:#a13073;--yellow:#fff3a0;color-scheme:light;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+:root{--ink:#312940;--paper:#f5e8ae;--rule:#c4af79;--dim:#60533e;--pink:#86295e;--yellow:#ffcf58;--field:#fcf1c5;color-scheme:light;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+:root[data-theme="dark"]{color-scheme:dark;--ink:#f6e9be;--paper:#272332;--rule:#5d5060;--dim:#c3b6a2;--pink:#ffa4ce;--yellow:#584528;--field:#322d3c}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--ink:#f6e9be;--paper:#272332;--rule:#5d5060;--dim:#c3b6a2;--pink:#ffa4ce;--yellow:#584528;--field:#322d3c}}
 *{box-sizing:border-box}
 body{margin:0}
 main{max-width:48rem;margin:auto;height:100vh;height:min(100dvh,var(--room-height,100dvh));display:flex;flex-direction:column;padding:0 clamp(1rem,4vw,2.5rem)}
-header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1.15rem 0;border-bottom:2px solid var(--ink)}
+header{display:flex;gap:clamp(.25rem,1.4vw,.8rem);align-items:center;padding:.25rem 0;border-bottom:2px solid var(--ink)}
 h1{margin:0;line-height:1}
-h1 img{display:block;width:clamp(8rem,35vw,16rem);height:auto}
+h1 img{display:block;width:clamp(4.6rem,18vw,8.5rem);height:auto}
 nav{display:flex;gap:.65rem;align-items:center}
 a{color:var(--pink);text-underline-offset:.18em}
 nav a{padding:.35rem .6rem;color:var(--ink);font-weight:650}
 nav [aria-current]{background:var(--yellow);text-decoration:none}
-#ticker{border-bottom:1px solid var(--rule);padding:.4rem 0 .5rem;min-width:0}
-.ticker-head{display:flex;align-items:center;justify-content:space-between;gap:.65rem}
-#current-work{color:var(--ink);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#ticker-toggle{flex:none;min-width:44px;min-height:44px;padding:.3rem .5rem;font: .8rem ui-monospace,monospace;background:transparent;border:0}
-#code-strip{display:flex;gap:.45rem;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:3px}
+#ticker:not([hidden]){display:flex;align-items:center;gap:.15rem;flex:1;min-width:0}
+#current-work,#ticker-toggle{display:grid;place-items:center;flex:none;min-width:36px;min-height:44px;color:var(--ink);border:0;background:transparent;font:600 1.05rem system-ui;text-decoration:none;padding:0}
+#code-strip{min-width:0;flex:1;display:flex;align-items:center;gap:.32rem;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;padding:3px}
+#code-strip::-webkit-scrollbar{display:none}
 .code-chip{-webkit-tap-highlight-color:transparent;display:inline-flex;gap:.42rem;align-items:center;justify-content:center;flex:none;min-height:44px;padding:.25rem .65rem .25rem .32rem;border:1px solid var(--rule);border-radius:6px;background:var(--paper);font:600 1rem ui-monospace,monospace}
 .code-chip[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:var(--yellow)}
 .code-badge{display:grid;place-items:center;width:29px;height:29px;overflow:hidden;border:3px solid var(--graph-color);border-radius:50%;background:var(--graph-color);color:var(--paper);text-shadow:0 1px 2px var(--ink)}
@@ -43,13 +53,24 @@ footer{border-top:2px solid var(--ink);padding:.8rem 0 max(.8rem,env(safe-area-i
 form{margin:0}
 .row,.tools{display:flex;align-items:center;gap:.6rem}
 .tools{flex-wrap:wrap;margin:0 0 .55rem}
-.tools a{margin-left:auto}
+.tools{gap:.65rem;font: .85rem system-ui}
+.tools nav{gap:.55rem}
+.tools nav a{padding:.15rem .1rem}
+.tools .settings{margin-left:auto;border:0;padding:.4rem;color:var(--dim)}
+#identity:empty{display:none}
+#settings{width:min(22rem,92vw);border-radius:8px}
+#settings header{justify-content:space-between;margin-bottom:1rem}
+#settings h2{margin:0}
+#settings select{font:inherit;color:var(--ink);background:var(--field);padding:.5rem;border:1px solid var(--dim);border-radius:4px}
+#settings .pref{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:.55rem 0;min-height:44px}
+#settings label{margin:0}
+#settings-status{color:var(--dim);font-size:.9rem}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer;background:var(--paper);border:1px solid var(--ink);border-radius:4px;padding:.5rem .65rem}
 button:disabled{opacity:.55}
 #send,#claim button[type=submit]{background:var(--ink);color:var(--paper);font-weight:650}
 textarea,input{min-width:0;background:transparent;border:1px solid var(--dim);border-radius:4px;padding:.63rem}
-textarea{flex:1;resize:none;line-height:1.35}
+textarea{background:var(--field);flex:1;resize:none;line-height:1.35}
 .row button{align-self:stretch}
 #notice,#claim-error{color:var(--pink);margin:.4rem 0 0;font-size:.92rem}
 p:empty{display:none}
@@ -60,6 +81,18 @@ dialog::backdrop{background:#25204a66}
 dialog h2{margin:0 0 1rem}
 dialog label{display:block;margin-bottom:.5rem}
 dialog input{width:100%;margin-bottom:1rem}
+button:focus-visible,select:focus-visible{outline-offset:1px}
+.work-card{display:flex;align-items:center;gap:.75rem;border:1px solid var(--rule);border-radius:6px;padding:.35rem;background:var(--field);max-width:28rem;overflow:hidden}
+.work-card video{width:clamp(7rem,32vw,12rem);height:clamp(4rem,14dvh,8rem);object-fit:contain;background:#1f1b23;border-radius:3px}
+.work-card audio{max-width:55%;min-width:0}
+.work-caption{display:grid;gap:.15rem;min-width:0}
+.work-caption a{color:var(--ink);font-weight:650;overflow-wrap:anywhere}
+.work-caption small{color:var(--dim);overflow-wrap:anywhere}
+#draft-media:not(:empty){display:flex;gap:.3rem;align-items:flex-start;margin-bottom:.4rem}
+#draft-media>.work-card{flex:1}
+#draft-media>button{min-height:36px;min-width:36px}
+.message-code{color:var(--ink);background:var(--yellow);font:600 .9rem ui-monospace,monospace;padding:.2rem .45rem}
+.message+.work-card{margin-top:.35rem}
 :focus-visible{outline:3px solid #275ed4;outline-offset:2px}
 </style>
 </head>
@@ -67,27 +100,35 @@ dialog input{width:100%;margin-bottom:1rem}
 <main>
 <header>
 <h1><img src="/whistlegraph-logo.png" width="1517" height="266" alt="Whistlegraph group chat"></h1>
-<nav aria-label="Whistlegraph"><a href="/" aria-current="page">Chat</a><a href="/index">Index</a></nav>
-</header>
+
 <section id="ticker" aria-label="Whistlegraph code ticker" hidden>
-<div class="ticker-head"><a id="current-work"></a><button type="button" id="ticker-toggle" aria-controls="code-strip">Pause</button></div>
 <div id="code-strip" role="toolbar" aria-label="Select a whistlegraph"></div>
+<a id="current-work" aria-label="Open selected work">↗</a>
+<button type="button" id="ticker-toggle" aria-label="Pause code ticker" aria-controls="code-strip">Ⅱ</button>
 </section>
+</header>
 <section id="timeline" aria-label="Group messages" tabindex="0">
 <p id="empty">Loading messages…</p>
 <ol id="messages" aria-live="polite" aria-relevant="additions"></ol>
 </section>
 <footer>
-<div class="tools"><span id="identity">Public chat · Join free with an AC handle</span><button type="button" id="logout" hidden>Sign out</button><a href="https://aesthetic.computer/whistlegraph-recorder" target="_blank" rel="noopener">Recorder ↗</a></div>
+<div class="tools"><nav aria-label="Whistlegraph"><a href="/" aria-current="page">Chat</a><a href="/index">Index</a></nav><span id="identity"></span><button type="button" id="logout" hidden>Sign out</button><a href="https://aesthetic.computer/whistlegraph-recorder" target="_blank" rel="noopener">Recorder ↗</a><button class="settings" type="button" id="open-settings">Settings</button></div>
+<div id="draft-media"></div>
 <form id="compose" class="row"><textarea id="draft" aria-label="Message" placeholder="Say something…" rows="2" maxlength="1400" required></textarea><button id="send" type="submit">Send</button></form>
 <p id="notice" role="status"></p>
 </footer>
 </main>
+<dialog id="settings" aria-labelledby="settings-title">
+<header><h2 id="settings-title">Settings</h2><form method="dialog"><button aria-label="Close settings">×</button></form></header>
+<div class="pref"><label for="appearance">Appearance</label><select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+<div class="pref"><span>Web notifications</span><button id="web-alerts" aria-label="Web notifications" aria-pressed="false" disabled>Off</button></div>
+<div class="pref"><span>AC app notifications</span><button id="app-alerts" aria-label="AC app notifications" aria-pressed="false" disabled>Off</button></div>
+<p id="settings-status" role="status"></p>
+</dialog>
 <dialog id="handle-dialog" aria-labelledby="claim-title">
 <form id="claim"><h2 id="claim-title">Choose your AC handle</h2><label for="handle">Your messages will appear under this name.</label><input id="handle" placeholder="@handle" autocomplete="nickname" maxlength="17" required>
 <div class="row"><button type="submit">Claim handle</button><button type="button" id="cancel">Cancel</button></div><p id="claim-error" role="status"></p></form>
 </dialog>
 <script defer src="https://aesthetic.computer/aesthetic.computer/dep/auth0-spa-js.production.js"></script>
-<script type="module" src="/code-ticker.mjs"></script>
 <script type="module" src="/room.mjs"></script>
 </body></html>

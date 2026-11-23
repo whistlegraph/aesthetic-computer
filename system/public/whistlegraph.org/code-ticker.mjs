@@ -8,12 +8,12 @@ const works = [];
 const codes = new Set();
 let selected = 0;
 let cursor = null;
-let loading = false;
+let loading;
 let paused = motion.matches;
 
 function setPaused(value) {
   paused = value;
-  toggle.textContent = value ? "Play" : "Pause";
+  toggle.textContent = value ? "▷" : "Ⅱ";
   toggle.setAttribute("aria-label", value ? "Play code ticker" : "Pause code ticker");
 }
 
@@ -36,9 +36,9 @@ function select(index) {
   button.tabIndex = 0;
   reveal(button);
   current.href = "/" + work.code;
-  current.textContent = work.title + " ↗";
+  current.title = work.title;
   current.setAttribute("aria-label", "Open " + work.title + " in the Index");
-  if (cursor && index >= works.length - 8) loadPage();
+
 }
 
 function makeChip(work, index) {
@@ -63,18 +63,20 @@ function makeChip(work, index) {
     badge.replaceChildren(img);
   }
   button.append(badge, work.code);
-  button.onclick = () => { setPaused(true); select(index); };
+  button.onclick = () => {
+    setPaused(true);
+    select(index);
+    ticker.dispatchEvent(new CustomEvent("work-selected", { detail: work }));
+  };
   return button;
 }
 
-async function loadPage() {
-  if (loading) return;
-  loading = true;
-  try {
-    const query = new URLSearchParams({ action: "works", limit: "40" });
+async function fetchCatalog() {
+  do {
+    const query = new URLSearchParams({ action: "works", limit: "100" });
     if (cursor) query.set("cursor", cursor);
     const response = await fetch("/api/whistlegraph-query?" + query);
-    if (!response.ok) return;
+    if (!response.ok) throw new Error("Index unavailable");
     const page = await response.json();
     const first = !works.length;
     for (const work of page.items) {
@@ -88,8 +90,25 @@ async function loadPage() {
       ticker.hidden = false;
       select(Math.max(0, works.findIndex(work => work.code === "imab")));
     }
-  } catch { /* Chat remains usable while the archive is unavailable. */ }
-  finally { loading = false; }
+  } while (cursor);
+}
+
+function catalog() {
+  loading ??= fetchCatalog().catch(() => { loading = undefined; });
+  return loading;
+}
+
+export async function lookupWork(text) {
+  const match = /^([a-z0-9]{1,24})$/i.exec(text.trim());
+  if (!match) return;
+  const code = match[1].toLowerCase();
+  if (!codes.has(code)) await catalog();
+  return works.find(work => work.code === code);
+}
+
+export function highlightWork(work) {
+  setPaused(true);
+  select(works.indexOf(work));
 }
 
 strip.addEventListener("keydown", event => {
@@ -103,15 +122,12 @@ strip.addEventListener("keydown", event => {
 strip.addEventListener("pointerdown", () => setPaused(true));
 strip.addEventListener("wheel", () => setPaused(true), { passive: true });
 strip.addEventListener("focusin", () => setPaused(true));
-strip.addEventListener("scroll", () => {
-  if (cursor && strip.scrollWidth - strip.scrollLeft - strip.clientWidth < 160) loadPage();
-}, { passive: true });
 toggle.onclick = () => setPaused(!paused);
 motion.addEventListener("change", () => setPaused(motion.matches));
 setPaused(paused);
-loadPage();
+catalog();
 setInterval(() => {
   if (document.hidden) return;
-  if (!works.length) { loadPage(); return; }
+  if (!works.length) { catalog(); return; }
   if (!paused && !current.matches(":focus") && !strip.matches(":hover")) select((selected + 1) % works.length);
 }, 5500);

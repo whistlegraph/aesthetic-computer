@@ -1,3 +1,6 @@
+import { highlightWork, lookupWork } from "./code-ticker.mjs";
+import { workCard } from "./work-card.mjs";
+import { setupSettings } from "./room-settings.mjs";
 const $ = id => document.getElementById(id);
 const drafts = "whistlegraph-room-draft";
 const api = "/api/whistlegraph-chat";
@@ -17,10 +20,37 @@ if (viewport) {
   fitRoom();
 }
 
+function showPreview(work) {
+  const preview = $("draft-media");
+  const close = document.createElement("button");
+  close.type = "button";
+  close.textContent = "×";
+  close.setAttribute("aria-label", "Close media preview");
+  close.onclick = () => preview.replaceChildren();
+  preview.replaceChildren(workCard(work), close);
+}
+
+$("ticker").addEventListener("work-selected", event => showPreview(event.detail));
+let previewCode;
+async function previewDraft() {
+  const value = $("draft").value;
+  const code = value.trim().toLowerCase();
+  if (code === previewCode) return;
+  previewCode = code;
+  const preview = $("draft-media");
+  preview.replaceChildren();
+  const work = await lookupWork(value);
+  if (work && previewCode === code) {
+    highlightWork(work);
+    showPreview(work);
+  }
+}
+
 function saveDraft() {
   const text = $("draft").value;
   if (draftText !== text) requestId = crypto.randomUUID();
   draftText = text;
+  previewDraft();
   try {
     if (text) sessionStorage.setItem(drafts, JSON.stringify({ text, requestId }));
     else sessionStorage.removeItem(drafts);
@@ -34,6 +64,7 @@ try {
   }
 } catch {}
 $("draft").addEventListener("input", saveDraft);
+previewDraft();
 
 async function json(url, options) {
   const response = await fetch(url, options);
@@ -58,13 +89,21 @@ async function authorized(url, body) {
 
 function identity(value) {
   session = value;
-  $("identity").textContent = session?.handle ? "Public chat · @" + session.handle : "Public chat · Join free with an AC handle";
+  $("identity").textContent = session?.handle ? "@" + session.handle : "";
   $("logout").hidden = !session;
 }
 
 async function readSession() {
   identity(await authorized(api + "?action=session"));
 }
+
+async function login() {
+  if (!client) throw new Error("Sign-in is unavailable. Reload to try again.");
+  await client.loginWithPopup({ authorizationParams: { redirect_uri: location.origin } }, { timeoutInSeconds: 300 });
+  await readSession();
+}
+
+setupSettings({ signedIn: () => !!session, login, authorized });
 
 async function initAuth() {
   client = new window.auth0.Auth0Client({
@@ -119,6 +158,19 @@ function messageNode(msg) {
   content.className = "message";
   appendText(content, msg.text);
   li.append(content);
+  lookupWork(msg.text).then(work => {
+    if (!work || !li.isConnected) return;
+    const timeline = $("timeline");
+    const follow = timeline.scrollHeight - timeline.clientHeight - timeline.scrollTop < 48;
+    const choose = document.createElement("button");
+    choose.className = "message-code";
+    choose.textContent = work.code;
+    choose.setAttribute("aria-label", "Highlight " + work.code);
+    choose.onclick = () => highlightWork(work);
+    content.replaceChildren(choose);
+    li.append(workCard(work));
+    if (follow) timeline.scrollTop = timeline.scrollHeight;
+  });
   return li;
 }
 
@@ -173,13 +225,14 @@ $("compose").onsubmit = async event => {
   try {
     if (!client) throw new Error("Sign-in is unavailable. Reload to try again.");
     if (!session) {
-      await client.loginWithPopup({ authorizationParams: { redirect_uri: location.origin } }, { timeoutInSeconds: 300 });
-      await readSession();
+      await login();
       finishLogin();
     } else if (!session.handle) {
       finishLogin();
     } else {
-      await authorized(api, { text: draftText.trim(), requestId });
+      let browserDevice;
+      try { browserDevice = localStorage.getItem("whistlegraph-push-device"); } catch {}
+      await authorized(api, { text: draftText.trim(), requestId, browserDevice });
       $("draft").value = "";
       saveDraft();
       $("notice").textContent = "Sent.";

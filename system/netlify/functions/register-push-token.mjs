@@ -28,6 +28,7 @@ const KNOWN_TOPICS = [
   "chat-system",
   "chat-sotce",
   "chat-clock",
+  "chat-whistlegraph",
   "sotce-pages",
 ];
 const MAX_LABEL = 64;
@@ -85,6 +86,16 @@ export async function handler(event) {
   let topics = Array.isArray(body.topics)
     ? body.topics.filter((t) => KNOWN_TOPICS.includes(t))
     : ["scream", "mood"];
+
+  if (topics.includes("chat-whistlegraph")) {
+    // These endpoints receive outbound requests on every room post.
+    let url;
+    try { url = new URL(token); } catch {}
+    const pushProvider = /^(?:fcm\.googleapis\.com|(?:[a-z0-9-]+\.)*push\.apple\.com|(?:[a-z0-9-]+\.)*push\.services\.mozilla\.com|(?:[a-z0-9-]+\.)*notify\.windows\.com)$/i;
+    if (kind !== "webpush" || url?.protocol !== "https:" || url.port || url.username || url.password || !pushProvider.test(url.hostname)) {
+      return respond(400, { message: "Unsupported room push service" });
+    }
+  }
 
   // sotce.net registrations authorize against the sotce tenant and store the
   // user under a "sotce-"-prefixed sub (the repo-wide cross-tenant convention),
