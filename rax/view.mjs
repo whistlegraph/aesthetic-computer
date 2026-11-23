@@ -941,6 +941,7 @@ export async function createView(canvas) {
   let objectHintSpans = null; // What the highlighted object offers, drawn at the object.
   let previousRegions = [], screenFrame = null, frameLayoutKey = '', handleRect = null;
   const overlayBounds = new WeakMap();
+  let headsetRects = [];
   let cornerRect = null; // The corner block, in buffer pixels from the top left.
   let menuBox = null; // The open menu's panel and rows, in buffer pixels about the centre.
   let lastEye = null; // Where the camera stood last frame, for the cursor's aim ray.
@@ -955,6 +956,29 @@ export async function createView(canvas) {
   let qrModel = null; // Retain the tag until its code or pixel dimensions change.
   // One frame fits every four-metre standing screen, including those whose
   // KidLisp program is still loading.
+  const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
+  const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
+  const controllerStem = model(({ box }) => box(0, 0, 0.5, 0.18, 0.18, 1, 0x51e3ee));
+  function drawHands(xr, eye) {
+    const segment = (a, b, mesh) => {
+      if (!a || !b) return;
+      const dx = b.x-a.x, dy = b.y-a.y, dz = b.z-a.z, length = Math.hypot(dx, dy, dz);
+      if (length < 0.001) return;
+      projector.draw(mesh, eye.x+a.x, eye.y+a.y, eye.z+a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+    };
+    const point = (p, size) => projector.draw(fingertip, eye.x+p.x, eye.y+p.y, eye.z+p.z, 0, 0, size);
+    for (const hand of xr.hands) for (const chain of hand.fingers) {
+      for (let i = 1; i < chain.length; i++) segment(chain[i-1], chain[i], fingerBone);
+      const tip = chain.at(-1);
+      if (tip) point(tip, 2 * tip.radius);
+    }
+    for (const ray of xr.rays) {
+      const { origin: p, dir: d } = ray;
+      const at = t => ({x: p.x+d.x*t, y: p.y+d.y*t, z: p.z+d.z*t});
+      segment(p, at(0.13), controllerStem);
+      if (ray.distance != null) point(at(Math.max(0, ray.distance-0.008)), 0.014);
+    }
+  }
   const standingFrame = model(({ box }) => {
     box(0, 1.525, 0.14, 4.3, 2.55, 0.16, 0x2a2d3a, 0x22252f, 0x2a2d3a);
     for (const x of [-1.6, 1.6]) box(x, 0.2, 0.14, 0.16, 0.4, 0.16, 0x22252f, 0x22252f, 0x22252f);
@@ -1361,7 +1385,7 @@ export async function createView(canvas) {
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
   };
   function render({
-    xr = null, headset = false,
+    xr = null, headset = false, headsetControls = null,
     players = [],
     me,
     camera,
@@ -1729,7 +1753,7 @@ export async function createView(canvas) {
     const tags = [];
     // 🌍 The block underfoot, then every open block around it where it
     // stands: one continuous ground.
-    if (today && orbit < 1) {
+    if (today && orbit < 1 && !xr?.mixed) {
       projector.bends = false; // (the sky is not wrapped round the planet)
       // Keep sky layers at successive far-depth values. At this distance the
       // flat dome cuts through the lights and depth precision can erase the glow.
@@ -1740,6 +1764,11 @@ export async function createView(canvas) {
         const depth = xr ? -(i + 1) : 1 - (i + 1) / 0x400000;
         for (let k = first * 18 + 2; k < host.scene.triangleCount * 18; k += 6) host.scene.vertices[k] = depth;
       }
+      projector.bends = true;
+    }
+    if (xr) {
+      projector.bends = false;
+      drawHands(xr, eye);
       projector.bends = true;
     }
     if (under && !ledges) {
@@ -2868,6 +2897,30 @@ export async function createView(canvas) {
     chartVisible = stats;
     // 📦 This frame's places at the edges (hud.mjs createPack). The aimed object's code tag is the corner's first tenant; what else stands bottom right takes its room after it.
 
+    headsetRects = [];
+    if (headsetControls?.modes.length && !menu && !prompt?.open && !chat?.open) {
+      const { unit } = hud, { modes, busy, message } = headsetControls;
+      const size = Math.max(20 * unit, Math.ceil(44 * pixel));
+      const row = hudPack.reserve('headset', 'br', size * modes.length, size);
+      const buttons = model(({ rect, small }) => {
+        modes.forEach((mode, i) => {
+          const x = row.x + i * size, y = row.y;
+          const cx = Math.round(x + size / 2), cy = Math.round(y + size / 2);
+          const ink = busy ? THEME.dim : mode === 'immersive-vr' ? 0x00ffff : 0xff9ee0;
+          headsetRects.push({ mode, x, y, w: size, h: size });
+          const tile = (dx, dy, w, h, color, z) => rect(W/2 - cx - (dx+w)*unit, H/2 - cy - (dy+h)*unit, z, w*unit, h*unit, color);
+          tile(-9, -8, 18, 17, INK, 0.000004);
+          tile(-6, -6, 12, 1, ink, 0);
+          tile(-7, -5, 1, 5, ink, 0); tile(6, -5, 1, 5, ink, 0);
+          tile(-6, 0, 4, 1, ink, 0); tile(2, 0, 4, 1, ink, 0);
+          tile(-2, -1, 1, 1, ink, 0); tile(1, -1, 1, 1, ink, 0);
+          tile(-1, -2, 2, 1, ink, 0);
+          small(mode === 'immersive-vr' ? 'VR' : 'MR', cx-W/2, H/2-cy-2*unit, 0, unit, PAPER);
+        });
+        if (message) small(message, row.x+row.w-W/2-smallWidth(message)*unit/2, H/2-row.y+9*unit, 0, unit, PAPER);
+      });
+      projector.overlay(buttons, W, H);
+    }
     const codeTag = focusObject?.code && !radial && !menu && !bare ? joinCode(`https://prompt.ac/$${focusObject.code}`) : null;
     const codeAt = codeTag ? hudPack.reserve('code', 'br', (codeTag.length + 1) * hud.unit, (9 + codeTag.length + 2) * hud.unit) : null;
     if (buildLines.length) {
@@ -4063,7 +4116,7 @@ export async function createView(canvas) {
       if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
-    if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector);
+    if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector, xr.mixed);
     else host.present({ clear: sky, shadow, lens: lensNow });
     if (!xr && backend === 'webgpu' && gpu.queued < 64) {
       const handed = performance.now();
@@ -4078,6 +4131,7 @@ export async function createView(canvas) {
     canvas.raxStats = {
       ...(scenery ? { scenery } : {}),
       backend: xr ? 'webxr' : backend,
+      headsetRects, headsetMessage: headsetControls?.message || '',
       bare,
       tool: 'hands',
       role: spectator ? 'spectator' : 'player',
@@ -4166,6 +4220,10 @@ export async function createView(canvas) {
     aimForward() {
       const f = projector.forward;
       return f && lastEye ? { x: f[0], y: f[1], z: f[2] } : null;
+    },
+    headsetHit(cssX, cssY) {
+      const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;
+      return headsetRects.find(r => x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h)?.mode;
     },
     handleHit(cssX, cssY) {
       const x = cssX * canvas.width / canvas.clientWidth, y = cssY * canvas.height / canvas.clientHeight;

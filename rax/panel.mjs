@@ -204,6 +204,19 @@ export function panelHit(panel, origin, dir, reach = Infinity) {
   return x >= 0 && y >= 0 && x < panel.cols && y < panel.rows ? { t, x, y } : null;
 }
 
+// A tracked fingertip touches the glass from its front. Once down, a wider
+// release band lets it slide without chattering as tracking depth fluctuates.
+export function fingertipHit(face, tip, eye, held = false) {
+  const a = (face.yaw || 0) * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  const dx = tip.x - face.x, dz = tip.z - face.z;
+  const depth = dx*s + dz*c;
+  if ((eye.x-face.x)*s + (eye.z-face.z)*c >= 0) return null;
+  if (depth < -tip.radius - (held ? 0.022 : 0.003) || depth > (held ? 0.085 : 0.025)) return null;
+  const x = (0.5 - (dx*c - dz*s) / face.w) * face.cols;
+  const y = (0.5 - (tip.y - face.y) / face.h) * face.rows;
+  return x >= 0 && x < face.cols && y >= 0 && y < face.rows ? {x, y, t: Math.abs(depth)} : null;
+}
+
 // One panel: a place, a pixel buffer, and a piece painting on it. `frame`
 // counts the pictures that differed, so the view rebuilds only on a new one.
 export function createPanel({ id, piece, cols = 64, rows = 96, host = {}, ...place }) {

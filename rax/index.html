@@ -7,20 +7,8 @@
   html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #141720; cursor: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; }
   @media (prefers-color-scheme: light) { html, body { background: #cfe3f5; } }
   canvas { display: block; width: 100%; height: 100%; outline: none; image-rendering: pixelated; touch-action: none; cursor: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  #enter-vr { position: fixed; right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); width: 48px; height: 44px; cursor: pointer; touch-action: manipulation; color: #7ff; background: #141720; border: 2px solid currentColor; border-radius: 8px; }
-  #enter-vr:focus-visible { outline: 3px solid white; }
-  #enter-vr svg { display: block; margin: auto; width: 30px; }
-  #vr-status:not(:empty) { position: fixed; right: 12px; bottom: 62px; padding: 8px; color: white; background: #141720; font: 14px system-ui; }
 </style>
-<canvas id="game" tabindex="0" aria-label="Rax world. Click to capture the mouse. Press Enter to prompt Aesel. Enter submits, Escape cancels. WASD moves, mouse aims, Space jumps, V switches first and third person, Escape releases mouse. On a controller, RB focuses a target, A jumps, and the left trigger zooms. While focused on a screen, press left or right on the d-pad to cycle targets. On touch, drag on the left to move or on the right to look. Tap the upper-left block to return to the prompt."></canvas>
-<template id="xr-controls">
-  <button type="button" id="enter-vr" aria-label="Enter VR" title="Enter VR">
-    <svg aria-hidden="true" viewBox="0 0 32 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round">
-      <path d="M5 4h22l3 3-1 9h-8l-3-4h-4l-3 4H3L2 7z"/>
-    </svg>
-  </button>
-  <output id="vr-status" role="status"></output>
-</template>
+<canvas id="game" tabindex="0" aria-label="Rax world. On a headset, press Shift V for VR or Shift M for mixed reality. Click to capture the mouse. Press Enter to prompt Aesel. Enter submits, Escape cancels. WASD moves, mouse aims, Space jumps, V switches first and third person, Escape releases mouse. On a controller, RB focuses a target, A jumps, and the left trigger zooms. While focused on a screen, press left or right on the d-pad to cycle targets. On touch, drag on the left to move or on the right to look. Tap the upper-left block to return to the prompt."></canvas>
 <script type="importmap">{"imports":{"/system/public/aesthetic.computer/lib/pmove.mjs":"./pmove.mjs"}}</script>
 <script type="module" src="./client.mjs"></script>
 </html>

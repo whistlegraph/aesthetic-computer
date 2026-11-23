@@ -1,6 +1,8 @@
 // Exercise a prompt-hosted entry, stereo WebGL rendering and return to the
 // same live Rax session. Only headset tracking and the compositor are faked.
 import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
+import { kioskPlan } from '../kiosks-plan.mjs';
 import { once } from 'node:events';
 import { chromium } from 'playwright';
 import { createRaxServer } from '../server.mjs';
@@ -13,7 +15,18 @@ const base = 'http://127.0.0.1:' + app.server.address().port;
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
   const page = await browser.newPage();
-  const errors = [];
+  const errors = [], presses = [];
+  page.on('websocket', ws => ws.on('framesent', ({payload}) => {
+    const msg = JSON.parse(payload);
+    if (msg.type === 'panel') presses.push(msg);
+  }));
+  async function waitForPress(name, count = 1) {
+    const end = Date.now()+5000;
+    while (presses.filter(p => p.id === 'yard-0' && p.name === name).length < count) {
+      if (Date.now()>end) throw Error('Missing kiosk event ' + name + ' ' + JSON.stringify(presses));
+      await delay(25);
+    }
+  }
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', msg => { if (msg.type() === 'error' && msg.text().includes('rax frame')) errors.push(msg.text()); });
   await page.addInitScript(() => {
@@ -22,20 +35,24 @@ try {
     const xr = new EventTarget();
     let declined = false;
     xr.isSessionSupported = async () => true;
-    xr.requestSession = async () => {
+    xr.requestSession = async (mode, options) => {
+      window.testFeatures = options.optionalFeatures;
       if (!declined) { declined = true; throw new DOMException('Denied', 'NotAllowedError'); }
       const session = new EventTarget();
       session.visibilityState = 'visible';
+      session.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque';
       session.inputSources = [{ handedness: 'left', gamepad: { mapping: 'xr-standard', axes: [0,0,0,-0.7] } }];
       session.requestReferenceSpace = async () => new EventTarget();
-      session.updateRenderState = () => {};
+      session.updateRenderState = ({baseLayer}) => { window.testFoveation = baseLayer.fixedFoveation; };
       const views = [-0.032, 0.032].map(x => ({
         eye: x < 0 ? 'left' : 'right', transform: transform(x),
         projectionMatrix: new Float32Array([1.1,0,0,0, 0,1.1,0,0, Math.sign(x)*0.08,0,-1,-1, 0,0,-0.1,0]),
       }));
       let token;
       session.requestAnimationFrame = cb => { token = requestAnimationFrame(now => {
-        cb(now, { getViewerPose: () => ({ transform: transform(0), views }) });
+        cb(now, { getViewerPose: () => ({ transform: transform(0), views }),
+          getJointPose: joint => ({transform:{position: joint}, radius: 0.01}),
+          getPose: space => ({transform:{position: space, matrix: matrix(0)}}) });
         const { gl, data } = window.xrTarget;
         gl.readPixels(0, 0, 256, 96, gl.RGBA, gl.UNSIGNED_BYTE, data);
         const colors = [new Set(), new Set()];
@@ -45,7 +62,7 @@ try {
           colors[Number(i % 256 >= 128)].add(pixels[i]);
           if (i % 256 < 128 && pixels[i] !== pixels[i+128]) disparity++;
         }
-        window.stereo = { colors: colors.map(s => s.size), disparity, error: gl.getError() };
+        window.stereo = { alpha: [...new Set(pixels.map(p => p >>> 24))], colors: colors.map(s => s.size), disparity, error: gl.getError() };
       }); };
       session.end = async () => { cancelAnimationFrame(token); session.dispatchEvent(new Event('end')); };
       return window.testSession = session;
@@ -53,6 +70,7 @@ try {
     Object.defineProperty(navigator, 'xr', { value: xr });
     WebGL2RenderingContext.prototype.makeXRCompatible = async () => {};
     window.XRWebGLLayer = class {
+      fixedFoveation = 0;
       constructor(session, gl) {
         this.framebuffer = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer);
@@ -66,27 +84,74 @@ try {
       getViewport(v) { return { x: v.eye === 'left' ? 0 : 128, y: 0, width: 128, height: 96 }; }
     };
   });
-  await page.route('**/test-host', route => route.fulfill({ contentType: 'text/html', body: '<iframe width="800" height="600" allow="xr-spatial-tracking" src="/?embed=prompt"></iframe>' }));
+  await page.route('**/test-host', route => route.fulfill({ contentType: 'text/html', body: '<iframe width="800" height="600" allow="xr-spatial-tracking" src="/?embed=prompt&debug"></iframe>' }));
   await page.goto(base + '/test-host');
   const child = page.frames().find(f => f !== page.mainFrame());
   await child.waitForFunction(() => document.querySelector('canvas')?.raxStats);
-  const goggles = child.getByRole('button', { name: 'Enter VR' });
-  assert.equal(await goggles.count(), 0);
+  const controls = () => child.evaluate(() => document.querySelector('#game').raxStats.headsetRects);
+  const clickMode = async mode => {
+    await child.waitForFunction(mode => document.querySelector('#game').raxStats.headsetRects.some(r => r.mode === mode), mode);
+    const at = await child.evaluate(mode => {
+      const c = document.querySelector('#game'), r = c.raxStats.headsetRects.find(r => r.mode === mode);
+      return {x:(r.x+r.w/2)*c.clientWidth/c.width, y:(r.y+r.h/2)*c.clientHeight/c.height};
+    }, mode);
+    await child.locator('#game').click({position:at});
+  };
+  assert.deepEqual(await controls(), []);
+  assert.equal(await child.locator('button').count(), 0);
   const sheet = data => page.evaluate(data => document.querySelector('iframe').contentWindow.postMessage({ type: 'rax:sheet', ...data }, location.origin), data);
   await sheet({ open: true }); await sheet({ phase: 'opened' });
-  await child.waitForFunction(() => document.querySelector('#game').raxStats.role === 'player');
-  await goggles.click();
-  await child.getByText('VR was declined.', {exact:false}).waitFor();
-  await goggles.click();
-  await child.waitForFunction(() => stereo?.colors.every(n => n > 6) && stereo.disparity > 100);
+  await child.waitForFunction(() => window.raxDebug?.().player && raxDebug().panels.includes('yard-0'));
+  await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetRects.length === 2);
+  if (process.env.RAX_XR_CAPTURE) await child.locator('#game').screenshot({path:process.env.RAX_XR_CAPTURE});
+  await clickMode('immersive-vr');
+  await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetMessage.includes('declined'));
+  const start = await child.evaluate(() => raxDebug().player);
+  await clickMode('immersive-vr');
+  await child.waitForFunction(() => window.stereo?.colors.every(n => n > 6) && stereo.disparity > 100);
   const stereo = await child.evaluate(() => window.stereo);
   assert.equal(stereo.error, 0);
-  assert.equal(await child.evaluate(() => document.querySelector('#game').raxStats.backend), 'webxr');
+  assert.equal(await child.evaluate(() => testFoveation), 0.5);
+  assert.deepEqual(stereo.alpha, [255]);
+  await child.waitForFunction(start => {
+    const p = raxDebug().player;
+    return Math.hypot(p.x-start.x, p.z-start.z)>0.15;
+  }, start);
+  const standing = await child.evaluate(() => {
+    const thumb = {x:-0.15, y:-0.11, z:-0.22}, middle = {...thumb, x:-0.14};
+    testSession.inputSources = [{handedness:'left', hand:new Map([['thumb-tip', thumb], ['middle-finger-tip', middle]])}];
+    return raxDebug().player;
+  });
+  await child.waitForFunction(p => Math.hypot(raxDebug().player.x-p.x, raxDebug().player.z-p.z)>1, standing);
   await child.evaluate(() => testSession.end());
-  await goggles.waitFor();
-  await child.waitForFunction(() => document.querySelector('#game').raxStats.backend !== 'webxr');
+
+  // Put the seat within fingertip reach of a real AC kiosk and face it.
+  const k = kioskPlan('lobby')[0], body = app.rooms.get('lobby').match.seats.find(Boolean).player;
+  Object.assign(body, {x:k.x, y:1.7, z:k.z-0.65, yaw:0, pitch:0, vx:0, vz:0});
+  body.life++;
+  await child.waitForFunction(k => Math.abs(raxDebug().player.x-k.x)<0.05, k);
+  await child.evaluate(() => raxLook({yaw:0,pitch:0}));
+  await clickMode('immersive-ar');
+  await child.evaluate(() => {
+    const tip = window.tip = {x:0, y:-0.25, z:-0.65};
+    testSession.inputSources = [{handedness:'right', hand:new Map([['index-finger-tip',tip]])}];
+  });
+  await waitForPress('touch');
+  assert.deepEqual(await child.evaluate(() => testFeatures), ['hand-tracking']);
+  await child.waitForFunction(() => stereo.alpha.some(a => a>=167 && a<=169));
+  await child.evaluate(() => {tip.x = 0.12;});
+  await waitForPress('draw');
+  await child.evaluate(() => {testSession.inputSources=[];});
+  await waitForPress('lift');
+  await child.evaluate(() => {
+    testSession.inputSources = [{handedness:'right', targetRaySpace:{x:0,y:-0.25,z:-0.1},
+      gamepad:{mapping:'xr-standard',axes:[0,0,0,0],buttons:[{pressed:true}]}}];
+  });
+  await waitForPress('touch',2);
+  await child.evaluate(() => testSession.end());
+  await waitForPress('lift',2);
   await sheet({ phase: 'closing' });
-  await goggles.waitFor({ state: 'hidden' });
+  await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetRects.length === 0);
   assert.deepEqual(errors, []);
-  console.log('Prompt entry, declined permission, stereo, and return passed.', stereo);
+  console.log('Canvas entry, stereo VR, stick and pinch movement, mixed-reality alpha, fingertip drag, controller press and release passed.', stereo);
 } finally { await browser.close(); await app.close(); }

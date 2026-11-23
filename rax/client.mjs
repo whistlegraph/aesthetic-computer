@@ -7,7 +7,7 @@ import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls } from './elevator.mjs';
 import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
-import { createPanels, panelHit, PANEL_REACH } from './panel.mjs';
+import { createPanels, panelHit, fingertipHit, PANEL_REACH } from './panel.mjs';
 import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
@@ -2141,7 +2141,11 @@ function connect(adopt = null) {
   };
 }
 
+let headsetTap = null, headsetTappedAt = -Infinity;
 canvas.addEventListener('click', (e) => {
+  if (performance.now() - headsetTappedAt < 450) return;
+  const mode = !locked() && view.headsetHit(e.offsetX, e.offsetY);
+  if (mode) return void headset.enter(mode);
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
   if (e.pointerType !== 'touch' && !locked() && selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return send({ type: 'take-body' });
   // The code tag in the bottom-right is a button: it opens the $code's page.
@@ -2416,37 +2420,84 @@ function touchButton(button, isDown) {
     softKeys.focus({ preventScroll: true });
   } else syncSoftKeys();
 }
+function screenTargets(only = null) {
+  const targets = [];
+  for (const panel of panels.list) {
+    if (!panel.hidden && (!only || only === 'panel:' + panel.id)) targets.push({ id: 'panel:' + panel.id, panel, face: panel });
+  }
+  for (const id of only ? [only] : [...screens.map(s => 'screen:' + s.id), ...walls.map(w => 'wall:' + w.code)]) {
+    if (id.startsWith('panel:')) continue;
+    const face = faceOf(id);
+    const instance = id.startsWith('screen:') ? screenInstances.get(room + '/' + id.slice(7)) : null;
+    const program = instance?.pressed || instance?.program || walls.find(w => 'wall:' + w.code === id);
+    if (face && program?.point) targets.push({ id, face, program, instance });
+  }
+  return targets;
+}
+function nearestScreen(targets, intersect) {
+  let best = null;
+  for (const target of targets) {
+    const hit = intersect(target.face);
+    if (hit && (!best || hit.t < best.hit.t)) best = { target, hit };
+  }
+  return best;
+}
+function startScreenContact(id, { target, hit }) {
+  const used = new Set([...screenFingers.values()].map(f => f.pointer));
+  let pointer = padHolds || keyHolds || screenPress ? 2 : 1;
+  while (used.has(pointer)) pointer++;
+  if (pointer > 16) return;
+  const finger = { ...target, pointer, x: hit.x, y: hit.y };
+  if (target.instance) target.instance.pressed = target.program;
+  screenFingers.set(id, finger);
+  tellScreenFinger(finger, 'touch', hit);
+}
 function beginScreenFinger(e) {
   if (dock && view.overHud(e.offsetX, e.offsetY)) return false;
   const eye = view.aimOrigin(), ray = view.aimRay(e.offsetX, e.offsetY);
   if (!eye || !ray || dock?.way < 0) return false;
-  const reach = dock ? Infinity : PANEL_REACH;
-  let hit = panels.aim(eye, ray, reach);
-  if (dock && hit?.panel !== panelOf(dock.id)) hit = null;
-  let face = hit?.panel, panel = face, program = null, instance = null;
-  const ids = dock ? [dock.id] : [...screens.map(s => 'screen:' + s.id), ...walls.map(w => 'wall:' + w.code)];
-  for (const id of ids) {
-    if (id.startsWith('panel:')) continue;
-    const candidate = faceOf(id);
-    if (!candidate) continue;
-    const at = panelHit(candidate, eye, ray, hit?.t ?? reach);
-    if (!at) continue;
-    const grid = id.startsWith('screen:') ? screenInstances.get(room + '/' + id.slice(7)) : null;
-    const piece = grid?.pressed || grid?.program || walls.find(w => 'wall:' + w.code === id);
-    if (!piece?.point) continue;
-    face = candidate; hit = at; program = piece; instance = grid; panel = null;
-  }
-  if (!hit) return false;
-  const used = new Set([...screenFingers.values()].map(f => f.pointer));
-  let pointer = padHolds || keyHolds || screenPress ? 2 : 1;
-  while (used.has(pointer)) pointer++;
-  if (pointer > 16) return true;
-  const finger = { pointer, panel, program, instance, face, x: hit.x, y: hit.y };
-  if (instance) instance.pressed = program;
-  screenFingers.set(e.pointerId, finger);
+  const target = nearestScreen(screenTargets(dock?.id), face => panelHit(face, eye, ray, dock ? Infinity : PANEL_REACH));
+  if (!target) return false;
+  startScreenContact(e.pointerId, target);
   canvas.setPointerCapture(e.pointerId);
-  tellScreenFinger(finger, 'touch', hit);
   return true;
+}
+const xrTriggers = new Set();
+function releaseXRContacts() {
+  for (const [id, f] of screenFingers) if (typeof id === 'string') endScreenFinger(id, f);
+  xrTriggers.clear();
+}
+function updateXRContacts(xr, base) {
+  if (!xr.hands.length && !xr.rays.length) { releaseXRContacts(); return; }
+  const eye = { x: base.x + xr.offset[0], y: base.y + xr.offset[1], z: base.z + xr.offset[2] };
+  const world = p => ({ x: eye.x + p.x, y: eye.y + p.y, z: eye.z + p.z, radius: p.radius });
+  const targets = screenTargets(), seen = new Set();
+  const currentTargets = was => was ? targets.filter(t => t.id === was.id && t.program === was.program && t.panel === was.panel) : targets;
+  const update = (id, was, hit) => {
+    if (!hit) { if (was) endScreenFinger(id, was); return; }
+    if (!was) startScreenContact(id, hit);
+    else if (Math.floor(was.x) !== Math.floor(hit.hit.x) || Math.floor(was.y) !== Math.floor(hit.hit.y)) tellScreenFinger(was, 'draw', hit.hit);
+  };
+  for (const hand of xr.hands) hand.fingers.forEach((chain, i) => {
+    const tip = chain.at(-1);
+    if (!tip) return;
+    const id = hand.side + i, was = screenFingers.get(id);
+    seen.add(id);
+    const at = world(tip);
+    const hit = nearestScreen(currentTargets(was), face => fingertipHit(face, at, eye, !!was));
+    update(id, was, hit);
+  });
+  for (const ray of xr.rays) {
+    const id = ray.side + '-trigger', was = screenFingers.get(id);
+    seen.add(id);
+    const at = world(ray.origin);
+    const hit = nearestScreen(currentTargets(was), face => panelHit(face, at, ray.dir, PANEL_REACH));
+    if (hit) ray.distance = hit.hit.t;
+    if (was || !xrTriggers.has(id)) update(id, was, ray.down ? hit : null);
+    if (ray.down) xrTriggers.add(id); else xrTriggers.delete(id);
+  }
+  for (const [id, f] of screenFingers) if (typeof id === 'string' && !seen.has(id)) endScreenFinger(id, f);
+  for (const id of xrTriggers) if (!seen.has(id)) xrTriggers.delete(id);
 }
 function tellScreenFinger(f, name, hit) {
   f.x = hit?.x ?? -1; f.y = hit?.y ?? -1;
@@ -2476,6 +2527,8 @@ function trackScreenFinger(e, lift = false) {
 }
 canvas.addEventListener('pointerdown', (e) => {
   if (!touchy(e)) return;
+  const mode = view.headsetHit(e.offsetX, e.offsetY);
+  if (mode) { headsetTap = { id: e.pointerId, mode }; canvas.setPointerCapture(e.pointerId); return; }
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
   if (view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
@@ -2519,12 +2572,19 @@ function enablePhoneLook() {
 }
 canvas.addEventListener('touchend', enablePhoneLook, { passive: true });
 canvas.addEventListener('pointerup', (e) => {
+  if (headsetTap?.id === e.pointerId) {
+    const { mode } = headsetTap;
+    headsetTap = null; headsetTappedAt = performance.now();
+    if (view.headsetHit(e.offsetX, e.offsetY) === mode) void headset.enter(mode);
+    return;
+  }
   if (!touchy(e)) return;
   if (e.pointerType === 'touch') enablePhoneLook();
   if (trackScreenFinger(e, true)) return;
   touchButton(touch.up(e, performance.now()), false);
 });
 canvas.addEventListener('pointercancel', (e) => {
+  if (headsetTap?.id === e.pointerId) headsetTap = null;
   if (!touchy(e)) return;
   endScreenFinger(e.pointerId, null);
   const held = touch.cancel(e);
@@ -2532,6 +2592,8 @@ canvas.addEventListener('pointercancel', (e) => {
 });
 canvas.addEventListener('lostpointercapture', e => endScreenFinger(e.pointerId, null));
 function releaseInput() {
+  headsetTap = null;
+  releaseXRContacts();
   for (const id of screenFingers.keys()) endScreenFinger(id, null);
   gyro.reset();
   lastMotionLook = null;
@@ -2562,6 +2624,10 @@ document.addEventListener('mousemove', (e) => {
   pitch = clamp(pitch - e.movementY * 0.12, -85, 85);
 });
 document.addEventListener('keydown', (e) => {
+  if (!typing() && !e.repeat && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && (e.code === 'KeyV' || e.code === 'KeyM')) {
+    const mode = e.code === 'KeyV' ? 'immersive-vr' : 'immersive-ar';
+    if (headset.controls?.modes.includes(mode)) { e.preventDefault(); void headset.enter(mode); return; }
+  }
   void sfx.wake();
   // ⌘+ / ⌘− / ⌘0 under the prompt: its pixel density is ours (we lay our
   // pixels on its grid), so hand them up and the new grid comes back down.
@@ -3006,7 +3072,7 @@ function step(now, xr) {
   if (xr) {
     yaw = xr.yaw; pitch = xr.pitch;
     inputAt = flownAt = now;
-    if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd, jump: xr.jump });
+    if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd || (xr.walkPinch && !screenFingers.size ? 0.42 : 0), jump: xr.jump });
   }
   if (gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY ||
       Array.from(pads || []).some(p => p?.connected && p.buttons.some(b => b.pressed || b.value > 0.08))) {
@@ -3665,6 +3731,11 @@ function step(now, xr) {
   carPad.y = CAR_PAD.y + lift;
   const orbit = orbitStep(now);
   const miniature = orbit >= 0.94;
+  if (xr && sheetOpen && !down && !held && !typing() && !menu && !radial.open) {
+    const body = seat >= 0 ? displayed : freecam;
+    if (body) updateXRContacts(xr, { ...body, y: body.y + (seat >= 0 ? lift : 0) });
+    else releaseXRContacts();
+  } else if (xr) releaseXRContacts();
   if (!miniature) panels.frame(now);
   // Away from the plaza the kiosks are scenery. Their pixels and frame cache
   // survive the crossing, while their input and sound stay in the plaza.
@@ -3728,7 +3799,7 @@ function step(now, xr) {
   const blocks = around(), sceneScreens = visibleScreens(blocks);
   if (!miniature) tendScreens(now, sceneScreens);
   view.render({
-    xr, headset: headset.supported,
+    xr, headset: headset.supported, headsetControls: xr ? null : headset.controls,
     inspectScenery: query.has('debug'),
     basement: room === BASEMENT,
     half: half(),
@@ -3977,7 +4048,7 @@ if (hosted) {
   toHost({ type: 'rax:sheet:hello' });
   toHost({ type: 'rax:sheet:place', path: placePath() });
 } else connect();
-const headset = immersive({ frame, getYaw: () => yaw, transition(entering) {
+const headset = immersive({ frame, release: releaseXRContacts, getYaw: () => yaw, transition(entering) {
   releaseInput();
   debt = 0; last = inputAt = performance.now();
   if (entering) {
