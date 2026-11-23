@@ -114,6 +114,44 @@ async function readBraincells(api, state) {
   } catch {}
 }
 
+// 📡 Publishing, as the terminal Aesel's autopublish does: once a turn has
+// written the piece, it goes up under the handle at @handle/<file name>, and
+// that address is the one to open or share. Same three steps as `ac publish`:
+// an upload grant, the PUT, then a read back of what is served.
+const SITE = "https://aesthetic.computer";
+async function publish(api, s) {
+  const handle = String(api.handle?.() || "").replace(/^@/, "");
+  const source = s.source;
+  if (!handle || !source || source === s.published) return;
+  const slug = s.name.replace(/\.mjs$/, "");
+  s.publishing = true;
+  try {
+    const token = await api.authorize();
+    if (!token) throw Error("sign in to publish");
+    const grant = await (await fetch(`${SITE}/presigned-upload-url/mjs/piece-${slug}.mjs/user`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    })).json().catch(() => ({}));
+    if (!grant.uploadURL) throw Error(grant.error || grant.message || "no upload grant");
+    const put = await fetch(grant.uploadURL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/javascript; charset=utf-8", "Content-Disposition": "inline", "x-amz-acl": "public-read" },
+      body: source,
+    });
+    if (!put.ok) throw Error(`upload failed (HTTP ${put.status})`);
+    const served = await (await fetch(`${SITE}/media/@${handle}/piece/${slug}.mjs`, { cache: "no-store" })).text();
+    if (served.trim() !== source.trim()) throw Error("published, but the served copy differs");
+    s.published = source;
+    s.route = `@${handle}/${slug}`;
+    s.versions = (s.versions || 0) + 1;
+    s.lines.push({ kind: "tool", text: `Published ${s.route} (v${s.versions}) · tap it below to open` });
+  } catch (error) {
+    s.lines.push({ kind: "note", text: `Not published: ${error.message}` });
+  } finally {
+    s.publishing = false;
+    saveThread(s);
+  }
+}
+
 // The thread outlives the piece: leaving Aesel and coming back (or reloading)
 // picks up the same conversation, transcript and file. Kept in this browser
 // (store, local:db) until "new" starts another.
@@ -133,7 +171,8 @@ function settled(messages) {
 }
 function saveThread(s) {
   if (!s.store) return;
-  s.store[THREAD] = { name: s.name, source: s.source, lines: s.lines, messages: settled(s.bridge.messages), sessionId: s.bridge.sessionId };
+  s.store[THREAD] = { name: s.name, source: s.source, lines: s.lines, messages: settled(s.bridge.messages), sessionId: s.bridge.sessionId,
+    route: s.route, published: s.published, versions: s.versions };
   s.store.persist(THREAD, "local:db");
 }
 function restoreThread(s, saved) {
@@ -144,12 +183,17 @@ function restoreThread(s, saved) {
   s.lines = saved.lines.filter((line) => line && typeof line.text === "string");
   s.bridge.launch(saved.sessionId || "");
   s.bridge.messages = saved.messages;
+  s.route = saved.route || "";
+  s.published = saved.published || "";
+  s.versions = saved.versions || 0;
 }
 function newThread(s) {
   s.name = randomSlug() + ".mjs";
   s.bridge.file = s.name;
   s.source = "";
   s.lines = [];
+  s.route = s.published = "";
+  s.versions = 0;
   s.offset = 0;
   s.status = "";
   s.bridge.launch();
@@ -166,7 +210,7 @@ function boot(api) {
     model: "sonnet",
     transport: transport(), file: name, readPiece: () => state.source,
     writePiece(source) { state.source = source; return true; },
-    instructions: "You are Aesel, making a JavaScript piece for the Aesthetic Computer web runtime. Use write_piece for every revision. Send the complete module with exported paint($) and optionally boot, act or sim. Use $.wipe, $.ink, $.box and $.line. Aesthetic Computer runs the module as a piece. The user can save the finished .mjs file.",
+    instructions: "You are Aesel, making a JavaScript piece for the Aesthetic Computer web runtime. Use write_piece for every revision. Send the complete module with exported paint($) and optionally boot, act or sim. Use $.wipe, $.ink, $.box and $.line. Aesthetic Computer runs the module as a piece. When a turn ends the piece is published at the user’s @handle/<file name>, and they can also save the .mjs file.",
   });
   state.bridge.launch();
   state.model = String(state.bridge.model || "").split("/").pop();
@@ -224,6 +268,7 @@ function sim(api) {
       s.status = e.error || (e.status === "interrupted" ? "Stopped." : "");
       readBraincells(api, s);
       saveThread(s);
+      if (s.source && s.source !== s.published) publish(api, s);
     }
   }
 }
@@ -240,7 +285,7 @@ function transcript(s, cols) {
   ];
   const rows = facts.map((fact, i) => ({ tile: i, fact }));
   rows.push({ blank: true });
-  const inks = { you: PALETTE.you, reply: PALETTE.text, tool: PALETTE.edit };
+  const inks = { you: PALETTE.you, reply: PALETTE.text, tool: PALETTE.edit, note: PALETTE.muted };
   for (const line of s.lines) {
     const prefix = line.kind === "you" ? "› " : "";
     for (const row of wrapRows(prefix + line.text, cols)) rows.push({ text: row.text, ink: inks[line.kind] || PALETTE.text });
@@ -254,11 +299,15 @@ function transcript(s, cols) {
 function statusWords(api, s) {
   const words = [];
   const handle = api.handle?.();
-  if (api.user?.sub && handle) words.push([handle, PALETTE.handle]);
+  // The handle becomes the piece's address once it is published, as in the
+  // terminal: @jeffrey/nipabe, and tapping it opens the piece.
+  if (api.user?.sub && s.route) words.push([s.route + (s.versions ? ` v${s.versions}` : ""), PALETTE.handle, "open"]);
+  else if (api.user?.sub && handle) words.push([handle, PALETTE.handle]);
   else if (api.user?.sub) words.push(["signed in", PALETTE.soft]);
   else words.push(["sign in", PALETTE.highlight, "login"]);
   words.push([" · aesthetic · ", PALETTE.muted], [s.model || "", PALETTE.muted]);
   if (s.busy) words.push(["  ", PALETTE.muted], ["stop", PALETTE.highlight, "stop"]);
+  if (s.publishing) words.push(["  ", PALETTE.muted], ["publishing…", PALETTE.highlight]);
   if (s.source) words.push(["  ", PALETTE.muted], ["save .mjs", PALETTE.highlight, "save"]);
   if (s.lines.length && !s.busy) words.push(["  ", PALETTE.muted], ["new", PALETTE.soft, "new"]);
   if (s.overflow) words.push(["  ", PALETTE.muted], ["older", PALETTE.soft, "older"], [" ", PALETTE.muted], ["newer", PALETTE.soft, "newer"]);
@@ -452,6 +501,7 @@ function act(api) {
     if (hit?.action === "stop") { s.turn++; s.bridge.interrupt(); s.bridge.token = ""; s.busy = false; s.status = "Stopped."; }
     if (hit?.action === "save") api.download(s.name, s.source, { type: "text/javascript" });
     if (hit?.action === "new") newThread(s);
+    if (hit?.action === "open" && s.route) api.jump(s.route);
     if (hit?.action === "older") s.offset += 5;
     if (hit?.action === "newer") s.offset = Math.max(0, s.offset - 5);
     return;
