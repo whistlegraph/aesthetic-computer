@@ -2,7 +2,7 @@
 // Server-funded; the sketch handler supplies caching and generation throttles.
 // This uses the same provider transport as authenticated Aesel inference,
 // without opening that endpoint's account or wallet boundary to anonymous use.
-import { requestInference } from "./easel-provider.mjs";
+import { requestHostedInference } from "./easel-provider.mjs";
 
 const SYSTEM = `You draw a single word as a tiny animated KidLisp program for Aesthetic Computer, with a tune. A visitor typed the word at the prompt and it named nothing, so your drawing is what they see and hear instead of an error. Make it warm, bright and childlike, like a kid's drawing that moves and hums.
 
@@ -49,13 +49,17 @@ Rules:
 // Ask Claude for the drawing, streaming. `onText` sees each piece of the
 // program as it's written, so the prompt can show the code arriving.
 export async function drawSketch(word, onText = () => {}, { env = process.env, fetchImpl = fetch } = {}) {
+  // Anthropic directly when its account has credit, AC's router account when
+  // it refuses for want of it, as authenticated Aesel inference does.
   const credits = env.ANTHROPIC_CREDITS_KEY || env.ANTHROPIC_API_KEY;
-  if (!credits) throw new Error("no anthropic key");
-  const res = await requestInference({
+  const key = env.OPENROUTER_API_KEY;
+  if (!credits && !key) throw new Error("no inference key");
+  const { response: res } = await requestHostedInference({
     model: "anthropic/claude-opus-5.5",
     maxTokens: 4000,
     reasoning: { effort: "low" },
     credits,
+    key,
     serverFallbacks: true,
     body: { system: SYSTEM, messages: [{ role: "user", content: word }] },
   }, fetchImpl);
