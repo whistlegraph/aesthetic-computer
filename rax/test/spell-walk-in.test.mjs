@@ -31,7 +31,7 @@ const old = (id, x, z, geometry, code = null) => ({
 async function rax(seed = null) {
   const stateDir = await mkdtemp(join(tmpdir(), 'rax-spell-walk-in-'));
   if (seed) await writeFile(join(stateDir, 'objects.json'), JSON.stringify({ owners: {}, rooms: {}, marks: { groundCleared: 1 }, ...seed }));
-  const app = createRaxServer({ guests: true,
+  const app = createRaxServer({ openBuild: false, guests: true,
     stateDir,
     builderToken: BUILDER_TOKEN,
     // The cast signs in by name; a token starting "guest" is nobody's.

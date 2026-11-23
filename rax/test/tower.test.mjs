@@ -155,7 +155,7 @@ test('the ledger lists @jeffrey\'s floor and the highest', () => {
 
 test('the elevator rides from the ground to a floor, and only its owner builds there', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-tower-srv-'));
-  const app = createRaxServer({ stateDir: dir, verifyIdentity: async () => ({ handle: 'rider', sub: 'acct-rider' }),
+  const app = createRaxServer({ openBuild: false, stateDir: dir, verifyIdentity: async () => ({ handle: 'rider', sub: 'acct-rider' }),
     listHandles: async () => ['jeffrey', 'oskie', 'rider'] });
   await app.ready;
   app.server.listen(0, '127.0.0.1');

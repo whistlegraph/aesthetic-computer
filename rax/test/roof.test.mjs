@@ -136,7 +136,7 @@ test('someone on the roof is on the map at the roof\'s height', () => {
 
 test('the elevator rides to the roof and back; the roof is kept as it is', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-roof-'));
-  const app = createRaxServer({ stateDir: dir, verifyIdentity: async () => ({ handle: 'rider', sub: 'acct-rider' }),
+  const app = createRaxServer({ openBuild: false, stateDir: dir, verifyIdentity: async () => ({ handle: 'rider', sub: 'acct-rider' }),
     listHandles: async () => ['jeffrey', 'oskie', 'rider'] });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
@@ -221,7 +221,7 @@ test('the elevator rides to the roof and back; the roof is kept as it is', async
 
 test('with no floors in the tower the roof is not a place', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-roof-none-'));
-  const app = createRaxServer({ stateDir: dir, listHandles: async () => [] });
+  const app = createRaxServer({ openBuild: false, stateDir: dir, listHandles: async () => [] });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
   await once(app.server, 'listening');

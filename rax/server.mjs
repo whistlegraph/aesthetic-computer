@@ -135,6 +135,9 @@ export function createRaxServer({
   resolveHandleColors = handleColors,
   // 🧹 Who keeps the ground nobody owns: the plaza and the blocks' commons.
   keeper = process.env.RAX_KEEPER || 'jeffrey',
+  // 🔓 Anyone in a room may build there: floors, pods, the roof, the plaza and
+  // the blocks all open (2026-11-23). RAX_OPEN_BUILD=0 puts the owners back.
+  openBuild = process.env.RAX_OPEN_BUILD !== '0',
   // 🏢 Every handle on the network, oldest first, for the tower's floors.
   listHandles = async () => {
     const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
@@ -1390,13 +1393,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         : pod && (pod.accountId ? pod.accountId === member.accountId : pod.handle === member.handle?.toLowerCase());
       // 🧹 The keeper may revise an object where it stands, in anyone's pod.
       const keeping = data?.type === 'prompt' && typeof data.objectId === 'string' && !!member.handle && member.handle.toLowerCase() === keeper;
-      if (pod && !ownPod && !keeping && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+      if (!openBuild && pod && !ownPod && !keeping && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
         send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' }); // (`rid`: the page's own name for what it asked, said back so it knows which asking was refused)
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
         return;
       }
       // 🏙️ The roof is nobody's floor and is kept as it is, as the plaza is: only the keeper arranges it.
-      if (key === ROOF && member.handle?.toLowerCase() !== keeper && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+      if (!openBuild && key === ROOF && member.handle?.toLowerCase() !== keeper && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
         send(ws, { type: 'build-result', error: 'The roof is kept as it is: build on your floor' });
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
         return;
@@ -1405,7 +1408,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // in: only the keeper arranges them, or (in a block) someone who lives
       // there. A visitor builds on their own floor. Rooms outside the world
       // (a game, a room made by name) stay open to whoever is in them.
-      const block = !pod && parseBlock(key);
+      const block = !openBuild && !pod && parseBlock(key);
       if (block && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore'].includes(data?.type)) {
         const handle = member.handle?.toLowerCase();
         const lives = key !== GROUND && handle && geography.geography.home(handle)?.block === blockIndex(block);
@@ -1415,7 +1418,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           return;
         }
       }
-      if (pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
+      if (!openBuild && pod && !ownPod && data?.type === 'input' && Array.isArray(data.commands))
         data.commands = data.commands.map(c => ({ ...c, chalk: null, use: false, drop: false, fire: false }));
       // ✏️ Chalk is retired (world.mjs CHALK): a stroke sent by a page that still has it is not taken.
       else if (!CHALK && data?.type === 'input' && Array.isArray(data.commands))

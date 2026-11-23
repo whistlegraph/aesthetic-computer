@@ -14,7 +14,7 @@ import { PROTOCOL } from '../world.mjs';
 
 async function stage(handle) {
   const dir = await mkdtemp(join(tmpdir(), 'rax-commons-'));
-  const app = createRaxServer({ stateDir: dir, verifyIdentity: async () => ({ handle, sub: `acct-${handle}` }),
+  const app = createRaxServer({ openBuild: false, stateDir: dir, verifyIdentity: async () => ({ handle, sub: `acct-${handle}` }),
     listHandles: async () => ['jeffrey', 'neighbor-ada'] });
   await app.ready;
   app.server.listen(0, '127.0.0.1');
