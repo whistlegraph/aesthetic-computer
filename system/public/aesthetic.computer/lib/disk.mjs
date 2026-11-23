@@ -12928,9 +12928,10 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentText !== "jas" &&
           currentText !== "nopaint" && // owns Enter/Escape and locks input while saving
-          // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.
+          // numrank keeps Backspace/Enter for gameplay, and aesel for its
+          // typing line (Enter sends, Backspace deletes); ` and Escape still leave.
           !(
-            currentText === "numrank" &&
+            (currentText === "numrank" || /^aesel(?:[:~]|$)/.test(currentText || "")) &&
             (data.key === "Backspace" || data.key === "Enter")
           ) &&
           currentPath !== "aesthetic.computer/disks/prompt"

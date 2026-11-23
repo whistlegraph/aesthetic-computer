@@ -27,6 +27,19 @@ const TILE = [
 ];
 const TILE_INKS = { X: [120, 112, 165], E: [0, 0, 0], K: [200, 30, 100] };
 
+// A braincell, for the status line: the terminal's 🧠, in pixels, since AC's
+// pixel font has no emoji.
+const BRAIN = [
+  ".PPP.PP.",
+  "PPdPPdPP",
+  "PdPPPPdP",
+  "PPPdPPPP",
+  "PdPPPdPP",
+  ".PPPPPP.",
+  "...PP...",
+];
+const BRAIN_INKS = { P: [255, 160, 205], d: [205, 85, 150] };
+
 // The terminal's palette (aesel/src/render.mjs), the AC prompt's dark scheme.
 const PALETTE = {
   ground: [70, 50, 100], text: [255, 255, 255], handle: [255, 100, 255],
@@ -93,7 +106,11 @@ async function readBraincells(api, state) {
     if (!response.ok) return;
     const body = await response.json();
     const total = (Number(body.remaining) || 0) + (Number(body.purchased) || 0);
-    if (desk === state && Number.isFinite(total)) state.braincells = total;
+    if (desk !== state) return;
+    if (Number.isFinite(total)) state.braincells = total;
+    // The account's curated default model, as the terminal Aesel takes it.
+    const pick = body.curation?.default;
+    if (pick && !state.busy) { state.bridge.model = pick; state.model = pick.split("/").pop(); }
   } catch {}
 }
 
@@ -103,6 +120,8 @@ function boot(api) {
     hd: (api.colon || []).includes("hd") };
   api.hud.label("Aesel TUI");
   state.bridge = new AcBridge({
+    // Sonnet, as in the terminal, until the account's curated default arrives.
+    model: "sonnet",
     transport: transport(), file: name, readPiece: () => state.source,
     writePiece(source) { state.source = source; return true; },
     instructions: "You are Aesel, making a JavaScript piece for the Aesthetic Computer web runtime. Use write_piece for every revision. Send the complete module with exported paint($) and optionally boot, act or sim. Use $.wipe, $.ink, $.box and $.line. Aesthetic Computer runs the module as a piece. The user can save the finished .mjs file.",
@@ -196,7 +215,7 @@ function statusWords(api, s) {
   if (s.overflow) words.push(["  ", PALETTE.muted], ["older", PALETTE.soft, "older"], [" ", PALETTE.muted], ["newer", PALETTE.soft, "newer"]);
   return words;
 }
-const statusRight = (s, emoji = true) => (s.busy ? "working…" : Number.isFinite(s.braincells) ? `${Math.round(s.braincells).toLocaleString("en-US")}${emoji ? " 🧠" : " braincells"}` : "");
+const statusRight = (s) => (s.busy ? "working…" : Number.isFinite(s.braincells) ? `${Math.round(s.braincells).toLocaleString("en-US")} 🧠` : "");
 
 // 🖼️ The terminal's screen, on the hd layer (aesel:hd).
 function paintTerminal(api, layer, s) {
@@ -336,8 +355,19 @@ function paintPixels(api, s) {
     x = write(text, x, statusY, color);
     if (action) s.hits.push({ action, from, to: x });
   }
-  const right = statusRight(s, false);
-  if (right && screen.width - EDGE - right.length * CW > x + CW) write(right, screen.width - EDGE - right.length * CW, statusY, s.busy ? PALETTE.highlight : PALETTE.muted);
+  if (s.busy) {
+    const right = "working…";
+    if (screen.width - EDGE - right.length * CW > x + CW) write(right, screen.width - EDGE - right.length * CW, statusY, PALETTE.highlight);
+  } else if (Number.isFinite(s.braincells)) {
+    const count = Math.round(s.braincells).toLocaleString("en-US");
+    const width = count.length * CW + 3 + BRAIN[0].length;
+    const at = screen.width - EDGE - width;
+    if (at > x + CW) {
+      write(count, at, statusY, PALETTE.muted);
+      const left = at + count.length * CW + 3, top = statusY + 1;
+      BRAIN.forEach((line, y) => [...line].forEach((p, bx) => { if (BRAIN_INKS[p]) ink(...BRAIN_INKS[p]).box(left + bx, top + y, 1, 1); }));
+    }
+  }
   s.statusTop = statusY - 3;
 
   // The text field itself, laid over its frame; until it has the keys, a
