@@ -104,8 +104,8 @@ export function aimedSquare(player, half = WORLD) {
 export class Builders {
   // solids(room): what stands in a room besides builds and bodies (the
   // elevator, the lobby), plus the ways through that must stay clear.
-  constructor({ token, store, rooms, send, publish = null, diagnostics, solids = () => [] }) {
-    Object.assign(this, { token, store, rooms, send, publish, diagnostics, solids });
+  constructor({ token, store, rooms, send, sendText = null, publish = null, diagnostics, solids = () => [] }) {
+    Object.assign(this, { token, store, rooms, send, sendText, publish, diagnostics, solids });
 
     this.workers = new Map();
     this.names = new Map(); // Each builder's name, from its hello.
@@ -158,7 +158,11 @@ export class Builders {
       walls: this.store.walls(room),
       wallRes: this.store.wallRes(room),
       screens: this.store.screens(room),
-      jobs: [...this.jobs.values()]
+      jobs: this.jobRows(room),
+    };
+  }
+  jobRows(room) {
+    return [...this.jobs.values()]
         .filter((j) => j.room === room)
         .map((j) => ({
           id: j.id,
@@ -175,8 +179,19 @@ export class Builders {
           kind: j.kind || 'object',
           prompt: String(j.prompt || '').slice(0, 60),
           face: j.face || null,
-        })),
-    };
+        }));
+  }
+  // 🧵 A build's progress on its own: only the line of jobs, serialized once
+  // for the room. Before 2026-11-23 every tick (up to ten a second) sent each
+  // person the whole room (objects, walls, tiles, screens, history), and
+  // packing and unpacking it held the world's clock and the page's frames.
+  broadcastJobs(room) {
+    const current = this.rooms.get(room);
+    if (!current) return;
+    const word = { type: 'jobs', jobs: this.jobRows(room) };
+    const text = this.sendText && JSON.stringify(word);
+    for (const client of current.clients.keys())
+      text ? this.sendText(client, text) : this.send(client, word);
   }
   async clearRoom(room) {
     await this.store.clearRoom(room);
@@ -297,7 +312,7 @@ export class Builders {
           } catch { job.previewRejected = (job.previewRejected || 0) + 1; }
           job.previewMaxMs = Math.max(job.previewMaxMs || 0, performance.now() - began);
         }
-        this.broadcast(job.room);
+        this.broadcastJobs(job.room);
         return;
       }
       job.finishing = true;

@@ -14,7 +14,7 @@
 export const QUIET_MS = 160;
 export const STALL_MS = 50;
 const TYPES = new Set(['welcome', 'role', 'presence', 'handle-history', 'braincells', 'chalk', 'chalk-ops',
-  'dev-log', 'pong', 'identity', 'objects', 'build-accepted', 'build-result', 'snapshot']);
+  'dev-log', 'pong', 'identity', 'objects', 'jobs', 'build-accepted', 'build-result', 'snapshot']);
 
 export function cause({ gap, work = 0, render = 0, message = 0, messageType = '' }) {
   if (work >= gap / 2) return render >= work / 2 ? 'render' : 'step';

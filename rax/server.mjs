@@ -763,7 +763,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     ...(hasCar(key) ? [clear(-CAR, CAR, -1, CAR_Z + CAR)] : []),
     ...(key === GROUND ? [clear(-DOOR, DOOR, LOBBY_FRONT - 2, LOBBY_FRONT + 2), clear(-1.2, 1.2, -halfOf(key), CAR_Z - CAR)] : []),
   ];
-  const builders = new Builders({ token: builderToken, store, rooms, send, publish: publishKidlisp, diagnostics, solids: keepClear });
+  const builders = new Builders({ token: builderToken, store, rooms, send, sendText, publish: publishKidlisp, diagnostics, solids: keepClear });
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
   const devRoom = (key) => !!devLog && devLogRooms.includes(key);

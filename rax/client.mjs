@@ -1372,6 +1372,17 @@ const builds = createBuilds({
   kept: { read: () => { try { return sessionStorage.getItem('rax-asked'); } catch { return null; } }, write: (text) => { try { sessionStorage.setItem('rax-asked', text); } catch {} } },
 });
 const mineJob = (j) => !!owner && (j.asker || j.owner) === owner;
+function heardJobs(list) {
+  diagnostics.jobs(list.map((j) => j.id));
+  for (const job of list) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
+  jobs = list;
+  prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
+  // 🧱 The line follows the room's word; a build of ours moving on a step (generating, validating…) is a small tick, each higher.
+  for (const b of builds.room(room, jobs, objects, mineJob)) {
+    const step = ['generating', 'correcting', 'validating', 'waiting'].indexOf(b.phase);
+    if (step >= 0) sfx.ringMove(5 + step);
+  }
+}
 let heardRoom = null; // the room whose `objects` this socket last said (the line is only checked against a room that has spoken)
 function refuseBuild(text, why) {
   builds.refuse(text, why);
@@ -1634,7 +1645,7 @@ function warmUp(to) {
     let type = '';
     try { type = JSON.parse(e.data).type; } catch { return; }
     // (What only happened once is not heard again: a line said, a pong, an answer to an asking.)
-    if (['whereabouts', 'ball', 'balls-away', 'gate', 'said', 'pong', 'dev-log', 'input', 'travel', 'build-result', 'build-accepted', 'elevator-result'].includes(type)) return;
+    if (['whereabouts', 'ball', 'balls-away', 'gate', 'said', 'pong', 'dev-log', 'input', 'travel', 'jobs', 'build-result', 'build-accepted', 'elevator-result'].includes(type)) return;
     if (entry.words.length < 256) entry.words.push(e.data);
     if (type === 'welcome') {
       // Say who is at the door now, so the step in has nothing to wait for.
@@ -1938,9 +1949,9 @@ function connect(adopt = null) {
         localStorage.setItem('rax-owner', data.token);
       } catch {}
     }
+    // 🧵 A build's progress alone (builders.broadcastJobs): the line of jobs, no room.
+    if (data.type === 'jobs' && heardRoom === room) heardJobs(data.jobs);
     if (data.type === 'objects') {
-      diagnostics.jobs(data.jobs.map((j) => j.id));
-      for (const job of data.jobs) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
       objects = data.objects;
       builder = data.builder;
       builderNames = Array.isArray(data.builders) ? data.builders : [];
@@ -1949,14 +1960,8 @@ function connect(adopt = null) {
       if (data.wallRes && typeof data.wallRes === 'object') wallRes = data.wallRes;
       // Room wall specs are ignored while the walls are plain (setWalls above).
       if (Array.isArray(data.screens)) setScreens(data.screens);
-      jobs = data.jobs;
-      prompt.busy = seat >= 0 && jobs.filter((j) => j.owner === owner).length >= 3;
       heardRoom = room;
-      // 🧱 The line follows the room's word; a build of ours moving on a step (generating, validating…) is a small tick, each higher.
-      for (const b of builds.room(room, jobs, objects, mineJob)) {
-        const step = ['generating', 'correcting', 'validating', 'waiting'].indexOf(b.phase);
-        if (step >= 0) sfx.ringMove(5 + step);
-      }
+      heardJobs(data.jobs);
     }
     if (data.type === 'build-accepted') {
       builds.hear(data);
