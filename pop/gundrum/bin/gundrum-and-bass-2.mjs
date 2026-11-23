@@ -641,6 +641,36 @@ for (let st = shotAt(4, 9); st < shotAt(4, 13) - 8; st += 4) rock(st, rockFile("
 for (const [k, bar] of [[3, 25], [4, 12]]) ["tom-high", "tom-high", "tom-mid", "tom-mid", "tom-floor", "tom-floor", "tom-floor", "tom-floor"]
   .forEach((t, j) => rock(shotAt(k, bar, 8 + j), rockFile(t, j % 2 ? "-v1" : "-v2", 2), .7 + .04 * j, .8));
 rock(shotAt(4, 21), rockFile("crash", "", 2), 1, 1);
+// a crash before the kit arrives (@jeffrey 2026-11-23: "a rock cymbal … to precursor that"; then "only one
+// cymbal at the start, the second placement"): full, on the kick-in.
+rock(shotAt(0, 3), rockFile("crash", "", 2), .85, .9);
+// its decay slides and glitches (@jeffrey: "pitch the decay / pitch around it, slide it, so it's a bit glitchy")
+events.at(-1).glitch = true;
+// ── spin-offs (@jeffrey 2026-11-23: "our main click gun can sometimes spin off into ULTRA fast rushes of
+// pitch shifting … sceeeeoooooewwowoww, pitch circles … in some extreme parts") ─────────────────────────
+// At the drops and in the loudest passages a dry-fire click runs away: 20–30 clicks that accelerate from
+// sixteenths to 96ths, their pitch diving from two octaves up while it circles ±9 semitones two and a half
+// times ("sceeeooo" then "wowowow"), quieter in the middle of the dive and back up at the end. Added after the
+// rock kit is drawn from the hats, so they stay guns.
+{
+  const rush = (end, { n = 26, beats = 1.5, top = 24, low = -6, turns = 2.5, vel = .75, flip = 1 } = {}) => {
+    const mvt = movements.findLast((m) => m.start <= end)?.title ?? "";
+    const span = beats * 4, gaps = Array.from({ length: n }, (_, i) => 1 / (1 + 5 * i / (n - 1)));
+    const sum = gaps.reduce((a, b) => a + b, 0);
+    let st = end - span;
+    gaps.forEach((g, i) => {
+      const f = i / (n - 1), semis = top + (low - top) * f ** .8 + flip * 9 * Math.sin(2 * Math.PI * turns * f);
+      events.push({ voice: "hat", step: st, midi: Math.round(60 + semis), len: 1, vel: vel * (.75 + .25 * Math.cos(2 * Math.PI * f)), form: "drums",
+                    mvt, gun: KIT.hat.guns[i % 3], spin: true });
+      st += span * g / sum;
+    });
+  };
+  for (const [k, bar] of [[2, 9], [3, 26], [4, 13]]) rush(shotAt(k, bar), { vel: .85 });            // into the drops
+  rush(shotAt(4, 21) - 1, { beats: 2, n: 32, turns: 3.5, vel: .9 });                                   // into the last chord
+  for (const [k, bar, step, o] of [[2, 12, 12, {}], [2, 15, 4, { flip: -1, top: 18 }], [3, 28, 12, { beats: 1, n: 20 }],
+    [3, 30, 8, { flip: -1 }], [4, 15, 12, { top: 30, low: 0 }], [4, 17, 4, { flip: -1, beats: 1, n: 20 }], [4, 19, 12, { turns: 3 }]])
+    rush(shotAt(k, bar, step), { vel: .7, ...o });                                                     // inside the loud passages
+}
 // ── sheep (@jeffrey 2026-11-22: "can we find sheep sounds to aesthetivox in?") ───────────────────────
 // Real bleats (pop/wattajetta/assets/sheep, CC0) sung onto the passacaglia's ground, D C Bb G A, one held
 // bleat a bar, by bin/donkeyvox.py (each lands within 15 cents). A sheep doubles the ground an octave over
@@ -787,8 +817,34 @@ const pick = (voice, n) => { let t = Math.floor(rnd() * n); if (n > 1 && t === l
     while (m < 55) m += 12;
     events.push({ ...e, voice: "mid", midi: m });   // with the tenor's own timing and velocity
   }
+  // turns (@jeffrey 2026-11-23: "boring … excite that more … more musically integrated"): a held note
+  // with room after it flicks up to the next D-minor scale step and back, a sixteenth each, half-way
+  // through; the slide turns it into a wiggle. Seeded, so the take is the same every render.
+  const SCALE = [0, 2, 4, 5, 7, 9, 10].map((d) => (d + 2) % 12);
+  const above = (m) => { for (let k = 1; k < 3; k++) if (SCALE.includes((m + k) % 12)) return m + k; return m + 2; };
+  let seed = 8833; const sr = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const mids = events.filter((e) => e.voice === "mid").sort((a, b) => a.step - b.step);
+  mids.forEach((e, k) => {
+    const next = mids[k + 1], room = next ? next.step - e.step : e.len;
+    if (e.len < 4 || room < 4 || sr() > .6) return;
+    const at = Math.floor(e.len / 2), m = above(e.midi);
+    events.push({ ...e, step: e.step + at, len: 1, midi: m, vel: e.vel * .9, form: "turn" });
+    events.push({ ...e, step: e.step + at + 1, len: Math.max(1, e.len - at - 1), midi: e.midi, vel: e.vel * .85, form: "turn" });
+  });
 }
-const LAYER = new Set(["hi", "pad", "bell", "boom", "sub", "mid", "pop", "donkey", "spring", "mouse", "rock", "sheep", "uke", "implode", "bullet", "brush", "whoosh"]);
+// ── the stamp and the cuckoo, as voices of the fugue (bin/cuckoo-stamp.py writes the plan) ──────────
+// "aesthetic dot computer" is sung as a subject entry wherever one is marked there, on the entering
+// voice's pitches; the cuckoo's falling third imitates between two birds through the sequences, over the
+// ground, in V's close imitation and on the last chord. Run bin/cuckoo-stamp.py after a score change.
+{
+  const plan = resolve(OUT, ".voices/plan.json");
+  const midiOf = (n) => n ? ({ C: 0, "C#": 1, D: 2, Eb: 3, E: 4, F: 5, "F#": 6, G: 7, "G#": 8, A: 9, Bb: 10, B: 11 })[n.slice(0, -1)] + 12 * (+n.at(-1) + 1) : null;
+  if (existsSync(plan)) for (const v of JSON.parse(readFileSync(plan, "utf8")))
+    events.push({ voice: v.voice, step: v.step, file: v.file, hold: v.hold, vel: v.vel, pan: v.pan, len: v.hold / STEP,
+                  midi: midiOf(v.voice === "cuckoo" ? v.cu : v.notes[0]), form: v.voice, line: v.voice, mvt: "" });
+  else console.log("  (no out/.voices/plan.json: run bin/cuckoo-stamp.py for the stamp and the cuckoo)");
+}
+const LAYER = new Set(["stamp", "cuckoo", "hi", "pad", "bell", "boom", "sub", "mid", "pop", "donkey", "spring", "mouse", "rock", "sheep", "uke", "implode", "bullet", "brush", "whoosh"]);
 
 // ── the stereo story (@jeffrey 2026-11-22: "can we do a better stereo story") ─────────────────────
 // Each movement stages its counterpoint across the field instead of leaving every voice where it
@@ -892,6 +948,45 @@ for (const [k, bar, kind] of [[1, 1, "converge"], [2, 9, "converge"], [3, 26, "s
     made++;
   }
 }
+// ── the drummer (@jeffrey 2026-11-23: "humanize the percussion … varying amplitude / velocity … more human
+// breath, a bit of mistakes, specially when we hit the rock drums") ──────────────────────────────────────
+// The rock kit was on the grid and at the gun kit's velocities. Now a player sits at it:
+//  · velocity: the hand alternates (hats strong on the beat, ~25 % softer off it), kick leans on 1 and 3,
+//    snare on 2 and 4, every hit scatters ±12 %, and the whole kit breathes, a swell over each four bars
+//    (±10 %) that also pushes into fills.
+//  · time: each limb has its own place, kick 2 ms ahead, snare 5 ms behind (laid back), hats ±6 ms, cymbals
+//    8 ms late; over that a slow drift of ±6 ms that wanders bar to bar, and the tom fills rush, ending 12 ms
+//    early.
+//  · mistakes, seeded so a take is repeatable: about 1 snare in 18 flammed (a stick lands 20–30 ms early at a
+//    third), 1 hat in 30 caught twice, 1 ghost in 12 left out, 1 crash in 4 late by 15 ms.
+// The gun kit, which had the microtiming table already, gets the velocity scatter (±8 %) and the four-bar breath.
+{
+  let z = 2025;
+  const r = () => ((z = (z * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const g = () => (r() + r() + r() - 1.5) * 1.15;                                  // about normal, sd ~.58
+  const drift = []; for (let b = 0, d = 0; b < 400; b++) drift.push(d = .7 * d + .3 * 6 * (2 * r() - 1) * 1.6);
+  const breath = (st) => 1 + .1 * Math.sin(2 * Math.PI * (st / 64) - Math.PI / 2);
+  const add = [];
+  for (const e of events.filter((e) => e.voice === "rock")) {
+    const n = e.rock, inBeat = e.step % 4, beat = Math.floor(e.step / 4) % 4, bar = Math.floor(e.step / 16);
+    let v = e.vel * breath(e.step) * (1 + .12 * g()), late = (drift[bar] ?? 0) + 0;
+    if (n.startsWith("rock-hat")) { v *= inBeat === 0 ? 1.05 : inBeat === 2 ? .78 : .7; late += 6 * g(); }
+    else if (n.startsWith("rock-kick")) { v *= beat === 0 || beat === 2 ? 1.06 : .9; late += -2 + 3 * g(); }
+    else if (n.startsWith("rock-snare-ghost")) { if (r() < 1 / 12) { e.drop = true; continue; } v *= .9; late += 7 + 4 * g(); }
+    else if (n.startsWith("rock-snare")) {
+      v *= beat === 1 || beat === 3 ? 1.06 : .92; late += 5 + 4 * g();
+      if (r() < 1 / 18) add.push({ ...e, vel: v * .33, late: late - 20 - 10 * r(), rock: n, room: 0, flam: true });
+    } else if (n.startsWith("rock-tom")) { const j = (e.step % 16) - 8; late += -1.5 * j + 3 * g(); v *= 1 + .02 * j; }
+    else if (n.startsWith("rock-crash") || n.startsWith("rock-ride")) { late += 8 + 4 * g() + (n.startsWith("rock-crash") && r() < .25 ? 15 : 0); }
+    if (n.startsWith("rock-hat") && r() < 1 / 30) add.push({ ...e, vel: v * .5, late: late + 28 + 10 * r() });
+    e.vel = Math.max(.05, Math.min(1.25, v));
+    e.late = e.step < 1 ? Math.max(0, late) : late;
+  }
+  for (let i = events.length - 1; i >= 0; i--) if (events[i].drop) events.splice(i, 1);
+  events.push(...add);
+  for (const e of events.filter((e) => ["kick", "snare", "ghost", "hat"].includes(e.voice)))
+    e.vel = Math.max(.05, Math.min(1.2, e.vel * breath(e.step) * (1 + .08 * g())));
+}
 events.sort((a, b) => a.step - b.step);
 for (const e of events) {
   e.time = +(e.step * STEP + (e.late ?? 0) / 1000).toFixed(5);
@@ -977,7 +1072,7 @@ for (const e of events.filter((e) => e.voice === "sub")) {
 // Each line is one oscillator: notes that touch glide into each other.
 // Each note has an attack, a decay to its sustain level and a release: the gate below is the shape the
 // one-pole follower chases, so touching (legato) notes still re-articulate with a small bloom.
-function sines(voice, { attack, release, glide, decay = .25, sustain = .6, bloom = 1 }) {
+function sines(voice, { attack, release, glide, decay = .25, sustain = .6, bloom = 1, vibDepth = .05, vibOnset = .25 }) {
   const out = { L: new Float32Array(N), R: new Float32Array(N) }, lines = {};
   for (const e of events.filter((e) => e.voice === voice)) (lines[e.line] ??= []).push(e);
   Object.values(lines).forEach((notes, li) => {
@@ -1000,7 +1095,7 @@ function sines(voice, { attack, release, glide, decay = .25, sustain = .6, bloom
       a = gA[i] > a ? gA[i] + (a - gA[i]) * up : gA[i] + (a - gA[i]) * down;
       if (a < 1e-4) { m = gM[i]; age = 0; } else m = gM[i] + (m - gM[i]) * slide;
       age++;
-      const vib = .05 * Math.min(1, Math.max(0, age / SR - .25) / .4) * Math.sin(2 * Math.PI * 5.1 * age / SR);
+      const vib = vibDepth * Math.min(1, Math.max(0, age / SR - vibOnset) / .4) * Math.sin(2 * Math.PI * 5.1 * age / SR);
       ph += 2 * Math.PI * 440 * 2 ** ((m + vib - 69) / 12) / SR;
       if (ph > 2 * Math.PI) ph -= 2 * Math.PI;
       const v = a * Math.sin(ph);
@@ -1009,33 +1104,99 @@ function sines(voice, { attack, release, glide, decay = .25, sustain = .6, bloom
   });
   return out;
 }
-// the line: a quick soft attack, a bloom that settles to 55 % over a quarter second, a 0.3 s tail
-// two saws a few cents apart and a square an octave down, through a resonant low-pass whose cutoff
-// opens on the attack and closes over 0.15 s: a plucky, warm mid voice. Attack 5 ms, decay to 50 %
-// over 0.2 s, release 0.12 s; each note on its own, so runs stay articulate.
-function midSynth() {
-  const out = { L: new Float32Array(N), R: new Float32Array(N) };
-  for (const e of events.filter((e) => e.voice === "mid")) {
-    const hz = 440 * 2 ** ((e.midi - 69) / 12), i0 = Math.round(e.time * SR);
-    const len = Math.max(.07, Math.min(e.len * STEP, .6)), n = Math.round(len * SR), tail = Math.round(.12 * 5 * SR);
-    let low = 0, band = 0, p1 = (i0 * .618) % 1, p2 = (i0 * .382) % 1, p3 = 0;
-    const pan = Math.max(-.95, Math.min(.95, stage("mid", e.step, -.2) + (e.midi - 67) / 60)), ear = earAt(out, pan);
-    let level = 0;
-    for (let i = 0; i < n + tail && i0 + i < N; i++) {
-      const t = i / SR;
-      const amp = i < n ? Math.min(1, t / .005) * (.5 + .5 * Math.exp(-t / .2)) : level * Math.exp(-(t - len) / .12);
-      if (i < n) level = amp;
+// the line, slippery (@jeffrey 2026-11-23: "more slippery / slidey … more like wiggly than blasted"):
+// notes closer than 0.18 s are one phrase on one oscillator, so the pitch slides from note to note
+// (portamento 45 ms, leaving 35 ms before the note so it lands on the beat) instead of each note being
+// struck. Each phrase scoops up a semitone in 30 ms and falls five semitones as it lets go; a vibrato of ±0.3 st at eighth notes fades in 0.1 s
+// into every held note. Attack 6 ms, a small
+// bloom on each new note, release 0.15 s. Two saws a few cents apart and a square an octave down, through
+// a resonant low-pass that pumps on every beat (widest on the one, where the line is also 18 % louder)
+// instead of opening on each attack, and ducks 25 % under every kick.
+function midSynth(list = events.filter((e) => e.voice === "mid"), { gate = 0, pan: panAt = null, gain = 1, out = { L: new Float32Array(N), R: new Float32Array(N) } } = {}) {
+  const duck = new Float32Array(N).fill(1);                              // tucks under each kick, back in 0.12 s
+  for (const k of events.filter((e) => e.voice === "kick")) {
+    const i0 = Math.round(k.time * SR);
+    for (let i = 0; i < .25 * SR && i0 + i < N; i++) if (i0 + i >= 0) duck[i0 + i] = Math.min(duck[i0 + i], 1 - .25 * Math.exp(-i / SR / .12));
+  }
+  const notes = list.slice().sort((a, b) => a.time - b.time), phrases = [];
+  for (const e of notes) {
+    const last = phrases.at(-1)?.at(-1);
+    if (last && e.time - (last.time + Math.min(last.len * STEP, .6)) < .18) phrases.at(-1).push(e); else phrases.push([e]);
+  }
+  for (const ph of phrases) {
+    const ons = ph.map((e) => Math.round(e.time * SR)), a0 = ons[0];
+    const stop = ons.at(-1) - a0 + Math.round(Math.min(ph.at(-1).len * STEP, .6) * SR), len = stop + Math.round(.9 * SR);
+    const gA = new Float32Array(len), gM = new Float32Array(len), gV = new Float32Array(len), gO = new Int32Array(len);
+    ph.forEach((e, k) => {
+      const on = ons[k] - a0, next = k + 1 < ph.length ? ons[k + 1] - a0 : stop;
+      for (let i = on; i < next && i < len; i++) {
+        const held = !gate || i - on < e.len * STEP * gate * SR;   // gate: stabs stop short, the pitch keeps sliding
+        gV[i] = e.vel; gO[i] = on; gA[i] = held ? gain * e.vel * (.7 + .3 * Math.exp(-(i - on) / SR / .16)) : 0;
+      }
+      // the pitch leaves for each note 35 ms early, so the slide lands on the beat instead of behind it
+      const lead = k ? Math.round(.035 * SR) : 0;
+      for (let i = Math.max(0, on - lead); i < next - (k + 1 < ph.length ? Math.round(.035 * SR) : 0) && i < len; i++) gM[i] = e.midi;
+    });
+    for (let i = stop; i < len; i++) { gM[i] = gM[stop - 1]; gV[i] = gV[stop - 1]; gO[i] = gO[stop - 1]; }
+    const avg = ph.reduce((t, e) => t + e.midi, 0) / ph.length;
+    const pan = panAt ?? Math.max(-.95, Math.min(.95, stage("mid", ph[0].step, -.2) + (avg - 67) / 60)), ear = earAt(out, pan);
+    const up = Math.exp(-1 / (.006 * SR)), down = Math.exp(-1 / (.15 * SR)), slide = Math.exp(-1 / (.045 * SR)), scoop = Math.exp(-1 / (.03 * SR));
+    for (let i = stop; i < len; i++) gM[i] = gM[stop - 1] - 5 * Math.min(1, (i - stop) / SR / .35);   // the phrase falls away
+    let a = 0, m = gM[0] - 1, low = 0, band = 0, p1 = (a0 * .618) % 1, p2 = (a0 * .382) % 1, p3 = 0, vp = (a0 * .137) % 1;
+    for (let i = 0; i < len && a0 + i < N; i++) {
+      a = gA[i] > a ? gA[i] + (a - gA[i]) * up : gA[i] + (a - gA[i]) * down;
+      m = gM[i] + (m - gM[i]) * (i < .06 * SR ? scoop : slide);
+      const age = (i - gO[i]) / SR, t = i / SR;
+      const beat = ((a0 + i) / SR) / (60 / BPM), inBeat = beat % 1, inBar = beat % 4;
+      vp = (vp + 2 * BPM / 60 / SR) % 1;                                  // vibrato at eighth notes
+      const vib = .3 * Math.min(1, Math.max(0, age - .1) / .25) * Math.sin(2 * Math.PI * vp);
+      const hz = 440 * 2 ** ((m + vib - 69) / 12);
       p1 = (p1 + hz * 1.004 / SR) % 1; p2 = (p2 + hz / 1.004 / SR) % 1; p3 = (p3 + hz / 2 / SR) % 1;
       const x = (2 * p1 - 1) + (2 * p2 - 1) + .6 * (p3 < .5 ? 1 : -1);
-      const fc = Math.min(.45 * SR, 380 + hz * 1.2 + (900 + 2600 * e.vel) * Math.exp(-t / .15)), f = 2 * Math.sin(Math.PI * fc / SR);
-      const hp = x - low - .55 * band; band += f * hp; low += f * band;
-      const v = amp * e.vel * Math.tanh(.6 * low);
-      ear(i0 + i, v);
+      const pump = Math.exp(-inBeat * 3.2), down1 = inBar < 1 ? 1 : 0;   // filter opens on every beat, most on the one
+      const fc = Math.min(.45 * SR, 420 + hz * 1.4 + 600 * gV[i] + (500 + 500 * down1) * pump), f = 2 * Math.sin(Math.PI * fc / SR);
+      const hp = x - low - .5 * band; band += f * hp; low += f * band;
+      ear(a0 + i, a * (1 + .18 * down1 * pump) * duck[a0 + i] * Math.tanh(.6 * low));
     }
   }
   return out;
 }
 const midBus = midSynth();
+// ── the chords (@jeffrey 2026-11-23: "more forward … like chord progressions") ─────────────────
+// Under the mid line, three more voices of the same synth play the harmony the sub implies: every half bar
+// the root is the sub note sounding then, the chord its D-minor triad (A major when the root is A). Each
+// voice takes the nearest note of the next chord, so the changes slide. The rhythm pushes: the subject's
+// 3+3+2 head, a stab on 10, and on 14 the NEXT chord a sixteenth early, so every change arrives ahead.
+{
+  const subs = events.filter((e) => e.voice === "sub" && e.midi != null).sort((a, b) => a.step - b.step);
+  const mids = events.filter((e) => e.voice === "mid").sort((a, b) => a.step - b.step);
+  const SC = [2, 4, 5, 7, 9, 10, 0];
+  const triad = (r) => { const pc = ((r % 12) + 12) % 12, k = SC.indexOf(pc);
+    if (pc === 9) return [9, 1, 4];                                   // the dominant made major
+    if (k < 0) return [pc, (pc + 4) % 12, (pc + 7) % 12];
+    return [pc, SC[(k + 2) % 7], SC[(k + 4) % 7]]; };
+  const rootAt = (st) => { let r = null; for (const e of subs) { if (e.step > st) break; if (e.step + e.len > st - 8) r = e.midi; } return r; };
+  const live = (st) => mids.some((e) => e.step < st + 8 && e.step + e.len > st);
+  const voice = (pcs, prev) => {                                     // nearest voicing between G3 and D5
+    const cand = (pc, near) => { let best = null; for (let m = 55; m <= 74; m++) if (m % 12 === pc && (best === null || Math.abs(m - near) < Math.abs(best - near))) best = m; return best; };
+    const v = prev ? prev.map((p) => p) : [58, 62, 66];
+    const out = [], used = new Set();
+    for (const p of v) { let best = null, bd = 99; for (const pc of pcs) { if (used.has(pc) && used.size < 3) continue; const m = cand(pc, p), d = Math.abs(m - p); if (d < bd) { bd = d; best = m; } } used.add(best % 12); out.push(best); }
+    return out;
+  };
+  const lines = [[], [], []], last = events.reduce((t, e) => Math.max(t, e.step), 0);
+  let prev = null;
+  for (let bar = 0; bar < last; bar += 16) {
+    for (const [off, len, ahead] of [[0, 2.5, 0], [3, 2.5, 0], [6, 2, 0], [10, 3, 0], [14, 2, 1]]) {
+      const st = bar + off, look = ahead ? bar + 16 : st >= bar + 8 ? bar + 8 : bar;
+      if (!live(look) || !live(st)) { if (!live(st)) prev = null; continue; }
+      const r = rootAt(look); if (r == null) continue;
+      prev = voice(triad(r), prev);
+      prev.forEach((m, k) => lines[k].push({ step: st, time: st * STEP, len, midi: m, vel: (off === 0 ? .8 : off === 14 ? .75 : .6) }));
+    }
+  }
+  lines.forEach((notes, k) => midSynth(notes, { gate: .8, pan: [-.45, .05, .5][k], gain: .55, out: midBus }));
+}
 function clips(voice) {
 const donkeyBus = { L: new Float32Array(N), R: new Float32Array(N) };
 for (const e of events.filter((e) => e.voice === voice)) {
@@ -1066,10 +1227,34 @@ const stereoWav = (name) => {
   }
   return rockWav.get(f);
 };
+// A glitch crash keeps its first 0.12 s, then the decay is read at a sliding rate: down a fifth over 1.6 s,
+// with a wobble of ±70 cents that quickens from 5 to 11 Hz; every 70–130 ms a 25–60 ms slice may stick and
+// repeat (once to three times), and now and then one jumps up a fourth. Seeded; both channels read alike.
+const glitched = (y) => {
+  let z = 172; const r = () => ((z = (z * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  const n = y.length >> 1, out = [], keep = Math.round(.12 * SR);
+  let pos = 0, i = 0, next = keep, repeat = 0, from = 0, len = 0, jump = 0;
+  while (pos < n - 2 && out.length < 2 * 4 * SR) {
+    const t = i / SR, after = Math.max(0, t - .12);
+    if (i === next) {
+      next = i + Math.round((.07 + .06 * r()) * SR);
+      if (r() < .45) { repeat = 1 + Math.floor(3 * r()); len = Math.round((.025 + .035 * r()) * SR); from = pos; }
+      jump = r() < .15 ? 5 : 0;
+    }
+    const semis = i < keep ? 0 : -7 * Math.min(1, after / 1.6) + .7 * Math.sin(2 * Math.PI * (5 * after + 1.5 * after * after)) + jump;
+    const k = Math.floor(pos), f = pos - k;
+    out.push(y[2 * k] * (1 - f) + y[2 * k + 2] * f, y[2 * k + 1] * (1 - f) + y[2 * k + 3] * f);
+    pos += 2 ** (semis / 12);
+    if (repeat && pos - from >= len) { pos = from; repeat--; }
+    i++;
+  }
+  return Float32Array.from(out);
+};
 for (const e of events.filter((e) => e.voice === "rock")) {
   const i0 = Math.round(e.time * SR);
-  for (const [y, g] of [[stereoWav(e.rock), 1], [e.room ? stereoWav(`${e.rock}-room`) : null, e.room]]) {
+  for (let [y, g] of [[stereoWav(e.rock), 1], [e.room ? stereoWav(`${e.rock}-room`) : null, e.room]]) {
     if (!y) continue;
+    if (e.glitch) y = glitched(y);
     for (let i = 0; 2 * i + 1 < y.length && i0 + i < N; i++) { rockBus.L[i0 + i] += e.vel * g * y[2 * i]; rockBus.R[i0 + i] += e.vel * g * y[2 * i + 1]; }
   }
 }
@@ -1113,7 +1298,7 @@ const ukeBus = { L: new Float32Array(N), R: new Float32Array(N) };
     for (let i = 0; i < N; i++) { const x = ch[i], y = (b0 * x - b0 * x2 - a1 * y1 - a2 * y2) / a0; x2 = x1; x1 = x; y2 = y1; y1 = y; ch[i] = x + g * y; } } };
   body(ukeBus, 240, 3, .6); body(ukeBus, 520, 4, .35);
 }
-const brushBus = clips("brush"), whooshBus = clips("whoosh"), sheepBus = clips("sheep"), donkeyBus = clips("donkey"), springBus = clips("spring"), mouseBus = clips("mouse");
+const brushBus = clips("brush"), whooshBus = clips("whoosh"), sheepBus = clips("sheep"), stampBus = clips("stamp"), cuckooBus = clips("cuckoo"), donkeyBus = clips("donkey"), springBus = clips("spring"), mouseBus = clips("mouse");
 const implodeBus = { L: new Float32Array(N), R: new Float32Array(N) }, bulletBus = { L: new Float32Array(N), R: new Float32Array(N) };
 {
   let z = 77;
@@ -1183,7 +1368,7 @@ for (const e of events.filter((e) => e.voice === "pop")) {
     ear(i0 + i, v);
   }
 }
-const hiBus = sines("hi", { attack: .018, release: .3, glide: .025, decay: .22, sustain: .55 });
+const hiBus = sines("hi", { attack: .018, release: .3, glide: .07, decay: .22, sustain: .55, vibDepth: .16, vibOnset: .1 });
 // the chords: swell in over a third of a second, settle slowly, ring out for over a second
 const padBus = sines("pad", { attack: .32, release: 1.2, glide: .12, decay: 1.4, sustain: .72 });
 
@@ -1256,7 +1441,7 @@ for (const [v, b] of Object.entries(bus)) {
 }
 { const g = 10 ** (SUB_LEVEL / 20) / loudPart(subBus); for (let i = 0; i < N; i++) subBus[i] = soft(subBus[i] * g, .7); levels.sub = { gainDb: dB(g) }; }
 // the clean layers are set against the driven mix, and are never clipped
-const CLEAN = { brush: [brushBus, -23], whoosh: [whooshBus, -21], implode: [implodeBus, -16], bullet: [bulletBus, -21], uke: [ukeBus, -21], sheep: [sheepBus, -17], rock: [rockBus, -16], spring: [springBus, -22], mouse: [mouseBus, -27], donkey: [donkeyBus, -19], upright: [uprightBus, -15.5], pop: [popBus, -24], mid: [midBus, -21], hi: [hiBus, -20], pad: [padBus, -27], bell: [bellBus, -21], gong: [gongBus, -20], boom: [boomBus, -17] };
+const CLEAN = { brush: [brushBus, -23], whoosh: [whooshBus, -21], implode: [implodeBus, -16], bullet: [bulletBus, -21], uke: [ukeBus, -21], sheep: [sheepBus, -17], stamp: [stampBus, -15], cuckoo: [cuckooBus, -20], rock: [rockBus, -16], spring: [springBus, -22], mouse: [mouseBus, -27], donkey: [donkeyBus, -19], upright: [uprightBus, -15.5], pop: [popBus, -24], mid: [midBus, -19], hi: [hiBus, -20], pad: [padBus, -27], bell: [bellBus, -21], gong: [gongBus, -20], boom: [boomBus, -17] };
 const scale = (b, to) => { const g = 10 ** (to / 20) / loudPart(b.L, b.R); for (let i = 0; i < N; i++) { b.L[i] *= g; b.R[i] *= g; } return dB(g); };
 for (const [v, [b, to]] of Object.entries(CLEAN)) levels[v] = { gainDb: scale(b, to), loudRms: to };
 { const g = 10 ** (-17 / 20) / loudPart(boomSendL, boomSendR); for (let i = 0; i < N; i++) { boomSendL[i] *= g; boomSendR[i] *= g; } }
@@ -1364,6 +1549,8 @@ place("implode", implodeBus, { pan: 0, dist: 0, wet: .2, far: .25 });
 place("bullet", bulletBus, { pan: 0, dist: 0, wet: .25, far: .12 });
 place("uke", ukeBus, { pan: .38, dist: 1.8, wet: .18, far: .06 });
 place("sheep", sheepBus, { pan: 0, dist: 4, wet: .25, far: .3 });
+place("stamp", stampBus, { pan: 0, dist: 2.2, wet: .45, far: .1 });
+place("cuckoo", cuckooBus, { pan: 0, dist: 5, wet: .3, far: .25 });
 place("rock", rockBus, { pan: 0, dist: 0, wet: .1, far: .04 });
 place("spring", springBus, { pan: 0, dist: 2.5, wet: .3, far: .15 });
 place("mouse", mouseBus, { pan: 0, dist: 1.5, wet: .15, far: .05 });
@@ -1382,8 +1569,8 @@ const boomDuck = kickDuck(.72, .08);
 for (let i = 0; i < N; i++) {
   const d = boomDuck[i], dm = drop[i] * d * Math.SQRT1_2;
   const g = DYN[i];
-  L[i] += (brushBus.L[i] + whooshBus.L[i] + implodeBus.L[i] + bulletBus.L[i] + ukeBus.L[i] + sheepBus.L[i] + rockBus.L[i] + springBus.L[i] + mouseBus.L[i] + donkeyBus.L[i] + uprightBus.L[i] + popBus.L[i] + midBus.L[i] + hiBus.L[i] + padBus.L[i] + bellBus.L[i] + gongBus.L[i] + space.L[i]) * g + (boomBus.L[i] + .5 * boomHall.L[i]) * d + dm;
-  R[i] += (brushBus.R[i] + whooshBus.R[i] + implodeBus.R[i] + bulletBus.R[i] + ukeBus.R[i] + sheepBus.R[i] + rockBus.R[i] + springBus.R[i] + mouseBus.R[i] + donkeyBus.R[i] + uprightBus.R[i] + popBus.R[i] + midBus.R[i] + hiBus.R[i] + padBus.R[i] + bellBus.R[i] + gongBus.R[i] + space.R[i]) * g + (boomBus.R[i] + .5 * boomHall.R[i]) * d + dm;
+  L[i] += (stampBus.L[i] + cuckooBus.L[i] + brushBus.L[i] + whooshBus.L[i] + implodeBus.L[i] + bulletBus.L[i] + ukeBus.L[i] + sheepBus.L[i] + rockBus.L[i] + springBus.L[i] + mouseBus.L[i] + donkeyBus.L[i] + uprightBus.L[i] + popBus.L[i] + midBus.L[i] + hiBus.L[i] + padBus.L[i] + bellBus.L[i] + gongBus.L[i] + space.L[i]) * g + (boomBus.L[i] + .5 * boomHall.L[i]) * d + dm;
+  R[i] += (stampBus.R[i] + cuckooBus.R[i] + brushBus.R[i] + whooshBus.R[i] + implodeBus.R[i] + bulletBus.R[i] + ukeBus.R[i] + sheepBus.R[i] + rockBus.R[i] + springBus.R[i] + mouseBus.R[i] + donkeyBus.R[i] + uprightBus.R[i] + popBus.R[i] + midBus.R[i] + hiBus.R[i] + padBus.R[i] + bellBus.R[i] + gongBus.R[i] + space.R[i]) * g + (boomBus.R[i] + .5 * boomHall.R[i]) * d + dm;
 }
 // ── a slow leveller before the limiter: the level over 0.4 s is drawn halfway toward the track's own
 // loud-part level (±6 dB at most), easing over about a second, so a passage doesn't swell or sag and the
@@ -1532,10 +1719,10 @@ INK, MUTE, GRID, PAPER, GREY = "#0b0b0b", "#52514e", "#e4e3df", "#fcfcfb", "#8f8
 HUE = {"subject": "#2a78d6", "countersubject": "#1baf7a", "inversion": "#eda100", "augmentation": "#e87ba4",
        "canon": "#008300", "retrograde": "#6250d6", "fragment": "#e34948", "ground": "#eb6834", "bell": "#b07d10", "boom": "#8b1e3f"}
 ALIAS = {"division": "countersubject", "cadence": "subject"}
-LANES = ["whoosh", "brush", "bullet", "implode", "uke", "sheep", "rock", "mouse", "spring", "donkey", "pop", "hi", "mid", "pad", "bell", "S", "A", "T", "sub", "snare", "ghost", "kick", "hat", "shot", "orn", "boom"]
-SAY = {"brush": "brushes,\nbroom", "whoosh": "whooshes,\ncloth flips", "implode": "implosions", "bullet": "ricochets,\nbullets past", "uke": "ukulele\n(simulated)", "sheep": "sheep\n(aesthetivox)", "rock": "rock kit\n(DrumGizmo)", "spring": "springs", "mouse": "mice", "donkey": "donkey\n(aesthetivox)", "upright": "upright bass\n(pjcohen, CC0)", "pop": "bubble pops", "shot": "shotgun\n12 gauge", "mid": "mid synth\n(tenor line)", "hi": "high sine", "pad": "sine chords", "bell": "bells, gong\n(FEM)", "boom": "explosions", "S": "soprano\n.30-06", "A": "alto\n9mm pistol", "T": "tenor\nAK-47", "sub": "sub bass\n(synth)", "snare": "snare\n12 gauge",
+LANES = ["stamp", "cuckoo", "whoosh", "brush", "bullet", "implode", "uke", "sheep", "rock", "mouse", "spring", "donkey", "pop", "hi", "mid", "pad", "bell", "S", "A", "T", "sub", "snare", "ghost", "kick", "hat", "shot", "orn", "boom"]
+SAY = {"stamp": "aesthetic dot\ncomputer (sung)", "cuckoo": "cuckoo clock\n(DiArchangeli, CC0)", "brush": "brushes,\nbroom", "whoosh": "whooshes,\ncloth flips", "implode": "implosions", "bullet": "ricochets,\nbullets past", "uke": "ukulele\n(simulated)", "sheep": "sheep\n(aesthetivox)", "rock": "rock kit\n(DrumGizmo)", "spring": "springs", "mouse": "mice", "donkey": "donkey\n(aesthetivox)", "upright": "upright bass\n(pjcohen, CC0)", "pop": "bubble pops", "shot": "shotgun\n12 gauge", "mid": "mid synth\n(tenor line)", "hi": "high sine", "pad": "sine chords", "bell": "bells, gong\n(FEM)", "boom": "explosions", "S": "soprano\n.30-06", "A": "alto\n9mm pistol", "T": "tenor\nAK-47", "sub": "sub bass\n(synth)", "snare": "snare\n12 gauge",
        "ghost": "ghosts, rolls\n9mm SMG", "kick": "kick .45", "hat": "hats\ndry fire", "orn": "racks, brass"}
-TALL = {"whoosh": .8, "brush": .8, "bullet": .8, "implode": .8, "uke": 1.4, "sheep": 1.4, "rock": .8, "mouse": .8, "spring": .8, "donkey": 1.4, "pop": 1.4, "shot": .8, "mid": 2.4, "hi": 2.4, "pad": 1.4, "bell": 1.6, "boom": .8, "S": 3, "A": 3, "T": 3, "sub": 3, "snare": .8, "ghost": 2, "kick": .8, "hat": 1.4, "orn": .7}
+TALL = {"stamp": 1.4, "cuckoo": 1.4, "whoosh": .8, "brush": .8, "bullet": .8, "implode": .8, "uke": 1.4, "sheep": 1.4, "rock": .8, "mouse": .8, "spring": .8, "donkey": 1.4, "pop": 1.4, "shot": .8, "mid": 2.4, "hi": 2.4, "pad": 1.4, "bell": 1.6, "boom": .8, "S": 3, "A": 3, "T": 3, "sub": 3, "snare": .8, "ghost": 2, "kick": .8, "hat": 1.4, "orn": .7}
 base, y = {}, 0
 for v in reversed(LANES): base[v] = y; y += TALL[v] + .4
 span = {v: (min(e["midi"] for e in ev if e["voice"] == v), max(e["midi"] for e in ev if e["voice"] == v)) for v in LANES}

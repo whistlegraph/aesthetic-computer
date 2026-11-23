@@ -7,6 +7,26 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
 
 ---
 
+## Gundrumbasic — SUBMITTED (DistroKid 2026-11-23, release date 2026-11-23)
+
+- **What:** gundrum and bass 2 — a five-movement drum-and-bass fugue suite at 172 BPM in D minor, 2:20, every
+  drum a gun. Lane `pop/gundrum/` (`bin/gundrum-and-bass-2.mjs`; the stamp and cuckoo voices from
+  `bin/cuckoo-stamp.py`; release files from `bin/gundrumbasic.py`).
+- **Cover:** IMG_8833 (jeffrey, blonde wig), hard black and white with only the lipstick red —
+  `pop/gundrum/cover/gundrumbasic-cover-3000.jpg`.
+- **Release master:** the render re-limited 4× oversampled to −12.0 LUFS · −3.1 dBTP · LRA 2.5 (the −1.2 dBTP
+  render decoded to +0.9 dBTP through AAC; this one to −0.2). `~/Documents/Shelf/gundrumbasic-DISTROKID/`
+  (MASTER.flac 24/44.1, SHA-256 `5d866805…316701a`, cover, preview mp3, release.json, CREDITS.txt).
+- **DistroKid:** Electronic / Drum & Bass, instrumental, songwriter Jeffrey Scudder (music), Apple credits
+  performer (Sampler) + producer Jeffrey Scudder, all stores, no extras, originals (no Mixea), Facebook
+  "no profile yet". Submitted from the normal Chrome profile via the Claude extension (the FLAC went in as
+  four sub-10 MB pieces joined in the page, hash-checked).
+  HyperFollow: https://distrokid.com/hyperfollow/aestheticdotcomputer/gundrumbasic
+- **Open:** add the CC BY 4.0 credits (brushes, DrumGizmo kits — `CREDITS.txt`) as DistroKid credits/liner
+  notes; add to the /pop catalog once live; Spotify ≥ 5 business days.
+
+---
+
 ## wada jetter QD UR — MASTERING (2026-11-20)
 
 - **Current listening cut:** `pop/wattajetta/out/pocket-single/wada-jetter-weirdest-liner.wav`, 2:55.

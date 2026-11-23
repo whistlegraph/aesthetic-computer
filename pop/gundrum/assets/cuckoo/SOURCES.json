@@ -1,0 +1,8 @@
+{
+  "note": "Real recordings only. Freesound preview MP3 of the original.",
+  "sounds": [
+    { "file": "cuckoo-clock-12-01.mp3", "description": "A German cuckoo clock striking twelve: chimes and twelve two-pipe cuckoo calls",
+      "author": "DiArchangeli", "licence": "CC0 1.0", "source": "https://freesound.org/people/DiArchangeli/sounds/462930/",
+      "download": "https://cdn.freesound.org/previews/462/462930_1779874-hq.mp3" }
+  ]
+}
