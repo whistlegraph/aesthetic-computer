@@ -1,13 +1,39 @@
 import { DEBUG } from "../disks/common/debug.mjs";
 
-// `/api/ask` reads the caller's handle to decide which model they may reach:
-// anonymous traffic is served the cheap tier, a handle gets the good models.
-// Conversation is constructed in five places with only a store and a slug, so
-// the token arrives here once from disk.mjs rather than through every caller.
+// A Conversation asks Aesel's hosted inference (/api/easel-inference), the
+// route every model request on AC takes: the signed-in handle pays in
+// braincells, on its account's default model. (It asked /api/ask before,
+// which picked models from a caller-supplied hint.) Conversation is
+// constructed in several places with only a store and a slug, so the token
+// arrives here once from disk.mjs rather than through every caller.
 let tokenProvider = null;
 
 export function setAskTokenProvider(provider) {
   tokenProvider = provider;
+}
+
+const SITE = "https://aesthetic.computer";
+const DEFAULT_MODEL = "anthropic/claude-sonnet-5.5";
+let defaultModel = null; // the account's curated default, read once a page
+
+async function accountModel(headers, signal) {
+  if (!defaultModel) {
+    defaultModel = fetch(`${SITE}/api/easel-credits`, { headers, signal })
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((body) => body.curation?.default || DEFAULT_MODEL)
+      .catch(() => { defaultModel = null; return DEFAULT_MODEL; });
+  }
+  return defaultModel;
+}
+
+// The conversation as the old endpoint read it: every system line (the
+// program before and after, and earlier replies, which are kept as system
+// lines) folded into one system prompt; what was said, as the turns.
+function request(messages, hint, model) {
+  const system = messages.filter((m) => m.by === "system").map((m) => m.text).join("\n\n");
+  const turns = messages.filter((m) => m.by === "user" || m.by === "assistant").map((m) => ({ role: m.by, content: m.text }));
+  const max_tokens = hint?.startsWith("code") ? 4096 : hint?.startsWith("character") ? 256 : 1024;
+  return { model, max_tokens, ...(system ? { system } : {}), messages: turns };
 }
 
 export class Conversation {
@@ -80,29 +106,26 @@ export class Conversation {
     this.controller = new AbortController();
     const signal = this.controller.signal;
 
-    const host = ``; // DEBUG
-    // ? `` // Just use current host, via `netlify.toml`.
-    // : "https://ai.aesthetic.computer";
 
     // Kept as one promise rather than an await so the timeout race below still
-    // starts counting from here. A missing or failed token is not an error: it
-    // is the anonymous path, which still answers, just on the cheap model.
+    // starts counting from here. Hosted inference needs a handle: with no
+    // token the ask fails, and the piece shows its own fallback.
     // Capture before token lookup yields: forgetful conversations clear the
     // live array below, and later asks can also mutate it while auth is pending.
-    const requestBody = JSON.stringify({ messages: this.messages, hint });
+    const sent = this.messages.slice();
     const responsePromise = (async () => {
-      const headers = { "Content-Type": "application/json" };
-      try {
-        const token = await tokenProvider?.();
-        if (token) headers.Authorization = `Bearer ${token}`;
-      } catch (err) {
+      let token = null;
+      try { token = await tokenProvider?.(); } catch (err) {
         if (DEBUG) console.warn("🔑 ask: no token —", err);
       }
-      return fetch(`${host}/api/ask`, {
+      if (!token) throw new Error("Sign in to ask: hosted inference needs a handle.");
+      const headers = { Authorization: `Bearer ${token}` };
+      const model = await accountModel(headers, signal);
+      return fetch(`${SITE}/api/easel-inference`, {
         method: "POST",
         signal,
-        headers,
-        body: requestBody,
+        headers: { ...headers, "Content-Type": "application/json", "x-ac-client": "ask" },
+        body: JSON.stringify(request(sent, hint, model)),
       });
     })();
 
@@ -113,8 +136,8 @@ export class Conversation {
     const timeoutPromise = new Promise((resolve, reject) => {
       timeout = setTimeout(() => {
         this.controller?.abort();
-        reject(new Error(`Reply timed out after 10 seconds!`));
-      }, 10 * 1000);
+        reject(new Error(`Reply timed out after 30 seconds!`));
+      }, 30 * 1000);
     });
 
     let streamedReply = "";
@@ -139,8 +162,25 @@ export class Conversation {
         const decoder = new TextDecoder();
 
         const reader = readableStream.getReader();
+        let tail = "";
 
-        // Detect chunks of JSON as they stream in.
+        // Server-sent events in the Anthropic shape: the reply's text arrives
+        // as deltas, handed on as they come.
+        function text(chunk) {
+          tail += chunk;
+          const lines = tail.split("\n");
+          tail = lines.pop();
+          let got = "";
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            let event;
+            try { event = JSON.parse(line.slice(5)); } catch { continue; }
+            if (event.type === "content_block_delta" && event.delta?.type === "text_delta") got += event.delta.text;
+            if (event.type === "error") throw new Error(event.error?.message || "inference failed");
+          }
+          return got;
+        }
+
         function read() {
           reader
             .read()
@@ -157,9 +197,11 @@ export class Conversation {
                   // await convo.store.persist(convo.key, "local:db"); // Persist messages.
                 }
               } else {
-                const got = decoder.decode(value, { stream: true }); // Chunk->text.
-                streamedReply += got;
-                and?.(got);
+                const got = text(decoder.decode(value, { stream: true }));
+                if (got) {
+                  streamedReply += got;
+                  and?.(got);
+                }
                 read(); // keep reading
               }
             })
