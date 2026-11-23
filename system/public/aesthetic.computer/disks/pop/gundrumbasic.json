@@ -1,0 +1,26 @@
+{
+  "slug": "gundrumbasic",
+  "title": "Gundrumbasic",
+  "artist": "Aesthetic Dot Computer",
+  "album": "Gundrumbasic",
+  "bpm": 172,
+  "key": "D minor",
+  "meter": "4/4",
+  "duration": 140.4535,
+  "released": "2026-11-23",
+  "status": "released",
+  "audio": "/assets/pop/gundrumbasic.mp3",
+  "cover": "/assets/pop/gundrumbasic.jpg",
+  "focus": [0.5, 0.4],
+  "sections": [
+    { "name": "I · invention", "t": 0, "illy": "/assets/pop/gundrumbasic/sec-0.jpg", "code": "a" },
+    { "name": "II · courante", "t": 25.1163, "illy": "/assets/pop/gundrumbasic/sec-1.jpg", "code": "b" },
+    { "name": "III · canon", "t": 41.8605, "illy": "/assets/pop/gundrumbasic/sec-2.jpg", "code": "c" },
+    { "name": "IV · passacaglia", "t": 64.186, "illy": "/assets/pop/gundrumbasic/sec-3.jpg", "code": "d" },
+    { "name": "V · stretto", "t": 106.0465, "illy": "/assets/pop/gundrumbasic/sec-4.jpg", "code": "e" }
+  ],
+  "links": {
+    "hyperfollow": "https://distrokid.com/hyperfollow/aestheticdotcomputer/gundrumbasic"
+  },
+  "credits": "a drum-and-bass fugue in five movements where every drum is a gun. composition: aesthetic dot computer. cuckoo clock by DiArchangeli (CC0); brushes and rock kit under CC BY 4.0 (F.M.Audio and others on Freesound; DrumGizmo DRSKit and CrocellKit)."
+}

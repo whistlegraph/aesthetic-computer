@@ -9,6 +9,16 @@
     <itunes:author>Aesthetic Dot Computer</itunes:author>
     <itunes:image href="https://pop.aesthetic.computer/pop-og.jpg" />
     <item>
+      <title>Gundrumbasic</title>
+      <link>https://aesthetic.computer/gundrumbasic</link>
+      <guid isPermaLink="false">pop:gundrumbasic</guid>
+      <pubDate>Mon, 23 Nov 2026 12:00:00 GMT</pubDate>
+      <description>Aesthetic Dot Computer · Gundrumbasic. a drum-and-bass fugue in five movements where every drum is a gun. composition: aesthetic dot computer. cuckoo clock by DiArchangeli (CC0); brushes and rock kit under CC BY 4.0 (F.M.Audio and others on Freesound; DrumGizmo DRSKit and CrocellKit).</description>
+      <enclosure url="https://assets.aesthetic.computer/pop/gundrumbasic.mp3" length="5620607" type="audio/mpeg" />
+      <itunes:duration>140</itunes:duration>
+      <itunes:image href="https://assets.aesthetic.computer/pop/gundrumbasic.jpg" />
+    </item>
+    <item>
       <title>sailor song</title>
       <link>https://aesthetic.computer/sailor-song</link>
       <guid isPermaLink="false">pop:sailor-song</guid>

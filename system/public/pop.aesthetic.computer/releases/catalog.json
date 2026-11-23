@@ -3,6 +3,28 @@
   "artist": "Aesthetic Dot Computer",
   "tracks": [
     {
+      "slug": "gundrumbasic",
+      "title": "Gundrumbasic",
+      "artist": "Aesthetic Dot Computer",
+      "album": "Gundrumbasic",
+      "bpm": 172,
+      "key": "D minor",
+      "meter": "4/4",
+      "duration": 140.4535,
+      "released": "2026-11-23",
+      "status": "released",
+      "cover": "https://assets.aesthetic.computer/pop/gundrumbasic.jpg",
+      "thumb": "https://pop.aesthetic.computer/thumbs/gundrumbasic.jpg",
+      "art": "https://pop.aesthetic.computer/art/gundrumbasic.jpg",
+      "audio": "https://assets.aesthetic.computer/pop/gundrumbasic.mp3",
+      "piece": "https://aesthetic.computer/gundrumbasic",
+      "links": {
+        "hyperfollow": "https://distrokid.com/hyperfollow/aestheticdotcomputer/gundrumbasic"
+      },
+      "credits": "a drum-and-bass fugue in five movements where every drum is a gun. composition: aesthetic dot computer. cuckoo clock by DiArchangeli (CC0); brushes and rock kit under CC BY 4.0 (F.M.Audio and others on Freesound; DrumGizmo DRSKit and CrocellKit).",
+      "releaseData": null
+    },
+    {
       "slug": "sailor-song",
       "title": "sailor song",
       "artist": "sage oc",

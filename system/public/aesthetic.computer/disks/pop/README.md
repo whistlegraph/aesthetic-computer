@@ -108,6 +108,7 @@ reading `out/<slug>.struct.json` + the campaign gens dir.
   `import` a sibling disk to share a wrapper: the loader hands modules a
   non-hierarchical base and `./other.mjs` fails to resolve, so the two names
   are two full wrappers over one manifest.)
+- `gundrumbasic` ✓ (section stills are five crops of the cover portrait, one per movement.)
 - `sailor-song` ✓ (sage oc's cover, artist `sage oc`. Its section stills are
   frames of the relit performance video, cropped above the caption row.)
 
