@@ -1,0 +1,5 @@
+#!/bin/sh
+# Play notes in the running Menu Band with one post (~50 ms).
+#   bin/play "60:1,62:1,64:1" [bpm=132] [program=78 whistle; 0 piano]
+# notes = midi:beats, comma-separated; r:1 is a rest.
+osascript -l JavaScript -e "ObjC.import('Foundation'); \$.NSDistributedNotificationCenter.defaultCenter.postNotificationNameObjectUserInfoDeliverImmediately('computer.aestheticcomputer.menuband.play', \$(), \$({notes:'$1', bpm:'${2:-132}', program:'${3:-78}'}), true)"
