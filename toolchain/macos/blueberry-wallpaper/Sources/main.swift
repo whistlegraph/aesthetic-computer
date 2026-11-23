@@ -568,7 +568,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         CATransaction.commit()
         if now - badgeCheckedAt > 2 {
             badgeCheckedAt = now
-            fishery.badgeInset = badgeInset()
+            fishery.badge = badgeRect()
             if let screen = window?.screen { fishery.topInset = max(0, screen.frame.maxY - screen.visibleFrame.maxY) }
         }
         fishery.tick(now: now, dark: dark)
@@ -731,24 +731,27 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
 
     private var badgeCheckedAt = 0.0
 
-    /// How far a MacPal badge parked in this screen's bottom-right corner
-    /// reaches in from the right edge, so the fishery's numbers stop short of
-    /// it. Window bounds need no screen-recording grant.
-    private func badgeInset() -> CGFloat {
+    /// Where a MacPal badge stands on this screen, in the fishery's own
+    /// coordinates (y up, the tank's world offset added), or .zero. Any corner
+    /// counts — the pal can be dragged to all four — and the modules under it
+    /// step aside. Window bounds need no screen-recording grant.
+    private func badgeRect() -> CGRect {
         guard let screen = window?.screen, let primary = NSScreen.screens.first,
               let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
-        else { return 0 }
+        else { return .zero }
         // CG window bounds count down from the primary screen's top-left.
         let frame = CGRect(x: screen.frame.minX, y: primary.frame.maxY - screen.frame.maxY,
                            width: screen.frame.width, height: screen.frame.height)
-        var inset: CGFloat = 0
+        var out = CGRect.zero
         for w in list where w[kCGWindowOwnerName as String] as? String == "MacPal" {
             guard let b = w[kCGWindowBounds as String] as? NSDictionary,
                   let r = CGRect(dictionaryRepresentation: b), r.intersects(frame),
-                  r.midX > frame.midX, r.maxY > frame.maxY - 200, r.width < frame.width / 3 else { continue }
-            inset = max(inset, frame.maxX - r.minX)
+                  r.width < frame.width / 3, r.height < frame.height / 2 else { continue }
+            let local = CGRect(x: r.minX - frame.minX + (TankConfig.current?.offset ?? 0),
+                               y: frame.maxY - r.maxY, width: r.width, height: r.height)
+            out = out.isEmpty ? local : out.union(local)
         }
-        return inset
+        return out
     }
 
     override func layout() {

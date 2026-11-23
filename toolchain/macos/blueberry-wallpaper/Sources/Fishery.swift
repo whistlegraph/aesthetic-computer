@@ -644,8 +644,15 @@ final class FisheryLayer: CALayer {
     private var linkDataVersion = -1
     /// Where this screen sits in the world, and how wide one screen is.
     var viewport: CGRect = .zero
-    /// Room kept clear at the bottom-right for a MacPal badge parked there.
-    var badgeInset: CGFloat = 0
+    /// A MacPal badge over the water (.zero when none): the modules in its
+    /// corner step aside for it.
+    var badge: CGRect = .zero
+    /// The badge's corner, judged against this screen's own middle.
+    private var badgeLow: Bool { !badge.isEmpty && badge.midY < bounds.height / 2 }
+    private var badgeHigh: Bool { !badge.isEmpty && badge.midY >= bounds.height / 2 }
+    private var badgeRight: Bool {
+        !badge.isEmpty && badge.midX > (link == nil ? bounds.width / 2 : viewport.midX)
+    }
     private var fish: [String: Fish] = [:]
     private var seen = Set<String>()
     private var pending: [Pending] = []
@@ -1602,6 +1609,8 @@ final class FisheryLayer: CALayer {
 
         stats.isHidden = true
         tallyText.forEach { $0.number.isHidden = true; $0.caption.isHidden = true }
+        // A badge in a bottom corner pushes that side's column in past it.
+        let leftEdge = badgeLow && !badgeRight ? max(pad, badge.maxX + pad) : pad
         var x = pad
         var shown: [Tile] = []
         let tileH = 26 * ts
@@ -1660,16 +1669,16 @@ final class FisheryLayer: CALayer {
         }
         // Right-align the row against the screen's bottom-right corner.
         let rowW = max(0, x - 26 * ts - pad)
-        let right = w - pad - (badgeInset > 0 ? badgeInset + 4 * ts : 0)
+        let right = badgeLow && badgeRight ? min(w - pad, badge.minX - pad - 4 * ts) : w - pad
         let shift = right - rowW - pad
         for tile in shown { tile.root.frame.origin.x += shift }
         // In a tank this lands whole on the last screen, above its tiles.
         let chartW = min(max(rowW, 320 * ts), screenW - 2 * pad)
         layoutChart(right: right, bottom: baseY + tileH + 30 * ts, width: chartW)
         if let chart = reef?.frame, chart.width > 0 { hudTop = max(hudTop, chart.maxY + 16 * ts) }
-        let refRight = layoutReferrers(left: pad, bottom: baseY, shadow: shadow)
+        let refRight = layoutReferrers(left: leftEdge, bottom: baseY, shadow: shadow)
         if !refHead.isHidden { hudTop = max(hudTop, refHead.frame.maxY) }
-        layoutWorld(left: pad, bottom: (refHead.isHidden ? baseY : refHead.frame.maxY) + 14 * ts, shadow: shadow)
+        layoutWorld(left: leftEdge, bottom: (refHead.isHidden ? baseY : refHead.frame.maxY) + 14 * ts, shadow: shadow)
         // Three columns along the bottom: came-from, the ticker, then the
         // tiles under their chart. The ticker takes what the other two leave,
         // so it never runs under the numbers or the chart's axis.
@@ -1827,7 +1836,9 @@ final class FisheryLayer: CALayer {
                                             halo: dark ? Self.darkHalo : Self.lightHalo, number: codeNumber,
                                             dark: dark, u: u, scale: scale))
         }
-        constellation.position = CGPoint(x: (16 * u).rounded(), y: top.rounded())
+        // A badge in the top-left: the fan starts just past it.
+        let left = badgeHigh && !badgeRight ? max(16 * u, badge.maxX + 16 * u) : 16 * u
+        constellation.position = CGPoint(x: left.rounded(), y: top.rounded())
         if at != infraPulsed {
             infraPulsed = at
             constellation.pulse()
@@ -1926,8 +1937,14 @@ final class FisheryLayer: CALayer {
         heat.isHidden = maps.isEmpty
         heatCaption.isHidden = maps.isEmpty
         guard !maps.isEmpty else { return }
-        let pw = min(w * 0.24, 640 * u), top = bounds.height - 40 * u, bottom = 112 * u
-        let frame = CGRect(x: w - pw - 16 * u, y: bottom, width: pw, height: top - bottom - 18 * u)
+        let pw = min(w * 0.24, 640 * u)
+        var top = bounds.height - 40 * u, bottom = 112 * u
+        // A badge over the panel's column: start below it, or end above it.
+        if badge.maxX > w - pw - 16 * u, badge.minX < w - 16 * u {
+            if badgeHigh { top = min(top, badge.minY - 8 * u) }
+            if badgeLow { bottom = max(bottom, badge.maxY + 8 * u) }
+        }
+        let frame = CGRect(x: w - pw - 16 * u, y: bottom, width: pw, height: max(0, top - bottom - 18 * u))
         if heat.frame != frame {
             heat.frame = frame
             heatFile = ""   // re-pan for the new size
