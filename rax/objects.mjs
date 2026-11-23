@@ -6,7 +6,7 @@ import {
 } from './object-language.mjs';
 // The shared compiler admits a bounded object dialect, never generated JavaScript.
 export const MAX_PARTS = 32;
-export const MAX_OBJECTS = 16;
+export const MAX_OBJECTS = 48;
 export const MAX_VERSIONS = 32;
 const finite = (v, lo, hi, fallback) =>
   Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;

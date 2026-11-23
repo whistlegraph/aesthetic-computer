@@ -8,15 +8,58 @@ import { runPersonalTurn } from '../aesel/src/personal-relay.mjs';
 import { DEFAULT_CLAUDE_MODEL } from '../aesel/src/provider-defaults.mjs';
 import { partialGeometry, codeExcerpt } from './build-progress.mjs';
 import { OBJECT_INSTRUCTIONS, parseGeometry } from './objects.mjs';
+import { PER_WORKER } from './builders.mjs';
 const { WebSocket } = createRequire(
   new URL('../lith/package.json', import.meta.url),
 )('ws');
-// The relay answers 429 "busy" when too many turns run at once: wait and
+// 🛰️ Hosted: one streamed reply from Aesel's hosted inference, the route
+// every other model request on AC takes (the builder's handle pays in
+// braincells). Same shape as a relay turn: deltas arrive as
+// item/agentMessage/delta events and the whole reply comes back as text.
+// The personal relay ran builds on a Claude subscription, and that access was
+// switched off (2026-11-22); RAX_BUILDER_ROUTE=relay goes back to it.
+const HOSTED = 'https://aesthetic.computer/api/easel-inference';
+export async function hostedTurn({ token, model, instructions = '', content, signal, onEvent = () => {}, fetchImpl = fetch }) {
+  const bearer = typeof token === 'function' ? await token() : token;
+  if (!bearer) throw Object.assign(Error('Sign in to build'), { status: 401 });
+  const response = await fetchImpl(HOSTED, {
+    method: 'POST', signal,
+    headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json', 'x-ac-client': 'rax-builder' },
+    body: JSON.stringify({ model, max_tokens: 8000, system: instructions, messages: [{ role: 'user', content: typeof content === 'string' ? content : JSON.stringify(content) }] }),
+  });
+  if (!response.ok) {
+    const failure = await response.json().catch(() => ({}));
+    throw Object.assign(Error(failure.error?.message || failure.error || `hosted inference returned ${response.status}`), { status: response.status });
+  }
+  const reader = response.body.getReader(), decoder = new TextDecoder();
+  let tail = '', text = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    tail += decoder.decode(value, { stream: true });
+    const lines = tail.split('\n');
+    tail = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      let event;
+      try { event = JSON.parse(line.slice(5)); } catch { continue; }
+      if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+        text += event.delta.text;
+        onEvent({ method: 'item/agentMessage/delta', params: { delta: event.delta.text } });
+      }
+      if (event.type === 'error') throw Error(event.error?.message || 'inference failed');
+    }
+  }
+  return { text };
+}
+const viaRelay = process.env.RAX_BUILDER_ROUTE === 'relay';
+
+// Either route answers 429 "busy" when too many turns run at once: wait and
 // try again with backoff (about a minute in all) rather than failing.
 async function relayTurn(options, onWait = () => {}) {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await runPersonalTurn(options);
+      return await (viaRelay ? runPersonalTurn(options) : hostedTurn(options));
     } catch (error) {
       if (error.status !== 429 || attempt >= 7 || options.signal?.aborted) throw error;
       const ms = Math.min(15000, 1500 * 2 ** attempt) * (0.75 + Math.random() * 0.5);
@@ -191,7 +234,7 @@ export function connectBuilder({
         jobs.delete(job.id);
         return;
       }
-      if (job.type !== 'build' || jobs.has(job.id) || jobs.size >= 3) return;
+      if (job.type !== 'build' || jobs.has(job.id) || jobs.size >= PER_WORKER) return;
       const controller = new AbortController();
       // Kept with the job: what to hand back if the server restarts.
       controller.meta = job.meta || null;
@@ -232,7 +275,9 @@ export function connectBuilder({
           else if (/disabled Claude subscription access/i.test(error.message))
             reason = 'Claude subscription access is disabled for the relay.';
           else if (error.status === 401 || error.status === 403)
-            reason = 'Aesel needs its relay login refreshed.';
+            reason = viaRelay ? 'Aesel needs its relay login refreshed.' : 'Aesel needs its builder login refreshed.';
+          else if (error.status === 402 || error.status === 429)
+            reason = error.message;
           deliver({ type: 'build-error', id: job.id, error: reason });
         }
       } finally {

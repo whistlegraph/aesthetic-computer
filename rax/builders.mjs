@@ -81,7 +81,10 @@ function scaleShape(shape, k) {
 // Not a singleton: each player may have several builds going, and any
 // number of builder processes may connect and share the work.
 export const PER_PLAYER = 3;
-export const PER_WORKER = 3;
+// Builds one worker runs at once. Three while builds ran on a Claude
+// subscription through the personal relay; hosted inference takes a class of
+// eight asking together (rax/test/class-load.mjs).
+export const PER_WORKER = 8;
 export const ASKED_MS = 15 * 60000; // how long a page's own request id is remembered (Builders.rid)
 
 // The middle of the 2 m floor square a player's view lands on, as the page
