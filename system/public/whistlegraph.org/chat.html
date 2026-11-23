@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>Whistlegraph group chat</title>
+<meta name="description" content="Join the Whistlegraph group chat. Read along or post with a free Aesthetic Computer handle.">
+<link rel="canonical" href="https://whistlegraph.org/">
+<link rel="icon" href="/favicon.png">
+<style>
+:root{--ink:#25204a;--paper:#fffdf6;--rule:#d6ced7;--dim:#62597a;--pink:#a13073;--yellow:#fff3a0;color-scheme:light;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:48rem;margin:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;padding:0 clamp(1rem,4vw,2.5rem)}
+header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1.15rem 0;border-bottom:2px solid var(--ink)}
+h1{margin:0;line-height:1}
+h1 img{display:block;width:clamp(8rem,35vw,16rem);height:auto}
+nav{display:flex;gap:.65rem;align-items:center}
+a{color:var(--pink);text-underline-offset:.18em}
+nav a{padding:.35rem .6rem;color:var(--ink);font-weight:650}
+nav [aria-current]{background:var(--yellow);text-decoration:none}
+#timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+#messages{min-height:100%;display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
+#messages li:first-child{margin-top:auto}
+#messages li{padding:.75rem .1rem;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
+#messages li:last-child{border:0}
+#messages strong{color:var(--pink)}
+time,.tools{color:var(--dim);font: .78rem ui-monospace,monospace}
+time{margin-left:.7rem}
+.message{white-space:pre-wrap;margin:.18rem 0 0}
+#empty{color:var(--dim);margin:0;padding:1.4rem 0}
+#messages:empty{display:none}
+footer{border-top:2px solid var(--ink);padding:.8rem 0 max(.8rem,env(safe-area-inset-bottom))}
+form{margin:0}
+.row,.tools{display:flex;align-items:center;gap:.6rem}
+.tools{flex-wrap:wrap;margin:0 0 .55rem}
+.tools a{margin-left:auto}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:var(--paper);border:1px solid var(--ink);border-radius:4px;padding:.5rem .65rem}
+button:disabled{opacity:.55}
+#send,#claim button[type=submit]{background:var(--ink);color:var(--paper);font-weight:650}
+textarea,input{min-width:0;background:transparent;border:1px solid var(--dim);border-radius:4px;padding:.63rem}
+textarea{flex:1;resize:none;line-height:1.35}
+.row button{align-self:stretch}
+#notice,#claim-error{color:var(--pink);margin:.4rem 0 0;font-size:.92rem}
+p:empty{display:none}
+#logout,.mod{font-size:.75rem;padding:.2rem .35rem}
+.mod{margin-left:.45rem}
+dialog{border:2px solid var(--ink);background:var(--paper);color:var(--ink);max-width:min(26rem,92vw)}
+dialog::backdrop{background:#25204a66}
+dialog h2{margin:0 0 1rem}
+dialog label{display:block;margin-bottom:.5rem}
+dialog input{width:100%;margin-bottom:1rem}
+:focus-visible{outline:3px solid #275ed4;outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1><img src="/whistlegraph-logo.png" width="1517" height="266" alt="Whistlegraph group chat"></h1>
+<nav aria-label="Whistlegraph"><a href="/" aria-current="page">Chat</a><a href="/index">Index</a></nav>
+</header>
+<section id="timeline" aria-label="Group messages" tabindex="0">
+<p id="empty">Loading messages…</p>
+<ol id="messages" aria-live="polite" aria-relevant="additions"></ol>
+</section>
+<footer>
+<div class="tools"><span id="identity">Public chat · Join free with an AC handle</span><button type="button" id="logout" hidden>Sign out</button><a href="https://aesthetic.computer/whistlegraph-recorder" target="_blank" rel="noopener">Recorder ↗</a></div>
+<form id="compose" class="row"><textarea id="draft" aria-label="Message" placeholder="Say something…" rows="2" maxlength="1400" required></textarea><button id="send" type="submit">Send</button></form>
+<p id="notice" role="status"></p>
+</footer>
+</main>
+<dialog id="handle-dialog" aria-labelledby="claim-title">
+<form id="claim"><h2 id="claim-title">Choose your AC handle</h2><label for="handle">Your messages will appear under this name.</label><input id="handle" placeholder="@handle" autocomplete="nickname" maxlength="17" required>
+<div class="row"><button type="submit">Claim handle</button><button type="button" id="cancel">Cancel</button></div><p id="claim-error" role="status"></p></form>
+</dialog>
+<script defer src="https://aesthetic.computer/aesthetic.computer/dep/auth0-spa-js.production.js"></script>
+<script type="module" src="/room.mjs"></script>
+</body></html>

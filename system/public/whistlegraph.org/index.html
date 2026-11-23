@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Whistlegraph — a drawing you sing</title>
-<link rel="canonical" href="https://whistlegraph.org/" />
-<meta property="og:url" content="https://whistlegraph.org/" />
+<link rel="canonical" href="https://whistlegraph.org/index" />
+<meta property="og:url" content="https://whistlegraph.org/index" />
 <meta property="og:type" content="website" />
 <meta name="description" content="A whistlegraph is a drawing you sing. The finished picture is a score — it teaches you how to play it. An index of the artform.">
 <meta property="og:title" content="Whistlegraph">
@@ -319,10 +319,13 @@
     .sortbar button{padding:5px 9px}
     .sectionbar button, .sectionbar a.tab{padding:9px 13px 8px}
   }
+.room-nav{display:flex;gap:1.2em;align-items:center;justify-content:center;padding:.65rem;font:600 1rem var(--sans);border-bottom:1px solid var(--ink)}
+.room-nav a[aria-current]{color:var(--ink);text-decoration:none}
 </style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261014-mime-bumper" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
+<nav aria-label="Whistlegraph" class="room-nav"><a href="/">Chat</a><a href="/index" aria-current="page">Index</a></nav>
 <a class="bumper" href="https://aesthetic.computer/" data-i18n-html="bumper.ac">Enter whistlegraph codes, musical notes and more on <b>Aesthetic.Computer</b></a>
 <div class="pad">
 
@@ -501,7 +504,7 @@
   <!-- ══════════ DETAIL ══════════ -->
   <div id="detail">
     <button class="theme-open" type="button" aria-label="Appearance settings" title="Appearance settings" data-i18n-attrs="aria-label:appearance.open,title:appearance.open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-    <a href="/" id="homelogo" style="display:block;background:none">
+    <a href="/index" id="homelogo" style="display:block;background:none">
       <div class="logo mini" role="img" aria-label="Whistlegraph">
         <img src="/letters/00-w.png" alt="" width="164" height="180" style="left:0.066%;top:0.376%;width:10.811%">
         <img src="/letters/01-h.png" alt="" width="125" height="174" style="left:11.668%;top:21.053%;width:8.240%">
@@ -517,7 +520,7 @@
         <img src="/letters/11-h.png" alt="" width="136" height="178" style="left:91.035%;top:32.707%;width:8.965%">
       </div>
     </a>
-    <p class="back"><a href="/" id="backlink" data-i18n="detail.back">← Back to the index</a></p>
+    <p class="back"><a href="/index" id="backlink" data-i18n="detail.back">← Back to the index</a></p>
     <nav class="pn" id="dPrevNext" aria-label="Adjacent entries" data-i18n-attrs="aria-label:detail.adjacent"></nav>
     <h1 class="mark" id="dTitle" style="font-size:clamp(30px,9vw,54px)"></h1>
     <div class="est" id="dBy"></div>
@@ -540,7 +543,7 @@
     <div id="dPosts" style="display:none;clear:both"></div>
     <div class="clear"></div>
     <hr class="thick">
-    <p class="back"><a href="/" data-i18n="detail.back">← Back to the index</a></p>
+    <p class="back"><a href="/index" data-i18n="detail.back">← Back to the index</a></p>
   </div>
 
 </div>
@@ -1066,7 +1069,7 @@ Promise.all([
   }));
   document.querySelectorAll("#sectionbar button").forEach(b=>b.addEventListener("click",()=>{
     const section=b.dataset.section;
-    history.pushState({section},"",section==="archive"?"/archive":section==="about"?"/history":"/");
+    history.pushState({section},"",section==="archive"?"/archive":section==="about"?"/history":"/index");
     selectSection(section);
   }));
   routeLocation();
@@ -1227,7 +1230,7 @@ function showIndex(){
 }
 function go(code){ history.pushState({code},"",`/${encodeURIComponent(code)}`); showDetail(code); }
 function goPost(id){ history.pushState({post:id},"",`/post/${encodeURIComponent(id)}`); showPost(id); }
-function home(e){e.preventDefault();history.pushState({},"","/");routeLocation();}
+function home(e){e.preventDefault();history.pushState({},"","/index");routeLocation();}
 document.getElementById("backlink").addEventListener("click",home);
 document.getElementById("homelogo").addEventListener("click",home);
 function routeLocation(){

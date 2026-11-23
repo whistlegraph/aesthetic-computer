@@ -465,6 +465,23 @@
             header Cache-Control "no-store"
             file_server
         }
+        handle /api/whistlegraph-chat {
+            import lith_proxy
+        }
+        @wgroom {
+            path /
+            not query state=*
+        }
+        handle @wgroom {
+            rewrite * /chat.html
+            header Cache-Control "no-cache"
+            file_server
+        }
+        @wgindex path /index /index/
+        handle @wgindex {
+            rewrite * /index.html
+            file_server
+        }
         # /desk is canonical. Keep the old /admin path as a quiet compatibility
         # alias for sessions begun before the callback moved to the bare origin.
         @wgdesk path /desk /desk/ /admin /admin/ /admin.html

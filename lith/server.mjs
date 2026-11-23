@@ -276,6 +276,8 @@ app.use((req, res, next) => {
   const isPrompt = host === "prompt.ac" || host === "www.prompt.ac";
   if (!isAc && !isPrompt) return next();
 
+  if (/^\/whistlegraph\/?$/.test(req.path)) return res.redirect(302, "https://whistlegraph.org/");
+
   const explicit = req.path.match(/^\/wg\/([A-Za-z0-9]+)\/?$/);
   if (explicit) {
     const entry = whistlegraphCommand(explicit[1]);

@@ -124,7 +124,7 @@ function act({ event: e, num, download, colon, rec, params, jump, back }) {
   });
 
   homebtn?.act(e, () => {
-    colon[0] === "painting" ? back() : jump("whistlegraph");
+    colon[0] === "painting" ? back() : jump("whistlegraph-recorder");
   });
 }
 
