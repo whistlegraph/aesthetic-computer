@@ -71,6 +71,7 @@ export class Projector {
     return a < Math.PI && (wx * f[0] + wy * f[1] + wz * f[2]) / far < Math.cos(a);
   }
   overlay(vertices, width, height) {
+    if (this.immersive) return;
     for (let i = 0; i < vertices.length; i += 18) {
       if (this.scene.triangleCount >= this.scene.maxTriangles) return;
       let at = this.scene.triangleCount++ * 18;
@@ -400,7 +401,8 @@ export class Projector {
     // Depth (planet.mjs depthAt): all one part, or the eye's own few metres and then the far.
     const a = range.a, b = range.b;
     let d0, d1, d2;
-    if (split === Infinity) { d0 = a - b / z0; d1 = a - b / z1; d2 = a - b / z2; }
+    if (this.immersive) { d0 = z0; d1 = z1; d2 = z2; }
+    else if (split === Infinity) { d0 = a - b / z0; d1 = a - b / z1; d2 = a - b / z2; }
     else {
       const c = range.c, d = range.d;
       d0 = z0 <= split ? a - b / z0 : z0 >= open ? c - d / z0 : SHARE;
@@ -453,11 +455,13 @@ export class Projector {
         a[j * 3 + 2] = wx * f[0] + wy * f[1] + wz * f[2];
       }
       if (this.cut && this.veils(a)) continue;
-      if (whole) {
+      // Only triangles that straddle the plane need a clipping polygon.
+      if (whole || (a[2] >= near && a[5] >= near && a[8] >= near)) {
         if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; }
         this.put(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], vertices[i + 3], vertices[i + 4] + lift, vertices[i + 5], halvings);
         continue;
       }
+      if (a[2] < near && a[5] < near && a[8] < near) continue;
       let count = 0;
       for (let j = 0; j < 3; j++) {
         const k = j * 3,

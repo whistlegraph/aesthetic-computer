@@ -24,6 +24,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
+import { immersive } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -2935,10 +2936,8 @@ function applyPrediction() {
   diagnostics.max('reconcileMaxMs', performance.now() - began);
   diagnostics.max('pendingCommandsMax', pending.length);
 }
-function frame(now) {
+function frame(now, xr) {
   bootMark('frame');
-  // Schedule first: one bad frame must never stop the loop.
-  requestAnimationFrame(frame);
   // 🧊 A gap since the last frame, while someone is in the room looking.
   stalls.begin(now, !document.hidden && document.hasFocus() && (hosted ? sheetShown : true) && !resting && !away, {
     building: jobs.length, objects: objects.length, pending: pending.length,
@@ -2961,7 +2960,7 @@ function frame(now) {
   try {
     applyPrediction();
     predicted = performance.now() - began;
-    step(now);
+    step(now, xr);
   } catch (error) {
     if (diagnostics.enabled) diagnostics.values.frameErrors++;
     console.error('rax frame', error);
@@ -2978,7 +2977,7 @@ function frame(now) {
     rttMs: connection.rtt, jitterMs: connection.jitter, queuedBytes: ws?.bufferedAmount || 0,
     buildIds: jobs.map((j) => j.id) });
 }
-function step(now) {
+function step(now, xr) {
   const elapsed = Math.max(0, (now - last) / 1000);
   const pads = navigator.getGamepads?.();
   // A controller should just work: if it's touched while the game is in the
@@ -3003,7 +3002,12 @@ function step(now) {
     chalkMode = null;
     releaseInput();
   }
-  gamepad = controller.sample(down ? [] : pads, document.hasFocus());
+  gamepad = controller.sample(down || xr ? [] : pads, document.hasFocus());
+  if (xr) {
+    yaw = xr.yaw; pitch = xr.pitch;
+    inputAt = flownAt = now;
+    if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd, jump: xr.jump });
+  }
   if (gamepad.fwd || gamepad.right || gamepad.lookX || gamepad.lookY ||
       Array.from(pads || []).some(p => p?.connected && p.buttons.some(b => b.pressed || b.value > 0.08))) {
     pointerSource = 'pad';
@@ -3648,7 +3652,8 @@ function step(now) {
     logNet(`paper away → body there in ${ms} ms`, { good: true });
     console.info(`⏱️ rax tab in: ${ms} ms`);
   }
-  linkAgents(members.find((m) => (seat >= 0 ? m.seat === seat : owner && m.owner === owner))?.handle, now);
+  const identity = selfMember || members.find(m => seat >= 0 ? m.seat === seat : owner && m.owner === owner);
+  linkAgents(identity?.handle || (identity?.name && seat < 0 ? 'rax-drone-' + identity.name : null), now);
   const lift = liftAt(now), sky = plazaFrom();
   // 🖼️ The car's pad rides with the car; every panel's piece steps and paints.
   carPad.hidden = !hasCar() || !!game()?.ledges;
@@ -3723,6 +3728,7 @@ function step(now) {
   const blocks = around(), sceneScreens = visibleScreens(blocks);
   if (!miniature) tendScreens(now, sceneScreens);
   view.render({
+    xr, headset: headset.supported,
     inspectScenery: query.has('debug'),
     basement: room === BASEMENT,
     half: half(),
@@ -3745,9 +3751,9 @@ function step(now) {
     me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
-    idleCamera: idleShot,
+    idleCamera: xr ? null : idleShot,
     idleEffect: idleShot?.weight ?? (seat < 0 ? smooth(droneIdleWeight) : 0),
-    camera: (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
+    camera: xr ? (seat < 0 && !held ? { ...freecam, yaw, pitch } : null) : (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
@@ -3762,7 +3768,7 @@ function step(now) {
     })() : null,
     sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
-    third: third || !!game()?.camera,
+    third: !xr && (third || !!game()?.camera),
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
@@ -3860,9 +3866,9 @@ function step(now) {
     cursor: cursorAim ? mouseAt : null,
     pointerSource,
     handlePoint: pointerSource === 'mouse' && !locked() ? mouseAt : null,
-    reticle: hosted && sheetOpen && !down && !idleShot,
+    reticle: !xr && hosted && sheetOpen && !down && !idleShot,
     reticleShift: reticleShift(now),
-    orbit,
+    orbit: xr ? 0 : orbit,
     cornerScale,
     // (Before the seat is given back, the flight in aims at where this body last stood here, looking where it looked: it used to aim at the room's spawn and jump to the real place, and the real facing, as it landed.)
     flyTo: seat < 0 && hosted && sheetOpen ? gate ? { ...freecam, yaw } : lastBody?.room === room ? { ...lastBody } : spawn(lastSeat >= 0 ? lastSeat : 0, 1, half()) : null,
@@ -3876,7 +3882,7 @@ function step(now) {
     screens: sceneScreens,
     screenPrograms,
     panels: panels.list.filter((p) => !p.hidden).concat(sceneryPanels),
-    bare: !sheetOpen || !sheetShown || down || !!film || !!idleShot,
+    bare: !!xr || !sheetOpen || !sheetShown || down || !!film || !!idleShot,
     held: {
       keys: [...keys],
       pad: [
@@ -3887,7 +3893,7 @@ function step(now) {
       touch: [...(touch.stick ? ['left'] : []), ...(touch.look ? ['right'] : [])],
     },
   });
-  postProcess(elapsed);
+  if (!xr) postProcess(elapsed);
   film?.frame(now);
 }
 let hushTimer = 0;
@@ -3925,7 +3931,7 @@ if (hosted) {
       sfx.exit(); // As the paper starts back up.
     }
     if (e.data.phase === 'opened') closingAt = 0;
-    if (!('open' in e.data)) return;
+    if (!('open' in e.data)) { headset.show(sheetOpen && sheetShown); return; }
     sheetOpen = e.data.open === true;
     // Back on the curtain you are not in the room (2026-11-03): the seat is
     // given up at once, as if teleported out, and taken fresh on the next drop.
@@ -3938,6 +3944,7 @@ if (hosted) {
     if (sheetOpen) parked = false;
     if (sheetOpen && !(seat >= 0 && player)) shownAt = performance.now();
     if (!sheetOpen) sheetShown = false;
+    headset.show(sheetOpen && sheetShown);
     if (sheetOpen) closingAt = 0; // A fresh drop starts the reticle at the centre.
     if (sheetOpen && e.data.straight) orbitMix = 0; // 🔁 a page loaded again while in the world: no fly-in from the far view
     if (!sheetOpen) sheetClosedAt = performance.now();
@@ -3951,7 +3958,7 @@ if (hosted) {
       void sfx.wake().then(() => sheetOpen && sfx.enter());
       // The tap that dropped the paper is a fresh gesture: take the mouse now,
       // so no cursor flickers over the world. A refusal leaves click-to-capture.
-      if (!touch.active) {
+      if (!touch.active && !headset.supported) {
         try {
           Promise.resolve(canvas.requestPointerLock()).catch(() => {});
         } catch {}
@@ -3970,4 +3977,16 @@ if (hosted) {
   toHost({ type: 'rax:sheet:hello' });
   toHost({ type: 'rax:sheet:place', path: placePath() });
 } else connect();
-requestAnimationFrame(frame);
+const headset = immersive({ frame, getYaw: () => yaw, transition(entering) {
+  releaseInput();
+  debt = 0; last = inputAt = performance.now();
+  if (entering) {
+    if (locked()) document.exitPointerLock();
+    if (dock) comeOut();
+    if (lockOn) selectTarget(null);
+    closeBuild();
+    if (menu) closeMenu();
+    void sfx.wake();
+  } else canvas.focus({ preventScroll: true });
+} });
+headset.show(sheetOpen && sheetShown);

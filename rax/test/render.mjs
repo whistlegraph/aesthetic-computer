@@ -159,6 +159,21 @@ try {
     const before = await fencePixels(false), after = await fencePixels(true);
     assert.ok(before.length > 10, 'fence visible from the approach');
     assert.deepEqual(after, before, 'fence stays on the shared edge');
+    // Both the white pad dot and the cyan brackets share a pixel boundary.
+    await page.evaluate(() => view.render({ ...state, pointerSource: 'pad' }));
+    const cursor = PNG.sync.read(await page.screenshot({ clip: { x: 600, y: 360, width: 80, height: 80 } }));
+    function center(r, g, b, inset = 0) {
+      const xs = [], ys = [];
+      for (let y = inset; y < 80-inset; y++) for (let x = inset; x < 80-inset; x++) {
+        const i = (y * 80 + x) * 4;
+        if (cursor.data[i] === r && cursor.data[i+1] === g && cursor.data[i+2] === b) {
+          xs.push(x); ys.push(y);
+        }
+      }
+      assert.ok(xs.length);
+      return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    }
+    assert.deepEqual(center(255, 255, 255, 32), center(0, 255, 255));
     const paintTargetFrame = async (floorAim) => {
       await page.evaluate(floorAim => view.render({ ...state, input: 'touch', floorAim,
         me: { ...state.me, x: 1, z: 0, yaw: 0, pitch: -55 } }), floorAim);

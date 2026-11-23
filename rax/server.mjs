@@ -67,6 +67,7 @@ const assets = new Map([
     'radial',
     'touch',
     'gyro',
+    'immersive',
     'sfx',
     'highlight',
     'chunky-font',

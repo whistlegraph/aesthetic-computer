@@ -47,7 +47,7 @@ function ensure() {
   frame = document.createElement("iframe");
   frame.src = GUEST;
   frame.title = "rax";
-  frame.allow = "autoplay; fullscreen; pointer-lock; gamepad; clipboard-write; accelerometer; gyroscope";
+  frame.allow = "autoplay; fullscreen; pointer-lock; xr-spatial-tracking; gamepad; clipboard-write; accelerometer; gyroscope";
   Object.assign(frame.style, {
     position: "fixed",
     inset: "0",

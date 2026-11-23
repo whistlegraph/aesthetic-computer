@@ -1361,6 +1361,7 @@ export async function createView(canvas) {
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
   };
   function render({
+    xr = null, headset = false,
     players = [],
     me,
     camera,
@@ -1471,6 +1472,8 @@ export async function createView(canvas) {
       location.reload();
       return;
     }
+    projector.immersive = !!xr;
+    projector.marks = !xr && backend === 'webgpu';
     const ledges = game?.ledges || null;
     const start = performance.now(),
       now = start;
@@ -1525,7 +1528,7 @@ export async function createView(canvas) {
     const sunNow = today ? skyAt(skyPhase).sun : null;
     // 🌙 With the sun down the moon casts (it stands across the sky from the sun: sky.mjs), and its shadows are faint: the night is lit a little all over.
     const lamp = !sunNow ? null : sunNow.y >= 0 ? sunNow : { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
-    const shade = lamp && host.shadows && shadows && orbit < 0.6 ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
+    const shade = lamp && !headset && !xr && host.shadows && shadows && orbit < 0.6 ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
     casters.length = 0;
     casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
@@ -1657,7 +1660,7 @@ export async function createView(canvas) {
     projector.chunk = chunk;
     projector.fuzz = fuzz;
     projector.decayAt = now;
-    projector.card = backend === 'webgpu';
+    projector.card = !xr && backend === 'webgpu';
     projector.under = projector.card ? 1 : 0;
     projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS * curvature;
     if (camera?.flat) projector.lens *= 1 - camera.flat;
@@ -1686,13 +1689,18 @@ export async function createView(canvas) {
     const zoom = orbit <= 0 ? nearZoom : 1;
     projector.sx *= zoom;
     projector.sy *= zoom;
+    if (xr) {
+      eye = { x: eye.x + xr.offset[0], y: eye.y + xr.offset[1], z: eye.z + xr.offset[2] };
+      Object.assign(projector, { eye, forward: xr.forward, right: xr.rightAxis, up: xr.up,
+        sx: xr.cullScale, sy: xr.cullScale, shiftX: 0, shiftY: 0 });
+    }
     // (The flat picture the card bends must reach as far out as the screen's corners look: so much wider, and so many more pixels that its middle is as sharp.)
     projector.stretch = projector.card ? lensWide(projector.sx, projector.sy, projector.lens) : 1;
     // Resolve the far globe into paper pixels before the canvas is enlarged.
     // Sample fine world edges at higher resolution as the lens closes. Keep
     // the HUD on its own grid and cap the existing GPU targets at 2×.
     const over = Math.min(2, Math.max(1 / projector.stretch, Math.round(zoom * 2) / 2));
-    lensNow = projector.card ? { idle: idleEffect, sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over, fovea: parked ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
+    lensNow = projector.card ? { idle: idleEffect, sx: projector.sx, sy: projector.sy, wide: projector.stretch, lens: projector.lens, over, fovea: parked || headset ? 0 : FOVEA, aa: orbit > 0.6 ? 2 : AA, dither: Math.max(0, (orbit - 0.6) / 0.4) } : null;
     if (!projector.card) {
       const grade = idleEffect ? `contrast(${1 + 0.08 * idleEffect}) saturate(${1 - 0.06 * idleEffect})` : '';
       if (canvas.style.filter !== grade) canvas.style.filter = grade;
@@ -1729,7 +1737,7 @@ export async function createView(canvas) {
       for (let i = 0; i < layers.length; i++) {
         const first = host.scene.triangleCount;
         draw(layers[i], eye.x, eye.y, eye.z, 0, 0, SKY);
-        const depth = 1 - (i + 1) / 0x400000;
+        const depth = xr ? -(i + 1) : 1 - (i + 1) / 0x400000;
         for (let k = first * 18 + 2; k < host.scene.triangleCount * 18; k += 6) host.scene.vertices[k] = depth;
       }
       projector.bends = true;
@@ -2205,7 +2213,7 @@ export async function createView(canvas) {
       if (age > 1) effects.splice(i, 1);
       else draw(blast, e.at.x, e.at.y, e.at.z, 0, 0, 0.2 + age * 1.5);
     }
-    if (prompt) {
+    if (prompt && !xr) {
       const width = canvas.width,
         height = canvas.height;
       const { unit, safeX, safeY } = hud;
@@ -2468,7 +2476,7 @@ export async function createView(canvas) {
     const handleY = -canvas.height / 2 + (grid ? paperBottom * orbit : 0) + 19 * hud.unit + bump;
     handleRect = null;
     let ownTag = null; // Where your own handle ends, for your world position beside it.
-    if (members.length || connection || cells) {
+    if (!xr && (members.length || connection || cells)) {
       const width = canvas.width,
         height = canvas.height,
         { unit, safeX, safeY, qrSize } = hud;
@@ -2541,7 +2549,7 @@ export async function createView(canvas) {
               handle ? colors : PAPER,
             );
             // 🤖 An agent linked to your handle stands after it: an antenna and a head, drawn on this grid as the name is, in the space the position beside it leaves.
-            if (agents && handle && i === labels.length - 1) {
+            if (agents && i === labels.length - 1) {
               const gx = x + (label.length * 6 + 2) * unit;
               for (const [dx, dy, w, h, color] of [[2, 7, 3, 1, 0x46c85a], [3, 6, 1, 1, 0x46c85a], [1, 5, 5, 1, 0xb44887], [0, 2, 7, 3, 0xb44887], [1, 1, 5, 1, 0x782c5c], [1, 3, 1, 1, 0xffffff], [5, 3, 1, 1, 0xffffff]]) {
                 rect(gx + (dx + 1) * unit, y - 7 * unit + (dy - 1) * unit, 0.000002, w * unit, h * unit, INK);
@@ -2587,7 +2595,7 @@ export async function createView(canvas) {
       H = canvas.height,
       pixel = W / Math.max(1, canvas.clientWidth);
     const chatting = !bare && chat && (chat.open || chat.lines.length);
-    if ((tags.length || ownTag || chatting || ride) && !menu) {
+    if (!xr && (tags.length || ownTag || chatting || ride) && !menu) {
       const { unit } = hud;
       // 📍 World position in metres (x y z), small, after a handle: yours
       // bottom left, everyone else's over their head.
@@ -3186,18 +3194,22 @@ export async function createView(canvas) {
             L(sx < 0 ? x : x - arm + t, y, arm, t);
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
+        // The brackets straddle a pixel boundary. An even-sized dot can sit
+        // exactly on it at every HUD scale, including over a locked target.
+        const dot = (x, y) => {
+          rect(x - 2 * t, y - 2 * t, 0.000002, 4 * t, 4 * t, INK);
+          rect(x - t, y - t, 0, 2 * t, 2 * t, 0xffffff);
+        };
         if (Number.isFinite(cursorX)) {
           if (pointerSource === 'pad') {
-            rect(cursorX - t, cursorY - t, 0.000002, 3 * t, 3 * t, INK);
-            rect(cursorX, cursorY, 0, t, t, PAPER);
+            dot(cursorX, cursorY);
           } else if (pointerSource === 'mouse') for (const [dx, dy, ink] of reticleStrokes) {
             const shadow = ink === cursorInks.shadow;
             rect(cursorX + dx * t, cursorY - dy * t, shadow ? 0.000002 : 0, t, t, shadow ? INK : 0x00ffff);
           }
         } else if (!screenCursor && pointerSource === 'mouse') L(-t, -t, 2 * t, 2 * t);
         else if (!screenCursor && pointerSource === 'pad') {
-          rect(-t, -t, 0.000002, 3 * t, 3 * t, INK);
-          rect(0, 0, 0, t, t, PAPER);
+          dot(0, 0);
         }
       });
       projector.overlay(m, W, H);
@@ -4051,8 +4063,9 @@ export async function createView(canvas) {
       if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
-    host.present({ clear: sky, shadow, lens: lensNow });
-    if (backend === 'webgpu' && gpu.queued < 64) {
+    if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector);
+    else host.present({ clear: sky, shadow, lens: lensNow });
+    if (!xr && backend === 'webgpu' && gpu.queued < 64) {
       const handed = performance.now();
       gpu.queued++;
       const done = () => {
@@ -4064,7 +4077,7 @@ export async function createView(canvas) {
     // Local inspection only; no telemetry, labels or DOM overlays.
     canvas.raxStats = {
       ...(scenery ? { scenery } : {}),
-      backend,
+      backend: xr ? 'webxr' : backend,
       bare,
       tool: 'hands',
       role: spectator ? 'spectator' : 'player',

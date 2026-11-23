@@ -34,6 +34,8 @@ and return for another. Everyone nearby can kick the balls across park boundarie
 
 The east side inside the plaza lobby has stairs marked B1. Walk down into the basement or take the elevator down from G. Tap the car’s up or down arrow once per floor, or hold it to scroll. Hold for two seconds for the roof or B1. The car departs after a short pause. Jump through an open tower window to the block below. B1 opens onto the inner sea beneath the planet’s surface. Jump from the scaffold or take the dock stairs to the water. Look down while swimming to dive. Jump beside a rowboat to board, then jump again to dismount.
 
+**Quest.** Open Rax from the prompt in Quest Browser and click the goggles at the bottom right to enter VR. Look or lean with your head, move with the left stick, snap-turn with the right stick, and jump with A when on foot. End VR from the headset menu to return to the same room. The goggles appear when the browser offers immersive VR over HTTPS or localhost.
+
 **Touch.** Drag on the left to move. Drag on the right or turn your phone to look. If the browser asks for motion access after your first touch, allow it to use gyro look. Touch or drag directly on a screen. Each finger controls its own contact, so you can hold one note on a kiosk while sliding another. Tap the colored block at the upper left to return to the prompt.
 
 **Controller:** A jumps. Squeeze LT to zoom up to 2.5×. Screens sharpen and objects gain detail as they would if you walked closer. Aim at a screen and press RB once to go in (X as a drone).
