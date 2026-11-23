@@ -1986,7 +1986,9 @@ export async function createView(canvas) {
       if (!jobs.some((j) => j.id === id)) previewModels.delete(id);
     for (const job of jobs) {
       if (job.kind === 'kidlisp') continue; // a wall rewrite has no footprint
-      const code = JSON.stringify(job.preview);
+      // (A new preview is a new object off the wire: compared as such, not
+      // written out to text and compared every frame.)
+      const code = job.preview;
       let preview = previewModels.get(job.id);
       if (!preview || preview.code !== code) {
         preview = {
