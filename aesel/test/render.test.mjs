@@ -28,6 +28,15 @@ test("the footer meters the active provider and fits Codex usage in a narrow ter
   }
 });
 
+test("the clickable printer icon follows the braincell balance and the handle leads", async () => {
+  const { proStatus, headerAction } = await import("../src/render.mjs");
+  const state = {profile: {name: "pro"}, account: "@tester", providerSettings: {backend: "ac"}, braincells: 100, canPrinter: true, media: {glyph: "🖼", name: "composite.png"}};
+  const {line, spans} = proStatus(state, 80, false);
+  assert.match(line, /^ @tester .*composite\.png.*100 🧠 🖨️$/);
+  const icon = spans.find(span => span.name === "printer");
+  assert.equal(headerAction(state, 80, 24, icon.x + 1, 24), "printer");
+});
+
 test("Codex usage distinguishes zero, missing, expired and nonstandard quota windows", async () => {
   const { proStatus } = await import("../src/render.mjs");
   const line = limits => proStatus({ providerSettings: { backend: "codex" }, codexRateLimits: limits, braincells: 500000 }, 100, false).line;

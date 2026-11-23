@@ -5,7 +5,8 @@ import { mkdir, readFile, writeFile, rename, rm, lstat, copyFile, readdir } from
 import { resolve, join, dirname, relative, isAbsolute } from 'node:path';
 import { mediaDir } from './paths.mjs';
 
-export const MEDIA = ['piece', 'picture', 'sound', 'paper', 'gameboy', 'nes'];
+import { MEDIA } from './harness-contract.mjs';
+export { MEDIA };
 // What each medium is called, the file it exports and the MIME type of that file.
 export const MEDIA_TYPES = {
   piece: { label: 'Piece', file: 'NAME.mjs · .lisp · .p5 · .l5', mime: 'application/javascript · text/x-lisp', makes: 'a live, published Aesthetic Computer piece' },

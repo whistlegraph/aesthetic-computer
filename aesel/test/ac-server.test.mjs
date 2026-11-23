@@ -480,8 +480,8 @@ test("pro offers a selected medium's artifact tools, so an edit becomes a new ve
   assert.match(JSON.stringify(requests[0].system), /Current nes: Cart, v1[\s\S]*main\.asm:/);
   assert.equal((await artifacts.selected()).version, 2);
   assert.match(JSON.stringify(requests[1].system), /Current nes: Cart, v2/);
-  // With no medium selected, pro is unchanged: workspace tools only.
+  // From a blank workspace, creation is available before any editing tools.
   await artifacts.select("piece");
   await engine.startTurn("hello");
-  assert(!requests.at(-1).tools.some((tool) => tool.name.startsWith("artifact_")));
+  assert.deepEqual(requests.at(-1).tools.map(tool => tool.name).filter(name => name.startsWith("artifact_")), ["artifact_create"]);
 });

@@ -1582,8 +1582,9 @@ function statusSpend(text, useColor) {
 }
 
 export function proStatus(state, width, useColor, shape = state.layout || {}, position = null) {
-  const facts = shape.status || ["handle", "workspace", "media", "model", "activity"];
-  const status = state.canPrinter ? ["printer", ...facts] : facts;
+  const status = shape.status || ["handle", "workspace", "media", "model", "activity"];
+  const printer = state.canPrinter ? "🖨️" : "";
+  const printerSpace = printer ? textWidth(printer) + 1 : 0;
   const separator = shape.separator ?? " · ";
   const account = state.account || "";
   const model = state.modelLabel || state.model || state.providerSettings?.model || "";
@@ -1596,7 +1597,6 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   // you look at rather than up on the preview card.
   const version = route && state.pieceVersion ? ` v${state.pieceVersion}` : "";
   const plain = {
-    printer: "[Printer F6]",
     handle: account + route + version,
     workspace: clipText(fishPath(state.workspace || ""), Math.max(8, Math.floor(width / 3))),
     model,
@@ -1616,10 +1616,10 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   const keep = new Set(status);
   // The thread's cost holds its corner; the place and the engine give way first.
   const spend = state.recoveryNotice ? "" : spendText(state, width - 5);
-  const reserve = spend ? textWidth(spend) + 3 : 0;
+  const reserve = (spend ? textWidth(spend) + 3 : 0) + printerSpace;
   const measure = () => [...keep].reduce((n, name) => (plain[name] ? n + textWidth(plain[name]) + (n ? textWidth(separator) : 0) : n), 1) + reserve;
   // The file in focus is never cut: it is what the card is showing.
-  for (const name of ["engine", "workspace", "model", "handle", "mode", "inbox"]) {
+  for (const name of ["engine", "workspace", "model", "mode", "inbox", ...(printer && !state.recoveryNotice ? [] : ["handle"])]) {
     if (measure() <= width - 1) break;
     keep.delete(name);
   }
@@ -1640,9 +1640,7 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
     // While the machine works the handle breathes: bright, then muted, on the
     // dance clock — a pulse you can see from across the room.
     let fact;
-    if (name === "printer") {
-      fact = paint(useColor, state.hover === "printer" ? "block bold" : "highlight bold", text);
-    } else if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
+    if (name === "activity" && state.busy && !state.recoveryNotice && !state.connectionNotice) {
       fact = paintedMascot(state, useColor) + statusFact(name, text.slice(MASCOT_ROW_WIDTH), state, useColor);
     } else if (name === "handle" && text.startsWith("@")) {
       fact = coloredHandle(account, breathingHandle(account, state), useColor)
@@ -1656,9 +1654,14 @@ export function proStatus(state, width, useColor, shape = state.layout || {}, po
   }
   // What this thread has cost, flush right: tokens always, dollars when the
   // provider billed them.
-  if (spend && x + 3 + textWidth(spend) <= width - 1) {
-    line += " ".repeat(width - 1 - x - textWidth(spend)) + statusSpend(spend, useColor);
-    x = width - 1;
+  const meterEnd = width - 1 - printerSpace;
+  if (spend && x + 3 + textWidth(spend) <= meterEnd) {
+    line += " ".repeat(meterEnd - x - textWidth(spend)) + statusSpend(spend, useColor);
+    x = meterEnd;
+  }
+  if (printer && x <= meterEnd) {
+    line += " ".repeat(meterEnd + 1 - x) + paint(useColor, state.hover === "printer" ? "block bold" : "highlight bold", printer);
+    spans.push({name: "printer", x: meterEnd + 1, width: textWidth(printer)});
   }
   return { line, spans };
 }

@@ -10552,6 +10552,7 @@ async function load(
       pieceCount: $commonApi.pieceCount,
       pieceHasSound: true, // TODO: Make this an export flag for pieces that don't want to enable the sound engine. 23.07.01.16.40
       background: pieceBackground, // ⏱️ Piece wants sim() to keep running when hidden
+      readsPad: loadedModule?.pad === true, // 🎮 `export const pad = true`: the piece reads the pad itself, so bios lends it no stick cursor (lib/pad-cursor.mjs). (`module` is still the last piece until hotSwap.)
       // 📓 Could also disable the sound engine if the flag is false on a subsequent piece, but that would never really make practical sense?
       fromHistory,
       alias,
@@ -12928,9 +12929,10 @@ async function makeFrame({ data: { type, content } }) {
           currentText !== "sign" &&
           currentText !== "jas" &&
           currentText !== "nopaint" && // owns Enter/Escape and locks input while saving
-          // numrank keeps Backspace/Enter for gameplay; ` and Escape still leave.
+          // numrank keeps Backspace/Enter for gameplay, and aesel for its
+          // typing line (Enter sends, Backspace deletes); ` and Escape still leave.
           !(
-            currentText === "numrank" &&
+            (currentText === "numrank" || /^aesel(?:[:~]|$)/.test(currentText || "")) &&
             (data.key === "Backspace" || data.key === "Enter")
           ) &&
           currentPath !== "aesthetic.computer/disks/prompt"

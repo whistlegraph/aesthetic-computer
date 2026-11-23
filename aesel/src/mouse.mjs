@@ -10,6 +10,7 @@ export function mouseEvent(token) {
   return { x: Number(x), y: Number(y), motion: Boolean(button & 32),
     wheel: button & 64 ? (button & 1 ? 1 : -1) : 0,
     click: end === "M" && button === 0,
+    contextClick: end === "M" && button === 2,
     // The three moments of a drag: the left button going down, moving while
     // it is down, and coming up — what a selection is made of.
     press: end === "M" && button === 0,

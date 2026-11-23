@@ -1,5 +1,11 @@
 // Shared settings schema and prompt routing; safe in browser clients.
 import {harnessText} from './harness-text.mjs';
+export const MEDIA = ['piece', 'picture', 'sound', 'paper', 'gameboy', 'nes'];
+export const CREATE_ARTIFACT = {
+  name: 'artifact_create',
+  description: 'Start a new picture, sound, paper or game cartridge. The new artifact is selected immediately for editing in this turn.',
+  inputSchema: {type: 'object', properties: {kind: {type: 'string', enum: MEDIA.filter(kind => kind !== 'piece')}, name: {type: 'string'}}, required: ['kind']},
+};
 export const SETTINGS_TOOL={
  name:'aesel_settings',
  description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, reify Aesel after editing its code, or retry an interrupted request. Reify reloads the TUI in place with its conversation, draft, queue and settings preserved. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Retry resumes connection recovery and refuses while a normal turn is running. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',

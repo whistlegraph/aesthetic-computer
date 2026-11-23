@@ -1,9 +1,11 @@
 import './env.mjs';
 import { createInterface } from 'node:readline';
+import { CREATE_ARTIFACT } from './harness-contract.mjs';
 import { Artifacts } from './artifacts.mjs';
 const at=process.argv.indexOf('--cwd');
 const store=new Artifacts(at>=0?process.argv[at+1]:process.cwd());
 const tools=[
+  CREATE_ARTIFACT,
   {name:'artifact_context',description:'Read the selected aesel artifact and its supported action schemas. Call before editing pictures, sounds, papers, Game Boy or NES projects.',inputSchema:{type:'object',properties:{}}},
   {name:'artifact_action',description:'Apply a supported action to the selected artifact. Validated output becomes a new version. Remote image generation/editing is available when requested by the user; visual-QA approval uses direct user controls.',inputSchema:{type:'object',properties:{action:{type:'string'},input:{type:'object'}},required:['action']}},
 ];
@@ -21,7 +23,8 @@ createInterface({input:process.stdin,crlfDelay:Infinity}).on('line',line=>{
       else if(message.method==='tools/call'){
         const {name,arguments:args={}}=message.params || {};
         let value;
-        if(name==='artifact_context')value={context:await store.context(),tools:await store.tools()};
+        if(name===CREATE_ARTIFACT.name)value=await store.create(args.kind,args.name);
+        else if(name==='artifact_context')value={context:await store.context(),tools:await store.tools()};
         else if(name==='artifact_action')value=await store.run(args.action,args.input||{});
         else throw new Error('Unknown artifact tool');
         result={content:[{type:'text',text:JSON.stringify(value)}]};

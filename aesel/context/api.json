@@ -323,7 +323,9 @@
    "doc": "",
    "source": "lib/graph.mjs:4913",
    "examples": [
-    "disks/plot.mjs:190  grid("
+    "disks/mirrorprint.mjs:53  const g = grid(lines * 7 + 2);",
+    "disks/mirrorprint.mjs:73  const g = grid(14);",
+    "disks/mirrorprint.mjs:88  const g = grid(8);"
    ]
   },
   {
@@ -659,7 +661,7 @@
    "path": "sound.synth",
    "signature": "sound.synth(…)",
    "doc": "Play a synthesized tone. `tone` is Hz or a note name like \"c4\"; returns a voice with .kill() and .update().",
-   "source": "lib/disk.mjs:13617",
+   "source": "lib/disk.mjs:13619",
    "examples": [
     "disks/$.mjs:646  sound.synth({",
     "disks/1but.mjs:66  sound.synth({ type: \"triangle\", tone: 1047, attack: 0, decay: 0.1, duration: 0.1, volume: 0.25 });",
@@ -671,7 +673,7 @@
    "path": "sound.play",
    "signature": "sound.play(sfx, options, callbacks)",
    "doc": "Play a loaded sample or sfx by id.",
-   "source": "lib/disk.mjs:13532",
+   "source": "lib/disk.mjs:13534",
    "examples": [
     "disks/1v1.mjs:695  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
     "disks/1v1.mjs:763  bgmPlaying = sound.play(bgmSfx, { loop: true, volume: 0.4 });",
@@ -710,7 +712,7 @@
    "source": "lib/disk.mjs:3863",
    "examples": [
     "disks/$.mjs:642  hud.label(`Previewing ${entry.codeText}`, \"cyan\");",
-    "disks/aesel.mjs:47  api.hud.label(\"Aesel TUI\");",
+    "disks/aesel.mjs:207  api.hud.label(\"Aesel TUI\");",
     "disks/audio.mjs:81  hud.label(\"audio\");"
    ]
   },
@@ -721,9 +723,9 @@
    "doc": "Draw text in the current ink. Chains from ink(): ink(\"white\").write(\"hi\", { x: 10, y: 40 }).",
    "source": "lib/disk.mjs:5841",
    "examples": [
-    "disks/arena.mjs:2831  write(txt, { x: rX - txt.length * 4, y }, undefined, undefined, false, font);",
-    "disks/arena.mjs:2841  write(t, { x, y }, undefined, undefined, false, font);",
-    "disks/arena.mjs:3017  write(msg1, { x: Math.floor(screen.width / 2 - msg1.length * 2), y: bannerY }, undefined, undefined, false, \"MatrixChunky8\");"
+    "disks/aesel.mjs:443  for (const [text, color] of row.fact) x = write(text.length > room ? text.slice(0, room - 1) + \"…\" : text, x, top + 2, color);",
+    "disks/aesel.mjs:445  } else if (!row.blank) write(row.text, EDGE, top + 2, row.ink);",
+    "disks/aesel.mjs:453  x = write(text, x, statusY, color);"
    ]
   },
   {

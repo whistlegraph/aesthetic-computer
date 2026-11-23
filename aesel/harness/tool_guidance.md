@@ -28,7 +28,7 @@ For code pieces, edit source with coding tools. ac_preview checks runtime report
 
 ## artifact-cli
 
-If these MCP tools are unavailable, use this local CLI via your shell tools: {{node}} {{cli}} context {{cwd}}. Apply an action with: run WORKSPACE ACTION JSON. Shell-quote all arguments safely.
+If these MCP tools are unavailable, use this local CLI via your shell tools: {{node}} {{cli}} context {{cwd}}. Start a new artifact with create WORKSPACE MEDIUM NAME, then read context and apply an action with run WORKSPACE ACTION JSON. Shell-quote all arguments safely.
 
 ## layered-edits
 

@@ -2,7 +2,7 @@ import {EDIT_PIECE,applyPieceEdits} from './piece-edits.mjs';
 import {withNetworkDeadline, isTransientNetworkError} from "./network.mjs";
 import {bundledContext} from './piece-context.mjs';
 import {PIECE_VISUAL,PIECE_RESPONSIVE,PIECE_CLOCK,PIECE_SOUND,PIECE_PERFORMANCE,PIECE_REPLY} from './piece-prompt.mjs';
-import {SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
+import {CREATE_ARTIFACT, SETTINGS_TOOL,PIECE_INSTRUCTIONS} from './harness-contract.mjs';
 import {captureFrame,FRAME_TOOL} from "./preview-frame.mjs";
 // The Aesthetic Computer bridge — inference without a vendor CLI.
 //
@@ -434,6 +434,7 @@ export class AcServer extends EventEmitter {
     const previewing = !this.workspace && this.previewing;
     const tools = this.workspace ? [...WORKSPACE_TOOLS, CLOSE_TOOL, ...(()=>{const api=TOOLS.find(t=>t.name==='ac_api');return api?[{name:api.name,description:api.description,input_schema:api.inputSchema}]:[];})(), ...(await this.extensions?.tools().catch(() => []) ?? []), ...(this.workspaceArtifact ? await this.artifacts.tools() : [])] : [...(this.artifactContext ? await this.artifacts.tools() : [WRITE_PIECE,...(this.layeredEdits?[EDIT_PIECE]:[])]),
       ...(previewing ? [{name:PREVIEW_TOOL.name,description:PREVIEW_TOOL.description,input_schema:PREVIEW_TOOL.inputSchema}] : [])];
+    if (this.artifacts?.create) tools.push({name: CREATE_ARTIFACT.name, description: CREATE_ARTIFACT.description, input_schema: CREATE_ARTIFACT.inputSchema});
     if(this.settings)tools.push({name:SETTINGS_TOOL.name,description:SETTINGS_TOOL.description,input_schema:SETTINGS_TOOL.inputSchema});
     if(this.controls)tools.push(...await this.controls.tools());
     if(this.javascriptPiece && !this.workspace) {
@@ -728,7 +729,9 @@ export class AcServer extends EventEmitter {
           if(this.imageRequested)throw new Error('One remote image request per turn. Wait for the user before trying again.');
           this.imageRequested=true;
         }
-        const result=await this.artifacts.run(block.name.slice(9),block.input || {});
+        const result = block.name === CREATE_ARTIFACT.name
+          ? await this.artifacts.create(block.input.kind, block.input.name)
+          : await this.artifacts.run(block.name.slice(9), block.input || {});
         this.emit('notification',{method:'item/completed',params:{item:{id:itemId,type:'dynamicToolCall',tool:block.name,status:`v${result.version} · ${result.summary}`}}});
         return {type:'tool_result',tool_use_id:block.id,content:JSON.stringify(result)};
       } catch(error) {

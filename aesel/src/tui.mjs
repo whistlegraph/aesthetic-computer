@@ -595,6 +595,7 @@ function proInstructions() {
     // Pro used to get none of the piece defaults the live-piece prompt carries,
     // so a droplet came back mute to the beat and off the shared clock.
     harnessText("pro-motion-default"),
+    harnessText("artifact-cli", { node: JSON.stringify(process.execPath), cli: JSON.stringify(path.join(aeselRoot, "src/media-cli.mjs")), cwd: JSON.stringify(cwd) }),
     ...(pieceDirectory(cwd) !== cwd ? [harnessText("pro-piece-directory", { dir: pieceDirectory(cwd) })] : []),
     PIECE_VISUAL,
     PIECE_RESPONSIVE,
@@ -1825,13 +1826,12 @@ async function startPlayingOutside(media, wanted) {
   return player;
 }
 
-// The files this session's card has shown, newest first, for the list the
-// media name opens on the status line.
+// The files this session’s card has shown, newest first.
 function rememberMedia(media) {
   const recent = (state.mediaRecent || []).filter((path) => path !== media.path);
   state.mediaRecent = [media.path, ...recent].slice(0, 8);
 }
-// Click the media name: the files the card has shown, to put one back on it
+// Right-click the media name for the files the card has shown, to put one back on it
 // and keep it there, then what can be done with the one showing now.
 function openMediaDropdown() {
   const current = state.media?.path;
@@ -1883,8 +1883,10 @@ function chooseMedia(item) {
   } else if (item.act === "unpin") {
     unpinMedia();
     flash("unpinned");
-  } else if (current && (item.act === "open" || item.act === "reveal")) {
-    const child = spawn("open", item.act === "reveal" ? ["-R", current] : [current], { stdio: "ignore", detached: true });
+  } else if (current && item.act === "open") {
+    openOutside(current, state.media.name);
+  } else if (current && item.act === "reveal") {
+    const child = spawn("open", ["-R", current], { stdio: "ignore", detached: true });
     child.on("error", (error) => { addEntry("error", errorText(error)); redraw(); });
     child.unref();
   } else if (current && item.act === "copy") {
@@ -2028,7 +2030,12 @@ function handleNotification({ method, params = {} }) {
     case "item/completed": {
       noteMedia(params.item, true);
       const item = params.item;
-      if (pro) notePublished(item);
+      if (pro) {
+        notePublished(item);
+        // A workspace adopts the medium its own turn created. Other sessions
+        // in this directory may use the same artifact store.
+        if (item?.tool?.endsWith('artifact_create') || /media-cli\.mjs["']?\s+create\b/.test(item?.command || '')) followCreatedArtifact = true;
+      }
       observeToolActivity(state, method, item);
       if (item?.type === "agentMessage") { updateEntry(item.id, "assistant", item.text); transcriptCompleted.add(item.id);if (!turnAssistant.includes(item.id)) turnAssistant.push(item.id);const entry=state.entries.find(e=>e.id===item.id);if(entry){entry.activityOnly=state.busy;state.activityMessageId=entry.id;state.activityText=entry.text;} }
       const summary = itemSummary(item);
@@ -2595,8 +2602,18 @@ function announceArtifact() {
   // A new revision takes focus back from the last file the tools made; the
   // heartbeat re-announcing the same one leaves that file on the card.
   const shown=`${currentArtifact.id}:${currentArtifact.version}`;
-  if(shown!==artifactShown){artifactShown=shown;if(state.media?.source!=='pinned')state.media=null;}
-  if(!state.media)slabSession.artifact(currentArtifact.kind,preview?{...preview,path:path.join(currentArtifact.root,preview.path),version:currentArtifact.version,artifactId:currentArtifact.id,sourceAhead:Boolean(currentArtifact.revision.sourceAhead),publicCode:pictureWip?.code || picturePublication?.code || '',liveId:draftPublication?.id || ''}:{liveId:draftPublication?.id || '',artifactId:currentArtifact.id,version:currentArtifact.version});
+  if (shown !== artifactShown) {
+    artifactShown = shown;
+    if (state.media?.source !== 'pinned') {
+      const {hashes} = currentArtifact.revision;
+      const file = currentArtifact.kind === 'picture' && preview && hashes['composite.png'] === hashes[preview.path]
+        ? 'composite.png' : preview?.path;
+      const media = file && mediaFile(path.join(currentArtifact.root, file), cwd);
+      state.media = media ? {...media, source: 'artifact', version: currentArtifact.version} : null;
+      if (media) rememberMedia(media);
+    }
+  }
+  if(!state.media || state.media.source === 'artifact')slabSession.artifact(currentArtifact.kind,preview?{...preview,path:path.join(currentArtifact.root,preview.path),version:currentArtifact.version,artifactId:currentArtifact.id,sourceAhead:Boolean(currentArtifact.revision.sourceAhead),publicCode:pictureWip?.code || picturePublication?.code || '',liveId:draftPublication?.id || ''}:{liveId:draftPublication?.id || '',artifactId:currentArtifact.id,version:currentArtifact.version});
   slabSession.live(currentArtifact.name,address);
   slabSession.revision({version:currentArtifact.version,revision:currentArtifact.id,updatedAt:currentArtifact.revision.createdAt});
   redraw();
@@ -2629,6 +2646,8 @@ async function syncArtifact() {
       }catch(error){addEntry('error',`Live preview: ${errorText(error)}`);}
     }
   }else{
+    artifactShown = '';
+    if (state.media?.source === 'artifact') state.media = null;
     picturePublication=null;pictureWip=null;draftPublication=null;
     state.piece=`${live.slug}${live.runtime.extension}`;state.pieceVersion=live.revision?.version || 0;
     slabSession.artifact('piece',null);
@@ -3352,8 +3371,7 @@ function replaceInput(value) {
   state.cursor = Array.from(value).length;
 }
 
-// Hand a URL or a folder to the system: the browser for one, the file
-// manager for the other. `what` names it in the error, if there is one.
+// Open a URL, file, or folder with its system default application.
 function openOutside(target, what) {
   const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
   const child = spawn(opener, [target], { stdio: "ignore", detached: true });
@@ -3661,7 +3679,8 @@ function decodeKeys(buffer) {
         if (mouse.click && action === "workspace") openWorkspace();
         if (mouse.click && action === "update") { void submitInput("/update"); return; }
         if (mouse.click && (action === "model" || action === "provider")) { if (pro) openDropdown(); else openSettings(); }
-        if (mouse.click && action === "media") { if (state.dropdown?.kind === "media") closeDropdown(); else openMediaDropdown(); }
+        if (mouse.click && action === "media" && state.media) openOutside(state.media.path, state.media.name);
+        if (mouse.contextClick && action === "media") openMediaDropdown();
         if (mouse.click && action === "dismiss") closeDropdown();
         if (action.startsWith("pick:") && state.dropdown) { const index = Number(action.slice(5)); if (mouse.click) void chooseDropdown(index); else if (state.dropdown.index !== index) { state.dropdown.index = index; redraw(); } }
         if(mouse.click&&action.startsWith('settings:')){
@@ -3883,12 +3902,13 @@ if (!pro) state.piece = `${live.slug}${live.runtime.extension}`;
 if (networked) refreshQr();
 if (!pro) await syncArtifact();
 let artifactStamp='';
+let followCreatedArtifact = false;
 let artifactHeartbeat=0;
 const artifactTimer=setInterval(async()=>{
   // Pro has no piece to follow, but a medium it selected still needs each new
   // version announced and sent to its live page.
-  if (pro && state.medium === 'piece') return;
-  try { const data=readFileSync(artifacts.file,'utf8');if(data!==artifactStamp || Date.now()-artifactHeartbeat>30000){artifactStamp=data;artifactHeartbeat=Date.now();await syncArtifact();} }catch{}
+  if (pro && state.medium === 'piece' && !followCreatedArtifact) return;
+  try { const data=readFileSync(artifacts.file,'utf8');if(data!==artifactStamp || Date.now()-artifactHeartbeat>30000){artifactStamp=data;artifactHeartbeat=Date.now();await syncArtifact();followCreatedArtifact = false;} }catch{}
 },300);
 artifactTimer.unref();
 let transcriptRetrying=false;
