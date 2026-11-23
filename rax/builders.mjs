@@ -147,10 +147,25 @@ export class Builders {
       timingSafeEqual(expected, actual)
     );
   }
-  state(room, member = null) {
+  // 🧩 A page that keeps shapes (it said `shapes-kept`) is sent each object's
+  // geometry once per version; after that only where it stands, marked
+  // `kept`. Rebuilding and re-reading every shape in the room on each build's
+  // start and end was most of what a build cost the page (2026-11-23).
+  static shapes(list, ws) {
+    const sent = ws?.keptShapes;
+    if (!sent) return list;
+    if (sent.size > 4000) sent.clear(); // (bounded: past it, everything is sent once more)
+    return list.map((o) => {
+      const key = `${o.id}@${o.version}`;
+      if (!o.geometry || !sent.has(key)) { sent.add(key); return o; }
+      const { geometry, ...rest } = o;
+      return { ...rest, kept: 1 };
+    });
+  }
+  state(room, member = null, ws = null) {
     return {
       type: 'objects',
-      objects: this.store.objects(room),
+      objects: Builders.shapes(this.store.objects(room), ws),
       builder: this.workers.size > 0,
       builders: [...this.workers.keys()].map((ws) => this.names.get(ws) || 'aesel'),
       history: this.store.history(room, member ? { owner: member.owner, handle: member.handle } : null).slice(0, 24),
@@ -249,7 +264,7 @@ export class Builders {
     if (!current) return;
     current.match.setObjects(this.store.objects(room));
     for (const client of current.clients.keys())
-      this.send(client, this.state(room, current.sessions?.get(client) || null));
+      this.send(client, this.state(room, current.sessions?.get(client) || null, client));
   }
   all() {
     for (const room of this.rooms.keys()) this.broadcast(room);

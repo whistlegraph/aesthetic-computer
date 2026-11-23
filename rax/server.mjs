@@ -981,7 +981,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       sendTower(ws, key, member);
       send(ws, { type: 'arrival', yaw: position.yaw, pitch: position.pitch });
       send(ws, room.match.snapshot());
-      send(ws, builders.state(key, member));
+      send(ws, builders.state(key, member, ws));
       if (member.seat >= 0) bringWatchers();
       return true;
     };
@@ -1112,7 +1112,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     sendPark(ws, key);
     sendTower(ws, key, member);
     send(ws, room.match.snapshot());
-    send(ws, builders.state(key, member));
+    send(ws, builders.state(key, member, ws));
     room.broadcast();
     if (nativeAccount) void identifyAccount(authorization.slice(7)).finally(gate);
     else if (!webAccount) gate();
@@ -1215,6 +1215,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           .finally(() => {
             identifying = false;
           });
+      }
+      // 🧩 The page keeps shapes it was sent (builders.shapes); one it lost asks for the room whole again.
+      if (data?.type === 'shapes-kept' || data?.type === 'shapes-lost') {
+        ws.keptShapes = new Set();
+        if (data.type === 'shapes-lost') send(ws, builders.state(key, member, ws));
       }
       if (data?.type === 'cancel-build' && owner && member.seat >= 0)
         builders.cancel(owner, key);

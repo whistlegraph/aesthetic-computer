@@ -1376,12 +1376,32 @@ const mineJob = (j) => !!owner && (j.asker || j.owner) === owner;
 // object the room sends again at the same version keeps the geometry it
 // already had: a build starting or ending re-made every model in the room,
 // a stop for each, where only the new one needs making.
+// The server sends each shape once per version to a page that keeps them
+// (`shapes-kept`); later sends mark it `kept`, without geometry. One this page
+// no longer has is asked for again, and stays out of the room till it comes.
+const shapes = new Map(); // `id@version` → geometry
 function keepShapes(before, after) {
-  const had = new Map(before.map((o) => [o.id, o]));
-  return after.map((o) => {
-    const old = had.get(o.id);
-    return old && old.version === o.version && old.geometry && o.geometry ? { ...o, geometry: old.geometry } : o;
-  });
+  let lost = false;
+  const list = [];
+  for (const o of after) {
+    const key = `${o.id}@${o.version}`;
+    if (o.kept) {
+      const geometry = shapes.get(key);
+      if (geometry) list.push({ ...o, geometry });
+      else lost = true;
+      continue;
+    }
+    if (o.geometry) {
+      if (shapes.has(key)) o.geometry = shapes.get(key);
+      else {
+        if (shapes.size > 4000) shapes.clear();
+        shapes.set(key, o.geometry);
+      }
+    }
+    list.push(o);
+  }
+  if (lost) send({ type: 'shapes-lost' });
+  return list;
 }
 function heardJobs(list) {
   diagnostics.jobs(list.map((j) => j.id));
@@ -1798,6 +1818,7 @@ function connect(adopt = null) {
     }
     if (data.type === 'welcome') {
       bootMark('welcome');
+      send({ type: 'shapes-kept' });
       // Nobody signed in on this page and the room seats handles only.
       if (data.guests === false && seat < 0 && !account && !query.has('film')) {
         gate = 'account';
