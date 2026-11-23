@@ -1,16 +1,6 @@
 // Cursor Shape, 26.11.20
-// The one software cursor: a soft dab of light with a crosshair over it, in
-// whole pixels. rax lays it on the pixels of a world panel (rax/view.mjs) and
-// the pad's cursor lays it on a piece's pixels (lib/pad-cursor.mjs), so a
-// stick moves the same mark on the paper as an aim moves on a screen in the
-// world.
-//
-// The dab is found at a glance where thin arms alone are lost, most of all
-// when a stick is moving it: a glow that is strongest at the middle and gone
-// five pixels out, laid over what is under it (each cell says how much of it
-// shows: `a`, 0 to 1). Over it a dot and four arms four long, cyan with a
-// faint shadow one down and across; pressed, the arms close up by a pixel and
-// the whole of it warms to yellow.
+// Rax draws the mouse's cyan cross over world panels. A gamepad uses a
+// small neutral point on the selected pixel.
 
 // How far it reaches from its middle, each way: a canvas for it is
 // REACH * 2 + 1 across with the middle at REACH.
@@ -43,9 +33,12 @@ export function cursorCells(down = false) {
 // The cells laid over a picture: `under(dx, dy)` → [r, g, b] of what is there
 // (or null off its edge). → Map "dx,dy" → [r, g, b], each cell's colours
 // mixed in order. For a surface that has no see-through of its own.
-export function cursorOver(under, down = false) {
+export function cursorOver(under, down = false, cross = true) {
   const out = new Map();
-  for (const [dx, dy, [r, g, b], a] of cursorCells(down)) {
+  const cells = cross ? cursorCells(down) : [
+    [1, 1, INKS.shadow, 0.85], [0, 0, down ? INKS.inkDown : [255, 255, 255], 1],
+  ];
+  for (const [dx, dy, [r, g, b], a] of cells) {
     const key = `${dx},${dy}`, was = out.get(key) || under(dx, dy);
     if (!was) continue;
     out.set(key, [was[0] + (r - was[0]) * a, was[1] + (g - was[1]) * a, was[2] + (b - was[2]) * a]);

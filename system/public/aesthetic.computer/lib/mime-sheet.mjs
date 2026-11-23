@@ -400,7 +400,29 @@ addEventListener("pageshow", () => {
     window.acAccountActivity?.feedOpen("prompt_history");
   }
 });
-window.acMimeSheet = { popstate };
+// 🎮 A pad (lib/pad-cursor.mjs): a step down from the armed curtain opens the
+// feed; once open a step is the guest's Page key, a card each way, and Page Up
+// on its first card comes home (`back`, above).
+function padStep(dir) {
+  if (state === "open") {
+    const guest = frame.contentWindow;
+    const key = dir > 0 ? "PageDown" : "PageUp";
+    for (const type of ["keydown", "keyup"]) {
+      guest?.document.body?.dispatchEvent(new guest.KeyboardEvent(type, {
+        key, code: key, bubbles: true, cancelable: true,
+      }));
+    }
+  } else if (dir > 0 && armed && (state === "parked" || state === "cold")) {
+    entryMethod = "prompt_key";
+    settle(0);
+  }
+}
+window.acMimeSheet = {
+  popstate,
+  step: padStep,
+  home() { if (state === "open") settle(innerHeight); },
+  get up() { return state === "open" || state === "moving"; }, // (`up`: the feed has the screen)
+};
 
 // Messages from the prompt piece:
 //   { action: "warm" }              load the guest on idle

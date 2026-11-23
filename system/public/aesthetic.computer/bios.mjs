@@ -4628,10 +4628,13 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       if (document.hidden || window.acRaxSheet?.up) return void held.clear();
       let pads = [];
       try { pads = navigator.getGamepads?.() || []; } catch {}
+      // While editing the prompt or reading mimes, the d-pad navigates.
+      const navigating = reelHosted || window.acMimeSheet?.up ||
+        (currentPiece?.endsWith("/disks/prompt") && document.activeElement === keyboard?.input);
       for (const pad of pads) {
         if (!pad) continue;
         const now = pad.buttons[12]?.pressed ? 1 : pad.buttons[13]?.pressed ? -1 : 0;
-        if (now && held.get(pad.index) !== now) changeDensity(now);
+        if (now && held.get(pad.index) !== now && !navigating) changeDensity(now);
         held.set(pad.index, now);
       }
     }, 50);

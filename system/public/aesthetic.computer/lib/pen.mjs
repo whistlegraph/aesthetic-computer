@@ -541,28 +541,18 @@ export class Pen {
   }
 
   render(ctx, bouRect) {
-    if (this.penCursor === false) return;
-
+    const s = 14, r = bouRect;
+    if (this.#lastP) {
+      ctx.clearRect(this.#lastP.x - r.x - s, this.#lastP.y - r.y - s, s * 2.5, s * 2.5);
+    }
     const pointer = this.pointers[1];
-
-    if (!pointer) return;
-
+    if (!this.penCursor || !pointer || document.documentElement.classList.contains("prompt-pointer-hidden")) {
+      this.#lastP = null;
+      return;
+    }
     const p = pointer.untransformedPosition;
-
-    const s = 10 + 4,
-      r = bouRect;
-
-    // Erase the last cursor that was drawn.
-    if (!this.#lastP) this.#lastP = { x: p.x, y: p.y };
-    else
-      ctx.clearRect(
-        this.#lastP.x - r.x - s,
-        this.#lastP.y - r.y - s,
-        s * 2.5,
-        s * 2.5,
-      );
-
-    assign(this.#lastP, p);
+    if (this.#lastP) assign(this.#lastP, p);
+    else this.#lastP = { x: p.x, y: p.y };
 
     // Remove native cursor if it was turned off.
     if (this.cursorCode != "native") {
