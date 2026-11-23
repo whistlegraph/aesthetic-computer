@@ -1,6 +1,55 @@
 {
- "built": "2026-11-07T02:14:22.846Z",
  "items": [
+  {
+   "kind": "paper",
+   "title": "Aesthetic Spells",
+   "note": "",
+   "text": "",
+   "meta": "platform · self · 2026-11-17",
+   "date": "2026-11-17",
+   "url": "https://papers.aesthetic.computer/magicians-manual-26-arxiv.pdf",
+   "id": "magicians-manual"
+  },
+  {
+   "kind": "paper",
+   "title": "Tests It Could Fail",
+   "note": "Pre-registered study protocols for notepat, AC Native OS and Aesel's typing cadence · one already run, and failed",
+   "text": "Tests It Could Fail writes down, before any data, the studies that would settle the claims in Don't Forget the Keyboard: a prior-art search (run, and it falsified the letter-named-key claim), a 24-hour recall test of letter-named keys against AWSED, boot-to-first-note timing, a latency and jitter rig with a tapping task, a liveness listening test, and a test of whether a model uses keystroke timing, with a privacy audit whose decision rule is fixed in advance.",
+   "meta": "essay · self · 2026-11-17",
+   "date": "2026-11-17",
+   "url": "https://papers.aesthetic.computer/laptop-protocols-26-arxiv.pdf",
+   "id": "laptop-protocols"
+  },
+  {
+   "kind": "paper",
+   "title": "Who Is Still No Painting?",
+   "note": "",
+   "text": "",
+   "meta": "audit · self · 2026-11-17",
+   "date": "2026-11-17",
+   "url": "https://papers.aesthetic.computer/who-is-still-no-painting-26-arxiv.pdf",
+   "id": "who-is-still-no-painting"
+  },
+  {
+   "kind": "paper",
+   "title": "Rollback Over a Relay",
+   "note": "How oskiewar and dool share a fight, with the November 8 test record",
+   "text": "Oskiewar runs the whole fight on both seats and moves only inputs through a small seat-to-seat relay with a UDP/WebRTC datagram lane and regional copies; dool keeps one authoritative 60 Hz server with own-body prediction and interpolation. Both designs from the source, the relay's trust boundaries, and today's suites: relay 43/43, dool 64/64, rollback 26/42 with every sync assertion green. Written to hand to a peer, closing with six review questions.",
+   "meta": "platform · self · 2026-11-08",
+   "date": "2026-11-08",
+   "url": "https://papers.aesthetic.computer/rollback-over-a-relay-26-arxiv.pdf",
+   "id": "relay-rollback"
+  },
+  {
+   "kind": "paper",
+   "title": "Oskie Files in Unreal Engine",
+   "note": "An implementation map for portable game files in Unreal Engine",
+   "text": "A six-stage plan for running .oskie games through an Unreal runtime plugin: bundle loading, QuickJS execution, rendering compatibility, input and sound, packaged desktop playback, and an optional world-space bridge. Architecture, module boundaries, and acceptance tests; the Unreal host remains to be built.",
+   "meta": "platform · self · 2026-11-06",
+   "date": "2026-11-06",
+   "url": "https://papers.aesthetic.computer/oskie-unreal-26-arxiv.pdf",
+   "id": "oskie-unreal"
+  },
   {
    "kind": "paper",
    "title": "Who Is Painting",
@@ -14,8 +63,8 @@
   {
    "kind": "paper",
    "title": "Don't Forget the Keyboard",
-   "note": "Laptop performance, typed music, and where notepat and AC Native OS stand · 68-source platter",
-   "text": "Don't Forget the Keyboard maps twenty years of laptop performance and forty of QWERTY note entry: typewriter percussion, tracker piano rows, Roblox letter sheets, PLOrk and the native-input program, six key-mapping logics, typing as the gesture, the liveness critique, and computers booted into instruments. It tests four claims about Aesthetic.Computer against that map. Two survive narrowly, one is measured, one is argued, and each comes with the study that would settle it.",
+   "note": "Laptop performance, typed music, keystroke timing, and where notepat and AC Native OS stand · 89-source platter",
+   "text": "Don't Forget the Keyboard maps twenty years of laptop performance and forty of QWERTY note entry: typewriter percussion, tracker piano rows, Roblox letter sheets, PLOrk and the native-input program, six key-mapping logics, typing as the gesture, the timing and gaps between keystrokes, the liveness critique, and computers booted into instruments. It tests four claims about Aesthetic.Computer against that map. The letter-named mapping fails (children's Scratch pianos got there first); boot-to-instrument survives narrowly; latency is measured; liveness is argued. It also describes how Aesel now sends each message's key timing, never the keys, to the model.",
    "meta": "essay · self · 2026-11-02",
    "date": "2026-11-02",
    "url": "https://papers.aesthetic.computer/laptop-performance-26-arxiv.pdf",
@@ -515,7 +564,7 @@
    "kind": "paper",
    "title": "Where the Microseconds Go",
    "note": "",
-   "text": "Tracing the keypress-to-sound path through AC Native OS, from USB interrupts to audio hardware.Venue edition: papers/siggraph-asia-2026-tech. No submission receipt in mail (checked 2026-10-15).",
+   "text": "Tracing the keypress-to-sound path through AC Native OS, from USB interrupts to audio hardware. Venue edition: papers/siggraph-asia-2026-tech. No submission receipt in mail (checked 2026-10-15).",
    "meta": "platform · missed · 2026-04-25",
    "date": "2026-04-25",
    "url": "https://papers.aesthetic.computer/where-the-microseconds-go-26-arxiv.pdf",
@@ -675,7 +724,7 @@
    "kind": "paper",
    "title": "KidLisp (ELS 2026)",
    "note": "A Minimal Lisp for Generative Art with Social Composition · ELS ACM SIGS 4pp",
-   "text": "An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment.No submission receipt in mail (checked 2026-10-15).",
+   "text": "An ELS conference version of KidLisp that emphasizes social composition. It positions the language as a shared practice rather than a solo scripting environment. No submission receipt in mail (checked 2026-10-15).",
    "meta": "software · missed · 2026-03-15",
    "date": "2026-03-15",
    "url": "https://papers.aesthetic.computer/kidlisp-els-2026.pdf",
@@ -775,7 +824,7 @@
    "kind": "paper",
    "title": "Aesthetic Computer '26",
    "note": "A Mobile-First Runtime for Creative Computing · arXiv 5pp",
-   "text": "Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share.Venue edition: papers/cc-demo-2026. No submission receipt in mail (checked 2026-10-15).",
+   "text": "Aesthetic Computer is presented as a mobile-first creative computing runtime where the interface, publishing flow, and community feedback loop are part of the medium. The paper argues that small pieces can make software feel more social, more portable, and easier to share. Venue edition: papers/cc-demo-2026. No submission receipt in mail (checked 2026-10-15).",
    "meta": "platform · missed · 2026-03-04",
    "date": "2026-03-04",
    "url": "https://papers.aesthetic.computer/aesthetic-computer-26-arxiv.pdf",
@@ -795,7 +844,7 @@
    "kind": "paper",
    "title": "KidLisp '26",
    "note": "A Minimal Lisp for Generative Art on a Social Platform · arXiv 6pp",
-   "text": "KidLisp is the platform's tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition.Venue edition: papers/iccc-kidlisp. No submission receipt in mail (checked 2026-10-15).",
+   "text": "KidLisp is the platform's tiny Lisp for building visual and musical pieces in the browser. The paper shows how a minimal language can stay approachable while still supporting generative art and composition. Venue edition: papers/iccc-kidlisp. No submission receipt in mail (checked 2026-10-15).",
    "meta": "platform · missed · 2026-03-03",
    "date": "2026-03-03",
    "url": "https://papers.aesthetic.computer/kidlisp-26-arxiv.pdf",
@@ -913,10 +962,4823 @@
   },
   {
    "kind": "platter",
+   "title": "agent-platter",
+   "note": "reading platter for building software with coding agents (opened 2026-11-11): reimplementation at token cost, personal one-off tools, editors after the agent, and knowability, read against HAND.md. Opens with Emacs In the Age Of Magic (commandlinesystems.com) and a four-point AC reading in digest.md. Index and citation",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/agent-platter/",
+   "id": "agent-platter"
+  },
+  {
+   "kind": "platter",
+   "title": "manual-platter",
+   "note": "design references for manuals (opened 2026-11-16 beside the AC '26 Magician's Manual): a demon dictionary (1863), Topsell's bestiary (1658), Wells's Little Wars (1913), War Office war-game rules (1896), an OSS pocket manual (1944), and four open rulebooks (D&D SRD 5.1, Basic Fantasy core rules and field guide, OSRIC). ",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/manual-platter/",
+   "id": "manual-platter"
+  },
+  {
+   "kind": "platter",
+   "title": "ux-platter",
+   "note": "reading platter for interface persuasion (opened 2026-11-18): how color, position, labels and defaults steer a choice among priced options, graded by strength of evidence. 35 sources across 6 shelves (attention, color, choice, practice, regulation, access), a 7-entry digest ending in a tools: block, and pricing-pages.c",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/papers/ux-platter/",
+   "id": "ux-platter"
+  },
+  {
+   "kind": "platter",
    "title": "sosoft-cycle2",
    "note": "published index of every asset from UCLA Social Software Cycle 2 (\"Scores for Social Software,\" DESMA, spring 2026): the Keymaps as Social Software paper and 64-copy edition score, the live sosoft.arts.ucla.edu doc with Casey Reas's edit log, the header-illustration study, the interactive notepat keymap, the March 2026",
    "url": "https://papers.aesthetic.computer/platter/sosoft-cycle2/",
    "id": "sosoft-cycle2"
+  },
+  {
+   "kind": "platter",
+   "title": "Jacquard weaving — a woven portrait and a tablecloth from the Art Institute of Chicago and the V&A",
+   "note": "",
+   "meta": "dashboards",
+   "url": "https://papers.aesthetic.computer/platter/jacquard/",
+   "id": "dashboards"
+  },
+  {
+   "kind": "platter",
+   "title": "live Jeffrey's Drawings — 3,996 works completed 2006–2016, recovered from the drawings.rey.sc Rails archive",
+   "note": "",
+   "meta": "dashboards",
+   "url": "https://papers.aesthetic.computer/platter/jeffrey/drawings/",
+   "id": "dashboards"
+  },
+  {
+   "kind": "platter",
+   "title": "live Jeffrey's Instagram — 457 confirmed-self selfies from @whistlegraph , face-matched and GPT-4o described",
+   "note": "",
+   "meta": "dashboards",
+   "url": "https://papers.aesthetic.computer/platter/jeffrey/",
+   "id": "dashboards"
+  },
+  {
+   "kind": "platter",
+   "title": "live Jeffrey Lexicon — frequency-attributed dictionary of Jeffrey's first-hand vocabulary across commits, comments, lectures, and recap audio",
+   "note": "",
+   "meta": "dashboards",
+   "url": "https://papers.aesthetic.computer/platter/jeffrey-lexicon/",
+   "id": "dashboards"
+  },
+  {
+   "kind": "platter",
+   "title": "index Sleuth — search mechanisms, online databases, browser skills, and collection routes for research",
+   "note": "",
+   "meta": "dashboards",
+   "url": "https://papers.aesthetic.computer/sleuth/",
+   "id": "dashboards"
+  },
+  {
+   "kind": "platter",
+   "title": "foundry The AC Type Foundry — live specimens, licenses & platform usage for every face",
+   "note": "",
+   "meta": "typography",
+   "url": "https://papers.aesthetic.computer/foundry/",
+   "id": "typography"
+  },
+  {
+   "kind": "platter",
+   "title": "md Lotus Notes and the Blank Canvas 2026-03-19",
+   "note": "",
+   "meta": "opinions",
+   "url": "https://aesthetic.computer/opinion/lotus-notes-and-the-blank-canvas.md",
+   "id": "opinions"
+  },
+  {
+   "kind": "platter",
+   "title": "md Digital Art as Medium; NFTs as Mechanism 2026-02-22",
+   "note": "",
+   "meta": "opinions",
+   "url": "https://aesthetic.computer/opinion/digital-art-as-medium.md",
+   "id": "opinions"
+  },
+  {
+   "kind": "platter",
+   "title": "md What Is Happening to Writing? 2026-02-19",
+   "note": "",
+   "meta": "opinions",
+   "url": "https://aesthetic.computer/opinion/what-is-happening-to-writing.md",
+   "id": "opinions"
+  },
+  {
+   "kind": "platter",
+   "title": "md You Are Not (Just) Your Brain 2026-02-17",
+   "note": "",
+   "meta": "opinions",
+   "url": "https://aesthetic.computer/opinion/you-are-not-just-your-brain.md",
+   "id": "opinions"
+  },
+  {
+   "kind": "platter",
+   "title": "Whistlegraph '26 — Cards format",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://papers.aesthetic.computer/whistlegraph-26-arxiv-cards.pdf",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Dansk",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://papers.aesthetic.computer/whistlegraph-26-arxiv-da.pdf",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Español",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://papers.aesthetic.computer/whistlegraph-26-arxiv-es.pdf",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "中文",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://papers.aesthetic.computer/whistlegraph-26-arxiv-zh.pdf",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Butterfly Cosplayer png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/butterfly-cosplayer/butterfly-cosplayer-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Time to Grow png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/time-to-grow/time-to-grow-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "I Don't Need an iPhone png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/i-dont-need-an-iphone/i-dont-need-an-iphone-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Lately When I Fly png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/lately-when-i-fly/lately-when-i-fly-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Loner png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/loner/loner-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Mommy Wow png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/mommy-wow/mommy-wow-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "People Pleaser png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/people-pleaser/people-pleaser-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Slinky Dog png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/slinky-dog/slinky-dog-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Puzzle png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/puzzle/puzzle-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "What's Inside Your Heart png",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/whats-inside-your-heart/whats-inside-your-heart-score.png",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Butterfly Cosplayer mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/butterfly-cosplayer/butterfly-cosplayer-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Time to Grow mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/time-to-grow/time-to-grow-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "I Don't Need an iPhone mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/i-dont-need-an-iphone/i-dont-need-an-iphone-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Lately When I Fly mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/lately-when-i-fly/lately-when-i-fly-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Loner mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/loner/loner-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Mommy Wow mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/mommy-wow/mommy-wow-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "People Pleaser mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/people-pleaser/people-pleaser-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Slinky Dog mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/slinky-dog/slinky-dog-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Puzzle mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/puzzle/puzzle-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "What's Inside Your Heart mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/whats-inside-your-heart/whats-inside-your-heart-web.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Butterfly Cosplayer compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/butterfly-cosplayer/butterfly-cosplayer-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Time to Grow compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/time-to-grow/time-to-grow-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "I Don't Need an iPhone compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/i-dont-need-an-iphone/i-dont-need-an-iphone-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Lately When I Fly compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/lately-when-i-fly/lately-when-i-fly-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Loner compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/loner/loner-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Mommy Wow compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/mommy-wow/mommy-wow-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "People Pleaser compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/people-pleaser/people-pleaser-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Slinky Dog compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/slinky-dog/slinky-dog-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Puzzle compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/puzzle/puzzle-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "What's Inside Your Heart compilation mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/whats-inside-your-heart/whats-inside-your-heart-tt-compilation.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Music 2 Whistlegraph 2 — intro video mp4",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/music-2-whistlegraph-2/music-2-whistlegraph-2-intro.mp4",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Music 2 Whistlegraph 2 — cover webp",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/music-2-whistlegraph-2/music-2-whistlegraph-2.webp",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Music 2 Whistlegraph 2 — spines webp",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/whistlegraph/music-2-whistlegraph-2/music-2-whistlegraph-2-spines.webp",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "wg.mjs Hub — practice, record, learn",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wg.mjs",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "wgr.mjs Recorder — real-time stroke drawing + audio capture",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/wgr.mjs",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "whistlegraph.mjs Launcher/router",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/whistlegraph.mjs",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "whistlegraph-cards.js Interactive card viewer (Feral File edition)",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/disks/whistlegraph/whistlegraph-cards.js",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "Merle Nunneley — article on Whistlegraphs (UCL London) txt",
+   "note": "",
+   "meta": "whistlegraph",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/merle-nunneley-whistlegraphs.txt",
+   "id": "whistlegraph"
+  },
+  {
+   "kind": "platter",
+   "title": "boot.mjs Entry point — loads BIOS, service worker, WebSocket module loader",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/boot.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "bios.mjs Main runtime coordinator — piece lifecycle, routing, API surface",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/bios.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "module-loader.mjs WebSocket-based dynamic module loading + hot reload",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/module-loader.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/disk.mjs Disk API — graphics, audio, input, UI (~572KB, the main piece API)",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/disk.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/graph.mjs Graphics primitives — wipe, ink, line, box, circle, plot, paste",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/graph.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/kidlisp.mjs KidLisp evaluator — 118 built-in functions, 12 categories",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/kidlisp.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/pen.mjs Pen/touch/mouse input handling",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/pen.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/keyboard.mjs Keyboard input + event system",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/keyboard.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/speaker.mjs Audio output — Web Audio API, synthesis, samples",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/speaker.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/microphone.mjs Audio input — mic capture, analysis",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/microphone.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/ui.mjs UI components — Button, TextInput, cursors",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/ui.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/text.mjs Text rendering — bitmap fonts, write/type",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/text.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/store.mjs Persistent storage API",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/store.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/socket.mjs WebSocket client for real-time features",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/socket.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/parse.mjs URL/command parsing — piece:param:colon routing",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/parse.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/num.mjs Math utilities — random, lerp, clamp, dist, vec",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/num.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/geo.mjs Geometry — Box, Point, Line primitives",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/geo.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/help.mjs In-app help system",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/help.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/gl.mjs WebGL2 rendering context",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gl.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/glaze.mjs Post-processing shader pipeline",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/glaze.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/webgpu.mjs WebGPU renderer",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/webgpu.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/gpu-primitives.mjs GPU accelerated drawing primitives",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-primitives.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/gpu-effects.mjs GPU shader effects",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/gpu-effects.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/3d.mjs 3D rendering support",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/3d.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/2d.mjs 2D canvas operations",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/2d.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/midi.mjs Web MIDI — keyboard, controller, instrument support",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/midi.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/chord-detection.mjs Real-time chord recognition",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/chord-detection.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/melody-parser.mjs Musical sequence parser",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/melody-parser.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/note-colors.mjs Note-to-color mapping",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/note-colors.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "lib/radio.mjs Radio streaming",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/aesthetic.computer/lib/radio.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "shared/filter.mjs Content filtering",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/filter.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "shared/redact.mjs Content redaction",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/redact.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "shared/kidlisp-syntax.mjs KidLisp syntax highlighting",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/kidlisp-syntax.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "shared/audio-analyzer.mjs Audio analysis utilities",
+   "note": "",
+   "meta": "runtime",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/shared/audio-analyzer.mjs",
+   "id": "runtime"
+  },
+  {
+   "kind": "platter",
+   "title": "Browse all pieces on GitHub",
+   "note": "",
+   "meta": "pieces",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/system/public/aesthetic.computer/disks",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "notepat",
+   "note": "Musical keyboard toy — the system front door",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/notepat",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "prompt",
+   "note": "Command prompt — system shell / piece launcher",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/prompt",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "painting",
+   "note": "Painting tool — full canvas with brushes and layers",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/painting",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "chat",
+   "note": "Real-time multiplayer chat",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/chat",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "list",
+   "note": "User piece browser and feed",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/list",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "about",
+   "note": "About page",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/about",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "share",
+   "note": "QR code sharing",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/share",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "publish",
+   "note": "Piece publishing flow",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/publish",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "source",
+   "note": "Template download / fork",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/source",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "login",
+   "note": "Auth0 login flow",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/login",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "bleep",
+   "note": "Sound synthesizer",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/bleep",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "stample",
+   "note": "Audio sampling pad",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/stample",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "beat",
+   "note": "Beat sequencer",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/beat",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "tape",
+   "note": "Audio/video recorder",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/tape",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "melody",
+   "note": "Melody composer",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/melody",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "freehand",
+   "note": "Freehand drawing tool",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/freehand",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "line",
+   "note": "Line drawing",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/line",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "circle",
+   "note": "Circle drawing",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/circle",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "box",
+   "note": "Rectangle drawing",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/box",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "spray",
+   "note": "Spray paint",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/spray",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "wand",
+   "note": "Magic wand toy",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/wand",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "balls",
+   "note": "Bouncing balls",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/balls",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "wg",
+   "note": "Whistlegraph",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/wg",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "spider",
+   "note": "Spider game",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/spider",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "1v1",
+   "note": "Multiplayer duel",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/1v1",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "smear",
+   "note": "Paint smearing",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/smear",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "code.lisp",
+   "note": "KidLisp editor & runner",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/code",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "brush.lisp",
+   "note": "Generative brush",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/brush",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "lab.lisp",
+   "note": "KidLisp lab/playground",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/lab",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "spinning-cube.lisp",
+   "note": "3D spinning cube",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/spinning-cube",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "handles.lisp",
+   "note": "Handle display",
+   "meta": "pieces",
+   "url": "https://aesthetic.computer/handles",
+   "id": "pieces"
+  },
+  {
+   "kind": "platter",
+   "title": "pop/ Music production lanes — AC synth engines, illy prompts, motion drivers",
+   "note": "",
+   "meta": "pop",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/pop",
+   "id": "pop"
+  },
+  {
+   "kind": "platter",
+   "title": "RELEASES.md Released singles tracker — what's shipped to DistroKid → Spotify",
+   "note": "",
+   "meta": "pop",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/pop/RELEASES.md",
+   "id": "pop"
+  },
+  {
+   "kind": "platter",
+   "title": "SCORE.md Mill mission — bottom-up composition from AC instruments",
+   "note": "",
+   "meta": "pop",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/pop/SCORE.md",
+   "id": "pop"
+  },
+  {
+   "kind": "platter",
+   "title": "pop/lib/ Shared substrate — tape print, master chain, preview design",
+   "note": "",
+   "meta": "pop",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/pop/lib",
+   "id": "pop"
+  },
+  {
+   "kind": "platter",
+   "title": "pop/lib/pop.mjs Static slideshow engine — long-track streaming",
+   "note": "",
+   "meta": "pop",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/pop/lib/pop.mjs",
+   "id": "pop"
+  },
+  {
+   "kind": "platter",
+   "title": "campaigns/ Per-campaign cover art + prompts — arXiv paper covers, IG stories, POVs",
+   "note": "",
+   "meta": "marketing",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/campaigns",
+   "id": "marketing"
+  },
+  {
+   "kind": "platter",
+   "title": "av-reels/ Audiovisual reels — captures AC's real synth audio headless + CDP video",
+   "note": "",
+   "meta": "marketing",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/av-reels",
+   "id": "marketing"
+  },
+  {
+   "kind": "platter",
+   "title": "kidlisp-reels/ KidLisp $code → 9:16 pals side-stamp reels",
+   "note": "",
+   "meta": "marketing",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/kidlisp-reels",
+   "id": "marketing"
+  },
+  {
+   "kind": "platter",
+   "title": "whistlegraph-seedance/ Whistlegraph video variations via Seedance",
+   "note": "",
+   "meta": "marketing",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/whistlegraph-seedance",
+   "id": "marketing"
+  },
+  {
+   "kind": "platter",
+   "title": "podcast/ Aesthetic Dot Computer — essays read in @jeffrey's voice (Buzzsprout)",
+   "note": "",
+   "meta": "marketing",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/marketing/podcast",
+   "id": "marketing"
+  },
+  {
+   "kind": "platter",
+   "title": "system/netlify/functions/ Auth, content, keeps, chat, billing, telemetry, KidLisp storage",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/system/netlify/functions",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "api/api-docs LLM-friendly API documentation (live)",
+   "note": "",
+   "meta": "servers",
+   "url": "https://aesthetic.computer/api/api-docs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "oven/server.mjs Express server — OG previews, keeps rendering, MP4 conversion",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/server.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "oven/baker.mjs Puppeteer screenshot pipeline",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/baker.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "oven/bundler.mjs Piece bundler for offline/native",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/bundler.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "oven/grabber.mjs Screenshot capture",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/oven/grabber.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "session.mjs WebSocket server — Geckos.io, chat, multiplayer, presence",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/session.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "chat-manager.mjs Chat room management",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/chat-manager.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "hearts.mjs Hearts/reactions system",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/hearts.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "dashboard.mjs Admin dashboard",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/session-server/dashboard.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "silo/server.mjs Dashboard API — MongoDB browser, health, firehose",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/silo/server.mjs",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "dp1-feed/ feed.aesthetic.computer — ATProto activity feed generator",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/dp1-feed",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "grab/ grab.aesthetic.computer — Browser Rendering screenshots",
+   "note": "",
+   "meta": "servers",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/grab",
+   "id": "servers"
+  },
+  {
+   "kind": "platter",
+   "title": "BIBLIOGRAPHY.md Full bibliography check-in with tier rankings",
+   "note": "",
+   "meta": "readings",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/system/public/assets/papers/readings/BIBLIOGRAPHY.md",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Susanne K. Langer — Problems of Art (1957) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Langer_Susanne_K_Problems_of_Art_Ten_Philosophical_Lectures.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Rudolf Arnheim — Art and Visual Perception (1974) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Arnheim_Rudolf_Art_and_Visual_Perception_1974.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Paul Klee — Pedagogical Sketchbook (1925) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Klee_Paul_Pedagogical_Sketchbook_1953.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Wassily Kandinsky — Point and Line to Plane (1926) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Point%20and%20line%20to%20plane%20-%20Wassily%20Kandinsky.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Mierle Laderman Ukeles — Manifesto for Maintenance Art (1969) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Ukeles-Manifesto-for-Maintenance-Art-1969.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Ruth McEnery Stuart — Gobolinks (1896) txt · rough",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Gobolinks.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Marshall McLuhan — \"The Medium is the Message\" (1964) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/mcluhan.mediummessage.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Friedrich Kittler — \"There is No Software\" (1995) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Kittler-nosoftware.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Mark Fisher — Capitalist Realism (2009) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Capitalist%20Realism_%20Is%20There%20No%20Alternat%20-%20Mark%20Fisher.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Viktor Shklovsky — \"Art as Device\" (1917) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/shklovsky.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Theodor Adorno — \"Punctuation Marks\" (1958) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Adorno-Theodor-W-Punctuation-Marks.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Graham Harman — \"Revenge of the Surface\" (~2011) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/harman-1.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Rosa Menkman — The Glitch Moment(um) (2011) txt · 2199 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Menkman-Glitch-Momentum-2011.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Rosa Menkman — A Vernacular of File Formats (2010) txt · 1298 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Menkman-Vernacular-of-File-Formats-2010.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Rosa Menkman — Beyond Resolution (2020) txt · 2747 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Menkman-Beyond-Resolution-2020.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Philip Auslander — \"Live from Cyberspace, or, I was sitting at my computer this guy appeared he thought I was a bot\" (PAJ 70, 2002) txt · condenses the Liveness argument into chatterbots",
+   "note": "",
+   "meta": "readings",
+   "url": "https://assets.aesthetic.computer/papers/readings/text/Auslander-Live-from-Cyberspace-2002.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Philip Auslander — \"Looking at Records\" (TDR 45:1, 2001) txt · OCR'd preprint",
+   "note": "",
+   "meta": "readings",
+   "url": "https://assets.aesthetic.computer/papers/readings/text/Auslander-Looking-at-Records-2001.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Philip Auslander — \"The Performativity of Performance Documentation\" (PAJ 84, 2006) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://assets.aesthetic.computer/papers/readings/text/Auslander-Performativity-of-Performance-Documentation-2006.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Philip Auslander — \"Music as Performance: Living in the Immaterial World\" (Theatre Survey 47:2, 2006) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://assets.aesthetic.computer/papers/readings/text/Auslander-Music-as-Performance-Immaterial-World-2006.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Tim Ingold — \"The Textility of Making\" (2009) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Ingold-2009-Textility-of-making.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Tim Ingold — Lines: A Brief History (2007) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/lines-a-brief-history.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "David Joselit — \"Marking, Scoring, Storing, and Speculating\" (2016) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Marking_Scoring_Storing_and_Speculating.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Michael Gallope, Natilee Harren, John Hicks (eds.) — The Scores Project (Getty Research Institute, 2025, text CC BY-NC 4.0; images excluded) txt · 7687 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Gallope-Harren-Hicks-The-Scores-Project-2025.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Carmel Raz — Hearing with the Mind: Proto-Cognitive Music Theory in the Scottish Enlightenment (Oxford University Press, 2025, CC BY-NC-ND 4.0) txt · 12048 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://assets.aesthetic.computer/papers/readings/text/Raz-Hearing-with-the-Mind-2025.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Ron Eglash — African Fractals (1999) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Eglash_Ron_African_Fractals_Modern_Computing_and_Indigenous_Design.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Friedman & Felleisen — The Little Schemer (1996) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/The%20Little%20Schemer.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Dr. Robert van Engelen — \"Lisp in 99 lines of C\" (2022) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/tinylisp-van-engelen.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Felix Roos & Alex McLean — \"Strudel: live coding on the Web\" (ICLC 2023) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/strudel-iclc2023.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Asker Bryld Staunæs — \"Stiegler's Concept of Idiotext\" (2021) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/stiegler-idiotext.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Thomas Lawson — \"Last Exit: Painting\" (Artforum, 1981) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/lawson-last-exit-painting.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Goodiepal / Sami Sänpäkkilä — The Goodiepal Equation documentary transcript (2017, auto-generated English from YouTube) txt · 1505 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Goodiepal-Equation-Documentary-Transcript-2017.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Casey Reas — Software Art References (2000+) txt · curated index",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Reas-SoSoft-Software-Art-References-2024.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Casey Reas — Nam June Paik's Social Software (Smithsonian research, Mar 2026) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Reas-SoSoft-Nam-June-Paik-Social-Software-2026.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Casey Reas — Social Software Reading List #001 (Winter 2026, 16 texts) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Reas-SoSoft-Reading-List-001-2026.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Digital Art Enters the Museum Age — 8 institutional exhibitions 2018–2025 txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/SoSoft-Digital-Art-Museum-Age-Exhibitions-2026.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Alexander R. Galloway — Protocol: How Control Exists after Decentralization (MIT Press, 2004) txt · 10498 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Galloway-Protocol-How-Control-Exists-2004.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Lev Manovich — Software Takes Command (Bloomsbury, 2013) txt · 13804 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Manovich-Software-Takes-Command-2013.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Matthew Fuller — Behind the Blip: Essays on the Culture of Software (Autonomedia, 2003) txt · rough OCR",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Fuller-Behind-the-Blip-2003.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Vilém Flusser — Into the Universe of Technical Images (U Minnesota Press, 2011) txt · 6910 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Flusser-Into-Universe-of-Technical-Images-2011.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "McKenzie Wark — A Hacker Manifesto (Harvard UP, 2004) txt · 6402 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Wark-A-Hacker-Manifesto-2004.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Christopher M. Kelty — Two Bits: The Cultural Significance of Free Software (Duke UP, 2008, CC BY-NC-SA) txt · 15808 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Kelty-Two-Bits-Cultural-Significance-Free-Software-2008.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Wendy Hui Kyong Chun — \"On Software, or the Persistence of Visual Knowledge\" (2005) txt · 1133 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Chun-On-Software-Persistence-Visual-Knowledge-2005.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Gene McHugh — Post Internet (Link Editions, 2nd ed. 2019, CC BY-NC-SA) txt · 11839 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/McHugh-Post-Internet-Link-Editions-2019.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Domenico Quaranta — Beyond New Media Art (Link Editions, 2013, CC) txt · 11337 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Quaranta-Beyond-New-Media-Art-2013.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Domenico Quaranta — In Your Computer (Link Editions, 2011, CC) txt · 8511 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Quaranta-In-Your-Computer-2011.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Philip Galanter — \"What Is Generative Art? Complexity Theory as a Context for Art Theory\" (2003) txt · 894 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Galanter-What-Is-Generative-Art-2003.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Eric S. Raymond — The Cathedral and the Bazaar (O'Reilly, rev. ed., OPL) txt · 11446 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Raymond-Cathedral-and-the-Bazaar-1999.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Olga Goriunova (ed.) — Readme 100: Temporary Software Art Factory (2006) txt · 5366 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Goriunova-Shulgin-Readme-100-Software-Art-Factory.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Addie Wagenknecht (ed.) — Deep Lab (Frank-Ratchye STUDIO, CMU, 2014) txt · 5482 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Wagenknecht-Deep-Lab-2014.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Ben Robbins — Microscope RPG (2011) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Microscope%20RPG.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Human Rights Watch — \"Video Unavailable\": Social Media Platforms Remove Evidence of War Crimes (2020) txt",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/HRW-Video-Unavailable-2020.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Claire Bishop — \"Digital Divide: Contemporary Art and New Media\" (Artforum, Sept 2012) txt · full text from Monoskop PDF",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Bishop-Digital-Divide-Artforum-2012.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Martine Syms — \"The Mundane Afrofuturist Manifesto\" (Rhizome, 2013) txt · reconstructed from multiple sources",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Syms-Mundane-Afrofuturist-Manifesto-2013.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Anil Dash — \"NFTs Weren't Supposed to End Like This\" (The Atlantic, Apr 2021) txt · summary + follow-up (paywall)",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Dash-NFTs-Werent-Supposed-Atlantic-2021.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Kylie Budge — \"Objects in Focus: Museum Visitors and Instagram\" (Curator, 2017) txt · abstract only (Wiley paywall)",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Budge-Objects-in-Focus-Instagram-2017.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Joanna Zylinska — AI Art: Machine Visions and Warped Dreams (Open Humanities Press, 2020, CC BY-SA) txt · 4823 lines",
+   "note": "",
+   "meta": "readings",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Zylinska-AI-Art-Machine-Visions-2020.txt",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Vintage · 1996/2006",
+   "note": "Temple Grandin — Thinking in Pictures , ch. 1: “Autism and Visual Thought”",
+   "meta": "readings",
+   "url": "https://www.grandin.com/inc/visual.thinking.html",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Artforum · 2026",
+   "note": "Jan Tumlir & Jeffrey Stuker — From Medusa to Nvidia: On the Algorithm’s Primal Scene (Algorithm 1 of 4)",
+   "meta": "readings",
+   "url": "https://www.artforum.com/features/jan-tumlir-jeffrey-stuker-algorithm-1234756309/",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "ICDL · 2025",
+   "note": "Emily A. Ertle, Michael Levin & Matthias Scheutz — Free Lunch? Low-Cost Intelligence Through Pattern-Guided Exploration",
+   "meta": "readings",
+   "url": "https://hrilab.tufts.edu/publications/ertleetal25icdl.pdf",
+   "id": "readings"
+  },
+  {
+   "kind": "platter",
+   "title": "Shelly Knotts — \"Algorithmic Interfaces\" (ICLI 2016) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Knotts-Algorithmic-Interfaces-2016.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Allison Parrish — \"Language models can only write poetry\" (2021) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Parrish-Language-Models-Poetry-2021.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Kate Compton — \"Casual Creators\" (ICCC 2015) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Compton-Casual-Creators-2015.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Ruha Benjamin — Race After Technology lecture (Harvard, 2019) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Benjamin-Race-After-Technology-Lecture-2019.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Safiya Umoja Noble — Algorithms of Oppression introduction (2018) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Noble-Algorithms-of-Oppression-Intro-2018.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "André Brock — Distributed Blackness introduction (2020) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Brock-Distributed-Blackness-Intro-2020.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Hernando Barragán — Wiring: Prototyping Physical Interaction Design thesis (2004) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Barragan-Wiring-Thesis-2004.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Hernando Barragán — \"The Untold History of Arduino\" txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Barragan-Untold-History-Arduino.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Yuk Hui — interview on Recursion and Contingency (2019) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Hui-Recursion-Contingency-Interview-2019.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Hito Steyerl — \"In Defense of the Poor Image\" (2009) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Steyerl-In-Defense-of-the-Poor-Image-2009.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Kodwo Eshun — More Brilliant Than the Sun (1998) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Eshun-More-Brilliant-Than-the-Sun-1998.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Sadie Plant — Zeros and Ones (1997) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Plant-Zeros-and-Ones-1997.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Lewis, Arista, Pechawis, Kite — \"Making Kin with the Machines\" (2018, CC-BY 4.0) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Lewis-et-al-Making-Kin-with-the-Machines-2018.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Sasha Costanza-Chock — Design Justice introduction (2020, MIT Press OA) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Costanza-Chock-Design-Justice-2020.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "Arturo Escobar — Designs for the Pluriverse (2018) txt",
+   "note": "",
+   "meta": "diversity",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/Escobar-Designs-for-the-Pluriverse-2018.txt",
+   "id": "diversity"
+  },
+  {
+   "kind": "platter",
+   "title": "reference/strudel/ — full Strudel source + ICLC paper",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/strudel",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "thegetty/scores — Quire source for The Scores Project ; `main` is published edition, `revisions` tracks proposed corrections",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/thegetty/scores",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "Getty digital edition — object pages, commentaries, and 2,000+ archival media items",
+   "note": "",
+   "meta": "reference",
+   "url": "https://www.getty.edu/publications/scores/",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "reference/api/javascript-api.md — AC JavaScript API reference",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/api/javascript-api.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "reference/kidlisp/language-reference.md — KidLisp language reference",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/kidlisp/language-reference.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "reference/pieces/structure.md — Piece structure reference",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reference/pieces/structure.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Architecture Analysis vs TinyLisp",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/analysis-report.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "TinyLisp vs KidLisp: Architecture Comparison",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/comparison-metrics.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "Raku Syntactical Ideas for KidLisp",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/raku-syntax-inspirations.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Optimization Implementation Guide",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/kidlisp/reports/implementation-guide.md",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "reference/ableton/ — Ableton integration guides",
+   "note": "",
+   "meta": "reference",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/tree/main/reference/ableton",
+   "id": "reference"
+  },
+  {
+   "kind": "platter",
+   "title": "api/version — platform version",
+   "note": "",
+   "meta": "apis",
+   "url": "https://aesthetic.computer/api/version",
+   "id": "apis"
+  },
+  {
+   "kind": "platter",
+   "title": "api/metrics — platform metrics",
+   "note": "",
+   "meta": "apis",
+   "url": "https://aesthetic.computer/api/metrics",
+   "id": "apis"
+  },
+  {
+   "kind": "platter",
+   "title": "Full software history with all archive locations & GitHub links (plain text)",
+   "note": "",
+   "meta": "software-history",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/jas-software-history.txt",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "No Paint",
+   "note": "\"A picture-making instrument\" — Rails → JS shim → WebGL → iOS → Vercel (2014–2020)",
+   "meta": "software-history",
+   "url": "https://nopaint.art/",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "JeffreyPaint",
+   "note": "\"My paint program\" — JS + Unity + macOS .dmg (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/jeffreypaint",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Finger Quilt",
+   "note": "Quilting-inspired drawing tool for iOS (2016, Swift)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/finger-quilt",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Mood Engine",
+   "note": "\"Maskware's MOOD Engine\" — native C (2015)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/mood",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "bt",
+   "note": "\"My first computer game\" (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/bt",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Dot",
+   "note": "\"A dot plotting application\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/dot",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Rect",
+   "note": "\"Rectangle game\" — only Rust project (2019)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/rect",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "drawings",
+   "note": "\"An archive of my drawings\" — drawings.rey.sc (2015, Ruby)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/drawings",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Word Web",
+   "note": "Hyperlinked text creation (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/word_web",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "bigwalt59",
+   "note": "Hypertext poem — Global Game Jam 2015 w/ Lali Foster",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/bigwalt59",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Exploding Dinner",
+   "note": "\"ttt fork to rails (a text game)\" (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/explodingdinner",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Tumpin",
+   "note": "\"Tumpin for left.gallery by JAS\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/tumpin",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Ten Minute Painting",
+   "note": "\"Homage to Tan Lin's Eleven Minute Painting\" — acquired by SMK Denmark (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/ten-minute-painting",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Flower Eater",
+   "note": "\"One button web game about a girl who eats flowers\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/flower-eater.com",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "BW-Flower",
+   "note": "Black & white flower — native C (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/BW-Flower",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "paint-prototype",
+   "note": "Unnamed paint prototype (2019)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/paint-prototype",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Peter",
+   "note": "\"Web app + Photoshop panel for audience image uploads\" — Julia Yerger (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/justanothersystem/peter",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "border-notation",
+   "note": "\"Border animation notation for GP&PLS\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/border-notation",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "pmet-subs",
+   "note": "\"Subtitle program for Pro Monarkistisk Extratone\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/pmet-subs",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Shutter Rub",
+   "note": "\"Fikra Design Biennal 2018 tool for Knoth & Renner\"",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/fikra-18-shutter-rub",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "pic.jeffreyheart89.com",
+   "note": "\"Digital painting delivery service\" (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/pic.jeffreyheart89.com",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Gordilloscudder",
+   "note": "Gallery portfolio — Brooklyn (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/Gordilloscudder",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "interludes-and-remnants",
+   "note": "Exhibition website (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/interludes-and-remnants",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "rey.sc",
+   "note": "\"rey.sc webpages\" (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/rey",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "jas.life",
+   "note": "\"Homepage\" (2016)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/jas.life",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "justanothersystem.org",
+   "note": "RDP lecture tour team site (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/justanothersystem/www.justanothersystem.org",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Attn: Trap",
+   "note": "\"Essay for Parallelograms, 2013\" — interactive web essay",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/Attn-Trap",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "digitpain.com",
+   "note": "The digitpain.com website (2022)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/digitpain.com",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "currentcondition.org",
+   "note": "Current Condition (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/current_condition",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Konstanet 2016",
+   "note": "\"Web Component for Konstanet Group Show\"",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/konstanet-2016",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Lauri",
+   "note": "\"Lauri Solin's Digital Paintings\" (2018)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/lauri",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "syl.rey.sc",
+   "note": "Course syllabi — Parsons & UCLA",
+   "meta": "software-history",
+   "url": "https://syl-rey-sc.jas.life/",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "GIPHY",
+   "note": "Technical Curator + giphy-upload-proxy (2017)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/giphy-upload-proxy",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "NADA banners",
+   "note": "New Art Dealers Association (2016)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/nada-banners",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Juan Dominguez app",
+   "note": "\"Cross-platform mobile app for California lawyer\" (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/juan-dominguez-mobile-app",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Quake Pebble",
+   "note": "Pebble smartwatch project (2014)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/quake-pebble",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "live",
+   "note": "\"Reloads browser automatically\" — live-reload server (2016, Ruby)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/live",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "cfg",
+   "note": "Early dotfiles (2013, VimL)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/cfg",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "tools",
+   "note": "\"Directory of web based creative tools\" — drawing software catalog",
+   "meta": "software-history",
+   "url": "https://github.com/justanothersystem/tools",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "headless-chrome",
+   "note": "Netlify headless Chrome — precursor to oven (2022)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/netlify-functions-headless-chrome",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "dotfiles",
+   "note": "\"All my configuration\" (2021)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/dotfiles",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "hell_ world",
+   "note": "Generative art — Wild.xyz (2023, 150+ outputs)",
+   "meta": "software-history",
+   "url": "https://wild.xyz/jeffrey-scudder/hell-world",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "harbingers-player",
+   "note": "NFT art player (2022)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/harbingers-player",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "spooky-treez-player",
+   "note": "NFT art player (2022, TypeScript)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/spooky-treez-player",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "the-longest-whistlegraph-ever",
+   "note": "\"Microsite for Rhizome\" — New Museum (2022)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/the-longest-whistlegraph-ever",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "system-ac",
+   "note": "\"My virtual computer system for loading and running disks\" — started on Glitch (2021-08)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/system-ac",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "disks-ac",
+   "note": "Original disks: prompt, doodle, plot, pull, stage, starfield, tracker, whistlegraph (2021-08)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/disks-ac",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "2022.aesthetic.computer",
+   "note": "\"Compute aesthetically\" — first merged monorepo (2021-12)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/2022.aesthetic.computer",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "aesthetic-computer",
+   "note": "Current monorepo (2022-12–present)",
+   "meta": "software-history",
+   "url": "https://github.com/whistlegraph/aesthetic-computer",
+   "id": "software-history"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Alan Scudder — Academic CV",
+   "note": "",
+   "meta": "self",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/jas-cv.txt",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Alan Scudder — Personal Statement: Core Beliefs",
+   "note": "",
+   "meta": "self",
+   "url": "https://aesthetic.computer/assets/papers/readings/text/jas-personal-statement.txt",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Alan Scudder — Fact-Checked Report",
+   "note": "",
+   "meta": "self",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jeffrey-alan-scudder-fact-check.md",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Alan Scudder — Economic History & Funding Timeline",
+   "note": "",
+   "meta": "self",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jeffrey-economic-history.md",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Alan Scudder — \"Lecture on Mediation & Subjectivity/Objectivity in Art\" (EMDA 321, Apr 2020) md · 6830 words · YouTube 48:44",
+   "note": "",
+   "meta": "self",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/papers/lectures/K8xCBPW1rmo-lecture-on-mediation-subjectivity-objectivity-in-art.md",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "ORCID 0009-0007-4460-4913",
+   "note": "",
+   "meta": "self",
+   "url": "https://orcid.org/0009-0007-4460-4913",
+   "id": "self"
+  },
+  {
+   "kind": "platter",
+   "title": "$code Loading Issue Investigation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-01-03-dollar-code-loading-issue.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "WebSocket Module Loader Status Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-01-12-websocket-module-loader.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Emacs Stack Report (Docker)",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-01-21-emacs-stack-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat hover overlay experiment",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-01-31-notepat-hover-overlay-experiment.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "On the Voice of SCORE.md",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-02-16-score-tone-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "You Are Not (Just) Your Brain & AC",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-02-17-you-are-not-just-your-brain.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "What Is Happening to Writing? & AC",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-02-19-what-is-happening-to-writing.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Rest of Day — Friday, February 20, 2026",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-02-21-rest-of-day.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Mail Inbox + Emacs MCP + Secrets",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-02-27-mail-inbox-emacs-mcp-secrets-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "MacBook Pro XDR Display Issue",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-07-macbook-xdr-display.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Contract Audit (mainnet)",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-audit-mainnet.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps v11 Security Gap Analysis",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v11-security-gap-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps v12 + 25-Year Stability Plan",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-10-keeps-v12-and-25-year-stability-plan.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Intelligence at the Edges: Master Summary",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/README.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "UX Track: Designing for Living Intelligence",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/UX-TRACK.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "AC HTML Frontend Style Guide",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ac-html-frontend-style-guide.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "AC Piece (Disk) Style Guide",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ac-piece-style-guide.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Account Deletion Feature Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/account-deletion-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Android App Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/android-app-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Security Analysis: JS Piece Execution API",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/api-security-analysis-2026-02-12.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Autopat plan (notepat autoplay)",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/autopat-plan.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Boot Performance Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/boot-performance-2026-01-28.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "$bop Gray Screen / Blur Issue",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/bop-blur-gray-issue-2026-02-05.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Bumper Viewport Issue",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/bumper-viewport-issue.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Chat Hearts Implementation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/chat-hearts.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Chat Paint Performance",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/chat-paint-performance.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Clock Stample Code Feature",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/clock-stample-code-feature.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Clock Syntax & Sequence Advancement",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/clock-syntax-and-sequence-advancement.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Pen Coordinate Regression (SOLVED)",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/coordinate-regression-fix.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Core Loop & Page Visibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/core-loop-visibility-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Cryptocat Revival for AC DMs",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/cryptocat-revival-ac-dms.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Email Blast Status: give.ac",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/email-blast-give-ac-status-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "FedAC Sub-1GB OS Feasibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/fedac-sub-1gb-os-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Feed Broadcast Plan",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/feed-channels.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Feral File Tezos FA2 Integration",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/feral-file-email-reply-experiments.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Flusser's Phenomenology & AC",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/flusser-underdevelopment-ac.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Funding Action Plan",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/funding-action-plan-2026-03-03.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "GPU Rendering Pipeline Study",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/gpu-rendering-pipeline-study.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ink Function & Gradient Docs",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ink-function-gradient-documentation.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "JS/MJS Mode for kidlisp.com",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/javascript-mjs-mode-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Jukebox Feature",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/jukebox-feature-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keep Mint Infinite Loop Bug",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/keep-mint-loop-bug.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keep Mint Performance",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/keep-performance.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Multi-Chain Comparison",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-all-chains-comparison-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp FA2 Contract Spec",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-fa2-contract-spec.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Feral File Architecture",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-feral-file-architecture-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Hybrid: Tezos + Solana",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-hybrid-strategy-solana-tezos-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Revenue: Tezos vs Solana",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-tezos-vs-solana-pumpfun-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "AC KidLisp x FF1 Art Computer",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/kidlisp-x-ff1-art-computer-integration-proposal.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Beyond Documentation: LLM Metaphors",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/llm-high-metaphors.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Merry Crossfade Compositor Study",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/merry-crossfade-kidlisp-compositor-study.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Monetization Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/monetization-stack-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "MongoDB Migration Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/mongodb-migration-2026-02.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Network Scan Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/network-scan-report-2026-02-27-1640-pst.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Neural Primitives Full Stack",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/neural-primitives-full-stack.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Audio Latency",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/notepat-audio-latency-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Stability Test",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/notepat-stability.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notification System Analysis",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/notification-system-analysis-2026.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Offline Audio & Clock USB Export",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/offline-audio-rendering-clock-usb.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "ORCID Integration",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/orcid-integration.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Parallel KidLisp Workers",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/parallel-kidlisp-workers-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Patch Command Admin PR Agent",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/patch-command-admin-pr-agent.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Pen Handling Regression",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/pen-handling-regression-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Web Portals vs Open Web",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/portal-wars-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Privacy Policy Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/privacy-policy-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Rendering Stack Reframe",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/rendering-stack-reframe-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Sandbox Canvas Performance",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/sandbox-canvas-performance-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "SharedArrayBuffer & Embedding",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/shared-array-buffer-and-embedding.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Spotify DJ Feasibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/spotify-dj-feasibility-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Stample Layout Redesign",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/stample-layout-redesign.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Stample Recording Bug",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/stample-recording-bug.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Strudel Integration for Jukebox",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/strudel-integration-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Command Research",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/tape-command-research.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "ThinkPad AC Kiosk",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/thinkpad-ac-kiosk-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Shared Try Page Client Lib",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/try-pages-shared-client-lib-feasibility-2026-02-27.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "USB Uke to DJ Deck",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/usb-uke-to-dj-deck-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Video Underlay UI Diagnostics",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/video-underlay-ui-diagnostics.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "VS Code Container Crash",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/vscode-container-crash-debugging.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "WebSocket Module Loading",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/websocket-module-loading.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "WebUSB DJ Stick Generator",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/webusb-dj-stick-generator.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Yairi Model 700 Guitar",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/yairi-model-700-guitar.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keep Modal Consolidation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/keep-modal-consolidation.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Android Gpu Rendering Investigation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-19-android-gpu-rendering-investigation.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Changeloggin 4 All",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-18-changeloggin-4-all.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Browser Wayland Debug",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-15-ac-native-browser-wayland-debug.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Quest 3 Bare Metal Linux Feasibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-14-quest-3-bare-metal-linux-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Tezos Nft Market Landscape",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-12-tezos-nft-market-landscape.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Kidlisp Sessions And Keep Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-12-jeffrey-kidlisp-sessions-and-keep-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Jeffrey Kidlisp Canonical Thumb Gallery",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-12-jeffrey-kidlisp-canonical-thumb-gallery.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Market Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-11-keeps-market-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Size Analysis",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ac-native-size-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Init Analysis",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ac-native-init-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Boot Speed Optimization",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/ac-native-boot-speed-optimization.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "At Protocol Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-23-at-protocol-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Hda Capture Eio Investigation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-20-hda-capture-eio-investigation.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Instagram Api Migration 2026 03 29",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/instagram-api-migration-2026-03-29.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Getty Scores Project",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-02-getty-scores-project.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Scream Tts Exploration",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-30-scream-tts-exploration.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Crypto Portfolio Market Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-30-crypto-portfolio-market-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Intel Mac Usb Boot Debug",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-29-intel-mac-usb-boot-debug.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Panasonic Hc X2000 Firmware Update Checklist",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-28-panasonic-hc-x2000-firmware-update-checklist.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Panasonic Hc X2000 Ac Integration",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-28-panasonic-hc-x2000-ac-integration.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Logo History",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-03-28-ac-logo-history.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Getty Scores Access on AC",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-02-getty-scores-access-on-ac.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Bootloader Art Integration Feasibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/bootloader-art-integration-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Arena Graphics Issue",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/arena-graphics-issue.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Arena Graphics Issue RESOLVED",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/arena-graphics-issue-RESOLVED.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Knot Master Rebuild",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-29-knot-master-rebuild.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Mail Bootstrap On Mac",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-24-mail-bootstrap-on-mac.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notarization Setup",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-17-notarization-setup.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Knot Spindle Upgrade",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-17-knot-spindle-upgrade.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Ota Usb Flash Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-11-notepat-ota-usb-flash-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Percussion And Dj Hotplug",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-10-notepat-percussion-and-dj-hotplug.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Thinkpad 11e Hardware Profile",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-07-thinkpad-11e-hardware-profile.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Nix Vs Baremetal Pipeline Analysis",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-06-ac-native-nix-vs-baremetal-pipeline-analysis.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Three Implementations Strategy",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-05-02-notepat-three-implementations-strategy.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Pop Pipeline Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/pop-pipeline-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "P5js Integration Exploration",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/p5js-integration-exploration.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Nft Attention Map",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-05-18-nft-attention-map.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Opportunistic Targeting",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-05-18-keeps-opportunistic-targeting.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Crypto Portfolio Market Report",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-05-18-crypto-portfolio-market-report.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Mvis S3 Prospectus Resale",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-04-24-mvis-s3-prospectus-resale.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Renpy Adaptation",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/renpy-adaptation.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Neo Resource Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/neo-resource-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Js Tooling Audit",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/js-tooling-audit.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Talking Head Sampler Feasibility",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-07-12-talking-head-sampler-feasibility.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Audit Mainnet",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-08-01-keeps-audit-mainnet.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Whistlegraph Org Funding Codes",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/whistlegraph-org-funding-codes.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "Production Errors",
+   "note": "",
+   "meta": "reports",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/reports/2026-09-21-production-errors.md",
+   "id": "reports"
+  },
+  {
+   "kind": "platter",
+   "title": "1v1 Piece: Host Info & QR Code",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/1v1-host-info-qr.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "1v1 Multiplayer Quake-like FPS",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/1v1-quake-fps.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "3D Text Rendering (sign)",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/3d-text-rendering.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "AC Electron App Plan",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/AC-ELECTRON-DEVENV-PLAN.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Editor Architecture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/KIDLISP-EDITOR-ARCHITECTURE.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Multi-Platform Books",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/KIDLISP-MULTI-PLATFORM-BOOKS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Rendering Pipeline",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/KIDLISP_DEBUG_ANALYSIS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Integration with Painting API",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/KIDLISP_INTEGRATION_PLAN.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "GPU Renderer Backends",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/RENDERER-BACKENDS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Real-Time Painting Sync",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/REAL_TIME_PAINTING_SYNC.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "ABC123 Alphabet & Numbers",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/abc123-alphabet-numbers-system.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Apple TV (tvOS) App",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/apple-tv-app.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "ATProto Data Architecture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/atproto-data-architecture.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "ATProto Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/atproto-integration-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "ATProto PDS Roadmap",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/atproto-pds-roadmap.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Blur Function Implementation",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/blur-implementation.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Chat Migration to Session Server",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/chat-migration-to-session-server.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Clock Sigil Shortcodes",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/clock-sigil-shortcodes.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Cross-Tab Painting Sync",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/cross-tab-painting-sync.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Docs Overhaul: MJS vs L5",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/docs-js-lua-overhaul-hitlist.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Electron Desktop Release",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/electron-desktop-release.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "FedAC Auto-Updater",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/fedac-auto-updater.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "GPU KidLisp Effects",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/gpu-kidlisp-effects-acceleration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Help Service",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/help-service.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Unified KidLisp",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/implementation-unified-kidlisp.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Redesign",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/keeps-redesign.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Next Steps",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/keeps-next-steps.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Background Persistence",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-background-persistence-feature.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Console Screenshots",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-console-screenshots.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Ecosystem Report",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-ecosystem-report.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Feral File Architecture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-feral-file-architecture-analysis.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp LaTeX Cards",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-latex-cards.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Live Parameter Editing",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-live-parameter-editing.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Max for Live",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-m4l-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Make Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-make-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp OG Preview",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-og-preview.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Singleton Refactor",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-singleton-refactor.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Slide Mode",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-slide-mode.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "KidLisp Visualization Tabs",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-visualization-tabs.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "L5 Lua Processing Support",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/l5-lua-processing-support.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Language Translation Pieces",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/language-translation-pieces.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Lexicon Publication",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/lexicon-publication.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "List Improvements",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/list-improvements.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "List Redesign",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/list-redesign.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "News: AC on HN + KidLisp",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/news-aesthetic-computer-hn-kidlisp-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat KidLisp Background",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/notepat-kidlisp-background.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Oven Unified Capture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/oven-unified-capture-service.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "PayPal Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/paypal-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Pedal",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/pedal.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Piece Analytics",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/piece-analytics.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Recursive Embedded KidLisp",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/recursive-embedded-kidlisp.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Remote Device Control",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/remote-device-control.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Restrict Untrusted Piece APIs",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/restrict-untrusted-piece-apis.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Robo",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/robo.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Session Server Architecture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/session-server-architecture.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Solo Mode",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/solo-mode.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Stow File Upload",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/stow-file-upload-feature.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Camera AV",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-camera-av-feature.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape MP4 Conversion",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-mp4-conversion-service.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Player Refactor",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-player-refactor.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Viewer Implementation",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-viewer-implementation.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "TV FYP Implementation",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tv-fyp-implementation.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "TV Piece Plan",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tv-piece-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Unified KidLisp Execution",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/unified-kidlisp-execution.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "VST Ableton Notepat Plugin",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/vst-ableton-notepat-plugin.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "WebGPU Renderer",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/webgpu-renderer-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "WebSocket Module Loader",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/websocket-module-loader.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Zoom Vs Suck Implementation Report",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/zoom-vs-suck-implementation-report.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Zebra Color Sequence Implementation",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/zebra-color-sequence-implementation.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Whats Missing From Ac Os To Make Claude Shine",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/whats-missing-from-ac-os-to-make-claude-shine.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "WEATHER PIECE ARCHITECTURE",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/WEATHER-PIECE-ARCHITECTURE.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Vscode Theme Development",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/vscode-theme-development.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Vscode Chrome Devtools Mcp Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/vscode-chrome-devtools-mcp-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Video Tape Post Implementation Complete",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/video-tape-post-implementation-complete.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Video Tape Post Feature",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/video-tape-post-feature.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Video Scrub Line Visibility Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/video-scrub-line-visibility-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Video Button Reframe Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/video-button-reframe-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "VIDEO PROGRESS IMPROVEMENTS",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/VIDEO_PROGRESS_IMPROVEMENTS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Unifont Moods Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/unifont-moods-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Unifont Character Width Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/unifont-character-width-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Udp Multiplayer Analysis",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/udp-multiplayer-analysis.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tv Multi Tape Transition System",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tv-multi-tape-transition-system.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "TODO Kidlisp Fixes",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/TODO-kidlisp-fixes.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Teia To Objkt Rename",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/teia-to-objkt-rename.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Viewer Testing",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-viewer-testing.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Tape Viewer Symbol Design",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/tape-viewer-symbol-design.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "TAPE VIDEO PROCESSING",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/TAPE-VIDEO-PROCESSING.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "TAPE PREVIEW ISSUE ANALYSIS",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/TAPE-PREVIEW-ISSUE-ANALYSIS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Suck Redesign Notes",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/suck-redesign-notes.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Suck Function Fixed",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/suck-function-fixed.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Slgb Spider Lily Gameboy Autoload",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/slgb-spider-lily-gameboy-autoload.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Session Server Status Page",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/session-server-status-page.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Session Dashboard Progress",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/session-dashboard-progress.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "SECURITY SECRETS",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/SECURITY-SECRETS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Sameboy Unreal Gameboy On Texture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/sameboy-unreal-gameboy-on-texture.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Rgb First Line Color Support",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/rgb-first-line-color-support.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Repeat Alias Research",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/repeat-alias-research.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "PROMPT TOOLTIP SYSTEM",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/PROMPT-TOOLTIP-SYSTEM.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Profile Scorecard Realtime Plan",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/profile-scorecard-realtime-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Per Note Waveform Visualization",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/per-note-waveform-visualization.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Painting Short Codes Plan",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/painting-short-codes-plan.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Pack $39i",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/pack-$39i.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Oskie Audio 1v1",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/oskie-audio-1v1.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Objkt To Pack Mode Rename",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/objkt-to-pack-mode-rename.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "NOPAINT COLOR HIGHLIGHTING PLAN",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/NOPAINT_COLOR_HIGHLIGHTING_PLAN.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "News Todo",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/news-todo.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Native Web Pieces Low Hanging Fruit",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/native-web-pieces-low-hanging-fruit.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Native Piece Mapping",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/native-piece-mapping.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Nanoclaw Help Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/nanoclaw-help-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "MULTIPLE GAMEPAD SUPPORT",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/MULTIPLE-GAMEPAD-SUPPORT.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Multi Font Chat",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/multi-font-chat.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Mug Piece Ux",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/mug-piece-ux.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "MOODS BLUESKY PERMALINKS",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/MOODS-BLUESKY-PERMALINKS.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Stage Mode Single Pane",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-stage-mode-single-pane.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Mic Global",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-mic-global.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Malformed Code Protection",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-malformed-code-protection.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Hud Text Layout Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-hud-text-layout-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Filled Circle Mode Support",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-filled-circle-mode-support.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Embedding Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-embedding-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Color Buffer Issue 2025 09 27",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-color-buffer-issue-2025-09-27.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Cards Report",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-cards-report.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Cards Palette",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-cards-palette.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Kidlisp Blur Buffer Context Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/kidlisp-blur-buffer-context-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Permalink Modals",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/keeps-permalink-modals.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Gallery Improvements",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/keeps-gallery-improvements.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Keeps Final Report",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/keeps-final-report.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Judge Deployment",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/judge-deployment.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Jesper Per English Audio",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/jesper-per-english-audio.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Hud Drag Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/hud-drag-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "HOTLINK MODULARIZATION",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/HOTLINK-MODULARIZATION.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Glaze Resize Sync",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/glaze-resize-sync.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Git Commit Status Indicator",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/git-commit-status-indicator.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "FISH RENAME ERROR INVESTIGATION",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/FISH-RENAME-ERROR-INVESTIGATION.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Firefox On Ac Native",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/firefox-on-ac-native.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "EMBEDDED LAYER PERSISTENCE BUG",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/EMBEDDED_LAYER_PERSISTENCE_BUG.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "EMAIL BLAST GIVE AC",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/EMAIL-BLAST-GIVE-AC.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Emacs Tab Cleanup",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/emacs-tab-cleanup.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "EMACS EAT STABILITY",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/EMACS-EAT-STABILITY.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Electron Per Window Volume Slider",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/electron-per-window-volume-slider.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Edge Personalized Iso Delivery",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/edge-personalized-iso-delivery.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Docs L5 Touchpoints Report",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/docs-l5-touchpoints-report.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Density Keyboard Shortcuts",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/density-keyboard-shortcuts.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Clock Parallel Timing Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/clock-parallel-timing-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Clock Native Feasibility",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/clock-native-feasibility.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Chat Jump Routing Analysis",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/chat-jump-routing-analysis.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Chat Hearts",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/chat-hearts.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Button Width Sizing Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/button-width-sizing-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "BRUSH ARTERY TESTS REPORT",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/BRUSH_ARTERY_TESTS_REPORT.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Bdf Rotation Issue",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/bdf-rotation-issue.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Bdf Matrix Glyph Rendering Teia Export Bug",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/bdf-matrix-glyph-rendering-teia-export-bug.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Bake Layer Persistence Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/bake-layer-persistence-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Artery Tui Emacs Eat Fix",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/artery-tui-emacs-eat-fix.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Android App Screenshots",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/android-app-screenshots.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Machines Remote Monitoring",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/ac-machines-remote-monitoring.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Command Robustness",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/ac-command-robustness.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Rename Keeps To Keep",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/rename-keeps-to-keep.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Docker Ota Build Pipeline",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/docker-ota-build-pipeline.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Blank Checkout",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/blank-checkout.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Paper Sampling In Ac",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/paper-sampling-in-ac.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Udp Midi Relay",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/notepat-udp-midi-relay.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Cross Platform Samples",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/cross-platform-samples.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Usb Midi Gadget",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/usb-midi-gadget.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "SYSTRAY PASSPHRASE ENTRY",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/SYSTRAY-PASSPHRASE-ENTRY.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "SETUP FRESHMAC",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/SETUP-FRESHMAC.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "MAC NATIVE DEVENV PLAN",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/MAC-NATIVE-DEVENV-PLAN.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Handle Profile Redesign Saturnpatty",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/handle-profile-redesign-saturnpatty.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Arena Multiplayer",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/arena-multiplayer.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Ac Native Story Refresh",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/ac-native-story-refresh.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Notepat Gm Integration",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/notepat-gm-integration.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Multiplayer Architecture",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/multiplayer-architecture.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Typography Foundry Build System",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/typography-foundry-build-system.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "NOPAINT CONSTRUCT MIGRATION",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/NOPAINT_CONSTRUCT_MIGRATION.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Published Pieces In Feeds",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/published-pieces-in-feeds.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Letters Privacy",
+   "note": "",
+   "meta": "plans",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/plans/letters-privacy.md",
+   "id": "plans"
+  },
+  {
+   "kind": "platter",
+   "title": "Public kidlisp CLI (Bun + npm)",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/ac-cli-public-plan.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Artery Boot Detection & Telemetry",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/artery-boot-detection.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "FedAC: Fedora Boot-to-AC OS",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/fedac-fedora-boot-to-ac.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Native KidLisp for Notepat + AC",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/kidlisp-native-os-notepat-ac-native-study.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "l5lua.org Visual Style + Logo",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/l5lua-org-style-study.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Oven Amp Spoofing Feature",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/oven-amp-spoofing-report.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "$roz Function Profile for KidLisp",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/roz-function-profile-for-kidlisp-decree-26.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Seashells x Neural Garden",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/seashells-neural-bytebeat-garden-study.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Southwell Future Of Math Transcript",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/southwell-future-of-math-transcript.md",
+   "id": "studies"
+  },
+  {
+   "kind": "platter",
+   "title": "Graphical Linear Algebra Kidlisp Study",
+   "note": "",
+   "meta": "studies",
+   "url": "https://github.com/whistlegraph/aesthetic-computer/blob/main/studies/graphical-linear-algebra-kidlisp-study.md",
+   "id": "studies"
   },
   {
    "kind": "sleuth",
@@ -1009,5 +5871,6 @@
    "url": "https://papers.aesthetic.computer/deadlines/",
    "id": "deadlines"
   }
- ]
+ ],
+ "built": "2026-11-23T05:58:01.203Z"
 }

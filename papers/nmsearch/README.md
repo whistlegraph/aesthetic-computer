@@ -17,17 +17,13 @@ means growing the list, and every entry carries the same four facts the sleuth
 asks for: where it lives, how it is searched, what it covers, and what evidence
 a hit should keep.
 
-Sources come in three tiers:
+The AC Platter is searched locally. External sources use one of three routes.
 
-| Tier | What it means | Examples |
-|---|---|---|
-| **live** | A public API answers a browser directly, so the page fans the query out and shows hits inline | Wikipedia (category-scoped), Wikidata (genre-scoped), Monoskop, OpenAlex (Leonardo journals), Zenodo (NIME), Internet Archive (Rhizome DC, XFR STN, UbuWeb) |
-| **ramp** | The archive searches well but will not answer cross-origin, so the page hands the query over with one click | Rhizome, ArtBase, ADA, ISEA archives, ELMCIP, Media Art Net, ZKM, Ars Electronica, transmediale, nettime |
-| **local** | Our own platter: papers, sub-platters, hosted PDFs, mediascholar | this repository |
-
-A ramp becomes live when a lith-side proxy for it is written. A live source
-becomes indexed when we start keeping its records ourselves. That is the whole
-roadmap, and it is a loop, not a ladder.
+| Route | What a search returns |
+|---|---|
+| Indexed | Rhizome ArtBase artwork titles, artist credits, dates and ArtBase IDs from a February 2022 snapshot |
+| Live | Inline results from Monoskop, ISEA Archives, Ars Electronica Festival 2024, Wikipedia, Wikidata, OpenAlex's Leonardo journals, Zenodo's NIME community and Internet Archive |
+| Archive link | The query opens at another source such as ELMCIP, Rhizome editorial or ZKM |
 
 ## Four roles
 
@@ -53,30 +49,25 @@ The spine is Wikidata. Every validated entity gets or is matched to a QID, and
 the QID is what lets Rhizome, Monoskop and Wikipedia agree they are talking
 about the same bat.
 
-## Pages
+## Search
 
-- `papers.aesthetic.computer/nmsearch/` — the engine. One input. Three lanes:
-  **platter** (local, instant), **field** (live fan-out, grouped by source),
-  **ramps** (one-click handoff to every in-field archive).
-- `?q=bats` is the permalink.
+Open [nmsearch](https://papers.aesthetic.computer/nmsearch/) or share a query such as [bats](https://papers.aesthetic.computer/nmsearch/?q=bats). Results arrive by source. Use the source selector to focus on one collection. **Source status** lists empty searches and unavailable services. **Search other archives** opens external search pages.
 
 ## Build
 
-```
+```sh
 node papers/nmsearch/build.mjs
 ```
 
-Reads `field.json` and the local platter (the papers table in `../SCORE.md`,
-sub-platter READMEs, hosted PDFs) and writes `field.json` plus `local.json`
-into `system/public/papers.aesthetic.computer/nmsearch/`. Run it whenever a
-source is added or a paper lands. Deploy rides the normal lith deploy.
+The build reads the published papers table, the links and reading lists in `platter.html`, the score's sub-platters, Sleuth and hosted PDFs. It writes the searchable metadata to `system/public/papers.aesthetic.computer/nmsearch/`. The regular `node papers/sync-platter.mjs` refresh also runs this build.
+
+To reproduce the ArtBase snapshot, run `python3 papers/nmsearch/import-artbase.py`. The importer keeps titles, creators, years and ArtBase IDs from the pinned *Net Art Revolution?* artwork table. Each result links to its Rhizome record. The snapshot dates to February 14, 2022. Data preparation by Margherita Donelli, Chiara Catizone and Laurent Fintoni. [Source, credits and licensing](https://github.com/laurentfintoni/Net-Art-Rev/tree/abb03fde210df5da4ca473287d05f01f968af67d)
 
 ## Not yet
 
 - Intake form (role 2) and the QID queue it feeds.
-- lith proxies for ramps that have APIs but no CORS (ArtBase is a Wikibase;
-  ELMCIP is Drupal with JSON views; ADA and ISEA are HTML only).
-- Our own index: fetch and store records from live sources on a schedule, so
+- A current ArtBase feed beyond the 2022 research snapshot.
+- Fetch and store records from live sources on a schedule, so
   nmsearch keeps working when a source does not.
 - Category depth on Wikipedia: `incategory` stops at direct members. A
   PetScan-style deep category walk belongs in the indexer, not the page.

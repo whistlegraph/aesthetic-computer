@@ -328,3 +328,4 @@ function main() {
 }
 
 main();
+await import("./nmsearch/build.mjs");

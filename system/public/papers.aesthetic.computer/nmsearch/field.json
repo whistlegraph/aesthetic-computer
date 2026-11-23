@@ -69,7 +69,7 @@
    "home": "https://www.wikidata.org",
    "api": "wikidata",
    "ramp": "https://www.wikidata.org/w/index.php?search={q}&ns0=1",
-   "covers": "items whose genre, movement, field of work, class or occupation is in the field (SPARQL; slow lane)",
+   "covers": "Candidate items with an in-field class, occupation, genre, movement or field of work",
    "spine": true,
    "evidence": [
     "QID",
@@ -174,12 +174,12 @@
   {
    "id": "artbase",
    "name": "Rhizome ArtBase",
-   "tier": "ramp",
+   "tier": "indexed",
    "kind": "archive",
    "home": "https://artbase.rhizome.org",
    "ramp": "https://artbase.rhizome.org/w/index.php?search={q}",
-   "covers": "born-digital artworks since 1999; a Wikibase",
-   "proxyCandidate": true
+   "covers": "ArtBase works by title, artist, year or ArtBase ID",
+   "catalog": "/nmsearch/artbase.json"
   },
   {
    "id": "net-art-anthology",
@@ -201,12 +201,14 @@
   },
   {
    "id": "isea",
-   "name": "ISEA Symposium Archives",
-   "tier": "ramp",
+   "name": "ISEA Archives",
+   "tier": "live",
    "kind": "proceedings",
-   "home": "https://isea-archives.siggraph.org",
-   "ramp": "https://isea-archives.siggraph.org/?s={q}",
-   "covers": "every ISEA since 1988: papers, works, presenters"
+   "home": "https://isea-archives.org",
+   "ramp": "https://isea-archives.org/?s={q}",
+   "covers": "every ISEA since 1988: papers, works, presenters",
+   "api": "wordpress",
+   "endpoint": "https://isea-archives.org/wp-json/wp/v2/search"
   },
   {
    "id": "elmcip",
@@ -253,6 +255,16 @@
    "home": "https://ars.electronica.art/archive/",
    "ramp": "https://ars.electronica.art/archive/?s={q}",
    "covers": "Prix and festival since 1979"
+  },
+  {
+   "id": "ars-2024",
+   "name": "Ars Electronica Festival 2024",
+   "tier": "live",
+   "api": "wordpress",
+   "home": "https://ars.electronica.art/hope/en/",
+   "endpoint": "https://ars.electronica.art/hope/wp-json/wp/v2/search",
+   "ramp": "https://ars.electronica.art/hope/en/?s={q}",
+   "covers": "Works, artists and events in the 2024 festival program"
   },
   {
    "id": "transmediale",
@@ -370,5 +382,5 @@
   "Q19850998": "sound artist",
   "Q106208042": "net artist"
  },
- "built": "2026-11-07T02:14:22.833Z"
+ "built": "2026-11-23T05:34:46.928Z"
 }
