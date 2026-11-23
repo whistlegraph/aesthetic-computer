@@ -1,5 +1,10 @@
 #!/bin/sh
-# Play notes in the running Menu Band with one post (~50 ms).
-#   bin/play "60:1,62:1,64:1" [bpm=132] [program=78 whistle; 0 piano]
-# notes = midi:beats, comma-separated; r:1 is a rest.
-osascript -l JavaScript -e "ObjC.import('Foundation'); \$.NSDistributedNotificationCenter.defaultCenter.postNotificationNameObjectUserInfoDeliverImmediately('computer.aestheticcomputer.menuband.play', \$(), \$({notes:'$1', bpm:'${2:-132}', program:'${3:-78}'}), true)"
+# Play in the running Menu Band with one post (~50 ms).
+#   bin/play "60:1,62:1"                      one track (whistle, 132 bpm)
+#   bin/play notes=60:1 notes2=k:1,s:1 bpm=112 program=29
+# notes..notes4 = parallel tracks of midi:beats or drum:beats
+# (k s h ho c rd cr light the right-side drum octave; r = rest).
+# Other keys: bpm, program (GM, 0 piano), velocity, velocity2..4.
+case "$1" in *=*) ;; *) set -- "notes=$1" ${2:+bpm=$2} ${3:+program=$3};; esac
+j=; for a; do j="$j'${a%%=*}':'${a#*=}',"; done
+osascript -l JavaScript -e "ObjC.import('Foundation'); \$.NSDistributedNotificationCenter.defaultCenter.postNotificationNameObjectUserInfoDeliverImmediately('computer.aestheticcomputer.menuband.play', \$(), \$({$j}), true)"
