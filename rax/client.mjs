@@ -2591,7 +2591,7 @@ canvas.addEventListener('pointercancel', (e) => {
   if (held && !held.act) pressKey('keyup', held.code, held.key);
 });
 canvas.addEventListener('lostpointercapture', e => endScreenFinger(e.pointerId, null));
-function releaseInput() {
+function releaseInput({ keepKeys = false } = {}) {
   headsetTap = null;
   releaseXRContacts();
   for (const id of screenFingers.keys()) endScreenFinger(id, null);
@@ -2600,11 +2600,18 @@ function releaseInput() {
   sfx.motion();
   panels.release();
   yardQuiet();
+  if (keepKeys) return;
   keys.clear();
   firing = jumpQueued = fireQueued = false;
 }
+// 🖱️ The mouse taken again (a build asked for re-captures it) keeps the keys
+// already held: a walk begun on Enter goes on. Only letting go clears them.
+// The first moves after taking it can carry the cursor's whole jump to the
+// centre, so the view stays put for a moment instead of snapping round.
+let mouseTakenAt = -1e9;
 document.addEventListener('pointerlockchange', () => {
-  releaseInput();
+  releaseInput({ keepKeys: locked() });
+  if (locked()) mouseTakenAt = performance.now();
   if (!locked()) {
     unlockedAt = performance.now();
     // ⎋ Escape's first step, the mouse let go: a yellow border and a ding. (Not over the second step's, when leaving let it go.)
@@ -2620,6 +2627,7 @@ document.addEventListener('mousemove', (e) => {
     return;
   }
   if (prompt.open) return;
+  if (performance.now() - mouseTakenAt < 120 || Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
   yaw = (yaw - e.movementX * 0.12 + 360) % 360;
   pitch = clamp(pitch - e.movementY * 0.12, -85, 85);
 });
