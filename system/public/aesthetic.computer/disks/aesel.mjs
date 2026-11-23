@@ -114,6 +114,48 @@ async function readBraincells(api, state) {
   } catch {}
 }
 
+// The thread outlives the piece: leaving Aesel and coming back (or reloading)
+// picks up the same conversation, transcript and file. Kept in this browser
+// (store, local:db) until "new" starts another.
+const THREAD = "aesel:thread";
+// The conversation up to its last finished reply: a turn left mid-way ends on
+// an unanswered message or a tool call with no result, which the next
+// request would be refused for.
+function settled(messages) {
+  const kept = [...messages];
+  for (;;) {
+    const last = kept[kept.length - 1];
+    if (!last) return kept;
+    const calls = Array.isArray(last.content) && last.content.some((block) => block?.type === "tool_use");
+    if (last.role === "user" || calls) kept.pop();
+    else return kept;
+  }
+}
+function saveThread(s) {
+  if (!s.store) return;
+  s.store[THREAD] = { name: s.name, source: s.source, lines: s.lines, messages: settled(s.bridge.messages), sessionId: s.bridge.sessionId };
+  s.store.persist(THREAD, "local:db");
+}
+function restoreThread(s, saved) {
+  if (!saved || !Array.isArray(saved.messages) || !Array.isArray(saved.lines)) return;
+  s.name = saved.name || s.name;
+  s.bridge.file = s.name;
+  s.source = saved.source || "";
+  s.lines = saved.lines.filter((line) => line && typeof line.text === "string");
+  s.bridge.launch(saved.sessionId || "");
+  s.bridge.messages = saved.messages;
+}
+function newThread(s) {
+  s.name = randomSlug() + ".mjs";
+  s.bridge.file = s.name;
+  s.source = "";
+  s.lines = [];
+  s.offset = 0;
+  s.status = "";
+  s.bridge.launch();
+  if (s.store) { delete s.store[THREAD]; s.store.delete(THREAD, "local:db"); }
+}
+
 function boot(api) {
   const name = randomSlug() + ".mjs";
   const state = desk = { source: "", name, lines: [], busy: false, turn: 0, status: "", offset: 0, version: "", braincells: null,
@@ -137,6 +179,11 @@ function boot(api) {
   state.status = api.user?.sub ? "" : "Sign in with AC to start a thread.";
   readVersion(state);
   readBraincells(api, state);
+  state.store = api.store;
+  if (api.store?.[THREAD]) restoreThread(state, api.store[THREAD]);
+  else api.store?.retrieve(THREAD, "local:db").then((saved) => {
+    if (desk === state && !state.lines.length && !state.busy) restoreThread(state, saved);
+  });
 }
 
 async function submit(api, state, line) {
@@ -176,6 +223,7 @@ function sim(api) {
       s.bridge.token = "";
       s.status = e.error || (e.status === "interrupted" ? "Stopped." : "");
       readBraincells(api, s);
+      saveThread(s);
     }
   }
 }
@@ -212,6 +260,7 @@ function statusWords(api, s) {
   words.push([" · aesthetic · ", PALETTE.muted], [s.model || "", PALETTE.muted]);
   if (s.busy) words.push(["  ", PALETTE.muted], ["stop", PALETTE.highlight, "stop"]);
   if (s.source) words.push(["  ", PALETTE.muted], ["save .mjs", PALETTE.highlight, "save"]);
+  if (s.lines.length && !s.busy) words.push(["  ", PALETTE.muted], ["new", PALETTE.soft, "new"]);
   if (s.overflow) words.push(["  ", PALETTE.muted], ["older", PALETTE.soft, "older"], [" ", PALETTE.muted], ["newer", PALETTE.soft, "newer"]);
   return words;
 }
@@ -402,6 +451,7 @@ function act(api) {
     if (hit?.action === "login") api.jump("prompt~login~!autorun");
     if (hit?.action === "stop") { s.turn++; s.bridge.interrupt(); s.bridge.token = ""; s.busy = false; s.status = "Stopped."; }
     if (hit?.action === "save") api.download(s.name, s.source, { type: "text/javascript" });
+    if (hit?.action === "new") newThread(s);
     if (hit?.action === "older") s.offset += 5;
     if (hit?.action === "newer") s.offset = Math.max(0, s.offset - 5);
     return;
@@ -412,7 +462,11 @@ function act(api) {
 }
 
 function leave() {
-  if (desk) { desk.bridge.interrupt(); desk.bridge.token = ""; desk = null; }
+  if (!desk) return;
+  desk.bridge.interrupt();
+  desk.bridge.token = "";
+  saveThread(desk);
+  desk = null;
 }
 function meta() { return { title: "Aesel TUI", desc: "Make a piece with Aesel in the AC prompt." }; }
 export { boot, sim, paint, act, leave, meta };
