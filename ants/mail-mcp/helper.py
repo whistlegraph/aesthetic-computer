@@ -4,7 +4,8 @@ the mail (jasellite): the draft store, the preview render, the send, and the
 Gmail IMAP verbs mu and mbsync have no word for.
 
   helper.py draft-store            JSON bundle on stdin -> files, preview PNG, Gmail draft
-  helper.py draft-send <id>        send the stored bytes, exactly once
+  helper.py draft-send <id>        send the stored bytes, exactly once, and file them in Sent
+  helper.py draft-file-sent <id>   put a sent draft's bytes in Sent Mail if Gmail has none
   helper.py draft-list             pending drafts, one JSON object per line
   helper.py draft-show <id>        one draft's record and plain text
   helper.py draft-discard <id>
@@ -17,6 +18,7 @@ import base64, email, glob, hashlib, html, imaplib, json, os, re, shutil, subpro
 
 DRAFTS = os.environ.get("AC_MAIL_DRAFTS") or os.path.expanduser("~/.mail-drafts")
 GMAIL_DRAFTS = '"[Gmail]/Drafts"'
+GMAIL_SENT = '"[Gmail]/Sent Mail"'
 
 
 def imap(account, mailbox):
@@ -146,16 +148,60 @@ def draft_send(draft_id):
     # response can never send it twice.
     meta["status"] = "sending"
     save(meta)
+    # Take the Gmail draft down *before* sending. Gmail folds the SMTP copy
+    # into the draft that shares its Message-ID, so deleting the draft after
+    # the send deleted the only copy and nothing reached Sent (Nov 15–22).
+    drop_gmail_draft(meta)
     p = subprocess.run(["msmtp", "-a", meta["account"], "-t"], input=raw, capture_output=True, timeout=600)
     if p.returncode != 0:
         meta["status"] = "pending"
+        if meta.get("gmailDraft"):
+            try:
+                M = imap(meta["account"], GMAIL_DRAFTS)
+                M.append(GMAIL_DRAFTS, r"(\Draft)", None, raw)
+                M.logout()
+            except Exception:
+                meta["gmailDraft"] = False
         save(meta)
         raise SystemExit(f"msmtp exited {p.returncode}: {p.stderr.decode(errors='replace').strip()}")
     meta["status"] = "sent"
     meta["sentAt"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     save(meta)
-    drop_gmail_draft(meta)
+    meta["sentFiled"] = file_sent(meta, raw)
+    save(meta)
     print(json.dumps({"meta": meta, "text": open(path(draft_id, "txt")).read()}))
+
+
+def file_sent(meta, raw, wait=6):
+    """Make sure a copy is in [Gmail]/Sent Mail. Gmail usually files SMTP mail
+    itself; look for it by Message-ID first so it is never there twice."""
+    mid = meta["messageId"].strip("<>")
+    try:
+        for attempt in range(wait // 2 + 1):
+            M = imap(meta["account"], GMAIL_SENT)
+            _, data = M.search(None, "HEADER", "Message-ID", f"<{mid}>")
+            if data[0].split():
+                M.logout()
+                return "gmail"
+            if attempt < wait // 2:
+                M.logout()
+                time.sleep(2)
+        M.append(GMAIL_SENT, r"(\Seen)", None, raw)
+        M.logout()
+        return "appended"
+    except Exception as e:
+        return f"failed: {e}"
+
+
+def draft_file_sent(draft_id):
+    """Put an already-sent draft's exact bytes into Sent Mail (repair)."""
+    meta = load(draft_id)
+    if meta["status"] != "sent":
+        raise SystemExit(f"{draft_id} is {meta['status']}; only sent drafts are filed")
+    raw = open(path(draft_id, "eml"), "rb").read()
+    meta["sentFiled"] = file_sent(meta, raw, wait=0)
+    save(meta)
+    print(json.dumps({"id": draft_id, "account": meta["account"], "sentFiled": meta["sentFiled"]}))
 
 
 def draft_list():
@@ -205,6 +251,7 @@ if __name__ == "__main__":
     cmd, args = (sys.argv[1] if len(sys.argv) > 1 else ""), sys.argv[2:]
     if cmd == "draft-store": draft_store()
     elif cmd == "draft-send": draft_send(args[0])
+    elif cmd == "draft-file-sent": draft_file_sent(args[0])
     elif cmd == "draft-list": draft_list()
     elif cmd == "draft-show": draft_show(args[0])
     elif cmd == "draft-discard": draft_discard(args[0])
