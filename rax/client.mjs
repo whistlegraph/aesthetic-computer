@@ -1372,6 +1372,17 @@ const builds = createBuilds({
   kept: { read: () => { try { return sessionStorage.getItem('rax-asked'); } catch { return null; } }, write: (text) => { try { sessionStorage.setItem('rax-asked', text); } catch {} } },
 });
 const mineJob = (j) => !!owner && (j.asker || j.owner) === owner;
+// 🧩 The view keeps each object's model under its geometry (view.mjs), so an
+// object the room sends again at the same version keeps the geometry it
+// already had: a build starting or ending re-made every model in the room,
+// a stop for each, where only the new one needs making.
+function keepShapes(before, after) {
+  const had = new Map(before.map((o) => [o.id, o]));
+  return after.map((o) => {
+    const old = had.get(o.id);
+    return old && old.version === o.version && old.geometry && o.geometry ? { ...o, geometry: old.geometry } : o;
+  });
+}
 function heardJobs(list) {
   diagnostics.jobs(list.map((j) => j.id));
   for (const job of list) sfx.buildProgress(job.id, job.preview?.boxes?.length || 0);
@@ -1952,7 +1963,7 @@ function connect(adopt = null) {
     // 🧵 A build's progress alone (builders.broadcastJobs): the line of jobs, no room.
     if (data.type === 'jobs' && heardRoom === room) heardJobs(data.jobs);
     if (data.type === 'objects') {
-      objects = data.objects;
+      objects = keepShapes(objects, data.objects);
       builder = data.builder;
       builderNames = Array.isArray(data.builders) ? data.builders : [];
       if (Array.isArray(data.history)) codeHistory = data.history;
