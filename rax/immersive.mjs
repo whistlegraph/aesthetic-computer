@@ -196,9 +196,15 @@ export function immersive({ frame, getYaw, transition, release }) {
   async function enter(mode) {
     if (busy || session || !open || !modes.includes(mode)) return;
     busy = true; message = '';
+    const mixed = mode === 'immersive-ar';
+    const boundaryHint = 'Set Roomscale in Quest. Retry MR.';
     let next, started = false;
+    let requestingSpace = true;
     try {
-      next = await xr.requestSession(mode, { optionalFeatures: ['hand-tracking'] });
+      next = await xr.requestSession(mode, {
+        requiredFeatures: mixed ? ['bounded-floor'] : [],
+        optionalFeatures: ['hand-tracking'],
+      });
       session = next;
       next.addEventListener('end', () => {
         if (session !== next) return;
@@ -208,6 +214,8 @@ export function immersive({ frame, getYaw, transition, release }) {
           desktopFrame = window.requestAnimationFrame(desktop);
         }
       }, { once: true });
+      const space = await next.requestReferenceSpace(mixed ? 'bounded-floor' : 'local');
+      requestingSpace = false;
       if (!draw || gl.isContextLost()) {
         draw = null;
         gl = document.createElement('canvas').getContext('webgl2', { xrCompatible: true, antialias: false });
@@ -215,23 +223,39 @@ export function immersive({ frame, getYaw, transition, release }) {
         await gl.makeXRCompatible();
         draw = stereoRenderer(gl);
       }
-      const space = await next.requestReferenceSpace('local');
       if (session !== next || !open) { await next.end(); return; }
       const layer = new XRWebGLLayer(next, gl, { alpha: true, antialias: false, framebufferScaleFactor: 0.8, ignoreDepthValues: true });
       if (typeof layer.fixedFoveation === 'number') layer.fixedFoveation = Math.max(0.5, layer.fixedFoveation);
       next.updateRenderState({ baseLayer: layer, depthNear: 0.05, depthFar: 150000 });
-      const mixed = mode === 'immersive-ar';
       if (mixed && next.environmentBlendMode === 'opaque') throw new Error('Room blending unavailable');
       let rig = new Headset();
+      let missingSince = null;
       const reset = () => { rig = new Headset(); release(); };
       space.addEventListener('reset', reset);
       next.addEventListener('visibilitychange', () => { if (next.visibilityState !== 'visible') release(); });
       function tick(now, xrFrame) {
         if (session !== next) return;
+        const visible = next.visibilityState === 'visible';
+        // Bounds can arrive after session entry or disappear during room setup.
+        // Let the compositor show the room while it resolves the play area.
+        if (mixed && space.boundsGeometry.length < 3) {
+          if (missingSince === null) release();
+          missingSince = visible ? missingSince ?? now : null;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+          if (visible && now - missingSince >= 4000) {
+            message = boundaryHint;
+            void next.end();
+            return;
+          }
+          next.requestAnimationFrame(tick);
+          return;
+        }
+        missingSince = null;
         next.requestAnimationFrame(tick);
         const pose = xrFrame.getViewerPose(space);
         if (!pose) { release(); return; }
-        const visible = next.visibilityState === 'visible';
         const input = rig.update(pose, visible ? next.inputSources : [], getYaw(), xrFrame, space, visible ? navigator.getGamepads?.() : []);
         frame(now, { ...input, mixed, pose, layer, draw });
       }
@@ -241,7 +265,11 @@ export function immersive({ frame, getYaw, transition, release }) {
       next.requestAnimationFrame(tick);
     } catch (e) {
       if (next && session === next) await next.end().catch(() => {});
-      if (open) message = e.name === 'NotAllowedError' ? 'Permission declined. Try again.' : 'Headset mode unavailable. Try again.';
+      if (open) {
+        if (e.name === 'NotAllowedError') message = 'Permission declined. Try again.';
+        else if (mixed && requestingSpace && e.name === 'NotSupportedError') message = boundaryHint;
+        else message = 'Headset mode unavailable. Try again.';
+      }
       console.warn('Rax VR', e);
     } finally { busy = false; }
   }

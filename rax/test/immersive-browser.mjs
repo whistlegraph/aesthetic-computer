@@ -37,12 +37,19 @@ try {
     xr.isSessionSupported = async () => true;
     xr.requestSession = async (mode, options) => {
       window.testFeatures = options.optionalFeatures;
+      window.testRequired = options.requiredFeatures;
+      if (window.noBoundary && options.requiredFeatures.includes('bounded-floor')) {
+        throw new DOMException('No bounded tracking', 'NotSupportedError');
+      }
       if (!declined) { declined = true; throw new DOMException('Denied', 'NotAllowedError'); }
       const session = new EventTarget();
       session.visibilityState = 'visible';
       session.environmentBlendMode = mode === 'immersive-ar' ? 'alpha-blend' : 'opaque';
       session.inputSources = [{ handedness: 'left', gamepad: { mapping: 'xr-standard', axes: [0,0,0,-0.7] } }];
-      session.requestReferenceSpace = async () => new EventTarget();
+      session.requestReferenceSpace = async type => {
+        window.testSpaceType = type;
+        return window.testSpace = Object.assign(new EventTarget(), {boundsGeometry: []});
+      };
       session.updateRenderState = ({baseLayer}) => { window.testFoveation = baseLayer.fixedFoveation; };
       const views = [-0.032, 0.032].map(x => ({
         eye: x < 0 ? 'left' : 'right', transform: transform(x),
@@ -50,7 +57,10 @@ try {
       }));
       let token;
       session.requestAnimationFrame = cb => { token = requestAnimationFrame(now => {
-        cb(now, { getViewerPose: () => ({ transform: transform(0), views }),
+        cb(now, { getViewerPose: space => {
+          if (space !== window.testSpace) throw Error('Viewer tracked in the wrong space');
+          return { transform: transform(0), views };
+        },
           getJointPose: joint => ({transform:{position: joint}, radius: 0.01}),
           getPose: space => ({transform:{position: space, matrix: matrix(0)}}) });
         const { gl, data } = window.xrTarget;
@@ -113,6 +123,7 @@ try {
   assert.equal(stereo.error, 0);
   assert.equal(await child.evaluate(() => testFoveation), 0.5);
   assert.deepEqual(stereo.alpha, [255]);
+  assert.equal(await child.evaluate(() => testSpaceType), 'local');
   await child.waitForFunction(start => {
     const p = raxDebug().player;
     return Math.hypot(p.x-start.x, p.z-start.z)>0.15;
@@ -131,8 +142,16 @@ try {
   body.life++;
   await child.waitForFunction(k => Math.abs(raxDebug().player.x-k.x)<0.05, k);
   await child.evaluate(() => raxLook({yaw:0,pitch:0}));
+  await child.evaluate(() => { window.noBoundary = true; });
   await clickMode('immersive-ar');
+  await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetMessage.includes('Roomscale'));
+  assert.deepEqual(await child.evaluate(() => testRequired), ['bounded-floor']);
+  await child.evaluate(() => { window.noBoundary = false; });
+  await clickMode('immersive-ar');
+  await child.waitForFunction(() => stereo.alpha.length === 1 && stereo.alpha[0] === 0);
+  assert.equal(await child.evaluate(() => testSpaceType), 'bounded-floor');
   await child.evaluate(() => {
+    testSpace.boundsGeometry = [[-1,-1], [-1,1], [1,1], [1,-1]].map(([x,z]) => ({ x, y:0, z }));
     const tip = window.tip = {x:0, y:-0.25, z:-0.65};
     testSession.inputSources = [{handedness:'right', hand:new Map([['index-finger-tip',tip]])}];
   });
@@ -148,10 +167,11 @@ try {
       gamepad:{mapping:'xr-standard',axes:[0,0,0,0],buttons:[{pressed:true}]}}];
   });
   await waitForPress('touch',2);
-  await child.evaluate(() => testSession.end());
+  await child.evaluate(() => { testSpace.boundsGeometry = []; });
   await waitForPress('lift',2);
+  await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetMessage.includes('Roomscale'));
   await sheet({ phase: 'closing' });
   await child.waitForFunction(() => document.querySelector('#game').raxStats.headsetRects.length === 0);
   assert.deepEqual(errors, []);
-  console.log('Canvas entry, stereo VR, stick and pinch movement, mixed-reality alpha, fingertip drag, controller press and release passed.', stereo);
+  console.log('Canvas entry, stereo VR, stick and pinch movement, room boundary setup, loss and retry, mixed-reality alpha, fingertip drag, controller press and release passed.', stereo);
 } finally { await browser.close(); await app.close(); }
