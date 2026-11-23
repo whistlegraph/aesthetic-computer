@@ -126,7 +126,7 @@ export function visitMediaAction(extension, result) {
   return null;
 }
 export const ACTIVE_BUCKETS = Object.freeze([0, 10, 30, 60, 180, 600]);
-export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "support", "other"]);
+export const SURFACES = Object.freeze(["home", "play", "gallery", "read", "support", "other", "room"]);
 export const INPUTS = Object.freeze(["pointer", "touch", "keyboard", "scroll", "gamepad"]);
 export const RETENTION_DAYS = 35;
 export const VISIT_COLLECTION = "network-visits";
@@ -160,7 +160,10 @@ export function visitProperty(hostname) {
     name === host || aliases.includes(host))?.[0] || null;
 }
 
-export function visitSurface(pathname = "/") {
+const roomHost = hostname => hostname === "whistlegraph.org" || hostname === "www.whistlegraph.org";
+
+export function visitSurface(pathname = "/", hostname) {
+  if (roomHost(hostname) && (pathname === "/" || pathname === "/chat.html")) return "room";
   let path;
   try { path = decodeURIComponent(pathname).toLowerCase(); } catch { return null; }
   // Private tools, chats, account/payment forms and explicit opt-out pages.
@@ -188,7 +191,7 @@ export function validateVisit(body, origin, userAgent = "") {
   if (!property || url.protocol !== "https:" || url.port ||
       !body || body.version !== 1 ||
       !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(body.id || "") ||
-      !SURFACES.includes(body.surface) || !ACTIVE_BUCKETS.includes(body.activeSeconds) ||
+      !SURFACES.includes(body.surface) || (body.surface === "room" && !roomHost(url.hostname)) || !ACTIVE_BUCKETS.includes(body.activeSeconds) ||
       typeof body.interacted !== "boolean" || typeof body.automated !== "boolean" ||
       (body.aeselVersion !== undefined && (body.aeselVersion !== 1 || property !== "aesel.app" ||
         ![...Object.values(AESEL_ROUTES), "other"].includes(body.route) ||

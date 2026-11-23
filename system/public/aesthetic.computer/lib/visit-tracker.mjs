@@ -1,4 +1,4 @@
-import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, visitMediaStart, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261116-media-kind";
+import { ACTIVE_BUCKETS, VISIT_ACTIONS, automatedVisit, visitProperty, visitSurface, visitReferrer, visitLinkAction, visitMediaStart, aeselVisitContext, notepatVisitContext } from "./visit-model.mjs?v=20261122-room";
 
 const ENDPOINT = "https://aesthetic.computer/api/visit-track";
 
@@ -23,8 +23,8 @@ export function startVisitTracker(win = window, doc = document) {
   const visible = () => doc.visibilityState === "visible";
   const reset = () => {
     path = win.location.pathname;
-    const surface = visitSurface(path);
-    const linkMeasured = ["whistlegraph.org", "whistlegraph.app", "nopaint.art"].includes(visitProperty(win.location.hostname)) &&
+    const surface = visitSurface(path, win.location.hostname);
+    const linkMeasured = surface !== "room" && ["whistlegraph.org", "whistlegraph.app", "nopaint.art"].includes(visitProperty(win.location.hostname)) &&
       [...doc.querySelectorAll("a[href]")].some(link => visitLinkAction(win.location.hostname, link.href));
     state = surface === null ? null : {
       version: 1, ...(linkMeasured ? { linkVersion: 1 } : {}), id: win.crypto.randomUUID(), surface,
@@ -44,7 +44,7 @@ export function startVisitTracker(win = window, doc = document) {
     path = win.location.pathname;
     // Room/round URLs can change automatically. They are one page visit,
     // not new arrivals. Only crossing a private boundary resets measurement.
-    const allowed = visitSurface(path) !== null;
+    const allowed = visitSurface(path, win.location.hostname) !== null;
     if (allowed !== Boolean(state)) reset();
   };
   const send = () => {

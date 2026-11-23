@@ -93,6 +93,21 @@ test("property identity comes from a reviewed HTTPS origin, not submitted data",
   assert.equal(validateVisit(value, "https://shop.aesthetic.computer").property, "shop.aesthetic.computer");
 });
 
+test("the public Whistlegraph room has a distinct surface on its own hosts", () => {
+  for (const host of ["whistlegraph.org", "www.whistlegraph.org"]) {
+    assert.equal(visitSurface("/", host), "room");
+    assert.equal(visitSurface("/chat.html", host), "room");
+    assert.notEqual(visitSurface("/index", host), "room");
+    assert.equal(visitSurface("/desk", host), null);
+    assert.equal(validateVisit({ ...snapshot(), surface: "room" }, "https://" + host).surface, "room");
+  }
+  for (const host of ["tv.whistlegraph.org", "aesthetic.computer"]) {
+    assert.equal(visitSurface("/", host), "home");
+    assert.equal(visitSurface("/chat.html", host), null);
+    assert.equal(validateVisit({ ...snapshot(), surface: "room" }, "https://" + host), null);
+  }
+});
+
 test("private routes are excluded and arbitrary URLs never enter stored data", () => {
   for (const path of ["/mail", "/admin.html", "/chat~private", "/wallet/index.html", "/%61dmin", "/account/reset"])
     assert.equal(visitSurface(path), null, path);

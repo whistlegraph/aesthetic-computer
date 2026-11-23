@@ -95,6 +95,7 @@ button:focus-visible,select:focus-visible{outline-offset:1px}
 .message+.work-card{margin-top:.35rem}
 :focus-visible{outline:3px solid #275ed4;outline-offset:2px}
 </style>
+<script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261122-room" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <main>
@@ -109,23 +110,23 @@ button:focus-visible,select:focus-visible{outline-offset:1px}
 </header>
 <section id="timeline" aria-label="Group messages" tabindex="0">
 <p id="empty">Loading messages…</p>
-<ol id="messages" aria-live="polite" aria-relevant="additions"></ol>
+<ol id="messages" data-ac-no-track aria-live="polite" aria-relevant="additions"></ol>
 </section>
 <footer>
 <div class="tools"><nav aria-label="Whistlegraph"><a href="/" aria-current="page">Chat</a><a href="/index">Index</a></nav><span id="identity"></span><button type="button" id="logout" hidden>Sign out</button><a href="https://aesthetic.computer/whistlegraph-recorder" target="_blank" rel="noopener">Recorder ↗</a><button class="settings" type="button" id="open-settings">Settings</button></div>
-<div id="draft-media"></div>
-<form id="compose" class="row"><textarea id="draft" aria-label="Message" placeholder="Say something…" rows="2" maxlength="1400" required></textarea><button id="send" type="submit">Send</button></form>
+<div id="draft-media" data-ac-no-track></div>
+<form id="compose" data-ac-no-track class="row"><textarea id="draft" aria-label="Message" placeholder="Say something…" rows="2" maxlength="1400" required></textarea><button id="send" type="submit">Send</button></form>
 <p id="notice" role="status"></p>
 </footer>
 </main>
-<dialog id="settings" aria-labelledby="settings-title">
+<dialog id="settings" data-ac-no-track aria-labelledby="settings-title">
 <header><h2 id="settings-title">Settings</h2><form method="dialog"><button aria-label="Close settings">×</button></form></header>
 <div class="pref"><label for="appearance">Appearance</label><select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
 <div class="pref"><span>Web notifications</span><button id="web-alerts" aria-label="Web notifications" aria-pressed="false" disabled>Off</button></div>
 <div class="pref"><span>AC app notifications</span><button id="app-alerts" aria-label="AC app notifications" aria-pressed="false" disabled>Off</button></div>
 <p id="settings-status" role="status"></p>
 </dialog>
-<dialog id="handle-dialog" aria-labelledby="claim-title">
+<dialog id="handle-dialog" data-ac-no-track aria-labelledby="claim-title">
 <form id="claim"><h2 id="claim-title">Choose your AC handle</h2><label for="handle">Your messages will appear under this name.</label><input id="handle" placeholder="@handle" autocomplete="nickname" maxlength="17" required>
 <div class="row"><button type="submit">Claim handle</button><button type="button" id="cancel">Cancel</button></div><p id="claim-error" role="status"></p></form>
 </dialog>
