@@ -1533,8 +1533,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // The mime sheet counts its own frames here while the loop sleeps under it.
   window.acMeterPaint = () => {
+    drewAt = performance.now();
     if (frameMeter.on) frameMeter.paints += 1;
   };
+
+  // 🫀 Stuck: a page in view, with focus, where nothing has drawn for 15 s —
+  // no frame back from the worker and none from a sheet over it. The Mac
+  // app's heartbeat after boot (boot.mjs) is held while this is true, and the
+  // app brings the page back (ContentView.swift, the live watch). Seen when
+  // a hidden rax opened over notepat and paused its loop (2026-11-22).
+  let drewAt = performance.now();
+  window.acStuck = () => !document.hidden && document.hasFocus() && performance.now() - drewAt > 15000;
 
   // 📊 FPS HUD (2026-11-08): one on/off shared by every AC surface, each of
   // which draws its own readout in its own pixels — the worker in the piece's
@@ -1613,6 +1622,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   try { if (localStorage.getItem("ac:fps-hud") === "1") setFpsHud(true); } catch {}
 
   function meterFrameReturned(painted) {
+    drewAt = performance.now();
     if (!frameMeter.on || !frameMeter.sentAt) return;
     const ms = performance.now() - frameMeter.sentAt;
     frameMeter.sentAt = 0;

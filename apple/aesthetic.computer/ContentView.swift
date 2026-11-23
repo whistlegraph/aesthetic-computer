@@ -2,6 +2,9 @@ import SwiftUI
 import WebKit
 import Network
 import Combine
+#if os(macOS)
+import AppKit
+#endif
 
 let grey: CGFloat = 32/255
 
@@ -58,6 +61,54 @@ final class BootStatus: ObservableObject {
 
     private let stallTimeout: TimeInterval = 25
     private let pollInterval: TimeInterval = 5
+
+    // 🫀 The live watch: after boot, a page that keeps pulsing (AC's runtime
+    // says `boot:heartbeat` every 8 s, and holds it while nothing in view is
+    // drawing: bios `acStuck`) is brought back when the pulse stops for
+    // `liveTimeout`. It starts at the first pulse after `boot:ready`, so a
+    // page that never pulses after boot (rax standing alone) is not watched,
+    // and it only judges while the app is in front and the window can be
+    // seen, since a page behind other windows may be throttled to silence.
+    // A notepat frozen under a hidden rax (2026-11-22) stayed frozen.
+    private let liveTimeout: TimeInterval = 30
+    private var liveWatch: Timer? = nil
+    /// The app is in front (ContentView's scene phase). Back in front, the
+    /// silence while away is forgiven.
+    var appActive = true {
+        didSet { if appActive && !oldValue { lastHeartbeatAt = Date() } }
+    }
+
+    private func startLiveWatch() {
+        stopLiveWatch()
+        lastHeartbeatAt = Date()
+        let timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
+            guard let self, self.isReady, self.appActive, Self.windowSeen() else {
+                self?.lastHeartbeatAt = Date() // Silence while unseen does not count.
+                return
+            }
+            if Date().timeIntervalSince(self.lastHeartbeatAt) > self.liveTimeout {
+                self.stopLiveWatch()
+                DispatchQueue.main.async { if !self.stalled { self.stalled = true } }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        liveWatch = timer
+    }
+
+    private func stopLiveWatch() {
+        liveWatch?.invalidate()
+        liveWatch = nil
+    }
+
+    /// The app's front window is on screen and not covered.
+    private static func windowSeen() -> Bool {
+        #if os(macOS)
+        guard NSApp.isActive, let window = NSApp.keyWindow ?? NSApp.mainWindow else { return false }
+        return window.occlusionState.contains(.visible)
+        #else
+        return true
+        #endif
+    }
 
     /// Why the page is being brought back, for the recovery line. Nil on a
     /// normal launch and on a reload somebody asked for.
@@ -162,6 +213,7 @@ final class BootStatus: ObservableObject {
 
     func startWatchdog() {
         stopWatchdog()
+        stopLiveWatch() // A new load: it is watched from its boot again.
         lastHeartbeatAt = Date()
         isReady = false
         watchdogActive = true
@@ -193,6 +245,8 @@ final class BootStatus: ObservableObject {
         if ready {
             isReady = true
             stopWatchdog()
+        } else if isReady && liveWatch == nil {
+            startLiveWatch() // A pulse after boot: this page keeps pulsing.
         }
         DispatchQueue.main.async {
             if self.stalled { self.stalled = false }
@@ -208,6 +262,7 @@ final class BootStatus: ObservableObject {
 
     func requestReload() {
         stopWatchdog()
+        stopLiveWatch()
         DispatchQueue.main.async {
             self.stalled = false
             self.lastError = nil
@@ -830,9 +885,11 @@ struct ContentView: View {
     private func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .background:
+            bootStatus.appActive = false
             LaunchPing.inactive(scene: usageScene, background: true)
             lastBackgroundedAt = Date()
         case .active:
+            bootStatus.appActive = true
             LaunchPing.active(scene: usageScene)
             // After a long sleep the WebView often holds a stale runtime
             // (sockets timed out, modules half-loaded). A fresh load is
@@ -845,6 +902,7 @@ struct ContentView: View {
             }
             lastBackgroundedAt = nil
         case .inactive:
+            bootStatus.appActive = false
             LaunchPing.inactive(scene: usageScene, background: false)
         @unknown default:
             break

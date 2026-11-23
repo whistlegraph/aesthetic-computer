@@ -547,8 +547,11 @@ window.acBOOT_LOG = bootLog;
     send("boot:ready");
     clearInterval(beat);
     // After ready, fall back to a slow pulse so a deadlocked piece is
-    // still recoverable from the host (every 8s; cheap).
-    setInterval(() => send("boot:heartbeat"), 8000);
+    // still recoverable from the host (every 8s; cheap). It is held while the
+    // page is stuck (bios `acStuck`: in view and nothing drawing), so the
+    // host's live watch brings it back. Only the top page says it: a frame
+    // inside it (the parked mime reel sleeps on purpose) would speak for it.
+    if (window === window.top) setInterval(() => { if (!window.acStuck?.()) send("boot:heartbeat"); }, 8000);
   };
   window.acNativeBootReady = ready; // hideBootLog calls it the moment boot ends.
   const beat = setInterval(() => {

@@ -243,6 +243,7 @@ function show(room) {
     else asked = room;
   }
   if (state === "open" || toward === "open") return;
+  if (away) return; // Another piece has the stage: the world is not there to drop into.
   rest(false); // Dropping in wakes the world.
   if (!said) {
     // Nothing to drop onto yet: wait for the guest, then let it go. A room
@@ -347,14 +348,17 @@ addEventListener("keydown", (e) => {
 });
 
 // 🎮 A pad's START is Tab: it lifts the paper off the room and lays it back.
-// Heard here, on the prompt's page, so it works from either side.
+// Heard here, on the prompt's page, so it works from either side. Only while
+// the prompt has the stage: under notepat the world is offstage, and START
+// used to open it unseen and pause the loop notepat runs on (a frozen piece
+// at /rax/, 2026-11-22). There START goes home (lib/pad-cursor.mjs).
 let startWas = false;
 setInterval(() => {
   let down = false;
   try { for (const pad of navigator.getGamepads?.() || []) if (pad?.connected && pad.buttons[9]?.pressed) down = true; } catch {}
   if (down && !startWas && document.hasFocus()) {
     if (state === "open") hide();
-    else if (state === "parked") show();
+    else if (state === "parked" && !away) show();
   }
   startWas = down;
 }, 50);
