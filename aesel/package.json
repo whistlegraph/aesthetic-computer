@@ -1,6 +1,6 @@
 {
   "name": "aesel",
-  "version": "0.8.58",
+  "version": "0.8.59",
   "description": "Easily make and share new media with Aesel.",
   "private": true,
   "type": "module",

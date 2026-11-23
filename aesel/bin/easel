@@ -39,6 +39,9 @@ cd "$launch_directory"
 # Prefer the runtime carried by the native Mac bundle.
 if [[ -x "$PROJECT_DIR/../../Helpers/node" ]]; then
     PATH="$PROJECT_DIR/../../Helpers:$PATH"
+# Then the Node the installer fetched when the system had none new enough.
+elif [[ -x "$PROJECT_DIR/../node/bin/node" ]]; then
+    PATH="$PROJECT_DIR/../node/bin:$PATH"
 fi
 
 # exec performs the PATH search itself. Capturing command -v in a subshell
