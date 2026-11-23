@@ -11,7 +11,7 @@
 :root{--ink:#25204a;--paper:#fffdf6;--rule:#d6ced7;--dim:#62597a;--pink:#a13073;--yellow:#fff3a0;color-scheme:light;font:16px/1.45 system-ui,sans-serif;color:var(--ink);background:var(--paper)}
 *{box-sizing:border-box}
 body{margin:0}
-main{max-width:48rem;margin:auto;height:100vh;height:100dvh;display:flex;flex-direction:column;padding:0 clamp(1rem,4vw,2.5rem)}
+main{max-width:48rem;margin:auto;height:100vh;height:min(100dvh,var(--room-height,100dvh));display:flex;flex-direction:column;padding:0 clamp(1rem,4vw,2.5rem)}
 header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1.15rem 0;border-bottom:2px solid var(--ink)}
 h1{margin:0;line-height:1}
 h1 img{display:block;width:clamp(8rem,35vw,16rem);height:auto}
@@ -19,6 +19,15 @@ nav{display:flex;gap:.65rem;align-items:center}
 a{color:var(--pink);text-underline-offset:.18em}
 nav a{padding:.35rem .6rem;color:var(--ink);font-weight:650}
 nav [aria-current]{background:var(--yellow);text-decoration:none}
+#ticker{border-bottom:1px solid var(--rule);padding:.4rem 0 .5rem;min-width:0}
+.ticker-head{display:flex;align-items:center;justify-content:space-between;gap:.65rem}
+#current-work{color:var(--ink);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#ticker-toggle{flex:none;min-width:44px;min-height:44px;padding:.3rem .5rem;font: .8rem ui-monospace,monospace;background:transparent;border:0}
+#code-strip{display:flex;gap:.45rem;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;padding:3px}
+.code-chip{-webkit-tap-highlight-color:transparent;display:inline-flex;gap:.42rem;align-items:center;justify-content:center;flex:none;min-height:44px;padding:.25rem .65rem .25rem .32rem;border:1px solid var(--rule);border-radius:6px;background:var(--paper);font:600 1rem ui-monospace,monospace}
+.code-chip[aria-pressed="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);background:var(--yellow)}
+.code-badge{display:grid;place-items:center;width:29px;height:29px;overflow:hidden;border:3px solid var(--graph-color);border-radius:50%;background:var(--graph-color);color:var(--paper);text-shadow:0 1px 2px var(--ink)}
+.code-badge img{grid-area:1/1;width:100%;height:100%;object-fit:cover;background:var(--paper)}
 #timeline{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 #messages{min-height:100%;display:flex;flex-direction:column;margin:0;padding:0;list-style:none}
 #messages li:first-child{margin-top:auto}
@@ -60,6 +69,10 @@ dialog input{width:100%;margin-bottom:1rem}
 <h1><img src="/whistlegraph-logo.png" width="1517" height="266" alt="Whistlegraph group chat"></h1>
 <nav aria-label="Whistlegraph"><a href="/" aria-current="page">Chat</a><a href="/index">Index</a></nav>
 </header>
+<section id="ticker" aria-label="Whistlegraph code ticker" hidden>
+<div class="ticker-head"><a id="current-work"></a><button type="button" id="ticker-toggle" aria-controls="code-strip">Pause</button></div>
+<div id="code-strip" role="toolbar" aria-label="Select a whistlegraph"></div>
+</section>
 <section id="timeline" aria-label="Group messages" tabindex="0">
 <p id="empty">Loading messages…</p>
 <ol id="messages" aria-live="polite" aria-relevant="additions"></ol>
@@ -75,5 +88,6 @@ dialog input{width:100%;margin-bottom:1rem}
 <div class="row"><button type="submit">Claim handle</button><button type="button" id="cancel">Cancel</button></div><p id="claim-error" role="status"></p></form>
 </dialog>
 <script defer src="https://aesthetic.computer/aesthetic.computer/dep/auth0-spa-js.production.js"></script>
+<script type="module" src="/code-ticker.mjs"></script>
 <script type="module" src="/room.mjs"></script>
 </body></html>

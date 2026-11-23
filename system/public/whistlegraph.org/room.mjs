@@ -6,6 +6,17 @@ let refreshing = false;
 let rendered = "";
 const clock = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+// Mobile Safari can shrink only the visual viewport when the keyboard opens.
+const viewport = window.visualViewport;
+if (viewport) {
+  const fitRoom = () => {
+    if (viewport.scale === 1) document.documentElement.style.setProperty("--room-height", viewport.height + "px");
+    else document.documentElement.style.removeProperty("--room-height");
+  };
+  viewport.addEventListener("resize", fitRoom);
+  fitRoom();
+}
+
 function saveDraft() {
   const text = $("draft").value;
   if (draftText !== text) requestId = crypto.randomUUID();
