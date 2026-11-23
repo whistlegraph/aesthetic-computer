@@ -275,7 +275,7 @@
         if (t.links?.spotify) links.append(el("a", { href: t.links.spotify, target: "_blank", rel: "noopener", text: "spotify" }));
         if (t.links?.apple) links.append(el("a", { href: t.links.apple, target: "_blank", rel: "noopener", text: "apple music" }));
         if (t.links?.youtube) links.append(el("a", { href: t.links.youtube, target: "_blank", rel: "noopener", text: "youtube" }));
-        if (t.audio) links.append(el("a", { href: t.audio, download: `${t.artist} - ${t.title}.mp3`, text: "mp3" }));
+        if (t.audio) links.append(el("a", { href: t.audio, download: `${t.artist} - ${t.title}.mp3`, text: "download mp3" }));
         if (t.releaseData) links.append(el("a", { href: t.releaseData.replace(/^\//, ""), text: "release data" }));
         fact("Listen", links);
         const details = el("div", { class: "details", id: `details-${t.slug}`, hidden: true }, el("div", { class: "abstract", text: t.credits || "" }), facts);
@@ -283,6 +283,21 @@
             el("td", { class: "track" }, el("div", { class: "line" }, thumb, title, marquee, when), details));
         return tr;
     }
+
+    // The mp3 links point at the CDN, where <a download> is ignored and the file just plays:
+    // fetch it (the CDN answers CORS) and save it under "Artist - Title.mp3".
+    document.addEventListener("click", (e) => {
+        const a = e.target.closest?.("a[download]");
+        if (!a || !/^https?:/.test(a.href) || new URL(a.href).origin === location.origin) return;
+        e.preventDefault();
+        const label = a.textContent;
+        a.textContent = "saving…";
+        fetch(a.href).then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); }).then((blob) => {
+            const href = URL.createObjectURL(blob), save = Object.assign(document.createElement("a"), { href, download: a.getAttribute("download") });
+            document.body.append(save); save.click(); save.remove();
+            setTimeout(() => URL.revokeObjectURL(href), 60000);
+        }).catch(() => window.open(a.href, "_blank")).finally(() => { a.textContent = label; });
+    });
 
     function render() {
         rows = tracks.map(row);

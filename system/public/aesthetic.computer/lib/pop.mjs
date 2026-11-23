@@ -56,6 +56,7 @@ let scrubSec = null; // where a drag on the bar is pointing, or null
 let screenSize = { width: 0, height: 0 };
 let paintedStamp = ""; // what the last painted frame showed
 let pollTick = 0;
+let dlBtn = null; // top-right "download" button: saves the track's mp3
 let netRef = null; // stashed $.net for on-demand illy loading
 let illyWanted = new Set(); // section indices with a fetch in flight
 
@@ -82,6 +83,7 @@ async function boot($, m) {
 
   hud.label(manifest.title);
   hud.labelBack();
+  dlBtn = new $.ui.TextButton("download", { right: 6, top: 6, screen: $.screen });
 
   // Per-section RGB tints for the progress bar's colour arc. Manifest may
   // carry an explicit `color: [r,g,b]` per section; otherwise derive from
@@ -268,6 +270,11 @@ function paint($) {
   paintWave($);
   paintProgress($);
   if (mode !== "playing" && mode !== "loading") paintPlayPrompt($);
+  if (dlBtn) {
+    dlBtn.reposition({ right: 6, top: 6, screen });
+    dlBtn.paint($, [[0, 0, 0, 150], [255, 240, 200, 120], [255, 240, 200], [0, 0, 0, 150]],
+      [[255, 240, 200, 200], [255, 240, 200], [20, 16, 24], [255, 240, 200, 200]]);
+  }
 
   paintedStamp = stampNow();
   return false; // cache this frame; sim/receive call needsPaint() when stale
@@ -281,6 +288,13 @@ function act($) {
     backdropKey = ""; // screen size changed — rebuild the scaled backdrop
     repaint?.();
     return;
+  }
+
+  // The download button sits top right, clear of the corner label; a touch on it
+  // never reaches play/pause.
+  if (dlBtn) {
+    dlBtn.act(e, { push: downloadTrack, down: () => repaint?.(), cancel: () => repaint?.() });
+    if ((e.is("touch") || e.is("draw") || e.is("lift")) && dlBtn.btn.box.contains(e)) return repaint?.();
   }
 
   if (e.is("keyboard:down:space")) return togglePlayback();
@@ -305,6 +319,14 @@ function act($) {
   }
 }
 
+// Save the track: "Artist - Title.mp3", fetched from the CDN by bios.
+function downloadTrack() {
+  const src = manifest.audio || "";
+  const url = src.startsWith("/assets/") ? `https://assets.aesthetic.computer/${src.slice(8)}` : src;
+  sendToBios?.({ type: "download-url", content: { url, filename: `${manifest.artist} - ${manifest.title}.mp3` } });
+  repaint?.();
+}
+
 // Move the playhead. A track that hasn't started yet starts from there.
 function seekTo(sec) {
   if (!sendToBios) return;
@@ -325,6 +347,7 @@ function seekTo(sec) {
 function leave() {
   if (streamId) sendToBios?.({ type: "stream:stop", content: { id: streamId } });
   manifest = null;
+  dlBtn = null;
   cover = null;
   illys = [];
   illyWanted = new Set();
@@ -470,7 +493,8 @@ function paintTitle($) {
   const { ink } = $;
   // As much of the credit line as the screen is wide.
   const parts = [manifest.artist, `${manifest.bpm} BPM`, manifest.key];
-  while (parts.length > 1 && parts.join(" · ").length * 6 > $.screen.width - 12) parts.pop();
+  const room = $.screen.width - 12 - (dlBtn ? dlBtn.width + 6 : 0);
+  while (parts.length > 1 && parts.join(" · ").length * 6 > room) parts.pop();
   const sub = parts.join(" · ");
   ink(0, 0, 0, 140).write(manifest.title, { x: 7, y: 7 });
   ink(255, 240, 200).write(manifest.title, { x: 6, y: 6 });

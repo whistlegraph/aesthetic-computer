@@ -16298,6 +16298,23 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // binary content types (application/octet-stream) without leaving
     // the current page.
     if (type === "download-url") {
+      // With a `filename`, save the file under that name instead: fetch it (the
+      // CDN answers CORS) and click a same-origin blob link. A cross-origin
+      // <a download> is ignored and an mp3 would just play in the new tab.
+      if (content.filename) {
+        fetch(content.url)
+          .then((r) => { if (!r.ok) throw new Error(r.status); return r.blob(); })
+          .then((blob) => {
+            const href = URL.createObjectURL(blob), a = document.createElement("a");
+            a.href = href;
+            a.download = content.filename.split(/[\\/]/).pop();
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { a.remove(); URL.revokeObjectURL(href); }, 60_000);
+          })
+          .catch(() => window.open(content.url, "_blank"));
+        return;
+      }
       window.open(content.url, "_blank");
       return;
     }
