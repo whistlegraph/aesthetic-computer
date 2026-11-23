@@ -26,7 +26,8 @@ try {
     Object.defineProperty(navigator, 'getGamepads', { value: () => [pad] });
     const events = [];
     for (const name of ['pointerdown', 'pointerup', 'click']) canvas.addEventListener(name, e => events.push(e.type));
-    padCursor({ canvas, piece: () => 'prompt' });
+    let name = 'prompt';
+    padCursor({ canvas, piece: () => name });
     const face = document.querySelector('#pad-cursor');
     const step = () => new Promise(requestAnimationFrame);
     const sample = async (axis) => {
@@ -67,6 +68,8 @@ try {
     await new Promise(r => setTimeout(r, 200)); // /docs.json loads.
     await step();
     const typed = [];
+    await tap(0, [0, -1, 0, 0]); typed.push(field.value); // Focused but not asked: A is the cursor's, nothing is written.
+    await tap(2, [0, 0, 0, 0]); // X asks for the rings.
     await tap(0, [0, -1, 0, 0]); typed.push(field.value); // The top word: "tape" (shortest first).
     await tap(0, [0, -1, 0, 0]); typed.push(field.value); // Then its flags.
     await tap(2, [0, 0, 0, -1]); typed.push(field.value); // The wheel's first petal, X's place.
@@ -86,6 +89,16 @@ try {
     await step();
     pad.buttons[8].pressed = true;
     await step();
+    // Another piece gets the cursor too, unless it reads the pad itself.
+    name = 'notepat';
+    const inPiece = await sample(0);
+    window.acPieceReadsPad = true;
+    name = 'fight';
+    pad.axes = [0.6, 0, 0, 0];
+    await step(); await step();
+    const padPieceHidden = !face.getClientRects().length;
+    window.acPieceReadsPad = false;
+    name = 'prompt';
     const toggles = [];
     window.acFpsHud = on => { toggles.push(on); localStorage.setItem('ac:fps-hud', on ? '1' : '0'); };
     pad.buttons[11] = { pressed: true };
@@ -99,16 +112,18 @@ try {
     await step();
     pad.buttons[11].pressed = true;
     await step();
-    return { left, typed, cursorHidden, center, size: face.width, fullscreen, events, still, toggles, hidden: !face.getClientRects().length };
+    return { left, inPiece, padPieceHidden, typed, cursorHidden, center, size: face.width, fullscreen, events, still, toggles, hidden: !face.getClientRects().length };
   });
   assert.equal(result.left.moving, 24);
-  assert.deepEqual(result.typed, ['tape ', 'tape mic ', 'tape mic d', 'tape mic ']);
+  assert.deepEqual(result.typed, ['', 'tape ', 'tape mic ', 'tape mic d', 'tape mic ']);
   assert.ok(result.cursorHidden);
+  assert.equal(result.inPiece.moving, 24);
+  assert.ok(result.padPieceHidden);
   assert.equal(result.size, 3);
   assert.deepEqual(result.center, [255, 255, 255, 255]);
   assert.deepEqual(result.fullscreen, [true, true]);
-  assert.deepEqual(result.events, ['pointerdown', 'pointerup', 'click']);
+  assert.deepEqual(result.events, ['pointerdown', 'pointerup', 'click', 'pointerdown', 'pointerup', 'click']);
   assert.ok(result.still && result.hidden);
   assert.deepEqual(result.toggles, [true, false]);
-  console.log('Prompt cursor moves every sampled frame. Drag, release, ring words, letter wheel, dead zone and Rax handoff passed.');
+  console.log('Prompt cursor moves every sampled frame. Drag, release, cursor in other pieces, none in pad pieces, ring words, letter wheel, dead zone and Rax handoff passed.');
 } finally { await browser.close(); }

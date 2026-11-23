@@ -869,3 +869,4 @@ function paintPadTags(ink, ox, y, player, help) {
 
 export { boot, paint, act, sim, leave };
 export const system = "fps";
+export const pad = true; // 🎮 Reads the pad itself: no stick cursor (lib/pad-cursor.mjs).

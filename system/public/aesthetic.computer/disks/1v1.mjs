@@ -2293,3 +2293,4 @@ async function loadLatestPaintingTexture(get) {
 
 export const system = "fps";
 export { boot, sim, paint, act };
+export const pad = true; // 🎮 Reads the pad itself: no stick cursor (lib/pad-cursor.mjs).

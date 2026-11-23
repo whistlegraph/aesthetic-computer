@@ -222,3 +222,4 @@ function leave() {
 }
 
 export { boot, paint, sim, act, reframed, leave };
+export const pad = true; // 🎮 Reads the pad itself: no stick cursor (lib/pad-cursor.mjs).

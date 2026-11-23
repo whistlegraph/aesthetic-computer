@@ -881,3 +881,4 @@ function receive({ type, content }) {
 // }
 
 export { boot, paint, act, receive, leave };
+export const pad = true; // 🎮 Reads the pad itself: no stick cursor (lib/pad-cursor.mjs).

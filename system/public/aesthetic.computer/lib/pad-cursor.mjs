@@ -38,9 +38,11 @@
 // written into the focused text field as a key would write it). Neither pen
 // nor keyboard asks whether an event is trusted.
 //
-// Only the prompt gets the cursor. A piece has no way to say "I read the pad
-// myself", and a cursor sliding about under a game's stick would be worse
-// than none.
+// Every piece gets the cursor (A clicks, START goes back to the prompt),
+// except one that reads the pad itself: a cursor sliding about under a game's
+// stick would be worse than none. Such a piece says so with
+// `export const pad = true` (lib/disk.mjs passes it on as
+// `window.acPieceReadsPad`); PAD_PIECES names the ones from before that.
 
 import { padDeck } from "./pad-deck.mjs";
 import { aim, grammar, offer, more, SLICES, PETALS, SIGNS, FACE } from "./pad-ring.mjs";
@@ -53,7 +55,7 @@ const BADGES = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9 };
 const SIZE = 3;
 
 // Pieces known to read the pad: START is theirs (a pause, a rematch).
-const PAD_PIECES = /(?:^|\/)(?:1v1|arena|fight|gamepad|gameboy|land|nes|nopaint|notepat|toss|rax)(?:[.:~]|$)/;
+const PAD_PIECES = /(?:^|\/)(?:1v1|arena|fight|gamepad|gameboy|land|nes|toss|rax)(?:[.:~]|$)/;
 
 export function padCursor({ canvas, piece }) {
   let x, y; // Where the cursor is, in CSS pixels (kept fractional).
@@ -68,6 +70,7 @@ export function padCursor({ canvas, piece }) {
   let flickAt = 0; // When a held swipe of the right stick next repeats (0: at rest).
   let words = null, loading = false; // The grammar the word ring offers from (lib/pad-ring.mjs).
   let page = 0, paged = ""; // Which twelve words are up, and for what line.
+  let ringed = false; // X asked for the rings; until then a focused field leaves the stick the cursor.
   let guestDocument;
   const deck = padDeck();
 
@@ -253,11 +256,11 @@ html.pad-cursor #pad-cursor { display: block; }`;
     if (document.hidden || !document.hasFocus() || window.acRaxSheet?.up) { deck.hide(); return hide(); }
 
     const name = piece() || "";
-    if (!/(?:^|\/)prompt$/.test(name)) {
+    const onPrompt = /(?:^|\/)prompt$/.test(name);
+    if (!onPrompt && (window.acPieceReadsPad || PAD_PIECES.test(name))) {
       document.documentElement.classList.remove("prompt-pointer-hidden");
       hide();
       deck.hide();
-      if (edge.start && !PAD_PIECES.test(name)) escape();
       return;
     }
 
@@ -280,7 +283,7 @@ html.pad-cursor #pad-cursor { display: block; }`;
 
     // The stick pushed furthest leads. (The 8BitDo Micro's axes past the
     // first two are noise: see lib/gamepad.mjs.)
-    let left, right, rawLeft = [0, 0], rawRight = [0, 0];
+    let left, right, rawLeft = [0, 0], rawRight = [0, 0], lit;
     for (const p of pads) {
       const l = stick(p.axes[0], p.axes[1]);
       const r = /2dc8.*9020/.test(p.id) ? null : stick(p.axes[2], p.axes[3]);
@@ -292,8 +295,18 @@ html.pad-cursor #pad-cursor { display: block; }`;
       hand = true;
       document.documentElement.classList.add("prompt-pointer-hidden");
     }
-    const feed = window.acMimeSheet, typing = !!field();
-    const mode = feed?.up ? "mimes" : typing ? "type" : "curtain";
+    // Any other piece: the stick moves the cursor, A clicks, START comes home.
+    if (!onPrompt) {
+      steer(left, dt);
+      if (edge.a) shown ? press() : show();
+      if (edge.up) release();
+      if (edge.start) escape();
+      return deck.hide(); // (No hints over a piece's own buttons.)
+    }
+
+    const feed = window.acMimeSheet;
+    if (!field()) ringed = false;
+    const mode = feed?.up ? "mimes" : ringed ? "type" : "curtain";
     // Input in the focused mime iframe doesn't bubble to the parent.
     const guest = feed?.up ? document.activeElement?.contentDocument : null;
     if (guest !== guestDocument) {
@@ -316,7 +329,7 @@ html.pad-cursor #pad-cursor { display: block; }`;
     }
     if (mode === "mimes") swipe ||= pushed(13) ? 1 : pushed(12) ? -1 : 0;
 
-    const lit = new Set(Object.keys(BADGES).filter((b) => on[BADGES[b]]));
+    lit = new Set(Object.keys(BADGES).filter((b) => on[BADGES[b]]));
     if (on[12] || on[13] || on[14] || on[15]) lit.add("D");
     if (mode !== "type" && right && abs(right.y) > FLICK) lit.add("RS");
     let rings = null;
@@ -354,7 +367,7 @@ html.pad-cursor #pad-cursor { display: block; }`;
         if (held(2)) type("Backspace");
         if (held(3)) type(" ");
         if (edge.a && word >= 0) say(up[word], partial);
-        if (edge.b) field()?.blur();
+        if (edge.b) { ringed = false; field()?.blur(); }
       }
       if (pushed(7)) type("Enter");
       if (pushed(5)) type("Tab");
@@ -363,16 +376,12 @@ html.pad-cursor #pad-cursor { display: block; }`;
       return draw();
     }
 
-    if (left) {
-      show();
-      const full = max(innerWidth, innerHeight) * 1.1;
-      const l = full * (0.65 + 0.35 * left.t);
-      place(false, left.x * l * dt, left.y * l * dt);
-    }
+    steer(left, dt);
 
     if (pushed(2)) {
       again[2] = Infinity; // Release the opening X before using it to delete.
       open();
+      ringed = true;
     }
 
     // A first press of A with no cursor up shows where it is; it does not
@@ -381,6 +390,15 @@ html.pad-cursor #pad-cursor { display: block; }`;
     if (edge.up) release();
     if (edge.b) escape();
     draw();
+  }
+
+  // The left stick moves the cursor, faster the further it is pushed.
+  function steer(left, dt) {
+    if (!left) return;
+    show();
+    const full = max(innerWidth, innerHeight) * 1.1;
+    const l = full * (0.65 + 0.35 * left.t);
+    place(false, left.x * l * dt, left.y * l * dt);
   }
 
   const wake = () => {

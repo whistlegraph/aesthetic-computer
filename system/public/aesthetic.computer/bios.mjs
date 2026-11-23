@@ -15271,6 +15271,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
     if (type === "disk-loaded") {
       accountActivity.load(content.path);
+      window.acPieceReadsPad = !!content.readsPad; // 🎮 No stick cursor over a piece that reads the pad (lib/pad-cursor.mjs).
       // console.log(`🔍 BIOS: Received disk-loaded for "${content.text}", path="${content.path}"`);
 
       // 🐚 Tell a hosting page (moat.mjs) about every load, including the
