@@ -72,7 +72,6 @@ disk.mjs?session-aesthetic=null&session-sotce=null:6509 🎵 AUDIO_TIME: 194.002
   - [ ] Add error handling for invalid KidLisp
 #endregion */
 
-import { Conversation } from "../lib/ask.mjs";
 import { getSyntaxHighlightingColors, KidLisp } from "../lib/kidlisp.mjs";
 import { MatrixChunky8 } from "./common/fonts.mjs";
 
@@ -111,7 +110,7 @@ let conversation,
   kidlispInstance = null; // Store KidLisp instance for execution
 
 // 🥾 Boot (Runs once before first paint and sim)
-function boot({ params, system: { painting }, store, slug, lisp, hud: { label, currentLabel } }) {
+function boot({ params, system: { painting }, store, slug, lisp, authorize, hud: { label, currentLabel } }) {
   // Clear MatrixChunky8 font cache to pick up any changes to advance values
   if (typeof window !== 'undefined' && window.typefaceCache) {
     const beforeSize = Object.keys(window.typefaceCache).length;
@@ -187,71 +186,81 @@ Generate animated, creative code only - no explanations.`;
       initializeConversation(fallbackPrompt);
     });
 
+  // The KidLisp comes from Aesel's hosted inference, as everything AC asks
+  // a model for does: the signed-in handle pays in braincells, on its
+  // account's default model (Sonnet when it names none). Streamed in as it is
+  // written; with no handle, or when it fails, the sketch falls back to a
+  // local example.
   function initializeConversation(promptText) {
-    conversation = new Conversation(store, slug);
-    conversation.retrieve().then(() => {
-      console.log("🚀 Starting KidLisp generation for:", userPromptText);
-      console.log("📋 Using prompt text length:", promptText.length);
-      console.log("🔧 Conversation config:", { store: !!store, slug });
-      
-      streaming = true;
-      makingProgress = 0.0;
-      
-      // Create the program structure expected by ask.mjs
-      const program = {
-        before: promptText, // The KidLisp generation instructions
-        after: "" // No additional instructions needed
-      };
-      
-      console.log("📡 Sending API request...");
-      
-      abort = conversation.ask(
-        { 
-          prompt: userPromptText || "colorful abstract art", // The user's actual prompt
-          program: program,
-          hint: "code:claude-opus-4-20250514", // Use Claude Opus 4.5 for best KidLisp generation
-          temperature: 1
-        },
-        function onChunk(msg) {
-          console.log("📥 Received chunk:", msg.length, "chars");
-          characterBuffer += msg;
-        },
-        function onComplete(finalMsg) {
-          streaming = false;
-          completionTime = frameCount;
-          console.log("✅ KidLisp generation complete");
-          console.log("📜 Final generated code:", displayedCode + characterBuffer);
-          
-          // DON'T try to execute - just display the final code
-          // tryExecuteKidlispCode(displayedCode + characterBuffer, true);
-        },
-        function onError(error) {
-          streaming = false;
-          console.error("❌ Network failure during generation:", error);
-          console.log("🔍 Error details:", JSON.stringify(error, null, 2));
-          
-          // Provide a fallback KidLisp example based on the prompt
-          const fallbackCode = generateFallbackKidlisp(userPromptText);
-          console.log("🔄 Using fallback KidLisp code:", fallbackCode);
-          
-          // DON'T execute fallback either - just display it
-          characterBuffer = fallbackCode;
-          fullCode = fallbackCode;
-          console.log("📜 Fallback code:", fallbackCode);
-          // tryExecuteKidlispCode(fallbackCode, true);
-        }
-      );
-    }).catch((retrieveError) => {
-      console.error("❌ Failed to retrieve conversation:", retrieveError);
-      
-      // Even if conversation retrieval fails, provide fallback
+    streaming = true;
+    makingProgress = 0.0;
+    const fallback = (why) => {
+      streaming = false;
+      console.warn("❌ make:", why);
       const fallbackCode = generateFallbackKidlisp(userPromptText);
-      console.log("🔄 Using fallback due to conversation retrieval failure:", fallbackCode);
       characterBuffer = fallbackCode;
       fullCode = fallbackCode;
-      tryExecuteKidlispCode(fallbackCode, true);
+    };
+    abort = askAesel({
+      system: promptText,
+      prompt: userPromptText || "colorful abstract art",
+      authorize,
+      onChunk(text) { characterBuffer += text; },
+      onComplete() {
+        streaming = false;
+        completionTime = frameCount;
+        console.log("✅ KidLisp generation complete");
+      },
+      onError: (error) => fallback(error?.message || error),
     });
   }
+}
+
+const SITE = "https://aesthetic.computer";
+const DEFAULT_MODEL = "anthropic/claude-sonnet-5.5";
+
+// One streamed reply from /api/easel-inference. Returns a function that stops it.
+function askAesel({ system, prompt, authorize, onChunk, onComplete, onError }) {
+  const controller = new AbortController();
+  (async () => {
+    const token = await authorize?.().catch(() => null);
+    if (!token) throw new Error("sign in to make with Aesel");
+    const headers = { Authorization: `Bearer ${token}` };
+    let model = DEFAULT_MODEL;
+    try {
+      const credits = await (await fetch(`${SITE}/api/easel-credits`, { headers, signal: controller.signal })).json();
+      model = credits.curation?.default || model;
+    } catch {}
+    const response = await fetch(`${SITE}/api/easel-inference`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: { ...headers, "Content-Type": "application/json", "x-ac-client": "make" },
+      body: JSON.stringify({ model, max_tokens: 4096, system, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!response.ok) {
+      const failure = await response.json().catch(() => ({}));
+      throw new Error(failure.error?.message || failure.error || `Aesel returned HTTP ${response.status}`);
+    }
+    // Server-sent events in the Anthropic shape: text arrives as deltas.
+    const reader = response.body.getReader(), decoder = new TextDecoder();
+    let tail = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      tail += decoder.decode(value, { stream: true });
+      const lines = tail.split("\n");
+      tail = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        let event;
+        try { event = JSON.parse(line.slice(5)); } catch { continue; }
+        if (event.type === "content_block_delta" && event.delta?.type === "text_delta") onChunk(event.delta.text);
+        if (event.type === "error") throw new Error(event.error?.message || "inference failed");
+      }
+    }
+    onComplete();
+  })().catch((error) => { if (error?.name !== "AbortError") onError(error); });
+  return () => controller.abort();
 }
 
 // 🧮 Sim (Runs once per logic frame)
