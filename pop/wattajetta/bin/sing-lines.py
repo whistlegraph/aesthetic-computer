@@ -52,7 +52,9 @@ import inspect
 _src = inspect.getsource(V.sing_phrase)
 _slide = "glide = 0.085 + 0.016 * abs(m - prev_m)"
 assert _slide in _src, "aesthetina's sing_phrase changed: the slide line is gone"
-exec(_src.replace(_slide, "glide = 0.04").replace("def sing_phrase(", "def sing_phrase_tight("), V.__dict__)
+# a jobs file may ask for a slower slide and more of his own pitch movement ("glide", "nat", "vib"):
+# @jeffrey 2026-11-22 heard the tight singer as "botty / quantized" and wanted it "slippery like yogurt"
+exec(_src.replace(_slide, f"glide = {float(J.get('glide', 0.04))}").replace("def sing_phrase(", "def sing_phrase_tight("), V.__dict__)
 MODEL = os.environ.get("WHISPER_MODEL", str(Path.home() / "Models/ggml-large-v3-turbo-q5_0.bin"))
 FFMPEG = "/opt/homebrew/bin/ffmpeg"
 norm = lambda s: re.sub(r"[^a-z ]", "", s.lower().replace("-", "")).split()
@@ -144,13 +146,16 @@ def sing_whisper(job, cadence):
 def sing(job, cadence):
     slug = f"cutie-{job['line']}-{cadence}"
     vowel_onsets(slug)
-    if job.get("mode") == "angel":
+    if job.get("mode") == "bedroom":
+        # sung quietly to oneself: the slides and most of his own pitch movement kept, hardly any vibrato, no halo
+        pre, y = (V.sing_phrase_tight if "glide" in J else V.sing_phrase)("jeffrey", slug, job["starts"], job["midis"], job["end_hold"], halo=0.0, vib=J.get("vib", 0.03), nat=J.get("nat", 0.6))
+    elif job.get("mode") == "angel":
         # the first verse: a person, not a machine (@jeffrey 2026-11-20: "a bit whistley angelic … less robot scary").
         # aesthetina's singer as written — it slides into every note (85 ms and up) — with half of his own pitch
         # movement left on the note, more vibrato, and a quiet copy an octave up for the halo
         pre, y = V.sing_phrase("jeffrey", slug, job["starts"], job["midis"], job["end_hold"], halo=0.08, vib=0.08, nat=0.5)
     else:
-        pre, y = V.sing_phrase_tight("jeffrey", slug, job["starts"], job["midis"], job["end_hold"], halo=0.0, vib=0.03, nat=0.15)
+        pre, y = V.sing_phrase_tight("jeffrey", slug, job["starts"], job["midis"], job["end_hold"], halo=0.0, vib=J.get("vib", 0.03), nat=J.get("nat", 0.15))
     return pre, even(resample_poly(y, SR, V.PFS), pre, job)
 
 
@@ -174,6 +179,70 @@ def angel(y):
         rng = np.random.default_rng(3); noise = rng.standard_normal(n)
         breath = sosfilt(butter(2, [900, 3200], "bandpass", fs=SR, output="sos"), noise) * 0.25
         x = x + 10 ** (-22 / 20) * np.sqrt(2) * env * amp * (np.sin(ph) + breath)
+    return (x / (np.abs(x).max() + 1e-9)).astype(np.float32)
+
+
+def bedroom(y):
+    """mode "bedroom" (@jeffrey 2026-11-22: "very quiet soft bedroom"): a voice kept down, close to a cheap
+    microphone in a small soft room. Nothing under 90 Hz, the warmth of being near it around 220 Hz, and the
+    top let go — 5 dB down by 5 kHz and falling — so there is no air, no exciter and no edge on the consonants.
+    The level is held gently (2:1) so the small words stay with the rest."""
+    from scipy.signal import butter, sosfilt, lfilter
+    f = lambda kind, hz, order=2: butter(order, hz, kind, fs=SR, output="sos")
+    x = sosfilt(f("highpass", 90), y.astype(np.float64))
+    x = x + 0.45 * sosfilt(f("bandpass", [150, 320], 1), x)
+    x = x - 0.45 * sosfilt(f("highpass", 3200, 1), x)
+    x = sosfilt(f("lowpass", 9000), x)
+    k = np.exp(-1 / (0.03 * SR))
+    env = np.sqrt(np.maximum(1e-12, lfilter([1 - k], [1, -k], x * x)))
+    thr = np.median(env[env > 0.05 * env.max()])
+    x = x * np.where(env > thr, (env / thr) ** -0.5, 1.0)
+    return (x / (np.abs(x).max() + 1e-9)).astype(np.float32)
+
+
+def flute(y, pre, job, amount):
+    """A whisper with a flute in it (@jeffrey 2026-11-22: "if the whisper parts sounded a bit flute like … grab
+    overtones through them by doubling and pitching them around"). The whisper's own level opens a soft pipe on
+    each note of the line: two octaves over the note, with the octave and the twelfth above that quieter, a slow
+    vibrato, and a band of breath round the pitch. It slides from note to note over 90 ms and is `amount` of the
+    whisper's level."""
+    from scipy.signal import butter, sosfilt
+    n = len(y); tt = np.arange(n) / SR
+    ends = job["starts"][1:] + [job["starts"][-1] + job["end_hold"]]
+    hz = np.full(n, 440 * 2 ** ((job["midis"][0] + 24 - 69) / 12))
+    for s0, m in zip(job["starts"], job["midis"]): hz[int((s0 + pre) * SR):] = 440 * 2 ** ((m + 24 - 69) / 12)
+    w = int(0.09 * SR); hz = np.exp(np.convolve(np.pad(np.log(hz), w, mode="edge"), np.hanning(2 * w + 1) / np.hanning(2 * w + 1).sum(), "valid")[:n])
+    hz = hz * (1 + 0.005 * np.sin(2 * np.pi * 4.7 * tt) * np.minimum(1, tt / 0.4))
+    ph = 2 * np.pi * np.cumsum(hz) / SR
+    pipe = np.sin(ph) + 0.32 * np.sin(2 * ph + 0.4) + 0.14 * np.sin(3 * ph + 1.1)
+    lo, hi = 440 * 2 ** ((min(job["midis"]) + 24 - 69) / 12), 440 * 2 ** ((max(job["midis"]) + 36 - 69) / 12)
+    breath = sosfilt(butter(2, [lo, min(hi * 1.5, 0.45 * SR)], "bandpass", fs=SR, output="sos"), np.random.default_rng(5).standard_normal(n)) * 0.3
+    k = int(0.06 * SR); env = np.sqrt(np.convolve(y.astype(np.float64) ** 2, np.ones(k) / k, "same"))
+    on = np.zeros(n); on[int(pre * SR):min(n, int((ends[-1] + pre) * SR))] = 1
+    x = y + amount * env * on * (pipe + breath)
+    return (x / (np.abs(x).max() + 1e-9)).astype(np.float32)
+
+
+def whistle(y, db):
+    """The angel's whistle for any line (@jeffrey 2026-11-22: "less roboty … and more whistley"): the sung pitch
+    followed two octaves up by a soft sine with a little breath round it, as loud as the voice is at that moment
+    and `db` under it. The pitch is carried across the consonants and smoothed, so the whistle never steps."""
+    from scipy.signal import butter, sosfilt
+    x = y.astype(np.float64)
+    d = resample_poly(x, 1, 3); fs = SR // 3
+    f0, t = pw.harvest(d, fs, f0_floor=70, f0_ceil=700, frame_period=5.0)
+    v = f0 > 0
+    if v.sum() < 10: return y
+    f0i = np.interp(np.arange(len(f0)), np.where(v)[0], f0[v])
+    f0i = np.exp(np.convolve(np.pad(np.log(f0i), 12, mode="edge"), np.hanning(25) / np.hanning(25).sum(), "valid"))
+    n = len(x); tt = np.arange(n) / SR
+    fx = np.interp(tt, t, f0i) * 4
+    while np.median(fx) > 2400: fx = fx / 2          # a low voice whistles two octaves up; a high one, one
+    fx = fx * (1 + 0.004 * np.sin(2 * np.pi * 5.3 * tt))
+    amp = np.interp(tt, t, np.convolve(v.astype(float), np.ones(21) / 21, "same"))
+    env = np.sqrt(np.convolve(x ** 2, np.ones(2400) / 2400, "same")); ph = 2 * np.pi * np.cumsum(fx) / SR
+    breath = sosfilt(butter(2, [900, 3200], "bandpass", fs=SR, output="sos"), np.random.default_rng(3).standard_normal(n)) * 0.25
+    x = x + 10 ** (db / 20) * np.sqrt(2) * env * amp * (np.sin(ph) + breath)
     return (x / (np.abs(x).max() + 1e-9)).astype(np.float32)
 
 
@@ -281,6 +350,9 @@ for job in J["jobs"]:
     b, c, pre, y = best
     if job.get("mode") in ("close", "clear"): y = close_mic(y, job["mode"] == "clear")
     if job.get("mode") == "angel": y = angel(y)
+    if job.get("mode") == "bedroom": y = bedroom(y)
+    if job.get("mode") == "whisper" and J.get("flute"): y = flute(y, pre, job, J["flute"])
+    if J.get("whistle") is not None and job.get("mode") not in ("whisper", "angel"): y = whistle(y, J["whistle"])
     y.tofile(f); json.dump({"pre": pre, "take": c, "misfit": round(b, 2)}, open(side, "w")); made += 1
     picked[c] = picked.get(c, 0) + 1
 print(f"lines: {len(J['jobs'])} phrases, {made} sung now · takes used: " + ", ".join(f"{k} ×{v}" for k, v in sorted(picked.items(), key=lambda kv: -kv[1])))

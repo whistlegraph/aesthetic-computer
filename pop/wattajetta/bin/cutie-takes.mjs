@@ -34,6 +34,8 @@ export const CADENCES = {
   // the solo: whispered (several, they vary a lot), then loud
   whisper2: ["[whispers] ", "."], whisper3: ["[whispering softly] ", "."],
   shout: ["[shouting] ", "!"], loud: ["[loudly, proudly] ", "!"], loud2: ["[shouting] ", "!"],
+  // the first line, said and not sung (@jeffrey 2026-11-22: "a straighter softer kinder more romantic utterance")
+  tender: ["[tenderly] ", "."], kind: ["[kindly, softly] ", "."], romantic: ["[lovingly, quietly] ", "."], sincere: ["[sincerely] ", "."],
 };
 
 const lib = JSON.parse(readFileSync(join(VAULT, "voice", "jeffrey-phonemes", "library.json"), "utf8"));
@@ -69,11 +71,11 @@ async function take(line, cadence) {
   return `${slug} ${syllables.length} syllables · ${syllables.at(-1)[1].toFixed(2)} s`;
 }
 
-// the colour lines (lip-red … lip-black) are only ever sung mischievous, warm or whispered
+// the colour lines (lip-red … lip-black) are sung mischievous, warm or whispered — or shouted, for the returns
 const wanted = (line, c) => {
   if (line === "weirdest") return c === "cheeky";
   if (line === "weird") return c === "warm";
-  return !line.startsWith("lip-") || /^(cheeky|warm|whisper)\d?$/.test(c);
+  return !line.startsWith("lip-") || /^(cheeky|warm|whisper|shout|loud)\d?$/.test(c);
 };
 function selected(flag, choices) {
   const i = process.argv.indexOf(flag);

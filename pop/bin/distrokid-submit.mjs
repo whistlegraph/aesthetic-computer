@@ -44,6 +44,7 @@
 //     "songwriters": ["Jeffrey Scudder"],   // real legal names, "First Last"
 //     "instrumental": true,
 //     "explicit": false,
+//     "preserveCaps": true,                 // tick DistroKid's capitalization box(es)
 //     "year": 2026,
 //     "previouslyReleased": false,
 //     "releaseDate": "asap",                // "asap" or "YYYY-MM-DD"
@@ -224,6 +225,24 @@ await sectionBreak("the song");
 await step("song title", async () => {
   await page.getByLabel(/song title|title of (your )?song/i).first().fill(rel.title);
 });
+
+// DistroKid title-cases titles unless its capitalization box is ticked.
+// There can be one per title field (album, song), so tick every match.
+if (rel.preserveCaps) {
+  await step("preserve capitalization", async () => {
+    const caps = /preserve.*capitali[sz]|non-?standard capitali[sz]|capitali[sz]ation.*(as|exactly).*(typed|entered)/i;
+    let boxes = page.getByLabel(caps);
+    if (!(await boxes.count())) boxes = page.getByRole("checkbox", { name: caps });
+    const n = await boxes.count();
+    if (!n) throw new Error("no capitalization checkbox found — tick it by hand");
+    for (let i = 0; i < n; i++) await boxes.nth(i).check({ timeout: 8000 });
+    for (const label of [/album.*title|title of (your )?(album|release)/i, /song title|title of (your )?song/i]) {
+      const got = await page.getByLabel(label).first().inputValue();
+      if (got !== (rel.albumTitle || rel.title) && got !== rel.title)
+        throw new Error(`title reads "${got}" after ticking — fix by hand`);
+    }
+  });
+}
 
 for (const [i, artist] of featuredArtists.entries()) {
   await step(`featured artist ${artist.name}`, async () => {

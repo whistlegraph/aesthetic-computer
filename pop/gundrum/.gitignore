@@ -1,0 +1,4 @@
+out/
+# sample libraries fetched by bin/fetch-*.mjs: only their SOURCES.json is kept
+assets/*/*
+!assets/*/SOURCES.json

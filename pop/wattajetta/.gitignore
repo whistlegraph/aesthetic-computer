@@ -1,1 +1,8 @@
 /cover/
+# sample libraries fetched by bin/fetch-*.mjs: only their SOURCES.json is kept
+assets/guns/*
+assets/donkeys/*
+assets/sheep/*
+assets/springs/*
+assets/mice/*
+!assets/*/SOURCES.json

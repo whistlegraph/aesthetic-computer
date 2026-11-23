@@ -38,8 +38,47 @@ Status legend: **RELEASED** · **SUBMITTED** · **MASTERING** · **RENDER** · *
   cutie master. The new master closes the low-end and treble gaps; it stays 3 dB quieter.
 - **Cover:** the unsharpened portrait and cover studies are in the track's private recovery archive.
   Attribution and clearance for the circuit-board artwork remain open.
-- **Open:** DistroKid packet · a 24-bit FLAC of 3:34 is ~35 MB, over the ~10 MB browser
-  upload cap, so the upload is a manual drag (a 16-bit/44.1 FLAC may fit).
+- **Newest candidate (2026-11-22 evening, not yet in the packet):** `pop/wattajetta/out/pocket-single/wada-jetter-final-crisp.wav`
+  — after the "aesthetic dot computer" stamp every line is sung like the line after the whisper (0:25: the loud
+  ElevenLabs readings, plain singing, its room), held long, moved by octaves to sit around E4; the opening angel
+  take's third re-sung to G#; the Bach critique's seam fixes (bar 39 turn to major, the tripled leading tone at
+  1:27); and the crispness EQ (−2.5 dB at 350 Hz, +1.5 dB at 60 Hz). A/B alternates beside it: `-crisp-acid-slide`
+  (a slidier, more resonant acid) and `-crisp-acid-piano` (the acid line on a staccato grand). Copies on neo's
+  Desktop in `wada-and-gundrum-2026-11-22/`. Swap into the packet once chosen.
+- **Release master (2026-11-22, neo, swapped in):** `pop/wattajetta/out/pocket-single/wada-jetter-chart.wav`, 2:17,
+  opening on the second verse; angel voice throughout; yellowest then orangest; "put the nicest money on";
+  the acid line as counterpoint aligned to the lyrics; the critique's fixes (no clashing thirds, piano over the
+  bass, guns on four, Euclidean clicks), fractal piano, risers and blasts at 1:08 thinned. In the packet as
+  `wada-jetter-qd-ur-MASTER.flac` (24-bit/44.1 k, −2.1 dBTP, LRA 5.4, SHA-256 `58cf128b…1bf8aa`); the earlier
+  all-"weirdest" master and preview are kept in the packet's `superseded-2026-11-22/`. A screamed-hook
+  alternate is `wada-jetter-chart-scream.wav`. Built by the score-edit chain in `pop/wattajetta/bin`
+  (color-liner → calm-nothing → smooth → resing → last-minute → blasts → chart → bach-acid → soft-open).
+- **Packet (2026-11-22, neo):** `~/Documents/Shelf/wada-jetter-qd-ur-DISTROKID/` — release.json
+  (Electronic / Dance; songwriter Jeffrey Scudder; vocal, not explicit; release asap),
+  `wada-jetter-qd-ur-MASTER.flac` (the 2:55 weirdest-liner cut at 24-bit/44.1 k, 37 MB,
+  −10.8 LUFS · −2.0 dBTP · LRA 4.3, SHA-256 `0fbd94d6…0bc7680`), cover v6 at 3000², 320 k
+  preview mp3. `distrokid-submit.mjs --dry-run` passes. 37 MB is over the ~10 MB browser
+  upload cap, so the audio is a manual drag.
+- **Settled (@jeffrey 2026-11-22):** the 2:55 cut and cover v6 are the release; the
+  circuit-board artwork is cleared; no AI disclosure.
+- **Open:** submit.
+
+---
+
+## gundrum and bass — WIP (2026-11-22)
+
+- **Lane:** `pop/gundrum/` · a five-movement Bach suite for gun samples at 172 BPM in D minor (invention, courante,
+  prolation canon, passacaglia, stretto), 2:20, `node pop/gundrum/bin/gundrum-and-bass-2.mjs` →
+  `out/gundrum-and-bass-2.wav` (about 5 minutes). The 120 BPM four-voice fugue that came first is `bin/gundrum.mjs`.
+- **In it:** a real upright bass, a mid synth on the tenor line, high sines, FEM bells (none before 0:30), donkey and
+  sheep sung onto the subject and the ground by `bin/donkeyvox.py`, a rock kit from about 1:20, springs, mice,
+  brushes and brooms, a simulated ukulele, implosions, ballistics (pass-bys and ricochets), an ear-based (ITD/ILD)
+  stereo mix, and a level curve with a slow leveller (−11 LUFS).
+- **Credits owed (CC BY 4.0), all in the assets' SOURCES.json:** "Drum samples: DRSKit and CrocellKit by the DrumGizmo
+  team (drumgizmo.org), CC BY 4.0; mixed to stereo and trimmed" (rock kit and drum brushes); F.M.Audio broom strokes
+  (Freesound 552052, 552049). Everything else is CC0. The sample libraries are not committed (see the lanes'
+  .gitignore); `bin/fetch-*.mjs` fetch them again.
+- **Next:** a title and cover for /pop (the catalog has no "upcoming" state yet).
 
 ---
 
