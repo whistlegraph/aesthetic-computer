@@ -129,14 +129,18 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
   // 🛵 The cabin bike (bike.mjs): B gets on and off; on it the body flies,
   // hovering over the highest thing under it, and a build stops it.
-  const canRide = rideable(fixed, flat);
+  const canRide = rideable(fixed, flat, player);
   const riding = canRide && (cmd.bike ? !player.bike : !!player.bike);
   if (riding) {
     let below = poolRoom ? POOL.bottom : 0;
-    for (const b of [...boxes, ...fixed]) if (under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
+    for (const b of [...boxes, ...fixed]) if (!b.ceiling && under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
     const next = fly(player, cmd, below, DT, CFG.eyeHeight);
-    const hits = (q) => boxes.some((b) => q.x > b.xMin - 0.6 && q.x < b.xMax + 0.6 && q.z > b.zMin - 0.6 && q.z < b.zMax + 0.6 && q.y - CFG.eyeHeight < b.yMax - 0.3 && q.y > b.yMin);
+    // What stops it: builds, and the room's own walls (glass, the car, a dispenser), its keel to the top of its cabin.
+    const walls = [...boxes, ...solid.filter((b) => !b.water)];
+    const hits = (q) => walls.some((b) => q.x > b.xMin - 0.6 && q.x < b.xMax + 0.6 && q.z > b.zMin - 0.6 && q.z < b.zMax + 0.6 && q.y - CFG.eyeHeight - 0.9 < b.yMax - 0.3 && q.y + 0.3 > b.yMin);
     if (hits(next)) { next.x = player.x; next.z = player.z; next.vx = next.vz = 0; }
+    // A roof stops it rising (the cabin's top is just over the eyes).
+    for (const b of fixed) if (b.ceiling && under(b, next) && player.y + 0.3 <= b.yMin && next.y + 0.3 > b.yMin) { next.y = b.yMin - 0.3; next.vy = Math.min(0, next.vy); }
     const past = (side) => (open?.includes(side) ? OVERRUN : 0);
     next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
     next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));

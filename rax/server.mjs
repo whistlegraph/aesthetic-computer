@@ -18,7 +18,7 @@ import { objectBoxes, distantBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf } from './elevator.mjs';
+import { atriumRoof, aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carTo, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { kioskPlan } from './kiosks-plan.mjs';
 import { isArena, LEDGES } from './bop.mjs';
@@ -250,7 +250,7 @@ export function createRaxServer({
   // which floor is theirs.
   const hasCar = (key) => key === BASEMENT || key === GROUND || key === ROOF || isFloorRoom(key);
   // The elevator is solid on every floor; the lobby's glass on the ground; the parapet on the roof.
-  const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
+  const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL, atriumRoof()] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.

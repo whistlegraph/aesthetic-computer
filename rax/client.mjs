@@ -6,7 +6,7 @@ import { PLANET } from './planet.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { rideable } from './bike.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
-import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls } from './elevator.mjs';
+import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls, atriumRoof } from './elevator.mjs';
 import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
 import { createPanels, panelHit, fingertipHit, PANEL_REACH } from './panel.mjs';
 import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
@@ -543,7 +543,7 @@ let filmPlayers = [], filmRide = null;
 const hasCar = () => room === BASEMENT || room === 'lobby' || aloft(room);
 // 📐 This room's half-width (world.mjs): the same number the server moves us by.
 const half = () => halfOf(room);
-const CAR_BOXES = carWalls(), LOBBY_BOXES = [...lobbyWalls(), DISPENSER_WALL], ROOF_BOXES = roofWalls(), WINDOW_BOXES = storeyWindows();
+const CAR_BOXES = carWalls(), LOBBY_BOXES = [...lobbyWalls(), DISPENSER_WALL, atriumRoof()], ROOF_BOXES = roofWalls(), WINDOW_BOXES = storeyWindows();
 // 🌍 The world around this block, streamed from the server and kept between
 // visits: the last answer of /world for each block it was asked about.
 let world = null, worldAt = 0;
@@ -2401,7 +2401,7 @@ function pressKey(type, code, key) {
 const typing = () => prompt.open || chat.open;
 const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : canBike() ? 'play' : null);
 // 🛵 Where a bike may be ridden (bike.mjs), so its touch cap shows only there.
-const canBike = () => !!player && rideable(fixedBoxes(), flat());
+const canBike = () => !!player && rideable(fixedBoxes(), flat(), player);
 // The home bar's inset, measured once from a probe (env() has no script API).
 const insetProbe = Object.assign(document.createElement('div'), { ariaHidden: 'true' });
 insetProbe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';

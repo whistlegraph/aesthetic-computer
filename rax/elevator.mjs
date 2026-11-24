@@ -192,6 +192,11 @@ export function lobbyWalls() {
   ];
 }
 
+// 🛵 The underside of the first floor, over the plaza: a flying cabin bike
+// (bike.mjs) is held under it, not let up through the tower. Walkers never
+// reach it (it is ATRIUM metres up).
+export const atriumRoof = () => ({ type: 'box', xMin: -SLAB, xMax: SLAB, zMin: -SLAB, zMax: SLAB, yMin: ATRIUM, yMax: ATRIUM + 0.3, ceiling: true });
+
 // 🏙️ The roof: the open deck on top of the tower, a room of its own (ROOF)
 // and nobody's floor. The car comes up through it as it does through every
 // floor, and `top` in the car is here. It is a place only while the tower

@@ -4,6 +4,8 @@ import { move, spawn, CFG } from '../world.mjs';
 import { command } from '../net.mjs';
 import { BIKE, rideable } from '../bike.mjs';
 import { POOL } from '../basement.mjs';
+import { lobbyWalls } from '../tower.mjs';
+import { atriumRoof } from '../elevator.mjs';
 
 const cmd = (over = {}) => ({ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, buttons: 0, ...over });
 const run = (p, c, n, ...rest) => { for (let i = 0; i < n; i++) p = move(p, c, ...rest); return p; };
@@ -46,10 +48,26 @@ test('B again in the air: off the bike, the body falls to the ground', () => {
   assert.ok(Math.abs(p.y - CFG.eyeHeight) < 0.01);
 });
 
-test('no bikes in a side-on arena, the inner sea, or under a ceiling', () => {
-  assert.equal(rideable([], true), false);
-  assert.equal(rideable([POOL]), false);
-  assert.equal(rideable([{ ceiling: true }]), false);
-  assert.equal(rideable([]), true);
+test('no bikes in a side-on arena, the inner sea, or under a low roof', () => {
+  const at = { x: 0, y: CFG.eyeHeight, z: 0 };
+  assert.equal(rideable([], true, at), false);
+  assert.equal(rideable([POOL], false, at), false);
+  const low = { xMin: -4, xMax: 4, zMin: -4, zMax: 4, yMin: 3, yMax: 3.2, ceiling: true };
+  assert.equal(rideable([low], false, at), false, 'a cellar\'s ceiling over the head');
+  assert.equal(rideable([{ ...low, yMin: 12, yMax: 12.3 }], false, at), true, 'a twelve-metre hall is open enough');
+  assert.equal(rideable([], false, at), true);
   assert.equal(move(settled(), cmd({ bike: true }), [], 0, [], true).bike || false, false);
+});
+
+test('the plaza: everyone starts there, and a bike flies there, held under the tower and out of the glass', () => {
+  const walls = [...lobbyWalls(), atriumRoof()];
+  const courtyard = { ...spawn(0), x: 0, y: CFG.eyeHeight, z: -5, onGround: true };
+  assert.equal(rideable(walls, false, courtyard), true);
+  let p = move(courtyard, cmd({ bike: true }), [], 0, walls);
+  assert.equal(p.bike, true);
+  const up = run(p, cmd({ buttons: 1 }), 600, [], 0, walls);
+  assert.ok(up.y < atriumRoof().yMin, `held under the first floor (eyes at ${up.y.toFixed(2)})`);
+  // At the hall's glass front, flying north low (between the rails): stopped, not through.
+  const front = run(p, cmd({ fwd: 1, yaw: 30 }), 240, [], 0, walls);
+  assert.ok(front.z < 1.2 || Math.abs(front.x) < 1.6, `stopped at the glass unless at the door, at ${front.x.toFixed(2)}, ${front.z.toFixed(2)}`);
 });

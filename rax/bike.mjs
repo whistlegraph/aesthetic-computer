@@ -23,10 +23,18 @@ export const BIKE = {
   top: 120, // highest it goes over the land, metres
 };
 
-// Where a bike may be ridden: not in a game's side-on arena, the inner sea,
-// a cellar or a floor of the tower (a ceiling, or windows, say it is one).
-export const rideable = (fixed = [], flat = false) =>
-  !flat && !fixed.some((b) => b.water || b.ceiling || b.window);
+// Where a bike may be ridden: not in a game's side-on arena or the inner sea,
+// and not under a low roof (the cellar's). Judged where the body stands
+// (`at`: { x, y, z }, y at the eyes), not by the room: the plaza's lobby is a
+// twelve-metre hall and its courtyard open sky. A roof is a ceiling of some
+// size (a glass wall's rails are ceilings too, a few centimetres deep).
+// (Until 2026-11-24 any ceiling or window in a room refused the bike there,
+// the plaza included, where everyone starts.)
+const LOW = 2.5; // metres over the eyes: a roof nearer than this is no place to fly
+export const rideable = (fixed = [], flat = false, at = null) =>
+  !flat && !fixed.some((b) => b.water) &&
+  !(at && fixed.some((b) => b.ceiling && (b.xMax - b.xMin) * (b.zMax - b.zMin) > 4 &&
+    at.x >= b.xMin && at.x <= b.xMax && at.z >= b.zMin && at.z <= b.zMax && b.yMin >= at.y - 0.2 && b.yMin - at.y < LOW));
 
 // One tick of flight. `floor` is the height of what is under the bike,
 // `eye` the eye's height over the feet (world.mjs CFG.eyeHeight).
