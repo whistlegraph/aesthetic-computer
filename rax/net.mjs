@@ -20,6 +20,7 @@ export function command(raw) {
     use: raw.use === true,
     drop: raw.drop === true,
     duck: raw.duck === true,
+    bike: raw.bike === true, // 🛵 get on or off the cabin bike (bike.mjs)
     chalk:
       raw.chalk && ['x', 'y', 'z'].every((k) => Number.isFinite(raw.chalk[k]))
         ? { x: clamp(raw.chalk.x, -MAX_HALF, MAX_HALF), y: clamp(raw.chalk.y, 0, 30), z: clamp(raw.chalk.z, -MAX_HALF, MAX_HALF) }

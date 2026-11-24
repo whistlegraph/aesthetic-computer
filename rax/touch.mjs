@@ -5,7 +5,13 @@ const buttons = {
   typing: [B('send', 'Enter', 'Enter', 0xffe066), B('cancel', 'Escape', 'Escape', 0xff6b6b)],
   // Chalk in the air: hold draw and look around, then build what you drew.
   chalk: [B('build', 'Enter', 'Enter', 0xffe066), B('cancel', 'Escape', 'Escape', 0xff6b6b), B('draw', 'KeyC', 'c', 0xe8e8e8)],
+  // 🛵 Playing: the cabin bike's cap (bike.mjs), and on it a held up and down.
+  play: [],
 };
+export const bikeButtons = (riding) => [
+  B('bike', 'KeyB', 'b', 0x5ef2c8),
+  ...(riding ? [B('up', 'Space', ' ', 0x3fb950), B('down', 'ShiftLeft', 'Shift', 0xff9f43)] : []),
+];
 export function touchButtons(mode, width, height, { context = [], inset = 0 } = {}) {
   if (!buttons[mode]) return [];
   return [...buttons[mode], ...context].map((b, i) => ({

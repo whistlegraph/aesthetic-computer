@@ -21,6 +21,7 @@ export const neutralPad = () => ({
   debug: false,
   camera: false,
   cancel: false,
+  backHeld: false,
   start: false,
   swap: false,
 });
@@ -95,6 +96,7 @@ export class Controller {
       result.dright = edge(15);
       result.hold = !!buttons[0] && !changed && this.focused;
       result.cancel = edge(1);
+      result.backHeld = !!buttons[1] && !changed && this.focused; // (B held: the bike sinks)
       result.prompt = edge(2);
       result.camera = edge(3);
       result.start = edge(9);

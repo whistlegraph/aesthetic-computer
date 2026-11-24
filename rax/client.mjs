@@ -4,6 +4,7 @@ import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
 import { PLANET } from './planet.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
+import { rideable } from './bike.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls } from './elevator.mjs';
 import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
@@ -29,7 +30,7 @@ import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
-import { TouchPad, touchButtons } from './touch.mjs';
+import { TouchPad, touchButtons, bikeButtons } from './touch.mjs';
 import { gyroLook } from './gyro.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 // 🐌 KidLisp is some thirty modules deep (its runtime and AC's graphics): it
@@ -673,7 +674,8 @@ let chalkStrokes = [[], []],
   chalkMode = null,
   chalkMouse = false;
 let useQueued = false,
-  dropQueued = false;
+  dropQueued = false,
+  bikeQueued = false; // 🛵 B was pressed: on or off the bike with the next command
 let jumpQueued = false,
   fireQueued = false,
   audio,
@@ -1866,9 +1868,9 @@ function connect(adopt = null) {
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();
-      for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat] of data.people) {
+      for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike] of data.people) {
         const was = beyond.get(id), from = was ? beyondAt(was, now) : null;
-        next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, alive: true, from, at: now });
+        next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike, alive: true, from, at: now });
       }
       beyond = next;
       // 🚁 And who looks on from the air, each a drone (your own is not drawn).
@@ -2397,7 +2399,9 @@ function pressKey(type, code, key) {
   document.dispatchEvent(e);
 }
 const typing = () => prompt.open || chat.open;
-const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : null);
+const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : canBike() ? 'play' : null);
+// 🛵 Where a bike may be ridden (bike.mjs), so its touch cap shows only there.
+const canBike = () => !!player && rideable(fixedBoxes(), flat());
 // The home bar's inset, measured once from a probe (env() has no script API).
 const insetProbe = Object.assign(document.createElement('div'), { ariaHidden: 'true' });
 insetProbe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
@@ -2414,7 +2418,7 @@ const shownButtons = () => {
   if (!mode) return [];
   const keyboardUp = mode === 'typing';
   return touchButtons(mode, canvas.clientWidth, keyboardUp ? visibleHeight() : canvas.clientHeight, {
-    context: mode === 'typing' && prompt.open && !prompt.busy ? [ringCap] : [],
+    context: mode === 'typing' && prompt.open && !prompt.busy ? [ringCap] : mode === 'play' ? bikeButtons(!!player?.bike) : [],
     inset: keyboardUp && visibleHeight() < canvas.clientHeight ? 0 : bottomInset(),
   });
 };
@@ -2867,6 +2871,8 @@ document.addEventListener('keydown', (e) => {
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
+  // 🛵 B: on or off your cabin bike (bike.mjs). Space lifts it, shift lets it sink.
+  if (seat >= 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) bikeQueued = true;
   // Lock on, as the pad's RB does (2026-11-08): Z toggles it, [ and ]
   // change it like the d-pad, and delete removes the locked object at once
   // (the lock is the confirmation, as B on the pad).
@@ -3188,6 +3194,8 @@ function step(now, xr) {
   let opened = false;
   const riding = seat >= 0 && hasCar() && inCar(player);
   if (gamepad.dright && !dock && !lockOn && !menu && !prompt.open && !radial.open) { toggleMenu(); opened = true; }
+  // 🛵 Left on the d-pad: on or off the cabin bike (as B is on the keys). A held lifts it, B held lets it sink.
+  if (gamepad.dleft && seat >= 0 && !dock && !lockOn && !menu && !prompt.open && !radial.open) bikeQueued = true;
   // 🔬 Up and down on the d-pad make the picture sharper or chunkier, live (in the car they ride a floor, and in the $ they move): under the prompt the density is the page's (lib/rax-sheet.mjs), which clicks like a shutter as it changes.
   if ((gamepad.dup || gamepad.ddown) && !menu && !opened && !riding && !prompt.open && !radial.open) {
     const step = gamepad.dup ? 1 : -1;
@@ -3506,7 +3514,7 @@ function step(now, xr) {
         -1,
         1,
       ),
-      buttons: keys.has('Space') || jumpQueued ? 1 : 0,
+      buttons: keys.has('Space') || jumpQueued || (player?.bike && gamepad.hold) ? 1 : 0,
       use: useQueued,
       drop: dropQueued,
       chalk: (() => {
@@ -3516,6 +3524,8 @@ function step(now, xr) {
         return at;
       })(),
       fire: (firing || fireQueued) && locked(),
+      bike: bikeQueued,
+      duck: !!player?.bike && (keys.has('ShiftLeft') || keys.has('ShiftRight') || gamepad.backHeld),
     };
     if (flat()) {
       // Side-on: A/D (or the stick) walk along the stage; the body turns to face its way.
@@ -3532,7 +3542,7 @@ function step(now, xr) {
       flatJumpHeld = up || lift > 0.6;
       Object.assign(c, { yaw, pitch, fwd: Math.abs(along), right: 0, fire: false, buttons: c.buttons || jump ? 1 : 0, duck: down || lift < -0.6 });
     }
-    jumpQueued = fireQueued = useQueued = dropQueued = false;
+    jumpQueued = fireQueued = useQueued = dropQueued = bikeQueued = false;
     pending.push(c);
     if (carrying) {
       held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk: held.walk, until: held.until };

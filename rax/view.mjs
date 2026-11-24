@@ -10,6 +10,9 @@ import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
 import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
+import { skyOf as planetsInSky, HOME } from './orbits.mjs';
+import { decorFor, COLS as DECOR_COLS, ROWS as DECOR_ROWS } from './bike-decor.mjs';
+import { BIKE } from './bike.mjs';
 // 🧱 `localStorage["rax:solids"] = "on"` audits every model as it is built:
 // solids that share volume are named once in the console, and the ones that
 // would flicker are drawn magenta.
@@ -52,7 +55,7 @@ export const LEGEND = {
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
-    [['x', 'KeyX'], ' paint'],
+    [['x', 'KeyX'], ' paint / ', ['b', 'KeyB'], ' bike'],
     [['z', 'KeyZ'], ' lock or go in / ', ['del', ['Delete', 'Backspace']], ' remove'],
     [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
@@ -63,6 +66,7 @@ export const LEGEND = {
     '[X] paint / hold [LB] build',
     '[RB] lock or go in / [B] remove',
     '[START] prompt / [D>] $ menu / [DV] density',
+    '[D<] bike: [A] up / hold [B] down',
   ],
   touch: [],
 };
@@ -87,7 +91,7 @@ const ACTION_COLORS = {
   camera: 0xb46bff, build: 0xffe066, builds: 0xffe066, use: 0xff9f43, drop: 0xff6b6b,
   cursor: 0x00ffff, paint: 0xff7ac8, chalk: 0xe8e8e8, rooms: 0x2ec4b6, 'lock on': 0x00ffff, lock: 0x00ffff, remove: 0xff6b6b, cancel: 0xff6b6b, prompt: 0xb0b0ff, '$ list': 0xffd28a, list: 0xffd28a, chat: 0x9be7a0,
   change: 0xffe066, next: 0x00ffff, unlock: 0x00ffff,
-  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, zoom: 0x8fd3ff, density: 0xb0b0ff, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, 'full screen': 0xb0b0ff,
+  up: 0x3fb950, down: 0xff9f43, roll: 0xff7ac8, zoom: 0x8fd3ff, density: 0xb0b0ff, fast: 0xffe066, drone: 0xb46bff, warp: 0x5ef2c8, bike: 0x5ef2c8, 'full screen': 0xb0b0ff,
 };
 const actionColor = (text) => {
   const word = text.replace(/^[\s:]*(drag to )?/, '').trim();
@@ -380,6 +384,39 @@ export async function createView(canvas) {
     });
     domeKept = { step, model: [bands, lights, discs] };
     return domeKept.model;
+  }
+  // 🪐 The other planets (orbits.mjs), on the same dome as the sun: each a
+  // disc as wide as it truly looks from here, lit on the side its sun is on,
+  // so it waxes and wanes as it goes round. They move, so the layer is made
+  // again four times a second, not with the dome's three-minute pictures.
+  let planetsKept = null;
+  function planetLayer(dayPhase, now) {
+    const tick = Math.floor(now / 250);
+    if (planetsKept?.tick === tick) return planetsKept.model;
+    const R = 2300, RINGS = 4, SEGMENTS = 20;
+    const made = model(({ quad }) => {
+      for (const p of planetsInSky(HOME, now, dayPhase)) {
+        const d = p.dir;
+        if (d.y < -0.12) continue; // under the horizon
+        const flat = Math.hypot(d.x, d.z);
+        const right = flat ? [d.z / flat, 0, -d.x / flat] : [1, 0, 0];
+        const up = [d.y * right[2], d.z * right[0] - d.x * right[2], -d.y * right[0]];
+        const span = Math.max(10, R * Math.tan(p.size)), L = [p.light.x, p.light.y, p.light.z], D = [d.x, d.y, d.z];
+        const at = (a, b) => D.map((v, i) => v * R + (right[i] * a + up[i] * b) * span);
+        for (let k = 0; k < RINGS; k++)
+          for (let j = 0; j < SEGMENTS; j++) {
+            const r0 = k / RINGS, r1 = (k + 1) / RINGS, t0 = (j / SEGMENTS) * 2 * Math.PI, t1 = ((j + 1) / SEGMENTS) * 2 * Math.PI;
+            const rm = (r0 + r1) / 2, tm = (t0 + t1) / 2, a = rm * Math.cos(tm), b = rm * Math.sin(tm);
+            const face = Math.sqrt(Math.max(0, 1 - a * a - b * b));
+            const lit = [0, 1, 2].reduce((sum, i) => sum + (a * right[i] + b * up[i] - face * D[i]) * L[i], 0);
+            const ink = lit > 0 ? blendInk(p.dark, p.ink, Math.min(1, 0.2 + 0.8 * lit)) : p.dark;
+            quad(at(r0 * Math.cos(t0), r0 * Math.sin(t0)), at(r1 * Math.cos(t0), r1 * Math.sin(t0)),
+              at(r1 * Math.cos(t1), r1 * Math.sin(t1)), at(r0 * Math.cos(t1), r0 * Math.sin(t1)), ink);
+          }
+      }
+    });
+    planetsKept = { tick, model: made };
+    return made;
   }
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
@@ -1255,6 +1292,62 @@ export async function createView(canvas) {
     box(0, height / 2, 0, width, height, depth, 0x26adc2, 0x185a6b, 0xc7f5ed);
     box(-width / 2, 0.55, 0, 0.06, 0.78, 0.72, 0x142329, 0x142329, 0x27404b);
   });
+  // 🛵 A cabin bike (bike.mjs): a long low body on two hover wheels, a glass
+  // cabin of four posts and a roof over the seat, and down each side under
+  // the windows a panel wearing one of the rider's #paintings
+  // (bike-decor.mjs). Its origin is the rider's feet; it faces +z. Made once
+  // a rider and look, and kept.
+  const bikeModels = new Map();
+  function bikeFor(key, body, sides) {
+    if (bikeModels.has(key)) return bikeModels.get(key);
+    const made = model(({ box, quad }) => {
+      const trim = tint(body, 0.55), glass = 0x9fd8ff, dark = 0x1d2230, keel = -BIKE.seat;
+      box(0, keel + 0.22, 0, 0.62, 0.3, 1.9, body, tint(body, 0.8), tint(body, 1.1)); // the body
+      box(0, keel + 0.42, 0.98, 0.5, 0.5, 0.26, body, tint(body, 0.8)); // the nose
+      box(0, keel + 0.4, -0.98, 0.56, 0.42, 0.3, trim, trim); // the tail
+      box(0, keel + 0.5, 1.12, 0.3, 0.12, 0.04, 0xfff1b0, 0xfff1b0, 0xfff1b0); // the lamp
+      for (const z of [-0.78, 0.78]) { // the wheels, hovering, a glow under each
+        box(0, keel + 0.08, z, 0.16, 0.52, 0.52, dark, dark, 0x3a4256);
+        box(0, keel - 0.2, z, 0.14, 0.02, 0.4, 0x7ff6ff, 0x7ff6ff, 0x7ff6ff);
+      }
+      box(0, 0.02, -0.2, 0.42, 0.1, 0.5, 0x2b2f3d, 0x2b2f3d); // the seat
+      for (const x of [-0.34, 0.34]) for (const z of [-0.62, 0.62])
+        box(x, 0.92, z, 0.05, 1.82, 0.05, trim, trim); // the cabin's posts
+      box(0, 1.85, 0, 0.74, 0.06, 1.3, body, tint(body, 0.8)); // its roof
+      box(0, 1.05, 0.64, 0.66, 0.03, 0.02, glass, glass, glass); // the windscreen's rail
+      // The side panels, under the windows: a painting each, or the body's own colour.
+      const y0 = keel + 0.4, y1 = 0.62, z0 = -0.6, z1 = 0.6;
+      for (const sx of [1, -1]) {
+        const x = sx * 0.33, cells = sides[sx > 0 ? 0 : 1] || sides[0];
+        box(x - sx * 0.02, (y0 + y1) / 2, 0, 0.03, y1 - y0, z1 - z0, trim, trim);
+        if (!cells) continue;
+        const X = x + sx * 0.003, dz = (z1 - z0) / DECOR_COLS, dy = (y1 - y0) / DECOR_ROWS;
+        for (let r = 0; r < DECOR_ROWS; r++)
+          for (let c = 0; c < DECOR_COLS; c++) {
+            const ink = cells[r][c];
+            if (ink === null) continue;
+            // Read from outside: left to right is -z on the +x side and +z on the -x side.
+            const za = sx > 0 ? z1 - (c + 1) * dz : z0 + c * dz, zb = za + dz;
+            const ya = y1 - (r + 1) * dy, yb = ya + dy;
+            if (sx > 0) quad([X, ya, za], [X, ya, zb], [X, yb, zb], [X, yb, za], ink);
+            else quad([X, ya, zb], [X, ya, za], [X, yb, za], [X, yb, zb], ink);
+          }
+      }
+    });
+    bikeModels.set(key, made);
+    return made;
+  }
+  function drawBike(p, i, base, now, handle) {
+    const decor = decorFor(handle);
+    const body = decor?.body ?? seatColor(i);
+    const key = `${handle || 'guest'}:${body}:${decor?.version || 0}`;
+    const yawR = (p.yaw * Math.PI) / 180, ahead = direction(p.yaw), side = direction(p.yaw - 90);
+    const along = (p.vx || 0) * ahead.x + (p.vz || 0) * ahead.z, across = (p.vx || 0) * side.x + (p.vz || 0) * side.z;
+    const lean = Math.max(-0.35, Math.min(0.35, -(p.vy || 0) * 0.03 + along * 0.004));
+    const bank = Math.max(-0.4, Math.min(0.4, across * 0.03));
+    const bob = Math.sin(now / 420 + i) * 0.03;
+    draw(bikeFor(key, body, decor?.sides || []), p.x, base + bob, p.z, yawR, lean, 1, -bank);
+  }
   // 🚁 A looker-on's drone: a small body, four arms to four rotors (two
   // frames of them, turned, for the blur), a light at the nose.
   const droneModels = [];
@@ -1757,7 +1850,7 @@ export async function createView(canvas) {
       projector.bends = false; // (the sky is not wrapped round the planet)
       // Keep sky layers at successive far-depth values. At this distance the
       // flat dome cuts through the lights and depth precision can erase the glow.
-      const layers = skyDome(skyStep);
+      const layers = [...skyDome(skyStep), planetLayer(skyPhase, Date.now())];
       for (let i = 0; i < layers.length; i++) {
         const first = host.scene.triangleCount;
         draw(layers[i], eye.x, eye.y, eye.z, 0, 0, SKY);
@@ -2128,6 +2221,7 @@ export async function createView(canvas) {
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
+      if (p.bike) drawBike(p, i, base, now, far ? (far.name?.startsWith('@') ? far.name.slice(1) : null) : members.find((m) => m.seat === i)?.handle); // 🛵 (in first person too: the cabin is round you)
       if (far || i !== seat || third || !me || (idleCamera && Math.hypot(eye.x - me.x, eye.y - me.y, eye.z - me.z) > 0.7)) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
@@ -2136,7 +2230,7 @@ export async function createView(canvas) {
         // they stay crisp and never fight the scene for depth.
         if (far) { if (far.name) tags.push({ label: far.name, seat: i, x: p.x, y: base + 2.15, z: p.z, at: p }); }
         else if (i !== seat) tags.push({ seat: i, x: p.x, y: base + 2.15, z: p.z, at: p });
-        const stride = Math.min(1, Math.hypot(p.vx, p.vz) / 10),
+        const stride = p.bike ? 0 : Math.min(1, Math.hypot(p.vx, p.vz) / 10),
           right = direction(p.yaw - 90);
         for (const side of [-1, 1]) {
           const step =

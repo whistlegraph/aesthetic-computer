@@ -93,6 +93,8 @@ const assets = new Map([
     'solids',
     'sky',
     'shadow',
+    'orbits', // 🪐 the planets going round (view.mjs's sky)
+    'bike', 'bike-decor', 'handle-style', // 🛵 the cabin bike, and its rider's paintings and colours
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -995,7 +997,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const {block, local} = fromWorld(p);
       const height = cellOf(key).h;
       relocate(blockId(block), { ...local, y: height + p.y, yaw: p.yaw, pitch: p.pitch,
-        vx: p.vx, vy: p.vy, vz: p.vz, onGround: false }, { told: {ack: seat.ack} });
+        vx: p.vx, vy: p.vy, vz: p.vz, onGround: false, bike: !!p.bike }, { told: {ack: seat.ack} });
     };
     member.crossStairs = () => {
       if (!stays || !member.owner || member.seat < 0 || (key !== GROUND && key !== BASEMENT)) return;
@@ -1322,7 +1324,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           let spot = landing(p, edge);
           const inWall = (q) => wallsFor(destination).some((b) => q.x + 0.4 > b.xMin && q.x - 0.4 < b.xMax && q.z + 0.4 > b.zMin && q.z - 0.4 < b.zMax);
           if (inWall(spot)) spot = landing({ ...p, x: clamp(p.x, -halfOf(key) + 0.4, halfOf(key) - 0.4), z: clamp(p.z, -halfOf(key) + 0.4, halfOf(key) - 0.4) }, edge);
-          position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround };
+          position = { ...spot, y: p.y, vx: p.vx, vy: p.vy, vz: p.vz, onGround: p.onGround, bike: !!p.bike };
           walked = room.match.seats[member.seat].ack;
         }
         // 🧵 On a socket that stays, the body is in the next room now. `ack` is the last command this room ran.
@@ -1644,7 +1646,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const people = [], eyes = [];
       room.match.seats.forEach((s, seat) => {
         const p = s?.player, m = room.members[seat];
-        if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0, !!p.boat]);
+        if (p?.alive && m) people.push([`${key}:${seat}`, m.handle ? `@${m.handle}` : m.name || '', seat, p.x, p.y, p.z, p.yaw, p.pitch || 0, p.vx || 0, p.vz || 0, !!p.boat, !!p.bike]);
       });
       // 🚁 Whoever looks on is a small drone where their eye is (heard of in the last four seconds).
       for (const m of room.sessions.values())
@@ -1661,8 +1663,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, name, x, y, z, yaw] of there.eyes)
           drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
         if (there === here) continue; // (its own people are in its snapshot)
-        for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat] of there.people)
-          seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz), boat]);
+        for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike] of there.people)
+          seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz), boat, bike]);
       }
       if (!seen.length && !drones.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
       here.room.beyondSeen = seen.length + drones.length;

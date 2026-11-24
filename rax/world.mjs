@@ -1,6 +1,7 @@
 import { BASEMENT, SEA_HALF, POOL, floatInPool } from './basement.mjs';
 import { objectBoxes } from './objects.mjs';
 import { towerSides, carDoor } from './elevator.mjs';
+import { fly, rideable } from './bike.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -126,6 +127,22 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   const afloat = poolRoom && (player.swimming || player.boat);
   const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling && !b.water) : fixed,
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
+  // 🛵 The cabin bike (bike.mjs): B gets on and off; on it the body flies,
+  // hovering over the highest thing under it, and a build stops it.
+  const canRide = rideable(fixed, flat);
+  const riding = canRide && (cmd.bike ? !player.bike : !!player.bike);
+  if (riding) {
+    let below = poolRoom ? POOL.bottom : 0;
+    for (const b of [...boxes, ...fixed]) if (under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
+    const next = fly(player, cmd, below, DT, CFG.eyeHeight);
+    const hits = (q) => boxes.some((b) => q.x > b.xMin - 0.6 && q.x < b.xMax + 0.6 && q.z > b.zMin - 0.6 && q.z < b.zMax + 0.6 && q.y - CFG.eyeHeight < b.yMax - 0.3 && q.y > b.yMin);
+    if (hits(next)) { next.x = player.x; next.z = player.z; next.vx = next.vz = 0; }
+    const past = (side) => (open?.includes(side) ? OVERRUN : 0);
+    next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
+    next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
+    return next;
+  }
+  if (player.bike) player = { ...player, bike: false, onGround: false }; // got off (or rode somewhere a bike is not): from here the body falls
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
   const grounded = player.onGround && (feet < (poolRoom ? POOL.bottom : 0) + 0.02 || !!support);
   const step = (grounded || afloat) && !(cmd.buttons & 1) ? 0.32 : 0.001;

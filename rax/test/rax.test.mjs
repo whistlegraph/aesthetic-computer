@@ -325,6 +325,21 @@ test('rax mounts below a prefix and shares HTTP and WebSockets without taking ov
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /javascript/);
   }
+  // Every module the page imports, followed from client.mjs, is served: one
+  // missing file (handle-style.mjs, 2026-11-24) stops the whole page.
+  const seen = new Set(), queue = ['client.mjs'];
+  while (queue.length) {
+    const file = queue.shift();
+    if (seen.has(file) || file.startsWith('film/')) continue; // (the film stage is served by film/shoot.mjs, not rax)
+    seen.add(file);
+    const response = await fetch(`${base}/rax/${file}`);
+    assert.equal(response.status, 200, `${file} is served`);
+    const text = await response.text();
+    for (const m of text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]\.\/([^'"]+)['"]/g)) queue.push(new URL(m[1], `http://x/${file}`).pathname.slice(1));
+    for (const m of text.matchAll(/import\(\s*['"]\.\/([^'"]+)['"]\s*\)/g)) queue.push(new URL(m[1], `http://x/${file}`).pathname.slice(1));
+  }
+  for (const module of ['orbits', 'bike', 'bike-decor', 'handle-style', 'kidlisp-wall'])
+    assert.ok(seen.has(`${module}.mjs`), `${module}.mjs is reached from client.mjs`);
   assert.equal((await (await fetch(`${base}/rax/health`)).json()).protocol, PROTOCOL);
   assert.equal(await (await fetch(base)).text(), 'host application');
   const wsBase = base.replace('http', 'ws');
