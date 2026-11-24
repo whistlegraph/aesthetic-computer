@@ -9,11 +9,20 @@ export function mailErrorCode(error) {
   return ERROR_CODES.has(error?.code) ? error.code : "UNKNOWN";
 }
 
-export function letterNotification(id) {
+// A letter from a handle names who sent it, never what it says: "@amelia" /
+// "sent you a message" on a lock screen tells you whether to open it while
+// the words stay on the wall. Letters from outside email stay anonymous — a
+// sender's email address or display name is theirs, not the lock screen's.
+const HANDLE = /^@[A-Za-z0-9._-]{1,40}$|^ac\d\d[a-z]{5}$/;
+
+export function letterNotification(id, fromHandle) {
+  const from = typeof fromHandle === "string" && HANDLE.test(fromHandle) ? fromHandle : null;
   return {
-    title: "Letters",
-    body: "You have a new letter",
+    title: from || "Letters",
+    body: from ? "sent you a message" : "You have a new letter",
     data: { kind: "tell", tellId: id.toString(), piece: "mail" },
+    // One notification stack per conversation on the lock screen.
+    ...(from ? { thread: `mail:${from}` } : {}),
   };
 }
 

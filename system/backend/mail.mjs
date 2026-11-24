@@ -157,7 +157,7 @@ async function deliverInternal(
     push = await sendToUser(
       database.db,
       to,
-      letterNotification(insertedId),
+      letterNotification(insertedId, fromHandle),
       { device },
       quietMailPush,
     );

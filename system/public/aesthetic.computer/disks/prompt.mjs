@@ -3134,10 +3134,9 @@ async function route($, text) {
     // below and loads the piece instead. `amail` still answers too.
     const to = params[0];
     const body = params.slice(1).join(" ").trim();
+    // `mail @handle` with nothing to say opens the conversation with them.
     if (!body) {
-      flashColor = [255, 255, 0];
-      notice("MAIL WHAT?", ["yellow", "red"]);
-      makeFlash($, true);
+      jump(`mail~${to}`);
       return true;
     }
     const res = await net.userRequest("POST", "/api/mail", { to, text: body });

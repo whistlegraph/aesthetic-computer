@@ -22,13 +22,19 @@ for (const name of ["boot", "sim", "paint", "act"]) {
 source += `
 const fixtureMailbox = ${JSON.stringify(mailbox)};
 async function fixtureRequest(method, path, body) {
+  if (path === '/api/mail?count=1') return { status: 200, unread: fixtureMailbox.unread, total: fixtureMailbox.inbox.length };
+  if (path.startsWith('/api/mail?with=')) {
+    const who = decodeURIComponent(path.slice('/api/mail?with='.length)).toLowerCase();
+    const letters = fixtureMailbox.inbox.filter(r => r.from.toLowerCase() === who).map(r => ({ ...r, mine: false }));
+    return { status: 200, with: who, letters: structuredClone(letters) };
+  }
   if (path !== '/api/mail') return { status: 200 };
   if (method === 'GET') return { ...structuredClone(fixtureMailbox), status: 200 };
   if (body.action === 'read') {
     testChannel.postMessage({ readRequest: body });
-    const row = fixtureMailbox.inbox.find(r => r.id === body.id);
-    if (row && !row.read) { row.read = true; fixtureMailbox.unread--; }
-    return { status: 200, read: row ? 1 : 0 };
+    const rows = fixtureMailbox.inbox.filter(r => r.from.toLowerCase() === String(body.with).toLowerCase() && !r.read);
+    rows.forEach(r => { r.read = true; fixtureMailbox.unread--; });
+    return { status: 200, read: rows.length };
   }
   return { status: 404, message: 'Recipient not found' };
 }
@@ -43,7 +49,8 @@ function act(api) { return actOriginal(fixtureApi(api)); }
 function paint(api) {
   paintOriginal(fixtureApi(api));
   testChannel?.postMessage({ layout: { width: api.screen.width, height: api.screen.height,
-    expandedId, bar: listBottom, rows: rows.map(r => ({ id: r.letter.id, y0: r.y0, y1: r.y1 })),
+    convo: convo?.address ?? null, bar: listBottom,
+    rows: rows.map(r => ({ id: r.person ? r.person.address : r.letter.id, y0: r.y0, y1: r.y1 })),
     links: mediaHits.filter(h => h.item.url).map(({ x, y, w, h }) => ({ x, y, w, h })) } });
 }
 `;
@@ -110,21 +117,23 @@ try {
     await ac.wait(250);
     return ac.shot(name);
   };
-  await shot("mail-opening/01-preview");
+  await shot("mail-opening/01-people");
   let layout = await ac.page.evaluate(() => window.mailLayout);
   assert.ok(layout.width < 320 || layout.height < 220, "exercise the compact layout");
-  await tap(layout.links[0].x + 4, layout.links[0].y + 4);
-  await ac.page.waitForFunction(() => window.mailOpenedLinks.length === 1);
-  assert.deepEqual(await ac.page.evaluate(() => window.mailOpenedLinks), ["https://example.invalid/music"]);
-  assert.equal(await ac.page.evaluate(() => window.mailReads.length), 0, "link tap does not also select the row");
-  await tap(25, layout.rows[0].y0 + 20);
-  await ac.page.waitForFunction(() => window.mailLayout?.expandedId && window.mailState?.unread === 1);
-  assert.deepEqual(await ac.page.evaluate(() => window.mailReads), [{ action: "read", id: letter.id }]);
-  assert.equal(await ac.page.evaluate(() => window.mailState.inbox[1].read), false);
-  assert.equal(await ac.page.evaluate(() => window.mailState.view), "inbox");
-  await shot("mail-opening/02-open");
+  assert.deepEqual(layout.rows.map((r) => r.id), ["@reader", "@other"], "one row per person");
+  assert.equal(await ac.page.evaluate(() => window.mailReads.length), 0, "looking at the box reads nothing");
+
+  // A person opens their conversation and reads only it.
+  await tap(25, layout.rows[0].y0 + 6);
+  await ac.page.waitForFunction(() => window.mailState?.view === "conversation" && window.mailState?.unread === 1);
+  assert.equal(await ac.page.evaluate(() => window.mailState.with), "@reader");
+  assert.deepEqual(await ac.page.evaluate(() => window.mailReads), [{ action: "read", with: "@reader" }]);
+  assert.equal(await ac.page.evaluate(() => window.mailState.inbox[1].read), false, "the other person's letter stays unread");
+  await shot("mail-opening/02-conversation");
+
+  // The bottom bar writes to them.
   layout = await ac.page.evaluate(() => window.mailLayout);
-  await tap(25, layout.bar + 8); // the selected letter's reply lives in the bottom bar
+  await tap(25, layout.bar + 8);
   await ac.page.waitForFunction(() => window.mailState?.view === "compose");
   assert.equal(await ac.page.evaluate(() => window.mailState.composeTo), "@reader");
   await shot("mail-opening/03-reply");
@@ -135,17 +144,27 @@ try {
   });
   await ac.page.waitForFunction(() => window.mailState?.composeNote?.includes("full @handle"));
   await shot("mail-opening/04-recipient-error");
+
+  // A notification opens the conversation its letter came from.
   await ac.boot(`mail?test=1&letter=${mailbox.inbox[1].id}`);
-  await ac.page.waitForFunction((id) => window.mailState?.status === "loaded" && window.mailLayout?.expandedId === id,
-    { timeout: 30000 }, mailbox.inbox[1].id);
-  assert.deepEqual(await ac.page.evaluate(() => window.mailReads), [{ action: "read", id: mailbox.inbox[1].id }]);
-  assert.equal(await ac.page.evaluate(() => window.mailState.inbox[0].read), false, "notification opens only its own letter");
+  await ac.page.waitForFunction(() => window.mailState?.status === "loaded" && window.mailLayout?.convo === "@other",
+    { timeout: 30000 });
+  assert.deepEqual(await ac.page.evaluate(() => window.mailReads), [{ action: "read", with: "@other" }]);
+  assert.equal(await ac.page.evaluate(() => window.mailState.inbox[0].read), false, "notification opens only its own conversation");
   await shot("mail-opening/05-notification");
+
+  // Links inside a conversation open without selecting anything else.
+  layout = await ac.page.evaluate(() => window.mailLayout);
+  await tap(layout.links[0].x + 4, layout.links[0].y + 4);
+  await ac.page.waitForFunction(() => window.mailOpenedLinks.length === 1);
+  assert.deepEqual(await ac.page.evaluate(() => window.mailOpenedLinks), ["https://example.invalid/music"]);
+  assert.equal(await ac.page.evaluate(() => window.mailReads.length), 1, "a link tap reads nothing more");
+
   await ac.boot("mail?test=1&letter=not-a-letter-id");
   await ac.page.waitForFunction(() => window.mailState?.status === "loaded" && window.mailLayout?.rows.length);
-  assert.equal(await ac.page.evaluate(() => window.mailLayout.expandedId), null);
+  assert.equal(await ac.page.evaluate(() => window.mailLayout.convo), null);
   assert.equal(await ac.page.evaluate(() => window.mailReads.length), 0);
-  console.log("mail opening browser test passed: links, individual read, reply, notification destination and invalid-ID fallback");
+  console.log("mail opening browser test passed: people, conversation read, reply, notification destination, links and invalid-ID fallback");
 } catch (error) {
   await ac.shot("mail-opening/failure");
   console.error(JSON.stringify({ errors, pendingFonts: [...glyphRequests].map((req) => req.url()), state: await ac.page.evaluate(() => ({ status: window.mailState?.status, layout: window.mailLayout })) }));

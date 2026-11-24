@@ -58,7 +58,7 @@ let smtpCalls = 0;
 const backend = await load("../system/backend/mail.mjs", {
   "./mail-events.mjs": eventMocks,
   "./authorization.mjs": {
-    handleFor: async () => marker,
+    handleFor: async () => "sender", // a handle is who, not what: it may name the sender
     userIDFromHandleOrEmail: async () => "recipient",
   },
   "./filter.mjs": { filter: (s) => s },
@@ -80,7 +80,14 @@ const backend = await load("../system/backend/mail.mjs", {
 await backend.deliver({ from: "sender", to: "recipient", text: marker, subject: marker, device: "target-device" }, database);
 await backend.deliverFromOutside({ to: "recipient", fromEmail: `${marker}@example.invalid`, fromName: marker, text: marker, subject: marker }, database);
 assert.equal(notes.length, 2);
-for (const { note } of notes) assert.deepEqual(cleanJSON(note), privacy.letterNotification("opaque-id"));
+// A letter from a handle names its sender and nothing else; one from outside
+// email stays anonymous — the address and display name are the sender's own.
+assert.deepEqual(cleanJSON(notes[0].note), privacy.letterNotification("opaque-id", "@sender"));
+assert.equal(notes[0].note.title, "@sender");
+assert.deepEqual(cleanJSON(notes[1].note), privacy.letterNotification("opaque-id"));
+assert.equal(notes[1].note.title, "Letters");
+privateFree(notes.map(({ note }) => note));
+assert.equal(privacy.letterNotification("x", `${marker} <${marker}@example.invalid>`).title, "Letters", "only a handle shape is ever shown");
 assert.equal(notes[0].options.device, "target-device");
 assert.ok(stored.every((row) => row.text === marker && row.subject === marker));
 await backend.deliverFromOutside({ to: "recipient", fromEmail: marker, text: marker, quiet: true }, database);
@@ -185,7 +192,7 @@ const piece = await readFile(new URL("../system/public/aesthetic.computer/disks/
 const sendStart = piece.indexOf("async function send(api,");
 const sendEnd = piece.indexOf("// Put the fields away", sendStart);
 assert.ok(sendStart > 0 && sendEnd > sendStart);
-const compose = vm.runInNewContext(`let composeNote; ${piece.slice(sendStart, sendEnd)}; ({send, note: () => composeNote})`, {
+const compose = vm.runInNewContext(`let note = null, sending = false, thread = null, convo = null, hud = null, scrollToEnd = false; ${piece.slice(sendStart, sendEnd)}; ({send, note: () => note})`, {
   S: () => ({ couldntSend: "Could not send letter" }),
 });
 const draft = { to: "@test", subject: marker, body: marker };

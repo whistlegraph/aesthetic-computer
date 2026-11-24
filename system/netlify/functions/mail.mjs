@@ -4,7 +4,9 @@
 //
 // GET  /api/mail                       → inbox, sent, unread count, addresses
 // POST /api/mail { to, text }          → send
-// POST /api/mail { action: "read" }    → mark all read (or one, with `id`)
+// GET  /api/mail?with=@handle          → one conversation, both ways, oldest first
+// POST /api/mail { action: "read" }    → mark all read (or one, with `id`,
+//                                         or one conversation, with `with`)
 //   headers: Authorization: Bearer <Auth0 token>
 
 import { mailTrace, recordMailEvent } from "../../backend/mail-events.mjs";
@@ -27,6 +29,27 @@ import { ObjectId } from "mongodb";
 import { mailErrorCode } from "../../../shared/mail-privacy.mjs";
 
 const PAGE = 50;
+const THREAD = 200; // the newest this many letters of one conversation
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+// Who a conversation is with, as Mongo filters for each direction. A handle
+// or code resolves to an account; an outside email address matches the
+// letters that crossed the wall with it. An email that belongs to someone
+// here is both. Undefined when the address names no one.
+async function conversation(me, address, database) {
+  const raw = typeof address === "string" ? address.trim() : "";
+  if (!raw || raw.length > 254) return undefined;
+  const sub = await subFromAddress(raw, database);
+  const email = EMAIL.test(raw) ? raw.toLowerCase() : null;
+  if (!sub && !email) return undefined;
+  const incoming = [], outgoing = [];
+  if (sub) { incoming.push({ from: sub }); outgoing.push({ to: sub }); } // you, too: notes to self
+  if (email) { incoming.push({ fromEmail: email }); outgoing.push({ toEmail: email }); }
+  return {
+    incoming: { to: me, $or: incoming },
+    both: { $or: [{ to: me, $or: incoming }, { from: me, $or: outgoing }] },
+  };
+}
 const respond = (status, body, headers = {}) => httpRespond(status, body, { "Cache-Control": "private, no-store", ...headers });
 const NO_FILES = { projection: { "attachments.data": 0 } };
 
@@ -91,6 +114,43 @@ async function handleMail(event, context) {
           isBase64Encoded: true,
         };
       }
+      if (query.with !== undefined) {
+        context.action = "thread";
+        const convo = await conversation(user.sub, query.with, database);
+        if (!convo) {
+          context.shape = addressShape(query.with);
+          return respond(404, { message: "No one at that address" });
+        }
+        const rows = await tells.find(convo.both, NO_FILES).sort({ when: -1 }).limit(THREAD).toArray();
+        const media = new Map();
+        const references = (text) => {
+          if (!media.has(text)) media.set(text, resolveMailMedia(text, database));
+          return media.get(text);
+        };
+        return respond(200, {
+          with: query.with.trim(),
+          more: rows.length === THREAD,
+          letters: await Promise.all(rows.reverse().map(async (m) => {
+            const mine = m.from === user.sub;
+            return {
+              id: m._id,
+              mine,
+              from: m.fromHandle,
+              fromEmail: m.fromEmail || null,
+              to: m.toHandle,
+              toEmail: m.toEmail || null,
+              auth: mine ? null : m.auth || null,
+              subject: m.subject || null,
+              text: m.text,
+              when: m.when,
+              read: mine || m.read === true,
+              attachments: attachmentList(m.attachments),
+              media: await references(m.text),
+            };
+          })),
+        });
+      }
+
       // `?count` is the cheap one — the prompt asks it on every boot just to
       // know whether to draw the envelope.
       if (event.queryStringParameters?.count !== undefined) {
@@ -152,8 +212,13 @@ async function handleMail(event, context) {
 
     if (body.action === "read") {
       context.action = "read";
-      const where = { to: user.sub, read: { $ne: true } };
+      let where = { to: user.sub, read: { $ne: true } };
       if (body.id) where._id = new ObjectId(body.id);
+      else if (body.with !== undefined) {
+        const convo = await conversation(user.sub, body.with, database);
+        if (!convo) return respond(404, { message: "No one at that address" });
+        where = { ...convo.incoming, read: { $ne: true } };
+      }
       const result = await tells.updateMany(where, {
         $set: { read: true, readAt: new Date() },
       });
