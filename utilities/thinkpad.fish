@@ -98,7 +98,7 @@ echo "🟣 Installing Aesthetic Computer system daemon"
 # performing other tasks... on command, which could accept
 # messages from the client.
 # Is this still being used actively? 24.08.21.21.46
-fish ~/aesthetic-computer/daemon/install-daemon.fish
+fish ~/aesthetic-computer/archive/daemon/install-daemon.fish
 
 echo "🟣 Resetting dock icons"
 gsettings set org.gnome.shell favorite-apps "[]"

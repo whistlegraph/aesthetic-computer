@@ -23,7 +23,7 @@
 
 ### What Fedora gives us for free
 - **Wayland/GNOME native** — works perfectly on ThinkPads, HiDPI, suspend/resume, all just work
-- **Image Builder (osbuild/composer-cli)** — native Fedora ISO/qcow2 tooling, already prototyped in `fedora-image/`
+- **Image Builder (osbuild/composer-cli)** — native Fedora ISO/qcow2 tooling, already prototyped in `archive/fedora-image/`
 - **DNF + rpm** — stable package management with Fedora's release cadence
 - **Kickstart files** — declarative, reproducible installs (Fedora's native "preseed")
 - **Silverblue/Kinoite option** — immutable OS variants with automatic updates
@@ -34,7 +34,7 @@
 
 ## Existing Fedora Work in This Repo
 
-### `fedora-image/blueprint.toml` (early prototype)
+### `archive/fedora-image/blueprint.toml` (early prototype)
 A `composer-cli` blueprint that builds a qcow2 with GNOME, GDM, git, htop, and an `me` user. Successfully built (compose `6f25eac4`). This is the seed — FedAC would evolve this into a full bootable image.
 
 ### `reports/thinkpad-ac-kiosk-report.md`
@@ -80,7 +80,7 @@ A `.ks` kickstart file that automates Fedora installation:
 - Reproducible, version-controlled, easy to iterate
 
 #### B. Image Builder (osbuild / composer-cli)
-Evolve the existing `fedora-image/blueprint.toml`:
+Evolve the existing `archive/fedora-image/blueprint.toml`:
 - Produces qcow2, ISO, or raw disk images
 - More declarative than kickstart
 - Better for immutable/appliance-style images
@@ -102,7 +102,7 @@ fedac/
 │   ├── fedac-thinkpad.ks               # kickstart for ThinkPad installs
 │   └── fedac-generic.ks                # kickstart for any x86_64
 ├── blueprint/
-│   └── fedac.toml                      # osbuild blueprint (evolved from fedora-image/)
+│   └── fedac.toml                      # osbuild blueprint (evolved from archive/fedora-image/)
 ├── plymouth/
 │   ├── fedac.plymouth                  # Plymouth theme config
 │   ├── fedac.script                    # boot animation script
@@ -446,7 +446,7 @@ Unlike the FFOS pipeline (which needed Docker + Arch + mkarchiso), this runs nat
 
 2. **Standard Fedora or Kinoite?** Standard is simpler to start, Kinoite is better for deployed kiosks. Could start standard and graduate.
 
-3. **Keep `fedora-image/` or merge into `fedac/`?** The blueprint is a seed — probably merge it in and remove the old directory.
+3. **Keep `archive/fedora-image/` or merge into `fedac/`?** The blueprint is a seed — probably merge it in and remove the old directory.
 
 4. **pals.svg** — Needs to be created (trace or redraw from the PNG). Not blocking — Plymouth uses PNG. SVG is for future use (print, scaling, etc.)
 
@@ -463,8 +463,8 @@ Unlike the FFOS pipeline (which needed Docker + Arch + mkarchiso), this runs nat
 | `utilities/ffos-build/overlays/ffos-user/.../aesthetic-kiosk.service` | Systemd kiosk service |
 | `utilities/ffos-build/overlays/ffos-user/.../start-aesthetic-kiosk.sh` | Kiosk launcher with GPU detection |
 | `utilities/ffos-build/overlays/ac-config-server/` | HTTP config server for phone-based setup |
-| `fedora-image/blueprint.toml` | Early Fedora osbuild blueprint |
-| `fedora-image/notes.txt` | Build session notes |
+| `archive/fedora-image/blueprint.toml` | Early Fedora osbuild blueprint |
+| `archive/fedora-image/notes.txt` | Build session notes |
 | `reports/thinkpad-ac-kiosk-report.md` | ThinkPad kiosk analysis + recommendations |
 | `utilities/thinkpad.sh` | Fedora ThinkPad dependency install script |
 | `ac-electron/` | Electron app (alternative to browser kiosk) |

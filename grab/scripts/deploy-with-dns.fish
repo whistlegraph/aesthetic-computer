@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 # Deploy grab worker with automatic DNS configuration
-# Based on the nanos/conductor.mjs pattern
+# Based on the archive/nanos/conductor.mjs pattern
 
 set -e
 
