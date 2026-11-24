@@ -35,4 +35,5 @@ fi
 # file by id. Off in the server by default; set to false to turn it back off.
 export SLACK_MCP_ATTACHMENT_TOOL="${SLACK_MCP_ATTACHMENT_TOOL:-true}"
 
-exec node "$REPO/toolchain/vault/launch.mjs" slack "$BIN" --transport stdio "$@"
+# slack-proxy adds files_upload, which the server lacks (see slack-proxy.mjs).
+exec node "$REPO/toolchain/mcp/slack-proxy.mjs" node "$REPO/toolchain/vault/launch.mjs" slack "$BIN" --transport stdio "$@"

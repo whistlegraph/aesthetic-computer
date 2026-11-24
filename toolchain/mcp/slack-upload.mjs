@@ -5,7 +5,7 @@
 //
 //   node toolchain/mcp/slack-upload.mjs --check
 //   node toolchain/mcp/slack-upload.mjs --channel C09F3RLRNHL --file a.pdf \
-//        [--title "Title"] [--comment-file note.md]
+//        [--title "Title"] [--comment TEXT | --comment-file note.md] [--thread TS]
 //
 // Uses Slack's current flow: files.getUploadURLExternal → POST bytes →
 // files.completeUploadExternal (files.upload is retired). Tokens are read into
@@ -43,13 +43,26 @@ const who = await api("auth.test", {});
 console.log(`workspace: ${who.team} (${who.team_id}) as ${who.user}`);
 if (args.includes("--check")) process.exit(0);
 
-const channel = arg("--channel");
+let channel = arg("--channel");
 const file = arg("--file");
 if (!channel || !file) { console.error("need --channel and --file"); process.exit(1); }
 const bytes = readFileSync(file);
 const filename = arg("--name") || basename(file);
 const title = arg("--title") || filename;
-const comment = arg("--comment-file") ? readFileSync(arg("--comment-file"), "utf8").trim() : undefined;
+const comment = arg("--comment") ?? (arg("--comment-file") ? readFileSync(arg("--comment-file"), "utf8").trim() : undefined);
+
+// "#engineering" → its ID, so callers can name channels the way the MCP does.
+if (channel.startsWith("#")) {
+  const name = channel.slice(1);
+  let cursor = "", found;
+  do {
+    const page = await api("conversations.list", { types: "public_channel,private_channel", limit: "1000", exclude_archived: "true", ...(cursor ? { cursor } : {}) });
+    found = page.channels.find((c) => c.name === name);
+    cursor = page.response_metadata?.next_cursor || "";
+  } while (!found && cursor);
+  if (!found) { console.error(`slack-upload: no channel named #${name}`); process.exit(1); }
+  channel = found.id;
+}
 
 const { upload_url, file_id } = await api("files.getUploadURLExternal", {
   filename, length: String(statSync(file).size),
@@ -61,6 +74,7 @@ const done = await api("files.completeUploadExternal", {
   files: JSON.stringify([{ id: file_id, title }]),
   channel_id: channel,
   ...(comment ? { initial_comment: comment } : {}),
+  ...(arg("--thread") ? { thread_ts: arg("--thread") } : {}),
 });
 const f = done.files?.[0] || {};
 console.log(`uploaded ${f.name || filename} (${file_id}) to ${channel}${f.permalink ? " " + f.permalink : ""}`);

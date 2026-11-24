@@ -144,6 +144,7 @@ Local-only commands (rarely needed): `ac-os build` (binary → initramfs → ker
   exist and exit 1. `npm run oskiewar:deploy` reports that only as
   `"detail": "fish exited 1"`.
 - **sticky the X** - on a macOS host, run `node toolchain/macos/sticky.mjs` on X — translucent, larger-text Stickies note sized to fit and centered. See `toolchain/macos/README.md`.
+- **Slack files** - attach screenshots and files with the Slack MCP `files_upload` tool (channel `#name` or ID, optional `thread_ts`), added by `toolchain/mcp/slack-proxy.mjs`. CLI: `node toolchain/mcp/slack-upload.mjs --channel C… --file F [--thread TS]`.
 
 ## Architecture
 
