@@ -497,13 +497,15 @@ enum PixelFont {
 ///       events: [{ id, fish, kind: generation|failed|signup|workflow|publish|tool|…, at, text, credits }],
 ///       totals: { generationsHour, creditsHour, swimmersHour, spark: [60 per-minute counts] } }
 ///
+/// Optional `playbackDelay` (seconds) replaces the 75 s event hold.
 /// Times are Unix seconds. With no file the layer stays empty and costs one
-/// stat every two seconds.
+/// stat a second.
 final class FisheryLayer: CALayer {
     static let file = NSString(
         string: "~/.local/share/blueberry-wallpaper/fishery.json").expandingTildeInPath
     /// Analytics land late; events replay this long after they happened so
-    /// their real spacing survives the batch they arrived in.
+    /// their real spacing survives the batch they arrived in. A feeder on a
+    /// live stream says so with a shorter `playbackDelay` in its snapshot.
     private static let playbackDelay: Double = 75
     private static let staleAfter: Double = 180
 
@@ -517,6 +519,8 @@ final class FisheryLayer: CALayer {
         var heatmaps: [[String: Any]] = []
         /// "walkers" draws rax's little people instead of fish.
         var school = ""
+        /// Seconds to hold each event before it plays; 0 = the default.
+        var delay: Double = 0
     }
 
     private struct Pending { let playAt: Double; let event: [String: Any] }
@@ -913,7 +917,7 @@ final class FisheryLayer: CALayer {
             load(data, now: now)
             return
         }
-        guard now - lastPoll > 2 else { return }
+        guard now - lastPoll > 1 else { return }
         lastPoll = now
         let attrs = try? FileManager.default.attributesOfItem(atPath: Self.file)
         guard let stamp = attrs?[.modificationDate] as? Date else {
@@ -939,7 +943,8 @@ final class FisheryLayer: CALayer {
             events: obj["events"] as? [[String: Any]] ?? [],
             totals: obj["totals"] as? [String: Any] ?? [:],
             heatmaps: obj["heatmaps"] as? [[String: Any]] ?? [],
-            school: obj["school"] as? String ?? "")
+            school: obj["school"] as? String ?? "",
+            delay: Self.num(obj["playbackDelay"]))
         world = obj["world"] as? [String: Any] ?? [:]
         infra = obj["infra"] as? [String: Any] ?? [:]
         infraVersion += 1
@@ -1019,7 +1024,7 @@ final class FisheryLayer: CALayer {
             guard let id = event["id"] as? String, !seen.contains(id) else { continue }
             seen.insert(id)
             let at = Self.num(event["at"])
-            let due = at + Self.playbackDelay
+            let due = at + (snapshot.delay > 0 ? snapshot.delay : Self.playbackDelay)
             if !primed && due < now {
                 log(event, at: at)
                 continue
