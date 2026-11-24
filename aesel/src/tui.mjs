@@ -2867,7 +2867,7 @@ async function submitInput(submittedText, submittedMessages = null) {
     if (command === '/done' && state.medium === 'picture') return commandPublishPicture(rest);
     if (command === '/render-image' || command === '/edit-image') {
       if(state.medium!=='picture'||!rest){addEntry('notice','Picture: /render-image PROMPT generates an image; /edit-image PROMPT edits the accepted painting. Uses AC sign-in or your OPENAI_API_KEY. Results appear as a preview to accept or discard.');return redraw();}
-      return artifactOperation(()=>artifacts.run('generate',{provider:'openai',model:'gpt-image-2',prompt:rest,...(command==='/edit-image'?{reference:'composite.png'}:{})},{paid:true}));
+      return artifactOperation(()=>artifacts.run('generate',{provider:'openai',model:'gpt-image-2.6-flare',prompt:rest,...(command==='/edit-image'?{reference:'composite.png'}:{})},{paid:true}));
     }
     if (command === "/performance" || command === "/perf") return commandPerformance(rest);
     if (command === "/cadence") {

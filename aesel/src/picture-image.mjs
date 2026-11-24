@@ -1,9 +1,11 @@
-import { FAL_FLARE } from '../media/picture/illy.mjs';
+import { FAL_FLARE, models } from '../media/picture/illy.mjs';
 import { ACSession, SITE, USER_AGENT } from './ac-session.mjs';
 import { ImagePath } from './image-path.mjs';
+// The OpenAI image models AC hosts, paid in braincells (system/backend/easel-images.mjs).
+export const HOSTED_OPENAI_IMAGES = models.openai;
 // The hosted path uses AC sign-in. Provider credentials stay on the server.
 export async function hostedPictureImage(plan,{reference,jobId,fetchImpl=fetch,session=new ACSession(),site=SITE}={}) {
-  if (!(plan.provider==='openai' && plan.model==='gpt-image-2') && !(plan.provider==='fal' && plan.model===FAL_FLARE)) throw new Error('This model requires your own provider key; it is not available through AC hosted images.');
+  if (!(plan.provider==='openai' && HOSTED_OPENAI_IMAGES.includes(plan.model)) && !(plan.provider==='fal' && plan.model===FAL_FLARE)) throw new Error('This model requires your own provider key; it is not available through AC hosted images.');
   const token=await session.token();
   const path = new ImagePath({path:'picture', request:async(endpoint,body,timeout)=>{
     const response=await fetchImpl(`${site}${endpoint}`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','User-Agent':USER_AGENT},body:JSON.stringify(body),signal:AbortSignal.timeout(timeout)});

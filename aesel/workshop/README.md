@@ -46,8 +46,8 @@ form the model *can* write, then turning it into the media.
 - [ ] Everyone has an aesthetic.computer account with a claimed @handle.
       Hosted inference is paid in braincells on each handle; check that the
       daily allowance covers ~20 runs of Claude Sonnet 5.5 per person, or top up.
-- [ ] `image/png` harnesses get **5 hosted images per handle per day**. Demo
-      `sticker` yourself; let students choose it knowingly.
+- [ ] `image/png` harnesses are paid in braincells like text: a low-quality
+      square picture is about 2,400 of the 200,000 free a day.
 - [ ] Try the room's Wi-Fi with `ac harness run` before class. Each run makes
       one request; a dropped connection is retried once.
 - [ ] Put a few test photos on the class drive for anyone without one.
@@ -205,7 +205,7 @@ the new folder after the piece. The printer runs anywhere Aesel is installed and
 - `--model` tries the same harness on another hosted model
   (`deepseek/deepseek-v4.1-flash` is much cheaper; compare the results).
 - An `image` block in `harness.json` picks the image model:
-  `{ "provider": "openai", "model": "gpt-image-2", "quality": "medium" }`.
+  `{ "provider": "openai", "model": "gpt-image-2.6-flare", "quality": "medium" }`.
 - A harness is just files: put it in git, share it, fork a classmate's.
 - Aesel's own harness lives in `aesel/harness/*.md`, the same idea at full
   size, and `ac run --init-harness` copies it for editing
@@ -215,6 +215,6 @@ the new folder after the piece. The printer runs anywhere Aesel is installed and
 
 - Hosted inference reads words and pictures. Audio, video and PDFs can't go
   *in* yet; a `file` input takes text.
-- `image/png` outputs count against 5 hosted images a day.
+- `image/png` outputs are paid in braincells, free allowance first.
 - A `.wav` is at most 60 seconds; the synth is plain (sine, square, saw,
   triangle, noise) on purpose, so the score carries the music.

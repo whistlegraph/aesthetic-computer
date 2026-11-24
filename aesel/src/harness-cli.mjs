@@ -29,7 +29,7 @@ try {
     out("starters — ac harness new <dir> --from <starter>\n");
     for (const s of starters()) out(`  ${s.id.padEnd(14)} ${s.inputs.map((i) => INPUTS[i].glyph + " " + i).join(" + ").padEnd(28)} → ${goal(s.output).padEnd(20)} ${s.description}`);
     out("\noutput goals — --out <mime>\n");
-    for (const [mime, o] of Object.entries(OUTPUTS)) out(`  ${goal(mime).padEnd(22)} .${o.ext.padEnd(5)} ${o.kind}${o.as === "image" ? " (model art-directs, image model paints; 5 hosted images a day)" : o.as === "score" ? " (model composes, your machine synthesizes)" : ""}`);
+    for (const [mime, o] of Object.entries(OUTPUTS)) out(`  ${goal(mime).padEnd(22)} .${o.ext.padEnd(5)} ${o.kind}${o.as === "image" ? " (model art-directs, image model paints; paid in braincells)" : o.as === "score" ? " (model composes, your machine synthesizes)" : ""}`);
     out("\ninputs — --in <a,b>\n");
     for (const [name, i] of Object.entries(INPUTS)) out(`  ${i.glyph} ${name.padEnd(6)} ${i.about}`);
   } else if (command === "new") {

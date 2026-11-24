@@ -92,7 +92,7 @@ export function validateManifest(value) {
   for (const input of inputs) if (!INPUTS[input]) throw new Error(`harness.json: unknown input "${input}" — use ${Object.keys(INPUTS).join(", ")}`);
   const output = outputType(value.output);
   const model = value.model === undefined ? DEFAULT_MODEL : String(value.model);
-  const image = { provider: "openai", model: "gpt-image-2", quality: "low", size: "1024x1024", ...(value.image || {}) };
+  const image = { provider: "openai", model: "gpt-image-2.6-flare", quality: "low", size: "1024x1024", ...(value.image || {}) };
   return { name, description: String(value.description || ""), inputs: [...new Set(inputs)], output, model, image };
 }
 

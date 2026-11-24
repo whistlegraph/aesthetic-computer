@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 // Schema: https://fal.ai/models/openai/gpt-image-2.5/flare/text-to-image/api
 export const FAL_FLARE = "openai/gpt-image-2.5/flare/text-to-image";
 export const models = Object.freeze({
-  openai: ["gpt-image-2"],
+  openai: ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst", "gpt-image-2"],
   fal: ["fal-ai/flux/dev", "fal-ai/flux/dev/image-to-image", FAL_FLARE],
 });
 export function plan(input) {

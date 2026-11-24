@@ -129,7 +129,7 @@ test("sound and pictures are made from the answer, not as it", async () => {
     paint: async (plan) => (plans.push(plan), { bytes: png }),
   });
   assert.equal(plans[0].prompt, "a cheerful frog sticker");
-  assert.equal(plans[0].model, "gpt-image-2");
+  assert.equal(plans[0].model, "gpt-image-2.6-flare");
   assert.equal(path.extname(picture.file), ".png");
 });
 
