@@ -8,6 +8,10 @@
 //     toolchain/type/gen-6x10-supplement.py (accents composed from the
 //     font's marks; turned, reversed, small-capital and stroked letters
 //     made from their bases). Regenerate there; don't edit the JSON.
+// MatrixChunky8, the compact chip face, gets bdf-supplement-chunky8.json
+// from toolchain/type/gen-chunky8-supplement.py: composed in its own hand,
+// the rest fitted from the finished 6x10 glyphs. Its rows carry the spacing
+// column, so each glyph's width is its advance.
 //
 // Rows are top-to-bottom, `#` = lit pixel. Every 6x10 glyph is drawn on the
 // same 6x10 cell the BDF uses: baseline at row 7, rows 8–9 for descenders.
@@ -133,6 +137,7 @@ function generated(file) {
 
 const FONTS = {
   "6x10": { glyphs: { ...generated("./bdf-supplement-6x10.json"), ...SIX_BY_TEN }, ascent: 8, descent: 2, yOffset: -2 },
+  MatrixChunky8: { glyphs: generated("./bdf-supplement-chunky8.json"), ascent: 8, descent: 0, yOffset: 0 },
 };
 
 // Return glyph JSON in the exact shape `bdf-glyph` emits, or null.

@@ -25,8 +25,21 @@ assert.deepEqual(rows(supplementGlyph("6x10", 0x01dd)).slice(3, 8), [".###..", "
 assert.deepEqual(rows(supplementGlyph("6x10", 0x0268)).slice(1, 8),
   ["..#...", "......", ".##...", "..#...", "#####.", "..#...", ".###.."], "ɨ keeps its hand-drawn stroke");
 
+// MatrixChunky8, the compact face: an 8-row cell, proportional, each
+// glyph's width its advance (ink plus one spacing column).
+for (const cp of [0x01dd, 0x0248, 0x1e00, 0x04d3, 0x0460]) {
+  const glyph = supplementGlyph("MatrixChunky8", cp);
+  assert.ok(glyph, `chunky U+${cp.toString(16)} has a glyph`);
+  assert.equal(glyph.resolution[1], 8);
+  assert.ok(glyph.resolution[0] >= 3 && glyph.resolution[0] <= 7);
+  assert.equal(glyph.advance, glyph.resolution[0]);
+  assert.deepEqual(glyph.fontMetrics, { ascent: 8, descent: 0 });
+  assert.ok(rows(glyph).every((row) => row.endsWith(".")), "the last column is spacing");
+}
+assert.equal(supplementGlyph("MatrixChunky8", 0x0061), null, "letters the face has are never shadowed");
+
 // Misses stay misses: other fonts, and characters nothing made.
 assert.equal(supplementGlyph("unifont", 0x029c), null);
 assert.equal(supplementGlyph("6x10", 0x4e00), null);
 assert.equal(hasSupplement("6x10", 0x029c), true);
-console.log("bdf supplement spec passed: generated 6x10 glyphs, hand-drawn precedence, misses");
+console.log("bdf supplement spec passed: generated 6x10 and MatrixChunky8 glyphs, hand-drawn precedence, misses");
