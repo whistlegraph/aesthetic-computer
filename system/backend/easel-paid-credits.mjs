@@ -244,11 +244,17 @@ export async function authorizePaidRequest({user,model,body,maxTokens,product,no
   const inputBound=reservationSize(body,0);
   const rate=braincellRate(model,inputBound);
   const amount=holdBraincells({model,body,maxTokens});
+  const hold=await authorizePaidAmount({user,amount,model,product,now,withWallets:using});
+  return {...hold,rate,inputBound};
+}
+// Hold `amount` bought braincells for one request whose price is known up
+// front (a hosted image), or refuse with the same messages text inference uses.
+export async function authorizePaidAmount({user,amount,model,product,now=new Date(),withWallets:using=withWallets}) {
   return using(async wallets=>{
     const prior=await wallets.findOne({_id:user});
     await reconcileWallet(prior,wallets,{now});
     const hold=await reserve(user,amount,wallets,{now,product,model});
-    if(hold)return {...hold,rate,inputBound};
+    if(hold)return hold;
     const wallet=await wallets.findOne({_id:user},{projection:{daily:1,holds:1}});
     if((Number(wallet?.daily?.[dayKey(now)])||0)+outstanding(wallet)+amount>DAILY_PAID_BRAINCELL_CAP){
       const minutes=Math.ceil((Date.parse(dayKey(now)+'T00:00:00Z')+86400000-now)/60000);

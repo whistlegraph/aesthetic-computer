@@ -1,11 +1,17 @@
 import sharp from 'sharp';
 import { generate as generateProviderImage, FAL_FLARE } from '../../aesel/media/picture/illy.mjs';
-export const hostedImageModels = Object.freeze({openai: ['gpt-image-2'], fal: [FAL_FLARE]});
+// gpt-image-2.6-flare is the default: OpenAI's newest everyday model (2026-11-04),
+// at the same token prices as gpt-image-2 and far fewer tokens per image.
+export const DEFAULT_IMAGE_MODEL = 'gpt-image-2.6-flare';
+export const hostedImageModels = Object.freeze({
+  openai: ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2'],
+  fal: [FAL_FLARE],
+});
 export function imageRequest(input) {
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(input.jobId || '')) throw new Error('Invalid image job.');
   if (typeof input.prompt !== 'string' || !input.prompt.trim() || input.prompt.length > 16000) throw new Error('Provide an image prompt.');
   const provider=input.provider || 'openai';
-  const model=input.model || (provider === 'openai' ? 'gpt-image-2' : null);
+  const model=input.model || (provider === 'openai' ? DEFAULT_IMAGE_MODEL : null);
   if (!hostedImageModels[provider]?.includes(model)) throw new Error('Unsupported hosted image provider/model.');
   if (provider === 'fal' && input.reference) throw new Error('This fal model supports generation only, not reference edits.');
   const size=input.size || '1024x1024', quality=input.quality || 'medium';
