@@ -3,6 +3,7 @@ import QuartzCore
 import SceneKit
 import AVFoundation
 import ImageIO
+import CoreImage
 
 /// Text that carries its own halo. A Core Animation layer shadow with no
 /// shadow path is blurred again from the layer's alpha on every composite;
@@ -491,7 +492,8 @@ enum PixelFont {
 /// writes `~/.local/share/blueberry-wallpaper/fishery.json`:
 ///
 ///     { name, observedAt, liveMinutes,
-///       fish:   [{ id, label, kind: staff|paid|free|anon, lastAt, generations, place }],
+///       fish:   [{ id, label, kind: staff|paid|free|anon, lastAt, generations, place,
+///                  skins: [local media files], apps: [public URLs] }],
 ///       events: [{ id, fish, kind: generation|failed|signup|workflow|publish|tool|…, at, text, credits }],
 ///       totals: { generationsHour, creditsHour, swimmersHour, spark: [60 per-minute counts] } }
 ///
@@ -587,6 +589,18 @@ final class FisheryLayer: CALayer {
         var faceSource: CGImage?
         var faceKey = ""
         var skins: [String] = []
+        /// Public apps and projects: shown in the card as QR codes.
+        var apps: [String] = []
+        /// Speech bubble over the fish with what they just made: a still,
+        /// a muted looping video, or a QR code for a public app.
+        let card = CALayer()
+        let cardTail = CALayer()
+        let cardMedia = CALayer()
+        var cardWant = ""
+        var cardShown = ""
+        var cardVideo: AVPlayerLayer?
+        var cardPlayer: AVQueuePlayer?
+        var cardLooper: AVPlayerLooper?
         var since: Double = 0
         var pages = 0
         var clicks = 0
@@ -978,6 +992,7 @@ final class FisheryLayer: CALayer {
             f.stayed = Self.num(row["stayed"])
             f.leftAt = Self.num(row["leftAt"])
             f.skins = row["skins"] as? [String] ?? []
+            f.apps = row["apps"] as? [String] ?? []
             let avatar = row["avatar"] as? String ?? ""
             if avatar != f.avatar {
                 f.avatar = avatar
@@ -1053,6 +1068,18 @@ final class FisheryLayer: CALayer {
         f.face.magnificationFilter = .linear
         f.face.minificationFilter = .trilinear
         f.face.isHidden = true
+        for l in [f.card, f.cardTail, f.cardMedia] { l.actions = Self.still }
+        f.card.backgroundColor = NSColor(white: 0.97, alpha: 1).cgColor
+        f.cardTail.backgroundColor = f.card.backgroundColor
+        f.card.shadowColor = NSColor.black.cgColor
+        f.card.shadowOpacity = 0.35
+        f.cardMedia.masksToBounds = true
+        f.cardMedia.contentsGravity = .resizeAspectFill
+        f.cardMedia.minificationFilter = .trilinear
+        f.card.addSublayer(f.cardTail)
+        f.card.addSublayer(f.cardMedia)
+        f.card.isHidden = true
+        f.root.addSublayer(f.card)
         f.root.addSublayer(f.tag)
         f.tag.addSublayer(Self.text(f.label))
         f.root.addSublayer(Self.text(f.sub))
@@ -1174,6 +1201,119 @@ final class FisheryLayer: CALayer {
         return ctx.makeImage()
     }
 
+    /// The window is going away: stop any card videos.
+    func retire() {
+        for f in fish.values { stopCard(f) }
+    }
+
+    // MARK: Card — what this fish just made, held up over its head.
+
+    private static let cardSide: CGFloat = 64
+    private static let cardLoader = DispatchQueue(label: "computer.aesthetic.blueberry-wallpaper.cards", qos: .utility)
+    private let cardLock = NSLock()
+    private var cardImages: [String: CGImage?] = [:]
+    private var cardLoading = Set<String>()
+
+    /// A small decoded still for a card, or nil while it is on its way.
+    /// `.some(nil)` marks a file that won't decode.
+    private func cardImage(_ key: String) -> CGImage?? {
+        cardLock.lock()
+        defer { cardLock.unlock() }
+        if let known = cardImages[key] { return known }
+        guard cardLoading.insert(key).inserted else { return nil }
+        Self.cardLoader.async { [weak self] in
+            var image: CGImage?
+            if key.hasPrefix("app:") {
+                image = Self.qr(String(key.dropFirst(4)))
+            } else if let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: key) as CFURL, nil) {
+                image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 320] as CFDictionary)
+            }
+            if image == nil, !key.hasPrefix("app:") {
+                // ImageIO has no SVG; AppKit does.
+                image = NSImage(contentsOfFile: key)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+            }
+            guard let self else { return }
+            self.cardLock.lock()
+            if self.cardImages.count > 200 { self.cardImages.removeAll() }
+            self.cardImages[key] = .some(image)
+            self.cardLoading.remove(key)
+            self.cardLock.unlock()
+        }
+        return nil
+    }
+
+    /// A QR code at one pixel per module, drawn scaled up with nearest filtering.
+    private static func qr(_ url: String) -> CGImage? {
+        guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        filter.setValue(Data(url.utf8), forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let out = filter.outputImage else { return nil }
+        return CIContext(options: [.useSoftwareRenderer: true]).createCGImage(out, from: out.extent)
+    }
+
+    private func stopCard(_ f: Fish) {
+        f.cardPlayer?.pause()
+        f.cardPlayer = nil
+        f.cardLooper = nil
+        f.cardVideo?.removeFromSuperlayer()
+        f.cardVideo = nil
+    }
+
+    /// The card cycles through the fish's latest generations and public apps
+    /// on the same nine-second clock as the skin the body wears.
+    private func updateCard(_ f: Fish, t: Double, size: CGFloat) {
+        let items = walkers || f.kind == "ghost" || f.leaving ? [] : f.skins + f.apps.map { "app:" + $0 }
+        f.cardWant = items.isEmpty ? "" : items[(Int(t / 9) + Int(f.phase * 10)) % items.count]
+        if f.cardWant != f.cardShown {
+            let video = ["mp4", "mov", "webm"].contains((f.cardWant as NSString).pathExtension.lowercased())
+            if f.cardWant.isEmpty {
+                stopCard(f)
+                f.card.isHidden = true
+                f.cardShown = ""
+            } else if video {
+                stopCard(f)
+                let player = AVQueuePlayer()
+                player.isMuted = true
+                f.cardLooper = AVPlayerLooper(player: player, templateItem: AVPlayerItem(url: URL(fileURLWithPath: f.cardWant)))
+                let layer = AVPlayerLayer(player: player)
+                layer.videoGravity = .resizeAspectFill
+                layer.actions = Self.still
+                f.cardMedia.contents = nil
+                f.cardMedia.addSublayer(layer)
+                player.play()
+                f.cardVideo = layer
+                f.cardPlayer = player
+                f.card.isHidden = false
+                f.cardShown = f.cardWant
+            } else if let loaded = cardImage(f.cardWant) {
+                // Keep showing the last card until the next one has decoded.
+                stopCard(f)
+                f.cardMedia.contents = loaded
+                f.cardMedia.magnificationFilter = f.cardWant.hasPrefix("app:") ? .nearest : .linear
+                f.card.isHidden = loaded == nil
+                f.cardShown = f.cardWant
+            }
+        }
+        guard !f.card.isHidden else { return }
+        let side = (Self.cardSide * u * (0.8 + 0.3 * f.depth)).rounded()
+        let pad = (f.cardShown.hasPrefix("app:") ? 5 : 3) * u
+        f.card.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        f.card.cornerRadius = 7 * u
+        f.card.shadowRadius = 4 * u
+        f.card.shadowOffset = CGSize(width: 0, height: -1.5 * u)
+        f.card.position = CGPoint(x: 0, y: size * 0.32 + 9 * u + side / 2)
+        let tail = 9 * u
+        f.cardTail.bounds = CGRect(x: 0, y: 0, width: tail, height: tail)
+        f.cardTail.position = CGPoint(x: side / 2, y: 0)
+        f.cardTail.transform = CATransform3DMakeRotation(.pi / 4, 0, 0, 1)
+        f.cardMedia.frame = f.card.bounds.insetBy(dx: pad, dy: pad)
+        f.cardMedia.cornerRadius = f.cardShown.hasPrefix("app:") ? 0 : 4 * u
+        f.cardVideo?.frame = f.cardMedia.bounds
+    }
+
     private func swim(_ f: Fish, t: Double, dt: CGFloat, remote: RemoteFish? = nil) {
         f.hits.removeAll { t - $0 > 90 }
         if f.hits.count != f.shownHits {
@@ -1280,6 +1420,7 @@ final class FisheryLayer: CALayer {
             f.sub.position = CGPoint(x: 0, y: tagY - 2 * u)
         }
         updateSub(f, now: t)
+        updateCard(f, t: t, size: size)
         let tilt = walkers ? 0 : sin(tt * 1.1 + f.phase) * 0.06
         f.body.transform = CATransform3DRotate(CATransform3DMakeScale(f.facing, 1, 1), tilt, 0, 0, 1)
         let wag = sin(tt * (4 + f.boost * 10) + f.phase) * (0.22 + f.boost * 0.3)
@@ -2117,7 +2258,7 @@ final class FisheryLayer: CALayer {
                 f.root.isHidden = remote[id] == nil
                 if let r = remote[id] { swim(f, t: now, dt: dt, remote: r); continue }
                 // Gone from the leader's tank and from the data: gone here too.
-                if f.leaving { f.root.removeFromSuperlayer(); fish[id] = nil }
+                if f.leaving { stopCard(f); f.root.removeFromSuperlayer(); fish[id] = nil }
             }
         } else {
             for f in fish.values { swim(f, t: now, dt: dt) }
@@ -2132,6 +2273,7 @@ final class FisheryLayer: CALayer {
             }
         }
         for (id, f) in fish where link?.following != true && f.leaving && (f.alpha < 0.02 || f.x < -f.length * 1.5 || f.x > bounds.width + f.length * 1.5) {
+            stopCard(f)
             f.root.removeFromSuperlayer()
             fish[id] = nil
         }

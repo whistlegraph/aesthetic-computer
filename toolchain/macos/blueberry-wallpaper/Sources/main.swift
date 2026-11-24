@@ -796,6 +796,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         stage?.renderer.delegate = nil
         stage?.renderer.scene = nil
         school.retire()
+        fishery.retire()
     }
 
     func pauseAnimations() {
