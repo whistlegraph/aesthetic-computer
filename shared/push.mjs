@@ -433,6 +433,46 @@ export async function sendToDevices(db, docs, note, log = console.log) {
   return summary;
 }
 
+// 📒 The ledger: one row per send in Mongo `push-sends` — when, how it was
+//    addressed, what kind of note, and how many devices took it. Never the
+//    title or body: a row says a note went out, not what it said. Rows
+//    expire after SENDS_TTL_DAYS. A failed write never blocks a send.
+const SENDS_COLLECTION = "push-sends";
+const SENDS_TTL_DAYS = 180;
+let sendsIndexed = false;
+
+function countKinds(kinds) {
+  const counts = {};
+  for (const kind of kinds) if (kind) counts[kind] = (counts[kind] || 0) + 1;
+  return counts;
+}
+
+async function recordSend(db, entry, note, summary, kinds, log) {
+  try {
+    const sends = db?.collection?.(SENDS_COLLECTION);
+    if (typeof sends?.insertOne !== "function") return;
+    if (!sendsIndexed) {
+      sendsIndexed = true;
+      Promise.resolve(sends.createIndex?.({ at: 1 }, { expireAfterSeconds: SENDS_TTL_DAYS * 86400 })).catch(() => {});
+    }
+    const kind = note?.data?.kind;
+    const piece = note?.data?.piece;
+    await sends.insertOne({
+      at: new Date(),
+      ...entry,
+      ...(typeof kind === "string" ? { kind: kind.slice(0, 32) } : {}),
+      ...(typeof piece === "string" ? { piece: piece.slice(0, 128) } : {}),
+      channels: countKinds(kinds),
+      attempted: summary.attempted,
+      succeeded: summary.succeeded,
+      failed: summary.failed,
+      pruned: summary.pruned,
+    });
+  } catch (err) {
+    log("🔴 push ledger failed:", err?.message);
+  }
+}
+
 // 📣 Broadcast to every device subscribed to a topic ("scream", "mood",
 //    "chat-system", ...).
 export async function broadcastToTopic(db, topic, note, log = console.log) {
@@ -442,6 +482,7 @@ export async function broadcastToTopic(db, topic, note, log = console.log) {
     .toArray();
   const summary = await sendToDevices(db, docs, note, log);
   log(`🔔 "${topic}" broadcast:`, JSON.stringify(summary));
+  await recordSend(db, { via: "topic", topic }, note, summary, docs.map((d) => d.kind), log);
   return summary;
 }
 
@@ -460,7 +501,10 @@ export async function sendToUser(db, userSub, note, { device } = {}, log = conso
         (d.label || "").toLowerCase().includes(needle),
     );
   }
-  return sendToDevices(db, docs, note, log);
+  const summary = await sendToDevices(db, docs, note, log);
+  await recordSend(db, { via: "user", user: userSub, ...(device ? { device: true } : {}) },
+    note, summary, docs.map((d) => d.kind), log);
+  return summary;
 }
 
 // 🛰️ AC network notifications: send to a device, a person, or a group in the
@@ -475,7 +519,18 @@ export async function sendToTarget(db, target, note, log = console.log) {
   const devices = db.collection(APP_DEVICES);
   const docs = await devices.find({ ...targetFilter(target), push: { $exists: true } }).toArray();
   const summary = { attempted: docs.length, succeeded: 0, failed: 0, pruned: 0 };
-  if (!docs.length) return summary;
+  const entry = {
+    via: "target",
+    ...(target.app ? { app: target.app } : {}),
+    ...(target.user ? { user: target.user } : {}),
+    ...(target.topic ? { topic: target.topic } : {}),
+    ...(target.deviceId ? { device: true } : {}),
+  };
+  const kinds = docs.map((d) => d.push?.kind);
+  if (!docs.length) {
+    await recordSend(db, entry, note, summary, kinds, log);
+    return summary;
+  }
 
   // Group APNs rows by app topic and environment; each group is one batch.
   const groups = new Map();
@@ -513,5 +568,6 @@ export async function sendToTarget(db, target, note, log = console.log) {
       .then(() => { summary.pruned = gone.length; })
       .catch((err) => log("🔴 push prune failed:", err?.message));
   }
+  await recordSend(db, entry, note, summary, kinds, log);
   return summary;
 }
