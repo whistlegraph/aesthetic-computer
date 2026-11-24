@@ -646,6 +646,27 @@ function updateCode(
   updatedCode = updatedCode.replace(namespaceImportsTwoDots, replaceNamespaceTwoDots);
   updatedCode = updatedCode.replace(namespaceImportsOneDot, replaceNamespaceOneDot);
 
+  // Whatever is still relative resolves the same way: default and mixed
+  // imports, bare `import "…"`, `export … from` and dynamic `import("…")`.
+  // A piece run from a blob: URL has no base of its own to resolve against.
+  const absolute = (spec) => {
+    const inDisks = spec.startsWith("./") && !spec.startsWith("./../");
+    const rest = spec.replace(/^(\.\.?\/)+/, "");
+    const dir = inDisks ? "/disks" : "";
+    return serverRewrites
+      ? `..${serverRewritesPath}/public/aesthetic.computer${dir}/${rest}`
+      : `${protocol}//${host}/aesthetic.computer${dir}/${rest}`;
+  };
+  updatedCode = updatedCode
+    .replace(
+      /(\bfrom\s*|^\s*import\s*)(["'])(\.\.?\/[^"'\n]*)\2/gm,
+      (_, lead, q, spec) => `${lead}${q}${absolute(spec)}${q}`,
+    )
+    .replace(
+      /\bimport\(\s*(["'])(\.\.?\/[^"'\n]*)\1\s*\)/g,
+      (_, q, spec) => `import(${q}${absolute(spec)}${q})`,
+    );
+
   // 💉 Constant Injection (for pieces to use)
   // Inject the DEBUG constant into the updatedCode
   // ⚠️ Always make sure to document 📚 added constants in `docs`!

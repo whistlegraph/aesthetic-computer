@@ -8158,7 +8158,9 @@ async function load(
     search = parsed.search;
     colon = parsed.colon || [];
     hash = parsed.hash; // tood: these probably don't work? 24.07.09.23.46
-    host = parsed.host;
+    // A dropped file or pasted source carries no host; keep the page's own,
+    // or every rewritten import points at https://undefined/...
+    host = parsed.host || originalHost;
     slug = parsed.name; // not 'text' for this.
 
     // ⏰ Normalize *clock shortcodes for source-based loads too.
