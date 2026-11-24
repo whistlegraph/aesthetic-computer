@@ -3,8 +3,9 @@
 # shipped, out of the glyphs it did ship, so they share its hand.
 #
 #   curl -so /tmp/6x10.bdf https://assets.aesthetic.computer/type/6x10.bdf
+#   curl -so /tmp/unifont.bdf.gz https://assets.aesthetic.computer/type/unifont-16.0.03.bdf.gz
 #   python3 toolchain/type/gen-6x10-supplement.py /tmp/6x10.bdf \
-#     system/backend/bdf-supplement-6x10.json /tmp/6x10-sheet.png
+#     system/backend/bdf-supplement-6x10.json /tmp/6x10-sheet.png /tmp/unifont.bdf.gz
 #
 # Writes the table bdf-supplement.mjs serves, a contact sheet to look at
 # before shipping (grey = transformed, black = composed), and a -left.txt of
@@ -15,7 +16,12 @@
 #                     font's own accented pairs (é − e is the acute).
 #   2. transforms   — TURNED rotates, REVERSED mirrors, SMALL CAPITAL squeezes
 #                     a capital to x-height, WITH STROKE / WITH BAR crosses it.
-#   3. everything else is listed, not guessed — those are for a hand.
+#   3. the rest start from unifont's 8x16 drawing, fitted band by band into
+#      the 6x10 cell (ascenders, x-height, descender; six columns into five)
+#      by dropping the rows and columns that carry the least shape. These are
+#      drafts: a glyph that reads badly gets drawn by hand in
+#      bdf-supplement.mjs, which always wins.
+#   4. anything unifont draws double-wide is listed, not squeezed.
 # The hand-drawn table in bdf-supplement.mjs always wins over these.
 import json, sys, struct, zlib, unicodedata
 from collections import Counter
@@ -69,15 +75,17 @@ def orr(a, b):
     return [["#" if a[r][c] == "#" or b[r][c] == "#" else "." for c in range(COLS)] for r in range(ROWS)]
 
 # ── Marks, lifted from the font: precomposed minus base, the most common shape.
-ABOVE = {"̀", "́", "̂", "̃", "̄", "̆", "̇", "̈",
-         "̉", "̊", "̋", "̌", "̏", "̑", "̛"}
-BELOW = {"̣", "̤", "̥", "̦", "̧", "̨", "̭", "̮", "̰", "̱"}
+ABOVE = {"\u0300", "\u0301", "\u0302", "\u0303", "\u0304", "\u0306", "\u0307", "\u0308",
+         "\u0309", "\u030A", "\u030B", "\u030C", "\u030F", "\u0311", "\u031B"}
+BELOW = {"\u0323", "\u0324", "\u0325", "\u0326", "\u0327", "\u0328", "\u032D", "\u032E", "\u0330", "\u0331"}
 seen = {}
 for cp, rows in font.items():
     d = unicodedata.normalize("NFD", chr(cp))
     if len(d) != 2 or ord(d[0]) not in font or not d[0].islower(): continue
     base, glyph = grid(font[ord(d[0])]), grid(rows)
-    diff = [["#" if glyph[r][c] == "#" and base[r][c] != "#" else "." for c in range(COLS)] for r in range(ROWS)]
+    # Only the mark's own rows count: above the x-height, or the descender.
+    zone = range(0, XH) if d[1] not in BELOW else range(8, ROWS)
+    diff = [["#" if r in zone and glyph[r][c] == "#" and base[r][c] != "#" else "." for c in range(COLS)] for r in range(ROWS)]
     b = bounds(diff)
     if not b: continue
     # Center the mark on column 2, where the font's 5-wide letters center.
@@ -92,18 +100,26 @@ def drawn(rows_by_index):
     g = blank()
     for r, s in rows_by_index.items(): g[r] = list(s)
     return g
-MARK.setdefault("̉", drawn({0: ".##...", 1: "..#..."}))   # hook above
-MARK.setdefault("̛", drawn({2: "....#.", 3: "....#."}))   # horn
-MARK.setdefault("̣", drawn({9: "..#..."}))                 # dot below
-MARK.setdefault("̤", drawn({9: ".#.#.."}))                 # diaeresis below
-MARK.setdefault("̥", drawn({8: "..#...", 9: ".#.#.."}))    # ring below (squashed)
-MARK.setdefault("̦", drawn({8: "..#...", 9: ".#...."}))    # comma below
-MARK.setdefault("̱", drawn({9: ".###.."}))                 # macron below
-MARK.setdefault("̭", drawn({9: ".#.#.."}))                 # circumflex below
-MARK.setdefault("̰", drawn({9: ".##.#."}))                 # tilde below
-MARK.setdefault("̏", drawn({0: "#..#..", 1: ".#..#."}))    # double grave
-MARK.setdefault("̑", drawn({0: ".###..", 1: "#...#."}))    # inverted breve
-MARK.setdefault("̇", drawn({1: "..#..."}))
+MARK.setdefault("\u0309", drawn({0: ".##...", 1: "..#..."}))   # hook above
+MARK.setdefault("\u031B", drawn({2: "....#.", 3: "....#."}))   # horn
+MARK.setdefault("\u0323", drawn({9: "..#..."}))                 # dot below
+MARK.setdefault("\u0324", drawn({9: ".#.#.."}))                 # diaeresis below
+MARK.setdefault("\u0325", drawn({8: "..#...", 9: ".#.#.."}))    # ring below (squashed)
+MARK.setdefault("\u0326", drawn({8: "..#...", 9: ".#...."}))    # comma below
+MARK.setdefault("\u0331", drawn({9: ".###.."}))                 # macron below
+MARK.setdefault("\u032D", drawn({9: ".#.#.."}))                 # circumflex below
+MARK.setdefault("\u0330", drawn({9: ".##.#."}))                 # tilde below
+MARK.setdefault("\u030F", drawn({0: "#..#..", 1: ".#..#."}))    # double grave
+MARK.setdefault("\u0311", drawn({0: ".###..", 1: "#...#."}))    # inverted breve
+MARK.setdefault("\u0307", drawn({1: "..#..."}))
+MARK.setdefault("\u032E", drawn({8: ".#.#..", 9: "..#..."}))   # breve below
+
+# Stacked marks get one row each: the mark nearest the letter on row 1, the
+# outer one on row 0.
+ONE_ROW = {"\u0301": "...#..", "\u0300": ".#....", "\u0302": "..#...", "\u0303": ".##.#.",
+           "\u0304": ".###..", "\u0306": ".#.#..", "\u0307": "..#...", "\u0308": ".#.#..",
+           "\u030C": "..#...", "\u0309": "..#...", "\u030A": "..#..."}
+SIDE = {"\u031B"}  # the horn sits at the upper right, beside the letter
 
 def mark_rows(m):
     b = bounds(MARK[m]); return (b[0], b[1]) if b else (0, 0)
@@ -143,32 +159,51 @@ def squeeze(g, top, bottom, into_top):
     return out
 
 def compose(base, marks):
+    """Base + marks, in three steps: over it, under it, beside it (the horn)."""
+    if any(m not in MARK for m in marks if m not in SIDE): return None
     g = grid(base)
-    above = [m for m in marks if m in ABOVE]
+    above = [m for m in marks if m in ABOVE and m not in SIDE]
     below = [m for m in marks if m in BELOW]
-    if any(m not in MARK for m in marks): return None
-    if above:
-        b = bounds(g)
-        if b and b[0] < XH:  # a capital or ascender: make room the way the font does
-            need = max(mark_rows(m)[1] for m in above[:1]) + 1
-            if b[0] < need + 1: g = squeeze(g, b[0], 7, need + 1)
+    side = [m for m in marks if m in SIDE]
+    tall = (bounds(g) or (XH,))[0] < XH  # a capital or an ascender
+
+    if len(above) == 1:
+        m = recenter(MARK[above[0]], g)
+        if tall:
+            # The mark rises to rows 0-1 and the body squeezes to rows 2-7,
+            # as the font draws Ě and Â.
+            mb = bounds(m)
+            lift = mb[1] - 1 if mb else 0
+            if lift > 0: m = m[lift:] + [["."] * COLS for _ in range(lift)]
+            if bounds(g)[0] < 2: g = squeeze(g, bounds(g)[0], 7, 2)
             if g is None: return None
-        if len(above) == 1:
-            m = recenter(MARK[above[0]], g)
-            if any(m[r][c] == "#" and g[r][c] == "#" for r in range(ROWS) for c in range(COLS)): return None
-            g = orr(g, m)
+        if any(m[r][c] == "#" and g[r][c] == "#" for r in range(ROWS) for c in range(COLS)): return None
+        g = orr(g, m)
+    elif len(above) == 2 and all(m in ONE_ROW for m in above):
+        if tall and bounds(g)[0] < 2: g = squeeze(g, bounds(g)[0], 7, 2)
+        if g is None: return None
+        if above[0] in ("\u0302", "\u0306") and above[1] in ("\u0301", "\u0300", "\u0309", "\u0303"):
+            # Vietnamese ấ ầ ẩ ẫ ặ: the hat over the letter, the tone at its corner.
+            g = orr(g, recenter(MARK[above[0]], g))
+            row, col = {"\u0301": (0, 4), "\u0300": (0, 0), "\u0309": (0, 4), "\u0303": (0, 4)}[above[1]]
+            g[row][col] = "#"
         else:
-            # Vietnamese stacks (ấ ẫ ặ): the first mark over the letter, the
-            # second as a single pixel pair at its upper right.
-            first = recenter(MARK[above[0]], g)
-            g = orr(g, first)
-            tail = {"́": (0, 4), "̀": (0, 0), "̉": (0, 4), "̃": (0, 4)}.get(above[1])
-            if not tail: return None
-            g[tail[0]][tail[1]] = "#"
+            # Two marks, one row each: nearest the letter on row 1.
+            for row, m in ((1, above[0]), (0, above[1])):
+                one = blank(); one[row] = list(ONE_ROW[m])
+                g = orr(g, recenter(one, g))
+    elif above:
+        return None
+
     for m in below:
-        b = bounds(g)
-        if b and b[1] > 7: return None  # descender already there
+        if bounds(g)[1] > 7: return None  # a descender is already there
         g = orr(g, recenter(MARK[m], g))
+
+    for m in side:
+        b = bounds([row[:] for row in grid(base)])  # the letter itself, not its marks
+        col = min(b[3] + 1, COLS - 1)  # just outside it, in the spacing column
+        top = 2 if tall and above else b[0] - 1  # beside the body's top, wherever it now is
+        g[top][col] = "#"; g[top + 1][col] = "#"
     return g
 
 def rotate(g):
@@ -214,6 +249,49 @@ def letter(name):
     try: return ord(unicodedata.lookup(name))
     except KeyError: return None
 
+# ── Unifont, fitted. Its baseline sits under row 13: ascenders and cap tops
+#    in rows 3-5, x-height rows 6-13, descender rows 14-15, letters in
+#    columns 1-6.
+def load_unifont(path, wanted):
+    import gzip
+    glyphs, cur, bits, w = {}, None, None, 0
+    for line in gzip.open(path, "rt", encoding="latin-1"):
+        p = line.split()
+        if not p: continue
+        if p[0] == "ENCODING": cur = int(p[1])
+        elif p[0] == "BBX": w = int(p[1])
+        elif p[0] == "BITMAP": bits = [] if cur in wanted else None
+        elif p[0] == "ENDCHAR":
+            if bits is not None and w == 8:
+                glyphs[cur] = [["#" if int(h, 16) >> (7 - c) & 1 else "." for c in range(8)] for h in bits]
+            bits = None
+        elif bits is not None: bits.append(p[0])
+    return glyphs
+
+def thin(rows, keep):
+    """Drop the interior rows most like a neighbour until `keep` remain."""
+    rows = [r[:] for r in rows]
+    ham = lambda a, b: sum(x != y for x, y in zip(a, b))
+    while len(rows) > keep:
+        mid = len(rows) / 2
+        if len(rows) <= 2: rows.pop(); continue
+        i = min(range(1, len(rows) - 1), key=lambda i: (min(ham(rows[i], rows[i - 1]), ham(rows[i], rows[i + 1])), abs(i - mid)))
+        rows.pop(i)
+    return rows
+
+def fit_unifont(u):
+    orrow = lambda rows: ["#" if any(r[c] == "#" for r in rows) else "." for c in range(len(rows[0]))]
+    rows = [orrow(u[0:3]), orrow(u[3:5]), u[5]] + thin(u[6:14], 5) + [u[14], u[15]]
+    cols = [i for i in range(8) if any(r[i] == "#" for r in rows)]
+    if not cols: return None
+    lo, hi = cols[0], cols[-1]
+    columns = thin([[r[c] for r in rows] for c in range(lo, hi + 1)], 5)
+    g = blank()
+    left = (5 - len(columns)) // 2 if len(columns) < 5 else 0
+    for x, col in enumerate(columns):
+        for r in range(ROWS): g[r][left + x] = col[r]
+    return g
+
 out, how, left = {}, {}, []
 for lo, hi in BLOCKS:
     for cp in range(lo, hi + 1):
@@ -250,6 +328,23 @@ for lo, hi in BLOCKS:
         else:
             left.append(cp)
 
+# Unifont drafts for what is left, then compose anything whose base only
+# just appeared (ǯ from ʒ).
+uni = load_unifont(sys.argv[4], set(left)) if len(sys.argv) > 4 else {}
+for cp in left[:]:
+    d = unicodedata.normalize("NFD", chr(cp))
+    if len(d) > 1: continue
+    made = fit_unifont(uni[cp]) if cp in uni else None
+    if made: out[cp], how[cp] = flat(made), "unifont"; left.remove(cp)
+for cp in left[:]:
+    d = unicodedata.normalize("NFD", chr(cp))
+    if len(d) > 1 and ord(d[0]) in out:
+        made = compose(out[ord(d[0])], list(d[1:]))
+        if made: out[cp], how[cp] = flat(made), "compose"; left.remove(cp)
+for cp in left[:]:
+    made = fit_unifont(uni[cp]) if cp in uni else None
+    if made: out[cp], how[cp] = flat(made), "unifont"; left.remove(cp)
+
 json.dump({f"{cp:04X}": rows for cp, rows in sorted(out.items())}, open(sys.argv[2], "w"), indent=0)
 print(f"made {len(out)}:", dict(Counter(how.values())))
 print(f"left for a hand: {len(left)}")
@@ -265,7 +360,7 @@ W, H = cols * cw, rows_n * ch
 px = bytearray([235] * (W * H))
 for i, cp in enumerate(cells):
     ox, oy = (i % cols) * cw + pad, (i // cols) * ch + pad
-    tint = {"compose": 0, "small capital": 60, "turned": 30, "reversed": 30, "stroke": 90}[how[cp]]
+    tint = {"compose": 0, "small capital": 60, "turned": 30, "reversed": 30, "stroke": 90, "unifont": 120}[how[cp]]
     for r in range(ROWS):
         for c in range(COLS):
             on = out[cp][r][c] == "#"

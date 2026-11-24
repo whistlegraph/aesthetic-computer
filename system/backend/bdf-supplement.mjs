@@ -15,6 +15,32 @@
 import { readFileSync } from "node:fs";
 
 const SIX_BY_TEN = {
+  // Ȼ latin capital letter c with stroke — the slash slants, or it is just C
+  0x023b: [
+    "......",
+    ".###..",
+    "#...#.",
+    "#..#..",
+    "#..#..",
+    "#.#...",
+    "##..#.",
+    ".###..",
+    "......",
+    "......",
+  ],
+  // Ɇ latin capital letter e with stroke
+  0x0246: [
+    "......",
+    "#####.",
+    "#..#..",
+    "#..#..",
+    "####..",
+    "#.#...",
+    "##....",
+    "#####.",
+    "......",
+    "......",
+  ],
   // ɑ latin small letter alpha — single-storey a
   0x0251: [
     "......",
