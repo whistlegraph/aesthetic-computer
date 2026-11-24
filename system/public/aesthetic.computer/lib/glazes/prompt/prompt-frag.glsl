@@ -47,7 +47,7 @@ const float PI = 3.14159265359;
 const float PI_4 = PI/4.;
 const float EPSILON = 1e-10;
 const vec3 PLANE_NORMAL = vec3(0., 0., -1.);
-const float SHADOW_SOFTNESS = 0.18; // 🌫️ shadow penumbra jitter (fuzzy shadows)
+const float SHADOW_SOFTNESS = 0.06; // 🌫️ shadow penumbra jitter (fuzzy shadows)
 const float SWAY_PERIOD = 4.0;      // 🚶 seconds per back-and-forth (walking cadence)
 const float SWAY_AMOUNT = 0.13;     // 🚶 horizontal wobble magnitude (added to lightDirection.x)
 // 📼 VHS finish, applied over the volume.
@@ -59,7 +59,7 @@ const float VHS_SATURATION = 1.3;
 const float VHS_CONTRAST = 0.85;    // 0 = none, 1 = full smoothstep S-curve
 const float VHS_GAMMA = 1.7;        // >1 deepens the mid-tones
 const float VHS_SCANLINE = 0.07;    // darkening on every other band
-const float VHS_GRAIN = 0.05;
+const float VHS_GRAIN = 0.012;
 // ☀️ By day the page is ink on light paper, and small type sits in the
 // corners, where the fog's radial smear is widest: the glaze holds its look
 // but keeps its hands off the letterforms.
@@ -236,8 +236,10 @@ void main()
     // at high resolutions — both were sources of edge distortion when the screen
     // got really big (the old `iResolution.x * v_texc` scaled y by the width).
     vec2 grainCoord = mod(v_texc * iResolution, 289.0);
-    float headStartCam = random(grainCoord - mod(offset, 289.0));
-    float headStartShadow = random(grainCoord + mod(offset, 289.0));
+    // Keep a little sampling dither without a strong fixed pixel texture.
+    // Motion still comes from the swaying light and VHS tracking.
+    float headStartCam = mix(0.5, random(grainCoord - mod(offset, 289.0)), 0.25);
+    float headStartShadow = mix(0.5, random(grainCoord + mod(offset, 289.0)), 0.25);
 
     float day = step(0.5, iDay);
     vec3 refractionDir = mix(vec3(0, 0, 1), rd, radialBlurAmount * mix(1.0, DAY_RADIAL, day));
