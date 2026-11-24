@@ -76,6 +76,14 @@ let chatTestFrame = 0;
 let chatClient = null; // the room this piece is showing (set in boot)
 let helpRoom = false, communityButton = null;
 
+// The closed room (2026.11.18) wears a big CLOSED band above and below its
+// scrollback. The size fits the screen width; the bands set the margins.
+const CLOSED = "CLOSED", CLOSED_RED = [255, 96, 96];
+let closedSize = 2, closedBottom = 6;
+const closedScale = (text, screen) =>
+  Math.max(1, Math.min(4, Math.floor((screen.width - 24) / text.width(CLOSED))));
+const hiddenBottom = () => (helpRoom ? closedBottom : 6);
+
 // Convert a handle to colored text using \color\ syntax
 function colorizeHandle(handle, colors) {
   if (!colors || colors.length === 0) return handle;
@@ -898,7 +906,7 @@ async function boot(
   
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont];
-  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? hiddenBottom() : getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
   // TODO: Now make it so that you see the last chat message
   //       as a button under the piece name.
@@ -1314,17 +1322,22 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
-  if (helpRoom) options = {
-    hideChrome: true,
-    topMargin: 60,
-    // Closed to new messages on 2026.11.18: the scrollback stays readable and
-    // the one way forward is the Laklok button.
-    hideInput: true,
-    presenceOverride: "closed 2026.11.18 - we chat on laklok",
-    presenceColor: [150, 150, 150],
-    presenceTop: 28,
-    ...options,
-  };
+  // Closed to new messages on 2026.11.18: the scrollback stays readable, a big
+  // CLOSED band sits above and below it, and the one way forward is the
+  // Laklok button. The top band holds CLOSED, the date line and the button.
+  if (helpRoom) {
+    closedSize = closedScale(text, screen);
+    const capH = closedSize * typeface.blockHeight;
+    const closedTop = 20 + capH + 4 + 12 + 16 + 6;
+    closedBottom = capH + 12;
+    options = {
+      hideChrome: true,
+      topMargin: closedTop,
+      hideInput: true,
+      presenceOverride: "", // no live counter in a closed room
+      ...options,
+    };
+  }
 
   // Per-piece top chrome height (laklok shrinks it). Reset every frame so the
   // override never leaks to other chat pieces in the same session.
@@ -1338,7 +1351,7 @@ function paint(
 
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
-  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? hiddenBottom() : getBottomMargin(selectedFontConfig, typeface.blockHeight);
   
   // User-selected font is only for NEW messages being typed, not for rendering existing messages
   const typefaceName = selectedFontConfig.typeface;
@@ -1405,11 +1418,24 @@ function paint(
   options?.paintHeader?.(api, topMargin);
 
   if (helpRoom && communityButton) {
+    const capW = text.width(CLOSED) * closedSize, capH = closedSize * typeface.blockHeight;
+    const capX = Math.floor((screen.width - capW) / 2);
+    const big = (y) => {
+      ink(0, 0, 0, 180).write(CLOSED, { x: capX + closedSize, y: y + closedSize, size: closedSize });
+      ink(...CLOSED_RED).write(CLOSED, { x: capX, y, size: closedSize });
+    };
+    big(20);
+    big(screen.height - closedBottom + 6);
+    const since = "since 2026.11.18 - we chat on laklok";
+    const subY = 20 + capH + 4;
+    ink(150).write(since, {
+      x: Math.floor((screen.width - text.width(since, "MatrixChunky8")) / 2), top: subY,
+    }, false, undefined, false, "MatrixChunky8");
     const label = "laklok", w = text.width(label) + 16;
-    communityButton.box = new Box(Math.floor((screen.width - w) / 2), 40, w, 16);
+    communityButton.box = new Box(Math.floor((screen.width - w) / 2), subY + 12, w, 16);
     const hot = communityButton.over || communityButton.down;
     ink(hot ? "yellow" : "white").box(communityButton.box);
-    ink("black").write(label, { x: communityButton.box.x + 8, y: 43 });
+    ink("black").write(label, { x: communityButton.box.x + 8, y: communityButton.box.y + 3 });
   }
 
   // Interface
@@ -2694,7 +2720,7 @@ function paint(
   // aa.mjs, which is a solo bridge to @jeffrey's macbook) can pass
   // options.presenceOverride to replace the counter with a custom line
   // like "@jeffrey · ADMIN".
-  if (!client.connecting && options?.presenceOverride) {
+  if (!client.connecting && options?.presenceOverride != null) {
     const line = options.presenceOverride;
     const hudLabel = hud?.currentLabel?.();
     const hudLabelBox = hudLabel?.btn?.box;
@@ -3368,7 +3394,7 @@ function act(
 
   // Calculate dynamic bottom margin based on selected font
   const selectedFontConfig = CHAT_FONTS[userSelectedFont] || CHAT_FONTS["font_1"];
-  const bottomMargin = inputHidden ? 6 : getBottomMargin(selectedFontConfig, typeface.blockHeight);
+  const bottomMargin = inputHidden ? hiddenBottom() : getBottomMargin(selectedFontConfig, typeface.blockHeight);
 
   // 📺 Capture `jump` for the iOS YouTube fallback (opens links externally).
   jumpApi = jump;
