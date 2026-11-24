@@ -468,10 +468,9 @@
         handle /api/whistlegraph-chat {
             import lith_proxy
         }
-        @wgroom {
-            path /
-            not query state=*
-        }
+        # The public room lives at /chat; / stays the index. Claimed here so the
+        # bare-code matcher below never reads "chat" as a whistlegraph code.
+        @wgroom path /chat /chat/
         handle @wgroom {
             rewrite * /chat.html
             header Cache-Control "no-cache"
@@ -479,8 +478,7 @@
         }
         @wgindex path /index /index/
         handle @wgindex {
-            rewrite * /index.html
-            file_server
+            redir * / 301
         }
         # /desk is canonical. Keep the old /admin path as a quiet compatibility
         # alias for sessions begun before the callback moved to the bare origin.

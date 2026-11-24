@@ -95,9 +95,9 @@ test("property identity comes from a reviewed HTTPS origin, not submitted data",
 
 test("the public Whistlegraph room has a distinct surface on its own hosts", () => {
   for (const host of ["whistlegraph.org", "www.whistlegraph.org"]) {
-    assert.equal(visitSurface("/", host), "room");
+    assert.equal(visitSurface("/chat", host), "room");
     assert.equal(visitSurface("/chat.html", host), "room");
-    assert.notEqual(visitSurface("/index", host), "room");
+    assert.notEqual(visitSurface("/", host), "room");
     assert.equal(visitSurface("/desk", host), null);
     assert.equal(validateVisit({ ...snapshot(), surface: "room" }, "https://" + host).surface, "room");
   }

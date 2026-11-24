@@ -361,7 +361,7 @@ const robotsTxt = [
 // engines find each /<code> page without running the index's JavaScript.
 const xml = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const lastmod = /^\d{4}-\d\d-\d\d$/.test(graphs.generated || "") ? graphs.generated : null;
-const sitemapUrls = ["/", "/index", "/stars", "/tv", "/wild", ...works.filter((w) => /^[a-z0-9]+$/i.test(w.code || "")).map((w) => `/${w.code}`)];
+const sitemapUrls = ["/", "/chat", "/stars", "/tv", "/wild", ...works.filter((w) => /^[a-z0-9]+$/i.test(w.code || "")).map((w) => `/${w.code}`)];
 const sitemapXml = [
   '<?xml version="1.0" encoding="UTF-8"?>',
   '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

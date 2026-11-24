@@ -270,7 +270,7 @@ node --env-file=.env ../toolchain/analytics/network-recognition-report.mjs '{"ho
 
 ### Whistlegraph public room
 
-Filter the visits report to property `whistlegraph.org` and surface `room` for the chat homepage.
+Filter the visits report to property `whistlegraph.org` and surface `room` for the chat at `/chat`.
 This series starts November 22, 2026, after the room launched. Earlier origin requests include
 polls, bots and release checks and cannot be backfilled as observed browser visits.
 Report accepted posts separately from the `whistlegraph-chat` collection. Message text,

@@ -163,7 +163,7 @@ export function visitProperty(hostname) {
 const roomHost = hostname => hostname === "whistlegraph.org" || hostname === "www.whistlegraph.org";
 
 export function visitSurface(pathname = "/", hostname) {
-  if (roomHost(hostname) && (pathname === "/" || pathname === "/chat.html")) return "room";
+  if (roomHost(hostname) && (pathname === "/chat" || pathname === "/chat/" || pathname === "/chat.html")) return "room";
   let path;
   try { path = decodeURIComponent(pathname).toLowerCase(); } catch { return null; }
   // Private tools, chats, account/payment forms and explicit opt-out pages.
