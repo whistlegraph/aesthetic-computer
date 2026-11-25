@@ -95,6 +95,7 @@ const assets = new Map([
     'shadow',
     'orbits', // 🪐 the planets going round (view.mjs's sky)
     'bike', 'bike-decor', 'handle-style', // 🛵 the cabin bike, and its rider's paintings and colours
+    'skin', 'textures', 'texture-loaders', 'texture-demo', // 🖼️ textures: models' skins, their sources, the cube
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
@@ -112,7 +113,7 @@ const assets = new Map([
       'text/javascript',
     ],
   ],
-  ...['scene3d', 'scene3d-webgpu', 'scene3d-webgl', 'block-font'].map((n) => [
+  ...['scene3d', 'scene3d-webgpu', 'block-font'].map((n) => [
     `/engine/${n}.mjs`,
     [`../xbox/live/${n}.mjs`, 'text/javascript'],
   ]),

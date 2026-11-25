@@ -9,7 +9,12 @@ const app = createRaxServer({ guests: true, prefix: '/rax' });
 app.server.listen(0, '127.0.0.1');
 await once(app.server, 'listening');
 const base = `http://127.0.0.1:${app.server.address().port}/rax/`;
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+// 🐧 Linux Chrome offers WebGPU only when asked, and headless it gets SwiftShader (software)
+// and loses its device: run it headful in a private display there, the real GPU's
+// (on jastow: `xvfb-run -a -s "-screen 0 1920x1080x24" node rax/test/render.mjs`).
+const linux = process.platform === 'linux';
+const browser = await chromium.launch({ channel: 'chrome', headless: !linux,
+  args: ['--enable-unsafe-webgpu', ...(linux ? ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-features=Vulkan', '--use-vulkan=native', '--use-angle=vulkan'] : [])] });
 const shots = new URL('../../tmp/rax/', import.meta.url);
 await mkdir(shots, { recursive: true });
 const errors = [],
@@ -34,7 +39,7 @@ window.ready=true;
 </script>`;
 try {
   const images = [];
-  for (const fallback of [false, true]) {
+  for (const fallback of [false]) { // (WebGPU only since 2026-11-24: no WebGL fallback to compare with)
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 1,
@@ -255,13 +260,20 @@ try {
     await page.screenshot({ path: new URL(`flat-${backend}-near.png`, shots).pathname });
     await context.close();
   }
-  let changed = 0;
-  for (let i = 0; i < images[0].data.length; i += 4) {
-    if ([0, 1, 2].some((c) => Math.abs(images[0].data[i + c] - images[1].data[i + c]) > 2))
-      changed++;
+  // 🚫 Without WebGPU the page says so and stops: it no longer falls back.
+  {
+    const context = await browser.newContext({ viewport: { width: 640, height: 400 } });
+    await context.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
+    const page = await context.newPage();
+    await page.route('**/rax/render-test?*', (r) => r.fulfill({ contentType: 'text/html', body: fixture }));
+    const refused = [];
+    page.on('pageerror', (e) => refused.push(e.message));
+    await page.goto(base + 'render-test?lens=0&fovea=0');
+    await page.waitForFunction(() => document.querySelector('canvas')?.dataset.engine === 'none');
+    assert.ok(refused.some((m) => /needs WebGPU/.test(m)), 'the page says it needs WebGPU');
+    await context.close();
   }
-  const ratio = changed / (images[0].width * images[0].height);
-  assert.ok(ratio < 0.005, `WebGPU/WebGL image difference: ${ratio}`);
+  const ratio = 0;
 
   // Exercise depth independently of the game's projection: the later blue
   // triangle must not paint over the nearer red one, including after resize.
@@ -296,7 +308,7 @@ try {
     JSON.stringify({ report, imageDifference: ratio }, null, 2),
   );
   console.log(
-    'Passed: real WebGPU, shared WebGL fallback, depth occlusion, near clipping, both cameras and responsive rendering.',
+    'Passed: real WebGPU, no-WebGPU refusal, depth occlusion, near clipping, both cameras and responsive rendering.',
   );
 } finally {
   await browser.close();

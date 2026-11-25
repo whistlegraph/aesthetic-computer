@@ -13,17 +13,27 @@
 // world (z below -0.5 in the stream; project.mjs `under`).
 import { WebGPUOskiewarScene3D } from './engine/scene3d-webgpu.mjs';
 const MASK = 'r8unorm'; // 📺 the screens' mask: 1 on a screen's pixel, 0 elsewhere
+// 🖼️ Textures: one array of square layers, each holding one picture (a
+// painting, a KidLisp piece's frame) at up to TEXTURE_SIZE a side, from its
+// top-left corner; `scale` says how much of the layer it fills, so a small
+// picture is not stretched up to be stored. textures.mjs hands the layers out.
+export const TEXTURE_SIZE = 256, TEXTURE_LAYERS = 64;
 
 // (zoom: 1 for the whole picture; for the middle one, drawn larger, how many times.)
 const world = `
 struct Layer { zoom: f32 }
 @group(0) @binding(0) var<uniform> layer: Layer;
-struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
-@vertex fn vertex(@location(0) position: vec3f, @location(1) color: vec3f) -> Vertex {
+@group(0) @binding(1) var pixel: sampler;
+@group(0) @binding(2) var pictures: texture_2d_array<f32>;
+struct Scales { each: array<vec4f, ${TEXTURE_LAYERS}> }
+@group(0) @binding(3) var<uniform> scales: Scales;
+struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f, @location(1) tex: vec4f }
+@vertex fn vertex(@location(0) position: vec3f, @location(1) color: vec3f, @location(2) tex: vec4f) -> Vertex {
   var out: Vertex;
   out.position = vec4f(position.xy * layer.zoom, position.z * .5 + .5, 1.);
   if (position.z < -.5) { out.position = vec4f(2., 2., 2., 1.); } // the HUD's: not in the world's picture
   out.color = color;
+  out.tex = tex;
   return out;
 }
 // 🫧 A red over 1.5 marks a thing seen through (view.mjs adds 2 to it, and
@@ -33,10 +43,30 @@ struct Vertex { @builtin(position) position: vec4f, @location(0) color: vec3f }
 // colour goes to the picture and a 1 to the second picture, the screens' mask,
 // so the lens can glaze screens and grade the rest of the world apart.
 struct Painted { @location(0) color: vec4f, @location(1) screen: vec4f }
+// 🖼️ A blue over 7.5 marks a textured shape (project.mjs lifts it by 8): the
+// texture's pixel there, times the corner colours' blend (white shows it as
+// it is). Its place came as u/z, v/z and 1/z, each run straight across the
+// picture, so dividing gives it back true to the perspective. A clear pixel
+// is not drawn at all, so a painting's empty parts are holes.
 @fragment fn fragment(in: Vertex) -> Painted {
   var c = in.color;
   var out: Painted;
   out.screen = vec4f(0.);
+  var tex = vec4f(1.);
+  var textured = c.b > 7.5;
+  if (textured) { c.b -= 8.; }
+  let uv = in.tex.xy / max(in.tex.z, 1e-6);
+  let at = i32(in.tex.w + .5);
+  let s = scales.each[clamp(at, 0, ${TEXTURE_LAYERS - 1})].xy;
+  // (0 … 1 is the picture once, edges included; past it, it repeats.)
+  var t = uv;
+  if (any(uv < vec2f(-.001)) || any(uv > vec2f(1.001))) { t = fract(uv); }
+  t = clamp(t, vec2f(0.), vec2f(1.));
+  tex = textureSampleLevel(pictures, pixel, t * s, clamp(at, 0, ${TEXTURE_LAYERS - 1}), 0.);
+  if (textured) {
+    if (tex.a < .5) { discard; }
+    c = c * tex.rgb;
+  }
   if (c.g > 3.5) { c.g -= 4.; out.screen = vec4f(1.); }
   out.color = vec4f(c, 1.);
   if (c.r > 1.5) { out.color = vec4f(c.r - 2., c.gb, .42); }
@@ -234,11 +264,22 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     const format = navigator.gpu.getPreferredCanvasFormat();
     this.format = format;
     const buffers = [{ arrayStride: 24, attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }, { shaderLocation: 1, offset: 12, format: 'float32x3' }] }];
+    // 🖼️ The world's shapes take a second stream: where each corner lies on its texture (project.mjs emit).
+    const worldBuffers = [...buffers, { arrayStride: 16, attributes: [{ shaderLocation: 2, offset: 0, format: 'float32x4' }] }];
+    this.scene.uvs = new Float32Array(this.scene.maxTriangles * 12);
+    this.uvBuffer = device.createBuffer({ size: this.scene.uvs.byteLength, usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST });
+    this.pictures = device.createTexture({ size: [TEXTURE_SIZE, TEXTURE_SIZE, TEXTURE_LAYERS], format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT });
+    this.picturesView = this.pictures.createView({ dimension: '2d-array' });
+    this.scaleData = new Float32Array(TEXTURE_LAYERS * 4).fill(1);
+    this.scaleBuffer = device.createBuffer({ size: this.scaleData.byteLength, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.scalesDirty = true;
+    this.pixel = device.createSampler({ magFilter: 'nearest', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' }); // (pixels stay pixels up close)
     const primitive = { topology: 'triangle-list', cullMode: 'none' };
     const depth = { format: this.depthFormat, depthWriteEnabled: true, depthCompare: 'less-equal' };
     const worldModule = device.createShaderModule({ code: world }), hudModule = device.createShaderModule({ code: hud }), lensModule = device.createShaderModule({ code: LENS });
     const made = [
-      device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }, { format: MASK }] }, primitive, depthStencil: depth }),
+      device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers: worldBuffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, blend: { color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' } } }, { format: MASK }] }, primitive, depthStencil: depth }),
       device.createRenderPipelineAsync({ layout: 'auto', vertex: { module: hudModule, entryPoint: 'vertex', buffers }, fragment: { module: hudModule, entryPoint: 'fragment', targets: [{ format }] }, primitive, depthStencil: depth }),
       device.createRenderPipelineAsync({
         layout: 'auto', vertex: { module: lensModule, entryPoint: 'vertex' }, fragment: { module: lensModule, entryPoint: 'fragment', targets: [{ format }] },
@@ -249,13 +290,13 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
       // The shadows' solids, counted as the shared host counts them, drawn at each picture's own size.
       const count = (depthFailOp) => ({ compare: 'always', failOp: 'keep', passOp: 'keep', depthFailOp });
       made.push(device.createRenderPipelineAsync({
-        layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, writeMask: 0 }, { format: MASK, writeMask: 0 }] }, primitive,
+        layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers: worldBuffers }, fragment: { module: worldModule, entryPoint: 'fragment', targets: [{ format, writeMask: 0 }, { format: MASK, writeMask: 0 }] }, primitive,
         depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less', stencilFront: count('decrement-wrap'), stencilBack: count('increment-wrap') },
       }));
       // The shade: one triangle over the picture, marking it wherever the count is not zero.
       const inside = { compare: 'not-equal', failOp: 'keep', passOp: 'keep', depthFailOp: 'keep' };
       made.push(device.createRenderPipelineAsync({
-        layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers }, fragment: { module: worldModule, entryPoint: 'shaded', targets: [{ format, writeMask: GPUColorWrite.ALPHA }, { format: MASK, writeMask: 0 }] }, primitive,
+        layout: 'auto', vertex: { module: worldModule, entryPoint: 'vertex', buffers: worldBuffers }, fragment: { module: worldModule, entryPoint: 'shaded', targets: [{ format, writeMask: GPUColorWrite.ALPHA }, { format: MASK, writeMask: 0 }] }, primitive,
         depthStencil: { format: this.depthFormat, depthWriteEnabled: false, depthCompare: 'less', stencilFront: inside, stencilBack: inside, stencilWriteMask: 0 },
       }));
     }
@@ -267,9 +308,10 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     this.ready = Promise.all([this.ready, ...made]).then(([, worldPipe, hudPipe, lensPipe, solidPipe, markPipe]) => {
       this.worldPipe = worldPipe; this.hudPipe = hudPipe; this.lensPipe = lensPipe; this.solidPipe = solidPipe || null; this.markPipe = markPipe || null;
       for (const layer of this.layers) {
-        layer.world = device.createBindGroup({ layout: worldPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] });
+        const pictured = [{ binding: 1, resource: this.pixel }, { binding: 2, resource: this.picturesView }, { binding: 3, resource: { buffer: this.scaleBuffer } }];
+        layer.world = device.createBindGroup({ layout: worldPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }, ...pictured] });
         layer.mark = markPipe ? device.createBindGroup({ layout: markPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] }) : null;
-        layer.solid = solidPipe ? device.createBindGroup({ layout: solidPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }] }) : null;
+        layer.solid = solidPipe ? device.createBindGroup({ layout: solidPipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: layer.zoom } }, ...pictured] }) : null;
       }
     });
   }
@@ -309,7 +351,11 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     const over = Math.max(1, Math.min(2, l.over || 1)) * aa, fovea = l.fovea > 0 && l.fovea < 1 ? l.fovea : 0;
     // The whole picture at half sharpness and the middle at all of it; or, with no fovea, the whole at all of it (and a middle of one pixel, unused).
     this.room(fovea ? [over * 0.5, over * fovea] : [over, 1 / Math.max(this.canvas.width, this.canvas.height)], aa > 1);
-    if (scene.triangleCount) device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
+    if (scene.triangleCount) {
+      device.queue.writeBuffer(this.buffer, 0, scene.frameVertices());
+      device.queue.writeBuffer(this.uvBuffer, 0, scene.uvs, 0, scene.triangleCount * 12);
+    }
+    if (this.scalesDirty) { device.queue.writeBuffer(this.scaleBuffer, 0, this.scaleData); this.scalesDirty = false; }
     device.queue.writeBuffer(this.uniform, 0, new Float32Array([l.sx, l.sy, l.wide, l.lens, fovea, l.idle || 0, l.dither || 0, (performance.now() / 1000) % 1000, ...(shadow?.shade || [1, 1, 1]), l.glaze ?? this.glaze]));
     device.queue.writeBuffer(this.layers[0].zoom, 0, new Float32Array([1, 0, 0, 0]));
     device.queue.writeBuffer(this.layers[1].zoom, 0, new Float32Array([fovea ? 1 / fovea : 1, 0, 0, 0]));
@@ -323,10 +369,10 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
         colorAttachments: [{ view: layer.view, clearValue: clear, loadOp: 'clear', storeOp: 'store' }, { view: layer.maskView, clearValue: [0, 0, 0, 0], loadOp: 'clear', storeOp: 'store' }],
         depthStencilAttachment: { view: layer.depthView, depthClearValue: 1, depthLoadOp: 'clear', depthStoreOp: 'discard', ...stencil },
       });
-      if (drawn) { pass.setPipeline(this.worldPipe); pass.setBindGroup(0, layer.world); pass.setVertexBuffer(0, this.buffer); pass.draw(drawn * 3); }
+      if (drawn) { pass.setPipeline(this.worldPipe); pass.setBindGroup(0, layer.world); pass.setVertexBuffer(0, this.buffer); pass.setVertexBuffer(1, this.uvBuffer); pass.draw(drawn * 3); }
       if (cast && this.solidPipe && this.markPipe) {
-        pass.setPipeline(this.solidPipe); pass.setBindGroup(0, layer.solid); pass.setVertexBuffer(0, this.buffer); pass.setStencilReference(0); pass.draw(cast.count * 3, 1, cast.first * 3);
-        pass.setPipeline(this.markPipe); pass.setBindGroup(0, layer.mark); pass.setVertexBuffer(0, this.cover); pass.setStencilReference(0); pass.draw(3);
+        pass.setPipeline(this.solidPipe); pass.setBindGroup(0, layer.solid); pass.setVertexBuffer(0, this.buffer); pass.setVertexBuffer(1, this.uvBuffer); pass.setStencilReference(0); pass.draw(cast.count * 3, 1, cast.first * 3);
+        pass.setPipeline(this.markPipe); pass.setBindGroup(0, layer.mark); pass.setVertexBuffer(0, this.cover); pass.setVertexBuffer(1, this.uvBuffer); pass.setStencilReference(0); pass.draw(3);
       }
       pass.end();
     }
@@ -340,7 +386,28 @@ export class LensScene3D extends WebGPUOskiewarScene3D {
     pass.end();
     device.queue.submit([encoder.finish()]);
   }
+  // 🖼️ Lay a picture on texture layer `layer`: { width, height, pixels }
+  // (RGBA bytes, as a KidLisp buffer is), or anything the browser can copy
+  // from (an ImageBitmap, a canvas, an image). Larger than TEXTURE_SIZE: the
+  // caller shrinks it first (textures.mjs). Back comes the bytes sent.
+  texture(layer, picture) {
+    if (!(layer >= 0 && layer < TEXTURE_LAYERS) || !picture) return 0;
+    const width = Math.min(TEXTURE_SIZE, picture.width | 0), height = Math.min(TEXTURE_SIZE, picture.height | 0);
+    if (!width || !height) return 0;
+    if (picture.pixels) {
+      this.device.queue.writeTexture({ texture: this.pictures, origin: [0, 0, layer] }, picture.pixels,
+        { bytesPerRow: picture.width * 4, rowsPerImage: picture.height }, [width, height, 1]);
+    } else {
+      this.device.queue.copyExternalImageToTexture({ source: picture }, { texture: this.pictures, origin: [0, 0, layer] }, [width, height]);
+    }
+    const at = layer * 4;
+    if (this.scaleData[at] !== width / TEXTURE_SIZE || this.scaleData[at + 1] !== height / TEXTURE_SIZE) {
+      this.scaleData[at] = width / TEXTURE_SIZE; this.scaleData[at + 1] = height / TEXTURE_SIZE; this.scalesDirty = true;
+    }
+    return width * height * 4;
+  }
   destroy() {
+    this.pictures?.destroy(); this.uvBuffer?.destroy(); this.scaleBuffer?.destroy();
     for (const layer of this.layers) { layer.picture?.destroy(); layer.depth?.destroy(); layer.mask?.destroy(); layer.zoom?.destroy(); }
     this.uniform?.destroy();
     super.destroy();

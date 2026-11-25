@@ -1,7 +1,9 @@
 import { poolFloor, poolView } from './pool-view.mjs';
 import { STAIR, DEPTH, POOL, treads, cellarWalls, ceiling, berths } from './basement.mjs';
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
-import { LensScene3D, lensWide } from './lens-host.mjs';
+import { LensScene3D, lensWide, TEXTURE_SIZE, TEXTURE_LAYERS } from './lens-host.mjs';
+import { createTextures } from './textures.mjs';
+import { loaders as textureLoaders } from './texture-loaders.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, SPAN } from './park.mjs';
 import { CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, carSolids, carScreenSolids, CAR_SCREEN_Z, STOREY, ATRIUM, SLAB, LEG, storeyOf, storeyAt, heightOf, LOBBY_FRONT, DOOR, DOOR_HEIGHT, PLANTERS, PLANTER, roofSolids, standsOn } from './elevator.mjs';
@@ -288,23 +290,30 @@ export async function createView(canvas) {
     });
     backend = 'webgpu';
   } catch (error) {
-    console.info(
-      'WebGPU unavailable; using the shared WebGL 2 host.',
-      error.message,
-    );
-    // A failed WebGPU initialization can already own the canvas context.
-    const replacement = canvas.cloneNode(false);
+    // 🚫 rax is WebGPU only (2026-11-24): the WebGL 2 fallback is gone, and
+    // with it the case for keeping every feature (textures first) to what
+    // both could do. Without WebGPU the page says so and stops.
+    console.error('rax needs WebGPU.', error);
+    const replacement = canvas.cloneNode(false); // (a failed start can already own the canvas)
     canvas.replaceWith(replacement);
-    canvas = replacement;
-    const { WebGLOskiewarScene3D } = await import('./engine/scene3d-webgl.mjs');
-    host = new WebGLOskiewarScene3D(canvas, {
-      maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
-      antialias: false,
-    });
-    backend = 'webgl2';
+    replacement.dataset.engine = 'none';
+    const g = replacement.getContext('2d');
+    if (g) {
+      replacement.width = replacement.clientWidth || 640; replacement.height = replacement.clientHeight || 360;
+      g.fillStyle = '#0b0d1a'; g.fillRect(0, 0, replacement.width, replacement.height);
+      g.fillStyle = '#f2f2f2'; g.font = '16px monospace'; g.textAlign = 'center';
+      // (WebGPU is only offered on a secure page: https, or localhost.)
+      const why = window.isSecureContext ? 'try a current Chrome, Edge or Safari.' : 'open it over https (or on localhost).';
+      g.fillText(`rax needs WebGPU: ${why}`, replacement.width / 2, replacement.height / 2);
+    }
+    throw new Error('rax needs WebGPU');
   }
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
+  // 🖼️ Textures (textures.mjs): paintings, pictures and KidLisp, on the card's layers.
+  const textures = createTextures({ host, layers: TEXTURE_LAYERS, maxSize: TEXTURE_SIZE, loaders: textureLoaders });
+  projector.textures = (key) => textures.resolve(key);
+  let staged = []; // 🎭 (stage)
   projector.marks = backend === 'webgpu'; // 📺 screens tagged for the lens's glaze (lens-host.mjs)
   const facecam = new Projector(host.scene);
   // A small studio: a floor marked only by faint dots every two metres, four
@@ -1639,6 +1648,7 @@ export async function createView(canvas) {
     const today = skyStep >= 0 ? skyAt(skyStep / STEPS) : null;
     dress(today ? (today.day ? 'day' : 'night') : paletteFor());
     sky = [...rgb(orbit === 1 ? PALETTES[paletteFor()].sky : today ? today.horizon : PALETTES[paletteName].sky), 1];
+    textures.tick(performance.now()); // 🖼️ step what runs, send what changed (before anything asks for a layer)
     host.beginFrame();
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
     // (`sunAt`: a time of day to light by, 0 to 1, for looking at shadows; `shadows: false` casts none.)
@@ -1883,6 +1893,11 @@ export async function createView(canvas) {
     else {
       if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
       draw(arenas.get(half));
+    }
+    for (const m of staged) {
+      const far = Math.hypot(m.x - eye.x, (m.y || 0) - eye.y, m.z - eye.z);
+      for (const key of m.textures || []) textures.hint(key, far);
+      draw(m.model, m.x, m.y || 0, m.z, m.yaw || 0, m.pitch || 0, m.scale || 1, m.roll || 0);
     }
     ballCasters.length = 0;
     function drawBall(x, y, z, yaw = 0, roll = 0) {
@@ -4284,6 +4299,12 @@ export async function createView(canvas) {
       }
     },
     effect,
+    // 🖼️ The textures (textures.mjs): `stats()`, `config` for the bench, `register` for fn: sources.
+    textures,
+    // 🎭 Models put on the stage by hand (the texture bench, demos): each
+    // { model, x, y, z, yaw, pitch, scale, roll, textures: [key] }, drawn
+    // every frame after the room, its textures told how far off it is.
+    stage(list) { staged = Array.isArray(list) ? list : []; },
     // The host's pixel grid: { pixel, left, top } (CSS pixels per buffer
     // pixel, and where the prompt's canvas starts); null to stand alone.
     density: setDensity,

@@ -1,6 +1,7 @@
 // Project/clamp at the camera near plane, then write directly into Oskiewar's
 // reusable scene buffer. Every face and letter participates in the depth test.
 import { bend, sight, hidden, depthRange, widest, ballOf, NEAR, SPLIT, SHARE } from './planet.mjs';
+import { skinOf, SKIN_FLOATS } from './skin.mjs';
 // 📺 Screens: models whose pixels are a picture shown, not a thing lit. The
 // lens (lens-host.mjs) glazes them as the Prompt's paper is glazed.
 const SCREENS = new WeakSet();
@@ -21,12 +22,24 @@ const LAYER = 0.03, THIN = 0.002, PER_METRE = (2 * THIN) / 0.005;
 // How much nearer (as a share of its distance) a corner `h` metres over the land is written: none from 4 cm up.
 export const layerBias = (h) => (h < -LAYER || h > 0.04 ? 0 : h <= 0.02 ? PER_METRE * h : PER_METRE * (0.04 - h));
 const SIZED = 8e-4; // twice the area in the picture over which a shape counts as something near (a mote does not)
+// 🎨 A corner's own colour and place on a texture: r, g, b, u, v. Corners
+// are records in one pool (no garbage made a frame), emptied for each
+// triangle drawn; a corner made by cutting or halving takes the blend of
+// the two it lies between, so a gradient and a texture run on unbroken.
+const ATTR = 5, POOL = 65536;
 export class Projector {
   constructor(scene) {
     this.scene = scene;
     this.input = new Float64Array(12);
     this.clipped = new Float64Array(15);
     this.cutout = new Float64Array(12);
+    this.attr = new Float32Array(ATTR * POOL); // the corners' records (ATTR)
+    this.top = 0; // the next free record
+    this.clipAttr = new Int32Array(5); // the records of the corners `draw` clips to
+    this.cutAttr = new Int32Array(4); // and of those `put` cuts to
+    this.layer = -1; // 🖼️ the texture layer the triangle at hand wears (-1: none)
+    this.lift = 0; // 📺 added to a screen's green, so the lens knows its pixels
+    this.textures = null; // resolves a skin's texture key to a layer (textures.mjs), or null: no texturing
     this.bends = true; // (false while the sky is drawn: it is not wrapped round the ball)
     this.ground = 0; // the height the land lies at, in the room's own metres
     this.range = depthRange(0);
@@ -178,7 +191,15 @@ export class Projector {
   // edge that is long on the screen is halved, and its halves again (to
   // `depth` times): by the edge alone, so two triangles that share one
   // halve it at the same place and no gap opens between them.
-  put(x0, y0, z0, x1, y1, z1, x2, y2, z2, cr, cg, cb, depth) {
+  // A new corner record, `t` of the way from record a to record b (a, when the pool is spent).
+  mix(a, b, t) {
+    const top = this.top, A = this.attr;
+    if (top + ATTR > A.length) return a;
+    for (let i = 0; i < ATTR; i++) A[top + i] = A[a + i] + (A[b + i] - A[a + i]) * t;
+    this.top = top + ATTR;
+    return top;
+  }
+  put(x0, y0, z0, x1, y1, z1, x2, y2, z2, k0, k1, k2, depth) {
     // (On the card the picture is drawn flat and wider, to be bent after: card, stretch.)
     const near = NEAR, sx = this.sx * (this.card ? this.stretch || 1 : 1), sy = this.sy * (this.card ? this.stretch || 1 : 1), ox = this.shiftX || 0, oy = this.shiftY || 0;
     // 🌍 The land is a small planet's, wrapped round a ball of radius
@@ -264,14 +285,17 @@ export class Projector {
       if (!b1) { const k = this.bend(x1 / z1, y1 / z1); bx = (x1 * k * sx) / z1 + ox; by = (y1 * k * sy) / z1 + oy; }
       if (!b2) { const k = this.bend(x2 / z2, y2 / z2); cx = (x2 * k * sx) / z2 + ox; cy = (y2 * k * sy) / z2 + oy; }
       kept = 0;
+      const qa = this.cutAttr;
       for (let j = 0; j < 3 && !wide; j++) {
         const x = j === 0 ? x0 : j === 1 ? x1 : x2, y = j === 0 ? y0 : j === 1 ? y1 : y2, z = j === 0 ? z0 : j === 1 ? z1 : z2;
         const px = j === 0 ? x2 : j === 1 ? x0 : x1, py = j === 0 ? y2 : j === 1 ? y0 : y1, pz = j === 0 ? z2 : j === 1 ? z0 : z1;
+        const kc = j === 0 ? k0 : j === 1 ? k1 : k2, kp = j === 0 ? k2 : j === 1 ? k0 : k1;
         if (z >= near !== pz >= near) {
           const t = (near - pz) / (z - pz);
+          qa[kept / 3] = this.mix(kp, kc, t);
           q[kept++] = px + (x - px) * t; q[kept++] = py + (y - py) * t; q[kept++] = near;
         }
-        if (z >= near) { q[kept++] = x; q[kept++] = y; q[kept++] = z; }
+        if (z >= near) { qa[kept / 3] = kc; q[kept++] = x; q[kept++] = y; q[kept++] = z; }
       }
       kept /= 3;
       let left = 0, right = 0, low = 0, high = 0;
@@ -309,36 +333,38 @@ export class Projector {
         x0 = fx0; y0 = fy0; z0 = fz0; x1 = fx1; y1 = fy1; z1 = fz1; x2 = fx2; y2 = fy2; z2 = fz2;
         const mx0 = (x0 + x1) / 2, my0 = (y0 + y1) / 2, mz0 = (z0 + z1) / 2, mx1 = (x1 + x2) / 2, my1 = (y1 + y2) / 2, mz1 = (z1 + z2) / 2,
           mx2 = (x2 + x0) / 2, my2 = (y2 + y0) / 2, mz2 = (z2 + z0) / 2, d = depth - 1;
+        const m0 = this.mix(k0, k1, 0.5), m1 = this.mix(k1, k2, 0.5), m2 = this.mix(k2, k0, 0.5);
         if (e0 && e1 && e2) {
-          this.put(x0, y0, z0, mx0, my0, mz0, mx2, my2, mz2, cr, cg, cb, d);
-          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, cr, cg, cb, d);
-          this.put(mx2, my2, mz2, mx1, my1, mz1, x2, y2, z2, cr, cg, cb, d);
-          this.put(mx0, my0, mz0, mx1, my1, mz1, mx2, my2, mz2, cr, cg, cb, d);
+          this.put(x0, y0, z0, mx0, my0, mz0, mx2, my2, mz2, k0, m0, m2, d);
+          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, m0, k1, m1, d);
+          this.put(mx2, my2, mz2, mx1, my1, mz1, x2, y2, z2, m2, m1, k2, d);
+          this.put(mx0, my0, mz0, mx1, my1, mz1, mx2, my2, mz2, m0, m1, m2, d);
         } else if (e0 && e1) {
-          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, cr, cg, cb, d);
-          this.put(x0, y0, z0, mx0, my0, mz0, mx1, my1, mz1, cr, cg, cb, d);
-          this.put(x0, y0, z0, mx1, my1, mz1, x2, y2, z2, cr, cg, cb, d);
+          this.put(mx0, my0, mz0, x1, y1, z1, mx1, my1, mz1, m0, k1, m1, d);
+          this.put(x0, y0, z0, mx0, my0, mz0, mx1, my1, mz1, k0, m0, m1, d);
+          this.put(x0, y0, z0, mx1, my1, mz1, x2, y2, z2, k0, m1, k2, d);
         } else if (e1 && e2) {
-          this.put(mx1, my1, mz1, x2, y2, z2, mx2, my2, mz2, cr, cg, cb, d);
-          this.put(x1, y1, z1, mx1, my1, mz1, mx2, my2, mz2, cr, cg, cb, d);
-          this.put(x1, y1, z1, mx2, my2, mz2, x0, y0, z0, cr, cg, cb, d);
+          this.put(mx1, my1, mz1, x2, y2, z2, mx2, my2, mz2, m1, k2, m2, d);
+          this.put(x1, y1, z1, mx1, my1, mz1, mx2, my2, mz2, k1, m1, m2, d);
+          this.put(x1, y1, z1, mx2, my2, mz2, x0, y0, z0, k1, m2, k0, d);
         } else if (e2 && e0) {
-          this.put(mx2, my2, mz2, x0, y0, z0, mx0, my0, mz0, cr, cg, cb, d);
-          this.put(x2, y2, z2, mx2, my2, mz2, mx0, my0, mz0, cr, cg, cb, d);
-          this.put(x2, y2, z2, mx0, my0, mz0, x1, y1, z1, cr, cg, cb, d);
+          this.put(mx2, my2, mz2, x0, y0, z0, mx0, my0, mz0, m2, k0, m0, d);
+          this.put(x2, y2, z2, mx2, my2, mz2, mx0, my0, mz0, k2, m2, m0, d);
+          this.put(x2, y2, z2, mx0, my0, mz0, x1, y1, z1, k2, m0, k1, d);
         } else if (e0) {
-          this.put(x0, y0, z0, mx0, my0, mz0, x2, y2, z2, cr, cg, cb, d);
-          this.put(mx0, my0, mz0, x1, y1, z1, x2, y2, z2, cr, cg, cb, d);
+          this.put(x0, y0, z0, mx0, my0, mz0, x2, y2, z2, k0, m0, k2, d);
+          this.put(mx0, my0, mz0, x1, y1, z1, x2, y2, z2, m0, k1, k2, d);
         } else if (e1) {
-          this.put(x1, y1, z1, mx1, my1, mz1, x0, y0, z0, cr, cg, cb, d);
-          this.put(mx1, my1, mz1, x2, y2, z2, x0, y0, z0, cr, cg, cb, d);
+          this.put(x1, y1, z1, mx1, my1, mz1, x0, y0, z0, k1, m1, k0, d);
+          this.put(mx1, my1, mz1, x2, y2, z2, x0, y0, z0, m1, k2, k0, d);
         } else {
-          this.put(x2, y2, z2, mx2, my2, mz2, x1, y1, z1, cr, cg, cb, d);
-          this.put(mx2, my2, mz2, x0, y0, z0, x1, y1, z1, cr, cg, cb, d);
+          this.put(x2, y2, z2, mx2, my2, mz2, x1, y1, z1, k2, m2, k1, d);
+          this.put(mx2, my2, mz2, x0, y0, z0, x1, y1, z1, m2, k0, k1, d);
         }
         return;
       }
     }
+    let shade = 1; // (seen from orbit, the side away from the sun is darker)
     if (r0 && this.orbitLight) {
       const axis = this.orbitLight, center = 3 * (this.planet + this.eye.y - this.ground);
       const nx = x0 + x1 + x2 + center * this.right[1];
@@ -346,20 +372,25 @@ export class Projector {
       const nz = z0 + z1 + z2 + center * this.forward[1];
       const diffuse = Math.max(0, (nx*axis[0] + ny*axis[1] + nz*axis[2]) / (r0 + r1 + r2));
       const light = 1 - this.orbitShade * (1 - diffuse);
-      cr *= light; cg *= light; cb *= light;
+      shade = light;
     }
-    if (!behind) return this.emit(ax, ay, z0 * (1 - d0), bx, by, z1 * (1 - d1), cx, cy, z2 * (1 - d2), cr, cg, cb);
-    for (let j = 1; j + 1 < kept; j++) this.emit(q[0], q[1], q[2], q[j * 3], q[j * 3 + 1], q[j * 3 + 2], q[j * 3 + 3], q[j * 3 + 4], q[j * 3 + 5], cr, cg, cb);
+    if (!behind) return this.emit(ax, ay, z0 * (1 - d0), bx, by, z1 * (1 - d1), cx, cy, z2 * (1 - d2), k0, k1, k2, shade);
+    const qa = this.cutAttr;
+    for (let j = 1; j + 1 < kept; j++) this.emit(q[0], q[1], q[2], q[j * 3], q[j * 3 + 1], q[j * 3 + 2], q[j * 3 + 3], q[j * 3 + 4], q[j * 3 + 5], qa[0], qa[j], qa[j + 1], shade);
   }
   // One triangle as it lies in the picture (x and y there, z how far ahead), written for the card.
-  emit(ax, ay, z0, bx, by, z1, cx, cy, z2, cr, cg, cb) {
+  emit(ax, ay, z0, bx, by, z1, cx, cy, z2, k0, k1, k2, shade = 1) {
     // Over budget: drop the rest of this frame's geometry, never throw
     // (a throw here stops the frame loop and freezes the game).
     if (this.scene.triangleCount >= this.scene.maxTriangles) {
       this.overflow = true;
       return;
     }
-    const v = this.scene.vertices, range = this.range, split = range.split, open = range.open;
+    const v = this.scene.vertices, range = this.range, split = range.split, open = range.open, A = this.attr;
+    // Each corner's own colour (its record), lit as the shape is.
+    let r0 = A[k0] * shade, g0 = A[k0 + 1] * shade, b0 = A[k0 + 2] * shade;
+    let r1 = A[k1] * shade, g1 = A[k1 + 1] * shade, b1 = A[k1 + 2] * shade;
+    let r2 = A[k2] * shade, g2 = A[k2 + 1] * shade, b2 = A[k2 + 2] * shade;
     // 📏 How near the nearest thing of any size is, past the eye's own few metres: the next frame's depth goes by it (`frame`).
     const least = z0 < z1 ? (z0 < z2 ? z0 : z2) : z1 < z2 ? z1 : z2;
     if (least < this.nearest && (z0 > SPLIT || z1 > SPLIT || z2 > SPLIT) && Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) > SIZED)
@@ -377,8 +408,8 @@ export class Projector {
       const slip = roll() < g * 0.6 ? (roll() - 0.5) * 0.5 * g : 0, drop = g > 0.6 ? (g - 0.6) * 2.5 * roll() : 0;
       ax = snap(ax) + slip; bx = snap(bx) + slip; cx = snap(cx) + slip;
       ay = snap(ay) - drop; by = snap(by) - drop; cy = snap(cy) - drop;
-      if (roll() < g * 0.45) { const lit = 0.25 + 0.75 * roll(); cr = 0.05 * lit; cg = lit; cb = 0.3 * lit; }
-      else if (roll() < g * 0.3) { const t = cr; cr = cb; cb = cg; cg = t; } // the colours' wires crossed
+      if (roll() < g * 0.45) { const lit = 0.25 + 0.75 * roll(); r0 = r1 = r2 = 0.05 * lit; g0 = g1 = g2 = lit; b0 = b1 = b2 = 0.3 * lit; }
+      else if (roll() < g * 0.3) { let t = r0; r0 = b0; b0 = g0; g0 = t; t = r1; r1 = b1; b1 = g1; g1 = t; t = r2; r2 = b2; b2 = g2; g2 = t; } // the colours' wires crossed
     } else {
       // 🧱 Chunking in: each shape's own number (not the clock's, so it
       // stays put) says when it arrives; until then the rest sit on a
@@ -395,7 +426,7 @@ export class Projector {
         const f = this.fuzz, tick = Math.floor((this.decayAt || 0) / 50), band = Math.floor((ay + 1) * 14);
         const h = (Math.imul(band + 7, 2654435761) ^ Math.imul(tick + 3, 40503)) >>> 0;
         if ((h % 1000) / 1000 < f * 0.45) { const s = ((((h >>> 10) % 1000) / 1000) - 0.5) * 0.14 * f; ax += s; bx += s; cx += s; }
-        if (((h >>> 20) % 1000) / 1000 < f * 0.12) { const t = cr; cr = cb; cb = cg; cg = t; }
+        if (((h >>> 20) % 1000) / 1000 < f * 0.12) { let t = r0; r0 = b0; b0 = g0; g0 = t; t = r1; r1 = b1; b1 = g1; g1 = t; t = r2; r2 = b2; b2 = g2; g2 = t; }
       }
     }
     // Depth (planet.mjs depthAt): all one part, or the eye's own few metres and then the far.
@@ -409,10 +440,22 @@ export class Projector {
       d1 = z1 <= split ? a - b / z1 : z1 >= open ? c - d / z1 : SHARE;
       d2 = z2 <= split ? a - b / z2 : z2 >= open ? c - d / z2 : SHARE;
     }
-    const at = this.scene.triangleCount++ * 18;
-    v[at] = ax; v[at + 1] = ay; v[at + 2] = d0; v[at + 3] = cr; v[at + 4] = cg; v[at + 5] = cb;
-    v[at + 6] = bx; v[at + 7] = by; v[at + 8] = d1; v[at + 9] = cr; v[at + 10] = cg; v[at + 11] = cb;
-    v[at + 12] = cx; v[at + 13] = cy; v[at + 14] = d2; v[at + 15] = cr; v[at + 16] = cg; v[at + 17] = cb;
+    // 📺 A screen's green is lifted (lens-host.mjs); 🖼️ a textured shape's
+    // blue is lifted by 8, and its corners' places on the texture go to the
+    // second buffer, over their distance, so the card can undo the
+    // perspective (u/z, v/z, 1/z, layer).
+    const lift = this.lift, tex = this.layer >= 0 && !this.immersive ? 8 : 0;
+    const tri = this.scene.triangleCount++, at = tri * 18;
+    v[at] = ax; v[at + 1] = ay; v[at + 2] = d0; v[at + 3] = r0; v[at + 4] = g0 + lift; v[at + 5] = b0 + tex;
+    v[at + 6] = bx; v[at + 7] = by; v[at + 8] = d1; v[at + 9] = r1; v[at + 10] = g1 + lift; v[at + 11] = b1 + tex;
+    v[at + 12] = cx; v[at + 13] = cy; v[at + 14] = d2; v[at + 15] = r2; v[at + 16] = g2 + lift; v[at + 17] = b2 + tex;
+    const uvs = tex && this.scene.uvs;
+    if (uvs) {
+      const u = tri * 12, L = this.layer, w0 = 1 / Math.max(1e-4, z0), w1 = 1 / Math.max(1e-4, z1), w2 = 1 / Math.max(1e-4, z2);
+      uvs[u] = A[k0 + 3] * w0; uvs[u + 1] = A[k0 + 4] * w0; uvs[u + 2] = w0; uvs[u + 3] = L;
+      uvs[u + 4] = A[k1 + 3] * w1; uvs[u + 5] = A[k1 + 4] * w1; uvs[u + 6] = w1; uvs[u + 7] = L;
+      uvs[u + 8] = A[k2 + 3] * w2; uvs[u + 9] = A[k2 + 4] * w2; uvs[u + 10] = w2; uvs[u + 11] = L;
+    }
   }
   draw(vertices, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) {
     const cy = Math.cos(yaw),
@@ -437,7 +480,18 @@ export class Projector {
     const whole = this.planet && this.bends && eye.y < this.ground;
     // How many times a shape may be halved: seven, or as many as the view asks for the far land's great squares.
     const halvings = (this.lens && !this.card) || this.planet ? this.halvings || 7 : 0; // (the ball needs its edges halved whether or not the lens is on)
+    const skin = this.textures ? skinOf(vertices) : null, A = this.attr;
+    this.lift = lift;
     for (let i = 0; i < vertices.length; i += 18) {
+      // The triangle's three corners: records 0, 5 and 10 (their colours, and their places on its texture if it wears one).
+      const s = skin ? (i / 18) * SKIN_FLOATS : -1;
+      this.layer = s >= 0 && skin[s] >= 0 ? this.textures(skin[s]) : -1;
+      for (let j = 0; j < 3; j++) {
+        const k = i + j * 6, o = j * ATTR;
+        A[o] = vertices[k + 3]; A[o + 1] = vertices[k + 4]; A[o + 2] = vertices[k + 5];
+        A[o + 3] = this.layer >= 0 ? skin[s + 1 + j * 2] : 0; A[o + 4] = this.layer >= 0 ? skin[s + 2 + j * 2] : 0;
+      }
+      this.top = 3 * ATTR;
       for (let j = 0; j < 3; j++) {
         const k = i + j * 6,
           lx = vertices[k] * scale,
@@ -458,11 +512,12 @@ export class Projector {
       // Only triangles that straddle the plane need a clipping polygon.
       if (whole || (a[2] >= near && a[5] >= near && a[8] >= near)) {
         if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; }
-        this.put(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], vertices[i + 3], vertices[i + 4] + lift, vertices[i + 5], halvings);
+        this.put(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], 0, ATTR, 2 * ATTR, halvings);
         continue;
       }
       if (a[2] < near && a[5] < near && a[8] < near) continue;
       let count = 0;
+      const ba = this.clipAttr;
       for (let j = 0; j < 3; j++) {
         const k = j * 3,
           prev = ((j + 2) % 3) * 3,
@@ -470,11 +525,13 @@ export class Projector {
           was = a[prev + 2] >= near;
         if (inside !== was) {
           const t = (near - a[prev + 2]) / (a[k + 2] - a[prev + 2]);
+          ba[count / 3] = this.mix(((j + 2) % 3) * ATTR, j * ATTR, t);
           b[count++] = a[prev] + (a[k] - a[prev]) * t;
           b[count++] = a[prev + 1] + (a[k + 1] - a[prev + 1]) * t;
           b[count++] = near;
         }
         if (inside) {
+          ba[count / 3] = j * ATTR;
           b[count++] = a[k];
           b[count++] = a[k + 1];
           b[count++] = a[k + 2];
@@ -486,8 +543,10 @@ export class Projector {
         // so two shapes that share an edge always halve it alike and no crack
         // opens; the view sets it from how full the last frame was.)
         if (this.scene.triangleCount >= this.scene.maxTriangles) { this.overflow = true; return; } // (by the count, never by the flag: that is only lowered where shadows are cast)
-        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], vertices[i + 3], vertices[i + 4] + lift, vertices[i + 5], halvings);
+        this.put(b[0], b[1], b[2], b[j], b[j + 1], b[j + 2], b[j + 3], b[j + 4], b[j + 5], ba[0], ba[j / 3], ba[j / 3 + 1], halvings);
       }
     }
+    this.layer = -1;
+    this.lift = 0;
   }
 }

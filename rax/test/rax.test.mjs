@@ -320,11 +320,12 @@ test('rax mounts below a prefix and shares HTTP and WebSockets without taking ov
   assert.equal(redirect.headers.get('location'), '/rax/?room=test');
   assert.match(await (await fetch(`${base}/rax/`)).text(), /<title>rax/);
   assert.equal((await fetch(`${base}/rax/pmove.mjs`)).status, 200);
-  for (const module of ['scene3d', 'scene3d-webgpu', 'scene3d-webgl', 'block-font']) {
+  for (const module of ['scene3d', 'scene3d-webgpu', 'block-font']) {
     const response = await fetch(`${base}/rax/engine/${module}.mjs`);
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /javascript/);
   }
+  assert.equal((await fetch(`${base}/rax/engine/scene3d-webgl.mjs`)).status, 404, 'WebGPU only: no WebGL host is served');
   // Every module the page imports, followed from client.mjs, is served: one
   // missing file (handle-style.mjs, 2026-11-24) stops the whole page.
   const seen = new Set(), queue = ['client.mjs'];
@@ -338,8 +339,9 @@ test('rax mounts below a prefix and shares HTTP and WebSockets without taking ov
     for (const m of text.matchAll(/(?:^|\n)\s*(?:import|export)\s[^'"]*?from\s*['"]\.\/([^'"]+)['"]/g)) queue.push(new URL(m[1], `http://x/${file}`).pathname.slice(1));
     for (const m of text.matchAll(/import\(\s*['"]\.\/([^'"]+)['"]\s*\)/g)) queue.push(new URL(m[1], `http://x/${file}`).pathname.slice(1));
   }
-  for (const module of ['orbits', 'bike', 'bike-decor', 'handle-style', 'kidlisp-wall'])
+  for (const module of ['orbits', 'bike', 'bike-decor', 'handle-style', 'skin', 'textures', 'texture-loaders', 'kidlisp-wall'])
     assert.ok(seen.has(`${module}.mjs`), `${module}.mjs is reached from client.mjs`);
+  assert.equal((await fetch(`${base}/rax/texture-demo.mjs`)).status, 200); // (the bench's, not the page's)
   assert.equal((await (await fetch(`${base}/rax/health`)).json()).protocol, PROTOCOL);
   assert.equal(await (await fetch(base)).text(), 'host application');
   const wsBase = base.replace('http', 'ws');

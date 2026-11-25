@@ -23,6 +23,8 @@ const AUDIT_INK = 0xff00ff;
 // (shadow.mjs): kept beside the model, and let go with it.
 const BOXES = new WeakMap();
 export const boxesOf = (made) => BOXES.get(made) || null;
+import { SKIN_FLOATS, setSkin } from './skin.mjs';
+export { skinOf } from './skin.mjs';
 
 // MatrixChunky8 width of a string, in pixels (proportional).
 export const smallWidth = (value) =>
@@ -89,17 +91,38 @@ export function model(build) {
   };
   // 🌈 A colour, or one for each corner ([a, b, c]; a quad's [a, b, c, d]): the
   // screen blends between corners, so a gradient costs what a flat face does.
-  const tri = (a, b, c, color) => {
+  // 🖼️ `skin` ({ texture: key, uv: [[u, v] a corner] }) lays a texture over
+  // it, multiplied by the colour (white shows the texture as it is).
+  let skin = null, skinned = 0; // (made only once a triangle is skinned)
+  const skinRoom = () => {
+    const want = (n / 18 + 1) * SKIN_FLOATS;
+    if (!skin) { skin = new Float32Array(Math.max(want, (data.length / 18) * SKIN_FLOATS)).fill(-1); return; }
+    if (want <= skin.length) return;
+    const grown = new Float32Array(Math.max(skin.length * 2, want)).fill(-1);
+    grown.set(skin);
+    skin = grown;
+  };
+  const tri = (a, b, c, color, wear = null) => {
     const each = Array.isArray(color), ink = each ? null : colorOf(color);
     room(18);
+    if (wear && wear.texture >= 0) {
+      skinRoom();
+      const at = (n / 18) * SKIN_FLOATS, uv = wear.uv || [[0, 0], [1, 0], [1, 1]];
+      skin[at] = wear.texture;
+      for (let k = 0; k < 3; k++) { skin[at + 1 + k * 2] = uv[k][0]; skin[at + 2 + k * 2] = uv[k][1]; }
+      skinned++;
+    } else if (skin) { skinRoom(); skin[(n / 18) * SKIN_FLOATS] = -1; }
     vertex(a[0], a[1], a[2], each ? colorOf(color[0]) : ink);
     vertex(b[0], b[1], b[2], each ? colorOf(color[1]) : ink);
     vertex(c[0], c[1], c[2], each ? colorOf(color[2]) : ink);
   };
-  const quad = (a, b, c, d, color) => {
+  // (A quad's corners a, b, c, d take the texture's top-left, top-right,
+  // bottom-right and bottom-left unless `uv` says otherwise.)
+  const quad = (a, b, c, d, color, wear = null) => {
     const each = Array.isArray(color);
-    tri(a, b, c, each ? [color[0], color[1], color[2]] : color);
-    tri(a, c, d, each ? [color[0], color[2], color[3]] : color);
+    const uv = wear ? wear.uv || [[0, 0], [1, 0], [1, 1], [0, 1]] : null;
+    tri(a, b, c, each ? [color[0], color[1], color[2]] : color, wear && { texture: wear.texture, uv: [uv[0], uv[1], uv[2]] });
+    tri(a, c, d, each ? [color[0], color[2], color[3]] : color, wear && { texture: wear.texture, uv: [uv[0], uv[2], uv[3]] });
   };
   const rect = (x, y, z, w, h, color) => {
     const ink = colorOf(color),
@@ -237,5 +260,6 @@ export function model(build) {
   }
   const made = data.slice(0, n);
   if (built.length) BOXES.set(made, built);
+  if (skinned) setSkin(made, skin.slice(0, (n / 18) * SKIN_FLOATS));
   return made;
 }
