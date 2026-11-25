@@ -19,6 +19,7 @@ import { planMime, postMime } from "./mime.mjs";
 export * from "./harness-factory.mjs";
 export { ACSession } from "./ac-session.mjs";
 export { printer, printerOutput } from "./printer.mjs";
+export * as utilitext from "./utilitext.mjs";
 
 // A room of laptops on one Wi-Fi drops connections; a request that never got
 // an answer is tried twice more after a breath. An HTTP error is not retried.
