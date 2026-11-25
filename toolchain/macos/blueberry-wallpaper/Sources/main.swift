@@ -310,6 +310,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     private var lastBeatAt: Double = 0
     private var beatCount = 0
     private let fishery = FisheryLayer()
+    /// 🔥 The oven's firehose (Oven.swift): finished grabs fly out of its slots.
+    private let oven = OvenLayer()
     private let school = FishSchool()
     private let reef = Reef()
     /// Fish and reef live in tank coordinates; this node slides them so the
@@ -384,6 +386,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         fishery.link = TankLink.shared
         fishery.zPosition = 20
         layer?.addSublayer(fishery)
+        oven.zPosition = 15
+        layer?.addSublayer(oven)
         updateAppearance(animated: false)
     }
 
@@ -415,6 +419,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let supersample = Quality.supersample(scale: scale, size: bounds.size)
         stage?.supersample = supersample
         fishery.scale = scale
+        oven.scale = scale
+        // One oven per desk: the main screen, unless asked for on all.
+        oven.enabled = OvenConfig.side != .off
+            && (OvenConfig.everyScreen || window?.screen == NSScreen.screens.first)
         // A front/back drawable pair is enough at 60 Hz and saves a
         // full-screen IOSurface (~19 MB on Blueberry). Faster displays get
         // the third so a late composite never stalls the next frame.
@@ -572,6 +580,10 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
             if let screen = window?.screen { fishery.topInset = max(0, screen.frame.maxY - screen.visibleFrame.maxY) }
         }
         fishery.tick(now: now, dark: dark)
+        oven.tick(now: now, dark: dark)
+        // Walkers step round the oven's panel (fishery spans the tank's world).
+        fishery.keepOut = oven.panel.isNull ? .null
+            : oven.panel.offsetBy(dx: TankConfig.current?.offset ?? 0, dy: 0)
         if fishery.stocked != stocked {
             stocked = fishery.stocked
             updateAppearance(animated: true)
@@ -765,6 +777,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         let offset = tank?.offset ?? 0
         fishery.viewport = CGRect(x: offset, y: 0, width: bounds.width, height: bounds.height)
         fishery.frame = CGRect(x: -offset, y: 0, width: worldW, height: bounds.height)
+        oven.frame = bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
         let k = Self.stageHalfHeight / (bounds.height / 2)
         world.position = SCNVector3(-(offset + bounds.width / 2 - worldW / 2) * k, 0, 0)
@@ -797,6 +810,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         stage?.renderer.scene = nil
         school.retire()
         fishery.retire()
+        oven.retire()
     }
 
     func pauseAnimations() {

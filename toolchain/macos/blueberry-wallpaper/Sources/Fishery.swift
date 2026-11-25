@@ -845,6 +845,9 @@ final class FisheryLayer: CALayer {
     /// Top of the bottom HUD (tiles, chart, came-from, hot list): walkers and
     /// their tables stay above it.
     private var hudTop: CGFloat = 0
+    /// A panel another layer draws over the field (the oven), in this
+    /// layer's coordinates: walkers, their names and tables step round it.
+    var keepOut: CGRect = .null
 
     var scale: CGFloat = 2 {
         didSet { sublayersNeedScale(self) }
@@ -1550,6 +1553,27 @@ final class FisheryLayer: CALayer {
             let low = floor + f.size * 0.3 + Self.subGap * u + labelH + 2 * u + table
             let high = ceiling - f.size * (walkers ? 0.72 : 0.24) - 44 * u
             f.homeY = min(max(f.homeY, low), max(low, high))
+            // Near the kept-out panel (a little ahead of it, so the step
+            // starts before the label reaches it): over it or under it,
+            // whichever is nearer and in bounds, and the wander aims there.
+            guard !keepOut.isNull else { continue }
+            let b = box(f)
+            let lead = 120 * u
+            let zone = keepOut.insetBy(dx: -lead, dy: 0)
+            guard b.maxX > zone.minX, b.minX < zone.maxX, b.maxY > keepOut.minY, b.minY < keepOut.maxY else { continue }
+            // The box hangs from f.y (the body), which homeY leads.
+            let up = f.y + (keepOut.maxY - b.minY), down = f.y - (b.maxY - keepOut.minY)
+            let upOK = up <= max(low, high), downOK = down >= low
+            guard upOK || downOK else {
+                // No room either side: turn back before reaching it.
+                if (f.dir > 0) == (f.x < keepOut.midX) { f.dir = -f.dir }
+                continue
+            }
+            let goal = upOK && downOK ? (up - f.y < f.y - down ? up : down) : upOK ? up : down
+            f.targetY = goal
+            // Already over it (one that wrapped in at the screen's edge): quickly.
+            let inside = b.maxX > keepOut.minX && b.minX < keepOut.maxX
+            f.homeY += (goal - f.homeY) * min(1, dt * (inside ? 9 : 3))
         }
     }
 
