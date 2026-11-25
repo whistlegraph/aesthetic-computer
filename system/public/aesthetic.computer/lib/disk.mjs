@@ -6609,6 +6609,43 @@ function kidlispFirstLineBackground(source) {
   return background;
 }
 
+// Two buffers per embedded kidlisp() region, reused frame after frame: each
+// frame clears the one not holding the previous frame, draws into it, and
+// the two trade places. A region repaints every frame, so a fresh buffer per
+// frame (megabytes for a half-screen region) kept the garbage collector
+// sweeping up gigabytes; with two, a running region allocates nothing.
+// Least recently used regions give their buffers back past the cap.
+const kidlispRegionBuffers = new Map(); // regionKey → { a, b, width, height }
+const KIDLISP_REGION_MAX = 24;
+function regionPainting(regionKey, width, height, fill) {
+  let slot = kidlispRegionBuffers.get(regionKey);
+  if (slot) kidlispRegionBuffers.delete(regionKey); // re-inserted: most recent last
+  if (!slot || slot.width !== width || slot.height !== height) slot = { a: null, b: null, width, height };
+  kidlispRegionBuffers.set(regionKey, slot);
+  while (kidlispRegionBuffers.size > KIDLISP_REGION_MAX) {
+    kidlispRegionBuffers.delete(kidlispRegionBuffers.keys().next().value);
+  }
+
+  const previous = globalKidLispInstance?.persistentPaintings?.get(regionKey);
+  const useB = previous && previous === slot.a;
+  let target = useB ? slot.b : slot.a;
+  if (!target) {
+    target = $activePaintApi.painting(width, height); // allocated once per slot
+    if (!target) return target;
+    if (useB) slot.b = target; else slot.a = target;
+  } else {
+    target.pixels.fill(0); // the same blank page a new buffer starts as
+  }
+
+  const outer = $activePaintApi;
+  const painting = new Painting();
+  $activePaintApi = painting.api;
+  $activePaintApi.screen = { width, height };
+  graph.fillBuffer(target, fill, painting, $activePaintApi);
+  $activePaintApi = outer;
+  return target;
+}
+
 const $paintApiUnwrapped = {
   // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
   // Move the turtle forward based on angle, wrapping at screen edges.
@@ -7136,9 +7173,10 @@ const $paintApiUnwrapped = {
         // Clean up the old dimension key if we found a resized previous
         if (resizedPreviousKey && resizedPreviousPainting) {
           globalKidLispInstance.persistentPaintings.delete(resizedPreviousKey);
+          kidlispRegionBuffers.delete(resizedPreviousKey); // its buffers go with it
         }
 
-        painting = $activePaintApi.painting(width, height, (api) => {
+        painting = regionPainting(regionKey, width, height, (api) => {
           // Paste previous frame to maintain animation continuity (including across resizes)
           if (previousPainting && needsFreshExecution && !shouldReset) {
             api.paste(previousPainting);
@@ -7272,7 +7310,7 @@ const $paintApiUnwrapped = {
         const existingPainting = globalKidLispInstance.persistentPaintings.get(regionKey);
         // console.log(`🎨 Accumulating on existing painting for key: ${regionKey.slice(0, 50)}...`);
 
-        painting = $activePaintApi.painting(width, height, (api) => {
+        painting = regionPainting(regionKey, width, height, (api) => {
           // Paste previous state first
           api.paste(existingPainting);
           // Then add new effects on top

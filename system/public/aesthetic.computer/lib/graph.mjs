@@ -689,8 +689,6 @@ export function twoD(ref) {
 function makeBuffer(width, height, fillProcess, painting, api) {
   if (!width || !height) return;
 
-  const bufferStart = performance.now(); // 🔍 PERFORMANCE DEBUG
-
   const imageData = new ImageData(width, height);
 
   const buffer = {
@@ -700,43 +698,42 @@ function makeBuffer(width, height, fillProcess, painting, api) {
   };
 
   buffer.api = api;
+  fillBuffer(buffer, fillProcess, painting, api);
+  return buffer;
+}
 
-  if (typeof fillProcess === "function") {
-    // Remember the current buffer and color.
-    const savedBuffer = getBuffer();
-    const rc = c.slice(); // Remember color (copy, not reference).
-    // Save and reset panTranslation to prevent paste operations in new buffers from being offset
-    const savedPan = { x: panTranslation.x, y: panTranslation.y };
-    panTranslation.x = 0;
-    panTranslation.y = 0;
-    
-    setBuffer(buffer);
-    api.screen.pixels = buffer.pixels; // Set the API's pixel buffer.
-    
-    // 🚀 OPTIMIZATION: Fast path for simple operations
-    try {
-      fillProcess(api); // Every fill process gets a painting API.
-      // Only call paint if there's actually something to paint
-      if (painting && typeof painting.paint === 'function') {
-        painting.paint(true);
-      }
-    } catch (error) {
-      console.warn('⚠️ makeBuffer fillProcess error:', error);
+// Run a painting's fill pass into an existing buffer — what makeBuffer does
+// for a new one. Reusing buffers lets a region that repaints every frame
+// (an embedded kidlisp() piece) keep two buffers instead of allocating one
+// per frame.
+function fillBuffer(buffer, fillProcess, painting, api) {
+  if (typeof fillProcess !== "function") return buffer;
+  // Remember the current buffer and color.
+  const savedBuffer = getBuffer();
+  const rc = c.slice(); // Remember color (copy, not reference).
+  // Save and reset panTranslation to prevent paste operations in new buffers from being offset
+  const savedPan = { x: panTranslation.x, y: panTranslation.y };
+  panTranslation.x = 0;
+  panTranslation.y = 0;
+
+  setBuffer(buffer);
+  api.screen.pixels = buffer.pixels; // Set the API's pixel buffer.
+
+  try {
+    fillProcess(api); // Every fill process gets a painting API.
+    // Only call paint if there's actually something to paint
+    if (painting && typeof painting.paint === 'function') {
+      painting.paint(true);
     }
-    
-    // Restore old buffer, color, and panTranslation.
-    panTranslation.x = savedPan.x;
-    panTranslation.y = savedPan.y;
-    setBuffer(savedBuffer);
-    color(...rc);
+  } catch (error) {
+    console.warn('⚠️ makeBuffer fillProcess error:', error);
   }
 
-  const bufferTime = performance.now() - bufferStart; // 🔍 PERFORMANCE DEBUG
-  // Disabled buffer creation logging for cleaner console
-  // if (bufferTime > 10) { // Only log very slow buffer creation
-  //   console.log(`🔍 graph.makeBuffer took ${bufferTime.toFixed(2)}ms (${width}x${height})`);
-  // }
-
+  // Restore old buffer, color, and panTranslation.
+  panTranslation.x = savedPan.x;
+  panTranslation.y = savedPan.y;
+  setBuffer(savedBuffer);
+  color(...rc);
   return buffer;
 }
 
@@ -1316,6 +1313,7 @@ function color2(r, g, b, a = 255) {
 
 export {
   makeBuffer,
+  fillBuffer,
   cloneBuffer,
   setBuffer,
   getBuffer,
