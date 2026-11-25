@@ -48,3 +48,40 @@ test('a house gun picked up, carried off and dropped goes back to its slot', () 
   for (let k = 0; k < (RACK_RETURN_SECONDS + 1) * HZ; k++) m.step();
   assert.ok(Math.hypot(held.x - held.home.x, held.z - held.home.z) < 0.05, 'back in its slot');
 });
+
+// 🎒 Carried over a seam: listed where it is now, not at home; home again when uncarried.
+test('a house gun carried over a seam is listed in the new room and not on the rack, until it goes home', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rax-armory-'));
+  try {
+    const s = new ObjectStore(dir);
+    await s.load();
+    const moved = s.carry('house-gun-1', 'e1n0', { x: -7.5, z: 0 });
+    assert.deepEqual(moved, { origin: 'lobby', room: 'e1n0', from: 'lobby' });
+    assert.ok(!s.objects('lobby').some((o) => o.id === 'house-gun-1'), 'off the rack');
+    const there = s.objects('e1n0').find((o) => o.id === 'house-gun-1');
+    assert.ok(there?.carried && there.item === 'shoot' && there.x === -7.5);
+    // On again, one more room over: still from the lobby.
+    assert.equal(s.carry('house-gun-1', 'e2n0', { x: -7.5, z: 1 }).from, 'e1n0');
+    assert.ok(!s.objects('e1n0').some((o) => o.id === 'house-gun-1'));
+    assert.equal(s.uncarry('house-gun-1').origin, 'lobby');
+    assert.ok(s.objects('lobby').some((o) => o.id === 'house-gun-1' && !o.carried), 'back on the rack');
+    assert.ok(!s.objects('e2n0').some((o) => o.id === 'house-gun-1'));
+    // Carried back into its own room: simply home.
+    s.carry('house-gun-2', 'e1n0', { x: 0, z: 0 });
+    s.carry('house-gun-2', 'lobby', { x: 0, z: 0 });
+    assert.equal(s.carried.size, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a carried-in thing left lying asks to go home', () => {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  const [gun] = rackFor('lobby');
+  m.setObjects([{ ...gun, x: 0, z: 0, house: false, carried: true }]);
+  Object.assign(m.seats[0].player, { x: -8, z: -8 });
+  Object.assign(m.seats[1].player, { x: 8, z: 8 });
+  for (let k = 0; k < (RACK_RETURN_SECONDS + 1) * HZ; k++) m.step();
+  assert.deepEqual(m.goingHome, [gun.id]);
+});

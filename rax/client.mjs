@@ -13,7 +13,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
@@ -1713,8 +1713,7 @@ const WARM_NEAR = 6, WARM_FAR = 7; // metres from a block's line: open within, l
 const warm = new Map(); // room → { socket, words, ready }
 function warmUp(to) {
   if (warm.has(to) || warm.size >= 3) return;
-  const url = new URL('./play', import.meta.url);
-  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = playURL(to, import.meta.url);
   url.search = new URLSearchParams({ room: to, protocol: PROTOCOL, wait: '1', ...(accountExpected() ? { account: '1' } : {}) });
   const entry = { socket: new WebSocket(url), words: [], ready: false };
   warm.set(to, entry);
@@ -1788,8 +1787,7 @@ function unseat(keepMotion = false) {
 }
 function connect(adopt = null) {
   bootMark('connect');
-  const url = new URL('./play', import.meta.url);
-  url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = playURL(room, import.meta.url); // (a room kept on another box opens there: world.mjs ROOM_HOSTS)
   // 🔐 Signed in on this page: fetch the token while the socket opens, and
   // ask the server to keep the seat for the handle (no guest name first).
   const account = accountExpected() ? accountToken() : null;

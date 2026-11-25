@@ -34,13 +34,34 @@ const PISTOL = `; Pistol
 let geometry = null;
 const pistol = () => (geometry ||= sourceGeometry({ name: 'Pistol', source: fitItemSource(PISTOL) }));
 
-// Three slots in a row on the dispenser's east side (its chute opens west).
-const SLOTS = [-0.5, 0, 0.5].map((dz, i) => ({ id: `house-gun-${i + 1}`, x: DISPENSER.x + DISPENSER.width / 2 + 0.9, z: DISPENSER.z + dz }));
+// 🎯 A straw man on a post, to shoot at (match.mjs strike).
+const SCARECROW = `; Scarecrow
+(ink 120 84 48)
+(slab -.06 0 -.06 .06 1.5 .06)
+(slab -.7 1.25 -.05 .7 1.35 .05)
+(ink 196 64 52)
+(slab -.32 .85 -.16 .32 1.45 .16)
+(ink 222 196 120)
+(orb 0 1.68 0 .2 8)
+(ink 70 48 30)
+(slab -.26 1.82 -.26 .26 1.86 .26)
+(slab -.14 1.86 -.14 .14 2.02 .14)`;
+let straw = null;
+const scarecrow = () => (straw ||= sourceGeometry({ name: 'Scarecrow', source: SCARECROW }));
 
-// The rack's guns, shaped as the store lists a room's things.
+// Three slots in a row on the dispenser's east side (its chute opens west).
+const LOBBY = [-0.5, 0, 0.5].map((dz, i) => ({ id: `house-gun-${i + 1}`, x: DISPENSER.x + DISPENSER.width / 2 + 0.9, z: DISPENSER.z + dz }));
+// 🛰️ The east room (world.mjs ROOM_HOSTS): a rack in the middle and two straw men down the far end.
+const EAST = [-0.6, 0, 0.6].map((dx, i) => ({ id: `house-gun-e${i + 1}`, x: dx, z: -2 }));
+const EAST_TARGETS = [-3, 3].map((x, i) => ({ id: `house-target-e${i + 1}`, x, z: 7 }));
+
+// A room's house things, shaped as the store lists a room's things.
 export function rackFor(room) {
-  if (room !== RACK_ROOM) return [];
-  return SLOTS.map((s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: 'shoot', effect: null, house: true,
-    version: 0, code: 'qrr', geometry: pistol(), first: '$qrr' }));
+  const gun = (s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: 'shoot', effect: null, house: true,
+    version: 0, code: 'qrr', geometry: pistol(), first: '$qrr' });
+  if (room === RACK_ROOM) return LOBBY.map(gun);
+  if (room === 'east') return [...EAST.map(gun), ...EAST_TARGETS.map((s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: null,
+    target: true, effect: null, house: true, version: 0, code: null, geometry: scarecrow(), first: 'a scarecrow' }))];
+  return [];
 }
-export const isHouse = (id) => typeof id === 'string' && id.startsWith('house-gun-');
+export const isHouse = (id) => typeof id === 'string' && id.startsWith('house-');

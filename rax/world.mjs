@@ -14,6 +14,17 @@ export const HORIZON = 240;
 export const PROTOCOL = 'rax-6';
 // The same wire under its old name: a page loaded before the rename still plays.
 export const PROTOCOLS = [PROTOCOL, 'duel-6'];
+// 🛰️ Rooms kept on another box, nearer some players (server.mjs satellite):
+// a page opens its socket for one of these there instead of at home. `east`
+// is the first, on the New Jersey box (2026-11-25: 78 ms from Puerto Rico
+// against lith's 114). Local pages always play at home.
+export const ROOM_HOSTS = { east: 'rax-nj.aesthetic.computer' };
+export function playURL(room, home, where = globalThis.location) {
+  const away = ROOM_HOSTS[room], local = /^(localhost|127\.|\[::1\])/.test(where?.hostname || '');
+  const url = away && !local ? new URL(`wss://${away}/rax/play`) : new URL('./play', home);
+  if (!(away && !local)) url.protocol = where?.protocol === 'https:' ? 'wss:' : 'ws:';
+  return url;
+}
 export const FRAG_LIMIT = 10;
 export const COLORS = [0xff593b, 0x69bfff, 0xffd23f, 0x5ad17a, 0xc77dff, 0xff8fc7, 0x3fe0d0, 0xff9f40];
 // Players one room holds at once. Seats 0 and 1 keep the original duel's

@@ -65,6 +65,8 @@ export class Match {
     // (roofBound) and takes the seats queued here up to it after the tick.
     this.roofBound = false;
     this.toRoof = [];
+    // 🎒 Carried-in things left lying long enough to go home (server.mjs takes them).
+    this.goingHome = [];
   }
 
   // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
@@ -221,10 +223,10 @@ export class Match {
     for (const o of list.filter((o) => o.item)) {
       ids.add(o.id);
       const it = this.items.get(o.id);
-      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house });
+      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, carried: !!o.carried });
       else
         this.items.set(o.id, {
-          id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, fuseAt: 0, awayUntil: 0,
+          id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, carried: !!o.carried, fuseAt: 0, awayUntil: 0,
           x: o.x, y: 0, z: o.z,
           vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: {}, ready: 0,
         });
@@ -348,12 +350,19 @@ export class Match {
         this.detonate(it);
         continue;
       }
-      // 🔫 A house gun (armory.mjs) left lying away from its slot goes back to it.
-      if (it.house && it.holder < 0) {
-        const away = Math.hypot(it.x - it.home.x, it.z - it.home.z) > 0.05 || it.y > 0.01;
+      // 🔫 A house gun (armory.mjs) left lying away from its slot goes back to
+      // it; 🎒 a thing carried in from another room, left lying, goes home there.
+      if ((it.house || it.carried) && it.holder < 0) {
+        const away = it.carried || Math.hypot(it.x - it.home.x, it.z - it.home.z) > 0.05 || it.y > 0.01;
         if (!away) it.lyingSince = 0;
         else if (!it.lyingSince) it.lyingSince = this.tick;
-        else if (this.tick - it.lyingSince > RACK_RETURN_SECONDS * HZ) {
+        else if (it.carried && this.tick - it.lyingSince > RACK_RETURN_SECONDS * HZ) {
+          this.emit('dust', { at: { x: it.x, y: it.y, z: it.z } });
+          if (!this.goingHome.includes(it.id)) this.goingHome.push(it.id);
+          it.awayUntil = this.tick + 10 * HZ; // (out of sight until the server lists it at home)
+          Object.assign(it, { y: -50, vx: 0, vy: 0, vz: 0 });
+          continue;
+        } else if (!it.carried && this.tick - it.lyingSince > RACK_RETURN_SECONDS * HZ) {
           this.emit('dust', { at: { x: it.x, y: it.y, z: it.z } });
           Object.assign(it, { x: it.home.x, y: 0, z: it.home.z, vx: 0, vy: 0, vz: 0, spin: 0, thrownBy: -1, lyingSince: 0 });
           this.emit('dust', { at: { x: it.x, y: 0.2, z: it.z } });

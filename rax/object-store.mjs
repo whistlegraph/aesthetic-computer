@@ -35,6 +35,10 @@ export class ObjectStore {
     this.directory = directory;
     this.data = { owners: {}, rooms: {} };
     this.queue = Promise.resolve();
+    // 🎒 Things carried over a seam, in memory only: id → { room, origin, object }.
+    // While carried, a thing is listed in the room it is in and not at home;
+    // what is written down never moves (carry, uncarry).
+    this.carried = new Map();
   }
   async load() {
     if (!this.directory) return;
@@ -117,7 +121,32 @@ export class ObjectStore {
     });
   }
   objects(room) {
-    return this.stored(room).concat(rackFor(room)); // (the lobby's house guns, armory.mjs)
+    const here = (o) => { const c = this.carried.get(o.id); return !c || c.room === room; };
+    return this.stored(room).concat(rackFor(room)).filter(here) // (the lobby's house guns, armory.mjs)
+      .concat([...this.carried.values()].filter((c) => c.room === room && c.room !== c.origin).map((c) => c.object));
+  }
+  // 🎒 A held thing goes over a seam with whoever holds it: listed in `room`
+  // from now on, and not in the room it came from, until uncarried.
+  carry(id, room, at) {
+    const was = this.carried.get(id);
+    const origin = was?.origin || this.whereIs(id);
+    if (!origin) return null;
+    const object = was?.object || this.objects(origin).find((o) => o.id === id);
+    if (!object) return null;
+    if (room === origin) { this.carried.delete(id); return { origin, room }; }
+    this.carried.set(id, { room, origin, object: { ...object, x: at.x, z: at.z, house: false, carried: true } });
+    return { origin, room, from: was?.room || origin };
+  }
+  // Home again: listed where it was built (or racked) once more. → where it had been.
+  uncarry(id) {
+    const c = this.carried.get(id);
+    this.carried.delete(id);
+    return c || null;
+  }
+  whereIs(id) {
+    for (const [room, list] of Object.entries(this.data.rooms)) if (list.some((o) => o.id === id)) return room;
+    for (const room of ['lobby', 'east']) if (rackFor(room).some((o) => o.id === id)) return room;
+    return null;
   }
   stored(room) {
     return (this.data.rooms[room] || []).map((o) => {

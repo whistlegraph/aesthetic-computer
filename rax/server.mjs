@@ -160,7 +160,15 @@ export function createRaxServer({
   // private or local server with no accounts.
   guests = process.env.RAX_GUESTS === '1',
   pairLimits, // 📱 pairing.mjs PAIR_LIMITS, for a test
+  // 🛰️ A satellite: a rax on another box (nearer some players) that keeps
+  // only these rooms (satellite.mjs, ROOM_HOSTS in world.mjs). It takes
+  // sockets from pages served by the hosts in `origins` as well as its own,
+  // builds nothing (lith keeps the store) and sends nobody up to a roof it
+  // does not have. Unset, this is the whole world: lith's rax.
+  onlyRooms = process.env.RAX_ONLY_ROOMS ? process.env.RAX_ONLY_ROOMS.split(',') : null,
+  origins = (process.env.RAX_ORIGINS || '').split(',').filter(Boolean),
 } = {}) {
+  const satellite = Array.isArray(onlyRooms) && onlyRooms.length > 0;
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
     throw new Error('Invalid mount path');
   const rooms = new Map();
@@ -647,7 +655,7 @@ export function createRaxServer({
     }
     if (
       url.pathname !== `${prefix}/play` ||
-      (origin && origin.host !== req.headers.host)
+      (origin && origin.host !== req.headers.host && !origins.includes(origin.host))
     ) {
       socket.destroy();
       return;
@@ -801,6 +809,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       ws.close(1008, 'Invalid room or build');
       return;
     }
+    if (satellite && !onlyRooms.includes(roomId)) {
+      ws.close(1008, 'Not kept here');
+      return;
+    }
     // 🧵 The place this socket stands in. It changes when the body walks over a
     // line or rides the car on a socket that stays (`stay=1`, relocate below).
     let key = roomId;
@@ -921,6 +933,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // The time on the way was lived: the commands given in it are owed a run.
       room.match.owe(member.seat, Math.round(((Date.now() - pass.at) * HZ) / 1000));
+      // 🎒 What was in hand on the way over is in hand here (object-store.mjs carry).
+      const moved = pass.held && store.carry(pass.held, key, { x: body.x, z: body.z });
+      if (moved) {
+        if (moved.from) builders.broadcast(moved.from);
+        builders.broadcast(key);
+        const it = room.match.items.get(pass.held);
+        if (it) Object.assign(it, { holder: member.seat, thrownBy: -1, lyingSince: 0 });
+      }
       sendTower(ws, key, member); // whose floor this is, known with the passage
       send(ws, { type: 'arrival', yaw: pass.position.yaw, pitch: pass.position.pitch });
       send(ws, room.match.snapshot());
@@ -956,6 +976,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const next = openRoom(destination);
       if (!next || next.clients.size >= ROOM_CONNECTIONS) return false;
       const from = room, fromKey = key;
+      // 🎒 What is in hand goes over with the hand (object-store.mjs carry).
+      const heldId = member.seat >= 0 ? from.match.held(member.seat)?.id : null;
       send(ws, { type: 'travel', room: destination, here: true, at: position, ...told });
       letGo();
       from.remove(ws, true);
@@ -979,6 +1001,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (ride) { member.ride = ride; body.shut = shutTicks(ride.seconds, HZ); }
         // The commands given while the word was on its way are owed a run.
         room.match.owe(member.seat, HZ / 2);
+        if (heldId && store.carry(heldId, destination, { x: body.x, z: body.z })) {
+          builders.broadcast(fromKey);
+          builders.broadcast(destination);
+          const it = room.match.items.get(heldId);
+          if (it) Object.assign(it, { holder: member.seat, thrownBy: -1, lyingSince: 0 });
+        }
       }
       send(ws, { type: 'role', seat: member.seat, role: member.seat < 0 ? 'spectator' : 'player' });
       if (devRoom(key) && devRecent.length) send(ws, { type: 'dev-log', entries: devRecent });
@@ -1340,7 +1368,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position, at: Date.now(), until: Date.now() + 30000 });
+        passages.set(receipt, { owner: member.owner, ...carry(member), held: room.match.held(member.seat)?.id || null, room: destination, position, at: Date.now(), until: Date.now() + 30000 });
         // `ack` is the last command this room ran: the walker's later ones go with them.
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) } };
         send(ws, leaving.message);
@@ -1377,7 +1405,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
         const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), room: destination, position: stood, ride: run, at: Date.now(), until: Date.now() + 30000 });
+        passages.set(receipt, { owner: member.owner, ...carry(member), held: room.match.held(member.seat)?.id || null, room: destination, position: stood, ride: run, at: Date.now(), until: Date.now() + 30000 });
         // ⚽ A ball in the car rides with it.
         moveCargo();
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: { ...stood },
@@ -1403,6 +1431,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (!openBuild && pod && !ownPod && !keeping && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
         send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: floor ? `Only @${floor.handle} can arrange this floor` : 'Only the pod owner can arrange this pod' }); // (`rid`: the page's own name for what it asked, said back so it knows which asking was refused)
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
+        return;
+      }
+      // 🛰️ A satellite builds nothing: what is built is lith's to keep.
+      if (satellite && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
+        send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: 'Nothing is built in this room' });
         return;
       }
       // 🏙️ The roof is nobody's floor and is kept as it is, as the plaza is: only the keeper arranges it.
@@ -1704,7 +1737,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // 🚁 Who is looking on here, for rounds to meet; 🏙️ whether a gibbed body has a roof to go to.
         room.match.watchers = [...room.sessions.values()].filter((m) => m.seat < 0 && m.eye && m.look && Date.now() - m.look.at < 3000)
           .map((m) => ({ eye: m.eye, x: m.look.x, y: m.look.y, z: m.look.z }));
-        room.match.roofBound = key !== ROOF && !!tower.tower.top && !room.match.arena;
+        room.match.roofBound = !satellite && key !== ROOF && !!tower.tower.top && !room.match.arena;
         room.match.step();
         walks.tick(key, room);
         if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
@@ -1722,6 +1755,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const room of [...rooms.values()])
         for (const seat of room.match.toRoof.splice(0))
           [...room.sessions.values()].find((m) => m.seat === seat)?.toRoof?.();
+      // 🎒 Carried-in things left lying go home: listed where they came from again.
+      for (const room of [...rooms.values()])
+        for (const id of room.match.goingHome.splice(0)) {
+          const was = store.uncarry(id);
+          if (was) { builders.broadcast(was.room); builders.broadcast(was.origin); }
+        }
     }
     if (diagnostics.enabled) {
       tickMaxMs = Math.max(tickMaxMs, performance.now() - now);

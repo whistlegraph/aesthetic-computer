@@ -136,3 +136,23 @@ test('clearing a tower window carries height, facing and speed into the block be
   assert.equal(bodyIn('e1n0')?.onGround, true);
   assert.equal(a.closed(), false);
 });
+
+// 🎒 A gun in hand goes over the line with the hand, and is off the rack meanwhile.
+test('a walk over a line with a house gun in hand keeps it in hand in the next room', async (t) => {
+  const { app, connect, bodyIn } = await fixture(t);
+  const a = await connect('lobby', { stay: '1' });
+  const lobby = app.rooms.get('lobby');
+  const seat = [...lobby.sessions.values()].find((m) => m.seat >= 0).seat;
+  const gun = lobby.match.items.get('house-gun-1');
+  assert.ok(gun, 'the rack is in the lobby');
+  Object.assign(gun, { holder: seat });
+  Object.assign(bodyIn('lobby'), { x: 8.3, z: 0.2, y: 1.7, yaw: 90, pitch: 0, vx: 6 });
+  a.say({ type: 'walk', edge: 'east', in: 'lobby' });
+  await wait(() => a.messages.some((m) => m.type === 'arrival') && bodyIn('e1n0'));
+  const there = app.rooms.get('e1n0');
+  const mine = [...there.sessions.values()].find((m) => m.seat >= 0).seat;
+  assert.equal(there.match.items.get('house-gun-1')?.holder, mine, 'still in hand');
+  assert.equal(there.match.items.get('house-gun-1')?.kind, 'shoot');
+  assert.ok(!app.store.objects('lobby').some((o) => o.id === 'house-gun-1'), 'off the rack while carried');
+  assert.ok(app.store.objects('e1n0').some((o) => o.id === 'house-gun-1'), 'listed where it is');
+});
