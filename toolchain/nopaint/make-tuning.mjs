@@ -37,12 +37,15 @@ tuning.ai = {
   // Cheaper ones weigh more. Braincells a turn, 2026-11-25: hy, gpt, mini 4000;
   // flare 6000; seed, flux, krea 8000.
   models: {
-    hy: { model: "tencent/hy-image-v3.5-preview", weight: 3 },
-    gpt: { model: "openai/gpt-image-2", weight: 3 },
-    mini: { model: "openai/gpt-image-1-mini", weight: 1 },
+    // Weights from the 2026-11-25 bench (toolchain/nopaint/ai-bench.mjs): mini is the
+    // cheap fast default, flux the fastest, krea the rare big leap; gpt stays
+    // typeable but is never rolled (one call took 76 s).
+    hy: { model: "tencent/hy-image-v3.5-preview", weight: 1 },
+    gpt: { model: "openai/gpt-image-2", weight: 0 },
+    mini: { model: "openai/gpt-image-1-mini", weight: 4 },
     flare: { model: "openai/gpt-image-2.5-flare", weight: 1 },
     seed: { model: "bytedance-seed/seedream-5-0-flash", weight: 2 },
-    flux: { model: "black-forest-labs/flux.2-klein-4b", weight: 1 },
+    flux: { model: "black-forest-labs/flux.2-klein-4b", weight: 2 },
     krea: { model: "krea/krea-2-medium-turbo", weight: 1 },
   },
   // note: what to do. Mostly whole changes, a few small additions. Each is at

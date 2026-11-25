@@ -65,15 +65,15 @@
     "models": {
       "hy": {
         "model": "tencent/hy-image-v3.5-preview",
-        "weight": 3
+        "weight": 1
       },
       "gpt": {
         "model": "openai/gpt-image-2",
-        "weight": 3
+        "weight": 0
       },
       "mini": {
         "model": "openai/gpt-image-1-mini",
-        "weight": 1
+        "weight": 4
       },
       "flare": {
         "model": "openai/gpt-image-2.5-flare",
@@ -85,7 +85,7 @@
       },
       "flux": {
         "model": "black-forest-labs/flux.2-klein-4b",
-        "weight": 1
+        "weight": 2
       },
       "krea": {
         "model": "krea/krea-2-medium-turbo",
