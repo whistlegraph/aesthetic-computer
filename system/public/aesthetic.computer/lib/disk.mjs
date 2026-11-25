@@ -1338,6 +1338,7 @@ const defaults = {
 };
 
 let loadAfterPreamble = null;
+let firstBootStore = null; // Store reads asked for at init, taken by the first boot.
 let hotSwap = null;
 
 // 🔎 NoPaint
@@ -2696,8 +2697,10 @@ const store = {
     // TODO: Turn the existing key into a retrieval function / promise?
   },
   retrieve: function (key, method = "local") {
+    // Every caller waiting on a key is answered: two retrievals of one key in
+    // flight (a boot prefetch and a piece, say) must not orphan the first.
     const promise = new Promise((resolve) => {
-      storeRetrievalResolutions[key] = resolve;
+      (storeRetrievalResolutions[key] ||= []).push(resolve);
     });
 
     send({ type: "store:retrieve", content: { key, method } });
@@ -8152,6 +8155,71 @@ async function resolveUserCode(slug) {
   }
 }
 
+// 🎨 The worker's first piece painting (piece-paint-ready), for the work
+// that waits on it. Later loads find it already true and go straight on.
+let socketTickets = 0;
+let firstPieceHasPainted = false;
+const firstPaintWaiters = [];
+function firstPiecePainted() {
+  if (firstPieceHasPainted) return;
+  firstPieceHasPainted = true;
+  for (const fn of firstPaintWaiters.splice(0)) fn();
+}
+function afterFirstPiecePaint(fn, ms = 3000) {
+  if (firstPieceHasPainted) return fn();
+  let done = false;
+  const once = () => {
+    if (done) return;
+    done = true;
+    fn();
+  };
+  firstPaintWaiters.push(once);
+  setTimeout(once, ms); // A piece that never paints its own frame.
+}
+
+// 🏎️ The first piece's source, asked for at init-from-bios so the fetch runs
+// while the display is set up and the preamble frames paint, instead of
+// after them. Only for a built-in .mjs piece (an `@handle` profile included)
+// whose URL is plain to work out here; load() takes it only if it builds the
+// very same URL, and fetches as usual otherwise or if this one failed.
+let firstPieceFetch = null; // { url, source: Promise<string|null> }
+
+function startFirstPieceFetch(parsed) {
+  if (!parsed || parsed.source || getPackMode()) return;
+  if (typeof window !== "undefined" && window.acSPIDER) return;
+  const slug = parsed.text || "";
+  let path = parsed.path || "";
+  if (!slug || slug.startsWith("$") || slug.startsWith("*")) return;
+  if (!path.startsWith("aesthetic.computer/disks/")) return;
+  if (/\.(lisp|lua|l5|p5|js|mjs)$/.test(path)) return;
+  if (slug.startsWith("@") && slug.indexOf("/") === -1) {
+    path = [...path.split("/").slice(0, -1), "profile"].join("/"); // As load() does.
+  }
+  const baseUrl = getBuiltInPieceBaseUrl();
+  const resolvedPath =
+    baseUrl === "https://aesthetic.computer"
+      ? path.substring("aesthetic.computer/".length)
+      : path;
+  const url = baseUrl + "/" + resolvedPath + ".mjs";
+  firstPieceFetch = {
+    url,
+    source: fetch(url + "?v=" + Date.now(), { cache: "no-store" })
+      .then((response) => (response.ok ? response.text() : null))
+      .catch(() => null),
+  };
+}
+
+// Hands the first load() the early fetch (a promise of the source, or of
+// null if it failed) when its URL, minus the `?v=` bust, is the one
+// fetched; null otherwise. Either way it is gone after the first load.
+function takeFirstPieceSource(fullUrl) {
+  const early = firstPieceFetch;
+  if (!early) return null;
+  firstPieceFetch = null;
+  if (early.url !== String(fullUrl).split("?")[0]) return null;
+  return early.source;
+}
+
 // 2. ✔ Loading the disk.
 let originalHost;
 let firstLoad = true;
@@ -8491,11 +8559,17 @@ async function load(
         // 🎄 Check if piece code is cached (for merry preloading)
         const pieceSlug = slug?.split("~")[0];
         const cachedPiece = pieceSlug ? pieceCodeCache.get(pieceSlug) : null;
+        // The first piece's source, if init-from-bios already asked for it.
+        const earlyFetch = takeFirstPieceSource(fullUrl);
+        const earlySource = cachedPiece || !earlyFetch ? null : await earlyFetch;
 
         if (cachedPiece) {
           console.log(`🎄 Using cached code for: ${pieceSlug}`);
           sourceToRun = cachedPiece.code;
           // Skip fetch, use cached code directly
+        } else if (typeof earlySource === "string") {
+          sourceToRun = earlySource;
+          diskTimings.fetchComplete = Math.round(performance.now() - diskTimingStart);
         } else {
           // In OBJKT mode, try direct import first for .mjs files to avoid CSP issues
           // Extract the filename from URL, handling ./ prefix and hash fragments
@@ -9453,13 +9527,22 @@ async function load(
   socket?.kill(); // Kill any already open socket from a previous disk.
   udp?.kill();
   socket = undefined;
-  socketStartDelay = setTimeout(() => startSocket(), 250);
+  // The worker's first piece starts its session once it has painted (or
+  // after a few seconds): the session lookup, websocket and UDP otherwise
+  // share the link with that piece's first media. A piece that asks for
+  // the socket in its `boot` still gets it at once (`net.socket` below).
+  const socketTicket = ++socketTickets;
+  afterFirstPiecePaint(() => {
+    if (socketTicket !== socketTickets) return; // Another load, or net.socket, took over.
+    socketStartDelay = setTimeout(() => startSocket(), 250);
+  });
 
   $commonApi.net.socket = function (receive) {
     receiver = receive || (() => {});
     if (!socket) {
       // Just in case we init. in a `boot` before the timeout fires above.
       clearTimeout(socketStartDelay);
+      socketTickets += 1; // Drop a start still waiting on the first paint.
       startSocket();
     } else {
       // Return the server then send an already connected message.
@@ -11224,6 +11307,18 @@ async function makeFrame({ data: { type, content } }) {
     // time rather than caching one here.
     setAskTokenProvider(() => $commonApi.authorize());
 
+    // Ask now, all at once, for what the first boot reads (see `paint`'s
+    // first frame), so it finds them answered instead of waiting on six
+    // round trips to the main thread one after another.
+    firstBootStore = {
+      "dark-mode": store.retrieve("dark-mode"),
+      painting: store.retrieve("painting", "local:db"),
+      "painting:resolution-lock": store.retrieve("painting:resolution-lock", "local:db"),
+      "painting:transform": store.retrieve("painting:transform", "local:db"),
+      "painting:piece": store.retrieve("painting:piece", "local:db"),
+      "painting:record": store.retrieve("painting:record", "local:db"),
+    };
+
     codeChannelAutoLoader = null;
     codeChannel = await store.retrieve("code-channel");
     if (!codeChannel || codeChannel?.length === 0) {
@@ -11257,6 +11352,7 @@ async function makeFrame({ data: { type, content } }) {
     // console.log("🟢 Loading after preamble:", content.parsed);
 
     originalHost = content.parsed.host;
+    if (!content.pieceSource && !content.pieceSourcePending) startFirstPieceFetch(content.parsed);
     loadAfterPreamble = () => {
       const loadCallStartTime = performance.now();
       // console.log("⏰ loadAfterPreamble called at", loadCallStartTime);
@@ -12366,8 +12462,11 @@ async function makeFrame({ data: { type, content } }) {
   }
 
   if (type === "store:retrieved") {
-    storeRetrievalResolutions[content.key]?.(content.data);
-    delete storeRetrievalResolutions[content.key];
+    // Answers arrive in the order they were asked, so the oldest waiter on
+    // this key takes this one.
+    const waiting = storeRetrievalResolutions[content.key];
+    waiting?.shift()?.(content.data);
+    if (!waiting?.length) delete storeRetrievalResolutions[content.key];
     return;
   }
 
@@ -14931,7 +15030,12 @@ async function makeFrame({ data: { type, content } }) {
 
       // Run boot only once before painting for the first time.
       if (paintCount === 0n && loading === false) {
-        const dark = await store.retrieve("dark-mode"); // Read dark mode.
+        // The worker's first boot takes the reads init-from-bios asked for
+        // all at once (firstBootStore); later boots ask afresh.
+        const prefetched = firstBootStore;
+        firstBootStore = null;
+        const retrieve = (key, method) => prefetched?.[key] || store.retrieve(key, method);
+        const dark = await retrieve("dark-mode"); // Read dark mode.
         if (dark === true || dark === false) $commonApi.dark = dark;
 
         // System specific preloaders.
@@ -14940,17 +15044,17 @@ async function makeFrame({ data: { type, content } }) {
         // Create a new painting if one doesn't already exist.
         if (!store["painting"]) {
           store["painting"] =
-            (await store.retrieve("painting", "local:db")) ||
+            (await retrieve("painting", "local:db")) ||
             painting.api.painting(screen.width, screen.height, ($) => {
               $.wipe(64);
             });
 
-          store["painting:resolution-lock"] = await store.retrieve(
+          store["painting:resolution-lock"] = await retrieve(
             "painting:resolution-lock",
             "local:db",
           );
 
-          store["painting:transform"] = await store.retrieve(
+          store["painting:transform"] = await retrieve(
             "painting:transform",
             "local:db",
           );
@@ -14961,14 +15065,14 @@ async function makeFrame({ data: { type, content } }) {
         const sys = $commonApi.system;
         sys.painting = store["painting"];
         if (!Object.hasOwn(store, "painting:piece")) {
-          store["painting:piece"] = await store.retrieve("painting:piece", "local:db");
+          store["painting:piece"] = await retrieve("painting:piece", "local:db");
         }
         sys.nopaint.piece = store["painting:piece"] || null;
 
         // Set the painting record if one is in storage.
         if (!sys.nopaint.recording) {
           sys.nopaint.record =
-            (await store.retrieve("painting:record", "local:db")) || [];
+            (await retrieve("painting:record", "local:db")) || [];
 
           if (sys.nopaint.record.length === 0) {
             $commonApi.system.nopaint.startRecord("new");
@@ -15262,6 +15366,7 @@ async function makeFrame({ data: { type, content } }) {
             // Use acPieceReady itself as the "already fired" guard instead of pieceFrameCount.
             if (paint !== defaults.paint && !(typeof window !== "undefined" && window.acPieceReady)) {
               send({ type: "piece-paint-ready" });
+              firstPiecePainted(); // The first session socket may start now.
               // 🔥 Global signal for Puppeteer/Oven to detect piece is ready for screenshot
               if (typeof window !== "undefined") {
                 window.acPieceReady = true;

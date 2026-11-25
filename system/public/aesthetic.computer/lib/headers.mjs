@@ -1,5 +1,5 @@
 import { getColorTokenHighlight } from "./color-highlighting.mjs";
-import { tokenize } from "./kidlisp.mjs";
+import { tokenize } from "./kidlisp-url.mjs";
 import { qrcode, ErrorCorrectLevel } from "../dep/@akamfoad/qr/qr.mjs";
 
 // Weekly color schemes for console styling

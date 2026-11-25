@@ -19,6 +19,8 @@ const PRECACHE_MODULES = [
   '/aesthetic.computer/lib/ui.mjs',
   '/aesthetic.computer/lib/platform.mjs',
   '/aesthetic.computer/lib/kidlisp.mjs',
+  '/aesthetic.computer/lib/kidlisp-url.mjs',
+  '/aesthetic.computer/lib/kidlisp-console.mjs',
   '/aesthetic.computer/lib/type.mjs',
   '/aesthetic.computer/lib/pen.mjs',
   '/aesthetic.computer/lib/keyboard.mjs',

@@ -73,6 +73,42 @@ if (!window.acPACK_MODE && moduleWsEnabled) {
   }
 }
 
+// 🧵 Start the disk worker now, not when bios gets to it. The worker spends
+// most of a second compiling and evaluating its ~1.8 MB bundle before it can
+// say `worker-ready`, and nothing the page does is needed for that, so the
+// time can overlap the import of bios.mjs instead of following it. Only the
+// shell's named bundle is started (window.acWORKER_BUNDLE_HINT), and only
+// once its warm-up download is done, so the bytes are fetched once. bios
+// adopts the worker if it would have made the same one (`acEARLY_WORKER`),
+// and terminates it otherwise. Its first messages wait in `early.messages`.
+{
+  const hint = window.acWORKER_BUNDLE_HINT;
+  const bundleParam = new URLSearchParams(location.search).get("workerbundle");
+  if (
+    hint && /^disk\.worker\.[a-f0-9]{12}\.mjs$/.test(hint.filename || "") &&
+    typeof Worker !== "undefined" &&
+    !window.acPACK_MODE && !window.acSPIDER &&
+    window.origin && window.origin !== "null" &&
+    bundleParam !== "0" && bundleParam !== "false"
+  ) {
+    const early = (window.acEARLY_WORKER = { filename: hint.filename, worker: null, messages: [], error: null });
+    Promise.race([hint.warm, new Promise((r) => setTimeout(r, 8000))]).then(() => {
+      if (early.adopted === false) return; // bios already went its own way.
+      try {
+        // The same URL bios builds: the query minus the auth names, and a
+        // hash so Safari does not hand back a worker from memory.
+        const url = `/aesthetic.computer/lib/${hint.filename}` + cleanSearch(location.search, { drop: ["auth"] }) + "#" + Date.now();
+        const worker = new Worker(new URL(url, location.href), { type: "module" });
+        worker.onmessage = (e) => early.messages.push(e);
+        worker.onerror = (e) => { early.error = e; };
+        early.worker = worker;
+      } catch (error) {
+        early.error = error;
+      }
+    });
+  }
+}
+
 // �🔧 Register Service Worker for module caching (production + dev)
 // Skip in PACK mode (NFT bundles), sandboxed iframes, and the Menu Band
 // webview — Menu Band wants the live site to always reflect recent changes,
