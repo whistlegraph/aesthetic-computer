@@ -40,8 +40,25 @@ const dev = process.env.NODE_ENV === 'development';
 // Track server start time for uptime display
 const SERVER_START_TIME = Date.now();
 
-// Get git version at startup (from env var set during deploy, or try git)
-let GIT_VERSION = process.env.OVEN_VERSION || 'unknown';
+// The revision this oven runs. deploy.sh writes OVEN_VERSION into .env; the
+// source poller (source-git-poller.mjs) lands later revisions on its own and
+// records each in oven-last-synced-hash without touching .env. Whichever was
+// written last names the code that is running.
+function ovenVersion() {
+  const fromEnv = process.env.OVEN_VERSION || '';
+  const gitDir = process.env.NATIVE_GIT_DIR || '/opt/oven/native-git';
+  const synced = `${gitDir}/.git/oven-state/oven-last-synced-hash`;
+  const mtime = (f) => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
+  try {
+    const hash = fs.readFileSync(synced, 'utf8').trim();
+    const envFile = new URL('./.env', import.meta.url);
+    if (/^[0-9a-f]{7,40}$/.test(hash) && (!fromEnv || mtime(synced) >= mtime(envFile))) {
+      return hash.slice(0, 10);
+    }
+  } catch {}
+  return fromEnv || 'unknown';
+}
+let GIT_VERSION = ovenVersion();
 if (GIT_VERSION === 'unknown') {
   try {
     GIT_VERSION = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
