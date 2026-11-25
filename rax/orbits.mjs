@@ -15,8 +15,11 @@
 import { PLANET } from './planet.mjs';
 
 export const HOME = 'home';
-export const AU = 2400; // home's distance from the sun, metres
-export const YEAR_MS = 48 * 60 * 1000; // home's year: once round the sun
+// Neighbourhoods, not a solar system (2026-11-24): little worlds hung a
+// stone's throw apart, so a bike (14 m/s) is at the next one in a few
+// seconds at their nearest, and they visibly swing round while you watch.
+export const AU = 180; // home's distance from the sun, metres
+export const YEAR_MS = 12 * 60 * 1000; // home's year: once round the sun
 
 export const SUN = { id: 'sun', name: 'sun', radius: 60, ink: 0xfff4c8 };
 
@@ -25,8 +28,8 @@ export const SUN = { id: 'sun', name: 'sun', radius: 60, ink: 0xfff4c8 };
 // its colours (`ink` lit, `dark` its night side).
 export const BODIES = [
   { id: HOME, name: 'aesthetic', radius: PLANET, distance: AU, start: 0, tilt: 0, node: 0, ink: 0x8fcf7a, dark: 0x1c2a3a },
-  { id: 'pinch', name: 'pinch', radius: 30, distance: 1400, start: 2.1, tilt: 0.05, node: 0.7, ink: 0xffa07a, dark: 0x3a1c2a },
-  { id: 'brume', name: 'brume', radius: 44, distance: 3700, start: 4.4, tilt: -0.04, node: 2.3, ink: 0x7ac8e6, dark: 0x16233a },
+  { id: 'pinch', name: 'pinch', radius: 30, distance: 110, start: 2.1, tilt: 0.05, node: 0.7, ink: 0xffa07a, dark: 0x3a1c2a },
+  { id: 'brume', name: 'brume', radius: 44, distance: 260, start: 4.4, tilt: -0.04, node: 2.3, ink: 0x7ac8e6, dark: 0x16233a },
 ];
 const byId = new Map(BODIES.map((b) => [b.id, b]));
 export const body = (id) => byId.get(id) || null;
