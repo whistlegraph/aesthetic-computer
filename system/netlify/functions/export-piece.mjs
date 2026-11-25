@@ -42,6 +42,8 @@ const ESSENTIAL_FILES = [
   'lib/loop.mjs',
   'lib/disk.mjs',
   'lib/kidlisp.mjs',
+  'lib/kidlisp-url.mjs', // kidlisp.mjs and parse.mjs import its URL helpers
+  'lib/kidlisp-console.mjs', // and the kidlisp.com console channel
   'lib/graph.mjs',
   'lib/geo.mjs',
   'lib/2d.mjs',
