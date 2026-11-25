@@ -11,7 +11,7 @@ import { execSync } from 'child_process';
 import { gunzipSync, gzipSync } from 'node:zlib';
 import { WebSocketServer } from 'ws';
 import { healthHandler, bakeHandler, statusHandler, bakeCompleteHandler, bakeStatusHandler, getActiveBakes, getIncomingBakes, getRecentBakes, subscribeToUpdates, cleanupStaleBakes } from './baker.mjs';
-import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, listBackdropPool, pickBackdropUrl, warmBackdropPool, getBackdropPoolStatus, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
+import { grabHandler, grabGetHandler, grabIPFSHandler, grabPiece, getCachedOrGenerate, getActiveGrabs, getRecentGrabs, getLatestKeepThumbnail, ensureLatestKeepThumbnail, getLatestIPFSUpload, getAllLatestIPFSUploads, setNotifyCallback, setProgressTickCallback, getGrabStats, setLogCallback, cleanupStaleGrabs, clearAllActiveGrabs, getQueueStatus, getCurrentProgress, getAllProgress, getConcurrencyStatus, IPFS_GATEWAY, generateKidlispOGImage, getOGImageCacheStatus, getFrozenPieces, clearFrozenPiece, getLatestOGImageUrl, regenerateOGImagesBackground, generateKidlispBackdrop, getLatestBackdropUrl, listBackdropPool, pickBackdropUrl, warmBackdropPool, getBackdropPoolStatus, APP_SCREENSHOT_PRESETS, generateNotepatOGImage, getLatestNotepatOGUrl, prewarmGrabBrowser, generateNewsOGImage } from './grabber.mjs';
 import archiver from 'archiver';
 import sharp from 'sharp';
 import { createBundle, createJSPieceBundle, createJSLibraryBundle, createM4DBundle, generateDeviceHTML, prewarmCache, getCacheStatus, setSkipMinification, setSourceRevision } from './bundler.mjs';
@@ -65,8 +65,9 @@ let nativeBuildStatusMongoDb = null;
 let nativeBuildStatusCacheAt = 0;
 let nativeBuildStatusCache = { byName: new Map(), failedAttempts: [] };
 
-function addServerLog(type, icon, msg) {
+function addServerLog(type, icon, msg, data) {
   const entry = { time: new Date().toISOString(), type, icon, msg };
+  if (data) entry.data = data; // structured detail, e.g. { kind: 'grab:cache-hit', ... }
   activityLogBuffer.unshift(entry);
   if (activityLogBuffer.length > MAX_ACTIVITY_LOG) {
     activityLogBuffer.pop();
@@ -738,6 +739,7 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
 
   <script>
     let serverVersion = null;
+    let liveProgress = {}; // grabProgress from the last snapshot + ticks since
     let ws = null;
     let reconnectTimer = null;
 
@@ -761,6 +763,18 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
         const data = JSON.parse(event.data);
 
         if (data.logEntry) { addLog(data.logEntry); return; }
+        if (data.type === 'grab:progress') {
+          // A tick inside one stage: fold it into the last snapshot's progress.
+          const p = liveProgress[data.grabId];
+          if (!p) return;
+          for (const k of ['stage', 'stageDetail', 'percent', 'framesCaptured', 'framesTotal']) {
+            if (data[k] !== undefined) p[k] = data[k];
+          }
+          if (data.preview) p.previewFrame = data.preview;
+          renderHero(liveProgress);
+          return;
+        }
+        if (data.type) return; // os:* messages are for os.mjs
         if (serverVersion && data.version && data.version !== serverVersion) {
           location.reload();
           return;
@@ -772,7 +786,8 @@ const OVEN_TV_HTML = `<!DOCTYPE html>
         }
 
         updateStatusBar(data);
-        renderHero(data.grabProgress || {});
+        liveProgress = data.grabProgress || {};
+        renderHero(liveProgress);
         renderQueue(data.grabs?.queue || []);
         renderHistory(data.grabs?.recent || []);
       };
@@ -1539,6 +1554,7 @@ app.get('/grab-status', (req, res) => {
     progress: getCurrentProgress(),
     grabProgress: getAllProgress(),
     concurrency: getConcurrencyStatus(),
+    stats: getGrabStats(),
     osBaseBuilds: getOSBaseBuildsSummary(),
   });
 });
@@ -4482,58 +4498,59 @@ if (dev) {
   });
 }
 
-// WebSocket server
+// ─── WebSocket firehose: wss://oven.aesthetic.computer/ws ─────────────────
+// Message types (all JSON):
+//
+//   snapshot   { version, serverStartTime, uptime, incoming, active, recent,
+//                grabs: { active, recent, queue, ipfsThumbs }, grabProgress,
+//                concurrency, stats, osBaseBuilds, frozenCount }
+//              Sent on connect (plus `recentLogs`, the last 50 log entries)
+//              and on every state change: a grab queued, leaving the queue,
+//              changing stage, finishing or failing, a slot freed, a bake
+//              (baker.mjs) update. Coalesced to one per SNAPSHOT_COALESCE_MS.
+//              No `type` field (older clients key on `grabs`).
+//     grabs.active[]  id, piece, format, status, startTime, …, plus
+//                     state: 'queued' | 'baking', queuedAt (ms, = startTime),
+//                     bakeStart (ms, when it left the queue; absent while queued)
+//     grabs.recent[]  the last 20 finished, plus state: 'done' | 'failed',
+//                     bakeMs (bakeStart → completedAt), queueMs (queuedAt →
+//                     bakeStart). `duration` is unchanged: startTime →
+//                     completedAt, queue wait included.
+//     concurrency     { active (slots held, freed before the broadcast), max,
+//                       queueDepth, reserved, baking, queued }
+//     stats           grabber.getGrabStats(): { since, grabs, cacheHits,
+//                       cacheMisses, deduped, completed, duds, failed,
+//                       iconCacheHits, iconCacheMisses, prechecked (duds the
+//                       headless precheck settled with no Chrome bake),
+//                       rescued (flat Chrome grabs the headless render
+//                       replaced), rejected (junk names, missing $codes),
+//                       hour: {same counts,
+//                       last 60 min}, bakeMsP50, bakeMsP90, queueMsP50,
+//                       queueMsP90, samples }  (totals since `since`)
+//     frozenCount     size of the frozen list; the list is at GET /api/frozen
+//                     (it was ~50 KB in every snapshot and no client read it)
+//
+//   { type: 'grab:progress', grabId, piece, stage, stageDetail, percent,
+//     framesCaptured, framesTotal, preview? }
+//              A tick inside one stage (≤ ~7/s per grab). `preview` (80² JPEG,
+//              base64) only when the frame changed, at most once a second.
+//              Fold it into the snapshot's grabProgress[grabId].
+//
+//   { logEntry: { time, type, icon, msg, data? } }
+//              Activity log line. `data.kind` marks structured ones, e.g.
+//              'grab:cache-hit' { piece, format, captureKey, dud }.
+//
+//   { type: 'os:build-progress', build }  /  { type: 'os:new-build', releases }
+//              Native OS builds (os.mjs).
+//
+// `/ws?full=1` gets the old behaviour instead of ticks: a whole snapshot for
+// every progress tick (still coalesced). Everything else is identical.
 wss = new WebSocketServer({ server, path: '/ws' });
 
-// Wire up grabber notifications to broadcast to all WebSocket clients
-setNotifyCallback(() => {
-  wss.clients.forEach((client) => {
-    if (client.readyState === 1) { // OPEN
-      client.send(JSON.stringify({
-        version: GIT_VERSION,
-        serverStartTime: SERVER_START_TIME,
-        uptime: Date.now() - SERVER_START_TIME,
-        incoming: Array.from(getIncomingBakes().values()),
-        active: Array.from(getActiveBakes().values()),
-        recent: getRecentBakes(),
-        grabs: {
-          active: getActiveGrabs(),
-          recent: getRecentGrabs(),
-          queue: getQueueStatus(),
-          ipfsThumbs: getAllLatestIPFSUploads()
-        },
-        grabProgress: getAllProgress(),
-        concurrency: getConcurrencyStatus(),
-        osBaseBuilds: getOSBaseBuildsSummary(),
-      }));
-    }
-  });
-});
+const SNAPSHOT_COALESCE_MS = 50;
 
-// Wire up grabber log messages to broadcast to clients
-setLogCallback((type, icon, msg) => {
-  addServerLog(type, icon, msg);
-});
-
-// Wire up native build progress to broadcast to all WebSocket clients
-onNativeBuildProgress((snapshot) => {
-  if (wss && wss.clients) {
-    const msg = JSON.stringify({ type: 'os:build-progress', build: snapshot });
-    wss.clients.forEach(client => {
-      if (client.readyState === 1) client.send(msg);
-    });
-  }
-});
-
-wss.on('connection', async (ws) => {
-  console.log('📡 WebSocket client connected');
-  addServerLog('info', '📡', 'Dashboard client connected');
-  
-  // Clean up stale bakes before sending initial state
-  await cleanupStaleBakes();
-  
-  // Send initial state with recent logs
-  ws.send(JSON.stringify({
+function grabSnapshot(extra = {}) {
+  return {
     version: GIT_VERSION,
     serverStartTime: SERVER_START_TIME,
     uptime: Date.now() - SERVER_START_TIME,
@@ -4548,38 +4565,87 @@ wss.on('connection', async (ws) => {
     },
     grabProgress: getAllProgress(),
     concurrency: getConcurrencyStatus(),
+    stats: getGrabStats(),
     osBaseBuilds: getOSBaseBuildsSummary(),
-    frozen: getFrozenPieces(),
-    recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
-  }));
-  
-  // Subscribe to updates
-  const unsubscribe = subscribeToUpdates((update) => {
-    if (ws.readyState === 1) { // OPEN
-      ws.send(JSON.stringify({
-        version: GIT_VERSION,
-        serverStartTime: SERVER_START_TIME,
-        uptime: Date.now() - SERVER_START_TIME,
-        incoming: Array.from(getIncomingBakes().values()),
-        active: Array.from(getActiveBakes().values()),
-        recent: getRecentBakes(),
-        grabs: {
-          active: getActiveGrabs(),
-          recent: getRecentGrabs(),
-          queue: getQueueStatus(),
-          ipfsThumbs: getAllLatestIPFSUploads()
-        },
-        grabProgress: getAllProgress(),
-        concurrency: getConcurrencyStatus(),
-        osBaseBuilds: getOSBaseBuildsSummary(),
-        frozen: getFrozenPieces()
-      }));
-    }
+    frozenCount: getFrozenPieces().length,
+    ...extra,
+  };
+}
+
+// One serialisation per broadcast, shared by every client.
+let snapshotTimer = null;
+// fullOnly: owed only to ?full=1 clients (a progress tick); any real state
+// change upgrades a pending fullOnly send to everyone.
+function scheduleSnapshot({ fullOnly = false } = {}) {
+  if (snapshotTimer) {
+    if (!fullOnly) snapshotTimer.fullOnly = false;
+    return;
+  }
+  snapshotTimer = setTimeout(() => {
+    const onlyFull = snapshotTimer.fullOnly;
+    snapshotTimer = null;
+    let msg = null;
+    wss.clients.forEach((client) => {
+      if (client.readyState !== 1) return;
+      if (onlyFull && !client.fullSnapshots) return;
+      client.send(msg ??= JSON.stringify(grabSnapshot()));
+    });
+  }, SNAPSHOT_COALESCE_MS);
+  snapshotTimer.fullOnly = fullOnly;
+}
+
+// Grab state changes → snapshot.
+setNotifyCallback(() => scheduleSnapshot());
+
+// Progress ticks → small messages (or, for ?full=1 clients, a snapshot).
+setProgressTickCallback((tick) => {
+  let msg = null;
+  let fullWanted = false;
+  wss.clients.forEach((client) => {
+    if (client.readyState !== 1) return;
+    if (client.fullSnapshots) { fullWanted = true; return; }
+    client.send(msg ??= JSON.stringify({ type: 'grab:progress', ...tick }));
   });
+  if (fullWanted) scheduleSnapshot({ fullOnly: true });
+});
+
+// Wire up grabber log messages to broadcast to clients
+setLogCallback((type, icon, msg, data) => {
+  addServerLog(type, icon, msg, data);
+});
+
+// Wire up native build progress to broadcast to all WebSocket clients
+onNativeBuildProgress((snapshot) => {
+  if (wss && wss.clients) {
+    const msg = JSON.stringify({ type: 'os:build-progress', build: snapshot });
+    wss.clients.forEach(client => {
+      if (client.readyState === 1) client.send(msg);
+    });
+  }
+});
+
+// Bake (baker.mjs) updates are state changes too; one subscription serves all.
+subscribeToUpdates(() => scheduleSnapshot());
+
+wss.on('connection', async (ws, req) => {
+  console.log('📡 WebSocket client connected');
+  try {
+    ws.fullSnapshots = new URL(req.url, 'http://oven').searchParams.get('full') === '1';
+  } catch { ws.fullSnapshots = false; }
+  addServerLog('info', '📡', 'Dashboard client connected');
+  
+  // Clean up stale bakes before sending initial state
+  await cleanupStaleBakes();
+  
+  // Send initial state with recent logs
+  if (ws.readyState === 1) {
+    ws.send(JSON.stringify(grabSnapshot({
+      recentLogs: activityLogBuffer.slice(0, 50) // Send last 50 log entries
+    })));
+  }
   
   ws.on('close', () => {
     console.log('📡 WebSocket client disconnected');
-    unsubscribe();
   });
 });
 

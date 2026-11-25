@@ -1,5 +1,10 @@
 import { captureObjectFrames, OBJECT_PREVIEW_FPS, OBJECT_TURN_SECONDS } from "./object-preview.mjs";
-import { pieceSourceFailure, isSuspectDud, isStaleDud, captureUrl, cdnHref } from "./grab-duds.mjs";
+import { renderKidlispDetailed, fetchSource, HEADLESS_RENDER_VERSION } from "./kidlisp-headless.mjs";
+import {
+  pieceSourceFailure, isSuspectDud, isStaleDud, captureUrl, cdnHref,
+  nextDudAttempt, dudWantsSourceCheck, uniformFromImages,
+  precheckVerdict, precheckColour, isJunkPieceName, DUD_BACKOFF_MS, dudBackoffMs,
+} from "./grab-duds.mjs";
 // Grabber - KidLisp piece screenshot/GIF capture using Puppeteer
 // Captures frames from running KidLisp pieces for thumbnails
 
@@ -53,6 +58,121 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // Stable cache version — bump manually when rendering pipeline changes meaningfully.
 // Do NOT tie to GIT_VERSION, which changes every deploy and invalidates all cached icons.
 const CACHE_RENDER_VERSION = 'v5';
+
+// 🧪 Headless KidLisp (kidlisp-headless.mjs): $code webp grabs render in node
+// (AC's evaluator + graph.mjs, no Chrome) in worker threads, outside the
+// Puppeteer queue, with their own small concurrency limit. A poster renders
+// at the asked size divided by the largest factor up to
+// HEADLESS_KIDLISP_SCALE that keeps HEADLESS_KIDLISP_MIN_NATIVE pixels a side,
+// then upscales nearest-neighbour, so posters keep chunky pixels (512² → 128²
+// ×4, 256² → 128² ×2, 128² → 128² ×1). Anything it cannot draw (blank,
+// unsupported words, missing paintings) falls back to the Chrome queue.
+// Keep (mint) grabs always use Chrome. Off unless OVEN_HEADLESS_KIDLISP=1.
+const HEADLESS_KIDLISP = process.env.OVEN_HEADLESS_KIDLISP === '1';
+const HEADLESS_KIDLISP_SCALE = Math.max(1, parseInt(process.env.OVEN_HEADLESS_KIDLISP_SCALE || '4', 10) || 4);
+const HEADLESS_KIDLISP_MIN_NATIVE = Math.max(8, parseInt(process.env.OVEN_HEADLESS_KIDLISP_MIN_NATIVE || '128', 10) || 128);
+const HEADLESS_KIDLISP_CONCURRENCY = Math.max(1, parseInt(process.env.OVEN_HEADLESS_KIDLISP_CONCURRENCY || '3', 10) || 3);
+const headlessEligible = (piece, format, view, source = '') =>
+  HEADLESS_KIDLISP && /^\$[A-Za-z0-9]{2,64}$/.test(piece) && format === 'webp' && view !== 'object' && source !== 'keep';
+function headlessScale(width, height) {
+  for (let s = HEADLESS_KIDLISP_SCALE; s > 1; s--) {
+    if (width % s === 0 && height % s === 0 && Math.min(width, height) / s >= HEADLESS_KIDLISP_MIN_NATIVE) return s;
+  }
+  return 1;
+}
+// The extra cache-key part for a grab: object turntables and headless posters
+// look different from a Chrome grab of the same piece, so neither may be
+// served from (or overwrite) the other's cache entry.
+function captureKeyExtra(piece, format, view, cacheKey, source = '') {
+  if (view === 'object') return `${cacheKey}-object-v2`;
+  if (headlessEligible(piece, format, view, source)) return `${cacheKey}-hl${HEADLESS_RENDER_VERSION}x${HEADLESS_KIDLISP_SCALE}m${HEADLESS_KIDLISP_MIN_NATIVE}`;
+  return cacheKey;
+}
+
+// Headless renders wait here, never in the Chrome queue (grabQueue).
+let headlessRunning = 0;
+const headlessWaiting = [];
+const headlessInFlight = new Map(); // captureKey -> grabPiece promise (dedup)
+async function withHeadlessSlot(fn) {
+  if (headlessRunning >= HEADLESS_KIDLISP_CONCURRENCY) await new Promise((wake) => headlessWaiting.push(wake));
+  headlessRunning++;
+  try { return await fn(); } finally {
+    headlessRunning--;
+    headlessWaiting.shift()?.();
+  }
+}
+/** Headless KidLisp lane status (kept apart from the Chrome queue's). */
+export function getHeadlessStatus() {
+  return { enabled: HEADLESS_KIDLISP, precheck: HEADLESS_PRECHECK, rescue: HEADLESS_RESCUE, active: headlessRunning, max: HEADLESS_KIDLISP_CONCURRENCY, waiting: headlessWaiting.length, scale: HEADLESS_KIDLISP_SCALE, minNative: HEADLESS_KIDLISP_MIN_NATIVE };
+}
+// 🔎 Headless precheck: before a $code grab goes to Chrome, the headless
+// renderer (same params as the headless lane) checks it — even when the
+// headless lane itself is off. Its verdict (grab-duds.mjs precheckVerdict):
+//   blank / uniform → a final dud (a flat tile of that colour), no Chrome
+//   source 404      → the grab fails at once, no Chrome
+//   drawn           → Chrome as before; if Chrome comes back one flat colour,
+//                     the headless output stands in (HEADLESS_RESCUE)
+//   anything else   → Chrome as before
+// It runs in the headless lane's own slots (HEADLESS_KIDLISP_CONCURRENCY),
+// never in the Chrome queue. Kill switches: OVEN_HEADLESS_PRECHECK=0 and
+// OVEN_HEADLESS_RESCUE=0 (both default on).
+const HEADLESS_PRECHECK = process.env.OVEN_HEADLESS_PRECHECK !== '0';
+const HEADLESS_RESCUE = process.env.OVEN_HEADLESS_RESCUE !== '0';
+const precheckEligible = (piece, view, source = '', skipCache = false) =>
+  HEADLESS_PRECHECK && /^\$[A-Za-z0-9]{2,64}$/.test(piece) && view !== 'object' && source !== 'keep' && !skipCache;
+
+// KidLisp sources by code, with a short-lived memory: the precheck reads one
+// per bake, a cached dud reads one to notice an edit (see checkExistingCapture),
+// and a missing code (scanner noise) must not cost a request every ask.
+const SOURCE_CACHE_TTL_MS = 30 * 60 * 1000;
+const SOURCE_MISS_TTL_MS = 10 * 60 * 1000;
+const sourceCache = new Map(); // code -> { at, source, hash } | { at, error }
+const sourceHashOf = (source) => createHash('sha256').update(source).digest('hex').slice(0, 16);
+async function getKidlispSource(piece) {
+  const code = piece.replace(/^\$/, '');
+  const hit = sourceCache.get(code);
+  if (hit && Date.now() - hit.at < (hit.error ? SOURCE_MISS_TTL_MS : SOURCE_CACHE_TTL_MS)) {
+    if (hit.error) throw hit.error;
+    return hit;
+  }
+  try {
+    const source = await fetchSource(code);
+    const entry = { at: Date.now(), source, hash: sourceHashOf(source) };
+    sourceCache.set(code, entry);
+    if (sourceCache.size > 5000) sourceCache.delete(sourceCache.keys().next().value);
+    return entry;
+  } catch (error) {
+    // Remember only a definite answer (not found / empty), not an outage.
+    if (error.status === 404 || (error.reason === 'source' && !error.status)) sourceCache.set(code, { at: Date.now(), error });
+    throw error;
+  }
+}
+
+/**
+ * One headless render of a $code at a grab's size.
+ * @returns {Promise<{ out?, error?, sourceHash: string|null }>}
+ */
+async function headlessAttempt(piece, { width, height, duration, fps, playbackFps, grabId, label = 'Rendering headless...' }) {
+  const scale = headlessScale(width, height);
+  let sourceHash = null;
+  try {
+    const { source, hash } = await getKidlispSource(piece);
+    sourceHash = hash;
+    const out = await withHeadlessSlot(() => {
+      if (grabId) updateProgress(grabId, { stage: 'capturing', stageDetail: label, percent: 10 });
+      return renderKidlispDetailed({ code: piece.slice(1), source }, {
+        width: width / scale, height: height / scale, scale,
+        frames: Math.max(1, Math.min(600, Math.ceil((duration / 1000) * fps))), fps, playbackFps,
+      });
+    });
+    const s = out.stats;
+    console.log(`   🧪 Headless KidLisp ${piece}: ${s.kind} ${out.width}×${out.height}×${scale} ${s.frames}f in ${s.timings.total} ms, ${s.bytes} B${s.unknownWords.length ? ` (unknown: ${s.unknownWords.join(' ')})` : ''}`);
+    return { out, sourceHash };
+  } catch (error) {
+    console.log(`   🧪 Headless KidLisp ${piece}: ${error.reason || 'error'} (${String(error.message).slice(0, 160)})`);
+    return { error, sourceHash };
+  }
+}
 
 // MongoDB connection
 let mongoClient;
@@ -139,9 +259,45 @@ export function setNotifyCallback(callback) {
  * Notify all subscribers of status change
  */
 function notifySubscribers() {
+  observeFinishedGrabs();
   if (progressNotifyCallback) {
     progressNotifyCallback();
   }
+}
+
+// 📈 Progress ticks: a percent / frame / preview change inside one stage is
+// not a state change, so it goes out as a small `grab:progress` tick (see
+// server.mjs) instead of a whole snapshot. Ticks are coalesced per grab to
+// one every PROGRESS_TICK_MS, and a tick carries the preview frame only when
+// it changed and PREVIEW_TICK_MS has passed since the last one sent.
+let progressTickCallback = null;
+export function setProgressTickCallback(callback) {
+  progressTickCallback = callback;
+}
+const PROGRESS_TICK_MS = 150;
+const PREVIEW_TICK_MS = 1000;
+const pendingTicks = new Set();
+const previewSent = new Map(); // grabId -> { at, frame }
+let tickTimer = null;
+
+function flushProgressTicks() {
+  tickTimer = null;
+  const now = Date.now();
+  for (const grabId of pendingTicks) {
+    const p = grabProgressMap.get(grabId);
+    if (!p || !progressTickCallback) continue; // finished in the meantime
+    const tick = {
+      grabId, piece: p.piece, stage: p.stage, stageDetail: p.stageDetail,
+      percent: p.percent, framesCaptured: p.framesCaptured, framesTotal: p.framesTotal,
+    };
+    const last = previewSent.get(grabId);
+    if (p.previewFrame && p.previewFrame !== last?.frame && (!last || now - last.at >= PREVIEW_TICK_MS)) {
+      tick.preview = p.previewFrame;
+      previewSent.set(grabId, { at: now, frame: p.previewFrame });
+    }
+    progressTickCallback(tick);
+  }
+  pendingTicks.clear();
 }
 
 /**
@@ -149,12 +305,128 @@ function notifySubscribers() {
  */
 export function updateProgress(grabId, updates) {
   let progress = grabProgressMap.get(grabId);
+  const isNew = !progress;
   if (!progress) {
     progress = createEmptyProgress(grabId, updates.piece, updates.format);
     grabProgressMap.set(grabId, progress);
   }
+  const stageChanged = updates.stage !== undefined && updates.stage !== progress.stage;
   Object.assign(progress, updates);
-  notifySubscribers();
+  // The first stage a grab reaches is the moment it left the queue.
+  if (progress.stage) noteBakeStart(grabId);
+  if (isNew || stageChanged || !progressTickCallback) {
+    pendingTicks.delete(grabId); // the snapshot carries it
+    if (progress.previewFrame) previewSent.set(grabId, { at: Date.now(), frame: progress.previewFrame });
+    notifySubscribers();
+  } else {
+    pendingTicks.add(grabId);
+    if (!tickTimer) tickTimer = setTimeout(flushProgressTicks, PROGRESS_TICK_MS);
+  }
+}
+
+// 📊 Grab stats for dashboards: totals since this process started, the last
+// hour in minute buckets, and bake / queue-wait percentiles over the last
+// STATS_SAMPLE finished bakes. Counted kinds:
+//   cacheHits    grabPiece answered from an earlier capture (CDN), no bake
+//   cacheMisses  a grab that went to bake (counted when it leaves the queue)
+//   deduped      joined a grab already queued or rendering for the same key
+//   completed / duds / failed   finished bakes (duds are completed too)
+//   iconCacheHits / iconCacheMisses   getCachedOrGenerate (icons, previews)
+//   prechecked   the headless precheck called it blank/one colour: a final
+//                dud with no Chrome bake (also counted in completed + duds)
+//   rescued      Chrome came back one flat colour; the headless render stood in
+//   rejected     no Chrome: junk piece name or a $code with no source (404)
+const STATS_KINDS = ['cacheHits', 'cacheMisses', 'deduped', 'completed', 'duds', 'failed', 'iconCacheHits', 'iconCacheMisses', 'prechecked', 'rescued', 'rejected'];
+const STATS_SAMPLE = 200;
+const statsSince = Date.now();
+const statsTotal = Object.fromEntries(STATS_KINDS.map(k => [k, 0]));
+const statsMinutes = new Map(); // minute index -> counts
+const bakeMsSamples = [];
+const queueMsSamples = [];
+const countedGrabs = new WeakSet();
+
+function countStat(kind) {
+  statsTotal[kind]++;
+  const minute = Math.floor(Date.now() / 60000);
+  let bucket = statsMinutes.get(minute);
+  if (!bucket) {
+    bucket = {};
+    statsMinutes.set(minute, bucket);
+    for (const m of statsMinutes.keys()) if (m < minute - 60) statsMinutes.delete(m);
+  }
+  bucket[kind] = (bucket[kind] || 0) + 1;
+}
+
+function pushSample(list, ms) {
+  if (!(ms >= 0)) return;
+  list.push(ms);
+  if (list.length > STATS_SAMPLE) list.shift();
+}
+
+function quantile(list, q) {
+  if (!list.length) return null;
+  const s = [...list].sort((a, b) => a - b);
+  return s[Math.min(s.length - 1, Math.round((s.length - 1) * q))];
+}
+
+// Stamp queue/bake timing on an active grab the first time it reaches a stage.
+function noteBakeStart(grabId) {
+  const grab = activeGrabs.get(grabId);
+  if (!grab || grab.bakeStart) return;
+  grab.queuedAt = grab.startTime;
+  grab.bakeStart = Date.now();
+  grab.state = 'baking';
+  countStat('cacheMisses');
+}
+
+// Grab answered from an earlier capture: count it and say so on the log.
+function noteCacheHit(piece, format, captureKey, dud) {
+  countStat('cacheHits');
+  serverLog('cache', '♻️', `Grab cache hit: ${piece} (${format})${dud ? ' dud' : ''}`,
+    { kind: 'grab:cache-hit', piece, format, captureKey, dud: !!dud });
+}
+
+// Count grabs that reached recentGrabs since the last look (every finish path
+// — success, failure, timeout, cleanup — lands there), and stamp their timings.
+function observeFinishedGrabs() {
+  for (const grab of recentGrabs) {
+    if (!grab || typeof grab !== 'object' || countedGrabs.has(grab)) continue;
+    countedGrabs.add(grab);
+    const done = new Date(grab.completedAt ?? 0).getTime();
+    if (!(done >= statsSince)) continue; // reloaded from Mongo at boot
+    const ok = grab.status === 'complete';
+    grab.state = ok ? 'done' : 'failed';
+    if (grab.duration == null && grab.startTime) grab.duration = done - grab.startTime;
+    if (grab.bakeStart) {
+      grab.bakeMs = done - grab.bakeStart;
+      grab.queueMs = grab.bakeStart - (grab.queuedAt ?? grab.startTime);
+      pushSample(queueMsSamples, grab.queueMs);
+      if (ok) pushSample(bakeMsSamples, grab.bakeMs);
+    }
+    countStat(ok ? 'completed' : 'failed');
+    if (ok && isSuspectDud(grab)) countStat('duds');
+  }
+}
+
+export function getGrabStats() {
+  observeFinishedGrabs();
+  const minute = Math.floor(Date.now() / 60000);
+  const hour = Object.fromEntries(STATS_KINDS.map(k => [k, 0]));
+  for (const [m, bucket] of statsMinutes) {
+    if (m <= minute - 60) continue;
+    for (const k in bucket) hour[k] += bucket[k];
+  }
+  return {
+    since: statsSince,
+    grabs: statsTotal.cacheHits + statsTotal.cacheMisses,
+    ...statsTotal,
+    hour: { grabs: hour.cacheHits + hour.cacheMisses, ...hour },
+    bakeMsP50: quantile(bakeMsSamples, 0.5),
+    bakeMsP90: quantile(bakeMsSamples, 0.9),
+    queueMsP50: quantile(queueMsSamples, 0.5),
+    queueMsP90: quantile(queueMsSamples, 0.9),
+    samples: bakeMsSamples.length,
+  };
 }
 
 /**
@@ -224,7 +496,15 @@ export function getAllProgress() {
  * Get concurrency status
  */
 export function getConcurrencyStatus() {
-  return { active: grabsRunning, max: MAX_CONCURRENT_GRABS, queueDepth: grabQueue.length };
+  // active = queue slots held (released before the slot-freed broadcast);
+  // baking / queued count grabs.active by state (a grab that skips the
+  // queue bakes without holding a slot).
+  let baking = 0;
+  for (const g of activeGrabs.values()) if (g.bakeStart) baking++;
+  return {
+    active: grabsRunning, max: MAX_CONCURRENT_GRABS, queueDepth: grabQueue.length,
+    reserved: RESERVED_KEEP_SLOTS, baking, queued: activeGrabs.size - baking,
+  };
 }
 
 /**
@@ -232,6 +512,8 @@ export function getConcurrencyStatus() {
  */
 function clearProgress(grabId) {
   grabProgressMap.delete(grabId);
+  previewSent.delete(grabId);
+  pendingTicks.delete(grabId);
 }
 
 /**
@@ -282,6 +564,18 @@ async function enqueueGrab(fn, metadata = {}) {
       );
       if (alreadyQueued) {
         console.log(`♻️  Dedup: ${metadata.piece} already queued, skipping`);
+        // The caller already listed this ask in activeGrabs; it will never
+        // bake, so drop that (newest, unbaked) record rather than leave it
+        // reading "queued" until the stale sweep.
+        let dup = null;
+        for (const [id, g] of activeGrabs) {
+          if (g.captureKey === metadata.captureKey && !g.bakeStart && g.status === 'queued' &&
+              (!dup || g.startTime >= dup[1].startTime)) dup = [id, g];
+        }
+        const queuedCount = [...activeGrabs.values()].filter(g => g.captureKey === metadata.captureKey && !g.bakeStart).length;
+        if (dup && queuedCount > 1) activeGrabs.delete(dup[0]);
+        countStat('deduped');
+        notifySubscribers();
         resolve({ success: true, cached: true, deduplicated: true, piece: metadata.piece });
         return;
       }
@@ -305,7 +599,7 @@ async function enqueueGrab(fn, metadata = {}) {
     }
 
     // Notify subscribers of queue change
-    if (progressNotifyCallback) progressNotifyCallback();
+    notifySubscribers();
     processGrabQueue();
   });
 }
@@ -367,6 +661,7 @@ async function processGrabQueue() {
             }
           }
         }
+        notifySubscribers();
 
         // Reset browser on timeout to prevent cascading failures
         console.log('🔄 Resetting browser after timeout...');
@@ -394,6 +689,9 @@ async function processGrabQueue() {
         reject(error);
       } finally {
         grabsRunning--;
+        // The grab broadcast its finish while still holding the slot; say
+        // the slot is free so concurrency.active does not stay one high.
+        notifySubscribers();
         const delay = browser === null ? 500 : 100;
         if (grabQueue.length > 0) {
           console.log(`📋 Slot freed (${grabsRunning}/${MAX_CONCURRENT_GRABS} active, ${grabQueue.length} queued)`);
@@ -949,93 +1247,26 @@ async function areFramesIdentical(frames) {
 }
 
 /**
- * Check if frames have uniform/solid color content (a "dud" animation)
- * This catches pieces that are just solid wipe colors with no actual visual content
+ * Check if frames have uniform/solid color content (a "dud" animation).
+ * Every sampled frame (up to 32, evenly spread) is downsized to 64² by area
+ * averaging — a 1 px line at 512² still shifts its 64² pixels well past the
+ * tolerance — and all of them are judged together by colour coverage
+ * (grab-duds.mjs uniformCoverage): uniform only when one colour covers
+ * ≥ 99.8% of all pixels of all frames. A piece flashing between two colours,
+ * a thin line or a small mark, and a smooth gradient are all not uniform.
  * @param {Buffer[]} frames - Array of PNG frame buffers
- * @returns {Promise<{ isUniform: boolean, color?: string, reason?: string }>}
+ * @returns {Promise<{ isUniform: boolean, color?: string, reason?: string, coverage?: number }>}
  */
 async function isUniformColorContent(frames) {
   if (frames.length === 0) return { isUniform: false };
-  
+
   try {
-    const sharp = (await import('sharp')).default;
-    
-    // Sample multiple frames across the animation
-    const sampleIndices = [
-      0,
-      Math.floor(frames.length / 4),
-      Math.floor(frames.length / 2),
-      Math.floor(frames.length * 3 / 4),
-      frames.length - 1
-    ].filter((v, i, arr) => arr.indexOf(v) === i && v < frames.length);
-    
-    // Grid sample points (like give page's validateWebpImage)
-    const gridSize = 5;
-    
-    for (const frameIdx of sampleIndices) {
-      const frame = frames[frameIdx];
-      
-      // Sample at a consistent size for analysis
-      const sampleSize = 64;
-      const { data, info } = await sharp(frame)
-        .resize(sampleSize, sampleSize, { fit: 'fill' })
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      
-      const channels = info.channels;
-      
-      // Generate sample points in a grid pattern
-      const samplePoints = [];
-      const gap = Math.floor(sampleSize / gridSize);
-      for (let gx = 0; gx < gridSize; gx++) {
-        for (let gy = 0; gy < gridSize; gy++) {
-          samplePoints.push({
-            x: Math.min(gap / 2 + gx * gap, sampleSize - 1),
-            y: Math.min(gap / 2 + gy * gap, sampleSize - 1)
-          });
-        }
-      }
-      
-      // Sample pixel colors
-      let firstColor = null;
-      let maxColorDiff = 0;
-      
-      for (const pt of samplePoints) {
-        const idx = (Math.floor(pt.y) * sampleSize + Math.floor(pt.x)) * channels;
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        
-        if (firstColor === null) {
-          firstColor = { r, g, b };
-        } else {
-          const colorDiff = Math.abs(r - firstColor.r) + Math.abs(g - firstColor.g) + Math.abs(b - firstColor.b);
-          maxColorDiff = Math.max(maxColorDiff, colorDiff);
-        }
-      }
-      
-      // If this frame has variance, the animation is not uniform
-      if (maxColorDiff >= 30) {
-        return { isUniform: false };
-      }
-    }
-    
-    // All sampled frames have uniform color - this is a dud
-    // Get the color from the first frame for reporting
-    const { data } = await sharp(frames[0])
-      .resize(1, 1, { fit: 'fill' })
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    
-    const hex = `#${data[0].toString(16).padStart(2, '0')}${data[1].toString(16).padStart(2, '0')}${data[2].toString(16).padStart(2, '0')}`;
-    
-    console.log(`   ⚠️ Uniform color content detected: ${hex}`);
-    return { 
-      isUniform: true, 
-      color: hex,
-      reason: `UNIFORM_COLOR:${hex}`
-    };
-    
+    const check = await uniformFromImages(frames, sharp);
+    if (!check.isUniform) return { isUniform: false, coverage: check.coverage };
+
+    const hex = `#${check.colour.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+    console.log(`   ⚠️ Uniform color content detected: ${hex} (${(check.coverage * 100).toFixed(2)}% of ${check.frames} frames)`);
+    return { isUniform: true, color: hex, reason: `UNIFORM_COLOR:${hex}`, coverage: check.coverage };
   } catch (error) {
     console.error('⚠️ Failed to check uniform color:', error.message);
     return { isUniform: false }; // Assume not uniform if check fails
@@ -1137,7 +1368,7 @@ function getCaptureKey(piece, width, height, format, animated = false, cacheKey 
  * Check if a capture already exists with the same key
  * @returns {{ exists: boolean, cdnUrl?: string, grab?: object }}
  */
-async function checkExistingCapture(captureKey) {
+async function checkExistingCapture(captureKey, piece = '') {
   const database = await connectMongo();
   if (!database) return { exists: false };
   
@@ -1148,9 +1379,18 @@ async function checkExistingCapture(captureKey) {
       { captureKey, cdnUrl: { $exists: true, $ne: null } },
       { sort: { completedAt: -1 } },
     );
-    if (grab && isStaleDud(grab)) {
-      console.log(`♻️  Ignoring stale dud capture: ${captureKey} (${grab.size} bytes)`);
-      return { exists: false };
+    if (grab && isSuspectDud(grab)) {
+      // Backoff by try (grab-duds.mjs): 10 min → 1 h → 1 day → never. Once a
+      // dud is past its first rung, a $code's source is looked at (cached)
+      // so an edit re-bakes it at once.
+      let sourceHash = null;
+      if (/^\$[A-Za-z0-9]{2,64}$/.test(piece) && dudWantsSourceCheck(grab)) {
+        try { sourceHash = (await getKidlispSource(piece)).hash; } catch { /* keep the dud */ }
+      }
+      if (isStaleDud(grab, Date.now(), { sourceHash, headlessVersion: HEADLESS_RENDER_VERSION })) {
+        console.log(`♻️  Ignoring stale dud capture: ${captureKey} (${grab.size} bytes, try ${grab.dudAttempt ?? 1})`);
+        return { exists: false, staleDud: grab };
+      }
     }
     if (grab && grab.cdnUrl) {
       console.log(`✅ Found existing capture: ${captureKey}`);
@@ -1268,6 +1508,7 @@ export async function getCachedOrGenerate(type, piece, width, height, generateFn
     const cachedUrl = await checkSpacesCache(cacheKey);
     if (cachedUrl) {
       console.log(`✅ Cache hit: ${cacheKey}`);
+      countStat('iconCacheHits');
       serverLog('info', '💾', `Cache hit: ${piece} (${width}×${height})`);
       return { cdnUrl: cachedUrl, fromCache: true };
     }
@@ -1278,6 +1519,7 @@ export async function getCachedOrGenerate(type, piece, width, height, generateFn
   
   // Generate fresh
   console.log(`🔄 Cache miss: ${cacheKey}, generating...`);
+  countStat('iconCacheMisses');
   serverLog('capture', '🔄', `Cache miss: ${piece} - generating ${width}×${height}...`);
   const buffer = await generateFn();
   
@@ -1296,8 +1538,8 @@ let logCallback = null;
 export function setLogCallback(cb) {
   logCallback = cb;
 }
-function serverLog(type, icon, msg) {
-  if (logCallback) logCallback(type, icon, msg);
+function serverLog(type, icon, msg, data) {
+  if (logCallback) logCallback(type, icon, msg, data);
 }
 
 /**
@@ -2306,6 +2548,7 @@ const MAX_GRAB_DIMENSION = 1000;
  */
 function isPieceBlacklisted(piece) {
   if (!piece || typeof piece !== 'string') return true;
+  if (isJunkPieceName(piece)) return true; // traversal, shell punctuation, bad $codes
   return BLACKLISTED_PIECES.some(pattern => pattern.test(piece));
 }
 
@@ -2316,6 +2559,7 @@ export async function grabPiece(piece, options = {}) {
   // Reject blacklisted pieces (external domains, URLs, etc.)
   if (isPieceBlacklisted(piece)) {
     console.log(`🚫 Rejecting blacklisted piece: ${piece}`);
+    countStat('rejected');
     return {
       success: false,
       error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported`,
@@ -2350,13 +2594,18 @@ export async function grabPiece(piece, options = {}) {
   const outputHeight = height * effectiveScale;
   
   const animated = format !== 'png';
-  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, view === 'object' ? `${cacheKey}-object-v2` : cacheKey);
+  const captureKey = getCaptureKey(piece, outputWidth, outputHeight, format, animated, captureKeyExtra(piece, format, view, cacheKey, source));
+  const headlessLane = headlessEligible(piece, format, view, source);
+  const precheckLane = !headlessLane && precheckEligible(piece, view, source, skipCache);
   
   // Check for existing capture (deduplication)
+  let previousDud = null; // the stale dud this grab replaces (backoff count)
   if (!skipCache) {
-    const existing = await checkExistingCapture(captureKey);
+    const existing = await checkExistingCapture(captureKey, piece);
+    previousDud = existing.staleDud || null;
     if (existing.exists && existing.cdnUrl) {
       console.log(`♻️  Returning cached capture: ${captureKey}`);
+      noteCacheHit(piece, format, captureKey, isSuspectDud(existing.grab));
       return {
         success: true,
         grabId: existing.grab?.id || captureKey,
@@ -2365,11 +2614,18 @@ export async function grabPiece(piece, options = {}) {
         cdnUrl: cdnHref(existing.cdnUrl), // Records from before cdnHref hold a raw '#'.
         cached: true,
         dud: isSuspectDud(existing.grab),
+        dudFinal: isSuspectDud(existing.grab) && existing.grab?.dudFinal === true,
         captureKey,
       };
     }
   }
   
+  // A headless render already running for this key answers this ask too.
+  if ((headlessLane || precheckLane) && headlessInFlight.has(captureKey)) {
+    console.log(`♻️  Dedup: ${piece} already rendering headless`);
+    return headlessInFlight.get(captureKey);
+  }
+
   // For ID purposes, strip $ prefix; but keep original piece name for URL generation
   const pieceName = piece.replace(/^\$/, '');
   const grabId = `${pieceName}-${randomBytes(4).toString('hex')}`;
@@ -2400,33 +2656,73 @@ export async function grabPiece(piece, options = {}) {
     author: author || null,
     pieceCreatedAt: pieceCreatedAt || null,
     requestOrigin: requestOrigin || null,
+    dud: false, // explicit, so isSuspectDud never falls back to the size rule
   };
   activeGrabs.set(grabId, grabRecord);
 
-  // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
-  // Pass metadata for queue visibility + priority scheduling
-  return enqueueGrab(async () => {
+  // Initialize progress state for this grab
+  const initProgress = () => updateProgress(grabId, {
+    piece: piece,
+    format: format,
+    stage: 'loading',
+    stageDetail: `Starting ${piece}...`,
+    percent: 0,
+    framesCaptured: 0,
+    framesTotal: Math.ceil((duration / 1000) * fps),
+    author: author || null,
+    pieceCreatedAt: pieceCreatedAt || null,
+    requestedAt: grabRecord.startTime || Date.now(),
+    source: source || 'manual',
+    requestOrigin: requestOrigin || null,
+  });
+
+  let headless = null; // set when the headless lane drew it
+  let prechecked = null; // { colour, reason } when the headless precheck called it a dud
+  let missing = null; // the precheck's source error when the $code does not exist
+  let rescue = null; // a headless render that may stand in for a flat Chrome grab
+  let sourceHash = null;
+  // A dud's place on the backoff ladder (grab-duds.mjs): `final` skips to
+  // the last rung (never, while the source is unchanged).
+  const noteDud = (final = false, by = null) => {
+    grabRecord.dud = true;
+    grabRecord.dudAttempt = final ? DUD_BACKOFF_MS.length : nextDudAttempt(previousDud, sourceHash);
+    grabRecord.dudFinal = dudBackoffMs(grabRecord.dudAttempt, { hashKnown: !!sourceHash }) === Infinity;
+    if (by) grabRecord.dudBy = by;
+  };
+  // The headless render's first frame as a still at the output size.
+  const rescueStill = (out, fmt) => {
+    const f = out.frames[0];
+    let pipeline = sharp(Buffer.from(f.buffer, f.byteOffset, f.byteLength), { raw: { width: out.width, height: out.height, channels: 4 } })
+      .resize(outputWidth, outputHeight, { kernel: 'nearest' });
+    pipeline = fmt === 'webp' ? pipeline.webp({ quality }) : fmt === 'gif' ? pipeline.gif() : pipeline.png();
+    return pipeline.toBuffer();
+  };
+  const runGrab = async () => {
     try {
       let result;
       grabRecord.status = 'capturing';
-      
-      // Initialize progress state for this grab
-      updateProgress(grabId, {
-        piece: piece,
-        format: format,
-        stage: 'loading',
-        stageDetail: `Starting ${piece}...`,
-        percent: 0,
-        framesCaptured: 0,
-        framesTotal: Math.ceil((duration / 1000) * fps),
-        author: author || null,
-        pieceCreatedAt: pieceCreatedAt || null,
-        requestedAt: grabRecord.startTime || Date.now(),
-        source: source || 'manual',
-        requestOrigin: requestOrigin || null,
-      });
-      
-      if (format === 'png') {
+      if (!headless) initProgress();
+
+      if (missing) {
+        countStat('rejected');
+        throw new Error(String(missing.message || 'KidLisp source not found'));
+      } else if (headless) {
+        result = headless.webp;
+        grabRecord.renderer = 'headless';
+      } else if (prechecked) {
+        // Blank or one flat colour in the headless renderer: the tile is that
+        // colour, as Chrome would have drawn it, without a Chrome bake.
+        const [r, g, b] = prechecked.colour;
+        let pipeline = sharp({ create: { width: outputWidth, height: outputHeight, channels: 3, background: { r, g, b } } });
+        pipeline = format === 'webp' ? pipeline.webp({ quality }) : format === 'gif' ? pipeline.gif() : pipeline.png();
+        result = await pipeline.toBuffer();
+        grabRecord.renderer = 'headless-precheck';
+        noteDud(true, `headless-${HEADLESS_RENDER_VERSION}`);
+        countStat('prechecked');
+        console.log(`   🔎 Precheck dud ${piece}: ${prechecked.reason} rgb(${r},${g},${b}) — no Chrome`);
+        serverLog('info', '🔎', `Precheck dud: ${piece} (${prechecked.reason}) — Chrome skipped`, { kind: 'grab:prechecked', piece, reason: prechecked.reason });
+        recordFrozenPiece(piece, `Dud — precheck ${prechecked.reason} rgb(${r},${g},${b}), no Chrome`, null);
+      } else if (format === 'png') {
         // Single frame PNG — captureFrame filters blank frames via captureFrames,
         // but nearly-black frames (a few pixels above threshold) can slip through.
         // Validate explicitly before caching to prevent black preview images.
@@ -2437,10 +2733,16 @@ export async function grabPiece(piece, options = {}) {
           throw new Error('Failed to capture frame — blank or black image detected');
         }
         const blank = await isBlankFrame(frame);
-        if (blank) {
+        if (blank && rescue) {
+          result = await rescueStill(rescue, 'png');
+          grabRecord.renderer = 'headless-rescue';
+          countStat('rescued');
+          console.log(`   🛟 Chrome frame blank; headless render stands in for ${piece}`);
+        } else if (blank) {
           throw new Error('Captured frame is blank/black — piece may not have rendered in time');
+        } else {
+          result = await frameToThumbnail(frame, { width: outputWidth, height: outputHeight });
         }
-        result = await frameToThumbnail(frame, { width: outputWidth, height: outputHeight });
         
       } else {
         // Animated WebP or GIF — when caller asked for fresh content
@@ -2477,11 +2779,25 @@ export async function grabPiece(piece, options = {}) {
           }
         }
 
+        // Chrome drew one flat colour where the headless renderer drew the
+        // piece (e.g. a WebGL/3D piece that comes out black in headless
+        // Chrome): the headless output stands in.
+        let rescued = null;
+        if (uniformCheck.isUniform && rescue) {
+          rescued = format === 'webp' ? rescue.webp : await rescueStill(rescue, format);
+          grabRecord.renderer = 'headless-rescue';
+          countStat('rescued');
+          console.log(`   🛟 Chrome capture ${uniformCheck.reason}; headless render stands in for ${piece}`);
+          serverLog('info', '🛟', `Headless rescue: ${piece} (Chrome ${uniformCheck.reason})`, { kind: 'grab:rescued', piece });
+        }
+
         if (uniformCheck.isUniform && skipCache) {
           throw new Error(`Capture produced uniform-color frames after ${MAX_DUD_RETRIES + 1} attempt(s) (${uniformCheck.reason}); piece may not be rendering`);
         }
 
-        if (isFrozen) {
+        if (rescued) {
+          result = rescued;
+        } else if (isFrozen) {
           // Return the still frame in the requested format (webp/gif/png)
           const outW = width * density;
           const outH = height * density;
@@ -2521,7 +2837,10 @@ export async function grabPiece(piece, options = {}) {
             }
           }
 
-          recordFrozenPiece(piece, 'Frozen — still frame returned', frozenPreviewUrl);
+          // A still that is one flat colour is a dud (backoff); any other
+          // still — a smooth fade, a thin line — is the piece and is kept.
+          if (uniformCheck.isUniform) noteDud();
+          recordFrozenPiece(piece, uniformCheck.isUniform ? `Dud — frozen ${uniformCheck.reason}, still frame returned` : 'Frozen — still frame returned', frozenPreviewUrl);
           // Skip encoding — result is already in the right format
         } else {
           // uniformCheck already computed above (in the dud-retry loop).
@@ -2529,7 +2848,7 @@ export async function grabPiece(piece, options = {}) {
           // accepted cached/dedup behavior. skipCache callers were thrown
           // earlier so they never reach this branch.
           if (uniformCheck.isUniform) {
-            grabRecord.dud = true; // Cached only for DUD_CACHE_TTL_MS — see isStaleDud.
+            noteDud(); // Re-baked on the backoff ladder — see isStaleDud.
             // Return still frame in requested format (same as frozen)
             const outW = width * density;
             const outH = height * density;
@@ -2665,6 +2984,7 @@ export async function grabPiece(piece, options = {}) {
       captureKey,
       cached: false,
       dud: grab.dud === true,
+      dudFinal: grab.dudFinal === true,
     };
     
     } catch (error) {
@@ -2697,7 +3017,53 @@ export async function grabPiece(piece, options = {}) {
         error: error.message,
       };
     }
-  }, { piece, format, captureKey, source }); // End of enqueueGrab, pass metadata for queue visibility + dedup
+  };
+
+  // Use queue to serialize capture operations (avoid parallel puppeteer sessions)
+  // Pass metadata for queue visibility + priority scheduling
+  const queueMeta = { piece, format, captureKey, source };
+  if (!headlessLane && !precheckLane) return enqueueGrab(runGrab, queueMeta);
+
+  // Headless lane / precheck: render outside the Chrome queue; only a
+  // fallback joins it. The precheck shows no progress of its own (it takes
+  // a few hundred ms), so a grab that goes on to Chrome reads as queued.
+  const run = (async () => {
+    if (headlessLane) {
+      grabRecord.status = 'capturing';
+      initProgress();
+    }
+    const attempt = await headlessAttempt(piece, {
+      width: outputWidth, height: outputHeight, duration, fps, playbackFps,
+      grabId: headlessLane ? grabId : null,
+    });
+    sourceHash = attempt.sourceHash;
+    grabRecord.sourceHash = sourceHash;
+    const verdict = precheckVerdict(attempt);
+    if (verdict === 'drawn' && headlessLane) {
+      headless = attempt.out;
+      updateProgress(grabId, { stage: 'encoding', stageDetail: 'Rendered headless', percent: 90 });
+      return runGrab();
+    }
+    if (verdict === 'dud' && HEADLESS_PRECHECK) {
+      prechecked = { colour: precheckColour(attempt.error), reason: attempt.error.reason };
+      return runGrab();
+    }
+    if (verdict === 'missing' && HEADLESS_PRECHECK) {
+      missing = attempt.error;
+      return runGrab();
+    }
+    // Kept while it waits for Chrome: the webp and one still, not every frame.
+    if (verdict === 'drawn' && HEADLESS_RESCUE) {
+      const { webp, frames, width: w, height: h } = attempt.out;
+      rescue = { webp, frames: frames.slice(0, 1), width: w, height: h };
+    }
+    if (headlessLane) updateProgress(grabId, { stage: 'loading', stageDetail: 'Headless fell back; waiting for Chrome...', percent: 0 });
+    grabRecord.status = 'queued';
+    return enqueueGrab(runGrab, queueMeta);
+  })();
+  headlessInFlight.set(captureKey, run);
+  run.finally(() => headlessInFlight.delete(captureKey)).catch(() => {});
+  return run;
 }
 
 /**
@@ -2923,9 +3289,10 @@ export async function grabHandler(req, res) {
   
   // Reject blacklisted pieces early
   if (isPieceBlacklisted(piece)) {
+    countStat('rejected');
     return res.status(400).json({ error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported` });
   }
-  
+
   // Validate format
   if (!['webp', 'gif', 'png'].includes(format)) {
     return res.status(400).json({ error: 'Invalid format. Use "webp", "gif" or "png"' });
@@ -3023,9 +3390,10 @@ export async function grabGetHandler(req, res) {
   
   // Reject blacklisted pieces early
   if (isPieceBlacklisted(piece)) {
+    countStat('rejected');
     return res.status(400).json({ error: `Piece "${piece}" is not allowed - only aesthetic.computer pieces are supported` });
   }
-  
+
   // Validate format
   if (!['webp', 'gif', 'png'].includes(format)) {
     return res.status(400).json({ error: 'Invalid format. Use "webp", "gif" or "png"' });
@@ -3041,7 +3409,7 @@ export async function grabGetHandler(req, res) {
   // Calculate captureKey to check for in-progress grabs
   const animated = format !== 'png';
   const parsedDensity = parseFloat(density) || 1;
-  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, view === 'object' ? `${cacheKey}-object-v2` : cacheKey);
+  const captureKey = getCaptureKey(piece, w * parsedDensity, h * parsedDensity, format, animated, captureKeyExtra(piece, format, view, cacheKey, source || 'manual'));
   
   // If nowait=true, check if there's already a grab in progress for this key
   if (nowait === 'true' || nowait === true) {
@@ -3113,7 +3481,7 @@ export async function grabGetHandler(req, res) {
               const contentType = contentTypes[format] || 'image/webp';
               res.setHeader('Content-Type', contentType);
               res.setHeader('Content-Length', buffer.length);
-              res.setHeader('Cache-Control', result.dud ? 'public, max-age=300' : 'public, max-age=86400');
+              res.setHeader('Cache-Control', result.dud && !result.dudFinal ? 'public, max-age=300' : 'public, max-age=86400');
               res.setHeader('X-Proxy', 'CDN');
               return res.send(buffer);
             }
@@ -3123,7 +3491,8 @@ export async function grabGetHandler(req, res) {
           }
         }
         
-        // Browsers keep a 301 indefinitely; a dud must stay re-askable.
+        // Browsers keep a 301 indefinitely; a dud must stay re-askable
+        // (even a final one: an edited source starts its ladder again).
         return res.redirect(result.dud ? 302 : 301, result.cdnUrl);
       }
       
@@ -3132,8 +3501,9 @@ export async function grabGetHandler(req, res) {
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', result.buffer.length);
       // A dud may be a failed render: do not let browsers hold it for a day.
-      res.setHeader('Cache-Control', result.dud ? 'public, max-age=300' : 'public, max-age=86400');
-      if (result.dud) res.setHeader('X-Oven-Dud', 'true');
+      // A final dud (the precheck's, or the last rung) holds for a day.
+      res.setHeader('Cache-Control', result.dud && !result.dudFinal ? 'public, max-age=300' : 'public, max-age=86400');
+      if (result.dud) res.setHeader('X-Oven-Dud', result.dudFinal ? 'final' : 'true');
       res.setHeader('X-Grab-Id', result.grabId);
       res.setHeader('X-Cache', 'MISS');
       res.send(result.buffer);
@@ -3236,7 +3606,9 @@ export async function grabIPFSHandler(req, res) {
 
 // Status exports
 export function getActiveGrabs() {
-  return Array.from(activeGrabs.values());
+  // state: 'queued' until the grab reaches its first stage, then 'baking'.
+  return Array.from(activeGrabs.values(), (g) =>
+    g.state ? g : { ...g, state: 'queued', queuedAt: g.startTime });
 }
 
 export function getRecentGrabs() {
