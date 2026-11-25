@@ -455,3 +455,25 @@ All accessed 2026-08-07.
 - `learn.microsoft.com/en-us/gaming/xbox-nda-docs/` — 404 unauthenticated; contains the Forbidden Terms List
 - Xbox Game Store Policy / Publisher Guide — https://www.microsoft.com/en-us/software-download/xboxpublisherguide — gated
 - Edge on Xbox support article — https://support.xbox.com/en-US/help/hardware-network/console/use-microsoft-edge-on-xbox — JavaScript-rendered, no body returned
+
+## Update 2026-11-25 — what Rax carries, and the other consoles
+
+Findings from `papers/arxiv-gated-making` (read against the code, file:line there):
+
+- **Rax objects are code-shaped data, not plain geometry.** A build reaches the
+  page as source in the `oskiewar-object-v1` shape language, which the page
+  interprets every frame (`rax/object-language.mjs`, `rax/view.mjs`). Kiosks
+  fetch and run real AC pieces from `/ac/disks` (`rax/ac-piece.mjs`), and walls
+  and screens run KidLisp. A console client must interpret the shape language;
+  whether Store Policy 10.2.5 treats that as downloaded code is the open
+  question, and kiosks/screens would have to ship as video or stay off.
+- **Building is gated by default again** (`rax/server.mjs`, 2026-11-25): owners
+  arrange their floors and pods, the keeper the roof, plaza and blocks.
+  `RAX_OPEN_BUILD=1` reopens every room.
+- **Switch 2:** the Nintendo Developer Portal says it is not accepting requests
+  for access to the Switch 2 development environment. Registering is possible;
+  a Switch 2 build is not, for now. No Switch 2 web browser exists either.
+- **PlayStation / Switch without devkits:** only through a porting partner who
+  holds kits, or by hosting Rax inside a platform already there (Roblox on
+  PS5/Xbox; Fortnite UEFN cannot call outside servers). Unverified details are
+  listed in the paper's notes.

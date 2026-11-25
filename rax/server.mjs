@@ -140,9 +140,10 @@ export function createRaxServer({
   resolveHandleColors = handleColors,
   // 🧹 Who keeps the ground nobody owns: the plaza and the blocks' commons.
   keeper = process.env.RAX_KEEPER || 'jeffrey',
-  // 🔓 Anyone in a room may build there: floors, pods, the roof, the plaza and
-  // the blocks all open (2026-11-23). RAX_OPEN_BUILD=0 puts the owners back.
-  openBuild = process.env.RAX_OPEN_BUILD !== '0',
+  // 🔒 A floor or pod is arranged by its owner, the roof, plaza and blocks by
+  // the keeper: the first gate of papers/arxiv-gated-making (2026-11-25).
+  // RAX_OPEN_BUILD=1 opens every room to everyone, as 2026-11-23 to 11-25.
+  openBuild = process.env.RAX_OPEN_BUILD === '1',
   // 🏢 Every handle on the network, oldest first, for the tower's floors.
   listHandles = async () => {
     const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
