@@ -239,10 +239,11 @@ function image(post) {
   if (Object.keys(images).length > 90) for (const old of Object.keys(images).slice(0, 30)) delete images[old];
   // Paintings go by short code: that route resolves legacy storage folders.
   const m = post.media;
-  // KidLisp has no stored poster: the oven renders one by code, at the same
-  // address mime asks for, so both share one cached grab.
+  // KidLisp has no stored poster: the oven renders one by code. A tile asks
+  // for the piece at its own 128 pixels, 30 frames, drawn without a browser:
+  // ~15 KB where the shared 512 poster was up to 6.5 MB.
   const grab = m?.kind === "kidlisp" && m.code
-    ? `https://oven.aesthetic.computer/grab/webp/512/512/${encodeURIComponent("$" + m.code)}` : null;
+    ? `https://oven.aesthetic.computer/grab/webp/128/128/${encodeURIComponent("$" + m.code)}?duration=4000&cacheKey=tile30` : null;
   const url = m?.kind === "painting" && m.code ? `/media/paintings/${m.code}.png`
     : grab || post.file?.poster || (post.file?.type?.startsWith("image/") ? post.file.url : null);
   if (!url || !net) return (images[key] = null);
