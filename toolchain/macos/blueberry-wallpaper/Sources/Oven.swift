@@ -601,6 +601,42 @@ final class OvenLayer: CALayer {
     }
     private var dark = true
 
+    /// The oven's star in the network constellation, in this layer's
+    /// coordinates (nil when it isn't drawn). A faint curve ties it to the
+    /// panel so the two read as one machine.
+    var tether: CGPoint? {
+        didSet { drawTether() }
+    }
+    private let tetherLine = CAShapeLayer()
+    private var tetherKey = ""
+
+    private func drawTether() {
+        let end: CGPoint? = title.isHidden || title.frame.isEmpty ? nil
+            : OvenConfig.side == .left ? CGPoint(x: title.frame.maxX + 4 * u, y: title.frame.midY)
+            : CGPoint(x: title.frame.minX - 4 * u, y: title.frame.midY)
+        guard enabled, let a = tether, let b = end else {
+            if !tetherLine.isHidden { tetherLine.isHidden = true; tetherKey = "" }
+            return
+        }
+        let key = "\(Int(a.x)),\(Int(a.y)) \(Int(b.x)),\(Int(b.y)) \(dark) \(Int(u * 10))"
+        guard key != tetherKey else { return }
+        tetherKey = key
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let path = CGMutablePath()
+        // Drops from the star, then sweeps across into the title.
+        let mid = abs(b.x - a.x) * 0.45
+        path.move(to: a)
+        path.addCurve(to: b, control1: CGPoint(x: a.x, y: a.y - mid * 0.5),
+                      control2: CGPoint(x: b.x + (b.x > a.x ? -mid : mid), y: b.y))
+        tetherLine.path = path
+        tetherLine.strokeColor = Self.hot.withAlphaComponent(dark ? 0.32 : 0.45).cgColor
+        tetherLine.lineWidth = max(1, u)
+        tetherLine.lineDashPattern = [NSNumber(value: Double(3 * u)), NSNumber(value: Double(4 * u))]
+        tetherLine.isHidden = false
+        CATransaction.commit()
+    }
+
     private final class Card {
         let root = CALayer()
         let media = CALayer()
@@ -663,6 +699,11 @@ final class OvenLayer: CALayer {
         actions = Self.still
         isHidden = true
         lane.actions = Self.still
+        tetherLine.actions = Self.still
+        tetherLine.fillColor = nil
+        tetherLine.lineCap = .round
+        tetherLine.isHidden = true
+        addSublayer(tetherLine)
         addSublayer(lane)
         for t in [title, table, queueLine] { addSublayer(Self.text(t)) }
         for _ in 0..<8 { addSlot() }
@@ -781,14 +822,15 @@ final class OvenLayer: CALayer {
         let haveData = feed.lastMessage > 0 || !feed.grabs.isEmpty
         for l in [title, table, queueLine] as [CALayer] { l.isHidden = !haveData }
 
-        // Slots: one per oven slot, a live bake shows its latest preview
-        // frame and a progress bar; an idle slot is an outline.
+        // Only live bakes are drawn, each with its latest preview frame and
+        // a progress bar, packed from the screen edge; an idle slot is not drawn.
         for (i, s) in slotLayers.enumerated() {
-            let show = haveData && i < n
+            let show = haveData && i < n && i < feed.bakes.count
             for l in [s.box, s.track, s.tag] as [CALayer] { l.isHidden = !show }
             guard show else { continue }
-            let bake = i < feed.bakes.count ? feed.bakes[i] : nil
-            let x = x0 + CGFloat(i) * (side + gap)
+            let bake: OvenBake? = feed.bakes[i]
+            let step = CGFloat(i) * (side + gap)
+            let x = right ? x0 + rowW - side - step : x0 + step
             s.box.frame = CGRect(x: x, y: slotY, width: side, height: side)
             s.box.cornerRadius = 3 * u
             s.box.borderWidth = max(1, u)
@@ -823,21 +865,20 @@ final class OvenLayer: CALayer {
             }
         }
 
-        // Title over the slots: busy of max, and how far the oven is behind.
+        // Title over the bakes: idle, or how many are baking and waiting.
         let offline = feed.lastMessage > 0 && !feed.connected
-        let up = feed.uptime + (feed.connected ? now - feed.uptimeAt : 0)
-        let upText = up > 86_400 ? String(format: "%.1fd", up / 86_400) : up > 3_600 ? "\(Int(up / 3_600))h" : "\(Int(up / 60))m"
-        let titleKey = "\(feed.busy)/\(feed.slots) \(feed.queueDepth) \(offline) \(upText) \(dark) \(scale)"
+        let titleKey = "\(feed.busy) \(feed.queueDepth) \(offline) \(dark) \(scale)"
         if force || titleKey != titleText {
             titleText = titleKey
             let s = NSMutableAttributedString(attributedString: words("oven ", max(11, 13 * tu), Self.hot, .heavy))
             if offline {
                 s.append(words("offline · reconnecting", max(11, 11 * tu), Self.red))
             } else {
-                s.append(words("\(feed.busy)/\(feed.slots) busy", max(11, 11 * tu), feed.busy > 0 ? Self.amber : ink(0.7)))
-                s.append(words(" · queue \(feed.queueDepth)", max(11, 11 * tu),
-                               feed.queueDepth > 0 ? Self.amber : ink(0.55), .semibold))
-                if up > 0 { s.append(words(" · up \(upText)", max(11, 11 * tu), ink(0.4), .semibold)) }
+                s.append(words(feed.busy > 0 ? "baking \(feed.busy)" : "idle", max(11, 11 * tu),
+                               feed.busy > 0 ? Self.amber : ink(0.55)))
+                if feed.queueDepth > 0 {
+                    s.append(words(" · \(feed.queueDepth) waiting", max(11, 11 * tu), Self.amber, .semibold))
+                }
             }
             title.string = s
         }

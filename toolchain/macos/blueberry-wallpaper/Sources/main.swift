@@ -583,6 +583,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         }
         fishery.tick(now: now, dark: dark)
         oven.tick(now: now, dark: dark)
+        oven.tether = fishery.starPoint("h:oven").map { fishery.convert($0, to: oven) }
         // Walkers step round the oven's panel (fishery spans the tank's world).
         fishery.keepOut = oven.panel.isNull ? .null
             : oven.panel.offsetBy(dx: TankConfig.current?.offset ?? 0, dy: 0)

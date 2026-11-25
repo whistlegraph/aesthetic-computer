@@ -196,6 +196,9 @@ final class ConstellationLayer: CALayer {
         var badge: CGFloat = 0
     }
 
+    /// Where a star stands, in this layer's coordinates.
+    func point(of id: String) -> CGPoint? { stars[id].map { $0.position } }
+
     /// A favicon badge is half again as tall as a line of type.
     static func badgeSide(_ cell: CGFloat) -> CGFloat { (cell * 1.5).rounded() }
 
@@ -799,6 +802,11 @@ final class FisheryLayer: CALayer {
     private var infraVersion = 0
     private var infraPulsed: Double = 0
     private let constellation = ConstellationLayer()
+    /// Where a constellation star sits, in this layer's coordinates.
+    func starPoint(_ id: String) -> CGPoint? {
+        guard !constellation.isHidden, let p = constellation.point(of: id) else { return nil }
+        return constellation.convert(p, to: self)
+    }
     /// The menu bar's height on this screen; the constellation hangs below it.
     var topInset: CGFloat = 0
     private var refRows: [(name: CATextLayer, bar: CALayer, count: CATextLayer)] = []
