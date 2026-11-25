@@ -19637,42 +19637,107 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       return;
     }
 
-    // 🎬 Load an animated WebP and decode all frames
+    // 🎬 Load an animated WebP and decode all frames.
+    // `content` is a url, or `{ url, size, frames }` to fit each frame in
+    // size×size and keep at most `frames` of them (a grid of small tiles).
     if (type === "load-animated-webp") {
-      console.log("🎬 BIOS load-animated-webp received:", content);
-      
-      // Helper to convert webpxmux Uint32Array to RGBA Uint8ClampedArray
-      // Each Uint32 element contains one pixel in RGBA format: 0xRRGGBBAA
-      // We need RGBA for canvas: R, G, B, A bytes
-      const convertToRGBA = (u32arr) => {
-        const rgba = new Uint8ClampedArray(u32arr.length * 4);
-        for (let i = 0; i < u32arr.length; i++) {
-          const pixel = u32arr[i];
-          // RGBA format: 0xRRGGBBAA
-          const r = (pixel >>> 24) & 0xff;
-          const g = (pixel >>> 16) & 0xff;
-          const b = (pixel >>> 8) & 0xff;
-          const a = pixel & 0xff;
-          const j = i * 4;
-          rgba[j] = r;
-          rgba[j + 1] = g;
-          rgba[j + 2] = b;
-          rgba[j + 3] = a;
+      const { url, size, frames: maxFrames } =
+        typeof content === "string" ? { url: content } : content;
+
+      // Which frames to keep: all, or `max` spread evenly. Each kept frame
+      // lasts as long as the ones it stands for, so the loop keeps its time.
+      const pick = (count, max) => {
+        const n = max > 0 ? Math.min(count, max) : count;
+        const kept = [];
+        for (let k = 0; k < n; k++) kept.push(Math.floor((k * count) / n));
+        return kept.map((i, j) => [i, (kept[j + 1] ?? count) - i]);
+      };
+      const fit = (w, h) => {
+        const s = size > 0 ? Math.min(1, size / Math.max(w, h)) : 1;
+        return [Math.max(1, Math.round(w * s)), Math.max(1, Math.round(h * s))];
+      };
+
+      // webpxmux pixels are Uint32 0xRRGGBBAA; read them out as RGBA bytes,
+      // nearest-sampled down to w×h.
+      const convertToRGBA = (u32arr, sw, sh, w = sw, h = sh) => {
+        const rgba = new Uint8ClampedArray(w * h * 4);
+        for (let y = 0, j = 0; y < h; y++) {
+          const row = Math.floor((y * sh) / h) * sw;
+          for (let x = 0; x < w; x++, j += 4) {
+            const pixel = u32arr[row + Math.floor((x * sw) / w)];
+            rgba[j] = (pixel >>> 24) & 0xff;
+            rgba[j + 1] = (pixel >>> 16) & 0xff;
+            rgba[j + 2] = (pixel >>> 8) & 0xff;
+            rgba[j + 3] = pixel & 0xff;
+          }
         }
         return rgba;
       };
-      
+
+      const deliver = (width, height, frameCount, loopCount, frames) =>
+        send(
+          {
+            type: "loaded-animated-webp-success",
+            content: { url, width, height, frameCount, loopCount, frames },
+          },
+          frames.map((f) => f.pixels.buffer),
+        );
+
+      // The browser's own decoder (WebCodecs), when there is one and the
+      // caller asked for small frames: decoded natively, scaled by a canvas,
+      // and the frames not kept are never drawn out.
+      const decodeNatively = async (bytes) => {
+        const decoder = new ImageDecoder({ data: bytes, type: "image/webp" });
+        try {
+          await decoder.tracks.ready;
+          const track = decoder.tracks.selectedTrack;
+          const count = Math.max(1, track?.frameCount || 1);
+          let canvas, ctx, w, h;
+          const frames = [];
+          for (const [index, span] of pick(count, maxFrames)) {
+            let duration = 0;
+            for (let k = 0; k < span; k++) {
+              const { image } = await decoder.decode({ frameIndex: index + k });
+              if (k === 0) {
+                if (!canvas) {
+                  [w, h] = fit(image.displayWidth, image.displayHeight);
+                  canvas = new OffscreenCanvas(w, h);
+                  ctx = canvas.getContext("2d", { willReadFrequently: true });
+                }
+                ctx.clearRect(0, 0, w, h);
+                ctx.drawImage(image, 0, 0, w, h);
+                frames.push({ duration: 0, isKeyframe: true, pixels: ctx.getImageData(0, 0, w, h).data });
+              }
+              duration += (image.duration || 0) / 1000; // µs → ms
+              image.close();
+            }
+            frames.at(-1).duration = Math.round(duration);
+          }
+          deliver(w, h, frames.length, track?.repetitionCount ?? 0, frames);
+        } finally {
+          decoder.close();
+        }
+      };
+
       (async () => {
         try {
           // Start fetch immediately (don't wait for library)
-          const fetchPromise = fetch(content).then(async (response) => {
+          const fetchPromise = fetch(url).then(async (response) => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return new Uint8Array(await response.arrayBuffer());
           });
-          
+
+          if ((size || maxFrames) && typeof ImageDecoder === "function" &&
+              typeof OffscreenCanvas === "function") {
+            try {
+              return await decodeNatively(await fetchPromise);
+            } catch (err) {
+              console.warn("🎬 Native WebP decode failed, using webpxmux:", err?.message || err);
+            }
+          }
+
           // Load webpxmux library in parallel with fetch (use CDN for reliability)
           if (!window.WebPXMux) {
-            console.log("🎬 Loading webpxmux library...");
             await new Promise((resolve, reject) => {
               const script = document.createElement("script");
               script.src = "https://cdn.jsdelivr.net/npm/webpxmux@0.0.2/dist/webpxmux.min.js";
@@ -19681,7 +19746,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
               document.head.appendChild(script);
             });
           }
-          
+
           // Cache the initialized xMux instance for reuse (use CDN wasm)
           if (!window._webpxMuxInstance) {
             const xMux = window.WebPXMux("https://cdn.jsdelivr.net/npm/webpxmux@0.0.2/dist/webpxmux.wasm");
@@ -19689,68 +19754,37 @@ async function boot(parsed, bpm = 60, resolution, debug) {
             window._webpxMuxInstance = xMux;
           }
           const xMux = window._webpxMuxInstance;
-          
-          // Wait for fetch to complete
+
           const webpData = await fetchPromise;
-          console.log("🎬 Fetched WebP data:", webpData.length, "bytes");
-          
-          const frames = await xMux.decodeFrames(webpData);
-          console.log("🎬 Decoded animated WebP:", frames.frameCount, "frames,", frames.width, "x", frames.height);
-          
-          if (frames.frameCount > 1) {
-            // Convert frames to transferable format
-            const frameData = frames.frames.map(f => ({
-              duration: f.duration,
-              isKeyframe: f.isKeyframe,
-              // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
-              pixels: convertToRGBA(f.rgba)
-            }));
-            
-            // Transfer all pixel buffers
-            const transfers = frameData.map(f => f.pixels.buffer);
-            
-            send({
-              type: "loaded-animated-webp-success",
-              content: {
-                url: content,
-                width: frames.width,
-                height: frames.height,
-                frameCount: frames.frameCount,
-                loopCount: frames.loopCount,
-                frames: frameData
-              }
-            }, transfers);
+          const decoded = await xMux.decodeFrames(webpData);
+          const sw = decoded.width, sh = decoded.height;
+          const [w, h] = fit(sw, sh);
+
+          if (decoded.frameCount > 1) {
+            const frames = pick(decoded.frameCount, maxFrames).map(([i, span]) => {
+              let duration = 0;
+              for (let k = 0; k < span; k++) duration += decoded.frames[i + k].duration || 0;
+              const f = decoded.frames[i];
+              return { duration, isKeyframe: f.isKeyframe, pixels: convertToRGBA(f.rgba, sw, sh, w, h) };
+            });
+            deliver(w, h, frames.length, decoded.loopCount, frames);
           } else {
             // Single frame - just decode as bitmap
             const bitmap = await xMux.decodeWebP(webpData);
-            // Convert Uint32Array BGRA to Uint8ClampedArray RGBA
-            const pixels = convertToRGBA(bitmap.rgba);
-            
-            send({
-              type: "loaded-animated-webp-success",
-              content: {
-                url: content,
-                width: bitmap.width,
-                height: bitmap.height,
-                frameCount: 1,
-                loopCount: 0,
-                frames: [{
-                  duration: 0,
-                  isKeyframe: true,
-                  pixels: pixels
-                }]
-              }
-            }, [pixels.buffer]);
+            const [bw, bh] = fit(bitmap.width, bitmap.height);
+            deliver(bw, bh, 1, 0, [
+              { duration: 0, isKeyframe: true, pixels: convertToRGBA(bitmap.rgba, bitmap.width, bitmap.height, bw, bh) },
+            ]);
           }
         } catch (err) {
           console.error("🎬 Animated WebP decode failed:", err);
           send({
             type: "loaded-animated-webp-rejection",
-            content: { url: content, error: err.message }
+            content: { url, error: err.message },
           });
         }
       })();
-      
+
       return;
     }
 

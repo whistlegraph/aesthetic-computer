@@ -250,7 +250,7 @@ function image(post) {
   const href = new URL(url, ORIGIN).href;
   const still = () => net.preload({ path: href, extension: "png" }).then((got) => { images[key] = got?.img || got || null; });
   const animated = grab || (m?.kind === "piece" && post.file?.poster)
-    ? net.preloadAnimatedWebp(href).then((got) => {
+    ? queued(() => net.preloadAnimatedWebp(href, TILE_WEBP)).then((got) => {
       if (!got?.frames?.length) throw new Error("no frames");
       const frames = got.frames.map((f) => ({ width: got.width, height: got.height, pixels: f.pixels }));
       const ends = [];
@@ -261,6 +261,26 @@ function image(post) {
     : still();
   animated.catch((err) => { images[key] = null; console.warn("profile: image failed", url, err?.message || err); });
   return undefined;
+}
+
+// Posters are decoded at tile size, a few at a time: the oven's are 512²
+// and 90 frames, ~94 MB each when decoded whole, and a first screen asks
+// for a dozen at once.
+const TILE_WEBP = { size: 128, frames: 30 };
+const DECODES = 3;
+let decoding = 0;
+const waiting = [];
+function queued(job) {
+  return new Promise((resolve, reject) => {
+    waiting.push(() => {
+      decoding += 1;
+      Promise.resolve().then(job).then(resolve, reject).finally(() => {
+        decoding -= 1;
+        waiting.shift()?.();
+      });
+    });
+    if (decoding < DECODES) waiting.shift()();
+  });
 }
 
 function frameAt(anim) {

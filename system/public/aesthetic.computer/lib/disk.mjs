@@ -9796,10 +9796,16 @@ async function load(
     }
   };
 
-  // 🎬 Load animated WebP and decode all frames
-  $commonApi.net.preloadAnimatedWebp = async function (url) {
+  // 🎬 Load animated WebP and decode all frames.
+  // `{ size, frames }` (optional): fit each frame inside size×size pixels and
+  // keep at most `frames` of them, spread evenly. A grid of small tiles wants
+  // this: a 512² poster of 90 frames is ~94 MB of pixels decoded whole.
+  $commonApi.net.preloadAnimatedWebp = async function (url, { size, frames } = {}) {
     return new Promise((resolve, reject) => {
-      send({ type: "load-animated-webp", content: url });
+      send({
+        type: "load-animated-webp",
+        content: size || frames ? { url, size, frames } : url,
+      });
       preloadPromises[url] = { resolve, reject };
     });
   };
