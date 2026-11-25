@@ -24,6 +24,7 @@ import { bootPreloads, workerBundleFilename, builtinPieceUrl } from "../../backe
 import { defaultTemplateStringProcessor as html } from "../../public/aesthetic.computer/lib/helpers.mjs";
 import { networkInterfaces } from "os";
 import { canonicalPageUrl } from "../../public/aesthetic.computer/lib/site-metadata.mjs";
+import { authParams } from "../../public/aesthetic.computer/lib/params.mjs";
 const dev = process.env.CONTEXT === "dev" || process.env.NETLIFY_DEV === "true";
 const BARE_KIDLISP_CODE = /^[0-9A-Za-z]{3,64}$/;
 const POSTHOG_CLOUD_HOSTS = new Set([
@@ -929,8 +930,9 @@ async function fun(event, context) {
   // graph of the entry modules (derived, see backend/boot-preloads.mjs) and
   // the worker bundle, which bios would otherwise ask for only after it has
   // evaluated and read the manifest. bios appends the page's query string to
-  // the worker URL, so the warm-up fetch carries it too: same URL, same
-  // cache entry, one download.
+  // the worker URL minus the auth names (cleanSearch(…, { drop: ["auth"] })),
+  // so the warm-up fetch drops them too: same URL, same cache entry, one
+  // download — an Auth0 return (?code=&state=) used to fetch the bundle twice.
   const preloadTags = dev
     ? `<link rel="modulepreload" href="/aesthetic.computer/module-loader.mjs" />`
     : (await bootPreloads())
@@ -938,7 +940,7 @@ async function fun(event, context) {
         .join("\n        ");
   const workerFilename = dev ? null : await workerBundleFilename();
   const workerHintTag = workerFilename
-    ? `<script>(function(){var f=${JSON.stringify(workerFilename)},u="/aesthetic.computer/lib/"+f;window.acWORKER_BUNDLE_HINT={filename:f,path:u,warm:fetch(u+location.search,{mode:"same-origin"}).then(function(r){return r.ok?r.arrayBuffer().then(function(){return true}):false}).catch(function(){return false})};})();</script>`
+    ? `<script>(function(){var f=${JSON.stringify(workerFilename)},u="/aesthetic.computer/lib/"+f,a=${JSON.stringify(authParams())},q=location.search.slice(1).split("&").filter(function(p){if(!p)return false;var n=p.split("=")[0];try{n=decodeURIComponent(n.replace(/\\+/g," "))}catch(e){}return a.indexOf(n)<0}).join("&");window.acWORKER_BUNDLE_HINT={filename:f,path:u,warm:fetch(u+(q?"?"+q:""),{mode:"same-origin"}).then(function(r){return r.ok?r.arrayBuffer().then(function(){return true}):false}).catch(function(){return false})};})();</script>`
     : "";
   // The piece itself, for built-in .mjs pieces: fetched at parse time so the
   // worker finds it in its piece-code cache instead of fetching it only after

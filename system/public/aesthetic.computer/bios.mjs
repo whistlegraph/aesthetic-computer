@@ -1,6 +1,5 @@
 import { createWindowColorReporter } from "./lib/native-window-color.mjs";
 import { watchConnection } from "./lib/connection-status.mjs";
-import { installIOSPushBridge } from "./lib/ios-push.mjs";
 import { NOPAINT_SESSION_SEED_KEY, noPaintHistoryTarget } from "./lib/nopaint-navigation.mjs";
 import { visitMediaAction } from "./lib/visit-model.mjs";
 import { startAccountActivity } from "./lib/account-activity.mjs";
@@ -36,7 +35,6 @@ import {
   blendColorWithVHS
 } from "./disks/common/tape-player.mjs";
 import * as Platform from "./lib/platform.mjs";
-import { headers } from "./lib/headers.mjs";
 import { logs, log } from "./lib/logs.mjs";
 import { checkPackMode } from "./lib/pack-mode.mjs";
 import { captureFrame, formatTimestamp } from "./lib/frame-capture.mjs";
@@ -46,10 +44,7 @@ import {
 } from "./lib/product-analytics.mjs";
 import { soundWhitelist } from "./lib/sound/sound-whitelist.mjs";
 import { timestamp, radians } from "./lib/num.mjs";
-import * as graph from "./lib/graph.mjs";
 import * as WebGPU from "./lib/webgpu.mjs";
-import { createFrameRenderer } from "./lib/gpu-frame-renderer.mjs";
-import { initGPU, switchBackend } from "./lib/gpu/index.mjs"; // 🎨 New backend system (auto-registers backends)
 import { createWebGLBlitter } from "./lib/webgl-blit.mjs";
 import * as CaptureSession from "./lib/capture-session.mjs";
 import * as SoundOnFilm from "./lib/sound-on-film.mjs";
@@ -673,8 +668,23 @@ function performHistoryRewrite(path, historical) {
   }
 }
 
+// 🐢 Loaded after the first paint, not before it: the static import graph is
+// what a cold visit waits on, and these sit off that path.
+//   lib/graph.mjs (~98 KB gzipped with its gl-matrix share) only paints the
+//   edges of a canvas that grows after boot; until it lands a grown edge takes
+//   the solid fill below.
+let graph = null;
+function loadWhenIdle() {
+  const load = () => {
+    import("./lib/graph.mjs").then((module) => (graph = module), () => {});
+  };
+  if (window.requestIdleCallback) window.requestIdleCallback(load, { timeout: 4000 });
+  else setTimeout(load, 2000);
+}
+
 function resolveBackgroundFillSpec(colorLike) {
   if (colorLike === undefined || colorLike === null) return null;
+  if (!graph) return null; // Not loaded yet: the caller falls back to a solid fill.
 
   let resolved;
   try {
@@ -947,7 +957,10 @@ USB.initialize();
 async function boot(parsed, bpm = 60, resolution, debug) {
   const bootStartTime = performance.now();
   perf.markBootStart();
-  headers(); // Print console headers with auto-detected theme.
+  // Print console headers with auto-detected theme. The banner and its QR
+  // code load beside the boot rather than in front of it.
+  import("./lib/headers.mjs").then(({ headers }) => headers(), () => {});
+  loadWhenIdle();
 
   const workerBundleParam = new URLSearchParams(window.location.search).get("workerbundle");
   const workerBundleDisabled =
@@ -2973,6 +2986,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     
     // Try to initialize with fallback chain
     const preferredBackend = localStorage.getItem("ac-gpu-backend") || "webgpu";
+    // The backends (lib/gpu/, ~17 KB gzipped) load here, off the boot path.
+    const { initGPU, switchBackend } = await import("./lib/gpu/index.mjs");
     activeGPUBackend = await initGPU(canvas, preferredBackend);
     
     if (activeGPUBackend) {
@@ -16060,7 +16075,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "gpu-frame-probe") {
       if (frameRenderer) { send({ type: "gpu-frame-ready" }); return; }
       if (!frameRendererRequest) {
-        frameRendererRequest = createFrameRenderer(gpuFrameCanvas).then((renderer) => {
+        frameRendererRequest = import("./lib/gpu-frame-renderer.mjs").then(({ createFrameRenderer }) => createFrameRenderer(gpuFrameCanvas)).then((renderer) => {
           frameRenderer = renderer;
           renderer?.device.lost.then(() => disableFrameRenderer(renderer));
           send({ type: renderer ? "gpu-frame-ready" : "gpu-frame-unavailable" });
@@ -25586,8 +25601,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
   // Permission is requested by native only after the user enters `notifs`.
   if (window.webkit?.messageHandlers?.iOSApp) {
-    installIOSPushBridge(window);
-    iOSAppSend({ type: "notifications:ready" });
+    // Only the iOS app needs the push bridge; native hears `ready` once it
+    // is installed.
+    import("./lib/ios-push.mjs").then(({ installIOSPushBridge }) => {
+      installIOSPushBridge(window);
+      iOSAppSend({ type: "notifications:ready" });
+    }, (error) => console.warn("📱 iOS push bridge unavailable:", error?.message || error));
   }
 
 } // End of boot function

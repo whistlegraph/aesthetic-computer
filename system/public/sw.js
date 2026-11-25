@@ -132,7 +132,11 @@ self.addEventListener('activate', (event) => {
         );
       })
       .then(() => self.clients.claim())
-      .then(() => checkForBuild())
+      // No build check here. A fetch from a page this worker controls waits
+      // until activation settles, so a whole build downloading inside this
+      // waitUntil held a first visit's worker bundle, piece and media behind
+      // it (~2 s cold). The page asks for the build once it has loaded
+      // (boot.mjs posts `ac:build-check`).
   );
 });
 
@@ -679,7 +683,10 @@ async function installBuild(commit) {
       const kept = await prevCache.match(origin + path);
       if (kept) { await cache.put(origin + path, kept); return 'copied'; }
     }
-    const r = await fetch(origin + path, { cache: 'no-cache' });
+    // A content-hashed bundle never changes under its name: take the copy the
+    // page just downloaded from the HTTP cache instead of a second 440 KB.
+    // The blob hash below still checks the bytes.
+    const r = await fetch(origin + path, { cache: WORKER_BUNDLE.test(path) ? 'default' : 'no-cache' });
     if (r.status !== 200 || r.redirected) return false;
     const body = await r.clone().arrayBuffer();
     if (body.byteLength > BUILD_MAX_BYTES || !(await blobMatches(body, hash, next.hashChars))) return false;

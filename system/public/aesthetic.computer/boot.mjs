@@ -92,6 +92,19 @@ if ('serviceWorker' in navigator && !window.acPACK_MODE && window === window.top
       window.webkit?.messageHandlers?.iOSApp?.postMessage(JSON.stringify({ type: 'build:ready', commit }));
     } catch {}
   });
+  // Ask for the deployed build only once this page has loaded and settled:
+  // on a first visit the worker claims the page mid-boot, and a build
+  // download started then competes with the boot for the link. A later visit
+  // has already asked (sw.js checks 2 s after a navigation), and sw.js drops
+  // a second ask inside 20 s.
+  const askForBuild = () => {
+    const ask = () => navigator.serviceWorker.controller?.postMessage({ type: 'ac:build-check' });
+    if (navigator.serviceWorker.controller) ask();
+    else navigator.serviceWorker.addEventListener('controllerchange', ask, { once: true });
+  };
+  const afterLoad = () => setTimeout(askForBuild, 4000);
+  if (document.readyState === 'complete') afterLoad();
+  else window.addEventListener('load', afterLoad, { once: true });
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
       // Check for updates periodically (every 5 minutes): the worker script
