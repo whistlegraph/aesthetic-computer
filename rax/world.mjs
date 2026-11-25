@@ -136,9 +136,18 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     for (const b of [...boxes, ...fixed]) if (!b.ceiling && under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
     const next = fly(player, cmd, below, DT, CFG.eyeHeight);
     // What stops it: builds, and the room's own walls (glass, the car, a dispenser), its keel to the top of its cabin.
+    // A move is refused only if it comes nearer than the bike's half-width to
+    // one, or goes further in; along a wall it slides, and away it is free
+    // (so a bike that drifted in close is never stuck there).
     const walls = [...boxes, ...solid.filter((b) => !b.water)];
-    const hits = (q) => walls.some((b) => q.x > b.xMin - 0.6 && q.x < b.xMax + 0.6 && q.z > b.zMin - 0.6 && q.z < b.zMax + 0.6 && q.y - CFG.eyeHeight - 0.9 < b.yMax - 0.3 && q.y + 0.3 > b.yMin);
-    if (hits(next)) { next.x = player.x; next.z = player.z; next.vx = next.vz = 0; }
+    const depth = (b, q) => Math.max(b.xMin - 0.6 - q.x, q.x - b.xMax - 0.6, b.zMin - 0.6 - q.z, q.z - b.zMax - 0.6);
+    const level = (b, q) => q.y - CFG.eyeHeight - 0.9 < b.yMax - 0.3 && q.y + 0.3 > b.yMin;
+    const blocked = (q) => walls.some((b) => level(b, q) && depth(b, q) < 0 && depth(b, q) < depth(b, player) - 1e-9);
+    if (blocked(next)) {
+      if (!blocked({ ...next, z: player.z })) { next.z = player.z; next.vz = 0; }
+      else if (!blocked({ ...next, x: player.x })) { next.x = player.x; next.vx = 0; }
+      else { next.x = player.x; next.z = player.z; next.vx = next.vz = 0; }
+    }
     // A roof stops it rising (the cabin's top is just over the eyes).
     for (const b of fixed) if (b.ceiling && under(b, next) && player.y + 0.3 <= b.yMin && next.y + 0.3 > b.yMin) { next.y = b.yMin - 0.3; next.vy = Math.min(0, next.vy); }
     const past = (side) => (open?.includes(side) ? OVERRUN : 0);

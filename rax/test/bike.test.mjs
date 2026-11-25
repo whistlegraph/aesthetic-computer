@@ -72,3 +72,16 @@ test('the plaza: everyone starts there, and a bike flies there, held under the t
   const front = run(p, cmd({ fwd: 1, yaw: 30 }), 240, [], 0, walls);
   assert.ok(front.z < 1.2 || Math.abs(front.x) < 1.6, `stopped at the glass unless at the door, at ${front.x.toFixed(2)}, ${front.z.toFixed(2)}`);
 });
+
+test('a bike drifted in close to a wall slides along it and gets away, never stuck', () => {
+  const wall = { type: 'box', xMin: -8, xMax: 8, yMin: 0, yMax: 12, zMin: 1.1, zMax: 1.3 };
+  // In the margin already (0.3 m off the glass), at height.
+  let p = { ...spawn(0), x: 0, y: 6, z: 0.8, vx: 0, vy: 0, vz: 0, bike: true, onGround: false };
+  const along = run(p, cmd({ fwd: 1, yaw: 270 }), 60, [], 0, [wall]); // west, along the glass
+  assert.ok(along.x < -3, `slid along it to x ${along.x.toFixed(2)}`);
+  assert.ok(along.z < 1.1 - 0.29, 'never through it');
+  const away = run(p, cmd({ fwd: 1, yaw: 180 }), 60, [], 0, [wall]); // south, away from it
+  assert.ok(away.z < -2, `got away to z ${away.z.toFixed(2)}`);
+  const into = run(p, cmd({ fwd: 1, yaw: 0 }), 60, [], 0, [wall]); // north, into it
+  assert.ok(into.z <= 0.8 + 1e-6, 'no further in');
+});
