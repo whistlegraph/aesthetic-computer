@@ -13,7 +13,11 @@ set -euo pipefail
 HOST=$1; NAME=$2; ROOMS=${3:-east}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=$(mktemp -d)
-SSH="ssh -o StrictHostKeyChecking=accept-new root@$HOST"
+# The box's key: SSH_KEY, else the session-server's own (session-server/deploy.fish), else ssh's default.
+KEY=${SSH_KEY:-$HOME/.ssh/session_server}
+KEYARG=""; [ -f "$KEY" ] && KEYARG="-i $KEY"
+SSH="ssh $KEYARG -o StrictHostKeyChecking=accept-new root@$HOST"
+SCP="scp -q $KEYARG"
 
 # One file: rax and everything it imports from the repo; ws and obscenity are installed on the box.
 "$ROOT/system/node_modules/.bin/esbuild" "$ROOT/rax/satellite.mjs" --bundle --platform=node --format=esm \
@@ -25,11 +29,16 @@ set -e
 if ss -ltnp 2>/dev/null | grep ':443 ' | grep -vq caddy; then
   echo "✕ port 443 on this box belongs to something other than Caddy; not touching it" >&2; exit 1
 fi
-if ! command -v node >/dev/null || [ "\$(node -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
+# The box's own Node if it has one (the session-server keeps it under fnm); else Node 22 from apt.
+NODEBIN=\$(command -v node || true)
+[ -n "\$NODEBIN" ] || { [ -x /root/.local/share/fnm/aliases/default/bin/node ] && NODEBIN=/root/.local/share/fnm/aliases/default/bin/node; }
+if [ -z "\$NODEBIN" ] || [ "\$("\$NODEBIN" -p 'process.versions.node.split(".")[0]')" -lt 22 ]; then
   export DEBIAN_FRONTEND=noninteractive
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
   apt-get install -y -qq nodejs >/dev/null
+  NODEBIN=/usr/bin/node
 fi
+export PATH="\$(dirname "\$NODEBIN"):\$PATH"
 if ! command -v caddy >/dev/null; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https curl gnupg >/dev/null
@@ -38,7 +47,9 @@ if ! command -v caddy >/dev/null; then
   apt-get update -qq && apt-get install -y -qq caddy >/dev/null
   : > /etc/caddy/Caddyfile
 fi
-mkdir -p /opt/rax-satellite/rax /opt/rax-satellite/lith /var/lib/rax-satellite
+mkdir -p /opt/rax-satellite/rax /opt/rax-satellite/lith /opt/rax-satellite/bin /var/lib/rax-satellite
+# (A copy of the one binary: the service runs as nobody, who cannot reach into /root.)
+install -m 755 "\$NODEBIN" /opt/rax-satellite/bin/node
 chown nobody:nogroup /var/lib/rax-satellite
 cd /opt/rax-satellite
 [ -f package.json ] || echo '{"type":"module","private":true}' > package.json
@@ -47,7 +58,7 @@ cd /opt/rax-satellite
 [ -d node_modules/obscenity ] || npm install --silent obscenity@0.4 >/dev/null
 REMOTE
 
-scp -q "$OUT/satellite.mjs" root@$HOST:/opt/rax-satellite/rax/satellite.mjs
+$SCP "$OUT/satellite.mjs" root@$HOST:/opt/rax-satellite/rax/satellite.mjs
 rm -rf "$OUT"
 
 $SSH 'bash -s' <<REMOTE
@@ -59,7 +70,7 @@ After=network.target
 [Service]
 Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac
 WorkingDirectory=/opt/rax-satellite
-ExecStart=/usr/bin/node rax/satellite.mjs
+ExecStart=/opt/rax-satellite/bin/node rax/satellite.mjs
 Restart=always
 RestartSec=2
 User=nobody

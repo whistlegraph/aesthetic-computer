@@ -1814,7 +1814,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
 
 if (
   process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url) &&
+  /server\.mjs$/.test(process.argv[1]) // (bundled into satellite.mjs, this file is not the one being run)
 ) {
   const app = createRaxServer({
     stateDir: stateHome(),
