@@ -364,7 +364,13 @@ const kidlispVerified = new Map(); // "$code" → "ok" | "missing" | "checking"
 let kidlispPreviewHits = []; // { x, y, w, h, code } painted this frame
 let kidlispRepaint = null;
 
+// Off (2026-11-24): a laer-klokken window running one $air box grew its
+// web process to 5.8 GB in ~10 minutes. Back on once the embedded kidlisp()
+// path is proven not to leak.
+const KIDLISP_PREVIEWS_ON = false;
+
 function kidlispPreviewCodes(elements) {
+  if (!KIDLISP_PREVIEWS_ON) return [];
   const codes = [];
   for (const el of elements || []) {
     if (el.type !== "kidlisp" || !/^\$[a-z0-9]*[a-z][a-z0-9]*$/i.test(el.text)) continue;
