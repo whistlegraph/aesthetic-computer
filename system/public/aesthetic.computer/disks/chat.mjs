@@ -72,6 +72,7 @@ let handleColorsFetches = 0; // count of asks made (the e2e test reads this)
 // (tests/browser/laklok-handle-colors.test.mjs). Installed only when the
 // piece booted with `?test=1` or in debug; silent otherwise.
 let chatTestChannel = null;
+let testChatClient = null; // the room being painted, while the test hook is on
 let chatTestFrame = 0;
 let chatClient = null; // the room this piece is showing (set in boot)
 let helpRoom = false, communityButton = null;
@@ -193,6 +194,13 @@ function installChatTestHook({ debug, query }) {
       recolorHandle(h);
     }
     if (data?.type === "snapshot") chatTestChannel?.postMessage(chatTestSnapshot());
+    // A message shown only in this browser, to look at how one renders (a
+    // $code's live box, say). Never sent; gone on reload.
+    if (data?.type === "local-message" && typeof data.text === "string" && testChatClient) {
+      testChatClient.messages.push({ from: data.from || "@test", text: data.text.slice(0, 256), when: new Date().toISOString(), local: true });
+      messagesNeedLayout = true;
+      kidlispRepaint?.();
+    }
   };
 }
 
@@ -341,6 +349,47 @@ let attachUploading = false; // guard against overlapping uploads
 let hoverCursorOn = false;
 const CURSOR_ACTIVE = "url('/aesthetic.computer/cursors/active.svg') 12 12, pointer";
 const CURSOR_PRECISE = "url('/aesthetic.computer/cursors/precise.svg') 12 12, auto";
+
+// 🧬 Live KidLisp previews — a `$code` in a message runs, live, in a box
+// under it (the stored piece itself, not a picture of it). The disk's
+// kidlisp() region API does the work: it fetches and caches the source and
+// carries a piece's animation across scrolls. Chat only confirms that the
+// code is a stored piece first (so "$20" stays text and a typo never
+// retries every frame), reserves the room, and caps how many run at once.
+const KIDLISP_PREVIEW = 64; // the live box
+const KIDLISP_PREVIEW_BAND = 74; // 4px gap + 64px + 6px, like the other previews
+const KIDLISP_PER_MESSAGE = 3;
+const KIDLISP_LIVE_MAX = 4; // running at once across the visible chat
+const kidlispVerified = new Map(); // "$code" → "ok" | "missing" | "checking"
+let kidlispPreviewHits = []; // { x, y, w, h, code } painted this frame
+let kidlispRepaint = null;
+
+function kidlispPreviewCodes(elements) {
+  const codes = [];
+  for (const el of elements || []) {
+    if (el.type !== "kidlisp" || !/^\$[a-z0-9]*[a-z][a-z0-9]*$/i.test(el.text)) continue;
+    const code = el.text.toLowerCase();
+    if (codes.includes(code)) continue;
+    const state = kidlispVerified.get(code);
+    if (state === "ok") codes.push(code);
+    else if (!state) verifyKidlispCode(code);
+    if (codes.length === KIDLISP_PER_MESSAGE) break;
+  }
+  return codes;
+}
+
+function verifyKidlispCode(code) {
+  kidlispVerified.set(code, "checking");
+  fetch(`/api/store-kidlisp?code=${encodeURIComponent(code.slice(1))}`)
+    .then((res) => {
+      kidlispVerified.set(code, res.ok ? "ok" : "missing");
+      if (res.ok) {
+        messagesNeedLayout = true; // make room for the box
+        kidlispRepaint?.();
+      }
+    })
+    .catch(() => kidlispVerified.delete(code)); // offline: ask again later
+}
 
 // 📺 YouTube preview system
 let youtubePreviewCache = new Map(); // Store loaded YouTube thumbnails
@@ -1322,6 +1371,7 @@ function paint(
   options,
 ) {
   const client = options?.otherChat || chat;
+  if (chatTestChannel) testChatClient = client;
   // Closed to new messages on 2026.11.18: the scrollback stays readable, a big
   // CLOSED band sits above and below it, and the one way forward is the
   // Laklok button. The top band holds CLOSED, the date line and the button.
@@ -2420,6 +2470,38 @@ function paint(
     }
   }
   
+  // 🧬 Live KidLisp previews: each verified $code runs in its box. Paint
+  // calls are deferred, so kidlisp() pastes the piece itself at the box, in
+  // order, inside the message area's mask — it clips like the text does.
+  kidlispRepaint = needsPaint;
+  kidlispPreviewHits = [];
+  {
+    const maskTop = effectiveTopMargin;
+    const maskBottom = screen.height - bottomMargin;
+    let live = 0;
+    for (let i = client.messages.length - 1; i >= 0 && live < KIDLISP_LIVE_MAX; i--) {
+      const message = client.messages[i];
+      const codes = message.layout?.kidlispCodes;
+      if (!codes) continue;
+      const previewY = floor(message.layout.y + message.layout.height + 4 + message.layout.kidlispOffset);
+      if (previewY + KIDLISP_PREVIEW <= maskTop || previewY >= maskBottom) continue;
+      let previewX = floor(message.layout.x);
+      for (const code of codes) {
+        if (live >= KIDLISP_LIVE_MAX) break;
+        live += 1;
+        hasAnimatingPaintings = true;
+        ink(40, 20, 50, 200).box(previewX, previewY, KIDLISP_PREVIEW, KIDLISP_PREVIEW); // until it loads
+        api.kidlisp?.(previewX, previewY, KIDLISP_PREVIEW, KIDLISP_PREVIEW, code);
+        ink(255, 0, 255, 150).box(previewX, previewY, KIDLISP_PREVIEW, KIDLISP_PREVIEW, "outline");
+        ink(255, 0, 255).write(code, { x: previewX + 2, y: previewY + KIDLISP_PREVIEW - 9 }, [0, 0, 0, 160], undefined, false, "MatrixChunky8");
+        const top = Math.max(previewY, maskTop);
+        const bottom = Math.min(previewY + KIDLISP_PREVIEW, maskBottom);
+        kidlispPreviewHits.push({ x: previewX, y: top, w: KIDLISP_PREVIEW, h: bottom - top, code });
+        previewX += KIDLISP_PREVIEW + 4;
+      }
+    }
+  }
+
   // Request continuous painting only if we have animating paintings (Ken Burns effect)
   if (hasAnimatingPaintings) {
     needsPaint();
@@ -4376,6 +4458,22 @@ function act(
             }
           }
           
+          // 🧬 Check if click was on a live KidLisp preview
+          if (message.layout.kidlispCodes && !clickedInteractiveElement) {
+            const box = kidlispPreviewHits.find((b) => e.x >= b.x && e.x < b.x + b.w && e.y >= b.y && e.y < b.y + b.h);
+            if (box && message.layout.kidlispCodes.includes(box.code)) {
+              clickedInteractiveElement = true;
+              beep();
+              linkConfirmModal = {
+                type: "kidlisp",
+                text: box.code,
+                displayText: box.code,
+                description: "Open KidLisp piece",
+                action: () => jump(box.code),
+              };
+            }
+          }
+
           // 📺 Check if click was on a YouTube preview
           if (message.layout.youtubeVideoIds && !clickedInteractiveElement) {
             const paintingOffset = message.layout.paintingCodes ? 74 : 0;
@@ -5785,6 +5883,9 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
       const previewHeight = 74;
       height += previewHeight;
     }
+
+    // 🧬 Add space for live KidLisp previews
+    if (kidlispPreviewCodes(message._parsedElements).length > 0) height += KIDLISP_PREVIEW_BAND;
   }
   return height;
 }
@@ -5863,6 +5964,12 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       const previewHeight = 84; // 74px + 10px for caption
       y -= previewHeight;
     }
+
+    // 🧬 Move up for live KidLisp previews — the last band, under the others
+    const kidlispCodes = kidlispPreviewCodes(parsedElements);
+    if (kidlispCodes.length > 0) y -= KIDLISP_PREVIEW_BAND;
+    const kidlispOffset = (paintingCodes.length > 0 ? 74 : 0) + (youtubeVideoIds.length > 0 ? 74 : 0) +
+      (ogUrlsWithPreviews.length > 0 ? 84 : 0);
 
     y -= msgRowHeight * (msg.tb.lines.length - 1) + lineGap;
     if (y > screen.height - bottomMargin) {
@@ -5949,6 +6056,8 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
       paintingPreviews: paintingCodes.length > 0 ? [] : undefined, // Will store loaded previews
       youtubeVideoIds: youtubeVideoIds.length > 0 ? youtubeVideoIds : undefined, // 📺 Store YouTube video IDs
       ogUrls: ogUrls.length > 0 ? ogUrls : undefined, // 🔗 Store OG preview URLs
+      kidlispCodes: kidlispCodes.length > 0 ? kidlispCodes : undefined, // 🧬 Live KidLisp previews
+      kidlispOffset, // where their band starts, under the other previews
     };
 
     delete msg.lastLayout;
