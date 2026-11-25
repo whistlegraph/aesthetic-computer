@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>netprobe · aesthetic.computer</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 24px; background: #111; color: #ddd; font: 15px/1.5 ui-monospace, Menlo, monospace; }
+  h1 { font-size: 18px; margin: 0 0 4px; color: #fff; }
+  p { margin: 4px 0 16px; color: #999; max-width: 40em; }
+  button { font: inherit; padding: 8px 16px; background: #2a6; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
+  button:disabled { background: #444; cursor: default; }
+  table { border-collapse: collapse; margin: 16px 0; }
+  th, td { padding: 4px 12px; text-align: right; border-bottom: 1px solid #222; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: #888; font-weight: normal; }
+  #status { color: #fc6; min-height: 1.5em; }
+  #summary { width: 100%; max-width: 48em; height: 5em; background: #000; color: #9f9; border: 1px solid #333; font: inherit; }
+  .good { color: #6e6; } .ok { color: #fc6; } .bad { color: #f66; }
+</style>
+</head>
+<body>
+<h1>netprobe</h1>
+<p>Measures how your connection reaches each Aesthetic Computer server: the round trip, and how often the stream goes quiet. It takes about 75 seconds. Leave the tab open and in front.</p>
+<button id="go">Start</button>
+<div id="status"></div>
+<table id="results">
+  <thead><tr><th>server</th><th>ping p50</th><th>ping p90</th><th>quiet ≥100 ms /min</th><th>quiet ≥160 ms /min</th><th>longest quiet</th><th>samples</th></tr></thead>
+  <tbody></tbody>
+</table>
+<p>When it finishes, copy the line below and send it to @jeffrey.</p>
+<textarea id="summary" readonly></textarea>
+<button id="copy" disabled>Copy</button>
+<script type="module">
+// 📡 netprobe: three paths, measured the same way, taken in turns so a bad
+// minute on the wire hurts every path alike.
+//   lith  rax's own socket: its 60 Hz snapshots and its ping/pong.
+//   nj    the oskiewar relay in New Jersey, looped back: a challenger seat
+//   sfo   and a publisher seat on one scratch match, 60 stamped messages a
+//         second out through the relay and back to this page.
+// A relay closes a publisher that sends no game state after 10 s, so each
+// turn lasts 8 s.
+const TURN_MS = 8000, ROUNDS = 3;
+const HOSTS = {
+  lith: { label: 'lith (rax, San Francisco)' },
+  nj: { label: 'relay nj (New Jersey)', host: 'session-server.aesthetic.computer' },
+  sfo: { label: 'relay sfo (San Francisco)', host: 'relay-sfo.aesthetic.computer' },
+};
+const stats = {};
+for (const key in HOSTS) stats[key] = { trips: [], gaps: [], ms: 0 };
+const $ = (id) => document.getElementById(id);
+const say = (text) => { $('status').textContent = text; };
+const wait = (ms) => new Promise((done) => setTimeout(done, ms));
+const pick = (list, q) => { const s = [...list].sort((a, b) => a - b); return s.length ? s[Math.min(s.length - 1, Math.floor(q * s.length))] : null; };
+const open = (url) => new Promise((done, fail) => {
+  const ws = new WebSocket(url);
+  ws.onopen = () => done(ws);
+  ws.onerror = () => fail(new Error('could not connect'));
+});
+
+// lith: listen to a scratch room's snapshots, ping four times a second.
+async function turnLith(s) {
+  const room = 'netprobe-' + Math.random().toString(36).slice(2, 7);
+  const ws = await open(`wss://aesthetic.computer/rax/play?room=${room}&protocol=rax-6&wait=1`);
+  let heard = 0;
+  ws.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    const now = performance.now();
+    if (m.type === 'snapshot') { if (heard) s.gaps.push(now - heard); heard = now; }
+    else if (m.type === 'pong' && Number.isFinite(m.at)) s.trips.push(now - m.at);
+  };
+  const start = performance.now();
+  const ping = setInterval(() => ws.readyState === 1 && ws.send(JSON.stringify({ type: 'ping', at: performance.now() })), 250);
+  await wait(TURN_MS);
+  clearInterval(ping); ws.close();
+  s.ms += performance.now() - start;
+}
+
+// A relay: two seats on one scratch match; the challenger talks, the
+// publisher hears it. Every message carries its send time.
+async function turnRelay(s, host) {
+  const match = 'probe' + Math.floor(100 + Math.random() * 900);
+  const base = `wss://${host}/oskiewar-live?match=${match}&surface=probe`;
+  const pub = await open(base + '&role=publisher');
+  await wait(300);
+  const seat = await open(base + '&role=challenger');
+  let heard = 0;
+  pub.onmessage = (e) => {
+    let m; try { m = JSON.parse(e.data); } catch { return; }
+    if (m.type !== 'oskiewar:net' || !Number.isFinite(m.content?.t)) return;
+    const now = performance.now();
+    s.trips.push(now - m.content.t);
+    if (heard) s.gaps.push(now - heard);
+    heard = now;
+  };
+  await wait(300);
+  const start = performance.now();
+  let n = 0;
+  const talk = setInterval(() => seat.readyState === 1 && seat.send(JSON.stringify({ type: 'oskiewar:net', content: { probe: n++, t: performance.now() } })), 1000 / 60);
+  await wait(TURN_MS - 600);
+  clearInterval(talk); seat.close(); pub.close();
+  s.ms += performance.now() - start;
+}
+
+function row(key) {
+  const s = stats[key], min = s.ms / 60000 || 1;
+  const p50 = pick(s.trips, 0.5), p90 = pick(s.trips, 0.9);
+  const q100 = s.gaps.filter((g) => g >= 100).length / min, q160 = s.gaps.filter((g) => g >= 160).length / min;
+  const longest = s.gaps.length ? Math.max(...s.gaps) : null;
+  const tone = (v, a, b) => v === null ? '' : v <= a ? 'good' : v <= b ? 'ok' : 'bad';
+  const fmt = (v) => v === null ? '–' : Math.round(v);
+  return { key, p50, p90, q100, q160, longest, n: s.gaps.length,
+    html: `<tr><td>${HOSTS[key].label}</td><td class="${tone(p50, 60, 120)}">${fmt(p50)}</td><td class="${tone(p90, 80, 160)}">${fmt(p90)}</td>` +
+      `<td class="${tone(q100, 2, 10)}">${q100.toFixed(1)}</td><td class="${tone(q160, 1, 5)}">${q160.toFixed(1)}</td><td>${fmt(longest)}</td><td>${s.gaps.length}</td></tr>` };
+}
+
+function show(done) {
+  const rows = Object.keys(HOSTS).map(row);
+  $('results').querySelector('tbody').innerHTML = rows.map((r) => r.html).join('');
+  if (!done) return;
+  const r = (v) => v === null ? '-' : Math.round(v);
+  $('summary').value = 'netprobe ' + new Date().toISOString().slice(0, 16) + 'Z ' +
+    rows.map((x) => `${x.key}:p50=${r(x.p50)},p90=${r(x.p90)},q100=${x.q100.toFixed(1)},q160=${x.q160.toFixed(1)},max=${r(x.longest)},n=${x.n}`).join(' ') +
+    ` ua=${/Mobile/.test(navigator.userAgent) ? 'mobile' : 'desktop'}` +
+    (navigator.connection?.effectiveType ? ` net=${navigator.connection.effectiveType}` : '');
+  $('copy').disabled = false;
+}
+
+$('go').onclick = async () => {
+  $('go').disabled = true;
+  for (let round = 1; round <= ROUNDS; round++) {
+    for (const key of Object.keys(HOSTS)) {
+      say(`round ${round} of ${ROUNDS}: ${HOSTS[key].label}`);
+      try { key === 'lith' ? await turnLith(stats[key]) : await turnRelay(stats[key], HOSTS[key].host); }
+      catch (err) { say(`${HOSTS[key].label}: ${err.message}`); await wait(1000); }
+      show(false);
+    }
+  }
+  say('done.');
+  show(true);
+};
+$('copy').onclick = () => { $('summary').select(); navigator.clipboard?.writeText($('summary').value); $('copy').textContent = 'Copied'; };
+</script>
+</body>
+</html>
