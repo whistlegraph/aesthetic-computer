@@ -3,7 +3,7 @@
 Generated from [`lib/params.mjs`](../system/public/aesthetic.computer/lib/params.mjs)
 by `node system/scripts/params-doc.mjs`. Edit the ledger, not this file.
 
-75 parameters. A flag is on when present; `=false`
+76 parameters. A flag is on when present; `=false`
 does not turn it off — drop the name. Keep query parameters before any
 `#fragment`.
 
@@ -23,6 +23,7 @@ Boot telemetry records which names were present — names only, never values.
 | --- | --- | --- | --- | --- | --- | --- |
 | `nogap` | flag | view | bar, jump | boot, bios, disk, server | live | Zero gap: the canvas fills its viewport, no rounded corners or checkerboard. |
 | `nolabel` | flag | view | bar, jump | boot, bios, disk, kidlisp, piece:clock | live | Hide the corner label / HUD. |
+| `lcd` | flag | view | — | boot, bios | live | Liquid-crystal background windows: a window you are not using animates at about 12 fps and each frame fades in over the last, instead of running at the display's rate. Lasts the window's life; not carried between pieces. |
 | `heat` | flag | view | — | boot, bios, disk | live | Change heatmap: the worker sends only the screen patches that changed since the last frame, bios tints each as it lands, and the fps HUD shows changed area, paint time and how frames went out. Lasts the window's life; not carried between pieces. |
 | `nosource` | flag | view | bar, jump | boot, bios, disk | live | A KidLisp $code labels itself by name, not source. |
 | `autoreload` | flag | view | bar | boot, bios, disk | live | Take piece updates automatically instead of showing the badge. |

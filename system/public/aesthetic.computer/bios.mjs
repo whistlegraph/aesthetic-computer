@@ -1714,6 +1714,55 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // tints each one as it lands, fading over about a second — a live map of
   // what repaints. Off unless the flag is on.
   const heatOn = resolution?.heat === true;
+
+  // 💧 ?lcd: a window you are not using keeps animating at about 12 frames a
+  // second instead of the display's rate, and each new frame fades in over
+  // the last like a slow liquid-crystal pixel — smooth enough to read as
+  // motion, at a fraction of the cost. lcdCan holds the outgoing frame on
+  // top of the canvas and fades away over the frame's interval; the fade
+  // runs in the compositor, so it asks nothing of the page or the worker.
+  const lcdOn = resolution?.lcd === true;
+  const LCD_MS = 83; // ≈ 12 fps behind
+  const lcdCan = document.createElement("canvas");
+  const lcdCtx = lcdCan.getContext("2d");
+  lcdCan.style.position = "absolute";
+  lcdCan.style.top = "0";
+  lcdCan.style.left = "0";
+  lcdCan.style.zIndex = "1";
+  lcdCan.style.pointerEvents = "none";
+  lcdCan.style.imageRendering = "pixelated";
+  lcdCan.style.opacity = "0";
+  let lcdFading = false;
+
+  // Before a paced frame is drawn: lay the picture on screen over the canvas.
+  function lcdHold() {
+    if (!lcdOn || pacing.paceMs !== LCD_MS || canvas.style.visibility === "hidden") return false;
+    if (lcdCan.width !== canvas.width || lcdCan.height !== canvas.height) {
+      lcdCan.width = canvas.width;
+      lcdCan.height = canvas.height;
+    }
+    lcdCtx.clearRect(0, 0, lcdCan.width, lcdCan.height);
+    lcdCtx.drawImage(canvas, 0, 0);
+    lcdCan.style.transition = "none";
+    lcdCan.style.opacity = "1";
+    void lcdCan.offsetWidth; // commit opacity 1 before the fade starts
+    return true;
+  }
+
+  // After it is drawn: let the old picture fade away into the new one.
+  function lcdRelease() {
+    lcdCan.style.transition = `opacity ${LCD_MS}ms linear`;
+    lcdCan.style.opacity = "0";
+    lcdFading = true;
+  }
+
+  // Back to full rate: nothing held.
+  function lcdClear() {
+    if (!lcdFading) return;
+    lcdCan.style.transition = "none";
+    lcdCan.style.opacity = "0";
+    lcdFading = false;
+  }
   const heatCan = document.createElement("canvas");
   const heatCtx = heatCan.getContext("2d");
   heatCan.style.position = "absolute";
@@ -2037,6 +2086,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webglCompositeCanvas,
       webgpuCanvas,
       gpuFrameCanvas,
+      lcdCan,
       overlayCan,
       heatCan,
       recordingUICan,
@@ -2488,6 +2538,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       bumper.id = "bumper";
       modal.append(bumper);
 
+      wrapper.append(lcdCan);
       wrapper.append(overlayCan);
       wrapper.append(heatCan);
       wrapper.append(recordingUICan); // Recording UI canvas (NOT captured in tape)
@@ -6754,7 +6805,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // A window that is sounding keeps full pace: the paced sim carries its
     // ticks in 10 Hz bursts, which a piece sequencing notes plays out of time.
     const sounding = now - lastAudibleAt < 3000 || anythingStreaming();
-    const paceMs = resting && !sounding && now - lastPaintAt > 1000 ? 100 : 0;
+    // With ?lcd a background window that keeps painting goes at LCD_MS and
+    // crossfades (lcdHold/lcdRelease); without it, it keeps full pace.
+    const paceMs = !resting || sounding ? 0
+      : now - lastPaintAt > 1000 ? 100
+      : lcdOn ? LCD_MS : 0;
+    if (paceMs !== LCD_MS) lcdClear();
     if (paceMs !== pacing.paceMs) Loop.pace(paceMs);
     pacing.paceMs = paceMs;
     pacing.resting = resting;
@@ -20553,6 +20609,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "render" && content.paintChanged === true) lastPaintAt = performance.now();
     meterFrameReturned(type === "render" && content.paintChanged === true);
     if (heatOn && type === "render") paintHeat(content);
+    // The new frame is drawn below by the time the next display frame comes.
+    if (type === "render" && content.paintChanged === true && lcdHold()) requestAnimationFrame(lcdRelease);
     let probeAsyncRender = false;
     try {
 
