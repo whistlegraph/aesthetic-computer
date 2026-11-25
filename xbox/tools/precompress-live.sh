@@ -10,6 +10,11 @@
 # unchanged module keeps its mtime, its ETag, and the open title screens
 # that would otherwise reload for no reason.
 set -e
+# AC's own critical-path modules (bios, lib/, the disk worker bundle) get the
+# same treatment from lith/precompress-core.mjs; this script is the one hook
+# every checkout already runs. Not fatal: that script deletes stale sidecars
+# before it writes any, so a failure only leaves Caddy encoding on the fly.
+node "$(dirname "$0")/../../lith/precompress-core.mjs" || echo "precompress-core failed; serving with encode" >&2
 node "$(dirname "$0")/oskiewar-manifest.mjs" --write
 cd "$(dirname "$0")/../live"
 for f in *.js *.mjs *.html; do

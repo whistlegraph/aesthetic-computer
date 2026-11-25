@@ -1203,14 +1203,24 @@
         handle /lib/* {
             uri strip_prefix /lib
             root * /opt/ac/system/public/aesthetic.computer/lib
-            file_server
+            file_server {
+                precompressed br
+            }
         }
-        # Static files, then SPA fallback
+        # Static files, then SPA fallback.
+        # `precompressed br` answers from the brotli -q 11 sidecars that
+        # lith/precompress-core.mjs writes after every checkout (bios.mjs,
+        # lib/, the current disk worker, sw.js) — about a quarter smaller than
+        # the gzip `encode` makes, and Cloudflare (which asks the origin for
+        # `br, gzip`) passes br through as-is. Without a sidecar it falls
+        # back to `encode`; the script deletes stale sidecars before writing.
         handle {
             root * /opt/ac/system/public
             @static file
             handle @static {
-                file_server
+                file_server {
+                    precompressed br
+                }
             }
             handle {
                 import lith_proxy
