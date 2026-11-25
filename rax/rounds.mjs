@@ -68,7 +68,7 @@ export class Rounds {
   }
 
   // Fly everything on to `now`; return what to draw.
-  step(now, objects = [], time = 0, half) {
+  step(now, objects = [], time = 0, half, open = null) {
     // A target (a scarecrow…) stops a round where it strikes: one box each, as the server has it.
     if (objects !== this.boxesFrom) {
       this.boxesFrom = objects;
@@ -91,13 +91,13 @@ export class Rounds {
     for (const r of this.flying.values()) {
       const dt = dtOf(r);
       if (r.twin) continue; // (ours: drawn as the round this page fired)
-      if (now - r.heardAt < FREE_FLIGHT_MS && !r.stopped) fly(r, dt, objects, time, half, stops);
+      if (now - r.heardAt < FREE_FLIGHT_MS && !r.stopped) fly(r, dt, objects, time, half, stops, open);
       if (!r.stopped) out.push(r);
     }
     this.mine = this.mine.filter((m) => !m.dead && !m.stopped && now - m.bornAt < LIFE_MS && m.bounces <= MAX_BOUNCES &&
       (m.twin !== undefined || now - m.bornAt < UNCLAIMED_MS));
     for (const m of this.mine) {
-      fly(m, dtOf(m), objects, time, half, stops);
+      fly(m, dtOf(m), objects, time, half, stops, open);
       out.push(m);
     }
     return out;
@@ -110,13 +110,14 @@ export class Rounds {
 }
 
 // One frame of flight: along the velocity, off whatever it meets.
-function fly(r, dt, objects, time, half, stops = []) {
+// (`open`: the sides that lead on; a round goes out through one and is the next room's to show.)
+function fly(r, dt, objects, time, half, stops = [], open = null) {
   let left = Math.hypot(r.vx, r.vy, r.vz) * dt;
   for (let k = 0; k < 4 && left > 1e-6; k++) {
     const speed = Math.hypot(r.vx, r.vy, r.vz);
     if (!speed) return;
     const dir = { x: r.vx / speed, y: r.vy / speed, z: r.vz / speed };
-    const hit = surfaceHit(r, dir, left, objects, time, half);
+    const hit = surfaceHit(r, dir, left, objects, time, half, open);
     let stop = Infinity;
     for (const box of stops) stop = Math.min(stop, rayBox(r, dir, box, left));
     if (stop <= left && (!hit || stop <= hit.t)) {
@@ -126,6 +127,7 @@ function fly(r, dt, objects, time, half, stops = []) {
     }
     if (!hit) {
       r.x += dir.x * left; r.y += dir.y * left; r.z += dir.z * left;
+      if (half && (Math.abs(r.x) > half || Math.abs(r.z) > half)) r.stopped = true; // (over the seam: the room beside shows it now)
       return;
     }
     const t = Math.max(0, hit.t - 0.02);

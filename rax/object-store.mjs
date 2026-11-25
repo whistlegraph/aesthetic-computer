@@ -137,6 +137,15 @@ export class ObjectStore {
     this.carried.set(id, { room, origin, object: { ...object, x: at.x, z: at.z, house: false, carried: true } });
     return { origin, room, from: was?.room || origin };
   }
+  // 🌐 A thing carried in from another host (`from`: '~' and that host). If it
+  // was ours to begin with (carried away and now back), it is simply carried here.
+  carryIn(object, room, at, from) {
+    if (!object?.id) return null;
+    // (Ours only if it went away from here: every host lists the house racks, so a rack gun is not proof.)
+    if (this.carried.has(object.id)) return this.carry(object.id, room, at);
+    this.carried.set(object.id, { room, origin: from, object: { ...object, x: at.x, z: at.z, house: false, carried: true } });
+    return { origin: from, room };
+  }
   // Home again: listed where it was built (or racked) once more. → where it had been.
   uncarry(id) {
     const c = this.carried.get(id);

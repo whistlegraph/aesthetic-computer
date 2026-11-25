@@ -267,9 +267,12 @@ export function wallDistance(origin, dir, max = 1000, objects = [], time = 0, ha
 
 // The first surface along a ray, with the face normal there: walls, solid
 // objects and the floor. { t, normal } or null within max.
-export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half = WORLD) {
+// `open`: the sides that lead on to a neighbour (east, west, north, south):
+// no wall stands there, so a round flies on through (match.mjs hands it over).
+export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half = WORLD, open = null) {
   let best = null;
-  for (const b of [...wallsOf(half), ...objectBoxes(objects, time)]) {
+  const walls = open?.length ? wallsOf(half).filter((_, k) => !open.includes(SIDES[k])) : wallsOf(half);
+  for (const b of [...walls, ...objectBoxes(objects, time)]) {
     let near = -Infinity, far = max, axis = null, sign = 0;
     let miss = false;
     for (const k of ['x', 'y', 'z']) {
