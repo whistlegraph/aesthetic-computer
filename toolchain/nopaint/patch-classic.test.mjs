@@ -95,3 +95,43 @@ test("the AI brush is Load's layout and sheet under its own name and SIDs, and c
   assert.ok(!JSON.parse(pristine).project[5].some((row) => row[0] === "AI"));
   assert.equal(patch.apply(pristine), raw);
 });
+
+test("the AI brush reads AI: <strength> <model> <note>, any part missing or ?, and generates the rest from the tuning", () => {
+  const scope = {};
+  new Function("self", readFileSync(new URL("./classic-picker.js", import.meta.url), "utf8"))(scope);
+  const tuning = JSON.parse(readFileSync(new URL("./classic-tuning.json", import.meta.url), "utf8")), ai = tuning.ai;
+  const read = (line, random) => scope.nopaintPicker.aiParams(line.split(" ").filter(Boolean), ai, random)
+    .map((part) => (part.given ? "" : "?") + part.value).join(" | ");
+  const first = () => 0; // every roll takes the first entry
+  assert.equal(read("75 seed make it night", first), "75 | seed | make it night");
+  assert.equal(read("make it night", first), "?25 | ?hy | make it night");
+  assert.equal(read("75 make it night", first), "75 | ?hy | make it night");
+  assert.equal(read("SEED night", first), "?25 | seed | night");
+  assert.equal(read("? ? night", first), "?25 | ?hy | night");
+  assert.equal(read("", first), `?25 | ?hy | ?${ai.notes[0]}`);
+  assert.equal(read("? ? ?", first), `?25 | ?hy | ?${ai.notes[0]}`);
+  // Rolls follow the weights and stay in the tables.
+  const counts = {};
+  for (let i = 0; i < 4000; i++) for (const part of scope.nopaintPicker.aiParams([], ai)) counts[part.value] = (counts[part.value] || 0) + 1;
+  for (const value of Object.keys(counts)) assert.ok(value in ai.strengths || value in ai.models || ai.notes.includes(value), value);
+  assert.ok(counts.hy > counts.krea * 1.8, `hy ${counts.hy}, krea ${counts.krea}`);
+  // Every label the game can draw fits its one line of 28 letters.
+  const longest = (list) => Math.max(...list.map((item) => String(item).length));
+  assert.ok(`AI: ${"x".repeat(longest(Object.keys(ai.strengths)))} ${"x".repeat(longest(Object.keys(ai.models)))} ${"x".repeat(longest(ai.notes))}`.length <= 28);
+  for (const entry of Object.values(ai.models)) assert.match(entry.model, /^[\w.-]+\/[\w.-]+$/);
+});
+
+test("a generated model is rolled only among the codes the free day covers, weights kept; a typed one stays", () => {
+  const scope = {};
+  new Function("self", readFileSync(new URL("./classic-picker.js", import.meta.url), "utf8"))(scope);
+  const ai = JSON.parse(readFileSync(new URL("./classic-tuning.json", import.meta.url), "utf8")).ai, picker = scope.nopaintPicker;
+  const counts = {};
+  for (let i = 0; i < 6000; i++) { const code = picker.aiParams([], ai, Math.random, ["hy", "seed", "krea"])[1].value; counts[code] = (counts[code] || 0) + 1; }
+  assert.deepEqual(Object.keys(counts).sort(), ["hy", "krea", "seed"]);
+  // hy 3 : seed 2 : krea 1
+  assert.ok(Math.abs(counts.hy / 6000 - 0.5) < 0.04 && Math.abs(counts.seed / 6000 - 1 / 3) < 0.04, JSON.stringify(counts));
+  assert.deepEqual(picker.aiParams(["75", "gpt", "night"], ai, Math.random, ["hy"])[1], { value: "gpt", given: true });
+  // Nothing covered (or not known yet): the whole table, and the page falls back.
+  assert.ok(picker.aiParams([], ai, () => 0.999, [])[1].value in ai.models);
+  assert.equal(picker.aiParams([], ai, () => 0, null)[1].value, "hy");
+});

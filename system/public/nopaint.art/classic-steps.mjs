@@ -188,8 +188,10 @@ async function begin() {
 async function step(event, decision) {
   await arrived;
   if (!piece) await begin();
+  // An AI turn's line is its whole label, "AI: 75 hy make it night"; its options stay the note.
   const score = { kind: event.tool, engine: "nopaint-classic", options: event.options || "", decision,
-    line: event.options ? `${event.tool}: ${event.options}` : event.tool, ...(receipts.get(event.turn) ? { ai: receipts.get(event.turn) } : {}) };
+    line: event.line || (event.options ? `${event.tool}: ${event.options}` : event.tool), ...(event.params ? { params: event.params } : {}),
+    ...(receipts.get(event.turn) ? { ai: receipts.get(event.turn) } : {}) };
   let added = new Uint8ClampedArray(SIDE * SIDE * 4), composite = piece.composite.pixels;
   if (decision === "paint") {
     // Keep only what changed. The painting is opaque, so a changed pixel laid
@@ -248,17 +250,25 @@ async function save() {
 state.save = save;
 
 // ---- AI turns ---------------------------------------------------------------
-const receipts = new Map(); // turn id → { model, braincells }
+const receipts = new Map(); // turn id → { model, braincells, strength, code, ms, ... }
 // What happened lately, for looking at when something goes wrong: window.nopaintSteps.log
 const log = (text) => { state.log.push(`${new Date().toISOString().slice(11, 23)} ${text}`); if (state.log.length > 60) state.log.shift(); };
-let settings = null, offer = null, free = null, tired = false; // tired: a turn failed; no more this visit
-// The brain an AI turn uses: the cheapest that paints at the painting's size.
+let settings = null, offer = null, brains = [], free = null, tired = false; // tired: a turn failed; no more this visit
+// The brains that paint at the painting's size; offer is the cheapest.
 async function catalog() {
   const response = await fetch(MOVES, { cache: "no-store" });
   if (!response.ok) throw new Error("the AI service did not answer");
-  const fits = ((await response.json()).models || []).filter((model) => model.available && model.size?.[0] === SIDE && model.size?.[1] === SIDE);
-  offer = fits.toSorted((a, b) => a.braincells - b.braincells)[0] || null;
+  brains = ((await response.json()).models || []).filter((model) => model.available && model.size?.[0] === SIDE && model.size?.[1] === SIDE);
+  offer = brains.toSorted((a, b) => a.braincells - b.braincells)[0] || null;
 }
+// The brain a turn asked for (the tuning's model id, "tencent/hy-image-v3.5-preview"),
+// if the catalog has it at this size: ids are "<route>:<model>".
+const brainFor = (model) => model ? brains.find((brain) => brain.id === model || brain.id.split(":").slice(1).join(":") === model) || null : null;
+// The tuning's code for a brain ("hy"), or a short name from its id.
+const codeFor = (brain) => Object.entries(settings?.models || {}).find(([, entry]) => brainFor(entry.model)?.id === brain.id)?.[0]
+  || brain.id.split("/").pop().split("@")[0].slice(0, 8);
+// The tuning's model codes the free day covers now; the game rolls only among them.
+const affordable = () => Object.entries(settings?.models || {}).filter(([, entry]) => { const brain = brainFor(entry.model); return brain && free >= brain.braincells; }).map(([code]) => code);
 // What is left of the handle's free Braincells today.
 async function allowance() {
   const token = await bearer();
@@ -279,6 +289,7 @@ async function raise() {
       if (free === null) await allowance().catch((error) => log(`wallet: ${error.message}`));
     }
     const answer = await ask("flags", { flags: { ai: Boolean(aiOffer()) } });
+    await ask("aiModels", { codes: affordable() });
     log(`ai flag ${answer.flags.ai ? "up" : "down"}${tired ? " (tired)" : ""}, free ${free}`);
   } catch (error) { log(`raise failed: ${error.message}`); }
   show();
@@ -291,26 +302,40 @@ async function png(pixels) {
   for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
   return btoa(binary);
 }
-// One AI turn: the painting and the game's note go up; the picture goes to the game.
-async function aiTurn({ id, note, settings: turn = {} }) {
-  const using = aiOffer();
-  log(`ai turn ${id} "${note}" ${using ? using.id : "no offer"}`);
+// One AI turn: the painting, the game's note and strength go up to the model
+// the game chose; the picture goes to the game. Each turn's time is kept.
+async function aiTurn({ id, note, strength, model, provider, line }) {
+  const cheapest = aiOffer(); // AI turns are on while the free day covers the cheapest
+  let using = cheapest ? brainFor(provider) : null;
+  if (cheapest && !using) log(`ai turn ${id}: ${model || "no model"} (${provider}) is not offered at ${SIDE}; the cheapest, ${cheapest.id}, instead`);
+  else if (cheapest && free < using.braincells) { log(`ai turn ${id}: the free day does not cover ${model} (${using.braincells}); the cheapest, ${cheapest.id}, instead`); using = null; }
+  using ||= cheapest;
+  // The label names the model that paints, before the picture shows.
+  if (using && using !== brainFor(provider)) { model = codeFor(using); await ask("aiUse", { turn: id, model, provider: using.id.split(":").slice(1).join(":") }).catch((error) => log(`aiUse: ${error.message}`)); }
+  const power = [0.25, 0.5, 0.75].includes(strength) ? strength : 0.5;
+  log(`ai turn ${id} "${line || note}" ${using ? `${using.id} at ${power}` : "no offer"}`);
   try {
     if (!using) throw new Error("no AI turn can be had");
+    const started = performance.now();
     const response = await fetch(MOVES, { method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${await bearer()}` },
-      body: JSON.stringify({ requestId: crypto.randomUUID(), strength: [0.25, 0.5, 0.75].includes(turn.strength) ? turn.strength : 0.5,
+      body: JSON.stringify({ requestId: crypto.randomUUID(), strength: power,
         seed: Math.floor(Math.random() * 2 ** 31), hint: note, image: await png((await painting()).pixels), quote: using.quote, model: using.id }) });
     const value = await response.json().catch(() => ({}));
-    if (!response.ok || typeof value.image !== "string") throw Object.assign(new Error(value.error || `the AI service answered ${response.status}`), { status: response.status, code: value.code });
+    const ms = Math.round(performance.now() - started);
+    if (!response.ok || typeof value.image !== "string") throw Object.assign(new Error(value.error || `the AI service answered ${response.status}`), { status: response.status, code: value.code, ms });
     // The free day pays; a turn that reached bought Braincells is the last.
     free = value.billing?.paid ? 0 : free - (value.billing?.free ?? using.braincells);
-    receipts.set(id, { model: using.id, braincells: value.billing?.braincells ?? 0 });
-    log(`ai turn ${id} got a picture`);
+    // ms: request sent to picture back, here; typical: the service's own
+    // average for this model over recent moves, from its catalog.
+    receipts.set(id, { model: using.id, braincells: value.billing?.braincells ?? 0, strength: power, code: model || null,
+      ...(using.id.split(":").slice(1).join(":") !== provider && provider ? { asked: provider } : {}),
+      ms, ...(Number.isFinite(using.timing?.averageSeconds) ? { typical: using.timing.averageSeconds } : {}) });
+    log(`ai turn ${id} got a picture from ${using.id} in ${(ms / 1000).toFixed(1)} s${using.timing?.averageSeconds ? ` (typical ${using.timing.averageSeconds} s)` : ""}`);
     await ask("aiResult", { turn: id, png: Uint8Array.from(atob(value.image), (c) => c.charCodeAt(0)) });
     log(`ai turn ${id} handed to the game`);
   } catch (error) {
-    log(`ai turn ${id} failed: ${error.message}`);
+    log(`ai turn ${id} failed${error.ms ? ` after ${(error.ms / 1000).toFixed(1)} s` : ""}: ${error.message}`);
     // The sign-in or the free day ran out, or the service is down. Stop asking.
     if (error.status === 401) signedOut();
     tired = true;

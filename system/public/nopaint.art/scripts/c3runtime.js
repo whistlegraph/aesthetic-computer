@@ -2516,6 +2516,38 @@ self.nopaintPicker = {
     for (const [name, list] of lists) { at -= list.share; if (at < 0) return this.pick(resolved, name, random); }
     return this.pick(resolved, lists.at(-1)[0], random);
   },
+  // One value from a table of weights, { value: weight } or [values] (even),
+  // the way the game's AdvancedRandom picks from a brush's own table.
+  weighted(table, random = Math.random) {
+    const entries = Array.isArray(table) ? table.map((value) => [value, 1])
+      : Object.entries(table || {}).map(([value, entry]) => [value, typeof entry === "number" ? entry : entry?.weight ?? 0]).filter(([, weight]) => weight > 0);
+    let at = random() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+    for (const [value, weight] of entries) { at -= weight; if (at < 0) return value; }
+    return entries.at(-1)?.[0] ?? null;
+  },
+  // The AI brush's parameters, read as the classic brushes read theirs:
+  //   AI: <strength> <model> <note…>
+  // strength is one of tuning.ai.strengths (25, 50, 75: how much is repainted),
+  // model one of tuning.ai.models' codes, the note the rest of the line. Each
+  // is optional and may be "?". The leading words are taken by what they are:
+  // a strength if it is one, then a model code if it is one, then the note.
+  // So "AI", "AI: make it night", "AI: 75 make it night", "AI: seed night" and
+  // "AI: ? ? night" all read. A part missing or "?" is generated, from the
+  // tuning's weights; a generated model only from `affordable` (the codes the
+  // painter's free day covers now, as the page says), weights kept, when any
+  // is. A typed model stays as typed. Returns [strength, model, note], each
+  // { value, given }.
+  aiParams(words, ai = {}, random = Math.random, affordable = null) {
+    const strengths = ai.strengths || { 50: 1 }, models = ai.models || {}, rest = [...words];
+    const covered = Object.fromEntries(Object.entries(models).filter(([code]) => affordable?.includes(code)));
+    const rolled = Object.keys(covered).length ? covered : models;
+    const take = (fits) => rest.length && (rest[0] === "?" || fits(rest[0])) ? rest.shift() : null;
+    const strength = take((word) => word in strengths), model = take((word) => word.toLowerCase() in models);
+    const note = rest.join(" ").trim();
+    const part = (word, table) => word && word !== "?" ? { value: word, given: true } : { value: this.weighted(table, random), given: false };
+    return [part(strength, strengths), part(model && model.toLowerCase(), rolled),
+      note && note !== "?" ? { value: note, given: true } : { value: this.weighted(ai.notes || ["surprise me"], random), given: false }];
+  },
   // The next proposal of a run, with the two rules that look back: the first
   // comes from tuning.first, and a list named in tuning.norepeat never gives
   // the same brush twice running. `run` is { count, last }, kept by the caller.
@@ -2533,7 +2565,7 @@ self.nopaintPicker = {
 /* nopaint-patch:picker:end */
 
 /* nopaint-patch:tuning:begin */
-self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. split: the chance of each list. first: the list the first proposal comes from. norepeat: lists that never give the same brush twice running. An entry is a weight, or {in100: n} to ask for n in 100 of all proposals; when: \"ai\" offers it only while an AI turn can be had. Print the table: node toolchain/nopaint/classic-odds.mjs","split":{"Brushes":63.33,"Filters":31.67,"AI":5},"first":"Brushes","norepeat":["Filters"],"Brushes":{"Aura":0.4,"Banner":1,"Box":1.5,"Breathe":0.5,"Bubbles":0.6,"Build":1,"Caterpillar":0.25,"Dark Window":0.6,"Ellipse":0.8,"Frame":0.25,"Grid Worm":0.35,"Line":0.8,"Softy":1.5,"Stamp":2,"Triangle":0.8,"Vignette":0.4,"Wafer":0.8,"Walker":0.2},"Filters":{"Blur":1,"Contrast":1,"Flip":1,"Invert":1,"Light Bump":1,"Mirror":1,"Noise":1,"Quicksand":1,"Rainbow":1,"Recurse":1,"Saturate":1,"Scroll":1,"Sharpen":1,"Spin":1,"Turn":1,"Wipe":1,"Zoom":1},"AI":{"AI":{"weight":1,"when":"ai","ai":true}},"ai":{"strength":0.5,"guests":true,"notes":["add something surprising","make it stranger","add a small creature","turn it into a landscape","add weather","make it glow","fill the empty parts","add a pattern","make it look older","add a face somewhere","paint over it loosely","add sea life"]}};
+self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. split: the chance of each list. first: the list the first proposal comes from. norepeat: lists that never give the same brush twice running. An entry is a weight, or {in100: n} to ask for n in 100 of all proposals; when: \"ai\" offers it only while an AI turn can be had. Print the table: node toolchain/nopaint/classic-odds.mjs","split":{"Brushes":63.33,"Filters":31.67,"AI":5},"first":"Brushes","norepeat":["Filters"],"Brushes":{"Aura":0.4,"Banner":1,"Box":1.5,"Breathe":0.5,"Bubbles":0.6,"Build":1,"Caterpillar":0.25,"Dark Window":0.6,"Ellipse":0.8,"Frame":0.25,"Grid Worm":0.35,"Line":0.8,"Softy":1.5,"Stamp":2,"Triangle":0.8,"Vignette":0.4,"Wafer":0.8,"Walker":0.2},"Filters":{"Blur":1,"Contrast":1,"Flip":1,"Invert":1,"Light Bump":1,"Mirror":1,"Noise":1,"Quicksand":1,"Rainbow":1,"Recurse":1,"Saturate":1,"Scroll":1,"Sharpen":1,"Spin":1,"Turn":1,"Wipe":1,"Zoom":1},"AI":{"AI":{"weight":1,"when":"ai","ai":true}},"ai":{"guests":true,"strengths":{"25":2,"50":3,"75":3},"models":{"hy":{"model":"tencent/hy-image-v3.5-preview","weight":3},"gpt":{"model":"openai/gpt-image-2","weight":3},"mini":{"model":"openai/gpt-image-1-mini","weight":1},"flare":{"model":"openai/gpt-image-2.5-flare","weight":1},"seed":{"model":"bytedance-seed/seedream-5-0-flash","weight":2},"flux":{"model":"black-forest-labs/flux.2-klein-4b","weight":1},"krea":{"model":"krea/krea-2-medium-turbo","weight":1}},"notes":["make it night","change season","another place","go abstract","another style","zoom out","make it a city","underwater","make it a map","as a mosaic","make it winter","something else","add weather","add a creature","add a pattern","make it glow"]}};
 /* nopaint-patch:tuning:end */
 
 /* nopaint-patch:bridge:begin */
@@ -2546,9 +2578,9 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 //   ready, layout             the game started; it changed layout
 //   proposed {step, tool}     a brush began to show a proposal
 //   painting {step, tool}               Paint was pressed
-//   painted {step, tool, options}       the proposal is over and is in the painting
+//   painted {step, tool, options}       the proposal is over and is in the painting (an AI turn adds turn, line, params)
 //   refused {step, tool, options}       the proposal was left without Paint (No)
-//   ai {id, note, settings}             an AI turn began (the AI brush); answer with aiResult
+//   ai {id, note, strength, model, provider, line, settings}   an AI turn began (the AI brush); answer with aiResult
 //   failed {step, tool, turn}           an AI turn got no picture; not a step
 //   saving {code}                       Save was pressed
 // The page asks:   {to:"game", id, op, ...}  →  {to:"page", id, result} or {to:"page", id, error}
@@ -2588,7 +2620,7 @@ self.nopaintTuning = {"note":"The odds of each proposal in No Paint classic. spl
 // A brush's own tables (Stamp, Softy and Build keep some) are left alone, and
 // so is everything if the picker or the tuning is missing.
 const classic = (self.nopaintClassic = { tuning: self.nopaintTuning || null, flags: {}, run: {}, resolved: null, force: null,
-  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null, pointer: null, picked: null, brush: false,
+  turns: new Map(), turn: 0, runtime: null, onTurn: null, code: null, onSaving: null, pointer: null, picked: null, brush: false, affordable: null,
   // The game's Save asks the save server for a code. This is added to that
   // request (below): it names the AC painting these steps belong to, and the
   // server hands its #code back as the code.
@@ -2666,21 +2698,42 @@ const entryOf = (name) => { for (const list of Object.keys(classic.tuning?.split
 
 runOnStartup(async (runtime) => {
   classic.runtime = runtime;
-  // The AI brush takes its turn as it starts, before its sheet runs: the note
-  // the picker chose, or one typed after it ("AI: add rain"), or one of the
-  // tuning's. Its Params is the turn's code, which its sheet fetches, and its
-  // hint is the note, which its sheet prints: "AI: add rain".
+  // The AI brush takes its turn as it starts, before its sheet runs. Its
+  // parameters, AI: <strength> <model> <note…>, are read and generated the
+  // way every classic brush's are: what was typed is given (SpecifiedParameter),
+  // and a part missing or "?" is generated (GeneratedParameter), here from the
+  // tuning's weights (classic-picker.js, aiParams). A proposal the picker made
+  // has nothing typed, so all three are generated. Core's own functions build
+  // the hint (generated parts faint, as for any brush) and the prompt line
+  // ("AI: ? ? ?" re-rolls, as for any brush). Then Params is the turn's code,
+  // which the sheet fetches, and the sheet prints the hint: "AI: 75 hy make it night".
   try {
+    // Write a turn's parameters into the game: ParamsArray, the hint and the
+    // prompt line, by Core's own functions, as any brush's are written.
+    classic.writeParams = (turn) => {
+      const vars = runtime.globalVars;
+      turn.line = `AI: ${turn.parts.map((part) => part.value).join(" ")}`;
+      try {
+        const params = runtime.objects.ParamsArray.getFirstInstance();
+        vars.parameterHint = "";
+        params.setSize(3, 1, 1);
+        turn.parts.forEach((part, i) => {
+          if (part.given) { params.setAt(part.value, i); runtime.callFunction("SpecifiedParameter", i + 1); }
+          else runtime.callFunction("GeneratedParameter", i + 1, String(part.value), "");
+        });
+      } catch (error) { console.warn("[nopaint] the AI brush's parameters were written by hand", error); vars.parameterHint = ` ${turn.parts.map((part) => part.value).join(" ")}`; }
+    };
     runtime.getLayout("AI").addEventListener("beforelayoutstart", () => {
-      const vars = runtime.globalVars, notes = classic.tuning?.ai?.notes || [];
-      const typed = classic.picked ? "" : String(vars.Params || "").trim();
-      const note = typed || notes[Math.floor(Math.random() * notes.length)] || "surprise me";
-      const turn = { id: `ai${++classic.turn}`, name: classic.picked || "AI", note, blob: null, error: null, settle: null };
+      const vars = runtime.globalVars, ai = classic.tuning?.ai || {};
+      const words = classic.picked ? [] : String(vars.Params || "").trim().split(/\s+/).filter(Boolean);
+      const parts = self.nopaintPicker.aiParams(words, ai, Math.random, classic.affordable);
+      const [strength, model, note] = parts;
+      const turn = { id: `ai${++classic.turn}`, name: classic.picked || "AI", note: note.value, strength: Number(strength.value) / 100,
+        model: model.value, provider: ai.models?.[model.value]?.model || null, parts, blob: null, error: null, settle: null };
       classic.picked = null;
       classic.turns.set(turn.id, turn);
+      classic.writeParams(turn);
       vars.Params = turn.id;
-      vars.parameterHint = ` ${note}`;
-      vars.promptText = `AI: ${note}`; // what the keyboard opens on, as for any brush
       classic.onTurn?.(turn);
     });
     classic.brush = true;
@@ -2873,7 +2926,21 @@ runOnStartup(async (runtime) => {
     // The #code of the AC painting on the canvas, or null: what Save will show.
     code({ code }) { classic.code = code ? String(code) : null; return { code: classic.code }; },
     // The tuning's settings for AI turns, for the page.
-    settings() { return { ai: classic.tuning?.ai || null, hooked: !!classic.hooked }; },
+    settings() { return { ai: classic.tuning?.ai || null, hooked: !!classic.hooked, affordable: classic.affordable }; },
+    // The model codes the painter's free day covers now: a generated model is rolled only among them.
+    aiModels({ codes = null }) { classic.affordable = Array.isArray(codes) ? codes.map(String) : null; return { affordable: classic.affordable }; },
+    // The page could not use the turn's model and uses this one (a code, and its
+    // catalog id): the label names it, before the picture shows. It was not
+    // asked for, so it prints as generated.
+    aiUse({ turn: name, model, provider }) {
+      const turn = classic.turns.get(name);
+      if (!turn) throw new Error(`no AI turn ${name}`);
+      turn.asked = turn.provider; turn.model = String(model); turn.provider = provider || null;
+      turn.parts[1] = { value: turn.model, given: false };
+      classic.writeParams(turn);
+      if (where() === "AI" && String(vars.Params) === turn.id) runtime.callFunction("PrintParameterHint");
+      return { turn: name, line: turn.line };
+    },
     // Make the next proposal this brush, once. For tests, and for asking.
     force({ name }) { classic.force = String(name); return { force: classic.force }; },
     goto({ layout }) {
@@ -2904,7 +2971,7 @@ runOnStartup(async (runtime) => {
   const NOT_BRUSHES = /^(Index|Splash|Load|Playlist)$|Profile|PainterStories/;
   const hint = () => String(vars.parameterHint || "").replace(/\[\/?[a-z]+(?:=[^\]]*)?\]/gi, "").trim();
   classic.onSaving = () => say({ event: "saving", code: classic.code });
-  classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, settings: classic.tuning.ai || {} });
+  classic.onTurn = (turn) => say({ event: "ai", id: turn.id, note: turn.note, strength: turn.strength, model: turn.model, provider: turn.provider, line: turn.line, settings: classic.tuning.ai || {} });
   // Save writes the code at the right end of the pause bar, a colour to each
   // letter. An AC painting's code is a #code and has an address, so the line
   // reads prompt.ac/#code. The game's font cannot say that: its # is a carrot
@@ -2971,7 +3038,8 @@ runOnStartup(async (runtime) => {
       // has left the brush, so "painted" is said here and not when the flag falls.
       // An AI turn that never got its picture was not answered: it "failed".
       if (proposal) say({ event: proposal.painted ? "painted" : proposal.turn?.error ? "failed" : "refused", ...state(),
-        step: proposal.step, tool: proposal.tool, options: proposal.options, ...(proposal.turn ? { turn: proposal.turn.id } : {}) });
+        step: proposal.step, tool: proposal.tool, options: proposal.options,
+        ...(proposal.turn ? { turn: proposal.turn.id, line: proposal.turn.line, params: { strength: proposal.turn.strength, model: proposal.turn.model } } : {}) });
       layout = now;
       // The AI brush's proposal is its turn.
       const turn = now === "AI" ? classic.turns.get(String(vars.Params)) : null;

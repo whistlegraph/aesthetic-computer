@@ -66,6 +66,38 @@ self.nopaintPicker = {
     for (const [name, list] of lists) { at -= list.share; if (at < 0) return this.pick(resolved, name, random); }
     return this.pick(resolved, lists.at(-1)[0], random);
   },
+  // One value from a table of weights, { value: weight } or [values] (even),
+  // the way the game's AdvancedRandom picks from a brush's own table.
+  weighted(table, random = Math.random) {
+    const entries = Array.isArray(table) ? table.map((value) => [value, 1])
+      : Object.entries(table || {}).map(([value, entry]) => [value, typeof entry === "number" ? entry : entry?.weight ?? 0]).filter(([, weight]) => weight > 0);
+    let at = random() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+    for (const [value, weight] of entries) { at -= weight; if (at < 0) return value; }
+    return entries.at(-1)?.[0] ?? null;
+  },
+  // The AI brush's parameters, read as the classic brushes read theirs:
+  //   AI: <strength> <model> <note…>
+  // strength is one of tuning.ai.strengths (25, 50, 75: how much is repainted),
+  // model one of tuning.ai.models' codes, the note the rest of the line. Each
+  // is optional and may be "?". The leading words are taken by what they are:
+  // a strength if it is one, then a model code if it is one, then the note.
+  // So "AI", "AI: make it night", "AI: 75 make it night", "AI: seed night" and
+  // "AI: ? ? night" all read. A part missing or "?" is generated, from the
+  // tuning's weights; a generated model only from `affordable` (the codes the
+  // painter's free day covers now, as the page says), weights kept, when any
+  // is. A typed model stays as typed. Returns [strength, model, note], each
+  // { value, given }.
+  aiParams(words, ai = {}, random = Math.random, affordable = null) {
+    const strengths = ai.strengths || { 50: 1 }, models = ai.models || {}, rest = [...words];
+    const covered = Object.fromEntries(Object.entries(models).filter(([code]) => affordable?.includes(code)));
+    const rolled = Object.keys(covered).length ? covered : models;
+    const take = (fits) => rest.length && (rest[0] === "?" || fits(rest[0])) ? rest.shift() : null;
+    const strength = take((word) => word in strengths), model = take((word) => word.toLowerCase() in models);
+    const note = rest.join(" ").trim();
+    const part = (word, table) => word && word !== "?" ? { value: word, given: true } : { value: this.weighted(table, random), given: false };
+    return [part(strength, strengths), part(model && model.toLowerCase(), rolled),
+      note && note !== "?" ? { value: note, given: true } : { value: this.weighted(ai.notes || ["surprise me"], random), given: false }];
+  },
   // The next proposal of a run, with the two rules that look back: the first
   // comes from tuning.first, and a list named in tuning.norepeat never gives
   // the same brush twice running. `run` is { count, last }, kept by the caller.

@@ -403,9 +403,28 @@ function that uses it.)
   fetches `https://server.nopaint.art/painting/<code>.png` and prints the hint,
   so the label reads `AI: add weather`. The bridge's wrapped `C3.FetchBlob`
   holds that fetch, on the AI layout only, until the page answers `aiResult
-  {turn, png}`; a failed turn sets the game's error to `AI Failed`. Typed at
-  the prompt, `AI: add rain` is a turn with that note. The picture holds at
-  full strength, so Paint paints all of it. The page (`classic-steps.mjs`) makes the picture with Note Paint's
+  {turn, png}`; a failed turn sets the game's error to `AI Failed`. The picture
+  holds at full strength, so Paint paints all of it.
+- **AI parameters** (2026-11-25): `AI: <strength> <model> <note…>`. strength
+  is 25, 50 or 75 (how much is repainted), model a short code from
+  `tuning.ai.models` (each names a `/api/nopaint-inference` model at 256),
+  the note the rest. Leading words are taken by what they are, any part may be
+  missing or `?`, so `AI`, `AI: make it night`, `AI: 75 make it night` and
+  `AI: ? seed night` all read (`classic-picker.js`, `aiParams`). What is
+  missing is generated from the tuning's weights (`ai.strengths`,
+  `ai.models`, `ai.notes`), and the bridge hands each part to Core's own
+  `SpecifiedParameter` or `GeneratedParameter`, as every brush's parameters
+  are handled: generated parts print faint, and the keyboard reopens on
+  `AI: ? ? ?`. The page uses that model if the catalog has it at 256 and the
+  free day covers it, else the cheapest (it logs why). A stored step keeps
+  kind `AI`, options = the note, `line` = the label, `params {strength,
+  model}`, and `ai {model, braincells, strength, code, ms, typical}` (ms:
+  the call as the page timed it; typical: the service's catalog average).
+- **Which model.** `toolchain/visual-bench/bench.mjs` times every image-edit
+  model AC reaches (No Paint's catalog, Easel's hosted images) on fixed
+  paintings and notes; `toolchain/nopaint/ai-bench.mjs` runs it on the
+  tuning's models. Both print the plan and its Braincell cost and spend
+  nothing without `--yes` and an operator's `AC_BEARER`. The page (`classic-steps.mjs`) makes the picture with Note Paint's
   move, `POST /api/nopaint-inference`: the painting, the note the game chose
   from `tuning.ai.notes`, and a strength. A guest uses the service's one free
   turn; a signed-in painter pays Braincells and turns AI on with a chip. The

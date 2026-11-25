@@ -56,21 +56,59 @@
     }
   },
   "ai": {
-    "strength": 0.5,
     "guests": true,
+    "strengths": {
+      "25": 2,
+      "50": 3,
+      "75": 3
+    },
+    "models": {
+      "hy": {
+        "model": "tencent/hy-image-v3.5-preview",
+        "weight": 3
+      },
+      "gpt": {
+        "model": "openai/gpt-image-2",
+        "weight": 3
+      },
+      "mini": {
+        "model": "openai/gpt-image-1-mini",
+        "weight": 1
+      },
+      "flare": {
+        "model": "openai/gpt-image-2.5-flare",
+        "weight": 1
+      },
+      "seed": {
+        "model": "bytedance-seed/seedream-5-0-flash",
+        "weight": 2
+      },
+      "flux": {
+        "model": "black-forest-labs/flux.2-klein-4b",
+        "weight": 1
+      },
+      "krea": {
+        "model": "krea/krea-2-medium-turbo",
+        "weight": 1
+      }
+    },
     "notes": [
-      "add something surprising",
-      "make it stranger",
-      "add a small creature",
-      "turn it into a landscape",
+      "make it night",
+      "change season",
+      "another place",
+      "go abstract",
+      "another style",
+      "zoom out",
+      "make it a city",
+      "underwater",
+      "make it a map",
+      "as a mosaic",
+      "make it winter",
+      "something else",
       "add weather",
-      "make it glow",
-      "fill the empty parts",
+      "add a creature",
       "add a pattern",
-      "make it look older",
-      "add a face somewhere",
-      "paint over it loosely",
-      "add sea life"
+      "make it glow"
     ]
   }
 }
