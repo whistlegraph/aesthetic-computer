@@ -746,7 +746,8 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
     /// Where a MacPal badge stands on this screen, in the fishery's own
     /// coordinates (y up, the tank's world offset added), or .zero. Any corner
     /// counts — the pal can be dragged to all four — and the modules under it
-    /// step aside. Window bounds need no screen-recording grant.
+    /// step aside. The Fuser profile's lane pane widens the window to over
+    /// half a 2560 screen, so only a near-full-width window is skipped. Window bounds need no screen-recording grant.
     private func badgeRect() -> CGRect {
         guard let screen = window?.screen, let primary = NSScreen.screens.first,
               let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]]
@@ -758,7 +759,7 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         for w in list where w[kCGWindowOwnerName as String] as? String == "MacPal" {
             guard let b = w[kCGWindowBounds as String] as? NSDictionary,
                   let r = CGRect(dictionaryRepresentation: b), r.intersects(frame),
-                  r.width < frame.width / 3, r.height < frame.height / 2 else { continue }
+                  r.width < frame.width * 0.75, r.height < frame.height / 2 else { continue }
             let local = CGRect(x: r.minX - frame.minX + (TankConfig.current?.offset ?? 0),
                                y: frame.maxY - r.maxY, width: r.width, height: r.height)
             out = out.isEmpty ? local : out.union(local)
