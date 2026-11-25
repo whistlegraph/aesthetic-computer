@@ -88,7 +88,7 @@ try {
   const opts = { maxTimeMS: 20000 };
   const [wallets, allowance, ledger, nopaint, speech, apple, tezos, stripe, openRouterState, firstLedger, book, firstBook] = await Promise.all([
     db.collection("ac-credit-wallets").find({}, { projection: { balance: 1, spent: 1, holds: 1, daily: 1, grants: 1 }, ...opts }).toArray(),
-    db.collection("ai-usage").find({ day: { $in: days } }, { projection: { handle: 1, day: 1, tokens: 1, asks: 1, lastModel: 1 }, ...opts }).toArray(),
+    db.collection("ai-usage").find({ day: { $in: days } }, { projection: { handle: 1, day: 1, tokens: 1, nopaint: 1, asks: 1, lastModel: 1 }, ...opts }).toArray(),
     db.collection(LEDGER_COLLECTION).find({ at: range }, { projection: { _id: 0 }, ...opts }).toArray(),
     db.collection("nopaint-move-requests").find({ startedAt: range, status: "complete" }, { projection: { user: 1, model: 1, charged: 1, paid: 1 }, ...opts }).toArray(),
     db.collection("whistlegraph-speech-requests").find({ startedAt: range, status: "complete" }, { projection: { user: 1, charged: 1, paid: 1 }, ...opts }).toArray(),

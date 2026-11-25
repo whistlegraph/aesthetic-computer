@@ -24,7 +24,8 @@ test("circulation, spending by model and handle, and purchases fold from raw rec
       { _id: "sub-b", balance: -2_000, spent: 10, grants: ["apple:1"] },
       { _id: "sub-c", balance: 0 },
     ],
-    allowance: [{ handle: "bee", day: "2026-10-19", tokens: 150_000, asks: 3, lastModel: "deepseek/deepseek-v4.1-flash" }],
+    allowance: [{ handle: "bee", day: "2026-10-19", tokens: 150_000, asks: 3, lastModel: "deepseek/deepseek-v4.1-flash" },
+      { handle: "kid", day: "2026-10-19", tokens: 0, nopaint: 25_000, asks: 5, lastModel: "tencent/hy-image-v3.5-preview" }],
     ledger: [
       { product: "aesel", handle: "ay", user: "sub-a", model: "anthropic/claude-sonnet-5.5", braincells: 200_000, paid: true },
       { product: "aesel", handle: "bee", user: "sub-b", model: "deepseek/deepseek-v4.1-flash", braincells: 150_000, paid: false },
@@ -46,7 +47,8 @@ test("circulation, spending by model and handle, and purchases fold from raw rec
 
   // Only the window's days count toward purchased spend.
   assert.equal(report.spending.totals.purchasedSpent.braincells, 200_000);
-  assert.equal(report.spending.totals.freeAllowanceUsed.braincells, 150_000);
+  assert.equal(report.spending.totals.freeAllowanceUsed.braincells, 175_000);
+  assert.ok(report.spending.allowanceByHandle.some(r => r.handle === "@kid" && r.braincells === 25_000 && r.asks === 5));
   assert.equal(report.spending.byModel[0].model, "anthropic/claude-sonnet-5.5");
   assert.equal(report.spending.byModel[0].paidBraincells, 200_000);
   assert.ok(report.spending.byModel.some(r => r.model === "openai/whisper-1" && r.braincells === 120));

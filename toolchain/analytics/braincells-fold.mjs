@@ -52,7 +52,8 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
   for (const r of speech) spend("whistlegraph-speech", who(r.user), "openai/whisper-1", Number(r.charged) || 0, (Number(r.paid) || 0) > 0);
 
   const allowanceByHandle = {};
-  for (const r of allowance) add(allowanceByHandle, `@${r.handle}`, Number(r.tokens) || 0, { requests: Number(r.asks) || 0, lastModel: r.lastModel || "" });
+  // No Paint books its free paints on the same day row under `nopaint`, apart from `tokens`.
+  for (const r of allowance) add(allowanceByHandle, `@${r.handle}`, (Number(r.tokens) || 0) + (Number(r.nopaint) || 0), { requests: Number(r.asks) || 0, lastModel: r.lastModel || "" });
   const allowanceTotal = Object.values(allowanceByHandle).reduce((n, r) => n + r.braincells, 0);
   const paidTotal = Object.values(paidByUser).reduce((n, r) => n + r.braincells, 0);
   const sum = (rows, key) => rows.reduce((n, r) => n + (Number(r[key]) || 0), 0);
