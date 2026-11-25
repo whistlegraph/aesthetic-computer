@@ -11,19 +11,8 @@ import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.
 // Builds a guest identity may start per day.
 export const GUEST_BUILDS = 5;
 
-export const ITEM_KINDS = ['shoot', 'poke', 'throw'];
-// 🔫 A typed build is an item when its main noun is one: "a big gun" can be
-// carried, "a house with a cannon on top" is a house. Only the words before
-// the first "with", "on", "that"… are read. The ring's own kind wins.
-const ITEM_WORDS = {
-  shoot: /\b(gun|pistol|blaster|ray ?gun|water ?gun|rifle|shotgun|revolver|uzi|musket|bazooka|launcher|slingshot|crossbow|bow(?! ?tie)|cannon|laser)s?\b/i,
-  poke: /\b(sword|spear|hammer|axe|wand|lance|dagger|knife|katana|mace|trident|scythe|pickaxe|bat|club|staff|saber|sabre)s?\b/i,
-  throw: /\b(ball|baseball|football|frisbee|bomb|grenade|dynamite|snowball|boomerang|dart|shuriken|pie|javelin)s?\b/i,
-};
-export function itemOf(prompt = '') {
-  const head = String(prompt).split(/\b(?:with|on|that|which|holding|made of|in|under|over|next to|beside|and)\b/i)[0];
-  return ITEM_KINDS.find((kind) => ITEM_WORDS[kind].test(head)) || null;
-}
+import { ITEM_KINDS, itemOf } from './item-words.mjs';
+export { ITEM_KINDS, itemOf };
 // An item is hand-sized with its grip at the origin.
 function asItem(shape, kind) {
   if (!kind || shape.format !== OBJECT_FORMAT) return shape;
@@ -230,13 +219,17 @@ export class Builders {
   // Put a copy of a remembered $code in front of the player, no Aesel needed.
   async restore(client, room, owner, seat, code, rid = undefined) {
     try {
-      let entry = this.store.historyEntry(room, code);
+      let entry = this.store.historyEntry(room, code), fetched = false;
       if (!entry) {
+        fetched = true;
         const r = await fetch(`https://aesthetic.computer/api/store-kidlisp?code=${code}`, { signal: AbortSignal.timeout(6000) });
         const { source } = await r.json();
         if (typeof source !== 'string') throw Error('Unknown $' + code);
         const name = /^\s*;\s*([^\n]+)/.exec(source)?.[1] || code;
-        entry = { code, name, item: null, effect: null, geometry: sourceGeometry({ name, source }) };
+        // A code from elsewhere is an item when its own name says so ("; Pistol").
+        const item = itemOf(name);
+        entry = { code, name, item, effect: item && /\b(bomb|grenade|dynamite|explosive|firework|tnt)s?\b/i.test(name) ? 'explode' : null,
+          geometry: sourceGeometry({ name, source }) };
       }
       if (this.store.objects(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
@@ -247,7 +240,8 @@ export class Builders {
         item: entry.item, effect: entry.effect,
         x: Math.round(player.x + Math.sin(yaw) * 4), z: Math.round(player.z + Math.cos(yaw) * 4),
       };
-      const shape = geometry(entry.geometry);
+      // (An item called in from elsewhere is fitted to the hand, as a typed one is.)
+      const shape = fetched ? asItem(geometry(entry.geometry), entry.item) : geometry(entry.geometry);
       const committed = await this.store.commit(job, shape, () => this.place(job, shape));
       await this.store.setCode(room, committed.id, committed.version, code);
       this.send(client, { type: 'build-result', id: job.id, rid, objectId: committed.id, version: committed.version });

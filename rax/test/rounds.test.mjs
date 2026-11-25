@@ -65,3 +65,60 @@ test('snapshots carry each round\'s owner and each item\'s kind', () => {
   assert.equal(fired.length, 1);
   assert.equal(fired[0].owner, 0);
 });
+
+// 🎯 A scarecrow stands, takes the hit, and the match says how much.
+const scarecrow = { id: 's', x: 0, z: 6, target: true, geometry: { name: 'Scarecrow', boxes: [{ x: 0, y: 0.9, z: 0, w: 0.8, h: 1.8, d: 0.4 }] } };
+const gun = { id: 'g', x: 0, z: 0, item: 'shoot', geometry: { name: 'Gun', boxes: [{ x: 0, y: 0.1, z: 0, w: 0.2, h: 0.2, d: 0.4 }] } };
+function armed() {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  m.setObjects([gun, scarecrow]);
+  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: 8, z: -8 });
+  for (let k = 0; k < HZ / 2; k++) m.step();
+  return m;
+}
+const damages = (m) => m.events.filter((e) => e.type === 'damage');
+
+test('a round into a scarecrow strikes it and goes no further', () => {
+  const m = armed();
+  assert.equal(m.held(0)?.kind, 'shoot');
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: -6, use: true }]);
+  let hits = [];
+  for (let k = 0; k < HZ && !hits.length; k++) { m.step(); hits = damages(m); }
+  assert.equal(hits.length, 1, 'struck once');
+  assert.equal(hits[0].target, 's');
+  assert.equal(hits[0].attacker, 0);
+  assert.equal(hits[0].amount, 34);
+  assert.equal(m.bullets.length, 0, 'the round stopped there');
+  assert.equal(m.targets[0].total, 34);
+});
+
+test('a round to the top of a scarecrow is a headshot', () => {
+  const m = armed();
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 5, use: true }]);
+  let hits = [];
+  for (let k = 0; k < HZ && !hits.length; k++) { m.step(); hits = damages(m); }
+  assert.equal(hits[0]?.amount, 100);
+  assert.equal(hits[0]?.crit, true);
+});
+
+test('a poke reaches a scarecrow in front', () => {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  m.setObjects([{ ...gun, item: 'poke' }, { ...scarecrow, z: 1.5 }]);
+  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: 8, z: -8 });
+  for (let k = 0; k < HZ / 2; k++) m.step();
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, use: true }]);
+  m.step();
+  assert.equal(damages(m)[0]?.amount, 34);
+});
+
+test('a round this page flies stops at a scarecrow instead of bouncing off it', () => {
+  const r = new Rounds();
+  r.fire({ x: 0, y: 1.6, z: 0, yaw: 0, pitch: 0 }, 0);
+  r.step(0, [scarecrow], 0);
+  for (let t = 16; t <= 400; t += 16) r.step(t, [scarecrow], 0);
+  assert.equal(r.step(400, [scarecrow], 0).length, 0);
+});

@@ -1,3 +1,4 @@
+import { itemOfObject, targetOfObject } from './item-words.mjs';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, copyFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -117,7 +118,7 @@ export class ObjectStore {
   objects(room) {
     return (this.data.rooms[room] || []).map((o) => {
       const v = o.versions.at(-1);
-      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry, first: o.versions[0]?.prompt || '' };
+      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || itemOfObject(o.versions[0]?.prompt, v.geometry?.name), target: !o.item && targetOfObject(o.versions[0]?.prompt, v.geometry?.name), effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry, first: o.versions[0]?.prompt || '' };
     });
   }
   // Record a version's KidLisp $code once the store has issued it, and

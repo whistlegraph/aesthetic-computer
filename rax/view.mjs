@@ -934,6 +934,9 @@ export async function createView(canvas) {
     }
   }
   const effects = [];
+  // 🎯 Damage numbers off a struck target: they rise and fade (match.mjs strike).
+  const pops = [];
+  const POP_MS = 900;
   // Eyes: two dark patches on the face, shifted by where the player looks
   // (dx, dy in metres) and squeezed shut to h. Cached by quantized state.
   const eyeModels = new Map();
@@ -1224,6 +1227,13 @@ export async function createView(canvas) {
     if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
+    if (e.at && e.type === 'damage') {
+      burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);
+      if (pops.length >= 32) pops.shift();
+      // (Side by side when they land together, so a burst of hits still reads.)
+      const near = pops.filter((p) => performance.now() - p.born < 200 && Math.hypot(p.x - e.at.x, p.z - e.at.z) < 1).length;
+      pops.push({ x: e.at.x + (near % 3 - 1) * 0.35, y: e.at.y, z: e.at.z, label: String(e.amount) + (e.crit ? '!' : ''), crit: e.crit, attacker: e.attacker, born: performance.now() });
+    }
     if (e.at && e.type === 'bop') burst(e.at.x, e.at.y, e.at.z, 14, 0.8);
     if (e.at && e.type === 'removed') burst(e.at.x, e.at.y, e.at.z, 24, 1.3);
     if (e.at && e.type === 'dust') burst(e.at.x, e.at.y, e.at.z, 3, 0.25);
@@ -2304,6 +2314,14 @@ export async function createView(canvas) {
       draw(droneFor(Math.floor(now / 40) % 2), d.x, y, d.z, yawR, lean, 1, -bank + (d.roll || 0));
       if (d.name) tags.push({ label: d.name, x: d.x, y: y + 0.45, z: d.z, at: d });
     }
+    // 🎯 Damage numbers: up and away from where the hit landed, then gone.
+    const popNow = performance.now();
+    for (let i = pops.length - 1; i >= 0; i--) if (popNow - pops[i].born > POP_MS) pops.splice(i, 1);
+    for (const p of pops) {
+      const k = (popNow - p.born) / POP_MS;
+      tags.push({ label: p.label, x: p.x, y: p.y + 0.3 + k * 1.1, z: p.z, pop: true,
+        color: p.crit ? 0xff4422 : p.attacker === seat ? 0xffe066 : 0xffffff });
+    }
     projector.cut = cut;
     for (let i = sparkles.length - 1; i >= 0; i--) {
       const s = sparkles[i],
@@ -2846,6 +2864,12 @@ export async function createView(canvas) {
           // (nearest first below, so the closest player keeps the spot over
           // their own head). Its width allows for the position after it.
           const reach = ((label.length * 6) / 2 + 3) * unit, wide = reach + 15 * 4 * unit;
+          if (t.pop) {
+            // (A damage number keeps to its own spot: it never shoulders a name tag aside.)
+            text(label, x + unit, y - unit, 0.000002, unit, INK);
+            text(label, x, y, 0, unit, t.color);
+            continue;
+          }
           for (let tries = 0; tries < 12; tries++) {
             const hit = placedTags.find((p) => x - reach < p.right && x + wide > p.left && Math.abs(y - p.y) < 9 * unit);
             if (!hit) break;

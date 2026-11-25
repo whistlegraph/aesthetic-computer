@@ -16,6 +16,7 @@ import {
   WORLD,
  HORIZON } from './world.mjs';
 import { command } from './net.mjs';
+import { objectBoxes } from './objects.mjs';
 import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from './bop.mjs';
 
 // Input from a real network arrives late and in bursts. A batch carries the
@@ -52,6 +53,9 @@ export class Match {
     // 🍄 botbop's arena (setArena): its ledges, or null in any other room.
     this.arena = null;
     this.drones = [];
+    // 🎯 Things built to be hit (a scarecrow, a dummy, a zombie): they
+    // stand, take every hit and say how much (setObjects).
+    this.targets = [];
   }
 
   // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
@@ -192,6 +196,18 @@ export class Match {
   }
   setObjects(list = []) {
     this.objects = list.filter((o) => !o.item);
+    // One box around each target's parts: what a round, a poke or a throw meets.
+    this.targets = list.filter((o) => o.target && !o.item).map((o) => {
+      const boxes = objectBoxes([o], 0);
+      if (!boxes.length) return null;
+      const box = { xMin: Infinity, yMin: Infinity, zMin: Infinity, xMax: -Infinity, yMax: -Infinity, zMax: -Infinity };
+      for (const b of boxes) for (const k of ['x', 'y', 'z']) {
+        box[k + 'Min'] = Math.min(box[k + 'Min'], b[k + 'Min']);
+        box[k + 'Max'] = Math.max(box[k + 'Max'], b[k + 'Max']);
+      }
+      const was = this.targets?.find((t) => t.id === o.id);
+      return { id: o.id, box, total: was?.total || 0 };
+    }).filter(Boolean);
     const ids = new Set();
     for (const o of list.filter((o) => o.item)) {
       ids.add(o.id);
@@ -274,7 +290,25 @@ export class Match {
         if ((dx * f.x + dz * f.z) / Math.max(0.01, d) < 0.55) continue;
         this.hit(q, p.seat, 34, { x: dx / d, y: 0.4, z: dz / d }, 9, it.id);
       }
+      for (const t of this.targets) {
+        const c = this.targetCentre(t), dx = c.x - p.x, dz = c.z - p.z;
+        const reach = Math.max(t.box.xMax - t.box.xMin, t.box.zMax - t.box.zMin) / 2 + 1.6, d = Math.hypot(dx, dz);
+        if (d > reach || (dx * f.x + dz * f.z) / Math.max(0.01, d) < 0.4) continue;
+        this.strike(t, p.seat, 34, { x: c.x, y: Math.min(t.box.yMax, p.y - 0.3), z: c.z });
+      }
     }
+  }
+
+  // 🎯 A target takes a hit: nothing moves it and nothing ends it; it only
+  // says how much, where it was struck (the page pops the number).
+  strike(t, attacker, amount, at) {
+    t.total += amount;
+    const top = t.box.yMax;
+    this.emit('damage', { target: t.id, attacker, amount, crit: amount >= 100,
+      at: { x: at?.x ?? (t.box.xMin + t.box.xMax) / 2, y: Math.min(top, (at?.y ?? top) + 0.2), z: at?.z ?? (t.box.zMin + t.box.zMax) / 2 } });
+  }
+  targetCentre(t) {
+    return { x: (t.box.xMin + t.box.xMax) / 2, y: (t.box.yMin + t.box.yMax) / 2, z: (t.box.zMin + t.box.zMax) / 2 };
   }
 
   hit(q, attacker, amount, dir, force, item) {
@@ -353,7 +387,17 @@ export class Match {
       it.z = Math.max(-this.half + 0.5, Math.min(this.half - 0.5, it.z));
       // A thrown item hits the first other player it reaches while fast.
       if (it.thrownBy >= 0) {
-        if (Math.hypot(it.vx, it.vy, it.vz) < 5) it.thrownBy = -1;
+        const struck = Math.hypot(it.vx, it.vy, it.vz) >= 5 && this.targets.find((t) =>
+          it.x > t.box.xMin - 0.2 && it.x < t.box.xMax + 0.2 && it.z > t.box.zMin - 0.2 && it.z < t.box.zMax + 0.2 && it.y < t.box.yMax + 0.2);
+        if (struck) {
+          if (it.effect === 'explode') this.detonate(it);
+          else {
+            this.strike(struck, it.thrownBy, 30, it);
+            it.vx *= -0.3;
+            it.vz *= -0.3;
+            it.thrownBy = -1;
+          }
+        } else if (Math.hypot(it.vx, it.vy, it.vz) < 5) it.thrownBy = -1;
         else
           for (const o of this.seats.filter(Boolean)) {
             const q = o.player;
@@ -403,7 +447,7 @@ export class Match {
       for (let k = 0; k < steps && !b.dead; k++) {
         const dir = { x: b.vx / speed, y: b.vy / speed, z: b.vz / speed },
           travel = (speed * DT) / steps;
-        let body = null, at = travel;
+        let body = null, target = null, at = travel;
         for (const s of this.seats.filter(Boolean)) {
           const q = s.player;
           if (!q.alive || (q.seat === b.owner && this.tick < b.safeUntil)) continue;
@@ -413,8 +457,17 @@ export class Match {
             body = q;
           }
         }
+        for (const t of this.targets) {
+          const d = rayBox(b, dir, t.box, travel);
+          if (d < at) {
+            at = d;
+            body = null;
+            target = t;
+          }
+        }
         const surface = surfaceHit(b, dir, at, this.objects, time, this.half);
-        if (surface && surface.t <= at) {
+        // (A target is solid too: met at the same spot, the target takes the round.)
+        if (surface && (target ? surface.t < at - 0.01 : surface.t <= at)) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
           const v = reflect({ x: b.vx, y: b.vy, z: b.vz }, surface.normal);
           Object.assign(b, { vx: v.x, vy: v.y, vz: v.z });
@@ -423,6 +476,12 @@ export class Match {
           continue;
         }
         Object.assign(b, along(b, dir, at));
+        if (target) {
+          // The top of it is its head: a round there counts for everything.
+          const head = b.y > target.box.yMax - 0.35;
+          this.strike(target, b.owner, head ? 100 : 34, b);
+          b.dead = true;
+        }
         if (body) {
           const head = b.y > body.y - 0.25;
           this.hit(body, b.owner, head ? 100 : 34, dir, head ? 6 : 4, null);
@@ -671,6 +730,10 @@ export class Match {
       p.vy += Math.max(0.3, dir.y) * force * 15;
       p.onGround = false;
       this.damage(p.seat, p.seat === direct ? 100 : Math.ceil(80 * force), r.owner);
+    }
+    for (const t of this.targets) {
+      const c = this.targetCentre(t), distance = Math.hypot(c.x - r.x, c.y - r.y, c.z - r.z);
+      if (distance < 4) this.strike(t, r.owner, Math.ceil(80 * Math.max(0.25, 1 - distance / 4)), { x: c.x, y: t.box.yMax, z: c.z });
     }
   }
 

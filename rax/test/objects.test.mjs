@@ -240,11 +240,19 @@ test('typed builds take an item kind from their main noun; old objects take thei
     const a = await s.identity();
     const job = { room: 'r', owner: a.owner, objectId: 'gun', baseVersion: -1, x: 3, z: 3, prompt: 'a gun', item: null };
     await s.commit(job, stairs);
-    assert.equal(s.get('r', 'gun').item, null);
+    assert.equal(s.get('r', 'gun').item, 'shoot', 'read as a gun from its first prompt before any new version');
     assert.equal(s.get('r', 'gun').first, 'a gun');
     await s.commit({ ...job, baseVersion: 0, prompt: 'make it shinier', item: itemOf(s.get('r', 'gun').first) }, stairs);
     assert.equal(s.get('r', 'gun').item, 'shoot');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// A $code called in has only "$62i" as its prompt: its own name ("; Pistol") makes it a gun.
+test('a placed thing named as a gun is a shoot item even when its prompt is only a $code', async () => {
+  const { itemOfObject } = await import('../item-words.mjs');
+  assert.equal(itemOfObject('$62i', 'Pistol'), 'shoot');
+  assert.equal(itemOfObject('$nz7', 'Toy ray gun'), 'shoot');
+  assert.equal(itemOfObject('$zmb', 'Cherries'), null);
 });
