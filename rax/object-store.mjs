@@ -117,7 +117,7 @@ export class ObjectStore {
   objects(room) {
     return (this.data.rooms[room] || []).map((o) => {
       const v = o.versions.at(-1);
-      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry };
+      return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || null, effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry, first: o.versions[0]?.prompt || '' };
     });
   }
   // Record a version's KidLisp $code once the store has issued it, and
@@ -282,6 +282,8 @@ export class ObjectStore {
         if (object.versions.length >= MAX_VERSIONS) throw Error('Version limit reached');
         object.x = job.x;
         object.z = job.z;
+        // (A plain object that its first prompt names as an item becomes one now.)
+        if (job.item && !object.item) Object.assign(object, { item: job.item, effect: job.effect || null });
       } else {
         if (job.baseVersion !== -1 || objects.length >= MAX_OBJECTS)
           throw Error('Object capacity reached');

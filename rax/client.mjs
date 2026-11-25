@@ -15,6 +15,7 @@ import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
 import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
+import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
@@ -41,6 +42,7 @@ const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kid
 import { MAX_FOCUS_ZOOM, screenRows, carryPixels } from './screen-lod.mjs';
 import { ballAt, DISPENSER_WALL } from './ball.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
+const rounds = new Rounds(); // 🔫 Rounds in flight, flown on between snapshots and fired at once (rounds.mjs).
 
 // ⏱️ How long the way in takes, once: when this module ran, when the view
 // was ready, the first connect, the socket open, the welcome, the seat and
@@ -1769,6 +1771,7 @@ function unseat(keepMotion = false) {
   pending = [];
   player = null;
   snapshot = null;
+  rounds.clear();
   prediction = null;
   resetPrediction = false;
   seq = sentSeq = 0;
@@ -2130,6 +2133,7 @@ function connect(adopt = null) {
     }
     snapshot = data;
     latestAt = performance.now();
+    rounds.heard(data.bullets, seat, latestAt);
     connection.snapshot(data.tick, latestAt, HZ);
     history.push(data);
     history = history.slice(-64);
@@ -2184,6 +2188,7 @@ function connect(adopt = null) {
       seat = -1;
       player = null;
       snapshot = null;
+      rounds.clear();
       prediction = null;
       resetPrediction = false;
       members = [];
@@ -2209,6 +2214,7 @@ function connect(adopt = null) {
     selfMember = null;
     player = null;
     snapshot = null;
+    rounds.clear();
     prediction = null;
     resetPrediction = false;
     pending = [];
@@ -2310,6 +2316,10 @@ function chooseMenu() {
 }
 function holding() {
   return !!snapshot?.items?.some((it) => it.holder === seat && seat >= 0);
+}
+// What the held item is: 'shoot', 'poke', 'throw' (or null).
+function heldKind() {
+  return (seat >= 0 && snapshot?.items?.find((it) => it.holder === seat)?.kind) || null;
 }
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim()) return false;
@@ -3590,6 +3600,8 @@ function step(now, xr) {
     }
     jumpQueued = fireQueued = useQueued = dropQueued = bikeQueued = false;
     pending.push(c);
+    // 🔫 A shot leaves the hand now, not a round trip from now (rounds.mjs).
+    if (c.use && player && player.alive !== false && heldKind() === 'shoot') rounds.fire({ ...player, yaw: c.yaw, pitch: c.pitch });
     if (carrying) {
       held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk: held.walk, until: held.until };
       presentation.step(held);
@@ -3947,7 +3959,7 @@ function step(now, xr) {
     boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
-    bullets: snapshot?.bullets || [],
+    bullets: rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half()),
     since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
     status: sheetOpen ? status : '',

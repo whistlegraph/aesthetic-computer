@@ -12,6 +12,18 @@ import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.
 export const GUEST_BUILDS = 5;
 
 export const ITEM_KINDS = ['shoot', 'poke', 'throw'];
+// 🔫 A typed build is an item when its main noun is one: "a big gun" can be
+// carried, "a house with a cannon on top" is a house. Only the words before
+// the first "with", "on", "that"… are read. The ring's own kind wins.
+const ITEM_WORDS = {
+  shoot: /\b(gun|pistol|blaster|ray ?gun|water ?gun|rifle|shotgun|revolver|uzi|musket|bazooka|launcher|slingshot|crossbow|bow(?! ?tie)|cannon|laser)s?\b/i,
+  poke: /\b(sword|spear|hammer|axe|wand|lance|dagger|knife|katana|mace|trident|scythe|pickaxe|bat|club|staff|saber|sabre)s?\b/i,
+  throw: /\b(ball|baseball|football|frisbee|bomb|grenade|dynamite|snowball|boomerang|dart|shuriken|pie|javelin)s?\b/i,
+};
+export function itemOf(prompt = '') {
+  const head = String(prompt).split(/\b(?:with|on|that|which|holding|made of|in|under|over|next to|beside|and)\b/i)[0];
+  return ITEM_KINDS.find((kind) => ITEM_WORDS[kind].test(head)) || null;
+}
 // An item is hand-sized with its grip at the origin.
 function asItem(shape, kind) {
   if (!kind || shape.format !== OBJECT_FORMAT) return shape;
@@ -509,11 +521,14 @@ export class Builders {
         );
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player) throw Error('Rejoin the room');
-      const item = existing ? existing.item : ITEM_KINDS.includes(input.item) ? input.item : null;
+      // An object keeps its kind; one built before typed items existed takes
+      // the kind its first prompt names, from this version on.
+      const named = existing ? existing.first : prompt;
+      const item = existing?.item || (!existing && ITEM_KINDS.includes(input.item) ? input.item : itemOf(named));
       // What an item does beyond its kind: explosives go off.
-      const effect = existing
+      const effect = existing?.item
         ? existing.effect
-        : item && /\b(bomb|grenade|dynamite|explosive|firework|tnt)s?\b/i.test(prompt)
+        : item && /\b(bomb|grenade|dynamite|explosive|firework|tnt)s?\b/i.test(named)
           ? 'explode'
           : null;
       const yaw = (player.yaw * Math.PI) / 180;
