@@ -68,7 +68,7 @@ cat > /etc/systemd/system/rax-satellite.service <<UNIT
 Description=rax satellite ($ROOMS) $COMMIT
 After=network.target
 [Service]
-Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac
+Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac RAX_SELF_HOST=$NAME RAX_HOME_HOST=aesthetic.computer
 WorkingDirectory=/opt/rax-satellite
 ExecStart=/opt/rax-satellite/bin/node rax/satellite.mjs
 Restart=always

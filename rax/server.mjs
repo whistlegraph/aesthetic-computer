@@ -168,8 +168,23 @@ export function createRaxServer({
   // does not have. Unset, this is the whole world: lith's rax.
   onlyRooms = process.env.RAX_ONLY_ROOMS ? process.env.RAX_ONLY_ROOMS.split(',') : null,
   origins = (process.env.RAX_ORIGINS || '').split(',').filter(Boolean),
+  // 🌐 One world across hosts: which rooms another box keeps (lith: world.mjs
+  // ROOM_HOSTS, passed by lith/rax-process.mjs; unset, every room is here),
+  // the host this rax answers at, and home (lith) for a satellite's
+  // neighbours. A walk into a room kept elsewhere hands the walker over with
+  // a passage the other host fetches from this one (GET /passage).
+  roomHosts = {},
+  selfHost = process.env.RAX_SELF_HOST || 'aesthetic.computer',
+  homeHost = process.env.RAX_HOME_HOST || 'aesthetic.computer',
+  fetchPassage = async (host, receipt) => {
+    const r = await fetch(`https://${host}/rax/passage?receipt=${encodeURIComponent(receipt)}`, { signal: AbortSignal.timeout(4000) });
+    return r.ok ? r.json() : null;
+  },
 } = {}) {
   const satellite = Array.isArray(onlyRooms) && onlyRooms.length > 0;
+  // Where a room is kept, when not here (null: here).
+  const keptAt = (room) => (satellite ? (onlyRooms.includes(room) ? null : homeHost) : roomHosts[room] || null);
+  const peers = new Set([homeHost, ...Object.values(roomHosts)].filter((h) => h && h !== selfHost));
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
     throw new Error('Invalid mount path');
   const rooms = new Map();
@@ -435,6 +450,18 @@ export function createRaxServer({
     // The room as it stands, for a guest that only looks (the world behind
     // the prompt's curtain shows what is built without taking a seat).
     // 🧊 What clients said about stopped frames (stalls.mjs): numbers only.
+    // 🌐 A passage this host gave for a room kept elsewhere, handed to that
+    // host once (it asks with the receipt the walker brought). Only passages
+    // marked away are ever given out, and only once, within their 30 s.
+    if (path === '/passage' && req.method === 'GET') {
+      const receipt = url.searchParams.get('receipt') || '', pass = passages.get(receipt);
+      if (!pass?.away || pass.until < Date.now()) { res.writeHead(404, { 'Cache-Control': 'no-store' }).end(); return; }
+      passages.delete(receipt);
+      const { handle, accountId, colors, room: to, position, at, until, ride } = pass;
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify({ handle, accountId, colors, room: to, position, at, until, ride }));
+      return;
+    }
     if (path === '/stalls' && req.method === 'GET') {
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
@@ -911,10 +938,22 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const arrive = () => {
       if (arrived || watching || waiting) return;
       const receipt = passageAsked, pass = passages.get(receipt);
+      // 🌐 A passage from another host: fetched from it once (its name is in the receipt), then this runs again.
+      if (!pass && receipt && receipt.includes('|') && !member.passageFetch) {
+        const host = receipt.split('|')[0];
+        if (peers.has(host)) member.passageFetch = fetchPassage(host, receipt).then((got) => {
+          if (!got || got.room !== key || !(got.until > Date.now())) return;
+          passages.set(receipt, { ...got, owner: null, away: false, fetched: true });
+          if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) arrive();
+        }).catch(() => {});
+        return;
+      }
       // Whose it is: the page's owner, or (the account answered first) the
       // account the walker wore. Else the body stood two ticks at the
       // room's spawn before it was set down (seen 2026-11-19).
-      const mine = pass && (member.owner ? pass.owner === member.owner : !!member.accountId && pass.accountId === member.accountId);
+      // (From another host the page's owner is not known there: only the verified account can claim it.)
+      const mine = pass && (pass.fetched ? !!member.accountId && pass.accountId === member.accountId
+        : member.owner ? pass.owner === member.owner : !!member.accountId && pass.accountId === member.accountId);
       if (!mine || pass.room !== key || pass.until < Date.now()) return;
       passages.delete(receipt);
       for (const k of ['handle', 'accountId', 'colors', 'token']) if (pass[k] && !member[k]) member[k] = pass[k];
@@ -973,7 +1012,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // the `travel` on the same wire, in order. → whether it was done (a page
     // that does not stay, or a room with no place left, takes a passage).
     const relocate = (destination, position, { ride = null, told = {} } = {}) => {
-      if (!stays || destination === key) return false;
+      if (!stays || destination === key || keptAt(destination)) return false; // (a room kept elsewhere: a passage, not a move)
       const next = openRoom(destination);
       if (!next || next.clients.size >= ROOM_CONNECTIONS) return false;
       const from = room, fromKey = key;
@@ -1368,8 +1407,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
-        const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), held: room.match.held(member.seat)?.id || null, room: destination, position, at: Date.now(), until: Date.now() + 30000 });
+        // 🌐 Into a room kept elsewhere: the receipt names this host, and the
+        // other host fetches the passage from here (GET /passage), once.
+        const away = keptAt(destination);
+        const receipt = away ? `${selfHost}|${randomUUID()}` : randomUUID();
+        passages.set(receipt, { owner: member.owner, ...carry(member), held: away ? null : room.match.held(member.seat)?.id || null, room: destination, position, at: Date.now(), until: Date.now() + 30000, away: !!away });
         // `ack` is the last command this room ran: the walker's later ones go with them.
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) } };
         send(ws, leaving.message);

@@ -10,6 +10,7 @@
 import { createRaxServer } from '../rax/server.mjs';
 import { kidlispPublisher } from '../rax/kidlisp-code.mjs';
 import { stateHome } from '../rax/env.mjs';
+import { ROOM_HOSTS } from '../rax/world.mjs';
 
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,6 +26,7 @@ const app = createRaxServer({
   alias: '/dool', // its name until 2026-11-18: old links, pages and the builder still land
   publishKidlisp: kidlispPublisher(),
   stateDir: stateHome(),
+  roomHosts: ROOM_HOSTS, // 🌐 rooms kept on other boxes (rax/satellite.mjs): walkers are handed over
 });
 await app.ready; // The store is read from disk before the first request.
 app.server.listen(port, '127.0.0.1', () => {
