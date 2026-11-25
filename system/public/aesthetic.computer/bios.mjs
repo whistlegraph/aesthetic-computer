@@ -1710,6 +1710,65 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   freezeFrameCan.style.objectFit = "contain";
 
   // A buffer for corner label overlays.
+  // 🌡️ ?heat: the worker sends only the patches that changed, and this layer
+  // tints each one as it lands, fading over about a second — a live map of
+  // what repaints. Off unless the flag is on.
+  const heatOn = resolution?.heat === true;
+  const heatCan = document.createElement("canvas");
+  const heatCtx = heatCan.getContext("2d");
+  heatCan.style.position = "absolute";
+  heatCan.style.top = "0";
+  heatCan.style.left = "0";
+  heatCan.style.zIndex = "3";
+  heatCan.style.pointerEvents = "none";
+  heatCan.style.imageRendering = "pixelated";
+  if (!heatOn) heatCan.style.display = "none";
+  let heatPatchCan = null, heatPatchCtx = null; // glaze needs a canvas per patch
+
+  // Write each changed patch where it belongs (packed one after another in
+  // `pixels`), replacing what was there, as a full frame does.
+  function putHeatBoxes(context, content) {
+    const all = new Uint8ClampedArray(content.pixels);
+    let o = 0;
+    for (const b of content.heatBoxes) {
+      const size = b.w * b.h * 4;
+      const image = new ImageData(all.subarray(o, o + size), b.w, b.h);
+      context.putImageData(image, b.x, b.y);
+      if (glaze.on && glazeReady) {
+        if (!heatPatchCan) {
+          heatPatchCan = document.createElement("canvas");
+          heatPatchCtx = heatPatchCan.getContext("2d");
+        }
+        heatPatchCan.width = b.w;
+        heatPatchCan.height = b.h;
+        heatPatchCtx.putImageData(image, 0, 0);
+        Glaze.update(heatPatchCan, b.x, b.y);
+      }
+      o += size;
+    }
+  }
+
+  function paintHeat(content) {
+    if (!heatOn || heatCan.width === 0) return;
+    heatCtx.globalCompositeOperation = "destination-out";
+    heatCtx.fillStyle = "rgba(0, 0, 0, 0.08)"; // each frame fades the last
+    heatCtx.fillRect(0, 0, heatCan.width, heatCan.height);
+    heatCtx.globalCompositeOperation = "source-over";
+    if (content.heatFull) {
+      heatCtx.fillStyle = "rgba(255, 40, 40, 0.18)"; // the whole frame went out
+      heatCtx.fillRect(0, 0, heatCan.width, heatCan.height);
+    }
+    if (content.heatBoxes) {
+      heatCtx.fillStyle = "rgba(255, 140, 0, 0.35)";
+      heatCtx.strokeStyle = "rgba(255, 220, 0, 0.9)";
+      heatCtx.lineWidth = 1;
+      for (const b of content.heatBoxes) {
+        heatCtx.fillRect(b.x, b.y, b.w, b.h);
+        heatCtx.strokeRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1);
+      }
+    }
+  }
+
   const overlayCan = document.createElement("canvas");
   const octx = overlayCan.getContext("2d");
   overlayCan.style.position = "absolute";
@@ -1979,6 +2038,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       webgpuCanvas,
       gpuFrameCanvas,
       overlayCan,
+      heatCan,
       recordingUICan,
       uiCanvas,
     ];
@@ -2185,6 +2245,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     webglCompositeCanvas.height = height;
     overlayCan.width = width;
     overlayCan.height = height;
+    heatCan.width = width;
+    heatCan.height = height;
     recordingUICan.width = width;
     recordingUICan.height = height;
 
@@ -2427,6 +2489,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       modal.append(bumper);
 
       wrapper.append(overlayCan);
+      wrapper.append(heatCan);
       wrapper.append(recordingUICan); // Recording UI canvas (NOT captured in tape)
       wrapper.append(uiCanvas);
       if (debug) wrapper.append(debugCanvas);
@@ -20489,6 +20552,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "render") window.acInputLatencyProbe?.received(content.inputLatencySequence);
     if (type === "render" && content.paintChanged === true) lastPaintAt = performance.now();
     meterFrameReturned(type === "render" && content.paintChanged === true);
+    if (heatOn && type === "render") paintHeat(content);
     let probeAsyncRender = false;
     try {
 
@@ -20681,7 +20745,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     let dirtyBoxBitmapCan;
 
     // 👌 Otherwise, grab all the pixels, or some, if `dirtyBox` is present.
-    if (content.dirtyBox) {
+    if (content.dirtyBox && content.heatBoxes) {
+      // 🌡️ Heat patches: written box by box where the frame is drawn.
+    } else if (content.dirtyBox) {
       // 🅰️ Cropped update - OPTIMIZED for zero-copy and async rendering
       if (window.pixelOptimizer) {
         try {
@@ -21255,8 +21321,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           if (overlayCan.style.display !== "none") {
             overlayCan.style.display = "none";
           }
-          ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
-          if (glaze.on && glazeReady) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+          if (content.heatBoxes) putHeatBoxes(ctx, content);
+          else {
+            ctx.drawImage(dirtyBoxBitmapCan, db.x, db.y);
+            if (glaze.on && glazeReady) Glaze.update(dirtyBoxBitmapCan, db.x, db.y);
+          }
         }
       } else if (
         pixelsDidChange ||

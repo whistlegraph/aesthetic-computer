@@ -839,6 +839,7 @@ let PERF_MODE = false; // Whether to show KidLisp performance/FPS HUD
 let AUTO_SCALE_MODE = false; // Whether to enable auto-density scaling to maintain target FPS
 let SPOOF_AUDIO_MODE = false; // Whether to generate synthetic audio data (for headless captures)
 let NOGAP_MODE = false; // Whether gap is disabled (nogap URL param)
+let HEAT_MODE = false; // ?heat: send only what changed, and show it (bios tints it)
 // View flags remembered for the worker's life (lib/params.mjs); `jump` carries
 // the ledger's `carry: jump` names from here, and `$.queryParams` reads it.
 const paramStore = createParamStore();
@@ -2750,6 +2751,137 @@ let preloadPromises = {};
 let inFocus;
 const frameChart = createFrameChart();
 const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, rows: [] };
+
+// 🌡️ Heat (?heat). The worker keeps the last frame it sent and compares each
+// new one to it as 32-bit words. Rows are read in bands of 16; in each band
+// the 16px tiles that changed are marked, runs of them become rectangles, and
+// rectangles stacked band over band merge. Only those rectangles go out —
+// the caret, a sparkle, the fps graph each send their own patch instead of one
+// box spanning them all. Nothing changed sends nothing (and lets a background
+// window rest); too many patches or most of the screen sends the whole frame.
+// bios writes each patch in place and tints it, so the screen shows a live
+// map of what repaints. The fps HUD carries the numbers.
+const heat = {
+  prev: null, width: 0, height: 0,
+  paintStart: 0, paintMs: 0, diffMs: 0, area: 0, boxes: 0,
+  sent: { none: 0, part: 0, full: 0 }, last: { none: 0, part: 0, full: 0 }, lastAt: 0,
+};
+const HEAT_TILE = 16;
+const HEAT_FULL_AREA = 0.6; // past this share of the screen, send it all
+const HEAT_MAX_BOXES = 32;
+
+// The rectangles that differ from the last frame sent, [] when none do, or
+// undefined for "send the whole frame". Keeps `heat.prev` current.
+function heatChangedBoxes(screen) {
+  const { width: w, height: h, pixels } = screen;
+  const cur = new Uint32Array(pixels.buffer, pixels.byteOffset, w * h);
+  if (!heat.prev || heat.width !== w || heat.height !== h) {
+    heat.prev = new Uint32Array(cur);
+    heat.width = w;
+    heat.height = h;
+    return undefined;
+  }
+  const prev = heat.prev;
+  const tilesX = Math.ceil(w / HEAT_TILE);
+  const marks = new Uint8Array(tilesX);
+  const boxes = [];
+  let open = new Map(); // "x,w" → box still growing downward
+  let area = 0;
+  for (let y0 = 0; y0 < h; y0 += HEAT_TILE) {
+    const y1 = Math.min(h, y0 + HEAT_TILE);
+    marks.fill(0);
+    let any = false;
+    for (let y = y0; y < y1; y += 1) {
+      const row = y * w;
+      let x = 0;
+      while (x < w) {
+        if (cur[row + x] !== prev[row + x]) {
+          const t = (x / HEAT_TILE) | 0;
+          marks[t] = 1;
+          any = true;
+          x = (t + 1) * HEAT_TILE; // the rest of this tile is already marked
+        } else x += 1;
+      }
+    }
+    const next = new Map();
+    if (any) {
+      for (let t = 0; t < tilesX; t += 1) {
+        if (!marks[t]) continue;
+        let u = t;
+        while (u + 1 < tilesX && marks[u + 1]) u += 1;
+        const x = t * HEAT_TILE, bw = Math.min(w, (u + 1) * HEAT_TILE) - x;
+        const key = x + "," + bw;
+        const above = open.get(key);
+        if (above) {
+          above.h = y1 - above.y; // grow the patch from the band above
+          next.set(key, above);
+        } else {
+          const box = { x, y: y0, w: bw, h: y1 - y0 };
+          boxes.push(box);
+          next.set(key, box);
+        }
+        t = u;
+      }
+    }
+    open = next;
+    if (boxes.length > HEAT_MAX_BOXES) break;
+  }
+  for (const b of boxes) area += b.w * b.h;
+  if (boxes.length > HEAT_MAX_BOXES || area > HEAT_FULL_AREA * w * h) {
+    prev.set(cur);
+    return undefined;
+  }
+  for (const b of boxes) {
+    for (let y = b.y; y < b.y + b.h; y += 1) {
+      const at = y * w + b.x;
+      prev.set(cur.subarray(at, at + b.w), at);
+    }
+  }
+  return boxes;
+}
+
+// The dirty-box shape the send path takes: the patches' union as its box,
+// and every patch's pixels packed one after another.
+function heatDirtyBox(boxes) {
+  let x0 = Infinity, y0 = Infinity, x1 = 0, y1 = 0;
+  for (const b of boxes) {
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  const union = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  return {
+    croppedBox: () => union,
+    crop: (image) => {
+      let size = 0;
+      for (const b of boxes) size += b.w * b.h * 4;
+      const out = new Uint8ClampedArray(size);
+      let o = 0;
+      for (const b of boxes) {
+        for (let row = 0; row < b.h; row += 1) {
+          const at = (b.x + (b.y + row) * image.width) * 4;
+          out.set(image.pixels.subarray(at, at + b.w * 4), o);
+          o += b.w * 4;
+        }
+      }
+      return out;
+    },
+  };
+}
+
+function heatRows() {
+  const now = performance.now();
+  if (now - heat.lastAt > 1000) {
+    heat.last = heat.sent;
+    heat.sent = { none: 0, part: 0, full: 0 };
+    heat.lastAt = now;
+  }
+  const { none, part, full } = heat.last;
+  return [
+    `heat ${(heat.area * 100).toFixed(1)}% ${heat.boxes.toFixed(0)}b ${heat.diffMs.toFixed(2)}ms`,
+    `paint ${heat.paintMs.toFixed(1)}ms`,
+    `sent ${part}p ${full}f ${none}-`,
+  ];
+}
 // This worker's own collections, counted the way bios counts the page's: a
 // sentinel dropped every 100 ms that only a GC can finalize.
 const fpsHudRegistry = typeof FinalizationRegistry === "function"
@@ -11020,6 +11152,7 @@ async function makeFrame({ data: { type, content } }) {
     AUTO_SCALE_MODE = content.resolution?.autoScale === true;
     SPOOF_AUDIO_MODE = content.resolution?.spoofaudio === true;
     NOGAP_MODE = content.resolution?.gap === 0;
+    HEAT_MODE = content.resolution?.heat === true;
 
     // Remember the view flags for the worker's life; `jump` re-appends the
     // ledger's `carry: jump` names from here.
@@ -11030,6 +11163,7 @@ async function makeFrame({ data: { type, content } }) {
     paramStore.remember("perf", PERF_MODE);
     paramStore.remember("auto-scale", AUTO_SCALE_MODE);
     paramStore.remember("nogap", NOGAP_MODE);
+    paramStore.remember("heat", HEAT_MODE);
     paramStore.remember("spoofaudio", SPOOF_AUDIO_MODE);
 
     microphone.permission = content.microphonePermission;
@@ -15007,6 +15141,7 @@ async function makeFrame({ data: { type, content } }) {
             nativeWindowWipe = null;
 
             // Always call paint() - piece paints underneath, GOL overlays on top
+            heat.paintStart = performance.now();
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             if (paint !== defaults.paint) previewEvidence.paint();
             graph.gpuLogTick(); // 📊 GPU effect logging every 8 frames
@@ -15150,7 +15285,7 @@ async function makeFrame({ data: { type, content } }) {
           frameChart.draw({
             box: (x, y, w, h, c) => color(c).box(left + x, top + y, w, h),
             text: (value, x, y, c) => color(c).write(value, { x: left + x, y: top + y }, undefined, undefined, false, "MatrixChunky8"),
-          }, fpsHud.rows);
+          }, HEAT_MODE ? [...fpsHud.rows, ...heatRows()] : fpsHud.rows);
         }
 
         // const piece = $api.slug?.split("~")[0];
@@ -17540,6 +17675,35 @@ async function makeFrame({ data: { type, content } }) {
         painting.paint(true);
         painted = true;
         dirtyBox = undefined;
+      }
+
+      // 🌡️ Heat: send only what changed since the last frame sent.
+      if (HEAT_MODE && painted === true && !dirtyBox && !sendData.reelFrame &&
+          screen?.pixels && !screen.pixels.buffer?.detached) {
+        const started = performance.now();
+        if (heat.paintStart) heat.paintMs += (started - heat.paintStart - heat.paintMs) * 0.1;
+        heat.paintStart = 0;
+        const boxes = heatChangedBoxes(screen);
+        heat.diffMs += (performance.now() - started - heat.diffMs) * 0.1;
+        let area = 1;
+        if (boxes) {
+          area = 0;
+          for (const b of boxes) area += b.w * b.h;
+          area /= screen.width * screen.height;
+          heat.boxes += (boxes.length - heat.boxes) * 0.1;
+        }
+        heat.area += (area - heat.area) * 0.1;
+        if (boxes && boxes.length === 0) {
+          painted = false; // Nothing moved: nothing to send, and the window may rest.
+          heat.sent.none += 1;
+        } else if (boxes) {
+          dirtyBox = heatDirtyBox(boxes);
+          sendData.heatBoxes = boxes;
+          heat.sent.part += 1;
+        } else {
+          sendData.heatFull = true;
+          heat.sent.full += 1;
+        }
       }
 
       let transferredPixels;

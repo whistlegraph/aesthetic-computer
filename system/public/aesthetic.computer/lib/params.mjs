@@ -36,6 +36,7 @@ export const PARAMS = Object.freeze({
   // — view —
   nogap: p("flag", "view", ["boot", "bios", "disk", "server"], "Zero gap: the canvas fills its viewport, no rounded corners or checkerboard.", { carry: BOTH }),
   nolabel: p("flag", "view", ["boot", "bios", "disk", "kidlisp", "piece:clock"], "Hide the corner label / HUD.", { carry: BOTH }),
+  heat: p("flag", "view", ["boot", "bios", "disk"], "Change heatmap: the worker sends only the screen patches that changed since the last frame, bios tints each as it lands, and the fps HUD shows changed area, paint time and how frames went out. Lasts the window's life; not carried between pieces."),
   nosource: p("flag", "view", ["boot", "bios", "disk"], "A KidLisp $code labels itself by name, not source.", { carry: BOTH }),
   autoreload: p("flag", "view", ["boot", "bios", "disk"], "Take piece updates automatically instead of showing the badge.", { carry: BAR }),
   density: p("number", "view", ["boot", "bios"], "Rendering density; remembered in localStorage outside device mode.", { carry: BAR }),
