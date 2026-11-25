@@ -1771,6 +1771,7 @@ function unseat(keepMotion = false) {
   player = null;
   snapshot = null;
   rounds.clear();
+  view.clearGore?.();
   prediction = null;
   resetPrediction = false;
   seq = sentSeq = 0;
@@ -2194,6 +2195,7 @@ function connect(adopt = null) {
       player = null;
       snapshot = null;
       rounds.clear();
+      view.clearGore?.();
       prediction = null;
       resetPrediction = false;
       members = [];
@@ -2220,6 +2222,7 @@ function connect(adopt = null) {
     player = null;
     snapshot = null;
     rounds.clear();
+    view.clearGore?.();
     prediction = null;
     resetPrediction = false;
     pending = [];

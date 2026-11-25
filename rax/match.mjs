@@ -26,6 +26,20 @@ import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from '
 // still and owed their time before the body runs on without them.
 // (INPUT_SLACK: how many may wait once the budget is spent.)
 export const INPUT_BATCH = 12, INPUT_QUEUE = HORIZON, INPUT_GRACE = HORIZON, INPUT_SLACK = 3;
+// 🩸 Where on a body a round struck (gore.mjs takes it apart there): the
+// head, an arm or leg by side, or the torso. Heights from the feet, as the
+// body is drawn (view.mjs fighters): legs to 0.68, shoulders at 1.27, the
+// head from 1.38; the arms hang 0.3 to either side.
+export function hitZone(p, at) {
+  const feet = p.y - 1.7, h = at.y - feet;
+  const yaw = (p.yaw * Math.PI) / 180, side = (at.x - p.x) * Math.cos(yaw) - (at.z - p.z) * Math.sin(yaw); // (+ is the body's left: direction(yaw + 90))
+  const which = side >= 0 ? 'left' : 'right';
+  if (h >= 1.38) return 'head';
+  if (h < 0.68) return `leg-${which}`;
+  if (h > 0.8 && Math.abs(side) > 0.22) return `arm-${which}`;
+  return 'torso';
+}
+
 export class Match {
   constructor() {
     this.tick = 0;
@@ -536,7 +550,8 @@ export class Match {
           if (head) this.emit('headshot', { seat: body.seat, attacker: b.owner });
           if (!body.alive) {
             body.gibbed = true;
-            this.emit('gib', { seat: body.seat, attacker: b.owner, at: { x: body.x, y: body.y - 0.8, z: body.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
+            this.emit('gib', { seat: body.seat, attacker: b.owner, kind: 'shot', zone: hitZone(body, b),
+              at: { x: body.x, y: body.y - 0.8, z: body.z }, hit: { x: b.x, y: b.y, z: b.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
           }
           b.dead = true;
         }
@@ -790,6 +805,12 @@ export class Match {
       p.vy += Math.max(0.3, dir.y) * force * 15;
       p.onGround = false;
       this.damage(p.seat, p.seat === direct ? 100 : Math.ceil(80 * force), r.owner);
+      // 🩸 Close to a blast, a body comes all apart (gore.mjs); further off, it is thrown.
+      if (!p.alive && !p.gibbed) {
+        p.gibbed = true;
+        this.emit('gib', { seat: p.seat, attacker: r.owner, kind: distance < 2.2 || p.seat === direct ? 'blast' : 'shot', zone: 'torso',
+          at: { x: p.x, y: p.y - 0.8, z: p.z }, hit: { x: r.x, y: r.y, z: r.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
+      }
     }
     for (const t of this.targets) {
       const c = this.targetCentre(t), distance = Math.hypot(c.x - r.x, c.y - r.y, c.z - r.z);

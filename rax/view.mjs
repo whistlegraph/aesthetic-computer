@@ -147,6 +147,7 @@ import {
   smallSpanWidth,
 } from './highlight.mjs';
 import { smallWidth } from './paint.mjs';
+import { Gore } from './gore.mjs';
 import { spanWidth as spanWidthOf } from './highlight.mjs';
 
 // Build status shares the input prompt's font and wraps on its six-pixel grid.
@@ -868,6 +869,40 @@ export async function createView(canvas) {
       box(0.1, 0.03, 0.05, 0.04, 0.07, 0.04, PAPER, 0xc0c0c0, PAPER);
     }),
   }));
+  // 🩸 Gore (gore.mjs): the same parts, centred so a flying one spins about
+  // itself, with a red cut where it came away; drops; three splats.
+  const RED = 0xa8101c, DARK = 0x5c0610;
+  const gibFighters = COLORS.map((color) => ({
+    'gib-torso': model(({ box }) => { box(0, 0, 0, 0.42, 0.62, 0.26, color, INK, PAPER); box(0, 0.31, 0, 0.3, 0.02, 0.18, RED, DARK, RED); }),
+    'gib-head': model(({ box }) => {
+      box(0, 0, 0, 0.44, 0.42, 0.36, PAPER, 0xc0c0c0, PAPER);
+      box(0, 0.245, 0, 0.36, 0.09, 0.3, BRAIN, tint(BRAIN, 0.75), tint(BRAIN, 1.15));
+      box(0, -0.215, 0, 0.2, 0.02, 0.18, RED, DARK, RED); // (the neck)
+    }),
+    'gib-limb': model(({ box }) => { box(0, 0, 0, 0.13, 0.46, 0.16, color, INK, PAPER); box(0, 0.235, 0, 0.1, 0.02, 0.12, RED, DARK, RED); }),
+    'gib-hand': model(({ box }) => box(0, 0, 0, 0.16, 0.17, 0.2, PAPER, 0xc0c0c0, PAPER)),
+  }));
+  const goreModels = {
+    'gib-meat': model(({ box }) => { box(0, 0, 0, 0.14, 0.11, 0.12, RED, DARK, 0xd4303c); box(0.04, 0.05, 0, 0.06, 0.05, 0.06, 0xf0e6d8, 0xc8b8a0, 0xf0e6d8); }),
+    drop: model(({ box }) => box(0, 0, 0, 0.045, 0.045, 0.045, RED, DARK, 0xd02030)),
+    // Splats: a pool and its droplets, flat on y = 0 (each a different throw).
+    ...Object.fromEntries([0, 1, 2].map((k) => [`splat${k}`, model(({ box }) => {
+      let seed = 7 + k * 31;
+      const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      box(0, 0, 0, 0.42 + k * 0.08, 0.006, 0.34 + k * 0.05, DARK, DARK, DARK);
+      box(0.05, 0.002, -0.03, 0.3, 0.006, 0.26, RED, DARK, RED);
+      for (let n = 0; n < 9 + k * 3; n++) {
+        const a = r() * Math.PI * 2, d = 0.22 + r() * 0.4, w = 0.03 + r() * 0.07;
+        box(Math.cos(a) * d, 0.001, Math.sin(a) * d, w * (1 + r()), 0.006, w, r() < 0.5 ? RED : DARK, DARK, RED);
+      }
+    })])),
+  };
+  const gore = new Gore();
+  // (A target's box is bigger than its straw man: blood would hang in the air beside it.)
+  let goreFrom = null, goreList = [];
+  const goreSolids = (list) => (list === goreFrom ? goreList : (goreFrom = list, goreList = list.filter((o) => !o.target)));
+  const lastPose = new Map(); // seat → how its body stood when last drawn (for its ragdoll)
+  let goreAt = 0;
   const rocket = model(({ box }) =>
     box(0, 0, 0, 0.16, 0.16, 0.32, 0xffff00, INK, PAPER),
   );
@@ -1230,8 +1265,10 @@ export async function createView(canvas) {
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
     if (e.at && e.type === 'gib') {
-      for (const dy of [0, 0.5, 1, 1.5]) burstColor(e.at.x, e.at.y + dy, e.at.z, 12, GIB);
-      burst(e.at.x, e.at.y + 0.8, e.at.z, 30, 1.6);
+      // 🩸 The body comes down as a ragdoll or comes apart (gore.mjs), from how it last stood.
+      const was = lastPose.get(e.seat), fresh = was && performance.now() - was.at < 1500;
+      gore.gib(e, fresh ? was : { x: e.at.x, base: e.at.y - 0.9, z: e.at.z, yaw: 0, pitch: 0 });
+      burstColor(e.at.x, e.at.y + 0.6, e.at.z, e.kind === 'blast' ? 24 : 8, GIB);
     }
     if (e.at && e.type === 'damage') {
       burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);
@@ -2243,6 +2280,17 @@ export async function createView(canvas) {
     }
     const cut = projector.cut; // People are never looked through: a body stays whole.
     projector.cut = null;
+    // 🩸 Ragdolls, gibs, blood and splats (gore.mjs), stepped to now.
+    {
+      const t = performance.now(), dt = goreAt ? (t - goreAt) / 1000 : 0;
+      goreAt = t;
+      gore.step(dt, goreSolids(solidObjects), half);
+      for (const g of gore.draws()) {
+        const fig = g.seat === undefined ? null : g.part.startsWith('gib-') ? gibFighters[g.seat % gibFighters.length] : fighters[g.seat % fighters.length];
+        const m = fig?.[g.part] || goreModels[g.part];
+        if (m) draw(m, g.x, g.y, g.z, g.yaw, g.pitch, g.scale, g.roll);
+      }
+    }
     const inRoom = Math.max(players.length, seat + 1);
     for (let n = 0; n < inRoom + beyond.length; n++) {
       // (After the room's own: the people beyond it, each drawn as the seat they hold there.)
@@ -2252,6 +2300,7 @@ export async function createView(canvas) {
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
+      if (!far) lastPose.set(i, { x: p.x, base, z: p.z, yaw: p.yaw, pitch: p.pitch || 0, vx: p.vx || 0, vy: p.vy || 0, vz: p.vz || 0, at: performance.now() });
       if (p.bike) drawBike(p, i, base, now, far ? (far.name?.startsWith('@') ? far.name.slice(1) : null) : members.find((m) => m.seat === i)?.handle); // 🛵 (in first person too: the cabin is round you)
       if (far || i !== seat || third || !me || (idleCamera && Math.hypot(eye.x - me.x, eye.y - me.y, eye.z - me.z) > 0.7)) {
         draw(f.torso, p.x, base, p.z, yaw);
@@ -4329,6 +4378,7 @@ export async function createView(canvas) {
       }
     },
     effect,
+    clearGore: () => gore.clear(), // 🩸 (a room left: what fell there stays there)
     // 🖼️ The textures (textures.mjs): `stats()`, `config` for the bench, `register` for fn: sources.
     textures,
     // 🎭 Models put on the stage by hand (the texture bench, demos): each

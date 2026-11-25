@@ -24,6 +24,8 @@ const b64 = (floats) => {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
   return btoa(s);
 };
+// A shadow's solid: no corner with any colour (rax's darkest ink is #181818).
+const allBlack = (v) => { for (let i = 3; i < v.length; i += 6) if (v[i] || v[i + 1] || v[i + 2]) return false; return true; };
 // FNV-1a over the model's floats, as 32-bit words: a model made again the same is one model.
 const hashOf = (floats) => {
   const w = new Uint32Array(floats.buffer, floats.byteOffset, floats.length);
@@ -58,8 +60,11 @@ export function installRecorder(send, { every = 1 } = {}) {
     return out;
   };
   P.draw = function (v, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) {
-    // (Shadows are drawn from one scratch buffer, a view of part of it each time: not models, and Blender casts its own.)
-    const scratch = v.buffer && v.byteLength !== v.buffer.byteLength;
+    // (Shadows are drawn from one scratch buffer, a view of part of it each
+    // time, every corner black: not models, and Blender casts its own. Built
+    // things are views of a shared buffer too, so a view is kept unless it is
+    // all black.)
+    const scratch = v.buffer && v.byteLength !== v.buffer.byteLength && !ids.has(v) && allBlack(v);
     if (on && current && this === main && this.bends !== false && !scratch) {
       let id = ids.get(v);
       if (id === undefined) {

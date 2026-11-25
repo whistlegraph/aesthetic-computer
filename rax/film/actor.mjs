@@ -89,8 +89,8 @@ export class Actor {
     if (!this.me || this.ws?.readyState !== WebSocket.OPEN) return;
     const c = this.control;
     for (let i = 0; i < count; i++) {
-      this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump || c.up ? 1 : 0, duck: c.down, bike: c.bike });
-      c.jump = false; c.bike = false;
+      this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump || c.up ? 1 : 0, duck: c.down, bike: c.bike, use: !!c.use, fire: !!c.rocket });
+      c.jump = false; c.bike = false; c.use = false; c.rocket = false;
     }
     this.sent = this.sent.slice(-12);
     this.send({ type: 'input', commands: this.sent });
@@ -123,6 +123,16 @@ export class Actor {
     await sleep(120); // come to rest
   }
   jump() { this.control.jump = true; }
+  // 🔫 Use what is in hand once (a gun fires, a thing is thrown), as a click does.
+  fire() { this.control.use = true; }
+  // 🚀 A rocket, as the fire button sends one (match.mjs shoot).
+  rocket() { this.control.rocket = true; }
+  // Point the eyes at [x, y, z] (y in metres: a chest stands at about 1.1), over `seconds`.
+  async aimAt([x, y, z], seconds = 0.4) {
+    await this.face([x, z], seconds);
+    const d = Math.hypot(x - this.me.x, z - this.me.z);
+    this.control.pitch = (Math.atan2(y - (this.me.y - 0.55), d) * 180) / Math.PI; // (from the hand, a little under the eye)
+  }
   // 🛵 On or off the cabin bike (bike.mjs), as B does. Resolves when the world says so.
   async mount(on = true) {
     if (!!this.me?.bike === on) return;

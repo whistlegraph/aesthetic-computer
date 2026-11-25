@@ -231,20 +231,101 @@ def place(o, M, frame, keys=("location", "rotation_quaternion", "scale")):
     o.location, o.rotation_quaternion, o.scale = loc, rot, scale
     for k in keys: o.keyframe_insert(k, frame=frame)
 
+def to_linear(c):
+    """rax's colours are screen colours (sRGB); Blender's colour values are linear."""
+    return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
 def rgb_of(hex_int):
-    return ((hex_int >> 16) & 255) / 255, ((hex_int >> 8) & 255) / 255, (hex_int & 255) / 255
+    return tuple(to_linear(c) for c in (((hex_int >> 16) & 255) / 255, ((hex_int >> 8) & 255) / 255, (hex_int & 255) / 255))
+
+# 🎯 Faithful (the default for a take): every face the colour rax drew it,
+# lit by nothing (rax's corner colours already hold its light), under the
+# sky's own colours, so a frame is rax's frame seen by Blender's camera.
+# Decorated (--decorate): Blender lights the same scene itself.
+FAITHFUL = True
+# Small models made again with new colours only are one model only when asked
+# (--relight-small: rax re-lights a rolling ball each frame and Blender may
+# light it instead). Off, a model is what was drawn, colours and all: two
+# people of different colours are never one mesh.
+RELIGHT_SMALL = False
 
 def record_material():
     mat = bpy.data.materials.get("rax-record")
     if mat: return mat
     mat = bpy.data.materials.new("rax-record"); mat.use_nodes = True
     nt = mat.node_tree; bsdf = nt.nodes.get("Principled BSDF")
+    if FAITHFUL:
+        out = nt.nodes.get("Material Output")
+        emit = nt.nodes.new("ShaderNodeEmission"); emit.inputs["Strength"].default_value = 1.0
+        attr = nt.nodes.new("ShaderNodeVertexColor"); attr.layer_name = "Color"
+        nt.links.new(attr.outputs["Color"], emit.inputs["Color"])
+        nt.links.new(emit.outputs["Emission"], out.inputs["Surface"])
+        return mat
+    return decorated_material(mat)
     attr = nt.nodes.new("ShaderNodeVertexColor"); attr.layer_name = "Color"
     nt.links.new(attr.outputs["Color"], bsdf.inputs["Base Color"])
     nt.links.new(attr.outputs["Color"], bsdf.inputs["Emission Color"])
     bsdf.inputs["Emission Strength"].default_value = 0.3  # (rax's colours are its light: some of them glows)
     bsdf.inputs["Roughness"].default_value = 0.8
     return mat
+
+def decorated_material(mat):
+    """--decorate: the same colours, lit by Blender. The corners' colour goes
+    through ambient occlusion (darker where things meet: corners, under a
+    body) into a dry, matte surface; where the colour is blood (red far over
+    green and blue: gore.mjs's reds) it turns wet, glossy under a clear coat."""
+    N, L = mat.node_tree.nodes, mat.node_tree.links
+    for n in list(N):
+        if n.type != "OUTPUT_MATERIAL": N.remove(n)
+    out = next(n for n in N if n.type == "OUTPUT_MATERIAL")
+    attr = N.new("ShaderNodeVertexColor"); attr.layer_name = "Color"
+    ao = N.new("ShaderNodeAmbientOcclusion"); ao.inputs["Distance"].default_value = 0.6; ao.samples = 8
+    L.new(attr.outputs["Color"], ao.inputs["Color"])
+    dry = N.new("ShaderNodeBsdfPrincipled")
+    dry.inputs["Roughness"].default_value = 0.85
+    L.new(ao.outputs["Color"], dry.inputs["Base Color"])
+    L.new(attr.outputs["Color"], dry.inputs["Emission Color"]); dry.inputs["Emission Strength"].default_value = 0.15  # (rax's colours stay readable in the shade)
+    wet = N.new("ShaderNodeBsdfPrincipled")
+    deep = N.new("ShaderNodeHueSaturation"); deep.inputs["Saturation"].default_value = 1.25; deep.inputs["Value"].default_value = 0.75  # (wet blood is darker and deeper than dry)
+    L.new(ao.outputs["Color"], deep.inputs["Color"]); L.new(deep.outputs["Color"], wet.inputs["Base Color"])
+    L.new(attr.outputs["Color"], wet.inputs["Emission Color"]); wet.inputs["Emission Strength"].default_value = 0.2  # (blood stays red, and shines on top)
+    wet.inputs["Roughness"].default_value = 0.06
+    for name, value in (("Coat Weight", 0.45), ("Coat Roughness", 0.04), ("Specular IOR Level", 0.35)):
+        if name in wet.inputs: wet.inputs[name].default_value = value
+    # Blood: r well over both g and b (linear), and not black.
+    sep = N.new("ShaderNodeSeparateColor"); L.new(attr.outputs["Color"], sep.inputs["Color"])
+    def m(op, a, b, clamp=False):
+        n = N.new("ShaderNodeMath"); n.operation = op; n.use_clamp = clamp
+        for i, v in enumerate((a, b)):
+            if isinstance(v, (int, float)): n.inputs[i].default_value = v
+            else: L.new(v, n.inputs[i])
+        return n.outputs[0]
+    over = m("SUBTRACT", sep.outputs["Red"], m("MULTIPLY", m("MAXIMUM", sep.outputs["Green"], sep.outputs["Blue"]), 3.0))
+    blood = m("MULTIPLY", m("MULTIPLY", over, 40.0, True), m("GREATER_THAN", sep.outputs["Red"], 0.03), True)
+    mix = N.new("ShaderNodeMixShader"); L.new(blood, mix.inputs["Fac"]); L.new(dry.outputs[0], mix.inputs[1]); L.new(wet.outputs[0], mix.inputs[2])
+    L.new(mix.outputs[0], out.inputs["Surface"])
+    return mat
+
+def decorate_motion(objs):
+    """--decorate: motion blur. Keys glide from one frame to the next, except
+    where an object jumps (over 1.5 m): one Blender object may stand for
+    different things drawn alike (the seventh drop of blood, then another),
+    and a glide there would smear across the room."""
+    scene = bpy.context.scene
+    scene.render.use_motion_blur = True; scene.render.motion_blur_shutter = 0.5
+    for o in objs:
+        curves = [fc for fc in fcurves_of(o) if fc.data_path in ("location", "rotation_quaternion")]
+        loc = sorted((fc for fc in curves if fc.data_path == "location"), key=lambda fc: fc.array_index)
+        if len(loc) != 3: continue
+        pts = [list(fc.keyframe_points) for fc in loc]
+        jumps = set()
+        for i in range(min(len(p) for p in pts) - 1):
+            d = sum((pts[k][i + 1].co[1] - pts[k][i].co[1]) ** 2 for k in range(3)) ** 0.5
+            gap = pts[0][i + 1].co[0] - pts[0][i].co[0]
+            if d > 1.5 or gap > 1.01: jumps.add(round(pts[0][i].co[0]))
+        for fc in curves:
+            for kp in fc.keyframe_points:
+                kp.interpolation = "CONSTANT" if round(kp.co[0]) in jumps else "LINEAR"
 
 SMALL = 40  # triangles: a model this small made again with new colours only is the same model (rax re-lights a rolling ball every frame; Blender lights it itself)
 
@@ -256,7 +337,7 @@ def canonical(path, mid, shapes, canon):
     a = array.array("f"); a.frombytes(raw)
     # A shadow's solid (shadow.mjs): every corner exactly black, never a colour rax shows (its darkest ink is #181818). Blender casts its own.
     if not any(a[i] for i in range(len(a)) if i % 6 >= 3): canon[mid] = None; return None
-    if len(raw) // 72 > SMALL: canon[mid] = mid; return mid
+    if not RELIGHT_SMALL or len(raw) // 72 > SMALL: canon[mid] = mid; return mid
     import hashlib
     shape = hashlib.sha1(array.array("f", (a[i] for i in range(len(a)) if i % 6 < 3)).tobytes()).hexdigest()
     canon[mid] = shapes.setdefault(shape, mid)
@@ -279,7 +360,7 @@ def record_mesh(path, mid, cache):
             if r > 1.5: r -= 2  # (see-through / screen / texture marks)
             if g > 3.5: g -= 4
             if b > 7.5: b -= 8
-            vals.extend((min(1, max(0, r)), min(1, max(0, g)), min(1, max(0, b)), 1.0))
+            vals.extend((to_linear(min(1, max(0, r))), to_linear(min(1, max(0, g))), to_linear(min(1, max(0, b))), 1.0))
     col.data.foreach_set("color", vals)
     me.materials.append(record_material())
     cache[mid] = me
@@ -408,6 +489,7 @@ def import_record(path, fps=24, start=None, end=None, bend=True, size=(1280, 720
         for fc in fcurves_of(o):
             for kp in fc.keyframe_points: kp.interpolation = "CONSTANT"  # (each key is a frame rax drew: hold it, do not blend)
     for o in objs.values(): o.hide_viewport = False
+    if not FAITHFUL: decorate_motion(list(objs.values()) + [cam])
     record_sky(picks[0]["sky"], picks, fps)
     print(f"rax: {len(picks)} frames, {len(cache)} models, {len(objs)} objects", flush=True)
     return cam
@@ -424,11 +506,23 @@ def record_sky(sky, picks, fps):
     els[0].position = 0.0; els[0].color = rgb_of(sky["horizon"]) + (1,)
     els[1].position = 1.0; els[1].color = rgb_of(sky["zenith"]) + (1,)
     mid = els.new(0.35); mid.color = rgb_of(sky["mid"]) + (1,)
-    nt.links.new(ramp.outputs["Color"], bg.inputs["Color"]); bg.inputs["Strength"].default_value = 0.55
+    nt.links.new(ramp.outputs["Color"], bg.inputs["Color"]); bg.inputs["Strength"].default_value = 1.0
+    if not FAITHFUL:
+        # Decorated: the camera sees rax's sky as it was; what the sky casts on
+        # the scene is a plain light, so it does not grey the colours blue.
+        out = next(n for n in nt.nodes if n.type == "OUTPUT_WORLD")
+        fill = nt.nodes.new("ShaderNodeBackground"); fill.inputs["Color"].default_value = (1.0, 0.97, 0.93, 1); fill.inputs["Strength"].default_value = 0.45
+        path = nt.nodes.new("ShaderNodeLightPath"); mix = nt.nodes.new("ShaderNodeMixShader")
+        nt.links.new(path.outputs["Is Camera Ray"], mix.inputs["Fac"])
+        nt.links.new(fill.outputs[0], mix.inputs[1]); nt.links.new(bg.outputs[0], mix.inputs[2])
+        nt.links.new(mix.outputs[0], out.inputs["Surface"])
     # rax's colours are already the colours on a screen (sRGB): show them as they are, not through a film curve.
     scene.view_settings.view_transform = "Standard"; scene.view_settings.look = "None"
     s = sky["sun"]; sun_dir = rax_to_bl(s["x"], s["y"], s["z"]).normalized()
-    lamp = bpy.data.lights.new("rax-sun", "SUN"); lamp.energy = 3.0 if s["y"] > 0 else 0.4; lamp.angle = math.radians(2)
+    lamp = bpy.data.lights.new("rax-sun", "SUN")
+    # (Cycles: a sun of about π lights a white face square on to white; this lights a sunny face to about its own colour.)
+    lamp.energy = 3.0 if s["y"] > 0 else 0.5; lamp.angle = math.radians(2)
+    if FAITHFUL: lamp.energy = 0  # (no light of Blender's own: the colours are rax's)
     lo = bpy.data.objects.new("rax-sun", lamp); scene.collection.objects.link(lo)
     lo.rotation_euler = (-sun_dir).to_track_quat("-Z", "Y").to_euler()
     cam = scene.camera
@@ -438,7 +532,7 @@ def record_sky(sky, picks, fps):
         mat = bpy.data.materials.new("planet-" + p["id"]); mat.use_nodes = True
         bsdf = mat.node_tree.nodes.get("Principled BSDF")
         bsdf.inputs["Base Color"].default_value = rgb_of(p["ink"]) + (1,)
-        bsdf.inputs["Emission Color"].default_value = rgb_of(p["ink"]) + (1,); bsdf.inputs["Emission Strength"].default_value = 0.6
+        bsdf.inputs["Emission Color"].default_value = rgb_of(p["ink"]) + (1,); bsdf.inputs["Emission Strength"].default_value = 1.0 if FAITHFUL else 0.6
         ball.data.materials.append(mat); bpy.ops.object.shade_smooth()
         far = 4000
         for f, fr in enumerate(picks, start=1):
@@ -446,7 +540,8 @@ def record_sky(sky, picks, fps):
             q = next((x for x in fr["sky"]["planets"] if x["id"] == p["id"]), p)
             dvec = rax_to_bl(q["dir"]["x"], q["dir"]["y"], q["dir"]["z"]).normalized()
             e = fr["camera"]["eye"]; at = rax_to_bl(e["x"], e["y"], e["z"])
-            ball.location = at + dvec * far; ball.scale = [far * math.tan(q["size"])] * 3
+            # (Under the horizon rax's land hides it; Blender's floor is only the room, so it is put away.)
+            ball.location = at + dvec * far; ball.scale = [far * math.tan(q["size"]) if q["dir"]["y"] > -0.02 else 0] * 3
             ball.keyframe_insert("location", frame=f); ball.keyframe_insert("scale", frame=f)
 
 # ── UI ────────────────────────────────────────────────────────────────────
@@ -492,7 +587,11 @@ def main(argv):
     ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
     ap.add_argument("--flat", action="store_true", help="leave the land flat (no small-planet bend)")
     ap.add_argument("--engine", default="CYCLES")
+    ap.add_argument("--decorate", action="store_true", help="light the take with Blender's own sun instead of rax's colours as drawn")
+    ap.add_argument("--relight-small", action="store_true", help="treat small models drawn again with new colours as one (a rolling ball)")
     a = ap.parse_args(argv)
+    global FAITHFUL, RELIGHT_SMALL
+    FAITHFUL, RELIGHT_SMALL = not a.decorate, a.relight_small
     bpy.ops.wm.read_factory_settings(use_empty=True)
     if a.record:
         w, h = (int(v) for v in a.size.split("x"))

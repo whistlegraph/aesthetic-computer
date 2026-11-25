@@ -82,6 +82,7 @@ const assets = new Map([
     'diagnostics-client',
     'stalls',
     'rounds', // 🔫 rounds in flight, flown on and fired at once
+    'gore', // 🩸 ragdolls, gibs, spurts and splats
     'park',
     'bop',
     'games',
