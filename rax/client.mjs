@@ -684,7 +684,50 @@ let last = performance.now(),
   debt = 0;
 let resting = false; // The host window is in the background (lib/rax-sheet.mjs).
 let away = false; // Another piece has the host's stage: nobody can see the room, so it draws nothing.
-const BACKGROUND_FPS = 60; // The room's top rate behind a background window's paper.
+// 💧 With the host page's ?lcd (bios sets window.acLcd), the room behind a
+// background window's paper draws 12 times a second and each frame fades in
+// over the last like a slow liquid-crystal pixel — the turn reads as motion
+// without the edge flicker a plain 20 fps had (2026-11-03), at a fifth of
+// the work. Without it, 60 as before.
+const LCD = (() => { try { return window.parent !== window && window.parent.acLcd === true; } catch { return false; } })();
+const BACKGROUND_FPS = LCD ? 12 : 60; // The room's top rate behind a background window's paper.
+const lcd = LCD ? (() => {
+  const show = document.createElement('canvas'); // the outgoing frame, fading away
+  const saved = document.createElement('canvas'); // the frame on screen, kept for the next fade
+  show.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;opacity:0';
+  let have = false, fading = false;
+  const fit = (c) => { if (c.width !== canvas.width || c.height !== canvas.height) { c.width = canvas.width; c.height = canvas.height; } };
+  return {
+    // Right after a paced frame is drawn (same task, so the 3D canvas still holds it).
+    frame() {
+      if (!show.isConnected) canvas.after(show);
+      fit(show); fit(saved);
+      if (have) {
+        const g = show.getContext('2d');
+        g.clearRect(0, 0, show.width, show.height);
+        g.drawImage(saved, 0, 0);
+        show.style.transition = 'none';
+        show.style.opacity = '1';
+        void show.offsetWidth; // commit 1 before the fade
+        show.style.transition = `opacity ${Math.round(1000 / BACKGROUND_FPS)}ms linear`;
+        show.style.opacity = '0';
+        fading = true;
+      }
+      const s = saved.getContext('2d');
+      s.clearRect(0, 0, saved.width, saved.height);
+      s.drawImage(canvas, 0, 0);
+      have = true;
+    },
+    // Full rate again: nothing held, nothing stale for the next rest.
+    off() {
+      have = false;
+      if (!fading) return;
+      show.style.transition = 'none';
+      show.style.opacity = '0';
+      fading = false;
+    },
+  };
+})() : null;
 let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock(),
@@ -3065,10 +3108,12 @@ function frame(now, xr) {
   // With the host window in the background and the paper down, the room
   // still turns smoothly but draws at most 60 times a second, half the work
   // on a 120 Hz display (2026-11-08).
-  if (resting && !sheetOpen) {
+  const paced = resting && !sheetOpen;
+  if (paced) {
     if (now - lastBackgroundFrameAt < 1000 / BACKGROUND_FPS - 2) return;
     lastBackgroundFrameAt = now;
   }
+  if (!paced) lcd?.off();
   // Full rate for a beat after the paper is back, so the return never stutters.
   // (The corner world runs at full rate: stepping it at 20 fps made the
   // turning room's edges flicker, 2026-11-03.)
@@ -3082,6 +3127,7 @@ function frame(now, xr) {
     if (diagnostics.enabled) diagnostics.values.frameErrors++;
     console.error('rax frame', error);
   }
+  if (paced) lcd?.frame();
   stalls.end({ work: performance.now() - began, render: canvas.raxStats?.cpuMs || 0, predict: predicted });
   const gpu = canvas.raxStats?.gpu;
   if (gpu?.max) {

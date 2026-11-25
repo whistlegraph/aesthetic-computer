@@ -1722,6 +1722,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // top of the canvas and fades away over the frame's interval; the fade
   // runs in the compositor, so it asks nothing of the page or the worker.
   const lcdOn = resolution?.lcd === true;
+  window.acLcd = lcdOn; // the rax world under the curtain reads it (rax/client.mjs)
   const LCD_MS = 83; // ≈ 12 fps behind
   const lcdCan = document.createElement("canvas");
   const lcdCtx = lcdCan.getContext("2d");
