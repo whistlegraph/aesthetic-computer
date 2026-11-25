@@ -11,16 +11,17 @@
 
 export const LEVELS = ["signal", "brief", "full"];
 
-const SIGNAL_WORDS = 16;
+const SIGNAL_WORDS = 12;
 const POINTS = 3;
 
 /** The prompt clause that asks a model for utilitext at a level. */
 export function utilitextPrompt(level = "brief") {
   const lines = [
     `Open with one line of at most ${SIGNAL_WORDS} words: what happened, or what you need. No preamble.`,
-    "If a person must decide something, add one line starting `ask:` with the choice.",
+    "If a person must decide something, add one line starting `ask:` with the question in at most 10 words,",
+    "then one line `options: <emoji> <One or Two Words> = what you will do | …` with 2–3 choices, each label capitalized.",
   ];
-  if (level !== "signal") lines.push(`Then at most ${POINTS} short points, one fact each. Do not restate the first line.`);
+  if (level !== "signal") lines.push(`Then at most ${POINTS} points of at most 12 words, one fact each. Do not restate the first line.`);
   lines.push(
     level === "full"
       ? "Put reasoning, evidence and logs inside <explain>…</explain> after the points."
@@ -38,10 +39,16 @@ export function read(reply = "") {
   const explain = [...reply.matchAll(EXPLAIN)].map((m) => m[1].trim()).filter(Boolean).join("\n\n");
   const lines = reply.replace(EXPLAIN, "").split("\n").map((l) => l.trimEnd()).filter((l) => l.trim());
   let ask = "";
+  let options = [];
   const kept = [];
   for (const line of lines) {
     const m = line.match(/^\s*ask:\s*(.+)$/i);
+    const o = line.match(/^\s*options?:\s*(.+)$/i);
     if (m && !ask) ask = m[1].trim();
+    else if (o) options = o[1].split("|").map((part) => {
+      const [label, does = label] = part.split(/\s*(?:=|—|–| - )\s*/);
+      return { label: label.trim(), does: does.trim() };
+    }).filter((x) => x.label);
     else kept.push(line);
   }
   const first = kept.findIndex((l) => !/^\s*#/.test(l));
@@ -49,7 +56,7 @@ export function read(reply = "") {
   const after = kept.slice(first + 1);
   const points = after.filter((l) => POINT.test(l)).map((l) => l.replace(POINT, "").trim());
   const prose = after.filter((l) => !POINT.test(l) && !/^\s*#/.test(l)).join("\n").trim();
-  return { signal, ask, points, explain: [prose, explain].filter(Boolean).join("\n\n") };
+  return { signal, ask, options, points, explain: [prose, explain].filter(Boolean).join("\n\n") };
 }
 
 // A signal that ran long is cut at a word, so a summary row stays one line.
@@ -62,7 +69,7 @@ function clip(line, words = SIGNAL_WORDS * 2) {
 export function filter(reply, level = "brief") {
   const r = typeof reply === "string" ? read(reply) : reply;
   const out = [r.signal];
-  if (r.ask) out.push(`ask: ${r.ask}`);
+  if (r.ask) out.push(`ask: ${r.ask}` + (r.options.length ? `  [${r.options.map((o) => o.label).join(" | ")}]` : ""));
   if (level !== "signal") out.push(...r.points.slice(0, level === "full" ? undefined : POINTS).map((p) => `- ${p}`));
   if (level === "full" && r.explain) out.push("", r.explain);
   else if (r.explain || (level === "signal" && r.points.length)) out.push("▸ explain");

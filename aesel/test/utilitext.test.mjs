@@ -47,8 +47,16 @@ test("the level moves with what the person does", () => {
   assert.equal(step("brief", "ok"), "brief");
 });
 
+test("an options line becomes short labelled choices, not points", () => {
+  const r = read("Board rerun done.\nask: spend on the turntable?\noptions: 🎬 Turntable = render it for 694✦ | 🖼️ Stills = build the kit from stills\n- hero is clean");
+  assert.deepEqual(r.options.map((o) => o.label), ["🎬 Turntable", "🖼️ Stills"]);
+  assert.equal(r.options[1].does, "build the kit from stills");
+  assert.equal(r.points.length, 1);
+});
+
 test("the prompt asks for the shape at each level", () => {
-  assert.doesNotMatch(utilitextPrompt("signal"), /short points/);
+  assert.doesNotMatch(utilitextPrompt("signal"), /points of/);
+  assert.match(utilitextPrompt("brief"), /options: <emoji> <One or Two Words>/);
   assert.match(utilitextPrompt("brief"), /<explain>/);
   assert.match(utilitextPrompt("full"), /after the points/);
 });
