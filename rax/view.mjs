@@ -2330,7 +2330,7 @@ export async function createView(canvas) {
     const live = new Set();
     for (const b of bullets) {
       live.add(b.id);
-      const t = Math.min(0.1, since);
+      const t = b.flown ? 0 : Math.min(0.1, since); // (rounds.mjs has already flown it to now)
       const at = { x: b.x + b.vx * t, y: b.y + b.vy * t, z: b.z + b.vz * t };
       let trail = trails.get(b.id);
       if (!trail) trails.set(b.id, (trail = []));

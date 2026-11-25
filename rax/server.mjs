@@ -81,6 +81,7 @@ const assets = new Map([
     'flyover', // 🛫 a drone's idle tour // 🔭 the lens on the card // 🌍 the small planet's sums (project.mjs, view.mjs, freecam.mjs)
     'diagnostics-client',
     'stalls',
+    'rounds', // 🔫 rounds in flight, flown on and fired at once
     'park',
     'bop',
     'games',

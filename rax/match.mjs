@@ -747,9 +747,9 @@ export class Match {
       drones: this.drones.filter((d) => d.alive).map((d) => ({ id: d.id, x: Math.round(d.x * 1000) / 1000, y: d.y, dir: d.dir })),
       rockets: this.rockets.map((r) => ({ ...r })),
       items: [...this.items.values()].map((it) => ({
-        id: it.id, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,
+        id: it.id, kind: it.kind, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,
       })),
-      bullets: this.bullets.map((b) => ({ id: b.id, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz })),
+      bullets: this.bullets.map((b) => ({ id: b.id, owner: b.owner, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz })),
       events: this.events.map((e) => ({ ...e })),
     };
   }

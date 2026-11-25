@@ -222,3 +222,29 @@ test('flight paths and hinged wings have synchronized conservative collision bou
   assert.deepEqual(poseObject(structuredClone(object), 1 / 12), pose);
   assert.equal(geometry({ ...shape, motion: { ...shape.motion, flapHz: 99 } }).motion.flapHz, 6);
 });
+
+// 🔫 A typed "a gun" is a shoot item, and a gun built before typed items
+// existed becomes one on its next version, its first prompt naming it.
+test('typed builds take an item kind from their main noun; old objects take theirs on the next version', async () => {
+  const { itemOf } = await import('../builders.mjs');
+  assert.equal(itemOf('a big red gun'), 'shoot');
+  assert.equal(itemOf('a baseball bat'), 'poke');
+  assert.equal(itemOf('a snowball'), 'throw');
+  assert.equal(itemOf('a house with a cannon on top'), null);
+  assert.equal(itemOf('a rainbow'), null);
+  assert.equal(itemOf('a bow tie'), null);
+  const dir = await mkdtemp(join(tmpdir(), 'rax-objects-'));
+  try {
+    const s = new ObjectStore(dir);
+    await s.load();
+    const a = await s.identity();
+    const job = { room: 'r', owner: a.owner, objectId: 'gun', baseVersion: -1, x: 3, z: 3, prompt: 'a gun', item: null };
+    await s.commit(job, stairs);
+    assert.equal(s.get('r', 'gun').item, null);
+    assert.equal(s.get('r', 'gun').first, 'a gun');
+    await s.commit({ ...job, baseVersion: 0, prompt: 'make it shinier', item: itemOf(s.get('r', 'gun').first) }, stairs);
+    assert.equal(s.get('r', 'gun').item, 'shoot');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
