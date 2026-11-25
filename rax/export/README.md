@@ -42,3 +42,31 @@ blender -b -P rax/blender/rax_import.py -- \
 `--from`/`--to` are UTC on the walk file's date. Cycles picks OptiX/CUDA when
 there is a GPU. On jastow (RTX 3070) a 1280×720 frame at 24 samples takes
 about 3.6 s.
+
+## A take, frame by frame (same geometry)
+
+```
+xvfb-run -a -s "-screen 0 1920x1080x24" node rax/film/shoot.mjs bikes --chrome --record [--cache dir]
+blender -b -P rax/blender/rax_import.py -- --record rax/film/out/<take>.raxrec \
+  --fps 24 --samples 16 --size 1280x720 --out frames/ [--frames 1-120] [--flat] [--blend take.blend]
+ffmpeg -framerate 24 -i frames/f%04d.png -c:v libx264 -crf 16 -pix_fmt yuv420p take.mp4
+```
+
+`--record` puts `recorder.mjs` in the film's camera page from the roll to the
+wrap. It keeps every model rax's projector drew, once each (by content), and
+for every frame where each one was drawn, the camera (eye, axes, field of
+view), the small planet's radius as the view bent the land, and the sky
+(phase, sun, colours, the other planets from `orbits.mjs`). A screen running
+a KidLisp or `.mjs` piece is a model like any other, so its frames come out as
+they were drawn. The sky's dome and the shadows are not kept: Blender makes
+its own.
+
+`rax_import.py --record` builds each model as a mesh with its corner colours,
+each draw as an object keyed only when it moves, the camera keyed per frame,
+the sky as a gradient with a sun lamp and the planets as lit balls far off
+along their directions, and the small planet's bend as a Geometry Nodes
+modifier (`rax-bend`: `planet.mjs` `bend` about the recorded eye with the
+recorded radius; `--flat` leaves it out). Small models that come back each
+frame with new colours only (a rolling ball rax re-lights) are one model.
+On jastow (RTX 3070, Blender 5.2) a 1280×720 frame at 16 samples takes about
+3.7 s. Linux Chrome has a GPU only in a window: hence `xvfb-run`.

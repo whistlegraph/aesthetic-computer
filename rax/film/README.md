@@ -15,6 +15,12 @@ tab it thinks nobody can see, and `shoot` fails any take with a stall in it.
 The take lands in `rax/film/out/<film>-<time>.mp4` (1280 × 720, 60 fps, no
 sound yet).
 
+`--chrome` drives a camera page of its own (Playwright), so no hand is
+needed; on Linux run it under `xvfb-run` (a headless Linux Chrome has no GPU).
+`--cache dir` answers the page's aesthetic.computer requests from files
+(`index.json`: `{ url: file }`), for a box that cannot reach it. `--record`
+also writes `<take>.raxrec`, the take as data for Blender (`rax/export/README.md`).
+
 ## Writing a film
 
 A film is a module in `films/` (see `films/tower.mjs`):
@@ -23,6 +29,8 @@ A film is a module in `films/` (see `films/tower.mjs`):
   stage before the camera is up.
 - `direct(d)` is the screenplay, top to bottom:
   - `const a = await d.cast('jeffrey', { at: [x, z], facing })`
+  - 🛵 `await a.mount()` (B: on the cabin bike), `await a.lift(seconds, ±1)`,
+    `await a.flyTo(x, y, z, { pace })` (y at the eyes)
   - `await a.walkTo(x, z, { pace })`, `a.face(bearing | [x, z])`, `a.jump()`,
     `a.say(text)`, `await a.ride('home' | 89 | '@handle' | 'g')`,
     `await a.take(89)`

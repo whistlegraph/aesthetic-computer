@@ -41,6 +41,11 @@ export async function studio(film, { port = 0, out = resolve(here, 'out') } = {}
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const module = /^\/film\/([a-z-]+\.mjs)$/.exec(url.pathname)?.[1];
+    // 🎞️ The draw recorder (export/recorder.mjs), for a take with --record: served here, never by rax itself.
+    if (req.method === 'GET' && url.pathname === '/film/recorder.mjs') {
+      res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' }).end(await readFile(join(here, '../export/recorder.mjs')));
+      return;
+    }
     if (req.method === 'GET' && PAGE_MODULES.includes(module)) {
       res.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' })
         .end(await readFile(join(here, module)));
@@ -178,7 +183,58 @@ const transcode = (webm, mp4, fps) => new Promise((ok, fail) => {
     error ? fail(Error(stderr || error.message)) : ok(mp4));
 });
 
-export async function shoot(name, { open = false, port = 8798, log = console.log } = {}) {
+// 📷 A camera page of our own (--chrome): Chrome driven by Playwright, so a
+// take needs no hand at a keyboard. On Linux it runs in a window (put it in a
+// private display: `xvfb-run -a -s "-screen 0 1920x1080x24"`), because a
+// headless Linux Chrome has no GPU. `cache` is a directory of what the page
+// would fetch from aesthetic.computer (index.json: { url: file }), for a box
+// that cannot reach it; anything else from there is left unanswered.
+async function cameraPage(url, { size = [1280, 720], cache = null, record = null, log }) {
+  const { chromium } = await import('playwright');
+  const linux = process.platform === 'linux';
+  const browser = await chromium.launch({ channel: 'chrome', headless: false,
+    args: ['--enable-unsafe-webgpu', `--window-size=${size[0]},${size[1] + 120}`, '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--autoplay-policy=no-user-gesture-required',
+      ...(linux ? ['--enable-gpu', '--ignore-gpu-blocklist', '--enable-features=Vulkan', '--use-vulkan=native', '--use-angle=vulkan'] : [])] });
+  const page = await browser.newPage({ viewport: { width: size[0], height: size[1] } });
+  page.on('pageerror', (e) => log(`camera page error: ${e.message}`));
+  if (cache) {
+    const plain = (url) => { try { return decodeURI(url); } catch { return url; } }; // (a browser sends `|` as %7C)
+    const index = Object.fromEntries(Object.entries(JSON.parse(await readFile(join(cache, 'index.json'), 'utf8'))).map(([url, file]) => [plain(url), file]));
+    await page.route(/^https:\/\/(user\.)?aesthetic\.computer\//, async (route) => {
+      const file = index[plain(route.request().url())];
+      if (!file) return route.fulfill({ status: 404, body: '' });
+      const body = await readFile(join(cache, file));
+      return route.fulfill({ status: 200, body, headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': file.endsWith('.png') ? 'image/png' : 'application/json' } });
+    });
+  }
+  // 🎞️ --record: every frame's draws, camera and sky, written as they come (export/recorder.mjs).
+  if (record) {
+    const { createWriteStream } = await import('node:fs');
+    await mkdir(join(record, 'meshes'), { recursive: true });
+    const frames = createWriteStream(join(record, 'frames.jsonl'));
+    let count = 0, models = 0;
+    await page.exposeFunction('raxRecord', async (chunk) => {
+      for (const m of chunk.fresh) { await writeFile(join(record, 'meshes', `${m.id}.bin`), Buffer.from(m.floats, 'base64')); models++; }
+      frames.write(JSON.stringify({ ...chunk, fresh: undefined }) + '\n');
+      count++;
+    });
+    browser.record = {
+      start: () => page.evaluate(async () => { (window.__rec ||= (await import('/film/recorder.mjs')).installRecorder((c) => window.raxRecord(c))).start(); }),
+      stop: async () => {
+        await page.evaluate(() => window.__rec?.stop());
+        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => frames.end(r));
+        await writeFile(join(record, 'meta.json'), JSON.stringify({ frames: count, models, size, at: new Date().toISOString() }, null, 1));
+        log(`recorded ${count} frames, ${models} models → ${record}`);
+      },
+    };
+  }
+  await page.goto(url);
+  if (record) await page.evaluate(async () => { window.__rec = (await import('/film/recorder.mjs')).installRecorder((c) => window.raxRecord(c)); });
+  return browser;
+}
+
+export async function shoot(name, { open = false, chrome = false, cache = null, record = false, port = 8798, log = console.log } = {}) {
   const film = (await import(`./films/${name}.mjs`)).default;
   const set = await studio(film, { port });
   set.take = `${film.name}-${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}`;
@@ -189,6 +245,9 @@ export async function shoot(name, { open = false, port = 8798, log = console.log
     log(`camera page → ${url}`);
     // A window of its own, so the page is in front and drawing.
     if (open) spawn('open', ['-na', 'Google Chrome', '--args', '--new-window', url], { stdio: 'ignore', detached: true }).unref();
+    if (chrome) d.browser = await cameraPage(url, { size: film.size, cache, log, record: record ? join(set.out, `${set.take}.raxrec`) : null });
+    // 🎞️ Record from the roll to the wrap, as the picture is.
+    if (d.browser?.record) { const roll = d.roll; d.roll = async () => { await roll(); await d.browser.record.start(); }; }
     const end = Date.now() + 120000;
     // Up means connected, visible and drawing: a hidden tab films nothing.
     let drawn = -1, told = false;
@@ -205,6 +264,7 @@ export async function shoot(name, { open = false, port = 8798, log = console.log
     set.watchStalls();
     await film.direct(d);
     const stall = set.stalled();
+    await d.browser?.record?.stop();
     set.tell({ op: 'wrap' });
     const answer = await set.heard((m) => m.op === 'uploaded', 60000, 'the take');
     if (!answer.ok) throw Error(`the take did not upload: ${answer.error || 'refused'}`);
@@ -215,15 +275,17 @@ export async function shoot(name, { open = false, port = 8798, log = console.log
     return mp4;
   } finally {
     for (const a of d.actors) a.leave();
+    await d.browser?.close();
     await set.close();
   }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [name, ...flags] = process.argv.slice(2);
-  if (!name) { console.error('usage: shoot.mjs <film> [--open] [--port n]'); process.exit(2); }
+  if (!name) { console.error('usage: shoot.mjs <film> [--open | --chrome [--cache dir] [--record]] [--port n]'); process.exit(2); }
   const port = flags.includes('--port') ? Number(flags[flags.indexOf('--port') + 1]) : 8798;
-  shoot(name, { open: flags.includes('--open'), port }).then(() => process.exit(0), (error) => {
+  const cache = flags.includes('--cache') ? resolve(flags[flags.indexOf('--cache') + 1]) : null;
+  shoot(name, { open: flags.includes('--open'), chrome: flags.includes('--chrome'), record: flags.includes('--record'), cache, port }).then(() => process.exit(0), (error) => {
     console.error(`cut: ${error.message}`);
     process.exit(1);
   });

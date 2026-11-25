@@ -16,7 +16,7 @@ export class Actor {
     this.owner = null; // kept across rooms: a ride's passage is bound to it
     this.seq = 0;
     this.sent = [];
-    this.control = { fwd: 0, right: 0, yaw: 0, pitch: 0, jump: false };
+    this.control = { fwd: 0, right: 0, yaw: 0, pitch: 0, jump: false, up: false, down: false, bike: false };
     this.waiting = new Set();
   }
   // Resolve when a message passes `test` (or reject after `ms`).
@@ -89,8 +89,8 @@ export class Actor {
     if (!this.me || this.ws?.readyState !== WebSocket.OPEN) return;
     const c = this.control;
     for (let i = 0; i < count; i++) {
-      this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump ? 1 : 0 });
-      c.jump = false;
+      this.sent.push({ seq: ++this.seq, fwd: c.fwd, right: c.right, yaw: c.yaw, pitch: c.pitch, buttons: c.jump || c.up ? 1 : 0, duck: c.down, bike: c.bike });
+      c.jump = false; c.bike = false;
     }
     this.sent = this.sent.slice(-12);
     this.send({ type: 'input', commands: this.sent });
@@ -123,6 +123,36 @@ export class Actor {
     await sleep(120); // come to rest
   }
   jump() { this.control.jump = true; }
+  // 🛵 On or off the cabin bike (bike.mjs), as B does. Resolves when the world says so.
+  async mount(on = true) {
+    if (!!this.me?.bike === on) return;
+    this.control.bike = true; // (once: B is a toggle, so pressing again could undo it)
+    const end = Date.now() + 3000;
+    while (!!this.me?.bike !== on && Date.now() < end) await sleep(20);
+    if (!!this.me?.bike !== on) throw Error(`@${this.handle} could not get ${on ? 'on' : 'off'} the bike`);
+  }
+  // Hold the bike's lift (space) or let it sink (shift) for `seconds`.
+  async lift(seconds, way = 1) {
+    this.control.up = way > 0; this.control.down = way < 0;
+    await sleep(seconds * 1000);
+    this.control.up = this.control.down = false;
+  }
+  // 🛵 Fly the bike to a point in the air [x, y, z] (y at the eyes): it looks
+  // there and goes, easing in as it arrives. `pace` is the throttle.
+  async flyTo(x, y, z, { pace = 0.8, within = 0.8, patience = 20 } = {}) {
+    const end = Date.now() + patience * 1000;
+    for (;;) {
+      const dx = x - this.me.x, dy = y - this.me.y, dz = z - this.me.z, far = Math.hypot(dx, dy, dz);
+      if (far <= within) break;
+      if (Date.now() > end) { this.control.fwd = 0; throw Error(`@${this.handle} could not fly to ${x}, ${y}, ${z}`); }
+      const to = aim(this.me, { x, y, z });
+      this.control.yaw = to.yaw;
+      this.control.pitch = Math.max(-70, Math.min(70, to.pitch ?? Math.atan2(dy, Math.hypot(dx, dz)) * 180 / Math.PI));
+      this.control.fwd = Math.min(pace, Math.max(0.15, far * 0.25));
+      await sleep(1000 / 30);
+    }
+    this.control.fwd = 0;
+  }
   say(text) { this.send({ type: 'say', text }); }
   // 🏢 Make a floor number this handle's own.
   async take(number) {

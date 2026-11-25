@@ -196,6 +196,259 @@ def setup_camera(actors, position=None, look=None, lens=24):
         c.track_axis = "TRACK_Z"; c.up_axis = "UP_Y"
     return cam
 
+# ── a recording (export/recorder.mjs, film/shoot.mjs --record) ────────────
+#
+# The take's own frames: every model rax drew, the same triangles and corner
+# colours, each draw an object keyed only when it moves; the camera rax had,
+# its field of view; the sky's colours, its sun and the other planets; and
+# the small planet's bend (planet.mjs `bend`), done here by Geometry Nodes
+# about the recorded eye with the recorded radius, frame by frame.
+
+C_RAX = ((1, 0, 0), (0, 0, -1), (0, 1, 0))  # rax (x, y, z) → Blender (x, -z, y)
+
+def rax_rotation(yaw, pitch, roll):
+    """The 3×3 that draw() applies (roll about z, then pitch about x, then yaw about y), in rax axes."""
+    cy, sy, cp, sp, cr, sr = math.cos(yaw), math.sin(yaw), math.cos(pitch), math.sin(pitch), math.cos(roll), math.sin(roll)
+    def f(lx, ly, lz):
+        rx, ry = lx * cr - ly * sr, lx * sr + ly * cr
+        py, pz = ry * cp - lz * sp, ry * sp + lz * cp
+        return (rx * cy + pz * sy, py, -rx * sy + pz * cy)
+    cols = [f(1, 0, 0), f(0, 1, 0), f(0, 0, 1)]
+    return [[cols[c][r] for c in range(3)] for r in range(3)]
+
+def to_blender_matrix(x, y, z, yaw, pitch, scale, roll):
+    from mathutils import Matrix
+    R = Matrix(rax_rotation(yaw, pitch, roll)); C = Matrix(C_RAX)
+    M = (C @ R @ C.inverted()).to_4x4() @ Matrix.Scale(scale, 4)
+    M.translation = rax_to_bl(x, y, z)
+    return M
+
+def place(o, M, frame, keys=("location", "rotation_quaternion", "scale")):
+    """Set an object to a matrix and key it. (In Blender 5 assigning matrix_world
+    does not reach location/rotation before a keyframe reads them: set them.)"""
+    loc, rot, scale = M.decompose()
+    o.rotation_mode = "QUATERNION"
+    o.location, o.rotation_quaternion, o.scale = loc, rot, scale
+    for k in keys: o.keyframe_insert(k, frame=frame)
+
+def rgb_of(hex_int):
+    return ((hex_int >> 16) & 255) / 255, ((hex_int >> 8) & 255) / 255, (hex_int & 255) / 255
+
+def record_material():
+    mat = bpy.data.materials.get("rax-record")
+    if mat: return mat
+    mat = bpy.data.materials.new("rax-record"); mat.use_nodes = True
+    nt = mat.node_tree; bsdf = nt.nodes.get("Principled BSDF")
+    attr = nt.nodes.new("ShaderNodeVertexColor"); attr.layer_name = "Color"
+    nt.links.new(attr.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(attr.outputs["Color"], bsdf.inputs["Emission Color"])
+    bsdf.inputs["Emission Strength"].default_value = 0.3  # (rax's colours are its light: some of them glows)
+    bsdf.inputs["Roughness"].default_value = 0.8
+    return mat
+
+SMALL = 40  # triangles: a model this small made again with new colours only is the same model (rax re-lights a rolling ball every frame; Blender lights it itself)
+
+def canonical(path, mid, shapes, canon):
+    """The model a draw shows: small models are matched by their shape alone."""
+    if mid in canon: return canon[mid]
+    raw = open(os.path.join(path, "meshes", f"{mid}.bin"), "rb").read()
+    import array
+    a = array.array("f"); a.frombytes(raw)
+    # A shadow's solid (shadow.mjs): every corner exactly black, never a colour rax shows (its darkest ink is #181818). Blender casts its own.
+    if not any(a[i] for i in range(len(a)) if i % 6 >= 3): canon[mid] = None; return None
+    if len(raw) // 72 > SMALL: canon[mid] = mid; return mid
+    import hashlib
+    shape = hashlib.sha1(array.array("f", (a[i] for i in range(len(a)) if i % 6 < 3)).tobytes()).hexdigest()
+    canon[mid] = shapes.setdefault(shape, mid)
+    return canon[mid]
+
+def record_mesh(path, mid, cache):
+    if mid in cache: return cache[mid]
+    import array
+    a = array.array("f"); a.frombytes(open(os.path.join(path, "meshes", f"{mid}.bin"), "rb").read())
+    n = len(a) // 6
+    verts = [tuple(rax_to_bl(a[i * 6], a[i * 6 + 1], a[i * 6 + 2])) for i in range(n)]
+    faces = [(i, i + 1, i + 2) for i in range(0, n - n % 3, 3)]
+    me = bpy.data.meshes.new(f"rax-model-{mid}"); me.from_pydata(verts, [], faces); me.update()
+    col = me.color_attributes.new("Color", "FLOAT_COLOR", "CORNER")
+    vals = []
+    for poly in me.polygons:
+        for li in poly.loop_indices:
+            v = me.loops[li].vertex_index
+            r, g, b = a[v * 6 + 3], a[v * 6 + 4], a[v * 6 + 5]
+            if r > 1.5: r -= 2  # (see-through / screen / texture marks)
+            if g > 3.5: g -= 4
+            if b > 7.5: b -= 8
+            vals.extend((min(1, max(0, r)), min(1, max(0, g)), min(1, max(0, b)), 1.0))
+    col.data.foreach_set("color", vals)
+    me.materials.append(record_material())
+    cache[mid] = me
+    return me
+
+def bend_group():
+    """Geometry Nodes: bend the land round the small planet as rax's projector
+    does (planet.mjs bend), about the eye (`rax-eye`'s location) with radius
+    and ground from `rax-planet` (location x = radius, y = ground; radius 0 is flat)."""
+    g = bpy.data.node_groups.get("rax-bend")
+    if g: return g
+    g = bpy.data.node_groups.new("rax-bend", "GeometryNodeTree")
+    g.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+    g.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    N, L = g.nodes, g.links
+    gin, gout = N.new("NodeGroupInput"), N.new("NodeGroupOutput")
+    def node(kind, **props):
+        n = N.new(kind)
+        for k, v in props.items(): setattr(n, k, v)
+        return n
+    def math_(op, a, b=None):
+        n = node("ShaderNodeMath", operation=op)
+        for i, v in enumerate([a, b]):
+            if v is None: continue
+            if isinstance(v, (int, float)): n.inputs[i].default_value = v
+            else: L.new(v, n.inputs[i])
+        return n.outputs[0]
+    self_ = node("GeometryNodeSelfObject")
+    info = node("GeometryNodeObjectInfo"); info.transform_space = "ORIGINAL"; L.new(self_.outputs[0], info.inputs["Object"])
+    eye = node("GeometryNodeObjectInfo"); eye.inputs["Object"].default_value = bpy.data.objects["rax-eye"]
+    pl = node("GeometryNodeObjectInfo"); pl.inputs["Object"].default_value = bpy.data.objects["rax-planet"]
+    pos = node("GeometryNodeInputPosition")
+    world = node("FunctionNodeTransformPoint"); L.new(pos.outputs[0], world.inputs["Vector"]); L.new(info.outputs["Transform"], world.inputs["Transform"])
+    W, E, P = node("ShaderNodeSeparateXYZ"), node("ShaderNodeSeparateXYZ"), node("ShaderNodeSeparateXYZ")
+    L.new(world.outputs[0], W.inputs[0]); L.new(eye.outputs["Location"], E.inputs[0]); L.new(pl.outputs["Location"], P.inputs[0])
+    R, G = P.outputs["X"], P.outputs["Y"]
+    dx, dy = math_("SUBTRACT", W.outputs["X"], E.outputs["X"]), math_("SUBTRACT", W.outputs["Y"], E.outputs["Y"])
+    d = math_("SQRT", math_("ADD", math_("MULTIPLY", dx, dx), math_("MULTIPLY", dy, dy)))
+    Rs = math_("MAXIMUM", R, 0.001)
+    turn = math_("MINIMUM", math_("DIVIDE", d, Rs), math.pi)
+    h = math_("SUBTRACT", W.outputs["Z"], G)
+    out = math_("ADD", Rs, h)
+    along = math_("DIVIDE", math_("MULTIPLY", out, math_("SINE", turn)), math_("MAXIMUM", d, 1e-6))
+    nx = math_("ADD", E.outputs["X"], math_("MULTIPLY", dx, along))
+    ny = math_("ADD", E.outputs["Y"], math_("MULTIPLY", dy, along))
+    nz = math_("SUBTRACT", math_("ADD", G, math_("MULTIPLY", out, math_("COSINE", turn))), Rs)
+    comb = node("ShaderNodeCombineXYZ"); L.new(nx, comb.inputs[0]); L.new(ny, comb.inputs[1]); L.new(nz, comb.inputs[2])
+    # Flat (radius under half a metre): the point as it was.
+    flat = node("GeometryNodeSwitch", input_type="VECTOR"); L.new(math_("LESS_THAN", R, 0.5), flat.inputs["Switch"])
+    L.new(comb.outputs[0], flat.inputs["False"]); L.new(world.outputs[0], flat.inputs["True"])
+    inv = node("FunctionNodeInvertMatrix"); L.new(info.outputs["Transform"], inv.inputs[0])
+    back = node("FunctionNodeTransformPoint"); L.new(flat.outputs[0], back.inputs["Vector"]); L.new(inv.outputs[0], back.inputs["Transform"])
+    setp = node("GeometryNodeSetPosition"); L.new(gin.outputs[0], setp.inputs["Geometry"]); L.new(back.outputs[0], setp.inputs["Position"])
+    L.new(setp.outputs[0], gout.inputs[0])
+    return g
+
+def fcurves_of(o):
+    """An object's F-curves, from a layered action (Blender 4.4+) or an old one."""
+    ad = o.animation_data
+    if not ad or not ad.action: return []
+    a = ad.action
+    if getattr(a, "is_action_layered", False) and a.layers:
+        out = []
+        for layer in a.layers:
+            for strip in layer.strips:
+                cb = strip.channelbag(ad.action_slot) if ad.action_slot else None
+                if cb: out.extend(cb.fcurves)
+        return out
+    return list(getattr(a, "fcurves", []))
+
+def import_record(path, fps=24, start=None, end=None, bend=True, size=(1280, 720)):
+    from mathutils import Matrix, Vector as V
+    meta = json.load(open(os.path.join(path, "meta.json")))
+    frames = sorted((json.loads(l) for l in open(os.path.join(path, "frames.jsonl")) if l.strip()), key=lambda fr: fr["n"])  # (they arrive out of order: the page sends as it goes)
+    if not frames: raise SystemExit("rax: the recording has no frames")
+    t0 = frames[0]["t"]
+    span = (frames[-1]["t"] - t0) / 1000
+    a = start or 0.0; b = min(end or span, span)
+    count = int((b - a) * fps) + 1
+    scene = bpy.context.scene
+    scene.render.fps = fps; scene.frame_start = 1; scene.frame_end = count
+    # Which recorded frame each output frame shows (nearest in time).
+    picks, j = [], 0
+    for f in range(count):
+        t = t0 + (a + f / fps) * 1000
+        while j + 1 < len(frames) and abs(frames[j + 1]["t"] - t) <= abs(frames[j]["t"] - t): j += 1
+        picks.append(frames[j])
+    eye = bpy.data.objects.new("rax-eye", None); scene.collection.objects.link(eye)
+    planet = bpy.data.objects.new("rax-planet", None); scene.collection.objects.link(planet)
+    coll = bpy.data.collections.new("rax-take"); scene.collection.children.link(coll)
+    cache, objs, last, shapes, canon = {}, {}, {}, {}, {}
+    group = bend_group() if bend else None
+    cam = bpy.data.objects.new("rax-camera", bpy.data.cameras.new("rax-camera")); scene.collection.objects.link(cam); scene.camera = cam
+    cam.data.sensor_fit = "VERTICAL"; cam.data.clip_start = 0.05; cam.data.clip_end = 20000
+    C = Matrix(C_RAX)
+    for f, fr in enumerate(picks, start=1):
+        c = fr["camera"]; e = c["eye"]
+        E = rax_to_bl(e["x"], e["y"], e["z"])
+        F = (C @ V(c["forward"])).normalized(); U = (C @ V(c["up"])).normalized(); Rt = F.cross(U).normalized()
+        M = Matrix((Rt, U, -F)).transposed().to_4x4(); M.translation = E
+        place(cam, M, f, ("location", "rotation_quaternion"))
+        cam.data.angle_y = 2 * math.atan(1 / max(1e-3, c["sy"])); cam.data.keyframe_insert("lens", frame=f)
+        eye.location = E; eye.keyframe_insert("location", frame=f)
+        planet.location = (fr.get("planet") or 0, fr.get("ground") or 0, 0); planet.keyframe_insert("location", frame=f)  # (x: the bend's radius; y: the ground's height, Blender z)
+        seen = {}
+        for d in fr["draws"]:
+            mid = canonical(path, d[0], shapes, canon)
+            if mid is None: continue
+            k = seen.get(mid, 0); seen[mid] = k + 1; key = (mid, k)
+            o = objs.get(key)
+            if o is None:
+                o = bpy.data.objects.new(f"rax-{mid}-{k}", record_mesh(path, mid, cache)); coll.objects.link(o)
+                if group: mod = o.modifiers.new("rax-bend", "NODES"); mod.node_group = group
+                objs[key] = o
+                if f > 1: o.hide_render = True; o.keyframe_insert("hide_render", frame=f - 1)
+            T = tuple(round(v, 5) for v in d[1:])
+            if last.get(key, (None,))[0] != T:
+                place(o, to_blender_matrix(*d[1:]), f)
+            if last.get(key, (None, True))[1] is not True or key not in last:
+                o.hide_render = False; o.keyframe_insert("hide_render", frame=f)
+            last[key] = (T, True, f)
+        for key, (T, shown, lf) in list(last.items()):
+            if shown and lf != f:
+                o = objs[key]; o.hide_render = True; o.keyframe_insert("hide_render", frame=f); last[key] = (T, False, lf)
+    for o in list(objs.values()) + [cam, eye, planet]:
+        for fc in fcurves_of(o):
+            for kp in fc.keyframe_points: kp.interpolation = "CONSTANT"  # (each key is a frame rax drew: hold it, do not blend)
+    for o in objs.values(): o.hide_viewport = False
+    record_sky(picks[0]["sky"], picks, fps)
+    print(f"rax: {len(picks)} frames, {len(cache)} models, {len(objs)} objects", flush=True)
+    return cam
+
+def record_sky(sky, picks, fps):
+    """The sky as rax had it: the day's three colours bottom to top, its sun as
+    a lamp, and the other planets as lit balls far off along their directions."""
+    scene = bpy.context.scene
+    world = scene.world or bpy.data.worlds.new("rax-sky"); scene.world = world; world.use_nodes = True
+    nt = world.node_tree; bg = nt.nodes.get("Background")
+    tc = nt.nodes.new("ShaderNodeTexCoord"); sep = nt.nodes.new("ShaderNodeSeparateXYZ"); ramp = nt.nodes.new("ShaderNodeValToRGB")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0]); nt.links.new(sep.outputs["Z"], ramp.inputs[0])
+    els = ramp.color_ramp.elements
+    els[0].position = 0.0; els[0].color = rgb_of(sky["horizon"]) + (1,)
+    els[1].position = 1.0; els[1].color = rgb_of(sky["zenith"]) + (1,)
+    mid = els.new(0.35); mid.color = rgb_of(sky["mid"]) + (1,)
+    nt.links.new(ramp.outputs["Color"], bg.inputs["Color"]); bg.inputs["Strength"].default_value = 0.55
+    # rax's colours are already the colours on a screen (sRGB): show them as they are, not through a film curve.
+    scene.view_settings.view_transform = "Standard"; scene.view_settings.look = "None"
+    s = sky["sun"]; sun_dir = rax_to_bl(s["x"], s["y"], s["z"]).normalized()
+    lamp = bpy.data.lights.new("rax-sun", "SUN"); lamp.energy = 3.0 if s["y"] > 0 else 0.4; lamp.angle = math.radians(2)
+    lo = bpy.data.objects.new("rax-sun", lamp); scene.collection.objects.link(lo)
+    lo.rotation_euler = (-sun_dir).to_track_quat("-Z", "Y").to_euler()
+    cam = scene.camera
+    for p in sky["planets"]:
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=48, ring_count=24, radius=1)
+        ball = bpy.context.object; ball.name = "rax-planet-" + p["id"]
+        mat = bpy.data.materials.new("planet-" + p["id"]); mat.use_nodes = True
+        bsdf = mat.node_tree.nodes.get("Principled BSDF")
+        bsdf.inputs["Base Color"].default_value = rgb_of(p["ink"]) + (1,)
+        bsdf.inputs["Emission Color"].default_value = rgb_of(p["ink"]) + (1,); bsdf.inputs["Emission Strength"].default_value = 0.6
+        ball.data.materials.append(mat); bpy.ops.object.shade_smooth()
+        far = 4000
+        for f, fr in enumerate(picks, start=1):
+            if (f - 1) % max(1, fps // 2) and f != len(picks): continue  # (every half second: they move slowly)
+            q = next((x for x in fr["sky"]["planets"] if x["id"] == p["id"]), p)
+            dvec = rax_to_bl(q["dir"]["x"], q["dir"]["y"], q["dir"]["z"]).normalized()
+            e = fr["camera"]["eye"]; at = rax_to_bl(e["x"], e["y"], e["z"])
+            ball.location = at + dvec * far; ball.scale = [far * math.tan(q["size"])] * 3
+            ball.keyframe_insert("location", frame=f); ball.keyframe_insert("scale", frame=f)
+
 # ── UI ────────────────────────────────────────────────────────────────────
 
 from bpy_extras.io_utils import ImportHelper
@@ -235,8 +488,25 @@ def main(argv):
     ap.add_argument("--samples", type=int, default=32); ap.add_argument("--size", default="1280x720")
     ap.add_argument("--frames"); ap.add_argument("--camera"); ap.add_argument("--look")
     ap.add_argument("--lens", type=float, default=24); ap.add_argument("--blend")
+    ap.add_argument("--record", help="a take's .raxrec folder (film/shoot.mjs --record)")
+    ap.add_argument("--start", type=float); ap.add_argument("--end", type=float)
+    ap.add_argument("--flat", action="store_true", help="leave the land flat (no small-planet bend)")
+    ap.add_argument("--engine", default="CYCLES")
     a = ap.parse_args(argv)
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    if a.record:
+        w, h = (int(v) for v in a.size.split("x"))
+        setup_render(a.samples, (w, h))
+        for o in [o for o in bpy.data.objects if o.name.startswith("rax-sun") or o.name.startswith("rax-fill")]: bpy.data.objects.remove(o)
+        import_record(a.record, a.fps, a.start, a.end, not a.flat)
+        scene = bpy.context.scene
+        if a.engine != "CYCLES": scene.render.engine = a.engine
+        if a.frames:
+            lo, _, hi = a.frames.partition("-"); scene.frame_start = int(lo); scene.frame_end = int(hi or lo)
+        if a.blend: bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(a.blend))
+        scene.render.filepath = os.path.join(os.path.abspath(a.out), "f")
+        bpy.ops.render.render(animation=True)
+        return
     for spec in a.scene:
         path, _, keep = spec.partition(":"); import_scene(path, keep or None)
     actors, span = [], None
