@@ -23,17 +23,20 @@ const DOWN_AFTER = 2;
 // ai. and help. left out), plus the health routes each service keeps.
 // `parent` is the link drawn: edge → lith → everything lith leans on.
 // `health` wants a 200; the rest count as up under the doctor's rule (< 500).
+// `icon` is who runs it (a domain whose favicon badges the star): Cloudflare
+// for what its edge serves itself, DigitalOcean for the droplets behind it
+// (assets is Spaces, papers is lith), tangled for the knot.
 export const HOSTS = [
-  { id: "edge", url: "https://aesthetic.computer/.commit-ref", parent: "", health: true, kind: "proxy" },
-  { id: "lith", url: "https://aesthetic.computer/rax/health", parent: "edge", health: true, kind: "kernel" },
-  { id: "oven", url: "https://oven.aesthetic.computer/papers-build", parent: "lith", health: true, kind: "dev" },
-  { id: "session", url: "https://session-server.aesthetic.computer", parent: "lith", kind: "bridge" },
-  { id: "relay", url: "https://relay-sfo.aesthetic.computer/health", parent: "lith", health: true, kind: "bridge" },
-  { id: "silo", url: "https://silo.aesthetic.computer", parent: "lith", kind: "db" },
-  { id: "assets", url: "https://assets.aesthetic.computer", parent: "lith", kind: "db" },
-  { id: "papers", url: "https://papers.aesthetic.computer", parent: "lith", kind: "dev" },
-  { id: "knot", url: "https://knot.aesthetic.computer", parent: "lith", kind: "dev" },
-  { id: "feed", url: "https://feed.aesthetic.computer", parent: "lith", kind: "proxy" },
+  { id: "edge", url: "https://aesthetic.computer/.commit-ref", parent: "", health: true, kind: "proxy", icon: "cloudflare.com" },
+  { id: "lith", url: "https://aesthetic.computer/rax/health", parent: "edge", health: true, kind: "kernel", icon: "digitalocean.com" },
+  { id: "oven", url: "https://oven.aesthetic.computer/papers-build", parent: "lith", health: true, kind: "dev", icon: "digitalocean.com" },
+  { id: "session", url: "https://session-server.aesthetic.computer", parent: "lith", kind: "bridge", icon: "digitalocean.com" },
+  { id: "relay", url: "https://relay-sfo.aesthetic.computer/health", parent: "lith", health: true, kind: "bridge", icon: "digitalocean.com" },
+  { id: "silo", url: "https://silo.aesthetic.computer", parent: "lith", kind: "db", icon: "digitalocean.com" },
+  { id: "assets", url: "https://assets.aesthetic.computer", parent: "lith", kind: "db", icon: "digitalocean.com" },
+  { id: "papers", url: "https://papers.aesthetic.computer", parent: "lith", kind: "dev", icon: "digitalocean.com" },
+  { id: "knot", url: "https://knot.aesthetic.computer", parent: "lith", kind: "dev", icon: "tangled.org" },
+  { id: "feed", url: "https://feed.aesthetic.computer", parent: "lith", kind: "proxy", icon: "cloudflare.com" },
 ];
 
 const AGENT = { "user-agent": "ac-infra-probe" };
@@ -77,6 +80,15 @@ function tailscale() {
 const short = p => String(p.DNSName || "").split(".")[0] || String(p.HostName || "").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 // What the wallpaper prints: the name without the tailnet's own decorations.
 const plain = name => name.replace(/(^|-)aesthetic-computer(-|$)/, (m, a, b) => (a && b ? "-" : "")).replace(/-\d$/, "") || name;
+// A tailnet machine's badge: its host's when it is one, else its make or OS.
+const OS_ICON = { macOS: "apple.com", iOS: "apple.com", windows: "microsoft.com", android: "android.com" };
+function machineIcon(name, os, node) {
+  if (node?.icon) return node.icon;
+  if (/aesthetic-computer|^ac-|session-server|^silo|^oven|^help/.test(name)) return "digitalocean.com";
+  if (/surface|msft/.test(name)) return "microsoft.com";
+  if (/^ac\d|acos|native/.test(name)) return "aesthetic.computer";
+  return OS_ICON[os] || (os === "linux" ? "kernel.org" : "");
+}
 const seen = at => { const t = Date.parse(at || ""); return t > 86400000 ? Math.round(t / 1000) : 0; };
 
 /** One snapshot. `state` remembers consecutive failures between calls. */
@@ -90,7 +102,7 @@ export async function probeInfra(state = {}) {
     const n = r.ok ? 0 : (fails.get(host.id) || 0) + 1;
     fails.set(host.id, n);
     const state = !r.ok ? (n >= DOWN_AFTER ? "down" : "late") : r.ms > SLOW_MS && r.ms > 2 * medianMs ? "slow" : "up";
-    return { id: host.id, parent: host.parent, kind: host.kind, state, ms: r.ok ? r.ms : null, coldMs: r.coldMs, status: r.status, note: r.note };
+    return { id: host.id, parent: host.parent, kind: host.kind, icon: host.icon || "", state, ms: r.ok ? r.ms : null, coldMs: r.coldMs, status: r.status, note: r.note };
   });
 
   let tailnet = null;
@@ -100,7 +112,7 @@ export async function probeInfra(state = {}) {
       // A tailnet machine that is one of the hosts above rides on that star.
       const node = nodes.find(n => name.split("-").includes(n.id));
       if (node) node.tailnet = Boolean(p.Online);
-      return { name: plain(name), os: p.OS || "", online: Boolean(p.Online), lastSeen: p.Online ? 0 : seen(p.LastSeen),
+      return { name: plain(name), os: p.OS || "", icon: machineIcon(name, p.OS, node), online: Boolean(p.Online), lastSeen: p.Online ? 0 : seen(p.LastSeen),
         direct: Boolean(p.CurAddr), node: node?.id || "" };
     }).sort((a, b) => b.online - a.online || b.lastSeen - a.lastSeen || a.name.localeCompare(b.name));
     tailnet = { state: ts.BackendState || "", self: { name: plain(short(ts.Self)), online: Boolean(ts.Self.Online) }, peers };

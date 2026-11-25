@@ -33,6 +33,9 @@ swiftc -O \
     -framework QuartzCore \
     -framework SceneKit \
     -framework AVFoundation \
+    -framework CoreBluetooth \
+    -framework CoreLocation \
+    -framework CoreWLAN \
     Sources/*.swift \
     -o "$APP/Contents/MacOS/BlueberryWallpaper"
 
@@ -40,5 +43,6 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/computer.aesthetic.blueberry-wallpaper.plist "$APP/Contents/Resources/"
 cp Resources/unifont.otf Resources/chunky8.ttf "$APP/Contents/Resources/"
 
-codesign --force --options runtime --sign "$SIGN_ID" "$APP"
+# The hardened runtime hides Location (and so the Wi-Fi name) without this entitlement.
+codesign --force --options runtime --entitlements Resources/entitlements.plist --sign "$SIGN_ID" "$APP"
 echo "✓ built $APP"

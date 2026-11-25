@@ -140,9 +140,15 @@ final class ConstellationLayer: CALayer {
         var tint = NSColor.white
         /// Round trip in ms, 0 when there was none: paces the pulse.
         var ms: Double = 0
+        /// 🏷 A domain whose favicon badges the name (see Favicons in Room.swift).
+        var icon = ""
     }
     struct Cluster { var hub = Star(); var left: [Star] = []; var right: [Star] = [] }
-    struct Style { var font: NSFont; var ink: NSColor; var halo: CGColor; var number: NSColor; var dark: Bool; var u: CGFloat; var scale: CGFloat }
+    struct Style {
+        var font: NSFont; var ink: NSColor; var halo: CGColor; var number: NSColor; var dark: Bool; var u: CGFloat; var scale: CGFloat
+        /// Past this the clusters wrap into a second band below the first.
+        var maxWidth: CGFloat = .greatestFiniteMagnitude
+    }
 
     /// Rebuilt when this changes.
     var key = ""
@@ -150,6 +156,7 @@ final class ConstellationLayer: CALayer {
     private let rings = CAShapeLayer()
     private var stars: [String: CAShapeLayer] = [:]
     private var labels: [String: HaloTextLayer] = [:]
+    private var badges: [String: CALayer] = [:]
     /// Each star's link, star end first, for the pulse to ride.
     private var spokes: [(id: String, from: CGPoint, to: CGPoint, ms: Double)] = []
     private var hubs: [(at: CGPoint, radius: CGFloat, ms: Double)] = []
@@ -185,7 +192,12 @@ final class ConstellationLayer: CALayer {
         var text: NSAttributedString
         var radius: CGFloat
         var hub = false
+        /// Room taken by the favicon at the label's start, 0 without one.
+        var badge: CGFloat = 0
     }
+
+    /// A favicon badge is half again as tall as a line of type.
+    static func badgeSide(_ cell: CGFloat) -> CGFloat { (cell * 1.5).rounded() }
 
     private static func hash(_ s: String) -> CGFloat {
         var h: UInt32 = 2166136261
@@ -202,7 +214,8 @@ final class ConstellationLayer: CALayer {
             default: return (style.ink.withAlphaComponent(0.92), style.number.withAlphaComponent(0.85))
             }
         }()
-        let name = s.name.count > 11 ? String(s.name.prefix(10)) + "…" : s.name
+        // Every name in full: the clusters wrap into bands rather than cut a name short.
+        let name = s.name
         let out = NSMutableAttributedString(string: name, attributes: [.font: style.font, .foregroundColor: main])
         if !s.tail.isEmpty {
             out.append(NSAttributedString(string: " " + s.tail, attributes: [.font: style.font, .foregroundColor: dim]))
@@ -215,12 +228,14 @@ final class ConstellationLayer: CALayer {
     /// link from the hub never runs under a name.
     private func place(_ c: Cluster, _ style: Style, cell: CGFloat, rowH: CGFloat) -> (items: [Placed], lines: [(Int, CGPoint, CGPoint)]) {
         let u = style.u, r = 4 * u, hubR = 6 * u, gap = 5 * u
+        let badge = { (s: Star) -> CGFloat in Favicons.image(s.icon) == nil ? 0 : (Self.badgeSide(cell) + 3 * u).rounded() }
         let width = { (t: NSAttributedString) in ceil(t.size().width) + 2 }
         let hubText = words(c.hub, style)
-        let hubW = width(hubText)
+        let hubB = badge(c.hub)
+        let hubW = width(hubText) + hubB
         var items = [Placed(star: c.hub, at: .zero,
                             label: CGRect(x: (-hubW / 2).rounded(), y: (-hubR - 4 * u - cell).rounded(), width: hubW, height: cell),
-                            text: hubText, radius: hubR, hub: true)]
+                            text: hubText, radius: hubR, hub: true, badge: hubB)]
         let a = max(hubW / 2 + 24 * u, 54 * u)
         let b = CGFloat(max(c.left.count, c.right.count) + 1) * rowH
         // The fan opens upward from the hub's own row, so the hub's name
@@ -229,11 +244,11 @@ final class ConstellationLayer: CALayer {
             for (i, s) in list.enumerated() {
                 let y = (CGFloat(list.count - 1 - i) * rowH).rounded()
                 let x = (a * (1 - (y / b) * (y / b)).squareRoot() + (i % 2 == 1 ? 9 * u : 0)).rounded()
-                let text = words(s, style), w = width(text)
+                let text = words(s, style), b = badge(s), w = width(text) + b
                 let left = side < 0 ? -x - r - gap - w : x + r + gap
                 items.append(Placed(star: s, at: CGPoint(x: side * x, y: y),
                                     label: CGRect(x: left.rounded(), y: (y - cell / 2).rounded(), width: w, height: cell),
-                                    text: text, radius: s.machine ? r * 0.62 : r))
+                                    text: text, radius: s.machine ? r * 0.62 : r, badge: b))
             }
         }
         // Links start where they leave the hub's name and stop short of the star.
@@ -266,7 +281,8 @@ final class ConstellationLayer: CALayer {
     func show(_ clusters: [Cluster], style: Style) {
         unit = style.u
         let cell = ceil(style.font.ascender - style.font.descender)
-        let rowH = cell + 2 * style.u
+        // Rows make room for the badges, which stand taller than the type.
+        let rowH = Self.badgeSide(cell) + 2 * style.u
         var live = Set<String>()
         var cursor: CGFloat = 0
         var placed: [(items: [Placed], lines: [(Int, CGPoint, CGPoint)], box: CGRect)] = []
@@ -278,13 +294,29 @@ final class ConstellationLayer: CALayer {
             }
             placed.append((p.items, p.lines, box.insetBy(dx: -2, dy: -2)))
         }
-        let height = ceil(placed.map { $0.box.height }.max() ?? 0)
+        // Clusters run left to right and wrap into bands; each band is as tall as its tallest.
+        let gapX = 22 * style.u, gapY = 14 * style.u
+        var spots: [(x: CGFloat, band: Int)] = []
+        var bandHeights: [CGFloat] = [0]
+        var widest: CGFloat = 0
+        for p in placed {
+            if cursor > 0 && cursor + p.box.width > style.maxWidth {
+                cursor = 0
+                bandHeights.append(0)
+            }
+            spots.append((cursor, bandHeights.count - 1))
+            bandHeights[bandHeights.count - 1] = max(bandHeights[bandHeights.count - 1], ceil(p.box.height))
+            cursor += p.box.width + gapX
+            widest = max(widest, cursor - gapX)
+        }
+        let height = bandHeights.reduce(0, +) + gapY * CGFloat(bandHeights.count - 1)
         let path = CGMutablePath(), ringPath = CGMutablePath()
         spokes.removeAll()
         hubs.removeAll()
-        for p in placed {
-            // Hang each cluster from the top edge.
-            let dx = (cursor - p.box.minX).rounded(), dy = (height - p.box.maxY).rounded()
+        for (k, p) in placed.enumerated() {
+            // Hang each cluster from the top of its band.
+            let bandTop = height - bandHeights.prefix(spots[k].band).reduce(0, +) - gapY * CGFloat(spots[k].band)
+            let dx = (spots[k].x - p.box.minX).rounded(), dy = (bandTop - p.box.maxY).rounded()
             let move = { (q: CGPoint) in CGPoint(x: q.x + dx, y: q.y + dy) }
             for (i, from, to) in p.lines {
                 path.move(to: move(from))
@@ -331,13 +363,34 @@ final class ConstellationLayer: CALayer {
                 }
                 label.halo = style.halo
                 // A pixel right and below for the hard shadow.
-                label.frame = CGRect(x: item.label.minX + dx, y: item.label.minY + dy - 2, width: item.label.width + 2, height: item.label.height + 2)
+                label.frame = CGRect(x: item.label.minX + dx + item.badge, y: item.label.minY + dy - 2,
+                                     width: item.label.width - item.badge + 2, height: item.label.height + 2)
+                if item.badge > 0, let image = Favicons.image(s.icon) {
+                    let b = badges[s.id] ?? {
+                        let l = CALayer()
+                        l.actions = Self.still
+                        l.minificationFilter = .trilinear
+                        l.cornerRadius = 2 * style.u
+                        l.masksToBounds = true
+                        addSublayer(l)
+                        badges[s.id] = l
+                        return l
+                    }()
+                    b.contents = image
+                    b.backgroundColor = Favicons.dim.contains(s.icon) && style.dark ? NSColor(white: 0.92, alpha: 1).cgColor : nil
+                    b.contentsScale = style.scale
+                    let side = Self.badgeSide(item.label.height)
+                    b.frame = CGRect(x: item.label.minX + dx, y: (item.label.midY + dy - side / 2).rounded(), width: side, height: side)
+                    // An away thing's badge fades with its name.
+                    b.opacity = s.state == "away" ? 0.45 : 1
+                    live.insert("badge:" + s.id)
+                }
             }
-            cursor += p.box.width + 22 * style.u
         }
         for (id, l) in stars where !live.contains(id) { l.removeFromSuperlayer(); stars[id] = nil }
         for (id, l) in labels where !live.contains(id) { l.removeFromSuperlayer(); labels[id] = nil }
-        bounds = CGRect(x: 0, y: 0, width: max(0, cursor - 22 * style.u), height: height)
+        for (id, l) in badges where !live.contains("badge:" + id) { l.removeFromSuperlayer(); badges[id] = nil }
+        bounds = CGRect(x: 0, y: 0, width: max(0, widest), height: height)
         links.frame = bounds
         links.path = path
         links.lineWidth = max(1, style.u)
@@ -736,10 +789,13 @@ final class FisheryLayer: CALayer {
     private var peoplePolled: CFTimeInterval = 0
     private var peopleRead: CFTimeInterval = 0
     private static let liveFile = NSHomeDirectory() + "/.local/share/blueberry-wallpaper/world.json"
+    private static let roomFile = NSHomeDirectory() + "/.local/share/blueberry-wallpaper/room.json"
     private var worldCensus = ""
     private let worldHead = HaloTextLayer()
     /// 🔭 The feeder's `infra` probe and the constellation it draws, top left.
     private var infra: [String: Any] = [:]
+    /// 📶 The feeder's `local` probe (ac-local-probe.mjs): this room's LAN and Bluetooth.
+    private var local: [String: Any] = [:]
     private var infraVersion = 0
     private var infraPulsed: Double = 0
     private let constellation = ConstellationLayer()
@@ -947,6 +1003,17 @@ final class FisheryLayer: CALayer {
             delay: Self.num(obj["playbackDelay"]))
         world = obj["world"] as? [String: Any] ?? [:]
         infra = obj["infra"] as? [String: Any] ?? [:]
+        local = obj["local"] as? [String: Any] ?? [:]
+        var sites = obj["sites"] as? [[String: Any]] ?? []
+        // A feeder that carries no room (the Fuser minis') leaves it to
+        // `ac-local-probe.mjs --watch`, which writes room.json beside the feed.
+        if local.isEmpty, let data = FileManager.default.contents(atPath: Self.roomFile),
+           let room = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+            local = room["local"] as? [String: Any] ?? [:]
+            sites = room["sites"] as? [[String: Any]] ?? []
+        }
+        // The other rooms ride along with this one.
+        if !sites.isEmpty { local["_sites"] = sites }
         infraVersion += 1
         let totals = snapshot.totals
         categories = (totals["categories"] as? [[String: Any]] ?? []).compactMap { row in
@@ -1964,7 +2031,7 @@ final class FisheryLayer: CALayer {
     private func layoutConstellation(now: Double) {
         let nodes = infra["nodes"] as? [[String: Any]] ?? []
         let at = Self.num(infra["observedAt"])
-        let fresh = !nodes.isEmpty && now - at < 300
+        let fresh = (!nodes.isEmpty || local["devices"] != nil) && now - max(at, Self.num(local["observedAt"])) < 300
         constellation.isHidden = !fresh
         guard fresh else { return }
         let top = bounds.height - topInset - 10 * u
@@ -1972,15 +2039,16 @@ final class FisheryLayer: CALayer {
         let cell = ceil(font.ascender - font.descender)
         // Walkers stop 167 units from the top (see spaceOut); the hub's name
         // takes a row and a half under the fan.
-        let rows = max(3, Int((top - (bounds.height - 167 * u) - cell * 1.5 - 12 * u) / (cell + 2 * u)) + 1)
-        let key = "\(infraVersion)\(dark)\(PixelFont.boost)\(rows)\(scale)\(Int(u * 100))"
+        let rows = max(3, Int((top - (bounds.height - 167 * u) - cell * 1.5 - 12 * u) / (ConstellationLayer.badgeSide(cell) + 2 * u)) + 1)
+        let key = "\(infraVersion)\(dark)\(PixelFont.boost)\(rows)\(scale)\(Int(u * 100))\(Favicons.version)\(Radio.shared.version)\(Int(bounds.width))"
         if constellation.key != key {
             constellation.key = key
             constellation.contentsScale = scale
             constellation.show(clusters(nodes, rows: rows, now: now),
                                style: .init(font: font, ink: NSColor(cgColor: ink()) ?? .white,
                                             halo: dark ? Self.darkHalo : Self.lightHalo, number: codeNumber,
-                                            dark: dark, u: u, scale: scale))
+                                            dark: dark, u: u, scale: scale,
+                                            maxWidth: bounds.width - 16 * u - (badgeHigh && !badgeRight ? badge.maxX : 0) - 140 * u))
         }
         // A badge in the top-left: the fan starts just past it.
         let left = badgeHigh && !badgeRight ? max(16 * u, badge.maxX + 16 * u) : 16 * u
@@ -2008,7 +2076,8 @@ final class FisheryLayer: CALayer {
             let tail = state == "down" || state == "late" ? state
                 : "\(Int(ms))" + (n["note"] as? String == "baking" ? " ⚒" : "")
             return Star(id: "h:" + (n["id"] as? String ?? ""), name: n["id"] as? String ?? "", tail: tail, state: state,
-                        tint: Self.infraTint[n["kind"] as? String ?? ""] ?? white, ms: state == "up" || state == "slow" ? ms : 0)
+                        tint: Self.infraTint[n["kind"] as? String ?? ""] ?? white, ms: state == "up" || state == "slow" ? ms : 0,
+                        icon: n["icon"] as? String ?? "")
         }
         // The hub is whatever most hosts hang off (lith).
         var counts: [String: Int] = [:]
@@ -2023,26 +2092,159 @@ final class FisheryLayer: CALayer {
             let left = around.prefix(leftCount).map(host) + (up.map { [host($0)] } ?? [])
             out.append(.init(hub: host(hub), left: left, right: around.dropFirst(leftCount).map(host)))
         }
-        guard let tailnet = infra["tailnet"] as? [String: Any], let me = tailnet["self"] as? [String: Any] else { return out }
         let ago = { (seen: Double) -> String in
             guard seen > 0 else { return "" }
             let s = max(0, now - seen)
             return s < 5400 ? "\(Int(s / 60))m" : s < 172800 ? "\(Int(s / 3600))h" : "\(Int(s / 86400))d"
         }
+        out += roomClusters(rows: rows, now: now, ago: ago)
+        guard let tailnet = infra["tailnet"] as? [String: Any], let me = tailnet["self"] as? [String: Any] else { return out }
         // Machines that are already a host star above are not drawn twice.
         let peers = (tailnet["peers"] as? [[String: Any]] ?? []).filter { ($0["node"] as? String ?? "").isEmpty }.prefix(rows * 2)
         let machines = peers.map { p -> Star in
             let online = p["online"] as? Bool ?? false
             return Star(id: "m:" + (p["name"] as? String ?? ""), name: p["name"] as? String ?? "",
-                        tail: online ? "" : ago(Self.num(p["lastSeen"])), state: online ? "up" : "away", machine: true, tint: white)
+                        tail: online ? "" : ago(Self.num(p["lastSeen"])), state: online ? "up" : "away", machine: true, tint: white,
+                        icon: p["icon"] as? String ?? "")
         }
         let slowLink = infra["uplink"] as? String == "slow"
         let leftCount = (machines.count + 1) / 2
-        out.append(.init(hub: Star(id: "m:self", name: me["name"] as? String ?? "this mac", tail: slowLink ? "slow link" : "",
-                                   state: slowLink ? "slow" : "up", tint: Self.infraTint["kernel"] ?? white),
-                         left: Array(machines.prefix(leftCount)), right: Array(machines.dropFirst(leftCount))))
+        // The tailnet sits beside lith; this room's clusters follow it.
+        let room = out.count - (out.first?.hub.id.hasPrefix("h:") == true ? 1 : 0)
+        out.insert(.init(hub: Star(id: "m:self", name: me["name"] as? String ?? "this mac", tail: slowLink ? "slow link" : "",
+                                   state: slowLink ? "slow" : "up", tint: Self.infraTint["kernel"] ?? white, icon: "apple.com"),
+                         left: Array(machines.prefix(leftCount)), right: Array(machines.dropFirst(leftCount))),
+                   at: out.count - room)
         return out
     }
+
+    /// 📶 Kinds of thing in the room: a tint, and a glyph from Unifont's BMP.
+    private static let roomKind: [String: (glyph: String, tint: NSColor)] = [
+        "router": ("⌂", NSColor(srgbRed: 0.53, green: 0.80, blue: 1.00, alpha: 1)),
+        "printer": ("⎙", NSColor(srgbRed: 1.00, green: 0.92, blue: 0.42, alpha: 1)),
+        "speaker": ("♫", NSColor(srgbRed: 1.00, green: 0.66, blue: 0.42, alpha: 1)),
+        "tv": ("▭", NSColor(srgbRed: 1.00, green: 0.66, blue: 0.42, alpha: 1)),
+        "home": ("⌂", NSColor(srgbRed: 0.42, green: 1.00, blue: 0.62, alpha: 1)),
+        "ac": ("◆", NSColor(srgbRed: 1.00, green: 0.41, blue: 0.71, alpha: 1)),
+        // Unifont's ⌨ reads as a dash at this size: a Mac is a plain white dot.
+        "computer": ("", NSColor(white: 0.97, alpha: 1)),
+        "phone": ("☏", NSColor(srgbRed: 0.75, green: 0.70, blue: 1.00, alpha: 1)),
+        "tablet": ("▯", NSColor(srgbRed: 0.75, green: 0.70, blue: 1.00, alpha: 1)),
+        "watch": ("⌚", NSColor(srgbRed: 0.75, green: 0.70, blue: 1.00, alpha: 1)),
+        "headphones": ("♪", NSColor(srgbRed: 1.00, green: 0.66, blue: 0.42, alpha: 1)),
+        "tag": ("◎", NSColor(srgbRed: 0.75, green: 0.70, blue: 1.00, alpha: 1)),
+        "console": ("✜", NSColor(srgbRed: 0.42, green: 1.00, blue: 0.62, alpha: 1)),
+        "keyboard": ("", NSColor(white: 0.97, alpha: 1)),
+        "mouse": ("◖", NSColor(white: 0.97, alpha: 1)),
+        "gamepad": ("✜", NSColor(srgbRed: 0.42, green: 1.00, blue: 0.62, alpha: 1)),
+    ]
+
+    /// 📶 Each room as two clusters: its LAN round the router (named for the
+    /// Wi-Fi, or the site's place) and its Bluetooth round a radio hub. This
+    /// Mac's room comes first, then every site the feeder reaches over ssh
+    /// (ac-sites-probe.mjs). A site that did not answer keeps its last map,
+    /// hollow, with its age on the hub. Past what the strip holds, unnamed
+    /// addresses and quiet radios fold into one "+N" star.
+    private func roomClusters(rows: Int, now: Double, ago: (Double) -> String) -> [ConstellationLayer.Cluster] {
+        var out: [ConstellationLayer.Cluster] = []
+        if local["devices"] != nil {
+            // A Mac that shares a room with another that already listens
+            // (the minis, beside neo) keeps ~/.config/blueberry-wallpaper/no-radio.
+            if !radioStarted && !FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.config/blueberry-wallpaper/no-radio") {
+                radioStarted = true
+                Radio.shared.start()
+            }
+            out += room(local, site: "here", place: "", stale: 0, radio: radioStarted, rows: rows, now: now, ago: ago)
+        }
+        for site in local["_sites"] as? [[String: Any]] ?? [] {
+            guard let snap = site["local"] as? [String: Any] else { continue }
+            let at = Self.num(site["at"])
+            out += room(snap, site: site["machine"] as? String ?? "?", place: site["place"] as? String ?? "",
+                        stale: (site["stale"] as? Bool ?? false) ? at : 0, radio: false, rows: rows, now: now, ago: ago)
+        }
+        return out
+    }
+
+    private func room(_ snap: [String: Any], site: String, place: String, stale: Double, radio: Bool,
+                      rows: Int, now: Double, ago: (Double) -> String) -> [ConstellationLayer.Cluster] {
+        typealias Star = ConstellationLayer.Star
+        let white = NSColor(white: 0.97, alpha: 1)
+        let gone = stale > 0
+        var out: [ConstellationLayer.Cluster] = []
+        let devices = snap["devices"] as? [[String: Any]] ?? []
+        let room = rows * 2
+        let fold = { (stars: [Star], quiet: [Star], id: String) -> [Star] in
+            var list = Array(stars.prefix(room))
+            let free = room - list.count
+            if quiet.count <= free { list += quiet } else if free > 0 {
+                list += quiet.prefix(free - 1)
+                list.append(Star(id: id, name: "+\(quiet.count - free + 1)", state: gone ? "away" : "up", machine: true, tint: white))
+            }
+            return list
+        }
+        let split = { (hub: Star, stars: [Star]) -> ConstellationLayer.Cluster in
+            let leftCount = (stars.count + 1) / 2
+            return .init(hub: hub, left: Array(stars.prefix(leftCount)), right: Array(stars.dropFirst(leftCount)))
+        }
+        let star = { (d: [String: Any]) -> Star in
+            let kind = d["kind"] as? String ?? "", online = (d["online"] as? Bool ?? false) && !gone
+            let look = Self.roomKind[kind]
+            let fresh = d["new"] as? Bool ?? false
+            let tail = !online ? (gone ? "" : ago(Self.num(d["lastSeen"]))) : fresh ? "new" : look?.glyph ?? ""
+            return Star(id: "l:\(site):" + (d["key"] as? String ?? ""), name: d["name"] as? String ?? d["short"] as? String ?? "?",
+                        tail: tail, state: online ? (fresh ? "slow" : "up") : "away", machine: true,
+                        tint: look?.tint ?? white, ms: online ? Self.num(d["ms"]) : 0, icon: d["icon"] as? String ?? "")
+        }
+        if let net = snap["network"] as? [String: Any] {
+            let router = devices.first { $0["kind"] as? String == "router" }
+            let rest = devices.filter { $0["kind"] as? String != "router" }
+            let named = rest.filter { $0["kind"] as? String != "unknown" }.map(star)
+            let unnamed = rest.filter { $0["kind"] as? String == "unknown" }.map(star)
+            let ssid = radio && !Radio.shared.ssid.isEmpty ? Radio.shared.ssid : net["ssid"] as? String ?? ""
+            var hub = router.map(star) ?? Star(id: "l:\(site):lan", tint: Self.roomKind["router"]!.tint)
+            hub.name = !place.isEmpty ? place : !ssid.isEmpty ? ssid : radio ? "lan" : site
+            hub.tail = gone ? ago(stale) : "\(Int(Self.num(net["answered"])))"
+            hub.machine = false
+            hub.state = gone ? "away" : "up"
+            if gone { hub.ms = 0 }
+            out.append(split(hub, fold(named, unnamed, "l:\(site):more")))
+        }
+        let bt = snap["bluetooth"] as? [String: Any]
+        let paired = bt?["devices"] as? [[String: Any]] ?? []
+        let near = radio ? Radio.shared.nearby : []
+        if bt != nil || !near.isEmpty {
+            let pairedStar = { (d: [String: Any]) -> Star in
+                let kind = d["kind"] as? String ?? "", look = Self.roomKind[kind]
+                let on = (d["connected"] as? Bool ?? false) && !gone
+                let battery = Self.num(d["battery"])
+                return Star(id: "b:\(site):" + (d["name"] as? String ?? ""), name: d["name"] as? String ?? "?",
+                            tail: on ? (battery > 0 ? "\(Int(battery))%" : look?.glyph ?? "") : "",
+                            state: !on ? "away" : battery > 0 && battery < 15 ? "slow" : "up",
+                            machine: true, tint: look?.tint ?? white, icon: d["icon"] as? String ?? "")
+            }
+            // Paired names this Mac also hears are drawn once, as connected-or-near.
+            let pairedNames = Set(paired.map { ($0["name"] as? String ?? "").lowercased() })
+            let nearStars = near.filter { !pairedNames.contains($0.h.name.lowercased()) }.map { n -> Star in
+                let look = Self.roomKind[n.h.kind]
+                let name = !n.h.name.isEmpty ? n.h.name
+                    : n.h.kind == "tag" ? "find my" : n.h.kind.isEmpty ? (n.h.vendor.split(separator: ".").first.map(String.init) ?? "?") : n.h.kind
+                return Star(id: "b:\(site):near:" + n.id.uuidString, name: name, tail: "\(n.h.rssi)", state: "up",
+                            machine: true, tint: look?.tint ?? Self.pulseBlue, icon: n.h.vendor)
+            }
+            let connected = paired.filter { ($0["connected"] as? Bool ?? false) }.map(pairedStar)
+            let heardNamed = nearStars.filter { !$0.name.isEmpty && $0.name != "?" }
+            let away = paired.filter { !($0["connected"] as? Bool ?? false) }.map(pairedStar)
+            let power = bt?["power"] as? Bool ?? true
+            let tail = gone ? ago(stale) : !power ? "off" : "\(connected.count)/\(paired.count)" + (radio ? " · \(near.count) near" : "")
+            let hub = Star(id: "b:\(site):hub", name: "bt", tail: tail, state: power && !gone ? "up" : "away",
+                           tint: Self.pulseBlue, icon: "bluetooth.com")
+            out.append(split(hub, fold(connected + heardNamed, away, "b:\(site):more")))
+        }
+        return out
+    }
+
+    private static let pulseBlue = NSColor(srgbRed: 0.42, green: 0.62, blue: 1.00, alpha: 1)
+    private var radioStarted = false
 
     private func layoutChart(right: CGFloat, bottom: CGFloat, width: CGFloat) {
         let height = 64 * tu

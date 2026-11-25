@@ -22,6 +22,12 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>The wallpaper shows the Bluetooth devices in the room.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>macOS shares the Wi-Fi network's name only with apps allowed Location. The wallpaper uses it to name this room's network.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>macOS shares the Wi-Fi network's name only with apps allowed Location. The wallpaper uses it to name this room's network.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

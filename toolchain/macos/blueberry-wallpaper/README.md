@@ -150,3 +150,59 @@ are hollow with how long ago. A pink dot runs each link when a probe answers,
 taking as long as the answer did. `⚒` beside the oven means it is baking.
 Peers past what the strip holds (two columns of rows) are dropped, longest
 away first.
+
+## The room
+
+Beside the tailnet, two more clusters show what shares this Mac's room.
+`toolchain/analytics/ac-local-probe.mjs` runs beside the infra probe and rides
+the feed as `local`:
+
+    { observedAt,
+      network:   { iface, self, gateway, bits, answered },
+      devices:   [{ key, name, short, kind, model, ip, ms, online, new, firstSeen, lastSeen, services }],
+      bluetooth: { power, devices: [{ name, kind, connected, battery }] } }
+
+`lan` is the router's hub, with how many addresses answered a ping. Round it
+is every device on the subnet: named and typed from one round of Bonjour
+(`_ipp` → printer ⎙, `_sonos`/`_raop` → speaker ♫, a `_device-info` model →
+phone ☏ or Mac ⌨), or `.N` by address when nothing answered by name. Unnamed
+devices past what the strip holds fold into one `+N` star. A device first
+seen in the last fifteen minutes on a network known for over an hour is
+amber with `new`. One that has gone is hollow with how long ago, for a day.
+`bt` is the radio: paired devices connected now (with battery), then named
+devices heard nearby (with signal strength), then paired devices that are
+away (hollow). Its hub reads connected/paired · nearby. The LAN hub is named
+for the Wi-Fi network, or for the site's `place`.
+
+Every star is badged with a favicon for whoever makes, hosts or runs it:
+Cloudflare or DigitalOcean for each public host, the OS or make for each
+tailnet machine, the vendor for each LAN or Bluetooth device. The probes name
+a domain in `icon`, and `Favicons` (`Sources/Room.swift`) fetches it once
+into `~/.local/share/blueberry-wallpaper/favicons/`.
+
+`Radio` (`Sources/Room.swift`) adds what this Mac hears itself. Every 30 s it
+runs a 10-second CoreBluetooth scan for devices nearby, paired or not, typed
+by company id and Apple's Continuity messages (AirPods, Find My, an iPhone).
+It also reads the Wi-Fi name through CoreWLAN, which macOS gives only to an
+app with Location access. It writes `radio.json` for the room MCP. The app
+asks for Bluetooth and Location once. Sign it with a Developer ID
+(`DEV_ID=… ./build.sh`) so the grant outlives a rebuild. A Mac that shares
+a room with one that already listens keeps
+`~/.config/blueberry-wallpaper/no-radio`.
+
+Other rooms come from `ac-sites-probe.mjs`. Each machine in
+`~/.config/blueberry-wallpaper/sites.json` (`[{ "machine": "jastow" }, {
+"machine": "a-laptop", "place": "home" }]`) runs the probe on its own LAN, piped
+over ssh so it needs no checkout, once a minute. The map that comes back is
+kept in `sites-cache.json`. A site that stops answering is drawn hollow from
+that map, with its age on the hub. The probe runs on macOS, Linux and Windows.
+
+A Mac whose feeder carries no room (the Fuser minis) runs the probe on its
+own: `./room-install.sh panda chicken` installs `ac-local-probe.mjs --watch`
+as `computer.aesthetic.ac-room`, which writes `room.json` for the wallpaper.
+
+macOS 27 hides hardware addresses in the ARP table, so a ping reply is all
+there is of an unnamed device. A device that misses a round of Bonjour but
+answers at its last address keeps its name. Names, addresses and first/last
+seen times live in `~/.local/share/blueberry-wallpaper/local-seen.json` on
+the machine, never in this repo.

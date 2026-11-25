@@ -46,7 +46,7 @@ REMOTE
   fi
   "${SSH[@]}" "$host" 'B=~/Developer/blueberry-wallpaper-build; mkdir -p $B/build/next && rm -rf $B/Sources.prev && cp -R $B/Sources $B/Sources.prev' || return 1
   rsync -a --delete -e "${SSH[*]}" Sources/ "$host:Developer/blueberry-wallpaper-build/Sources/" || return 1
-  rsync -a -e "${SSH[*]}" swap.sh "$host:Developer/blueberry-wallpaper-build/swap.sh" || return 1
+  rsync -a -e "${SSH[*]}" swap.sh Resources/Info.plist Resources/entitlements.plist "$host:Developer/blueberry-wallpaper-build/" || return 1
   # swap.sh replaces only the binary, so runtime files go where the app looks.
   "${SSH[@]}" "$host" 'mkdir -p ~/.config/blueberry-wallpaper'
   rsync -a -e "${SSH[*]}" Resources/unifont.otf Resources/chunky8.ttf "$host:.config/blueberry-wallpaper/" || return 1

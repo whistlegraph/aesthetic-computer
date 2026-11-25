@@ -4,7 +4,9 @@
 // (toolchain/macos/blueberry-wallpaper/Sources/Fishery.swift). The wallpaper
 // draws each one as a rax walker (`school: "walkers"`).
 // Each tick also carries `infra`, the public-host and tailnet probe in
-// ac-infra-probe.mjs, for the constellation in the wallpaper's top-left.
+// ac-infra-probe.mjs, for the constellation in the wallpaper's top-left, and
+// `local`, this room's LAN and Bluetooth from ac-local-probe.mjs, and `sites`,
+// the other rooms' maps from ac-sites-probe.mjs.
 //
 // One SSH call to Lith per tick runs a read-only script against its Mongo:
 //   - signed-in handles from `account-activity` (piece opens, actions)
@@ -22,6 +24,8 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { probeInfra } from "./ac-infra-probe.mjs";
+import { probeLocal } from "./ac-local-probe.mjs";
+import { watchSites } from "./ac-sites-probe.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = process.env.FISHERY_OUT || join(homedir(), ".local/share/blueberry-wallpaper/fishery.json");
@@ -302,22 +306,32 @@ if (isMain) {
     console.log(JSON.stringify(await tick(state), null, 2));
   } else {
     void watch(state);
+    void watchSites(state);
     for (;;) {
       const started = Date.now();
       // 🔭 The infra probe runs beside the Lith call and never throws. When
       // Lith itself is what failed, the last snapshot goes out again with the
       // fresh probe, so the wallpaper's constellation shows the outage.
       const probing = probeInfra(state.infra ||= {}).catch(() => null);
+      // A slow room never holds the feed: past 20 s the tick goes without it.
+      const looking = Promise.race([probeLocal(state.local ||= {}),
+        new Promise(r => setTimeout(() => { console.error(`${new Date().toISOString()} room probe past 20 s, tick goes without it`); r(null); }, 20000))])
+        .catch(error => { console.error(`${new Date().toISOString()} room probe: ${String(error?.stack || error).slice(0, 400)}`); return null; });
       try {
         const snap = await tick(state);
         snap.infra = await probing;
+        // A missed reading keeps the last one for five minutes, so the room never blinks out.
+        const room = await looking;
+        if (room) state.lastLocal = room;
+        snap.local = room || (state.lastLocal && Date.now() / 1000 - state.lastLocal.observedAt < 300 ? state.lastLocal : null);
+        snap.sites = state.sites || [];
         state.last = snap;
         write(snap);
         console.log(`${new Date().toISOString()} walkers=${snap.fish.length} events=${snap.events.length} visitsHour=${snap.totals.generationsHour}`);
       } catch (error) {
         console.error(`${new Date().toISOString()} ${String(error.message || error).slice(0, 300)}`);
-        const infra = await probing;
-        if (infra) write({ ...(state.last || { name: "aesthetic", school: "walkers", textScale: TEXT_SCALE, observedAt: 0, fish: [], events: [], totals: {} }), infra });
+        const [infra, local] = await Promise.all([probing, looking]);
+        if (infra || local) write({ ...(state.last || { name: "aesthetic", school: "walkers", textScale: TEXT_SCALE, observedAt: 0, fish: [], events: [], totals: {} }), infra, local, sites: state.sites || [] });
       }
       await new Promise(r => setTimeout(r, Math.max(5000, TICK_MS - (Date.now() - started))));
     }

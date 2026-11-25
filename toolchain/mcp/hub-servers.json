@@ -43,6 +43,13 @@
         "toolchain/mcp/sweep-mcp.mjs"
       ]
     },
+    "room": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "toolchain/mcp/room-mcp.mjs"
+      ]
+    },
     "illy": {
       "type": "stdio",
       "command": "node",
