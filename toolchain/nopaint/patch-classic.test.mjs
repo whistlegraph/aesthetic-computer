@@ -114,7 +114,9 @@ test("the AI brush reads AI: <strength> <model> <note>, any part missing or ?, a
   const counts = {};
   for (let i = 0; i < 4000; i++) for (const part of scope.nopaintPicker.aiParams([], ai)) counts[part.value] = (counts[part.value] || 0) + 1;
   for (const value of Object.keys(counts)) assert.ok(value in ai.strengths || value in ai.models || ai.notes.includes(value), value);
-  assert.ok(counts.hy > counts.krea * 1.8, `hy ${counts.hy}, krea ${counts.krea}`);
+  // mini 4 : hy 1, and gpt (weight 0) is typeable but never rolled
+  assert.ok(counts.mini > counts.hy * 3, `mini ${counts.mini}, hy ${counts.hy}`);
+  assert.ok(!counts.gpt, `gpt rolled ${counts.gpt}`);
   // Every label the game can draw fits its one line of 28 letters.
   const longest = (list) => Math.max(...list.map((item) => String(item).length));
   assert.ok(`AI: ${"x".repeat(longest(Object.keys(ai.strengths)))} ${"x".repeat(longest(Object.keys(ai.models)))} ${"x".repeat(longest(ai.notes))}`.length <= 28);
@@ -128,8 +130,8 @@ test("a generated model is rolled only among the codes the free day covers, weig
   const counts = {};
   for (let i = 0; i < 6000; i++) { const code = picker.aiParams([], ai, Math.random, ["hy", "seed", "krea"])[1].value; counts[code] = (counts[code] || 0) + 1; }
   assert.deepEqual(Object.keys(counts).sort(), ["hy", "krea", "seed"]);
-  // hy 3 : seed 2 : krea 1
-  assert.ok(Math.abs(counts.hy / 6000 - 0.5) < 0.04 && Math.abs(counts.seed / 6000 - 1 / 3) < 0.04, JSON.stringify(counts));
+  // hy 1 : seed 2 : krea 1
+  assert.ok(Math.abs(counts.hy / 6000 - 0.25) < 0.04 && Math.abs(counts.seed / 6000 - 0.5) < 0.04, JSON.stringify(counts));
   assert.deepEqual(picker.aiParams(["75", "gpt", "night"], ai, Math.random, ["hy"])[1], { value: "gpt", given: true });
   // Nothing covered (or not known yet): the whole table, and the page falls back.
   assert.ok(picker.aiParams([], ai, () => 0.999, [])[1].value in ai.models);
