@@ -2752,6 +2752,34 @@ let inFocus;
 const frameChart = createFrameChart();
 const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, rows: [] };
 
+// ⏱️ Where the worker's time goes, for the fps HUD: each second, how much of
+// it the worker was busy (every message, timed where it arrives), how much of
+// that was sim and how many steps, how much was paint (piece paint to send)
+// and how many frames, and the message types that cost the most. The HUD's
+// `web` row is the whole web process; what the worker doesn't account for is
+// the page's main thread and WebKit.
+const workTime = {
+  at: 0, busy: 0, sim: 0, steps: 0, paint: 0, frames: 0, paintStart: 0, types: new Map(),
+  rows: [],
+};
+function workTimeRoll() {
+  const now = performance.now();
+  if (!workTime.at) workTime.at = now;
+  const span = now - workTime.at;
+  if (span < 1000) return;
+  const per = 1000 / span;
+  const top = [...workTime.types].sort((a, b) => b[1].ms - a[1].ms).slice(0, 2)
+    .map(([type, t]) => `${type.slice(0, 10)} ${(t.ms * per).toFixed(0)}ms/${Math.round(t.n * per)}`);
+  workTime.rows = [
+    `wk ${((workTime.busy * per) / 10).toFixed(0)}%  sim ${(workTime.sim * per).toFixed(0)}ms/${Math.round(workTime.steps * per)}`,
+    `paint ${(workTime.paint * per).toFixed(0)}ms/${Math.round(workTime.frames * per)}f`,
+    ...top,
+  ];
+  workTime.at = now;
+  workTime.busy = workTime.sim = workTime.steps = workTime.paint = workTime.frames = 0;
+  workTime.types.clear();
+}
+
 // 🌡️ Heat (?heat). The worker keeps the last frame it sent and compares each
 // new one to it as 32-bit words. Rows are read in bands of 16; in each band
 // the 16px tiles that changed are marked, runs of them become rectangles, and
@@ -10878,7 +10906,16 @@ if (isWorker) {
     if (e.data?.type?.startsWith?.("daw:") && logs.daw) {
       console.log("🎹 WORKER:", e.data?.type, e.data);
     }
+    if (!fpsHud.on) return void makeFrame(e);
+    const started = performance.now();
     makeFrame(e);
+    const ms = performance.now() - started; // up to its first await
+    workTime.busy += ms;
+    const type = e.data?.type || "?";
+    const t = workTime.types.get(type) || { ms: 0, n: 0 };
+    t.ms += ms;
+    t.n += 1;
+    workTime.types.set(type, t);
   };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
@@ -14130,6 +14167,8 @@ async function makeFrame({ data: { type, content } }) {
       // } else
 
       if (content.updateCount > 0 && paintCount > 0n) {
+        const simStarted = fpsHud.on ? performance.now() : 0;
+        if (simStarted) workTime.steps += content.updateCount;
         // Run `sim` the number of times as requested from `bios`.
         for (let i = content.updateCount; i--; ) {
           simCount += 1n;
@@ -14148,6 +14187,7 @@ async function makeFrame({ data: { type, content } }) {
             console.warn("🧮 Sim failure...", e);
           }
         }
+        if (simStarted) workTime.sim += performance.now() - simStarted;
       }
 
       // 🌟 Act
@@ -15142,6 +15182,7 @@ async function makeFrame({ data: { type, content } }) {
 
             // Always call paint() - piece paints underneath, GOL overlays on top
             heat.paintStart = performance.now();
+            if (fpsHud.on) workTime.paintStart = heat.paintStart;
             paintOut = paint($api); // Returns `undefined`, `false`, or `DirtyBox`.
             if (paint !== defaults.paint) previewEvidence.paint();
             graph.gpuLogTick(); // 📊 GPU effect logging every 8 frames
@@ -15285,7 +15326,7 @@ async function makeFrame({ data: { type, content } }) {
           frameChart.draw({
             box: (x, y, w, h, c) => color(c).box(left + x, top + y, w, h),
             text: (value, x, y, c) => color(c).write(value, { x: left + x, y: top + y }, undefined, undefined, false, "MatrixChunky8"),
-          }, HEAT_MODE ? [...fpsHud.rows, ...heatRows()] : fpsHud.rows);
+          }, (workTimeRoll(), [...fpsHud.rows, ...workTime.rows, ...(HEAT_MODE ? heatRows() : [])]));
         }
 
         // const piece = $api.slug?.split("~")[0];
@@ -17704,6 +17745,12 @@ async function makeFrame({ data: { type, content } }) {
           sendData.heatFull = true;
           heat.sent.full += 1;
         }
+      }
+
+      if (workTime.paintStart) {
+        workTime.paint += performance.now() - workTime.paintStart;
+        workTime.frames += 1;
+        workTime.paintStart = 0;
       }
 
       let transferredPixels;
