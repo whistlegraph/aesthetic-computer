@@ -41,7 +41,7 @@ tuning.ai = {
     "make it look older",
     "add a face somewhere",
     "paint over it loosely",
-    "add something from the sea",
+    "add sea life",
   ],
 };
 writeFileSync(new URL("./classic-tuning.json", import.meta.url), JSON.stringify(tuning, null, 2) + "\n");

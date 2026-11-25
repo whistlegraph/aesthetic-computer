@@ -49,7 +49,8 @@
     },
     {
       "path": "data.json",
-      "sha256": "2a958a2674f0f7a970e16560482f3ca145c30cdbfd35a26bc63e0ca88c90e4c1"
+      "sha256": "2a958a2674f0f7a970e16560482f3ca145c30cdbfd35a26bc63e0ca88c90e4c1",
+      "served": "e08ffb860668fc09f53e7c914936e2581bc3026c60e6db8477c64db5a22bb7a1"
     },
     {
       "path": "fonts/pixelar-regular-w01.woff2",
@@ -742,7 +743,7 @@
     {
       "path": "scripts/c3runtime.js",
       "sha256": "4c627e8ec1d166843f0c2e7a8e644de98e5bf54c080fc821a7a0ee25ed6df633",
-      "served": "95ef9bf40450fbdfa45f9bb047c1c95c3b2ab7be073f77bab3f86e10c8fe7795"
+      "served": "90b93fd13bce8192487bf8b4d1fbacdece1298c09e7248bb8cad739b6716714c"
     },
     {
       "path": "scripts/dispatchworker.js",

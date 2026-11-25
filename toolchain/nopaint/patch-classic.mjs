@@ -85,6 +85,9 @@ function append(file, name, source) {
 //     { remove: at.sheet("Core"), path: [1], row: [...] },             // the row as it is now
 //   ])
 //
+// A row may also be a function of the project, (project) => row, for a row
+// made from others (the AI brush below is made from Load's).
+//
 // Every operation states what is there before it runs and fails if it is not,
 // so each one can be taken away: `set` puts `from` back, `insert` takes its
 // row out, `remove` puts its row back.
@@ -153,11 +156,12 @@ function runJson(project, ops, name, forward) {
         target[key] = structuredClone(after);
       } else if (op.insert || op.remove) {
         const list = listAt(project, op.insert || op.remove, op.path);
-        const found = list.flatMap((row, index) => same(row, op.row) ? [index] : []);
+        const row = typeof op.row === "function" ? op.row(project) : op.row;
+        const found = list.flatMap((item, index) => same(item, row) ? [index] : []);
         // Putting a row in: forward for insert, backward for remove.
         if (Boolean(op.insert) === forward) {
           if (found.length) { if (forward) throw new Error("the row is already there"); continue; }
-          list.splice(op.index ?? list.length, 0, structuredClone(op.row));
+          list.splice(op.index ?? list.length, 0, structuredClone(row));
         } else {
           if (!found.length && !forward) continue; // not applied
           list.splice(one(found, "the row"), 1);
@@ -180,6 +184,110 @@ export function json(file, name, ops) {
   return { file, name, apply: (text) => run(text, true), revert: (text) => run(text, false) };
 }
 
+// ---- the AI brush -----------------------------------------------------------
+// An AI turn is a brush of its own: layout "AI" with event sheet "AI", as Wafer
+// or Mirror is a layout with its sheet. It is made from Load's machinery (Load
+// fetches a picture by a code and offers it), so both rows are built here from
+// Load's, found by name and SID. Its picture is the page's: the bridge
+// (classic-bridge.js) names a turn when the layout starts, and answers the
+// fetch for it.
+//
+//   Params         the turn's code ("ai3"); the picture is painting/<code>.png
+//   parameterHint  " " + the note ("add weather"): the label reads "AI: add weather"
+//
+// The sheet differs from Load's in this: it always fetches (no code, no
+// file picker), it prints the note rather than the code, its picture holds
+// at full strength (Load's flickers between full and half, and Paint keeps
+// whichever it is at), a failed fetch leaves the error to the bridge ("AI
+// Failed", not "Load Failed"), its function is AIInitialize, and every SID is
+// its own.
+// The group has no "is group active" condition: the export spells that
+// condition with an expression of the group's name, and the 2021 export has no
+// expression for "AI". Nothing turns the group off, so it changes nothing.
+// The same brush is in the Construct source: nopaint/construct/layouts/Brushes/AI.json
+// and eventSheets/Brushes/AI.json, with the SIDs and UIDs made here.
+
+// A new SID, from a key: an old SID of Load's, or a name.
+export const fresh = (key) => 1e14 + (createHash("sha256").update(`nopaint-ai-brush:${key}`).digest().readUIntBE(0, 6) % 9e14);
+const LOAD_SHEET = {
+  start: 688133908767763, // On start of layout: interpret the code, fetch, print
+  emptyAudio: 380243743784753, endOfLayout: 157318655377097, // blocks with no live actions
+  flickerOn: 775239693119383, flickerOff: 205668413617385, // the flicker's opacity, full and half
+  successLog: 464973692496639, failureLog: 138728831301839,
+  loadFailed: 820911502599547, // CurrentError = "Load Failed"; the bridge says "AI Failed" instead
+  keep: [538563104555363, 619254325671763, 142012069639449, 728811519425736, 941126452946853, 987190512269628, 421299895042979],
+  //     Loaded false, Initialized false, StartSpinner, WiFi shown, WiFi animates, LoadSprite.LoadURL, PrintParameterHint
+};
+const SIZE_PARAMS = 347358172583688; // Core, ProcessPromptText: ParamsArray.SetSize(tokencount(Params, " "), 1, 1)
+// Every SID a sheet's rows define: variables, blocks, conditions, actions.
+function defined(list) {
+  const sids = new Set();
+  for (const node of nodes(list)) {
+    if (node[0] === 1) sids.add(node[6]);
+    if (![0, 3, 4].includes(node[0])) continue;
+    sids.add(node[4]);
+    for (const condition of node[6] || []) if (condition[7]) sids.add(condition[7]);
+    for (const action of node[7] || []) if (action[3]) sids.add(action[3]);
+  }
+  return sids;
+}
+// Every number in the project that could be a SID, other than the AI brush's own.
+function allSids(project) {
+  const found = new Set();
+  JSON.stringify(project.map((slot, i) => (i === 5 || i === 6) ? slot.filter((row) => row[0] !== "AI") : slot),
+    (key, value) => { if (Number.isInteger(value) && value >= 1e13) found.add(value); return value; });
+  return found;
+}
+export function aiSheet(project) {
+  const load = at.sheet("Load")(project)[1], own = defined(load), taken = allSids(project);
+  const remap = (row) => JSON.parse(JSON.stringify(row), (key, value) => {
+    if (typeof value !== "number" || !own.has(value)) return value;
+    const sid = fresh(value);
+    if (taken.has(sid)) throw new Error(`the AI brush's SID for ${value} is taken`);
+    return sid;
+  });
+  const group = remap(one(load.filter((node) => node[0] === 3 && node[1][1] === "Load"), "the Load group"));
+  group[1] = [true, "AI"];
+  group[6] = [];
+  const all = () => [...nodes(group[8])];
+  const block = (sid) => one(all().filter((node) => [0, 3, 4].includes(node[0]) && node[4] === fresh(sid)), `Load block ${sid}`);
+  const actions = () => all().flatMap((node) => [0, 3, 4].includes(node[0]) ? node[7] || [] : []);
+  const action = (sid) => one(actions().filter((row) => row[3] === fresh(sid)), `Load action ${sid}`);
+  const drop = (...sids) => { for (const node of all()) if ([0, 3, 4].includes(node[0]) && node[7]) node[7] = node[7].filter((row) => !sids.map(fresh).includes(row[3])); };
+  // Start: fetch the turn's picture and print its note.
+  const start = block(LOAD_SHEET.start), sizeParams = structuredClone(at.action("Core", SIZE_PARAMS)(project));
+  sizeParams[3] = fresh(`core:${SIZE_PARAMS}`);
+  const keep = LOAD_SHEET.keep.map(action);
+  start[7] = [...keep.slice(0, 2), sizeParams, ...keep.slice(2)];
+  start.length = 8; // no sub-events
+  // Blocks with nothing left to do, the flicker's opacity, the console lines.
+  group[8] = group[8].filter((node) => ![LOAD_SHEET.emptyAudio, LOAD_SHEET.endOfLayout].map(fresh).includes(node[4]));
+  drop(LOAD_SHEET.flickerOn, LOAD_SHEET.flickerOff, LOAD_SHEET.successLog, LOAD_SHEET.failureLog, LOAD_SHEET.loadFailed);
+  // Its own function name: function names are the project's, not the sheet's.
+  const initialize = one(all().filter((node) => node[0] === 4 && node[1][0] === "LoadInitialize"), "LoadInitialize");
+  initialize[1] = ["AIInitialize", ...initialize[1].slice(1)];
+  for (const row of actions()) if (row[0] === -2 && row[1] === "LoadInitialize") row[1] = "AIInitialize";
+  // Number the events as the export does: the group 1, then each in order.
+  let n = 0;
+  group[5] = ++n;
+  for (const node of all()) if ([0, 3, 4].includes(node[0])) node[5] = ++n;
+  return ["AI", [structuredClone(one(load.filter((node) => node[0] === 2), "Load's include")), group]];
+}
+export function aiLayout(project) {
+  const row = structuredClone(at.layout("Load")(project));
+  const taken = allSids(project);
+  // UIDs after the highest in the project; the AI brush's own come first in its layer order.
+  let uid = Math.max(...project[5].filter((layout) => layout[0] !== "AI").flatMap((layout) => layout[6].flatMap((layer) => layer[14].map((instance) => instance[2]))));
+  row[0] = "AI"; row[4] = "AI"; row[5] = fresh(row[5]);
+  for (const layer of row[6]) {
+    layer[2] = fresh(layer[2]);
+    // The UI, Keyboard and Emoji layers are the project's global layers: the same UIDs on every brush.
+    if (layer[0] === "Layer 0") for (const instance of layer[14]) instance[2] = ++uid;
+  }
+  for (const sid of [row[5], ...row[6].map((layer) => layer[2])]) if (taken.has(sid)) throw new Error(`the AI layout's SID ${sid} is taken`);
+  return row;
+}
+
 // Ordered. Appends go after replacements on the same file.
 export const PATCHES = [
   // 2026-11-04 (762637e3e1): the splash link follows the studio's move.
@@ -195,6 +303,12 @@ export const PATCHES = [
   // 2026-11-18: page ↔ game messages for the brush test and step storage,
   // and the hook that makes the game pick by the tuning.
   append("scripts/c3runtime.js", "bridge", new URL("./classic-bridge.js", import.meta.url)),
+  // 2026-11-25: the AI brush, a layout and an event sheet of its own (above).
+  // An AI turn no longer borrows Load, and its label reads "AI: <note>".
+  json("data.json", "ai-brush", [
+    { insert: at.project(), path: [5], row: aiLayout },
+    { insert: at.project(), path: [6], row: aiSheet },
+  ]),
 ];
 
 export function build({ write = false, revert = false } = {}) {

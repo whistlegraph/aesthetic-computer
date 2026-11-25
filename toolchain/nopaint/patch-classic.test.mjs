@@ -73,3 +73,25 @@ test("locators find what the source map says, and refuse what is not there or no
   assert.throws(() => at.layout("Nowhere")(p), /layout Nowhere: expected one, found 0/);
   assert.throws(() => at.variable("Core", 1)(p), /expected one, found 0/);
 });
+
+test("the AI brush is Load's layout and sheet under its own name and SIDs, and comes away cleanly", () => {
+  const p = project(), patch = PATCHES.find((item) => item.name === "ai-brush");
+  const layout = at.layout("AI")(p), sheet = at.sheet("AI")(p);
+  assert.equal(layout[4], "AI");
+  assert.deepEqual(layout[6].map((layer) => layer[0]), at.layout("Load")(p)[6].map((layer) => layer[0]));
+  // Every SID the AI sheet defines is its own.
+  const sids = (list, out = []) => { for (const node of list) {
+    if (node[0] === 1) out.push(node[6]);
+    if ([0, 3, 4].includes(node[0])) { out.push(node[4], ...(node[6] || []).map((c) => c[7]).filter(Boolean), ...(node[7] || []).map((a) => a[3]).filter(Boolean)); if (node[8]) sids(node[8], out); }
+  } return out; };
+  const ours = sids(sheet[1]), others = new Set(p[6].filter((row) => row[0] !== "AI").flatMap((row) => sids(row[1])));
+  assert.equal(new Set(ours).size, ours.length);
+  assert.ok(ours.every((sid) => !others.has(sid)));
+  const text = JSON.stringify(sheet);
+  assert.ok(!text.includes("LoadInitialize") && text.includes('"AIInitialize"') && text.includes('"PrintParameterHint"'));
+  assert.ok(!text.includes('"InitParameters"'), "the AI brush keeps its hint: it never resets the parameters");
+  // Taken away, the export is back; put back, the served file is back.
+  const pristine = patch.revert(raw);
+  assert.ok(!JSON.parse(pristine).project[5].some((row) => row[0] === "AI"));
+  assert.equal(patch.apply(pristine), raw);
+});

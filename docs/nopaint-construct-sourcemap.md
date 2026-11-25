@@ -388,17 +388,24 @@ How the next proposal is chosen is a patch with parameters.
 
 ### AI turns and Save (added 2026-11-18)
 
-Neither changes `data.json`. Both wrap a plugin function from the bridge, as
-the picker does. (A constant in an event, such as a URL, is worked out once
+Save changes nothing in `data.json`; the AI turn adds one brush to it. Both
+wrap a plugin function from the bridge, as the picker does. (A constant in an event, such as a URL, is worked out once
 when the game loads, so replacing its text does not run later. Wrap the
 function that uses it.)
 
 - **AI turn.** The tuning's `AI` list has one entry marked `"ai": true`. When
-  the picker picks it, the bridge sets the game's `Params` to a turn id,
-  returns `Load`, and says `ai {id, note}`. The game's Load brush then fetches
-  `https://server.nopaint.art/painting/<id>.png`; the bridge's wrapped
-  `C3.FetchBlob` holds that fetch until the page answers `aiResult {turn,
-  png}`. The page (`classic-steps.mjs`) makes the picture with Note Paint's
+  the picker picks it, the bridge returns `AI`: a brush of its own, layout and
+  event sheet `AI`, added to `data.json` by the `ai-brush` patch (made from
+  Load's rows, every SID its own; the same brush is in the Construct source,
+  `layouts/Brushes/AI.json` and `eventSheets/Brushes/AI.json`). As the layout
+  starts (`beforelayoutstart`) the bridge names a turn: `Params` is its code
+  (`ai3`), `parameterHint` its note, and it says `ai {id, note}`. The AI sheet
+  fetches `https://server.nopaint.art/painting/<code>.png` and prints the hint,
+  so the label reads `AI: add weather`. The bridge's wrapped `C3.FetchBlob`
+  holds that fetch, on the AI layout only, until the page answers `aiResult
+  {turn, png}`; a failed turn sets the game's error to `AI Failed`. Typed at
+  the prompt, `AI: add rain` is a turn with that note. The picture holds at
+  full strength, so Paint paints all of it. The page (`classic-steps.mjs`) makes the picture with Note Paint's
   move, `POST /api/nopaint-inference`: the painting, the note the game chose
   from `tuning.ai.notes`, and a strength. A guest uses the service's one free
   turn; a signed-in painter pays Braincells and turns AI on with a chip. The

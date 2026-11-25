@@ -178,18 +178,23 @@ async function open({ stay = false, guest = false, late = 0 } = {}) {
     for (let i = 0; i < 60 && ((await steps()).version || 0) <= before; i++) await wait(100);
   };
   // Make the next proposal an AI turn, wait for its picture to show, and answer it.
+  // Returns what the AI brush showed: its layout, its note and the words on screen.
   const playAi = async (answer) => {
     await ask("force", { name: "AI" });
     const mark = await page.evaluate(() => window.nopaintSteps.events.length);
     const before = (await steps()).version || 0;
     await ask("call", { name: "No" }); // whatever is up; the next one is the AI turn
     await page.waitForFunction((from) => window.nopaintSteps.events.slice(from).includes("ai"), { timeout: 20000, polling: 100 }, mark);
-    for (let i = 0; i < 100 && (await ask("state")).layout !== "Load"; i++) await wait(100);
-    await wait(Number(process.env.AI_WAIT || 9000)); // the spinner, then the picture flickers in
+    for (let i = 0; i < 100 && (await ask("state")).layout !== "AI"; i++) await wait(100);
+    await wait(Number(process.env.AI_WAIT || 9000)); // the spinner, then the picture comes in
+    const up = await ask("state"), shown = { layout: up.layout, note: String(up.hint || "").trim(),
+      texts: (await ask("texts")).texts.filter((text) => text.shown).map((text) => text.text) };
+    await page.screenshot({ path: join(OUT, `ai-turn-${answer.toLowerCase()}.png`) });
     const after = await page.evaluate(() => window.nopaintSteps.events.length);
     await ask("call", { name: answer });
     await page.waitForFunction((from, event) => window.nopaintSteps.events.slice(from).includes(event), { timeout: 20000, polling: 100 }, after, answer === "Paint" ? "painted" : "refused");
     for (let i = 0; i < 60 && ((await steps()).version || 0) <= before + 1; i++) await wait(100);
+    return shown;
   };
   return (last = { page, log, ask, steps, play, playAi, wake, start, tap, lights });
 }
@@ -277,7 +282,7 @@ try {
   await game.page.screenshot({ path: join(OUT, "painting.png") });
 
   // An AI turn, paid from the free day.
-  await game.playAi("Paint");
+  const aiShown = await game.playAi("Paint");
   await game.ask("flags", { flags: { ai: false } }); // the page raised it again: one free turn is left
   await wait(4500);
   seen = await game.steps();
@@ -287,6 +292,8 @@ try {
     && Buffer.from(sent.image || "", "base64").readUInt32BE(16) === 256 && sent.model === "cheap-brain" && sent.quote === "quote-cheap" && !sent.trialId && sent._as === "Bearer test-token" && sent._free === 2000 && sent._paid === 0, `"${sent.hint}", ${sent.model}, ${sent._as}`);
   check("the AI picture was painted and is a step", aiLayer.code.score.proposal.kind === "AI" && aiLayer.code.score.proposal.decision === "paint" && aiLayer.code.score.proposal.line === `AI: ${sent.hint}`
     && aiLayer.code.score.proposal.ai?.model === "cheap-brain" && aiLayer.code.score.proposal.ai?.braincells === 2000 && aiLayer.pixels.width === 256 && seen.saved === seen.version, `${aiLayer.code.score.proposal.line}, ${aiLayer.pixels.width} x ${aiLayer.pixels.height}`);
+  check("an AI turn is the AI brush, labelled with its note: \"AI: <note>\", not Load", aiShown.layout === "AI" && aiShown.note === sent.hint
+    && aiShown.texts.includes(`AI: ${aiShown.note}`) && !aiShown.texts.some((text) => /^Load\b/.test(text)), `${aiShown.layout}; ${aiShown.texts.filter((text) => /^(AI|Load)\b/.test(text)).join(" | ")}`);
   const composite = Buffer.from(piece.composite.pixels.$pixels, "base64");
   check("the painting is now the AI's picture, at full strength", composite[0] === 255 && composite[1] === 0 && composite[2] === 255 && composite[4 * 30000] === 255 && composite[4 * 30000 + 1] === 0,
     `top left ${[...composite.subarray(0, 3)].join(",")}`);
@@ -301,6 +308,20 @@ try {
   for (let i = 0; i < 20 && "AI" in (await game.ask("odds")).odds; i++) await wait(150);
   check("the free day is spent: the AI brush is offered no more, and nothing bought was touched", !("AI" in (await game.ask("odds")).odds) && seen.ai?.free === 0 && wallet.free === 0 && moves.every((move) => move._paid === 0), `free ${seen.ai?.free}`);
   check("an AI turn answered No is a step with no pixels", refusedAi.kind === "AI" && refusedAi.decision === "no" && refusedAi.ai?.braincells === 2000 && piece.layers.at(-1).pixels.width === 0 && seen.saved === seen.version, `${refusedAi.line}: ${refusedAi.decision}`);
+
+  // Typed at the prompt, the AI brush takes the typed note. With the free day
+  // spent the page has no picture for it: the turn fails, the game says
+  // "AI Failed", nothing goes to the AI service, and it is not a step.
+  const typedFrom = await game.page.evaluate(() => window.nopaintSteps.events.length), movesBefore = moves.length;
+  await game.ask("prompt", { text: "AI: add rain" });
+  await game.page.waitForFunction((from) => window.nopaintSteps.events.slice(from).includes("failed"), { timeout: 20000, polling: 100 }, typedFrom).catch(() => {});
+  let typedError = false;
+  for (let i = 0; i < 60 && !typedError; i++) { typedError = (await game.ask("texts")).texts.some((text) => text.shown && text.text === "AI Failed"); if (!typedError) await wait(50); }
+  const typedLog = (await game.page.evaluate(() => window.nopaintSteps.log)).find((line) => /ai turn ai\d+ "add rain"/.test(line));
+  await wait(4500); // the quiet before a save, and the save
+  const typedStep = decode(stored.state).layers.some((layer) => layer.code?.score?.proposal?.kind === "AI" && layer.code.score.proposal.options === "add rain");
+  check("typed \"AI: add rain\", the AI brush asks for that note; with no picture to be had it says AI Failed and is no step", typedLog && typedError && moves.length === movesBefore && !typedStep,
+    `${typedLog?.replace(/^.*?ai turn/, "ai turn")}; error shown ${typedError}; moves ${movesBefore}→${moves.length}; a step ${typedStep}`);
 
   // Save: the game asks the save server for the painting's own #code.
   const savesBefore = calls.filter((c) => c.action === "save").length;
