@@ -129,8 +129,8 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
   // 🛵 The cabin bike (bike.mjs): B gets on and off; on it the body flies,
   // hovering over the highest thing under it, and a build stops it.
-  const canRide = rideable(fixed, flat, player);
-  const riding = canRide && (cmd.bike ? !player.bike : !!player.bike);
+  // (Getting on is judged where the body stands; once on, only water or a side-on arena takes the bike away: a roof just stops it rising.)
+  const riding = cmd.bike ? !player.bike && rideable(fixed, flat, player) : !!player.bike && !flat && !poolRoom;
   if (riding) {
     let below = poolRoom ? POOL.bottom : 0;
     for (const b of [...boxes, ...fixed]) if (!b.ceiling && under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);

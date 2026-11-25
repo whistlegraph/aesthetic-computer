@@ -67,6 +67,7 @@ test('the plaza: everyone starts there, and a bike flies there, held under the t
   assert.equal(p.bike, true);
   const up = run(p, cmd({ buttons: 1 }), 600, [], 0, walls);
   assert.ok(up.y < atriumRoof().yMin, `held under the first floor (eyes at ${up.y.toFixed(2)})`);
+  assert.equal(up.bike, true, 'still on the bike up against the roof (it does not throw the rider off)');
   // At the hall's glass front, flying north low (between the rails): stopped, not through.
   const front = run(p, cmd({ fwd: 1, yaw: 30 }), 240, [], 0, walls);
   assert.ok(front.z < 1.2 || Math.abs(front.x) < 1.6, `stopped at the glass unless at the door, at ${front.x.toFixed(2)}, ${front.z.toFixed(2)}`);
