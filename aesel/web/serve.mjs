@@ -8,9 +8,8 @@ const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.jso
 createServer(async(req,res)=>{
   try {
     let path=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
-    if(path==='/'){res.writeHead(302,{Location:'/try/'}).end();return;}
-    if(path==='/about'){res.writeHead(308,{Location:'/about/'}).end();return;}
-    if(path==='/about/')path='/index.html';
+    if(path==='/about'||path==='/about/'){res.writeHead(301,{Location:'/'}).end();return;}
+    if(path==='/dash'){res.writeHead(308,{Location:'/dash/'}).end();return;}
     if(path.endsWith('/')) path+='index.html';
     const file=resolve(root,'.'+path);
     if(!file.startsWith(resolve(root)+sep)) {res.writeHead(403).end();return;}

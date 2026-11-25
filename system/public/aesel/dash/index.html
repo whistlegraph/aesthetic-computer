@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#fcf0e9">
+<meta name="robots" content="noindex">
+<title>Aesel dash</title>
+<link rel="canonical" href="https://aesel.app/dash/">
+<link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/web1.css">
+<link id="night-palette" rel="stylesheet" href="/night.css" media="(prefers-color-scheme: dark)">
+<script src="/theme.js"></script>
+<link rel="stylesheet" href="./dash.css">
+<script defer src="https://aesthetic.computer/aesthetic.computer/dep/auth0-spa-js.production.js"></script>
+<script type="module" src="./dash.js"></script>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><img src="/icon.png" width="36" height="36" alt="">Aesel <span>dash</span></a>
+  <nav><label class="appearance" hidden>Theme <select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label><a href="/">About</a> <a id="handle" hidden></a> <button id="logout" class="web-button" hidden>Sign out</button></nav>
+</header>
+
+<main id="gate">
+  <h1>Your Aesel dash</h1>
+  <p>See what Aesel keeps for your Aesthetic Computer account: your uploaded conversations, the artifacts made in them, your braincells and what this browser stores. Delete what you do not want kept.</p>
+  <button id="login" class="web-button" disabled>Sign in with Aesthetic Computer</button>
+  <p id="gate-status" role="status">Loading…</p>
+  <p class="fine"><a href="/privacy.html">Privacy</a> · <a href="/support.html">Support</a></p>
+  <noscript>Enable JavaScript to open your dash.</noscript>
+</main>
+
+<main id="dash" hidden>
+  <section class="web-panel" aria-labelledby="ledger-title">
+    <h2 id="ledger-title" class="web-ribbon">What is recorded</h2>
+    <table class="ledger">
+      <tbody>
+        <tr><th>Uploaded conversations</th><td id="ledger-transcripts">…</td></tr>
+        <tr><th>Artifacts in them</th><td id="ledger-artifacts">…</td></tr>
+        <tr><th>Braincells</th><td id="ledger-cells">…</td></tr>
+        <tr><th>This browser</th><td id="ledger-browser">…</td></tr>
+        <tr><th>Website measurement</th><td>Page visits and reviewed actions, never prompts or artwork. Kept 35 days. <a href="/privacy.html">Details</a></td></tr>
+      </tbody>
+    </table>
+    <p class="fine">Uploaded transcripts stay until you delete them. Only terminal sessions you agreed to share upload a transcript. Deleting a transcript does not remove published work.</p>
+  </section>
+
+  <section class="web-panel" aria-labelledby="artifacts-title">
+    <h2 id="artifacts-title" class="web-ribbon">Artifacts</h2>
+    <p id="artifacts-status" role="status"></p>
+    <div class="wide-table"><table id="artifacts" hidden>
+      <thead><tr><th>Medium</th><th>Artifact</th><th>Latest</th><th>Made</th><th>Conversation</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </section>
+
+  <section class="web-panel" aria-labelledby="threads-title">
+    <h2 id="threads-title" class="web-ribbon">Conversations</h2>
+    <p id="threads-status" role="status"></p>
+    <ul id="threads" class="threads"></ul>
+    <p class="row"><button id="more" class="web-button" hidden>More conversations</button> <button id="delete-all" class="web-button danger" hidden>Delete all uploaded conversations</button></p>
+    <article id="reader" aria-live="polite" hidden></article>
+  </section>
+
+  <section class="web-panel" aria-labelledby="pieces-title">
+    <h2 id="pieces-title" class="web-ribbon">Published pieces</h2>
+    <p id="pieces-status" role="status"></p>
+    <ul id="pieces" class="pieces"></ul>
+  </section>
+</main>
+</body>
+</html>

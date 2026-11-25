@@ -1,6 +1,18 @@
 # Aesel in a browser
 
-The account desk at `aesel.app/try/` also opens from `aesel.app` and `try.aesel.app`. The illustrated guide lives at `/about/`. All sign-ins and browser drafts use the original apex origin.
+The illustrated guide is `aesel.app` itself (`/about/` redirects there). The account desk lives at `aesel.app/try/` and also opens from `try.aesel.app`.
+
+## Dash
+
+`aesel.app/dash/` shows what Aesel keeps for a signed-in account. It lists
+uploaded conversations, the artifacts recorded in them, braincells, drafts in
+this browser and published pieces. People can read or delete each conversation
+there, or all of them. It is plain static files in `system/public/aesel/dash/`,
+so a normal lith deploy ships it with no build step. It reads
+`easel-transcripts?scope=mine` (with `view=summary` for counts and
+artifacts), `easel-credits` and the public `media-collection`. Sign-in uses the
+same Auth0 client and needs `https://aesel.app/dash/` (and
+`http://localhost:8771/dash/` for local use) in its callback and logout URLs. All sign-ins and browser drafts use the original apex origin.
 
 The `/try/` client uses `phone/session.mjs` and the shared AC engine. The first
 release makes JavaScript pieces using hosted AC braincells, publishes edits to

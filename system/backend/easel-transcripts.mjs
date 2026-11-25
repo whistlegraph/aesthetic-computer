@@ -5,6 +5,7 @@ import { parseTranscript, serializeTranscript, MAX_BATCH_BYTES } from '../../aes
 const COLLECTION='easel-transcripts-private';
 const DAY=86400000;
 const ID=/^[a-zA-Z0-9_-]{1,80}$/;
+const SUMMARY_LIMIT=20000;
 const reply=(statusCode,value)=>({statusCode,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, private'},body:JSON.stringify(value)});
 export async function ensureTranscriptIndexes(db) {
   const collection=db.collection(COLLECTION);
@@ -23,8 +24,11 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
     if(typeof user?.sub!=='string'||!user.sub)return reply(401,{error:'Authentication required'});
     const args=event.queryStringParameters || {};
     const mine=event.httpMethod==='GET' && args.scope==='mine';
-    if(mine && Object.keys(args).some(key=>!['scope','sessionId','afterSeq','before','beforeId'].includes(key)))return reply(400,{error:'Unexpected account history filter'});
-    const listing=mine && args.sessionId===undefined;
+    if(mine && Object.keys(args).some(key=>!['scope','sessionId','afterSeq','before','beforeId','view'].includes(key)))return reply(400,{error:'Unexpected account history filter'});
+    // view=summary is the dashboard's ledger: counts, dates and artifacts, never message text.
+    const summary=mine && args.view!==undefined;
+    if(summary && (args.view!=='summary' || Object.keys(args).length!==2))return reply(400,{error:'Invalid account summary request'});
+    const listing=mine && !summary && args.sessionId===undefined;
     if(listing && (args.afterSeq!==undefined || ((args.before!==undefined || args.beforeId!==undefined) && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(args.before||'') || !ID.test(args.beforeId||'')))))return reply(400,{error:'Invalid thread cursor'});
     if(event.httpMethod==='GET'&&!mine&&!String(staffSubs()).split(',').map(s=>s.trim()).filter(Boolean).includes(user.sub))return reply(403,{error:'Company staff authorization required'});
     let database;
@@ -39,7 +43,7 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
         document=parseTranscript(serializeTranscript(document.header,document.records,{redact:true,maxBytes:MAX_BATCH_BYTES}));
       }else if(event.httpMethod==='GET'){
         const owner=mine?user.sub:args.owner;
-        if(!listing && (typeof owner!=='string'||!owner||owner.length>200||!ID.test(args.sessionId||'')))return reply(400,{error:'Explicit owner and sessionId required'});
+        if(!listing && !summary && (typeof owner!=='string'||!owner||owner.length>200||!ID.test(args.sessionId||'')))return reply(400,{error:'Explicit owner and sessionId required'});
         const after=Number(args.afterSeq??0);if(!Number.isSafeInteger(after)||after<0)return reply(400,{error:'Invalid sequence cursor'});
         query={owner,sessionId:args.sessionId,'record.seq':{$gt:after}};
       }else{
@@ -50,6 +54,27 @@ export function createTranscriptHandler({authorize,connect,staffSubs=()=>process
       database=await connect();const db=database.db;
       if(!initialized.has(db)){await ensureTranscriptIndexes(db);initialized.add(db);}
       const collection=db.collection(COLLECTION);
+      if(summary){
+        const rows=await collection.find({owner:user.sub},{projection:{_id:0,sessionId:1,receivedAt:1,'record.type':1,'record.role':1,'record.at':1,'record.artifactId':1,'record.medium':1,'record.revision':1}}).limit(SUMMARY_LIMIT+1).toArray();
+        const counts={threads:0,messages:0,yours:0,artifacts:0,revisions:0,events:0};
+        const threads=new Set(),artifacts=new Map();let first=null,last=null;
+        const earlier=(a,b)=>!b||a<b?a:b,later=(a,b)=>!b||a>b?a:b;
+        for(const row of rows.slice(0,SUMMARY_LIMIT)){
+          const r=row.record||{},received=row.receivedAt instanceof Date?row.receivedAt.toISOString():null;
+          threads.add(row.sessionId);
+          if(received){first=earlier(received,first);last=later(received,last);}
+          if(r.type==='message'){counts.messages++;if(r.role==='user')counts.yours++;}
+          if(r.type==='event')counts.events++;
+          if(r.type==='artifact'){
+            counts.revisions++;
+            const seen=artifacts.get(r.artifactId);
+            if(!seen || r.revision>seen.revision)artifacts.set(r.artifactId,{id:r.artifactId,medium:r.medium,revision:r.revision,sessionId:row.sessionId,at:r.at});
+          }
+        }
+        counts.threads=threads.size;counts.artifacts=artifacts.size;
+        const list=[...artifacts.values()].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+        return reply(200,{counts,first,last,artifacts:list,truncated:rows.length>SUMMARY_LIMIT});
+      }
       if(listing){
         // Renewed sharing consent may produce several headers for one session.
         const pipeline=[

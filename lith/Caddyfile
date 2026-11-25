@@ -1964,9 +1964,9 @@ aesel.app {
     header X-Content-Type-Options nosniff
     header Referrer-Policy strict-origin-when-cross-origin
     header /install.ps1 Content-Type "text/plain; charset=utf-8"
-    redir / /try/ 302
-    redir /about /about/ 308
-    rewrite /about/ /index.html
+    redir /about / 301
+    redir /about/ / 301
+    redir /dash /dash/ 308
     file_server
 }
 try.aesel.app {

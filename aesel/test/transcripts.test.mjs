@@ -135,3 +135,16 @@ test('account history binds reads to the verified subject even if two owners sha
  assert.deepEqual(JSON.parse(next.body).records,[]);
  assert.equal((await request('GET','alice','',{scope:'mine',before:'invalid'})).statusCode,400);
 });
+test('account summary counts records and lists latest artifact revisions without message text',async()=>{
+ const{request}=endpointFixture();
+ const art=(id,seq,artifactId,revision)=>({type:'artifact',id,seq,at:`2026-09-15T12:0${seq}:00.000Z`,artifactId,medium:'piece',revision});
+ await request('POST','alice',serializeTranscript(header,[record,{...record,id:'reply',seq:2,role:'assistant',text:'here'},art('a1',3,'bell',1),art('a2',4,'bell',2),art('a3',5,'drum',1)]));
+ await request('POST','bob',serializeTranscript({...header,id:'bob-session'},[record]));
+ const summary=JSON.parse((await request('GET','alice','',{scope:'mine',view:'summary'})).body);
+ assert.deepEqual(summary.counts,{threads:1,messages:2,yours:1,artifacts:2,revisions:3,events:0});
+ assert.deepEqual(summary.artifacts.map(a=>[a.id,a.revision,a.sessionId]),[['drum',1,'session-one'],['bell',2,'session-one']]);
+ assert.ok(!JSON.stringify(summary).includes('make a bell'));
+ assert.equal((await request('GET','alice','',{scope:'mine',view:'everything'})).statusCode,400);
+ assert.equal((await request('GET','alice','',{scope:'mine',view:'summary',sessionId:'session-one'})).statusCode,400);
+ assert.equal((await request('GET','','',{scope:'mine',view:'summary'})).statusCode,401);
+});

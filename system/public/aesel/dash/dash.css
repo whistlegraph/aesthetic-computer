@@ -1,0 +1,34 @@
+*{box-sizing:border-box}
+body{margin:0 auto;padding:10px 16px 40px;max-width:900px}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+header nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font:normal 28px/1 Pixel,monospace;color:var(--rule);text-decoration:none}
+.brand:visited{color:var(--rule)}
+.brand img{image-rendering:pixelated}
+.brand span{color:var(--accent)}
+h1{font:normal 44px/1.05 Pixel,monospace;color:var(--rule);margin:0 0 10px}
+#gate{max-width:620px;margin:6vh auto}
+#gate-status.error,.error{color:var(--accent)}
+.fine{font-size:13px;color:var(--muted)}
+.web-panel{margin:0 0 16px}
+.web-panel>p,.web-panel>ul,.web-panel>article,.web-panel>.row{margin:8px 12px}
+.web-panel>p:empty{display:none}
+table{border-collapse:collapse;width:100%}
+th,td{padding:4px 10px;text-align:left;vertical-align:top;border-top:1px solid var(--edge)}
+.ledger th{width:34%;font-weight:normal;color:var(--muted)}
+thead th{background:var(--shade);font-size:13px;border-top:0}
+.wide-table{overflow-x:auto}
+.threads,.pieces{padding-left:22px}
+.threads li{margin:0 0 4px}
+.threads small,.pieces small{color:var(--muted);margin-left:6px}
+.link{border:0;background:none;padding:0;color:var(--link);text-decoration:underline;cursor:pointer;font:inherit;text-align:left;overflow-wrap:anywhere}
+.link[aria-current=true]{font-weight:bold}
+.danger{color:var(--accent)}
+#reader{border-top:1px solid var(--edge);padding-top:8px}
+#reader h3{margin:0 0 6px;font-size:16px}
+#reader ol{padding-left:22px;max-height:30em;overflow:auto}
+#reader li{white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 10px}
+#reader li strong{display:block}
+#reader li.revision{color:var(--muted);font-style:italic}
+code{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,monospace}
+@media(max-width:560px){.ledger th{width:auto;display:block;border-top:1px solid var(--edge)}.ledger td{display:block;border-top:0}}
