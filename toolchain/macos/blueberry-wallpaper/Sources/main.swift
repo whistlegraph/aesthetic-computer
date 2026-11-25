@@ -576,7 +576,9 @@ private final class PalsWallpaperView: NSView, SCNSceneRendererDelegate {
         CATransaction.commit()
         if now - badgeCheckedAt > 2 {
             badgeCheckedAt = now
-            fishery.badge = badgeRect()
+            let b = badgeRect()
+            if b != fishery.badge { print("macpal badge: \(b.integral)"); fflush(stdout) }
+            fishery.badge = b
             if let screen = window?.screen { fishery.topInset = max(0, screen.frame.maxY - screen.visibleFrame.maxY) }
         }
         fishery.tick(now: now, dark: dark)
