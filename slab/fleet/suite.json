@@ -1,7 +1,7 @@
 {
   "profiles": {
     "studio": ["claude", "codex", "slab", "menuband", "wallpaper", "macpal", "acapp", "mcp"],
-    "work": ["claude", "codex", "slab", "macpal"]
+    "work": ["claude", "codex", "slab", "wallpaper", "macpal"]
   },
   "hosts": {
     "blueberry": "studio",
@@ -11,5 +11,5 @@
     "panda": "work"
   },
   "lead": "neo",
-  "follow": ["frisbee"]
+  "follow": ["frisbee", "chicken", "panda"]
 }
