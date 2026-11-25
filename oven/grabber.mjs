@@ -67,8 +67,9 @@ const CACHE_RENDER_VERSION = 'v5';
 // then upscales nearest-neighbour, so posters keep chunky pixels (512² → 128²
 // ×4, 256² → 128² ×2, 128² → 128² ×1). Anything it cannot draw (blank,
 // unsupported words, missing paintings) falls back to the Chrome queue.
-// Keep (mint) grabs always use Chrome. Off unless OVEN_HEADLESS_KIDLISP=1.
-const HEADLESS_KIDLISP = process.env.OVEN_HEADLESS_KIDLISP === '1';
+// Keep (mint) grabs always use Chrome. On by default since 2026-11-25;
+// OVEN_HEADLESS_KIDLISP=0 sends every $code back to Chrome.
+const HEADLESS_KIDLISP = process.env.OVEN_HEADLESS_KIDLISP !== '0';
 const HEADLESS_KIDLISP_SCALE = Math.max(1, parseInt(process.env.OVEN_HEADLESS_KIDLISP_SCALE || '4', 10) || 4);
 const HEADLESS_KIDLISP_MIN_NATIVE = Math.max(8, parseInt(process.env.OVEN_HEADLESS_KIDLISP_MIN_NATIVE || '128', 10) || 128);
 const HEADLESS_KIDLISP_CONCURRENCY = Math.max(1, parseInt(process.env.OVEN_HEADLESS_KIDLISP_CONCURRENCY || '3', 10) || 3);
