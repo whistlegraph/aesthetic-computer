@@ -62,6 +62,17 @@ const VOICE = {
 };
 const FORCE = flags.force === true;
 const SAY_URL = process.env.SAY_ENDPOINT || "https://aesthetic.computer/api/say";
+// A stand-in voice: with both set, narration calls ElevenLabs directly on
+// that account and voice instead of /api/say's jeffrey PVC (used while the
+// AC ElevenLabs plan is unpaid; jasellite sets them in podcast-voice.env).
+const DIRECT = process.env.PODCAST_ELEVENLABS_API_KEY && process.env.PODCAST_ELEVENLABS_VOICE_ID
+  ? {
+    key: process.env.PODCAST_ELEVENLABS_API_KEY,
+    voice: process.env.PODCAST_ELEVENLABS_VOICE_ID,
+    model: process.env.PODCAST_ELEVENLABS_MODEL || "eleven_v3",
+  }
+  : null;
+if (DIRECT) console.log(`  voice: direct ElevenLabs ${DIRECT.voice} (${DIRECT.model})`);
 
 const CACHE = resolve(ROOT, "out", "cache");
 mkdirSync(CACHE, { recursive: true });
@@ -73,7 +84,8 @@ async function say(text, label) {
     stability: VOICE.stability, similarity: VOICE.similarity,
   };
   if (VOICE.speed !== 1.0) body.speed = Math.max(0.7, Math.min(1.2, VOICE.speed));
-  const hash = createHash("sha256").update(JSON.stringify(body)).digest("hex").slice(0, 16);
+  const hashOf = DIRECT ? { ...body, direct: DIRECT.voice, model: DIRECT.model } : body;
+  const hash = createHash("sha256").update(JSON.stringify(hashOf)).digest("hex").slice(0, 16);
   const out = resolve(CACHE, `${hash}.mp3`);
   if (!FORCE && existsSync(out) && readFileSync(out).length > 0) {
     process.stdout.write(`  · ${label} cached\n`);
@@ -86,12 +98,21 @@ async function say(text, label) {
   let lastErr;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(SAY_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        redirect: "follow",
-      });
+      const res = DIRECT
+        ? await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${DIRECT.voice}?output_format=mp3_44100_128`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "xi-api-key": DIRECT.key },
+          body: JSON.stringify({
+            text, model_id: DIRECT.model,
+            voice_settings: { stability: VOICE.stability, similarity_boost: VOICE.similarity, ...(body.speed ? { speed: body.speed } : {}) },
+          }),
+        })
+        : await fetch(SAY_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          redirect: "follow",
+        });
       if (!res.ok) {
         if (res.status >= 500 && attempt < ATTEMPTS) throw new Error(`HTTP ${res.status}`);
         process.stdout.write(" ✗\n");
