@@ -6587,6 +6587,28 @@ async function prefetchPicture(code) {
   }
 }
 
+// The background a KidLisp source opens with, as wipe() arguments, or null:
+// its first line when that line is a fade, a CSS colour word, rainbow/zebra or
+// "r g b". Mirrors KidLisp's first-line colour without touching the shared
+// instance's persistent colour, which belongs to the piece on screen.
+const kidlispBackgrounds = new Map();
+function kidlispFirstLineBackground(source) {
+  if (typeof source !== "string") return null;
+  if (kidlispBackgrounds.has(source)) return kidlispBackgrounds.get(source);
+  const first = source.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith(";"));
+  let background = null;
+  if (first) {
+    const word = first.toLowerCase();
+    if (/^fade:\S+$/.test(first)) background = [first];
+    else if (word === "rainbow" || word === "zebra") background = [word];
+    else if (num.cssColors && Object.hasOwn(num.cssColors, word)) background = [word];
+    else if (/^\d{1,3}(\s+\d{1,3}){2,3}$/.test(first)) background = first.split(/\s+/).map(Number);
+  }
+  if (kidlispBackgrounds.size > 256) kidlispBackgrounds.clear();
+  kidlispBackgrounds.set(source, background);
+  return background;
+}
+
 const $paintApiUnwrapped = {
   // Turtle graphics: 🐢 crawl, left, right, up, down, goto, face
   // Move the turtle forward based on angle, wrapping at screen edges.
@@ -7120,6 +7142,13 @@ const $paintApiUnwrapped = {
           // Paste previous frame to maintain animation continuity (including across resizes)
           if (previousPainting && needsFreshExecution && !shouldReset) {
             api.paste(previousPainting);
+          } else if (!previousPainting) {
+            // A region's first frame: lay the piece's first-line background
+            // (`fade:pink-gray-pink`, `red`, `rainbow`, `0 0 64`…) once, as a
+            // full-screen piece does at boot. Without it the buffer starts
+            // transparent and everything after builds on nothing.
+            const background = kidlispFirstLineBackground(resolvedSource);
+            if (background) api.wipe(...background);
           }
 
           globalKidLispInstance.setAPI(api);
