@@ -231,7 +231,7 @@ export class Builders {
         entry = { code, name, item, effect: item && /\b(bomb|grenade|dynamite|explosive|firework|tnt)s?\b/i.test(name) ? 'explode' : null,
           geometry: sourceGeometry({ name, source }) };
       }
-      if (this.store.objects(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
+      if (this.store.stored(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
       const player = this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player || !owner) throw Error('Rejoin the room');
       const yaw = (player.yaw * Math.PI) / 180;
@@ -501,7 +501,7 @@ export class Builders {
         throw Error('Object changed; reopen the prompt');
       if (existing?.version >= MAX_VERSIONS - 1)
         throw Error('Version limit reached');
-      if (!existing && this.store.objects(room).length >= MAX_OBJECTS)
+      if (!existing && this.store.stored(room).length >= MAX_OBJECTS)
         throw Error('Object capacity reached');
       // The least busy builder with room takes it.
       const worker = [...this.workers]

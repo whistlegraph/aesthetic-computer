@@ -122,3 +122,42 @@ test('a round this page flies stops at a scarecrow instead of bouncing off it', 
   for (let t = 16; t <= 400; t += 16) r.step(t, [scarecrow], 0);
   assert.equal(r.step(400, [scarecrow], 0).length, 0);
 });
+
+// 🏙️ Instagib: one round ends a body; it comes apart and is queued for the roof.
+test('one round anywhere ends a body, gibs it, and queues it for the roof', () => {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  m.roofBound = true;
+  m.setObjects([gun]);
+  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: -0.3, z: 6 });
+  for (let k = 0; k < HZ / 2; k++) m.step();
+  Object.assign(m.seats[1].player, { x: -0.3, z: 6, vx: 0, vz: 0 });
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: -8, use: true }]);
+  let gib = null;
+  for (let k = 0; k < HZ && !gib; k++) { m.step(); gib = m.events.find((e) => e.type === 'gib'); }
+  assert.ok(gib, 'came apart');
+  assert.equal(gib.seat, 1);
+  assert.equal(m.seats[1].player.alive, false);
+  for (let k = 0; k < HZ + 2; k++) m.step();
+  assert.deepEqual(m.toRoof, [1], 'queued for the roof');
+  // Not taken up: back here a second later.
+  m.toRoof.length = 0;
+  for (let k = 0; k < HZ + 2; k++) m.step();
+  assert.equal(m.seats[1].player.alive, true);
+});
+
+test('a round that meets a watcher\'s drone blows it up', () => {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  m.setObjects([gun]);
+  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: 8, z: -8 });
+  for (let k = 0; k < HZ / 2; k++) m.step();
+  m.watchers = [{ eye: 'abc12345', x: -0.3, y: 1.15, z: 5 }];
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, use: true }]);
+  let downed = null;
+  for (let k = 0; k < HZ && !downed; k++) { m.step(); downed = m.events.find((e) => e.type === 'downed'); m.watchers = m.watchers.length ? m.watchers : []; }
+  assert.equal(downed?.eye, 'abc12345');
+  assert.ok(m.events.some((e) => e.type === 'blast'));
+});

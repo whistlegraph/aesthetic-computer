@@ -18,7 +18,7 @@ import { objectBoxes, distantBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
 import { guestName } from './guest-name.mjs';
-import { atriumRoof, aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf } from './elevator.mjs';
+import { atriumRoof, aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf, PARAPET } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carTo, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
 import { kioskPlan } from './kiosks-plan.mjs';
 import { isArena, LEDGES } from './bop.mjs';
@@ -28,7 +28,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -993,6 +993,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       return true;
     };
     member.followBody = (destination, position) => relocate(destination, position);
+    // 🏙️ Instagibbed: come back on the tower's roof, at its south edge, looking out over the city.
+    member.toRoof = () => relocate(ROOF, { x: 0, y: CFG.eyeHeight, z: -(PARAPET.at - 1.4), yaw: 180, pitch: 0,
+      vx: 0, vy: 0, vz: 0, onGround: true, alive: true });
     member.crossWindow = () => {
       const seat = room.match.seats[member.seat], p = seat?.player;
       if (!stays || !p?.alive || p.shut > 0 || Math.max(Math.abs(p.x), Math.abs(p.z)) <= SLAB + 0.4) return;
@@ -1698,6 +1701,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       tellBeyond();
       if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
+        // 🚁 Who is looking on here, for rounds to meet; 🏙️ whether a gibbed body has a roof to go to.
+        room.match.watchers = [...room.sessions.values()].filter((m) => m.seat < 0 && m.eye && m.look && Date.now() - m.look.at < 3000)
+          .map((m) => ({ eye: m.eye, x: m.look.x, y: m.look.y, z: m.look.z }));
+        room.match.roofBound = key !== ROOF && !!tower.tower.top && !room.match.arena;
         room.match.step();
         walks.tick(key, room);
         if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
@@ -1711,6 +1718,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const snap = JSON.stringify(room.match.snapshot());
         for (const ws of room.clients.keys()) sendText(ws, snap);
       }
+      // 🏙️ Gibbed bodies queued for the roof go up now, outside the loop over rooms (relocate changes it).
+      for (const room of [...rooms.values()])
+        for (const seat of room.match.toRoof.splice(0))
+          [...room.sessions.values()].find((m) => m.seat === seat)?.toRoof?.();
     }
     if (diagnostics.enabled) {
       tickMaxMs = Math.max(tickMaxMs, performance.now() - now);

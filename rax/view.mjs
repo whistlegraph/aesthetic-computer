@@ -904,6 +904,8 @@ export async function createView(canvas) {
   const dot = model(({ box }) => box(0, 0, 0, 0.06, 0.06, 0.06, INK, INK, INK));
   // Magic: sparkles burst from each part as it lands and spiral upward.
   const SPARK = [0xffe066, 0xffffff, 0x7cc4ff, 0xd7a6ff, 0xff9ad5];
+  // 🏙️ What a body comes apart into (instagib): chunks of red and bone.
+  const GIB = [0xc0202a, 0x8a1018, 0xe84a4a, 0xf0e6d8].map((c) => model(({ box }) => box(0, 0, 0, 0.16, 0.16, 0.16, c, c, c)));
   const BRAIN_SPARK = [0xb46bff, 0xd7a6ff, 0x8e44ff, 0xf0d8ff].map((c) => model(({ box }) => box(0, 0, 0, 0.08, 0.08, 0.08, c, c, c)));
   const sparkModels = SPARK.map((c) => model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, c, c, c)));
   const sparkles = [],
@@ -1227,6 +1229,10 @@ export async function createView(canvas) {
     if (e.at && (e.type === 'ricochet' || e.type === 'spark')) burst(e.at.x, e.at.y, e.at.z, 6, 0.5);
     if (e.at && e.type === 'cancel') burst(e.at.x, e.at.y, e.at.z, 16, 0.9);
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
+    if (e.at && e.type === 'gib') {
+      for (const dy of [0, 0.5, 1, 1.5]) burstColor(e.at.x, e.at.y + dy, e.at.z, 12, GIB);
+      burst(e.at.x, e.at.y + 0.8, e.at.z, 30, 1.6);
+    }
     if (e.at && e.type === 'damage') {
       burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);
       if (pops.length >= 32) pops.shift();

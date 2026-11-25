@@ -2170,6 +2170,13 @@ function connect(adopt = null) {
       if (event.type === 'ricochet') sfx.ricochet();
       if (event.type === 'cancel') sfx.ricochet(1.5);
       if (event.type === 'headshot') sfx.headshot();
+      // 🏙️ Instagib: a body comes apart (view.mjs 'gib'); 🚁 a drone shot down is set back at its perch.
+      if (event.type === 'gib') sfx.blast();
+      if (event.type === 'downed' && event.eye === myEye && seat < 0) {
+        freecam = { ...freecam, x: DRONE_HOME.x, y: DRONE_HOME.y, z: DRONE_HOME.z, vx: 0, vy: 0, vz: 0 };
+        notice = 'SHOT DOWN';
+        setTimeout(() => { if (notice === 'SHOT DOWN') notice = ''; }, 2000);
+      }
       if (event.type === 'bank' && event.seat === seat) sfx.bank(event.combo);
       if (event.type === 'bop') {
         sfx.bop(event.attacker === seat, event.combo);

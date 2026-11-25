@@ -1,0 +1,50 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { ObjectStore } from '../object-store.mjs';
+import { Match } from '../match.mjs';
+import { HZ } from '../world.mjs';
+import { rackFor, RACK_RETURN_SECONDS } from '../armory.mjs';
+
+// 🔫 The rack beside the dispenser: three house guns in the lobby only,
+// counted apart from what people built, and back in their slots when left.
+test('the lobby lists three house guns beside the dispenser; other rooms none', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'rax-armory-'));
+  try {
+    const s = new ObjectStore(dir);
+    await s.load();
+    const guns = s.objects('lobby').filter((o) => o.house);
+    assert.equal(guns.length, 3);
+    assert.ok(guns.every((g) => g.item === 'shoot' && g.geometry?.name === 'Pistol'));
+    assert.equal(s.stored('lobby').length, 0, 'not counted as built things');
+    assert.equal(s.objects('e1n1').filter((o) => o.house).length, 0);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('a house gun picked up, carried off and dropped goes back to its slot', () => {
+  const m = new Match();
+  m.join(); m.join(); m.phase = 'playing';
+  const [gun] = rackFor('lobby');
+  m.setObjects(rackFor('lobby'));
+  Object.assign(m.seats[0].player, { x: gun.x, z: gun.z, yaw: 0, pitch: 0 });
+  Object.assign(m.seats[1].player, { x: -8, z: 8 });
+  for (let k = 0; k < HZ / 4; k++) m.step();
+  const held = m.held(0);
+  assert.ok(held?.house, 'picked up');
+  // Walk off and drop it.
+  Object.assign(m.seats[0].player, { x: gun.x - 5, z: gun.z + 5 });
+  m.step();
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, drop: true }]);
+  m.step();
+  assert.equal(held.holder, -1);
+  for (let k = 0; k < HZ * 2; k++) m.step();
+  assert.ok(Math.hypot(held.x - held.home.x, held.z - held.home.z) > 1, 'lying where it was dropped');
+  // Walk well away so it is not picked up again, then wait it out.
+  Object.assign(m.seats[0].player, { x: -8, z: -8 });
+  for (let k = 0; k < (RACK_RETURN_SECONDS + 1) * HZ; k++) m.step();
+  assert.ok(Math.hypot(held.x - held.home.x, held.z - held.home.z) < 0.05, 'back in its slot');
+});

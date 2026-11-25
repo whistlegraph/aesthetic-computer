@@ -17,6 +17,7 @@ import {
  HORIZON } from './world.mjs';
 import { command } from './net.mjs';
 import { objectBoxes } from './objects.mjs';
+import { RACK_RETURN_SECONDS } from './armory.mjs';
 import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from './bop.mjs';
 
 // Input from a real network arrives late and in bursts. A batch carries the
@@ -56,6 +57,14 @@ export class Match {
     // 🎯 Things built to be hit (a scarecrow, a dummy, a zombie): they
     // stand, take every hit and say how much (setObjects).
     this.targets = [];
+    // 🚁 Those looking on from their drones, [{ eye, x, y, z }], set each
+    // tick by the server: a round that meets one blows it up.
+    this.watchers = [];
+    // 🏙️ Instagib: a body a round meets comes apart, and comes back on the
+    // tower's roof. The server says whether there is a roof to go to
+    // (roofBound) and takes the seats queued here up to it after the tick.
+    this.roofBound = false;
+    this.toRoof = [];
   }
 
   // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
@@ -212,10 +221,10 @@ export class Match {
     for (const o of list.filter((o) => o.item)) {
       ids.add(o.id);
       const it = this.items.get(o.id);
-      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z } });
+      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house });
       else
         this.items.set(o.id, {
-          id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, fuseAt: 0, awayUntil: 0,
+          id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, fuseAt: 0, awayUntil: 0,
           x: o.x, y: 0, z: o.z,
           vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: {}, ready: 0,
         });
@@ -338,6 +347,18 @@ export class Match {
       if (it.fuseAt && this.tick >= it.fuseAt) {
         this.detonate(it);
         continue;
+      }
+      // 🔫 A house gun (armory.mjs) left lying away from its slot goes back to it.
+      if (it.house && it.holder < 0) {
+        const away = Math.hypot(it.x - it.home.x, it.z - it.home.z) > 0.05 || it.y > 0.01;
+        if (!away) it.lyingSince = 0;
+        else if (!it.lyingSince) it.lyingSince = this.tick;
+        else if (this.tick - it.lyingSince > RACK_RETURN_SECONDS * HZ) {
+          this.emit('dust', { at: { x: it.x, y: it.y, z: it.z } });
+          Object.assign(it, { x: it.home.x, y: 0, z: it.home.z, vx: 0, vy: 0, vz: 0, spin: 0, thrownBy: -1, lyingSince: 0 });
+          this.emit('dust', { at: { x: it.x, y: 0.2, z: it.z } });
+          continue;
+        }
       }
       if (it.holder >= 0) {
         const p = this.seats[it.holder]?.player;
@@ -465,9 +486,19 @@ export class Match {
             target = t;
           }
         }
+        let watcher = null;
+        for (const w of this.watchers) {
+          const d = rayBox(b, dir, { xMin: w.x - 0.4, xMax: w.x + 0.4, yMin: w.y - 0.25, yMax: w.y + 0.25, zMin: w.z - 0.4, zMax: w.z + 0.4 }, travel);
+          if (d < at) {
+            at = d;
+            body = null;
+            target = null;
+            watcher = w;
+          }
+        }
         const surface = surfaceHit(b, dir, at, this.objects, time, this.half);
         // (A target is solid too: met at the same spot, the target takes the round.)
-        if (surface && (target ? surface.t < at - 0.01 : surface.t <= at)) {
+        if (surface && (target || watcher ? surface.t < at - 0.01 : surface.t <= at)) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
           const v = reflect({ x: b.vx, y: b.vy, z: b.vz }, surface.normal);
           Object.assign(b, { vx: v.x, vy: v.y, vz: v.z });
@@ -482,10 +513,22 @@ export class Match {
           this.strike(target, b.owner, head ? 100 : 34, b);
           b.dead = true;
         }
+        if (watcher) {
+          // 🚁 A drone a round meets goes up in a burst; its watcher is set down again (client.mjs 'downed').
+          this.emit('blast', { at: { x: watcher.x, y: watcher.y, z: watcher.z }, seat: b.owner });
+          this.emit('downed', { eye: watcher.eye, attacker: b.owner, at: { x: watcher.x, y: watcher.y, z: watcher.z } });
+          this.watchers = this.watchers.filter((w) => w !== watcher);
+          b.dead = true;
+        }
         if (body) {
+          // 🏙️ Instagib: any round that meets a body ends it, and the body comes apart.
           const head = b.y > body.y - 0.25;
-          this.hit(body, b.owner, head ? 100 : 34, dir, head ? 6 : 4, null);
+          this.hit(body, b.owner, 100, dir, 6, null);
           if (head) this.emit('headshot', { seat: body.seat, attacker: b.owner });
+          if (!body.alive) {
+            body.gibbed = true;
+            this.emit('gib', { seat: body.seat, attacker: b.owner, at: { x: body.x, y: body.y - 0.8, z: body.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
+          }
           b.dead = true;
         }
       }
@@ -629,8 +672,16 @@ export class Match {
       while (s.queue.length > INPUT_SLACK) s.ack = s.queue.shift().seq;
       let p = s.player;
       if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
-        p = { ...this.fresh(p.seat, p.life + 1), score: p.score };
-        s.last = {};
+        if (p.gibbed && this.roofBound && !p.roofAsked) {
+          // Up to the roof (the server moves the seat after this tick); if it
+          // cannot, the body comes back here a second later all the same.
+          p.roofAsked = true;
+          p.respawnAt = this.tick + HZ;
+          this.toRoof.push(p.seat);
+        } else {
+          p = { ...this.fresh(p.seat, p.life + 1), score: p.score };
+          s.last = {};
+        }
       }
       p.cooldown = Math.max(0, p.cooldown - 1);
       let fire = false;

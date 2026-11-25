@@ -91,7 +91,7 @@ async function north(a, seconds = 3, { jumping = false } = {}) {
   await delay(150);
 }
 // The solid boxes of what stands in the plaza.
-const standing = (app) => objectBoxes(app.store.objects('lobby').filter((o) => !o.item), 0);
+const standing = (app) => objectBoxes(app.store.stored('lobby').filter((o) => !o.item), 0);
 const inDoorway = (b) => b.xMax > -DOOR && b.xMin < DOOR && b.zMax > LOBBY_FRONT - 0.5 && b.zMin < LOBBY_FRONT + 0.5;
 const inCarSpace = (b) => b.xMax > -CAR && b.xMin < CAR && b.zMax > CAR_Z - CAR && b.zMin < CAR_Z + CAR;
 // Type a build at the prompt and wait for it to stand.
@@ -154,7 +154,7 @@ test('a build typed on arrival today is not placed in the tower entrance', async
     await d.builder(cube('statue'));
     const a = await d.enter('jeffrey');
     await build(a, 'a statue');
-    const at = d.app.store.objects('lobby')[0];
+    const at = d.app.store.stored('lobby')[0];
     assert.ok(!standing(d.app).some(inDoorway), `the server stood it at (${at.x}, ${at.z}), in the entrance`);
   } finally { await d.close(); }
 });
@@ -168,7 +168,7 @@ test('a build cannot be placed inside the elevator car', async () => {
     await a.face(0, 0.2);
     await delay(150);
     await build(a, 'a statue');
-    const at = d.app.store.objects('lobby')[0];
+    const at = d.app.store.stored('lobby')[0];
     assert.ok(!standing(d.app).some(inCarSpace), `the server stood it at (${at.x}, ${at.z}), inside the car`);
   } finally { await d.close(); }
 });
@@ -188,13 +188,13 @@ test('a passer-by cannot delete a build from the plaza; on a floor only its owne
     await d.builder(cube('statue'));
     const jeffrey = await d.enter('jeffrey');
     const id = await build(jeffrey, 'a statue');
-    assert.equal(d.app.store.objects('lobby').length, 1);
+    assert.equal(d.app.store.stored('lobby').length, 1);
     const guest = await d.enter('guest-passer-by');
     assert.equal(guest.tower?.yours ?? null, null, 'the passer-by has no handle');
     const no = guest.until((m) => m.type === 'build-result' && m.error, 3000, 'a refusal');
     guest.send({ type: 'remove', objectId: id });
     assert.match((await no).error, /plaza/);
-    assert.equal(d.app.store.objects('lobby').length, 1, 'the guest\'s remove took @jeffrey\'s build out of the plaza');
+    assert.equal(d.app.store.stored('lobby').length, 1, 'the guest\'s remove took @jeffrey\'s build out of the plaza');
     // The same message on a floor of the tower is refused.
     const room = `floor-${d.app.tower.tower.forHandle('jeffrey').id}`;
     await d.app.store.commit({ room, objectId: 'on-his-floor', owner: 'x', baseVersion: -1, x: 0, z: 0, prompt: 'lamp' }, cube('lamp'));
@@ -202,7 +202,7 @@ test('a passer-by cannot delete a build from the plaza; on a floor only its owne
     const refused = ada.until((m) => m.type === 'build-result', 3000, 'a refusal');
     ada.send({ type: 'remove', objectId: 'on-his-floor' });
     assert.match((await refused).error, /Only @jeffrey/);
-    assert.equal(d.app.store.objects(room).length, 1);
+    assert.equal(d.app.store.stored(room).length, 1);
   } finally { await d.close(); }
 });
 
@@ -212,7 +212,7 @@ test('a build the keeper takes out of the plaza is still in the store to put bac
     const keeper = await d.enter('jeffrey');
     keeper.send({ type: 'remove', objectId: 'old-statue' });
     await delay(200);
-    assert.equal(d.app.store.objects('lobby').length, 0);
+    assert.equal(d.app.store.stored('lobby').length, 0);
     assert.equal(d.app.store.removed('lobby')[0]?.removedBy, 'jeffrey');
     const kept = JSON.stringify(await d.disk());
     assert.ok(kept.includes('old statue'), 'objects.json holds no trace of the deleted build: no geometry, no position, no owner');
@@ -229,7 +229,7 @@ test('one message from a guest does not wipe the plaza\'s builds, paint and scre
     const guest = await d.enter('guest-passer-by');
     guest.send({ type: 'clear-room' }); // no menu sends this any more; the socket still takes it
     await delay(200);
-    const left = { builds: d.app.store.objects('lobby').length, paint: Object.keys(d.app.store.tiles('lobby')).length, screens: d.app.store.screens('lobby').filter((s) => s.owner).length }; // (the lobby's own three are not anyone's)
+    const left = { builds: d.app.store.stored('lobby').length, paint: Object.keys(d.app.store.tiles('lobby')).length, screens: d.app.store.screens('lobby').filter((s) => s.owner).length }; // (the lobby's own three are not anyone's)
     assert.deepEqual(left, { builds: 2, paint: 3, screens: 1 });
   } finally { await d.close(); }
 });

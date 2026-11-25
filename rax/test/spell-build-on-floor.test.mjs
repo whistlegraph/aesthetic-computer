@@ -43,7 +43,7 @@ async function mark(a, x, z, yaw, pitch = 0) {
 }
 // Type a build prompt as the page sends it; resolves with the new object.
 async function build(a, prompt = 'a cube') {
-  const had = new Set(app.store.objects(a.room).map((o) => o.id));
+  const had = new Set(app.store.stored(a.room).map((o) => o.id));
   const answer = a.until((d) => d.type === 'build-accepted' || (d.type === 'build-result' && d.error), 5000, 'the build to be accepted');
   a.send({ type: 'prompt', prompt });
   const accepted = await answer;
@@ -51,14 +51,14 @@ async function build(a, prompt = 'a cube') {
   const job = app.builders.jobs.get(accepted.id), footprint = { x: job.x, z: job.z };
   const done = await a.until((d) => d.type === 'build-result' && d.id === accepted.id, 8000, 'the build to finish');
   if (done.error) throw Error(done.error);
-  const made = app.store.objects(a.room).find((o) => !had.has(o.id));
+  const made = app.store.stored(a.room).find((o) => !had.has(o.id));
   return { x: made.x, z: made.z, id: made.id, footprint };
 }
 // Take everything out of a room the way the page does (the remove message).
 async function clear(a) {
-  for (const o of app.store.objects(a.room)) a.send({ type: 'remove', objectId: o.id });
-  for (let i = 0; i < 150 && (app.store.objects(a.room).length || app.rooms.get(a.room).match.objects.length); i++) await delay(20);
-  assert.equal(app.store.objects(a.room).length, 0, 'the room did not empty');
+  for (const o of app.store.stored(a.room)) a.send({ type: 'remove', objectId: o.id });
+  for (let i = 0; i < 150 && (app.store.stored(a.room).length || app.rooms.get(a.room).match.objects.length); i++) await delay(20);
+  assert.equal(app.store.stored(a.room).length, 0, 'the room did not empty');
 }
 async function rideFromLobby(a, to) {
   await a.enter('lobby');
@@ -104,7 +104,7 @@ test('the owner rides home and a cube asked for there stands on their floor, ins
   await mark(jeffrey, 1, 2.2, 180, -30);
   const cube = await build(jeffrey);
   assert.ok(Math.abs(cube.x) + 1 <= WORLD && Math.abs(cube.z) + 1 <= WORLD, `the cube is off the slab at ${where(cube)}`);
-  assert.equal(app.store.objects('lobby').length, 0, 'nothing fell to the plaza');
+  assert.equal(app.store.stored('lobby').length, 0, 'nothing fell to the plaza');
   await clear(jeffrey);
 });
 
@@ -190,8 +190,8 @@ test('the owner can take a misplaced build away and ask again', async () => {
   await mark(jeffrey, 1, 2.2, 180, -30);
   const cube = await build(jeffrey);
   jeffrey.send({ type: 'remove', objectId: cube.id });
-  for (let i = 0; i < 150 && app.store.objects(floor).length; i++) await delay(20);
-  assert.equal(app.store.objects(floor).length, 0);
+  for (let i = 0; i < 150 && app.store.stored(floor).length; i++) await delay(20);
+  assert.equal(app.store.stored(floor).length, 0);
   const again = await build(jeffrey);
   assert.ok(again.id && again.id !== cube.id);
   await clear(jeffrey);

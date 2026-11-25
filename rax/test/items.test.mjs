@@ -70,7 +70,10 @@ test('a gun fires bullets that travel and hit', () => {
   send(m, 0, { use: true });
   assert.equal(m.bullets.length, 1);
   for (let i = 0; i < 20; i++) send(m, 1);
-  assert.equal(m.seats[1].player.health, 66);
+  // Instagib (2026-11-25): one round ends a body, and it comes apart.
+  assert.equal(m.seats[1].player.health, 0);
+  assert.equal(m.seats[1].player.alive, false);
+  assert.ok(m.events.some((e) => e.type === 'gib' && e.seat === 1));
   assert.equal(m.items.get('g').holder, 0, 'shooting keeps the gun in hand');
 });
 
