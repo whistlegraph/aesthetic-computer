@@ -10,6 +10,7 @@
 # New Jersey session-server is one) keeps them. The DNS name must already
 # point at the box. Re-running ships a fresh bundle and restarts it. 26.11.25
 set -euo pipefail
+# (LINK_FROM: the addresses the link from home is taken from; lith's own by default.)
 HOST=$1; NAME=$2; ROOMS=${3:-east}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=$(mktemp -d)
@@ -68,7 +69,7 @@ cat > /etc/systemd/system/rax-satellite.service <<UNIT
 Description=rax satellite ($ROOMS) $COMMIT
 After=network.target
 [Service]
-Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac
+Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac RAX_SELF_HOST=$NAME RAX_HOME_HOST=aesthetic.computer RAX_LINK_FROM=${LINK_FROM:-209.38.133.33}
 WorkingDirectory=/opt/rax-satellite
 ExecStart=/opt/rax-satellite/bin/node rax/satellite.mjs
 Restart=always

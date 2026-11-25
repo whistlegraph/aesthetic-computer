@@ -161,3 +161,28 @@ test('a round that meets a watcher\'s drone blows it up', () => {
   assert.equal(downed?.eye, 'abc12345');
   assert.ok(m.events.some((e) => e.type === 'blast'));
 });
+
+// 🌐 Over an open side a round leaves for the room beside; at a wall it ricochets.
+test('a round flies out over an open side, and ricochets off a closed one', () => {
+  const m = armed();
+  m.setObjects([gun]);
+  m.open = ['north'];
+  Object.assign(m.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 }); // facing north (+z)
+  Object.assign(m.seats[1].player, { x: 7, z: -7 });
+  m.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, use: true }]);
+  for (let k = 0; k < HZ && !m.outbound.length; k++) m.step();
+  assert.equal(m.outbound.length, 1, 'out over the north side');
+  assert.equal(m.outbound[0].side, 'north');
+  assert.ok(m.outbound[0].vz > 30);
+  const n = new Match();
+  n.join(); n.join(); n.phase = 'playing';
+  n.setObjects([gun]);
+  n.open = [];
+  Object.assign(n.seats[0].player, { x: 0, z: 0, yaw: 0, pitch: 0 });
+  Object.assign(n.seats[1].player, { x: 7, z: -7 });
+  for (let k = 0; k < HZ / 2; k++) n.step();
+  n.input(0, [{ seq: 1, fwd: 0, right: 0, yaw: 0, pitch: 0, use: true }]);
+  let bounced = false;
+  for (let k = 0; k < HZ; k++) { n.step(); if (n.events.some((e) => e.type === 'ricochet')) bounced = true; }
+  assert.ok(bounced && !n.outbound.length, 'a closed side is a wall');
+});

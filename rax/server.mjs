@@ -169,8 +169,27 @@ export function createRaxServer({
   // does not have. Unset, this is the whole world: lith's rax.
   onlyRooms = process.env.RAX_ONLY_ROOMS ? process.env.RAX_ONLY_ROOMS.split(',') : null,
   origins = (process.env.RAX_ORIGINS || '').split(',').filter(Boolean),
+  // 🌐 One world across hosts: which rooms another box keeps (lith: world.mjs
+  // ROOM_HOSTS, passed by lith/rax-process.mjs; unset, every room is here),
+  // the host this rax answers at, and home (lith) for a satellite's
+  // neighbours. A walk into a room kept elsewhere hands the walker over with
+  // a passage the other host fetches from this one (GET /passage).
+  roomHosts = {},
+  selfHost = process.env.RAX_SELF_HOST || 'aesthetic.computer',
+  homeHost = process.env.RAX_HOME_HOST || 'aesthetic.computer',
+  // 🔗 The link between hosts: a satellite takes it only from these addresses
+  // (lith's own); lith dials each satellite at `linkURL`.
+  linkFrom = (process.env.RAX_LINK_FROM || '').split(',').filter(Boolean),
+  linkURL = (host) => `wss://${host}/rax/link`,
+  fetchPassage = async (host, receipt) => {
+    const r = await fetch(`https://${host}/rax/passage?receipt=${encodeURIComponent(receipt)}`, { signal: AbortSignal.timeout(4000) });
+    return r.ok ? r.json() : null;
+  },
 } = {}) {
   const satellite = Array.isArray(onlyRooms) && onlyRooms.length > 0;
+  // Where a room is kept, when not here (null: here).
+  const keptAt = (room) => (satellite ? (onlyRooms.includes(room) ? null : homeHost) : roomHosts[room] || null);
+  const peers = new Set([homeHost, ...Object.values(roomHosts)].filter((h) => h && h !== selfHost));
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
     throw new Error('Invalid mount path');
   const rooms = new Map();
@@ -436,6 +455,18 @@ export function createRaxServer({
     // The room as it stands, for a guest that only looks (the world behind
     // the prompt's curtain shows what is built without taking a seat).
     // 🧊 What clients said about stopped frames (stalls.mjs): numbers only.
+    // 🌐 A passage this host gave for a room kept elsewhere, handed to that
+    // host once (it asks with the receipt the walker brought). Only passages
+    // marked away are ever given out, and only once, within their 30 s.
+    if (path === '/passage' && req.method === 'GET') {
+      const receipt = url.searchParams.get('receipt') || '', pass = passages.get(receipt);
+      if (!pass?.away || pass.until < Date.now()) { res.writeHead(404, { 'Cache-Control': 'no-store' }).end(); return; }
+      passages.delete(receipt);
+      const { handle, accountId, colors, room: to, position, at, until, ride, heldObject } = pass;
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+        .end(JSON.stringify({ handle, accountId, colors, room: to, position, at, until, ride, heldObject }));
+      return;
+    }
     if (path === '/stalls' && req.method === 'GET') {
       res
         .writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
@@ -636,6 +667,69 @@ export function createRaxServer({
     maxPayload: 32768,
     perMessageDeflate: false,
   });
+  // 🔗 The link: hosts that keep neighbouring rooms tell each other who
+  // stands in them (tellBeyond), so a seam between hosts is looked across
+  // like any other. lith dials; a satellite answers only lith's address,
+  // read from Caddy's X-Forwarded-For (it sets that itself; a client's own
+  // headers are not believed).
+  const linkWss = new WebSocketServer({ noServer: true, maxPayload: 1 << 20, perMessageDeflate: false });
+  const links = new Map(); // socket → the host at its other end
+  const heard = new Map(); // host → { at, rooms: [{ key, people, eyes }] }
+  // ⚽ The balls as home says (a satellite runs no dispenser of its own: one ball, one clock, lith's).
+  let farBallsHeard = { at: 0, balls: [] };
+  // Who stands in a room kept elsewhere, as bodies a ball can meet (from the link's people).
+  const farBodies = (key) => {
+    for (const { at, rooms: far } of heard.values()) {
+      if (Date.now() - at > 1500) continue;
+      const f = far.find((x) => x.key === key);
+      if (f) return f.people.map(([, , seat, x, y, z, yaw, pitch, vx, vz]) => ({ seat: -1 - seat, x, y, z, yaw, pitch, vx, vz, vy: 0, alive: true, onGround: true }));
+    }
+    return [];
+  };
+  let linking = true;
+  const linkIp = (req) => {
+    const peer = (req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+    if (!/^(::1|127\.)/.test(peer)) return peer;
+    return String(req.headers['x-forwarded-for'] || '').split(',').pop().trim() || peer;
+  };
+  const sendLink = (message) => {
+    const text = JSON.stringify(message);
+    for (const ws of links.keys()) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 1 << 20) ws.send(text);
+  };
+  const hearLink = (ws, host) => {
+    links.set(ws, host);
+    ws.on('message', (raw) => {
+      let m;
+      try { m = JSON.parse(raw); } catch { return; }
+      // Only what that host keeps is believed of it.
+      // 🎒 A thing of ours, carried to that host, left lying there: home again here.
+      if (m?.type === 'home' && typeof m.id === 'string') {
+        if (store.carried.get(m.id)?.room === `~${host}`) { const was = store.uncarry(m.id); builders.broadcast(was.origin); }
+        return;
+      }
+      if (m?.type === 'balls' && Array.isArray(m.balls) && satellite) {
+        farBallsHeard = { at: Date.now(), balls: m.balls.slice(0, 16).filter((b) => typeof b?.room === 'string' && ['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(b[k]))) };
+        return;
+      }
+      // 🌐 A round in over a seam to a room this host keeps.
+      if (m?.type === 'round' && typeof m.room === 'string' && !keptAt(m.room)) { rooms.get(m.room)?.match.takeRound(m); return; }
+      if (m?.type === 'stood' && Array.isArray(m.rooms))
+        heard.set(host, { at: Date.now(), rooms: m.rooms.filter((r) => typeof r?.key === 'string' && keptAt(r.key) === host &&
+          Array.isArray(r.people) && Array.isArray(r.eyes)).slice(0, 64).map((r) => ({ key: r.key, people: r.people.slice(0, 64), eyes: r.eyes.slice(0, 64),
+            shots: Array.isArray(r.shots) ? r.shots.slice(0, 32).filter((b) => Array.isArray(b) && b.length === 7 && b.every(Number.isFinite)) : [] })) });
+    });
+    ws.on('close', () => { if (links.get(ws) === host) links.delete(ws); heard.delete(host); });
+    ws.on('error', () => {});
+  };
+  const dial = (host) => {
+    if (!linking) return;
+    let ws;
+    try { ws = new WebSocket(linkURL(host)); } catch { setTimeout(() => dial(host), 3000).unref?.(); return; }
+    ws.on('open', () => hearLink(ws, host));
+    ws.on('close', () => { if (linking) setTimeout(() => dial(host), 3000).unref?.(); });
+    ws.on('error', () => {});
+  };
+  if (!satellite) for (const host of new Set(Object.values(roomHosts))) if (host && host !== selfHost) dial(host);
   const upgrade = (req, socket, head) => {
     let url, origin;
     try {
@@ -646,6 +740,15 @@ export function createRaxServer({
       return;
     }
     if (alias && url.pathname.startsWith(`${alias}/`)) url.pathname = prefix + url.pathname.slice(alias.length);
+    if (url.pathname === `${prefix}/link`) {
+      if (!satellite || !linkFrom.includes(linkIp(req))) {
+        socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      linkWss.handleUpgrade(req, socket, head, (ws) => hearLink(ws, homeHost));
+      return;
+    }
     if (url.pathname === `${prefix}/builder`) {
       if (!builders.authorized(req.headers.authorization)) {
         socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
@@ -671,7 +774,7 @@ export function createRaxServer({
     detach.push(
       attachSocketRoute(
         host,
-        [prefix, ...(alias ? [alias] : [])].flatMap((p) => [`${p}/play`, `${p}/builder`]),
+        [prefix, ...(alias ? [alias] : [])].flatMap((p) => [`${p}/play`, `${p}/builder`, `${p}/link`]),
         upgrade,
         {
           allowQuery: true,
@@ -830,6 +933,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       if (rooms.size >= 96) return null;
       rooms.set(key, new Room(send, { guests, connections }));
       rooms.get(key).key = key;
+      { const made = rooms.get(key); made.match.nameOf = (seat) => { const m = made.members?.[seat]; return m ? (m.handle ? `@${m.handle}` : m.name || null) : null; }; }
       rooms.get(key).match.half = halfOf(key);
       if (flights.has(key)) {
         rooms.get(key).match.setObjects(store.objects(key));
@@ -912,10 +1016,22 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const arrive = () => {
       if (arrived || watching || waiting) return;
       const receipt = passageAsked, pass = passages.get(receipt);
+      // 🌐 A passage from another host: fetched from it once (its name is in the receipt), then this runs again.
+      if (!pass && receipt && receipt.includes('|') && !member.passageFetch) {
+        const host = receipt.split('|')[0];
+        if (peers.has(host)) member.passageFetch = fetchPassage(host, receipt).then((got) => {
+          if (!got || got.room !== key || !(got.until > Date.now())) return;
+          passages.set(receipt, { ...got, owner: null, away: false, fetched: true, from: host });
+          if (ws.readyState === WebSocket.OPEN && room.sessions.has(ws)) arrive();
+        }).catch(() => {});
+        return;
+      }
       // Whose it is: the page's owner, or (the account answered first) the
       // account the walker wore. Else the body stood two ticks at the
       // room's spawn before it was set down (seen 2026-11-19).
-      const mine = pass && (member.owner ? pass.owner === member.owner : !!member.accountId && pass.accountId === member.accountId);
+      // (From another host the page's owner is not known there: only the verified account can claim it.)
+      const mine = pass && (pass.fetched ? !!member.accountId && pass.accountId === member.accountId
+        : member.owner ? pass.owner === member.owner : !!member.accountId && pass.accountId === member.accountId);
       if (!mine || pass.room !== key || pass.until < Date.now()) return;
       passages.delete(receipt);
       for (const k of ['handle', 'accountId', 'colors', 'token']) if (pass[k] && !member[k]) member[k] = pass[k];
@@ -935,8 +1051,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // The time on the way was lived: the commands given in it are owed a run.
       room.match.owe(member.seat, Math.round(((Date.now() - pass.at) * HZ) / 1000));
-      // 🎒 What was in hand on the way over is in hand here (object-store.mjs carry).
-      const moved = pass.held && store.carry(pass.held, key, { x: body.x, z: body.z });
+      // 🎒 What was in hand on the way over is in hand here (object-store.mjs carry; carryIn from another host).
+      const moved = pass.heldObject && pass.from ? store.carryIn(pass.heldObject, key, { x: body.x, z: body.z }, `~${pass.from}`) && { from: null }
+        : pass.held && store.carry(pass.held, key, { x: body.x, z: body.z });
+      if (pass.heldObject && moved) pass.held = pass.heldObject.id;
       if (moved) {
         if (moved.from) builders.broadcast(moved.from);
         builders.broadcast(key);
@@ -974,7 +1092,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // the `travel` on the same wire, in order. → whether it was done (a page
     // that does not stay, or a room with no place left, takes a passage).
     const relocate = (destination, position, { ride = null, told = {} } = {}) => {
-      if (!stays || destination === key) return false;
+      if (!stays || destination === key || keptAt(destination)) return false; // (a room kept elsewhere: a passage, not a move)
       const next = openRoom(destination);
       if (!next || next.clients.size >= ROOM_CONNECTIONS) return false;
       const from = room, fromKey = key;
@@ -1369,8 +1487,14 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (leaving && leaving.until > Date.now()) return void send(ws, leaving.message);
         for (const [id, pass] of passages) if (pass.until < Date.now() || pass.owner === member.owner) passages.delete(id);
         if (passages.size >= 1024) return;
-        const receipt = randomUUID();
-        passages.set(receipt, { owner: member.owner, ...carry(member), held: room.match.held(member.seat)?.id || null, room: destination, position, at: Date.now(), until: Date.now() + 30000 });
+        // 🌐 Into a room kept elsewhere: the receipt names this host, and the
+        // other host fetches the passage from here (GET /passage), once.
+        const away = keptAt(destination);
+        const receipt = away ? `${selfHost}|${randomUUID()}` : randomUUID();
+        // 🎒 What is in hand goes with the passage to the other host; here it is put away meanwhile.
+        const inHand = room.match.held(member.seat), heldObject = away && inHand ? store.objects(key).find((o) => o.id === inHand.id) || null : null;
+        if (heldObject && store.carry(heldObject.id, `~${away}`, { x: p.x, z: p.z })) builders.broadcast(key);
+        passages.set(receipt, { owner: member.owner, ...carry(member), held: away ? null : inHand?.id || null, heldObject, room: destination, position, at: Date.now(), until: Date.now() + 30000, away: !!away });
         // `ack` is the last command this room ran: the walker's later ones go with them.
         leaving = { until: Date.now() + 10000, message: { type: 'travel', room: destination, passage: receipt, at: position, ...(walked === undefined ? {} : { ack: walked }) } };
         send(ws, leaving.message);
@@ -1586,7 +1710,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const dispenser = createDispenser({
     neighbours: (key) => geography.geography.neighbours(key),
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
-    bodies: (key) => (rooms.get(key)?.match.seats || []).filter((s) => s?.player?.alive).map((s) => s.player),
+    bodies: (key) => keptAt(key) ? farBodies(key) : (rooms.get(key)?.match.seats || []).filter((s) => s?.player?.alive).map((s) => s.player), // (🌐 a block kept elsewhere: who stands there, as the link says)
     below: (key) => { const floor = tower.tower.forRoom(key); return floor ? { room: GROUND, dy: altitude(floor.number) } : key === ROOF && tower.tower.top ? { room: GROUND, dy: roofOf(tower.tower.top) } : null; },
   });
   const ball = dispenser.balls[0]; // first ball for readers of the original map format
@@ -1594,9 +1718,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   // rest, every few seconds while it rolls, and when the server closes.
   const kiosks = createKiosks({ directory: stateDir }); // 🧩 what has been done to the pieces on the panels
   const ballFile = stateDir && resolve(stateDir, 'ball.json');
-  let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0;
+  let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0, ballLinkTick = 0;
   const keepBall = () => {
-    if (!ballFile) return ballSaved;
+    if (!ballFile || satellite) return ballSaved; // (a satellite's ball is home's)
     const [first, ...others] = dispenser.balls.map(sim => sim.ball);
     const text = JSON.stringify({ ...first, others });
     ballKeptAt = Date.now();
@@ -1644,7 +1768,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     else if (moved && Date.now() - ballKeptAt > 5000) keepBall();
     ballRolling = moved;
     if (!moved && ++ballTick % 30) return; // at rest: twice a second, for whoever just came
-    const positions = dispenser.balls.map(({ ball: b }, id) => ({ b, id, at: cellOf(b.room) }));
+    const positions = satellite
+      ? (Date.now() - farBallsHeard.at < 1500 ? farBallsHeard.balls : []).map((b, id) => ({ b, id: b.id ?? id, at: cellOf(b.room) }))
+      : dispenser.balls.map(({ ball: b }, id) => ({ b, id, at: cellOf(b.room) }));
     const r = n => Math.round(n * 1000) / 1000;
     for (const [key, room] of rooms) {
       const here = cellOf(key);
@@ -1678,7 +1804,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   const BEYOND = 2;
   let beyondTick = 0;
   const tellBeyond = () => {
-    if (++beyondTick % 4 || !rooms.size) return;
+    if (++beyondTick % 4 || (!rooms.size && !links.size)) return;
     const r = (n) => Math.round(n * 100) / 100, stood = [], fresh = Date.now() - 4000;
     for (const [key, room] of rooms) {
       const at = cellOf(key);
@@ -1692,23 +1818,33 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const m of room.sessions.values())
         if (m.seat < 0 && m.eye && m.look && m.look.at > fresh)
           eyes.push([m.eye, m.handle ? `@${m.handle}` : m.owner ? guestName(m.owner) : '', m.look.x, m.look.y, m.look.z, m.look.yaw]);
-      stood.push({ key, room, at, people, eyes });
+      // 🔫 Its rounds in flight, so the rooms around see a shot fly on.
+      const shots = room.match.bullets.map((b) => [b.id, r(b.x), r(b.y), r(b.z), r(b.vx), r(b.vy), r(b.vz)]);
+      stood.push({ key, room, at, people, eyes, shots });
+    }
+    // 🔗 Over the link: ours to the other hosts, theirs (heard in the last 1.5 s) beside ours.
+    if (links.size) sendLink({ type: 'stood', rooms: stood.map(({ key, people, eyes, shots }) => ({ key, people, eyes, shots })) });
+    for (const { at, rooms: far } of heard.values()) {
+      if (Date.now() - at > 1500) continue;
+      for (const f of far) { const cell = cellOf(f.key); if (cell && !rooms.has(f.key)) stood.push({ key: f.key, room: null, at: cell, people: f.people, eyes: f.eyes, shots: f.shots || [] }); }
     }
     for (const here of stood) {
-      if (!here.room.clients.size) continue;
-      const seen = [], drones = [];
+      if (!here.room?.clients.size) continue;
+      const seen = [], drones = [], shots = [];
       for (const there of stood) {
         const di = wrap(there.at.i - here.at.i), dj = wrap(there.at.j - here.at.j);
         if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND || overlaid(there.at, here.at)) continue;
         for (const [id, name, x, y, z, yaw] of there.eyes)
           drones.push([id, name, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw)]);
         if (there === here) continue; // (its own people are in its snapshot)
+        for (const [id, x, y, z, vx, vy, vz] of there.shots || [])
+          shots.push([`${there.key}:${id}`, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), vx, vy, vz]);
         for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike] of there.people)
           seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz), boat, bike]);
       }
-      if (!seen.length && !drones.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
-      here.room.beyondSeen = seen.length + drones.length;
-      const word = JSON.stringify({ type: 'beyond', people: seen, drones });
+      if (!seen.length && !drones.length && !shots.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
+      here.room.beyondSeen = seen.length + drones.length + shots.length;
+      const word = JSON.stringify({ type: 'beyond', people: seen, drones, ...(shots.length ? { shots } : {}) });
       for (const ws of here.room.clients.keys()) sendText(ws, word);
     }
   };
@@ -1732,7 +1868,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     previous = now;
     while (debt >= 1000 / HZ) {
       debt -= 1000 / HZ;
-      if (rooms.size) tellBall(dispenser.step());
+      if (satellite) {
+        // ⚽ Home's balls, told to whoever is near them here.
+        if (rooms.size) tellBall(farBallsHeard.balls.some((b) => Math.hypot(b.vx, b.vy, b.vz) > 0.01));
+      } else {
+        if (rooms.size) tellBall(dispenser.step());
+        // ⚽ …and to the other hosts, fifteen times a second.
+        if (links.size && !(++ballLinkTick % 4))
+          sendLink({ type: 'balls', balls: dispenser.balls.map(({ ball: b }, id) => ({ id, room: b.room, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, g: b.g || 0 })) });
+      }
       tellBeyond();
       if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
@@ -1757,11 +1901,25 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const room of [...rooms.values()])
         for (const seat of room.match.toRoof.splice(0))
           [...room.sessions.values()].find((m) => m.seat === seat)?.toRoof?.();
+      // 🌐 Rounds that flew out over an open side go on in the room beside: here, or over the link.
+      for (const [key, room] of [...rooms])
+        for (const r of room.match.outbound.splice(0)) {
+          const to = geography.geography.neighbours(key)?.[r.side];
+          if (!to) continue;
+          const shift = { east: [-SPAN, 0], west: [SPAN, 0], north: [0, -SPAN], south: [0, SPAN] }[r.side];
+          const round = { ...r, x: r.x + shift[0], z: r.z + shift[1] };
+          if (keptAt(to)) sendLink({ type: 'round', room: to, ...round });
+          else rooms.get(to)?.match.takeRound(round);
+        }
       // 🎒 Carried-in things left lying go home: listed where they came from again.
       for (const room of [...rooms.values()])
         for (const id of room.match.goingHome.splice(0)) {
           const was = store.uncarry(id);
-          if (was) { builders.broadcast(was.room); builders.broadcast(was.origin); }
+          if (!was) continue;
+          builders.broadcast(was.room);
+          // (Brought from another host: that host lists it at home again.)
+          if (was.origin.startsWith('~')) sendLink({ type: 'home', id });
+          else builders.broadcast(was.origin);
         }
     }
     if (diagnostics.enabled) {
@@ -1791,6 +1949,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     pairing,
     ready,
     async close() {
+      linking = false;
+      for (const ws of links.keys()) ws.terminate();
       builders.close();
       stopDevLog();
       clearInterval(braincellTimer);

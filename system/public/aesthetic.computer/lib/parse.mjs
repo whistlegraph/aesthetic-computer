@@ -2,7 +2,7 @@
 // Parses everything that can be typed into the `prompt` piece and anything
 // that appears after `aesthetic.computer/` in the address bar of the browser.
 
-import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp.mjs";
+import { isKidlispSource, decodeKidlispFromUrl } from "./kidlisp-url.mjs";
 import { checkPackMode } from "./pack-mode.mjs";
 import { entryMetadata } from "./site-metadata.mjs";
 import { legitimate } from "./params.mjs";

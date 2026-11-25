@@ -81,6 +81,9 @@ export class Match {
     this.toRoof = [];
     // 🎒 Carried-in things left lying long enough to go home (server.mjs takes them).
     this.goingHome = [];
+    // 🌐 Rounds that flew out over an open side, for the room beside (server.mjs).
+    this.outbound = [];
+    this.nameOf = null; // (seat → who fired, for a round that leaves: server.mjs sets it)
   }
 
   // 🍄 A side-on arena: bodies keep to one plane, the ledges are the map,
@@ -519,7 +522,7 @@ export class Match {
             watcher = w;
           }
         }
-        const surface = surfaceHit(b, dir, at, this.objects, time, this.half);
+        const surface = surfaceHit(b, dir, at, this.objects, time, this.half, this.open);
         // (A target is solid too: met at the same spot, the target takes the round.)
         if (surface && (target || watcher ? surface.t < at - 0.01 : surface.t <= at)) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
@@ -555,6 +558,12 @@ export class Match {
           }
           b.dead = true;
         }
+      }
+      // 🌐 Over an open side, into the room beside (server.mjs takes it on, there or on another host).
+      const side = b.dead ? null : b.x > this.half ? 'east' : b.x < -this.half ? 'west' : b.z > this.half ? 'north' : b.z < -this.half ? 'south' : null;
+      if (side && this.open?.includes(side)) {
+        this.outbound.push({ side, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, bounces: b.bounces, by: this.nameOf?.(b.owner) ?? null });
+        b.dead = true;
       }
       if (b.bounces > 16 || Math.abs(b.x) > this.half + 5 || Math.abs(b.z) > this.half + 5 || b.y > 80) b.dead = true;
     }
@@ -760,6 +769,17 @@ export class Match {
       id: ++this.eventId,
     });
     this.emit('launch', { seat: p.seat });
+  }
+
+  // 🌐 A round in from the room beside: it flies on from where it crossed,
+  // nobody's here (its shooter is in another room), dangerous at once.
+  takeRound(r) {
+    if (!['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(r[k]))) return;
+    // (Someone alone in a room can be shot from the next one: a round from outside starts the match.)
+    if (this.phase === 'waiting' && this.count >= 1) this.phase = 'playing';
+    this.bullets.push({ x: r.x, y: r.y, z: r.z, vx: r.vx, vy: r.vy, vz: r.vz, owner: -1, born: this.tick, safeUntil: 0,
+      bounces: r.bounces || 0, id: ++this.eventId, by: typeof r.by === 'string' ? r.by.slice(0, 40) : null });
+    while (this.bullets.length > 24) this.bullets.shift();
   }
 
   damage(seat, amount, attacker) {

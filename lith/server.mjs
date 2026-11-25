@@ -49,6 +49,7 @@ if (typeof globalThis.awslambda === "undefined") {
 import express from "express";
 import {attachMusicalSocket} from "./musical-socket.mjs";
 import { createRaxServer } from "../rax/server.mjs";
+import { ROOM_HOSTS } from "../rax/world.mjs";
 import { kidlispPublisher } from "../rax/kidlisp-code.mjs";
 import { stateHome } from "../rax/env.mjs";
 import { startRax } from "./rax-child.mjs";
@@ -125,6 +126,7 @@ const rax = process.env.RAX_INLINE === '1'
       alias: '/dool', // its name until 2026-11-18: old links, pages and the builder still land
       publishKidlisp: kidlispPublisher(),
       stateDir: stateHome(),
+      roomHosts: ROOM_HOSTS, // 🌐 rooms kept on other boxes (rax/satellite.mjs)
     })
   : startRax();
 await rax.ready; // The store is read from disk before the first request.

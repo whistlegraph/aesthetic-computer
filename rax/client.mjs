@@ -42,6 +42,7 @@ const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kid
 import { MAX_FOCUS_ZOOM, screenRows, carryPixels } from './screen-lod.mjs';
 import { ballAt, DISPENSER_WALL } from './ball.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
+let farShots = []; // 🌐 rounds in the rooms around (beyond)
 const rounds = new Rounds(); // 🔫 Rounds in flight, flown on between snapshots and fired at once (rounds.mjs).
 
 // ⏱️ How long the way in takes, once: when this module ran, when the view
@@ -1913,6 +1914,8 @@ function connect(adopt = null) {
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();
+      // 🌐 Rounds flying in the rooms around (a shot carried on over a seam), flown on here between words.
+      farShots = (data.shots || []).map(([id, x, y, z, vx, vy, vz]) => ({ id: `far-${id}`, x, y, z, vx, vy, vz, at: now }));
       for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike] of data.people) {
         const was = beyond.get(id), from = was ? beyondAt(was, now) : null;
         next.set(id, { id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike, alive: true, from, at: now });
@@ -3967,7 +3970,8 @@ function step(now, xr) {
     boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
-    bullets: rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half()),
+    bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges()),
+      ...farShots.map((b) => { const t = Math.min(0.12, (now - b.at) / 1000); return { id: b.id, x: b.x + b.vx * t, y: b.y + b.vy * t, z: b.z + b.vz * t, vx: b.vx, vy: b.vy, vz: b.vz, flown: true }; })],
     since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,
     status: sheetOpen ? status : '',

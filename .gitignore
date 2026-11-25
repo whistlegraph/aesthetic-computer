@@ -595,6 +595,11 @@ aesel/install.json
 # Max-level sidecars Caddy serves as `precompressed` (xbox/tools/precompress-live.sh)
 xbox/live/*.br
 xbox/live/*.zst
+# ...and AC's critical path (lith/precompress-core.mjs)
+system/public/sw.js.br
+system/public/aesthetic.computer/*.br
+system/public/aesthetic.computer/lib/**/*.br
+system/public/aesthetic.computer/lib/**/*.br.tmp-*
 
 # Slab solo release artifacts (signed DMGs + staging)
 slab/menubar-swift/dist/

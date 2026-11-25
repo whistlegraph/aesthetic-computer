@@ -119,12 +119,12 @@ async function cleanVault() {
 // only then reported, in a line, not a stack. A 4xx is an answer: it is
 // returned at once.
 const WAITS = [1, 2, 3, 5, 8, 10, 15, 15];
-async function production(path, as = "text") {
+async function production(path, as = "text", headers = {}) {
   let trouble = "";
   for (let attempt = 0; ; attempt++) {
     try {
       const response = await fetch(`${SITE}${path}?t=${Date.now()}`, {
-        headers: { "cache-control": "no-cache" }, signal: AbortSignal.timeout(20_000),
+        headers: { "cache-control": "no-cache", ...headers }, signal: AbortSignal.timeout(20_000),
       });
       if (response.ok) return as === "bytes" ? Buffer.from(await response.arrayBuffer()) : await response.text();
       trouble = `answered ${response.status}`;
@@ -137,6 +137,31 @@ async function production(path, as = "text") {
     if (attempt === 0) say("·", `${path} ${trouble}; lith may be restarting — waiting`);
     await new Promise((done) => setTimeout(done, WAITS[attempt] * 1000));
   }
+}
+
+// The boot path as a browser gets it: asked for in brotli (Caddy answers from
+// the .br sidecars lith/precompress-core.mjs writes; `?t=` passes the edge
+// cache), decoded, and compared byte for byte with `sha`. Caddy serves a
+// sidecar whenever one exists, newer source or not, so a checkout that skipped
+// the precompress hook would hand browsers an old bios beside a new worker.
+// This is the check that says so.
+const CRITICAL_PATH = ["sw.js", "aesthetic.computer/boot.mjs", "aesthetic.computer/bios.mjs",
+  "aesthetic.computer/lib/disk.mjs", "aesthetic.computer/lib/kidlisp-url.mjs"];
+async function verifyCriticalPath(sha) {
+  const manifest = JSON.parse(git("show", `${sha}:system/public/aesthetic.computer/lib/disk-worker-manifest.json`));
+  const files = [...CRITICAL_PATH, `aesthetic.computer/lib/${manifest.filename}`];
+  const stale = [];
+  for (const file of files) {
+    let want;
+    try {
+      want = execFileSync("git", ["-C", ROOT, "show", `${sha}:system/public/${file}`], { maxBuffer: 64 << 20, stdio: ["ignore", "pipe", "pipe"] });
+    } catch { continue; } // Not in this commit: nothing to compare.
+    const have = await production(`/${file}`, "bytes", { "accept-encoding": "br" });
+    if (!have.equals(want)) stale.push(file);
+  }
+  if (!stale.length) { say("✓", `boot path served as committed (${files.length} files, brotli)`); return true; }
+  say("✕", `stale in production: ${stale.join(", ")} — a .br sidecar outlived its source; run lith/precompress-core.mjs on lith, then ac-deploy --verify`);
+  return false;
 }
 
 // `sha` is the core commit production should be serving: the knot's main
@@ -154,6 +179,7 @@ async function verify(sha) {
   const products = (await get("/.products-ref")).trim();
   if (products === expectedProducts) say("✓", `products ${products.slice(0, 10)}`);
   else { ok = false; say("✕", `products ${products.slice(0, 10)}, expected ${expectedProducts.slice(0, 10)}`); }
+  if (!(await verifyCriticalPath(sha))) ok = false;
   // Aesel ships separately (`ac-deploy aesel`); here it is only reported.
   const want = JSON.parse(git("show", `${sha}:aesel/package.json`)).version;
   const have = JSON.parse(await get("/aesel.json")).version;

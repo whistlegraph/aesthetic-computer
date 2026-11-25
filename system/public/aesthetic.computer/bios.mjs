@@ -24,7 +24,8 @@ import { apiObject, extension } from "./lib/helpers.mjs";
 import { choose } from "./lib/help.mjs";
 import { parse, slug } from "./lib/parse.mjs";
 import { viewParams, cleanSearch } from "./lib/params.mjs";
-import { isKidlispSource, encodeKidlispForUrl, getSyntaxHighlightingColors, isKidlispConsoleEnabled, postKidlispConsoleImage, getCachedCode } from "./lib/kidlisp.mjs";
+import { isKidlispSource, encodeKidlispForUrl, getCachedCode } from "./lib/kidlisp-url.mjs";
+import { isKidlispConsoleEnabled, postKidlispConsoleImage } from "./lib/kidlisp-console.mjs";
 import * as Store from "./lib/store.mjs";
 import * as MIDI from "./lib/midi.mjs";
 import * as USB from "./lib/usb.mjs";
@@ -682,6 +683,52 @@ function loadWhenIdle() {
   else setTimeout(load, 2000);
 }
 
+// 🎨 lib/kidlisp.mjs (the whole evaluator) on the main thread only for the
+// syntax colors a taped KidLisp code is stamped with. Returns the module once
+// it has loaded, null (and starts the load) before.
+let kidlispModule = null;
+let kidlispLoading = null;
+function loadKidlisp() {
+  if (kidlispModule) return kidlispModule;
+  kidlispLoading ||= import("./lib/kidlisp.mjs").then(
+    (module) => (kidlispModule = module),
+    (error) => {
+      kidlispLoading = null;
+      console.warn("🎨 KidLisp colors unavailable:", error?.message || error);
+    },
+  );
+  return null;
+}
+
+// 🐢 Work that waits until the first piece shows (acPieceReady) and then for
+// an idle moment: none of it is needed to boot the piece or draw its first
+// frame, and all of it would otherwise compete with the piece's own first
+// fetches for the link and the main thread. boot() also calls
+// `pieceShown` after a few seconds, so a piece that never reports ready
+// still gets it all.
+const piecePending = [];
+let pieceHasShown = false;
+function whenIdle(fn) {
+  const run = () => {
+    try {
+      fn();
+    } catch (error) {
+      console.warn("🐢 Deferred boot work failed:", error);
+    }
+  };
+  if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 1000 });
+  else setTimeout(run, 100);
+}
+function whenPieceShows(fn) {
+  if (pieceHasShown) whenIdle(fn);
+  else piecePending.push(fn);
+}
+function pieceShown() {
+  if (pieceHasShown) return;
+  pieceHasShown = true;
+  for (const fn of piecePending.splice(0)) whenIdle(fn);
+}
+
 function resolveBackgroundFillSpec(colorLike) {
   if (colorLike === undefined || colorLike === null) return null;
   if (!graph) return null; // Not loaded yet: the caller falls back to a solid fill.
@@ -961,6 +1008,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   // code load beside the boot rather than in front of it.
   import("./lib/headers.mjs").then(({ headers }) => headers(), () => {});
   loadWhenIdle();
+  setTimeout(pieceShown, 8000); // In case no piece ever reports itself ready.
 
   const workerBundleParam = new URLSearchParams(window.location.search).get("workerbundle");
   const workerBundleDisabled =
@@ -2564,12 +2612,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       document.body.append(wrapper);
       perf.markBoot("dom-appended");
 
-      // Initialize WebGPU 2D renderer with dedicated canvas (skip in PACK mode)
-      if (!window.acPACK_MODE) {
-        initWebGPU(webgpuCanvas).catch(err => {
-          console.warn("⚠️ WebGPU initialization failed:", err);
-        });
-      }
+      // Initialize WebGPU 2D renderer with dedicated canvas (skip in PACK mode).
+      // Once the first piece shows: its backends (lib/gpu/) and adapter
+      // request are only for pieces that draw through `webgpu`, and the
+      // first `webgpu-command` starts it at once if one does.
+      if (!window.acPACK_MODE) whenPieceShows(() => startWebGPU());
 
       if (!webglBlitter) {
         webglBlitter = createWebGLBlitter(webglCompositeCanvas);
@@ -2577,85 +2624,91 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         if (!ok) webglBlitter = null;
       }
 
-      const fonts = [
-        "berkeley-mono-variable.css",
-        "ywft-processing-regular.css",
-        "ywft-processing-light.css",
-        "ywft-processing-bold.css",
-      ];
+      // 🔤 The DOM typefaces (prompt field, overlays) load once the first
+      // piece shows: the piece draws with its own pixel fonts, and these
+      // stylesheets and their font files would otherwise share the link with
+      // the piece's first media.
+      whenPieceShows(() => {
+        const fonts = [
+          "berkeley-mono-variable.css",
+          "ywft-processing-regular.css",
+          "ywft-processing-light.css",
+          "ywft-processing-bold.css",
+        ];
 
-      // Load fonts post-boot.
-      fonts.forEach((font) => {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.crossOrigin = "anonymous";
+        // Load fonts post-boot.
+        fonts.forEach((font) => {
+          const link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.crossOrigin = "anonymous";
         
-        // Use origin-aware font loading
-        let fontUrl;
-        try {
-          // Check if we're in OBJKT/PACK mode (sandboxed with bundled fonts)
-          if (window.acPACK_MODE) {
-            // In OBJKT mode, use relative paths to bundled fonts
-            fontUrl = "./type/webfonts/" + font;
-          } else if (window.acSPIDER) {
-            // In SPIDER mode, leech fonts from aesthetic.computer
-            fontUrl = "https://aesthetic.computer/type/webfonts/" + font;
-          } else {
-            // Check if we're in development environment
-            const isDevelopment = location.hostname === 'localhost' && location.port;
-            if (isDevelopment) {
-              // In development, fonts are served from the root /type/webfonts/ path
-              fontUrl = "/type/webfonts/" + font;
-            } else {
-              // In production or sandboxed iframe, use the standard path
-              fontUrl = "/type/webfonts/" + font;
-            }
-          }
-        } catch (err) {
-          // Fallback to standard path if there's any error
-          fontUrl = "/type/webfonts/" + font;
-        }
-        
-        link.href = fontUrl;
-        document.body.append(link);
-      });
-
-      if ("fonts" in document) {
-        (async () => {
+          // Use origin-aware font loading
+          let fontUrl;
           try {
-            // Wait for stylesheet to load first
-            await new Promise((resolve) => {
-              const checkFonts = () => {
-                // Check if at least one font face is available
-                const fontFaces = Array.from(document.fonts);
-                if (fontFaces.length > 0) {
-                  resolve();
-                } else {
-                  setTimeout(checkFonts, 50);
-                }
-              };
-              checkFonts();
-            });
-
-            // Now load the fonts explicitly
-            await Promise.all([
-              document.fonts.load("1em YWFTProcessing-Light"),
-              document.fonts.load("1em YWFTProcessing-Regular"),
-              document.fonts.load("bold 1em YWFTProcessing-Regular"),
-              document.fonts.load("normal 1em YWFTProcessing-Light"),
-            ]);
-          } catch (error) {
-            console.warn("⚠️ Font loading during boot failed:", error);
-            // Fallback to fonts.ready
-            await document.fonts.ready;
+            // Check if we're in OBJKT/PACK mode (sandboxed with bundled fonts)
+            if (window.acPACK_MODE) {
+              // In OBJKT mode, use relative paths to bundled fonts
+              fontUrl = "./type/webfonts/" + font;
+            } else if (window.acSPIDER) {
+              // In SPIDER mode, leech fonts from aesthetic.computer
+              fontUrl = "https://aesthetic.computer/type/webfonts/" + font;
+            } else {
+              // Check if we're in development environment
+              const isDevelopment = location.hostname === 'localhost' && location.port;
+              if (isDevelopment) {
+                // In development, fonts are served from the root /type/webfonts/ path
+                fontUrl = "/type/webfonts/" + font;
+              } else {
+                // In production or sandboxed iframe, use the standard path
+                fontUrl = "/type/webfonts/" + font;
+              }
+            }
+          } catch (err) {
+            // Fallback to standard path if there's any error
+            fontUrl = "/type/webfonts/" + font;
           }
-        })();
-        // document.fonts.load("1em Berkeley Mono Variable").then(() => {
-        //   setTimeout(() => {
-        //     document.getElementById("console")?.classList.remove("hidden");
-        //   }, 250);
-        // });
-      }
+        
+          link.href = fontUrl;
+          document.body.append(link);
+        });
+
+        if ("fonts" in document) {
+          (async () => {
+            try {
+              // Wait for stylesheet to load first
+              await new Promise((resolve) => {
+                const checkFonts = () => {
+                  // Check if at least one font face is available
+                  const fontFaces = Array.from(document.fonts);
+                  if (fontFaces.length > 0) {
+                    resolve();
+                  } else {
+                    setTimeout(checkFonts, 50);
+                  }
+                };
+                checkFonts();
+              });
+
+              // Now load the fonts explicitly
+              await Promise.all([
+                document.fonts.load("1em YWFTProcessing-Light"),
+                document.fonts.load("1em YWFTProcessing-Regular"),
+                document.fonts.load("bold 1em YWFTProcessing-Regular"),
+                document.fonts.load("normal 1em YWFTProcessing-Light"),
+              ]);
+            } catch (error) {
+              console.warn("⚠️ Font loading during boot failed:", error);
+              // Fallback to fonts.ready
+              await document.fonts.ready;
+            }
+          })();
+          // document.fonts.load("1em Berkeley Mono Variable").then(() => {
+          //   setTimeout(() => {
+          //     document.getElementById("console")?.classList.remove("hidden");
+          //   }, 250);
+          // });
+        }
+      });
 
       let lastWidth = window.innerWidth;
       let lastHeight = window.innerHeight;
@@ -2981,6 +3034,16 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   let webGPUInitialized = false;
   let activeGPUBackend = null; // 🎨 Current renderer backend
   
+  // Started once: by the first piece showing, or sooner by a `webgpu-command`.
+  let webGPUStarted = false;
+  function startWebGPU() {
+    if (webGPUStarted || window.acPACK_MODE) return;
+    webGPUStarted = true;
+    initWebGPU(webgpuCanvas).catch((err) => {
+      console.warn("⚠️ WebGPU initialization failed:", err);
+    });
+  }
+
   async function initWebGPU(canvas) {
     if (webGPUInitialized) return;
     
@@ -5315,6 +5378,9 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // (window.acPIECE_SOURCE); ride it down so the worker skips its own
       // fetch. If it hasn't landed yet it follows as a 'piece-source' message.
       pieceSource: pieceSourceHint(),
+      // The shell is still fetching it: the worker waits for that rather
+      // than fetching the piece a second time.
+      pieceSourcePending: !!window.acPIECE_SOURCE?.promise,
     },
   };
   function pieceSourceHint() {
@@ -5438,6 +5504,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }, "*");
   }
 
+  if (!workersEnabled && window.acEARLY_WORKER) {
+    window.acEARLY_WORKER.adopted = false; // boot.mjs's early worker goes unused here.
+    window.acEARLY_WORKER.worker?.terminate();
+  }
+
   if (/*!MetaBrowser &&*/ workersEnabled) {
     perf.markBoot("worker-create-start");
     
@@ -5455,8 +5526,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     // (like loading pieces) would resolve relative to blob: origin which fails.
     // Workers need to load via HTTP so their dynamic imports work correctly.
 
-    const createWorker = () => {
-      const worker = new Worker(new URL(activeWorkerPath, window.location.href), {
+    // `early` is the worker boot.mjs started ahead of bios (acEARLY_WORKER):
+    // the same bundle and URL, already compiling. Its messages so far wait
+    // in `early.messages` and are replayed once the handlers below are on.
+    const createWorker = (early = null) => {
+      const worker = early?.worker || new Worker(new URL(activeWorkerPath, window.location.href), {
         type: "module",
       });
       activeWorker = worker;
@@ -5582,10 +5656,26 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           onMessage(e);
         };
       }
+
+      if (early?.worker === worker) {
+        if (early.error) worker.onerror(early.error);
+        else for (const e of early.messages.splice(0)) worker.onmessage(e);
+      }
     };
-    
-    // Start the first worker attempt
-    createWorker();
+
+    // Start the first worker attempt, taking boot.mjs's if it is the one
+    // this boot would have made.
+    const early = window.acEARLY_WORKER;
+    const adoptEarly =
+      !!early?.worker &&
+      usingBundledWorker &&
+      early.filename === workerBundleState.filename &&
+      early.adopted === undefined;
+    if (early) {
+      early.adopted = adoptEarly;
+      if (!adoptEarly) early.worker?.terminate();
+    }
+    createWorker(adoptEarly ? early : null);
 
     if (usingBundledWorker) {
       setTimeout(() => {
@@ -7626,10 +7716,14 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     if (type === "handle") {
       HANDLE = content; // Set the global HANDLE const to the user handle.
-      // Join the handle's presence room so a linked agent lights the mark.
-      import("./lib/agent-presence.mjs")
-        .then((mod) => mod.startAgentPresence({ room: HANDLE }))
-        .catch(() => {});
+      // Join the handle's presence room so a linked agent lights the mark,
+      // once the first piece shows (its socket is not the piece's business).
+      const room = HANDLE;
+      whenPieceShows(() =>
+        import("./lib/agent-presence.mjs")
+          .then((mod) => mod.startAgentPresence({ room }))
+          .catch(() => {}),
+      );
       return;
     }
 
@@ -7642,6 +7736,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     if (type === "kidlisp:cached-code") {
+      loadKidlisp(); // Its syntax colors are wanted if this code is taped.
       // Update recording options with the newly cached code
       if (window.currentRecordingOptions) {
         window.currentRecordingOptions.cachedCode = content;
@@ -8479,8 +8574,12 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
         }
         
-        // Use the centralized syntax highlighting from kidlisp module
-        const colors = getSyntaxHighlightingColors(cachedCode);
+        // Use the centralized syntax highlighting from kidlisp module, which
+        // the main thread loads only when a KidLisp code is cached (see
+        // `kidlisp:cached-code`); until it lands, the default red stands in.
+        const kidlisp = loadKidlisp();
+        if (!kidlisp) return [{ type: "default", r: 220, g: 60, b: 60, weight: 1.0 }];
+        const colors = kidlisp.getSyntaxHighlightingColors(cachedCode);
         
         // Debug logging to show we're using kidlisp syntax highlighting
         console.log("🎨 Using kidlisp syntax highlighting:", {
@@ -15258,7 +15357,17 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       // 🎮 Gamepad
       gamepad = new Gamepad();
       // A pad's stick is a cursor on the prompt and A its click (lib/pad-cursor.mjs).
-      import("./lib/pad-cursor.mjs").then(({ padCursor }) => padCursor({ canvas, piece: () => currentPiece })).catch(() => {});
+      // It loads once the first piece shows, or at once if a pad wakes first
+      // (its first tick reads every pad already connected).
+      let padCursorStarted = false;
+      const startPadCursor = () => {
+        if (padCursorStarted) return;
+        padCursorStarted = true;
+        window.removeEventListener("gamepadconnected", startPadCursor);
+        import("./lib/pad-cursor.mjs").then(({ padCursor }) => padCursor({ canvas, piece: () => currentPiece })).catch(() => {});
+      };
+      window.addEventListener("gamepadconnected", startPadCursor);
+      whenPieceShows(startPadCursor);
 
       // Turn off all layers onbeforeunload. (Prevents a white flicker in chrome.)
       window.addEventListener("beforeunload", (e) => {
@@ -16086,6 +16195,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     if (type === "gpu-frame") { if (content.meshes) for (const m of content.meshes) gpuFrameMeshes.set(m.id, m); pendingGpuFrame = content; return; }
 
     if (type === "webgpu-command") {
+      if (!webGPUStarted) startWebGPU(); // A piece draws with it before the first one showed.
       // Use new backend system if available, fallback to old WebGPU
       if (activeGPUBackend) {
         activeGPUBackend.handleCommand(content);
@@ -20590,6 +20700,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
         window.acPieceReady = true;
         window.acPieceReadyTime = Date.now();
       }
+      pieceShown(); // Let the deferred boot work run (whenPieceShows).
       if (window.acHIDE_BOOT_LOG) {
         window.acHIDE_BOOT_LOG();
       }
