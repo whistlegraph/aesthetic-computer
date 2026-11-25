@@ -16,9 +16,6 @@ a{color:var(--link)}a:visited{color:var(--visited)}
 [data-mime-slides] figcaption{margin-top:4px}
 [data-mime-slides] .byline{display:block;font:italic 14px/1.3 Georgia,serif;margin:4px 0;min-height:2.6em}
 
-.appearance{font:14px/1.3 Georgia,serif;color:var(--muted);white-space:nowrap}
-.appearance select{font:inherit;padding:2px;border:1px solid var(--edge);color:var(--ink);background:var(--sheet);border-radius:2px}
-.appearance[hidden]{display:none}
 
 .install-options{display:grid;clear:both}
 .install-row{display:grid;grid-template-columns:minmax(152px,25%) minmax(0,1fr);align-items:center;gap:8px 15px;padding:9px 12px}

@@ -1,1 +1,49 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Aesel</title><link rel="canonical" href="https://aesel.app/#stack"><meta http-equiv="refresh" content="0;url=/#stack"><a href="/#stack">aesel.app/#stack</a></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#fcf0e9">
+<title>Aesel — behind the scenes</title>
+<link rel="canonical" href="https://aesel.app/bts/">
+<link rel="icon" href="/icon.png">
+<link rel="stylesheet" href="/web1.css">
+<link id="night-palette" rel="stylesheet" href="/night.css" media="(prefers-color-scheme: dark)">
+<script src="/theme.js"></script>
+<style>
+body{margin:0 auto;padding:12px 16px 32px;max-width:900px}
+h1{font:normal 44px/1 Pixel,monospace;color:var(--rule);margin:0 0 8px}
+code{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;border-style:hidden}
+th,td{border:1px solid var(--edge);padding:3px 7px;text-align:left;vertical-align:top}
+.wide{overflow-x:auto}.zone th[colspan]{background:var(--shade);font-size:13px}
+.dot{color:var(--accent)}
+</style>
+</head>
+<body>
+<p><a href="/">← Aesel</a></p>
+<h1>Behind the scenes</h1>
+<p>Surveyed 2026-11-08 from the source. <a href="/stack.pdf">Diagram (PDF)</a>.</p>
+<div class="wide"><table class="zone">
+<tbody>
+<tr><th colspan="3">your machine</th></tr>
+<tr><th>Aesel</th><td>Aesel TUI on Mac, Linux and Windows; <code>aesel</code> at the AC prompt</td><td>The conversation and the files.</td></tr>
+<tr><th>workspace</th><td><code>.aesel/</code></td><td>Transcript, revisions v1 → v<i>n</i>, artifacts.</td></tr>
+<tr><th>tools</th><td><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></td><td>What the brain holds.</td></tr>
+<tr><th>made here</th><td>XeLaTeX, GBDK, 6502</td><td>Papers, ROMs, sound and pictures are built on this disk.</td></tr>
+<tr><th colspan="3">Aesthetic<span class="dot">.</span>Computer</th></tr>
+<tr><th>Cloudflare</th><td><code>aesthetic.computer</code> <code>prompt.ac</code> <code>aesel.app</code></td><td>DNS, proxy, cache.</td></tr>
+<tr><th>lith</th><td><code>lith.aesthetic.computer</code></td><td>Express behind Caddy on a DigitalOcean VPS.</td></tr>
+<tr><th>inference relay</th><td><code>/api/easel-inference</code></td><td>Model allowlist; meters braincells.</td></tr>
+<tr><th>live channel</th><td><code>/api/easel-live</code></td><td>Redis. Every save, to whoever is watching.</td></tr>
+<tr><th>publish</th><td><code>/api/register-piece</code></td><td>A presigned PUT to your Spaces bucket.</td></tr>
+<tr><th>transcripts</th><td><code>/api/easel-transcripts</code></td><td>MongoDB. Shared with AC to improve Aesel.</td></tr>
+<tr><th>picture tools</th><td><code>/api/easel-image</code></td><td>OpenAI or fal. Five a day.</td></tr>
+<tr><th>sign-in</th><td><code>hi.aesthetic.computer</code></td><td>Auth0. One @handle everywhere.</td></tr>
+<tr><th>releases</th><td><code>prompt.ac/aesel.sh</code></td><td>Terminal release and update manifest.</td></tr>
+<tr><th colspan="3">anywhere</th></tr>
+<tr><th>any phone</th><td>QR code</td><td>Joins the live channel; saves hot-reload.</td></tr>
+</tbody>
+</table></div>
+</body>
+</html>

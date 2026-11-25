@@ -27,4 +27,4 @@ button,textarea,select{font:inherit;color:inherit}button,a,select{-webkit-tap-hi
 .thread-link[aria-current=true]{font-weight:bold}
 @media(max-width:560px){#gate .desk-illy{float:none;width:170px;margin:0 auto 10px}#gate{text-align:center}}
 
-@media(max-width:440px){header .account{max-width:49%}.account .appearance{flex-basis:100%;text-align:right}}
+@media(max-width:440px){header .account{max-width:49%}}

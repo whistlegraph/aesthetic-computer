@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aesel — easily make and share new media</title>
-<meta name="description" content="Easily make and share new media with Aesel. Describe a piece; an engine writes it; it plays live on your phone and publishes to your @handle. JavaScript, KidLisp, p5.js and L5; pictures, sound, papers, Game Boy and NES ROMs.">
+<meta name="description" content="Easily make and share new media with Aesel.">
 <meta name="theme-color" content="#fcf0e9">
 <link rel="canonical" href="https://aesel.app/">
 <meta property="og:title" content="Aesel">
-<meta property="og:description" content="Easily make and share new media with Aesel. Describe a piece; watch it live on your phone; publish it to your @handle.">
+<meta property="og:description" content="Easily make and share new media.">
 <meta property="og:image" content="https://aesel.app/icon.png">
 <link rel="icon" href="/icon.png">
 <link rel="stylesheet" href="/web1.css">
@@ -17,173 +17,64 @@
 <style>
 body{margin:0 auto;padding:12px 16px 32px;max-width:900px}
 h1{font:normal 64px/1 Pixel,monospace;color:var(--rule);margin:0}
-h2.web-ribbon{margin:22px 0 6px}
+h2.web-ribbon{margin:22px 0 6px;overflow:hidden}
 p{margin:6px 0}
-hr{border:0;border-top:1px solid var(--rule);margin:14px 0}
-code,pre,kbd{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace}
-pre{margin:0}
-table{border-collapse:collapse;width:100%}
-table{border-style:hidden}
-th,td{border:1px solid var(--edge);padding:3px 7px;text-align:left;vertical-align:top}
+code{font:12.5px/1.35 "Berkeley Mono Variable",ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;border-style:hidden}
+th,td{border:1px solid var(--edge);padding:4px 8px;text-align:left;vertical-align:top}
 thead th{background:var(--shade);font-size:13px}
-tbody th{white-space:nowrap}
-td code,p code,li code{overflow-wrap:anywhere}
-.wide{overflow-x:auto}
-.t-plum{background:var(--plum)}.t-pink{background:var(--pink-wash)}.t-teal{background:var(--teal)}
-.art{float:right;width:250px;margin:0 0 6px 14px;text-align:center}
-
+td{font-size:14px}
+.wide{overflow-x:auto}.t-pink{background:var(--pink-wash)}
+.nw .mime{display:table;margin:2px 0;white-space:nowrap}
+.install-options{clear:none}
+.art{float:right;width:220px;margin:0 0 6px 14px;text-align:center}
 .art img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
-h2{overflow:hidden}
-.ill{width:76px;padding:2px}.ill img{display:block;width:72px;height:72px}
-.nw,.nwd{white-space:nowrap}
-.nw code{overflow-wrap:normal}
-.toc{font-size:14px}
-ol{margin:6px 0;padding-left:22px}
-.shots{display:flex;gap:10px;align-items:flex-start;margin:8px 0}
-.shots a{flex:1;min-width:0;font-size:12.5px;color:inherit;text-decoration:none}
-.shots img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
-.zone th[colspan]{background:var(--shade);font-size:13px}
-footer{font-size:13px;margin-top:18px}
-@media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:150px}.shots{flex-direction:column}tbody th,.nwd,.nw{white-space:normal}.ill{width:52px}.ill img{width:48px;height:48px}}
-.dot{color:var(--accent)}</style>
+footer{font-size:13px;margin-top:22px;padding-top:8px;border-top:1px solid var(--rule)}
+.dot{color:var(--accent)}
+@media(max-width:600px){body{font-size:14px;padding:8px 10px 24px}h1{font-size:48px}.art{width:150px}.makes thead{display:none}.makes tr,.makes th,.makes td{display:block;border:0}.makes tr{border-top:1px solid var(--edge);padding:6px 4px}.makes tr:first-child{border-top:0}.makes th,.makes td{padding:2px 4px}
+.makes .nw .mime{display:inline-block;margin:2px 4px 2px 0}}
+</style>
 <script type="module" src="https://aesthetic.computer/aesthetic.computer/lib/visit-tracker.mjs?v=20261021-aesel" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <figure class="art" data-mime-slides><img id="art" src="/mime/javascript.webp" width="720" height="720" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."><figcaption id="art-mime"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code><span class="byline">A little world that follows your cursor.</span></figcaption></figure>
 <h1>Aesel</h1>
-<p><b>Easily make and share new media.</b> Describe a piece; a brain writes it; it plays live on your phone and publishes to your <code>@handle</code> on <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</p>
-<p class="toc">[ <a href="#install">Install</a> | <a href="#session">a session</a> | <a href="#runtimes">runtimes</a> | <a href="#mimes">MIMEs</a> | <a href="#goes">where work goes</a> | <a href="#brains">brains</a> | <a href="#stack">behind the scenes</a> | <a href="#help">help</a> | <a href="/dash/">your dash</a> ]</p>
+<p><b>Easily make and share new media.</b></p>
 
-<h2 class="web-ribbon" id="install"><span id="get">Install</span></h2>
-<p><b>Aesel TUI.</b> The terminal installer uses your Node.js 22+ or fetches its own. After installing, type <code>a</code> to start.</p>
+<h2 class="web-ribbon" id="install">Install</h2>
 <div class="web-panel install-options">
   <div class="install-row">
-    <div class="platforms"><span class="platform-badge mac">Mac Terminal</span><span class="platform-badge linux">Linux</span></div>
+    <div class="platforms"><span class="platform-badge mac">Mac</span><span class="platform-badge linux">Linux</span></div>
     <code>curl -fsSL https://prompt.ac/aesel.sh | sh</code>
   </div>
   <div class="install-row">
-    <div class="platforms"><span class="platform-badge powershell">Windows PowerShell</span></div>
+    <div class="platforms"><span class="platform-badge powershell">Windows</span></div>
     <code>irm https://aesel.app/install.ps1 | iex</code>
   </div>
   <div class="install-row">
-    <div class="platforms"><span class="platform-badge acos">AC OS</span></div>
-    <div>Type <code class="inline">aesel</code> at the device prompt. Use <code class="inline">link</code> to pair your handle.</div>
-  </div>
-  <div class="install-row">
-    <div class="platforms"><span class="platform-badge prompt">AC prompt</span></div>
-    <div>Type <code class="inline">aesel</code> at the web prompt, or <a href="https://aesthetic.computer/aesel">open Aesel TUI</a>.</div>
+    <div class="platforms"><span class="platform-badge acos">AC OS</span><span class="platform-badge prompt">AC prompt</span></div>
+    <div>Type <code class="inline">aesel</code>.</div>
   </div>
 </div>
+<p>Then type <code>a</code>.</p>
 
-<h2 class="web-ribbon" id="session">A session</h2>
-<ol>
-<li><b>Start</b> from a blank piece or a <a href="https://nopaint.art">nopaint.art</a> brush.</li>
-<li><b>Describe it.</b> The brain writes the code and checks the canvas.</li>
-<li><b>Watch it</b> live on any phone, by QR code.</li>
-<li><b>Keep it.</b> Each save publishes to <code>aesthetic.computer/@you/name</code>; <code>/versions</code> and <code>/rollback</code> keep every one.</li>
-</ol>
-<div class="shots">
-<a href="/shot-session.jpg"><img src="/shot-session.jpg" width="1400" height="844" loading="lazy" alt="Aesel in a terminal: the prompt “a meadow of soft pastel flowers swaying in a breeze”, the engine’s reply, the live piece in a wood-framed preview, and @jeffrey/vili v2 on the status line">Fig. 1. A session in the terminal.</a>
-<a href="/shot-piece.jpg"><img src="/shot-piece.jpg" width="930" height="780" loading="lazy" alt="The finished p5.js meadow running on Aesthetic Computer: pastel flowers and a bee under a soft sky">Fig. 2. The <code>.p5</code> piece it made.</a>
-</div>
 
-<h2 class="web-ribbon" id="runtimes">Four runtimes</h2>
-<p>Pick with <code>/runtime</code>.</p>
-<div class="wide t-plum"><table>
-<thead><tr><th>ext</th><th>runtime</th><th>what it is</th><th>a whole piece</th></tr></thead>
+<h2 class="web-ribbon" id="mimes">What it makes</h2>
+<div class="wide t-pink"><table class="makes">
+<thead><tr><th>medium</th><th>MIME</th><th>format</th><th>lands on</th></tr></thead>
 <tbody>
-<tr><th><code>.mjs</code></th><td>Aesthetic<span class="dot">.</span>Computer</td><td>JavaScript on AC’s own API.</td><td><pre>function paint({ wipe }) {
-  wipe("pink");
-}
-export { paint };</pre></td></tr>
-<tr><th><code>.lisp</code></th><td>KidLisp</td><td>AC’s small Lisp for generative art.</td><td><pre>(wipe "pink")
-(ink "yellow")
-(circle 128 128 64)</pre></td></tr>
-<tr><th><code>.p5</code></th><td>p5.js (<code>processing</code>)</td><td>Real p5.js inside an AC piece.</td><td><pre>function setup() {
-  createCanvas(windowWidth, windowHeight);
-}
-function draw() {
-  background(255, 184, 220);
-}</pre></td></tr>
-<tr><th><code>.l5</code></th><td>L5</td><td>AC’s own Processing, in Lua.</td><td><pre>function draw()
-  background(255, 184, 220)
-  circle(width / 2, height / 2, 64)
-end</pre></td></tr>
-</tbody>
-</table></div>
-
-<h2 class="web-ribbon" id="mimes">Aesel’s got MIMEs</h2>
-<p>Pick with <code>/medium</code>.</p>
-<div class="wide t-pink"><table id="mime-table">
-<thead><tr><th>medium</th><th>illy</th><th>MIME</th><th>what you get</th></tr></thead>
-<tbody>
-<tr><th rowspan="3">piece</th><td class="ill"><a href="/mime/javascript.webp"><img src="/mime/javascript.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a magic wand with a yellow star tip; the canvas shows a pink field with a large yellow circle, white dots and an arrow cursor."></a></td><td class="nw"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code></td><td rowspan="3">A live, published AC piece or nopaint.art brush.</td></tr>
-<tr><td class="ill"><a href="/mime/lisp.webp"><img src="/mime/lisp.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a yellow pencil; the canvas shows three rows of plum parentheses enclosing pink, yellow and teal shapes."></a></td><td class="nw"><code class="mime ty-text" style="--c:#a1306f"><b>text</b><s>/</s><wbr><i>x-</i><u>lisp</u></code></td></tr>
-<tr><td class="ill"><a href="/mime/lua.webp"><img src="/mime/lua.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a stubby teal crayon; the canvas shows a deep blue-violet night with a pale crescent moon and a small pink circle."></a></td><td class="nw"><code class="mime ty-text" style="--c:#27308f"><b>text</b><s>/</s><wbr><i>x-</i><u>lua</u></code></td></tr>
-<tr><th rowspan="3">picture</th><td class="ill"><a href="/mime/png.webp"><img src="/mime/png.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a paintbrush loaded with pink; the canvas shows a pixel-art pink heart on a transparency checkerboard."></a></td><td class="nw"><code class="mime ty-image" style="--c:#d6337f"><b>image</b><s>/</s><wbr><u>png</u></code></td><td rowspan="3">A layered 512 × 512 picture.</td></tr>
-<tr><td class="ill"><a href="/mime/jpeg.webp"><img src="/mime/jpeg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a small silver camera; the canvas shows a white-bordered photo of a sunset over violet hills and a lake."></a></td><td class="nw"><code class="mime ty-image" style="--c:#c8571b"><b>image</b><s>/</s><wbr><u>jpeg</u></code></td></tr>
-<tr><td class="ill"><a href="/mime/webp.webp"><img src="/mime/webp.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a teal paint roller; the canvas shows a browser window with a white daisy on teal."></a></td><td class="nw"><code class="mime ty-image" style="--c:#1f8a80"><b>image</b><s>/</s><wbr><u>webp</u></code></td></tr>
-<tr><th rowspan="3">sound</th><td class="ill"><a href="/mime/wav.webp"><img src="/mime/wav.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a conductor's baton; the canvas shows a violet waveform with a pink playhead."></a></td><td class="nw"><code class="mime ty-audio" style="--c:#6b46c1"><b>audio</b><s>/</s><wbr><u>wav</u></code></td><td rowspan="3">A synthesized score on a beat grid.</td></tr>
-<tr><td class="ill"><a href="/mime/mpeg.webp"><img src="/mime/mpeg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs, wears pink headphones and holds a microphone; the canvas shows two beamed eighth notes over five equalizer bars."></a></td><td class="nw"><code class="mime ty-audio" style="--c:#b0329b"><b>audio</b><s>/</s><wbr><u>mpeg</u></code></td></tr>
-<tr><td class="ill"><a href="/mime/ogg.webp"><img src="/mime/ogg.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He reaches on three legs and holds a tuning fork; the canvas shows a teal speaker cone with rings spreading out in teal to violet."></a></td><td class="nw"><code class="mime ty-audio" style="--c:#2f6f9f"><b>audio</b><s>/</s><wbr><u>ogg</u></code></td></tr>
-<tr><th rowspan="2">paper</th><td class="ill"><a href="/mime/pdf.webp"><img src="/mime/pdf.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a black fountain pen; the canvas shows a typeset page with a title bar, two columns of text lines and a boxed pink chart."></a></td><td class="nw"><code class="mime ty-application" style="--c:#b3261e"><b>application</b><s>/</s><wbr><u>pdf</u></code></td><td rowspan="2">A LaTeX paper with its source inside.</td></tr>
-<tr><td class="ill"><a href="/mime/plain.webp"><img src="/mime/plain.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a feather quill, an ink pot on the ground; the canvas shows rows of ragged gray scribble."></a></td><td class="nw"><code class="mime ty-text" style="--c:#555555"><b>text</b><s>/</s><wbr><u>plain</u></code></td></tr>
-<tr><th>Game Boy</th><td class="ill"><a href="/mime/gameboy.webp"><img src="/mime/gameboy.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a gray handheld console; the canvas shows an olive four-shade pixel scene with a heart over two shrubs."></a></td><td class="nw"><code class="mime ty-application" style="--c:#5f7a1a"><b>application</b><s>/</s><wbr><i>x-</i><u>gameboy-rom</u></code></td><td>A real ROM, built with GBDK.</td></tr>
-<tr><th>NES</th><td class="ill"><a href="/mime/nes.webp"><img src="/mime/nes.webp" width="720" height="720" loading="lazy" alt="Aesel the donkey in red glasses and a pink bandana at an easel, cabled to a small server tower on the horizon. He sits and holds a flat gray controller with a hanging cord; the canvas shows an 8-bit night sky with stars, a moon and a pink diamond over teal ground."></a></td><td class="nw"><code class="mime ty-application" style="--c:#27306b"><b>application</b><s>/</s><wbr><i>x-</i><u>nes-rom</u></code></td><td>A real ROM in 6502 assembly.</td></tr>
-</tbody>
-</table></div>
-
-<h2 class="web-ribbon" id="goes">Where the work goes</h2>
-<div class="wide t-teal"><table>
-<tbody>
-<tr><th><a href="https://aesthetic.computer/@jeffrey">aesthetic.computer/@you/name</a></th><td>Every save, published and live.</td></tr>
-<tr><th><a href="https://kidlisp.com">kidlisp.com</a></th><td>Each <code>.lisp</code> piece gets a <code>$code</code>.</td></tr>
-<tr><th><a href="https://nopaint.art">nopaint.art</a></th><td>Brushes you describe.</td></tr>
-<tr><th><a href="https://mime.ac">mime.ac</a></th><td>Pictures, sound, video and ROMs up to 8 MiB: <code>aesthetic mime file "caption"</code>.</td></tr>
-<tr><th><a href="https://papers.aesthetic.computer">papers.aesthetic.computer</a></th><td>Papers.</td></tr>
+<tr><th>piece</th><td class="nw"><code class="mime ty-text" style="--c:#a67c00"><b>text</b><s>/</s><wbr><u>javascript</u></code> <code class="mime ty-text" style="--c:#a1306f"><b>text</b><s>/</s><wbr><i>x-</i><u>lisp</u></code> <code class="mime ty-text" style="--c:#27308f"><b>text</b><s>/</s><wbr><i>x-</i><u>lua</u></code></td><td>ES module on the AC Disk API, KidLisp, p5.js (global mode) or L5 Lua. Source ≤ 100,000 chars; hot-reloads on save.</td><td><a href="https://aesthetic.computer">aesthetic.computer/@you</a></td></tr>
+<tr><th>picture</th><td class="nw"><code class="mime ty-image" style="--c:#d6337f"><b>image</b><s>/</s><wbr><u>png</u></code> <code class="mime ty-image" style="--c:#c8571b"><b>image</b><s>/</s><wbr><u>jpeg</u></code> <code class="mime ty-image" style="--c:#1f8a80"><b>image</b><s>/</s><wbr><u>webp</u></code></td><td>512 × 512 RGBA layer stack (<code>picture.json</code>) → <code>composite.png</code>. Imports 8-bit PNG ≤ 2048². Generation via gpt-image-2 or fal Flux.</td><td><a href="https://mime.ac">mime.ac</a></td></tr>
+<tr><th>sound</th><td class="nw"><code class="mime ty-audio" style="--c:#6b46c1"><b>audio</b><s>/</s><wbr><u>wav</u></code> <code class="mime ty-audio" style="--c:#b0329b"><b>audio</b><s>/</s><wbr><u>mpeg</u></code> <code class="mime ty-audio" style="--c:#2f6f9f"><b>audio</b><s>/</s><wbr><u>ogg</u></code></td><td><code>score.json</code> → mono 16-bit PCM WAV, 24 kHz. ≤ 30 s, ≤ 128 notes, MIDI 24–96, 30–300 bpm.</td><td><a href="https://mime.ac">mime.ac</a></td></tr>
+<tr><th>paper</th><td class="nw"><code class="mime ty-application" style="--c:#b3261e"><b>application</b><s>/</s><wbr><u>pdf</u></code> <code class="mime ty-text" style="--c:#555555"><b>text</b><s>/</s><wbr><u>plain</u></code></td><td>XeLaTeX + BibTeX → PDF with <code>manuscript.tex</code>, <code>references.bib</code> and style embedded as a ZIP.</td><td><a href="https://papers.aesthetic.computer">papers</a></td></tr>
+<tr><th>game</th><td class="nw"><code class="mime ty-application" style="--c:#5f7a1a"><b>application</b><s>/</s><wbr><i>x-</i><u>gameboy-rom</u></code> <code class="mime ty-application" style="--c:#27306b"><b>application</b><s>/</s><wbr><i>x-</i><u>nes-rom</u></code></td><td><code>main.c</code> → GBDK-2020 <code>.gb</code> (header + checksums validated), or one asm6-dialect 6502 file → iNES NROM <code>.nes</code>.</td><td><a href="https://mime.ac">mime.ac</a></td></tr>
 </tbody>
 </table></div>
 
 <h2 class="web-ribbon" id="brains">Brains</h2>
-<p>Switch with <code>/backend</code> and <code>/model</code>. Outside a piece, Aesel is a general harness with your own skills and MCP servers.</p>
-<div class="wide t-plum"><table>
-<thead><tr><th>brain</th><th>runs through</th><th>you pay with</th></tr></thead>
-<tbody>
-<tr><th>AC hosted (default)</th><td>OpenRouter on AC’s account: Claude, Luna, DeepSeek, Kimi, Qwen, MiniMax.</td><td>Braincells: a daily allowance, then a wallet (Stripe, in-app, Tezos).</td></tr>
-<tr><th>Claude</th><td>Your <code>claude</code> CLI.</td><td>Your subscription.</td></tr>
-<tr><th>Codex</th><td>Your <code>codex</code> CLI.</td><td>Your subscription.</td></tr>
-<tr><th>Open</th><td>OpenRouter, open-weight models.</td><td>Your key.</td></tr>
-</tbody>
-</table></div>
+<p>AC braincells by default, or your own Claude, Codex or OpenRouter key.</p>
 
-<h2 class="web-ribbon" id="stack">Behind the scenes</h2>
-<p>Surveyed 2026-11-08 from the source. <a href="/stack.pdf">Diagram (PDF)</a>.</p>
-<div class="wide"><table class="zone">
-<tbody>
-<tr><th colspan="3">your machine</th></tr>
-<tr><th>Aesel</th><td>Aesel TUI on Mac, Linux and Windows; <code>aesel</code> at the AC prompt</td><td>The conversation and the files.</td></tr>
-<tr><th>workspace</th><td><code>.aesel/</code></td><td>Transcript, revisions v1 → v<i>n</i>, artifacts.</td></tr>
-<tr><th>tools</th><td><code>ac_api</code> <code>ac_examples</code> <code>ac_outline</code> <code>ac_preview</code> <code>ac_frame</code></td><td>What the brain holds.</td></tr>
-<tr><th>made here</th><td>XeLaTeX, GBDK, 6502</td><td>Papers, ROMs, sound and pictures are built on this disk.</td></tr>
-<tr><th colspan="3">Aesthetic<span class="dot">.</span>Computer</th></tr>
-<tr><th>Cloudflare</th><td><code>aesthetic.computer</code> <code>prompt.ac</code> <code>aesel.app</code></td><td>DNS, proxy, cache.</td></tr>
-<tr><th>lith</th><td><code>lith.aesthetic.computer</code></td><td>Express behind Caddy on a DigitalOcean VPS.</td></tr>
-<tr><th>inference relay</th><td><code>/api/easel-inference</code></td><td>Model allowlist; meters braincells.</td></tr>
-<tr><th>live channel</th><td><code>/api/easel-live</code></td><td>Redis. Every save, to whoever is watching.</td></tr>
-<tr><th>publish</th><td><code>/api/register-piece</code></td><td>A presigned PUT to your Spaces bucket.</td></tr>
-<tr><th>transcripts</th><td><code>/api/easel-transcripts</code></td><td>MongoDB. Shared with AC to improve Aesel.</td></tr>
-<tr><th>picture tools</th><td><code>/api/easel-image</code></td><td>OpenAI or fal. Five a day.</td></tr>
-<tr><th>sign-in</th><td><code>hi.aesthetic.computer</code></td><td>Auth0. One @handle everywhere.</td></tr>
-<tr><th>releases</th><td><code>prompt.ac/aesel.sh</code></td><td>Terminal release and update manifest.</td></tr>
-<tr><th colspan="3">anywhere</th></tr>
-<tr><th>any phone</th><td>QR code</td><td>Joins the live channel; saves hot-reload.</td></tr>
-</tbody>
-</table></div>
-
-<h2 class="web-ribbon" id="help">Help and privacy</h2>
-<p><a href="mailto:mail@aesthetic.computer">mail@aesthetic.computer</a> · <a href="/support.html">support notes</a> · <a href="/privacy.html">privacy policy</a>. Your conversation goes to the brain that writes your work; pieces publish to your @handle; notebooks and versions stay on your device.</p>
-<hr>
-<footer><label class="appearance" hidden>Theme <select id="appearance"><option value="auto">Auto</option><option value="light">Light</option><option value="dark">Dark</option></select></label> · Aesel is made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a>.</footer>
+<footer><a href="/dash/">Your dash</a> · <a href="/support.html">Support</a> · <a href="/privacy.html">Privacy</a> · <a href="/bts/">Behind the scenes</a> · Made by <a href="https://aesthetic.computer">Aesthetic<span class="dot">.</span>Computer</a></footer>
 <script type="module" src="/media-slides.js"></script>
 </body>
 </html>
