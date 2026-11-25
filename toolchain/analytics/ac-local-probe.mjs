@@ -5,7 +5,7 @@
 // (blueberry-wallpaper/Sources/Fishery.swift), carried as the `local` field of
 // the fishery feed beside `infra` (ac-infra-probe.mjs).
 //
-//   - one ping per address on the default interface's subnet (/24 or smaller):
+//   - one ping per address on the default interface's subnet (/22 or smaller):
 //     who is here. macOS 27 hides the ARP table's hardware addresses, so a
 //     reply is the whole of what we know about an unnamed device.
 //   - one round of multicast DNS (Bonjour), asked from a throwaway port so
@@ -83,18 +83,21 @@ async function wifiName(iface) {
 const toInt = ip => ip.split(".").reduce((n, o) => (n << 8 | Number(o)) >>> 0, 0);
 const toIp = n => [24, 16, 8, 0].map(s => (n >>> s) & 255).join(".");
 
-// 🏓 One ping each, 64 at a time, half a second to answer (a whole one on Linux,
+// 🏓 One ping each, 256 at a time, half a second to answer (a whole one on Linux,
 // whose -W counts seconds).
 const PING = ip => OS === "darwin" ? ["/sbin/ping", ["-c1", "-W500", "-t1", ip]]
   : OS === "win32" ? ["ping", ["-n", "1", "-w", "500", ip]] : ["ping", ["-c1", "-W1", ip]];
 async function sweep(net) {
-  if (net.bits < 24) return new Map();
-  const base = toInt(net.self) & (~0 << (32 - net.bits)) >>> 0;
+  // Up to a /22 (1022 addresses, ~8 s) is swept whole: mesh routers hand those
+  // out, and an Ubuntu box that advertises no Bonjour service is only found by
+  // its ping and reverse name. Anything wider sweeps just this machine's /24.
+  const bits = net.bits < 22 ? 24 : net.bits;
+  const base = toInt(net.self) & (~0 << (32 - bits)) >>> 0;
   const ips = [];
-  for (let i = 1; i < 2 ** (32 - net.bits) - 1; i++) ips.push(toIp(base + i));
+  for (let i = 1; i < 2 ** (32 - bits) - 1; i++) ips.push(toIp(base + i));
   const alive = new Map();
   let next = 0;
-  await Promise.all(Array.from({ length: 64 }, async () => {
+  await Promise.all(Array.from({ length: Math.min(256, ips.length) }, async () => {
     while (next < ips.length) {
       const ip = ips[next++];
       const out = await run(...PING(ip), 2500);
