@@ -274,7 +274,7 @@
   .t-kidlisp { color: var(--kidlisp); }
   .t-clock   { color: var(--clock); }
   .t-url.yt  { color: var(--yt); }  /* YouTube links read red, like theme.youtube */
-  .t-handle:hover, .t-url:hover { color: var(--hover); }
+  .t-handle:hover, .t-url:hover, a.t-prompt:hover { color: var(--hover); }
 
   /* ── Media embeds (mirror chat.mjs previews) ────────────────────────────
      #painting → 64px pixel preview · YouTube → 16:9 thumb linking out ·
@@ -927,6 +927,13 @@ function renderTokens(frag, text, inheritColor) {
         el.textContent = tok;
       }
       el.href = href; el.target = "_blank"; el.rel = "noopener nofollow";
+    } else if (/^'[a-z0-9][a-z0-9_-]*'$/i.test(tok)) {
+      el = document.createElement("a");
+      el.className = "t-prompt";
+      el.textContent = tok;
+      el.href = "https://aesthetic.computer/" + tok.slice(1, -1);
+      el.target = "_blank";
+      el.rel = "noopener nofollow";
     } else if (tok[0] === "'") {
       el = span("t-prompt", tok);
     } else if (tok[0] === "#") {
