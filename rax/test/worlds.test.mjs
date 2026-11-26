@@ -11,13 +11,14 @@ import { setTimeout as delay } from 'node:timers/promises';
 import WebSocket from 'ws';
 import { createRaxServer } from '../server.mjs';
 import { PROTOCOL } from '../world.mjs';
+import { connectBuilder } from '../aesel.mjs';
 
 const wait = async (f, what = 'it', ms = 4000) => {
   for (const end = Date.now() + ms; Date.now() < end; await delay(10)) if (f()) return;
   assert.fail(`waited too long for ${what}`);
 };
 
-async function twoHosts(t) {
+async function twoHosts(t, { builderToken } = {}) {
   const ports = {};
   const fetchPassage = async (host, receipt) => {
     const r = await fetch(`http://127.0.0.1:${ports[host]}/passage?receipt=${encodeURIComponent(receipt)}`);
@@ -31,7 +32,7 @@ async function twoHosts(t) {
   sat.server.listen(0, '127.0.0.1');
   await once(sat.server, 'listening');
   ports['sat.test'] = sat.server.address().port;
-  const home = createRaxServer({ ...common, stateDir: dirs[0], roomHosts: { e1n0: 'sat.test' }, selfHost: 'home.test', homeHost: 'home.test',
+  const home = createRaxServer({ ...common, stateDir: dirs[0], roomHosts: { e1n0: 'sat.test' }, selfHost: 'home.test', homeHost: 'home.test', builderToken,
     linkURL: (host) => `ws://127.0.0.1:${ports[host]}/link` });
   await home.ready;
   home.server.listen(0, '127.0.0.1');
@@ -146,7 +147,9 @@ test('a shot from the plaza carries over the seam into the block kept on the oth
   Object.assign(bodyOf(sat, 'e1n0', 'other'), { x: -5.5, z: 0.3, vx: 0, vz: 0 }); // (in line with the round: it leaves from the right hand)
   a.say({ type: 'input', in: 'lobby', commands: [{ seq: 1, yaw: 90, pitch: -3, fwd: 0, right: 0, buttons: 0, use: true }] });
   await wait(() => sat.rooms.get('e1n0').match.events.some((e) => e.type === 'gib' && e.kind === 'shot'), 'the shot to land over the seam', 3000);
-  assert.ok(b.messages.some((m) => m.type === 'snapshot' && (m.events || []).some((e) => e.type === 'gib')) || true);
+  // The kill is the shooter's, back in the plaza on the other host.
+  await wait(() => bodyOf(home, 'lobby', 'walker').score === 1, 'the shooter credited at home');
+  assert.ok(home.rooms.get('lobby').match.events.some((e) => e.type === 'frag' && e.attacker === seat && e.far));
 });
 
 // 🎒 A gun in hand goes over to the other host, and home again over the link when left lying there.
@@ -182,4 +185,62 @@ test('the ball rolling in the plaza is seen from the block on the other host', a
   await wait(() => b.messages.some((m) => m.type === 'ball'), 'the ball told on the other host');
   const ball = b.messages.filter((m) => m.type === 'ball').at(-1);
   assert.ok(ball.x < -6 && ball.x > -14, `in the block's metres the plaza's ball is to the west (x ${ball.x})`);
+});
+
+// 🧱 What is built in the satellite's block is home's: mirrored there, and taken out from there through home.
+test('things built in the block on the other host are home\'s: seen there, and taken out from there through home', async (t) => {
+  const { home, sat, connect, bodyOf } = await twoHosts(t);
+  const shape = { name: 'Box', boxes: [{ x: 0, y: 0.5, z: 0, w: 1, h: 1, d: 1 }] };
+  const id = await home.store.identity();
+  await home.store.commit({ room: 'e1n0', owner: id.owner, objectId: 'crate', baseVersion: -1, x: 3, z: 3, prompt: 'a crate' }, shape);
+  home.builders.broadcast('e1n0');
+  await wait(() => sat.store.objects('e1n0').some((o) => o.id === 'crate'), 'the crate mirrored on the other host');
+  const b = await connect('sat.test', 'e1n0', 'walker-token', { stay: '1' });
+  await wait(() => bodyOf(sat, 'e1n0', 'walker'), 'seated there');
+  await wait(() => b.messages.some((m) => Array.isArray(m.objects) && m.objects.some((o) => o.id === 'crate')), 'the page shown the crate');
+  b.say({ type: 'remove', objectId: 'crate', in: 'e1n0' });
+  await wait(() => !home.store.stored('e1n0').some((o) => o.id === 'crate'), 'taken out of home\'s store');
+  await wait(() => !sat.store.objects('e1n0').some((o) => o.id === 'crate'), 'and of the mirror');
+});
+
+test('a page keeps only its home identity: building from the satellite is done as itself at home', async (t) => {
+  const { home, sat, connect, bodyOf } = await twoHosts(t);
+  const a = await connect('home.test', 'lobby', 'walker-token', { stay: '1' });
+  await wait(() => a.messages.some((m) => m.type === 'identity'), 'an identity at home');
+  const { owner, token } = a.messages.find((m) => m.type === 'identity');
+  // The page brings its home token to the satellite.
+  const ws = new WebSocket(`ws://127.0.0.1:${sat.server.address().port}/play?` + new URLSearchParams({ room: 'e1n0', protocol: (await import('../world.mjs')).PROTOCOL, account: '1', stay: '1' }));
+  const msgs = [];
+  ws.on('message', (raw) => msgs.push(JSON.parse(raw)));
+  await once(ws, 'open');
+  t.after(() => ws.close());
+  ws.send(JSON.stringify({ type: 'identity', token }));
+  ws.send(JSON.stringify({ type: 'account', accessToken: 'walker-token' }));
+  await wait(() => [...(sat.rooms.get('e1n0')?.sessions.values() || [])].some((m) => m.homeToken === token), 'the satellite keeps the home token');
+  // What home makes of it is the same owner the page has at home.
+  assert.equal((await home.store.identity(token)).owner, owner);
+});
+
+test('a build asked in the block on the other host is made at home, for the page\'s own identity, and shown there', async (t) => {
+  const { home, sat, connect, bodyOf, ports } = await twoHosts(t, { builderToken: 'builder-secret-for-the-two-host-test-0123456789' });
+  const worker = connectBuilder({ url: `ws://127.0.0.1:${ports['home.test']}/builder`, token: 'builder-secret-for-the-two-host-test-0123456789',
+    generate: async () => ({ name: 'Box', boxes: [{ x: 0, y: 0.5, z: 0, w: 1, h: 1, d: 1 }] }) });
+  t.after(() => worker.close?.());
+  await wait(() => home.builders.workers.size === 1, 'a builder at home');
+  const a = await connect('home.test', 'lobby', 'walker-token', { stay: '1' });
+  await wait(() => a.messages.some((m) => m.type === 'identity'), 'an identity at home');
+  const { owner, token } = a.messages.find((m) => m.type === 'identity');
+  const ws = new WebSocket(`ws://127.0.0.1:${ports['sat.test']}/play?` + new URLSearchParams({ room: 'e1n0', protocol: PROTOCOL, account: '1', stay: '1' }));
+  const msgs = [];
+  ws.on('message', (raw) => msgs.push(JSON.parse(raw)));
+  await once(ws, 'open');
+  t.after(() => ws.close());
+  ws.send(JSON.stringify({ type: 'identity', token }));
+  ws.send(JSON.stringify({ type: 'account', accessToken: 'walker-token' }));
+  await wait(() => bodyOf(sat, 'e1n0', 'walker'), 'seated on the other host');
+  ws.send(JSON.stringify({ type: 'prompt', prompt: 'a box', rid: 'ask-1', in: 'e1n0' }));
+  await wait(() => home.store.stored('e1n0').length === 1, 'the box in home\'s store', 8000);
+  assert.equal(home.store.stored('e1n0')[0].owner, owner, 'made as the page\'s own identity at home');
+  await wait(() => msgs.some((m) => m.type === 'build-result' && m.rid === 'ask-1' && !m.error), 'the page told it is made');
+  await wait(() => sat.store.objects('e1n0').length === 1, 'and the box shown on the other host');
 });

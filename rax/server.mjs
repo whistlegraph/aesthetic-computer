@@ -140,10 +140,9 @@ export function createRaxServer({
   resolveHandleColors = handleColors,
   // 🧹 Who keeps the ground nobody owns: the plaza and the blocks' commons.
   keeper = process.env.RAX_KEEPER || 'jeffrey',
-  // 🔒 A floor or pod is arranged by its owner, the roof, plaza and blocks by
-  // the keeper: the first gate of papers/arxiv-gated-making (2026-11-25).
-  // RAX_OPEN_BUILD=1 opens every room to everyone, as 2026-11-23 to 11-25.
-  openBuild = process.env.RAX_OPEN_BUILD === '1',
+  // 🔓 Anyone in a room may build there: floors, pods, the roof, the plaza and
+  // the blocks all open (2026-11-23). RAX_OPEN_BUILD=0 puts the owners back.
+  openBuild = process.env.RAX_OPEN_BUILD !== '0',
   // 🏢 Every handle on the network, oldest first, for the tower's floors.
   listHandles = async () => {
     const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
@@ -677,6 +676,33 @@ export function createRaxServer({
   const heard = new Map(); // host → { at, rooms: [{ key, people, eyes }] }
   // ⚽ The balls as home says (a satellite runs no dispenser of its own: one ball, one clock, lith's).
   let farBallsHeard = { at: 0, balls: [] };
+  // 🧱 A build asked in a room another host keeps: run here for the asker's
+  // own identity at home (the page's home token, sent on by that host), and
+  // every word of it said back to their page over the link.
+  const buildFor = async (host, m) => {
+    const op = m.op || {}, who = m.who || {};
+    if (!['prompt', 'restore', 'remove'].includes(op.type) || !Number.isInteger(m.seat)) return;
+    const pose = m.pose && ['x', 'y', 'z', 'yaw'].every((k) => Number.isFinite(m.pose[k])) ? { ...m.pose, pitch: m.pose.pitch || 0 } : null;
+    let owner;
+    try { owner = (await store.identity(typeof who.homeToken === 'string' ? who.homeToken : '')).owner; } catch { return; }
+    const page = { readyState: 1, bufferedAmount: 0, send: (text) => sendTo(host, { type: 'to', linkId: m.linkId, text }) };
+    const handle = typeof who.handle === 'string' ? who.handle : null, token = typeof who.token === 'string' ? who.token : null;
+    if (op.type === 'prompt') {
+      const keeping = typeof op.objectId === 'string' && !!handle && handle.toLowerCase() === keeper;
+      builders.request(page, m.room, owner, m.seat, op, { guest: !token, keeper: keeping, player: pose, member: { handle, token } });
+    } else if (op.type === 'restore' && typeof op.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(op.code))
+      void builders.restore(page, m.room, owner, m.seat, op.code, Builders.rid(op) || undefined, pose);
+    else if (op.type === 'remove' && typeof op.objectId === 'string')
+      void store.removeObject(m.room, op.objectId, handle || owner).then((gone) => { if (gone) builders.broadcast(m.room); });
+  };
+  // 🎯 Score a kill made over a seam, if that seat is still the one who fired.
+  const creditHere = (key, seat, by) => {
+    const there = rooms.get(key), m = there?.members?.[seat];
+    if (!there || !Number.isInteger(seat) || !m) return;
+    const name = m.handle ? `@${m.handle}` : m.name || null;
+    if (by && name !== by) return;
+    there.match.credit(seat);
+  };
   // Who stands in a room kept elsewhere, as bodies a ball can meet (from the link's people).
   const farBodies = (key) => {
     for (const { at, rooms: far } of heard.values()) {
@@ -696,8 +722,14 @@ export function createRaxServer({
     const text = JSON.stringify(message);
     for (const ws of links.keys()) if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 1 << 20) ws.send(text);
   };
+  const sendTo = (host, message) => {
+    const text = JSON.stringify(message);
+    for (const [ws, h] of links) if (h === host && ws.readyState === WebSocket.OPEN) ws.send(text);
+  };
   const hearLink = (ws, host) => {
     links.set(ws, host);
+    // 🧱 A satellite's rooms: what home keeps of them, said as the link opens.
+    if (!satellite) for (const [room, h] of Object.entries(roomHosts)) if (h === host) sendTo(host, { type: 'objects', room, objects: store.stored(room) });
     ws.on('message', (raw) => {
       let m;
       try { m = JSON.parse(raw); } catch { return; }
@@ -709,6 +741,19 @@ export function createRaxServer({
       }
       if (m?.type === 'balls' && Array.isArray(m.balls) && satellite) {
         farBallsHeard = { at: Date.now(), balls: m.balls.slice(0, 16).filter((b) => typeof b?.room === 'string' && ['x', 'y', 'z', 'vx', 'vy', 'vz'].every((k) => Number.isFinite(b[k]))) };
+        return;
+      }
+      if (m?.type === 'credit' && typeof m.room === 'string' && !keptAt(m.room)) { creditHere(m.room, m.seat, m.by); return; }
+      // 🧱 Building in a room another host keeps, done here (home keeps the store).
+      if (m?.type === 'build' && !satellite && typeof m.room === 'string' && keptAt(m.room) === host) { void buildFor(host, m); return; }
+      if (satellite && m?.type === 'objects' && typeof m.room === 'string' && !keptAt(m.room)) { store.setMirror(m.room, m.objects); builders.broadcast(m.room); return; }
+      if (satellite && m?.type === 'jobs' && typeof m.room === 'string' && rooms.has(m.room)) {
+        const text = JSON.stringify({ type: 'jobs', jobs: Array.isArray(m.jobs) ? m.jobs : [] });
+        for (const ws of rooms.get(m.room).clients.keys()) sendText(ws, text);
+        return;
+      }
+      if (satellite && m?.type === 'to' && typeof m.linkId === 'string' && typeof m.text === 'string') {
+        for (const room of rooms.values()) for (const [ws, member] of room.sessions) if (member.linkId === m.linkId && ws.readyState === WebSocket.OPEN) { ws.send(m.text); return; }
         return;
       }
       // 🌐 A round in over a seam to a room this host keeps.
@@ -884,6 +929,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     ...(key === GROUND ? [clear(-DOOR, DOOR, LOBBY_FRONT - 2, LOBBY_FRONT + 2), clear(-1.2, 1.2, -halfOf(key), CAR_Z - CAR)] : []),
   ];
   const builders = new Builders({ token: builderToken, store, rooms, send, sendText, publish: publishKidlisp, diagnostics, solids: keepClear });
+  // 🌐 A room kept on another host is told there of what is built in it (objects) and the line of builds (jobs).
+  builders.onRoom = (room, kind) => {
+    const host = keptAt(room);
+    if (satellite || !host) return;
+    if (kind === 'state') sendTo(host, { type: 'objects', room, objects: store.stored(room) });
+    else sendTo(host, { type: 'jobs', room, jobs: builders.jobRows(room) });
+  };
   // Off unless a transcript is named, and only in the listed rooms.
   const devRecent = [];
   const devRoom = (key) => !!devLog && devLogRooms.includes(key);
@@ -1355,6 +1407,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       if (data?.type === 'identity' && !owner && !identifying) {
         identifying = true;
+        if (typeof data.token === 'string') member.homeToken = data.token; // (🌐 the page's identity at home, for building from a satellite)
+        member.linkId ||= randomUUID();
         store
           .identity(data.token)
           .then((identity) => {
@@ -1559,7 +1613,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (data.type === 'paint') builders.broadcast(key); // the page drew the square already: take it back
         return;
       }
-      // 🛰️ A satellite builds nothing: what is built is lith's to keep.
+      // 🛰️ A satellite keeps no store: a build, a $code called in or a thing
+      // taken out goes home over the link, for the page's home identity
+      // (server.mjs buildFor); the rest of building waits for later.
+      if (satellite && ['prompt', 'remove', 'restore'].includes(data?.type) && member.seat >= 0 && links.size) {
+        const p = room.match.seats[member.seat]?.player;
+        sendLink({ type: 'build', room: key, linkId: member.linkId, seat: member.seat, op: data,
+          who: { homeToken: member.homeToken || '', handle: member.handle || null, token: member.token || null },
+          pose: p ? { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pitch: p.pitch || 0 } : null });
+        return;
+      }
       if (satellite && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore', 'chalk-clear', 'chalk-dust'].includes(data?.type)) {
         send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: 'Nothing is built in this room' });
         return;
@@ -1907,9 +1970,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           const to = geography.geography.neighbours(key)?.[r.side];
           if (!to) continue;
           const shift = { east: [-SPAN, 0], west: [SPAN, 0], north: [0, -SPAN], south: [0, SPAN] }[r.side];
-          const round = { ...r, x: r.x + shift[0], z: r.z + shift[1] };
+          const round = { ...r, x: r.x + shift[0], z: r.z + shift[1], from: r.from && !r.from.room ? { ...r.from, room: key } : r.from };
           if (keptAt(to)) sendLink({ type: 'round', room: to, ...round });
           else rooms.get(to)?.match.takeRound(round);
+        }
+      // 🎯 Kills owed to shooters in other rooms: credited there (here, or over the link), if the seat is still theirs.
+      for (const room of [...rooms.values()])
+        for (const c of room.match.credits.splice(0)) {
+          if (keptAt(c.from.room)) sendLink({ type: 'credit', room: c.from.room, seat: c.from.seat, by: c.by });
+          else creditHere(c.from.room, c.from.seat, c.by);
         }
       // 🎒 Carried-in things left lying go home: listed where they came from again.
       for (const room of [...rooms.values()])

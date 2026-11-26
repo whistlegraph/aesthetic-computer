@@ -202,6 +202,7 @@ export class Builders {
   // person the whole room (objects, walls, tiles, screens, history), and
   // packing and unpacking it held the world's clock and the page's frames.
   broadcastJobs(room) {
+    this.onRoom?.(room, 'jobs');
     const current = this.rooms.get(room);
     if (!current) return;
     const word = { type: 'jobs', jobs: this.jobRows(room) };
@@ -217,7 +218,7 @@ export class Builders {
     this.broadcast(room);
   }
   // Put a copy of a remembered $code in front of the player, no Aesel needed.
-  async restore(client, room, owner, seat, code, rid = undefined) {
+  async restore(client, room, owner, seat, code, rid = undefined, pose = null) {
     try {
       let entry = this.store.historyEntry(room, code), fetched = false;
       if (!entry) {
@@ -232,7 +233,7 @@ export class Builders {
           geometry: sourceGeometry({ name, source }) };
       }
       if (this.store.stored(room).length >= MAX_OBJECTS) throw Error('Object capacity reached');
-      const player = this.rooms.get(room)?.match.seats[seat]?.player;
+      const player = pose || this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player || !owner) throw Error('Rejoin the room');
       const yaw = (player.yaw * Math.PI) / 180;
       const job = {
@@ -266,6 +267,7 @@ export class Builders {
     }
   }
   broadcast(room) {
+    this.onRoom?.(room, 'state'); // (🌐 server.mjs: a room kept on another host is told there)
     const current = this.rooms.get(room);
     if (!current) return;
     current.match.setObjects(this.store.objects(room));
@@ -419,11 +421,11 @@ export class Builders {
   // The asking player's AC sign-in, if they have one (kept in memory only).
   handleOf(job) {
     for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === (job.asker || job.owner) && member.handle) return member.handle;
-    return null;
+    return job.member?.handle || null;
   }
   tokenOf(job) {
     for (const [, member] of this.rooms.get(job.room)?.sessions || []) if (member?.owner === (job.asker || job.owner) && member.token) return member.token;
-    return null;
+    return job.member?.token || null;
   }
   // Results go to the player who asked, found by identity: their socket may
   // have changed since (a reload or a server restart).
@@ -468,7 +470,9 @@ export class Builders {
   }
   // `keeper`: the world's keeper may revise an object they do not own. It
   // stays its maker's; the new version is signed and published by the keeper.
-  request(client, room, owner, seat, input, { guest = false, keeper = false } = {}) {
+  // (`player`/`member`: the asker's body and sign-in when they stand in a room
+  // another host keeps, server.mjs builds for it over the link.)
+  request(client, room, owner, seat, input, { guest = false, keeper = false, player: pose = null, member = null } = {}) {
     const requestId = randomUUID(), startedAt = Date.now(), rid = Builders.rid(input);
     try {
       if (!owner) throw Error('Identity is not ready');
@@ -513,7 +517,7 @@ export class Builders {
             ? 'Aesel is busy. Try again shortly.'
             : 'Aesel is offline',
         );
-      const player = this.rooms.get(room)?.match.seats[seat]?.player;
+      const player = pose || this.rooms.get(room)?.match.seats[seat]?.player;
       if (!player) throw Error('Rejoin the room');
       // An object keeps its kind; one built before typed items existed takes
       // the kind its first prompt names, from this version on.
@@ -561,6 +565,7 @@ export class Builders {
         worker,
         startedAt,
         rid,
+        member, // (in memory only: never in what is written down of a job)
       };
       // Reserve a visible initial footprint even before the first code arrives.
       try {

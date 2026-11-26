@@ -2027,9 +2027,12 @@ function connect(adopt = null) {
       // 🧱 Known to the room again (a new socket): a build of ours it already spoke of joins the line, and an asking it never answered is said again under its own name.
       if (heardRoom === room) builds.room(room, jobs, objects, mineJob);
       builds.rejoined();
-      try {
-        localStorage.setItem('rax-owner', data.token);
-      } catch {}
+      // 🌐 Only home's identity is kept: a satellite (a room kept on another box)
+      // hands out its own, which would leave this page a stranger to what it built at home.
+      if (playURL(room, import.meta.url).host === location.host || /^(localhost|127\.)/.test(location.hostname))
+        try {
+          localStorage.setItem('rax-owner', data.token);
+        } catch {}
     }
     // 🧵 A build's progress alone (builders.broadcastJobs): the line of jobs, no room.
     if (data.type === 'jobs' && heardRoom === room) heardJobs(data.jobs);

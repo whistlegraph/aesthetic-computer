@@ -83,6 +83,8 @@ export class Match {
     this.goingHome = [];
     // 🌐 Rounds that flew out over an open side, for the room beside (server.mjs).
     this.outbound = [];
+    // 🎯 Kills made here by rounds from other rooms, owed to their shooters there.
+    this.credits = [];
     this.nameOf = null; // (seat → who fired, for a round that leaves: server.mjs sets it)
   }
 
@@ -551,6 +553,8 @@ export class Match {
           const head = b.y > body.y - 0.25;
           this.hit(body, b.owner, 100, dir, 6, null);
           if (head) this.emit('headshot', { seat: body.seat, attacker: b.owner });
+          // 🎯 A round from the room beside: the kill is its shooter's, there (server.mjs credits it).
+          if (!body.alive && b.owner < 0 && b.from) this.credits.push({ from: b.from, by: b.by });
           if (!body.alive) {
             body.gibbed = true;
             this.emit('gib', { seat: body.seat, attacker: b.owner, kind: 'shot', zone: hitZone(body, b),
@@ -562,7 +566,9 @@ export class Match {
       // 🌐 Over an open side, into the room beside (server.mjs takes it on, there or on another host).
       const side = b.dead ? null : b.x > this.half ? 'east' : b.x < -this.half ? 'west' : b.z > this.half ? 'north' : b.z < -this.half ? 'south' : null;
       if (side && this.open?.includes(side)) {
-        this.outbound.push({ side, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, bounces: b.bounces, by: this.nameOf?.(b.owner) ?? null });
+        // (Who fired it, and from where: its first room, however many seams it has crossed.)
+        this.outbound.push({ side, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, bounces: b.bounces,
+          by: b.by ?? this.nameOf?.(b.owner) ?? null, from: b.from ?? (b.owner >= 0 ? { seat: b.owner } : null) });
         b.dead = true;
       }
       if (b.bounces > 16 || Math.abs(b.x) > this.half + 5 || Math.abs(b.z) > this.half + 5 || b.y > 80) b.dead = true;
@@ -778,8 +784,18 @@ export class Match {
     // (Someone alone in a room can be shot from the next one: a round from outside starts the match.)
     if (this.phase === 'waiting' && this.count >= 1) this.phase = 'playing';
     this.bullets.push({ x: r.x, y: r.y, z: r.z, vx: r.vx, vy: r.vy, vz: r.vz, owner: -1, born: this.tick, safeUntil: 0,
-      bounces: r.bounces || 0, id: ++this.eventId, by: typeof r.by === 'string' ? r.by.slice(0, 40) : null });
+      bounces: r.bounces || 0, id: ++this.eventId, by: typeof r.by === 'string' ? r.by.slice(0, 40) : null,
+      from: r.from && typeof r.from.room === 'string' && Number.isInteger(r.from.seat) ? { room: r.from.room, seat: r.from.seat } : null });
     while (this.bullets.length > 24) this.bullets.shift();
+  }
+
+  // 🎯 A kill this seat made in another room with a round that flew over: it counts here.
+  credit(seat) {
+    const killer = this.seats[seat]?.player;
+    if (!killer) return false;
+    killer.score += 1;
+    this.emit('frag', { seat: -1, attacker: seat, far: true });
+    return true;
   }
 
   damage(seat, amount, attacker) {

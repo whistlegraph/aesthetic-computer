@@ -39,7 +39,10 @@ export class ObjectStore {
     // While carried, a thing is listed in the room it is in and not at home;
     // what is written down never moves (carry, uncarry).
     this.carried = new Map();
+    // 🌐 A satellite's rooms as home keeps them (server.mjs, over the link): what is built there is home's.
+    this.mirror = new Map();
   }
+  setMirror(room, list) { if (Array.isArray(list)) this.mirror.set(room, list.slice(0, 256)); }
   async load() {
     if (!this.directory) return;
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
@@ -158,6 +161,7 @@ export class ObjectStore {
     return null;
   }
   stored(room) {
+    if (this.mirror.has(room)) return this.mirror.get(room);
     return (this.data.rooms[room] || []).map((o) => {
       const v = o.versions.at(-1);
       return { id: o.id, owner: o.owner, x: o.x, z: o.z, item: o.item || itemOfObject(o.versions[0]?.prompt, v.geometry?.name), target: !o.item && targetOfObject(o.versions[0]?.prompt, v.geometry?.name), effect: o.effect || null, version: v.version, code: v.code || null, geometry: v.geometry, first: o.versions[0]?.prompt || '' };
