@@ -1227,7 +1227,7 @@ function goIn(id, face) {
   return true;
 }
 // ⌨️ The panel this page has stepped in to, if its piece hears a keyboard; the keys it holds there (let go when the eye comes out, so no note is left sounding); and the keys rax keeps while inside.
-const INSIDE_KEYS = new Set(['Escape', 'Tab']), pieceKeys = new Map();
+const INSIDE_KEYS = new Set(['Escape', 'Tab', 'KeyZ']), pieceKeys = new Map();
 const keyPanel = () => {
   if (!dock || dock.way < 0 || prompt.open || chat.open || menu || radial.open || chalkMode || typing()) return null;
   const panel = panels.list.find((p) => !p.hidden && `panel:${p.id}` === dock.id);
@@ -2795,7 +2795,9 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
-  // ⌨️ Stepped in to a screen that runs an AC piece, the keyboard is the piece's, as on its own page (notepat's notes and octaves). rax keeps two: Escape comes back out, and Tab is the prompt's paper. Anything held with ⌘ or Ctrl is the browser's. Out of the screen every key is rax's again.
+  // Z toggles screen focus. Leave modified Z to the browser's undo shortcut.
+  if (e.code === 'KeyZ' && (e.metaKey || e.ctrlKey || e.altKey)) return;
+  // The focused piece receives the other keys. Escape leaves and Tab opens the prompt.
   const inside = keyPanel();
   if (inside && !INSIDE_KEYS.has(e.code) && !e.metaKey && !e.ctrlKey) {
     e.preventDefault();

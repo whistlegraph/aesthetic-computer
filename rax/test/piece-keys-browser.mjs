@@ -1,4 +1,4 @@
-// ⌨️ Stepped in to the yard's notepat, the keyboard plays it; Escape comes out
+// ⌨️ Stepped in to the yard's notepat, the keyboard plays it. Z or Escape comes out
 // and the keys are rax's again. node rax/test/piece-keys-browser.mjs
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -42,22 +42,23 @@ try {
     if (stood) break;
   }
   assert.equal((await sample()).focus, 'panel:yard-notepat', `aimed at the board: ${JSON.stringify(await sample().then((d) => ({ focus: d.focus, player: d.player, yaw: d.yaw })))}`);
-  // The lock control twice: locked on, then stepped in.
-  for (let n = 0; n < 4 && !(await sample()).dock; n++) { await page.keyboard.press('KeyZ'); await page.waitForTimeout(350); }
+  await page.keyboard.press('KeyZ');
   await until('stepped in', () => raxDebug().dock?.id === 'panel:yard-notepat' && raxDebug().dock.t === 1);
   await until('piece has the keyboard', () => raxDebug().inside?.id === 'yard-notepat');
   const at = (await sample()).player, quiet = (await sample()).inside.ink;
   // A note held: the piece has the key (its picture shows it), and the body has not taken a step for it.
   await page.keyboard.down('KeyA');
   await until('note held and shown', (quiet) => raxDebug().inside?.keys.includes('KeyA') && raxDebug().inside.ink !== quiet, quiet);
-  await page.keyboard.down('KeyZ'); // (notepat's own key here, not the way out)
-  await page.waitForTimeout(400);
   const held = await sample();
-  assert.ok(held.dock && held.inside.keys.includes('KeyZ'), 'z is the piece\'s while inside');
   assert.ok(Math.hypot(held.player.x - at.x, held.player.z - at.z) < 0.05, 'the body stood still');
-  await page.keyboard.up('KeyZ');
+  await page.keyboard.press('Control+z');
+  assert.ok((await sample()).inside?.keys.includes('KeyA'), 'undo keeps the piece focused');
+  await page.keyboard.press('KeyZ');
+  await until('Z leaves the screen', () => !raxDebug().dock && !raxDebug().inside);
   await page.keyboard.up('KeyA');
-  await until('keys let go', () => raxDebug().inside?.keys.length === 0);
+  await until('board in view again', () => raxDebug().focus === 'panel:yard-notepat');
+  await page.keyboard.press('KeyZ');
+  await until('Z refocuses with no held notes', () => raxDebug().inside?.keys.length === 0);
   // Escape is rax's: out, and a held note is let go on the way.
   await page.keyboard.down('KeyC');
   await until('c held', () => raxDebug().inside?.keys.includes('KeyC'));

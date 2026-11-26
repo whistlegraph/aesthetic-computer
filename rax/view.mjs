@@ -58,7 +58,7 @@ export const LEGEND = {
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
     [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['b', 'KeyB'], ' bike'],
-    [['z', 'KeyZ'], ' lock or go in / ', ['del', ['Delete', 'Backspace']], ' remove'],
+    [['z', 'KeyZ'], ' toggle focus / ', ['del', ['Delete', 'Backspace']], ' remove'],
     [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
   pad: [
@@ -77,7 +77,7 @@ const DRONE_LEGEND = {
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move'],
     [['q', 'KeyQ'], ['r', 'KeyR'], ' roll / ', ['e', 'KeyE'], ' fast / ', ['v', 'KeyV'], ' drone'],
-    [['z', 'KeyZ'], ' lock / ', ['b', 'KeyB'], ' warp / ', ['f', 'KeyF'], ' full screen'],
+    [['z', 'KeyZ'], ' focus / ', ['b', 'KeyB'], ' warp / ', ['f', 'KeyF'], ' full screen'],
   ],
   pad: [
     '[LS] move / [RS] look / [LB][RB] roll',
@@ -2498,7 +2498,7 @@ export async function createView(canvas) {
             ...(input === 'touch' ? [focusObject.panel ? 'tap: press' : 'leave'] : [
               ...(pad ? ['[LS] look / [L3] 2x zoom'] : []),
               pad ? '[RS] cursor / [RT] press' : focusObject.panel ? '{enter} or click: press' : '',
-              pad ? '[DH] next / [B] leave' : '{[} {]} next / {esc} leave',
+              pad ? '[DH] next / [B] leave' : '{[} {]} next / {z} leave',
             ])].filter(Boolean).join('\n')
         : null;
       const lockHint = lockedOn && focusObject
