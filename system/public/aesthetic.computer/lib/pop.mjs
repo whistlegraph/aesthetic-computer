@@ -415,6 +415,7 @@ function camera(w, h) {
   const [fx, fy] = Array.isArray(sec.focus) ? sec.focus : manifest.focus || [0.5, 0.5];
   const restX = max(0, min(slackX, fx * backdrop.width - w / 2));
   const restY = max(0, min(slackY, fy * backdrop.height - h / 2));
+  if (sec.still) return { x: round(restX), y: round(restY) };
   const next = manifest.sections[activeSection + 1];
   const start = sec.t || 0;
   const end = next ? next.t : duration > 0 ? duration : manifest.duration || start + 1;

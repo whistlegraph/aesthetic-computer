@@ -70,6 +70,7 @@ Two hard-won constraints (violating either stalls the page on long tracks):
   Centre when absent; a top-level `focus` sets the default for every section.
   Portrait art on a wide screen shows about a quarter of its height, so set
   `y` where the subject is.
+- `sections[].still` — set to `true` to keep the camera at the focus point for the whole section.
 - `sections[].illy` — per-section illustration JPG (1024² is plenty). For
   `marimbaba` these came from `pop/marimba/out/marimbaba-p-sec-*.png` via
   `magick … -resize '1024x1024>' -quality 82`.
