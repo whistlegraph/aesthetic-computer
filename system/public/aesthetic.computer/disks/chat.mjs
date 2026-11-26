@@ -1889,8 +1889,8 @@ function paint(
       const cached = message._colorLineCache[lineIdx];
 
       if (message._emojiText && cached.hasEmoji) {
-        message._emojiText.paint({ ink, paste }, cached.shadowLine, x + 1, lineY + 1, mt, true);
-        message._emojiText.paint({ ink, paste }, cached.colorCodedLine, x, lineY, theme.messageText);
+        message._emojiText.paint(api, cached.shadowLine, x + 1, lineY + 1, mt, true);
+        message._emojiText.paint(api, cached.colorCodedLine, x, lineY, theme.messageText);
         charPos += tb.lines[lineIdx].length;
         continue;
       }
@@ -2807,7 +2807,7 @@ function paint(
     const metrics = emojiMetrics(text, selectedTypeface, selectedRowHeight);
     const pos = { x: inputBtnX + 6, y: inputBtn.box.y + Math.floor((inputBtnHeight - metrics.rowHeight) / 2) };
     const preview = metrics.box(enterMsg, pos, Math.max(1, inputBtnWidth - 10)).lines[0];
-    metrics.paint({ ink, paste }, escapeColorCodes(preview), pos.x, pos.y, textColor);
+    metrics.paint(api, escapeColorCodes(preview), pos.x, pos.y, textColor);
   } else {
     ink(textColor).write(enterMsg, { left: inputBtnX + 6, bottom: 9 },
       false, undefined, false, selectedTypeface);
