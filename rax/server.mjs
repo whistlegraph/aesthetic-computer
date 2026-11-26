@@ -1883,7 +1883,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       return Object.fromEntries(Object.entries(n).filter(([, room]) => !keptAt(room)));
     },
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
-    start: ['lobby', ...Object.values(geography.geography.neighbours('lobby') || {})],
+    start: ['lobby', ...Object.values(geography.geography.neighbours('lobby') || {})].filter(key => !keptAt(key)),
   });
   // 👀 The people beyond: each room is told who walks the rooms around it
   // (two blocks out, and the floors over the plaza), in its own metres, 15

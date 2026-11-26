@@ -11,6 +11,9 @@ import { SPAN } from './park.mjs';
 export const ZOMBIE = { r: 0.4, speed: 1.5, eye: 1.7, count: 8, respawn: 3 };
 const SIDES = [['east', 'x', 1], ['west', 'x', -1], ['north', 'z', 1], ['south', 'z', -1]];
 const DEG = Math.PI / 180;
+const respawnTicks = Math.round(ZOMBIE.respawn / DT);
+const stuckTicks = Math.round(4 / DT);
+const retryTicks = Math.round(1 / DT);
 
 export function createHorde({ neighbours, boxes = () => [], start = ['lobby'], random = Math.random, count = ZOMBIE.count } = {}) {
   const zombies = [];
@@ -37,18 +40,21 @@ export function createHorde({ neighbours, boxes = () => [], start = ['lobby'], r
   const retarget = (z) => { z.turn = 30 + Math.floor(random() * 120); };
 
   function spawn() {
-    const room = start[Math.floor(random() * start.length)];
+    if (!start.length) return null;
+    const first = Math.floor(random() * start.length);
     for (let k = 0; k < 20; k++) {
+      const room = start[(first + k) % start.length];
       const x = (random() - 0.5) * (SPAN - 4), zz = (random() - 0.5) * (SPAN - 4);
       if (blocked(room, x, zz)) continue;
       const z = { id: nextId++, room, x, z: zz, yaw: random() * 360, vx: 0, vz: 0, turn: 0 };
+      z.anchorX = x; z.anchorZ = zz; z.still = 0;
       retarget(z);
       zombies.push(z);
       return z;
     }
     return null;
   }
-  for (let n = 0; n < count; n++) spawn();
+  for (let n = 0; n < count; n++) if (!spawn()) later.push(retryTicks);
 
   return {
     zombies,
@@ -65,13 +71,27 @@ export function createHorde({ neighbours, boxes = () => [], start = ['lobby'], r
       const i = zombies.findIndex((z) => z.id === id);
       if (i < 0) return false;
       zombies.splice(i, 1);
-      later.push(Math.round(ZOMBIE.respawn / DT));
+      later.push(respawnTicks);
       return true;
     },
     step() {
       held = new Map();
-      for (let i = later.length - 1; i >= 0; i--) if (--later[i] <= 0) { later.splice(i, 1); spawn(); }
-      for (const z of zombies) {
+      for (let i = later.length - 1; i >= 0; i--) {
+        if (--later[i] > 0) continue;
+        if (spawn()) later.splice(i, 1);
+        else later[i] = retryTicks;
+      }
+      for (let i = zombies.length - 1; i >= 0; i--) {
+        const z = zombies[i];
+        // Builds can move around an existing walker. Turning in place cannot
+        // get it out of a solid, and short steps in a tight pocket count too.
+        if (Math.hypot(z.x - z.anchorX, z.z - z.anchorZ) >= ZOMBIE.r) {
+          z.anchorX = z.x; z.anchorZ = z.z; z.still = 0;
+        } else if (++z.still >= stuckTicks) {
+          zombies.splice(i, 1);
+          later.push(respawnTicks);
+          continue;
+        }
         if (--z.turn <= 0) { z.yaw = (z.yaw + (random() - 0.5) * 140 + 360) % 360; retarget(z); }
         const dx = Math.sin(z.yaw * DEG), dz = Math.cos(z.yaw * DEG), go = ZOMBIE.speed * DT;
         const nx = z.x + dx * go, nz = z.z + dz * go;
@@ -86,7 +106,9 @@ export function createHorde({ neighbours, boxes = () => [], start = ['lobby'], r
         for (const [side, axis, sign] of SIDES) {
           if (z[axis] * sign <= SPAN / 2) continue;
           const near = neighbours(z.room)?.[side];
-          if (near) { z.room = near; z[axis] -= sign * SPAN; }
+          const otherX = z.x - (axis === 'x' ? sign * SPAN : 0);
+          const otherZ = z.z - (axis === 'z' ? sign * SPAN : 0);
+          if (near && !blocked(near, otherX, otherZ)) { z.room = near; z[axis] -= sign * SPAN; }
           else {
             z[axis] = sign * SPAN / 2;
             z.yaw = axis === 'x' ? (360 - z.yaw) % 360 : (540 - z.yaw) % 360;

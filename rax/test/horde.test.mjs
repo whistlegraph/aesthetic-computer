@@ -98,3 +98,31 @@ test('on a real server: a walker reaches the page in beyond, and a round through
   assert.ok(!app.horde.zombies.includes(z), 'taken off the horde');
   assert.ok(app.horde.zombies.length <= before, 'one fewer until it is let loose again');
 });
+
+test('a spawn slot survives a blocked start and blocked replacement attempts', () => {
+  const wall = { xMin: -SPAN, xMax: SPAN, zMin: -SPAN, zMax: SPAN, yMin: 0, yMax: 3 };
+  let blocked = true;
+  const h = createHorde({ neighbours: () => ({}), boxes: () => blocked ? [wall] : [], count: 1, random: seeded() });
+  assert.equal(h.zombies.length, 0);
+  blocked = false;
+  for (let i = 0; i < HZ + 1; i++) h.step();
+  const first = h.zombies[0].id;
+  h.kill(first);
+  blocked = true;
+  for (let i = 0; i < HZ * 6; i++) h.step();
+  assert.equal(h.zombies.length, 0);
+  blocked = false;
+  for (let i = 0; i < HZ + 1; i++) h.step();
+  assert.equal(h.zombies.length, 1);
+  assert.notEqual(h.zombies[0].id, first);
+});
+
+test('a walker entombed by a new build returns in an open spot', () => {
+  const boxes = [];
+  const h = createHorde({ neighbours: () => ({}), boxes: () => boxes, count: 1, random: seeded() });
+  const z = h.zombies[0];
+  boxes.push({ xMin: z.x - 1, xMax: z.x + 1, zMin: z.z - 1, zMax: z.z + 1, yMin: 0, yMax: 3 });
+  for (let i = 0; i < HZ * 8; i++) h.step();
+  assert.equal(h.zombies.length, 1);
+  assert.notEqual(h.zombies[0].id, z.id);
+});
