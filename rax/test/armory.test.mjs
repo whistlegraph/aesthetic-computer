@@ -85,3 +85,12 @@ test('a carried-in thing left lying asks to go home', () => {
   for (let k = 0; k < (RACK_RETURN_SECONDS + 1) * HZ; k++) m.step();
   assert.deepEqual(m.goingHome, [gun.id]);
 });
+
+// 🧟 The east room: two scarecrows and two zombies, all targets that take hits.
+test('the east room stands scarecrows and zombies as targets', () => {
+  const list = rackFor('east').filter((o) => o.target);
+  assert.deepEqual(list.map((o) => o.geometry.name).sort(), ['Scarecrow', 'Scarecrow', 'Zombie', 'Zombie']);
+  const m = new Match();
+  m.setObjects(rackFor('east'));
+  assert.equal(m.targets.length, 4);
+});

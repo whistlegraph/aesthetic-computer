@@ -3692,18 +3692,7 @@ function step(now, xr) {
         focusObject = objects.find((o) => o.id === box.objectId);
       }
     }
-    // Items can be aimed at (and so edited) where they really are: loose on
-    // the floor, or in your own hand.
-    for (const it of snapshot?.items || []) {
-      if (it.holder >= 0 && it.holder !== hand) continue;
-      const r = 0.6;
-      const box = { xMin: it.x - r, xMax: it.x + r, yMin: it.y - 0.1, yMax: it.y + 1.2, zMin: it.z - r, zMax: it.z + r };
-      const distance = it.holder === hand ? 0.5 : rayBox(origin, dir, box, nearest);
-      if (distance < nearest && it.holder !== hand) {
-        nearest = distance;
-        focusObject = objects.find((o) => o.id === it.id);
-      }
-    }
+    // (A loose item, a gun on the floor, is not aimed at: it is picked up, not focused or edited from the floor.)
     // The KidLisp walls are objects too: aim at one to see its code.
     for (const w of walls) {
       const along = w.face === 'north' ? dir.z : -dir.x;
@@ -3774,11 +3763,6 @@ function step(now, xr) {
         const w = walls.find((x) => `wall:${x.code}` === id);
         if (w) focusObject = wallFocus(w);
       }
-    }
-    // Holding something with nothing else aimed at: the held item is the one to edit.
-    if (!focusObject) {
-      const mine = snapshot?.items?.find((it) => it.holder === hand);
-      if (mine) focusObject = objects.find((o) => o.id === mine.id) || null;
     }
   }
   const displayed = presentation.sample(debt / DT, elapsed);

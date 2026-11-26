@@ -49,19 +49,41 @@ const SCARECROW = `; Scarecrow
 let straw = null;
 const scarecrow = () => (straw ||= sourceGeometry({ name: 'Scarecrow', source: SCARECROW }));
 
+// 🧟 A zombie, to shoot at: green, stooped, arms out (match.mjs strike).
+const ZOMBIE = `; Zombie
+(ink 62 66 110)
+(slab -.2 0 -.12 -.04 .85 .12)
+(slab .04 0 -.12 .2 .85 .12)
+(ink 96 78 60)
+(slab -.28 .85 -.17 .28 1.45 .17)
+(ink 120 160 96)
+(slab -.44 1.2 .1 -.28 1.32 .85)
+(slab .28 1.2 .1 .44 1.32 .85)
+(orb 0 1.66 .04 .21 8)
+(ink 200 40 40)
+(orb -.08 1.7 .22 .035 6)
+(orb .08 1.7 .22 .035 6)
+(ink 40 30 30)
+(slab -.08 1.58 .2 .08 1.6 .24)`;
+let undead = null;
+const zombie = () => (undead ||= sourceGeometry({ name: 'Zombie', source: ZOMBIE }));
+
 // Three slots in a row on the dispenser's east side (its chute opens west).
 const LOBBY = [-0.5, 0, 0.5].map((dz, i) => ({ id: `house-gun-${i + 1}`, x: DISPENSER.x + DISPENSER.width / 2 + 0.9, z: DISPENSER.z + dz }));
 // 🛰️ The east room (world.mjs ROOM_HOSTS): a rack in the middle and two straw men down the far end.
 const EAST = [-0.6, 0, 0.6].map((dx, i) => ({ id: `house-gun-e${i + 1}`, x: dx, z: -2 }));
 const EAST_TARGETS = [-3, 3].map((x, i) => ({ id: `house-target-e${i + 1}`, x, z: 7 }));
+const EAST_ZOMBIES = [-1, 1].map((x, i) => ({ id: `house-zombie-e${i + 1}`, x, z: 5 }));
 
 // A room's house things, shaped as the store lists a room's things.
 export function rackFor(room) {
   const gun = (s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: 'shoot', effect: null, house: true,
     version: 0, code: 'qrr', geometry: pistol(), first: '$qrr' });
   if (room === RACK_ROOM) return LOBBY.map(gun);
-  if (room === 'east') return [...EAST.map(gun), ...EAST_TARGETS.map((s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: null,
-    target: true, effect: null, house: true, version: 0, code: null, geometry: scarecrow(), first: 'a scarecrow' }))];
+  const target = (s, geometry, first) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: null,
+    target: true, effect: null, house: true, version: 0, code: null, geometry, first });
+  if (room === 'east') return [...EAST.map(gun), ...EAST_TARGETS.map((s) => target(s, scarecrow(), 'a scarecrow')),
+    ...EAST_ZOMBIES.map((s) => target(s, zombie(), 'a zombie'))];
   return [];
 }
 export const isHouse = (id) => typeof id === 'string' && id.startsWith('house-');
