@@ -2805,7 +2805,7 @@ function paint(
   // Use the selected font for the bottom bar text (selectedTypeface already defined above)
   if (showEmoji && hasDraft && hasEmoji(enterMsg)) {
     const metrics = emojiMetrics(text, selectedTypeface, selectedRowHeight);
-    const pos = { x: inputBtnX + 6, y: screen.height - 9 - selectedRowHeight + 1 };
+    const pos = { x: inputBtnX + 6, y: inputBtn.box.y + Math.floor((inputBtnHeight - metrics.rowHeight) / 2) };
     const preview = metrics.box(enterMsg, pos, Math.max(1, inputBtnWidth - 10)).lines[0];
     metrics.paint({ ink, paste }, escapeColorCodes(preview), pos.x, pos.y, textColor);
   } else {
@@ -5834,7 +5834,10 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     const msgFontConfig = CHAT_FONTS[msgFontId] || CHAT_FONTS["font_1"];
     // null in config means "use system default" - NOT the user's current selection!
     const msgTypefaceName = msgFontConfig.typeface; // null = system default typeface
-    const msgRowHeight = msgFontConfig.rowHeight !== null ? msgFontConfig.rowHeight : systemDefaultRowHeight;
+    const fontRowHeight = msgFontConfig.rowHeight ?? systemDefaultRowHeight;
+    message._emojiText = showEmoji && hasEmoji(message.text)
+      ? emojiMetrics(text, msgTypefaceName, fontRowHeight) : null;
+    const msgRowHeight = message._emojiText?.rowHeight ?? fontRowHeight;
     
     // Store computed font info on the message for use in paint
     message.computedTypefaceName = msgTypefaceName;
@@ -5852,8 +5855,6 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
     const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix;
     const bounds = screen.width - leftMargin - (chat.commentCounts ? 28 : 0);
     const pos = { x: leftMargin, y: 0 };
-    message._emojiText = showEmoji && hasEmoji(fullMessage)
-      ? emojiMetrics(text, msgTypefaceName, msgRowHeight) : null;
     const tb = message._emojiText
       ? message._emojiText.box(fullMessage, pos, bounds)
       : text.box(fullMessage, pos, bounds, 1, true, msgTypefaceName);

@@ -3627,7 +3627,8 @@ class Prompt {
     const y = this.left + cursor.y * this.letterHeight;
     if (this.cells) {
       const cell = this.cellsByIndex[this.textPos(cursor) ?? this.#mappedTo.length];
-      return { x: this.top + cell.left, y, w: cell.width, h: this.letterHeight };
+      return { x: this.top + cell.left, y: this.left + (cell.top ?? (y - this.left)),
+        w: cell.width, h: cell.height ?? this.letterHeight };
     }
     
     // Check if we need proportional spacing

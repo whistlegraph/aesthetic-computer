@@ -14,14 +14,72 @@ function* emojiMatches(value) {
     if (!glyph.endsWith("\uFE0E") && /[\uFE0F\u200D\u20E3]|\p{Emoji_Presentation}/u.test(glyph)) yield match;
   }
 }
+function* displayGlyphs(value) {
+  let start = 0;
+  for (const m of emojiMatches(value)) {
+    for (const glyph of value.slice(start, m.index)) yield { glyph };
+    yield { glyph: m[0], emoji: true };
+    start = m.index + m[0].length;
+  }
+  for (const glyph of value.slice(start)) yield { glyph };
+}
+
 export const hasEmoji = value => !emojiMatches(value).next().done;
+
+
+const MIN_EMOJI_HEIGHT = 16;
+const turkey = /^🦃\uFE0F?$/u;
+const turkeyRows = [
+  "   @@ @@",
+  "  @yy@yy@ @@",
+  " @@oyooyo@yy@",
+  "@yy@o@ooyooy@",
+  "@oyo@o@oo@o@  @@@",
+  "@yo@oo@oo@o@ @ccp@",
+  " @oo@o@ooo@  @ccyou",
+  "@yyooobb@@  @crr@",
+  "@oooo@bbbb@@brr@",
+  " @@o@bboobbbbbr@",
+  " @oo@boooobbbr@",
+  "  @@@bboobbbb@",
+  "    @bbbbbbb@",
+  "     @@@@@@@",
+  "       y  y",
+  "      yyy yyy"
+];
+const turkeyColors = {
+  "@": [56, 32, 42], y: [255, 210, 98], o: [208, 121, 55], b: [132, 80, 75],
+  c: [115, 219, 233], p: [20, 13, 22], r: [238, 66, 68], u: [231, 165, 80],
+};
+function glyphWidth(glyph, height) {
+  return turkey.test(glyph) ? Math.round(19 * height / turkeyRows.length) : height;
+}
+
+// Draw the fan, head and wattle in the room's pixel grid, including on
+// workers without canvas or an installed color emoji font.
+function turkeySprite(height) {
+  const width = Math.round(19 * height / turkeyRows.length);
+  const pixels = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const row = turkeyRows[Math.floor(y * turkeyRows.length / height)];
+    for (let x = 0; x < width; x++) {
+      const color = turkeyColors[row[Math.floor(x * 19 / width)]];
+      if (!color) continue;
+      const i = (y * width + x) * 4;
+      pixels.set(color, i);
+      pixels[i + 3] = 255;
+    }
+  }
+  return { width, height, pixels };
+}
 
 const sprites = new Map();
 function emojiSprite(glyph, size) {
   const key = size + "/" + glyph;
   if (sprites.has(key)) return sprites.get(key);
   let sprite = null;
-  try {
+  if (turkey.test(glyph)) sprite = turkeySprite(size);
+  else try {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
@@ -42,24 +100,35 @@ function emojiSprite(glyph, size) {
 }
 
 export function emojiMetrics(text, font, height) {
-  const size = Math.max(8, height - 1);
-  const advance = size + 1;
+  const size = Math.max(MIN_EMOJI_HEIGHT, height - 1);
+  const advance = glyph => glyphWidth(glyph, size) + 1;
   const width = (value) => {
     let start = 0, pixels = 0;
     for (const m of emojiMatches(value)) {
-      pixels += text.width(value.slice(start, m.index), font) + advance;
+      pixels += text.width(value.slice(start, m.index), font) + advance(m[0]);
       start = m.index + m[0].length;
     }
     return pixels + text.width(value.slice(start), font);
   };
   return {
-    width,
+    width, rowHeight: size + 1,
+    fit(value, limit) {
+      if (width(value) <= limit) return value;
+      let prefix = "", used = text.width("...", font);
+      for (const { glyph, emoji } of displayGlyphs(value)) {
+        used += emoji ? advance(glyph) : text.width(glyph, font);
+        if (used > limit) break;
+        prefix += glyph;
+      }
+      return prefix + "...";
+    },
     box(value, pos, bounds) {
       // Give text.box one indivisible character per emoji. Restore its source
       // offsets immediately so links, speech, selection and copying see UTF-16.
       let marker = 0xe000;
       while (value.includes(String.fromCharCode(marker))) marker++;
-      const placeholder = String.fromCharCode(marker);
+      const advances = new Map();
+      const markers = new Map();
       const starts = [];
       let compact = "", start = 0;
       function copy(until) {
@@ -68,20 +137,27 @@ export function emojiMetrics(text, font, height) {
       for (const m of emojiMatches(value)) {
         copy(m.index);
         starts.push(start);
-        compact += placeholder;
+        const w = advance(m[0]);
+        if (!markers.has(w)) {
+          while (value.includes(String.fromCharCode(marker))) marker++;
+          const placeholder = String.fromCharCode(marker++);
+          markers.set(w, placeholder);
+          advances.set(placeholder, w);
+        }
+        compact += markers.get(w);
         start += m[0].length;
       }
       copy(value.length);
       starts.push(value.length);
       const metrics = { data: { proportional: true }, blockHeight: height - 1,
-        getGlyph() {}, getAdvance: c => c === placeholder ? advance : text.width(c, font) };
+        getGlyph() {}, getAdvance: c => advances.get(c) ?? text.width(c, font) };
       const box = text.box(compact, pos, bounds, 1, true, metrics);
       box.lines = box.lines.map((line, i) => {
         const map = [];
         let restored = "";
         for (let j = 0; j < line.length; j++) {
           const at = box.charMap[i][j];
-          restored += line[j] === placeholder ? value.slice(starts[at], starts[at + 1]) : line[j];
+          restored += advances.has(line[j]) ? value.slice(starts[at], starts[at + 1]) : line[j];
           for (let k = starts[at]; k < starts[at + 1]; k++) map.push(k);
         }
         box.charMap[i] = map;
@@ -93,7 +169,7 @@ export function emojiMetrics(text, font, height) {
       let color = "";
       const write = value => {
         if (!value) return;
-        api.ink(ink).write(color + escapeColorCodes(value), { x, y }, false, undefined, false, font);
+        api.ink(ink).write(color + escapeColorCodes(value), { x, y: y + Math.floor((size + 1 - height) / 2) }, false, undefined, false, font);
         x += text.width(value, font);
       };
       for (const [i, part] of splitColorCodes(coded).entries()) {
@@ -106,7 +182,7 @@ export function emojiMetrics(text, font, height) {
             if (sprite) api.paste(sprite, x, y);
             else api.ink(ink).write("?", { x, y }, false, undefined, false, font);
           }
-          x += advance;
+          x += advance(m[0]);
           start = m.index + m[0].length;
         }
         write(part.slice(start));
@@ -121,24 +197,21 @@ export function emojiDraftLayout(value, prompt) {
   if (!hasEmoji(value)) return null;
   const cells = [];
   const { typeface, letterHeight, gutter } = prompt;
-  const size = Math.max(8, letterHeight);
+  const size = Math.max(MIN_EMOJI_HEIGHT, letterHeight);
+  const lineHeight = size + 1;
   let at = 0, px = 0, x = 0, y = 0;
   function nextLine() { px = 0; x = 0; y++; }
   function add(glyph, emoji = false) {
     const newline = glyph === "\n";
-    const width = newline ? 0 : emoji ? size + 1 : typeface.getAdvance(glyph);
+    const width = newline ? 0 : emoji ? glyphWidth(glyph, size) + 1 : typeface.getAdvance(glyph);
     if (px && px + width > gutter - prompt.letterWidth) nextLine();
-    const cell = { start: at, end: at + glyph.length, x, y, left: px, width,
-      glyph, bitmap: emoji ? emojiSprite(glyph, size) : null };
+    const cell = { start: at, end: at + glyph.length, x, y, left: px, width, top: y * lineHeight + (emoji ? 0 : Math.floor((lineHeight - letterHeight) / 2)),
+      height: emoji ? lineHeight : letterHeight, glyph, bitmap: emoji ? emojiSprite(glyph, size) : null };
     cells.push(cell);
     at = cell.end;
     if (newline) nextLine(); else { px += width; x++; }
   }
-  for (const m of emojiMatches(value)) {
-    for (const c of value.slice(at, m.index)) add(c);
-    add(m[0], true);
-  }
-  for (const c of value.slice(at)) add(c);
-  cells.push({ start: at, end: at, x, y, left: px, width: prompt.letterWidth, glyph: "" });
+  for (const { glyph, emoji } of displayGlyphs(value)) add(glyph, emoji);
+  cells.push({ start: at, end: at, x, y, left: px, width: prompt.letterWidth, top: y * lineHeight + Math.floor((lineHeight - letterHeight) / 2), glyph: "" });
   return cells;
 }

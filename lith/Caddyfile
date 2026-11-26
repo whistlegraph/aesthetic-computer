@@ -214,6 +214,11 @@
     @doomData path /doom-player/vendor/* /doom-player/examples/*
     header @doomData ?Access-Control-Allow-Origin *
 
+    # A new room module must load with the worker that understands its glyph
+    # layout. Replace the upstream static header so reload revalidates both.
+    @laklokRuntime path /aesthetic.computer/lib/disk-worker-manifest.json /aesthetic.computer/lib/type.mjs /aesthetic.computer/disks/laklok.mjs /aesthetic.computer/disks/laer-klokken.mjs /aesthetic.computer/disks/lairk.mjs /aesthetic.computer/disks/chat.mjs /aesthetic.computer/disks/common/laklok-emoji.mjs
+    header @laklokRuntime >Cache-Control "no-cache"
+
     # Shared native/web presentation settings must revalidate on each opening.
     @mimeLayout path /mime-layout.json
     header @mimeLayout Cache-Control "no-cache"

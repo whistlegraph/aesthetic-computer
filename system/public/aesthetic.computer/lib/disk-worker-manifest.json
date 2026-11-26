@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.3ccb9441300f.mjs",
-  "sha256": "3ccb9441300f58bc59b8f4542fa5b6b09f58bb04d66d7da639a667337c8ac80c",
-  "bytes": 1873911,
-  "sourceSha256": "67f6d28f04a10f7cd94450163f23d59c1b721f9e0fc903a77f799ee5bea2fe39",
+  "filename": "disk.worker.bf0583c24ca1.mjs",
+  "sha256": "bf0583c24ca1327d116c0645acb5df6899935c5bb2a63877a6506a31afea2c19",
+  "bytes": 1874005,
+  "sourceSha256": "0172081bf77859c1c08f86490ee308b20a7de2238c225a25ebecafb748fcaf61",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",

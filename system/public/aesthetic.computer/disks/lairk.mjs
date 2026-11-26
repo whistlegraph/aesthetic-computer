@@ -32,6 +32,8 @@
 #endregion */
 
 import { Chat } from "../lib/chat.mjs";
+import { emojiMetrics, hasEmoji } from "./common/laklok-emoji.mjs";
+import { escapeColorCodes } from "../lib/color-codes.mjs";
 import * as chat from "./chat.mjs";
 import {
   LAK_THEMES,
@@ -125,7 +127,7 @@ function boot({ api, Form, debug, send, hud, store, colon, params, get: getter, 
 
   client = new Chat(debug, send);
   client.connect("clock"); // Same room as laklok. (DB stays `chat-clock`.)
-  chat.boot(api, client.system);
+  chat.boot(api, client.system, { emoji: true });
   hud.qr(null); // chat.boot stamps a prompt.ac/chat QR; lairk doesn't want it.
   hud.label("lairk");
 
@@ -974,13 +976,16 @@ function paintTags($) {
     writeHandle(ink, c.handle, c.colors, nx, ny, cw, c.online ? 1 : 0.7);
 
     if (bubble) {
-      const text = fit(bubble.text, max(8, floor((screen.width - 16) / cw)));
-      const w = text.length * cw + 8;
+      const metrics = hasEmoji(bubble.text) ? emojiMetrics($.text, null, 11) : null;
+      const text = metrics ? metrics.fit(bubble.text, screen.width - 16) : fit(bubble.text, max(8, floor((screen.width - 16) / cw)));
+      const w = (metrics ? metrics.width(text) : text.length * cw) + 8;
+      const h = (metrics?.rowHeight ?? 10) + 4;
       const bx = floor(clamp(p.x - w / 2, 2, screen.width - w - 2));
-      const by = ny - 18;
-      ink(250, 248, 238).box(bx, by, w, 14);
-      ink(250, 248, 238).box(floor(p.x) - 1, by + 14, 3, 3);
-      ink(20, 16, 24).write(text, { x: bx + 4, y: by + 2 });
+      const by = ny - h - 4;
+      ink(250, 248, 238).box(bx, by, w, h);
+      ink(250, 248, 238).box(floor(p.x) - 1, by + h, 3, 3);
+      if (metrics) metrics.paint($, escapeColorCodes(text), bx + 4, by + 2, [20, 16, 24]);
+      else ink(20, 16, 24).write(text, { x: bx + 4, y: by + 2 });
     }
   }
 }
@@ -993,8 +998,9 @@ function paintReadout($) {
     .filter((m) => cleanHandle(m.from) && cleanHandle(m.from) !== "log")
     .slice(-3);
   const top = 22;
-  const rowH = 11;
-  const h = max(1, lines.length) * rowH + 4;
+  const metrics = emojiMetrics($.text, null, 11);
+  const rowHeights = lines.map(m => hasEmoji(m.text) ? metrics.rowHeight : 11);
+  const h = max(11, rowHeights.reduce((sum, height) => sum + height, 0)) + 4;
   readoutBox = { x: 0, y: top, w: screen.width, h };
   ink(0, 0, 0, 120).box(0, top, screen.width, h);
   if (lines.length === 0) {
@@ -1002,15 +1008,19 @@ function paintReadout($) {
     return;
   }
   const chars = floor((screen.width - 12) / cw);
+  let y = top + 2;
   lines.forEach((m, i) => {
     const h = cleanHandle(m.from);
     const name = "@" + h + " ";
-    const y = top + 2 + i * rowH;
-    writeHandle(ink, h, characters.get(h)?.colors, 6, y, cw);
-    ink(235, 232, 245).write(fit(plainText(m.text), chars - name.length), {
-      x: 6 + name.length * cw,
-      y,
-    });
+    const x = 6 + name.length * cw;
+    writeHandle(ink, h, characters.get(h)?.colors, 6, y + floor((rowHeights[i] - 11) / 2), cw);
+    if (rowHeights[i] > 11) {
+      const line = metrics.fit(plainText(m.text), screen.width - x - 6);
+      metrics.paint($, escapeColorCodes(line), x, y, [235, 232, 245]);
+    } else {
+      ink(235, 232, 245).write(fit(plainText(m.text), chars - name.length), { x, y });
+    }
+    y += rowHeights[i];
   });
 }
 
