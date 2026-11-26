@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.bf0583c24ca1.mjs",
-  "sha256": "bf0583c24ca1327d116c0645acb5df6899935c5bb2a63877a6506a31afea2c19",
-  "bytes": 1874005,
-  "sourceSha256": "0172081bf77859c1c08f86490ee308b20a7de2238c225a25ebecafb748fcaf61",
+  "filename": "disk.worker.694f3cb5885e.mjs",
+  "sha256": "694f3cb5885e3033ae6f9f3d74a24c2abe6111614d4bdd477c102185b11b397c",
+  "bytes": 1884800,
+  "sourceSha256": "097e2e5a583cef0320a98658dfe5be1678346f8a3595ad08fd5763cafe5d4889",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -17,6 +17,8 @@
     "public/aesthetic.computer/dep/nanoid/url-alphabet/index.js",
     "public/aesthetic.computer/disks/common/debug.mjs",
     "public/aesthetic.computer/disks/common/fonts.mjs",
+    "public/aesthetic.computer/disks/common/laklok-emoji.mjs",
+    "public/aesthetic.computer/disks/common/radio-garden-glyphs.mjs",
     "public/aesthetic.computer/disks/common/tape-player.mjs",
     "public/aesthetic.computer/lib/ask.mjs",
     "public/aesthetic.computer/lib/cam-doll.mjs",
