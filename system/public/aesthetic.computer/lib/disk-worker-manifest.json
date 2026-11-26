@@ -1,8 +1,8 @@
 {
-  "filename": "disk.worker.694f3cb5885e.mjs",
-  "sha256": "694f3cb5885e3033ae6f9f3d74a24c2abe6111614d4bdd477c102185b11b397c",
-  "bytes": 1884800,
-  "sourceSha256": "097e2e5a583cef0320a98658dfe5be1678346f8a3595ad08fd5763cafe5d4889",
+  "filename": "disk.worker.9c6cacaee8c8.mjs",
+  "sha256": "9c6cacaee8c8bc5ff5200d63a61f3029eaa47b29e984aa86f08f93ec87c4ce84",
+  "bytes": 3005441,
+  "sourceSha256": "7052be5c81b500bfcfed5e0ad6051cfdef532444a70b63c5f8eec93647989c61",
   "sources": [
     "public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs",
     "public/aesthetic.computer/dep/gl-matrix/common.mjs",
@@ -16,6 +16,8 @@
     "public/aesthetic.computer/dep/nanoid/nanoid.js",
     "public/aesthetic.computer/dep/nanoid/url-alphabet/index.js",
     "public/aesthetic.computer/disks/common/debug.mjs",
+    "public/aesthetic.computer/disks/common/emoji-atlas/atlas.mjs",
+    "public/aesthetic.computer/disks/common/emoji-atlas/data.mjs",
     "public/aesthetic.computer/disks/common/fonts.mjs",
     "public/aesthetic.computer/disks/common/laklok-emoji.mjs",
     "public/aesthetic.computer/disks/common/radio-garden-glyphs.mjs",

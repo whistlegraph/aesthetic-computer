@@ -1,26 +1,66 @@
+import { atlasKeys, atlasSprite } from "./emoji-atlas/atlas.mjs";
 import { radioGardenGlyphs } from "./radio-garden-glyphs.mjs";
 import { escapeColorCodes, splitColorCodes } from "../../lib/color-codes.mjs";
 
-// A whole joined emoji, flag or keycap occupies one square in a bitmap line.
-// Keep text-presentation symbols such as © and ♥ in the author's selected font.
-const pictograph = /\p{Extended_Pictographic}\uFE0F?\p{Emoji_Modifier}?/u.source;
-const clusters = new RegExp(
-  "\\p{Regional_Indicator}{2}|[#*0-9]\\uFE0F?\\u20E3|" +
-  pictograph + "(?:\\u200D" + pictograph + ")*(?:[\\u{E0020}-\\u{E007E}]+\\u{E007F})?\\uFE0E?",
-  "gu",
-);
+// Source offsets are UTF-16 offsets, as required by the text editor. Longest
+// matches keep flags, modifiers and joined sequences in a single caret cell.
+let emojiTrie;
+function buildEmojiTrie() {
+  const root = new Map();
+  function add(key, index) {
+    let node = root;
+    for (let i = 0; i < key.length; i++) {
+      const unit = key.charCodeAt(i);
+      if (!node.has(unit)) node.set(unit, new Map());
+      node = node.get(unit);
+    }
+    node.index = index;
+  }
+  atlasKeys.forEach((key, index) => {
+    add(key, index);
+    // Qualifying selectors can be omitted inside keycaps and joined emoji.
+    // Standalone text-presentation symbols retain their normal font.
+    if (key.includes("\u200d") || key.endsWith("\u20e3")) {
+      let forms = [""];
+      for (const ch of key) {
+        const extended = forms.map(prefix => prefix + ch);
+        forms = ch === "\ufe0f" ? extended.concat(forms) : extended;
+      }
+      for (const form of forms) add(form, index);
+    }
+  });
+  return root;
+}
+
 function* emojiMatches(value) {
-  for (const match of value.matchAll(clusters)) {
-    const glyph = match[0];
-    if (!glyph.endsWith("\uFE0E") && /[\uFE0F\u200D\u20E3]|\p{Emoji_Presentation}/u.test(glyph)) yield match;
+  if (!/[^\x00-\x7f]/.test(value)) return;
+  const root = emojiTrie ??= buildEmojiTrie();
+  for (let start = 0; start < value.length; start++) {
+    let node = root, end = start, atlasIndex;
+    for (let i = start; i < value.length; i++) {
+      const unit = value.charCodeAt(i);
+      const next = node.get(unit);
+      // Explicit emoji presentation is also valid on default-emoji bases.
+      if (!next && !(unit === 0xfe0f && node.index !== undefined)) break;
+      node = next ?? node;
+      if (node.index !== undefined) {
+        end = i + 1;
+        atlasIndex = node.index;
+      }
+    }
+    if (end === start) continue;
+    if (value.charCodeAt(end) !== 0xfe0e) {
+      yield { glyph: value.slice(start, end), index: start, atlasIndex };
+    }
+    start = end - 1;
   }
 }
 function* displayGlyphs(value) {
   let start = 0;
   for (const m of emojiMatches(value)) {
     for (const glyph of value.slice(start, m.index)) yield { glyph };
-    yield { glyph: m[0], emoji: true };
-    start = m.index + m[0].length;
+    yield { glyph: m.glyph, emoji: true, atlasIndex: m.atlasIndex };
+    start = m.index + m.glyph.length;
   }
   for (const glyph of value.slice(start)) yield { glyph };
 }
@@ -125,27 +165,26 @@ function gridSprite(grid, width, height) {
 }
 
 const sprites = new Map();
-function emojiSprite(glyph, size) {
+function emojiSprite(glyph, size, atlasIndex) {
   const key = size + "/" + glyph;
   if (sprites.has(key)) return sprites.get(key);
   let sprite = null;
   const grid = pixelGlyph(glyph);
   if (grid) sprite = gridSprite(grid, glyphWidth(glyph, size), size);
-  else try {
-    const canvas = new OffscreenCanvas(size, size);
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    ctx.font = size + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-    const metrics = ctx.measureText(glyph);
-    const w = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
-    const h = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-    if (w && h) {
-      const scale = Math.min(1, size / w, size / h);
-      ctx.scale(scale, scale);
-      ctx.fillText(glyph, (size / scale - w) / 2 + metrics.actualBoundingBoxLeft,
-        (size / scale - h) / 2 + metrics.actualBoundingBoxAscent);
-      sprite = { width: size, height: size, pixels: ctx.getImageData(0, 0, size, size).data };
+  else {
+    const base = atlasSprite(atlasIndex);
+    if (base && base.height === size) sprite = base;
+    else if (base) {
+      const pixels = new Uint8ClampedArray(size * size * 4);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const src = (Math.floor(y * base.height / size) * base.width + Math.floor(x * base.width / size)) * 4;
+          pixels.set(base.pixels.subarray(src, src + 4), (y * size + x) * 4);
+        }
+      }
+      sprite = { width: size, height: size, pixels };
     }
-  } catch { /* The piece can also run in a worker without a canvas font backend. */ }
+  }
   if (sprites.size >= 256) sprites.delete(sprites.keys().next().value);
   sprites.set(key, sprite);
   return sprite;
@@ -157,8 +196,8 @@ export function emojiMetrics(text, font, height) {
   const width = (value) => {
     let start = 0, pixels = 0;
     for (const m of emojiMatches(value)) {
-      pixels += text.width(value.slice(start, m.index), font) + advance(m[0]);
-      start = m.index + m[0].length;
+      pixels += text.width(value.slice(start, m.index), font) + advance(m.glyph);
+      start = m.index + m.glyph.length;
     }
     return pixels + text.width(value.slice(start), font);
   };
@@ -189,7 +228,7 @@ export function emojiMetrics(text, font, height) {
       for (const m of emojiMatches(value)) {
         copy(m.index);
         starts.push(start);
-        const w = advance(m[0]);
+        const w = advance(m.glyph);
         if (!markers.has(w)) {
           while (value.includes(String.fromCharCode(marker))) marker++;
           const placeholder = String.fromCharCode(marker++);
@@ -197,7 +236,7 @@ export function emojiMetrics(text, font, height) {
           advances.set(placeholder, w);
         }
         compact += markers.get(w);
-        start += m[0].length;
+        start += m.glyph.length;
       }
       copy(value.length);
       starts.push(value.length);
@@ -231,15 +270,15 @@ export function emojiMetrics(text, font, height) {
         for (const m of emojiMatches(part)) {
           write(part.slice(start, m.index));
           if (!shadow) {
-            const sprite = emojiSprite(m[0], size);
+            const sprite = emojiSprite(m.glyph, size, m.atlasIndex);
             if (sprite) api.paste(sprite, x, y, scale);
             else {
               if (ink !== undefined) api.ink(ink);
               api.write("?", { x, y, size: scale }, false, undefined, false, font);
             }
           }
-          x += advance(m[0]) * scale;
-          start = m.index + m[0].length;
+          x += advance(m.glyph) * scale;
+          start = m.index + m.glyph.length;
         }
         write(part.slice(start));
       }
@@ -257,17 +296,17 @@ export function emojiDraftLayout(value, prompt) {
   const lineHeight = size + 1;
   let at = 0, px = 0, x = 0, y = 0;
   function nextLine() { px = 0; x = 0; y++; }
-  function add(glyph, emoji = false) {
+  function add(glyph, emoji = false, atlasIndex) {
     const newline = glyph === "\n";
     const width = newline ? 0 : emoji ? glyphWidth(glyph, size) + 1 : typeface.getAdvance(glyph);
     if (px && px + width > gutter - prompt.letterWidth) nextLine();
     const cell = { start: at, end: at + glyph.length, x, y, left: px, width, top: y * lineHeight + (emoji ? 0 : Math.floor((lineHeight - letterHeight) / 2)),
-      height: emoji ? lineHeight : letterHeight, glyph, bitmap: emoji ? emojiSprite(glyph, size) : null };
+      height: emoji ? lineHeight : letterHeight, glyph, bitmap: emoji ? emojiSprite(glyph, size, atlasIndex) : null };
     cells.push(cell);
     at = cell.end;
     if (newline) nextLine(); else { px += width; x++; }
   }
-  for (const { glyph, emoji } of displayGlyphs(value)) add(glyph, emoji);
+  for (const { glyph, emoji, atlasIndex } of displayGlyphs(value)) add(glyph, emoji, atlasIndex);
   cells.push({ start: at, end: at, x, y, left: px, width: prompt.letterWidth, top: y * lineHeight + Math.floor((lineHeight - letterHeight) / 2), glyph: "" });
   return cells;
 }

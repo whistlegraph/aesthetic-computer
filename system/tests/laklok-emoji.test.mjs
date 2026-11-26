@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { atlasKeys } from "../public/aesthetic.computer/disks/common/emoji-atlas/atlas.mjs";
 import { Prompt } from "../public/aesthetic.computer/lib/type.mjs";
 import { emojiDraftLayout, emojiMetrics, hasEmoji } from "../public/aesthetic.computer/disks/common/laklok-emoji.mjs";
 
@@ -35,11 +36,54 @@ test("the shaped draft wraps and moves the caret over whole UTF-16 clusters", ()
   assert.equal(prompt.cells, null);
 });
 
-test("missing canvas fonts reserve the same width before following text", () => {
+test("atlas pixels draw before following bitmap text without a canvas", () => {
   const draws = [];
-  const api = { ink() { return this; }, write(value, pos) { draws.push([value, pos.x]); } };
+  const api = {
+    ink() { return this; },
+    write(value, pos) { draws.push([value, pos.x]); },
+    paste(sprite, x) { draws.push([sprite.width, x]); },
+  };
   emojiMetrics(text, null, 10).paint(api, "A💙B", 4, 0, "white");
-  assert.deepEqual(draws, [["A", 4], ["?", 10], ["B", 27]]);
+  assert.deepEqual(draws, [["A", 4], [16, 10], ["B", 27]]);
+});
+
+test("each official entry paints as one nonempty sprite on its first draw", () => {
+  const metrics = emojiMetrics(text, null, 10);
+  assert.equal(new Set(atlasKeys).size, 3963 + 9); // Unicode 18 fully-qualified entries and components.
+  for (const glyph of atlasKeys) {
+    let count = 0;
+    metrics.paint({ paste(sprite) {
+      count++;
+      assert.equal(sprite.height, 16, glyph);
+      assert.ok(sprite.pixels.some((channel, i) => i % 4 === 3 && channel > 0), glyph);
+    } }, glyph, 0, 0);
+    assert.equal(count, 1, glyph);
+  }
+});
+
+test("presentation selectors preserve text while qualified and unqualified sequences share a cell", () => {
+  const metrics = emojiMetrics(text, null, 10);
+  for (const plain of ["©", "♥", "1", "#", "🦃︎", "🪼︎"]) assert.equal(hasEmoji(plain), false);
+  for (const [variant, canonical] of [["#⃣", "#️⃣"], ["👁‍🗨", "👁️‍🗨️"], ["🦃️", "🦃"]]) {
+    assert.equal(metrics.width(variant), metrics.width(canonical));
+    assert.ok(hasEmoji(variant));
+  }
+});
+
+test("atlas artwork scales with nearest-neighbor pixels", () => {
+  let sprite;
+  const api = { paste(bitmap) { sprite = bitmap; } };
+  emojiMetrics(text, null, 10).paint(api, "🫎", 0, 0);
+  const base = sprite;
+  emojiMetrics(text, null, 33).paint(api, "🫎", 0, 0);
+  assert.deepEqual([sprite.width, sprite.height], [32, 32]);
+  for (let y = 0; y < 32; y++) {
+    for (let x = 0; x < 32; x++) {
+      const i = (y * 32 + x) * 4;
+      const j = ((y >> 1) * 16 + (x >> 1)) * 4;
+      assert.deepEqual(sprite.pixels.subarray(i, i + 4), base.pixels.subarray(j, j + 4));
+    }
+  }
 });
 
 test("turkey has a colored pixel fan, face and wattle without a system font", () => {

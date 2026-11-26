@@ -39,7 +39,7 @@ Every implementation in the monorepo, with claimed conformance level and current
 
 | Runtime | Path | Decree claim | Status | Notes |
 |---|---|---|---|---|
-| **JS** (reference) | `system/public/aesthetic.computer/lib/kidlisp.mjs` | `'26: Core + Render + Audio` | shipping baseline | Canonical; web `(write "🦃" x y nil scale)` draws scalable color emoji alongside bitmap text; local opt-in execution controls and numeric-plan tooling are experimental (see §9) |
+| **JS** (reference) | `system/public/aesthetic.computer/lib/kidlisp.mjs` | `'26: Core + Render + Audio` | shipping baseline | Canonical; web `(write "🦃" x y nil scale)` draws the full Unicode Emoji 18.0 set alongside bitmap text, using bundled Noto sprites and five AC pixel drawings; local opt-in execution controls and numeric-plan tooling are experimental (see §9) |
 | **Common Lisp** (AC Native) | `fedac/native/cl/kidlisp-*.lisp` | `'26: Core + Render` (target) | in progress | Tree-walker, DRM/KMS framebuffer; replacing QuickJS path |
 | **Swift** (Menuband) | `slab/menuband/` | `'26: Core + Render` (planned) | not started | This document's motivating port; Metal blit + CPU framebuffer |
 | **WASM** | `kidlisp-wasm/`; `lib/kidlisp-plan-wasm.mjs` | unclaimed | experimental | Existing f32 renderer compiler; separate f64 `numeric-v1` backend preserves audited JS arithmetic (§9) |
