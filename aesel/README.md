@@ -453,5 +453,13 @@ machine is free, queues if it is busy, and with `"urgency": "urgent"` interrupts
 the running turn and goes first. `/inbox` shows the pending count and the last
 few delivered. Nothing on this path types into the terminal.
 
+`/agents` (alias `/fleet`) is the small interface for other sessions. Aesel has
+no subagent loop of its own; `agents.mjs` is a client for the Slab prox daemon
+on `127.0.0.1:7773`, which already lists, launches, messages and closes Claude,
+Codex and Aesel sessions across the fleet. `/agents` lists them, waiting ones
+first and numbered; `/agents send N text`, `poke N`, `close N`, `show N` act on
+a row; `/agents new [claude|codex|aesel] [@host] [prompt]` starts one. Not in
+pro mode. The daemon keeps its own refusals.
+
 One transcript per session, whichever engine wrote it, lands under
 `~/.local/share/aesel/transcripts/<session>/` as `events.jsonl` + `meta.json`.

@@ -13,6 +13,7 @@ export function aboutMap() {
     "MEASURE /performance · headless logic · /energy · estimated electricity",
     "WORK    /artifacts · /select UUID · /artifact",
     "RUN     !npm start · or just npm start · /jobs · /kill · no braincells",
+    "FLEET   /agents · list, send, poke, close, new sessions across machines",
     "OUTPUT  /open · /export FILE · Pieces: /publish · /qr",
     "ACCOUNT /login · /profile · /logout",
     "PRIVACY /sharing · /transcript export FILE.easel",

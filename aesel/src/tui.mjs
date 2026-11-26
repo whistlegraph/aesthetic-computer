@@ -31,6 +31,7 @@ import {captureFrame} from "./preview-frame.mjs";
 import {inputPixels} from './input-pixels.mjs';
 import {API_WORKFLOW} from "./api-context.mjs";
 import {harnessText} from "./harness-text.mjs";
+import {Agents} from "./agents.mjs";
 
 import { execFileSync, spawn } from "node:child_process";
 import { homedir } from "node:os";
@@ -3044,7 +3045,7 @@ async function submitInput(submittedText, submittedMessages = null) {
         "notice",
         pro
           ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /printer NAME · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /agents · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /printer NAME · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }
@@ -3087,6 +3088,12 @@ async function submitInput(submittedText, submittedMessages = null) {
     }
     if (command === "/inbox") {
       addEntry("notice", inboxReport());
+      return redraw();
+    }
+    if (command === "/agents" || command === "/fleet") {
+      if (pro) { addEntry("notice", `${command} · not in pro mode`); return redraw(); }
+      try { addEntry("notice", await fleetAgents.run(rest, { width: Math.max(40, (process.stdout.columns || 100) - 4) })); }
+      catch (error) { addEntry("notice", `/agents · ${error.message}`); }
       return redraw();
     }
     // The piece studio's commands have nothing to act on in pro, and nothing
@@ -3298,6 +3305,7 @@ async function submitInput(submittedText, submittedMessages = null) {
 // What `/inbox` says: how many lines wait in the file, and the last few that
 // were delivered — read off the inbox's own files rather than remembered, so
 // it agrees with what a sender's `peek` would see.
+const fleetAgents = new Agents();
 function inboxReport() {
   const lines = (file) => {
     try {

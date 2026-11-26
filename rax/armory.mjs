@@ -74,14 +74,18 @@ const LOBBY = [-0.5, 0, 0.5].map((dz, i) => ({ id: `house-gun-${i + 1}`, x: DISP
 const EAST = [-0.6, 0, 0.6].map((dx, i) => ({ id: `house-gun-e${i + 1}`, x: dx, z: -2 }));
 const EAST_TARGETS = [-3, 3].map((x, i) => ({ id: `house-target-e${i + 1}`, x, z: 7 }));
 const EAST_ZOMBIES = [-1, 1].map((x, i) => ({ id: `house-zombie-e${i + 1}`, x, z: 5 }));
+// 🧟 The lobby's range: along the plaza's east wall, in line with the rack, clear of the planters and the spawn ring.
+const RANGE_ZOMBIES = [-5, -3].map((z, i) => ({ id: `house-zombie-${i + 1}`, x: 7, z }));
+const RANGE_TARGETS = [-6.7, -1.3].map((z, i) => ({ id: `house-target-${i + 1}`, x: 7, z }));
 
 // A room's house things, shaped as the store lists a room's things.
 export function rackFor(room) {
   const gun = (s) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: 'shoot', effect: null, house: true,
     version: 0, code: 'qrr', geometry: pistol(), first: '$qrr' });
-  if (room === RACK_ROOM) return LOBBY.map(gun);
   const target = (s, geometry, first) => ({ id: s.id, owner: HOUSE, x: s.x, z: s.z, item: null,
     target: true, effect: null, house: true, version: 0, code: null, geometry, first });
+  if (room === RACK_ROOM) return [...LOBBY.map(gun), ...RANGE_TARGETS.map((s) => target(s, scarecrow(), 'a scarecrow')),
+    ...RANGE_ZOMBIES.map((s) => target(s, zombie(), 'a zombie'))];
   if (room === 'east') return [...EAST.map(gun), ...EAST_TARGETS.map((s) => target(s, scarecrow(), 'a scarecrow')),
     ...EAST_ZOMBIES.map((s) => target(s, zombie(), 'a zombie'))];
   return [];

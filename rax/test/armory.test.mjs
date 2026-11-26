@@ -15,7 +15,7 @@ test('the lobby lists three house guns beside the dispenser; other rooms none', 
   try {
     const s = new ObjectStore(dir);
     await s.load();
-    const guns = s.objects('lobby').filter((o) => o.house);
+    const guns = s.objects('lobby').filter((o) => o.house && o.item);
     assert.equal(guns.length, 3);
     assert.ok(guns.every((g) => g.item === 'shoot' && g.geometry?.name === 'Pistol'));
     assert.equal(s.stored('lobby').length, 0, 'not counted as built things');
@@ -92,5 +92,15 @@ test('the east room stands scarecrows and zombies as targets', () => {
   assert.deepEqual(list.map((o) => o.geometry.name).sort(), ['Scarecrow', 'Scarecrow', 'Zombie', 'Zombie']);
   const m = new Match();
   m.setObjects(rackFor('east'));
+  assert.equal(m.targets.length, 4);
+});
+
+// 🧟 The lobby's range: scarecrows and zombies in the plaza, clear of the dispenser and planters.
+test('the lobby stands two scarecrows and two zombies along the east wall', () => {
+  const list = rackFor('lobby').filter((o) => o.target);
+  assert.deepEqual(list.map((o) => o.geometry.name).sort(), ['Scarecrow', 'Scarecrow', 'Zombie', 'Zombie']);
+  assert.ok(list.every((o) => o.x > 6 && o.z < -1 && Math.hypot(o.x - 3, o.z + 5) > 2), 'on the east side, clear of the dispenser');
+  const m = new Match();
+  m.setObjects(rackFor('lobby'));
   assert.equal(m.targets.length, 4);
 });
