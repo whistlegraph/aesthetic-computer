@@ -26,7 +26,7 @@ export function createKiosks({ directory = null, limit = KIOSK_EVENTS, later = (
     for (const [room, panels] of Object.entries(was || {}))
       for (const [id, k] of Object.entries(panels || {}))
         if (Number.isInteger(k?.total) && Array.isArray(k.events))
-          ((rooms[room] ||= {})[id] = { total: k.total, events: k.events.filter((e) => Array.isArray(e) && NAMES.has(e[0])).slice(-limit), ...(Number.isInteger(k.epoch) ? { epoch: k.epoch } : {}) });
+          ((rooms[room] ||= {})[id] = { total: k.total, events: k.events.filter((e) => Array.isArray(e) && NAMES.has(e[0])).slice(-limit), ...(Number.isInteger(k.epoch) ? { epoch: k.epoch } : {}), ...(k.settings ? { settings: k.settings } : {}) });
   } catch {} // none kept yet
   let saved = Promise.resolve(), waiting = false, text = '';
   const keep = () => {
@@ -49,6 +49,11 @@ export function createKiosks({ directory = null, limit = KIOSK_EVENTS, later = (
       k.total++;
       k.events.push(finger === 1 ? [name, x, y, seat] : [name, x, y, seat, finger]);
       if (k.events.length > limit) k.events.splice(0, k.events.length - limit);
+      if (!waiting) { waiting = true; later(keep, 5000); }
+    },
+    settings(room, id, settings) {
+      const k = ((rooms[room] ||= {})[id] ||= { total: 0, events: [] });
+      k.settings = settings;
       if (!waiting) { waiting = true; later(keep, 5000); }
     },
     // ↻ A piece begun again (its name over the kiosk was pressed): what was done to it is forgotten, and its `epoch` goes up by one, so a page that comes later, or was away, begins its own copy again too before doing what has been done since.

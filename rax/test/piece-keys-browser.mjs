@@ -23,6 +23,11 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(`http://127.0.0.1:${app.server.address().port}/?debug&room=lobby`);
   await page.waitForFunction(() => window.raxDebug?.().player && raxDebug().panels.includes('yard-notepat'));
+  const listener = await browser.newPage({ viewport: { width: 800, height: 500 } });
+  listener.on('pageerror', e => errors.push(e.message));
+  await listener.goto(page.url());
+  await listener.waitForFunction(() => window.raxDebug?.().panels.includes('yard-notepat'));
+  await listener.keyboard.press('KeyH'); // unlock the second listener's audio
   const sample = () => page.evaluate(() => raxDebug());
   const until = (what, f, arg) => page.waitForFunction(f, arg).catch(async (e) => { const d = await sample(); throw Error(`${what}: ${e.message.split('\n')[0]} · ${JSON.stringify({ focus: d.focus, lock: d.lock, dock: d.dock && { id: d.dock.id, t: d.dock.t, way: d.dock.way }, inside: d.inside, player: d.player })}`); });
   const board = kioskPlan('lobby').find((k) => k.id === 'yard-notepat');
@@ -49,6 +54,8 @@ try {
   // A note held: the piece has the key (its picture shows it), and the body has not taken a step for it.
   await page.keyboard.down('KeyA');
   await until('note held and shown', (quiet) => raxDebug().inside?.keys.includes('KeyA') && raxDebug().inside.ink !== quiet, quiet);
+  await until('local sound', () => raxDebug().notepatVoices > 0);
+  await listener.waitForFunction(() => raxDebug().notepatVoices > 0);
   const held = await sample();
   assert.ok(Math.hypot(held.player.x - at.x, held.player.z - at.z) < 0.05, 'the body stood still');
   await page.keyboard.press('Control+z');
@@ -56,6 +63,7 @@ try {
   await page.keyboard.press('KeyZ');
   await until('Z leaves the screen', () => !raxDebug().dock && !raxDebug().inside);
   await page.keyboard.up('KeyA');
+  await listener.waitForFunction(() => raxDebug().notepatVoices === 0);
   await until('board in view again', () => raxDebug().focus === 'panel:yard-notepat');
   await page.keyboard.press('KeyZ');
   await until('Z refocuses with no held notes', () => raxDebug().inside?.keys.length === 0);

@@ -156,3 +156,36 @@ test('a walk over a line with a house gun in hand keeps it in hand in the next r
   assert.ok(!app.store.objects('lobby').some((o) => o.id === 'house-gun-1'), 'off the rack while carried');
   assert.ok(app.store.objects('e1n0').some((o) => o.id === 'house-gun-1'), 'listed where it is');
 });
+
+test('the communal Notepat shares keys, sound, settings and its current screen with late listeners', async t => {
+  const { connect } = await fixture(t);
+  const a = await connect('lobby'), b = await connect('lobby');
+  const watch = async player => {
+    player.say({ type: 'notepat-watch' });
+    await wait(() => player.messages.some(m => m.type === 'notepat-frame'));
+  };
+  const key = (p, key, way) => p.say({ type: 'notepat-key', way, key, code: (/\d/.test(key) ? 'Digit' : 'Key') + key.toUpperCase() });
+  const sound = p => p.messages.findLast(m => m.type === 'notepat-sound');
+  await watch(a);
+  // The first player changes the patch, then holds a note.
+  key(a, '5', 'down'); key(a, '5', 'up');
+  key(a, 'a', 'down');
+  await wait(() => sound(a)?.voices.length === 1);
+  const first = sound(a).voices[0];
+  assert.equal(first.program, 4);
+  await watch(b);
+  await wait(() => sound(b)?.voices.length === 1);
+  assert.deepEqual(sound(b).voices, [first]);
+  // Two hands on A count as one physical key. B adds a different note.
+  key(b, 'a', 'down'); key(b, 's', 'down');
+  await wait(() => sound(a)?.voices.length === 2 && sound(b)?.voices.length === 2);
+  assert.deepEqual(sound(a), sound(b), 'one chord and one playback timestamp');
+  key(a, 'a', 'up');
+  key(a, 'd', 'down');
+  await wait(() => sound(b)?.voices.length === 3);
+  a.ws.close();
+  await wait(() => sound(b)?.voices.length === 2);
+  assert.ok(sound(b).voices.some(v => v.id === first.id));
+  key(b, 'a', 'up'); key(b, 's', 'up');
+  await wait(() => sound(b)?.voices.length === 0);
+});

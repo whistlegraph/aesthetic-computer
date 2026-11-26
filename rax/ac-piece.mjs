@@ -64,6 +64,7 @@ async function notepatControls(base, sound, tell) {
     createMidi: () => ({ state: () => ({ supported: false, connected: false, inputs: [], outputs: [], inputId: 'all', outputId: '', channel: 0 }),
       connect: none, selectInput: none, selectOutput: none, selectChannel: none, program: none, noteOn: none, noteOff: none, panic: none, disconnect: none }),
     createGm(options) {
+      if (sound.createGm) return sound.createGm(options);
       const gm = createGmBridge(options), held = new Map();
       return {
         ...gm,
@@ -161,7 +162,7 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   const when = (f) => f && (($) => { if (!booting) { last = $; f($); } });
   const sim = ($) => { if (booting) return; last = $; deliver(); disk.sim?.($); };
   const leave = ($) => { disk.leave?.($); controls?.dispose(); };
-  return { slug, piece: { boot, paint: when(disk.paint), sim, leave, act, keys: true }, host, ready: () => ready }; // (keys: an AC disk hears a keyboard)
+  return { slug, instrumentSettings: disk.instrumentSettings, piece: { boot, paint: when(disk.paint), sim, leave, act, keys: true }, host, ready: () => ready }; // (keys: an AC disk hears a keyboard)
 }
 
 // 🎹 A big notepat surface: notepat's two classic octaves of pads, laid out

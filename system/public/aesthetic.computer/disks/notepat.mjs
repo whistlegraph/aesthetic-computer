@@ -8626,4 +8626,22 @@ function averageRGB(colors) {
     .map((sum) => round(sum / colors.length));
 }
 
+// A shared instrument can restore its controls after its host restarts.
+export function instrumentSettings(saved) {
+  if (saved && autopatApi) {
+    if (wavetypes.includes(saved.wave)) { wave = saved.wave; waveIndex = wavetypes.indexOf(wave); }
+    if (Number.isInteger(saved.program)) gmProgram = Math.max(0, Math.min(127, saved.program));
+    if (typeof saved.local === "boolean") localSoundEnabled = saved.local;
+    if (/^[0-9]$/.test(saved.octave)) octave = String(saved.octave);
+    if (["piano", "grid"].includes(saved.layout)) mainLayout = saved.layout;
+    if (Number.isInteger(saved.upperOctaveShift)) upperOctaveShift = saved.upperOctaveShift;
+    if (Number.isInteger(saved.lowerOctaveShift)) lowerOctaveShift = saved.lowerOctaveShift;
+    setupButtons(autopatApi);
+    buildOctButton(autopatApi);
+    buildWaveButton(autopatApi);
+    syncInstrument();
+  }
+  return { wave, program: gmProgram, local: localSoundEnabled, octave, layout: mainLayout, upperOctaveShift, lowerOctaveShift };
+}
+
 export { boot, paint, sim, act, configureAutopat };

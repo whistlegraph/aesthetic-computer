@@ -7,6 +7,7 @@ import { phase as skyPhase, sunTimes } from './sky.mjs';
 import { rideable } from './bike.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls, atriumRoof } from './elevator.mjs';
+import { createNotepatScreen } from './notepat-screen.mjs';
 import { kioskPlan, kioskSigns, KIOSK_DEEP } from './kiosks-plan.mjs';
 import { createPanels, panelHit, fingertipHit, PANEL_REACH } from './panel.mjs';
 import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorStep, rates } from './dock.mjs';
@@ -244,7 +245,7 @@ function catchUp() {
   try {
     for (const panel of yardPanels) {
       const kept = yardKept[panel.id];
-      if (!kept || !panel.hear) continue;
+      if (!kept || !panel.hear || panel.id === 'yard-notepat') continue;
       // (Begun again by someone while this page was away: begin it again here first, then do what has been done since.)
       if ((kept.epoch || 0) > (panel.epoch || 0)) { if (panel.fresh) { void resetKiosk(panel.id, false, kept.epoch); continue; } panel.epoch = kept.epoch; }
       const todo = kept.total > (panel.done || 0) ? kept.events.slice(-Math.min(kept.events.length, kept.total - (panel.done || 0))) : [];
@@ -276,7 +277,7 @@ async function mountYard() {
     const { acPiece, signPiece } = await import('./ac-piece.mjs');
     const plan = kioskPlan('lobby');
     for (const { id, piece: slug, x, y, z, yaw, sign, ...face } of plan) {
-      if (id === 'yard-notepat') continue; // (the big board is mounted below, with its own voice and its stand-in)
+      if (id === 'yard-notepat') continue; // Its screen comes from the server.
       const sound = { synth: ({ type, tone, duration }) => {
         if (!kioskAudible(id, duration)) return QUIET;
         return yardVoice(id, sfx.hold(Number(tone), { type, at: { x, y, z } }), duration);
@@ -292,39 +293,15 @@ async function mountYard() {
     }
     // 🪧 And over a group of them, what they are (the song hall's `songs`).
     for (const { text, ...at } of kioskSigns('lobby')) yardPanels.push(panels.mount({ piece: signPiece(text), ...at, deep: 0.06 }));
-    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its piano keys (the layout a kiosk is kept at); the sound panel selects its oscillator voices or sampled GM instruments.
-    const { notepatPiece } = await import('./ac-piece.mjs');
-    const id = 'yard-notepat', spot = (({ x, z }) => ({ x, z }))(plan.find((k) => k.id === id)); // (where the plan stands it)
-    // (notepat says how loud each voice is: its composite is one loud partial and four faint ones.)
-    const at = { ...spot, y: 1.6 };
-    let sampleOutput;
-    const sound = {
-      synth({ type, tone, volume = 1, duration }) {
-        if (!kioskAudible(id, duration)) return QUIET;
-        return yardVoice(id, sfx.hold(Number(tone), { type, volume: 0.035 * Math.max(0, Math.min(1, Number(volume) || 0)), at }), duration);
-      },
-      sampleContext: () => sfx.audio,
-      sampleOutput: () => sampleOutput ??= sfx.sampleOutput(at),
-      holdSample: start => kioskAudible(id) && sfx.ready ? yardVoice(id, start()) : null,
-    };
-    // (If the disk does not load, the stand-in is mounted: notepat's pads, drawn here, on the smaller board they were made for.)
-    let board;
-    try {
-      const fresh = () => acPiece('notepat:sine', { sound, seed: id, clock: () => Date.now() + (clockOffset || 0), kept: { 'notepat:layout': 'piano' } });
-      const { piece, host, ready } = await fresh();
-      board = panels.mount({ id, label: 'notepat', completes: true, piece, host, ...spot, y: 1.6, yaw: 180, w: 4.8, h: 2.4, cols: 320, rows: 160, deep: 0.12 });
-      board.fresh = fresh;
-      await ready(); // (its boot waits on its store: nothing is heard by it until then, so what the room has kept is done after)
-    } catch (e) {
-      console.warn('rax: notepat itself did not load, so its stand-in is up:', e?.message || e);
-      if (board) panels.unmount(id);
-      board = panels.mount({ id, label: 'notepat', completes: true, piece: await notepatPiece({ sound }), ...spot, y: 1.5, yaw: 180, w: 4.8, h: 2, cols: 240, rows: 100, deep: 0.12 });
-    }
-    tendKiosk(board);
+    const boardSpec = plan.find(p => p.id === 'yard-notepat');
+    const board = panels.mount({ ...boardSpec, label: 'notepat', piece: { keys: true }, completes: true });
+    notepatScreen.mount(board);
     sharePanel(board);
     yardPanels.push(board);
-    // (Its name at its top left, as every piece on a panel has: pressed, the piece begins again.)
-    yardPanels.push(panels.mount({ id: `${id}-sign`, piece: signPiece('notepat', () => void resetKiosk(id, true)), x: spot.x - (board.w / 2 - 0.6), y: board.y + board.h / 2 + 0.17, z: spot.z, yaw: 180, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
+    const reset = () => send({ type: 'panel', id: board.id, name: 'reset', x: 0, y: 0 });
+    yardPanels.push(panels.mount({ id: board.id + '-sign', piece: signPiece('notepat', reset),
+      x: board.x - (board.w / 2 - 0.6), y: board.y + board.h / 2 + 0.17, z: board.z,
+      yaw: board.yaw, w: 1.2, h: 0.2, cols: 96, rows: 16, deep: 0.06 }));
     catchUp();
   } catch (e) { console.warn('rax: the yard\'s pieces did not load:', e?.message || e); }
 }
@@ -903,6 +880,11 @@ for (const type of ['pointerdown', 'pointermove']) {
   canvas.addEventListener(type, e => { pointerSource = e.pointerType === 'mouse' ? 'mouse' : 'touch'; });
 }
 const sfx = new Sfx();
+const notepatScreen = createNotepatScreen({
+  at: kioskPlan('lobby').find(p => p.id === 'yard-notepat'), sfx,
+  audible: () => room === 'lobby' && sheetOpen && !document.hidden,
+  clock: () => Date.now() + (clockOffset || 0) + (connection.rtt || 0) / 2, send: message => send(message),
+});
 // 🍎 AC's native app starts a page's sound itself once the page has booted (it may play with no gesture), by the word AC's own pages answer to. Standing alone, rax answers to it too, so its sound comes back after the app loads it afresh. (Under the prompt the prompt's page has the word.)
 try { if (window.parent === window && !window.AC) window.AC = { startAudio: () => { void sfx.wake(); return { state: sfx.audio?.state || 'suspended' }; } }; } catch {}
 // Two walls run real KidLisp: $roz on the far wall, $bop on the left.
@@ -1409,10 +1391,11 @@ let activeSeconds = 0; // Seconds of play this visit.
 const legendShown = () => seat >= 0;
 const send = (data) => {
   // 🧵 What is said of the body is said of a room: the socket stays when the body goes to the next, and a word for the room left is not the next one's.
-  if (data.type === 'input' || data.type === 'walk' || data.type === 'elevator' || data.type === 'panel') data = { ...data, in: room };
+  if (data.type === 'notepat-watch' || data.type === 'notepat-key' || data.type === 'input' || data.type === 'walk' || data.type === 'elevator' || data.type === 'panel') data = { ...data, in: room };
   if (
     ws?.readyState === WebSocket.OPEN &&
-    ws.bufferedAmount < (data.type === 'input' ? 65536 : 32768)
+    (ws.bufferedAmount < (data.type === 'input' ? 65536 : 32768) || data.type === 'notepat-watch' ||
+      (data.type === 'notepat-key' && data.way === 'up') || (data.type === 'panel' && data.name === 'lift'))
   ) {
     ws.send(JSON.stringify(data));
     return true;
@@ -1562,6 +1545,7 @@ if (query.has('debug'))
     inside: (() => { const p = keyPanel(); return p ? { id: p.id, keys: [...pieceKeys.keys()], ink: p.pixels.reduce((sum, v, i) => (sum + v * ((i % 251) + 1)) % 1000003, 0) } : null; })(), // ⌨️ the piece that has the keyboard, the keys it holds, and a sum of its picture
     whirr: { ...whirr, gains: sfx.servos ? sfx.servos.map((s) => s.out.gain.value) : null }, // (the servos' rates asked for, and how loud each stands)
     eye: seat < 0 ? { x: freecam.x, y: freecam.y, z: freecam.z } : null,
+    notepatVoices: notepatScreen.voices,
     panels: panels.list.filter((p) => !p.hidden).map((p) => p.id),
     cursorAim,
     canvas: { w: canvas.width, h: canvas.height, cw: canvas.clientWidth, ch: canvas.clientHeight },
@@ -1636,6 +1620,8 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
     departing.tiles = tiles;
   }
   for (const id of screenFingers.keys()) endScreenFinger(id, null);
+  liftPieceKeys();
+  notepatScreen.leave();
   room = to;
   if (riding) {
     // 🛗 The car leaves at once and the next floor is already known: the
@@ -1909,7 +1895,12 @@ function connect(adopt = null) {
       return;
     }
     // 👥 Someone else's hand on a kiosk: its piece hears their pointer, numbered by their seat.
+    if (data.type === 'notepat-sound' || data.type === 'notepat-frame') {
+      if (room === 'lobby') notepatScreen.receive(data);
+      return;
+    }
     if (data.type === 'panel') {
+      if (data.id === 'yard-notepat') return;
       const panel = yardPanels.find((p) => p.id === data.id);
       if (data.name === 'reset') { if (yardKept?.[data.id]) yardKept[data.id] = { total: 0, events: [], epoch: (panel?.epoch || 0) + 1 }; return void resetKiosk(data.id); }
       panel?.hear?.(data.name, data.x, data.y, remotePointer(data.seat, data.finger));
@@ -1917,7 +1908,7 @@ function connect(adopt = null) {
       return;
     }
     // 🧩 Where the room's pieces stand: what this page's copies have not had done to them is done now, silently.
-    if (data.type === 'panels') { if (room === 'lobby') { yardKept = data.kept || {}; catchUp(); } return; }
+    if (data.type === 'panels') { if (room === 'lobby') { yardKept = data.kept || {}; catchUp(); send({ type: 'notepat-watch' }); } return; }
     // 👀 Who walks the rooms around this one, in this room's metres.
     if (data.type === 'beyond') {
       const now = performance.now(), next = new Map();
@@ -2202,6 +2193,7 @@ function connect(adopt = null) {
   };
   socket.onclose = (e) => {
     if (socket !== ws) return;
+    notepatScreen.leave();
     if (parked || socket.left) {
       // Our own leave: drop the seat quietly; the room stays as it was seen.
       seat = -1;
@@ -2716,6 +2708,7 @@ function releaseInput({ keepKeys = false } = {}) {
   panels.release();
   yardQuiet();
   if (keepKeys) return;
+  liftPieceKeys();
   keys.clear();
   firing = jumpQueued = fireQueued = false;
 }
@@ -3058,6 +3051,7 @@ function cancelBumper() {
 }
 window.addEventListener('blur', () => { cancelBumper(); releaseInput(); liftPieceKeys(); });
 document.addEventListener('visibilitychange', () => {
+  notepatScreen.visibility();
   cancelBumper();
   diagnostics.reset();
   releaseInput();
@@ -4073,6 +4067,7 @@ function step(now, xr) {
     corner: sheetOpen && !down && !film,
     screens: sceneScreens,
     screenPrograms,
+    notepatVoices: notepatScreen.voices,
     panels: panels.list.filter((p) => !p.hidden).concat(sceneryPanels),
     bare: !!xr || !sheetOpen || !sheetShown || down || !!film || !!idleShot,
     held: {

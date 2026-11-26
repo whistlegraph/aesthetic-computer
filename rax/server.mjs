@@ -33,6 +33,7 @@ import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG } from 
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
+import { createCommunalNotepat } from './communal-notepat.mjs';
 import { createKiosks } from './kiosks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -88,6 +89,7 @@ const assets = new Map([
     'bop',
     'games',
     'elevator', 'basement',
+    'notepat-screen',
     'kiosks-plan', // 🧩 which kiosks stand where
     'panel', // 🖼️ world panels, and the pieces on them
     'dock', // 🖥️ going in to a screen: its sums
@@ -835,6 +837,7 @@ export function createRaxServer({
       ws.close(1013, 'Connection too slow');
       return;
     }
+    if (data.type === 'role' && data.seat < 0) notepat.release(ws);
     if (diagnostics.enabled && ws.diagnosticJobs &&
       ['objects', 'build-accepted', 'build-result'].includes(data.type)) {
       const now = Date.now();
@@ -1132,6 +1135,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     // 👥 Leaving with a hand still on a kiosk: the room is told it was let go.
     const pressing = new Map();
     const letGo = () => {
+      notepat.leave(ws);
       for (const [finger, id] of pressing) {
         const word = JSON.stringify({ type: 'panel', id, seat: member.seat, finger, name: 'lift', x: -1, y: -1 });
         kiosks.record(key, id, 'lift', -1, -1, member.seat, finger);
@@ -1481,12 +1485,20 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       // 👥 A press on a world panel (a kiosk: panel.mjs) is told to everyone else in the room, with whose it is, so the piece on it is worked by all of them together.
+      if (data?.type === 'notepat-watch' || data?.type === 'notepat-key') {
+        if (key !== 'lobby') return;
+        if (data.type === 'notepat-watch') notepat.watch(ws);
+        else if (member.seat >= 0) notepat.key(ws, data);
+        return;
+      }
       if (data?.type === 'panel') {
         // (Only a kiosk that stands in this room: kiosks-plan.mjs. Any other id is dropped.)
         if (member.seat < 0 || typeof data.id !== 'string' || !kioskPlan(key).some((k) => k.id === data.id) || !['touch', 'draw', 'lift', 'reset'].includes(data.name) || !Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
         // ↻ The kiosk's name was pressed: its piece begins again, for everyone here and whoever comes later.
         if (data.name === 'reset') {
-          kiosks.reset(key, data.id);
+          if (data.id === 'yard-notepat') {
+            if (!notepat.reset()) return;
+          } else kiosks.reset(key, data.id);
           const again = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, name: 'reset', x: -1, y: -1 });
           for (const client of room.clients.keys()) if (client !== ws) sendText(client, again);
           return;
@@ -1499,6 +1511,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         } else if (pressing.get(finger) !== data.id) return;
         if (data.name === 'lift') pressing.delete(finger);
         const px = clamp(Math.round(data.x), -1, 1024), py = clamp(Math.round(data.y), -1, 1024);
+        if (data.id === 'yard-notepat') notepat.pointer(ws, data.name, finger, px, py);
         kiosks.record(key, data.id, data.name, px, py, member.seat, finger); // 🧩 kept, so the piece is one piece for whoever comes later (kiosks.mjs)
         const word = JSON.stringify({ type: 'panel', id: data.id, seat: member.seat, finger, name: data.name, x: px, y: py });
         for (const client of room.clients.keys()) if (client !== ws) sendText(client, word);
@@ -1782,6 +1795,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   // It lies where it was left: kept in the state directory when it comes to
   // rest, every few seconds while it rolls, and when the server closes.
   const kiosks = createKiosks({ directory: stateDir }); // 🧩 what has been done to the pieces on the panels
+  const notepat = createCommunalNotepat({ kiosks, send, sendText });
   const ballFile = stateDir && resolve(stateDir, 'ball.json');
   let ballSaved = Promise.resolve(), ballRolling = false, ballKeptAt = 0, ballLinkTick = 0;
   const keepBall = () => {
@@ -2058,6 +2072,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       await tower.queue;
       await walks.close();
       await keepBall();
+      await notepat.close();
       await kiosks.keep();
       await keepFlights();
       if (server.listening)

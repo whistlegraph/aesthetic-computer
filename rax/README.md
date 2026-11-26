@@ -38,6 +38,8 @@ The east side inside the plaza lobby has stairs marked B1. Walk down into the ba
 
 **Touch.** Drag on the left to move. Drag on the right or turn your phone to look. If the browser asks for motion access after your first touch, allow it to use gyro look. Touch or drag directly on a screen. Each finger controls its own contact, so you can hold one note on a kiosk while sliding another. Tap the colored block at the upper left to return to the prompt.
 
+The courtyard Notepat is one instrument for the lobby. Touch its keys, or aim at it and press Z to play from your keyboard. Press Z again to step away. Other players see the same screen and hear the chord from the board. Joining mid-note picks up the held notes. The server remembers the instrument, octave and layout across restarts.
+
 **Controller:** A jumps. Squeeze LT to zoom up to 2.5×. Screens sharpen and objects gain detail as they would if you walked closer. Aim at a screen and press RB once to go in (X as a drone).
 On other objects the same button locks on. The right stick moves the reticle within
 the selected target. Releasing the stick leaves it in place. While focused on a screen, tilt the left stick to look around and release it to recenter the view. Click the stick to toggle an extra 2× zoom. It combines with LT for up to 5× and resets when you leave the screen. RT presses or holds

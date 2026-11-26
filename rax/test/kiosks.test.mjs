@@ -52,3 +52,39 @@ test('a piece begun again forgets what was done to it and counts its beginnings'
   k.reset('lobby', 'yard-9');
   assert.equal(k.of('lobby')['yard-9'].epoch, 1, 'one never touched can be begun again too');
 });
+
+test('the server restores Notepat settings across restarts and starts with all keys released', async t => {
+  const { createCommunalNotepat } = await import('../communal-notepat.mjs');
+  const { rm } = await import('node:fs/promises');
+  const { setTimeout: delay } = await import('node:timers/promises');
+  const directory = await mkdtemp(join(tmpdir(), 'rax-instrument-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const ws = {};
+  function open() {
+    const kiosks = createKiosks({ directory, later() {} });
+    const messages = [];
+    const device = createCommunalNotepat({ kiosks, send: (_, m) => messages.push(m),
+      sendText: (_, text) => messages.push(JSON.parse(text)) });
+    device.watch(ws);
+    return { device, messages, async close() { device.leave(ws); await device.close(); await kiosks.keep(); } };
+  }
+  async function waitFor(check) {
+    for (let i = 0; i < 200; i++) { if (check()) return; await delay(10); }
+    assert.fail('timed out waiting for Notepat');
+  }
+  const a = open();
+  try {
+    await waitFor(() => a.messages.some(m => m.type === 'notepat-frame'));
+    a.device.key(ws, { way: 'down', key: '7', code: 'Digit7' });
+    a.device.key(ws, { way: 'up', key: '7', code: 'Digit7' });
+    a.device.key(ws, { way: 'down', key: 'a', code: 'KeyA' });
+    await waitFor(() => a.messages.some(m => m.voices?.[0]?.program === 6));
+  } finally { await a.close(); }
+  const b = open();
+  try {
+    await waitFor(() => b.messages.some(m => m.type === 'notepat-frame'));
+    assert.ok(b.messages.every(m => !m.voices?.length));
+    b.device.key(ws, { way: 'down', key: 's', code: 'KeyS' });
+    await waitFor(() => b.messages.some(m => m.voices?.[0]?.program === 6));
+  } finally { await b.close(); }
+});
