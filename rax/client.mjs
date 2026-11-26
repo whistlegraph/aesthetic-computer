@@ -292,14 +292,21 @@ async function mountYard() {
     }
     // 🪧 And over a group of them, what they are (the song hall's `songs`).
     for (const { text, ...at } of kioskSigns('lobby')) yardPanels.push(panels.mount({ piece: signPiece(text), ...at, deep: 0.06 }));
-    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its piano keys (the layout a kiosk is kept at); its mode bar's buttons work, and what its sound panel chooses is played by the one voice there is here.
+    // 🎹 The big notepat board: across the courtyard's south-west side, facing the tower. It is AC's own notepat (disks/notepat.mjs), opened as `notepat:sine` on its piano keys (the layout a kiosk is kept at); the sound panel selects its oscillator voices or sampled GM instruments.
     const { notepatPiece } = await import('./ac-piece.mjs');
     const id = 'yard-notepat', spot = (({ x, z }) => ({ x, z }))(plan.find((k) => k.id === id)); // (where the plan stands it)
     // (notepat says how loud each voice is: its composite is one loud partial and four faint ones.)
-    const sound = { synth: ({ type, tone, volume = 1, duration }) => {
-      if (!kioskAudible(id, duration)) return QUIET;
-      return yardVoice(id, sfx.hold(Number(tone), { type, volume: 0.035 * Math.max(0, Math.min(1, Number(volume) || 0)), at: { ...spot, y: 1.6 } }), duration);
-    } };
+    const at = { ...spot, y: 1.6 };
+    let sampleOutput;
+    const sound = {
+      synth({ type, tone, volume = 1, duration }) {
+        if (!kioskAudible(id, duration)) return QUIET;
+        return yardVoice(id, sfx.hold(Number(tone), { type, volume: 0.035 * Math.max(0, Math.min(1, Number(volume) || 0)), at }), duration);
+      },
+      sampleContext: () => sfx.audio,
+      sampleOutput: () => sampleOutput ??= sfx.sampleOutput(at),
+      holdSample: start => kioskAudible(id) && sfx.ready ? yardVoice(id, start()) : null,
+    };
     // (If the disk does not load, the stand-in is mounted: notepat's pads, drawn here, on the smaller board they were made for.)
     let board;
     try {

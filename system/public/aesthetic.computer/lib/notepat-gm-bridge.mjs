@@ -1,4 +1,4 @@
-import { loadPatch, preloadPatchFiles, playLoadingTone } from "./gm.mjs";
+import { cacheGmPatch, loadPatch, preloadPatchFiles, playLoadingTone } from "./gm.mjs";
 
 // The instrument runs in a worker; samples belong to the browser AudioContext.
 export function createGmBridge({ context, destination, status = () => {}, load = loadPatch, preload = preloadPatchFiles, fallback = playLoadingTone }) {
@@ -6,7 +6,7 @@ export function createGmBridge({ context, destination, status = () => {}, load =
   const patches = new WeakMap();
   function remember(ctx,program,patch) {
     if(!patches.has(ctx)) patches.set(ctx,new Map());
-    patches.get(ctx).set(program,patch);
+    cacheGmPatch(patches.get(ctx),program,patch);
   }
   let selection = 0;
   function stop(id, fade) {
@@ -31,6 +31,7 @@ export function createGmBridge({ context, destination, status = () => {}, load =
       status({ ready: false, loading: true });
       try {
         const patch = await load(program, ctx);
+        if (revision !== selection) return;
         if (!patch) throw new Error("missing patch");
         remember(ctx,program,patch);
         const samples = await patch.prefetch();
@@ -65,6 +66,6 @@ export function createGmBridge({ context, destination, status = () => {}, load =
       entry.voice?.update?.({ semitones: entry.pitch });
     },
     stop,
-    panic() { selection++; for (const id of [...voices.keys()]) stop(id); },
+    panic() { for (const id of [...voices.keys()]) stop(id); },
   };
 }

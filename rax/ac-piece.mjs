@@ -2,7 +2,7 @@
 // from AC's own disks/ as it is written, and handed the parts of the api it
 // asks for. disk.mjs is not loaded: what a piece takes beyond the painter is
 // given here from AC's own libraries (num, geo, ui.Button), and its sound is
-// the host's. A kiosk has a keyboard only while someone has stepped in to it (client.mjs), and no MIDI, no samples, no net and no
+// the host's. A kiosk has a keyboard only while someone has stepped in to it (client.mjs), and no hardware MIDI, no general-purpose net and no
 // device to keep things on: those parts are there, and quiet.
 //
 // A slug is read as the prompt reads it: `bleep:sine 4x4` is the piece
@@ -51,24 +51,34 @@ function dice(seed) {
 const FACE = { name: 'MatrixChunky8', glyphs: {}, data: { advances: {} }, blockWidth: 4, blockHeight: ascent };
 for (const [ch, [w, , , , advance]] of Object.entries(chunky)) { FACE.glyphs[ch] = { resolution: [w, ascent] }; FACE.data.advances[ch] = advance; }
 const SILENT = { kill() {}, update() {} };
-const midiHz = (n) => 440 * 2 ** ((n - 69) / 12);
-
-// 🎹 notepat's services, which AC's page gives it (bios.mjs: lib/notepat-controls.mjs, loaded here as it is written): the piece asks for its instrument, its sound panel and its MIDI through `send({ type: 'notepat:host' })`, and is answered with events. A kiosk has no MIDI (the panel says "MIDI unavailable").
-// ⚠️ There is no General MIDI here: every GM program (the piece's own first choice, "piano") sounds as the host's plain triangle, held until let go, not as its sampled instrument.
+// Use Notepat's browser sampler. Each press also belongs to its Rax pointer
+// so leaving the room, resetting the kiosk, or losing a hand ends the note.
 async function notepatControls(base, sound, tell) {
-  const { createNotepatControls } = await import(new URL('lib/notepat-controls.mjs', base).href);
-  const voices = new Map(), stop = (id, fade) => { voices.get(id)?.voice.kill(fade > 0 ? Math.min(fade, 0.4) : 0.08); voices.delete(id); };
+  const [controls, { createGmBridge }, { setGMAssetBase }] = await Promise.all(
+    ['notepat-controls', 'notepat-gm-bridge', 'gm'].map(name => import(new URL(`lib/${name}.mjs`, base).href)));
+  const cdn = 'https://assets.aesthetic.computer/gm';
+  if (setGMAssetBase() !== cdn) setGMAssetBase(cdn);
   const none = () => {};
-  return createNotepatControls({
-    send: tell, context: () => null, destination: none, events: null, visibility: null,
+  return controls.createNotepatControls({
+    send: tell, context: sound.sampleContext, destination: sound.sampleOutput, events: null, visibility: null,
     createMidi: () => ({ state: () => ({ supported: false, connected: false, inputs: [], outputs: [], inputId: 'all', outputId: '', channel: 0 }),
       connect: none, selectInput: none, selectOutput: none, selectChannel: none, program: none, noteOn: none, noteOff: none, panic: none, disconnect: none }),
-    createGm: ({ status }) => ({
-      program: async (program) => status({ ready: true, program }),
-      note({ id, note }) { stop(id); voices.set(id, { hz: midiHz(note), voice: sound.synth({ type: 'triangle', tone: midiHz(note), duration: '🔁' }) }); },
-      update({ id, semitones = 0 }) { const v = voices.get(id); v?.voice.update?.({ tone: v.hz * 2 ** (semitones / 12) }); },
-      stop, panic() { for (const id of [...voices.keys()]) stop(id, 0.05); },
-    }),
+    createGm(options) {
+      const gm = createGmBridge(options), held = new Map();
+      return {
+        ...gm,
+        note(event) {
+          held.get(event.id)?.kill();
+          const voice = sound.holdSample(() => {
+            void gm.note(event);
+            return { kill(fade) { held.delete(event.id); gm.stop(event.id, fade); } };
+          });
+          if (voice) held.set(event.id, voice);
+        },
+        stop(id, fade) { held.get(id)?.kill(fade); },
+        panic() { for (const voice of held.values()) voice.kill(0.05); gm.panic(); },
+      };
+    },
   });
 }
 
@@ -101,16 +111,8 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
     try { for (let m; (m = post.shift()); ) disk.act?.({ ...last, event: { ...m.content, name: m.type, device: m.type, is: (q) => q === m.type } }); }
     finally { busy = false; }
   };
-  // (The services are loaded at the first thing asked of them; what is asked meanwhile waits its turn.)
-  let early = null;
-  const send = (message) => {
-    if (name !== 'notepat' || message?.type !== 'notepat:host') return; // (anything else a piece sends is for AC's page: a visit counted, a window asked for)
-    if (controls) return controls.message(message.content);
-    if (early) return early.push(message.content);
-    early = [message.content];
-    notepatControls(base, { synth }, (m) => { post.push(m); deliver(); }).then((c) => { controls = c; for (const content of early) c.message(content); })
-      .catch((e) => console.warn('rax: notepat has no sound panel:', e?.message || e));
-  };
+  if (name === 'notepat') controls = await notepatControls(base, sound, message => { post.push(message); deliver(); });
+  const send = message => { if (message?.type === 'notepat:host') controls?.message(message.content); };
   const host = {
     params, colon, num: nums, geo, ui: { Button, TextButton },
     // 🔇 The parts of AC's sound a kiosk has none of: no DAW to keep time with (`daw` is not there, as on any page outside one), a speaker that reports silence (so a piece's scope is a flat line), samples that play nothing (`play`: notepat's stample voice is silent here), no MIDI.
@@ -151,9 +153,9 @@ export async function acPiece(slug, { sound, seed = null, clock = Date.now, base
   const ready = new Promise((yes) => { isReady = yes; });
   const boot = ($) => {
     last = $;
-    booted = disk.boot?.($);
-    if (!booted?.then) return isReady();
     booting = true;
+    booted = disk.boot?.($);
+    if (!booted?.then) { booting = false; isReady(); return deliver(); }
     booted.catch((e) => console.warn(`rax: ${name} did not boot:`, e?.message || e)).then(() => { booting = false; isReady(); deliver(); });
   };
   const when = (f) => f && (($) => { if (!booting) { last = $; f($); } });

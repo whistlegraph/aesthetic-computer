@@ -47,7 +47,6 @@ export function setGMAssetBase(base) {
   _manifestPromise = null;
   _patchCache = new WeakMap();
   _drumCache = new WeakMap();
-  _bufferCache.clear();
   _encodedCache.clear();
   return ASSET_BASE;
 }
@@ -177,7 +176,6 @@ function normalizeManifest(raw) {
 }
 
 // ─── Buffer fetch + decode (cached per URL) ───────────────────────────
-const _bufferCache = new Map(); // url -> Promise<AudioBuffer | null>
 // Download before a user gesture; decoding still uses the actual audio context.
 // Keep at most a few selected instruments' compressed samples in memory.
 const _encodedCache = new Map();
@@ -201,26 +199,23 @@ export async function preloadPatchFiles(programNumber) {
 }
 
 
-function fetchAndDecode(url, ctx) {
-  if (_bufferCache.has(url)) return _bufferCache.get(url);
-  const p = (async () => {
-    try {
-      const encoded = await fetchEncoded(url);
-      if (!encoded) throw new Error("sample download failed");
-      const arrayBuf = encoded.slice(0); // decodeAudioData may detach its input.
-      // decodeAudioData has both promise and callback forms. Use the
-      // promise form; old Safari is wrapped by the AC bios so it should
-      // be fine here.
-      const audioBuf = await ctx.decodeAudioData(arrayBuf);
-      return audioBuf;
-    } catch (err) {
-      console.warn(`🎼 GM: failed to load ${url}:`, err.message);
-      return null;
-    }
-  })();
-  _bufferCache.set(url, p);
-  p.then(buffer => { if (!buffer && _bufferCache.get(url) === p) _bufferCache.delete(url); });
-  return p;
+async function fetchAndDecode(url, ctx) {
+  try {
+    const encoded = await fetchEncoded(url);
+    if (!encoded) throw new Error("sample download failed");
+    return await ctx.decodeAudioData(encoded.slice(0)); // The decoder may detach its input.
+  } catch (err) {
+    console.warn(`🎼 GM: failed to load ${url}:`, err.message);
+    return null;
+  }
+}
+
+// A full patch holds about 20 MB of decoded audio. Browsing the bank keeps
+// four warm instruments; Web Audio retains any samples still sounding.
+export function cacheGmPatch(cache, program, patch) {
+  cache.delete(program);
+  cache.set(program, patch);
+  if (cache.size > 4) cache.delete(cache.keys().next().value);
 }
 
 // ─── Patch / kit handles ──────────────────────────────────────────────
@@ -420,8 +415,7 @@ export async function loadPatch(programNumber, audioContext) {
       (patchEntry && patchEntry.notes) || manifest.defaultNotes || defaultNoteList();
     const dir = programDir(program);
 
-    // Per-note buffer cache scoped to this patch — the inner URL cache
-    // dedupes across patches if any happen to share notes.
+    // Each patch shares pending decodes and ready samples across its voices.
     const samples = new Map(); // midi -> Promise<AudioBuffer | null>
     const decoded = new Map();
 
@@ -493,7 +487,7 @@ export async function loadPatch(programNumber, audioContext) {
     };
   })();
 
-  cache.set(program, p);
+  cacheGmPatch(cache, program, p);
   p.then(patch => { if (!patch && cache.get(program) === p) cache.delete(program); },
     () => { if (cache.get(program) === p) cache.delete(program); });
   return p;
@@ -585,7 +579,6 @@ export async function loadDrumKit(kitId = 0, audioContext) {
 
 // ─── Cache controls (mostly for tests / hot reload) ───────────────────
 export function _resetGMCaches() {
-  _bufferCache.clear();
   _patchCache = new WeakMap();
   _drumCache = new WeakMap();
   _manifest = null;

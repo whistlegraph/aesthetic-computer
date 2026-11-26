@@ -10,13 +10,13 @@ const base = pathToFileURL(fileURLToPath(new URL('../../system/public/aesthetic.
 const voices = () => {
   const all = [];
   const synth = (o) => { const v = { type: o.type, hz: o.tone, on: true }; all.push(v); return { kill() { v.on = false; }, update(to) { if (to.tone) v.hz = to.tone; } }; };
-  return { all, sound: { synth }, on: () => all.filter((v) => v.on).map((v) => Math.round(v.hz)) };
+  return { all, sound: { synth, sampleContext: () => null }, on: () => all.filter((v) => v.on).map((v) => Math.round(v.hz)) };
 };
 const quiet = async (f) => { const log = console.log; console.log = () => {}; try { return await f(); } finally { console.log = log; } }; // (notepat says a good deal as it boots)
 const later = (ms) => new Promise((r) => setTimeout(r, ms));
 const hz = (name) => Math.round(freq(name));
-const mount = async (slug, cols, rows, kept) => {
-  const v = voices(), { piece, host, ready } = await acPiece(slug, { base, seed: 'test', sound: v.sound, kept });
+const mount = async (slug, cols, rows, kept, sampler) => {
+  const v = voices(), { piece, host, ready } = await acPiece(slug, { base, seed: 'test', sound: { ...v.sound, ...sampler }, kept });
   const panel = createPanel({ id: 't', piece, host, cols, rows });
   await ready();
   for (let i = 0; i < 3; i++) panel.step();
@@ -48,19 +48,44 @@ test('the real notepat on a panel: pads drawn, a press a note, a slide the next,
   panel.leave();
 }));
 
-test('notepat as it opens (its piano, on General MIDI) is played by the one voice a kiosk has, and its sound panel chooses another', () => quiet(async () => {
-  const { panel, v } = await mount('notepat', 320, 160);
-  panel.act('touch', 60, 140); panel.step();
-  await later(80); // (its services are loaded at the first note)
-  assert.deepEqual([v.on(), v.all.at(-1).type], [[hz('4e')], 'triangle']);
-  panel.act('lift', 60, 140); panel.step();
-  assert.deepEqual(v.on(), []);
+test('the kiosk picker, mute and numeric shortcuts play the selected GM sample', t => quiet(async () => {
+  const samples = [], stopped = [], output = {};
+  const param = () => ({setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, cancelAndHoldAtTime() {}});
+  const ctx = {
+    currentTime: 0,
+    createGain: () => ({ gain: param(), connect(target) { assert.equal(target, output); }, disconnect() {} }),
+    createBufferSource: () => ({ playbackRate: param(), connect() {}, disconnect() {},
+      start() { samples.push(this.buffer.program); }, stop() { stopped.push(this.buffer.program); } }),
+    decodeAudioData: async bytes => ({program:new Uint8Array(bytes)[0]}),
+  };
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.endsWith('/manifest.json')) return Response.json({patches: Array.from({length:128}, (_,id) => ({id,notes:[60]}))});
+    const match = /\/(\d{3})\/C4\.mp3$/.exec(url);
+    assert.ok(match, url);
+    return new Response(Uint8Array.of(Number(match[1])));
+  });
+  const sampler = { sampleContext: () => ctx, sampleOutput: () => output, holdSample: start => start() };
+  const { panel } = await mount('notepat', 320, 160, {}, sampler);
   const tap = (x, y) => { panel.act('touch', x, y); panel.act('lift', x, y); panel.step(); };
-  const play = () => { panel.act('touch', 60, 140); panel.step(); const on = v.on(); panel.act('lift', 60, 140); panel.step(); return on; };
-  tap(262, 10); tap(100, 69); tap(285, 33); // its sound button; "Local sound: on" → off; the panel shut
-  assert.deepEqual(play(), [], 'local sound off: the pads make none');
-  tap(262, 10); tap(100, 69); tap(100, 52); tap(100, 120); tap(285, 33); // on again; the list of instruments; the fifth program; shut
-  assert.deepEqual(play(), [hz('4e')], 'another program is still the one voice');
+  await later(0);
+  tap(60, 140);
+  assert.deepEqual(samples, [0]);
+  assert.deepEqual(stopped, [0]);
+  tap(262, 10); tap(100, 69); tap(285, 33); // local sound off, close
+  tap(60, 140);
+  assert.deepEqual(samples, [0]);
+  tap(262, 10); tap(100, 69); tap(100, 52); tap(100, 120); tap(285, 33);
+  await later(0);
+  tap(60, 140);
+  assert.deepEqual(samples, [0, 4], 'selecting the fifth row plays electric piano');
+  for (const digit of '128') {
+    const key = {key:digit,code:'Digit' + digit};
+    panel.key('down', key); panel.key('up', key);
+  }
+  await later(0);
+  tap(60, 140);
+  assert.deepEqual(samples, [0, 4, 127]);
+  assert.deepEqual(stopped, samples);
   panel.leave();
 }));
 

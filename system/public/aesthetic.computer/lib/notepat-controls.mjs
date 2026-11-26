@@ -30,7 +30,8 @@ export function createNotepatControls({ send, context, destination, focus = () =
   return {
     message(content){
       if(disposed||!content)return;
-      const {op}=content;prepareInstrument();
+      const {op}=content;
+      if(op!=='state' && op!=='program')prepareInstrument();
       if(op==='open'){panic();controlsOpen=true;publish()}
       else if(op==='close'){controlsOpen=false;focus(false);publish()}
       else if(op==='state'){current={...current,...content};prepareInstrument();publish()}
@@ -44,7 +45,11 @@ export function createNotepatControls({ send, context, destination, focus = () =
       }
       else if(op==='local')control({kind:'local',enabled:content.enabled===true});
       else if(op==='record')control({kind:'record'});
-      else if(op==='program'){gm.program(content.program);if(!content.fromMidi)midi.program(content.program)}
+      else if(op==='program'){
+        preparedProgram=content.program;preparedContext=context();
+        void gm.program(content.program);
+        if(!content.fromMidi)midi.program(content.program);
+      }
       else if(op==='gm-on')gm.note(content);
       else if(op==='gm-off')gm.stop(content.id,content.fade);
       else if(op==='gm-bend')gm.update(content);
