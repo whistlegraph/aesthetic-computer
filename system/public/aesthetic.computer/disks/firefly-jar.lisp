@@ -16,4 +16,4 @@
   (circle x y (+ 4 (* 2 (sin flight))))
   (ink 255 224 106)
   (circle x y 2))
-(write "🌿" left (+ top (* glass 1.3) -15) no 2)
+(write "🌿" (+ left 2) (+ top (* glass 1.3) -33) "transparent" 2)
