@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Prompt } from "../public/aesthetic.computer/lib/type.mjs";
-import { emojiDraftLayout, emojiMetrics, hasEmoji } from "../public/aesthetic.computer/disks/common/laklok-emoji.mjs";
+import { emojiDraftLayout, emojiMetrics, hasEmoji, singleEmojiSprite } from "../public/aesthetic.computer/disks/common/laklok-emoji.mjs";
 
 const font = { blockWidth: 6, blockHeight: 9, getAdvance: () => 6 };
 const text = { width: str => str.length * 6 };
@@ -49,4 +49,23 @@ test("turkey has a colored pixel fan, face and wattle without a system font", ()
   assert.deepEqual([bitmap.width, bitmap.height], [19, 16]);
   assert.deepEqual([...bitmap.pixels.slice((5 * 19 + 14) * 4, (5 * 19 + 14) * 4 + 4)], [115, 219, 233, 255]);
   assert.deepEqual([...bitmap.pixels.slice((7 * 19 + 14) * 4, (7 * 19 + 14) * 4 + 4)], [238, 66, 68, 255]);
+});
+
+test("radio and jellyfish share their colored grid with the KidLisp sprite", () => {
+  for (const [glyph, width] of [["📻", 18], ["🪼", 16]]) {
+    const sprite = singleEmojiSprite(glyph);
+    assert.deepEqual([sprite.width, sprite.height], [width, 16]);
+    const colors = new Set(new Uint32Array(sprite.pixels.buffer));
+    assert.equal(colors.size, 6);
+    assert.ok(colors.has(0));
+    for (const height of [10, 33]) {
+      const metrics = emojiMetrics(text, null, height);
+      let bitmap;
+      metrics.paint({ paste(value) { bitmap = value; } }, glyph, 0, 0, "white");
+      assert.equal(bitmap.width + 1, metrics.width(glyph));
+      assert.equal(bitmap.width, height === 10 ? width : width * 2);
+      assert.equal(bitmap.height, height === 10 ? 16 : 32);
+      if (height === 10) assert.equal(bitmap, sprite);
+    }
+  }
 });

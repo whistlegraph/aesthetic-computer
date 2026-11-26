@@ -28,7 +28,6 @@ export const hasEmoji = value => !emojiMatches(value).next().done;
 
 
 const MIN_EMOJI_HEIGHT = 16;
-const turkey = /^🦃\uFE0F?$/u;
 const turkeyRows = [
   "   @@ @@",
   "  @yy@yy@ @@",
@@ -51,19 +50,69 @@ const turkeyColors = {
   "@": [56, 32, 42], y: [255, 210, 98], o: [208, 121, 55], b: [132, 80, 75],
   c: [115, 219, 233], p: [20, 13, 22], r: [238, 66, 68], u: [231, 165, 80],
 };
+const radioRows = [
+  "                ss",
+  "              ss",
+  "            ss",
+  "          ss",
+  "        ss",
+  "  @@@@@@@@@@@@@@",
+  " @cccccccccccccc@",
+  " @c@sssssss@cwwc@",
+  " @c@:::w:::@cwwc@",
+  " @cccccccccccccc@",
+  " @c@@@@@@@cc@@@c@",
+  " @c@s@s@s@c@wsw@@",
+  " @c@@s@s@@c@sss@@",
+  " @c@s@s@s@cc@@@c@",
+  " @cccccccccccccc@",
+  "  @@@@@@@@@@@@@@",
+];
+const jellyRows = [
+  "      pppp",
+  "    ppbbbbpp",
+  "   pbbhhbbbbp",
+  "  pbhhhbbblbbp",
+  " pbbbbbbblblbbp",
+  " pbbblbblbblbbp",
+  "pbbblblblbblbbbp",
+  "pplllppllpplllpp",
+  "  ppp  pp  ppp",
+  "   t  l  l  t",
+  "  t   l  l   t",
+  "  t    l  l  t",
+  "   t   l  l t",
+  "    t l    lt",
+  "   t  l     t",
+  "     l",
+];
+const pixelGlyphs = new Map([
+  ["🦃", { rows: turkeyRows, colors: turkeyColors }],
+  ["📻", { rows: radioRows, colors: {
+    "@": [44, 33, 56], s: [138, 181, 191], c: [241, 106, 69],
+    w: [255, 227, 157], ":": [60, 85, 99],
+  } }],
+  ["🪼", { rows: jellyRows, colors: {
+    p: [124, 78, 180], b: [235, 141, 227], h: [255, 234, 242],
+    l: [249, 193, 247], t: [109, 208, 224],
+  } }],
+]);
+for (const grid of pixelGlyphs.values()) grid.width = Math.max(...grid.rows.map(row => row.length));
+
+function pixelGlyph(glyph) {
+  return pixelGlyphs.get(glyph.replace(/\uFE0F$/u, ""));
+}
 function glyphWidth(glyph, height) {
-  return turkey.test(glyph) ? Math.round(19 * height / turkeyRows.length) : height;
+  const grid = pixelGlyph(glyph);
+  return grid ? Math.round(grid.width * height / grid.rows.length) : height;
 }
 
-// Draw the fan, head and wattle in the room's pixel grid, including on
-// workers without canvas or an installed color emoji font.
-function turkeySprite(height) {
-  const width = Math.round(19 * height / turkeyRows.length);
+function gridSprite(grid, width, height) {
   const pixels = new Uint8ClampedArray(width * height * 4);
   for (let y = 0; y < height; y++) {
-    const row = turkeyRows[Math.floor(y * turkeyRows.length / height)];
+    const row = grid.rows[Math.floor(y * grid.rows.length / height)];
     for (let x = 0; x < width; x++) {
-      const color = turkeyColors[row[Math.floor(x * 19 / width)]];
+      const color = grid.colors[row[Math.floor(x * grid.width / width)]];
       if (!color) continue;
       const i = (y * width + x) * 4;
       pixels.set(color, i);
@@ -78,7 +127,8 @@ function emojiSprite(glyph, size) {
   const key = size + "/" + glyph;
   if (sprites.has(key)) return sprites.get(key);
   let sprite = null;
-  if (turkey.test(glyph)) sprite = turkeySprite(size);
+  const grid = pixelGlyph(glyph);
+  if (grid) sprite = gridSprite(grid, glyphWidth(glyph, size), size);
   else try {
     const canvas = new OffscreenCanvas(size, size);
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
