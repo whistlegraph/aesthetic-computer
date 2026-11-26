@@ -15,7 +15,8 @@ import {
   applyPCenterShifts,
 } from "./melody-parser.mjs";
 import { buildColoredMelodyString } from "./melody-highlighter.mjs";
-import { singleEmojiSprite } from "../disks/common/laklok-emoji.mjs";
+import { emojiMetrics, hasEmoji } from "../disks/common/laklok-emoji.mjs";
+import { stripColorCodes } from "./color-codes.mjs";
 import { RichTextFlow, richNode, richLink } from "./rich-text.mjs";
 import { KidLispExecution } from "./kidlisp-execution.mjs";
 
@@ -7776,15 +7777,28 @@ class KidLisp {
         }
 
         const performWrite = () => {
-          if (bg === undefined && bounds === undefined && api.paste) {
-            const sprite = singleEmojiSprite(content);
-            const scale = Number(size ?? 1);
-            if (sprite && Number.isFinite(scale) && scale > 0) {
-              const left = centerX ? (api.screen.width - sprite.width * scale) / 2 : x ?? 0;
-              const top = centerY ? (api.screen.height - sprite.height * scale) / 2 : y ?? 0;
-              api.paste(sprite, Math.floor(left), Math.floor(top), { scale });
-              return;
+          const scale = Number(size ?? 1);
+          if (api.paste && api.text && scale > 0 && Number.isFinite(scale) && hasEmoji(content)) {
+            const metrics = emojiMetrics(api.text, undefined, api.text.height(content));
+            const lines = bounds > 0
+              ? metrics.box(content, { x: 0, y: 0 }, bounds / scale).lines
+              : content.split("\n");
+            const rowHeight = metrics.rowHeight * scale;
+            const top = centerY ? Math.floor((api.screen.height - rowHeight * lines.length) / 2) : y ?? 0;
+            for (const [index, line] of lines.entries()) {
+              const plain = stripColorCodes(line);
+              const width = metrics.width(plain) * scale;
+              const left = centerX ? Math.floor((api.screen.width - width) / 2) : x ?? 0;
+              const rowY = top + index * rowHeight;
+              if (bg !== undefined) {
+                const saved = api.inkrn();
+                api.ink(typeof bg === "string" ? unquoteString(bg) : bg);
+                api.box(left, rowY, width, rowHeight);
+                api.ink(...saved);
+              }
+              metrics.paint(api, line, left, rowY, undefined, false, scale);
             }
+            return;
           }
           if (Object.keys(options).length > 0) {
             api.write(content, pos, options);
@@ -14798,6 +14812,9 @@ class KidLisp {
     const embeddedApi = {
       // Include KidLisp functions from global environment
       ...globalEnv,
+
+      text: api.text,
+      inkrn: api.inkrn,
 
       // Include system context for functions like 'painting'
       system: api.system,

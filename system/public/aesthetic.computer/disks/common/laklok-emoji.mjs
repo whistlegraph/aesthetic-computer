@@ -151,12 +151,6 @@ function emojiSprite(glyph, size) {
   return sprite;
 }
 
-// Reuse a fixed-resolution sprite when a drawing scales a standalone emoji.
-export function singleEmojiSprite(value) {
-  const match = emojiMatches(value).next().value;
-  return match?.[0] === value ? emojiSprite(value, MIN_EMOJI_HEIGHT) : null;
-}
-
 export function emojiMetrics(text, font, height) {
   const size = Math.max(MIN_EMOJI_HEIGHT, height - 1);
   const advance = glyph => glyphWidth(glyph, size) + 1;
@@ -223,12 +217,13 @@ export function emojiMetrics(text, font, height) {
       });
       return box;
     },
-    paint(api, coded, x, y, ink, shadow = false) {
+    paint(api, coded, x, y, ink, shadow = false, scale = 1) {
       let color = "";
       const write = value => {
         if (!value) return;
-        api.ink(ink).write(color + escapeColorCodes(value), { x, y: y + Math.floor((size + 1 - height) / 2) }, false, undefined, false, font);
-        x += text.width(value, font);
+        if (ink !== undefined) api.ink(ink);
+        api.write(color + escapeColorCodes(value), { x, y: y + Math.floor((size + 1 - height) / 2) * scale, size: scale }, false, undefined, false, font);
+        x += text.width(value, font) * scale;
       };
       for (const [i, part] of splitColorCodes(coded).entries()) {
         if (i % 2) { color = "\\" + part + "\\"; continue; }
@@ -237,10 +232,13 @@ export function emojiMetrics(text, font, height) {
           write(part.slice(start, m.index));
           if (!shadow) {
             const sprite = emojiSprite(m[0], size);
-            if (sprite) api.paste(sprite, x, y);
-            else api.ink(ink).write("?", { x, y }, false, undefined, false, font);
+            if (sprite) api.paste(sprite, x, y, scale);
+            else {
+              if (ink !== undefined) api.ink(ink);
+              api.write("?", { x, y, size: scale }, false, undefined, false, font);
+            }
           }
-          x += advance(m[0]);
+          x += advance(m[0]) * scale;
           start = m.index + m[0].length;
         }
         write(part.slice(start));
