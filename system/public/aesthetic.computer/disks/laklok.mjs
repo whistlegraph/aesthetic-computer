@@ -180,7 +180,7 @@ function chatView() {
   return { ...sys, messages: sys.messages.filter((m) => hasMediaLink(m.text)) };
 }
 
-function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, query }) {
+async function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, query }) {
   client = new Chat(debug, send);
   commentCounts?.dispose();
   commentCounts = createCommentCounts("clock", () => api.needsPaint?.());
@@ -188,7 +188,7 @@ function boot({ api, wipe, debug, send, hud, store, colon, params, jump, net, qu
   client.system.commentInstance = "clock";
   lakDemo = [...(colon || []), ...(params || [])].includes("demo");
   if (!lakDemo) client.connect("clock"); // Connect to 'clock' chat. (DB stays `chat-clock`.)
-  chat.boot(api, client.system, { onAction: name => laklokAction(api, name) }); // Use default font
+  await chat.boot(api, client.system, { emoji: true, onAction: name => laklokAction(api, name) }); // Use default font
   if (lakDemo) stageDemo();
 
   // 🚫 chat.boot stamps a prompt.ac/chat QR to the LEFT of the HUD label; clear

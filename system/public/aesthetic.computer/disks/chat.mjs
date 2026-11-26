@@ -45,6 +45,7 @@ import {
   mapColorCodes,
   stripColorCodes,
 } from "../lib/color-codes.mjs";
+import { emojiMetrics, hasEmoji } from "./common/laklok-emoji.mjs";
 import { cssColors } from "../lib/num.mjs";
 import { iOS } from "../lib/platform.mjs";
 
@@ -263,6 +264,7 @@ function stripInlineColorCodes(s) {
 
 let input, inputBtn, handleBtn, token, currentUserSub;
 let chatMaxChars = 128; // Default chat char limit; overridable via options.maxChars
+let showEmoji = false;
 let inputHidden = false; // 📺 options.hideInput — TV/kiosk mode drops the whole footer
 let messagesNeedLayout = true;
 let tapState = null;
@@ -911,6 +913,7 @@ async function boot(
   handleColorsInFlight.clear();
   handleColorsFetches = 0;
   editingMessage = null; // A pending re-edit never survives a piece switch.
+  showEmoji = options?.emoji === true;
   chatMaxChars = options?.maxChars || 128;
   send({ type: "keyboard:set-max-chars", content: chatMaxChars });
 
@@ -1701,7 +1704,7 @@ function paint(
       for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
         const line = tb.lines[lineIdx];
         const lineY = y + lineIdx * msgRowHeight;
-        const lineStart = tempCharPos;
+        const lineStart = message._emojiText ? tb.charMap[lineIdx]?.[0] ?? tempCharPos : tempCharPos;
         const lineEnd = tempCharPos + line.length;
         
         // Check if this line contains any kidlisp content
@@ -1710,9 +1713,9 @@ function paint(
           const kidlispStartInLine = Math.max(0, firstToken.start - lineStart);
           const kidlispEndInLine = Math.min(line.length, lastToken.end - lineStart);
           
-          const startX = text.width(line.substring(0, kidlispStartInLine), msgTypefaceName);
+          const startX = (message._emojiText || text).width(line.substring(0, kidlispStartInLine), msgTypefaceName);
           const kidlispText = line.substring(kidlispStartInLine, kidlispEndInLine);
-          const kidlispWidth = text.width(kidlispText, msgTypefaceName);
+          const kidlispWidth = (message._emojiText || text).width(kidlispText, msgTypefaceName);
           
           // Draw dark background for entire kidlisp section (including spaces)
           ink(0, 0, 0, 80).box(x + startX, lineY, kidlispWidth, msgRowHeight);
@@ -1739,7 +1742,7 @@ function paint(
 
       for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
         const line = tb.lines[lineIdx];
-        const lineStart = tempCharPos;
+        const lineStart = message._emojiText ? tb.charMap[lineIdx]?.[0] ?? tempCharPos : tempCharPos;
         const lineEnd = tempCharPos + line.length;
 
         // Build color-coded version of this line. The line is chat text, so it
@@ -1864,13 +1867,13 @@ function paint(
           return code;
         });
 
-        cachedLines.push({ colorCodedLine, shadowLine });
+        cachedLines.push({ colorCodedLine, shadowLine, hasEmoji: message._emojiText && hasEmoji(line) });
         tempCharPos += line.length;
       }
 
       // Cache last line width
       const lastCoded = cachedLines[cachedLines.length - 1]?.colorCodedLine || "";
-      const lastLineWidth = text.width(stripInlineColorCodes(lastCoded), msgTypefaceName);
+      const lastLineWidth = (message._emojiText || text).width(stripInlineColorCodes(lastCoded), msgTypefaceName);
 
       message._colorLineCache = cachedLines;
       message._colorLineHoverKey = hoverKey;
@@ -1883,6 +1886,13 @@ function paint(
     for (let lineIdx = 0; lineIdx < tb.lines.length; lineIdx++) {
       const lineY = y + lineIdx * msgRowHeight;
       const cached = message._colorLineCache[lineIdx];
+
+      if (message._emojiText && cached.hasEmoji) {
+        message._emojiText.paint({ ink, paste }, cached.shadowLine, x + 1, lineY + 1, mt, true);
+        message._emojiText.paint({ ink, paste }, cached.colorCodedLine, x, lineY, theme.messageText);
+        charPos += tb.lines[lineIdx].length;
+        continue;
+      }
 
       // Shadow pass
       ink(mt[0], mt[1], mt[2]).write(
@@ -4027,10 +4037,11 @@ function act(
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
-              message.tb.lines, 
-              text,
+              message.tb.lines,
+              message._emojiText || text,
               msgRowHeight,
-              msgTypefaceName
+              msgTypefaceName,
+              message._emojiText && message.tb.charMap
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -4217,10 +4228,11 @@ function act(
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
-              message.tb.lines, 
-              text,
+              message.tb.lines,
+              message._emojiText || text,
               msgRowHeight,
-              msgTypefaceName
+              msgTypefaceName,
+              message._emojiText && message.tb.charMap
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition)) {
@@ -4699,10 +4711,11 @@ function act(
             const elementPosition = calculateElementPosition(
               element, 
               message.fullMessage, 
-              message.tb.lines, 
-              text,
+              message.tb.lines,
+              message._emojiText || text,
               msgRowHeight,
-              msgTypefaceName
+              msgTypefaceName,
+              message._emojiText && message.tb.charMap
             );
             
             if (elementPosition && isClickInsideElement(relativeX, relativeY, elementPosition, text, msgTypefaceName)) {
@@ -5835,14 +5848,13 @@ function computeMessagesHeight({ text, screen, typeface }, chat, defaultTypeface
 
     // Use plain handle for layout (colors applied during rendering)
     const fullMessage = message.from + " " + message.text + countSuffix + ytSuffix;
-    const tb = text.box(
-      fullMessage,
-      { x: leftMargin, y: 0 },
-      screen.width - leftMargin - (chat.commentCounts ? 28 : 0),
-      1,
-      true,
-      msgTypefaceName
-    );
+    const bounds = screen.width - leftMargin - (chat.commentCounts ? 28 : 0);
+    const pos = { x: leftMargin, y: 0 };
+    message._emojiText = showEmoji && hasEmoji(fullMessage)
+      ? emojiMetrics(text, msgTypefaceName, msgRowHeight) : null;
+    const tb = message._emojiText
+      ? message._emojiText.box(fullMessage, pos, bounds)
+      : text.box(fullMessage, pos, bounds, 1, true, msgTypefaceName);
     message.tb = tb;
     message.fullMessage = fullMessage;
     // Cache parsed elements on the message object (reused in paint + layout + act)
@@ -6017,7 +6029,7 @@ function computeMessagesLayout({ screen, text, typeface }, chat, defaultTypeface
     }
 
     // Create layout using the color-coded message with per-message font
-    const lastLineWidth = text.width(msg.tb.lines[msg.tb.lines.length - 1], msgTypefaceName);
+    const lastLineWidth = (msg._emojiText || text).width(msg.tb.lines[msg.tb.lines.length - 1], msgTypefaceName);
     const timestamp = {
       x: lastLineWidth + msgTimestampGap,
       y: y + (msg.tb.lines.length - 1) * msgRowHeight,
@@ -6197,15 +6209,15 @@ function parseMessageElements(message) {
 }
 
 // Calculate the rendered position of an interactive element in the text layout
-function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName) {
+function calculateElementPosition(element, fullMessage, textLines, text, currentRowHeight, typefaceName, charMap) {
   // Find which line(s) and character positions this element spans
   let charCount = 0;
   const linePositions = []; // Track all lines this element spans
   
   for (let lineIndex = 0; lineIndex < textLines.length; lineIndex++) {
     const lineText = textLines[lineIndex];
-    const lineStart = charCount;
-    const lineEnd = charCount + lineText.length;
+    const lineStart = charMap?.[lineIndex]?.[0] ?? charCount;
+    const lineEnd = lineStart + lineText.length;
     
     // Check if element overlaps with this line
     if (element.start < lineEnd && element.end > lineStart) {
