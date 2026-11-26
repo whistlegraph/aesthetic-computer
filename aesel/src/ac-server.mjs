@@ -110,6 +110,7 @@ export class AcServer extends EventEmitter {
     // Optional surface controls: tools(), has(name), run(name, input).
     controls = null,
     token = null,
+    waitForBraincells = null,
     fetch = globalThis.fetch.bind(globalThis),
     site = SITE,
     jev = configuredJev(),
@@ -177,6 +178,7 @@ export class AcServer extends EventEmitter {
     this.workspaceArtifact = '';
     this.apiMap = loadMap();
     this.token = token;
+    this.waitForBraincells = waitForBraincells;
     this.fetch = fetch;
     this.site = site;
     this.jev = jev;
@@ -462,34 +464,42 @@ export class AcServer extends EventEmitter {
       if(last?.role==='user')messages[messages.length-1]={...last,content:[...(Array.isArray(last.content)?last.content:[{type:'text',text:last.content}]),diagnostic]};
       else messages.push({role:'user',content:[diagnostic]});
     }
-    const slowConnection = setTimeout(() => this.emit("notification", {method:"turn/progress",params:{phase:this.endpoint?"waiting for the provider":"waiting for Aesthetic.Computer"}}), 8000);
+    const body = JSON.stringify({
+      ...(this.automatic ? {} : {model: this.model}),
+      system: this.#system,
+      messages,
+      tools,
+      // A workspace turn writes whole files; the relay allows it up to 32,000.
+      max_tokens: this.endpoint || this.workspace ? 32000 : 8192,
+      ...(this.reasoning ? {reasoning: this.reasoning} : {}),
+      ...(this.thinking ? {thinking: this.thinking} : {}),
+      ...(this.endpoint ? {stream: true} : {}),
+    });
     let response;
-    try { response = await withNetworkDeadline(() => this.fetch(this.endpoint || `${this.site}/api/easel-inference`, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`,
-        ...(this.endpoint ? {"anthropic-version":"2023-06-01","HTTP-Referer":"https://aesthetic.computer","X-Title":"Aesel"} : {}) },
-      body: JSON.stringify({
-        ...(this.automatic ? {} : {model: this.model}),
-        system: this.#system,
-        messages,
-        tools,
-        // A workspace turn writes whole files; the relay allows it up to 32,000.
-        max_tokens: this.endpoint || this.workspace ? 32000 : 8192,
-        ...(this.reasoning ? {reasoning: this.reasoning} : {}),
-        ...(this.thinking ? {thinking: this.thinking} : {}),
-        ...(this.endpoint ? {stream: true} : {}),
-      }),
-    }), {controller, timeoutMs:this.networkTimeouts.connect}); }
-    finally { clearTimeout(slowConnection); }
-
-    if (!response.ok) {
-      let message = `inference failed (HTTP ${response.status})`;
+    let bearer = token, previousFunding = null;
+    for (;;) {
+      controller.signal.throwIfAborted();
+      const slowConnection = setTimeout(() => this.emit("notification", {method:"turn/progress",params:{phase:this.endpoint?"waiting for the provider":"waiting for Aesthetic.Computer"}}), 8000);
       try {
-        const body = await response.json();
-        if (body?.error?.message) message = body.error.message;
-      } catch {}
-      throw Object.assign(new Error(message), {status: response.status});
+        response = await withNetworkDeadline(() => this.fetch(this.endpoint || `${this.site}/api/easel-inference`, {
+          method: "POST", signal: controller.signal, body,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${bearer}`,
+            ...(this.endpoint ? {"anthropic-version":"2023-06-01","HTTP-Referer":"https://aesthetic.computer","X-Title":"Aesel"} : {}) },
+        }), {controller, timeoutMs:this.networkTimeouts.connect});
+      } finally { clearTimeout(slowConnection); }
+      if (response.ok) break;
+
+      const refusal = (await response.json().catch(() => null))?.error;
+      const message = refusal?.message || `inference failed (HTTP ${response.status})`;
+      const walletRefused = !this.endpoint && response.status === 402 &&
+        (refusal?.code === "insufficient_braincells" || /^Out of braincells\b/i.test(message));
+      if (!walletRefused || !this.waitForBraincells) throw Object.assign(new Error(message), {status: response.status});
+      // The wallet rejected this round before inference. Keep its exact request
+      // and all tool results, even if a top-up arrives hours later.
+      previousFunding = await this.waitForBraincells({required: refusal?.requiredBraincells, previousFunding, signal: controller.signal});
+      controller.signal.throwIfAborted();
+      bearer = await this.token?.();
+      if (!bearer) throw new Error("Sign in to continue hosted inference.");
     }
 
     this.emit("notification", { method: "turn/progress", params: { phase: "waiting" } });

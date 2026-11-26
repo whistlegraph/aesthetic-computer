@@ -111,6 +111,46 @@ test("a braincell refusal reaches the interface whole and flagged", async () => 
   assert.equal(turn().error.billing, undefined);
 });
 
+test("a wallet top-up resumes the refused round with the completed tool result", async (t) => {
+  const { file } = await tempPiece(t);
+  const bodies = [];
+  let writesSeen = 0, waits = 0;
+  const engine = new AcServer({
+    piece: { file }, jev: null, token: async () => "tok",
+    waitForBraincells: async ({required}) => { waits++; assert.equal(required, 700); },
+    fetch: async (_url, opts) => {
+      bodies.push(opts.body);
+      if (bodies.length === 1) return sse(writes("// saved"));
+      if (bodies.length === 2) return Response.json({error:{code:"insufficient_braincells", requiredBraincells:700}}, {status:402});
+      return sse(say("done"));
+    },
+  });
+  engine.on("notification", ({method, params}) => {
+    if (method === "item/completed" && params.item.type === "fileChange") writesSeen++;
+  });
+  const turn = completion(engine);
+  await engine.startTurn("draw");
+  assert.equal(turn().status, "completed");
+  assert.equal(writesSeen, 1);
+  assert.equal(waits, 1);
+  assert.equal(bodies.length, 3);
+  assert.equal(bodies[1], bodies[2]);
+});
+
+test("provider errors and daily caps never wait for a wallet top-up", async () => {
+  for (const [status, message] of [[401, "Invalid key"], [402, "Provider credits exhausted"], [429, "Daily limit"]]) {
+    let waits = 0;
+    const engine = new AcServer({token: async () => "tok", jev: null,
+      waitForBraincells: () => { waits++; throw Error("unexpected wait"); },
+      fetch: async () => Response.json({error:{message}}, {status}),
+    });
+    const turn = completion(engine);
+    await engine.startTurn("draw");
+    assert.equal(turn().error.message, message);
+    assert.equal(waits, 0);
+  }
+});
+
 test("with no preview connected, write_piece says only that the file is on disk", async (t) => {
   const { file } = await tempPiece(t);
   const sent = [];

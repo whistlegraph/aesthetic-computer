@@ -780,6 +780,7 @@ function openEngine({ resume = "" } = {}) {
     preview: () => networked && state.medium === "piece",
     artifacts,
     settings: args => harnessSettings.call(args),
+    waitForBraincells,
     token: async () => {
       if (!session.signedIn) return null;
       try {
@@ -1040,6 +1041,7 @@ function danceTick() {
   const next = mascotRowNextFrameIn(state.mascotMs, state.busy);
   if (next === null) return;
   redraw();
+  if (state.walletPausedAt && Date.now() - state.walletPausedAt >= 3600) return;
   // Pro breathes and counts tenths on this clock, so it ticks ten times a
   // second; the frame diff makes each tick cheap.
   danceTimer = setTimeout(danceTick, pro && state.busy ? Math.min(next, 100) : next);
@@ -1269,11 +1271,56 @@ function notePublished(item) {
 
 // Read the account's braincells: what is left of today's free allowance plus
 // what was bought. Quietly keeps the last number when the site can't be reached.
-let braincellsAt = 0;
+let braincellsAt = 0, readingBraincells = false;
+let walletWait = null;
+const walletOwner = () => session.read()?.user?.sub;
+let meterOwner = walletOwner();
+
+async function waitForBraincells({required, previousFunding, signal}) {
+  signal.throwIfAborted();
+  const owner = walletOwner();
+  let baseline = previousFunding?.purchased ?? 0;
+  let freeBaseline = previousFunding?.remaining ?? 0;
+  state.walletPausedAt = Date.now();
+  state.status = "waiting for braincells";
+  slabSession.awaitingInput(state.status);
+  redraw();
+  let abort;
+  try {
+    const funding = await new Promise((resolve, reject) => {
+      abort = () => reject(signal.reason);
+      signal.addEventListener("abort", abort, {once:true});
+      walletWait = ({remaining, purchased}) => {
+        // A legacy relay omits the hold size. Try a positive balance once,
+        // then require a rise before retrying the same refused request.
+        const increased = purchased > baseline;
+        const funded = Number.isSafeInteger(required) && required > 0
+          ? purchased >= required && (!previousFunding || increased) : increased;
+        baseline = Math.min(baseline, purchased);
+        if (remaining > freeBaseline || funded) resolve({remaining, purchased});
+        freeBaseline = Math.min(freeBaseline, remaining);
+      };
+      braincellsAt = 0;
+      void refreshBraincells();
+    });
+    signal.throwIfAborted();
+    if (walletOwner() !== owner) throw new DOMException("Account changed", "AbortError");
+    state.status = "connecting";
+    slabSession.working();
+    return funding;
+  } finally {
+    signal.removeEventListener("abort", abort);
+    walletWait = null;
+    state.walletPausedAt = null;
+    if (state.busy && !finishing) startDance();
+    redraw();
+  }
+}
 // The meter rolls to a new balance rather than jumping, so a charge is seen
 // leaving. `state.braincells` is what is drawn; `braincellsHeld` is the truth.
 let braincellsHeld = null, braincellsRoll = null;
 function setBraincells(total) {
+  if (braincellsHeld === total) return;
   braincellsHeld = total;
   if (!Number.isFinite(state.braincells) || !process.stdout.isTTY) { state.braincells = total; return redraw(); }
   braincellsRoll ||= setInterval(() => {
@@ -1284,20 +1331,24 @@ function setBraincells(total) {
   braincellsRoll.unref?.();
 }
 async function refreshBraincells() {
-  if (backend.id !== "ac" || !session.signedIn || Date.now() - braincellsAt < 3000) return;
+  if (closing || finishing || readingBraincells || backend.id !== "ac" || !session.signedIn || Date.now() - braincellsAt < 3000) return;
+  const owner = walletOwner(), wait = walletWait, source = engine;
+  readingBraincells = true;
   braincellsAt = Date.now();
   try {
     const token = await session.token();
     const response = await fetch(`${SITE}/api/easel-credits`, { headers: { Authorization: `Bearer ${token}`, "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(15000) });
     if (!response.ok) return;
     const body = await response.json();
-    const total = (Number(body.remaining) || 0) + (Number(body.purchased) || 0);
-    if (Number.isFinite(total)) setBraincells(total);
+    if (closing || finishing || source !== engine || owner !== walletOwner() || wait !== walletWait) return;
+    if (![body.remaining, body.purchased].every(Number.isFinite)) return;
+    setBraincells(body.remaining + body.purchased);
+    wait?.(body);
     // A curator's menu: lock the picker to it and move onto its default when
     // the current model is not on it (Automatic included). Idle only.
     const menu = setCuration(body.curation);
     if (menu && backend.id === "ac" && curatedChoice(model) !== model && !state.busy) await restartEngine("Curated model", backend, curatedChoice(model));
-  } catch {}
+  } catch {} finally { readingBraincells = false; }
 }
 
 // Become the new code without closing the window: shut down as a quit would,
@@ -2770,7 +2821,7 @@ function receiveInbox(message) {
     if (state.approval) answerApproval("\u0003");
     else engine.interrupt().catch((error) => addEntry("error", errorText(error)));
     state.status = "interrupting";
-  } else if (state.busy || state.status !== "ready" || turnRecovery.active || recoveryPaused || reifyPending) {
+  } else if (state.busy || !["ready", "failed"].includes(state.status) || turnRecovery.active || recoveryPaused || reifyPending) {
     state.queued.push(line);
     addEntry("notice", `Queued · inbox from ${from}`);
   } else {
@@ -3783,12 +3834,19 @@ nativeTerminalPhase('ready');
 
 // A sign-in or sign-out anywhere in the AC suite shows up here live.
 session.watch().on("change", () => {
+  if (walletOwner() !== meterOwner) {
+    if (walletWait) void engine.interrupt();
+    meterOwner = walletOwner();
+    clearInterval(braincellsRoll); braincellsRoll = null;
+    braincellsHeld = state.braincells = null;
+  }
   braincellsAt = 0; void refreshBraincells();
   if (!session.signedIn || !session.handle) { void finish(); return; }
   refreshAccount(true);
   redraw();
 });
 markStartup('account-watched');
+setInterval(refreshBraincells, 5000).unref();
 
 // Mint this session's blank piece and the QR code that opens it on a phone.
 // Pro mints nothing; a private session has the file and none of the phone.

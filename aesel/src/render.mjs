@@ -1033,6 +1033,31 @@ function letterheadAction(state, x, y) {
   return hit ? hit.name : "";
 }
 
+function walletPauseRows(width, height, elapsed, useColor) {
+  const pulse = elapsed < 3600 && Math.floor(elapsed / 600) % 2 === 0;
+  const spark = pulse ? "*" : ".";
+  const art = [
+    "       .---.   .---.       ",
+    "    .-'  _  )-(  _  '-.    ",
+    "  .'  .-' ) | ( '-.   '.   ",
+    " / .-'  _/  |  \\_  '-.  \\ ",
+    `( (  ${spark} (   / \\   ) ${spark}  ) )`,
+    " \\ '-.  ) (   ) (  .-' / ",
+    "  '.__)  .-| |-.  (__.'  ",
+    "      '---'| |'---'      ",
+    "            \\_)          ",
+  ];
+  const hint = width >= 44 ? "Waiting for a top-up  ·  Ctrl-C to stop" : "Waiting for top-up · Ctrl-C stop";
+  const brain = height >= art.length + 3 ? art : [" .--. .--. ", `( (${spark})|(${spark}) )`, " '--'|'--' ", "     \\_)   "];
+  const lines = [...(height >= brain.length + 2 ? brain : []), "OUT OF BRAINCELLS", hint];
+  const top = Math.max(0, Math.floor((height - lines.length) / 2));
+  return Array.from({length:height}, (_, y) => {
+    const line = lines[y - top] || "";
+    const pad = " ".repeat(Math.max(0, Math.floor((width - line.length) / 2)));
+    return pad + paint(useColor, pulse ? "you bold" : "soft", line);
+  });
+}
+
 export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   const width = Math.max(32, columns);
   const height = Math.max(10, rows);
@@ -1130,7 +1155,8 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   placeLetterhead(state, state.about ? null : intro, start, Math.max(0, availableRows - (transcript.length - start)));
 
   visible.push(...provisional, ...drawer);
-  const body = visible.map((line, index) => {
+  const walletAlert = state.walletPausedAt && !state.settings && !state.about && !state.approval && !state.dropdown;
+  const body = walletAlert ? walletPauseRows(width, transcriptRows, now - state.walletPausedAt, useColor) : visible.map((line, index) => {
     const row = ` ${fit(line, contentWidth)}`;
     if (!qr) return row;
     const band = index - (transcriptRows - qr.height);
@@ -1188,7 +1214,7 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
     // Notebook lines: a faint rule under the rest of every transcript row,
     // the way the GUI's page is ruled. Only the blank part of a row is
     // underlined, so the words sit on the line rather than under a bar.
-    const ruled = shape.lines === true && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
+    const ruled = !walletAlert && shape.lines === true && useColor ? body.map((row, index) => (unruled.has(visible[index]) ? row : ruleRow(row, width))) : body;
     // The transcript as plain rows, for the selection to read and copy from.
     state.pageRows = body.map((row) => plainRow(row));
     // A question takes the page: what is asked, and three answers, nothing

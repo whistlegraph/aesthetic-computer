@@ -260,7 +260,7 @@ export async function authorizePaidAmount({user,amount,model,product,now=new Dat
       const minutes=Math.ceil((Date.parse(dayKey(now)+'T00:00:00Z')+86400000-now)/60000);
       throw Object.assign(new Error(`This request and pending work would exceed today's limit of ${DAILY_PAID_BRAINCELL_CAP.toLocaleString('en-US')} bought braincells. It resets at midnight UTC, in ${Math.floor(minutes/60)}h ${minutes%60}m.`),{statusCode:429});
     }
-    throw Object.assign(new Error(OUT_OF_BRAINCELLS),{statusCode:402});
+    throw Object.assign(new Error(OUT_OF_BRAINCELLS),{statusCode:402,requiredBraincells:amount});
   });
 }
 

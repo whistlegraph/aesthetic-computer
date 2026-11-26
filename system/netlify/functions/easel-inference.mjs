@@ -45,11 +45,11 @@ const spendClient = (headers = {}) =>
 
 const AUTH_TIMEOUT_MS = 3000;
 
-function fail(statusCode, message) {
+function fail(statusCode, message, details = {}) {
   return {
     statusCode,
     headers: { "Content-Type": "application/json; charset=utf-8" },
-    body: JSON.stringify({ error: { message } }),
+    body: JSON.stringify({ error: { message, ...details } }),
   };
 }
 
@@ -68,8 +68,6 @@ export const handler = stream(async (event) => {
   if (event.httpMethod !== "POST") return fail(405, "POST only.");
 
   const key = process.env.OPENROUTER_API_KEY;
-  const credits = process.env.ANTHROPIC_CREDITS_KEY;
-  if (!key && !credits) return fail(503, "Hosted inference is not configured.");
 
   // A turn worker (apple/whistlegraph/TURNS.md) runs turns for people who are
   // not holding their phone, so it has no user token. It presents the shared
@@ -140,7 +138,9 @@ export const handler = stream(async (event) => {
     try { model = (await import("../../backend/aesel-curation.mjs")).curatedModel(menu, body.model === undefined ? undefined : model); }
     catch (error) { return fail(403, error.message); }
   }
-  // Claude goes straight to Anthropic on AC's credits when we hold them.
+  // Hosted Aesel always uses the AC router account. The separate turn worker
+  // keeps its existing direct-Claude option.
+  const credits = asWorker ? process.env.ANTHROPIC_CREDITS_KEY : undefined;
   const direct = credits && ANTHROPIC_DIRECT[model];
   if (!direct && !key) return fail(503, "Hosted inference is not configured for that model.");
 
@@ -162,7 +162,10 @@ export const handler = stream(async (event) => {
     try {
       const {authorizePaidRequest}=await import("../../backend/easel-paid-credits.mjs");
       paidHold=await authorizePaidRequest({user:userSub,model,body,maxTokens,product:asWorker?"whistlegraph":"aesel"});
-    } catch(error) { return fail(error.statusCode||503,error.message); }
+    } catch (error) {
+      const details = error.requiredBraincells ? { code: "insufficient_braincells", requiredBraincells: error.requiredBraincells } : {};
+      return fail(error.statusCode || 503, error.message, details);
+    }
   }
   const settlePaid = async braincells => {
     if(!paidHold)return;
