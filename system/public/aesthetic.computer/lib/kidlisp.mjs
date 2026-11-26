@@ -15,6 +15,7 @@ import {
   applyPCenterShifts,
 } from "./melody-parser.mjs";
 import { buildColoredMelodyString } from "./melody-highlighter.mjs";
+import { singleEmojiSprite } from "../disks/common/laklok-emoji.mjs";
 import { RichTextFlow, richNode, richLink } from "./rich-text.mjs";
 import { KidLispExecution } from "./kidlisp-execution.mjs";
 
@@ -7775,6 +7776,16 @@ class KidLisp {
         }
 
         const performWrite = () => {
+          if (bg === undefined && bounds === undefined && api.paste) {
+            const sprite = singleEmojiSprite(content);
+            const scale = Number(size ?? 1);
+            if (sprite && Number.isFinite(scale) && scale > 0) {
+              const left = centerX ? (api.screen.width - sprite.width * scale) / 2 : x ?? 0;
+              const top = centerY ? (api.screen.height - sprite.height * scale) / 2 : y ?? 0;
+              api.paste(sprite, Math.floor(left), Math.floor(top), { scale });
+              return;
+            }
+          }
           if (Object.keys(options).length > 0) {
             api.write(content, pos, options);
           } else {

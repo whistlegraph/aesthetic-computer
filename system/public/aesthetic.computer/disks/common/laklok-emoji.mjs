@@ -99,6 +99,12 @@ function emojiSprite(glyph, size) {
   return sprite;
 }
 
+// Reuse a fixed-resolution sprite when a drawing scales a standalone emoji.
+export function singleEmojiSprite(value) {
+  const match = emojiMatches(value).next().value;
+  return match?.[0] === value ? emojiSprite(value, MIN_EMOJI_HEIGHT) : null;
+}
+
 export function emojiMetrics(text, font, height) {
   const size = Math.max(MIN_EMOJI_HEIGHT, height - 1);
   const advance = glyph => glyphWidth(glyph, size) + 1;
