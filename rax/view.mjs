@@ -1266,7 +1266,7 @@ export async function createView(canvas) {
     if (e.at && e.type === 'hit') burst(e.at.x, e.at.y + 0.6, e.at.z, 10, 0.7);
     if (e.at && e.type === 'gib') {
       // 🩸 The body comes down as a ragdoll or comes apart (gore.mjs), from how it last stood.
-      const was = lastPose.get(e.seat), fresh = was && performance.now() - was.at < 1500;
+      const was = e.zombie ? null : lastPose.get(e.seat), fresh = was && performance.now() - was.at < 1500; // (a zombie shares a seat's colour, not its pose)
       gore.gib(e, fresh ? was : { x: e.at.x, base: e.at.y - 0.9, z: e.at.z, yaw: 0, pitch: 0 });
       burstColor(e.at.x, e.at.y + 0.6, e.at.z, e.kind === 'blast' ? 24 : 8, GIB);
     }

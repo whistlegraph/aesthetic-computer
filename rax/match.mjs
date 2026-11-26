@@ -74,6 +74,8 @@ export class Match {
     // 🚁 Those looking on from their drones, [{ eye, x, y, z }], set each
     // tick by the server: a round that meets one blows it up.
     this.watchers = [];
+    this.zombies = []; // 🧟 the horde's walkers standing here, set each tick (horde.mjs inRoom)
+    this.zombieKills = []; // …and the ids a round has met, for the server to take off the horde
     // 🏙️ Instagib: a body a round meets comes apart, and comes back on the
     // tower's roof. The server says whether there is a roof to go to
     // (roofBound) and takes the seats queued here up to it after the tick.
@@ -524,9 +526,20 @@ export class Match {
             watcher = w;
           }
         }
+        let zombie = null;
+        for (const z of this.zombies) {
+          const d = rayBox(b, dir, z.box, travel);
+          if (d < at) {
+            at = d;
+            body = null;
+            target = null;
+            watcher = null;
+            zombie = z;
+          }
+        }
         const surface = surfaceHit(b, dir, at, this.objects, time, this.half, this.open);
         // (A target is solid too: met at the same spot, the target takes the round.)
-        if (surface && (target || watcher ? surface.t < at - 0.01 : surface.t <= at)) {
+        if (surface && (target || watcher || zombie ? surface.t < at - 0.01 : surface.t <= at)) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
           const v = reflect({ x: b.vx, y: b.vy, z: b.vz }, surface.normal);
           Object.assign(b, { vx: v.x, vy: v.y, vz: v.z });
@@ -539,6 +552,14 @@ export class Match {
           // The top of it is its head: a round there counts for everything.
           const head = b.y > target.box.yMax - 0.35;
           this.strike(target, b.owner, head ? 100 : 34, b);
+          b.dead = true;
+        }
+        if (zombie) {
+          // 🧟 Any round ends a zombie: it comes down or comes apart like a body (seat 3's green).
+          this.zombies = this.zombies.filter((z) => z !== zombie);
+          this.zombieKills.push(zombie.id);
+          this.emit('gib', { seat: 3, zombie: true, attacker: b.owner, kind: 'shot', zone: hitZone(zombie, b),
+            at: { x: zombie.x, y: zombie.y - 0.8, z: zombie.z }, hit: { x: b.x, y: b.y, z: b.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
           b.dead = true;
         }
         if (watcher) {

@@ -10,6 +10,7 @@ import { attachSocketRoute } from '../lith/socket-routing.mjs';
 import { Room } from './room.mjs';
 import { GeographyStore, fromWorld, BLOCK, LOTS, lot, blockAt, blockId, blockIndex, parseBlock, isGrounds } from './geography.mjs';
 import { edgeAt, landing, SPAN, wrap, onLap } from './park.mjs';
+import { createHorde, ZOMBIE } from './horde.mjs';
 import { createDispenser, DISPENSER_WALL, MAX_BALLS, carry as carryBall, liftOf } from './ball.mjs';
 import { readFileSync as readBall } from 'node:fs';
 import { mkdir as mkdirBall, writeFile as writeBall, rename as renameBall } from 'node:fs/promises';
@@ -1860,6 +1861,16 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const ws of room.clients.keys()) sendText(ws, word);
     }
   };
+  // 🧟 The horde walks the whole lap on the world's clock (horde.mjs); a block kept on another host is a wall to it.
+  const horde = satellite ? null : createHorde({
+    neighbours: (key) => {
+      const n = geography.geography.neighbours(key);
+      if (!n) return n;
+      return Object.fromEntries(Object.entries(n).filter(([, room]) => !keptAt(room)));
+    },
+    boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
+    start: ['lobby', ...Object.values(geography.geography.neighbours('lobby') || {})],
+  });
   // 👀 The people beyond: each room is told who walks the rooms around it
   // (two blocks out, and the floors over the plaza), in its own metres, 15
   // times a second. A room simulates only its own; what it hears of the rest
@@ -1906,6 +1917,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const [id, name, seat, x, y, z, yaw, pitch, vx, vz, boat, bike] of there.people)
           seen.push([id, name, seat, r(x + di * SPAN), r(y + there.at.h - here.at.h), r(z + dj * SPAN), r(yaw), r(pitch), r(vx), r(vz), boat, bike]);
       }
+      for (const z of horde?.zombies || []) { // 🧟 (its own block's too: they are not in any snapshot)
+        const at = cellOf(z.room);
+        if (!at) continue;
+        const di = wrap(at.i - here.at.i), dj = wrap(at.j - here.at.j);
+        if (Math.abs(di) > BEYOND || Math.abs(dj) > BEYOND || overlaid(at, here.at)) continue;
+        seen.push([`z${z.id}`, '', 3, r(z.x + di * SPAN), r(ZOMBIE.eye + at.h - here.at.h), r(z.z + dj * SPAN), r(z.yaw), 0, r(z.vx), r(z.vz), false, false]);
+      }
       if (!seen.length && !drones.length && !shots.length && !here.room.beyondSeen) continue; // (nobody, and it was said)
       here.room.beyondSeen = seen.length + drones.length + shots.length;
       const word = JSON.stringify({ type: 'beyond', people: seen, drones, ...(shots.length ? { shots } : {}) });
@@ -1941,6 +1959,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (links.size && !(++ballLinkTick % 4))
           sendLink({ type: 'balls', balls: dispenser.balls.map(({ ball: b }, id) => ({ id, room: b.room, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz, g: b.g || 0 })) });
       }
+      horde?.step();
       tellBeyond();
       if (Date.now() - flightAt > 2000) keepFlights();
       for (const [key, room] of rooms) {
@@ -1948,7 +1967,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         room.match.watchers = [...room.sessions.values()].filter((m) => m.seat < 0 && m.eye && m.look && Date.now() - m.look.at < 3000)
           .map((m) => ({ eye: m.eye, x: m.look.x, y: m.look.y, z: m.look.z }));
         room.match.roofBound = !satellite && key !== ROOF && !!tower.tower.top && !room.match.arena;
+        if (horde) room.match.zombies = horde.inRoom(key); // 🧟 for rounds to meet
         room.match.step();
+        if (horde && room.match.zombieKills.length) for (const id of room.match.zombieKills.splice(0)) horde.kill(id);
         walks.tick(key, room);
         if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
         if (aloft(key)) for (const m of room.sessions.values()) m.crossWindow?.();
@@ -2007,6 +2028,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   return {
     server,
     rooms,
+    horde,
     ball,
     flights,
     handle,
