@@ -1,3 +1,4 @@
+import { radioGardenGlyphs } from "./radio-garden-glyphs.mjs";
 import { escapeColorCodes, splitColorCodes } from "../../lib/color-codes.mjs";
 
 // A whole joined emoji, flag or keycap occupies one square in a bitmap line.
@@ -87,6 +88,7 @@ const jellyRows = [
   "     l",
 ];
 const pixelGlyphs = new Map([
+  ...Object.entries(radioGardenGlyphs),
   ["🦃", { rows: turkeyRows, colors: turkeyColors }],
   ["📻", { rows: radioRows, colors: {
     "@": [44, 33, 56], s: [138, 181, 191], c: [241, 106, 69],
