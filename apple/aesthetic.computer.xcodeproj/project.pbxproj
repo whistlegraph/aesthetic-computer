@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		ACAC20261126000000000002 /* sheet-3x.png in Resources */ = {isa = PBXBuildFile; fileRef = ACAC20261126000000000001; };
 		AC1250000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AC1250000000000000000002 /* PrivacyInfo.xcprivacy */; };
 		AC1250000000000000000003 /* Settings.bundle in Resources */ = {isa = PBXBuildFile; fileRef = AC1250000000000000000004 /* Settings.bundle */; };
 		41F5CDC72B2931AF00F7FF87 /* aesthetic_computerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41F5CDC62B2931AF00F7FF87 /* aesthetic_computerApp.swift */; };
@@ -72,6 +73,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		ACAC20261126000000000001 /* Pals spin sheet */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "sheet-3x.png"; path = "../ac-electron/build/icons/pals-spin/sheet-3x.png"; sourceTree = SOURCE_ROOT; };
 		AC1250000000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AC1250000000000000000004 /* Settings.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.plug-in; path = Settings.bundle; sourceTree = "<group>"; };
 		41CFB5D12B2A5D8D001954C9 /* aesthetic-computer-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "aesthetic-computer-Info.plist"; sourceTree = SOURCE_ROOT; };
@@ -154,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				ACAC20261117000000000001 /* MacAppIcon.icon */,
+				ACAC20261126000000000001 /* Pals spin sheet */,
 				ACAC20261117000000000002 /* DockIcon.swift */,
 				ACAC20261117000000000003 /* DockTilePlugin.swift */,
 				ACAC20261117000000000004 /* pals.svg */,
@@ -313,7 +316,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		ACAC20261012000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC2026101200000000000F, ACAC20261012000000000010, ACAC20261012000000000011, ACAC20261117000000000010, ACAC20261117000000000012,); runOnlyForDeploymentPostprocessing = 0; };
+		ACAC20261012000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC2026101200000000000F, ACAC20261012000000000010, ACAC20261012000000000011, ACAC20261117000000000010, ACAC20261117000000000012, ACAC20261126000000000002,); runOnlyForDeploymentPostprocessing = 0; };
 		ACAC20261117000000000021 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (ACAC20261117000000000016,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 

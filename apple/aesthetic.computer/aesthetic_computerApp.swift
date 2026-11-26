@@ -34,6 +34,67 @@ struct aesthetic_computerApp: App {
 }
 
 #if os(macOS)
+private final class RunningDockIcon: NSView {
+    private let tile: NSDockTile
+    private let still = DockIcon.pals(in: .main)
+    private let sheet = Bundle.main.url(forResource: "sheet-3x", withExtension: "png")
+        .flatMap(NSImage.init(contentsOf:))
+    private var watcher: DockIconWatcher?
+    private var look: DockIcon.Look?
+    private var timer: Timer?
+    private var frameIndex = 0
+    private let frameCount = 60
+
+    init(tile: NSDockTile) {
+        self.tile = tile
+        super.init(frame: NSRect(origin: .zero, size: tile.size))
+        tile.contentView = self
+        watcher = DockIconWatcher { [weak self] look in
+            self?.look = look
+            self?.tile.display()
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self, selector: #selector(updateMotion), name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil)
+        updateMotion()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    @objc private func updateMotion() {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || sheet == nil {
+            timer?.invalidate()
+            timer = nil
+        } else if timer == nil {
+            let clock = Timer(timeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
+                guard let self else { return }
+                self.frameIndex = (self.frameIndex + 1) % self.frameCount
+                self.tile.display()
+            }
+            timer = clock
+            RunLoop.main.add(clock, forMode: .common)
+        }
+        tile.display()
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let look else { return }
+        guard timer != nil, let sheet else {
+            DockIcon.draw(in: bounds, look: look, pals: still)
+            return
+        }
+        DockIcon.draw(in: bounds, look: look, pals: nil)
+        let frameWidth = sheet.size.width / CGFloat(frameCount)
+        let source = NSRect(x: CGFloat(frameIndex) * frameWidth, y: 0,
+                            width: frameWidth, height: sheet.size.height)
+        let width = min(bounds.width, bounds.height) * 0.67
+        let height = width * source.height / source.width
+        let art = NSRect(x: bounds.midX - width / 2, y: bounds.midY - height / 2,
+                         width: width, height: height)
+        sheet.draw(in: art, from: source, operation: .sourceOver, fraction: 1)
+    }
+}
+
 private struct ComputerWindowCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedObject private var navigation: AppNavigation?
@@ -68,7 +129,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
     weak var appWebView: WKWebView?
     #if os(macOS)
     var openPromptWindow: (() -> Void)?
-    private var dockIcon: DockIconWatcher?
+    private var dockIcon: RunningDockIcon?
     #endif
     private let webViews = NSHashTable<WKWebView>.weakObjects()
     private let optedInKey = "acNotificationsOptedIn"
@@ -100,8 +161,7 @@ class AppDelegate: NSObject, ACApplicationDelegate {
         NotificationCenter.default.addObserver(self, selector: #selector(controllerConnected(_:)),
                                                name: .GCControllerDidConnect, object: nil)
         for pad in GCController.controllers() { bindFrameChart(to: pad) }
-        let pals = DockIcon.pals(in: .main)
-        dockIcon = DockIconWatcher { NSApp.applicationIconImage = DockIcon.image(look: $0, pals: pals) }
+        dockIcon = RunningDockIcon(tile: NSApp.dockTile)
         NSApp.activate(ignoringOtherApps: true)
     }
 
