@@ -114,3 +114,31 @@ export function emojiMetrics(text, font, height) {
     },
   };
 }
+
+// TextInput stores the original UTF-16 string. Its optional cell layout maps
+// every code unit back to one caret stop and one screen rectangle per glyph.
+export function emojiDraftLayout(value, prompt) {
+  if (!hasEmoji(value)) return null;
+  const cells = [];
+  const { typeface, letterHeight, gutter } = prompt;
+  const size = Math.max(8, letterHeight);
+  let at = 0, px = 0, x = 0, y = 0;
+  function nextLine() { px = 0; x = 0; y++; }
+  function add(glyph, emoji = false) {
+    const newline = glyph === "\n";
+    const width = newline ? 0 : emoji ? size + 1 : typeface.getAdvance(glyph);
+    if (px && px + width > gutter - prompt.letterWidth) nextLine();
+    const cell = { start: at, end: at + glyph.length, x, y, left: px, width,
+      glyph, bitmap: emoji ? emojiSprite(glyph, size) : null };
+    cells.push(cell);
+    at = cell.end;
+    if (newline) nextLine(); else { px += width; x++; }
+  }
+  for (const m of emojiMatches(value)) {
+    for (const c of value.slice(at, m.index)) add(c);
+    add(m[0], true);
+  }
+  for (const c of value.slice(at)) add(c);
+  cells.push({ start: at, end: at, x, y, left: px, width: prompt.letterWidth, glyph: "" });
+  return cells;
+}

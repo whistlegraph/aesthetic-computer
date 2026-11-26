@@ -1614,6 +1614,7 @@ class TextInput {
       this.typeface,
     );
 
+    this.#prompt.layoutText = options.layoutText;
     this.print(text); // Set initial text.
 
     this.startingInput = this.text;
@@ -1675,6 +1676,7 @@ class TextInput {
     this.#prompt.typeface = newTypeface;
     this.#prompt.letterWidth = blockWidth;
     this.#prompt.letterHeight = newTypeface.blockHeight;
+    if (this.#prompt.layoutText) this.flow();
     
     this._needsRepaint = true;
   }
@@ -1941,6 +1943,10 @@ class TextInput {
     }
 
     function paintBlockLetter(char, pos, alt = false, charIndex = -1) {
+      const cell = prompt.cellsByIndex?.[charIndex];
+      if (cell?.bitmap) { $.paste(cell.bitmap, pos.x, pos.y); return; }
+      if (cell) char = cell.glyph;
+
       if (char.charCodeAt(0) === 10 && ti.#renderSpaces) {
         $.ink([255, 0, 0, 127]).box(pos.x, pos.y, 4);
       } else if (char !== " " && char.charCodeAt(0) !== 10) {
@@ -2129,8 +2135,10 @@ class TextInput {
           const char = this.text[this.#prompt.textPos()];
           // Only draw inverted character if there's actually a character there
           if ($.inFocus !== false && char !== undefined && char !== "") {
-            const pic = this.typeface.glyphs[char];
-            if (pic)
+            const cell = prompt.cellsByIndex?.[prompt.textPos()];
+            const pic = this.typeface.glyphs[cell?.glyph ?? char];
+            if (cell?.bitmap) $.paste(cell.bitmap, caret.x, caret.y);
+            else if (pic)
               $.ink(this.pal.highlight).draw(pic, prompt.pos(undefined, true));
           }
         }
@@ -2399,8 +2407,30 @@ class TextInput {
         this.#edgeCancelled = false;
       }
       
-      // 🔡 Inserting an individual character.
-      if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
+      // The optional shaped layout maps UTF-16 offsets to full glyphs. Keep
+      // edits on those boundaries while the native keyboard retains the text.
+      const shaped = this.#prompt.cells;
+      const insertGlyph = this.#prompt.layoutText && !e.ctrl && !e.meta && e.key !== "`" &&
+        (e.key.length === 1 || this.#prompt.layoutText(e.key, this.#prompt));
+      const deleteGlyph = (e.key === "Backspace" || e.key === "Delete") && !e.ctrl && !e.alt && !e.meta;
+      if (this.canType && (shaped || (insertGlyph && e.key.length > 1)) && (insertGlyph || deleteGlyph)) {
+        const prompt = this.#prompt;
+        const at = prompt.textPos() ?? this.text.length;
+        const cell = prompt.cellsByIndex?.[at];
+        const previous = cell && shaped[Math.max(0, cell.order - 1)];
+        let start = e.key === "Backspace" ? previous?.start ?? at : at;
+        let end = e.key === "Delete" ? cell?.end ?? at : at;
+        if (this.selection) {
+          const [a, b] = this.selection;
+          start = prompt.cellsByIndex?.[a]?.start ?? a;
+          end = prompt.cellsByIndex?.[b - 1]?.end ?? b;
+        }
+        const value = insertGlyph ? e.key.replace(/[“”]/g, '"').replace(/[‘’]/g, "'") : "";
+        this.text = this.text.slice(0, start) + value + this.text.slice(end);
+        this.selection = null;
+        const caret = prompt.textToCursorMap[start + value.length];
+        if (caret) prompt.cursor = { ...caret }; else this.snap();
+      } else if (e.key.length === 1 && e.ctrl === false && e.key !== "`") {
         // Auto-activate TextInput when user starts typing if not already active
         if (!this.canType && !this.#edgeCancelled) {
           this.#manuallyActivated = true;
@@ -3403,6 +3433,7 @@ class Prompt {
 
   // Snap the cursor to the end of a text.
   snapTo(text) {
+    if (this.cells) { this.cursor = { ...this.textToCursorMap[text.length] }; return; }
     if (text[text.length - 1]) {
       this.cursor = { ...this.textToCursorMap[text.length - 1] };
       if (text[text.length - 1].charCodeAt(0) !== 10) this.forward(); // Move ahead one space after the end.
@@ -3418,6 +3449,21 @@ class Prompt {
     this.cursorToTextMap = {};
     this.textToCursorMap = [];
     this.wrappedWordIndices = [];
+    this.cells = this.layoutText?.(text, this);
+    this.cellsByIndex = null;
+    if (this.cells) {
+      this.cellsByIndex = [];
+      for (const [i, cell] of this.cells.entries()) {
+        const { x, y, start, end, glyph } = cell;
+        cell.order = i;
+        for (let j = start; j < Math.max(end, start + 1); j++) {
+          this.cellsByIndex[j] = cell;
+          this.textToCursorMap[j] = { x, y };
+        }
+        if (glyph) this.cursorToTextMap[glyph === "\n" ? `${x}:${y}:\\n` : `${x}:${y}`] = start;
+      }
+      return;
+    }
     const cursor = { x: 0, y: 0 }; // Wrap and map the text either by character or word.
     // (Word wrapping is complex and skips text indices for invisible
     //  characters and in some edge cases with line breaks)
@@ -3579,6 +3625,10 @@ class Prompt {
   // (Also include the width and height of the block.)
   pos(cursor = this.cursor, bh = false) {
     const y = this.left + cursor.y * this.letterHeight;
+    if (this.cells) {
+      const cell = this.cellsByIndex[this.textPos(cursor) ?? this.#mappedTo.length];
+      return { x: this.top + cell.left, y, w: cell.width, h: this.letterHeight };
+    }
     
     // Check if we need proportional spacing
     const isProportional = this.typeface?.data?.proportional === true ||
@@ -3639,8 +3689,15 @@ class Prompt {
     };
   }
 
+  moveCell(cursor, delta) {
+    const cell = this.cellsByIndex[this.textPos(cursor) ?? this.#mappedTo.length];
+    const next = this.cells[Math.max(0, Math.min(this.cells.length - 1, cell.order + delta))];
+    return Object.assign(cursor, { x: next.x, y: next.y });
+  }
+
   // Move the cursor forward, optionally input an override cursor.
   forward(cursor = this.cursor, amount = 1) {
+    if (this.cells) return this.moveCell(cursor, amount);
     repeat(amount, () => {
       cursor.x = (cursor.x + 1) % (this.colWidth - 1);
       if (cursor.x === 0) cursor.y += 1;
@@ -3650,6 +3707,7 @@ class Prompt {
 
   // Move the cursor forward only by the mapped text.
   crawlForward() {
+    if (this.cells) return this.forward();
     if (this.#mappedTo.length === 0) return;
 
     const back = this.backward({ ...this.cursor });
@@ -3687,6 +3745,7 @@ class Prompt {
 
   // Move the cursor backward only by the mapped text.
   crawlBackward() {
+    if (this.cells) return this.backward();
     const back = this.backward({ ...this.cursor });
     let backIndex = this.textPos(back);
     const currentIndex = this.textPos();
@@ -3722,6 +3781,7 @@ class Prompt {
 
   // Move cursor backward, with optional override cursor.
   backward(cursor = this.cursor) {
+    if (this.cells) return this.moveCell(cursor, -1);
     if (cursor.x === 0) {
       if (cursor.y > 0) {
         cursor.x = this.colWidth - 2;

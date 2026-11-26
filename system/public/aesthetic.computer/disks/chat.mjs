@@ -45,7 +45,7 @@ import {
   mapColorCodes,
   stripColorCodes,
 } from "../lib/color-codes.mjs";
-import { emojiMetrics, hasEmoji } from "./common/laklok-emoji.mjs";
+import { emojiDraftLayout, emojiMetrics, hasEmoji } from "./common/laklok-emoji.mjs";
 import { cssColors } from "../lib/num.mjs";
 import { iOS } from "../lib/platform.mjs";
 
@@ -1202,6 +1202,7 @@ async function boot(
       }
     },
     {
+      layoutText: showEmoji ? emojiDraftLayout : undefined,
       // autolock: false,
       // wrap,
       // 🔤 Use saved font preference (or fallback to inputTypefaceName or font_1)
@@ -2802,14 +2803,15 @@ function paint(
   const textColor = inputBtn.down ? "black" : (hasDraft ? "lime" : (inputBtn.over ? "white" : 200));
   
   // Use the selected font for the bottom bar text (selectedTypeface already defined above)
-  ink(textColor).write(
-    enterMsg,
-    {
-      left: inputBtnX + 6,
-      bottom: 9,
-    },
-    false, undefined, false, selectedTypeface
-  );
+  if (showEmoji && hasDraft && hasEmoji(enterMsg)) {
+    const metrics = emojiMetrics(text, selectedTypeface, selectedRowHeight);
+    const pos = { x: inputBtnX + 6, y: screen.height - 9 - selectedRowHeight + 1 };
+    const preview = metrics.box(enterMsg, pos, Math.max(1, inputBtnWidth - 10)).lines[0];
+    metrics.paint({ ink, paste }, escapeColorCodes(preview), pos.x, pos.y, textColor);
+  } else {
+    ink(textColor).write(enterMsg, { left: inputBtnX + 6, bottom: 9 },
+      false, undefined, false, selectedTypeface);
+  }
 
   } // end !inputHidden — footer chrome
 
