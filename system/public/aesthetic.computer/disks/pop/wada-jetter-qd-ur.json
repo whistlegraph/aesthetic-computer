@@ -1,0 +1,25 @@
+{
+  "slug": "wada-jetter-qd-ur",
+  "title": "wada jetter QD UR",
+  "artist": "Aesthetic Dot Computer",
+  "album": "wada jetter QD UR",
+  "bpm": 112,
+  "key": "E",
+  "meter": "4/4",
+  "duration": 132.782404,
+  "released": "2026-11-25",
+  "status": "ac",
+  "audio": "/assets/pop/wada-jetter-qd-ur.mp3",
+  "cover": "/assets/pop/wada-jetter-qd-ur.jpg",
+  "sections": [
+    {
+      "name": "",
+      "t": 0
+    }
+  ],
+  "links": {
+    "hyperfollow": "https://distrokid.com/hyperfollow/aestheticdotcomputer/wada-jetter-qd-ur",
+    "flac": "https://assets.aesthetic.computer/pop/wada-jetter-qd-ur.flac"
+  },
+  "credits": "Written by Jeffrey Scudder. Drum samples from DRSKit by the DrumGizmo team (https://drumgizmo.org/wiki/doku.php?id=kits:drskit), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), mixed to stereo and trimmed. Tenor saxophone sample from “Tenor Saxophone Noodling” by Hockinfinger (https://freesound.org/s/388055/), CC0 1.0, pitched down one octave."
+}

@@ -275,6 +275,8 @@
         if (t.links?.spotify) links.append(el("a", { href: t.links.spotify, target: "_blank", rel: "noopener", text: "spotify" }));
         if (t.links?.apple) links.append(el("a", { href: t.links.apple, target: "_blank", rel: "noopener", text: "apple music" }));
         if (t.links?.youtube) links.append(el("a", { href: t.links.youtube, target: "_blank", rel: "noopener", text: "youtube" }));
+        if (t.links?.hyperfollow) links.append(el("a", { href: t.links.hyperfollow, target: "_blank", rel: "noopener", text: "HyperFollow" }));
+        if (t.links?.flac) links.append(el("a", { href: t.links.flac, text: "lossless FLAC" }));
         if (t.audio) links.append(el("a", { href: t.audio, download: `${t.artist} - ${t.title}.mp3`, text: "download mp3" }));
         if (t.releaseData) links.append(el("a", { href: t.releaseData.replace(/^\//, ""), text: "release data" }));
         fact("Listen", links);
