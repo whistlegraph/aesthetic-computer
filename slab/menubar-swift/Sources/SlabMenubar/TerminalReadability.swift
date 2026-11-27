@@ -33,16 +33,54 @@ enum TerminalReadability {
     /// Body-text contrast, not accent contrast: on its ANSI theme Claude Code
     /// sets inline code, secondary text and permission prompts in these
     /// swatches, and 5:1 left them hard to read on the tinted pages. The
-    /// neutrals carry text and get 7:1; the hues keep 5:1, the most the
+    /// ink neutrals carry text and get 7:1; the hues keep 5:1, the most the
     /// amber pages allow before red and indigo go pastel. `ink` still caps at
     /// what a midtone page can give. Terminal rounds channels.
     static let ansiMinimumContrast = 7.0
     static let ansiHueMinimumContrast = 5.0
     static let ansiNeutrals: Set<Int> = [0, 7, 8, 15]
 
+    /// Two of the four neutrals are not ink. Claude Code's ANSI themes fill
+    /// the bars behind user and queued messages, shell lines and memory with
+    /// the neutrals on the page's own side: White and BrightWhite on a light
+    /// page, BrightBlack and Black on a dark one, with the default ink on
+    /// top. Held to the 7:1 text floor those bars went as dark as the ink and
+    /// the words in them vanished. They are tints of the page instead. On a
+    /// dark page BrightBlack is also the dim text of fish and git, so it sits
+    /// further out than the bar alone would need.
+    static let ansiSurfaceContrast: [Bool: [Int: Double]] = [
+        false: [7: 1.35, 15: 1.15],   // light page: bar, hover
+        true: [8: 1.6, 0: 1.3],       // dark page: bar and dim text, hover
+    ]
+
+    static func darkPage(_ background: RGB) -> Bool {
+        contrast((65535, 65535, 65535), background) > contrast((0, 0, 0), background)
+    }
+
+    static func ansiSurfaces(on background: RGB) -> [Int: Double] {
+        ansiSurfaceContrast[darkPage(background)]!
+    }
+
+    /// The page moved toward its ink pole until it stands off by `ratio`.
+    static func surface(on background: RGB, ratio: Double) -> RGB {
+        let pole: RGB = darkPage(background) ? (65535, 65535, 65535) : (0, 0, 0)
+        func blend(_ t: Double) -> RGB {
+            func v(_ a: Int, _ b: Int) -> Int { Int((Double(a) + Double(b - a) * t).rounded()) }
+            return (v(background.0, pole.0), v(background.1, pole.1), v(background.2, pole.2))
+        }
+        var low = 0.0, high = 1.0
+        for _ in 0..<20 {
+            let mid = (low + high) / 2
+            if contrast(blend(mid), background) >= ratio { high = mid } else { low = mid }
+        }
+        return blend(high)
+    }
+
     static func ansi(on background: RGB) -> [RGB] {
-        rainbow.enumerated().map { index, color in
-            ink(color, on: background, minimum: ansiNeutrals.contains(index) ? ansiMinimumContrast : ansiHueMinimumContrast)
+        let surfaces = ansiSurfaces(on: background)
+        return rainbow.enumerated().map { index, color in
+            if let ratio = surfaces[index] { return surface(on: background, ratio: ratio) }
+            return ink(color, on: background, minimum: ansiNeutrals.contains(index) ? ansiMinimumContrast : ansiHueMinimumContrast)
         }
     }
 

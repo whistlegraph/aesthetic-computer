@@ -15,6 +15,7 @@ with open(sys.argv[2], 'a') as f:
 PY
 cat >> "$probe/check.swift" <<'SWIFT'
 var checks = 0
+var worstBar = 99.0
 // A dark-started Codex input stays dark after a seat appearance change.
 // Check the actual default ink on both cached input/history surfaces, not
 // only on Slab's page; that missed the dark-on-dark composer regression.
@@ -65,22 +66,39 @@ precondition(ClaudeTheme.aligned("{\n  \"tui\": \"fullscreen\"\n}", dark: true)
     == "{\n  \"theme\": \"dark-ansi\",\n  \"tui\": \"fullscreen\"\n}")
 precondition(ClaudeTheme.aligned("{}", dark: false) == "{\n  \"theme\": \"light-ansi\"\n}")
 for bg in [(0, 0, 0), (2200, 4200, 14000), (12000, 4000, 18000), (19000, 10500, 900), (65535, 65535, 65535), (42000, 50000, 65535)] {
-    for (i, c) in TerminalReadability.ansi(on: bg).enumerated() {
+    let surfaces = TerminalReadability.ansiSurfaces(on: bg)
+    let colors = TerminalReadability.ansi(on: bg)
+    // The page-side neutrals are bars under the default ink, never ink.
+    let text: TerminalReadability.RGB = TerminalReadability.darkPage(bg) ? (65535, 65535, 65535) : (0, 0, 0)
+    for (i, ratio) in surfaces {
+        let got = TerminalReadability.contrast(colors[i], bg)
+        precondition(got >= ratio - 0.01 && got <= ratio + 0.15, "ANSI surface \(i) off its tint on \(bg): \(got)")
+        precondition(TerminalReadability.contrast(text, colors[i]) >= 4.5, "Ink unreadable on ANSI surface \(i) on \(bg)")
+    }
+    for (i, c) in colors.enumerated() where surfaces[i] == nil {
         let wanted = TerminalReadability.ansiNeutrals.contains(i) ? TerminalReadability.ansiMinimumContrast : TerminalReadability.ansiHueMinimumContrast
         let floor = min(wanted, max(TerminalReadability.contrast((0, 0, 0), bg), TerminalReadability.contrast((65535, 65535, 65535), bg)))
         precondition(TerminalReadability.contrast(c, bg) >= floor - 0.01, "ANSI swatch below the floor on \(bg)")
     }
 }
-print("PASS Claude Code theme alignment; ANSI swatches 7:1 neutral and 5:1 hue on every page")
+print("PASS Claude Code theme alignment; ANSI ink 7:1 neutral and 5:1 hue, page-side neutrals readable bars")
 func check(_ p: AppDelegate.Palette) {
     let p = p.readable, bg = p.bg!
     precondition(TerminalReadability.contrast(p.text!, bg) >= 6.999, "Text below 7:1")
     precondition(TerminalReadability.contrast(p.bold!, bg) >= 4.499, "Bold below 4.5:1")
-    for color in TerminalReadability.ansi(on: bg) {
-        precondition(TerminalReadability.contrast(color, bg) >= 4.499, "ANSI below 4.5:1")
+    let colors = TerminalReadability.ansi(on: bg)
+    let surfaces = TerminalReadability.ansiSurfaces(on: bg)
+    for (i, color) in colors.enumerated() {
+        if surfaces[i] == nil {
+            precondition(TerminalReadability.contrast(color, bg) >= 4.499, "ANSI below 4.5:1")
+        } else {
+            // A bar: the page's own ink has to stay readable on top of it.
+            worstBar = min(worstBar, TerminalReadability.contrast(p.text!, color))
+            precondition(TerminalReadability.contrast(p.text!, color) >= 4.299,
+                "Text unreadable on ANSI surface \(i): bg=\(bg)")
+        }
     }
     // The seven rainbow hues must remain distinct after correction.
-    let colors = TerminalReadability.ansi(on: bg)
     let hues = [1, 11, 3, 2, 4, 12, 5].map { i -> CGFloat in
         let c = colors[i]
         let n = NSColor(deviceRed: CGFloat(c.0)/65535, green: CGFloat(c.1)/65535,
@@ -129,7 +147,7 @@ let repeatedData = try Data(contentsOf: url)
 precondition(repeatedData == data)
 let script = "tell application \"Terminal\"\n" + TerminalReadability.bootstrapScript(profileURL: url) + "\nend tell"
 try script.write(to: directory.appendingPathComponent("bootstrap.applescript"), atomically: true, encoding: .utf8)
-print("PASS \(checks) palettes: text ≥7:1, bold/16 ANSI ≥4.5:1, cursor ≥3:1; seven distinct rainbow hues")
+print("PASS \(checks) palettes: text ≥7:1, bold/ANSI ink ≥4.5:1, text on ANSI bars ≥4.3:1 (worst \(String(format: "%.2f", worstBar))), cursor ≥3:1; seven distinct rainbow hues")
 let seedData = try Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2]))
 let seed = try PropertyListSerialization.propertyList(from: seedData, format: nil) as! [String: Any]
 let profiles = seed["Profiles"] as! [String: [String: Any]]
