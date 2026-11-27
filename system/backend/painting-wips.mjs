@@ -45,7 +45,11 @@ function statePayload(encoded) {
   const data = Buffer.from(encoded, "base64");
   let state;
   try { state = JSON.parse(gunzipSync(data, { maxOutputLength: 128 * 1024 * 1024 })); }
-  catch { fail(400, "Invalid painting state"); }
+  catch (error) {
+    console.warn("Painting WIP state unreadable:", error.code || error.name, error.message,
+      `encoded=${encoded.length} gz=${data.length} head=${data.subarray(0, 4).toString("hex")}`);
+    fail(400, "Invalid painting state");
+  }
   const piece = state?.piece;
   if (state?.format !== "aesthetic.computer/painting-state" || state.version !== 1 ||
       piece?.schema !== "aesthetic.computer/nopaint-piece" || piece.version !== 1 ||

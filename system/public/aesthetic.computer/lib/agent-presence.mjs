@@ -82,10 +82,30 @@ function ensureMark() {
   return mark;
 }
 
+// The tab says so too: while an agent is linked the title starts with a
+// robot, kept there when a piece renames the tab, and taken off after.
+const ROBOT = "🤖 ";
+let titleLinked = false;
+let titleWatch = null;
+function markTitle() {
+  const bare = document.title.startsWith(ROBOT) ? document.title.slice(ROBOT.length) : document.title;
+  const want = titleLinked ? ROBOT + bare : bare;
+  if (document.title !== want) document.title = want;
+}
+function linkTitle(linked) {
+  titleLinked = linked;
+  if (!titleWatch && typeof MutationObserver === "function") {
+    titleWatch = new MutationObserver(markTitle);
+    titleWatch.observe(document.head, { subtree: true, childList: true, characterData: true });
+  }
+  markTitle();
+}
+
 export function showAgentMark(agents) {
   const { box, canvas, label } = ensureMark();
   clearInterval(ticker);
   ticker = null;
+  linkTitle(agents.length > 0);
   if (agents.length === 0) {
     box.style.display = "none";
     return;
