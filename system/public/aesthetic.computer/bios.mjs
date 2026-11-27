@@ -16103,7 +16103,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
 
     // 🎯 The rax world under the prompt's paper (lib/rax-sheet.mjs).
     if (type === "fps:hud:box") {
-      Glaze.hud(content);
+      Glaze.hud?.(content); // A cached, older glaze module has no hud yet.
       return;
     }
 
