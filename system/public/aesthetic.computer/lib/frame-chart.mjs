@@ -8,7 +8,7 @@
 // given: on a narrow screen the graph and bars get shorter, on a short one
 // the bottom rows go first, and with no room at all only the fps shows.
 const WIDE = 74, NARROW = 30; // widget widths, in pixels of its own
-const HEAD = 11, GRAPH_H = 12, ROW = 8, PAD = 3;
+const HEAD = 11, GRAPH_H = 12, ROW = 10, PAD = 3;
 const green = 0x77dda2, amber = 0xffcf69, red = 0xff8580;
 const back = 0x131a24, well = 0x243245, dim = 0x8796a8, words = 0xc5d5e5;
 const frameInk = ms => ms <= 18 ? green : ms <= 34 ? amber : red;
@@ -45,10 +45,11 @@ export function createFrameChart() {
     let height = graph ? HEAD + GRAPH_H + PAD * 2 : HEAD + 1;
     const kept = [];
     for (const row of rows) {
-      if (!graph || width < 50 || height + ROW > room) break; // Too narrow for a bar.
+      if (!graph || width < 50 || height + ROW + 1 > room) break; // Too narrow for a bar.
       kept.push(row);
       height += ROW;
     }
+    if (kept.length) height += 1; // Room under the last row's descenders.
     return {
       width, height, rows: kept, graph,
       left: Math.max(0, screenW - width - margin),
@@ -79,14 +80,14 @@ export function createFrameChart() {
     text('60', graphX + columns + 3, y - 3, dim);
 
     // Label, bar, number: the number's column holds four glyphs ("644M").
-    const barX = 20, numberW = 21, barW = width - barX - numberW - 2;
+    const barX = 23, numberW = 21, barW = width - barX - numberW - 2;
     fit.rows.forEach((row, i) => {
-      const ry = HEAD + GRAPH_H + PAD * 2 + i * ROW - 1;
+      const ry = HEAD + GRAPH_H + PAD * 2 + i * ROW;
       if (typeof row === 'string') return text(row, PAD, ry, words);
       const value = Math.max(0, Math.min(1, row.value || 0));
       text(row.label, PAD, ry, dim);
-      box(barX, ry + 2, barW, 3, well, 1);
-      if (value > 0) box(barX, ry + 2, Math.max(1, Math.round(value * barW)), 3, row.ink ?? meterInk(value), 2);
+      box(barX, ry + 3, barW, 3, well, 1);
+      if (value > 0) box(barX, ry + 3, Math.max(1, Math.round(value * barW)), 3, row.ink ?? meterInk(value), 2);
       if (row.text) text(row.text, width - numberW, ry, words);
     });
   }
