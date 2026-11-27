@@ -45,7 +45,7 @@ export function createFrameChart() {
     let height = graph ? HEAD + GRAPH_H + PAD * 2 : HEAD + 1;
     const kept = [];
     for (const row of rows) {
-      if (!graph || height + ROW > room) break;
+      if (!graph || width < 50 || height + ROW > room) break; // Too narrow for a bar.
       kept.push(row);
       height += ROW;
     }
@@ -78,7 +78,8 @@ export function createFrameChart() {
     box(graphX + columns, y, 2, 1, dim, 2);
     text('60', graphX + columns + 3, y - 3, dim);
 
-    const barX = 18, barW = Math.max(6, width - barX - 18);
+    // Label, bar, number: the number's column holds four glyphs ("644M").
+    const barX = 20, numberW = 21, barW = width - barX - numberW - 2;
     fit.rows.forEach((row, i) => {
       const ry = HEAD + GRAPH_H + PAD * 2 + i * ROW - 1;
       if (typeof row === 'string') return text(row, PAD, ry, words);
@@ -86,7 +87,7 @@ export function createFrameChart() {
       text(row.label, PAD, ry, dim);
       box(barX, ry + 2, barW, 3, well, 1);
       if (value > 0) box(barX, ry + 2, Math.max(1, Math.round(value * barW)), 3, row.ink ?? meterInk(value), 2);
-      if (row.text) text(row.text, barX + barW + 2, ry, words);
+      if (row.text) text(row.text, width - numberW, ry, words);
     });
   }
   return { sample, reset, layout, draw, width: WIDE };
