@@ -20,6 +20,7 @@ import { STOREY, ATRIUM, SLAB, LEG, CAR, CAR_HEIGHT, CAR_WALL, CAR_Z, altitude, 
 import { TILE_COLORS } from './world.mjs';
 import { BASEMENT, DEPTH } from './basement.mjs';
 import { PLANET } from './planet.mjs';
+import { HUNG } from './orbits.mjs';
 import { DISPENSER_WALL } from './ball.mjs';
 import { REACH, LAP, GROUNDS } from './park.mjs';
 
@@ -121,6 +122,8 @@ export function worldMap({ geography, tower = null, contents = () => ({}), seate
     revision: `${census.revision}.${tower?.revision || 0}`,
     block: BLOCK,
     planet: { radius: PLANET, lap: LAP * BLOCK },
+    // 🪐 The planets hung over the land (orbits.mjs): balls, each its middle and radius.
+    hung: HUNG.map((b) => ({ id: b.id, x: b.x, y: b.y, z: b.z, r: b.r, color: b.ink })),
     extent: {
       x0: Math.min(...is) * BLOCK - half, z0: Math.min(...js) * BLOCK - half,
       x1: Math.max(...is) * BLOCK + half, z1: Math.max(...js) * BLOCK + half,

@@ -1,8 +1,8 @@
 import { BASEMENT, SEA_HALF, POOL, floatInPool } from './basement.mjs';
 import { objectBoxes } from './objects.mjs';
 import { towerSides, carDoor } from './elevator.mjs';
-import { fly, rideable, VOID } from './bike.mjs';
-import { SPACE, SPACE_HALF, PLANET_HALF, planetOf } from './orbits.mjs';
+import { fly, rideable } from './bike.mjs';
+import { topOf } from './orbits.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -44,9 +44,9 @@ export const CHALK = false;
 // The tower's rooms (the plaza and every floor) share one size. It is the
 // studio's for now; the rest of rax no longer assumes so.
 export const TOWER_HALF = WORLD;
-export const halfOf = (room) => (room === SPACE ? SPACE_HALF : planetOf(room) ? PLANET_HALF : room === BASEMENT ? SEA_HALF : room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
+export const halfOf = (room) => (room === BASEMENT ? SEA_HALF : room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
 // The farthest a point in any room can be from its middle.
-export const MAX_HALF = Math.max(WORLD, TOWER_HALF, SEA_HALF, SPACE_HALF);
+export const MAX_HALF = Math.max(WORLD, TOWER_HALF, SEA_HALF);
 export const SCREEN = 40;
 // The floor's paints, by the number a painted square stores (1 to 6).
 export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
@@ -127,9 +127,16 @@ export function spawn(seat, life = 1, half = WORLD) {
 // `open` names the sides that lead to a neighbour (['east', 'south']).
 // `half` is the room's half-width (halfOf).
 const CAR_DOOR = carDoor();
+const NO_HUNG = [];
+// A bike against a planet is a ball this big, its middle this far under the eyes: on top that leaves it hovering as it does over the land (bike.mjs hover + seat).
+const BIKE_MIDDLE = 1.3, BIKE_ROUND = 1.4;
 export function move(player, cmd, objects = [], time = 0, fixed = [], flat = false, open = null, half = WORLD) {
   const WALLS = wallsOf(half);
   if (!player.alive) return { ...player };
+  // 🪐 The planets hung over this room (orbits.mjs hungFor) are balls among
+  // its solids, not boxes: a bike is kept out of them, their tops are ground.
+  const hung = fixed.some((b) => b.ball) ? fixed.filter((b) => b.ball) : NO_HUNG;
+  if (hung.length) fixed = fixed.filter((b) => !b.ball);
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
     feet = player.y - CFG.eyeHeight;
@@ -144,13 +151,13 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🛵 The cabin bike (bike.mjs): B gets on and off; on it the body flies,
   // hovering over the highest thing under it, and a build stops it.
   // (Getting on is judged where the body stands; once on, only water or a side-on arena takes the bike away: a roof just stops it rising.)
-  const space = fixed.includes(VOID); // 🌌 in space everyone rides, and nothing is under them (bike.mjs)
-  const riding = space || (cmd.bike ? !player.bike && rideable(fixed, flat, player) : !!player.bike && !flat && !poolRoom);
+  const riding = cmd.bike ? !player.bike && rideable(fixed, flat, player) : !!player.bike && !flat && !poolRoom;
   if (riding) {
     let below = poolRoom ? POOL.bottom : 0;
     for (const b of [...boxes, ...fixed]) if (!b.ceiling && under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
-    const next = fly(player, cmd, below, DT, CFG.eyeHeight, space);
-    if (space) next.y = clamp(next.y, -half, half);
+    // 🪐 Over a planet's top, that is what it hovers on (so it comes down to rest there, and does not slide off the round of it).
+    for (const b of hung) { const top = topOf(b, player.x, player.z); if (top !== null && player.y - BIKE_MIDDLE > b.y) below = Math.max(below, top); }
+    const next = fly(player, cmd, below, DT, CFG.eyeHeight);
     // What stops it: builds, and the room's own walls (glass, the car, a dispenser), its keel to the top of its cabin.
     // A move is refused only if it comes nearer than the bike's half-width to
     // one, or goes further in; along a wall it slides, and away it is free
@@ -166,6 +173,14 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     }
     // A roof stops it rising (the cabin's top is just over the eyes).
     for (const b of fixed) if (b.ceiling && under(b, next) && player.y + 0.3 <= b.yMin && next.y + 0.3 > b.yMin) { next.y = b.yMin - 0.3; next.vy = Math.min(0, next.vy); }
+    // 🪐 A planet stops it: the bike (a ball about its seat) is kept clear of the planet's, and slides round it. On top that is its hover.
+    for (const b of hung) {
+      const dx = next.x - b.x, dy = next.y - BIKE_MIDDLE - b.y, dz = next.z - b.z, d = Math.hypot(dx, dy, dz), need = b.r + BIKE_ROUND;
+      if (d >= need || d < 1e-6 || (dy > 0 && topOf(b, next.x, next.z) !== null)) continue; // (over its top the hover holds it: above)
+      const nx = dx / d, ny = dy / d, nz = dz / d, into = next.vx * nx + next.vy * ny + next.vz * nz;
+      next.x = b.x + nx * need; next.y = b.y + ny * need + BIKE_MIDDLE; next.z = b.z + nz * need;
+      if (into < 0) { next.vx -= into * nx; next.vy -= into * ny; next.vz -= into * nz; }
+    }
     const past = (side) => (open?.includes(side) ? OVERRUN : 0);
     next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
     next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
@@ -173,12 +188,15 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   }
   if (player.bike) player = { ...player, bike: false, onGround: false }; // got off (or rode somewhere a bike is not): from here the body falls
   const support = [...boxes, ...ledges].find((b) => under(b, player) && Math.abs(feet - b.yMax) < 0.02);
-  const grounded = player.onGround && (feet < (poolRoom ? POOL.bottom : 0) + 0.02 || !!support);
+  // 🪐 Standing on a planet: its top under the feet is the ground.
+  let dome = null;
+  if (player.onGround) for (const b of hung) { const top = topOf(b, player.x, player.z); if (top !== null && Math.abs(feet - top) < 0.06) dome = top; }
+  const grounded = player.onGround && (feet < (poolRoom ? POOL.bottom : 0) + 0.02 || !!support || dome !== null);
   const step = (grounded || afloat) && !(cmd.buttons & 1) ? 0.32 : 0.001;
   const cfg = {
     ...CFG,
     airCapSpeed: poolRoom || fixed.some(b => b.window) || open === towerSides ? 4.3 : CFG.airCapSpeed,
-    groundY: support?.yMax ?? (poolRoom ? POOL.bottom : 0),
+    groundY: support?.yMax ?? dome ?? (poolRoom ? POOL.bottom : 0),
     ...(afloat ? {runSpeed: player.boat ? 4.3 : 2.4, walkSpeed: 1.7, hVelDecay: player.boat ? 0.955 : 0.88, jumpVelocity: 0, airAccel: undefined} : {}),
     obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
       ...(player.shut > 0 ? [CAR_DOOR] : [])], // 🛗 riding: the car's door is shut for this body (`shut` ticks to go)
@@ -209,6 +227,21 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     next.vy = 0;
     next.onGround = true;
   } else if (next.y - CFG.eyeHeight > floor + 0.001) next.onGround = false;
+  // 🪐 A planet's top is ground that rises and falls underfoot: a body on it
+  // keeps to it, a body come down on it lands. Past where it can be stood on
+  // its side is solid: the body is put out of it, and falls.
+  for (const b of hung) {
+    const top = topOf(b, next.x, next.z), f = next.y - CFG.eyeHeight;
+    if (top !== null && next.vy <= 0 && (dome !== null ? f <= top + 0.6 : f <= top && feet >= top - 0.6)) {
+      next.y = top + CFG.eyeHeight; next.vy = 0; next.onGround = true;
+      continue;
+    }
+    const dx = next.x - b.x, dz = next.z - b.z, dy = next.y - 0.8 - b.y, need = b.r + 0.4;
+    if (Math.abs(dy) >= need) continue;
+    const want = Math.sqrt(need * need - dy * dy), flatly = Math.hypot(dx, dz);
+    if (flatly >= want) continue;
+    if (flatly < 1e-6) next.x = b.x + want; else { next.x = b.x + (dx * want) / flatly; next.z = b.z + (dz * want) / flatly; }
+  }
   if (next.vy > 0) for (const b of fixed) {
     if (b.ceiling && under(b, next) && player.y + 0.15 <= b.yMin && next.y + 0.15 >= b.yMin) {
       next.y = b.yMin - 0.15;

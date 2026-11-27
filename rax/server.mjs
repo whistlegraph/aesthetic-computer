@@ -18,9 +18,7 @@ import { MAX_FOCUS_ZOOM, OBJECT_PROXY_DISTANCE } from './screen-lod.mjs';
 import { objectBoxes, distantBoxes } from './objects.mjs';
 import { worldMap, peopleNow } from './map.mjs';
 import { WEATHER_URL, CLEAR, read as readWeather } from './weather.mjs';
-import { clock as skyClock, skyOf as skyDay } from './sky.mjs';
-import { HOME, SPACE, LEAVE, planetOf, launch, setDown, reached } from './orbits.mjs';
-import { VOID } from './bike.mjs';
+import { hungFor } from './orbits.mjs';
 import { guestName } from './guest-name.mjs';
 import { atriumRoof, aloft, storeyWindows, towerSides, SLAB, clearOfCar, altitude, floorsNear, rideSeconds, rideEase, shutTicks, ROOF, roofOf, roofNumber, roofWalls, storeyAt, storeyOf, PARAPET } from './elevator.mjs';
 import { TowerStore, GROUND, floorRoom, isFloorRoom, carTo, carWalls, lobbyWalls, inCar, CAR_ARRIVAL, CAR, CAR_Z, LOBBY_FRONT, DOOR } from './tower.mjs';
@@ -275,7 +273,7 @@ export function createRaxServer({
   // keeps of it: its solids and the sides that lead on.
   const sendPark = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
-    rooms.get(key)?.match.setWalls(wallsFor(key)); // the elevator and the lobby are solid
+    rooms.get(key)?.match.setWalls(solidsFor(key)); // the elevator and the lobby are solid, and a planet hung overhead
     if (rooms.has(key)) rooms.get(key).match.open = aloft(key) ? towerSides : Object.keys(geography.geography.neighbours(key) || {});
   };
   // 🏠 Home is the handle's floor of the tower.
@@ -285,10 +283,11 @@ export function createRaxServer({
   };
   // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
   // which floor is theirs.
-  const HOME_LANDING = blockId({ i: 0, j: -2 });
   const hasCar = (key) => key === BASEMENT || key === GROUND || key === ROOF || isFloorRoom(key);
   // The elevator is solid on every floor; the lobby's glass on the ground; the parapet on the roof.
-  const wallsFor = (key) => [...(key === SPACE ? [VOID] : []), ...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL, atriumRoof()] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
+  const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL, atriumRoof()] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
+  // 🪐 …and the planets hung over the plaza and the blocks (orbits.mjs): what a body there meets, besides the room's own boxes.
+  const solidsFor = (key) => [...wallsFor(key), ...(key === GROUND || parseBlock(key) ? hungFor(key === GROUND ? { i: 0, j: 0 } : parseBlock(key)) : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
@@ -340,8 +339,6 @@ export function createRaxServer({
       if (r.ok) weather = readWeather(await r.json());
     } catch {}
   };
-  // 🌞 The sky's day as the pages count it (sky.mjs, stretched to the real sunrise and sunset): what stands where over a planet.
-  const dayAt = (now) => (weather.rise > 0.1 && weather.rise < 0.45 && weather.set > 0.55 && weather.set < 0.95 ? skyDay(skyClock(now), weather.rise, weather.set) : skyDay(skyClock(now)));
   const weatherTimer = process.env.NODE_TEST_CONTEXT ? null : setInterval(askWeather, 10 * 60 * 1000);
   weatherTimer?.unref?.();
   if (weatherTimer) void askWeather();
@@ -1005,9 +1002,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // 🛗 In a room with the car, bodies land in a row south of the middle,
       // facing the car: never inside it, never against a planter.
-      // 🌌 Come straight to space (a page opened there): on a bike over home, a little apart from the next.
-      if (key === SPACE) rooms.get(key).match.spawnAt = (seat) => { const now = Date.now(); return { ...launch(HOME, now, dayAt(now), LEAVE + 6 + seat * 3, 0, 0), onGround: false, bike: true }; };
-      else if (key === BASEMENT) rooms.get(key).match.spawnAt = seat => ({ x: seat % 4 * 1.2, z: -5 - Math.floor(seat / 4)*0.65, yaw: 0 });
+      if (key === BASEMENT) rooms.get(key).match.spawnAt = seat => ({ x: seat % 4 * 1.2, z: -5 - Math.floor(seat / 4)*0.65, yaw: 0 });
       else if (hasCar(key)) rooms.get(key).match.spawnAt = (seat) => seat === 0 ? { x: 0, z: -5, yaw: 0 }
         : { x: (seat % 2 ? -1 : 1) * 1.5 * Math.ceil((seat % 8 || 8) / 2), z: seat < 9 ? -6.3 : -7.2, yaw: 0 };
       if (isArena(key)) rooms.get(key).match.setArena(LEDGES);
@@ -1062,7 +1057,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const furnish = () => {
       const at = key, here = room;
       here.match.setObjects(store.objects(at));
-      here.match.setWalls(wallsFor(at));
+      here.match.setWalls(solidsFor(at));
       // An old build in the way of the car or the entrance is stood aside.
       if (hasCar(at)) void builders.tidy(at).then((moved) => {
         if (!moved) return;
@@ -1217,24 +1212,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       const height = cellOf(key).h;
       relocate(blockId(block), { ...local, y: height + p.y, yaw: p.yaw, pitch: p.pitch,
         vx: p.vx, vy: p.vy, vz: p.vz, onGround: false, bike: !!p.bike }, { told: {ack: seat.ack} });
-    };
-    // 🚀 Between the planets (orbits.mjs). A bike climbed past LEAVE over a
-    // planet's open ground is in space, over that planet's top and still
-    // looking at what it looked at; a bike in space come near a planet is
-    // set down over it. Home's landing is the terrace south of the tower
-    // (the tower itself stands over the plaza's middle).
-    member.crossSpace = () => {
-      if (!stays || member.seat < 0) return;
-      const seat = room.match.seats[member.seat], p = seat?.player;
-      if (!p?.alive || !p.bike) return;
-      const now = Date.now(), day = dayAt(now), told = { told: { flight: true } };
-      if (key === SPACE) {
-        const got = reached(p, now);
-        if (got) relocate(got.body.id === HOME ? HOME_LANDING : got.body.id, { x: 0, z: 0, ...setDown(got.body, p, now, day), onGround: false, bike: true }, told);
-        return;
-      }
-      const on = planetOf(key, key === GROUND || key === ROOF || !!parseBlock(key)), high = p.y + (on?.id === HOME ? cellOf(key)?.h || 0 : 0);
-      if (on && high >= LEAVE) relocate(SPACE, { ...launch(on, now, day, high, p.yaw, p.pitch || 0, [p.vx || 0, p.vy || 0, p.vz || 0]), onGround: false, bike: true }, told);
     };
     member.crossStairs = () => {
       if (!stays || !member.owner || member.seat < 0 || (key !== GROUND && key !== BASEMENT)) return;
@@ -2026,9 +2003,6 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       for (const room of [...rooms.values()])
         for (const seat of room.match.toRoof.splice(0))
           [...room.sessions.values()].find((m) => m.seat === seat)?.toRoof?.();
-      // 🚀 Bikes out of a planet's air, and in from space (a bike only: nothing else gets that high, and in space everyone rides).
-      for (const room of [...rooms.values()])
-        for (const m of [...room.sessions.values()]) m.crossSpace?.();
       // 🌐 Rounds that flew out over an open side go on in the room beside: here, or over the link.
       for (const [key, room] of [...rooms])
         for (const r of room.match.outbound.splice(0)) {

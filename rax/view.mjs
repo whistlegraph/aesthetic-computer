@@ -12,7 +12,6 @@ import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
 import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
-import { skyOf as planetsInSky, HOME, PLANET_HALF } from './orbits.mjs';
 import { decorFor, COLS as DECOR_COLS, ROWS as DECOR_ROWS } from './bike-decor.mjs';
 import { BIKE } from './bike.mjs';
 // 🧱 `localStorage["rax:solids"] = "on"` audits every model as it is built:
@@ -37,7 +36,7 @@ import { OBJECT_FORMAT, sourceFrame, sourceTree, sourceHair } from './object-lan
 import { BALL, DISPENSER } from './ball.mjs';
 import { airAt, sun, heading } from './air.mjs';
 import { Projector, screen } from './project.mjs';
-import { PLANET, FAR, landTiles, viewCurvature } from './planet.mjs';
+import { PLANET, FAR, landTiles, viewCurvature, bend } from './planet.mjs';
 import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
 import { glide } from './dock.mjs';
@@ -395,90 +394,33 @@ export async function createView(canvas) {
     domeKept = { step, model: [bands, lights, discs] };
     return domeKept.model;
   }
-  // 🪐 The other planets (orbits.mjs), on the same dome as the sun: each a
-  // disc as wide as it truly looks from here, lit on the side its sun is on,
-  // so it waxes and wanes as it goes round. They move, so the layer is made
-  // again four times a second, not with the dome's three-minute pictures.
-  let planetsKept = null;
-  function planetLayer(dayPhase, now, from = HOME, altitude = 0) {
-    const tick = `${from} ${Math.floor(now / 250)} ${Math.round(altitude)}`;
-    if (planetsKept?.tick === tick) return planetsKept.model;
-    const R = 2300, RINGS = 4, SEGMENTS = 20;
-    const made = model(({ quad }) => {
-      for (const p of planetsInSky(from, now, dayPhase, altitude)) { // (seen from as high as the eye is: they are near, and a climb moves them)
-        const d = p.dir;
-        if (d.y < -0.12) continue; // under the horizon
-        const flat = Math.hypot(d.x, d.z);
-        const right = flat ? [d.z / flat, 0, -d.x / flat] : [1, 0, 0];
-        const up = [d.y * right[2], d.z * right[0] - d.x * right[2], -d.y * right[0]];
-        const span = Math.max(10, R * Math.tan(p.size)), L = [p.light.x, p.light.y, p.light.z], D = [d.x, d.y, d.z];
-        const at = (a, b) => D.map((v, i) => v * R + (right[i] * a + up[i] * b) * span);
-        for (let k = 0; k < RINGS; k++)
-          for (let j = 0; j < SEGMENTS; j++) {
-            const r0 = k / RINGS, r1 = (k + 1) / RINGS, t0 = (j / SEGMENTS) * 2 * Math.PI, t1 = ((j + 1) / SEGMENTS) * 2 * Math.PI;
-            const rm = (r0 + r1) / 2, tm = (t0 + t1) / 2, a = rm * Math.cos(tm), b = rm * Math.sin(tm);
-            const face = Math.sqrt(Math.max(0, 1 - a * a - b * b));
-            const lit = [0, 1, 2].reduce((sum, i) => sum + (a * right[i] + b * up[i] - face * D[i]) * L[i], 0);
-            const ink = lit > 0 ? blendInk(p.dark, p.ink, Math.min(1, 0.2 + 0.8 * lit)) : p.dark;
-            quad(at(r0 * Math.cos(t0), r0 * Math.sin(t0)), at(r1 * Math.cos(t0), r1 * Math.sin(t0)),
-              at(r1 * Math.cos(t1), r1 * Math.sin(t1)), at(r0 * Math.cos(t1), r0 * Math.sin(t1)), ink);
-          }
-      }
-    });
-    planetsKept = { tick, model: made };
-    return made;
-  }
-  // 🌌 Space (orbits.mjs SPACE): the stars all round, and the sun and the
-  // planets as balls where they truly are, each lit from the sun's side. A
-  // ball is made again only when its light has turned a couple of degrees.
-  let starsAround = null;
-  const spaceStars = () => (starsAround ||= model(({ quad }) => {
-    const R = 2350;
-    for (const star of starField)
-      for (const side of [1, -1]) {
-        const d = [star.x, star.y * side, star.z * side], flat = Math.hypot(d[0], d[2]);
-        const right = [d[2] / flat, 0, -d[0] / flat], up = [d[1] * right[2], d[2] * right[0] - d[0] * right[2], -d[1] * right[0]];
-        const corner = (a, b) => d.map((v, i) => v * R + (right[i] * a + up[i] * b) * star.size / 2);
-        quad(corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1), star.bright ? 0xffffff : 0xa9b8e6);
-      }
-  }));
-  const spaceBalls = new Map();
-  function spaceBall(b) {
-    const key = b.light ? b.light.map((n) => Math.round(n * 30)).join() : 'sun', kept = spaceBalls.get(b.id);
+  // 🪐 The planets hung over home (orbits.mjs HUNG): real balls where they
+  // are, lit from the side the day's light is on. One is made again only
+  // when that light has turned a couple of degrees.
+  const hungBalls = new Map();
+  function hungBall(b, L) {
+    const key = L ? [L.x, L.y, L.z].map((n) => Math.round(n * 30)).join() : 'unlit', kept = hungBalls.get(b.id);
     if (kept?.key === key) return kept.model;
-    const RINGS = 16, SEGMENTS = 28, L = b.light;
+    const RINGS = 16, SEGMENTS = 28;
     const made = model(({ quad }) => {
       const at = (i, j) => { const e = (i / RINGS - 0.5) * Math.PI, t = (j / SEGMENTS) * 2 * Math.PI; return [Math.cos(e) * Math.cos(t), Math.sin(e), Math.cos(e) * Math.sin(t)]; };
-      const ink = (n) => { if (!L) return b.ink; const lit = n[0] * L[0] + n[1] * L[1] + n[2] * L[2]; return lit > 0 ? blendInk(b.dark, b.ink, Math.min(1, 0.2 + 0.8 * lit)) : b.dark; };
+      const ink = (n) => { if (!L) return b.ink; const lit = n[0] * L.x + n[1] * L.y + n[2] * L.z; return lit > 0 ? blendInk(b.dark, b.ink, Math.min(1, 0.35 + 0.65 * lit)) : blendInk(b.dark, b.ink, 0.12); };
       for (let i = 0; i < RINGS; i++)
         for (let j = 0; j < SEGMENTS; j++) {
           const p = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
           quad(...p, p.map(ink));
         }
     });
-    spaceBalls.set(b.id, { key, model: made });
+    hungBalls.set(b.id, { key, model: made });
     return made;
   }
-  // 🪐 The ground of a planet other than home: its one room a chequer of two
-  // near tints (so a walk over it shows), and its land beyond in the one ink,
-  // out past the horizon as home's is (planet.mjs landTiles).
-  const planetGrounds = new Map();
-  function planetGround(p, day) {
-    const key = `${p.id} ${day}`;
-    if (planetGrounds.has(key)) return planetGrounds.get(key);
-    const ink = day ? p.ink : blendInk(p.dark, p.ink, 0.35), other = tint(ink, 0.93), H = PLANET_HALF, S = 8;
-    const made = model(({ quad, tri }) => {
-      for (let x = -H; x < H; x += S)
-        for (let z = -H; z < H; z += S)
-          quad([x, 0, z], [x, 0, z + S], [x + S, 0, z + S], [x + S, 0, z], ((x + z) / S) & 1 ? other : ink);
-      for (const t of landTiles(2 * H, 9000)) {
-        const mid = [(t.x0 + t.x1) / 2, 0, (t.z0 + t.z1) / 2], n = t.points.length;
-        for (let k = 0; k < n; k++) tri(mid, [t.points[k][0], 0, t.points[k][1]], [t.points[(k + 1) % n][0], 0, t.points[(k + 1) % n][1]], ink);
-      }
-    });
-    planetGrounds.set(key, made);
-    return made;
-  }
+  // Where each is drawn this frame, and how far that is from where it is.
+  // The land is wrapped round a ball under the eye (project.mjs), which
+  // spreads whatever is high over it; a planet is drawn whole instead, at
+  // the place the wrapping gives its middle. Come near one, it eases to
+  // where it truly is, so that standing on it the feet are on it; and what
+  // stands on it (within `hold` of its middle) is drawn with it.
+  let hungNow = [];
   // The room follows the clock: rebuilt when the hour crosses into day or night.
   let paletteName = null, arena, skyModel, sky;
   const arenas = new Map(); // a plain room's walls and floor, by palette and half-width
@@ -1587,6 +1529,15 @@ export async function createView(canvas) {
   }));
   const panelModels = new Map(); // a world panel's face and slab, by its id
   const draw = (made, x = 0, y = 0, z = 0, yaw = 0, pitch = 0, scale = 1, roll = 0) => {
+    // 🪐 What stands on a hung planet is drawn where the planet is drawn, as it is (not spread round the land's ball).
+    if (hungNow.length && projector.bends && projector.planet)
+      for (const m of hungNow)
+        if ((x - m.x) ** 2 + (y - m.y) ** 2 + (z - m.z) ** 2 < m.hold * m.hold) {
+          projector.bends = false;
+          projector.draw(made, x + m.sx, y + m.sy, z + m.sz, yaw, pitch, scale, roll);
+          projector.bends = true;
+          return;
+        }
     projector.draw(made, x, y, z, yaw, pitch, scale, roll);
     if (casting && !pitch && !roll && boxesOf(made)) casters.push(made, x, y, z, yaw, scale);
   };
@@ -1659,8 +1610,7 @@ export async function createView(canvas) {
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
     beyond = [], // 👀 the people in the rooms around this one, in this room's metres: { name, seat, x, y, z, yaw, pitch, vx, vz }
-    space = null, // 🌌 { bodies: [{ id, x, y, z, radius, ink, dark, light }] }: this room is space (orbits.mjs), and what is in it now
-    planet = null, // 🪐 the planet this room stands on when it is not home (orbits.mjs BODIES): { id, radius, ink, dark }
+    hung = [], // 🪐 the planets hung over home, in this room's metres (orbits.mjs hungFor): { id, x, y, z, r, ink, dark }
     weather = null, // 🌧️ { rain, snow, cloud, wind }: what falls over Los Angeles (weather.mjs)
     balls = [], courtyard = null,
     home = null,
@@ -1753,7 +1703,7 @@ export async function createView(canvas) {
     const skyStep = !ledges ? stepOf(skyPhase) : -1;
     const today = skyStep >= 0 ? skyAt(skyStep / STEPS) : null;
     dress(today ? (today.day ? 'day' : 'night') : paletteFor());
-    sky = space && orbit < 1 ? [0.01, 0.01, 0.03, 1] : [...rgb(orbit === 1 ? PALETTES[paletteFor()].sky : today ? today.horizon : PALETTES[paletteName].sky), 1];
+    sky = [...rgb(orbit === 1 ? PALETTES[paletteFor()].sky : today ? today.horizon : PALETTES[paletteName].sky), 1];
     textures.tick(performance.now()); // 🖼️ step what runs, send what changed (before anything asks for a layer)
     host.beginFrame();
     // 🌑 Shadows follow the sun itself, not the sky's three-second pictures.
@@ -1763,7 +1713,7 @@ export async function createView(canvas) {
     const lamp = !sunNow ? null : sunNow.y >= 0 ? sunNow : { x: -sunNow.x, y: -sunNow.y, z: -sunNow.z };
     const shade = lamp && !headset && !xr && host.shadows && shadows && orbit < 0.6 ? shadeFor(lamp.y, lamp === sunNow ? undefined : MOON_SHADE) : null;
     casters.length = 0;
-    casting = !!shade && !space; // (in space there is no ground for a shadow to lie on)
+    casting = !!shade;
     let eye = { x: 15, y: 19, z: -22 },
       aim = { x: 0, y: 0, z: 0 };
     let through = false; // The third-person camera, looking through what hides you.
@@ -1888,14 +1838,17 @@ export async function createView(canvas) {
     orbitZoom = 1;
     // At walking height the source coordinates are already a local map in metres.
     // Ease in both the planet and the wide-angle lens as the camera leaves it.
-    const curvature = space || eye.y < ground || basement ? 1 : viewCurvature(eye.y - ground, orbit); // (🌌 space keeps the wide lens a high bike came out with)
+    const curvature = eye.y < ground || basement ? 1 : viewCurvature(eye.y - ground, orbit);
     projector.decay = decay;
     projector.chunk = chunk;
     projector.fuzz = fuzz;
     projector.decayAt = now;
     projector.card = !xr && backend === 'webgpu';
     projector.under = projector.card ? 1 : 0;
-    projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS * curvature;
+    // 🪐 How much each hung planet is the place the eye is at: 1 on it and close by, 0 from 30 m off.
+    const hungNear = hung.map((b) => { const t = Math.min(1, Math.max(0, (Math.hypot(b.x - eye.x, b.y - eye.y, b.z - eye.z) - b.r - 6) / 24)); return 1 - t * t * (3 - 2 * t); });
+    const onHung = Math.max(0, ...hungNear);
+    projector.lens = game?.camera || !projector.card || orbit > 0 ? 0 : TRY.lens ?? LENS * curvature * (1 - onHung); // (on a planet the lens is a walker's)
     if (camera?.flat) projector.lens *= 1 - camera.flat;
     if (projector.lens) {
       projector.sx *= 1 + (LENS_ZOOM - 1) * projector.lens;
@@ -1938,8 +1891,8 @@ export async function createView(canvas) {
       const grade = idleEffect ? `contrast(${1 + 0.08 * idleEffect}) saturate(${1 - 0.06 * idleEffect})` : '';
       if (canvas.style.filter !== grade) canvas.style.filter = grade;
     }
-    projector.planet = space || (game?.camera && orbit <= 0) ? 0 :
-      TRY.planet ?? (curvature > 0 ? (planet?.radius || PLANET) / curvature : 0);
+    projector.planet = game?.camera && orbit <= 0 ? 0 :
+      TRY.planet ?? (curvature > 0 ? PLANET / curvature : 0);
     // 🖥️ Gone in to a screen (`camera.flat`, 0 to 1) the ball is let out to nothing as the lens closes: a face filling the picture is flat and square, not sagging round the planet.
     if (camera?.flat && projector.planet) projector.planet /= Math.max(1e-4, (1 - camera.flat) ** 2);
     // (How plain the picture is, 0 to 3, goes up when the drawing runs long and comes down only when it is well under: so it settles and does not hunt.)
@@ -1949,6 +1902,12 @@ export async function createView(canvas) {
     // The land lies at the plaza's height (far below, seen from a floor of the tower).
     projector.ground = ground;
     projector.frame();
+    hungNow = hung.map((b, i) => {
+      if (!projector.planet) return { ...b, sx: 0, sy: 0, sz: 0, hold: b.r + 3.2 };
+      const at = bend(b.x - eye.x, b.y - ground, b.z - eye.z, projector.planet, eye.y - ground), w = hungNear[i];
+      const sx = (eye.x + at[0] - b.x) * (1 - w), sy = (eye.y + at[1] - b.y) * (1 - w), sz = (eye.z + at[2] - b.z) * (1 - w);
+      return { ...b, sx, sy, sz, hold: b.r + 3.2 };
+    });
     // Daylight follows the normals of the wrapped terrain as the camera climbs.
     projector.orbitLight = lamp && orbit > 0 ? [projector.right, projector.up, projector.forward]
       .map(axis => axis[0]*lamp.x + axis[1]*lamp.y + axis[2]*lamp.z) : null;
@@ -1966,7 +1925,7 @@ export async function createView(canvas) {
       projector.bends = false; // (the sky is not wrapped round the planet)
       // Keep sky layers at successive far-depth values. At this distance the
       // flat dome cuts through the lights and depth precision can erase the glow.
-      const layers = space ? [spaceStars()] : [...skyDome(skyStep), planetLayer(skyPhase, Date.now(), planet?.id || HOME, Math.max(0, eye.y - ground))];
+      const layers = skyDome(skyStep);
       for (let i = 0; i < layers.length; i++) {
         const first = host.scene.triangleCount;
         draw(layers[i], eye.x, eye.y, eye.z, 0, 0, SKY);
@@ -1974,8 +1933,13 @@ export async function createView(canvas) {
         for (let k = first * 18 + 2; k < host.scene.triangleCount * 18; k += 6) host.scene.vertices[k] = depth;
       }
       projector.bends = true;
-      // 🌌 …and in space the sun and the planets, where they are.
-      if (space) for (const b of space.bodies) draw(spaceBall(b), b.x, b.y, b.z, 0, 0, b.radius);
+    }
+    // 🪐 The planets hung over home, whole.
+    if (hungNow.length && orbit < 1 && !ledges) {
+      const wrapped = projector.bends;
+      projector.bends = false;
+      for (const m of hungNow) projector.draw(hungBall(m, lamp), m.x + (m.sx || 0), m.y + (m.sy || 0), m.z + (m.sz || 0), 0, 0, m.r);
+      projector.bends = wrapped;
     }
     if (xr) {
       projector.bends = false;
@@ -1997,8 +1961,6 @@ export async function createView(canvas) {
       // Both rooms draw the fence on their common boundary.
       if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
-    else if (space) {} // 🌌 nothing underfoot
-    else if (planet) draw(planetGround(planet, !today || today.day));
     else if (half === WORLD) draw(arena);
     else {
       if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));

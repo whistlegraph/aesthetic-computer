@@ -100,8 +100,9 @@ export function promenade(cell) {
   }
   return { flats, solids };
 }
+// (A body on foot crosses on the ground. A cabin bike crosses at any height: it hovers higher than a walker's eyes, and is how a body gets to the planets hung over the blocks.)
 export function edgeAt(p) {
-  if (!p || p.y > 2.3) return null;
+  if (!p || (p.y > 2.3 && !p.bike)) return null;
   if (p.x > EDGE) return 'east';
   if (p.x < -EDGE) return 'west';
   if (p.z > EDGE) return 'north';

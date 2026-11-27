@@ -13,32 +13,25 @@ Rax is a public park with personal pods. Guests can walk its paths and visit
 pods. Each pod has a permanent ID and content room; its placement in the park
 can change. The first two plots remain where they were when upgraded.
 
-## Between the planets (2026-11-27)
+## The planets (2026-11-27)
 
-Home is one of three planets going round a sun (`orbits.mjs`). A cabin bike
-(`bike.mjs`, B) is how a body gets from one to another:
+Two small planets hang in home's air (`orbits.mjs` `HUNG`): `pinch`, 6 m in
+radius, north-west of the tower, and `brume`, 7.5 m, south-east and higher.
+They are places in the same world as everything else, in the same metres, and
+they do not move.
 
-- **Out.** A bike that climbs past 90 m (`LEAVE`) over open ground (the plaza,
-  a block, the roof) is in space. It comes out over the planet's top, still
-  looking at what it looked at, so a planet seen in the sky is ahead of a
-  bike that flew at it.
-- **Space** is one room, `space`, measured in metres from the sun. The sun
-  and the planets are balls where they truly are and they go on moving.
-  Everyone in it rides: nothing is underfoot and B does not get off.
-- **In.** A bike that comes within 70 m (`ARRIVE`) of a planet's ground is
-  set down over it, looking and going the way it was, turned so the planet
-  is under it. Home's landing is the terrace south of the tower (`e0s2`).
-- **The other planets**, `pinch` and `brume`, are one room each for now, 80 m
-  square (`PLANET_HALF`), named for the planet: open ground in its colour,
-  bent to its own size, under its own sky. Anyone builds there.
-- At their nearest two planets are closer than `LEAVE`: leaving one is then
-  arriving at the other.
-
-The server moves the body on a socket that stays (`crossSpace` in
-`server.mjs`, as a walk over a block's line). A rest is kept only on home, so
-a page closed in space or on another planet opens again where its handle
-last stood at home. A block kept on another host (a satellite) does not yet
-send a bike to space.
+- **Getting there.** Get on a cabin bike (B), look at one and go. The bike
+  crosses block lines at any height (`park.mjs` `edgeAt`); a body on foot
+  still crosses on the ground.
+- **On one.** A planet is solid. A bike comes to rest hovering on its top.
+  Off the bike a body stands and walks on the top, out to 0.92 of the radius
+  (`CAP`). Past that it is too steep: the body falls to the land below.
+- **Where they are kept.** Each stands over the middle of one block and fits
+  inside it. A room has the planets near it among its solids (`hungFor`), as
+  balls: `world.mjs` `move` runs the same sums on the server and the page.
+- **How they are drawn.** Whole and round, where the wrapped land puts their
+  middles; near one it eases to where it truly is, and whoever stands on it is
+  drawn with it (`view.mjs` `hungNow`). `GET /rax/map` lists them as `hung`.
 
 ## AC Tower (2026-11-16)
 

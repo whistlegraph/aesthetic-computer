@@ -4,8 +4,8 @@ import { airAt, sun } from './air.mjs';
 import { flyover } from './flyover.mjs';
 import { PLANET } from './planet.mjs';
 import { phase as skyPhase, sunTimes } from './sky.mjs';
-import { rideable, VOID } from './bike.mjs';
-import { SPACE, SUN, BODIES, spaceOf, planetOf } from './orbits.mjs';
+import { rideable } from './bike.mjs';
+import { hungFor } from './orbits.mjs';
 import { NAME as BOP_NAME } from './bop.mjs';
 import { towerSides, storeyWindows, carWalls, lobbyWalls, inCar, clearOfCar, altitude, floorAt, listFloors, rideSeconds, rideEase, CAR_PAD, roofOf, shutTicks, storeyOf, ROOF, aloft, roofWalls, atriumRoof } from './elevator.mjs';
 import { createNotepatScreen } from './notepat-screen.mjs';
@@ -572,24 +572,19 @@ function openEdges() {
   }
   return openSides;
 }
-const NO_BOXES = [], SPACE_BOXES = [VOID];
-// 🌌 Space as the picture needs it now (orbits.mjs): the sun in the middle and
-// every planet where it is this moment, each with the way its light comes.
-function spaceNow() {
-  const now = Date.now(), bodies = [{ id: SUN.id, x: 0, y: 0, z: 0, radius: SUN.radius, ink: SUN.ink, light: null }];
-  for (const b of BODIES) {
-    const [x, y, z] = spaceOf(b, now), l = Math.hypot(x, y, z) || 1;
-    bodies.push({ id: b.id, name: b.name, x, y, z, radius: b.radius, ink: b.ink, dark: b.dark, light: [-x / l, -y / l, -z / l] });
-  }
-  return { bodies };
+const NO_BOXES = [];
+// 🪐 The planets hung over this room (orbits.mjs), as the server has them: over the plaza and the blocks, what a body there meets.
+let hungFor_ = null, hungKept = NO_BOXES;
+function hungHere() {
+  if (hungFor_ !== room) { hungFor_ = room; const cell = cellOf(room); hungKept = cell ? hungFor(cell) : NO_BOXES; if (!hungKept.length) hungKept = NO_BOXES; }
+  return hungKept;
 }
 function fixedBoxes() {
-  if (room === SPACE) return SPACE_BOXES;
   if (game()?.ledges) return game().ledges;
-  if (!hasCar()) return NO_BOXES;
+  if (!hasCar()) return hungHere();
   // (Rebuilt when the room changes: only the plaza has the lobby, only the roof its parapet.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
-  return (carBoxes ||= [...CAR_BOXES, ...(room === BASEMENT ? cellarFixtures : []), ...(room === 'lobby' ? LOBBY_BOXES : room === ROOF ? ROOF_BOXES : aloft(room) ? WINDOW_BOXES : [])]);
+  return (carBoxes ||= [...hungHere(), ...CAR_BOXES, ...(room === BASEMENT ? cellarFixtures : []), ...(room === 'lobby' ? LOBBY_BOXES : room === ROOF ? ROOF_BOXES : aloft(room) ? WINDOW_BOXES : [])]);
 }
 // The blocks beside the one underfoot, placed in metres from its middle.
 function around() {
@@ -1585,7 +1580,7 @@ function placePath() {
   // are all rax. Only a room outside the world has a word of its own.
   return inWorld(room) ? '/rax/' : `/rax~${room}`;
 }
-function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null, here = false, flight = false) {
+function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null, here = false) {
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   // 🚶 The body goes on between the two rooms (held): it keeps walking by its
   // own commands, which the next room runs when it seats it. A walk across
@@ -1610,7 +1605,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   }
   if (continuous) presentation.translate(dx, dz, floorHeight);
   held = (receipt || here) && at && player && seat >= 0
-    ? { ...player, vx: 0, vz: 0, ...(walk || flight ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null; // (🚀 `flight`: a bike between a planet and space is set where the server put it, height and speed and all)
+    ? { ...player, vx: 0, vz: 0, ...(walk ? at : { x: at.x, z: at.z }), walk, until: performance.now() + 20000 } : null;
   const owed = held && walk ? pending.filter((c) => c.seq > ack).slice(-HORIZON) : [];
   if (chosen) roamed = true;
   selectTarget(null);
@@ -1945,7 +1940,7 @@ function connect(adopt = null) {
       return;
     }
     if (data.type === 'park') park = { neighbours: data.neighbours, plaza: data.plaza };
-    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack, data.here === true, data.flight === true);
+    if (data.type === 'travel') travel(data.room, true, data.passage, data.ride || null, data.at || null, data.ack, data.here === true);
     if (data.type === 'tower') {
       tower = data;
       if (Array.isArray(data.listed)) {
@@ -3930,11 +3925,9 @@ function step(now, xr) {
     basement: room === BASEMENT,
     half: half(),
     seam: { crossing: !!held || now - crossedAt < 400, shown: statsShown && query.get('seams') === '1' }, // 🫧 the fences on the lines between rooms are drawn (cyan, amber while between two rooms); ?seams=1 opts in
-    weather: room === SPACE || planetOf(room) ? null : weather, // (Los Angeles's rain falls on home only)
+    weather,
     eyes: [...(sheetOpen && drones.size ? [...drones.values()].filter((d) => now - d.at < 1500).map((d) => droneAt(d, now)) : []),
       ...(droneView && !dock && seat < 0 && !held && !filmShot ? [{ name: '', x: freecam.x, y: freecam.y, z: freecam.z, yaw, vx: freecam.vx || 0, vz: freecam.vz || 0, roll: droneRoll }] : [])],
-    space: room === SPACE ? spaceNow() : null, // 🌌 between the planets
-    planet: planetOf(room), // 🪐 a planet other than home: its ground, its size, its sky
     place: placeOf(room), // 📍 this room's corner of the world, so where you stand is told in the world's metres
     beyond: sheetOpen && beyond.size ? [...beyond.values()].filter((b) => now - b.at < 1500).map((b) => beyondAt(b, now)) : [],
     // ⚽ A ball in the car you ride keeps to the car as this page counts it (the server's count is a moment behind).
@@ -3998,6 +3991,7 @@ function step(now, xr) {
     },
     tower: hasCar() ? { ...(tower || { here: null }), count: standing(), lift, screen: carScreen(rideNow) } : null,
     skyline: sky ? { top: towerTop, ...sky } : null,
+    hung: sky ? hungFor({ i: -sky.dx / SPAN, j: -sky.dz / SPAN }, -sky.dy, Infinity) : [], // 🪐 the planets hung over home, from wherever in it this room is
     car: hasCar() && seat >= 0 && inCar(player) && !rideMoving(now),
     plainTags: !!film,
     ride: rideNow,
