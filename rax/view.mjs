@@ -1607,6 +1607,7 @@ export async function createView(canvas) {
     combos = [], // 🔗 a chain in the air, by seat: [how many, worth] or 0
     debug = false, // 🔲 a game's hitboxes and numbers
     boomLength = 4, // how far back the third-person camera sits
+    shoulder = 1, // which shoulder it looks over: 1 right, -1 left, 0 straight behind
     rockets = [],
     status = '',
     members = [],
@@ -1779,6 +1780,17 @@ export async function createView(canvas) {
         // (2026-11-18). Only the ground you stand on holds it up, by sliding.
         boom += (boomLength - boom) * 0.2;
         eye = along(origin, back, boom);
+        // 🎥 Over a shoulder, not straight behind: the camera stands to one
+        // side, so the body is off the middle and what is aimed at is not
+        // behind its head. It still looks where the body looks (`aim`
+        // below), so the two sightlines meet out in front. Nearer in, less
+        // to the side, so a close camera does not leave the body behind.
+        const level = Math.hypot(dir.x, dir.z);
+        if (shoulder && level > 1e-4) {
+          const side = shoulder * Math.min(1.1, 0.26 * boom);
+          eye.x += (-dir.z / level) * side;
+          eye.z += (dir.x / level) * side;
+        }
         eye.y = Math.max(eye.y, me.y - CFG.eyeHeight + 0.3);
         through = true;
       }
