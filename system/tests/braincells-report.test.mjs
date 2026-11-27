@@ -75,3 +75,20 @@ test("recording a spend never throws, even when the database refuses", async () 
   const broken = { collection: () => ({ createIndex: async () => {}, insertOne: async () => { throw new Error("down"); } }) };
   assert.equal(await recordSpend({ product: "aesel", model: "m", braincells: 5 }, { db: broken }), false);
 });
+
+test("a ledger row keeps the provider's token counts, and the report says how much input the cache served", async () => {
+  const { foldBraincells } = await import("../../toolchain/analytics/braincells-fold.mjs");
+  const at = new Date("2026-11-27T12:00:00Z");
+  const usage = { input_tokens: 1000, output_tokens: 200, cache_read_input_tokens: 8000, cache_creation_input_tokens: 1000, cost: 0.01 };
+  const row = spendRow({ product: "aesel", handle: "ay", user: "sub-a", model: "m", braincells: 40, paid: true, usage, provider: "openrouter", at });
+  assert.deepEqual(row.tokens, { input: 1000, output: 200, cacheRead: 8000, cacheWrite: 1000 });
+  assert.equal(row.provider, "openrouter");
+  assert.equal(spendRow({ braincells: 5, usage: {} }).tokens, undefined);
+  const old = spendRow({ product: "aesel", handle: "ay", user: "sub-a", model: "m", braincells: 60, paid: true, at });
+  const report = foldBraincells({ ledger: [row, old] }, { start: new Date("2026-11-27T00:00:00Z"), end: new Date("2026-11-28T00:00:00Z") });
+  const m = report.spending.byModel[0];
+  assert.equal(m.requests, 2);
+  assert.equal(m.meteredRequests, 1);
+  assert.equal(m.cacheReadTokens, 8000);
+  assert.equal(m.cacheReadShare, 0.8);
+});

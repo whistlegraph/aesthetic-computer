@@ -42,12 +42,20 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
 
   // 🧠 Spending in the window, per request, wherever a model is recorded.
   const byModel = {}, byHandle = {}, byProduct = {};
-  const spend = (product, handle, model, cells, paid) => {
+  // Token counts ride only on rows written since the ledger began keeping
+  // them; `meteredRequests` says how many rows the cache share is drawn from.
+  const spend = (product, handle, model, cells, paid, tokens) => {
     if (!cells) return;
-    const extra = { paidBraincells: paid ? cells : 0 };
+    const extra = { paidBraincells: paid ? cells : 0, ...(tokens ? { meteredRequests: 1, inputTokens: Number(tokens.input) || 0,
+      outputTokens: Number(tokens.output) || 0, cacheReadTokens: Number(tokens.cacheRead) || 0, cacheWriteTokens: Number(tokens.cacheWrite) || 0 } : {}) };
     add(byModel, model || "unknown", cells, extra); add(byHandle, handle, cells, extra); add(byProduct, product, cells, extra);
   };
-  for (const r of ledger) spend(r.product, r.handle ? `@${r.handle}` : who(r.user), r.model, r.braincells, r.paid);
+  // Of all the input a model was sent, the share the prompt cache served.
+  const cached = v => {
+    const sent = (v.inputTokens || 0) + (v.cacheReadTokens || 0) + (v.cacheWriteTokens || 0);
+    return v.meteredRequests && sent ? { cacheReadShare: Math.round((v.cacheReadTokens || 0) / sent * 1000) / 1000 } : {};
+  };
+  for (const r of ledger) spend(r.product, r.handle ? `@${r.handle}` : who(r.user), r.model, r.braincells, r.paid, r.tokens);
   for (const r of nopaint) spend("nopaint", who(r.user), r.model, Number(r.charged) || 0, (Number(r.paid) || 0) > 0);
   for (const r of speech) spend("whistlegraph-speech", who(r.user), "openai/whisper-1", Number(r.charged) || 0, (Number(r.paid) || 0) > 0);
 
@@ -87,9 +95,9 @@ export function foldBraincells(raw, { start, end, limit = 25 }) {
         estimatedProviderCostUsd: Math.round(usd(paidTotal + allowanceTotal) / INFERENCE_MARKUP * 100) / 100,
         costNote: `Hosted inference bills at ${INFERENCE_MARKUP}x OpenRouter's cost, so provider cost is about value / ${INFERENCE_MARKUP}.`,
       },
-      byModel: top(byModel).map(([model, v]) => ({ model, ...v, usd: usd(v.braincells) })),
-      byHandle: top(byHandle).map(([handle, v]) => ({ handle, ...v, usd: usd(v.braincells) })),
-      byProduct: top(byProduct).map(([product, v]) => ({ product, ...v, usd: usd(v.braincells) })),
+      byModel: top(byModel).map(([model, v]) => ({ model, ...v, ...cached(v), usd: usd(v.braincells) })),
+      byHandle: top(byHandle).map(([handle, v]) => ({ handle, ...v, ...cached(v), usd: usd(v.braincells) })),
+      byProduct: top(byProduct).map(([product, v]) => ({ product, ...v, ...cached(v), usd: usd(v.braincells) })),
       purchasedByHandle: top(paidByUser).map(([handle, v]) => ({ handle, ...money(v.braincells) })),
       allowanceByHandle: top(allowanceByHandle).map(([handle, v]) => ({ handle, braincells: v.braincells, asks: v.requests, lastModel: v.lastModel })),
       coverage: {

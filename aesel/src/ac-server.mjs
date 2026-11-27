@@ -70,12 +70,18 @@ const CLOSE_TOOL = {
 // the start of the conversation, and the provider's prompt cache (a fiftieth
 // of the price on DeepSeek) stops matching from there. Measured on a flower
 // turn, eliding early cut tokens by a third and saved almost nothing.
-const KEEP_ROUNDS = 4, KEEP_CHARS = 300, ELIDE_ABOVE = 240_000;
-function elideOldResults(messages) {
+// The cut moves in steps, never a round at a time. A cut that slid forward
+// every round rewrote one more old result each request, so the conversation
+// never began the same way twice and the prompt cache read nothing past the
+// system prompt for the rest of a long session. Stepped, the start holds
+// still for ELIDE_STEP rounds between moves.
+const KEEP_ROUNDS = 4, KEEP_CHARS = 300, ELIDE_ABOVE = 240_000, ELIDE_STEP = 8;
+export function elideOldResults(messages) {
   const size = messages.reduce((n, m) => n + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length), 0);
   if (size < ELIDE_ABOVE) return [...messages];
   const resultTurns = messages.map((m, i) => (m.role === "user" && Array.isArray(m.content) && m.content.some((b) => b.type === "tool_result")) ? i : -1).filter((i) => i >= 0);
-  const cutoff = resultTurns.length > KEEP_ROUNDS ? resultTurns[resultTurns.length - KEEP_ROUNDS] : -1;
+  const stepped = Math.floor((resultTurns.length - KEEP_ROUNDS) / ELIDE_STEP) * ELIDE_STEP;
+  const cutoff = stepped > 0 ? resultTurns[stepped] : -1;
   return messages.map((m, i) => i >= cutoff || !resultTurns.includes(i) ? m : { ...m, content: m.content.map((b) => {
     if (b.type !== "tool_result" || typeof b.content !== "string" || b.content.length <= KEEP_CHARS * 2) return b;
     return { ...b, content: `${b.content.slice(0, KEEP_CHARS)}\n… ${b.content.length - KEEP_CHARS} more characters elided from history; run the tool again if you need them.` };

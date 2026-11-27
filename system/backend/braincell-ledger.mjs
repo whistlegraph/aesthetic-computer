@@ -15,16 +15,29 @@ export const LEDGER_RETENTION_DAYS = 400;
 
 const clean = (value, max = 120) => String(value ?? "").slice(0, max);
 
-// A row carries no prompt, output, address or token: who, which model, how
-// much, and whether purchased Braincells paid for it.
-export function spendRow({ product, client, handle, user, model, braincells, paid, at = new Date() }) {
+// The provider's token counts, when it reported any: fresh input, output, and
+// what the prompt cache read and wrote. Counts only, so the report can say
+// how much of a model's input was read from cache at a tenth of the price.
+export function usageTokens(usage) {
+  if (!usage || typeof usage !== "object") return null;
+  const count = value => Math.max(0, Math.round(Number(value) || 0));
+  const tokens = { input: count(usage.input_tokens), output: count(usage.output_tokens),
+    cacheRead: count(usage.cache_read_input_tokens), cacheWrite: count(usage.cache_creation_input_tokens) };
+  return Object.values(tokens).some(Boolean) ? tokens : null;
+}
+
+// A row carries no prompt, output, address or credential: who, which model,
+// how much, whether purchased Braincells paid for it, and the token counts.
+export function spendRow({ product, client, handle, user, model, braincells, paid, usage, provider, at = new Date() }) {
   const amount = Math.max(0, Math.ceil(Number(braincells) || 0));
   if (!amount) return null;
+  const tokens = usageTokens(usage);
   return {
     at, day: at.toISOString().slice(0, 10),
     product: clean(product, 40) || "unknown", client: clean(client, 40),
     handle: clean(handle, 64), user: clean(user, 200), model: clean(model) || "unknown",
     braincells: amount, paid: Boolean(paid),
+    ...(provider ? { provider: clean(provider, 40) } : {}), ...(tokens ? { tokens } : {}),
   };
 }
 

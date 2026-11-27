@@ -108,5 +108,48 @@ test("sketch refusals, skips and provider failures do not become generated progr
   }
   await assert.rejects(drawSketch("otter", undefined, { env, fetchImpl: async () => new Response("busy", { status: 503 }) }), /anthropic 503/);
   await assert.rejects(drawSketch("otter", undefined, { env, fetchImpl: async () => response([{ type: "error", error: { message: "failed" } }]) }), /anthropic stream/);
-  await assert.rejects(drawSketch("otter", undefined, { env: {} }), /no anthropic key/);
+  await assert.rejects(drawSketch("otter", undefined, { env: {} }), /no inference key/);
+});
+
+test("a Claude conversation is marked for the prompt cache at its end and at the user turn before it", async () => {
+  const { cacheConversation } = await import("../backend/easel-provider.mjs");
+  const mark = { type: "ephemeral" };
+  const turns = { system: [{ type: "text", text: "guides", cache_control: mark }], messages: [
+    { role: "user", content: "draw an otter" },
+    { role: "assistant", content: [{ type: "text", text: "ok" }, { type: "tool_use", id: "t1", name: "draw", input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "t1", content: "drawn" }, { type: "text", text: "runtime note" }] },
+  ] };
+  const out = cacheConversation("anthropic/claude-sonnet-5.5", turns);
+  assert.deepEqual(out[0].content, [{ type: "text", text: "draw an otter", cache_control: mark }]);
+  assert.equal(out[1], turns.messages[1]);
+  assert.equal(out[2].content[0].cache_control, undefined);
+  assert.deepEqual(out[2].content[1], { type: "text", text: "runtime note", cache_control: mark });
+  // The caller's own conversation is never rewritten in place.
+  assert.equal(turns.messages[0].content, "draw an otter");
+  assert.equal(turns.messages[2].content[1].cache_control, undefined);
+  // Other models cache on their own; a client's own marks stand; four is the ceiling.
+  assert.equal(cacheConversation("deepseek/deepseek-v4-pro", turns), turns.messages);
+  assert.equal(cacheConversation("anthropic/claude-sonnet-5.5", { messages: out }), out);
+  const full = { ...turns, system: Array(3).fill(turns.system[0]) };
+  assert.equal(cacheConversation("anthropic/claude-sonnet-5.5", full).filter(m => Array.isArray(m.content) && m.content.some(b => b.cache_control)).length, 1);
+  assert.equal(cacheConversation("anthropic/claude-sonnet-5.5", { ...turns, system: Array(4).fill(turns.system[0]) }), turns.messages);
+  const sent = JSON.parse(inferenceProviderRequest({ model: "anthropic/claude-sonnet-5.5", maxTokens: 100, body: turns, key: "router" }).init.body);
+  assert.deepEqual(sent.messages, out);
+});
+
+test("a refusal that names the cache marks is retried once as the conversation came", async () => {
+  const sent = [];
+  const body = { messages: [{ role: "user", content: "otter" }, { role: "assistant", content: "ok" }, { role: "user", content: "bigger" }] };
+  const { response } = await requestHostedInference({ model: "anthropic/claude-sonnet-5.5", body, key: "router", maxTokens: 50 }, async (url, init) => {
+    sent.push(JSON.parse(init.body));
+    return sent.length === 1
+      ? Response.json({ error: { message: "messages.0.content.0.cache_control: Extra inputs are not permitted" } }, { status: 400 })
+      : new Response("stream");
+  });
+  assert.equal(await response.text(), "stream");
+  assert.equal(sent.length, 2);
+  assert.ok(sent[0].messages[2].content[0].cache_control);
+  assert.deepEqual(sent[1].messages, body.messages);
+  assert.deepEqual(JSON.parse(inferenceProviderRequest({ model: "anthropic/claude-sonnet-5.5", maxTokens: 50, key: "router",
+    body: { messages: body.messages.slice(0, 1) } }).init.body).messages, body.messages.slice(0, 1));
 });

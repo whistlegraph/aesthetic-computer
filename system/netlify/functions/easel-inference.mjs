@@ -211,7 +211,7 @@ export const handler = stream(async (event) => {
       // Reporting only, after billing: which model, for whom, paid or free.
       const {recordSpend}=await import("../../backend/braincell-ledger.mjs");
       await recordSpend({product:asWorker?"whistlegraph":"aesel",client:spendClient(event.headers),
-        handle,user:userSub,model,braincells,paid:Boolean(paidHold)});
+        handle,user:userSub,model,braincells,paid:Boolean(paidHold),usage,provider});
       return braincells;
     },
   });
