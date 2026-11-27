@@ -33,7 +33,32 @@ background. Slab never restarts an active agent to change its colors.
 - `terminal-profiles.list` — plain-text manifest of the profile names in the
   plist (the installer reads names from here, not by parsing the binary plist).
 - `fonts/` — Monaspace Argon (Regular/Bold/Italic/BoldItalic/Medium/Light), the
-  font the profiles reference. Installed into `~/Library/Fonts`.
+  font the seeded profiles were captured in, and Atkinson Hyperlegible Mono
+  Tight, the fleet terminal font. Installed into `~/Library/Fonts`.
+- `terminal-font` — the PostScript name of the fleet terminal font. `slab-font`
+  applies it to the Slab profiles and to open tabs.
+
+## Terminal font
+
+```bash
+slab-font              # wanted font, and what Terminal uses now
+slab-font set          # apply the fleet font on this Mac
+slab-font set NAME     # keep a different font on this Mac only
+slab-font test         # tiny text test: your smallest readable size per font
+slab-font sheet        # contact sheet of the candidates, 6 to 14 pt
+slab-font ocr          # machine test with Apple's text recognizer
+```
+
+A Mac adopts a new fleet font on its first Claude session after a pull: the
+session-start hook runs `slab-font ensure`, which copies the seed fonts and
+changes the profiles and open tabs once. A Mac's own choice in
+`~/.config/slab/terminal-font` wins over the fleet font.
+
+Atkinson Hyperlegible Mono Tight is Atkinson Hyperlegible Mono with its cell
+narrowed from 0.632 em to 0.600 em; the letter shapes are unchanged.
+`fonts/build-atkinson-tight.py` rebuilds it, and it ships under the SIL Open
+Font License beside it. Terminal has no scriptable character spacing, which is
+why the spacing lives in the font. iTerm2 keeps its own font.
 
 ## Install / redeploy on a machine
 

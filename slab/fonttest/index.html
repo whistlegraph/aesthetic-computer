@@ -1,0 +1,151 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>tiny text test</title>
+<style>
+  :root { --bg: #efe9f4; --ink: #1c1a22; --dim: #77708a; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1a20; --ink: #e8e6ee; --dim: #8a849c; } }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--ink); }
+  body { font: 15px/1.5 -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #intro, #done { max-width: 620px; padding: 24px; }
+  #stage { height: 60px; width: 300px; display: flex; align-items: center; justify-content: center; position: relative; }
+  #stim { font-weight: 400; white-space: pre; -webkit-font-smoothing: antialiased; }
+  .tick { position: absolute; left: 50%; width: 1px; height: 8px; background: var(--dim); }
+  .tick.t { top: 4px; } .tick.b { bottom: 4px; }
+  #answer { font: 26px Menlo, monospace; width: 9ch; text-align: center; background: transparent; color: var(--ink);
+            border: 0; border-bottom: 2px solid var(--dim); outline: none; margin-top: 18px; letter-spacing: 0.15em; }
+  #progress { color: var(--dim); margin-top: 22px; font-size: 12px; }
+  button { font: inherit; padding: 8px 18px; }
+  table { border-collapse: collapse; margin: 14px 0; }
+  td, th { padding: 4px 12px; text-align: right; border-bottom: 1px solid var(--dim); }
+  td:first-child, th:first-child { text-align: left; }
+  .sample { white-space: pre; text-align: left; -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+</style>
+
+<div id="intro">
+  <h2>Tiny text test</h2>
+  <p>Sit the way you normally do at your terminal and keep that distance. Do not lean in.</p>
+  <p>Four characters flash for half a second between the two tick marks. Type what you saw, then press Return.
+     Capitals matter. Guess when unsure. The text gets smaller when you are right and bigger when you are wrong,
+     so about half of them should feel too small. That is the test working.</p>
+  <p><span id="count"></span> Press Return on an empty box to see a flash again once.</p>
+  <button id="go">Start</button> <span id="loading"></span>
+</div>
+
+<div id="test" hidden>
+  <div id="stage"><div class="tick t"></div><div class="tick b"></div><div id="stim"></div></div>
+  <input id="answer" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="8">
+  <div id="progress"></div>
+</div>
+
+<div id="done" hidden></div>
+
+<script>
+let FONTS = [];
+const TRIALS_PER_FONT = 14, LEN = 4, SHOW_MS = 500, START_PX = 8, MIN_PX = 3, MAX_PX = 18;
+// Weighted toward the characters that get confused in code.
+const CHARS = "Il1|i!jO0oQDB8S5Z2rnmhuvwce6G9gqC3ba7T{}()[];:.,'" + "Il1|O0o8B5Srnm6G";
+const $ = (id) => document.getElementById(id);
+const stim = $("stim"), answer = $("answer");
+const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const pick = () => Array.from({ length: LEN }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join("");
+
+let state = [], total = 0;
+let queue = [], current = null, shownAt = 0, replayed = false, count = 0;
+
+function measure() {
+  const ctx = document.createElement("canvas").getContext("2d");
+  for (const s of state) { ctx.font = `400 100px "${s.id}"`; s.advance = ctx.measureText("n").width / 100; }
+}
+
+function next() {
+  if (count >= total) return finish();
+  if (!queue.length) queue = shuffle(state.filter((s) => s.trials.length < TRIALS_PER_FONT).slice());
+  current = { font: queue.pop(), target: pick() };
+  replayed = false;
+  answer.value = ""; answer.disabled = true;
+  $("progress").textContent = `${count + 1} / ${total}`;
+  setTimeout(flash, 650);
+}
+
+function flash() {
+  const f = current.font;
+  stim.style.fontFamily = `"${f.id}"`;
+  stim.style.fontSize = f.size + "px";
+  stim.textContent = current.target;
+  setTimeout(() => {
+    stim.textContent = "";
+    answer.disabled = false; answer.focus(); shownAt = performance.now();
+  }, SHOW_MS);
+}
+
+answer.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || answer.disabled) return;
+  const typed = answer.value.trim();
+  if (!typed && !replayed) { replayed = true; answer.disabled = true; return void setTimeout(flash, 300); }
+  const f = current.font, t = current.target;
+  let hits = 0; const misses = [];
+  for (let i = 0; i < LEN; i++) { if (typed[i] === t[i]) hits++; else misses.push([t[i], typed[i] || "_"]); }
+  const correct = hits === LEN && typed.length === LEN;
+  f.trials.push({ size: +f.size.toFixed(2), target: t, typed, hits, correct, replayed, ms: Math.round(performance.now() - shownAt), misses });
+  const dir = correct ? -1 : 1;
+  if (f.lastDir && dir !== f.lastDir) f.reversals.push(f.size);
+  f.lastDir = dir;
+  const step = f.reversals.length ? 1.1 : 1.25; // coarse until the first reversal, then fine
+  f.size = Math.min(MAX_PX, Math.max(MIN_PX, correct ? f.size / step : f.size * step));
+  count++;
+  next();
+});
+
+const geomean = (a) => Math.exp(a.reduce((s, v) => s + Math.log(v), 0) / a.length);
+
+function finish() {
+  $("test").hidden = true;
+  const rows = state.map((s) => {
+    const revs = s.reversals.slice(1);
+    const threshold = revs.length >= 3 ? geomean(revs) : geomean(s.trials.slice(-6).map((t) => t.size));
+    const chars = s.trials.length * LEN, hits = s.trials.reduce((n, t) => n + t.hits, 0);
+    const conf = {};
+    for (const t of s.trials) for (const [a, b] of t.misses) conf[a + "→" + b] = (conf[a + "→" + b] || 0) + 1;
+    const top = Object.entries(conf).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k}${v > 1 ? "×" + v : ""}`).join("  ");
+    return { id: s.id, label: s.label, advance: s.advance, threshold, cell: threshold * s.advance, reversals: s.reversals.length, charAccuracy: hits / chars, confusions: top, trials: s.trials };
+  }).sort((a, b) => a.cell - b.cell);
+  const best = rows[0].cell;
+  const sample = "if (l1 == O0) { rn |= m[i]; } // Il1| 0Oo 5S 8B";
+  $("done").hidden = false;
+  $("done").style.maxWidth = "1000px";
+  $("done").innerHTML = `<h2>Done</h2>
+    <p>Sorted by the narrowest cell you could still read: the most text per line at your own limit.
+       "Smallest size" is where you got all four characters right about half the time, so a comfortable size is somewhat larger.</p>
+    <table><tr><th>Font</th><th>Smallest size</th><th>Cell width</th><th>Cell at that size</th><th>Columns vs best</th><th>Missed</th></tr>
+    ${rows.map((r) => `<tr><td>${r.label}</td><td>${r.threshold.toFixed(1)} pt</td><td>${r.advance.toFixed(3)} em</td>
+      <td>${r.cell.toFixed(2)} px</td><td>${Math.round(100 * best / r.cell)}%</td><td style="text-align:left;font-family:Menlo">${r.confusions.replace(/</g, "&lt;")}</td></tr>`).join("")}
+    </table>
+    <h3>Each font at 1.3 times your smallest size</h3>
+    ${rows.map((r) => `<div class="sample" style="font-family:'${r.id}';font-size:${(r.threshold * 1.3).toFixed(2)}px">${sample.replace(/</g, "&lt;")}   ← ${r.label} ${(r.threshold * 1.3).toFixed(1)} pt</div>`).join("")}
+    <p id="saved" style="color:var(--dim)">saving…</p>`;
+  fetch("/result", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ at: new Date().toISOString(), dpr: devicePixelRatio, dark: matchMedia("(prefers-color-scheme: dark)").matches, screen: [screen.width, screen.height], rows }) })
+    .then((r) => r.text()).then((t) => { $("saved").textContent = "Saved to " + t + ". The table is also in your terminal."; })
+    .catch((e) => { $("saved").textContent = "Could not save (" + e + "). Screenshot this page instead."; });
+}
+
+$("go").disabled = true; $("loading").textContent = "loading fonts…";
+// The server lists the fonts this Mac has; any that fail to load are left out.
+fetch("/fonts.json").then((r) => r.json()).then(async (list) => {
+  for (const f of list) {
+    try {
+      const face = await new FontFace("T-" + f.id, f.src, { weight: f.weight }).load();
+      document.fonts.add(face);
+      FONTS.push({ id: "T-" + f.id, label: f.label });
+    } catch (e) { console.log("skipped", f.label, e); }
+  }
+  state = FONTS.map((f) => ({ ...f, size: START_PX, lastDir: 0, reversals: [], trials: [], advance: 0 }));
+  total = FONTS.length * TRIALS_PER_FONT;
+  measure();
+  $("count").textContent = `${total} flashes across ${FONTS.length} fonts, about ${Math.round(total * 4 / 60)} minutes.`;
+  $("loading").textContent = FONTS.length < 2 ? "fewer than two fonts found" : "";
+  $("go").disabled = FONTS.length < 2;
+});
+$("go").onclick = () => { $("intro").hidden = true; $("test").hidden = false; next(); };
+</script>

@@ -5,6 +5,11 @@ set -u
 # Aesel owns its engine's rock. Run before reading input or touching state.
 [[ -n "${AESEL_SESSION_ID:-}${EASEL_SESSION_ID:-}" ]] && exit 0
 
+# A new fleet terminal font reaches this Mac on its first session after a
+# pull. Quiet, in the background, and a no-op once applied (see slab-font).
+self=$0; [[ -L "$self" ]] && self=$(readlink "$self")
+( "$(dirname "$self")/slab-font" ensure </dev/null >/dev/null 2>&1 & ) 2>/dev/null
+
 SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
 ACTIVE_DIR="$SLAB_HOME/state/active-prompts"
 

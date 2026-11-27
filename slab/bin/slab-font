@@ -1,0 +1,200 @@
+#!/bin/bash
+# slab-font — set the terminal font on this Mac, and test which font reads best.
+#
+#   slab-font                 show the wanted font and what Terminal uses now
+#   slab-font set [PSNAME]    use PSNAME on this Mac (no name: back to the fleet font)
+#   slab-font ensure          apply the wanted font if this Mac has not yet (quiet)
+#   slab-font test [FONT...]  tiny text test: find your smallest readable size per font
+#   slab-font sheet [FONT...] contact sheet: every font at 6 to 14 pt, side by side
+#   slab-font ocr [FONT...]   machine test: Apple's text recognizer reads each font tiny
+#   slab-font results         print the last tiny text test again
+#
+# The fleet font is the PostScript name in slab/seed/terminal-font. A Mac can
+# keep its own choice in ~/.config/slab/terminal-font. `ensure` runs from the
+# Claude session-start hook, so a Mac picks up a new fleet font after a pull.
+#
+# FONT... are extra font files (.ttf/.otf) to compare against the built-in set.
+# Terminal.app only: iTerm2 keeps its own font.
+set -u
+
+SRC="${BASH_SOURCE[0]}"
+while [ -L "$SRC" ]; do
+  DIR="$(cd -P "$(dirname "$SRC")" && pwd)"
+  SRC="$(readlink "$SRC")"
+  [[ "$SRC" != /* ]] && SRC="$DIR/$SRC"
+done
+SLAB_REPO="$(cd -P "$(dirname "$SRC")/.." && pwd)"
+SLAB_HOME=${SLAB_HOME:-$HOME/.local/share/slab}
+SEED_FONT="$SLAB_REPO/seed/terminal-font"
+LOCAL_FONT="${SLAB_CONFIG:-$HOME/.config/slab}/terminal-font"
+APPLIED="$SLAB_HOME/state/terminal-font-applied"
+FONT_DIR="$HOME/Library/Fonts"
+TEST_DIR="$SLAB_REPO/fonttest"
+
+wanted() {
+  local f
+  for f in "$LOCAL_FONT" "$SEED_FONT"; do
+    [[ -s "$f" ]] && { tr -d '[:space:]' < "$f"; return; }
+  done
+}
+
+# Not pgrep: it leaves out its own ancestors, and Terminal usually is one.
+terminal_running() { ps -axo comm= | grep -q '/Terminal.app/Contents/MacOS/Terminal$'; }
+
+# Copy the seed fonts this Mac lacks. Prints the count copied.
+install_fonts() {
+  local f n=0
+  mkdir -p "$FONT_DIR"
+  for f in "$SLAB_REPO/seed/fonts/"*.otf "$SLAB_REPO/seed/fonts/"*.ttf; do
+    [[ -f "$f" ]] || continue
+    cmp -s "$f" "$FONT_DIR/$(basename "$f")" && continue
+    cp "$f" "$FONT_DIR/" && n=$((n + 1))
+  done
+  echo "$n"
+}
+
+# Set the font on Slab's profiles and on every open tab that uses one. Open
+# tabs carry their own copy of the font, so the profiles alone are not enough.
+# Window frames are kept, and each profile and tab keeps its own size.
+apply() {
+  /usr/bin/osascript - "$1" <<'APPLESCRIPT'
+on isSlab(n)
+  return (n starts with "Slab-") or (n is "Grass")
+end isSlab
+on run argv
+  set want to item 1 of argv
+  tell application "Terminal"
+    set nSets to 0
+    set nTabs to 0
+    set names to {name of default settings, name of startup settings}
+    repeat with s in settings sets
+      set n to name of s
+      if my isSlab(n) or names contains n then
+        try
+          if font name of s is not want then
+            set font name of s to want
+            set nSets to nSets + 1
+          end if
+        end try
+      end if
+    end repeat
+    set ids to id of every window
+    repeat with i in ids
+      try
+        set w to window id (contents of i)
+        set b to bounds of w
+        set touched to false
+        repeat with t in tabs of w
+          set n to name of current settings of t
+          if (my isSlab(n) or names contains n) and font name of t is not want then
+            set font name of t to want
+            set nTabs to nTabs + 1
+            set touched to true
+          end if
+        end repeat
+        if touched then set bounds of w to b
+      end try
+    end repeat
+    return (font name of default settings) & "|" & nSets & "|" & nTabs
+  end tell
+end run
+APPLESCRIPT
+}
+
+# Terminal reports a variable font under its instance name, so compare families.
+same_font() { [[ "$1" == "$2" || "${1%%-*}" == "${2%%-*}" ]]; }
+
+set_font() {
+  local want copied out got
+  want=$(wanted)
+  [[ -n "$want" ]] || { echo "slab-font: no font named in $SEED_FONT" >&2; return 1; }
+  copied=$(install_fonts)
+  [[ "$copied" -gt 0 ]] && sleep 1   # let macOS register the new files
+  if ! terminal_running; then
+    echo "Terminal is not running. $want will be applied when a Claude session next starts in it."
+    rm -f "$APPLIED"
+    return 0
+  fi
+  out=$(apply "$want") || { echo "slab-font: Terminal refused the change" >&2; return 1; }
+  got=$(printf '%s' "$out" | cut -d'|' -f1)
+  if ! same_font "$got" "$want"; then
+    echo "slab-font: asked for $want but Terminal uses $got. Is the font installed?" >&2
+    return 1
+  fi
+  mkdir -p "$(dirname "$APPLIED")"
+  printf '%s\n' "$want" > "$APPLIED"
+  echo "$want: $(printf '%s' "$out" | cut -d'|' -f2) profiles and $(printf '%s' "$out" | cut -d'|' -f3) open tabs changed"
+}
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then command -v node; return; fi
+  local c
+  for c in \
+    "$HOME/.local/share/fnm/aliases/default/bin/node" \
+    "$HOME/.fnm/aliases/default/bin/node" \
+    /opt/homebrew/bin/node \
+    /usr/local/bin/node \
+    "$HOME/.volta/bin/node"; do
+    [ -x "$c" ] && { echo "$c"; return; }
+  done
+  c=$(ls -td "$HOME"/.local/share/fnm/node-versions/*/installation/bin/node 2>/dev/null | head -1)
+  [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return; }
+  return 1
+}
+
+run_page() {
+  local node
+  node=$(find_node) || { echo "slab-font: node not found" >&2; exit 1; }
+  SLAB_REPO="$SLAB_REPO" SLAB_HOME="$SLAB_HOME" SLAB_FONT_WANTED="$(wanted)" exec "$node" "$TEST_DIR/serve.mjs" "$@"
+}
+
+run_ocr() {
+  local bin="$SLAB_HOME/font-test/ocr"
+  mkdir -p "$(dirname "$bin")"
+  if [[ ! -x "$bin" || "$TEST_DIR/ocr.swift" -nt "$bin" ]]; then
+    echo "compiling the reader (once)…" >&2
+    swiftc -O -o "$bin" "$TEST_DIR/ocr.swift" 2>/dev/null || { echo "slab-font: swiftc failed" >&2; exit 1; }
+  fi
+  # label=path[=weight]; missing files are skipped by the reader.
+  exec "$bin" \
+    "Atkinson Mono Tight=$SLAB_REPO/seed/fonts/AtkinsonHyperlegibleMonoTight-Regular.ttf" \
+    "Atkinson Mono=$FONT_DIR/AtkinsonHyperlegibleMono[wght].ttf=400" \
+    "Monaspace Argon=$SLAB_REPO/seed/fonts/MonaspaceArgon-Regular.otf" \
+    "JetBrains Mono=$FONT_DIR/JetBrainsMono-Regular.ttf" \
+    "Intel One Mono=$FONT_DIR/IntelOneMono-Regular.otf" \
+    "Menlo=/System/Library/Fonts/Menlo.ttc" \
+    "$@"
+}
+
+case "${1:-status}" in
+  status)
+    want=$(wanted)
+    [[ -s "$LOCAL_FONT" ]] && from="this Mac ($LOCAL_FONT)" || from="fleet (slab/seed/terminal-font)"
+    echo "wanted:   ${want:-none}  from $from"
+    echo "applied:  $(cat "$APPLIED" 2>/dev/null || echo 'not yet')"
+    if terminal_running; then
+      echo "terminal: $(/usr/bin/osascript -e 'tell application "Terminal" to return (font name of default settings) & " " & (font size of default settings) & " pt"' 2>/dev/null)"
+    else
+      echo "terminal: not running"
+    fi
+    ;;
+  set)
+    mkdir -p "$(dirname "$LOCAL_FONT")"
+    if [[ -n "${2:-}" ]]; then printf '%s\n' "$2" > "$LOCAL_FONT"; else rm -f "$LOCAL_FONT"; fi
+    set_font
+    ;;
+  ensure)
+    want=$(wanted)
+    [[ -n "$want" && "$(cat "$APPLIED" 2>/dev/null)" != "$want" ]] || exit 0
+    terminal_running || exit 0
+    mkdir "$SLAB_HOME/state/terminal-font.lock" 2>/dev/null || exit 0   # one session at a time
+    trap 'rmdir "$SLAB_HOME/state/terminal-font.lock" 2>/dev/null' EXIT
+    set_font >/dev/null 2>&1
+    ;;
+  test)    shift; run_page test "$@" ;;
+  sheet)   shift; run_page sheet "$@" ;;
+  results) run_page results ;;
+  ocr)     shift; run_ocr "$@" ;;
+  -h|--help|help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) echo "slab-font: unknown command '$1' (try slab-font help)" >&2; exit 2 ;;
+esac

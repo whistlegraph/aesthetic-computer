@@ -143,15 +143,16 @@ EOF
     exit 0
 fi
 
-# ------------ Monaspace Argon font (terminal-theming base) ------------
-# The Slab terminal profiles render in Monaspace Argon. Install it into the
-# user font dir if present in the repo seed (no-op if the seed omits fonts —
-# e.g. a slim checkout — in which case install Monaspace yourself).
+# ------------ terminal fonts ------------
+# The seed carries Monaspace Argon (the font the seeded profiles were captured
+# in) and Atkinson Hyperlegible Mono Tight (the fleet terminal font, named in
+# seed/terminal-font). Install both into the user font dir; `slab-font` then
+# points the profiles at the fleet font. No-op on a slim checkout without fonts.
 FONT_DIR="$HOME_DIR/Library/Fonts"
-if compgen -G "$SLAB_REPO/seed/fonts/*.otf" >/dev/null 2>&1; then
-    say "installing Monaspace Argon → $FONT_DIR"
+if compgen -G "$SLAB_REPO/seed/fonts/*.[ot]tf" >/dev/null 2>&1; then
+    say "installing terminal fonts → $FONT_DIR"
     mkdir -p "$FONT_DIR"
-    cp "$SLAB_REPO/seed/fonts/"*.otf "$FONT_DIR/"
+    cp "$SLAB_REPO/seed/fonts/"*.[ot]tf "$FONT_DIR/"
 fi
 
 # ------------ Terminal profiles (Slab-* status themes + Grass base) ------------
@@ -161,6 +162,9 @@ if [[ -f "$SLAB_REPO/seed/terminal-profiles.plist" ]]; then
     say "seeding Terminal profiles (Grass + Slab-* status themes)"
     "$SLAB_REPO/bin/slab-seed-terminal" || warn "terminal seed failed (continuing)"
 fi
+# The seeded profiles carry Monaspace; forget any earlier font pass so the next
+# Claude session (or `slab-font set`) points them at the fleet font again.
+rm -f "$SLAB_HOME/state/terminal-font-applied"
 
 # ------------ Swift binary: live ambient synth ------------
 say "compiling lid-ambient-synth → $SLAB_BIN/lid-ambient-synth"

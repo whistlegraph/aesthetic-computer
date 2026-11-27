@@ -1,0 +1,53 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>font contact sheet</title>
+<style>
+  :root { --bg: #efe9f4; --ink: #1c1a22; --dim: #77708a; --rule: #cfc6da; }
+  body.dark { --bg: #1b1a20; --ink: #e8e6ee; --dim: #8a849c; --rule: #37343f; }
+  body.green { --bg: #aee6bb; --ink: #12301c; --dim: #4c7558; --rule: #8fcf9f; }
+  body { margin: 0; padding: 18px 26px 60px; background: var(--bg); color: var(--ink); font: 12px/1.4 -apple-system, sans-serif; }
+  header { display: flex; gap: 14px; align-items: baseline; position: sticky; top: 0; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--rule); }
+  header b { font-size: 15px; } header button { font: inherit; }
+  h3 { margin: 22px 0 6px; font-size: 12px; color: var(--dim); font-weight: 600; }
+  .row { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--rule); padding: 3px 0; }
+  .label { flex: 0 0 190px; color: var(--dim); font-size: 11px; white-space: nowrap; }
+  .text { white-space: pre; font-weight: 400; -webkit-font-smoothing: antialiased; overflow: hidden; }
+</style>
+<body>
+<header>
+  <b>Font contact sheet</b>
+  <span>same text, same point size, so line length shows how fat each font is</span>
+  <button data-t="">light</button><button data-t="green">terminal green</button><button data-t="dark">dark</button>
+</header>
+<div id="sheet"></div>
+<script>
+const FONTS = [];
+const SIZES = [6, 7, 8, 9, 10, 11, 12, 14];
+const LINES = [
+  "● Reading the bell material table  └ $ cd ~/aesthetic-computer/pop/bell; sed -n 318,334p c/bell.c | cut -c1-130",
+  "if (l1 == O0 || rn != m) { Il1| 0Oo 5S 8B 2Z 6G 9gq cCe; } // 1234567890 {}[]() <= => != :: ;: ., '`\"",
+];
+const ctx = document.createElement("canvas").getContext("2d");
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+fetch("/fonts.json").then((r) => r.json()).then(async (list) => {
+  for (const f of list) {
+    try {
+      document.fonts.add(await new FontFace("T-" + f.id, f.src, { weight: f.weight }).load());
+      FONTS.push(["T-" + f.id, f.label]);
+    } catch (e) { console.log("skipped", f.label, e); }
+  }
+  let html = "";
+  for (const size of SIZES) {
+    html += `<h3>${size} pt</h3>`;
+    for (const [id, label] of FONTS) {
+      ctx.font = `400 100px "${id}"`;
+      const em = ctx.measureText("n").width / 100;
+      html += `<div class="row"><div class="label">${label} · ${em.toFixed(2)} em</div>
+        <div class="text" style="font-family:'${id}';font-size:${size}px">${LINES.map(esc).join("\n")}</div></div>`;
+    }
+  }
+  document.getElementById("sheet").innerHTML = html;
+});
+for (const b of document.querySelectorAll("button")) b.onclick = () => { document.body.className = b.dataset.t; };
+if (matchMedia("(prefers-color-scheme: dark)").matches) document.body.className = "dark";
+</script>
