@@ -80,7 +80,7 @@ const assets = new Map([
     'weather',
     'air',
     'planet',
-    'lens-host',
+    'lens-host', 'lens-host-gl', // 🔭 the lens on the card: WebGPU, and WebGL 2 where there is none
     'flyover', // 🛫 a drone's idle tour // 🔭 the lens on the card // 🌍 the small planet's sums (project.mjs, view.mjs, freecam.mjs)
     'diagnostics-client',
     'stalls',

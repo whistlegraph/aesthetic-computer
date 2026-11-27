@@ -273,40 +273,88 @@ function thumbPixels(b64) {
 const shadowInk = (label) =>
   Array.from({ length: label.length + 1 }, () => ({ r: 24, g: 24, b: 24 }));
 
+// 🚫 Neither WebGPU nor WebGL 2: the page says so in its own hand, sized to
+// the screen it is on (a television across a room reads it), with what each
+// one answered underneath, and what to do.
+function needsCard(canvas, why = []) {
+  const board = canvas.cloneNode(false); // (a failed start can already own the canvas)
+  canvas.replaceWith(board);
+  board.dataset.engine = 'none';
+  const g = board.getContext('2d');
+  if (!g) return;
+  const ratio = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
+  const w = board.width = Math.round((board.clientWidth || 640) * ratio), h = board.height = Math.round((board.clientHeight || 360) * ratio);
+  const unit = Math.max(12, Math.min(w / 34, h / 16));
+  g.fillStyle = '#0b0d1a'; g.fillRect(0, 0, w, h);
+  // A faint floor of dots, as the studio's is.
+  g.fillStyle = '#1b2040';
+  for (let y = unit; y < h; y += unit * 2) for (let x = unit; x < w; x += unit * 2) g.fillRect(Math.round(x), Math.round(y), Math.max(2, unit / 8), Math.max(2, unit / 8));
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const line = (text, y, size, ink) => {
+    g.font = `${Math.round(size)}px ui-monospace, Menlo, Consolas, monospace`;
+    // (A line too long for the screen is drawn smaller, never cut.)
+    const wide = g.measureText(text).width, most = w - unit * 2;
+    if (wide > most) g.font = `${Math.max(9, Math.floor(size * most / wide))}px ui-monospace, Menlo, Consolas, monospace`;
+    g.fillStyle = ink; g.fillText(text, w / 2, y);
+  };
+  const secure = typeof isSecureContext === 'undefined' || isSecureContext;
+  line('rax', h / 2 - unit * 3.2, unit * 2.4, '#ff5fa2');
+  line('this browser cannot draw the world', h / 2 - unit * 0.6, unit * 1.15, '#f2f2f2');
+  line(secure ? 'it needs WebGPU or WebGL 2: try a current Chrome, Edge, Safari or Firefox' : 'open it over https (or on localhost): WebGPU is only given to a secure page',
+    h / 2 + unit * 1.1, unit * 0.7, '#9aa3d8');
+  why.slice(0, 2).forEach((text, n) => line(text.slice(0, 96), h / 2 + unit * (2.6 + n * 0.9), unit * 0.5, '#5b6296'));
+}
+
 export async function createView(canvas) {
   let host, backend;
   let lost = false;
   // 🧊 The card's side of a frame (stalls.mjs): hand-off to finished, the
   // slowest since the client last read it, and how many are still out.
   const gpu = { max: 0, queued: 0 };
-  try {
-    host = await LensScene3D.create(canvas, {
-      maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
-      shadows: true, // 🌑 the sun's shadows, as stencil volumes (shadow.mjs)
-      onDeviceLost: () => {
-        lost = true;
-        canvas.dataset.engine = 'lost';
-      },
-    });
-    backend = 'webgpu';
-  } catch (error) {
-    // 🚫 rax is WebGPU only (2026-11-24): the WebGL 2 fallback is gone, and
-    // with it the case for keeping every feature (textures first) to what
-    // both could do. Without WebGPU the page says so and stops.
-    console.error('rax needs WebGPU.', error);
-    const replacement = canvas.cloneNode(false); // (a failed start can already own the canvas)
-    canvas.replaceWith(replacement);
-    replacement.dataset.engine = 'none';
-    const g = replacement.getContext('2d');
-    if (g) {
-      replacement.width = replacement.clientWidth || 640; replacement.height = replacement.clientHeight || 360;
-      g.fillStyle = '#0b0d1a'; g.fillRect(0, 0, replacement.width, replacement.height);
-      g.fillStyle = '#f2f2f2'; g.font = '16px monospace'; g.textAlign = 'center';
-      // (WebGPU is only offered on a secure page: https, or localhost.)
-      const why = window.isSecureContext ? 'try a current Chrome, Edge or Safari.' : 'open it over https (or on localhost).';
-      g.fillText(`rax needs WebGPU: ${why}`, replacement.width / 2, replacement.height / 2);
+  const options = {
+    maxTriangles: 98304, // (the lens halves long edges: a frame takes more triangles than its shapes have)
+    shadows: true, // 🌑 the sun's shadows, as stencil volumes (shadow.mjs)
+    onDeviceLost: () => {
+      lost = true;
+      canvas.dataset.engine = 'lost';
+    },
+  };
+  // 🎛️ WebGPU where the browser has it, WebGL 2 where it has not (Xbox Edge,
+  // older phones): the same lens, shadows, textures and glaze from the same
+  // triangles (lens-host.mjs, lens-host-gl.mjs). ?gl asks for WebGL 2 anyway.
+  const wantGL = typeof location !== 'undefined' && new URLSearchParams(location.search).has('gl');
+  const why = []; // what each one said, for the page that has neither
+  if (!wantGL) {
+    try {
+      host = await LensScene3D.create(canvas, options);
+      backend = 'webgpu';
+    } catch (error) {
+      why.push(`WebGPU: ${error?.message || error}`);
     }
-    throw new Error('rax needs WebGPU');
+  }
+  if (!host) {
+    try {
+      const { LensScene3DGL } = await import('./lens-host-gl.mjs');
+      try {
+        host = await LensScene3DGL.create(canvas, options);
+      } catch (error) {
+        // (A canvas that WebGPU took and then failed on gives no other kind: a fresh one, in its place.)
+        if (wantGL || !why.length) throw error;
+        const fresh = canvas.cloneNode(false);
+        host = await LensScene3DGL.create(fresh, options);
+        canvas.replaceWith(fresh);
+        canvas = fresh;
+      }
+      backend = 'webgl2';
+      if (why.length) console.warn(`rax: ${why[0]}; drawing with WebGL 2.`);
+    } catch (error) {
+      why.push(`WebGL 2: ${error?.message || error}`);
+    }
+  }
+  if (!host) {
+    console.error('rax needs WebGPU or WebGL 2.', ...why);
+    needsCard(canvas, why);
+    throw new Error('rax needs WebGPU or WebGL 2');
   }
   canvas.dataset.engine = backend;
   const projector = new Projector(host.scene);
@@ -314,7 +362,7 @@ export async function createView(canvas) {
   const textures = createTextures({ host, layers: TEXTURE_LAYERS, maxSize: TEXTURE_SIZE, loaders: textureLoaders });
   projector.textures = (key) => textures.resolve(key);
   let staged = []; // 🎭 (stage)
-  projector.marks = backend === 'webgpu'; // 📺 screens tagged for the lens's glaze (lens-host.mjs)
+  projector.marks = true; // 📺 screens tagged for the lens's glaze (lens-host.mjs)
   const facecam = new Projector(host.scene);
   // A small studio: a floor marked only by faint dots every two metres, four
   // plain walls and a low ceiling, all at the world's edges.
@@ -1655,7 +1703,7 @@ export async function createView(canvas) {
       return;
     }
     projector.immersive = !!xr;
-    projector.marks = !xr && backend === 'webgpu';
+    projector.marks = !xr;
     const ledges = game?.ledges || null;
     const start = performance.now(),
       now = start;
@@ -1843,7 +1891,7 @@ export async function createView(canvas) {
     projector.chunk = chunk;
     projector.fuzz = fuzz;
     projector.decayAt = now;
-    projector.card = !xr && backend === 'webgpu';
+    projector.card = !xr;
     projector.under = projector.card ? 1 : 0;
     // 🪐 How much each hung planet is the place the eye is at: 1 on it and close by, 0 from 30 m off.
     const hungNear = hung.map((b) => { const t = Math.min(1, Math.max(0, (Math.hypot(b.x - eye.x, b.y - eye.y, b.z - eye.z) - b.r - 6) / 24)); return 1 - t * t * (3 - 2 * t); });
@@ -4330,7 +4378,7 @@ export async function createView(canvas) {
     casting = false;
     if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector, xr.mixed);
     else host.present({ clear: sky, shadow, lens: lensNow });
-    if (!xr && backend === 'webgpu' && gpu.queued < 64) {
+    if (!xr && gpu.queued < 64) {
       const handed = performance.now();
       gpu.queued++;
       const done = () => {

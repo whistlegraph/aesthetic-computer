@@ -39,7 +39,7 @@ window.ready=true;
 </script>`;
 try {
   const images = [];
-  for (const fallback of [false]) { // (WebGPU only since 2026-11-24: no WebGL fallback to compare with)
+  for (const fallback of [false, true]) { // (WebGPU, then the same page with none: WebGL 2, lens-host-gl.mjs)
     const context = await browser.newContext({
       viewport: { width: 1280, height: 800 },
       deviceScaleFactor: 1,
@@ -260,20 +260,68 @@ try {
     await page.screenshot({ path: new URL(`flat-${backend}-near.png`, shots).pathname });
     await context.close();
   }
-  // 🚫 Without WebGPU the page says so and stops: it no longer falls back.
+  // 🚫 With neither WebGPU nor WebGL 2 the page says so and stops.
   {
     const context = await browser.newContext({ viewport: { width: 640, height: 400 } });
-    await context.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', { value: undefined });
+      const get = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (kind, ...rest) { return kind === 'webgl2' ? null : get.call(this, kind, ...rest); };
+    });
     const page = await context.newPage();
     await page.route('**/rax/render-test?*', (r) => r.fulfill({ contentType: 'text/html', body: fixture }));
     const refused = [];
     page.on('pageerror', (e) => refused.push(e.message));
     await page.goto(base + 'render-test?lens=0&fovea=0');
     await page.waitForFunction(() => document.querySelector('canvas')?.dataset.engine === 'none');
-    assert.ok(refused.some((m) => /needs WebGPU/.test(m)), 'the page says it needs WebGPU');
+    assert.ok(refused.some((m) => /needs WebGPU or WebGL 2/.test(m)), 'the page says it needs WebGPU or WebGL 2');
+    await page.screenshot({ path: new URL('flat-none.png', shots).pathname });
     await context.close();
   }
-  const ratio = 0;
+  // The flat picture, exact colours: the two cards must agree.
+  const differing = (a, b, by) => {
+    let changed = 0;
+    for (let i = 0; i < a.data.length; i += 4)
+      if ([0, 1, 2].some((c) => Math.abs(a.data[i + c] - b.data[i + c]) > by)) changed++;
+    return changed / (a.width * a.height);
+  };
+  const ratio = differing(images[0], images[1], 2);
+  assert.ok(ratio < 0.005, `WebGPU/WebGL 2 image difference: ${ratio}`);
+  // 🔭 And the whole of it: the lens, the middle drawn larger, the sun's
+  // shadows, the screens' glaze and the world's grade.
+  // The clock is held so the glaze's grain and slip fall alike on both.
+  const whole = [];
+  for (const fallback of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
+    if (fallback) await context.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
+    const page = await context.newPage();
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.route('**/favicon.ico', (r) => r.fulfill({ status: 204 }));
+    await page.route('**/rax/render-test?*', (r) => r.fulfill({ contentType: 'text/html', body: fixture }));
+    await page.goto(base + 'render-test?sun=0.42');
+    await page.waitForFunction(() => window.ready);
+    const backend = await page.evaluate(() => document.getElementById('game').dataset.engine);
+    assert.equal(backend, fallback ? 'webgl2' : 'webgpu');
+    for (const [name, change] of [['first', {}], ['third', { third: true }], ['down', { me: { pitch: -40, yaw: 30 } }]]) {
+      await page.evaluate((change) => {
+        performance.now = () => 1000;
+        try {
+          const next = { ...state, shadows: true, ...change, me: { ...state.me, ...(change.me || {}) } };
+          for (let i = 0; i < 3; i++) view.render(next); // (the shadows' reach settles over a few frames)
+        } finally { delete performance.now; }
+      }, change);
+      await page.waitForTimeout(50);
+      whole.push([name, PNG.sync.read(await page.screenshot({ path: new URL(`whole-${backend}-${name}.png`, shots).pathname }))]);
+    }
+    await context.close();
+  }
+  const wholeDifference = {};
+  for (let i = 0; i < whole.length / 2; i++) {
+    const [name, gpu] = whole[i], [, gl] = whole[i + whole.length / 2];
+    wholeDifference[name] = differing(gpu, gl, 6);
+    assert.ok(wholeDifference[name] < 0.02, `WebGPU/WebGL 2 lensed image difference (${name}): ${wholeDifference[name]}`);
+  }
 
   // Exercise depth independently of the game's projection: the later blue
   // triangle must not paint over the nearer red one, including after resize.
@@ -302,13 +350,13 @@ try {
   await page.evaluate(() => host.destroy());
   await page.close();
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ report, imageDifference: ratio }, null, 2));
+  console.log(JSON.stringify({ report, imageDifference: ratio, wholeDifference }, null, 2));
   await writeFile(
     new URL('flat-performance.json', shots),
-    JSON.stringify({ report, imageDifference: ratio }, null, 2),
+    JSON.stringify({ report, imageDifference: ratio, wholeDifference }, null, 2),
   );
   console.log(
-    'Passed: real WebGPU, no-WebGPU refusal, depth occlusion, near clipping, both cameras and responsive rendering.',
+    'Passed: real WebGPU, WebGL 2 beside it (flat and lensed), the refusal with neither, depth occlusion, near clipping, both cameras and responsive rendering.',
   );
 } finally {
   await browser.close();

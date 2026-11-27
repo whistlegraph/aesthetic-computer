@@ -325,7 +325,8 @@ test('rax mounts below a prefix and shares HTTP and WebSockets without taking ov
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type'), /javascript/);
   }
-  assert.equal((await fetch(`${base}/rax/engine/scene3d-webgl.mjs`)).status, 404, 'WebGPU only: no WebGL host is served');
+  assert.equal((await fetch(`${base}/rax/engine/scene3d-webgl.mjs`)).status, 404, 'the old flat WebGL host is not served');
+  assert.equal((await fetch(`${base}/rax/lens-host-gl.mjs`)).status, 200, 'the WebGL 2 lens host is served, for a browser with no WebGPU');
   // Every module the page imports, followed from client.mjs, is served: one
   // missing file (handle-style.mjs, 2026-11-24) stops the whole page.
   const seen = new Set(), queue = ['client.mjs'];
