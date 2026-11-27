@@ -184,6 +184,8 @@ case "${1:-status}" in
     set_font
     ;;
   ensure)
+    # A pull brings this script before install.sh has linked it onto PATH.
+    [[ -e "$HOME/.local/bin/slab-font" ]] || ln -s "$SLAB_REPO/bin/slab-font" "$HOME/.local/bin/slab-font" 2>/dev/null
     want=$(wanted)
     [[ -n "$want" && "$(cat "$APPLIED" 2>/dev/null)" != "$want" ]] || exit 0
     terminal_running || exit 0
