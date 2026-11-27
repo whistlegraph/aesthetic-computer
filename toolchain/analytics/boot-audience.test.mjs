@@ -89,3 +89,15 @@ test("a driven browser with a normal UA counts as automated once boots carry the
   assert.equal(out.humans.boots, 1);
   assert.deepEqual(out.automated.byFamily, [{ key: "WebDriver or unlabeled", n: 2 }]);
 });
+
+test("a boot on a path glued together from an app binary's strings counts as automated", () => {
+  const glued = "/menubandpopover.about.bodypopover.about.nelahttps://nelacomputer.clubpopover.about";
+  const favicon = "/favicon.icoNotepatFaviconLoadedMenuBand.ChordClimbRowMenuBand/ChordClimbsView.sw";
+  assert.equal(botFamily(CHROME, "", glued), "binary string scraper");
+  const out = foldBootAudience([boot({ meta: { path: glued } }), boot({ meta: { path: favicon } }),
+    boot({ meta: { path: "/menuband" } }), boot({ meta: { path: "/tape~https://example.org/a.mp4" } }), boot({ meta: { path: "/favicon.ico" } })]);
+  assert.equal(out.automated.boots, 2);
+  assert.equal(out.humans.boots, 3);
+  assert.deepEqual(out.automated.byFamily, [{ key: "binary string scraper", n: 2 }]);
+  assert.match(out.automated.explanations["binary string scraper"], /Menu Band/);
+});

@@ -17,7 +17,7 @@
 // (curl, python, most scrapers) are invisible here. Cloudflare sees those.
 // The visit tracker's automated count and this one are different instruments.
 import { visitProperty, automatedVisit, visitReferrer } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
-import { bootPiece } from "./piece-landings.mjs";
+import { bootPiece, scrapedPath } from "./piece-landings.mjs";
 
 // Our own render flags, as visit-model knows them. These are fleet traffic.
 export const OWN_MARKERS = Object.freeze(["social-preview", "offline-render", "jev-vs-jev", "ac-automation"]);
@@ -106,6 +106,7 @@ export const EXPLANATIONS = Object.freeze({
   "Node client": "A Node HTTP client.",
   "Java client": "A Java or Android HTTP client.",
   "empty user agent": "No user agent at all: a stripped-down script.",
+  "binary string scraper": "A scanner that pulled strings out of a downloaded app binary (Menu Band) and visited the URL-shaped ones with their neighbours glued on. Real browser, ordinary UA; the path gives it away (scrapedPath in piece-landings.mjs).",
   "WebDriver or unlabeled": "A driven real browser (navigator.webdriver or our fleet marker) with a normal UA. Tells: Puppeteer's default 1280x720 viewport, a UTC clock, a Linux UA from a cloud region.",
 });
 const explain = family => EXPLANATIONS[family] || (/bot|crawler|spider|webindexer/i.test(family)
@@ -114,10 +115,11 @@ const explain = family => EXPLANATIONS[family] || (/bot|crawler|spider|webindexe
 
 // A family name for an automated boot. Our own markers win, then named bots,
 // then whatever word carried "bot", "crawler" or "spider" in the UA.
-export function botFamily(userAgent = "", search = "") {
+export function botFamily(userAgent = "", search = "", path = "/") {
   const params = new URLSearchParams(search || "");
   const own = OWN_MARKERS.find(key => params.has(key));
   if (own) return `own: ${own}`;
+  if (scrapedPath(path)) return "binary string scraper";
   // The oven's grabber renders pieces and docs pages for thumbnails and
   // previews with these flags (oven/grabber.mjs); it carries no fleet marker.
   if (params.get("spoofaudio") === "true" && params.get("tv") === "true") return "own: oven grabber";
@@ -162,7 +164,7 @@ export function foldBootAudience(boots, { properties, limit = 12 } = {}) {
       bump(walls.byTimezone, meta.timezone || "(unknown)");
       continue;
     }
-    const bot = automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation);
+    const bot = scrapedPath(meta.path) || automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation);
     const row = bot ? automated : humans;
     row.boots++;
     if (status === "success") row.completed++;
@@ -172,7 +174,7 @@ export function foldBootAudience(boots, { properties, limit = 12 } = {}) {
     bump(row.byPiece, piece === null ? "(private)" : piece);
     bump(row.byReferrer, visitReferrer(meta.referrer) || "(direct or unknown)");
     if (bot) {
-      const family = botFamily(meta.userAgent, meta.search);
+      const family = botFamily(meta.userAgent, meta.search, meta.path);
       bump(automated.byFamily, family);
       if (!automated.examples[family]) automated.examples[family] = String(meta.userAgent || "").slice(0, 160);
     } else {
@@ -207,7 +209,7 @@ export function foldHandleUsage(boots, { properties, limit = 50, pieces = 6 } = 
   for (const { meta = {}, status, createdAt } of boots) {
     const property = visitProperty(meta.host);
     if (!property || (properties && !properties.includes(property)) || meta.localDev || meta.packMode || meta.embedded) continue;
-    if (automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) continue;
+    if (scrapedPath(meta.path) || automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) continue;
     const handle = meta.user?.handle;
     if (!handle) { anonymous++; continue; }
     const key = `@${String(handle).replace(/^@/, "")}`;

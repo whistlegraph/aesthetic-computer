@@ -8,6 +8,18 @@
 // piece a visitor touches. Signed-in piece opens live in account-activity.
 import { visitProperty, visitSurface, automatedVisit, visitReferrer } from "../../system/public/aesthetic.computer/lib/visit-model.mjs";
 
+// Paths no person types: a scanner pulled text out of a downloaded app binary
+// (Menu Band's string table) and visited whatever followed a URL, with the
+// neighbouring strings glued on: `/menubandpopover.about.bodypopover.about.nelahttps://…`,
+// `/favicon.icoNotepatFaviconLoadedMenuBand.ChordClimbRowMenuBand/ChordClimbsView.sw`.
+// The browser is real and the UA ordinary, so the path is the only tell.
+const SCRAPED_PATHS = [/[A-Za-z]https?:\/\//, /favicon\.ico[A-Za-z]/, /popover\.about\./, /MenuBand[./]/];
+export function scrapedPath(path = "/") {
+  let decoded;
+  try { decoded = decodeURIComponent(path); } catch { decoded = String(path); }
+  return SCRAPED_PATHS.some(pattern => pattern.test(decoded));
+}
+
 // A public piece name from a URL path, or null for private and odd paths.
 // Colon and tilde parameters are dropped, so `line:5` and `line~red` are `line`;
 // a published user piece keeps its public `@handle/piece` address.
@@ -28,7 +40,7 @@ export function foldPieceLandings(boots, { properties, limit = 50 }) {
   for (const { meta = {}, status } of boots) {
     const property = visitProperty(meta.host);
     const piece = property && properties.includes(property) ? bootPiece(meta.path) : null;
-    if (!piece || meta.embedded || meta.packMode || meta.localDev || automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) { skipped++; continue; }
+    if (!piece || meta.embedded || meta.packMode || meta.localDev || scrapedPath(meta.path) || automatedVisit({ userAgent: meta.userAgent, webdriver: meta.webdriver }, meta.search || "", meta.automation)) { skipped++; continue; }
     counted++;
     const key = `${property} ${piece}`;
     const row = rows.get(key) || { property, piece, boots: 0, anonymous: 0, signedIn: 0, completed: 0, referrers: {} };

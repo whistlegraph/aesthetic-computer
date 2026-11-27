@@ -149,21 +149,26 @@ if (rest.length) {
 }
 line();
 
+// One column chart: a column per day, `lit(i, r)` picks the brighter ink for a cell.
+function chart(values, rows, { lit = () => false, dates = true } = {}) {
+  const peak = Math.max(...values, 1);
+  for (let r = rows; r >= 1; r--) {
+    const cells = values.map((v, i) => {
+      const h = (v / peak) * rows;
+      const glyph = h >= r ? "█" : h > r - 1 ? SPARK[Math.max(0, Math.floor((h - (r - 1)) * 8) - 1)] : " ";
+      return (lit(i, r, peak) ? green : cyan)(glyph.repeat(2));
+    });
+    const axis = r === rows ? pad(num(peak), 5) : r === 1 ? pad(0, 5) : "     ";
+    line(`${dim(axis)} ${dim("┤")}${cells.join(" ")}`);
+  }
+  line(`      ${dim("└" + dayKeys.map(() => "──").join("─"))}`);
+  if (dates) line(`       ${dim(dayKeys.map((k, i) => i % 2 === (days - 1) % 2 ? k.slice(8) : "  ").join(" "))}`);
+}
+
 // DAILY — a column chart of human visits, engaged visits in brighter ink.
 const totals = dayKeys.map(siteVisits), engaged = dayKeys.map(siteEngaged);
-const peak = Math.max(...totals, 1), rows = 7;
-line(`${label("DAILY")}  human visits per UTC day ${dim(`· peak ${num(peak)} · ${color ? "bright = engaged" : "█ visits"}`)}`);
-for (let r = rows; r >= 1; r--) {
-  const cells = totals.map((v, i) => {
-    const h = (v / peak) * rows, e = (engaged[i] / peak) * rows;
-    const glyph = h >= r ? "█" : h > r - 1 ? SPARK[Math.max(0, Math.floor((h - (r - 1)) * 8) - 1)] : " ";
-    return (e >= r - 0.5 ? green : cyan)(glyph.repeat(2));
-  });
-  const axis = r === rows ? pad(num(peak), 5) : r === 1 ? pad(0, 5) : "     ";
-  line(`${dim(axis)} ${dim("┤")}${cells.join(" ")}`);
-}
-line(`      ${dim("└" + dayKeys.map(() => "──").join("─"))}`);
-line(`       ${dim(dayKeys.map((k, i) => i % 2 === (days - 1) % 2 ? k.slice(8) : "  ").join(" "))}`);
+line(`${label("DAILY")}  human visits per UTC day ${dim(`· peak ${num(Math.max(...totals, 1))} · ${color ? "bright = engaged" : "█ visits"}`)}`);
+chart(totals, 7, { lit: (i, r, peak) => (engaged[i] / peak) * 7 >= r - 0.5 });
 line();
 
 // LIVE — signed-in accounts and what they opened.
@@ -186,7 +191,8 @@ if (!signupToday.error) {
   // The in-page door (signup-flow.mjs) mails a code and never redirects, so
   // `auth_returned` only counts the Universal Login fallback; `verified` is
   // what either path reaches once the person is through Auth0.
-  const stages = ["handle_held", "social_started", "code_sent", "code_failed", "verified", "auth_returned", "auth_failed", "fallback", "completed"];
+  const stages = ["handle_held", "social_started", "code_sent", "code_failed", "verified", "auth_returned", "auth_failed", "fallback", "completed",
+    "verification_shown", "handle_shown", "handle_failed", "handle_dismissed"];
   const blank = () => ({ att: 0, ...Object.fromEntries(stages.map(s => [s, 0])) });
   const f = { signup: blank(), login: blank() };
   for (const row of signupToday.funnel?.rows || []) {
@@ -199,6 +205,13 @@ if (!signupToday.error) {
   const flow = (m) => {
     const misses = [m.code_failed && `${m.code_failed} bad code`, m.auth_failed && `${m.auth_failed} auth failed`,
       m.fallback && `${m.fallback} to password`, m.social_started && `${m.social_started} google/apple`, m.handle_held && `${m.handle_held} handle held`, m.auth_returned && `${m.auth_returned} via redirect`].filter(Boolean);
+    // No code and no held handle means every attempt went through the hosted
+    // login, which has no `code_sent`: count the trip back and the handle step.
+    if (!m.code_sent && !m.handle_held) {
+      const hosted = [m.auth_failed && `${m.auth_failed} auth failed`, m.verification_shown && `${m.verification_shown} asked to verify`,
+        m.handle_failed && `${m.handle_failed} handle failed`, m.handle_dismissed && `${m.handle_dismissed} handle dismissed`, m.social_started && `${m.social_started} google/apple`].filter(Boolean);
+      return `${m.att} tried → ${m.auth_returned} back from login → ${m.verified} verified → ${m.handle_shown} handle shown → ${m.completed} done${hosted.length ? dim(`  (${hosted.join(" · ")})`) : ""}`;
+    }
     return `${m.att} tried → ${m.code_sent} code sent → ${m.verified} verified → ${m.completed} done${misses.length ? dim(`  (${misses.join(" · ")})`) : ""}`;
   };
   line(`        ${dim("sign up")} ${f.signup.att && !f.signup.completed ? yellow(flow(f.signup)) : flow(f.signup)}`);
@@ -222,7 +235,16 @@ if (!opens.error) {
 }
 line(`${label("APPS")}  ${appLines[0] || dim("no direct downloads")}`);
 for (const l of appLines.slice(1)) line(`        ${l}`);
-line(`        ${dim("opens  ")} ${spark(dayKeys.map(appOpens))}  ${dim("dmg")} ${spark(dayKeys.map(dmgs))}  ${dim("app store new")} ${spark(dayKeys.map(storeFirst))}`);
+line();
+// Opens, then downloads (DMG + App Store first-time), on the same days as DAILY.
+const opensByDay = dayKeys.map(appOpens), dmgByDay = dayKeys.map(dmgs), storeByDay = dayKeys.map(storeFirst);
+const sum = (a) => a.reduce((n, v) => n + v, 0);
+line(`        ${dim(`app opens per UTC day · ${num(sum(opensByDay))} in ${days}d`)}`);
+chart(opensByDay, 4, { dates: false });
+const got = dayKeys.map((_, i) => dmgByDay[i] + storeByDay[i]);
+line(`        ${dim(`downloads per UTC day · ${num(sum(dmgByDay))} dmg + ${num(sum(storeByDay))} app store new in ${days}d${color ? " · bright = app store" : ""}`)}`);
+chart(got, 4, { lit: (i, r, peak) => (storeByDay[i] / peak) * 4 >= r - 0.5 });
+line(`        ${dim("Apple reports about a day late")}`);
 line();
 
 // REFS
