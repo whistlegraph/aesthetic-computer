@@ -35,6 +35,18 @@ const PRICES = {
   [HOSTED_MODELS.opus]: [0.40, 4.00, 20.0],
 };
 
+// Models on trial: the relay runs them by id, no picker offers them. An arm
+// here answers "is there something under Sonnet's price that delivers what
+// Sonnet does?" before one earns a place in open-models.mjs. OpenRouter's
+// list on 2026-11-27.
+export const TRIAL_MODELS = { haiku: "anthropic/claude-haiku-5.5", terra: "openai/gpt-6.1-terra", qwen4: "qwen/qwen4-max" };
+Object.assign(PRICES, {
+  [TRIAL_MODELS.haiku]: [0.01, 0.10, 0.50],
+  [TRIAL_MODELS.terra]: [0.05, 1.00, 5.00],
+  [TRIAL_MODELS.qwen4]: [0.071, 1.42, 4.27],
+});
+const ARMS = { ...HOSTED_MODELS, ...TRIAL_MODELS };
+
 function tasksUnder(path) {
   if (statSync(path).isFile()) return [JSON.parse(readFileSync(path, "utf8"))];
   return readdirSync(path, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
@@ -118,7 +130,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     live: { type: "boolean" },
   } });
   const tasks = tasksUnder(resolve(values.tasks)), arms = values.arms.split(",").map((s) => s.trim()).filter(Boolean);
-  for (const arm of arms) if (arm !== "auto" && !HOSTED_MODELS[arm]) throw Error(`unknown arm ${arm}: use auto or one of ${Object.keys(HOSTED_MODELS).join(", ")}`);
+  for (const arm of arms) if (arm !== "auto" && !ARMS[arm]) throw Error(`unknown arm ${arm}: use auto or one of ${Object.keys(ARMS).join(", ")}`);
   const runs = resolve(values.runs);
   if (!values.live) {
     for (const task of tasks) { const r = predicted(task); console.log(`${r.tier.padEnd(7)}${task.id.padEnd(36)}${r.reasons.join(", ")}`); }
@@ -131,7 +143,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   await pool(work, Number(values.jobs), async ({ task, arm }) => {
     const out = join(runs, slug(task.id), arm);
     if (existsSync(join(out, "result.json"))) { done += 1; return; }
-    const result = await rollout(task, null, out, { acModel: arm === "auto" ? "auto" : HOSTED_MODELS[arm], timeout: Number(values.timeout) });
+    const result = await rollout(task, null, out, { acModel: arm === "auto" ? "auto" : ARMS[arm], timeout: Number(values.timeout) });
     done += 1;
     console.error(`[${done}/${work.length}] ${result.delivered ? "✓" : "✕"} ${task.id} · ${arm}${result.error ? ` — ${result.error}` : ""}`);
   });

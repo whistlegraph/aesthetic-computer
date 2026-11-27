@@ -15,6 +15,11 @@ export const EASEL_MODELS = {
   "anthropic/claude-opus-5": { label: "Opus (premium)" },
   "anthropic/claude-sonnet-5.5": { label: "Claude Sonnet 5.5" },
   "anthropic/claude-opus-5.5": { label: "Claude Opus 5.5" },
+  // On trial (aesel/bin/route-trial.mjs, 2026-11-27): priced under Sonnet,
+  // offered by no picker until a trial says what they deliver.
+  "anthropic/claude-haiku-5.5": { label: "Claude Haiku 5.5 (trial)" },
+  "openai/gpt-6.1-terra": { label: "GPT 6.1 Terra (trial)" },
+  "qwen/qwen4-max": { label: "Qwen4 Max (trial)" },
   "z-ai/glm-4.6": { label: "glm" },
   "qwen/qwen3-coder": { label: "qwen" },
   "deepseek/deepseek-chat-v3.1": { label: "deepseek" },

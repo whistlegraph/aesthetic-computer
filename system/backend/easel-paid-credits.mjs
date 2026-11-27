@@ -191,6 +191,8 @@ const OPEN_PRICES={
  'minimax/minimax-m3':[0.30,1.20], 'z-ai/glm-5.3-flash':[0.15,0.50],
  // OpenRouter 2026-10-08. Whistlegraph's default (Sonnet) and premium (Opus).
  'anthropic/claude-sonnet-5.5':[2.00,10.0], 'anthropic/claude-opus-5.5':[4.00,20.0],
+ // OpenRouter 2026-11-27. On trial; see easel-policy.mjs.
+ 'anthropic/claude-haiku-5.5':[0.10,0.50], 'openai/gpt-6.1-terra':[1.00,5.00], 'qwen/qwen4-max':[1.42,4.27],
 };
 // What a direct Anthropic call cost, in USD, from its usage block at the list
 // prices above: cache reads at 0.1× input, five-minute cache writes at 1.25×,
