@@ -204,8 +204,7 @@ let login, // A login button in the center of the display.
   profileAction,
   walletBtn, // Tezos wallet button (shown when connected)
   commitBtn, // Commit hash button (navigates to commits piece)
-  notepatBtn, // 🎹 Notepat button (to the right of the commit button)
-  kidlispBtn; // KidLisp.com button (shown when in KidLisp mode)
+  notepatBtn; // 🎹 Notepat button (to the right of the commit button)
 
 let clearBtn; // 🧹 "Blank" button (fixed top-right, appears at 32+ chars)
 let clearBtnConfirming = false; // Two-tap confirmation state
@@ -5869,109 +5868,9 @@ function paint($) {
   // Shared horizontal offset for the MOTD layouts below.
   let motdXOffset = 0;
 
-  // 🟢 KidLisp mode — show the "Edit on KidLisp.com" button when focused.
-  // (The animated scrolling-dot edge border was removed.)
-  const isKidlispMode = $.system?.prompt?.actualKidlisp;
-  if (isKidlispMode && $.system.prompt.input.canType) {
-
-    // 🟢 KidLisp.com button centered at bottom (between paste and enter buttons)
-    const kidlispBtnText = "Edit on KidLisp.com";
-
-    // Get paste and enter button positions to center between them
-    const pasteBox = $.system.prompt.input?.paste?.btn?.box;
-    const enterBox = $.system.prompt.input?.enter?.btn?.box;
-
-    // Calculate center position between paste (left) and enter (right) buttons
-    let kidlispBtnX, kidlispBtnY;
-    // TextButtonSmall: 4px per char + 2px left + 2px right padding
-    const btnWidth = kidlispBtnText.length * 4 + 4;
-    if (pasteBox && enterBox) {
-      // Position horizontally centered between paste's right edge and enter's left edge
-      const gapStart = pasteBox.x + pasteBox.w;
-      const gapEnd = enterBox.x;
-      const gapCenter = gapStart + (gapEnd - gapStart) / 2;
-      kidlispBtnX = Math.floor(gapCenter - btnWidth / 2);
-      kidlispBtnY = pasteBox.y; // Same Y position as the bottom buttons
-    } else {
-      // Fallback to bottom center if buttons not available
-      kidlispBtnX = Math.floor(screen.width / 2 - btnWidth / 2);
-      kidlispBtnY = screen.height - 18;
-    }
-
-    if (!kidlispBtn) {
-      kidlispBtn = new $.ui.TextButtonSmall(kidlispBtnText, { x: kidlispBtnX, y: kidlispBtnY });
-      kidlispBtn.stickyScrubbing = true;
-    } else {
-      kidlispBtn.reposition({ x: kidlispBtnX, y: kidlispBtnY }, kidlispBtnText);
-      kidlispBtn.btn.disabled = false;
-    }
-
-    // Paint the button with rainbow cycling colors (like GIVE button) + blinking
-    const kidlispBtnBox = kidlispBtn.btn.box;
-    const isKidlispBtnDown = kidlispBtn.btn.down;
-    const isKidlispBtnOver = kidlispBtn.btn.over;
-
-    // 🌈 Rainbow cycling colors for attention-seeking effect
-    const klT = performance.now() / 1000;
-    const klHue = (klT * 60) % 360; // Cycle through hues
-    const klPulse = Math.sin(klT * 4) * 0.5 + 0.5; // Pulsing effect (0-1)
-    const klBlink = Math.floor(klT * 3) % 2; // Blink on/off 3 times per second
-
-    // Convert HSL to RGB
-    const klHslToRgb = (h, s, l) => {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) { r = g = b = l; }
-      else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    };
-
-    // Bright saturated fill that cycles through rainbow
-    const klFillColor = klHslToRgb(klHue, 90, 40 + klPulse * 15);
-    const klTextColor = klHslToRgb((klHue + 180) % 360, 100, 85); // Complementary color for text
-    const klOutlineColor = klHslToRgb((klHue + 120) % 360, 100, 60); // Triadic color for outline
-
-    // Background - rainbow cycling with blink effect
-    if (klBlink || isKidlispBtnOver || isKidlispBtnDown) {
-      const bgColor = isKidlispBtnDown ? [klFillColor[0] + 40, klFillColor[1] + 40, klFillColor[2] + 40] : klFillColor;
-      ink(...bgColor).box(kidlispBtnBox);
-    } else {
-      ink(20, 20, 30).box(kidlispBtnBox); // Dark background during "off" blink
-    }
-
-    // Animated outline
-    ink(...klOutlineColor).box(kidlispBtnBox, "outline");
-
-    // Text with complementary color
-    ink(...klTextColor).write(kidlispBtnText, { x: kidlispBtnBox.x + 2, y: kidlispBtnBox.y + 2 }, undefined, undefined, false, "MatrixChunky8");
-
-    // Keep animating
-    $.needsPaint();
-  } else {
-    // Disable KidLisp button when not in KidLisp mode
-    if (kidlispBtn) {
-      kidlispBtn.btn.disabled = true;
-    }
-  }
-
   // 🎹 Notepat button — shown only while the prompt is active (typing), centered
-  // at the bottom between the paste and enter buttons, like the KidLisp.com
-  // button above. Hidden on the attract screen, and in KidLisp mode (which uses
-  // the same slot). Tapping it jumps to the `notepat` piece.
+  // at the bottom between the paste and enter buttons. Hidden on the attract screen and in
+  // KidLisp mode. Tapping it jumps to the `notepat` piece.
   // 🎹 Notepat button temporarily disabled per request — flip `false` back to
   // `$.system.prompt.input?.canType` to restore the short notepat link/badge.
   if (false && !isKidlispMode) {
@@ -6863,7 +6762,7 @@ function paint($) {
     // 📦 Commit hash button - shows version status / update availability
     // Hide commits button when KidLisp button is active (they share the same screen area)
     // Also part of flair — hidden (along with the notepat button) when flair is off.
-    if (flairEnabled && versionInfo && versionInfo.deployed && !(kidlispBtn && !kidlispBtn.btn.disabled)) {
+    if (flairEnabled && versionInfo && versionInfo.deployed) {
       // Always the build this page is running; an update shows as orange flashing.
       const commitText = versionInfo.running || versionInfo.deployed;
       // Create button using TextButtonSmall (MatrixChunky8 font) in the top-right
@@ -7797,6 +7696,10 @@ function paint($) {
       if (profile && day) profile.txt = retone(label, inked);
       profile?.paint($, bareHandle(dayBase(profileScheme)), heldHandle(dayBase(profileRollover)), undefined, bareHandle(dayBase(profileRollover)));
       if (profile && day) profile.txt = label;
+      if (profile.btn.over && !profile.btn.down) {
+        const { x, y, w, h } = profile.btn.box;
+        $.ink(dayBase(profileRollover)[2]).box(x + 4, y + h - 3, w - 8, 1);
+      }
     } else {
       profile?.paint(
         $,
@@ -8988,7 +8891,6 @@ function act({
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
-      (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       isOverMotdHandle)
   ) {
@@ -9002,7 +8904,6 @@ function act({
       (signup?.btn.disabled === false && signup?.btn.box.contains(e)) ||
       (commitBtn?.btn.disabled === false && commitBtn?.btn.box.contains(e)) ||
       (notepatBtn?.btn.disabled === false && notepatBtn?.btn.box.contains(e)) ||
-      (kidlispBtn?.btn.disabled === false && kidlispBtn?.btn.box.contains(e)) ||
       (clearBtn?.disabled === false && clearBtn?.box.contains(e)) ||
       (subscribersBtn?.btn.disabled === false && subscribersBtn?.btn.box.contains(e)) ||
       (unitickerButton?.disabled === false && unitickerButton?.box.contains(e)) ||
@@ -9028,6 +8929,8 @@ function act({
 
   if (profile && !profile.btn.disabled) {
     profile.btn.act(e, {
+    hover: () => needsPaint(),
+    leave: () => needsPaint(),
     down: () => {
       downSound();
       if (profileAction !== "profile") {
@@ -9131,34 +9034,6 @@ function act({
       push: () => {
         pushSound();
         jump("wallet");
-      },
-      cancel: () => cancelSound(),
-    });
-  }
-
-  // 🟢 KidLisp.com button - copy code and open IDE
-  if (kidlispBtn && !kidlispBtn.btn.disabled) {
-    kidlispBtn.btn.act(e, {
-      down: () => downSound(),
-      push: () => {
-        pushSound();
-        // Get the current code from the prompt
-        const code = system.prompt.input.text || "";
-        // Encode the code for URL
-        const encodedCode = encodeURIComponent(code);
-        // Open KidLisp.com IDE with the code
-        const kidlispUrl = `https://kidlisp.com?code=${encodedCode}`;
-        // Copy code to clipboard first
-        if (navigator.clipboard?.writeText) {
-          navigator.clipboard.writeText(code).catch(() => {});
-        }
-        // Open in new tab
-        if (typeof window !== "undefined" && window.open) {
-          window.open(kidlispUrl, "_blank");
-        } else {
-          // Fallback for non-browser environments
-          send({ type: "open-url", content: kidlispUrl });
-        }
       },
       cancel: () => cancelSound(),
     });
