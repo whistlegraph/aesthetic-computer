@@ -644,7 +644,8 @@ export function createRaxServer({
       res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(said));
       return;
     }
-    const asset = assets.get(path);
+    // (`/~word` is the page itself, asked for a room by name: client.mjs reads the word.)
+    const asset = assets.get(/^\/~[a-z0-9-]{1,32}$/.test(path) ? '/' : path);
     if (req.method !== 'GET' || !asset) {
       res.writeHead(404).end();
       return;

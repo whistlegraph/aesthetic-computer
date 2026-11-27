@@ -70,7 +70,10 @@ bootMark('view');
 const canvas = view.canvas,
   keys = new Set();
 const query = new URLSearchParams(location.search);
-const requestedRoom = query.get('room');
+// 🏷️ A room is asked for the way AC asks for anything: a word after `~`
+// (rax.ac/~studio, as aesthetic.computer/rax~studio). `?room=` is still read
+// (the prompt's paper loads the page that way) but never written.
+const requestedRoom = decodeURIComponent(location.pathname).match(/\/~([a-z0-9-]{1,32})$/)?.[1] || query.get('room');
 // 🏷️ What this browser kept under the world's old name (dool, until
 // 2026-11-18) comes along: who you are, where you live, where you stood.
 try {
@@ -1061,8 +1064,7 @@ let gate = null;
 // 📱 Signed out and looking on, a phone can sign this tab in (pair-desk.mjs).
 const pairDesk = createPairDesk();
 let gamepad;
-let joinURL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
-  ? null : new URL(`?room=${room}`, location.href).href;
+let joinURL = null; // (set once the world's shape is known, below: addressOf)
 let members = [];
 // Start opens the room menu; Back opens the $code history.
 // Short notices for finished or failed builds, newest last.
@@ -1573,6 +1575,20 @@ if (query.has('debug'))
 const inWorld = (id) => id === BASEMENT || id === 'lobby' || aloft(id) || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
 // 🧭 This place's AC address, for the host's address bar: a game's own word
 // (botbop, botbop~name), else rax~room; the lobby and your home are rax.
+// 🏷️ This page's own address for a room. The world has one: the plaza, a
+// block and a floor are all the bare address, and where you stand is kept for
+// you, not written in it. Only a room outside the world has a word, `~room`.
+const addressOf = (id) => new URL(inWorld(id) ? './' : `./~${id}`, import.meta.url);
+function tidyAddress() {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) joinURL = addressOf(room).href;
+  if (window.parent !== window) return; // (under the prompt the host keeps the address)
+  try {
+    const address = addressOf(room);
+    address.search = location.search.replace(/([?&])room=[^&]*&?/, '$1').replace(/[?&]$/, ''); // (the rest as written: ?debug stays ?debug)
+    window.history.replaceState(window.history.state, '', address);
+  } catch {}
+}
+tidyAddress();
 function placePath() {
   const g = game();
   if (g?.at(room)) return room.startsWith(`${g.name}-`) ? `/${g.name}~${room.slice(g.name.length + 1)}` : `/${g.name}`;
@@ -1668,12 +1684,7 @@ function travel(to, chosen = true, receipt = null, riding = null, at = null, ack
   void streamWorld();
   chalkStrokes = [];
   chalkVersion++;
-  if (joinURL) joinURL = new URL(`?room=${room}`, location.href).href;
-  try {
-    const address = new URL(location.href);
-    address.searchParams.set('room', room);
-    window.history.replaceState(window.history.state, '', address);
-  } catch {}
+  tidyAddress();
   toHost({ type: 'rax:sheet:place', path: placePath() });
   if (inWorld(room)) {
     lastPlace = room;

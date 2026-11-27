@@ -60,8 +60,8 @@ latest note and tool call along the top of the view. It only appears in the
 rooms named by `RAX_DEV_LOG_ROOMS` (default `studio`). Home paths, keys and
 long tokens are redacted on the server before anything is sent.
 
-Share the page URL to invite another player. Use `?room=your-room` for a separate
-room; there is no weapon selection. A localhost invite works only on the same
+Share the page URL to invite another player. Use `~your-room` after the address
+(`rax.ac/~your-room`) for a separate room; a place in the world is never in the address; there is no weapon selection. A localhost invite works only on the same
 machine. The corner join code is retired for now, ahead of rax joining the AC
 homepage. Guests are named from their identity (two words, the same in every
 room) and may start five builds a day; signed-in players spend their own
@@ -95,7 +95,7 @@ on both machines. `PORT` overrides 8787.
 **aesthetic.computer/botbop** opens it: the prompt's `botbop`, which drops the
 paper into rax's arena. `botbop~name` is an arena of its own, and `rax~room`
 reaches any room; the address bar follows you as you move. (Inside, the guest is
-still `/rax/?room=…`; that is transport, not an address to hand out.)
+still loaded as `/rax/?room=…`; that is transport, never written to an address bar.)
 
 Land on a head. Coming down onto another player's crown bops them and bounces
 you. The rule (`bop.mjs`, run by the server in `match.mjs`) holds in every room;
