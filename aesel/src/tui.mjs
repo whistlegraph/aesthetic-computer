@@ -75,7 +75,8 @@ import { printer, printerOutput } from "./printer.mjs";
 import { syncPictureWip, pictureWipAddress } from "./picture-wip.mjs";
 import { publishPicture, publishedPicture } from "./publish-picture.mjs";
 import { qrBlock } from "./qr.mjs";
-import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners, setTypedStyle, setAppearance } from "./render.mjs";
+import { cleanText, clipText, color, aeselInk, renderBoot, renderFrame, renderGenrePicker, frameLayout, headerAction, wrapText, transcriptLineCount, windowTitle, setCorners, setTypedStyle, setAppearance, setDetail, getDetail } from "./render.mjs";
+import { step as stepDetail, utilitextPrompt } from "./utilitext.mjs";
 import { mascotNextFrameIn, mascotRowNextFrameIn } from "./mascot.mjs";
 import { DEFAULT_RUNTIME, runtimeMenu } from "./runtimes.mjs";
 import { SlabSession } from "./slab-session.mjs";
@@ -616,6 +617,9 @@ function proInstructions() {
     PIECE_PERFORMANCE,
     harnessText("pro-account"),
     harnessText("pro-reply"),
+    // The shape the page is set to read: a signal line, an `ask:`, a few
+    // points, and the rest inside <explain> where /more unfolds it.
+    utilitextPrompt(getDetail()),
     harnessText("pro-inbox"),
     // A medium chosen with /medium: its tools are the only way to a new version.
     ...(state.medium !== "piece" ? [harnessText("pro-artifact-medium", { medium: state.medium, store: path.join(cwd, mediaName(cwd)) })] : []),
@@ -2969,6 +2973,14 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry("notice", stopped.length ? `Stopping ${stopped.map(job => `#${job.id} ${job.command}`).join(", ")}` : "Nothing running · /jobs");
       return redraw();
     }
+    // How much of a shaped reply to show: /more steps up toward the folded
+    // explain, /less steps down toward the one-line signal.
+    if (command === "/more" || command === "/less") {
+      const before = getDetail();
+      setDetail(stepDetail(before, command === "/more" ? "more" : "less"));
+      flash(getDetail() === before ? `already at ${before}` : `replies at ${getDetail()}`);
+      return redraw();
+    }
     if (command === "/energy" || command === "/power") {
       addEntry("notice", energyReport(state.energy, state.model || model).join("\n"));
       return redraw();
@@ -3074,8 +3086,8 @@ async function submitInput(submittedText, submittedMessages = null) {
       addEntry(
         "notice",
         pro
-          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
-          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /agents · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /printer NAME · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
+          ? "/ask [on|off] · /provider · /model [name] · /mouse [on|off] · /layout · /inbox · /mode · /backend [id] · /login · /logout · /whoami · /handle [name] · /more · /less · /reify · /update · /new · /clear · /close · /quit   ctrl-c interrupts a running turn"
+          : "/about · /medium · /artifacts · /select UUID · /artifact · /export FILE · /sharing · /transcript · /profile · /inbox · /agents · /mode · /mouse [on|off] · /performance [frames] · /energy · !command · /jobs · /kill [N] · /latest · /login · /logout · /whoami · /publish [file] · /printer NAME · /autopublish [on|off] · /ask [on|off] · /piece [name] · /preview [piece|file] · /play [file] [player] · /versions · /rollback vN · /runtime [id] · /frame [ocr] · /settings · /backend [id] · /model [name] · /effort · /handle [name] · /more · /less · /reify · /update · /open · /qr · /new · /clear · /quit   ctrl-c interrupts a running turn",
       );
       return redraw();
     }

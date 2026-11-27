@@ -34,3 +34,35 @@ test("a summary that does not fit is left out, not truncated", () => {
   const long = { ...base, score: `# Score\n\n${"word ".repeat(200)}`, entries: [] };
   assert.doesNotMatch(String(renderFrame(long, 60, 24, false)), /SCORE/);
 });
+
+import { setDetail } from "../src/render.mjs";
+
+const shaped = "Board matched in ClickUp; pilot still to do.\nask: reuse the September board?\noptions: ♻️ Reuse = keep it | 🆕 New = build one\n- Company 86bc16y4c\n- Pilot 86bc6kx9y\n<explain>Searched by domain.</explain>";
+const reply = { ...base, score: "", entries: [{ kind: "user", text: "go" }, { kind: "assistant", text: shaped }] };
+
+test("a shaped reply is set as signal, ask, options and points with the explain folded", () => {
+  setDetail("brief");
+  const page = text(reply, 30);
+  assert.match(page, /Board matched in ClickUp; pilot still to do\./);
+  assert.match(page, /ask reuse the September board\?/);
+  assert.match(page, /• .*Reuse — keep it/);
+  assert.match(page, /• Pilot 86bc6kx9y/);
+  assert.match(page, /▸ explain/);
+  assert.doesNotMatch(page, /Searched by domain/);
+});
+
+test("full unfolds the explain and signal folds the points", () => {
+  setDetail("full");
+  assert.match(text(reply, 30), /Searched by domain/);
+  setDetail("signal");
+  const page = text(reply, 30);
+  assert.doesNotMatch(page, /Pilot 86bc6kx9y/);
+  assert.match(page, /▸ explain/);
+  setDetail("brief");
+});
+
+test("a plain reply is left as written", () => {
+  const plain = { ...base, score: "", entries: [{ kind: "user", text: "go" }, { kind: "assistant", text: "Done. It works." }] };
+  assert.match(text(plain, 30), /Done\. It works\./);
+  assert.doesNotMatch(text(plain, 30), /explain/);
+});

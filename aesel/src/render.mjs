@@ -15,6 +15,7 @@ import { handleCharacterColors, characterColors } from "./handle-colors.mjs";
 import { aboutMap } from "./about.mjs";
 import { formatJoules } from "./energy.mjs";
 import {readableRGB, terminalRGB} from './contrast.mjs';
+import * as utilitext from "./utilitext.mjs";
 
 // The terminal draws pro's layout for every session; the desktop app
 // (AESEL_DESKTOP) draws its own.
@@ -28,18 +29,18 @@ export const palette = {
   text: [255, 255, 255],
   prompt: [200, 30, 100],
   block: [200, 30, 100],
-  highlight: [255, 100, 0],
+  highlight: [255, 135, 40],
   handle: [255, 100, 255],
   soft: [220, 180, 255],
-  muted: [170, 150, 205],
-  status: [0, 255, 0],
-  error: [255, 90, 90],
-  you: [255, 90, 160],
-  run: [255, 160, 60],
+  muted: [190, 172, 225],
+  status: [120, 240, 170],
+  error: [255, 125, 125],
+  you: [255, 125, 180],
+  run: [255, 170, 80],
   edit: [130, 255, 130],
   // A line from another session. Its own colour, because it has to be
   // unmistakable for what it is not: something the user typed.
-  inbox: [120, 200, 255],
+  inbox: [130, 205, 255],
   // The typing bar in pro: one shade up from the ground, so the line being
   // written is a place and not just a row.
   bar: [95, 70, 135],
@@ -609,7 +610,7 @@ function planAge(ms) {
 // Content, layout and appearance are part of the key; streamed edits miss it.
 const entryCache = new Map();
 function entryLines(entry, width, useColor, gutter = "wide") {
-  const key = JSON.stringify([entry.kind, entry.text, entry.from, entry.wave, width, useColor, gutter, TYPED_STYLE, CORNERS, LIGHT, pageBackground]);
+  const key = JSON.stringify([entry.kind, entry.text, entry.from, entry.wave, width, useColor, gutter, TYPED_STYLE, CORNERS, LIGHT, DETAIL, pageBackground]);
   if (entryCache.has(key)) {
     const rows = entryCache.get(key);
     entryCache.delete(key); entryCache.set(key, rows);
@@ -651,7 +652,7 @@ function drawEntryLines(entry, width, useColor, gutter = "wide") {
   // An inbox line leads with who sent it — `↓ host:name · text` — so the
   // sender is read before the request, the way the model reads the stamp.
   const bodyTone = BODY_TONES[entry.kind] || "text";
-  const text = cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.text)
+  const text = cleanText(entry.kind === "inbox" && entry.from ? `${entry.from} · ${entry.text}` : entry.kind === "assistant" ? shapeReply(entry.text) : entry.text)
     .replace(/[\t ]+$/gm, "").replace(/^\n+|\n+$/g, "");
   if (entry.kind === "typed" && entry.wave !== undefined && useColor) {
     // The shimmer: the words in the page's ink with a spark of the prompt's
@@ -1522,6 +1523,30 @@ function outlineRows(rows, width, painted = false) {
 let LIGHT = false;
 // On a light page the cloud is a light gray, not a white that would vanish.
 export function setAppearance(mode) { LIGHT = mode === "light"; }
+// How much of a shaped reply shows: signal, brief or full (see utilitext.mjs).
+let DETAIL = "brief";
+export function setDetail(level) { DETAIL = utilitext.LEVELS.includes(level) ? level : "brief"; }
+export function getDetail() { return DETAIL; }
+// A reply written as utilitext — a signal line, an `ask:`, points, and an
+// <explain> block — is set as a signal in bold, the ask in the highlight with
+// its options beneath, the points as a list, and the explain folded behind a
+// marker until the person asks for more. Any other reply is left as written.
+const SHAPED = /<explain>|^\s*ask:\s*\S/im;
+export function shapeReply(text, level = DETAIL) {
+  if (!SHAPED.test(text)) return text;
+  const r = utilitext.read(text);
+  if (!r.signal && !r.ask) return text;
+  const out = [];
+  if (r.signal) out.push(`**${r.signal.replace(/\*\*/g, "")}**`);
+  if (r.ask) out.push("", `**ask** ${r.ask}`);
+  if (r.options.length) out.push(...r.options.map((o) => `- ${o.label}${o.does && o.does !== o.label ? ` — ${o.does}` : ""}`));
+  const points = level === "signal" ? [] : level === "full" ? r.points : r.points.slice(0, 3);
+  if (points.length) out.push("", ...points.map((p) => `- ${p}`));
+  const folded = level === "signal" ? r.points.length > 0 || !!r.explain : false;
+  if (level === "full" && r.explain) out.push("", r.explain);
+  else if (r.explain || folded) out.push("", "> ▸ explain · /more");
+  return out.join("\n");
+}
 const CLOUD_TINT_DARK = { bg: palette.cloud, ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
 const CLOUD_TINT_LIGHT = { bg: [226, 220, 238], ink: palette.cloudInk, soft: palette.cloudSoft, highlight: palette.cloudHighlight };
 const CLOUD_TINT = new Proxy({}, { get: (_, key) => (LIGHT ? CLOUD_TINT_LIGHT : CLOUD_TINT_DARK)[key] });
