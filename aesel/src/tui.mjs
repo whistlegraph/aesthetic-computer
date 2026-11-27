@@ -323,8 +323,19 @@ if (!pro && initialPiece && desktopRestored?.pieceVersion !== undefined && deskt
     desktopRestoreError = `Saved piece version was not restored: ${error.message}`;
   }
 }
+// The front page: the score of the folder the session opened in (the repo's
+// root SCORE.md in the monorepo), else aesel's own, else the bundled copy. Shown under the letterhead on a fresh
+// thread; AESEL_SCORE=0 turns it off.
+const scoreText = (() => {
+  if (process.env.AESEL_SCORE === "0") return "";
+  for (const file of [path.join(cwd, "SCORE.md"), path.join(cwd, "aesel/SCORE.md"), path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "context/score.md")]) {
+    try { return readFileSync(file, "utf8").replace(/^<!--[\s\S]*?-->\s*/, "").trim(); } catch {}
+  }
+  return "";
+})();
 const state = {
   aeselVersion,
+  score: scoreText,
   medium: currentArtifact?.kind || 'piece',
   workspace: cwd,
   mode: "remote",

@@ -996,6 +996,41 @@ function quadrantCell(pixels, useColor) {
 // is: the donkey and the name open Aesel's home page, the model opens the
 // model settings, the folder opens in the file manager. `zones` says where
 // each sits on its own row, in columns from the row's first cell.
+// Source files hard-wrap at 80; a window of another width needs the lines
+// joined back into paragraphs and list items first. Fences, tables, headings
+// and quotes are left as written.
+function unwrapParagraphs(source) {
+  const out = [];
+  let fenced = false;
+  for (const line of source.split("\n")) {
+    if (/^\s*```/.test(line)) { fenced = !fenced; out.push(line); continue; }
+    const prev = out[out.length - 1];
+    const block = fenced || !line.trim() || /^\s{0,3}(#{1,6}\s|>|\|)|^\s*(?:[-*+]|\d{1,3}[.)])\s/.test(line);
+    const open = prev !== undefined && prev.trim() && !/^\s{0,3}(#{1,6}\s|>|\|)/.test(prev) && !prev.includes("```");
+    if (!block && open) out[out.length - 1] = `${prev.replace(/\s+$/, "")} ${line.trim()}`;
+    else out.push(line);
+  }
+  return out.join("\n");
+}
+
+// The score as a front page: the first heading is the masthead and the first
+// paragraph under it is the summary. The rest of the score stays in the file.
+// A summary that does not fit the room is left out, never cut short.
+function newspaperRows(source, width, room, useColor) {
+  const lines = source.split("\n");
+  const first = lines.findIndex((line) => /^\s{0,3}#\s+\S/.test(line));
+  const title = first >= 0 ? lines[first].replace(/^\s{0,3}#\s+/, "").trim() : "";
+  const rest = unwrapParagraphs((first >= 0 ? lines.slice(first + 1) : lines).join("\n"));
+  const summary = rest.split(/\n\s*\n/).map((part) => part.trim()).find((part) => part && !/^#{1,6}\s/.test(part)) || "";
+  const head = title ? [paint(useColor, "highlight bold", clipText(title.toUpperCase(), width - 1)), paint(useColor, "muted", "═".repeat(Math.max(1, width - 1)))] : [];
+  const rows = summary ? outputRows(summary, Math.max(8, width - 1), useColor, "muted", false, true) : [];
+  if (head.length + rows.length > room) return [];
+  return [...head, ...rows];
+}
+
+// Entries that end the fresh thread: anything said by either side.
+function scoreEnds(entry) { return entry.kind === "user" || entry.kind === "assistant"; }
+
 function introRows(state, width, useColor) {
   const facts = [
     { name: "aesel", text: paint(useColor, "bold text", "Aesel") + (state.aeselVersion ? paint(useColor, "muted", ` v${state.aeselVersion}`) : "") },
@@ -1148,6 +1183,13 @@ export function renderFrame(state, columns = 80, rows = 24, useColor = true) {
   provisional.unshift(...plan);
   const drawer=drawerRows(state,width,height,useColor);
   const availableRows=Math.max(0,transcriptRows-drawer.length-provisional.length);
+  // On a fresh thread the score is set like a newspaper page in whatever room
+  // the letterhead leaves: a masthead, a rule, then the score's first paragraph.
+  // It gives way the moment anyone speaks and never pushes the thread off.
+  if (intro && state.score && !state.about && !state.entries.some(scoreEnds)) {
+    const room = availableRows - transcript.length;
+    if (room >= 5) transcript.push(...newspaperRows(state.score, contentWidth, room, useColor));
+  }
   const start = state.about ? Math.min(state.aboutScroll || 0, Math.max(0, transcript.length - transcriptRows))
     : Math.max(0, transcript.length - availableRows - (state.scrollOffset || 0));
   const visible = transcript.slice(start, start + availableRows);
