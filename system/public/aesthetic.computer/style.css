@@ -38,6 +38,14 @@ body.nogap {
   background-color: transparent !important;
 }
 
+body.nogap.toplevel {
+  background-color: rgb(32, 32, 32) !important;
+}
+
+body.nogap.toplevel.light-theme {
+  background-color: rgb(232, 232, 232) !important;
+}
+
 /* Ensure #aesthetic-computer has no hairline gaps in nogap mode */
 body.nogap #aesthetic-computer {
   border-radius: 0px;

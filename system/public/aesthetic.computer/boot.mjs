@@ -1421,7 +1421,7 @@ if (!parsed.search) {
   if (query) parsed.search = query;
 }
 
-const nogap = urlQuery.nogap === true || urlQuery.desktop === true || location.host.includes("wipppps.world");
+const nogap = true; // Full-bleed by default everywhere.
 
 // Check for nolabel parameter (no localStorage persistence). `desktop` used to
 // imply it too, back when the Electron pane had its own card chrome; the pane
@@ -1546,6 +1546,11 @@ const lcd = urlQuery.lcd === true; // 💧 background windows at ~12 fps, crossf
 // Apply nogap class immediately to prevent flash
 if (nogap) {
   document.body.classList.add("nogap");
+}
+// A plain browser tab has nothing behind the page, so a letterboxed piece
+// keeps the dark backdrop there. Iframes and the native shells stay clear.
+if (window.parent === window && !window.acNativeWindowColor && !window.acElectron) {
+  document.body.classList.add("toplevel");
 }
 
 // Apply desktop class for Electron-specific styling

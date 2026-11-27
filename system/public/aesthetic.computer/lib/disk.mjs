@@ -7891,13 +7891,13 @@ let glazeAfterReframe;
 //        resolution(display); // "display" is a global object whose width
 //                                 and height matches the hardware display
 //                                 hosting aesthetic.computer.
-let lastGap = 8;
-$commonApi.resolution = function (width, height = width, gap = 8) {
+let lastGap = 0;
+$commonApi.resolution = function (width, height = width, gap = 0) {
   if (typeof width === "object") {
     const props = width;
     height = props.height;
     width = props.width || props.height;
-    gap = props.gap === 0 ? 0 : props.gap || 8;
+    gap = props.gap ?? 0;
   }
 
   if (typeof width === "number" && typeof height === "number") {

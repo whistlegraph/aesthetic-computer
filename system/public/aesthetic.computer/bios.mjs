@@ -2088,19 +2088,21 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const REFRAME_DELAY = 0; // Instant reframe (was 80ms)
   let curReframeDelay = REFRAME_DELAY;
   let lastGap = undefined;
-  // Use URL parameter, or acPACK_DENSITY (for bundles), else default to 2 —
-  // except the Electron desktop app, which defaults to density 1 (chunkier
-  // pixels; density 2 reads too fine on the desktop).
+  // Use URL parameter, or acPACK_DENSITY (for bundles), else the default:
+  // 2 on phones and tablets, 1.875 on a desktop browser and the Mac app (2
+  // reads too large there), 1 in the Electron app. A touch "Mac" is an iPad.
+  const ipadAsMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+  const defaultDensity = window.acElectron
+    ? 1
+    : Platform.Desktop && !ipadAsMac ? 1.875 : 2;
   let density = resolution.density !== undefined
     ? resolution.density
     : (window.acPACK_DENSITY !== undefined
         ? window.acPACK_DENSITY
-        : (window.acElectron ? 1 : 2));
+        : defaultDensity);
 
-  // acFORCE_NOGAP pins gap=0 for packed M4L bundles loaded via data: URI
-  // where there's no `?nogap` query param to read — equivalent behavior.
-  const startGap =
-    location.host.indexOf("botce") > -1 || AestheticExtension || window.acFORCE_NOGAP === true ? 0 : 8;
+  // Full-bleed everywhere: no gap unless a piece asks for one with resolution().
+  const startGap = 0;
 
   // The frame a window of this size gets: the buffer's size, and the CSS box
   // that buffer projects into. A piece with a fixed resolution keeps its
@@ -2155,7 +2157,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       uiCanvas,
     ];
     // In nogap mode, fill the entire viewport to avoid subpixel gaps.
-    const full = gap === 0;
+    // A fixed resolution still letterboxes, centered, instead of stretching.
+    const full = gap === 0 && fixedWidth === undefined;
     wrapper.style.top = full
       ? "0"
       : TikTok
@@ -4764,7 +4767,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
   const DENSITY_MIN = 0.5;
   const DENSITY_MAX = 32;
   const DENSITY_STEP = 0.5;
-  const DENSITY_DEFAULT = 2;
+  const DENSITY_DEFAULT = defaultDensity; // ⌘0 returns here.
 
   function changeDensity(direction) {
     const current = density;
