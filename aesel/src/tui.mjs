@@ -831,7 +831,7 @@ const harnessSettings=createSettingsController({
  read:()=>({provider:backend.id,model:state.model||model,selectedModel:model,effort,autopublish:autopublish.enabled,
   medium:state.medium,busy:state.busy,account:session.handle?`@${session.handle}`:null,
   providers:['ac','claude','codex','open'].map(id=>({id,models:pickerModels({backend:id,model:id===backend.id?model:backendFor(id).defaultModel,catalog:catalogFor(id)})})),
-  reifyPending, supported:['provider','model','effort','autopublish','reify','retry']}),
+  reifyPending, version:currentVersion(), update:state.update?.version||null, supported:['provider','model','effort','autopublish','reify','upgrade','retry']}),
  normalize:(patch,pending)=>{
   const previous=pending||{provider:backend.id,model,effort,autopublish:autopublish.enabled};
   if(patch.provider)backendFor(patch.provider);
@@ -842,6 +842,7 @@ const harnessSettings=createSettingsController({
  },
  isBusy:()=>state.busy,
  reify:()=>requestReify(),
+ upgrade:()=>requestUpgrade(),
  retry:()=>requestRecoveryRetry(),
  open:()=>{
   if(process.env.AESEL_DESKTOP){process.stdout.write('\x1b]777;easel-settings:open\x07');return 'opened';}
@@ -1383,6 +1384,24 @@ function requestReify() {
   // turn this waits for its final message; queued prompts stay behind reify.
   if (!reifyTimer) reifyTimer = setTimeout(attempt, 150);
   return "queued";
+}
+// Upgrade: what /update does, for an agent. Answers at once and finishes behind
+// the reply — an install waits for a quiet window, downloads, then reifies.
+//   queued  an install or a restart onto pulled code is on its way
+//   current nothing newer than what is running
+//   behind  a checkout whose release is out: it needs a git pull first
+async function requestUpgrade() {
+  if (desktopSessionPath) return void requestDesktop("update"), "queued";
+  if (closing || finishing) throw new Error("Aesel is already closing");
+  if (autoUpdating) return "queued";
+  if (installed()) {
+    const update = await checkForUpdate({ force: true });
+    if (!update) return "current";
+    void autoUpdate(update, { asked: true });
+    return "queued";
+  }
+  if (isNewer(currentVersion(), startedVersion)) return requestReify();
+  return state.update?.kind === "behind" ? "behind" : "current";
 }
 // `/reify watch`: every save under src/ reifies the window onto the new code.
 // The flag rides in the environment, which execve hands to the next process,
@@ -3924,9 +3943,9 @@ async function lookForUpdate(force = false) {
 // leaves it to /update; so does the desktop shell, which runs its own swap.
 let autoUpdating = false;
 const windowBusy = () => turnRecovery.active || state.busy || liveOperation || manualPublishInFlight || autopublish.running || live.sending || harnessSettings.pending;
-async function autoUpdate(update) {
+async function autoUpdate(update, { asked = false } = {}) {
   if (autoUpdating) return;
-  if (process.env.AESEL_AUTO_UPDATE === "0" || desktopSessionPath) return announceUpdate(update.version, "release");
+  if (!asked && (process.env.AESEL_AUTO_UPDATE === "0" || desktopSessionPath)) return announceUpdate(update.version, "release");
   autoUpdating = true;
   while (windowBusy()) { if (closing || finishing) return; await new Promise((resolve) => setTimeout(resolve, 1000)); }
   state.update = { version: update.version, kind: "installing", progress: 0, dismissed: false };

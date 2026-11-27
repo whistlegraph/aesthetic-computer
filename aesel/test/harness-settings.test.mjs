@@ -77,3 +77,14 @@ test('connection retry uses the private session control and preserves settings',
  await assert.rejects(callSettings({action:'retry',model:'anything'},{socket:bridge.socket}),/Only update/);
  await assert.rejects(fixture().controller.call({action:'retry'}),/unavailable/);
 });
+
+test('upgrade uses the session control and reports what the host answers', async t => {
+ const answers = ['queued', 'current'];
+ const controller = createSettingsController({read:()=>({}), upgrade:()=>answers.shift()});
+ const bridge = await serveSettings(args=>controller.call(args));
+ t.after(()=>bridge.close());
+ assert.equal((await callSettings({action:'upgrade'}, {socket:bridge.socket})).status, 'queued');
+ assert.equal((await callSettings({action:'upgrade'}, {socket:bridge.socket})).status, 'current');
+ await assert.rejects(callSettings({action:'upgrade',model:'anything'}, {socket:bridge.socket}), /Only update/);
+ await assert.rejects(createSettingsController({read:()=>({})}).call({action:'upgrade'}), /unavailable/);
+});

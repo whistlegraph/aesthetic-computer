@@ -85,6 +85,9 @@ artifact, preview and Slab identity survive. Queued messages continue after the
 reload; the opening prompt is not replayed. Syntax or checkpoint failures leave
 the current session running. Agents can request it through
 `aesel_settings({action: "reify"})`; the response is `queued` until the turn ends.
+`aesel_settings({action: "upgrade"})` does what `/update` does: it installs the newest
+release after the reply and reifies onto it, or answers `current` when there is nothing newer
+(`behind` in a checkout that needs a git pull).
 `/reify watch` reifies on every save under `aesel/src/` (again to stop); the
 watch survives the reifies it causes, and a save that fails the check leaves the
 window running until the next one. `/preview <file>` pins a picture, sound,

@@ -8,9 +8,9 @@ export const CREATE_ARTIFACT = {
 };
 export const SETTINGS_TOOL={
  name:'aesel_settings',
- description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, reify Aesel after editing its code, or retry an interrupted request. Reify reloads the TUI in place with its conversation, draft, queue and settings preserved. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Retry resumes connection recovery and refuses while a normal turn is running. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',
+ description:'Read Aesel’s settings, open Settings, update provider/model/reasoning effort/auto-publish, reify Aesel after editing its code, upgrade Aesel to the newest release, or retry an interrupted request. Reify and upgrade reload the TUI in place with its conversation, draft, queue and settings preserved; upgrade first installs the newest release (or, in a checkout, loads the pulled code) and answers current when there is nothing newer. Changes and reification requested during a reply wait for that reply to finish; report queued actions as pending. Retry resumes connection recovery and refuses while a normal turn is running. Use these direct controls when the user asks, without shell commands or UI automation. This never edits the artwork.',
  inputSchema:{type:'object',properties:{
-  action:{type:'string',enum:['read','open','update','reify','retry']},
+  action:{type:'string',enum:['read','open','update','reify','upgrade','retry']},
   provider:{type:'string',enum:['ac','claude','codex','open','relay']},
   model:{type:'string',maxLength:160},
   effort:{type:'string',enum:['','none','minimal','low','medium','high','xhigh','max','ultra']},
@@ -23,7 +23,7 @@ export const PIECE_INSTRUCTIONS=harnessText('piece-instructions');
 export function validateSettingsRequest(value){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Expected a settings request');
  const keys=['action','provider','model','effort','autopublish'];
- if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update','reify','retry'].includes(value.action))throw Error('Unsupported settings action');
+ if(Object.keys(value).some(key=>!keys.includes(key))||!['read','open','update','reify','upgrade','retry'].includes(value.action))throw Error('Unsupported settings action');
  if(value.action!=='update'&&Object.keys(value).length!==1)throw Error('Only update accepts setting values');
  if(value.action==='update'&&Object.keys(value).length===1)throw Error('Choose a setting to update');
  if(value.provider!==undefined&&!['ac','claude','codex','open','relay'].includes(value.provider))throw Error('Unknown provider');
@@ -36,7 +36,7 @@ export function validateSettingsRequest(value){
 // This only skips visual context; the model still interprets the requested action.
 export function isHarnessRequest(text){
  const value=String(text).trim().toLowerCase().replace(/[?.!]+$/,'');
- if (/^(?:please )?(?:reify|reload|restart)(?: aesel| yourself| the tui)?$/.test(value)) return true;
+ if (/^(?:please )?(?:(?:reify|reload|restart)(?: aesel| yourself| the tui)?|(?:update|upgrade)(?: aesel| yourself))$/.test(value)) return true;
  return /^(?:please )?(?:(?:open|show)(?: me)? (?:your |the |aesel(?:’s|'s)? )?settings(?: panel)?|switch (?:the )?provider|(?:switch|change)(?: (?:your|the))? (?:provider|model)(?: to .+)?|(?:switch to|use) (?:claude|codex|ac|aesthetic computer)(?: .*)?|(?:set|change|use) (?:your |the )?(?:reasoning )?effort(?: .*)?|(?:enable|disable|turn on|turn off) auto-?publish)$/.test(value)
  || /^(?:what|which) (?:provider|model) (?:are you(?: using| running)?|is aesel using)$/.test(value)
  || /^(?:what|which|how|are|can|do)\b.*\b(?:your|aesel(?:’s|'s)?)\b.*\b(?:settings|provider|model|reasoning effort|auto-?publish)\b/.test(value);
