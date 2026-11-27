@@ -33,6 +33,7 @@ export async function on(w, h, rect, width, height, wrapper, type, ready) {
     if (pending !== job || failed) { renderer.dispose(); return; }
     if (request !== next) return;
     gpu = renderer;
+    gpu.hud(hudBox);
     gpu.resize(...args);
     ready();
   } catch (error) {
@@ -55,6 +56,14 @@ export function update(...args) {
 export function render(...args) {
   if (gpu) { try { gpu.render(...args); } catch (error) { fallback(error); } }
   else if (!pending || failed) legacy.render(...args);
+}
+// The fps HUD's box in the image, as uv [x, y, w, h], or null: the shader
+// leaves it out of the screen simulation and wraps it in plastic.
+let hudBox = [0, 0, 0, 0];
+export function hud(box) {
+  hudBox = box || [0, 0, 0, 0];
+  gpu?.hud(hudBox);
+  legacy.hud(hudBox);
 }
 export function clear() { if (gpu) gpu.clear(); else legacy.clear(); }
 export function unfreeze() { if (gpu) gpu.unfreeze(); else if (!pending || failed) legacy.unfreeze(); }

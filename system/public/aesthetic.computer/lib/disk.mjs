@@ -2753,7 +2753,7 @@ let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
 const frameChart = createFrameChart();
-const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, native: null };
+const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, native: null, box: null };
 
 // ⏱️ Where the worker's time goes, for the fps HUD: each second, how much of
 // it the worker was busy (every message, timed where it arrives) and how long
@@ -14888,6 +14888,10 @@ async function makeFrame({ data: { type, content } }) {
         fpsHud.on = content.fpsHud === true;
         frameChart.reset();
         fpsHud.native = null;
+        if (!fpsHud.on && fpsHud.box) {
+          fpsHud.box = null;
+          send({ type: "fps:hud:box", content: null });
+        }
         fpsHudSentinel(fpsHud.on);
         $commonApi.needsPaint(); // Show or clear it now.
       }
@@ -15435,9 +15439,15 @@ async function makeFrame({ data: { type, content } }) {
           const rows = [...fpsHudMeters(), ...(HEAT_MODE ? heatRows() : [])];
           const fit = frameChart.layout(rows, { screenW: screen.width, screenH: screen.height, top: 21 });
           const { left, top } = fit;
-          const color = value => ink(value >> 16, (value >> 8) & 255, value & 255);
+          // The glaze leaves this box out of its screen simulation.
+          const box = [left / screen.width, top / screen.height, fit.width / screen.width, fit.height / screen.height];
+          if (box.join() !== fpsHud.box) {
+            fpsHud.box = box.join();
+            send({ type: "fps:hud:box", content: box });
+          }
+          const color = (value, alpha = 1) => ink(value >> 16, (value >> 8) & 255, value & 255, Math.round(alpha * 255));
           frameChart.draw({
-            box: (x, y, w, h, c) => color(c).box(left + x, top + y, w, h),
+            box: (x, y, w, h, c, layer, alpha) => color(c, alpha).box(left + x, top + y, w, h),
             text: (value, x, y, c) => color(c).write(value, { x: left + x, y: top + y }, undefined, undefined, false, "MatrixChunky8"),
           }, rows, fit);
         }

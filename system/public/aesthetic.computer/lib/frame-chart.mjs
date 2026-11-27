@@ -61,13 +61,15 @@ export function createFrameChart() {
   // `layout.left`, `layout.top`. Without a layout it draws at full size.
   function draw({ box, text }, rows = [], fit = layout(rows)) {
     const { width, height, graph } = fit;
-    box(0, 0, width, height, back, 0);
+    // The panel and its wells let the piece show through, where the surface
+    // can blend (`box`'s last argument, 0–1); marks and words stay solid.
+    box(0, 0, width, height, back, 0, 0.7);
     const mean = count ? elapsed / count : 0;
     text(mean ? Math.round(1000 / mean) + ' fps' : '– fps', PAD, 2, mean ? frameInk(mean) : dim);
     if (!graph) return;
 
     const columns = width - 18, graphY = HEAD + 1, graphX = PAD;
-    box(graphX, graphY, columns, GRAPH_H, well, 1);
+    box(graphX, graphY, columns, GRAPH_H, well, 1, 0.6);
     const tall = gap => Math.min(GRAPH_H, Math.max(1, Math.round(gap / 50 * GRAPH_H)));
     const shown = Math.min(count, columns);
     for (let i = 0; i < shown; i++) {
@@ -86,7 +88,7 @@ export function createFrameChart() {
       if (typeof row === 'string') return text(row, PAD, ry, words);
       const value = Math.max(0, Math.min(1, row.value || 0));
       text(row.label, PAD, ry, dim);
-      box(barX, ry + 3, barW, 3, well, 1);
+      box(barX, ry + 3, barW, 3, well, 1, 0.6);
       if (value > 0) box(barX, ry + 3, Math.max(1, Math.round(value * barW)), 3, row.ink ?? meterInk(value), 2);
       if (row.text) text(row.text, width - numberW, ry, words);
     });

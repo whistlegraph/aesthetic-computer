@@ -31,7 +31,7 @@ export async function createPromptGlaze(onFailure) {
     const constants = {};
     for (const [key, value] of Object.entries(uniforms.prompt)) {
       const [, name] = key.split(":");
-      if (name === "focalLength") continue; // Unused by the prompt shader.
+      if (name === "focalLength" || name === "hud") continue; // Unused here; the HUD's box is in the frame buffer.
       if (Array.isArray(value)) value.forEach((n, i) => { constants[name + "XYZ"[i]] = n; });
       else constants[name] = value;
     }
@@ -41,12 +41,13 @@ export async function createPromptGlaze(onFailure) {
       fragment: {module, entryPoint: "fragment", constants, targets: [{format}]},
     });
     context.configure({device, format, alphaMode: "premultiplied"});
-    frameBuffer = device.createBuffer({size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
+    frameBuffer = device.createBuffer({size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST});
   } catch (error) {
     dispose();
     throw error;
   }
-  const frame = new Float32Array(4);
+  const frame = new Float32Array(8);
+  let hudBox = [0, 0, 0, 0];
   let uploaded = false, lastTime = 0, lastDay = false;
   function resize(w, h, rect, nativeWidth, nativeHeight, wrapper) {
     // Match the WebGL light pass budget, including on high-density displays.
@@ -75,7 +76,7 @@ export async function createPromptGlaze(onFailure) {
     if (!uploaded) return;
     lastTime = time;
     lastDay = day;
-    frame.set([canvas.width, canvas.height, time, Number(day)]);
+    frame.set([canvas.width, canvas.height, time, Number(day), ...hudBox]);
     device.queue.writeBuffer(frameBuffer, 0, frame);
     const commands = device.createCommandEncoder();
     const pass = commands.beginRenderPass({colorAttachments: [{view: context.getCurrentTexture().createView(),
@@ -94,6 +95,7 @@ export async function createPromptGlaze(onFailure) {
     return true;
   }
   return {canvas, resize, update, render, freeze, dispose,
+    hud(box) { hudBox = box; },
     clear() { uploaded = false; canvas.style.opacity = "0"; },
     unfreeze() { if (uploaded) canvas.style.removeProperty("opacity"); }};
 }

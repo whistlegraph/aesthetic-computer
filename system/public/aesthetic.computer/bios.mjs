@@ -16102,6 +16102,11 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }
 
     // 🎯 The rax world under the prompt's paper (lib/rax-sheet.mjs).
+    if (type === "fps:hud:box") {
+      Glaze.hud(content);
+      return;
+    }
+
     if (type === "fps:hud") {
       setFpsHud(content?.toggle ? !fpsHud.on : content?.on);
       return;

@@ -4,6 +4,7 @@ struct Frame {
   size: vec2f,
   time: f32,
   day: f32,
+  hud: vec4f, // The fps HUD's box in the image, as uv (x, y, w, h); w 0 is none.
 };
 @group(0) @binding(0) var image: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> frame: Frame;
@@ -68,9 +69,30 @@ fn srgb(v: vec3f) -> vec3f {
   return select(1.055 * pow(v, vec3f(1.0 / 2.4)) - 0.055, 12.92 * v, v <= vec3f(0.00031308));
 }
 
+// 🧴 The fps HUD is not part of the lit screen: it is a label under plastic
+// wrap. Its pixels come through crisp, with no fog, smear or scanlines, under
+// a slow crinkled sheen, a gloss toward the top and a bright edge.
+fn wrapped(uv: vec2f, texel: vec2f, seconds: f32) -> vec4f {
+  let src = paper(uv);
+  let at = (uv - frame.hud.xy) / frame.hud.zw; // 0–1 across the box
+  let px = (uv - frame.hud.xy) / texel; // in AC pixels
+  let size = frame.hud.zw / texel;
+  let crease = sin(px.x * 0.31 + px.y * 0.17 + 2.0 * sin(px.y * 0.11 + seconds * 0.2))
+             * sin(px.x * 0.07 - px.y * 0.23 + 1.5 * sin(px.x * 0.05 - seconds * 0.13));
+  let sheen = pow(max(crease, 0.0), 6.0) * 0.14;
+  let gloss = 0.07 * (1.0 - at.y) * (1.0 - at.y);
+  let edge = min(min(px.x, px.y), min(size.x - px.x, size.y - px.y));
+  let rim = 0.22 * (1.0 - smoothstep(0.0, 1.0, edge));
+  let color = saturate(src.rgb + sheen + gloss + rim);
+  return vec4f(color * src.a, src.a);
+}
+
 @fragment fn fragment(@builtin(position) pos: vec4f) -> @location(0) vec4f {
   let uv = pos.xy / frame.size;
   let texel = 1.0 / vec2f(textureDimensions(image));
+  if frame.hud.z > 0.0 && all(uv >= frame.hud.xy) && all(uv < frame.hud.xy + frame.hud.zw) {
+    return wrapped(uv, texel, frame.time * 0.001);
+  }
   let day = frame.day;
   let seconds = frame.time * 0.001;
   let ray = normalize(vec3f((uv * 2.0 - 1.0) * vec2f(frame.size.x / frame.size.y, 1.0), 1));

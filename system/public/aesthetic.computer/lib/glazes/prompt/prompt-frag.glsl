@@ -39,6 +39,7 @@ uniform float radialBlurAmount;
 uniform vec3 lightDirection;
 uniform vec3 bgColor;
 uniform vec3 lightColor;
+uniform vec4 hud; // The fps HUD's box in the image, as uv (x, y, w, h); w 0 is none.
 
 vec3 normLightDirection;
 
@@ -279,7 +280,25 @@ void main()
     float band = floor(v_texc.y / texel.y);
     float tracking = (random(vec2(floor(tt * 30.0), band)) - 0.5) * VHS_WOBBLE * mix(1.0, DAY_WOBBLE, day) * texel.x;
     vec3 p0 = ro + rd * nearIntersectionDist;
-    vec2 suv = worldToDensityMap(p0.xy) + vec2(1.0) + vec2(tracking, 0.0);
+    vec2 clean = worldToDensityMap(p0.xy) + vec2(1.0);
+    // 🧴 The fps HUD is not part of the lit screen: a label under plastic
+    // wrap. Crisp pixels, a slow crinkled sheen, gloss up top, a bright edge.
+    if (hud.z > 0.0 && all(greaterThanEqual(clean, hud.xy)) && all(lessThan(clean, hud.xy + hud.zw))) {
+        ivec2 dims = textureSize(iTexture, 0);
+        vec4 raw = texelFetch(iTexture, clamp(ivec2(floor(clean * vec2(dims))), ivec2(0), dims - 1), 0);
+        vec2 at = (clean - hud.xy) / hud.zw;
+        vec2 px = (clean - hud.xy) / texel;
+        vec2 size = hud.zw / texel;
+        float crease = sin(px.x * 0.31 + px.y * 0.17 + 2.0 * sin(px.y * 0.11 + tt * 0.2))
+                     * sin(px.x * 0.07 - px.y * 0.23 + 1.5 * sin(px.x * 0.05 - tt * 0.13));
+        float sheen = pow(max(crease, 0.0), 6.0) * 0.14;
+        float gloss = 0.07 * (1.0 - at.y) * (1.0 - at.y);
+        float edge = min(min(px.x, px.y), min(size.x - px.x, size.y - px.y));
+        float rim = 0.22 * (1.0 - smoothstep(0.0, 1.0, edge));
+        endColor = vec4(clamp(raw.rgb + sheen + gloss + rim, 0.0, 1.0) * raw.a, raw.a);
+        return;
+    }
+    vec2 suv = clean + vec2(tracking, 0.0);
     vec2 reach = vec2(VHS_SMEAR * mix(1.0, DAY_SMEAR, day) * texel.x, 0.0);
     vec4 centre = texture(iTexture, suv);
     vec4 left = texture(iTexture, suv - reach);

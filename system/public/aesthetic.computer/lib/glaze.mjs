@@ -506,6 +506,12 @@ export function unfreeze() {
   if (canvas) canvas.style.removeProperty("opacity");
 }
 
+// The fps HUD's box in the image, as uv [x, y, w, h]; the prompt's shader
+// leaves it out of the screen simulation. Not a dynamic uniform: those take
+// the prompt off its compact path, and the HUD must not change what it measures.
+let hudBox = [0, 0, 0, 0];
+export function hud(box) { hudBox = box || [0, 0, 0, 0]; }
+
 // Set dynamic uniform values that override static ones
 export function setDynamicUniform(uniformIdentifier, value) {
   if (glaze) {
@@ -604,6 +610,7 @@ export function render(time, mouse, day = false) {
   gl.uniform2f(locations.iResolution, postWidth, postHeight);
 
   glaze.setCustomUniforms(locations, gl);
+  if (locations.hud) gl.uniform4f(locations.hud, ...hudBox);
   if (compactPrompt) {
     gl.uniform1i(locations.fogIterations, 6);
     gl.uniform1i(locations.shadowIterations, 2);
