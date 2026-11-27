@@ -7727,6 +7727,18 @@ class KidLisp {
           y = unquoteString(y);
         }
 
+        // A position is a number or "center". Anything else (a colour name
+        // in the y slot, as in `write "hi" 1 white`) used to reach the
+        // renderer as NaN and blank every frame after it, the prompt
+        // included; it is dropped, so that axis is placed as if unset.
+        const place = (v) => {
+          if (v === undefined || v === "center") return v;
+          const n = typeof v === "number" ? v : Number(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
+        x = place(x);
+        y = place(y);
+
         // Only process background if it's not undefined - no should pass undefined for transparent bg.
         // nil / false / transparent / clear hold the slot open for a size without painting a box.
         const bgArg = args[3];
