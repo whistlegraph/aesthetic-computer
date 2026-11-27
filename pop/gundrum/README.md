@@ -177,6 +177,104 @@ up gain is trimmed toward −10 LUFS (`GUNDRUM_LUFS`). Measured: −10.1 LUFS
 integrated at −1.4 dBTP; 6.5 % of samples in the knee against version 1's 14.1 %.
 The limiter works harder than in version 1 (1.1 dB mean, 7.4 dB maximum).
 
+## gunrunmicro
+
+A separate piece, 2:56, that shares only the render engine with the suites
+above: no fugue, no drum and bass, and no sample they use. A club track at
+124 BPM in 12/8: a gun kit and a bag of chips on a bell-pattern groove (after
+the Afro-Cuban 12/8 family) with a kick on every beat, under sweet chords.
+
+```bash
+node pop/wattajetta/bin/fetch-guns.mjs && node pop/gundrum/bin/fetch-snacks.mjs   # once per machine
+node pop/gundrum/bin/robot-cries.mjs       # once per machine: ElevenLabs, needs the vault key
+node pop/gundrum/bin/gunrunmicro.mjs
+```
+
+Writes `out/gunrunmicro.wav`, `.mp3` and `.json` (and `-timeline.png` when
+`pop/.venv` has matplotlib). The render takes about four minutes.
+
+| Part | Sound | Plays |
+|---|---|---|
+| bell | two brass singing bowls from `pop/bell`, E3 and A3, and a deep bowl on each chord's root | seven strokes in twelve steps (2 2 1 2 2 2 1), never changing |
+| low drum | `sniper-50cal-shot-01` (Barrett) over a synthesized thump, 135 → 46 Hz | the beat, mostly: written by hand (see the verse below) |
+| slap | `m4-shot-01`, high-passed | two and four, and what the verse adds |
+| crunch | thirteen things bitten in turn (chips, apple, carrot, celery, popcorn, a bone), each through the next of sixteen chains of twelve treatments: a closing mouth, stutter, bit-crush, a comb tuned to a note, swell, reverse, shuffled grains, pitch dive and rise, ring modulation, an octave down, smear, gate; one in four echoes twice across the beat | with every slap, on two and four alone in the intro, and in pairs at phrase ends |
+| robot cries | ElevenLabs (`bin/robot-cries.mjs`): twelve generated cries and four crunches said back by a voice, retuned hit by hit; and a local cry, a stepped pulse voice the crunch's loudness drives through a changing vowel | every recorded crunch: half are 60 ms of bite and an ElevenLabs cry, half go through the local cry and one more treatment |
+| bite | synthesized, no recording: 40–80 cracks through three vowel resonances as the jaw closes, with a comb tuned to a pentatonic note | every third crunch |
+| shaker | pistol slide drop, Desert Eagle slide release, magazine detach | the step before each beat, loud; the beat, light |
+| middle drum | `pistol-heavy-shot-02` (Desert Eagle) | open tones on the chord's root, third and low fifth: a different line every bar |
+| touches, rolls | `pistol-9mm-shot-02` (Glock) | the steps between, written by hand |
+| lead drum | `smg-micro-burst-01` (PPSh): pitched up it lets more of the burst through, so high notes flutter | answers the call, talks across the beat, runs scales |
+| bass | synthesized sub, ducked under the kick | mostly the step before each beat, a line a bar by hand: root, fifth, octave, third, and the next chord's root a step early |
+| keys | electric piano, synthesized: a sine pushed by a sine at its own pitch, hard at the attack and relaxing, a tine partial, two detuned copies swaying left and right, chorus | a line a bar by hand; a stroke on the last step plays the next chord |
+| chords, chime, drone | sines; aluminium handbell from `pop/bell` | the four-note chord each bar, pumping with the kick; the chime's notes a line a bar by hand |
+| call | high sine | E G A G · D G B G over C and G; the lead drum answers over Am and F |
+| drinks | cans, a cork, pours, ice, gulps, slurps | a can cracked on each drop, a pour under each build, the cork on the downbeat, ice and a gulp in each bar of the breaks, a straw at the end |
+
+| Section | From | Bars | Chords | What happens |
+|---|---|---|---|---|
+| i · intro | 0:00 | 8 | C G Am F | Kick, bell, shaker and chip bites; then middle drum, slap, bass, soft keys |
+| ii · groove | 0:15 | 16 | C G Am F | The full groove; call and answer from the second time; the lead drum talking from the third |
+| iii · break | 0:46 | 8 | F Em Dm C | Drums and bass line out; a line in the sine; a pour, a slap roll and a rush back in |
+| iv · lift | 1:01 | 16 | F G C C · F G Am G | The drop; a long rising line; the keys on every beat and off-beat |
+| v · turn | 1:32 | 16 | Am Dm G C · F Dm G G | Off-beat stabs on the keys; the lead drum every other bar |
+| vi · hush | 2:03 | 4 | F Em Dm C | The floor out once more |
+| vii · gunrun | 2:11 | 16 | C G Am F | Everything; the last bar turns to G with every drum and a chip on the bell's rhythm; a last C chord, fizz and a straw |
+
+The drums are written by hand, a bar at a time, as verse (`VERSE` in the
+script). The bell is the metre and never changes. A bar is a line of twelve
+syllables in four feet of three, four lines make a stanza, and a stanza is one
+time round the chords. No line is repeated as a loop: each of the 71 drum bars
+is its own row of four box strings (low, slap, middle, touch). The low drum is
+the giant, who walks; the slap is the robot, who eats; the middle drum is the
+child, who sings; the touches are the mice. Each stanza tells one tale:
+
+| Section | Stanza | Tale | What the drums study |
+|---|---|---|---|
+| intro | 1 | the giant walks alone, and the mice come out | the metre stated; pickups appear one at a time |
+| | 2 | the robot and the child join the walk | a phrase that grows by a word each line, then a silence |
+| groove | 1 | dactyls: everyone lands on the giant's foot | strokes on the beat |
+| | 2 | anapests: everyone runs up behind him | strokes leading into the beat |
+| | 3 | the child counts in twos while the giant counts in threes | hemiola, three against two; the kick joins it |
+| | 4 | three wishes in a bar of four | three against four; the kick takes it for one bar |
+| lift | 1 | the child learns the bell's song | the timeline on the middle drum: half, half, whole |
+| | 2 | three notes late for school, a step later every day | one figure displaced a step per line |
+| | 3 | the child asks, the mice answer | a rhythm stated by one drum and echoed by another |
+| | 4 | a house built a stroke at a time | additive: each line keeps the last and adds to it |
+| turn | 1 | the giant falls asleep, a different step each line | caesura: a different beat of the kick left out |
+| | 2 | sentences that will not stop at the end of the line | enjambment: figures that cross the barline |
+| | 3 | the giant dances | the kick syncopated |
+| | 4 | mirrors: the child's lines read the same backwards | palindromes on the middle drum and the touches |
+| gunrun | 1 | each of them takes a line | each drum leads one bar |
+| | 2 | three against four, a step round the circle each line | the cross-rhythm rotated |
+| | 3 | the bell shared out | the timeline split between drums, then on the kick alone |
+| | 4 | the walk home | three lines, and the close |
+
+The tones are written the same way (`TONES`): a line a bar for the keys, the
+bass and the chime, 71 bars of each, following the same tales. Where the child
+counts in twos, the keys and the bass count in twos with it; the three wishes
+are three chords; the chime learns the bell's song with the child, arrives a
+step later each day with the late notes, runs over the barline with the
+sentences that will not stop, and reads the same backwards in the mirrors,
+where the keys and the bass do too. In the last section each tone takes a line
+as each drum does. The bell, the bowls, the sustained chords and the sung lines
+are as they were.
+
+In the groove, every even line but the last ends with the slap's pickup on the last step:
+the rhyme.
+
+A cathedral stands behind the room: 65 ms of pre-delay, four sparse early
+reflections and an 8.5 s tail, dark from 2.2 kHz. The robot cries, bites, bowls,
+chime, call, keys and drinks are sent to it (never the low drum or the bass):
+fully in the breaks and on the last chord, most of it in the intro, a third in
+the grooves, where the tail ducks under each kick.
+
+Measured: -9.6 LUFS integrated at -1.4 dBTP (the mp3 is cut 1 dB
+lower). Chips and drinks are CC0 from Freesound; authors are in
+[`assets/snacks/SOURCES.json`](assets/snacks/SOURCES.json). The script still
+carries the engine's unused layers (rock kit, animals, mid synth, shotgun),
+which stay silent.
+
 ## Samples
 
 All CC0 1.0, from `pop/wattajetta/assets/guns/`; authors and sources are in
