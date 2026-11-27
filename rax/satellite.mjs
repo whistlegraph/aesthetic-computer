@@ -8,7 +8,7 @@ import { createRaxServer } from './server.mjs';
 
 const port = Number(process.env.RAX_PORT || 8786);
 const rooms = (process.env.RAX_ONLY_ROOMS || 'east').split(',').filter(Boolean);
-const origins = (process.env.RAX_ORIGINS || 'aesthetic.computer,prompt.ac,www.aesthetic.computer').split(',').filter(Boolean);
+const origins = (process.env.RAX_ORIGINS || 'aesthetic.computer,prompt.ac,www.aesthetic.computer,rax.ac').split(',').filter(Boolean);
 const app = createRaxServer({
   prefix: '/rax',
   stateDir: process.env.RAX_STATE || './rax-state',

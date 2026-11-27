@@ -21,7 +21,7 @@ export const PROTOCOLS = [PROTOCOL, 'duel-6'];
 // against lith's 114). Local pages always play at home.
 // `e1n0`, the block east of the plaza, is the first of the world's own blocks
 // kept there: walked into from the lobby and out again (server.mjs passages).
-export const ROOM_HOSTS = { east: 'rax-nj.aesthetic.computer', e1n0: 'rax-nj.aesthetic.computer' };
+export const ROOM_HOSTS = { east: 'nj.rax.ac', e1n0: 'nj.rax.ac' };
 export function playURL(room, home, where = globalThis.location) {
   const away = ROOM_HOSTS[room], local = /^(localhost|127\.|\[::1\])/.test(where?.hostname || '');
   const url = away && !local ? new URL(`wss://${away}/rax/play`) : new URL('./play', home);

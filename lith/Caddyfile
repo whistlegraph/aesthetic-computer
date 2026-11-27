@@ -860,11 +860,19 @@
         }
     }
 
-    # --- rax.ac: rax's own short name, a door to aesthetic.computer/rax for now ---
-    # 302, not 301: browsers keep a 301, and rax.ac may come to serve rax itself.
-    @raxac host rax.ac www.rax.ac
+    # --- rax.ac: rax at the root of its own name ---
+    # www goes to the bare name. Everything else is the rax process under its
+    # /rax prefix (rax.ac/ = /rax/); paths already under /rax or /dool (the
+    # server's own redirects, old links) pass through unchanged.
+    @raxacwww host www.rax.ac
+    handle @raxacwww {
+        redir https://rax.ac{uri} 308
+    }
+    @raxac host rax.ac
     handle @raxac {
-        redir https://aesthetic.computer/rax{uri} 302
+        @raxac_bare not path /rax /rax/* /dool /dool/*
+        rewrite @raxac_bare /rax{uri}
+        import lith_proxy
     }
 
     # --- www.jas.life redirect ---

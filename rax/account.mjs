@@ -1,4 +1,5 @@
-// Reuse the existing AC browser session. No sign-in UI or token persistence here.
+// Reuse the existing AC browser session. On aesthetic.computer there is no
+// sign-in UI or token persistence here; rax.ac signs in on its own (below).
 const CLIENT_ID = 'LVdZaMbyXctkGfZDnpzDATB5nR0ZhmMt';
 // Under the prompt's paper the host page is the same origin and already holds
 // the session: its token is this world's token, with no second sign-in.
@@ -30,10 +31,47 @@ const handed = () => {
 // shows as a guest first.
 export function accountExpected() {
   const h = host();
-  return !!(window.acTOKEN || h?.acTOKEN || h?.acUSER || stored() || handed());
+  return !!(window.acTOKEN || h?.acTOKEN || h?.acUSER || stored() || handed() || returning());
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// 🏠 rax.ac is rax on a name of its own (2026-11-27). aesthetic.computer's
+// session lives in that origin's storage, so here rax keeps its own: the same
+// Auth0 app, signed into from this page and kept in rax.ac's storage.
+const OWN = location.hostname === 'rax.ac';
+let auth0;
+async function client() {
+  if (!auth0) {
+    await import('./auth0.js');
+    auth0 = new window.auth0.Auth0Client({
+      domain: 'https://hi.aesthetic.computer',
+      clientId: CLIENT_ID,
+      cacheLocation: 'localstorage',
+      useRefreshTokens: true,
+      authorizationParams: { redirect_uri: location.origin },
+      httpTimeoutInSeconds: 15,
+    });
+  }
+  return auth0;
+}
+// Back from Auth0 (?code=…&state=…): finish once, then put back the address
+// the player left from, without the code. A room other than the front one
+// is loaded again (the page chose its room before this finished).
+const returning = () => OWN && /[?&]code=/.test(location.search) && /[?&]state=/.test(location.search);
+let landed;
+const land = () =>
+  (landed ||= (async () => {
+    if (!returning()) return;
+    try {
+      const { appState } = await (await client()).handleRedirectCallback();
+      const back = appState?.back || '/';
+      if (back !== '/') return void location.replace(back);
+      history.replaceState(null, '', back);
+    } catch {
+      history.replaceState(null, '', '/');
+    }
+  })());
 export async function accountToken() {
+  await land();
   try {
     if (window.acTOKEN) return window.acTOKEN;
     const h = host();
@@ -51,19 +89,10 @@ export async function accountToken() {
       }
     }
     if (window.auth0Client) return await window.auth0Client.getTokenSilently();
-    if (location.hostname !== 'aesthetic.computer') return null;
+    if (location.hostname !== 'aesthetic.computer' && !OWN) return null;
     if (!h && !stored() && handed()) return handed(); // (standing alone, with a host's session and none of its own)
     if (!stored()) return null;
-    await import('./auth0.js');
-    const auth = new window.auth0.Auth0Client({
-      domain: 'https://hi.aesthetic.computer',
-      clientId: CLIENT_ID,
-      cacheLocation: 'localstorage',
-      useRefreshTokens: true,
-      authorizationParams: { redirect_uri: location.origin },
-      httpTimeoutInSeconds: 15,
-    });
-    return await auth.getTokenSilently({ timeoutInSeconds: 15 });
+    return await (await client()).getTokenSilently({ timeoutInSeconds: 15 });
   } catch {
     return null;
   }
@@ -73,6 +102,15 @@ export async function accountToken() {
 export function askAccount(needs = 'account') {
   const h = host();
   if (needs === 'account' && typeof h?.acLOGIN === 'function') return void h.acLOGIN('signup');
+  // On rax.ac the sign-in is this page's own, and comes back to the same room.
+  if (needs === 'account' && OWN) {
+    return void client().then((auth) =>
+      auth.loginWithRedirect({
+        appState: { back: location.pathname + location.search },
+        authorizationParams: { screen_hint: 'signup' },
+      }),
+    );
+  }
   const to = needs === 'account' ? 'https://aesthetic.computer/?signup' : 'https://aesthetic.computer/prompt';
   try {
     (window.top || window).location.href = to;

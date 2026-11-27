@@ -1,7 +1,8 @@
 #!/bin/bash
 # deploy.sh — set up or update a rax satellite on a box nearer some players.
 #   rax/satellite/deploy.sh <ssh-host-or-ip> <dns-name> [rooms]
-#   rax/satellite/deploy.sh session-server.aesthetic.computer rax-nj.aesthetic.computer east
+#   ALSO=rax-nj.aesthetic.computer rax/satellite/deploy.sh session-server.aesthetic.computer nj.rax.ac east
+# (ALSO: older names the box keeps answering to; <dns-name> is the one it is known by.)
 # The box gets Node 22 (if it has none), the satellite bundled into one file
 # (rax/satellite.mjs: esbuild of rax/server.mjs and what it reads) under
 # /opt/rax-satellite, a systemd unit on 127.0.0.1:8786, and a Caddy site for
@@ -11,7 +12,7 @@
 # point at the box. Re-running ships a fresh bundle and restarts it. 26.11.25
 set -euo pipefail
 # (LINK_FROM: the addresses the link from home is taken from; lith's own by default.)
-HOST=$1; NAME=$2; ROOMS=${3:-east}
+HOST=$1; NAME=$2; ROOMS=${3:-east}; SITE=$NAME${ALSO:+, $ALSO}
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=$(mktemp -d)
 # The box's key: SSH_KEY, else the session-server's own (session-server/deploy.fish), else ssh's default.
@@ -69,7 +70,7 @@ cat > /etc/systemd/system/rax-satellite.service <<UNIT
 Description=rax satellite ($ROOMS) $COMMIT
 After=network.target
 [Service]
-Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac RAX_SELF_HOST=$NAME RAX_HOME_HOST=aesthetic.computer RAX_LINK_FROM=${LINK_FROM:-209.38.133.33}
+Environment=RAX_PORT=8786 RAX_ONLY_ROOMS=$ROOMS RAX_STATE=/var/lib/rax-satellite RAX_ORIGINS=aesthetic.computer,www.aesthetic.computer,prompt.ac,rax.ac RAX_SELF_HOST=$NAME RAX_HOME_HOST=aesthetic.computer RAX_LINK_FROM=${LINK_FROM:-209.38.133.33}
 WorkingDirectory=/opt/rax-satellite
 ExecStart=/opt/rax-satellite/bin/node rax/satellite.mjs
 Restart=always
@@ -79,7 +80,7 @@ User=nobody
 WantedBy=multi-user.target
 UNIT
 cat > /etc/caddy/rax-satellite.caddy <<CADDY
-$NAME {
+$SITE {
   reverse_proxy /rax/* 127.0.0.1:8786
 }
 CADDY
