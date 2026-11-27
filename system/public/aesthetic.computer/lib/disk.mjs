@@ -2753,34 +2753,27 @@ let videoSwitching = false;
 let preloadPromises = {};
 let inFocus;
 const frameChart = createFrameChart();
-const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, rows: [] };
+const fpsHud = { on: false, gc: 0, lastGcAt: 0, sentinel: null, native: null };
 
 // ⏱️ Where the worker's time goes, for the fps HUD: each second, how much of
-// it the worker was busy (every message, timed where it arrives), how much of
-// that was sim and how many steps, how much was paint (piece paint to send)
-// and how many frames, and the message types that cost the most. The HUD's
-// `web` row is the whole web process; what the worker doesn't account for is
-// the page's main thread and WebKit.
+// it the worker was busy (every message, timed where it arrives) and how long
+// a paint took (piece paint to send). The HUD's `cpu` bar is the whole web
+// process; what the worker doesn't account for is the main thread and WebKit.
 const workTime = {
-  at: 0, busy: 0, sim: 0, steps: 0, paint: 0, frames: 0, paintStart: 0, types: new Map(),
-  rows: [],
+  at: 0, busy: 0, sim: 0, steps: 0, paint: 0, frames: 0, paintStart: 0,
+  last: null, // { busy: 0–1, paintMs: per frame } for the last whole second
 };
 function workTimeRoll() {
   const now = performance.now();
   if (!workTime.at) workTime.at = now;
   const span = now - workTime.at;
   if (span < 1000) return;
-  const per = 1000 / span;
-  const top = [...workTime.types].sort((a, b) => b[1].ms - a[1].ms).slice(0, 2)
-    .map(([type, t]) => `${type.slice(0, 10)} ${(t.ms * per).toFixed(0)}ms/${Math.round(t.n * per)}`);
-  workTime.rows = [
-    `wk ${((workTime.busy * per) / 10).toFixed(0)}%  sim ${(workTime.sim * per).toFixed(0)}ms/${Math.round(workTime.steps * per)}`,
-    `paint ${(workTime.paint * per).toFixed(0)}ms/${Math.round(workTime.frames * per)}f`,
-    ...top,
-  ];
+  workTime.last = {
+    busy: workTime.busy / span,
+    paintMs: workTime.frames ? workTime.paint / workTime.frames : 0,
+  };
   workTime.at = now;
   workTime.busy = workTime.sim = workTime.steps = workTime.paint = workTime.frames = 0;
-  workTime.types.clear();
 }
 
 // 🌡️ Heat (?heat). The worker keeps the last frame it sent and compares each
@@ -2913,6 +2906,25 @@ function heatRows() {
     `sent ${part}p ${full}f ${none}-`,
   ];
 }
+// The HUD's bars under the graph: the worker's busy share, paint per frame
+// against a 60 Hz frame, and — when the host can see its processes (the Mac
+// app) — the page's and the GPU's CPU, and memory.
+function fpsHudMeters() {
+  const rows = [], w = workTime.last, native = fpsHud.native;
+  const mb = (n) => n >= 1024 ? `${(n / 1024).toFixed(1)}G` : `${Math.round(n)}M`;
+  if (w) {
+    rows.push({ label: "wk", value: w.busy, text: `${Math.round(w.busy * 100)}%` });
+    rows.push({ label: "pnt", value: w.paintMs / 16.7, text: `${w.paintMs.toFixed(1)}` });
+  }
+  for (const [label, name] of [["cpu", "web"], ["gpu", "gpu"]]) {
+    const proc = native?.[name];
+    if (proc) rows.push({ label, value: proc.cpu / 100, text: `${Math.round(proc.cpu)}%` });
+  }
+  const memory = ["web", "gpu", "app"].reduce((sum, name) => sum + (native?.[name]?.mb || 0), 0) || native?.heapMB;
+  if (memory) rows.push({ label: "mem", value: memory / 4096, text: mb(memory) });
+  return rows;
+}
+
 // This worker's own collections, counted the way bios counts the page's: a
 // sentinel dropped every 100 ms that only a GC can finalize.
 const fpsHudRegistry = typeof FinalizationRegistry === "function"
@@ -11000,11 +11012,6 @@ if (isWorker) {
     makeFrame(e);
     const ms = performance.now() - started; // up to its first await
     workTime.busy += ms;
-    const type = e.data?.type || "?";
-    const t = workTime.types.get(type) || { ms: 0, n: 0 };
-    t.ms += ms;
-    t.n += 1;
-    workTime.types.set(type, t);
   };
 } else {
   noWorker.onMessage = (d) => makeFrame({ data: d });
@@ -11980,15 +11987,7 @@ async function makeFrame({ data: { type, content } }) {
   // 📊 Twice a second while the readout is up: the page's collections and
   // long frames, and memory / CPU when the host can see its processes.
   if (type === "fps:stats") {
-    const { native, long, worstMs, gc } = content;
-    const rows = [`long ${long}  ${worstMs}ms`, `gc ${gc.toFixed(1)}  wk ${(fpsHud.gc * 2).toFixed(1)}`];
-    for (const name of ["web", "gpu", "app"]) {
-      const proc = native?.[name];
-      if (proc) rows.push(`${name} ${Math.round(proc.mb)}M ${Math.round(proc.cpu)}%`);
-    }
-    if (native?.heapMB != null) rows.push(`heap ${native.heapMB}M`);
-    if (native?.reloadMs != null) rows.push(`load ${native.reloadMs}ms`);
-    fpsHud.rows = rows;
+    fpsHud.native = content.native || null; // The graph shows long frames itself.
     fpsHud.gc = 0;
     return;
   }
@@ -14888,7 +14887,7 @@ async function makeFrame({ data: { type, content } }) {
       if ((content.fpsHud === true) !== fpsHud.on) {
         fpsHud.on = content.fpsHud === true;
         frameChart.reset();
-        fpsHud.rows = [];
+        fpsHud.native = null;
         fpsHudSentinel(fpsHud.on);
         $commonApi.needsPaint(); // Show or clear it now.
       }
@@ -15432,12 +15431,15 @@ async function makeFrame({ data: { type, content } }) {
 
         if (fpsHud.on) {
           frameChart.sample(performance.now());
-          const left = Math.max(0, screen.width - frameChart.width - 5), top = 21;
+          workTimeRoll();
+          const rows = [...fpsHudMeters(), ...(HEAT_MODE ? heatRows() : [])];
+          const fit = frameChart.layout(rows, { screenW: screen.width, screenH: screen.height, top: 21 });
+          const { left, top } = fit;
           const color = value => ink(value >> 16, (value >> 8) & 255, value & 255);
           frameChart.draw({
             box: (x, y, w, h, c) => color(c).box(left + x, top + y, w, h),
             text: (value, x, y, c) => color(c).write(value, { x: left + x, y: top + y }, undefined, undefined, false, "MatrixChunky8"),
-          }, (workTimeRoll(), [...fpsHud.rows, ...workTime.rows, ...(HEAT_MODE ? heatRows() : [])]));
+          }, rows, fit);
         }
 
         // const piece = $api.slug?.split("~")[0];

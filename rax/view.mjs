@@ -3147,31 +3147,34 @@ export async function createView(canvas) {
     }
     if (stats) {
       const { unit } = hud, at = camera || me;
-      const rows = [`${backend === 'webgpu' ? 'gpu' : 'gl'}  tris ${Math.round(lensFull * 100)}%`];
+      const rows = [{ label: 'tri', value: lensFull, text: `${Math.round(lensFull * 100)}%` }];
       if (weather && at) {
         const air = airAt(weather, at.x + (place?.x || 0), at.y, at.z + (place?.z || 0), Date.now() / 1000, { day: sun(phase()) });
         const bearing = (Math.round(Math.atan2(air.x, air.z) / (Math.PI / 4)) + 8) % 8;
         const compass = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'][bearing];
         rows.push(`wind ${compass} ${Math.hypot(air.x, air.z).toFixed(1)}`, `lift ${air.y.toFixed(1)}`);
       }
+      // The same widget as every AC piece's (frame-chart.mjs), in hud units.
+      let fit = frameChart.layout(rows, { screenW: W / unit, screenH: H / unit, top: chartTop / unit });
       if (stallNote) {
         let line = '';
         for (const word of stallNote.split(' ')) {
-          if (line && smallWidth(line + ' ' + word) > frameChart.width - 6) {
+          if (line && smallWidth(line + ' ' + word) > fit.width - 6) {
             rows.push(line);
             line = '';
           }
           line += (line ? ' ' : '') + word;
         }
         rows.push(line);
+        fit = frameChart.layout(rows, { screenW: W / unit, screenH: H / unit, top: chartTop / unit });
       }
-      const left = Math.max(0, W - (frameChart.width + 5) * unit) - W / 2, top = H / 2 - Math.min(chartTop, Math.max(0, H - (30 + 9 * rows.length) * unit));
+      const left = fit.left * unit - W / 2, top = H / 2 - fit.top * unit;
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
         frameChart.draw({
           box: (x, y, w, h, color, layer) => rect(left + x * unit, top - (y + h) * unit, (4 - layer) * 0.000001, w * unit, h * unit, color),
           text: (line, x, y, color) => small(line, left + (x + smallWidth(line) / 2) * unit, top - (y + 1) * unit, 0, unit, color),
-        }, rows);
+        }, rows, fit);
       });
       hudOverlay('debug-chart', m, W, H);
     }
