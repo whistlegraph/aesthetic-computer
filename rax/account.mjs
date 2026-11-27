@@ -53,22 +53,22 @@ async function client() {
   }
   return auth0;
 }
-// Back from Auth0 (?code=…&state=…): finish once, then put back the address
-// the player left from, without the code. A room other than the front one
-// is loaded again (the page chose its room before this finished).
+// Back from Auth0 (?code=…&state=…): finish once and take the code out of the
+// address. Nothing about place is carried: rax is one world, and the page
+// comes up where this browser last stood, as on any load (client.mjs).
 const returning = () => OWN && /[?&]code=/.test(location.search) && /[?&]state=/.test(location.search);
 let landed;
 const land = () =>
   (landed ||= (async () => {
     if (!returning()) return;
     try {
-      const { appState } = await (await client()).handleRedirectCallback();
-      const back = appState?.back || '/';
-      if (back !== '/') return void location.replace(back);
-      history.replaceState(null, '', back);
-    } catch {
-      history.replaceState(null, '', '/');
-    }
+      await (await client()).handleRedirectCallback();
+    } catch {}
+    try {
+      const address = new URL(location.href);
+      for (const k of ['code', 'state', 'error', 'error_description']) address.searchParams.delete(k);
+      history.replaceState(history.state, '', address);
+    } catch {}
   })());
 export async function accountToken() {
   await land();
@@ -102,14 +102,9 @@ export async function accountToken() {
 export function askAccount(needs = 'account') {
   const h = host();
   if (needs === 'account' && typeof h?.acLOGIN === 'function') return void h.acLOGIN('signup');
-  // On rax.ac the sign-in is this page's own, and comes back to the same room.
+  // On rax.ac the sign-in is this page's own.
   if (needs === 'account' && OWN) {
-    return void client().then((auth) =>
-      auth.loginWithRedirect({
-        appState: { back: location.pathname + location.search },
-        authorizationParams: { screen_hint: 'signup' },
-      }),
-    );
+    return void client().then((auth) => auth.loginWithRedirect({ authorizationParams: { screen_hint: 'signup' } }));
   }
   const to = needs === 'account' ? 'https://aesthetic.computer/?signup' : 'https://aesthetic.computer/prompt';
   try {
