@@ -860,6 +860,13 @@
         }
     }
 
+    # --- rax.ac: rax's own short name, a door to aesthetic.computer/rax for now ---
+    # 302, not 301: browsers keep a 301, and rax.ac may come to serve rax itself.
+    @raxac host rax.ac www.rax.ac
+    handle @raxac {
+        redir https://aesthetic.computer/rax{uri} 302
+    }
+
     # --- www.jas.life redirect ---
     @wwwjas host www.jas.life
     handle @wwwjas {

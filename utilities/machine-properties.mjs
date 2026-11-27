@@ -84,4 +84,6 @@ export const excludedHosts = {
   "keeps.aesthetic.computer": "Social crawler compatibility, canonical product is keep.kidlisp.com.",
   "duckweedtri.aesthetic.computer": "Redirect-only AC alias.",
   "duckweedtri.prompt.ac": "Redirect-only AC alias.",
+  "rax.ac": "Redirect-only short name for aesthetic.computer/rax.",
+  "www.rax.ac": "Redirect-only short name for aesthetic.computer/rax.",
 };
