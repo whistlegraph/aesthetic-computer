@@ -1,7 +1,8 @@
 import { BASEMENT, SEA_HALF, POOL, floatInPool } from './basement.mjs';
 import { objectBoxes } from './objects.mjs';
 import { towerSides, carDoor } from './elevator.mjs';
-import { fly, rideable } from './bike.mjs';
+import { fly, rideable, VOID } from './bike.mjs';
+import { SPACE, SPACE_HALF, PLANET_HALF, planetOf } from './orbits.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -43,9 +44,9 @@ export const CHALK = false;
 // The tower's rooms (the plaza and every floor) share one size. It is the
 // studio's for now; the rest of rax no longer assumes so.
 export const TOWER_HALF = WORLD;
-export const halfOf = (room) => (room === BASEMENT ? SEA_HALF : room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
+export const halfOf = (room) => (room === SPACE ? SPACE_HALF : planetOf(room) ? PLANET_HALF : room === BASEMENT ? SEA_HALF : room === 'lobby' || /^(floor-|roof$)/.test(room || '') ? TOWER_HALF : WORLD);
 // The farthest a point in any room can be from its middle.
-export const MAX_HALF = Math.max(WORLD, TOWER_HALF, SEA_HALF);
+export const MAX_HALF = Math.max(WORLD, TOWER_HALF, SEA_HALF, SPACE_HALF);
 export const SCREEN = 40;
 // The floor's paints, by the number a painted square stores (1 to 6).
 export const TILE_COLORS = [0xd9534f, 0xe0b23a, 0x3fa55b, 0x3f86c9, 0x8e5bd6, 0xd66fae];
@@ -143,11 +144,13 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🛵 The cabin bike (bike.mjs): B gets on and off; on it the body flies,
   // hovering over the highest thing under it, and a build stops it.
   // (Getting on is judged where the body stands; once on, only water or a side-on arena takes the bike away: a roof just stops it rising.)
-  const riding = cmd.bike ? !player.bike && rideable(fixed, flat, player) : !!player.bike && !flat && !poolRoom;
+  const space = fixed.includes(VOID); // 🌌 in space everyone rides, and nothing is under them (bike.mjs)
+  const riding = space || (cmd.bike ? !player.bike && rideable(fixed, flat, player) : !!player.bike && !flat && !poolRoom);
   if (riding) {
     let below = poolRoom ? POOL.bottom : 0;
     for (const b of [...boxes, ...fixed]) if (!b.ceiling && under(b, player) && b.yMax <= feet + 0.3) below = Math.max(below, b.yMax);
-    const next = fly(player, cmd, below, DT, CFG.eyeHeight);
+    const next = fly(player, cmd, below, DT, CFG.eyeHeight, space);
+    if (space) next.y = clamp(next.y, -half, half);
     // What stops it: builds, and the room's own walls (glass, the car, a dispenser), its keel to the top of its cabin.
     // A move is refused only if it comes nearer than the bike's half-width to
     // one, or goes further in; along a wall it slides, and away it is free

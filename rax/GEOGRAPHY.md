@@ -13,6 +13,33 @@ Rax is a public park with personal pods. Guests can walk its paths and visit
 pods. Each pod has a permanent ID and content room; its placement in the park
 can change. The first two plots remain where they were when upgraded.
 
+## Between the planets (2026-11-27)
+
+Home is one of three planets going round a sun (`orbits.mjs`). A cabin bike
+(`bike.mjs`, B) is how a body gets from one to another:
+
+- **Out.** A bike that climbs past 90 m (`LEAVE`) over open ground (the plaza,
+  a block, the roof) is in space. It comes out over the planet's top, still
+  looking at what it looked at, so a planet seen in the sky is ahead of a
+  bike that flew at it.
+- **Space** is one room, `space`, measured in metres from the sun. The sun
+  and the planets are balls where they truly are and they go on moving.
+  Everyone in it rides: nothing is underfoot and B does not get off.
+- **In.** A bike that comes within 70 m (`ARRIVE`) of a planet's ground is
+  set down over it, looking and going the way it was, turned so the planet
+  is under it. Home's landing is the terrace south of the tower (`e0s2`).
+- **The other planets**, `pinch` and `brume`, are one room each for now, 80 m
+  square (`PLANET_HALF`), named for the planet: open ground in its colour,
+  bent to its own size, under its own sky. Anyone builds there.
+- At their nearest two planets are closer than `LEAVE`: leaving one is then
+  arriving at the other.
+
+The server moves the body on a socket that stays (`crossSpace` in
+`server.mjs`, as a walk over a block's line). A rest is kept only on home, so
+a page closed in space or on another planet opens again where its handle
+last stood at home. A block kept on another host (a satellite) does not yet
+send a bike to space.
+
 ## AC Tower (2026-11-16)
 
 Home is a floor of the tower, not a lot. The tower stands on the plaza and has

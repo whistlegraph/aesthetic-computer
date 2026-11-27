@@ -5,8 +5,9 @@
 // in the air, the body falls as any jump does.
 //
 // Pure, so the client's prediction and the server run the same flight. This
-// is how a body gets between the planets of orbits.mjs later; for now it
-// flies over the one it is on, across the blocks as a walk does.
+// is how a body gets between the planets of orbits.mjs: over one it flies
+// across the blocks as a walk does; climbed past orbits.mjs LEAVE it is in
+// space (the room VOID marks), where nothing is under it and nobody gets off.
 // (world.mjs's own `direction`, kept here so world.mjs can import this file.)
 const direction = (yaw, pitch = 0) => {
   const y = (yaw * Math.PI) / 180, p = (pitch * Math.PI) / 180;
@@ -23,6 +24,10 @@ export const BIKE = {
   top: 120, // highest it goes over the land, metres
 };
 
+// 🌌 Space, among a room's solids (as basement.mjs POOL marks the sea): no
+// ground, no roof, and every body in it rides. (A box nothing can touch.)
+export const VOID = { void: true, xMin: 0, xMax: 0, zMin: 0, zMax: 0, yMin: -1e9, yMax: -1e9 };
+
 // Where a bike may be ridden: not in a game's side-on arena or the inner sea,
 // and not under a low roof (the cellar's). Judged where the body stands
 // (`at`: { x, y, z }, y at the eyes), not by the room: the plaza's lobby is a
@@ -38,8 +43,9 @@ export const rideable = (fixed = [], flat = false, at = null) =>
 
 // One tick of flight. `floor` is the height of what is under the bike,
 // `eye` the eye's height over the feet (world.mjs CFG.eyeHeight).
-// Back comes the next body (position, velocity, on the bike).
-export function fly(player, cmd, floor, dt, eye = 1.7) {
+// Back comes the next body (position, velocity, on the bike). In `space`
+// there is no floor to hover over and no height it stops at.
+export function fly(player, cmd, floor, dt, eye = 1.7, space = false) {
   const look = direction(cmd.yaw ?? player.yaw, cmd.pitch ?? player.pitch ?? 0);
   const side = direction((cmd.yaw ?? player.yaw) - 90);
   const fwd = cmd.fwd || 0, right = cmd.right || 0;
@@ -55,6 +61,7 @@ export function fly(player, cmd, floor, dt, eye = 1.7) {
   const vz = (player.vz || 0) + (want.z - (player.vz || 0)) * k;
   const next = { ...player, yaw: cmd.yaw ?? player.yaw, pitch: cmd.pitch ?? player.pitch,
     x: player.x + vx * dt, y: player.y + vy * dt, z: player.z + vz * dt, vx, vy, vz, onGround: false, bike: true };
+  if (space) return next;
   const lowest = floor + BIKE.hover + BIKE.seat + eye, highest = floor + BIKE.top;
   if (next.y < lowest) { next.y = lowest; next.vy = Math.max(0, next.vy); }
   if (next.y > highest) { next.y = highest; next.vy = Math.min(0, next.vy); }
