@@ -1002,6 +1002,7 @@ export async function createView(canvas) {
   const sparkles = [],
     partCounts = new Map();
   // 🚁 A drone that is no longer there went in a puff of its own grey (it took its body, or left).
+  const HEAD_BITS = [0xb3202a, 0x7d141c, 0xb3202a, 0xf2f2f2, 0x10131c, 0xfff3c4].map((c) => model(({ box }) => box(0, 0, 0, 0.13, 0.13, 0.13, c, c, c)));
   const DRONE_PUFF = [0xd0d4e0, 0x8b90a0, 0xffffff, 0x69bfff].map((c) => model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, c, c, c)));
   let dronesWere = new Map();
   function burstColor(x, y, z, count, models) {
@@ -1411,6 +1412,11 @@ export async function createView(canvas) {
       const was = e.zombie ? null : lastPose.get(e.seat), fresh = was && performance.now() - was.at < 1500; // (a zombie shares a seat's colour, not its pose)
       gore.gib(e, fresh ? was : { x: e.at.x, base: e.at.y - 0.9, z: e.at.z, yaw: 0, pitch: 0 });
       burstColor(e.at.x, e.at.y + 0.6, e.at.z, e.kind === 'blast' ? 24 : 8, GIB);
+    }
+    // 👹 A head shot out of the air: a burst of its own red, its teeth and the dark of its mouth, and sparks. No body, no ragdoll.
+    if (e.at && e.type === 'headpop') {
+      burstColor(e.at.x, e.at.y, e.at.z, 30, HEAD_BITS);
+      burst(e.at.x, e.at.y, e.at.z, 12, 0.9);
     }
     if (e.at && e.type === 'damage') {
       burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);

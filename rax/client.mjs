@@ -2263,6 +2263,7 @@ function connect(adopt = null) {
       if (event.type === 'headshot') sfx.headshot();
       // 🏙️ Instagib: a body comes apart (view.mjs 'gib'); 🚁 a drone shot down is set back at its perch.
       if (event.type === 'gib') sfx.blast();
+      if (event.type === 'headpop') { sfx.bounce(); sfx.ricochet?.(0.8); }
       if (event.type === 'downed' && event.eye === myEye && seat < 0) {
         freecam = { ...freecam, x: DRONE_HOME.x, y: DRONE_HOME.y, z: DRONE_HOME.z, vx: 0, vy: 0, vz: 0 };
         notice = 'SHOT DOWN';

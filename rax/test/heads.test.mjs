@@ -44,6 +44,13 @@ test('a head makes for the body, a round ends it, and the next wave is one more'
   assert.equal(m.wave, wave + 1);
   assert.ok(killed >= owed);
   assert.ok(m.events.some((e) => e.type === 'wave'));
+  // (A head shot bursts as a head: never the body's coming apart.)
+  const { m: n, seat: who } = stage();
+  for (let k = 0; k < HZ; k++) n.step();
+  const h = n.heads[0];
+  n.bullets.push({ x: h.x, y: h.y, z: h.z - 0.6, vx: 0, vy: 0, vz: 32, owner: who, born: n.tick, safeUntil: n.tick + HZ, bounces: 0, id: 9001 });
+  n.step();
+  assert.ok(n.events.some((e) => e.type === 'headpop') && !n.events.some((e) => e.type === 'gib'));
 });
 
 test('a head that reaches a body ends it: the body comes apart, the wave is over, and it stands again a few seconds on', () => {

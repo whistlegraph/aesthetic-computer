@@ -591,7 +591,9 @@ export class Match {
           // 🧟 Any round ends a zombie: it comes down or comes apart like a body (seat 3's green).
           this.zombies = this.zombies.filter((z) => z !== zombie);
           this.zombieKills.push(zombie.id);
-          this.emit('gib', { seat: 3, zombie: true, attacker: b.owner, kind: 'shot', zone: hitZone(zombie, b),
+          // (👹 A flying head has no body to come apart as: it bursts where it is.)
+          if (zombie.head) this.emit('headpop', { at: { x: zombie.x, y: zombie.y, z: zombie.z }, attacker: b.owner, dir: { x: dir.x, y: dir.y, z: dir.z } });
+          else this.emit('gib', { seat: 3, zombie: true, attacker: b.owner, kind: 'shot', zone: hitZone(zombie, b),
             at: { x: zombie.x, y: zombie.y - 0.8, z: zombie.z }, hit: { x: b.x, y: b.y, z: b.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
           b.dead = true;
         }
