@@ -3967,7 +3967,9 @@ export async function createView(canvas) {
           rect(x - 2 * t, y - 2 * t, 0.000002, 4 * t, 4 * t, INK);
           rect(x - t, y - t, 0, 2 * t, 2 * t, 0xffffff);
         };
-        if (Number.isFinite(cursorX)) {
+        // (Over a head there is one point, not two: the crosshair's own point is the one that sits, blinking, on the head's middle (above), and none is left at the centre.)
+        if (threat !== null) { /* drawn on the head */ }
+        else if (Number.isFinite(cursorX)) {
           if (pointerSource === 'pad') {
             dot(cursorX, cursorY);
           } else if (pointerSource === 'mouse') for (const [dx, dy, ink] of reticleStrokes) {
