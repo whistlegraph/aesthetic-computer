@@ -3159,7 +3159,7 @@ function xrStops() {
 const farHands = new Map();
 let handsSaidAt = 0;
 function tellHands(xr, now) {
-  if (!xr.hands.length || now - handsSaidAt < 66) return; // (fifteen times a second)
+  if (!xr.hands.length || now - handsSaidAt < 11) return; // (every frame the headset draws, up to ninety a second: hands are watched as closely as anything in the room)
   const body = seat >= 0 ? player : freecam;
   if (!body) return;
   const eye = xrTable ? tableEye(xrTable, xr.offset) : { x: body.x + xr.offset[0], y: body.y + xr.offset[1] + (seat >= 0 ? liftAt(now) : 0), z: body.z + xr.offset[2] };

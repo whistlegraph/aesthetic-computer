@@ -1136,6 +1136,22 @@ export async function createView(canvas) {
     const dx = x - eye.x, dy = y - eye.y, dz = z - eye.z;
     projector.draw(slateModel(lines), x, y, z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), k);
   }
+  // 🖐️ Happy hands (AC's hand notation, lib/hand.mjs): each fingertip wears its letter, t i m o p from the thumb to the little finger (read across two open hands: pomit timop), on a dot of that finger's colour. `at` is a tip in the room's metres, `k` how many times life size the hand stands.
+  const TIMOP = [['t', 0x00aac8], ['i', 0x4b0082], ['m', 0xff00ff], ['o', 0xffa500], ['p', 0xffc0cb]];
+  const tipDots = TIMOP.map(([, color]) => model(({ box }) => box(0, 0, 0, 1, 1, 1, color)));
+  const tipLetters = TIMOP.map(([letter]) => model(({ rect: worldRect, text: glyphs }) =>
+    drawSpans({ rect: (x, y, z, w, h, c) => worldRect(-x - w, y, z, w, h, c), text: glyphs }, [{ text: letter, color: 0xffffff }], 0, 0.012, 0.0012, { step: 0.0002, shadow: null })));
+  function drawTips(fingers, eye, at, k) {
+    fingers.forEach((chain, f) => {
+      const tip = chain.at(-1);
+      if (!tip || f > 4) return;
+      const p = at(tip), size = 2.2 * (tip.radius || 0.008) * k;
+      projector.draw(tipDots[f], p.x, p.y, p.z, 0, 0, size);
+      // (The letter stands just over the tip, turned whole to the eye, as the wrist card is.)
+      const y = p.y + 0.012 * k, dx = p.x - eye.x, dy = y - eye.y, dz = p.z - eye.z;
+      projector.draw(tipLetters[f], p.x, y, p.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), k);
+    });
+  }
   function drawHands(xr, eye) {
     // (On a table the room is small, so the hands are drawn that many times larger and further, to be their own size in the picture.)
     const k = 1 / (xr.table?.scale || 1);
@@ -1148,6 +1164,7 @@ export async function createView(canvas) {
     const point = (p, size) => projector.draw(fingertip, eye.x+p.x*k, eye.y+p.y*k, eye.z+p.z*k, 0, 0, size*k);
     // ✋ A hand is its outline, not its bones (2026-11-27): up one side of each finger and down the other, the sides a finger's own thickness apart across the palm, joined at the knuckles and round the wrist. A hand seen in part (a joint untracked) falls back to its bones.
     for (const hand of xr.hands) {
+      drawTips(hand.fingers, eye, (j) => ({ x: eye.x + j.x * k, y: eye.y + j.y * k, z: eye.z + j.z * k }), k);
       const edge = handOutline(hand.fingers);
       if (edge) { for (let i = 0; i < edge.length; i++) segment(edge[i], edge[(i + 1) % edge.length], handEdge); continue; }
       for (const chain of hand.fingers) {
@@ -2080,6 +2097,8 @@ export async function createView(canvas) {
     }
     // ✋ Everyone else's hands, where they are in the room (a giant's, over it, when their room is on a table).
     for (const far of farHands) for (const hand of far.hands) {
+      // (Their joints are in the room's metres already; their thickness says how many times life size they stand.)
+      drawTips(hand.fingers.map((chain) => chain.map((j) => ({ ...j, radius: 0.008 }))), eye, (j) => j, (hand.fingers[0][0]?.radius || 0.008) / 0.008);
       const edge = handOutline(hand.fingers);
       if (!edge) continue;
       for (let i = 0; i < edge.length; i++) {
