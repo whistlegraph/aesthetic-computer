@@ -62,7 +62,8 @@ export const LEGEND = {
   ],
   pad: [
     '[LS] move / [RS] look',
-    '[A] jump / [LT] zoom / [Y] camera',
+    '[A] jump / [LT] zoom',
+    '[Y] camera / [L3] near or far',
     '[RT] use / [X] drop',
     '[X] paint / hold [LB] build',
     '[RB] lock or go in / [B] remove',

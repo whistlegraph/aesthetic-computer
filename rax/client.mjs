@@ -3095,6 +3095,8 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // in and out along its boom: up is closer. The distance is kept for next time.
 const BOOM_MIN = 1.5, BOOM_MAX = 14;
 let boomLength = 4;
+// 🎮 L3 brings the third-person camera in to half its boom and back (as it toggles the 2× zoom at a screen).
+let boomClose = false;
 try {
   const kept = parseFloat(localStorage.getItem('rax-boom'));
   if (Number.isFinite(kept)) boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, kept));
@@ -3477,6 +3479,7 @@ function step(now, xr) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+    if (seat >= 0 && third && !dock && gamepad.zoomClick) boomClose = !boomClose;
     if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
   moveTargetCursor(elapsed);
@@ -4034,7 +4037,7 @@ function step(now, xr) {
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
-    boomLength,
+    boomLength: boomClose ? Math.max(BOOM_MIN, boomLength / 2) : boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
     bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges()),
