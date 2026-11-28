@@ -231,6 +231,14 @@ export function createRaxServer({
     tower = new TowerStore(stateDir), // 🏢 who holds which floor (tower.mjs)
     loaded = Promise.all([store.load(), geography.load(), tower.load(), readFile(resolve(here, '../system/public/.commit-ref'), 'utf8')
       .then((r) => { diagnostics.setRevision(r.trim()); stallRevision = r.trim().slice(0, 10); }).catch(() => {})]);
+  // 👹 The stage is cleared, once (2026-11-27): what was built on home, its standing screens and its floor's paint are taken out, each kept as the store keeps what is cleared (the builds among what was removed, the paint and screens under `cleared`), so all of it can be put back. After this the room is built in as before.
+  void loaded.then(() => {
+    if (store.data.stageCleared || process.env.NODE_TEST_CONTEXT) return;
+    return store.clearRoom(STAGE, 'stage').then(() => store.transact((data) => { data.stageCleared = Date.now(); return true; })).then(() => {
+      rooms.get(STAGE)?.match.setObjects(store.objects(STAGE));
+      builders.broadcast(STAGE);
+    });
+  }).catch((e) => console.warn('[rax] the stage was not cleared', e?.message));
   // 🏢 The houses beside the tower come down (2026-11-17): a home is a floor
   // of the tower. What stood inside each goes up to its handle's floor; both
   // ledgers are kept as they stood (geography.before-houses.json,

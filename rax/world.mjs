@@ -39,8 +39,8 @@ export const ONE_ROOM = true;
 export const HOME_ROOM = 'origin';
 export const PLAZA = 'lobby', PLAZA_WORD = 'plaza';
 // 👹 The stage (2026-11-27): home is bare but for one gun in its middle, and
-// heads fly in from outside in waves (match.mjs stepHeads). Its standing
-// screens and AC windows are put away while this is on, not taken out.
+// heads fly in from outside in waves (match.mjs stepHeads). What stood
+// there was taken out once (server.mjs, kept by the store) and its AC windows stand in the studio.
 export const STAGE = HOME_ROOM;
 // ✨ In the one room everyone builds, and what is built is a conjuring: it
 // stands this long and is gone (the keeper's stays: the room is theirs to furnish).

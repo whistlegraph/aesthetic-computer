@@ -6,7 +6,7 @@ import {
   MAX_OBJECTS,
   MAX_VERSIONS,
 } from './objects.mjs';
-import { wallsOf, halfOf, bodyBox, WORLD, STAGE } from './world.mjs';
+import { wallsOf, halfOf, bodyBox, WORLD } from './world.mjs';
 import { OBJECT_FORMAT, fitItemSource, sourceGeometry } from './object-language.mjs';
 // Builds a guest identity may start per day.
 export const GUEST_BUILDS = 5;
@@ -173,7 +173,7 @@ export class Builders {
       tiles: this.store.tiles(room),
       walls: this.store.walls(room),
       wallRes: this.store.wallRes(room),
-      screens: room === STAGE ? [] : this.store.screens(room), // (👹 the stage is bare: its screens are put away, not taken out)
+      screens: this.store.screens(room),
       jobs: this.jobRows(room),
     };
   }
