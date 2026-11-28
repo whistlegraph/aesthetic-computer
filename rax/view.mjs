@@ -378,6 +378,51 @@ export async function createView(canvas) {
   // (walled false: a floating platform — the same floor on a slab, nothing
   // around it but the sky. A room made by name is one, 2026-11-27; a game's
   // arena keeps its walls. The slab is a block, PLATFORM_DEPTH deep, and a body walks off its edge: world.mjs slabOf.)
+  // 🏙️ What stands under and round a roof, each thing a shape of its own, so each is asked about and left out when it is not in the picture (one shape of them all was always partly seen, and so always all drawn: eleven thousand triangles a frame, most of them windows under the viewer's own feet):
+  //   shaft: the skyscraper the roof is the top of, and its windows   street: the street and the lower buildings
+  //   clock: the clock tower                                          board: the building the billboard hangs on
+  const buildCity = (p, W, part) =>
+    model(({ box }) => {
+      const drop = TOWER_DROP;
+      if (part === 'shaft') {
+        const shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
+        box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
+        for (let y = top - 2; y > -drop + 2; y -= 3.4) {
+          // (Glass: a lit room behind it, or the sky in it. An unlit pane takes the sky's own colour, paler toward its top as the sky is, so the tower's faces read as mirror, not as holes.)
+          const lit = (n) => ((Math.sin(y * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1 > 0.6 ? 0xffe9a8 : (n + Math.round(y)) % 3 ? p.sky : tint(p.sky, 1.35);
+          for (let n = 0; n < 4; n++) {
+            const across = n % 2 === 0, sign = n < 2 ? 1 : -1, face = sign * (shaft / 2 + 0.02);
+            for (let k = -2; k <= 2; k++) {
+              const at = (k * shaft) / 5.4, c = lit(n * 7 + k);
+              if (across) box(at, y, face, shaft / 7, 1.5, 0.04, c, c, c); else box(face, y, at, 0.04, 1.5, shaft / 7, c, c, c);
+            }
+          }
+        }
+      }
+      if (part === 'street') {
+        box(0, -drop - 0.5, 0, 420, 1, 420, 0x1b1e26, 0x15171e, 0x15171e); // the street
+        for (const [x, z, w, h] of [[-46, -30, 22, 70], [38, -52, 26, 96], [58, 24, 20, 48], [-34, 46, 30, 84], [8, 64, 18, 36], [-72, 8, 24, 58], [84, -8, 22, 104], [-12, -70, 26, 62]]) {
+          box(x, -drop + h / 2, z, w, h, w, 0x303646, 0x262b38, 0x20242f);
+          box(x, -drop + h + 0.2, z, w - 2, 0.4, w - 2, 0x3a4154, 0x3a4154, 0x3a4154);
+        }
+      }
+      if (part === 'clock') {
+          const c = CLOCK, wide = 2 * c.r + 2.4, stone = 0x5b6172, shade = 0x444a59;
+          box(c.x, (c.top - drop) / 2, c.z, wide, c.top + drop, wide, stone, shade, 0x4f5565);
+          box(c.x, c.top + 0.6, c.z, wide + 1, 1.2, wide + 1, 0x70778a, shade, shade);
+          box(c.x, c.top + 3.6, c.z, 1.2, 5, 1.2, 0x8b90a0, shade, shade);
+          const front = c.z - wide / 2 - 0.05;
+          box(c.x, c.y, front, 2 * c.r, 2 * c.r, 0.1, 0xf2ecd8, 0xf2ecd8, 0xf2ecd8);
+          for (let h = 0; h < 12; h++) {
+            const a = (h / 12) * Math.PI * 2, far = c.r * 0.86, big = h % 3 === 0;
+            box(c.x + Math.sin(a) * far, c.y + Math.cos(a) * far, front - 0.06, big ? 0.34 : 0.18, big ? 0.34 : 0.18, 0.06, 0x10131c, 0x10131c, 0x10131c);
+          }
+        }
+      if (part === 'board') {
+          box(-SCREEN - 6.2, (22 - drop) / 2, 0, 12, 22 + drop, 36, 0x303646, 0x262b38, 0x20242f);
+          box(-SCREEN - 0.3, 10.5, 0, 0.3, 19.4, 33.4, 0x10131c, 0x10131c, 0x10131c); // its frame (behind the picture: a hand nearer and it stood in front of it, and the billboard was a black board)
+      }
+    });
   const buildArena = (p, W = WORLD, walled = true, tower = true) =>
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
@@ -403,47 +448,11 @@ export async function createView(canvas) {
             box(x, top - 0.1, z, w, 0.2, d, iron, dark, dark);
           for (const [x, z, w, d] of [[out - 0.05, 0, 0.06, 2 * out], [-out + 0.05, 0, 0.06, 2 * out], [0, out - 0.05, 2 * out, 0.06], [0, -out + 0.05, 2 * out, 0.06]])
             box(x, top + ESCAPE_RAIL, z, w, 0.06, d, rail, rail, rail);
-          for (let n = -out; n <= out + 0.01; n += 1.4) for (const [x, z] of [[out - 0.05, n], [-out + 0.05, n], [n, out - 0.05], [n, -out + 0.05]])
+          for (let n = -out; n <= out + 0.01; n += 2.6) for (const [x, z] of [[out - 0.05, n], [-out + 0.05, n], [n, out - 0.05], [n, -out + 0.05]])
             box(x, top + ESCAPE_RAIL / 2, z, 0.06, ESCAPE_RAIL, 0.06, rail, rail, rail);
           const rise = ESCAPE_DROP / ESCAPE_STEPS;
           for (const side of [1, -1]) for (let k = 0; k < ESCAPE_STEPS; k++)
             box(side * (W + 0.65), top + ((k + 1) * rise) / 2, side * (-2 + (k + 0.5) * ESCAPE_RUN), 1.3, (k + 1) * rise, ESCAPE_RUN, k % 2 ? 0x4a5061 : iron, dark, dark);
-        }
-        if (!tower) return;
-        // 🏙️ Under it, the skyscraper it is the roof of: a shaft a little narrower than the roof, a band of lit windows on every storey, down to the street; and round it the street, with the roofs of lower buildings to fall past.
-        const drop = TOWER_DROP, shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
-        box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
-        for (let y = top - 2; y > -drop + 2; y -= 3.4) {
-          // (Glass: a lit room behind it, or the sky in it. An unlit pane takes the sky's own colour, paler toward its top as the sky is, so the tower's faces read as mirror, not as holes.)
-          const lit = (n) => ((Math.sin(y * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1 > 0.6 ? 0xffe9a8 : (n + Math.round(y)) % 3 ? p.sky : tint(p.sky, 1.35);
-          for (let n = 0; n < 4; n++) {
-            const across = n % 2 === 0, sign = n < 2 ? 1 : -1, face = sign * (shaft / 2 + 0.02);
-            for (let k = -2; k <= 2; k++) {
-              const at = (k * shaft) / 5.4, c = lit(n * 7 + k);
-              if (across) box(at, y, face, shaft / 7, 1.5, 0.04, c, c, c); else box(face, y, at, 0.04, 1.5, shaft / 7, c, c, c);
-            }
-          }
-        }
-        box(0, -drop - 0.5, 0, 420, 1, 420, 0x1b1e26, 0x15171e, 0x15171e); // the street
-        // 🕰️ The clock tower: a shaft from the street to over the roof's height, a pale face on its south side with twelve marks, a cap and a spike. (Its hands and its figures are drawn each frame: below.)
-        {
-          const c = CLOCK, wide = 2 * c.r + 2.4, stone = 0x5b6172, shade = 0x444a59;
-          box(c.x, (c.top - drop) / 2, c.z, wide, c.top + drop, wide, stone, shade, 0x4f5565);
-          box(c.x, c.top + 0.6, c.z, wide + 1, 1.2, wide + 1, 0x70778a, shade, shade);
-          box(c.x, c.top + 3.6, c.z, 1.2, 5, 1.2, 0x8b90a0, shade, shade);
-          const front = c.z - wide / 2 - 0.05;
-          box(c.x, c.y, front, 2 * c.r, 2 * c.r, 0.1, 0xf2ecd8, 0xf2ecd8, 0xf2ecd8);
-          for (let h = 0; h < 12; h++) {
-            const a = (h / 12) * Math.PI * 2, far = c.r * 0.86, big = h % 3 === 0;
-            box(c.x + Math.sin(a) * far, c.y + Math.cos(a) * far, front - 0.06, big ? 0.34 : 0.18, big ? 0.34 : 0.18, 0.06, 0x10131c, 0x10131c, 0x10131c);
-          }
-          // 🪧 The building whose east side the billboard hangs on (the KidLisp wall, forty metres west of the roof), from the street to over the picture's top.
-          box(-SCREEN - 6.2, (22 - drop) / 2, 0, 12, 22 + drop, 36, 0x303646, 0x262b38, 0x20242f);
-          box(-SCREEN - 0.3, 10.5, 0, 0.3, 19.4, 33.4, 0x10131c, 0x10131c, 0x10131c); // its frame (behind the picture: a hand nearer and it stood in front of it, and the billboard was a black board)
-        }
-        for (const [x, z, w, h] of [[-46, -30, 22, 70], [38, -52, 26, 96], [58, 24, 20, 48], [-34, 46, 30, 84], [8, 64, 18, 36], [-72, 8, 24, 58], [84, -8, 22, 104], [-12, -70, 26, 62]]) {
-          box(x, -drop + h / 2, z, w, h, w, 0x303646, 0x262b38, 0x20242f);
-          box(x, -drop + h + 0.2, z, w - 2, 0.4, w - 2, 0x3a4154, 0x3a4154, 0x3a4154);
         }
         return;
       }
@@ -2373,6 +2382,13 @@ export async function createView(canvas) {
       const kind = `${half}:${game ? 'walled' : 'open'}:${orbit > 0.02 ? 'roof' : 'tower'}`;
       if (!arenas.has(kind)) arenas.set(kind, buildArena(PALETTES[paletteName], half, !!game, !(orbit > 0.02)));
       draw(arenas.get(kind));
+      // 🏙️ Round a roof, when the room is not the small thing behind the prompt: the city, a shape at a time. The shaft under the roof is not drawn at all while the eye is over the roof (it cannot be seen from there: only from the fire escape, in the air beside it, or from the street).
+      if (!game && !(orbit > 0.02)) {
+        const city = (part) => { const k = `${half}:${paletteName}:${part}`; if (!arenas.has(k)) arenas.set(k, buildCity(PALETTES[paletteName], half, part)); return arenas.get(k); };
+        const over = eye.y > 0.05 && Math.abs(eye.x) < half + 0.5 && Math.abs(eye.z) < half + 0.5;
+        if (!over) draw(city('shaft'));
+        draw(city('street')); draw(city('clock')); draw(city('board'));
+      }
     }
     for (const m of staged) {
       const far = Math.hypot(m.x - eye.x, (m.y || 0) - eye.y, m.z - eye.z);
@@ -4380,7 +4396,7 @@ export async function createView(canvas) {
       facecam.sy *= 2.2;
       const fd = (...a) => facecam.draw(...a);
       fd(arena);
-      for (const w of walls) if (w.model) fd(w.model, 0, 0, 0);
+      // (Not the KidLisp walls: a billboard forty metres off is thousands of faces, and every one of them was turned, cut to the cam's little square and thrown away, each frame, to be a few pixels behind a head.)
       for (const o of objects)
         if (!o.item && o.geometry.format === OBJECT_FORMAT) fd(sourceFrame(o.geometry, worldTime).vertices, o.x, 0, o.z);
       const fs = fighters[Math.max(0, face.seat) % fighters.length];
