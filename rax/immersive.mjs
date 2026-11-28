@@ -408,13 +408,14 @@ export function roomPlanes(frame, space, point, session) {
 // room's point under a real point q (metres from where the headset began) is
 //   pivot + (turn(q, rot) - at) / scale.
 export const FIST_CURL = 0.095;
-export function fistOf(hand) {
+// (`k`: how many times life size the hand stands: someone else's, seen in the room.)
+export function fistOf(hand, k = 1) {
   const wrist = hand?.fingers?.[0]?.[0], hold = hand?.fingers?.[2]?.[2];
   if (!wrist || !hold) return null;
   const tips = hand.fingers.slice(1).map((chain) => chain.at(-1));
   if (tips.some((t) => !t)) return null;
   const curl = tips.reduce((sum, t) => sum + Math.hypot(t.x - wrist.x, t.y - wrist.y, t.z - wrist.z), 0) / tips.length;
-  return curl < FIST_CURL ? hold : null;
+  return curl < FIST_CURL * k ? hold : null;
 }
 export const turn = (v, a) => {
   const c = Math.cos(a), s = Math.sin(a), [x, y, z] = Array.isArray(v) ? v : [v.x, v.y, v.z];
@@ -450,3 +451,28 @@ export function turnHeadset(xr, a) {
   xr.yaw = (((xr.yaw + (a * 180) / Math.PI) % 360) + 360) % 360;
   return xr;
 }
+
+// 🔫 In the body, the right hand is the body's hand: it aims the way the hand
+// points (wrist to the index finger's knuckle, which holds still while the
+// finger moves), and the index finger curled in is the trigger pulled.
+// { yaw, pitch } in degrees as the room has them, and `pulled`; or null with no right hand.
+export const TRIGGER_CURL = 0.105;
+export function handAim(xr) {
+  const hand = xr?.hands?.find((h) => h.side === 'right'), wrist = hand?.fingers?.[0]?.[0], knuckle = hand?.fingers?.[1]?.[2], tip = hand?.fingers?.[1]?.at(-1);
+  if (!wrist || !knuckle || !tip) return null;
+  const d = { x: knuckle.x - wrist.x, y: knuckle.y - wrist.y, z: knuckle.z - wrist.z }, n = Math.hypot(d.x, d.y, d.z);
+  if (n < 0.02) return null;
+  return {
+    yaw: ((Math.atan2(d.x, d.z) * degrees) % 360 + 360) % 360, pitch: Math.asin(Math.max(-1, Math.min(1, d.y / n))) * degrees,
+    pulled: Math.hypot(tip.x - wrist.x, tip.y - wrist.y, tip.z - wrist.z) < TRIGGER_CURL, hold: knuckle,
+  };
+}
+
+// 👻 The ghost's head, told with its hands: where the head is in the room and
+// the way it faces, [x, y, z, yaw, pitch, k] (degrees; k times life size), so
+// whoever it looks at sees it looking.
+export const headPacked = (eye, forward, k = 1) => {
+  const n = Math.hypot(...forward) || 1, r = (v) => Math.round(v * 1000) / 1000;
+  return [r(eye.x), r(eye.y), r(eye.z), r(Math.atan2(forward[0], forward[2]) * degrees), r(Math.asin(Math.max(-1, Math.min(1, forward[1] / n))) * degrees), r(k)];
+};
+export const headValid = (h) => h === undefined || (Array.isArray(h) && h.length === 6 && h.every(Number.isFinite) && h.slice(0, 3).every((n) => Math.abs(n) < 60000) && h[5] > 0 && h[5] <= 400);

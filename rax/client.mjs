@@ -28,7 +28,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset } from './immersive.mjs';
+import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset, handAim, headPacked, headValid } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -2067,7 +2067,7 @@ function connect(adopt = null) {
         menu.selected = Math.min(menu.selected, menu.items.length - 1);
       }
     }
-    if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), at: performance.now() });
+    if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands) && headValid(data.head)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), head: data.head || null, at: performance.now() });
     if (data.type === 'deaths' && Number.isFinite(data.deaths)) deathCount = data.deaths; // ☠️ this handle's deaths in rax, from the database (deaths.mjs)
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -3147,7 +3147,8 @@ let xrTable = null, slateArmed = true;
 // 🧭 Where a poke goes next. The stops in turn: full size where you are, the room on a table, and (looking on, with no body of your own to move) beside each body in the room, a step and a half behind it at its eye's height. So a headset with hands only is not left in the middle of the room.
 let xrStop = 0;
 function xrStops() {
-  const stops = [{ label: 'full size' }, { label: 'on a table', table: true }];
+  // (🧍 The third: in your own body, its hands yours. Offered when this handle has a body to be in.)
+  const stops = [{ label: 'full size' }, { label: 'on a table', table: true }, ...(selfMember?.handle ? [{ label: 'in your body', own: true }] : [])];
   if (seat < 0) (snapshot?.players || []).forEach((p, i) => {
     if (!p || p.alive === false) return;
     const m = members.find((x) => x.seat === i);
@@ -3159,38 +3160,42 @@ function xrStops() {
 const farHands = new Map();
 let handsSaidAt = 0;
 function tellHands(xr, now) {
-  if (!xr.hands.length || now - handsSaidAt < 11) return; // (every frame the headset draws, up to ninety a second: hands are watched as closely as anything in the room)
+  if (now - handsSaidAt < 11) return; // (every frame the headset draws, up to ninety a second: hands are watched as closely as anything in the room)
   const body = seat >= 0 ? player : freecam;
   if (!body) return;
   const eye = xrTable ? tableEye(xrTable, xr.offset) : { x: body.x + xr.offset[0], y: body.y + xr.offset[1] + (seat >= 0 ? liftAt(now) : 0), z: body.z + xr.offset[2] };
-  const hands = handsPacked(xr, eye, xrTable ? 1 / xrTable.scale : 1);
-  if (!hands.length) return;
+  const k = xrTable ? 1 / xrTable.scale : 1, hands = handsPacked(xr, eye, k);
   handsSaidAt = now;
-  if (send({ type: 'hands', hands })) handsSent++;
+  // (👻 The head goes with them, hands seen or not: a ghost is a head and two hands. In the body the body is the head.)
+  if (send({ type: 'hands', hands, ...(seat < 0 ? { head: headPacked(eye, xr.forward, k) } : {}) })) handsSent++;
 }
 // 👻 A headset is its own kind in the room: not a body and not a drone, a pair of hands (a god's, when the room is on its table). It gives its handle's body up as it goes in, never takes one while it is in, and says no eye for the room to draw a drone at.
 let handsSent = 0, ghostAskedAt = -Infinity, inHeadset = false;
 function stepGhost(xr, now) {
   xr.handsSent = handsSent;
-  if (seat >= 0 && selfMember?.handle && now - ghostAskedAt > 1500) { ghostAskedAt = now; send({ type: 'take-drone' }); }
+  if (!xrBody && seat >= 0 && selfMember?.handle && now - ghostAskedAt > 1500) { ghostAskedAt = now; send({ type: 'take-drone' }); }
 }
 // ✊ Two fists hold the world (immersive.mjs grabStep): what they held as they closed, or null.
-let xrGrab = null;
+let xrGrab = null, xrBody = false; // (xrBody: the stop `in your body`: the headset holds its handle's body, and its right hand is the body's)
+const fistWas = { left: false, right: false };
 function stepXRGrab(xr) {
   const fists = ['left', 'right'].map((side) => fistOf(xr.hands.find((h) => h.side === side)));
+  // ✊ Each hand says so as it closes and as it opens, in its own ear.
+  ['left', 'right'].forEach((side, i) => { if (!!fists[i] !== fistWas[side]) { fistWas[side] = !!fists[i]; sfx.fist(side, !!fists[i]); } });
+  if (xrBody) { xrGrab = null; return; } // (in the body the hands hold what the body holds, not the world)
   if (!fists[0] || !fists[1]) { if (xrGrab) sfx.ringBack(); xrGrab = null; return; }
   const [q1, q2] = fists.map((f) => [xr.offset[0] + f.x, xr.offset[1] + f.y, xr.offset[2] + f.z]);
   if (!xrGrab) {
     // (Held at life size, the room is first a table of its own size where it already is: the eye's own place taken off.)
     xrTable ||= { scale: 1, rot: 0, pivot: { x: 0, y: 0, z: 0 }, at: [-freecam.x, -freecam.y, -freecam.z] };
     xrGrab = grabStart(xrTable, q1, q2);
-    sfx.ringOpen();
+    sfx.hold();
     return;
   }
   xrTable = grabStep(xrTable, xrGrab, q1, q2);
 }
 function stepXRView(xr) {
-  if (seat < 0) stepXRGrab(xr); else xrGrab = null;
+  stepXRGrab(xr);
   stepXRStops(xr);
   // (Last: the stops above read the headset as it is; from here on it is turned as the room is.)
   turnHeadset(xr, xrTable?.rot || 0);
@@ -3205,6 +3210,9 @@ function stepXRStops(xr) {
   if (xr.viewPress || poke) {
     xrStop = (xrStop + 1) % stops.length;
     const stop = stops[xrStop], at = Number.isInteger(stop.body) ? snapshot?.players?.[stop.body] : null;
+    // 🧍 Into the body, or out of it to a ghost again (stepGhost gives the body up).
+    xrBody = !!stop.own;
+    if (xrBody && seat < 0) { keepDrone(false); send({ type: 'take-body' }); }
     if (!stop.table) xrTable = null;
     if (at) {
       // (The head's own offset is taken off, so the eye itself is where it is meant to be.)
@@ -3242,7 +3250,7 @@ function takeDrone() {
   return true;
 }
 function takeBody() {
-  if (inHeadset) return; // (👻 a headset holds no body)
+  if (inHeadset && !xrBody) return; // (👻 a headset holds no body, but at its stop `in your body`)
   keepDrone(false);
   send({ type: 'take-body' });
 }
@@ -3416,12 +3424,16 @@ function step(now, xr) {
     releaseInput();
   }
   gamepad = controller.sample(down || xr ? [] : pads, document.hasFocus());
-  if (!xr) xrTable = null;
+  if (!xr) { xrTable = null; xrBody = false; }
   inHeadset = !!xr;
   if (xr) {
     stepXRView(xr);
     if (ws?.readyState === WebSocket.OPEN && snapshot) { stepGhost(xr, now); tellHands(xr, now); }
     yaw = xr.yaw; pitch = xr.pitch;
+    // 🔫 In the body with something in hand, the right hand aims it and its curled index finger is the trigger (held: it fires as fast as the thing can).
+    const aim = xrBody && seat >= 0 && holding() ? handAim(xr) : null;
+    if (aim) { yaw = aim.yaw; pitch = clamp(aim.pitch, -85, 85); if (aim.pulled && !down) useQueued = true; }
+    xr.heldAt = aim ? aim.hold : null; // (where the view draws the thing: in the real hand)
     inputAt = flownAt = now;
     if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd || (xr.walkPinch && !screenFingers.size ? 0.42 : 0), jump: xr.jump });
   }

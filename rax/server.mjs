@@ -32,7 +32,7 @@ import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace, slabOf } from './world.mjs';
 import { gameFor } from './games.mjs';
-import { handsValid } from './immersive.mjs';
+import { handsValid, headValid } from './immersive.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -1547,9 +1547,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // ✋ Hands in a headset, told to everyone else in the room as they are (immersive.mjs handsPacked): as often as the headset draws, a hundred and twenty times a second at the most from one screen.
       if (data?.type === 'hands') {
         const at = Date.now();
-        if (at - (member.handsAt || 0) < 8 || !handsValid(data.hands)) return;
+        if (at - (member.handsAt || 0) < 8 || !handsValid(data.hands) || !headValid(data.head)) return;
         member.handsAt = at;
-        const word = JSON.stringify({ type: 'hands', id: (member.eye ||= randomUUID().slice(0, 8)), seat: member.seat, hands: data.hands });
+        const word = JSON.stringify({ type: 'hands', id: (member.eye ||= randomUUID().slice(0, 8)), seat: member.seat, hands: data.hands, ...(data.head ? { head: data.head } : {}) });
         for (const other of room.clients.keys()) if (other !== ws) sendText(other, word);
         return;
       }

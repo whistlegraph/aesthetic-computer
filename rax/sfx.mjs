@@ -24,7 +24,8 @@ export class Sfx {
   get ready() {
     return this.audio?.state === 'running';
   }
-  voice(frequency, duration, { volume = 0.04, type = 'triangle', at = 0, slide = 0 } = {}) {
+  // (`pan`: -1 the left ear, 1 the right.)
+  voice(frequency, duration, { volume = 0.04, type = 'triangle', at = 0, slide = 0, pan = 0 } = {}) {
     if (!this.ready) return;
     volume *= MASTER;
     const a = this.audio,
@@ -37,9 +38,21 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(volume, t + 0.008);
     g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-    o.connect(g).connect(a.destination);
+    if (pan && a.createStereoPanner) { const p = a.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); o.connect(g).connect(p).connect(a.destination); }
+    else o.connect(g).connect(a.destination);
     o.start(t);
     o.stop(t + duration + 0.02);
+  }
+  // ✊✊ Both closed: the world is held. A fifth, one note in each ear, and a low one under them.
+  hold() {
+    this.voice(196, 0.22, { volume: 0.05, pan: -0.9 });
+    this.voice(294, 0.22, { volume: 0.05, pan: 0.9 });
+    this.voice(98, 0.3, { volume: 0.04, type: 'sine' });
+  }
+  // ✊ A hand closes or opens (in a headset): a short note in that hand's own ear, the left lower than the right.
+  fist(side, closed) {
+    const pan = side === 'left' ? -0.9 : 0.9, base = side === 'left' ? 196 : 294;
+    this.voice(closed ? base : base * 1.5, closed ? 0.09 : 0.06, { volume: closed ? 0.045 : 0.02, type: closed ? 'triangle' : 'sine', slide: closed ? 0.7 : 1.2, pan });
   }
   positionedOutput(at) {
     const a = this.audio;

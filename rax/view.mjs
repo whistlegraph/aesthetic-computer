@@ -39,7 +39,7 @@ import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature, bend } from './planet.mjs';
 import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
-import { wristOf, tableEye, SLATE_LIFT, handOutline } from './immersive.mjs';
+import { wristOf, tableEye, SLATE_LIFT, handOutline, fistOf } from './immersive.mjs';
 import { glide } from './dock.mjs';
 import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs';
 
@@ -1103,7 +1103,22 @@ export async function createView(canvas) {
   // KidLisp program is still loading.
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
+  const ghostHead = model(({ box }) => {
+    box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
+    box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
+    box(-0.04, 0.02, 0.102, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee); // two small lights for eyes
+    box(0.04, 0.02, 0.102, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee);
+  });
   const handEdge = model(({ box }) => box(0, 0, 0.5, 0.09, 0.09, 1, 0x51e3ee, 0x269baa));
+  // ✊ A closed hand is drawn amber, and both closed (the world held) a hot pink, thicker, with a bar from fist to fist: what the hands are doing is seen, by their owner and by the room.
+  const handEdgeFist = model(({ box }) => box(0, 0, 0.5, 0.12, 0.12, 1, 0xffb000, 0xb87a00));
+  const handEdgeHold = model(({ box }) => box(0, 0, 0.5, 0.16, 0.16, 1, 0xff3fa4, 0xb0206c));
+  const holdBar = model(({ box }) => box(0, 0, 0.5, 0.02, 0.02, 1, 0xff3fa4, 0xb0206c));
+  // The edge each hand of a pair is drawn with, and the two fists' holds when both are closed.
+  function handInks(hands, k = 1) {
+    const holds = hands.map((h) => fistOf(h, k)), both = hands.length === 2 && holds.every(Boolean);
+    return { edges: holds.map((f) => (both ? handEdgeHold : f ? handEdgeFist : handEdge)), bar: both ? holds : null };
+  }
   const controllerStem = model(({ box }) => box(0, 0, 0.5, 0.18, 0.18, 1, 0x51e3ee));
   // 🖐️ The wrist slate: what the corner of the screen says at a desk (who you
   // are, where, your deaths and braincells, the link) on a small card over the
@@ -1163,10 +1178,12 @@ export async function createView(canvas) {
     };
     const point = (p, size) => projector.draw(fingertip, eye.x+p.x*k, eye.y+p.y*k, eye.z+p.z*k, 0, 0, size*k);
     // ✋ A hand is its outline, not its bones (2026-11-27): up one side of each finger and down the other, the sides a finger's own thickness apart across the palm, joined at the knuckles and round the wrist. A hand seen in part (a joint untracked) falls back to its bones.
-    for (const hand of xr.hands) {
+    const inks = handInks(xr.hands);
+    if (inks.bar) segment(inks.bar[0], inks.bar[1], holdBar);
+    for (const [n, hand] of xr.hands.entries()) {
       drawTips(hand.fingers, eye, (j) => ({ x: eye.x + j.x * k, y: eye.y + j.y * k, z: eye.z + j.z * k }), k);
       const edge = handOutline(hand.fingers);
-      if (edge) { for (let i = 0; i < edge.length; i++) segment(edge[i], edge[(i + 1) % edge.length], handEdge); continue; }
+      if (edge) { for (let i = 0; i < edge.length; i++) segment(edge[i], edge[(i + 1) % edge.length], inks.edges[n]); continue; }
       for (const chain of hand.fingers) {
         for (let i = 1; i < chain.length; i++) segment(chain[i-1], chain[i], fingerBone);
         const tip = chain.at(-1);
@@ -2096,15 +2113,22 @@ export async function createView(canvas) {
       projector.bends = wrapped;
     }
     // ✋ Everyone else's hands, where they are in the room (a giant's, over it, when their room is on a table).
-    for (const far of farHands) for (const hand of far.hands) {
+    for (const far of farHands) {
+      // 👻 Its head: a pale block with a dark visor across the front, turned the way it looks.
+      if (far.head) { const [hx, hy, hz, hyaw, hpitch, hk] = far.head; projector.draw(ghostHead, hx, hy, hz, (hyaw * Math.PI) / 180, (-hpitch * Math.PI) / 180, hk); }
+      const size = (far.hands[0]?.fingers[0][0]?.radius || 0.008) / 0.008, inks = handInks(far.hands, size);
+      const line = (a, b, mesh) => { const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, length = Math.hypot(dx, dy, dz); if (length > 0.001) projector.draw(mesh, a.x, a.y, a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length); };
+      if (inks.bar) line(inks.bar[0], inks.bar[1], holdBar);
+     for (const [n, hand] of far.hands.entries()) {
       // (Their joints are in the room's metres already; their thickness says how many times life size they stand.)
       drawTips(hand.fingers.map((chain) => chain.map((j) => ({ ...j, radius: 0.008 }))), eye, (j) => j, (hand.fingers[0][0]?.radius || 0.008) / 0.008);
       const edge = handOutline(hand.fingers);
       if (!edge) continue;
       for (let i = 0; i < edge.length; i++) {
         const a = edge[i], b = edge[(i + 1) % edge.length], dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, length = Math.hypot(dx, dy, dz);
-        if (length > 0.001) projector.draw(handEdge, a.x, a.y, a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+        if (length > 0.001) projector.draw(inks.edges[n], a.x, a.y, a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
       }
+     }
     }
     if (xr) {
       projector.bends = false;
@@ -2340,6 +2364,8 @@ export async function createView(canvas) {
           pitch = (-holder.pitch * Math.PI) / 180;
           // First person: keep your own item out of the middle of the view.
           if (it.holder === seat && !third) at = { x: at.x, y: at.y - 0.1, z: at.z };
+          // 🔫 (In a headset, in the body: the thing is in the real right hand, pointing as the hand points.)
+          if (it.holder === seat && xr?.heldAt) at = { x: eye.x + xr.heldAt.x, y: eye.y + xr.heldAt.y - 0.02, z: eye.z + xr.heldAt.z };
         }
         if ((holder || it.spin) && object.geometry.format === OBJECT_FORMAT)
           draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS, roomPlanes, fistOf, grabStart, grabStep, turn, turnHeadset } from '../immersive.mjs';
+import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS, roomPlanes, fistOf, grabStart, grabStep, turn, turnHeadset, handAim, headPacked, headValid } from '../immersive.mjs';
 
 test('the room on a table: the eye is over the room as the head is over the table, times the room\'s smallness', () => {
   const table = { scale: 0.05, pivot: { x: 0, y: 0, z: 0 }, at: [0, -0.45, 0.6] };
@@ -124,4 +124,22 @@ test('two fists hold the world: what was under them stays under them as they mov
   const xr = turnHeadset({ offset: [1, 0, 0], forward: [0, 0, 1], rightAxis: [1, 0, 0], up: [0, 1, 0], yaw: 350, hands: [{ side: 'left', fingers: [[j(1, 0), undefined]] }], rays: [] }, Math.PI / 2);
   assert.ok(near(xr.offset, [0, 0, -1]) && near(xr.forward, [1, 0, 0]) && Math.abs(xr.yaw - 80) < 1e-9);
   assert.ok(Math.abs(xr.hands[0].fingers[0][0].z + 1) < 1e-9 && xr.hands[0].fingers[0][1] === undefined);
+});
+
+test('in the body the right hand aims the way it points, and its index finger curled in is the trigger', () => {
+  const j = (x, y, z) => ({ x, y, z });
+  const hand = (tip) => ({ side: 'right', fingers: [[j(0, 0, 0)], [j(0, 0, 0), j(0, 0, 0.03), j(0, 0, 0.09), j(0, 0, 0.12), j(0, 0, 0.14), tip]] });
+  const ahead = handAim({ hands: [hand(j(0, 0, 0.17))] });
+  assert.ok(Math.abs(ahead.yaw) < 1e-9 && Math.abs(ahead.pitch) < 1e-9 && ahead.pulled === false);
+  assert.equal(handAim({ hands: [hand(j(0, -0.04, 0.07))] }).pulled, true);
+  const up = handAim({ hands: [{ side: 'right', fingers: [[j(0, 0, 0)], [j(0, 0, 0), j(0, 0, 0), j(0.05, 0.05, 0), j(0, 0, 0), j(0, 0, 0), j(0.1, 0.1, 0)]] }] });
+  assert.ok(Math.abs(up.yaw - 90) < 1e-9 && Math.abs(up.pitch - 45) < 1e-9);
+  assert.equal(handAim({ hands: [{ side: 'left', fingers: [] }] }), null);
+});
+
+test('a ghost\'s head is told with its hands: where it is and the way it faces', () => {
+  const head = headPacked({ x: 1, y: 9, z: -12 }, [1, 1, 0], 20);
+  assert.deepEqual(head, [1, 9, -12, 90, 45, 20]);
+  assert.ok(headValid(head) && headValid(undefined));
+  assert.equal(headValid([1, 2, 3]), false); assert.equal(headValid([1, 2, 3, 0, 0, 0]), false);
 });
