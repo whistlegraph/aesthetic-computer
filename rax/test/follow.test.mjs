@@ -75,6 +75,35 @@ test('a following drone is brought to the room its own body walks into, and a fr
 
 const snap = (tick, x, extra = {}) => ({ tick, players: [{ x, y: 1.7, z: 0, yaw: 0, pitch: 0, life: 1, alive: true, ...extra }] });
 
+test('a room asked for by name is gone to: the body comes there, and the older screen looks on', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'rax-follow-named-'));
+  const app = createRaxServer({ guests: true, stateDir: dir, listHandles: async () => ['jeffrey'],
+    verifyIdentity: async (token) => ({ handle: token, sub: `account:${token}` }) });
+  await app.ready;
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const base = `ws://127.0.0.1:${app.server.address().port}/play?`;
+  t.after(async () => { await app.close(); await rm(dir, { recursive: true, force: true }); });
+  const connect = async (room) => {
+    const ws = new WebSocket(base + new URLSearchParams({ room, protocol: PROTOCOL, stay: '1', account: '1' })), messages = [];
+    ws.on('message', (raw) => messages.push(JSON.parse(raw)));
+    await once(ws, 'open');
+    ws.send(JSON.stringify({ type: 'identity' }));
+    ws.send(JSON.stringify({ type: 'account', accessToken: 'jeffrey' }));
+    t.after(() => ws.close());
+    return { ws, messages };
+  };
+  const seen = () => [...app.rooms.entries()].flatMap(([key, r]) => [...r.sessions.values()].map((m) => ({ key, m })));
+  const plaza = await connect('lobby');
+  await wait(() => seen().some(({ key, m }) => key === 'lobby' && m.seat >= 0));
+  const named = await connect('studio');
+  await wait(() => seen().some(({ key, m }) => key === 'studio' && m.seat >= 0));
+  await delay(300);
+  assert.equal(named.messages.some((m) => m.type === 'travel'), false, 'the screen in the named room is not sent to the body');
+  assert.deepEqual(seen().filter(({ m }) => m.seat >= 0).map(({ key }) => key), ['studio'], 'one body, and it stands in the named room');
+  assert.ok(seen().some(({ key, m }) => key === 'lobby' && m.seat < 0), 'the older screen looks on');
+});
+
 test('a watched walk goes on through a quiet wire, at its own pace, for a fifth of a second', () => {
   const clock = new SnapshotClock(), history = [];
   const frame = 1000 / 120, step = 0.1; // metres a tick

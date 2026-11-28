@@ -30,7 +30,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -1287,7 +1287,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // Kept in memory only, to read this player's braincells.
       member.token = paired ? null : token;
       void refreshBraincells(ws, member);
-      if (incumbent && room !== incumbent.room && !passageAsked && room.counterpart(person) === member) {
+      // (🪞 A newer screen comes to where the handle's body stands. Not out of a
+      // room asked for by name or a game's arena, though: nobody arrives there
+      // except by asking, so the body comes to it instead — assign() below
+      // seats this newest screen, and the older one looks on.)
+      if (incumbent && room !== incumbent.room && !passageAsked && worldPlace(key) && room.counterpart(person) === member) {
         const body = incumbent.room.match.seats[incumbent.seat]?.player;
         if (body) relocate(incumbent.room.key, bodyPose(body));
       }
