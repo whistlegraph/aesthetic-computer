@@ -33,6 +33,17 @@ try {
   await page.mouse.click(480, 300); // (the first click: sound and the mouse)
   const shot = async (name) => { await page.screenshot({ path: join(out, `${name}.png`) }); };
   await shot('00-arrived');
+  // (LOOK=office: off the south edge on to the fire escape, in at the door, and a look round the office.)
+  if (process.env.LOOK === 'office') {
+    await page.evaluate(() => window.rax.walkTo({ x: 0, z: -7 }, { within: 0.3, seconds: 8 })).catch(() => {});
+    await page.evaluate(() => { window.rax.look({ yaw: 180 }); return window.rax.move({ fwd: 0.3, seconds: 3.5 }); });
+    await delay(800); await shot('01-landing');
+    await page.evaluate(() => { window.rax.look({ yaw: 0 }); return window.rax.move({ fwd: 0.6, seconds: 2.5 }); });
+    await shot('02-inside');
+    await page.evaluate(() => window.rax.look({ yaw: 60, pitch: -5 })); await delay(600); await shot('03-inside-east');
+    console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 8), you: (await state())?.you }, null, 1));
+    await browser.close(); await app.close(); process.exit(0);
+  }
   // (LOOK_YAW=270 LOOK_PITCH=10: stand and look that way instead of walking to the gun.)
   if (process.env.LOOK_YAW) { await page.evaluate(([y, p]) => window.rax.look({ yaw: y, pitch: p }), [Number(process.env.LOOK_YAW), Number(process.env.LOOK_PITCH || 0)]); for (let s = 1; s <= seconds; s++) { await delay(1000); await shot(`${String(s).padStart(2, '0')}-look`); } console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 8), walls: await page.evaluate(() => window.raxDebug?.()?.walls ?? null) }, null, 1)); await browser.close(); await app.close(); process.exit(0); }
   void page.evaluate(() => window.rax.walkTo({ x: 0, z: 0 }, { within: 0.4, seconds: 12 }));

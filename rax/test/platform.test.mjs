@@ -69,3 +69,21 @@ test('the fire escape: stepped off the roof a body lands on the landing and clim
   p = go({ ...spawn(0), x: 0, z: -6, yaw: 90 }, { ...east, fwd: 1 }, 600);
   assert.ok(p.y < FALL_Y, 'the street');
 });
+
+import { inOffice, OFFICE_DOOR } from '../world.mjs';
+test('the office under the roof: from the landing a body walks in at the door and stands on its floor under the roof; beside the door the wall stops it', () => {
+  const fixed = roofBoxes(WORLD), north = { yaw: 0, pitch: 0, right: 0, buttons: 0, fwd: 0.6 };
+  const on = { ...spawn(0), y: CFG.eyeHeight - ESCAPE_DROP, onGround: true, yaw: 0, z: -WORLD - 1.2 };
+  let p = { ...on, x: 0 };
+  for (let i = 0; i < 240; i++) p = move(p, north, [], 0, fixed);
+  assert.ok(inOffice(p, WORLD), `inside: z ${p.z}`);
+  assert.ok(p.onGround && Math.abs(p.y - (CFG.eyeHeight - ESCAPE_DROP)) < 0.01, `on the office floor: y ${p.y}`);
+  assert.ok(p.z < WORLD, 'and stopped by the far wall');
+  let q = { ...on, x: OFFICE_DOOR + 2 };
+  for (let i = 0; i < 240; i++) q = move(q, north, [], 0, fixed);
+  assert.ok(q.z < -WORLD + 0.2, `the wall beside the door holds: z ${q.z}`);
+  // On the roof nothing of the office is felt.
+  let r = { ...spawn(0), x: 0, z: -7, yaw: 0 };
+  for (let i = 0; i < 120; i++) r = move(r, north, [], 0, fixed);
+  assert.ok(r.z > -5 && Math.abs(r.y - CFG.eyeHeight) < 0.01);
+});

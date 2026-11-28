@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf, TOWER_DROP, CLOCK, BELL_MS, BILLBOARD, STAGE } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf, TOWER_DROP, CLOCK, BELL_MS, BILLBOARD, STAGE, inOffice } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
@@ -3324,6 +3324,7 @@ function stepXRStops(xr) {
   xr.table = xrTable;
   xr.nextView = stops[(Math.min(xrStop, stops.length - 1) + 1) % stops.length].label; // (the slate's foot says it: view.mjs)
 }
+let mouseFiring = false, lastShotAt = -Infinity; // (for the gun's picture on the keys and mouse: whether the button is down, and when this page last fired)
 const TRIGGER_BREAK = 0.62, TRIGGER_RESET = 0.3;
 let rtArmed = true, rtFiredAt = -Infinity, rtCurve = [];
 // 🎞️ The replay: `at` when this body went down and `tick` the room's tick then. REPLAY_WAIT after it, the REPLAY_BACK seconds before it are shown again, on to a little past the end, and round again while the body lies.
@@ -3774,7 +3775,9 @@ function step(now, xr) {
     if (rtArmed && rt >= TRIGGER_BREAK) { rtArmed = false; rtFiredAt = now; if (!typing() && !radial.open && !menu && !chalkMode) useQueued = true; }
     else if (!rtArmed && rt < TRIGGER_RESET) rtArmed = true;
     rtCurve.push(rt); if (rtCurve.length > 64) rtCurve.shift();
-  } else { rtArmed = true; if (rtCurve.length) rtCurve = []; }
+    // 🔊 The squeeze is heard: a thin tone that climbs with the pressure, tight as the break comes, and gone as the trigger is let back.
+    sfx.squeeze(rt, TRIGGER_BREAK, rtArmed);
+  } else { rtArmed = true; if (rtCurve.length) rtCurve = []; sfx.squeeze(0, TRIGGER_BREAK, true); }
   if (gamepad.use && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode && holding() && !(gunHeld && controller.id))
     useQueued = true;
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
@@ -4053,6 +4056,7 @@ function step(now, xr) {
     jumpQueued = fireQueued = useQueued = dropQueued = bikeQueued = false;
     pending.push(c);
     // 🔫 A shot leaves the hand now, not a round trip from now (rounds.mjs).
+    if (c.use && player && player.alive !== false && heldKind() === 'shoot') lastShotAt = performance.now();
     if (c.use && player && player.alive !== false && heldKind() === 'shoot') rounds.fire({ ...player, yaw: c.yaw, pitch: c.pitch }, undefined, heldMuzzle());
     if (carrying) {
       held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk: held.walk, until: held.until };
@@ -4381,7 +4385,8 @@ function step(now, xr) {
       : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'grab', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode(), verb: 'grab' }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
-    trigger: rtCurve.length > 1 ? { curve: rtCurve, breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: rtFiredAt } : null,
+    // (With a gun in hand: always, so the gun's own picture is there; the pressure's line only where a pad gives pressure.)
+    trigger: seat >= 0 && heldKind() === 'shoot' ? { curve: rtCurve, value: rtCurve.at(-1) ?? (keys.has('KeyF') || mouseFiring ? 1 : 0), breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: Math.max(rtFiredAt, lastShotAt) } : null,
     stage: !!snapshot?.heads, // 👹 heads fly here: no painting, no building, and the controls say so
     roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it
     ammo: seat >= 0 ? snapshot?.items?.find((it) => it.holder === seat && it.kind === 'shoot')?.ammo ?? null : null,
@@ -4410,7 +4415,8 @@ function step(now, xr) {
     })() : null,
     sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
-    third: !xr && (third || !!game()?.camera || (seat >= 0 && player?.alive === false)), // (☠️ down: the camera steps back, so the body is seen to come apart before it stands again)
+    // (🏢 In the office the camera is the body's own eye: a camera on a boom behind it would be the other side of a wall.)
+    third: !xr && (third || !!game()?.camera || (seat >= 0 && player?.alive === false)) && !(platformSlab() && inOffice(player, half())), // (☠️ down: the camera steps back, so the body is seen to come apart before it stands again)
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],

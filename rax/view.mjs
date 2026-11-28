@@ -255,7 +255,7 @@ import {
   clamp,
   PLATFORM_DEPTH,
   TOWER_DROP,
-  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN, CLOCK, BELL_MS,
+  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN, CLOCK, BELL_MS, OFFICE_DOOR, OFFICE_WALL, inOffice,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -385,7 +385,7 @@ export async function createView(canvas) {
     model(({ box }) => {
       const drop = TOWER_DROP;
       if (part === 'shaft') {
-        const shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
+        const shaft = 2 * W - 1.2, top = -ESCAPE_DROP - 0.22; // (from under the office's floor down)
         box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
         for (let y = top - 2; y > -drop + 2; y -= 3.4) {
           // (Glass: a lit room behind it, or the sky in it. An unlit pane takes the sky's own colour, paler toward its top as the sky is, so the tower's faces read as mirror, not as holes.)
@@ -453,6 +453,30 @@ export async function createView(canvas) {
           const rise = ESCAPE_DROP / ESCAPE_STEPS;
           for (const side of [1, -1]) for (let k = 0; k < ESCAPE_STEPS; k++)
             box(side * (W + 0.65), top + ((k + 1) * rise) / 2, side * (-2 + (k + 0.5) * ESCAPE_RUN), 1.3, (k + 1) * rise, ESCAPE_RUN, k % 2 ? 0x4a5061 : iron, dark, dark);
+        }
+        if (!tower) return;
+        // 🏢 The office under the roof (world.mjs roofBoxes): a carpet, four pale walls with a band of window in each and a door in the south one, strip lights on the ceiling, a few desks. Its north wall carries the AC prompt (ac-window.mjs).
+        {
+          const floor = -ESCAPE_DROP, roofUnder = -PLATFORM_DEPTH, tall = roofUnder - floor, mid = floor + tall / 2, t = OFFICE_WALL, wallInk = 0xd9d4c7, shade = 0xb9b4a8;
+          box(0, floor - 0.1, 0, 2 * W, 0.2, 2 * W, 0x4b5a6b, 0x3c4856, 0x3c4856); // the carpet
+          box(0, roofUnder - 0.02, 0, 2 * W - 2 * t, 0.04, 2 * W - 2 * t, 0xe9e6dd, 0xe9e6dd, 0xe9e6dd); // the ceiling
+          for (let x = -W + 2; x < W; x += 4) box(x, roofUnder - 0.06, 0, 0.5, 0.04, 2 * W - 3, 0xfff6d8, 0xfff6d8, 0xfff6d8); // strip lights
+          const wallRun = (cx, cz, w, d) => {
+            // (A wall is three courses: sill, a band of glass, and the head over it.)
+            box(cx, floor + 0.45, cz, w, 0.9, d, wallInk, shade, shade);
+            box(cx, floor + 1.35, cz, w, 0.9, d, 0x7fb6d6, 0x6aa0c0, 0x6aa0c0);
+            box(cx, roofUnder - (tall - 1.8) / 2, cz, w, tall - 1.8, d, wallInk, shade, shade);
+          };
+          wallRun(0, W - t / 2, 2 * W, t); wallRun(W - t / 2, 0, t, 2 * W - 2 * t); wallRun(-W + t / 2, 0, t, 2 * W - 2 * t);
+          const side = W - OFFICE_DOOR;
+          wallRun(-(OFFICE_DOOR + side / 2), -W + t / 2, side, t); wallRun(OFFICE_DOOR + side / 2, -W + t / 2, side, t);
+          box(0, roofUnder - 0.15, -W + t / 2, 2 * OFFICE_DOOR, 0.3, t, shade, shade, shade); // the door's head
+          for (const [x, z] of [[-4.5, -2], [4.5, -2], [-4.5, 2.5], [4.5, 2.5]]) {
+            box(x, floor + 0.72, z, 1.6, 0.06, 0.8, 0xc9a27a, 0xa9855f, 0xa9855f); // a desk top
+            for (const [dx, dz] of [[-0.74, -0.34], [0.74, -0.34], [-0.74, 0.34], [0.74, 0.34]]) box(x + dx, floor + 0.36, z + dz, 0.06, 0.72, 0.06, 0x5a5f70, 0x5a5f70, 0x5a5f70);
+            box(x, floor + 0.98, z + 0.2, 0.5, 0.34, 0.05, 0x10131c, 0x10131c, 0x10131c); // its screen
+          }
+          box(0, mid + 0.05, W - t - 0.06, 3.2, 2.0, 0.06, 0x2a2d3a, 0x22252f, 0x2a2d3a); // the board behind the prompt
         }
         return;
       }
@@ -2385,7 +2409,7 @@ export async function createView(canvas) {
       // 🏙️ Round a roof, when the room is not the small thing behind the prompt: the city, a shape at a time. The shaft under the roof is not drawn at all while the eye is over the roof (it cannot be seen from there: only from the fire escape, in the air beside it, or from the street).
       if (!game && !(orbit > 0.02)) {
         const city = (part) => { const k = `${half}:${paletteName}:${part}`; if (!arenas.has(k)) arenas.set(k, buildCity(PALETTES[paletteName], half, part)); return arenas.get(k); };
-        const over = eye.y > 0.05 && Math.abs(eye.x) < half + 0.5 && Math.abs(eye.z) < half + 0.5;
+        const over = (eye.y > 0.05 && Math.abs(eye.x) < half + 0.5 && Math.abs(eye.z) < half + 0.5) || inOffice(eye, half); // (nor from inside the office, whose floor is over it)
         if (!over) draw(city('shaft'));
         draw(city('street')); draw(city('clock')); draw(city('board'));
       }
@@ -4239,11 +4263,26 @@ export async function createView(canvas) {
     }
     // 🔫 The trigger's travel, bottom centre, with a gun in hand on a pad: its pressure over the last second as a line, the break point across it (the shot goes as the line crosses it) and under that the point it must come back to. The line is white, green for the moment after it breaks, and dim while the trigger has yet to be let back.
     if (trigger && !bare && !radial && !menu && !xr) {
-      const { unit } = hud, cols = 64, tall = 18 * unit, wide = cols * unit;
-      const at = hudPack.reserve('trigger', 'bc', wide + 2 * unit, tall + 4 * unit), x = at.x - W / 2 + unit, y = H / 2 - at.y - at.h + 2 * unit;
+      const { unit } = hud, graph = trigger.curve.length > 1, cols = graph ? 64 : 0, tall = 18 * unit, wide = cols * unit, gunW = 34 * unit;
+      const at = hudPack.reserve('trigger', 'bc', gunW + (graph ? wide + 4 * unit : 0) + 2 * unit, tall + 4 * unit);
+      const gx = at.x - W / 2 + unit, x = gx + gunW + (graph ? 3 * unit : 0), y = H / 2 - at.y - at.h + 2 * unit;
       const fresh = now - trigger.firedAt < 160, ink = fresh ? 0x7dff7a : trigger.armed ? 0xffffff : 0x8b90a0;
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
+        // 🔫 The gun, from its side, in the flat: its slide and barrel, its grip, the guard, and the trigger itself, which goes back with the finger's pressure (and the slide kicks back for the moment after a shot). So the hand is seen as well as its line.
+        {
+          const px = (cx, cy, w, h, c, z = 0) => rect(gx + cx * unit, y + cy * unit, z, w * unit, h * unit, c);
+          const kick = fresh ? 2 : 0, pull = Math.round(Math.max(0, Math.min(1, trigger.value ?? 0)) * 4), body = 0x8b90a0, dark = 0x5a5f70;
+          px(-1, -1, 34, 20, 0x10131c, 0.000004); // its plate
+          px(4 - kick, 13, 24, 4, body, 0.000001); px(4 - kick, 12, 22, 1, 0xb9bfd0, 0.000001); // the slide
+          px(26, 12, 3, 1, dark); px(28 - kick, 14, 3, 2, 0x10131c); // the front sight and the muzzle
+          px(6, 10, 18, 3, dark, 0.000001); // the frame
+          for (let r = 0; r < 8; r++) px(5 + Math.floor(r / 3), 9 - r, 6, 1, r % 2 ? 0x4a4f5e : dark, 0.000001); // the grip, raked back
+          px(12, 5, 8, 1, dark); px(19, 6, 1, 4, dark); px(12, 6, 1, 4, dark); // the guard
+          px(16 - pull, 6, 2, 4, fresh ? 0x7dff7a : pull ? 0xffe066 : 0xf2f2f2); // the trigger
+          if (fresh) { px(31, 14, 2, 2, 0xfff3c4); px(33, 13, 1, 4, 0xffb000); } // the flash
+        }
+        if (!graph) return;
         rect(x - unit, y - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, 0x10131c);
         rect(x, y + Math.round((tall * trigger.breakAt) / unit) * unit, 0.000002, wide, unit, 0xff5a5f);
         rect(x, y + Math.round((tall * trigger.resetAt) / unit) * unit, 0.000002, wide, unit, 0x39405a);

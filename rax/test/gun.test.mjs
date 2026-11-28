@@ -95,6 +95,6 @@ test('off a platform a round meets no wall and no floor: only the block', () => 
   assert.equal(surfaceHit({ x: WORLD + 3, y: 5, z: 0 }, down, 100, [], 0, WORLD, null, slab), null, 'no floor beside the block');
   const top = surfaceHit({ x: 0, y: 5, z: 0 }, down, 100, [], 0, WORLD, null, slab);
   assert.ok(top && Math.abs(top.t - 5) < 1e-9 && top.normal.y === 1, 'the block\'s top is floor');
-  const side = surfaceHit({ x: WORLD + 3, y: -1, z: 0 }, { x: -1, y: 0, z: 0 }, 100, [], 0, WORLD, null, slab);
+  const side = surfaceHit({ x: WORLD + 3, y: -0.2, z: 0 }, { x: -1, y: 0, z: 0 }, 100, [], 0, WORLD, null, slab);
   assert.ok(side && side.normal.x === 1, 'and its side is a wall');
 });

@@ -30,6 +30,8 @@ export const AC_WINDOWS = [
   // (behind the $rbc screen that stands at z -1.5 in the studio, facing the same way)
   { id: 'ac-laer-klokken', piece: 'laer-klokken', rooms: ['studio'], x: 0, y: 1.5, z: 2, yaw: 0, ...FACE },
   { id: 'ac-prompt', piece: 'prompt', rooms: ['studio'], x: -5.2, y: 1.5, z: 2, yaw: 0, ...FACE },
+  // 🏢 (in the office under home's roof: on its north wall, facing the door)
+  { id: 'ac-office-prompt', piece: 'prompt', rooms: [HOME_ROOM], x: 0, y: -1.45, z: 7.2, yaw: 0, w: 2.88, h: 1.8, cols: 320, rows: 200 },
 ];
 
 export const WAKE = 9, REST_MS = 30000;

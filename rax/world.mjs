@@ -119,7 +119,8 @@ export const WALLS = wallsOf(WORLD);
 // It rides among a room's fixed boxes, marked `slab`; move() takes it from there.
 // 🏙️ (2026-11-27: the platform is the roof of a skyscraper. TOWER_DROP metres down is the street, and a body that falls that far has hit it: FALL_Y, the eye's height over the street.)
 export const TOWER_DROP = 120;
-export const PLATFORM_DEPTH = 2, FALL_Y = -TOWER_DROP + 1.6;
+// (The roof is a slab forty centimetres thick now, not two metres: under it is a storey to walk in. 2026-11-28.)
+export const PLATFORM_DEPTH = 0.4, FALL_Y = -TOWER_DROP + 1.6;
 const ABYSS = -1e4;
 const slabs = new Map();
 export function slabOf(half = WORLD) {
@@ -143,6 +144,9 @@ export const BILLBOARD = { handle: 'fifi', code: 'xqk' }; // (whose KidLisp it s
 // `platform` is stood on from above, a `stair` is climbed, the rest are solid).
 // (Ten steps of 26 cm: a body steps up 32 cm at the most, and eight of 32.5 were a wall.)
 export const ESCAPE_DROP = 2.6, ESCAPE_WIDE = 2.4, ESCAPE_STEPS = 10, ESCAPE_RAIL = 1, ESCAPE_RUN = 0.64;
+export const OFFICE_DOOR = 1.1, OFFICE_WALL = 0.3;
+// Whether a point is in the office (under the roof, over its floor, inside its walls): the camera is the body's own eye there.
+export const inOffice = (p, half = WORLD) => !!p && p.y < 0 && p.y > -ESCAPE_DROP - 0.5 && Math.abs(p.x) < half && Math.abs(p.z) < half;
 const roofs = new Map();
 export function roofBoxes(half = WORLD) {
   if (!roofs.has(half)) {
@@ -157,6 +161,13 @@ export function roofBoxes(half = WORLD) {
       const z0 = side * (-2 + k * run), z1 = side * (-2 + (k + 1) * run);
       list.push({ ...box(side > 0 ? half : -half - 1.3, side > 0 ? half + 1.3 : -half, top, top + (k + 1) * rise, Math.min(z0, z1), Math.max(z0, z1)), stair: true, escape: 'step' });
     }
+    // 🏢 The office: the storey under the roof, its floor level with the fire escape's landing and its ceiling the roof's underside. Four walls just inside the roof's edge, with a door in the south one (OFFICE_DOOR to either side of the middle) on to the landing. Walked in to from the fire escape; no way up through the roof.
+    list.push({ ...box(-half, half, top - 0.2, top, -half, half), platform: true, office: 'floor' });
+    list.push({ ...box(-half, half, -PLATFORM_DEPTH, -PLATFORM_DEPTH + 0.05, -half, half), ceiling: true, office: 'ceiling' });
+    const wall = (xMin, xMax, zMin, zMax) => list.push({ ...box(xMin, xMax, top, -PLATFORM_DEPTH, zMin, zMax), office: 'wall' });
+    const thick = OFFICE_WALL;
+    wall(-half, half, half - thick, half); wall(half - thick, half, -half, half); wall(-half, -half + thick, -half, half);
+    wall(-half, -OFFICE_DOOR, -half, -half + thick); wall(OFFICE_DOOR, half, -half, -half + thick);
     roofs.set(half, list);
   }
   return roofs.get(half);

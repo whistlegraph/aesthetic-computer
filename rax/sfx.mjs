@@ -43,6 +43,22 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 🔫 The trigger's squeeze, held as one voice while a gun is in hand on a pad: silent at rest, a thin sine from the first pressure that climbs toward the break (an octave over its travel), a little rougher in the last tenth before it; quiet again while the trigger has yet to be let back.
+  squeeze(pressure, breakAt = 0.62, armed = true) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.squeezeVoice) {
+      if (pressure < 0.03) return;
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; g.gain.value = 0;
+      o.connect(g).connect(a.destination); o.start();
+      this.squeezeVoice = { o, g };
+    }
+    const v = this.squeezeVoice, travel = Math.min(1, pressure / breakAt);
+    v.o.type = travel > 0.9 && armed ? 'triangle' : 'sine';
+    v.o.frequency.setTargetAtTime(330 * 2 ** travel, t, 0.02);
+    v.g.gain.setTargetAtTime(armed && pressure >= 0.03 ? (0.006 + 0.02 * travel) * MASTER : 0, t, 0.03);
+  }
   // 🕰️ The clock tower's seconds, where it stands. Not one tick over and over: each second is a note of a slow tune that takes the fifteen seconds between two bells to go round (a pentatonic music box, low then climbing toward the bell), a soft sine with its octave ringing over it, the last three seconds before the bell rising and louder: it is heard coming.
   clockTick(at, second = 0) {
     if (!this.ready) return;
