@@ -4384,7 +4384,7 @@ function step(now, xr) {
     goal: restartAt && now - restartAt < 20000 ? { text: now < restartAt ? 'a new rax is shipping' : 'coming back', count: now < restartAt ? `${Math.ceil((restartAt - now) / 1000)}s` : '', sub: 'you will be right back', color: 0x7dff7a }
       : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'grab', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode(), verb: 'grab' }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
-      : { text: `wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
+      : { text: `wait for wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
     // (With a gun in hand: always, so the gun's own picture is there; the pressure's line only where a pad gives pressure.)
     stickAim: gamepad?.lookRaw ? { x: gamepad.lookRaw[0], y: gamepad.lookRaw[1], dead: gamepad.lookDead } : null,
     trigger: seat >= 0 && heldKind() === 'shoot' ? { curve: rtCurve, value: rtCurve.at(-1) ?? (keys.has('KeyF') || mouseFiring ? 1 : 0), breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: Math.max(rtFiredAt, lastShotAt) } : null,
