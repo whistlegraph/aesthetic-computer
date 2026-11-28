@@ -1,0 +1,49 @@
+// 👀 A look at the stage, in pictures: a local rax, one signed-in body, and a
+// screenshot each second while it walks to the gun, the heads come, and it is
+// bitten. For whoever changes the HUD or the heads and cannot see a screen.
+//   node rax/test/look-browser.mjs <out-dir> [seconds]
+import { once } from 'node:events';
+import { existsSync } from 'node:fs';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { chromium } from 'playwright';
+import { createRaxServer } from '../server.mjs';
+
+const out = process.argv[2], seconds = Number(process.argv[3] || 26);
+if (!out) { console.error('look-browser.mjs <out-dir> [seconds]'); process.exit(1); }
+await mkdir(out, { recursive: true });
+const dir = await mkdtemp(join(tmpdir(), 'rax-look-'));
+const app = createRaxServer({ guests: true, stateDir: dir, listHandles: async () => ['jeffrey'],
+  verifyIdentity: async (token) => ({ handle: token, sub: `account:${token}` }) });
+await app.ready;
+app.server.listen(0, '127.0.0.1');
+await once(app.server, 'listening');
+const browser = await chromium.launch({ ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}), headless: true, args: ['--enable-unsafe-webgpu'] });
+try {
+  const errors = [];
+  const page = await (await browser.newContext({ viewport: { width: 960, height: 600 } })).newPage();
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 900)); });
+  await page.addInitScript(() => { window.acTOKEN = 'jeffrey'; });
+  await page.goto(`http://127.0.0.1:${app.server.address().port}/?debug`);
+  const state = () => page.evaluate(() => window.rax?.state());
+  for (const end = Date.now() + 20000; Date.now() < end; await delay(100)) { const s = await state(); if (s?.connected && s.you.seated && s.you.x !== null) break; }
+  await page.mouse.click(480, 300); // (the first click: sound and the mouse)
+  const shot = async (name) => { await page.screenshot({ path: join(out, `${name}.png`) }); };
+  await shot('00-arrived');
+  void page.evaluate(() => window.rax.walkTo({ x: 0, z: 0 }, { within: 0.4, seconds: 12 }));
+  for (let s = 1; s <= seconds; s++) {
+    await delay(1000);
+    // (Then off the roof: the fall, the street, and standing again.)
+    if (s === Number(process.argv[4] || 9)) void page.evaluate(() => { window.rax.look({ yaw: 90 }); return window.rax.move({ fwd: 1, seconds: 6 }); }).catch(() => {});
+    const st = await state();
+    await shot(`${String(s).padStart(2, '0')}-${st?.you?.alive === false ? 'down' : 'up'}`);
+  }
+  console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 8), last: (await state())?.you }, null, 1));
+} finally {
+  await browser.close();
+  await app.close();
+  await rm(dir, { recursive: true, force: true }).catch(() => {});
+}

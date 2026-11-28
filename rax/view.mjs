@@ -377,7 +377,7 @@ export async function createView(canvas) {
   // (walled false: a floating platform — the same floor on a slab, nothing
   // around it but the sky. A room made by name is one, 2026-11-27; a game's
   // arena keeps its walls. The slab is a block, PLATFORM_DEPTH deep, and a body walks off its edge: world.mjs slabOf.)
-  const buildArena = (p, W = WORLD, walled = true) =>
+  const buildArena = (p, W = WORLD, walled = true, tower = true) =>
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
       // centimetre under the floor it z-fought from any distance.)
@@ -395,6 +395,7 @@ export async function createView(canvas) {
       if (!walled) {
         // The slab under the floor (its top a hair below, so the two never fight), each side in its wall's colour.
         box(0, -0.06 - PLATFORM_DEPTH / 2, 0, 2 * W, PLATFORM_DEPTH, 2 * W, p.floor, p.walls.east, p.walls.north);
+        if (!tower) return;
         // 🏙️ Under it, the skyscraper it is the roof of: a shaft a little narrower than the roof, a band of lit windows on every storey, down to the street; and round it the street, with the roofs of lower buildings to fall past.
         const drop = TOWER_DROP, shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
         box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
@@ -1146,8 +1147,25 @@ export async function createView(canvas) {
   const HEAD_TRAIL = [0xff3b3b, 0xff8a1e, 0xffe066, 0x7dff7a, 0x51e3ee, 0xb46bff, 0xff6ad5].map((c) => model(({ box }) => box(0, 0, 0, 0.1, 0.1, 0.1, c, c, c)));
   const sightLines = new Map();
   const sightLine = (color) => { if (!sightLines.has(color)) sightLines.set(color, model(({ box }) => box(0, 0, 0.5, 0.006, 0.006, 1, color, color, color))); return sightLines.get(color); };
-  const weaponGlow = model(({ box }) => { for (const [x, z, w, d] of [[0, 0.45, 0.94, 0.04], [0, -0.45, 0.94, 0.04], [0.45, 0, 0.04, 0.94], [-0.45, 0, 0.04, 0.94]]) box(x, 0, z, w, 0.03, d, 0xffe066, 0xffc400, 0xffe066); });
-  const weaponBeam = model(({ box }) => { for (const [x, z] of [[0.05, 0.05], [-0.05, -0.05]]) box(x, 1.6, z, 0.02, 2.4, 0.02, 0xfff3c4, 0xffe066, 0xfff3c4); });
+  // ✨ A thing's outline: the twelve edges of each of its parts, a hair proud of the part, as thin bars. Made once for each version of each thing, in two colours to breathe between.
+  const outlines = new Map();
+  function outlineOf(object, lit) {
+    const key = `${object.id}@${object.version}:${lit}`;
+    if (!outlines.has(key)) {
+      if (outlines.size > 64) outlines.clear();
+      const color = lit ? 0xffffff : 0xffe066, t = 0.014, proud = 0.012;
+      outlines.set(key, model(({ box }) => {
+        for (const b of object.geometry?.boxes || []) {
+          const c = Math.abs(Math.cos(b.roll || 0)), s = Math.abs(Math.sin(b.roll || 0));
+          const w = b.w * c + b.h * s + 2 * proud, h = b.h * c + b.w * s + 2 * proud, d = b.d + 2 * proud;
+          for (const sy of [-1, 1]) for (const sz of [-1, 1]) box(b.x, b.y + (sy * h) / 2, b.z + (sz * d) / 2, w + t, t, t, color, color, color); // the four along x
+          for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(b.x + (sx * w) / 2, b.y, b.z + (sz * d) / 2, t, h + t, t, color, color, color); // …along y
+          for (const sx of [-1, 1]) for (const sy of [-1, 1]) box(b.x + (sx * w) / 2, b.y + (sy * h) / 2, b.z, t, t, d + t, color, color, color); // …along z
+        }
+      }));
+    }
+    return outlines.get(key);
+  }
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -1811,6 +1829,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    stage = false, // 👹 the room is the stage: painting and building are off
     roof = false, // 🏙️ the room is a roof over a street (a platform): the planet and its hollow are not under it
     ammo = null, // 🔫 rounds left in the gun in hand, or null
     goal = null, // 🎯 { text, count, sub, color }: what there is to do here, across the top of the screen
@@ -2252,8 +2271,9 @@ export async function createView(canvas) {
     else if (half === WORLD && game) draw(arena);
     else {
       // A room made by name stands in the open, on a platform; a game's arena has its walls.
-      const kind = `${half}:${game ? 'walled' : 'open'}`;
-      if (!arenas.has(kind)) arenas.set(kind, buildArena(PALETTES[paletteName], half, !!game));
+      // (Behind the prompt's curtain the room is a small thing in a corner: only the roof is drawn there. The tower under it and the street, four hundred metres of them, ran out over the whole prompt.)
+      const kind = `${half}:${game ? 'walled' : 'open'}:${orbit > 0.02 ? 'roof' : 'tower'}`;
+      if (!arenas.has(kind)) arenas.set(kind, buildArena(PALETTES[paletteName], half, !!game, !(orbit > 0.02)));
       draw(arenas.get(kind));
     }
     for (const m of staged) {
@@ -2448,12 +2468,9 @@ export async function createView(canvas) {
           draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
         else stand(object, at.x - object.x, at.z - object.z, at.y);
         // ✨ A weapon lying loose glows, so it is known from the things that only stand there: two square rings of light turning about it, breathing, and a thin beam up from it.
-        if (!holder && object.item === 'shoot' && it.y > -10) {
-          const beat = 1 + Math.sin(now / 260) * 0.12;
-          draw(weaponGlow, it.x, (it.y || 0) + 0.06, it.z, now / 700, 0, beat);
-          draw(weaponGlow, it.x, (it.y || 0) + 0.34, it.z, -now / 500, 0, beat * 0.7);
-          draw(weaponBeam, it.x, (it.y || 0), it.z, now / 1100);
-        }
+        // (Its own outline, not a tower of light over it: every edge of every part of the thing, drawn a little proud of it in a yellow that breathes to white, so the highlight is the thing's own form.)
+        if (!holder && object.item === 'shoot' && it.y > -10)
+          draw(outlineOf(object, Math.floor(now / 220) % 2), it.x, it.y || 0, it.z, it.spin ? (now / 1000) * it.spin : 0);
         continue;
       }
       stand(object, 0, 0);
@@ -2832,7 +2849,7 @@ export async function createView(canvas) {
           : spectator ? pad ? '[X] lock on' : '{f} lock on' : o.owner === owner
             ? pad ? '[RB] lock on' : '{enter} change / {f} lock on'
             : pad ? '[RB] lock on' : '{f} lock on';
-      const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
+      const paintHint = !stage && !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
       // Locked on, the top-right controls become the lock's own, row for
       // row in the hand in use (2026-11-08).
@@ -2877,7 +2894,7 @@ export async function createView(canvas) {
         : car
           ? pad ? '[DV] tap a floor / hold for roof or B1' : '{enter} pick a floor'
         : paintHint ? paintHint
-        : pad ? null : '{enter} to build');
+        : pad || stage ? null : '{enter} to build');
       const building = jobs.find((j) => j.owner === owner) || jobs[0];
       const elapsed = building
         ? Math.max(0, Math.floor((Date.now() - building.startedAt) / 1000))
@@ -2953,7 +2970,7 @@ export async function createView(canvas) {
         : [
               // The controls for the hand in use, until the player has played
               // a while (H, on the keys, brings them back).
-              ...(showLegend ? legendRows(input, held, game?.legend || LEGEND) : []),
+              ...(showLegend ? legendRows(input, held, game?.legend || LEGEND).filter((row) => !stage || !row.some((span) => /paint|build/.test(span.text || ''))) : []),
               ...(spectator
                 ? [
                     // Looking on. (No way in is offered here: signing up
@@ -3025,7 +3042,7 @@ export async function createView(canvas) {
               const ew = smallSpanWidth(escHint, unit);
               drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - hintOffset - 2 * unit, unit, { shadow: INK, tiny: true });
             }
-          } else {
+          } else if (legendAt) { // (no rows, no room asked: nothing to draw. Without this the whole frame stopped here whenever the controls were away, as they are while down, and everything drawn after them was lost: 2026-11-27.)
             // The controls and the hint, bottom-right, compact: MatrixChunky8
             // with small key caps and badges (2026-11-08).
             const right = legendAt.x + legendAt.w - width / 2;
@@ -3037,7 +3054,8 @@ export async function createView(canvas) {
         });
       }
       // (Bottom-right its room is already in the pack; a panel's is claimed as it is drawn.)
-      if (legendAt) projector.overlay(promptModel, width, height);
+      if (!promptModel) { /* nothing made yet */ }
+      else if (legendAt) projector.overlay(promptModel, width, height);
       else hudOverlay('controls', promptModel, width, height);
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
@@ -3176,18 +3194,21 @@ export async function createView(canvas) {
           // 🍄 In the arena the count is the point; elsewhere it follows the position.
           const count = `${n} bop${n === 1 ? '' : 's'}`;
           const parts = [...(ledges || beside || !stats ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : []), ...more]; // (metres are the debugging layer's)
-          for (const [t, c] of parts) {
+          for (const [t, c, gap = 6] of parts) { // (a part may say how far the next stands from it: the clock's own parts stand close)
             const cx = left + (smallWidth(t) / 2) * unit;
             small(t, cx + unit, y - unit, 0.000002, unit, INK);
             small(t, cx, y, 0, unit, c);
-            left += (smallWidth(t) + 6) * unit;
+            left += (smallWidth(t) + gap) * unit;
           }
         };
         // (Your own position is in the column beside the face cam.)
         // 🕰️🔋 On your own line, after your handle: the time of day here, and the machine's battery where the browser tells it.
         const clock = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(/\s+/g, ' ');
         const charge = battery && Number.isFinite(battery.level) ? `${battery.charging ? '+' : ''}${Math.round(battery.level * 100)}%` : null;
-        const system = [[clock, 0xd0d4e0], ...(charge ? [[charge, battery.charging ? 0x69bfff : battery.level < 0.2 ? 0xff6b6b : battery.level < 0.5 ? 0xffe066 : 0x3fb950]] : [])];
+        // (Said in parts, each its colour: the hour, the colon, the minutes, am or pm. Before it the sun by day and the moon by night, as the hour here has them.)
+        const hour = new Date().getHours(), byDay = hour >= 6 && hour < 18, [, hh = clock, mm = '', half2 = ''] = clock.match(/^(\d+):(\d+)\s*(.*)$/) || [];
+        const clockParts = mm ? [[byDay ? 'day' : 'night', byDay ? 0xffe066 : 0x9db4ff, 4], [hh, 0xffffff, 1], [':', 0x8b90a0, 1], [mm, 0xd0d4e0, half2 ? 3 : 6], ...(half2 ? [[half2, byDay ? 0xffb86b : 0xb46bff]] : [])] : [[clock, 0xd0d4e0]];
+        const system = [...clockParts, ...(charge ? [[charge, battery.charging ? 0x69bfff : battery.level < 0.2 ? 0xff6b6b : battery.level < 0.5 ? 0xffe066 : 0x3fb950]] : [])];
         if (ownTag && !game) place(me || { x: 0, y: 0, z: 0 }, ownTag.x, ownTag.y, me ? bops[seat] || 0 : 0, !!face || !me, system);
         // 🎮 In a game the score is the headline: top centre, large. A
         // chain in the air reads under it as +points (and xN from the
@@ -3545,7 +3566,7 @@ export async function createView(canvas) {
           if (ahead < 0) { ax = Math.sign(ax || 1) * Math.max(0.6, Math.abs(ax)); const m2 = Math.hypot(ax, ay); ax /= m2; ay /= m2; }
           x = ax * (W / 2 - 26 * unit); y = ay * (H / 2 - 30 * unit);
         }
-        const m = model(({ quad, small }) => {
+        const m = model(({ quad, rect: worldRect, text, small }) => {
           // A chevron of two true lines meeting at its point, along (ax, ay): each a thin slanted quad, not squares stepped along a slope (those read as a saw's edge at any angle but four).
           const stroke = (x1, y1, x2, y2, wide, color, z) => {
             const dx = x2 - x1, dy = y2 - y1, n = Math.hypot(dx, dy) || 1, nx = (-dy / n) * wide / 2, ny = (dx / n) * wide / 2;
@@ -3553,15 +3574,22 @@ export async function createView(canvas) {
             quad([-(x1 + nx), y1 + ny, z], [-(x2 + nx), y2 + ny, z], [-(x2 - nx), y2 - ny, z], [-(x1 - nx), y1 - ny, z], color);
             quad([-(x1 - nx), y1 - ny, z], [-(x2 - nx), y2 - ny, z], [-(x2 + nx), y2 + ny, z], [-(x1 + nx), y1 + ny, z], color); // (both faces: whichever way round it is seen)
           };
-          const tipX = x + ax * 6 * unit, tipY = y + ay * 6 * unit, long = 10 * unit, spread = 0.7;
-          for (const side of [-1, 1]) {
-            const ex = tipX - (ax * long) + (-ay * side * long * spread), ey = tipY - (ay * long) + (ax * side * long * spread);
-            stroke(tipX + unit, tipY - unit, ex + unit, ey - unit, 2.5 * unit, INK, 0.000002);
-            stroke(tipX, tipY, ex, ey, 2 * unit, goal.color, 0);
-          }
-          const tx = Math.max(-W / 2 + (smallWidth(said) / 2 + 4) * unit, Math.min(W / 2 - (smallWidth(said) / 2 + 4) * unit, x - ax * 14 * unit)), ty = y - ay * 14 * unit + (seen ? 8 * unit : 4 * unit);
-          small(said, tx + unit, ty - unit, 0.000002, unit, INK);
-          small(said, tx, ty, 0, unit, goal.color);
+          // (A square elbow: both arms the same length at a right angle to one another, meeting in a filled corner at the point.)
+          const tipX = x, tipY = y, long = 9 * unit, wide = 2 * unit;
+          const arms = [-1, 1].map((side) => [tipX - ax * long - ay * side * long, tipY - ay * long + ax * side * long]);
+          for (const [ex, ey] of arms) stroke(tipX + unit, tipY - unit, ex + unit, ey - unit, wide + unit, INK, 0.000002);
+          for (const [ex, ey] of arms) stroke(tipX, tipY, ex, ey, wide, goal.color, 0);
+          // (The corner itself, so the two strokes do not leave a notch at the point.)
+          stroke(tipX - ax * wide * 0.5, tipY - ay * wide * 0.5, tipX + ax * wide * 0.5, tipY + ay * wide * 0.5, wide * 1.4, goal.color, 0);
+          // The words stand behind the elbow, clear of it by their own size: over it when it points down at a thing in view, and inward of it at the screen's edge. Never across its arms.
+          const words = goal.tag && goal.tag[0] === '$'
+            ? [{ text: '$', color: 0x5fd0d6 }, { text: goal.tag.slice(1), color: 0x7dff7a }, { text: ` ${far.toFixed(0)}m`, color: goal.color }]
+            : [{ text: said, color: goal.color }];
+          const wordsW = smallSpanWidth(words, unit), back = long + 5 * unit;
+          let tx = tipX - ax * (back + (Math.abs(ax) > 0.5 ? wordsW / 2 : 0)), ty = tipY - ay * (back + (Math.abs(ay) > 0.5 ? 6 * unit : 0)) + 4 * unit;
+          tx = Math.max(-W / 2 + wordsW / 2 + 4 * unit, Math.min(W / 2 - wordsW / 2 - 4 * unit, tx));
+          ty = Math.max(-H / 2 + 12 * unit, Math.min(H / 2 - 6 * unit, ty));
+          drawSpans({ rect: flip(worldRect), text, small }, words, tx, ty, unit, { shadow: INK, tiny: true });
         });
         projector.overlay(m, W, H);
       }
@@ -3871,23 +3899,32 @@ export async function createView(canvas) {
       }
       // (It does not jump: over a fifth of a second the cyan turns red and the corners open out from the middle to the head.)
       // 😟 With no gun in hand a head is not a target, it is a thing coming for you: no bracket closes on it. The crosshair's point is a small unhappy face, and under it how near the head is.
-      const armed = Number.isFinite(ammo), afraid = threat !== null && !armed;
+      // 😱 Off the roof and falling, the crosshair is a face that screams, all the way down.
+      const falling = roof && !!me && me.alive !== false && me.y < -2 && (me.vy ?? 0) < -3;
+      const armed = Number.isFinite(ammo), afraid = falling || (threat !== null && !armed);
       threatAt = threat !== null && armed ? threatAt || now : 0;
       const onto = threatAt ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
       const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
       const color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       if (afraid) {
-        const said = `${threat.toFixed(0)}m`, close = threat < 6, quick = threat < 8 && Math.floor(now / 140) % 2, ink = quick ? 0xff3b3b : 0xffe066;
+        const far = falling ? Math.max(0, me.y + TOWER_DROP - 1.6) : threat;
+        const said = `${far.toFixed(0)}m`, close = !falling && threat < 6, quick = (falling || threat < 8) && Math.floor(now / 140) % 2, ink = falling ? (quick ? 0xffffff : 0xffe066) : quick ? 0xff3b3b : 0xffe066;
         // (It lives: it blinks now and then; it cries, a tear running down from each eye in turn; and with the head right on it, it is angry instead, brows down and mouth a hard line, shaking.)
-        const blinkNow = now % 2600 < 140, tear = Math.floor(now / 160) % 6, shake = close ? (Math.floor(now / 50) % 2 ? unit : -unit) : 0;
-        const face = close
+        const blinkNow = now % 2600 < 140, tear = Math.floor(now / 160) % 6, shake = close || falling ? (Math.floor(now / 50) % 2 ? unit : -unit) : 0;
+        const face = falling
+          ? (Math.floor(now / 120) % 2
+            ? ['##...##', '##...##', '.......', '..###..', '.#...#.', '.#...#.', '..###..']
+            : ['##...##', '##...##', '.......', '.#####.', '.#...#.', '.#...#.', '.#####.'])
+          : close
           ? ['#.....#', '.#...#.', '.#...#.', '.......', '.#####.', '.......', '.......']
           : blinkNow ? ['.......', '.......', '.#...#.', '.......', '..###..', '.#...#.', '.......']
           : ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'];
         const m = model(({ rect: worldRect, small }) => {
           const rect0f = flip(worldRect), rect = (x, y, z, w, h, c) => rect0f(x + shake, y, z, w, h, c);
+          // (A dark plate behind it, so the face is read against anything: the sky, a head, the street coming up.)
+          rect(-12 * unit, -12 * unit, 0.000004, 24 * unit, 24 * unit, 0x10131c);
           // 💧 A tear under an eye, falling three squares and gone; the other eye's next.
-          if (!close) { const k = 3 * unit, col = tear < 3 ? 1 : 5, row = 3 + (tear % 3); rect((col - 3.5) * k + unit, (2.5 - row) * k - unit, 0.000002, k, k, INK); rect((col - 3.5) * k, (2.5 - row) * k, 0, k, k, 0x69bfff); }
+          if (!close && !falling) { const k = 3 * unit, col = tear < 3 ? 1 : 5, row = 3 + (tear % 3); rect((col - 3.5) * k + unit, (2.5 - row) * k - unit, 0.000002, k, k, INK); rect((col - 3.5) * k, (2.5 - row) * k, 0, k, k, 0x69bfff); }
           // Seven by seven: two eyes, and a mouth turned down.
           face.forEach((row, r) => [...row].forEach((ch, c) => {
             if (ch !== '#') return;

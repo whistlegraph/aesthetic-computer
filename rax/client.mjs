@@ -2457,7 +2457,9 @@ function goalGun() {
 // (The gun by its own name: the $code it was made as, said as code is.)
 function goalGunCode() {
   const it = snapshot?.items?.find((i) => i.kind === 'shoot' && i.holder < 0 && i.y > -10), o = it && objects.find((x) => x.id === it.id);
-  return o?.code ? `$${o.code}` : 'gun';
+  // (Always by its code: the one lying loose, or else any gun the room has, as while the only one is away being loaded again.)
+  const code = o?.code || objects.find((x) => x.item === 'shoot' && x.code)?.code;
+  return code ? `$${code}` : 'gun';
 }
 function goalHead() {
   const from = player || freecam;
@@ -3000,6 +3002,7 @@ document.addEventListener('keydown', (e) => {
     // 🖼️ Aimed at a world panel, Enter presses it.
     if (!prompt.open && !menu && !radial.open && !chalkMode && panels.hot) return void (e.repeat || (keyHolds = panels.press())); // (held while the key is down)
     if (seat < 0) return; // Looking on: Enter asks for nothing.
+    if (snapshot?.heads && !prompt.open) return; // 👹 (nor at the stage)
     // 🛗 Standing in the car, Enter asks where to.
     if (!prompt.open && hasCar() && inCar(player) && !menu && !radial.open && !chalkMode) {
       releaseInput();
@@ -3104,6 +3107,7 @@ document.addEventListener('keydown', (e) => {
 // press picks the colour and a drag lays it down.
 let brush = null; // { colour, key }: the colour in hand and the last square it touched.
 function paintSquare() {
+  if (snapshot?.heads) return; // 👹 (at the stage the floor is not painted nor is anything built: X and Enter are the game's)
   const at = floorAim && !focusObject ? floorAim : null;
   if (!at) return;
   const key = `${at.i},${at.j}`;
@@ -4265,6 +4269,7 @@ function step(now, xr) {
     goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
+    stage: !!snapshot?.heads, // 👹 heads fly here: no painting, no building, and the controls say so
     roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it
     ammo: seat >= 0 ? snapshot?.items?.find((it) => it.holder === seat && it.kind === 'shoot')?.ammo ?? null : null,
     // Every seat the room holds, not only the original duel's two. Whoever
