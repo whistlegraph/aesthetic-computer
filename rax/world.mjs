@@ -37,6 +37,13 @@ export const HOME_ROOM = 'lobby';
 export const CONJURE_MS = 60_000;
 export const worldPlace = (id) => id === BASEMENT || id === 'lobby' || id === 'roof' || id === 'east' || /^(floor-|pod-)/.test(id || '') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id || '');
 export const placeFor = (room, one = ONE_ROOM) => (one && worldPlace(room) ? HOME_ROOM : room);
+// 🏙️ Where each host stands, for the line beside the ping: home (lith) is in
+// Santa Clara, the satellite in New Jersey. A host not listed shows its name.
+export const HOME_CITY = 'santa clara';
+export const HOST_CITIES = { 'nj.rax.ac': 'new jersey', 'rax-nj.aesthetic.computer': 'new jersey' };
+export const servedFrom = (url, where = globalThis.location) =>
+  /^(localhost|127\.|\[::1\])/.test(url.hostname) ? 'local'
+  : HOST_CITIES[url.host] || (url.host === where?.host || /(^|\.)(aesthetic\.computer|rax\.ac|prompt\.ac)$/.test(url.host) && !/^(rax-|nj\.)/.test(url.host) ? HOME_CITY : url.host);
 export function playURL(room, home, where = globalThis.location, one = ONE_ROOM) {
   const away = one ? null : ROOM_HOSTS[room], local = /^(localhost|127\.|\[::1\])/.test(where?.hostname || '');
   const url = away && !local ? new URL(`wss://${away}/rax/play`) : new URL('./play', home);

@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, placeFor } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, placeFor, servedFrom } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
@@ -4048,6 +4048,8 @@ function step(now, xr) {
     connection: sheetOpen
       ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
       : null,
+    served: ws?.url ? servedFrom(new URL(ws.url)) : null, // 🏙️ the city (or host) this room's socket is on, beside the ping
+    roomName: room, // 📍 the space you are in, on the line under the braincells
     objects,
     prompt,
     chat: {

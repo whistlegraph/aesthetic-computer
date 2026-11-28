@@ -1645,6 +1645,8 @@ export async function createView(canvas) {
     notices = [],
     braincells = null,
     spending = false,
+    served = null,
+    roomName = null,
     tiles = {},
     park = null, basement = false,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
@@ -2637,10 +2639,13 @@ export async function createView(canvas) {
               .slice(0, 7)
           : null;
       // The legend only joins the plain hint, never a panel.
-      // A mode (locked on, aiming at a build, chalk, carrying) shows its own
-      // controls in place of the general legend.
+      // A mode (locked on, aiming at a build, chalk) shows its own controls
+      // in place of the general legend. Carrying is not one, nor is aiming at
+      // something to pick up: with a gun in hand or in the crosshair you still
+      // walk, jump and build, so the legend stays and the item's line joins it.
       const moded = !!(objectHint || drawing || carry);
-      const showLegend = legend && !moded && !spectator && !wallCode && !prompt.open && !building;
+      const itemOnly = !drawing && (!objectHint || (focusObject?.item && !lockedOn && !docked));
+      const showLegend = legend && (!moded || itemOnly) && !spectator && !wallCode && !prompt.open && !building;
       const rows = bare
         ? []
         : saying
@@ -3753,16 +3758,11 @@ export async function createView(canvas) {
             const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
             small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
             small(ping, tx, ty, 0, unit, pingColor);
-          }
-          // 📍 Where you stand, in metres, each axis in its colour (the debugging layer's).
-          if (me && stats) {
-            const pt = nextSlot();
-            let left = x0 + 27 * unit;
-            for (const [t, c] of [['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
-              const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
-              small(t, cx + unit, cy - unit, 0.000002, unit, INK);
-              small(t, cx, cy, 0, unit, c);
-              left += (smallWidth(t) + 6) * unit;
+            // 🏙️ Which server answers, to the right of the ping: its city, or its host.
+            if (served) {
+              const sx = x0 + (40 + smallWidth(ping) + 5 + smallWidth(served) / 2) * unit;
+              small(served, sx + unit, ty - unit, 0.000002, unit, INK);
+              small(served, sx, ty, 0, unit, 0x8b90a0);
             }
           }
         // Braincells beside the cam: a pixel brain and the count, in purple.
@@ -3789,6 +3789,19 @@ export async function createView(canvas) {
             px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
           }
         }
+          // 📍 Under the braincells: the space you are in and where you stand
+          // in it, in metres, each axis in its colour. Always shown (it was
+          // the debugging layer's until 2026-11-27).
+          if (me) {
+            const pt = nextSlot();
+            let left = x0 + 27 * unit;
+            for (const [t, c] of [...(roomName ? [[roomName, 0xd0d4e0]] : []), ['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
+              const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
+              small(t, cx + unit, cy - unit, 0.000002, unit, INK);
+              small(t, cx, cy, 0, unit, c);
+              left += (smallWidth(t) + 6) * unit;
+            }
+          }
         }
         // The health bar under it, in health colours.
         const hpc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
