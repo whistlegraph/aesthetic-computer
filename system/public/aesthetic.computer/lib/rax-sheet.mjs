@@ -459,6 +459,8 @@ window.acRaxSheet = { popstate, framed, windowFocus, offstage, get up() { return
 //   { action: "hide" }   bring the paper back
 //   { action: "theme" }  the prompt is dark (true) or light (false)
 export function raxSheet({ action, value } = {}) {
+  // 🪟 This page is in a window in the world (rax/ac-window.mjs): it opens no world of its own.
+  if (window.frameElement?.dataset?.raxWindow) return;
   if (action === "warm") warm();
   else if (action === "show") show(value);
   else if (action === "hide") hide();

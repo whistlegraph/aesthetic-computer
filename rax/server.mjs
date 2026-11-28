@@ -99,6 +99,7 @@ const assets = new Map([
     'dock', // 🖥️ going in to a screen: its sums
     'pieces/keypad',
     'ac-piece', // 🧩 real AC disks on world panels
+    'ac-window', // 🪟 whole AC pages on world panels
     'solids',
     'sky',
     'shadow',

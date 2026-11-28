@@ -44,6 +44,7 @@ import { Sfx, SpatialTones } from './sfx.mjs';
 // or wall asks for a program, and the room is up before it.
 const kidlispWall = (...given) => import('./kidlisp-wall.mjs').then((m) => m.kidlispWall(...given));
 import { MAX_FOCUS_ZOOM, screenRows, carryPixels } from './screen-lod.mjs';
+import { acWindows } from './ac-window.mjs'; // 🪟 whole AC pages on world panels
 import { ballAt, DISPENSER_WALL } from './ball.mjs';
 import { sourceTones, beatAt } from './object-language.mjs';
 let farShots = []; // 🌐 rounds in the rooms around (beyond)
@@ -162,6 +163,7 @@ let dial = { text: '', at: 0 };
 // PAD_MS after one of those (or goes at once on `go`).
 const PAD_MS = 5000;
 const panels = createPanels();
+const acWin = acWindows(panels, { leave: () => comeOut() }); // 🪟 ac-window.mjs: its own frames, told to nobody
 const carPad = panels.mount({
   id: 'car-pad', label: 'elevator keypad', piece: keypad, ...CAR_PAD,
   host: {
@@ -4022,6 +4024,7 @@ function step(now, xr) {
     if (body) updateXRContacts(xr, { ...body, y: body.y + (seat >= 0 ? lift : 0) });
     else releaseXRContacts();
   } else if (xr) releaseXRContacts();
+  acWin.tick({ room, at: displayed || freecam, inside: dock?.way > 0 ? dock.id : null, now }); // 🪟
   if (!miniature) panels.frame(now);
   // Away from the plaza the kiosks are scenery. Their pixels and frame cache
   // survive the crossing, while their input and sound stay in the plaza.
