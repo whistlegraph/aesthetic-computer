@@ -3718,8 +3718,21 @@ export async function createView(canvas) {
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
       // 🎨 Aimed at a floor square that can be painted, it is the colour X would lay there (grey when X would clean it): the cursor says paintable, and what with.
       const paint = !focusObject && !lockedOn && floorAim ? ((tiles[`${floorAim.i},${floorAim.j}`] || 0) + 1) % 7 : null;
-      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
-      let half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      // 👹 Over a head that is coming for you, the crosshair is a threat's: red, drawn in tight, with how far off it is under it.
+      let threat = null;
+      for (const [, hx, hy, hz] of heads) {
+        const at = projector.project(hx, hy, hz);
+        if (!at) continue;
+        const reach = (0.55 / at.depth) * projector.sx; // (a head's half-width, as wide as it looks from here)
+        if (Math.hypot(at.x, (at.y * H) / W) < Math.max(reach, 0.02) && (!threat || at.depth < threat)) threat = at.depth;
+      }
+      const color = threat !== null ? 0xff3b3b : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
+      if (threat !== null) {
+        const said = `threat ${threat.toFixed(0)}m`;
+        const m = model(({ rect: worldRect, small }) => { small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, 0xff3b3b); });
+        projector.overlay(m, W, H);
+      }
+      let half = (threat !== null ? 4 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
       // Locked on: the corners surround the object on screen instead of
