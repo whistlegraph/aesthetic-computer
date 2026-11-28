@@ -4253,9 +4253,10 @@ export async function createView(canvas) {
           const r = side.reserve(id, 'tl', Math.ceil(width) + 2, 8);
           draw(29 + r.x, 26 - r.y);
           // (Kept for the debugging layer, in the screen's own pixels: each line's room, and the region they share.)
-          sideRegions.push({ id: `side:${id}`, x: W / 2 + x0 + (29 + r.x) * unit, y: H / 2 - y0 - (26 - r.y) * unit, w: r.w * unit, h: r.h * unit });
+          // (Drawn round the letters whole: a column clear of the first one, and down to the row under their feet. The small font's letters stand in rows 1 to 8 under the box's top, one lower than the eight rows asked for, so the outline used to cut their last row and lie on their first column.)
+          sideRegions.push({ id: `side:${id}`, x: W / 2 + x0 + (28 + r.x) * unit, y: H / 2 - y0 - (26 - r.y) * unit, w: (r.w + 1) * unit, h: (r.h + 2) * unit });
         };
-        sideRegions = [{ id: 'side', x: W / 2 + x0 + 29 * unit, y: H / 2 - y0 - 26 * unit, w: 0, h: 28 * unit }];
+        sideRegions = [{ id: 'side', x: W / 2 + x0 + 27 * unit, y: H / 2 - y0 - 27 * unit, w: 0, h: 32 * unit }];
         const word = (t, left, top, color) => {
           const cx = x0 + (left + smallWidth(t) / 2) * unit, cy = y0 + top * unit;
           small(t, cx + unit, cy - unit, 0.000002, unit, INK);
@@ -4831,7 +4832,7 @@ export async function createView(canvas) {
     if (stats) {
       const guides = model(({ rect }) => {
         // (The inner packing beside the face cam too: its region in pink, as wide as its lines reach, and each line's room in green.)
-        if (sideRegions.length > 1) sideRegions[0].w = Math.max(...sideRegions.slice(1).map((r) => r.x + r.w)) - sideRegions[0].x;
+        if (sideRegions.length > 1) sideRegions[0].w = Math.max(...sideRegions.slice(1).map((r) => r.x + r.w)) - sideRegions[0].x + hud.unit; // (a row clear of the lines all round)
         for (const region of [...hudPack.taken, ...(screenFrame ? [{id:'screen', ...screenFrame}] : []), ...(sideRegions.length > 1 ? sideRegions : [])]) {
           const {x,y,w,h} = region, ink = region.id === 'screen' ? 0xffdb67 : region.id === 'side' ? 0xff6ad5 : String(region.id).startsWith('side:') ? 0x7dff7a : 0x41c6ce;
           for (const [l,t,a,b] of [[x,y,w,1],[x,y+h-1,w,1],[x,y,1,h],[x+w-1,y,1,h]]) {
