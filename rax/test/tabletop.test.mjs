@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS, roomPlanes, fistOf, grabStart, grabStep, turn, turnHeadset, handAim, headPacked, headValid } from '../immersive.mjs';
+import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS, roomPlanes, fistOf, grabStart, grabStep, turn, turnHeadset, handAim, headPacked, headValid, tapStep, TAP_MS } from '../immersive.mjs';
 
 test('the room on a table: the eye is over the room as the head is over the table, times the room\'s smallness', () => {
   const table = { scale: 0.05, pivot: { x: 0, y: 0, z: 0 }, at: [0, -0.45, 0.6] };
@@ -142,4 +142,22 @@ test('a ghost\'s head is told with its hands: where it is and the way it faces',
   assert.deepEqual(head, [1, 9, -12, 90, 45, 20]);
   assert.ok(headValid(head) && headValid(undefined));
   assert.equal(headValid([1, 2, 3]), false); assert.equal(headValid([1, 2, 3, 0, 0, 0]), false);
+});
+
+test('a body tapped twice with a fingertip in time is a double tap; a tip that rests on it, or a second tap too late, is not', () => {
+  const state = {};
+  assert.deepEqual(tapStep(state, { right: 2 }, 0), { tap: 2, double: -1 });
+  assert.deepEqual(tapStep(state, { right: 2 }, 100), { tap: -1, double: -1 }, 'resting on it');
+  assert.deepEqual(tapStep(state, { right: -1 }, 200), { tap: -1, double: -1 });
+  assert.deepEqual(tapStep(state, { right: 2 }, 400), { tap: -1, double: 2 });
+  // Too late: a first tap again.
+  tapStep(state, { right: -1 }, 500);
+  assert.deepEqual(tapStep(state, { right: 2 }, 600), { tap: 2, double: -1 });
+  tapStep(state, { right: -1 }, 700);
+  assert.deepEqual(tapStep(state, { right: 2 }, 700 + TAP_MS + 1), { tap: 2, double: -1 });
+  // Another body between is a tap of its own, and either hand may make the second.
+  tapStep(state, { right: -1 }, 3000);
+  assert.deepEqual(tapStep(state, { left: 1 }, 3100), { tap: 1, double: -1 });
+  tapStep(state, {}, 3150);
+  assert.deepEqual(tapStep(state, { right: 1 }, 3300), { tap: -1, double: 1 });
 });

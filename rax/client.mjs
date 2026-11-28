@@ -28,7 +28,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset, handAim, headPacked, headValid } from './immersive.mjs';
+import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset, handAim, headPacked, headValid, tapStep } from './immersive.mjs';
 import { Controller, neutralPad, TURN_RIM, TURN_BOOST, TURN_RAMP } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -3225,6 +3225,38 @@ function stepGhost(xr, now) {
 }
 // ✊ Two fists hold the world (immersive.mjs grabStep): what they held as they closed, or null.
 let xrRide0 = [0, 0, 0]; // (where the head was as it got in: from there it leans about in the body's own head)
+// 👆 A body tapped twice with an index finger (immersive.mjs tapStep): your own, and you are in it (the stop `in your body`); another's, and you are stood just behind it at its eye's height, life size. Reached in the room at any size: on the table a fingertip is as big as a head, and the bodies are easy to touch.
+const xrTaps = {};
+function stepXRTap(xr, now) {
+  if (seat >= 0 && !xrBody) return;
+  const k = xrTable ? 1 / xrTable.scale : 1;
+  const base = seat >= 0 ? player : freecam;
+  if (!base || !snapshot) return;
+  const eye = xrTable ? tableEye(xrTable, xr.offset) : { x: base.x + xr.offset[0], y: base.y + xr.offset[1], z: base.z + xr.offset[2] };
+  const reach = 0.45 + 0.03 * k, touching = {};
+  for (const hand of xr.hands) {
+    const tip = hand.fingers?.[1]?.at(-1);
+    if (!tip) continue;
+    const at = { x: eye.x + tip.x * k, y: eye.y + tip.y * k, z: eye.z + tip.z * k };
+    touching[hand.side] = (snapshot.players || []).findIndex((p, i) => p && p.alive !== false && i !== (xr.rideSeat ?? -1) && i !== seat &&
+      Math.abs(at.x - p.x) < reach && Math.abs(at.z - p.z) < reach && at.y > p.y - 1.9 - 0.02 * k && at.y < p.y + 0.5 + 0.03 * k);
+  }
+  const { tap, double } = tapStep(xrTaps, touching, now);
+  if (tap >= 0) sfx.ringMove(5);
+  if (double < 0) return;
+  const mine = double === ownBodySeat(), p = snapshot.players[double], stops = xrStops();
+  xrTable = null; xrGrab = null;
+  if (mine) { xrBody = true; xrRide0 = [...xr.offset]; xrStop = Math.max(0, stops.findIndex((s) => s.own)); }
+  else {
+    xrBody = false;
+    const back = direction(p.yaw);
+    freecam = { ...freecam, x: p.x - back.x * 1.5 - xr.offset[0], y: p.y - xr.offset[1], z: p.z - back.z * 1.5 - xr.offset[2], vx: 0, vy: 0, vz: 0 };
+    inputAt = flownAt = performance.now();
+    xrStop = Math.max(0, stops.findIndex((s) => s.body === double));
+  }
+  xr.table = null;
+  sfx.ringPick(mine ? 7 : 3);
+}
 // 🧍 Riding: each frame the eye is put at its own body's eye, wherever the other screen's controller has taken it.
 function stepXRRide(xr, now) {
   xr.rideSeat = -1;
@@ -3507,6 +3539,7 @@ function step(now, xr) {
   inHeadset = !!xr;
   if (xr) {
     stepXRView(xr);
+    stepXRTap(xr, now);
     stepXRRide(xr, now);
     if (ws?.readyState === WebSocket.OPEN && snapshot) { stepGhost(xr, now); tellHands(xr, now); }
     yaw = xr.yaw; pitch = xr.pitch;

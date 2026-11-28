@@ -398,6 +398,25 @@ export function roomPlanes(frame, space, point, session) {
   return { asked, known: true, count: planes.size ?? outlines.length, labels, outlines };
 }
 
+// 👆 A double tap: the tip of an index finger put on a body twice within
+// TAP_MS. `tapStep` is told, each frame, which body (a seat, or -1) each
+// hand's tip is on; it says 'tap' as a tip first comes on to one, and
+// 'double' with the seat when the same body is tapped again in time. A tip
+// resting on a body is one tap, however long it stays.
+export const TAP_MS = 650;
+export function tapStep(state, touching, now) {
+  const out = { tap: -1, double: -1 };
+  for (const side of ['left', 'right']) {
+    const on = touching[side] ?? -1, was = state.on?.[side] ?? -1;
+    if (on >= 0 && on !== was) {
+      if (state.seat === on && now - state.at < TAP_MS) { out.double = on; state.seat = -1; state.at = 0; }
+      else { out.tap = on; state.seat = on; state.at = now; }
+    }
+    (state.on ||= {})[side] = on;
+  }
+  return out;
+}
+
 // ✊ Two fists take hold of the world. A hand is a fist when its four
 // fingertips are curled in by the wrist; where it holds is its middle knuckle.
 // With both closed, the two points of the room under them stay under them:
