@@ -3455,14 +3455,26 @@ export async function createView(canvas) {
     }
     // 🎯 The goal, over the crosshair, large: what to do, and how many are left to do it to.
     if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
-      const { unit } = hud, big = 2 * unit;
-      const line = [{ text: goal.text, color: goal.color }, ...(goal.count ? [{ text: '  ' + goal.count, color: 0xffffff }] : [])];
+      // 📐 Fitted to the screen as it is now (a narrow window, a page zoomed with ⌘+): double size on one line when that fits, else on two, else plain size on as many lines as the words need. Never wider than the screen less its margins.
+      const { unit, safeX } = hud, room = W - 2 * safeX - 8 * unit;
+      const words = [...goal.text.split(' ').map((w) => ({ text: w, color: goal.color })), ...(goal.count ? goal.count.split(' ').map((w) => ({ text: w, color: 0xffffff })) : [])];
+      const wrap = (size) => {
+        const lines = [[]];
+        for (const w of words) {
+          const next = [...lines.at(-1), { ...w, text: (lines.at(-1).length ? ' ' : '') + w.text }];
+          if (lines.at(-1).length && spanWidthOf(next, size) > room) lines.push([w]); else lines[lines.length - 1] = next;
+        }
+        return lines;
+      };
+      let big = 2 * unit, lines = wrap(big);
+      if (lines.length > 2 || lines.some((l) => spanWidthOf(l, big) > room)) { big = unit; lines = wrap(big); }
       // (Over the crosshair, in the middle: a fifth of the screen above it, where the eye already is. It was at the top edge.)
-      const up = Math.round(H * 0.2);
+      const up = Math.min(Math.round(H * 0.2), Math.round(H / 2 - hud.safeY - lines.length * 11 * big - 2 * unit)); // (and never off the top)
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
-        drawSpans({ rect, text }, line, 0, up, big, { shadow: INK });
-        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], 0, up - 22 * unit, unit, { shadow: INK, tiny: true });
+        // (The last line keeps its place over the crosshair; more lines stack upward from it.)
+        lines.forEach((line, i) => drawSpans({ rect, text }, line, 0, up + (lines.length - 1 - i) * 11 * big, big, { shadow: INK }));
+        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], 0, up - 11 * big, unit, { shadow: INK, tiny: true });
       });
       projector.overlay(m, W, H);
     }
