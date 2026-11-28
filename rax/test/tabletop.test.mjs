@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tableEye, wristOf, pokerOf, Headset, handOutline } from '../immersive.mjs';
+import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS } from '../immersive.mjs';
 
 test('the room on a table: the eye is over the room as the head is over the table, times the room\'s smallness', () => {
   const table = { scale: 0.05, pivot: { x: 0, y: 0, z: 0 }, at: [0, -0.45, 0.6] };
@@ -44,4 +44,23 @@ test('a hand is drawn as its outline: one closed line round all five fingers, or
   assert.ok(edge.every((p) => [p.x, p.y, p.z].every(Number.isFinite)));
   fingers[2][4] = undefined;
   assert.equal(handOutline(fingers), null);
+});
+
+test('hands are told to the room in its own metres and come back as they were, giant when the room is on a table', () => {
+  const j = (x, y) => ({ x, y, z: 0.1, radius: 0.008 });
+  const finger = (x) => [j(0, 0), j(x, 0.03), j(x, 0.09), j(x, 0.12), j(x, 0.14), j(x, 0.16)];
+  const fingers = [[j(0, 0), j(0.03, 0.02), j(0.05, 0.04), j(0.07, 0.06), j(0.08, 0.07)], finger(0.03), finger(0.01), finger(-0.01), finger(-0.03)];
+  const xr = { hands: [{ side: 'left', fingers }, { side: 'right', fingers: [...fingers.slice(0, 4), [j(0, 0), undefined, j(0, 0), j(0, 0), j(0, 0), j(0, 0)]] }] };
+  const packed = handsPacked(xr, { x: 2, y: 10, z: -3 }, 20);
+  assert.equal(packed.length, 1, 'a hand seen in part is not sent');
+  assert.equal(packed[0].j.length, HAND_NUMBERS);
+  assert.ok(handsValid(packed));
+  const [hand] = handsUnpacked(JSON.parse(JSON.stringify(packed)));
+  const tip = hand.fingers[1].at(-1);
+  assert.ok(Math.abs(tip.x - (2 + 0.03 * 20)) < 1e-9 && Math.abs(tip.y - (10 + 0.16 * 20)) < 1e-9 && Math.abs(tip.z - (-3 + 0.1 * 20)) < 1e-9);
+  assert.ok(Math.abs(tip.radius - 0.16) < 1e-9);
+  assert.ok(handOutline(hand.fingers));
+  assert.equal(handsValid([{ side: 'left', r: 0.01, j: [1, 2, 3] }]), false);
+  assert.equal(handsValid([{ side: 'up', r: 0.01, j: packed[0].j }]), false);
+  assert.equal(handsValid([packed[0], packed[0], packed[0]]), false);
 });

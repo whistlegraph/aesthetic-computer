@@ -1131,7 +1131,9 @@ export async function createView(canvas) {
     if (!wrist || !lines.length) return;
     const k = 1 / (xr.table?.scale || 1);
     const x = eye.x + wrist.x * k, y = eye.y + (wrist.y + SLATE_LIFT - 0.03) * k, z = eye.z + wrist.z * k;
-    projector.draw(slateModel(lines), x, y, z, Math.atan2(eye.x - x, eye.z - z) + Math.PI, 0, k);
+    // (Turned to the eye whole, up and down as well as round: its back is along the line from the eye to it.)
+    const dx = x - eye.x, dy = y - eye.y, dz = z - eye.z;
+    projector.draw(slateModel(lines), x, y, z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), k);
   }
   function drawHands(xr, eye) {
     // (On a table the room is small, so the hands are drawn that many times larger and further, to be their own size in the picture.)
@@ -1713,6 +1715,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    farHands = [], // ✋ other people's hands in headsets, in the room's metres: [{ seat, hands: [{ side, fingers }] }]
     deaths = null, // ☠️ how many times this handle has died in rax (the database's count), or null
     hold = null, // ⏳ { label, progress 0 to 1 }: a button being held toward its action, drawn as a meter under the crosshair
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
@@ -2073,6 +2076,15 @@ export async function createView(canvas) {
       projector.bends = false;
       for (const m of hungNow) projector.draw(hungBall(m, lamp), m.x + (m.sx || 0), m.y + (m.sy || 0), m.z + (m.sz || 0), 0, 0, m.r);
       projector.bends = wrapped;
+    }
+    // ✋ Everyone else's hands, where they are in the room (a giant's, over it, when their room is on a table).
+    for (const far of farHands) for (const hand of far.hands) {
+      const edge = handOutline(hand.fingers);
+      if (!edge) continue;
+      for (let i = 0; i < edge.length; i++) {
+        const a = edge[i], b = edge[(i + 1) % edge.length], dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, length = Math.hypot(dx, dy, dz);
+        if (length > 0.001) projector.draw(handEdge, a.x, a.y, a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+      }
     }
     if (xr) {
       projector.bends = false;

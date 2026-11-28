@@ -315,6 +315,32 @@ export function tableEye(table, offset) {
   return { x: table.pivot.x + (offset[0] - table.at[0]) * k, y: table.pivot.y + (offset[1] - table.at[1]) * k, z: table.pivot.z + (offset[2] - table.at[2]) * k };
 }
 
+// 📡 Hands for the room: each tracked hand as one flat list of its joints in
+// the world's own metres (thumb to little finger, wrist to tip: 5 + 6 × 4
+// joints, three numbers each) and one thickness, so everyone there sees them
+// where they are. `eye` is where the head is in the room and `k` how many
+// times life size the hands stand (the room on a table: twenty, and the
+// hands are in the sky). handsUnpacked gives back what handOutline reads.
+export const HAND_NUMBERS = 29 * 3;
+export function handsPacked(xr, eye, k = 1) {
+  const r3 = (v) => Math.round(v * 1000) / 1000;
+  return (xr?.hands || []).filter((h) => h.fingers.every((chain) => chain.every(Boolean))).slice(0, 2).map((h) => ({
+    side: h.side, r: r3((h.fingers[1][2].radius || 0.008) * k),
+    j: h.fingers.flatMap((chain) => chain.flatMap((p) => [r3(eye.x + p.x * k), r3(eye.y + p.y * k), r3(eye.z + p.z * k)])),
+  }));
+}
+export function handsValid(hands) {
+  return Array.isArray(hands) && hands.length <= 2 && hands.every((h) => (h?.side === 'left' || h?.side === 'right') &&
+    Number.isFinite(h.r) && h.r > 0 && h.r < 2 && Array.isArray(h.j) && h.j.length === HAND_NUMBERS && h.j.every((n) => Number.isFinite(n) && Math.abs(n) < 60000));
+}
+export function handsUnpacked(hands) {
+  return hands.map((h) => {
+    let at = 0;
+    const fingers = [5, 6, 6, 6, 6].map((n) => Array.from({ length: n }, () => ({ x: h.j[at++], y: h.j[at++], z: h.j[at++], radius: h.r })));
+    return { side: h.side, fingers };
+  });
+}
+
 // ✋ A hand's outline from its joints (`fingers`: thumb to little finger, each
 // wrist-to-tip): one closed line of points round the hand, or null when a
 // joint it needs is not tracked. Each finger is as wide as its own joints'

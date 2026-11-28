@@ -28,7 +28,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH } from './immersive.mjs';
+import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -2067,6 +2067,7 @@ function connect(adopt = null) {
         menu.selected = Math.min(menu.selected, menu.items.length - 1);
       }
     }
+    if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), at: performance.now() });
     if (data.type === 'deaths' && Number.isFinite(data.deaths)) deathCount = data.deaths; // ☠️ this handle's deaths in rax, from the database (deaths.mjs)
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -3143,6 +3144,19 @@ let droneWanted = false, cameraHeldAt = 0;
 // ⏳ A button that does its thing only when held shows how far along the hold is, and sounds it: a meter under the crosshair that fills, a note that climbs as it does, and a pick when it is done. `holdOn(label, since, ms)` is asked each frame the button is down; nothing asked, the meter is gone.
 // 🪑 In a headset: the room on a table (immersive.mjs tableEye), or null for life size. B or Y on a controller, or a poke at the wrist slate, changes it.
 let xrTable = null, slateArmed = true;
+// ✋ Everyone's hands: this headset's are told to the room, and the room's are drawn here (by the id of the screen they are on; gone when not heard of for a moment).
+const farHands = new Map();
+let handsSaidAt = 0;
+function tellHands(xr, now) {
+  if (!xr.hands.length || now - handsSaidAt < 66) return; // (fifteen times a second)
+  const body = seat >= 0 ? player : freecam;
+  if (!body) return;
+  const eye = xrTable ? tableEye(xrTable, xr.offset) : { x: body.x + xr.offset[0], y: body.y + xr.offset[1] + (seat >= 0 ? liftAt(now) : 0), z: body.z + xr.offset[2] };
+  const hands = handsPacked(xr, eye, xrTable ? 1 / xrTable.scale : 1);
+  if (!hands.length) return;
+  handsSaidAt = now;
+  send({ type: 'hands', hands });
+}
 function stepXRView(xr) {
   const wrist = wristOf(xr), tip = pokerOf(xr);
   const far = wrist && tip ? Math.hypot(tip.x - wrist.x, tip.y - wrist.y - SLATE_LIFT, tip.z - wrist.z) : Infinity;
@@ -3355,6 +3369,7 @@ function step(now, xr) {
   if (!xr) xrTable = null;
   if (xr) {
     stepXRView(xr);
+    if (ws?.readyState === WebSocket.OPEN && snapshot) tellHands(xr, now);
     yaw = xr.yaw; pitch = xr.pitch;
     inputAt = flownAt = now;
     if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd || (xr.walkPinch && !screenFingers.size ? 0.42 : 0), jump: xr.jump });
@@ -4163,6 +4178,7 @@ function step(now, xr) {
     boomOrbit,
     hold: prompt.open ? null : holdMeter,
     deaths: deathCount,
+    farHands: [...farHands].filter(([id, h]) => now - h.at < 700 || void farHands.delete(id)).map(([, h]) => h),
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
     bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges(), platformSlab()),

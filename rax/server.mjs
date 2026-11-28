@@ -32,6 +32,7 @@ import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
 import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace, slabOf } from './world.mjs';
 import { gameFor } from './games.mjs';
+import { handsValid } from './immersive.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -1543,6 +1544,15 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       // 👥 A press on a world panel (a kiosk: panel.mjs) is told to everyone else in the room, with whose it is, so the piece on it is worked by all of them together.
+      // ✋ Hands in a headset, told to everyone else in the room as they are (immersive.mjs handsPacked): twenty times a second at the most from one screen.
+      if (data?.type === 'hands') {
+        const at = Date.now();
+        if (at - (member.handsAt || 0) < 45 || !handsValid(data.hands)) return;
+        member.handsAt = at;
+        const word = JSON.stringify({ type: 'hands', id: (member.eye ||= randomUUID().slice(0, 8)), seat: member.seat, hands: data.hands });
+        for (const other of room.clients.keys()) if (other !== ws) sendText(other, word);
+        return;
+      }
       if (data?.type === 'notepat-watch' || data?.type === 'notepat-key') {
         if (key !== 'lobby') return;
         if (data.type === 'notepat-watch') notepat.watch(ws);
