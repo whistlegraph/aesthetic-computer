@@ -401,12 +401,13 @@ class Autocomplete {
 
     const config = this.triggers[this.activeTrigger] || {};
     const inline = position.inline === true; // Render under the typed line, no box.
-    const itemHeight = inline ? 11 : 14;
+    const itemHeight = inline ? 12 : 14;
+    const charW = 6; // main font advance
     const padding = inline ? 0 : 4;
     const maxWidth = inline
-      ? min(screen.width - (position.x ?? 10) - 4, 240)
+      ? min(screen.width - (position.x ?? 10) - 4, 320)
       : 120;
-    const font = inline ? "MatrixChunky8" : undefined;
+    const font = undefined; // rows read in the main font
 
     // While loading the universal (bare-word) search, surface live per-source
     // fetch state instead of a blank "Loading..." — this is the debug window
@@ -507,23 +508,35 @@ class Autocomplete {
         const iconColor = isSelected ? [255, 255, 255] : baseColor;
         icon.forEach((row, r) => {
           for (let col = 0; col < 5; col++)
-            if (row[col] === "#") ink(...iconColor).box(dropX + col, itemY + 2 + r, 1, 1);
+            if (row[col] === "#") ink(...iconColor).box(dropX + col, itemY + 3 + r, 1, 1);
         });
         const age = item.when ? ago(item.when) : "";
-        const textX = dropX + 8;
-        const room = Math.max(0, Math.floor((maxWidth - 8 - (age ? age.length * 4 + 6 : 0)) / 4));
-        ink(...color).write(
-          displayText.slice(0, room),
-          { x: textX, y: itemY + 1 },
-          undefined,
-          undefined,
-          false,
-          font,
-        );
+        let cx = dropX + 9;
+        let room = Math.max(0, Math.floor((maxWidth - 9 - (age ? age.length * charW + 6 : 0)) / charW));
+        const seg = (text, c) => {
+          const t = String(text || "").slice(0, room);
+          if (!t) return;
+          ink(...c).write(t, { x: cx, y: itemY + 1 }, undefined, undefined, false, font);
+          cx += t.length * charW;
+          room -= t.length;
+        };
+        if (item.title) {
+          // The title in its kind's colour, the letters typed so far lit
+          // white inside it, then the description in grey.
+          const title = String(item.title);
+          const at = this.query ? title.toLowerCase().indexOf(this.query.toLowerCase()) : -1;
+          if (at < 0 || isSelected) seg(title, color);
+          else {
+            seg(title.slice(0, at), color);
+            seg(title.slice(at, at + this.query.length), [255, 255, 255]);
+            seg(title.slice(at + this.query.length), color);
+          }
+          if (item.desc) seg(" " + item.desc, isSelected ? [205, 205, 220] : [125, 125, 145]);
+        } else seg(displayText, color);
         if (age) {
           ink(130, 130, 150).write(
             age,
-            { x: dropX + maxWidth - 2 - age.length * 4, y: itemY + 1 },
+            { x: dropX + maxWidth - 2 - age.length * charW, y: itemY + 1 },
             undefined,
             undefined,
             false,

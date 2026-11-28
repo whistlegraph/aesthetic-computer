@@ -485,20 +485,23 @@ async function universalSearch(query, { partial } = {}) {
   const docHits = [];
   try {
     const dkeys = Object.keys(autocompletions || {});
-    const exact = [],
-      prefix = [],
+    const prefix = [],
       sub = [];
     for (const k of dkeys) {
       if (autocompletions[k]?.hidden) continue;
       const lk = k.toLowerCase();
-      if (lk === q) exact.push(k);
+      // The word already typed in full is not a suggestion: the tooltip
+      // under the caret describes it, so a row here would say it twice.
+      if (lk === q) continue;
       else if (lk.startsWith(q)) prefix.push(k);
       else if (lk.includes(q)) sub.push(k);
     }
-    for (const k of [...exact, ...prefix, ...sub].slice(0, 6)) {
+    for (const k of [...prefix, ...sub].slice(0, 6)) {
       const desc = autocompletions[k]?.desc;
       docHits.push({
         text: k,
+        title: k,
+        desc: desc ? String(desc) : "",
         display: desc ? `${k} — ${String(desc).slice(0, 40)}` : k,
         color: pieceDocKeys.has(k) ? UNIVERSAL_COLORS.piece : UNIVERSAL_COLORS.command,
         kind: pieceDocKeys.has(k) ? "piece" : "command",
@@ -577,7 +580,7 @@ async function universalSearch(query, { partial } = {}) {
       for (const p of (res?.pieces || []).slice(0, 4)) {
         if (!p?.enter) continue;
         const tag = p.handle ? ` ·${p.handle}` : "";
-        out.push({ text: p.enter, display: `${p.name || p.enter}${tag}`, color: UNIVERSAL_COLORS.piece, kind: "piece" });
+        out.push({ text: p.enter, title: p.name || p.enter, desc: p.handle || "", display: `${p.name || p.enter}${tag}`, color: UNIVERSAL_COLORS.piece, kind: "piece" });
       }
       return out;
     }),
@@ -591,6 +594,8 @@ async function universalSearch(query, { partial } = {}) {
         const moodText = String(m.mood).replace(/\s+/g, " ");
         out.push({
           text: "mood",
+          title: from,
+          desc: moodText,
           display: `${from}: ${moodText.slice(0, 32)}`,
           color: UNIVERSAL_COLORS.mood,
           kind: "mood",
@@ -611,6 +616,8 @@ async function universalSearch(query, { partial } = {}) {
         const chatText = String(c.text).replace(/\s+/g, " ");
         out.push({
           text: isClock ? "laer-klokken" : "chat",
+          title: from,
+          desc: chatText,
           display: `${from}: ${chatText.slice(0, 32)}`,
           color: isClock ? UNIVERSAL_COLORS.chatClock : UNIVERSAL_COLORS.chatSystem,
           kind: "chat",
@@ -850,6 +857,7 @@ let tooltipState = {
   desc: null,           // Current description to show
 };
 let tooltipDocs = null; // Cached docs.prompts from server
+let tooltipLineShown = false; // The tooltip wrote a line under the caret this frame.
 
 // 💡 Parse current input text for tooltip display
 function updateTooltipState(text, cursorPos) {
@@ -1017,7 +1025,9 @@ function paintTooltip($, inputText) {
     const suggestionsText = tooltipState.suggestions.slice(0, 6).join(" · ");
     ink(...suggestColor).write(suggestionsText, { x: cursorX + 2, y: cursorY + 10 },
       undefined, undefined, false, "MatrixChunky8");
+    return true;
   }
+  return !!descText;
 }
 
 // Tezos wallet connection state
@@ -5535,6 +5545,7 @@ function paint($) {
       previousKidlispMode = isActualKidLispCode;
     }
 
+    tooltipLineShown = false;
     // If activeCompletions is currently empty, but the input text itself
     // is a valid, non-hidden command, it's likely due to a Tab completion
     // that cleared the active suggestions. In this case, we want to treat
@@ -5608,7 +5619,7 @@ function paint($) {
       }
 
       if (showTooltip) {
-        paintTooltip($, currentInputText);
+        tooltipLineShown = !!paintTooltip($, currentInputText);
       }
     }
 
@@ -7852,7 +7863,8 @@ function paint($) {
       },
       {
         x: lineStart?.x ?? caret?.x ?? 10,
-        y: (caret?.y ?? 10) + 14,
+        // The tooltip's line sits right under the caret; the list goes below it.
+        y: (caret?.y ?? 10) + (tooltipLineShown ? 22 : 14),
         inline: true,
       },
     );
