@@ -3423,6 +3423,23 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // 👥 Who else is in the room, top right: each in their seat's colour, those only looking on in grey, under a count. Room asked of the pack, so the stats stand under it and nothing else lies on it.
+    if (!bare && !xr && !menu && !radial) {
+      const mine = self?.handle?.toLowerCase() || null;
+      const others = members.filter((m) => (m.handle ? m.handle.toLowerCase() !== mine : m.owner !== self?.owner)).slice(0, 10);
+      if (others.length) {
+        const { unit } = hud;
+        const rows = [[{ text: `${others.length} other${others.length === 1 ? '' : 's'} here`, color: THEME.dim }],
+          ...others.map((m) => [{ text: (m.handle ? `@${m.handle}` : m.name || 'guest').slice(0, 20), color: m.seat >= 0 ? seatColor(m.seat) : 0x8b90a0 }, ...(m.seat < 0 ? [{ text: ' looking on', color: 0x5a5f70 }] : [])])];
+        const wide = Math.ceil(Math.max(...rows.map((r) => smallSpanWidth(r, unit)))), at = hudPack.reserve('roster', 'tr', wide, rows.length * 10 * unit);
+        chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
+        const m = model(({ rect: worldRect, text, small }) => {
+          const rect = flip(worldRect);
+          rows.forEach((spans, i) => drawSpans({ rect, text, small }, spans, at.x + at.w - W / 2 - smallSpanWidth(spans, unit) / 2, H / 2 - at.y - 2 * unit - i * 10 * unit, unit, { shadow: INK, tiny: true }));
+        });
+        projector.overlay(m, W, H);
+      }
+    }
     if (stats) {
       const { unit } = hud, at = camera || me;
       const rows = [{ label: 'tri', value: lensFull, text: `${Math.round(lensFull * 100)}%` }];
