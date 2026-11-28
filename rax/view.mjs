@@ -3843,11 +3843,26 @@ export async function createView(canvas) {
         if (Math.hypot(at.x, (at.y * H) / W) < Math.max(reach, 0.02) && (!threat || at.depth < threat)) { threat = at.depth; core = at; }
       }
       // (It does not jump: over a fifth of a second the cyan turns red and the corners open out from the middle to the head.)
-      threatAt = threat !== null ? threatAt || now : 0;
-      const onto = threat !== null ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
+      // 😟 With no gun in hand a head is not a target, it is a thing coming for you: no bracket closes on it. The crosshair's point is a small unhappy face, and under it how near the head is.
+      const armed = Number.isFinite(ammo), afraid = threat !== null && !armed;
+      threatAt = threat !== null && armed ? threatAt || now : 0;
+      const onto = threatAt ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
       const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
-      const color = threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
-      if (threat !== null) {
+      const color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
+      if (afraid) {
+        const said = `${threat.toFixed(0)}m`, quick = threat < 8 && Math.floor(now / 140) % 2, ink = quick ? 0xff3b3b : 0xffe066;
+        const m = model(({ rect: worldRect, small }) => {
+          const rect = flip(worldRect);
+          // Seven by seven: two eyes, and a mouth turned down.
+          ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'].forEach((row, r) => [...row].forEach((ch, c) => {
+            if (ch !== '#') return;
+            rect((c - 3) * unit + unit, (3 - r) * unit - unit, 0.000002, unit, unit, INK);
+            rect((c - 3) * unit, (3 - r) * unit, 0, unit, unit, ink);
+          }));
+          small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, ink);
+        });
+        projector.overlay(m, W, H);
+      } else if (threat !== null) {
         // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
         const said = `${threat.toFixed(0)}m`, blink = Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff;
         const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
@@ -3858,7 +3873,7 @@ export async function createView(canvas) {
         });
         projector.overlay(m, W, H);
       }
-      let half = (threat !== null ? 4 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      let half = (threat !== null && armed ? 4 : afraid ? 8 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
       // Locked on: the corners surround the object on screen instead of
@@ -3917,7 +3932,7 @@ export async function createView(canvas) {
         }
       }
       // 👹 Over a head the corners go out to surround it, as they do a thing locked on to: its own size on the screen, a little clear of it, following it as it comes.
-      if (threat !== null && core && !box) {
+      if (threat !== null && armed && core && !box) {
         const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
         const r = Math.max(5 * unit, Math.round(((0.6 / core.depth) * projector.sx * W) / 2)), pad = 3 * unit;
         const clampTo = (v, lim) => Math.max(-lim, Math.min(lim, v)), limitX = W / 2 - 2 * unit, limitY = H / 2 - 2 * unit;
