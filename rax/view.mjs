@@ -3518,13 +3518,19 @@ export async function createView(canvas) {
           if (ahead < 0) { ax = Math.sign(ax || 1) * Math.max(0.6, Math.abs(ax)); const m2 = Math.hypot(ax, ay); ax /= m2; ay /= m2; }
           x = ax * (W / 2 - 26 * unit); y = ay * (H / 2 - 30 * unit);
         }
-        const m = model(({ rect: worldRect, small }) => {
-          const rect = flip(worldRect);
-          // A chevron of five dots, its point along (ax, ay).
-          for (let k = 0; k < 5; k++) for (const side of k ? [-1, 1] : [0]) {
-            const px = x + (ax * -k * 2 + -ay * side * k * 2) * unit - ax * -6 * unit, py = y + (ay * -k * 2 + ax * side * k * 2) * unit - ay * -6 * unit;
-            rect(Math.round(px) - unit, Math.round(py) - unit, 0.000002, 3 * unit, 3 * unit, INK);
-            rect(Math.round(px) - unit, Math.round(py) - unit, 0, 2 * unit, 2 * unit, goal.color);
+        const m = model(({ quad, small }) => {
+          // A chevron of two true lines meeting at its point, along (ax, ay): each a thin slanted quad, not squares stepped along a slope (those read as a saw's edge at any angle but four).
+          const stroke = (x1, y1, x2, y2, wide, color, z) => {
+            const dx = x2 - x1, dy = y2 - y1, n = Math.hypot(dx, dy) || 1, nx = (-dy / n) * wide / 2, ny = (dx / n) * wide / 2;
+            // (Screen x runs the other way in the overlay's own space: project.mjs overlay.)
+            quad([-(x1 + nx), y1 + ny, z], [-(x2 + nx), y2 + ny, z], [-(x2 - nx), y2 - ny, z], [-(x1 - nx), y1 - ny, z], color);
+            quad([-(x1 - nx), y1 - ny, z], [-(x2 - nx), y2 - ny, z], [-(x2 + nx), y2 + ny, z], [-(x1 + nx), y1 + ny, z], color); // (both faces: whichever way round it is seen)
+          };
+          const tipX = x + ax * 6 * unit, tipY = y + ay * 6 * unit, long = 10 * unit, spread = 0.7;
+          for (const side of [-1, 1]) {
+            const ex = tipX - (ax * long) + (-ay * side * long * spread), ey = tipY - (ay * long) + (ax * side * long * spread);
+            stroke(tipX + unit, tipY - unit, ex + unit, ey - unit, 2.5 * unit, INK, 0.000002);
+            stroke(tipX, tipY, ex, ey, 2 * unit, goal.color, 0);
           }
           const tx = Math.max(-W / 2 + (smallWidth(said) / 2 + 4) * unit, Math.min(W / 2 - (smallWidth(said) / 2 + 4) * unit, x - ax * 14 * unit)), ty = y - ay * 14 * unit + (seen ? 8 * unit : 4 * unit);
           small(said, tx + unit, ty - unit, 0.000002, unit, INK);
