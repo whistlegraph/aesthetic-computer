@@ -69,3 +69,13 @@ test('the rejected Big friend walks within its actual swept bounds',async()=>{
   assert.ok(g.boxes.some(b=>Math.abs(v[i]-b.x)<=b.w/2+1e-6&&Math.abs(v[i+1]-b.y)<=b.h/2+1e-6&&Math.abs(v[i+2]-b.z)<=b.d/2+1e-6));
  }}
 });
+test('a drifting stick is learned: its resting point becomes its middle and its deadzone shrinks to its shiver',()=>{
+ const c=new Controller();const p={id:'drifty',index:0,connected:true,mapping:'standard',axes:[.12,-.05,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
+ c.sample([p]);assert.deepEqual(c.deadzones,[.16,.18]);
+ for(let i=0;i<200;i++){p.axes=[.12+(i%2?.004:-.004),-.05,0,0];c.sample([p]);}
+ assert.ok(c.deadzones[0]<.06,'left deadzone shrank');assert.ok(c.deadzones[1]<.06);
+ const rest=c.sample([p]);assert.ok(rest.right===0&&rest.fwd===0,'at rest it gives nothing');
+ p.axes=[.22,-.05,0,0];const push=c.sample([p]);assert.ok(push.right>0,'a light push past the drift now moves');
+ p.axes=[.9,0,0,0];for(let i=0;i<200;i++)c.sample([p]);
+ assert.ok(c.sample([p]).right>.7,'a stick held hard over is never taken for rest');
+});

@@ -63,7 +63,8 @@ export const LEGEND = {
   pad: [
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom',
-    '[Y] camera / [L3] distance, held + [RS]',
+    '[Y] camera / [L3] distance',
+    'hold [L3]: [RS] zoom, swing',
     'hold [Y] drone',
     '[RT] use / [X] drop',
     '[X] paint / hold [LB] build',
@@ -250,6 +251,7 @@ import {
   wallDistance,
   along,
   clamp,
+  PLATFORM_DEPTH,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -371,7 +373,7 @@ export async function createView(canvas) {
   const ROOM_HEIGHT = 4;
   // (walled false: a floating platform — the same floor on a slab, nothing
   // around it but the sky. A room made by name is one, 2026-11-27; a game's
-  // arena keeps its walls. The edge still holds a body: world.mjs clamps.)
+  // arena keeps its walls. The slab is a block, PLATFORM_DEPTH deep, and a body walks off its edge: world.mjs slabOf.)
   const buildArena = (p, W = WORLD, walled = true) =>
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
@@ -389,7 +391,7 @@ export async function createView(canvas) {
       const h = ROOM_HEIGHT, t = 0.3, outside = 2 * W + 2 * t, inside = 2 * W;
       if (!walled) {
         // The slab under the floor (its top a hair below, so the two never fight), each side in its wall's colour.
-        box(0, -0.36, 0, 2 * W, 0.6, 2 * W, p.floor, p.walls.east, p.walls.north);
+        box(0, -0.06 - PLATFORM_DEPTH / 2, 0, 2 * W, PLATFORM_DEPTH, 2 * W, p.floor, p.walls.east, p.walls.north);
         return;
       }
       box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
@@ -1619,6 +1621,7 @@ export async function createView(canvas) {
     combos = [], // 🔗 a chain in the air, by seat: [how many, worth] or 0
     debug = false, // 🔲 a game's hitboxes and numbers
     boomLength = 4, // how far back the third-person camera sits
+    boomOrbit = 0, // 🎠 degrees the third-person camera is swung round the body from behind it (a free look: L3 held)
     shoulder = 1, // which shoulder it looks over: 1 right, -1 left, 0 straight behind
     rockets = [],
     status = '',
@@ -1670,6 +1673,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    hold = null, // ⏳ { label, progress 0 to 1 }: a button being held toward its action, drawn as a meter under the crosshair
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
     eyes = [], // 🚁 whoever looks on, each a small drone where their eye is: { name, x, y, z, yaw, vx, vz }
@@ -1754,7 +1758,8 @@ export async function createView(canvas) {
       }
       projector.overlay(mesh, width, height);
     }
-    let chartTop = 21 * hud.unit + bump;
+    // The stats sit flush in the top right: under the mode icon when there is one, else at the edge (the controls moved bottom-right).
+    let chartTop = modeBox ? modeBox.y + modeBox.h + 2 * hud.unit : 4 + bump;
     const promptX = grid ? 6 + bump : hud.safeX, promptY = grid ? 6 + bump : hud.safeY;
     const columns = Math.max(1, Math.floor((canvas.width - 2 * promptX) / (6 * hud.unit)));
     const buildLines = bare || !builds.length ? [] : buildTextLines(builds, columns, now);
@@ -1788,6 +1793,11 @@ export async function createView(canvas) {
       if (third) {
         const back = { x: -dir.x, y: -dir.y + 0.22, z: -dir.z },
           len = Math.hypot(back.x, back.y, back.z);
+        if (boomOrbit) {
+          const a = (boomOrbit * Math.PI) / 180, bx = back.x, bz = back.z;
+          back.x = bx * Math.cos(a) + bz * Math.sin(a);
+          back.z = -bx * Math.sin(a) + bz * Math.cos(a);
+        }
         for (const k of ['x', 'y', 'z']) back[k] /= len;
         // 👻 The camera keeps its distance and goes through whatever is
         // behind you: a wall or a ceiling there is looked through (see
@@ -1802,7 +1812,7 @@ export async function createView(canvas) {
         // to the side, so a close camera does not leave the body behind.
         const level = Math.hypot(dir.x, dir.z);
         if (shoulder && level > 1e-4) {
-          const side = shoulder * Math.min(1.1, 0.26 * boom);
+          const side = shoulder * Math.min(1.1, 0.26 * boom) * (1 - Math.min(1, Math.abs(boomOrbit) / 45)); // (swung round, it looks at the body from where it is: no shoulder)
           eye.x += (-dir.z / level) * side;
           eye.z += (dir.x / level) * side;
         }
@@ -1812,6 +1822,11 @@ export async function createView(canvas) {
       // Keep the camera on the player's sightline through open block edges.
       // Picking a surface is a separate ray; its distance must not steer the camera.
       aim = along(origin, dir, 20);
+      // 🎠 Swung round the body, the camera looks at the body, not along its sightline.
+      if (third && boomOrbit) {
+        const w = Math.min(1, Math.abs(boomOrbit) / 45);
+        for (const k of ['x', 'y', 'z']) aim[k] += (origin[k] - aim[k]) * w;
+      }
     }
     if (camera) {
       eye = camera;
@@ -2740,8 +2755,13 @@ export async function createView(canvas) {
         if (promptX + Math.max(buildWidth, wireWidth) + 2 * unit > width - safeX - rightWidth)
           hintOffset += (buildLines.length + (wireWidth ? 1 : 0)) * 10 * unit;
       }
-      if (!prompt.open && !saying && visible.length) chartTop = Math.max(chartTop, safeY + hintOffset + (14 * visible.length + 2) * unit);
-      const key = JSON.stringify([visible, width, height, bump, hintOffset, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint]);
+      // 🧭 The controls and the hint stand bottom-right, in room asked of the
+      // pack, so the top right is the stats' alone and what else stands
+      // bottom right (an aimed object's code, the headset buttons) clears them.
+      const legendAt = !prompt.open && !saying && visible.length
+        ? hudPack.reserve('controls', 'br', Math.ceil(Math.max(...visible.map((row) => smallSpanWidth(row, unit)))), 14 * visible.length * unit)
+        : null;
+      const key = JSON.stringify([visible, width, height, bump, hintOffset, prompt.open, saying, !!chat?.lift, !!radial, !!wallCode, !!enterHint, legendAt?.x, legendAt?.y]);
       if (key !== promptKey) {
         promptKey = key;
         promptModel = model(({ rect: worldRect, text, small }) => {
@@ -2751,7 +2771,7 @@ export async function createView(canvas) {
           // build in progress sit top-left on the 2D prompt's own text grid
           // (6, 6; ten-pixel lines) so the typed line is pixel for pixel
           // where the paper shows it; the legend and the hint line are
-          // right-aligned at the top-right.
+          // right-aligned at the bottom-right.
           panelTop = null;
           const widths = visible.map((spans) => spanWidthOf(spans, unit));
           if (panel) {
@@ -2770,17 +2790,19 @@ export async function createView(canvas) {
               drawSpans({ rect, text, small }, escHint, width / 2 - safeX - ew / 2, height / 2 - safeY - hintOffset - 2 * unit, unit, { shadow: INK, tiny: true });
             }
           } else {
-            // The controls and the hint, top-right, compact: MatrixChunky8
+            // The controls and the hint, bottom-right, compact: MatrixChunky8
             // with small key caps and badges (2026-11-08).
-            const right = width / 2 - safeX;
-            visible.forEach((spans) => {
+            const right = legendAt.x + legendAt.w - width / 2;
+            visible.forEach((spans, i) => {
               const w = smallSpanWidth(spans, unit);
-              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - safeY - hintOffset - 2 * unit - visible.indexOf(spans) * 14 * unit, unit, { shadow: INK, tiny: true }); // (fourteen-pixel rows: a cap and its shadow clear the row under it)
+              drawSpans({ rect, text, small }, spans, right - w / 2, height / 2 - legendAt.y - 4 * unit - i * 14 * unit, unit, { shadow: INK, tiny: true }); // (fourteen-pixel rows: a cap and its shadow clear the row under it)
             });
           }
         });
       }
-      hudOverlay('controls', promptModel, width, height);
+      // (Bottom-right its room is already in the pack; a panel's is claimed as it is drawn.)
+      if (legendAt) projector.overlay(promptModel, width, height);
+      else hudOverlay('controls', promptModel, width, height);
     }
     // Prompt's profile button has a six-pixel margin, four pixels of padding,
     // and a ten-row font. handleText places row zero one unit above its origin.
@@ -3125,6 +3147,17 @@ export async function createView(canvas) {
     // sticks as rings with the knob where the thumb has it (left moves the
     // eye, right, in cyan, turns it), and everything on it that can be
     // pressed as a dark square that lights while held.
+    if (hold && !xr) {
+      const { unit } = hud, w = 40 * unit, h = 3 * unit, y = -Math.round(H * 0.14);
+      const m = model(({ rect: worldRect, small }) => {
+        const rect = flip(worldRect);
+        rect(-w / 2 - unit, y - unit, 0.000003, w + 2 * unit, h + 2 * unit, INK);
+        rect(-w / 2, y, 0.000002, w, h, THEME.dim);
+        rect(-w / 2, y, 0.000001, Math.round(w * hold.progress), h, PAPER);
+        small(hold.label, 0, y + h + 10 * unit, 0, unit, PAPER);
+      });
+      projector.overlay(m, W, H);
+    }
     if (sticks) {
       const { unit, safeX, safeY } = hud;
       const m = model(({ rect: worldRect }) => {

@@ -69,6 +69,10 @@ export class LocalPresentation {
 // Packet arrival changes the target playback rate, never the rendered tick.
 // Both players sample one monotonic timeline; starvation freezes at known data.
 export class SnapshotClock {
+  // `own`: the clock of one body's own steps (SeatClocks, below). Those come
+  // none at a time and then several, so how late the stream runs is how long
+  // it stood, whatever it brought when it moved again.
+  constructor(own = false) { this.own = own; }
   reset() {
     this.tick = this.latest = this.at = this.sampledAt = undefined;
     this.late = 0;
@@ -89,7 +93,7 @@ export class SnapshotClock {
     // on from there, not back over ticks the picture has already shown.
     if (this.ahead) { this.tick = Math.min(tick, this.tick + this.ahead); this.ahead = 0; }
     if (this.latest !== undefined && now - this.at < 2000)
-      this.late = Math.max((this.late || 0) * 0.995, ((now - this.at) * HZ) / 1000 - (tick - this.latest));
+      this.late = Math.max((this.late || 0) * 0.995, ((now - this.at) * HZ) / 1000 - (this.own ? 1 : tick - this.latest));
     this.latest = tick;
     this.at = now;
     if (this.tick === undefined) {
@@ -139,5 +143,32 @@ export class RemoteEase {
     s.guessed = guessed;
     s.x = p.x + s.ex; s.z = p.z + s.ez;
     return s.ex || s.ez ? { ...p, x: s.x, z: s.z } : p;
+  }
+}
+
+// ⏱️ One clock for each body watched, counting that body's own steps (the
+// snapshot's `moves`). The server runs a body's commands as they arrive: none
+// on a tick when they are late, several on the next. Played back on the
+// server's ticks a watched body stops and leaps, and its aim with it; played
+// back on its own steps, a little further behind on a link that clumps, it
+// walks and turns as evenly as it did on its own screen.
+export class SeatClocks {
+  constructor() { this.seats = new Map(); }
+  reset() { this.seats.clear(); }
+  receive(moves, players, now) {
+    if (!Array.isArray(moves)) return void this.seats.clear(); // (a server that does not count them: the tick's clock is used)
+    for (let seat = 0; seat < moves.length; seat++) {
+      if (!players?.[seat]) { this.seats.delete(seat); continue; }
+      let c = this.seats.get(seat);
+      if (!c || (c.latest !== undefined && moves[seat] < c.latest)) { c = new SnapshotClock(true); c.reset(); this.seats.set(seat, c); } // (a new body in the seat counts from nothing)
+      c.receive(moves[seat], now);
+    }
+  }
+  // Where in its own steps this body is shown now, or null to use the tick's clock.
+  sample(seat, now) {
+    const c = this.seats.get(seat);
+    if (!c || c.tick === undefined) return null;
+    if (c.sampledFor !== now) { c.sampledFor = now; c.shown = c.sample(now); }
+    return { tick: c.shown, ahead: c.ahead || 0 };
   }
 }

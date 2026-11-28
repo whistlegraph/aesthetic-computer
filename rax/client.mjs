@@ -15,10 +15,10 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
-import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
+import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
 import { Prompt } from './prompt.mjs';
 import { objectBoxes } from './objects.mjs';
 import { direction, rayBox, wallDistance, along, SCREEN, WORLD, halfOf } from './world.mjs';
@@ -587,8 +587,11 @@ function hungHere() {
   if (hungFor_ !== room) { hungFor_ = room; const cell = cellOf(room); hungKept = cell ? hungFor(cell) : NO_BOXES; if (!hungKept.length) hungKept = NO_BOXES; }
   return hungKept;
 }
+let slabFor = null, slabKept = NO_BOXES;
 function fixedBoxes() {
   if (game()?.ledges) return game().ledges;
+  // 🧱 A platform's block (world.mjs slabOf), as the server has it: the room's one solid.
+  if (!worldPlace(room) && !game()) { if (slabFor !== room) { slabFor = room; slabKept = [...hungHere(), slabOf(half())]; } return slabKept; }
   if (!hasCar()) return hungHere();
   // (Rebuilt when the room changes: only the plaza has the lobby, only the roof its parapet.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
@@ -733,7 +736,8 @@ const lcd = LCD ? (() => {
 let lastBackgroundFrameAt = 0;
 const presentation = new LocalPresentation(),
   playback = new SnapshotClock(),
-  remoteEase = new RemoteEase();
+  remoteEase = new RemoteEase(),
+  bodies = new SeatClocks(); // ⏱️ each watched body's own clock (presentation.mjs): it is shown in its own steps, not the server's ticks
 const prompt = new Prompt();
 // 💬 Room chat: T opens a line (Quake's say key), Enter says it, Escape drops
 // it. The same text entry as the build prompt, with a flat cursor.
@@ -745,6 +749,12 @@ let selfMember = null;
 // 🪞 A drone signed in as someone who walks here on another screen follows that body and looks where it looks, from just behind it. Its own stick, keys or look take it back; let go for a few seconds, it follows again.
 const FOLLOW_AFTER_MS = 6000;
 let following = false, followSaid = null, followLook = null, flownAt = -Infinity, followFlight = null, eyeCarried = false;
+// ⏱️ Someone else's body as it is shown now: in its own steps when the server counts them (smooth whatever its link did), else on the snapshots' ticks.
+function shownBody(i, tick, now) {
+  const own = bodies.sample(i, now);
+  return own ? { p: interpolate(history, own.tick, i, own.ahead, true), guessed: own.ahead > 0 }
+    : { p: interpolate(history, tick, i, playback.ahead || 0), guessed: (playback.ahead || 0) > 0 };
+}
 const ownBodySeat = () => {
   const mine = selfMember?.handle?.toLowerCase();
   return mine && seat < 0 ? members.find((m) => m.seat >= 0 && m.handle?.toLowerCase() === mine)?.seat ?? -1 : -1;
@@ -1847,6 +1857,7 @@ function unseat(keepMotion = false) {
   }
   playback.reset();
   remoteEase.reset();
+  bodies.reset();
   freecamPlaced = false;
   gate = null;
   joiningUntil = performance.now() + 7000;
@@ -2212,6 +2223,7 @@ function connect(adopt = null) {
     history.push(data);
     history = history.slice(-64);
     playback.receive(data.tick, latestAt);
+    bodies.receive(data.moves, data.players, latestAt);
     if (notice === 'CONNECTING') notice = '';
     for (const event of data.events) {
       if (event.id <= eventId) continue;
@@ -2306,6 +2318,7 @@ function connect(adopt = null) {
     presentation.reset(null);
     playback.reset();
     remoteEase.reset();
+    bodies.reset();
   };
   socket.onerror = () => {
     if (socket === ws) logNet('socket error', { bad: true });
@@ -3107,12 +3120,24 @@ let boomLength = 4;
 // L3 clicked alone steps it out through these distances and round again.
 const BOOM_STEPS = [2, 4, 7, 11];
 let boomSticked = false; // the stick moved the boom during this press of L3
+// 🎠 …and left and right swing the camera round the body, which keeps facing where it faced: a free look. Let go of L3 and the camera comes back behind.
+let boomOrbit = 0; // degrees round the body from straight behind
 const keepBoom = () => {
   clearTimeout(boomSaveTimer);
   boomSaveTimer = setTimeout(() => { try { localStorage.setItem('rax-boom', boomLength.toFixed(2)); } catch {} }, 400);
 };
 // 🚁 Looking on by choice. A signed-in body's screen can step back to a drone (P, or Y held on a pad) and take the body again (P, L3, or a tap on the handle). The choice is kept, so a page that left as a drone comes back as one, even when it is the only screen.
 let droneWanted = false, cameraHeldAt = 0;
+// ⏳ A button that does its thing only when held shows how far along the hold is, and sounds it: a meter under the crosshair that fills, a note that climbs as it does, and a pick when it is done. `holdOn(label, since, ms)` is asked each frame the button is down; nothing asked, the meter is gone.
+let holdMeter = null, holdStep = -1;
+function holdOn(label, since, ms, now = performance.now()) {
+  const progress = Math.min(1, (now - since) / ms);
+  if (now - since < 110) return false; // (a tap is not a hold: nothing shows or sounds for it)
+  holdMeter = { label, progress };
+  const step = Math.floor(progress * 5);
+  if (step !== holdStep) { holdStep = step; if (step < 5) sfx.ringMove(step * 2); else sfx.ringPick(4); }
+  return progress >= 1;
+}
 try { droneWanted = localStorage.getItem('rax-drone') === '1'; } catch {}
 const keepDrone = (on) => { droneWanted = on; try { on ? localStorage.setItem('rax-drone', '1') : localStorage.removeItem('rax-drone'); } catch {} };
 function takeDrone() {
@@ -3500,6 +3525,13 @@ function step(now, xr) {
       boomSticked = true;
       keepBoom();
     }
+    if (booming && gamepad.lookX) {
+      boomOrbit = ((boomOrbit - gamepad.lookX * 160 * Math.min(0.1, elapsed) + 540) % 360) - 180;
+      boomSticked = true;
+    } else if (!booming && boomOrbit) {
+      boomOrbit *= Math.exp(-Math.min(0.1, elapsed) * 7);
+      if (Math.abs(boomOrbit) < 0.2) boomOrbit = 0;
+    }
     if (!dock && !lockOn && !booming) {
       const dt = Math.min(0.1, elapsed) / focusZoom;
       yaw = (yaw - gamepad.lookX * 160 * dt + 360) % 360;
@@ -3516,9 +3548,10 @@ function step(now, xr) {
     }
     if (seat >= 0 && gamepad.camera) third = !third;
     // 🚁 Y held for most of a second: step back to a drone.
-    if (!gamepad.cameraHeld) cameraHeldAt = 0;
+    holdMeter = null;
+    if (!gamepad.cameraHeld) { cameraHeldAt = 0; holdStep = -1; }
     else if (!cameraHeldAt) cameraHeldAt = performance.now();
-    else if (seat >= 0 && performance.now() - cameraHeldAt > 700) { cameraHeldAt = Infinity; takeDrone(); }
+    else if (seat >= 0 && cameraHeldAt !== Infinity && holdOn('drone', cameraHeldAt, 700)) { cameraHeldAt = Infinity; holdMeter = null; takeDrone(); }
     if (gamepad.zoomRelease) {
       if (seat >= 0 && third && !dock && !boomSticked) {
         boomLength = BOOM_STEPS.find((d) => d > boomLength + 0.05) ?? BOOM_STEPS[0];
@@ -3566,7 +3599,7 @@ function step(now, xr) {
     following = !!selfMember?.canTakeBody && !dock && !lockOn && !nearing && !query.has('film') && !held && !warp && now - flownAt > FOLLOW_AFTER_MS;
     // The room is told, so the drone is brought along when the body goes to another room (server.mjs `follow`).
     if (followSaid?.ws !== ws || followSaid.on !== following) { followSaid = { ws, on: following }; send({ type: 'follow', on: following }); }
-    const followed = following ? interpolate(history, playback.tick ?? snapshot.tick, ownBodySeat(), playback.ahead || 0) : null;
+    const followed = following ? shownBody(ownBodySeat(), playback.tick ?? snapshot.tick, now).p : null;
     if (!followed?.alive) followFlight = null;
     const idle = sheetOpen && room === 'lobby' && !dock && !lockOn && !query.has('film') && !held && !game() && !prompt.open && !chat.open && !following && now - inputAt > IDLE_MS;
     if (followed?.alive) {
@@ -3929,9 +3962,11 @@ function step(now, xr) {
     }
   }
   // (Everyone but this page's own body is carried on through a quiet wire and eased back: presentation.mjs.)
-  const guessed = (playback.ahead || 0) > 0;
-  const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) =>
-    i === seat ? interpolate(history, tick, i) : remoteEase.sample(i, interpolate(history, tick, i, playback.ahead || 0), guessed, elapsed)) : [];
+  const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => {
+    if (i === seat) return interpolate(history, tick, i);
+    const { p, guessed } = shownBody(i, tick, now);
+    return remoteEase.sample(i, p, guessed, elapsed);
+  }) : [];
   // 🤖 Drones glide between the two snapshots around the playback tick.
   const shownDrones = (() => {
     if (!connected || !snapshot.drones?.length) return [];
@@ -4085,6 +4120,8 @@ function step(now, xr) {
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
     boomLength,
+    boomOrbit,
+    hold: prompt.open ? null : holdMeter,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
     bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges()),

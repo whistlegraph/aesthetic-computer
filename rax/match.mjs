@@ -14,7 +14,7 @@ import {
   surfaceHit,
   reflect,
   WORLD,
- HORIZON } from './world.mjs';
+ HORIZON, FALL_Y } from './world.mjs';
 import { command } from './net.mjs';
 import { objectBoxes } from './objects.mjs';
 import { RACK_RETURN_SECONDS } from './armory.mjs';
@@ -751,10 +751,13 @@ export class Match {
           s.last = c;
         }
         const input = c || { yaw: s.last.yaw, pitch: s.last.pitch, buttons: 0 };
+        s.moves = (s.moves || 0) + 1; // ⏱️ the body's own time: one for each step it has lived (snapshot `moves`)
         // Waiting is a movement warmup; the match countdown locks both spawns.
-        if (this.phase === 'playing' || this.phase === 'waiting')
+        if (this.phase === 'playing' || this.phase === 'waiting') {
           p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open, this.half);
-        else if (c) {
+          // 🧱 Fallen off a platform: stood back where bodies arrive, the score kept.
+          if (p.y < FALL_Y) { p = { ...this.fresh(p.seat, p.life + 1), score: p.score }; s.last = {}; }
+        } else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;
         }
@@ -942,6 +945,8 @@ export class Match {
       winner: this.winner,
       players: this.seats.map((s) => s && { ...s.player }),
       acks: this.seats.map((s) => s?.ack || 0),
+      // ⏱️ How many steps each body has lived. A body moves by its own commands, none on a tick when they are late and several on the next, so in the server's ticks it stops and leaps; in its own steps it walks evenly. Whoever watches plays it back by these (net.mjs interpolate, `own`).
+      moves: this.seats.map((s) => s?.moves || 0),
       bops: this.seats.map((s) => s?.bops || 0),
       // 🔗 [how many in the chain, what it is worth so far], by seat, while in the air.
       combos: this.seats.map((s) => (s?.combo ? [s.combo, s.pending] : 0)),

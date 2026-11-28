@@ -34,18 +34,47 @@ export function stick(x = 0, y = 0, deadzone = 0.16) {
   const strength = Math.min(1, (length - deadzone) / (1 - deadzone));
   return [(x / length) * strength, (y / length) * strength];
 }
+// 🎯 The deadzone is learned from the stick itself. A stick left alone sits
+// at some small offset (its drift) and shivers a little round it. Once a
+// stick has lain still for a second and a half its resting point is taken
+// as its middle, and its deadzone shrinks to just cover the shiver — far
+// smaller than the fixed one a stick starts with, so it answers a light push.
+const REST_FRAMES = 90, REST_REACH = 0.3, REST_STEP = 0.015, DEADZONE_MIN = 0.04;
+const newRest = () => ({ cx: 0, cy: 0, px: 0, py: 0, still: 0, noise: 0, known: false });
 export class Controller {
   constructor() {
+    this.rests = new Map(); // by pad index: its two sticks' resting points
+    this.deadzones = [0.16, 0.18]; // left, right, as last sampled
     this.previous = [];
     this.id = null;
     this.index = null;
     this.focused = false;
+  }
+  // One pad's four axes with each stick's learned resting point taken away.
+  settle(p) {
+    if (!this.rests.has(p.index)) this.rests.set(p.index, [newRest(), newRest()]);
+    const rests = this.rests.get(p.index), out = [0, 0, 0, 0];
+    for (let s = 0; s < 2; s++) {
+      const r = rests[s], x = p.axes[2 * s] || 0, y = p.axes[2 * s + 1] || 0;
+      r.still = Math.hypot(x, y) < REST_REACH && Math.hypot(x - r.px, y - r.py) < REST_STEP ? r.still + 1 : 0;
+      r.px = x; r.py = y;
+      if (r.still >= REST_FRAMES) {
+        if (!r.known) { r.cx = x; r.cy = y; r.known = true; }
+        r.cx += (x - r.cx) * 0.05; r.cy += (y - r.cy) * 0.05;
+        r.noise = Math.max(r.noise * 0.999, Math.hypot(x - r.cx, y - r.cy));
+      }
+      out[2 * s] = x - r.cx; out[2 * s + 1] = y - r.cy;
+    }
+    return out;
   }
   sample(gamepads, focused = true) {
     // Every connected controller at once: buttons from any, each stick from
     // whichever is pushed furthest. A second controller plugged in (or one
     // switched on later) just works, whichever index the browser gives it.
     const pads = Array.from(gamepads || []).filter((p) => p?.connected && p.axes.length >= 2);
+    for (const key of this.rests.keys()) if (!pads.some((p) => p.index === key)) this.rests.delete(key);
+    const centred = new Map(pads.map((p) => [p, this.settle(p)]));
+    const ax = (p, i) => centred.get(p)[i];
     const pad = pads.length
       ? {
           id: pads.map((p) => p.id).join(' + '),
@@ -56,8 +85,8 @@ export class Controller {
           })),
           axes: Array.from({ length: 4 }, (_, i) => {
             const pair = i < 2 ? [0, 1] : [2, 3];
-            const best = pads.reduce((a, p) => (Math.hypot(p.axes[pair[0]] || 0, p.axes[pair[1]] || 0) > Math.hypot(a.axes[pair[0]] || 0, a.axes[pair[1]] || 0) ? p : a), pads[0]);
-            return best.axes[i] || 0;
+            const best = pads.reduce((a, p) => (Math.hypot(ax(p, pair[0]), ax(p, pair[1])) > Math.hypot(ax(a, pair[0]), ax(a, pair[1])) ? p : a), pads[0]);
+            return ax(best, i);
           }),
         }
       : null;
@@ -75,8 +104,14 @@ export class Controller {
     const edge = (i) =>
       buttons[i] && !this.previous[i] && !changed && this.focused;
     if (focused) {
-      const left = stick(pad.axes[0], pad.axes[1]),
-        right = stick(pad.axes[2], pad.axes[3], 0.18);
+      // Each stick's deadzone: the widest any connected pad still needs.
+      this.deadzones = [0.16, 0.18].map((fixed, s) =>
+        Math.max(...pads.map((p) => {
+          const r = this.rests.get(p.index)?.[s];
+          return r?.known ? Math.min(fixed, Math.max(DEADZONE_MIN, r.noise * 2 + 0.03)) : fixed;
+        })));
+      const left = stick(pad.axes[0], pad.axes[1], this.deadzones[0]),
+        right = stick(pad.axes[2], pad.axes[3], this.deadzones[1]);
       result.right = left[0];
       result.fwd = -left[1];
       result.lookX = Math.sign(right[0]) * Math.abs(right[0]) ** 1.4;

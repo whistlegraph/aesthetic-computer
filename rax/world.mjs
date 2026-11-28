@@ -108,6 +108,18 @@ export function wallsOf(half = WORLD) {
   return walled.get(half);
 }
 export const WALLS = wallsOf(WORLD);
+// 🧱 A platform is a volume (2026-11-27): a block this deep whose top is the
+// floor. The room made of one has no walls and no ground but the block: a
+// body walks off its edge and falls, its sides are solid from below, and
+// under FALL_Y the body is stood back where it arrives (match.mjs).
+// It rides among a room's fixed boxes, marked `slab`; move() takes it from there.
+export const PLATFORM_DEPTH = 2, FALL_Y = -40;
+const ABYSS = -1e4;
+const slabs = new Map();
+export function slabOf(half = WORLD) {
+  if (!slabs.has(half)) slabs.set(half, { ...box(-half, half, -PLATFORM_DEPTH, 0, -half, half), slab: true });
+  return slabs.get(half);
+}
 export const CFG = Object.freeze({
   ...DEFAULT_CFG,
   simHz: HZ,
@@ -165,6 +177,11 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // its solids, not boxes: a bike is kept out of them, their tops are ground.
   const hung = fixed.some((b) => b.ball) ? fixed.filter((b) => b.ball) : NO_HUNG;
   if (hung.length) fixed = fixed.filter((b) => !b.ball);
+  const poolRoom = fixed.includes(POOL);
+  // 🧱 A platform's block: the only ground there is, with nothing round it.
+  const slab = fixed.find((b) => b.slab) || null;
+  if (slab) fixed = fixed.filter((b) => !b.slab);
+  const groundAt = (p) => (poolRoom ? POOL.bottom : !slab || (p.x >= slab.xMin && p.x <= slab.xMax && p.z >= slab.zMin && p.z <= slab.zMax) ? 0 : ABYSS);
   // pmove's +X strafe faces the other way from a +Z-looking Three camera.
   const boxes = objectBoxes(objects, time),
     feet = player.y - CFG.eyeHeight;
@@ -172,7 +189,6 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🦆 Ducking (flat rooms): ledges let the body through, a fall is faster,
   // and on the ground the head is lower (bop.mjs).
   const duck = flat && !!cmd.duck;
-  const poolRoom = fixed.includes(POOL);
   const afloat = poolRoom && (player.swimming || player.boat);
   const solid = fixed.some((b) => b.platform || b.stair || b.ceiling) ? fixed.filter((b) => !b.platform && !b.stair && !b.ceiling && !b.water) : fixed,
     ledges = duck ? [] : fixed.filter((b) => b.platform || b.stair);
@@ -219,14 +235,15 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   // 🪐 Standing on a planet: its top under the feet is the ground.
   let dome = null;
   if (player.onGround) for (const b of hung) { const top = topOf(b, player.x, player.z); if (top !== null && Math.abs(feet - top) < 0.06) dome = top; }
-  const grounded = player.onGround && (feet < (poolRoom ? POOL.bottom : 0) + 0.02 || !!support || dome !== null);
+  const grounded = player.onGround && (feet < groundAt(player) + 0.02 || !!support || dome !== null);
   const step = (grounded || afloat) && !(cmd.buttons & 1) ? 0.32 : 0.001;
   const cfg = {
     ...CFG,
     airCapSpeed: poolRoom || fixed.some(b => b.window) || open === towerSides ? 4.3 : CFG.airCapSpeed,
-    groundY: support?.yMax ?? dome ?? (poolRoom ? POOL.bottom : 0),
+    groundY: support?.yMax ?? dome ?? groundAt(player),
     ...(afloat ? {runSpeed: player.boat ? 4.3 : 2.4, walkSpeed: 1.7, hVelDecay: player.boat ? 0.955 : 0.88, jumpVelocity: 0, airAccel: undefined} : {}),
-    obstacles: [...(open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
+    // (A platform has no walls; its block is solid from the side to a body that is down past its top.)
+    obstacles: [...(slab ? (feet < slab.yMax - 0.32 ? [slab] : []) : open?.length ? WALLS.filter((_, i) => !open.includes(SIDES[i])) : WALLS), ...solid, ...boxes.filter((b) => b.yMax > feet + step),
       ...(player.shut > 0 ? [CAR_DOOR] : [])], // 🛗 riding: the car's door is shut for this body (`shut` ticks to go)
   };
   const next = pmove(
@@ -237,7 +254,9 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
   if (player.shut > 0) next.shut = player.shut - 1;
   // Shared step-up, landing and head collision; generated boxes are solid on all sides.
   const nextFeet = next.y - CFG.eyeHeight;
-  let floor = poolRoom ? POOL.bottom : 0;
+  let floor = groundAt(next);
+  // (Off a platform's edge the top is ground only to a body that was above it: one fallen past is not lifted back.)
+  if (slab && floor === 0 && feet < -0.32) floor = ABYSS;
   for (const b of boxes) {
     if (!under(b, next)) continue;
     if (b.yMax <= feet + step && (nextFeet <= b.yMax || (grounded && nextFeet <= b.yMax + step)))
@@ -283,8 +302,10 @@ export function move(player, cmd, objects = [], time = 0, fixed = [], flat = fal
     next.vz *= 22 / speed;
   }
   const past = (side) => (open?.includes(side) ? OVERRUN : 0);
-  next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
-  next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
+  if (!slab) { // (a platform's edge holds nobody)
+    next.x = clamp(next.x, -half + 0.4 - past('west'), half - 0.4 + past('east'));
+    next.z = clamp(next.z, -half + 0.4 - past('south'), half - 0.4 + past('north'));
+  }
   if (poolRoom) floatInPool(player, next, cmd, DT);
   else if (next.boat || next.swimming) { delete next.boat; delete next.swimming; delete next.poolJump; }
   if (flat) {

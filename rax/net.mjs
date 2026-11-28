@@ -43,11 +43,19 @@ export function reconcile(authority, pending, ack, objects = [], tick = 0, fixed
 // for that long, across the ground only, so a late packet is a body still
 // walking, not one stopped and then thrown forward.
 const GUESS_SPEED = 12 / 60; // metres a tick: nobody is guessed faster than a sprint
-export function interpolate(history, tick, seat, ahead = 0) {
+// `own`: `tick` counts the body's own steps (snapshot `moves`), not the
+// server's ticks: the timeline a watched body is even on (presentation.mjs SeatClocks).
+export function interpolate(history, tick, seat, ahead = 0, own = false) {
   if (!history.length) return null;
-  if (ahead > 0 && history.length > 1 && tick >= history.at(-1).tick) {
-    const b = history.at(-1), a = history.at(-2), p = a.players[seat], q = b.players[seat];
-    const ticks = b.tick - a.tick;
+  const key = own ? (s) => s.moves?.[seat] ?? 0 : (s) => s.tick;
+  if (ahead > 0 && history.length > 1 && tick >= key(history.at(-1))) {
+    // (In its own steps the newest snapshots may all be the same step: the one before is the last that differs.)
+    const b = history.at(-1);
+    let j = history.length - 2;
+    while (own && j > 0 && key(history[j]) >= key(b)) j--;
+    const a = history[j];
+    const p = a.players[seat], q = b.players[seat];
+    const ticks = key(b) - key(a);
     if (p && q && ticks > 0 && ticks <= 6 && p.life === q.life && q.alive && p.alive) {
       let vx = (q.x - p.x) / ticks, vz = (q.z - p.z) / ticks;
       const speed = Math.hypot(vx, vz);
@@ -56,20 +64,16 @@ export function interpolate(history, tick, seat, ahead = 0) {
     }
     return q || p;
   }
-  let a = history[0],
-    b = history.at(-1);
-  for (const snap of history) {
-    if (snap.tick <= tick) a = snap;
-    if (snap.tick >= tick) {
-      b = snap;
-      break;
-    }
-  }
+  // The pair around `tick`, found from the newest back (a seat's steps start
+  // again with a new body in it: only the run that leads to now is read).
+  let i = history.length - 1;
+  while (i > 0 && key(history[i - 1]) >= tick && key(history[i - 1]) <= key(history[i])) i--;
+  const b = history[i], a = i > 0 && key(history[i - 1]) <= key(b) ? history[i - 1] : b;
   const p = a.players[seat],
     q = b.players[seat];
   if (!p || !q) return q || p;
-  if (p.life !== q.life || p.alive !== q.alive) return tick < b.tick ? p : q;
-  const t = a.tick === b.tick ? 0 : clamp((tick - a.tick) / (b.tick - a.tick), 0, 1);
+  if (p.life !== q.life || p.alive !== q.alive) return tick < key(b) ? p : q;
+  const t = key(a) === key(b) ? 0 : clamp((tick - key(a)) / (key(b) - key(a)), 0, 1);
   const out = { ...q };
   for (const key of ['x', 'y', 'z', 'pitch']) out[key] = p[key] + (q[key] - p[key]) * t;
   const turn = ((q.yaw - p.yaw + 540) % 360) - 180;

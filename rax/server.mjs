@@ -30,7 +30,8 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace, slabOf } from './world.mjs';
+import { gameFor } from './games.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -300,7 +301,8 @@ export function createRaxServer({
   // The elevator is solid on every floor; the lobby's glass on the ground; the parapet on the roof.
   const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL, atriumRoof()] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
   // 🪐 …and the planets hung over the plaza and the blocks (orbits.mjs): what a body there meets, besides the room's own boxes.
-  const solidsFor = (key) => [...wallsFor(key), ...(key === GROUND || parseBlock(key) ? hungFor(key === GROUND ? { i: 0, j: 0 } : parseBlock(key)) : [])];
+  // (🧱 A room that is no place in the world and no game stands on a platform: its block is its one solid, and its only ground.)
+  const solidsFor = (key) => [...wallsFor(key), ...(key === GROUND || parseBlock(key) ? hungFor(key === GROUND ? { i: 0, j: 0 } : parseBlock(key)) : []), ...(!worldPlace(key) && !gameFor(key) ? [slabOf(halfOf(key))] : [])];
   const sendTower = (ws, key, member) => {
     const t = tower.tower, here = t.forRoom(key);
     // Every room hears how tall the tower is: it stands on the skyline.
