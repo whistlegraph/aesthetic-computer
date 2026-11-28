@@ -1285,6 +1285,7 @@ export async function createView(canvas) {
   const distantModels = new WeakMap();
   const chalkModels = new Map();
   let boom = 4;
+  let stainKey = '', stainModel = null; // 🩸 the floor's stains, made again only when one is added
   let brokeAt = 0; // 💥 when this body came apart: its crosshair comes apart with it
   let threatAt = 0; // 👹 when the crosshair came on to a head: it takes a moment to turn red and open round it
   let cubeModel = null, cubeAt = 0;
@@ -1847,6 +1848,8 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    replaying = false, // 🎞️ what is drawn is the last seconds before this body went down, played again
+    stains = [], // 🩸 [x, z, size, shade]: what was spilled on the floor, as the room keeps it
     trigger = null, // 🔫 { curve, breakAt, resetAt, armed, firedAt }: the right trigger's pressure lately, with a gun in hand
     stage = false, // 👹 the room is the stage: painting and building are off
     roof = false, // 🏙️ the room is a roof over a street (a platform): the planet and its hollow are not under it
@@ -2218,6 +2221,26 @@ export async function createView(canvas) {
       projector.bends = false;
       for (const m of hungNow) projector.draw(hungBall(m, lamp), m.x + (m.sx || 0), m.y + (m.sy || 0), m.z + (m.sz || 0), 0, 0, m.r);
       projector.bends = wrapped;
+    }
+    // 🩸 The floor's stains, as the room keeps them (the same for everyone there): each a blot of a few dark red patches, a hair over the floor, its shape its own.
+    if (stains.length) {
+      const key = `${stains.length}:${stains.at(-1).join(',')}`;
+      if (stainKey !== key) {
+        stainKey = key;
+        stainModel = model(({ quad }) => {
+          stains.forEach(([x, z, size, shade], n) => {
+            const ink = [0x7a0c14, 0x8f1119, 0x5e0810][shade % 3], y = 0.012 + (n % 7) * 0.0007;
+            // (Five patches about its middle, turned and stretched by its own number: a splash, not a square.)
+            for (let k = 0; k < 5; k++) {
+              const a = n * 2.399 + k * 1.2566, off = k ? size * 0.32 : 0, r = size * (k ? 0.22 + ((n * 7 + k * 13) % 10) * 0.016 : 0.42), cx = x + Math.cos(a) * off, cz = z + Math.sin(a) * off;
+              const t = a * 1.7, c = Math.cos(t) * r, s2 = Math.sin(t) * r, w = 0.62 + ((n + k) % 4) * 0.12;
+              quad([cx - c - s2 * w, y, cz - s2 + c * w], [cx - c + s2 * w, y, cz - s2 - c * w], [cx + c + s2 * w, y, cz + s2 - c * w], [cx + c - s2 * w, y, cz + s2 + c * w], ink);
+              quad([cx + c - s2 * w, y, cz + s2 + c * w], [cx + c + s2 * w, y, cz + s2 - c * w], [cx - c + s2 * w, y, cz - s2 - c * w], [cx - c - s2 * w, y, cz - s2 + c * w], ink);
+            }
+          });
+        });
+      }
+      draw(stainModel);
     }
     // 👁️ Looking on, each body's sight is in the room too: four thin lines from its eye out to the corners of what it sees, and the frame they end on, in its seat's colour. A cone to read where someone looks from anywhere, not only a mark on the screen.
     if (spectator && !bare) players.forEach((p, i) => {
@@ -3915,7 +3938,7 @@ export async function createView(canvas) {
     // there, solid, under it, and stay until the paper is whole again.
     const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
     // 💥 Down, the crosshair breaks apart: its four corners and its point are thrown out from the middle, turning red, and fall off the screen. It is whole again when the body stands.
-    brokeAt = me && me.alive === false ? brokeAt || now : 0;
+    brokeAt = me && me.alive === false ? brokeAt || now : replaying ? brokeAt : 0;
     if (brokeAt && now - brokeAt < 1600 && !bare && !xr && !radial && !menu) {
       const { unit } = hud, t = (now - brokeAt) / 1000, arm = 4 * unit, half = 7 * unit;
       const fade = Math.max(0, 1 - t / 1.6), ink = fade > 0.5 ? 0xff3b3b : 0x8a2a2a;
@@ -3936,7 +3959,13 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    if ((me?.alive || reticle || (spectator && (lockCursor || screenCursor))) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
+    // 🎞️ The replay says so, across the top, blinking; and there is no crosshair in it (nothing is aimed).
+    if (replaying && !bare && !xr) {
+      const { unit } = hud, big = 2 * unit, on = Math.floor(now / 400) % 2;
+      const m = model(({ rect: worldRect, text }) => drawSpans({ rect: flip(worldRect), text }, [{ text: 'replay', color: on ? 0xff3b3b : 0xffffff }], 0, H / 2 - hud.safeY - 30 * unit, big, { shadow: INK }));
+      projector.overlay(m, W, H);
+    }
+    if (!replaying && (me?.alive || reticle || (spectator && (lockCursor || screenCursor))) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).

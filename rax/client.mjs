@@ -2244,6 +2244,10 @@ function connect(adopt = null) {
     connection.snapshot(data.tick, latestAt, HZ);
     history.push(data);
     history = history.slice(-64);
+    // 🎞️ The last six seconds are kept, to be shown again (the replay, below); and 🩸 the floor's stains as the room has them.
+    replayLog.push(data);
+    if (replayLog.length > 380) replayLog.shift();
+    if (Array.isArray(data.stains)) stains = data.stains;
     playback.receive(data.tick, latestAt);
     bodies.receive(data.moves, data.players, latestAt);
     if (notice === 'CONNECTING') notice = '';
@@ -2255,6 +2259,9 @@ function connect(adopt = null) {
       if (event.type === 'launch') sfx.launch();
       if (event.type === 'blast') sfx.blast();
       if (event.type === 'frag') sfx.frag(event.attacker === seat);
+      // 🎞️ Down: after a moment to see it, the last seconds before it are played again from behind, until the body stands.
+      if (event.type === 'frag' && event.seat === seat && seat >= 0) replay = { at: performance.now(), tick: data.tick };
+      if (event.type === 'stain' && Array.isArray(event.stain)) stains = [...stains, event.stain].slice(-200);
       if (event.type === 'shot') sfx.shot();
       if (event.type === 'poke') sfx.poke();
       if (event.type === 'throw') sfx.toss();
@@ -3285,6 +3292,17 @@ function stepXRStops(xr) {
 }
 const TRIGGER_BREAK = 0.62, TRIGGER_RESET = 0.3;
 let rtArmed = true, rtFiredAt = -Infinity, rtCurve = [];
+// 🎞️ The replay: `at` when this body went down and `tick` the room's tick then. REPLAY_WAIT after it, the REPLAY_BACK seconds before it are shown again, on to a little past the end, and round again while the body lies.
+const REPLAY_WAIT = 900, REPLAY_BACK = 2.6, REPLAY_ON = 0.35;
+let replayLog = [], replay = null, stains = [];
+function replayTick(now) {
+  if (!replay || seat < 0 || player?.alive !== false) { if (replay && player?.alive !== false && now - replay.at > 400) replay = null; return null; }
+  const since = now - replay.at - REPLAY_WAIT;
+  if (since < 0) return null;
+  const span = (REPLAY_BACK + REPLAY_ON) * HZ, first = replay.tick - REPLAY_BACK * HZ;
+  if (replayLog.length < 2 || replayLog[0].tick > first + 30) return null; // (not enough kept: it is not shown)
+  return first + ((since / 1000) * HZ) % span;
+}
 let holdMeter = null, holdStep = -1;
 let deathCount = null;
 function holdOn(label, since, ms, now = performance.now()) {
@@ -4141,7 +4159,9 @@ function step(now, xr) {
     }
   }
   // (Everyone but this page's own body is carried on through a quiet wire and eased back: presentation.mjs.)
+  const again = replayTick(now), then = again === null ? null : replayLog.find((s) => s.tick >= again) || replayLog.at(-1);
   const shownPlayers = connected ? Array.from({ length: snapshot?.players?.length || 0 }, (_, i) => {
+    if (again !== null) return interpolate(replayLog, again, i); // 🎞️ (everyone as they were)
     if (i === seat) return interpolate(history, tick, i);
     const { p, guessed } = shownBody(i, tick, now);
     return remoteEase.sample(i, p, guessed, elapsed);
@@ -4272,7 +4292,9 @@ function step(now, xr) {
     }),
     courtyard: sky,
     drones: shownDrones,
-    heads: snapshot?.heads || [], wave: snapshot?.wave || 0,
+    heads: (then || snapshot)?.heads || [], wave: snapshot?.wave || 0,
+    replaying: again !== null,
+    stains,
     // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
     // (`at`: where in the room the goal is, for a marker over it and a nudge toward it when it is out of sight. The gun where it lies; the nearest head, marked only when it is not in view.)
     goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
@@ -4285,7 +4307,9 @@ function step(now, xr) {
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
-    me: seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
+    // 🎞️ (In the replay this body is where it was then, looking where it looked, and alive: seen from behind.)
+    me: again !== null && shownPlayers[seat] ? { ...shownPlayers[seat], alive: true }
+      : seat >= 0 && player ? { ...displayed, y: displayed.y + lift, yaw, pitch, duck: !!player.duck, onGround: player.onGround, vy: player.vy }
       : held ? { ...held, ...(displayed || {}), y: (displayed || held).y + lift, yaw, pitch } : seat < 0 ? null : spawn(seat, 1, half()),
     debug: !!game() && debugBoxes,
     idleCamera: xr ? null : idleShot,

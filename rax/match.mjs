@@ -27,6 +27,7 @@ import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from '
 // (INPUT_SLACK: how many may wait once the budget is spent.)
 // 🔫 Rounds in a gun. The last one fired, it is dropped and breaks.
 export const CLIP = 12;
+export const STAINS = 160; // 🩸 the most stains a floor keeps
 // 👹 A flying head: its size, its speed (and the fastest a late wave flies), how near it must come to bite, how far outside the room it comes from, the seconds between two of a wave and between waves, how many the first wave has less one, and how long a bitten body lies before it stands again.
 export const HEAD = { r: 0.42, speed: 3.2, fastest: 7, bite: 0.75, from: 14, gap: 0.9, rest: 4, first: 1, down: 3 };
 export const INPUT_BATCH = 12, INPUT_QUEUE = HORIZON, INPUT_GRACE = HORIZON, INPUT_SLACK = 3;
@@ -87,7 +88,10 @@ export class Match {
     this.headsOwed = 0; // still to come in this wave
     this.headAt = 0; // the tick the next one comes, or the next wave starts
     this.headId = 0;
-    this.random = Math.random; // …and the ids a round has met, for the server to take off the horde
+    this.random = Math.random;
+    // 🩸 Stains: the roof's own record of what was spilled on it, the same for everyone there. Each [x, z, size, shade]; the oldest go as new ones come (STAINS at the most). Told as they are made (a `stain` event) and whole now and then in the snapshot, so whoever comes later sees the floor as it is.
+    this.stains = [];
+    this.stainsNew = false; // …and the ids a round has met, for the server to take off the horde
     // 🏙️ Instagib: a body a round meets comes apart, and comes back on the
     // tower's roof. The server says whether there is a roof to go to
     // (roofBound) and takes the seats queued here up to it after the tick.
@@ -370,6 +374,21 @@ export class Match {
     return n > 0.2 ? { x: dx / n, y: dy / n, z: dz / n } : f;
   }
 
+  // 🩸 Blood come down on the floor at (x, z), thrown on a little the way `dir` went: a main stain and a few small ones round it. Only where there is floor (the roof, in a roof room).
+  stain(x, z, size = 1, dir = null) {
+    const lay = (sx, sz, s) => {
+      if (Math.abs(sx) > this.half - 0.2 || Math.abs(sz) > this.half - 0.2) return;
+      const row = [Math.round(sx * 100) / 100, Math.round(sz * 100) / 100, Math.round(s * 100) / 100, Math.floor(this.random() * 3)];
+      this.stains.push(row);
+      if (this.stains.length > STAINS) this.stains.shift();
+      this.emit('stain', { stain: row });
+      this.stainsNew = true;
+    };
+    const dx = dir?.x || 0, dz = dir?.z || 0;
+    lay(x + dx * 0.6, z + dz * 0.6, size);
+    for (let k = 0; k < 4; k++) lay(x + dx * (1 + this.random() * 2) + (this.random() - 0.5) * 1.6, z + dz * (1 + this.random() * 2) + (this.random() - 0.5) * 1.6, size * (0.25 + this.random() * 0.35));
+  }
+
   // 🎯 A target takes a hit: nothing moves it and nothing ends it; it only
   // says how much, where it was struck (the page pops the number).
   strike(t, attacker, amount, at) {
@@ -608,6 +627,7 @@ export class Match {
           this.zombieKills.push(zombie.id);
           // (👹 A flying head has no body to come apart as: it bursts where it is.)
           // (`off`: where on the head the round struck, from its middle, each way -1 to 1: its bits are thrown from that side.)
+          if (zombie.head) this.stain(zombie.x, zombie.z, 0.9, dir);
           if (zombie.head) this.emit('headpop', { at: { x: zombie.x, y: zombie.y, z: zombie.z }, attacker: b.owner, dir: { x: dir.x, y: dir.y, z: dir.z }, yaw: zombie.yaw || 0,
             off: { x: Math.max(-1, Math.min(1, (b.x - zombie.x) / HEAD.r)), y: Math.max(-1, Math.min(1, (b.y - zombie.y) / HEAD.r)), z: Math.max(-1, Math.min(1, (b.z - zombie.z) / HEAD.r)) } });
           else this.emit('gib', { seat: 3, zombie: true, attacker: b.owner, kind: 'shot', zone: hitZone(zombie, b),
@@ -630,6 +650,7 @@ export class Match {
           if (!body.alive && b.owner < 0 && b.from) this.credits.push({ from: b.from, by: b.by });
           if (!body.alive) {
             body.gibbed = true;
+            this.stain(body.x, body.z, 1.2, dir);
             this.emit('gib', { seat: body.seat, attacker: b.owner, kind: 'shot', zone: hitZone(body, b),
               at: { x: body.x, y: body.y - 0.8, z: body.z }, hit: { x: b.x, y: b.y, z: b.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
           }
@@ -812,7 +833,7 @@ export class Match {
           // 🧱 Fallen off a platform: stood back where bodies arrive, the score kept.
           // 🏙️ Fallen off the roof, all the way to the street: the body comes apart there, is seen a moment, and stands on the roof again (☠️ a death, counted as a fall).
           if (p.alive && p.y < FALL_Y) {
-            p = { ...p, y: FALL_Y, health: 0, alive: false, gibbed: true, vx: 0, vy: 0, vz: 0, respawnAt: this.tick + Math.round(HZ * 2.5) };
+            p = { ...p, y: FALL_Y, health: 0, alive: false, gibbed: true, vx: 0, vy: 0, vz: 0, respawnAt: this.tick + Math.round(HZ * (this.waves ? HEAD.down : 2.5)) };
             this.deaths.push({ seat: p.seat, attacker: -1, fell: true });
             this.emit('frag', { seat: p.seat, attacker: -1 });
             this.emit('gib', { seat: p.seat, attacker: -1, kind: 'blast', zone: 'legs', at: { x: p.x, y: p.y - 0.8, z: p.z }, hit: { x: p.x, y: p.y - 1.6, z: p.z }, dir: { x: 0, y: -1, z: 0 } });
@@ -894,6 +915,7 @@ export class Match {
         if (!to.alive) {
           to.gibbed = true;
           to.respawnAt = this.tick + Math.round(HZ * HEAD.down); // (long enough to see it)
+          this.stain(to.x, to.z, 1.4, dir);
           this.emit('gib', { seat: to.seat, attacker: -1, kind: 'head', zone: 'head', at: { x: to.x, y: to.y - 0.8, z: to.z }, hit: { x: h.x, y: h.y, z: h.z }, dir });
         }
         h.done = true;
@@ -966,7 +988,7 @@ export class Match {
     p.health = Math.max(0, p.health - amount);
     if (p.health) return;
     p.alive = false;
-    p.respawnAt = this.tick + HZ;
+    p.respawnAt = this.tick + (this.waves ? Math.round(HZ * HEAD.down) : HZ); // (at the stage every death is seen again before the body stands: client.mjs replay)
     const killer = this.seats[attacker]?.player;
     if (killer) killer.score += attacker === seat ? -1 : 1;
     this.deaths.push({ seat, attacker });
@@ -1085,6 +1107,8 @@ export class Match {
       players: this.seats.map((s) => s && { ...s.player }),
       // 👹 [id, x, y, z, yaw] of each head in the air, and the wave they are.
       ...(this.waves ? { heads: this.heads.map((h) => [h.id, Math.round(h.x * 100) / 100, Math.round(h.y * 100) / 100, Math.round(h.z * 100) / 100, Math.round(h.yaw)]), wave: this.wave, left: this.heads.length + this.headsOwed, armed: this.wave > 0 || [...this.items.values()].some((it) => it.kind === 'shoot' && it.holder >= 0) } : {}),
+      // 🩸 (All the stains, every two seconds and whenever one was just made: the events carry them as they happen, this is for whoever was not here.)
+      ...(this.stains.length && (this.tick % 120 === 0 || this.stainsNew) ? { stains: (this.stainsNew = false, this.stains) } : {}),
       acks: this.seats.map((s) => s?.ack || 0),
       // ⏱️ How many steps each body has lived. A body moves by its own commands, none on a tick when they are late and several on the next, so in the server's ticks it stops and leaps; in its own steps it walks evenly. Whoever watches plays it back by these (net.mjs interpolate, `own`).
       moves: this.seats.map((s) => s?.moves || 0),
