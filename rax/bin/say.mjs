@@ -31,7 +31,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--voice') voice = args[++i];
   else words.push(args[i]);
 }
-const text = words.join(' ').trim();
+// (Said alone, "Live." is read as the verb, to live. It is said as what it means here: it is live.)
+const text = words.join(' ').trim().replace(/(^|[.!?]\s+)Live([.!,]|\s+now\b)/g, "$1It's live$2");
 if (!text) { console.error('say.mjs [--no-play] [--voice <id>] "text"'); process.exit(1); }
 
 const dir = mkdtempSync(join(tmpdir(), 'rax-say-'));

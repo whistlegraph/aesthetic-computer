@@ -2262,17 +2262,32 @@ export async function createView(canvas) {
       const key = `${stains.length}:${stains.at(-1).join(',')}`;
       if (stainKey !== key) {
         stainKey = key;
-        stainModel = model(({ quad }) => {
-          stains.forEach(([x, z, size, shade], n) => {
-            const ink = [0x7a0c14, 0x8f1119, 0x5e0810][shade % 3], y = 0.012 + (n % 7) * 0.0007;
-            // (Five patches about its middle, turned and stretched by its own number: a splash, not a square.)
-            for (let k = 0; k < 5; k++) {
-              const a = n * 2.399 + k * 1.2566, off = k ? size * 0.32 : 0, r = size * (k ? 0.22 + ((n * 7 + k * 13) % 10) * 0.016 : 0.42), cx = x + Math.cos(a) * off, cz = z + Math.sin(a) * off;
-              const t = a * 1.7, c = Math.cos(t) * r, s2 = Math.sin(t) * r, w = 0.62 + ((n + k) % 4) * 0.12;
-              quad([cx - c - s2 * w, y, cz - s2 + c * w], [cx - c + s2 * w, y, cz - s2 - c * w], [cx + c + s2 * w, y, cz + s2 - c * w], [cx + c - s2 * w, y, cz + s2 + c * w], ink);
-              quad([cx + c - s2 * w, y, cz + s2 + c * w], [cx + c + s2 * w, y, cz + s2 - c * w], [cx - c + s2 * w, y, cz - s2 - c * w], [cx - c - s2 * w, y, cz - s2 + c * w], ink);
+        // (One picture, not a heap of shapes: every stain is put down on a grid of quarter-metre squares over the floor, the darkest winning where they lie on one another, and the grid is drawn as runs of squares, a row at a time, one face each. A hundred and sixty stains were thirty-two hundred triangles turned every frame; so drawn they are a few hundred, however many there are, and never more than the grid holds.)
+        const CELL = 0.25, N = Math.ceil((2 * half) / CELL), grid = new Uint8Array(N * N);
+        stains.forEach(([x, z, size, shade], n) => {
+          for (let k = 0; k < 5; k++) {
+            const a = n * 2.399 + k * 1.2566, off = k ? size * 0.32 : 0, r = size * (k ? 0.22 + ((n * 7 + k * 13) % 10) * 0.016 : 0.42), cx = x + Math.cos(a) * off, cz = z + Math.sin(a) * off;
+            const i0 = Math.max(0, Math.floor((cx - r + half) / CELL)), i1 = Math.min(N - 1, Math.floor((cx + r + half) / CELL));
+            const j0 = Math.max(0, Math.floor((cz - r + half) / CELL)), j1 = Math.min(N - 1, Math.floor((cz + r + half) / CELL));
+            for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+              const dx = (i + 0.5) * CELL - half - cx, dz = (j + 0.5) * CELL - half - cz;
+              // (A ragged edge: the rim is kept or dropped square by square, by the square's own place.)
+              const d = Math.hypot(dx, dz) / r, rag = ((i * 73 + j * 151 + n * 31) % 10) / 10;
+              if (d < 0.72 + rag * 0.34) grid[j * N + i] = Math.max(grid[j * N + i], 1 + (shade % 3));
             }
-          });
+          }
+        });
+        stainModel = model(({ quad }) => {
+          const inks = [0, 0x7a0c14, 0x8f1119, 0x5e0810], y = 0.013;
+          for (let j = 0; j < N; j++) for (let i = 0; i < N;) {
+            const c = grid[j * N + i];
+            if (!c) { i++; continue; }
+            let end = i + 1;
+            while (end < N && grid[j * N + end] === c) end++;
+            const x0 = i * CELL - half, x1 = end * CELL - half, z0 = j * CELL - half, z1 = z0 + CELL;
+            quad([x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0], inks[c]); // (wound as the floor is: seen from above)
+            i = end;
+          }
         });
       }
       draw(stainModel);
@@ -4822,7 +4837,16 @@ export async function createView(canvas) {
     for (const w of walls) {
       const remixJob = jobs.find((j) => j.kind === 'kidlisp' && j.face === w.face);
       const remix = !!remixJob;
-      if (!w.model || now - (w.at || 0) > 50 || w.wasRemix !== remix) {
+      // ⚡ A wall nobody is looking at costs nothing: its program is not stepped and it is not drawn while all of it is out of the picture (behind the eye, or off to a side). Seen, its picture is made again ten times a second, not twenty: a billboard a hundred and sixty squares across is thousands of faces each time.
+      {
+        const north = w.face === 'north', tallNow = (32 * w.height) / w.width;
+        const seen = [[-16, 1.5], [16, 1.5], [-16, 1.5 + tallNow], [16, 1.5 + tallNow], [0, 1.5 + tallNow / 2]].some(([u, y]) => {
+          const s = north ? projector.project(u, y, SCREEN) : projector.project(-SCREEN, y, u);
+          return s && Math.abs(s.x) < 1.15 && Math.abs(s.y) < 1.15;
+        });
+        if (!seen && !remix) continue;
+      }
+      if (!w.model || now - (w.at || 0) > 100 || w.wasRemix !== remix) {
         w.at = now;
         w.wasRemix = remix;
         const px = w.step();
