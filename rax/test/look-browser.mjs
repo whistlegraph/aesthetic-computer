@@ -33,6 +33,15 @@ try {
   await page.mouse.click(480, 300); // (the first click: sound and the mouse)
   const shot = async (name) => { await page.screenshot({ path: join(out, `${name}.png`) }); };
   await shot('00-arrived');
+  // (LOOK=prompt: Escape back to the prompt, a picture every 150 ms of the way out, then back in.)
+  if (process.env.LOOK === 'prompt') {
+    await delay(1500); await shot('00-play');
+    await page.keyboard.press('Escape');
+    for (let n = 1; n <= 8; n++) { await delay(150); await shot(`0${n}-out`); }
+    await delay(1500); await shot('09-prompt');
+    console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 8) }, null, 1));
+    await browser.close(); await app.close(); process.exit(0);
+  }
   // (LOOK=office: off the south edge on to the fire escape, in at the door, and a look round the office.)
   if (process.env.LOOK === 'office') {
     await page.evaluate(() => window.rax.walkTo({ x: 0, z: -7 }, { within: 0.3, seconds: 8 })).catch(() => {});

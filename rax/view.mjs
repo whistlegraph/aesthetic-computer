@@ -1179,6 +1179,7 @@ export async function createView(canvas) {
   let natural = null; // 🖥️ The picture's scale last frame before any zoom a camera asked for: what going in to a screen works its own zoom from (dock.mjs).
   let snow = null, snowAt = 0; // The room's falling snow.
   let orbitAngle = 0, spinAt = null, flightTurn = null;
+  let orbitWas = 0, wasHoming = false; // (which way the far view is going: home to the prompt's corner, or in)
   let orbitZoom = 1; // The curtain view's picture scale (below 1 shrinks it).
   let motes = null, motesAt = 0; // the air's own motes
   let rain = null, rainAt = 0; // The rain that falls when it rains in Los Angeles.
@@ -1233,6 +1234,7 @@ export async function createView(canvas) {
     }
     return outlines.get(key);
   }
+  const clockLamps = [0x39405a, 0xffe066, 0xff3b3b, 0xffffff].map((c) => model(({ box }) => box(0, 0, 0, 1, 1, 0.1, c, c, c)));
   const clockHands = [[0.5, 0x10131c], [0.3, 0x10131c], [0.12, 0xd9363e]].map(([w, c]) => model(({ box }) => box(0, 0.5, 0, w / 4, 1, 0.04, c, c, c)));
   // 👻 A ghost's head is seen through: nothing here is drawn half-clear, so it is made of its edges alone (twelve thin pale bars), the room showing between them, with a thin visor band across the front and two small lights for eyes.
   const xrReticle = model(({ box }) => {
@@ -2137,8 +2139,11 @@ export async function createView(canvas) {
       const inset = grid ? orbitInset : orbitInset * px;
       const cornerX = 1 - 2 * (inset + (grid ? paperRight : 0)) / canvas.width;
       const cornerY = 2 * (inset + (grid ? paperBottom : 0)) / canvas.height - 1;
-      projector.shiftX = cornerX * (1 - landed);
-      projector.shiftY = cornerY * (1 - landed);
+      // (On the way home the prompt's own crosshair flies from the middle to this corner over the paper, eased out (disks/prompt.mjs `back`: 1 - (1 - t)²), and this one flies under the paper: on the same curve they are one cursor. This one went on a smoothstep, behind at the start and ahead at the end, and there were two.)
+      const homing = orbit > orbitWas || (orbit === orbitWas && wasHoming && orbit < 1), toCorner = homing ? 1 - (1 - orbit) * (1 - orbit) : 1 - landed;
+      wasHoming = homing;
+      projector.shiftX = cornerX * toCorner;
+      projector.shiftY = cornerY * toCorner;
       const centre = roof ? { x: 0, y: ground - PLANET, z: 0 } : { x: far.x * 0.98, y: ground - PLANET, z: far.z * 0.98 };
       const me0 = me || flyTo || camera; // Before the seat is granted, fly toward the spawn.
       if (!me0 || orbit >= 1) {
@@ -2170,6 +2175,7 @@ export async function createView(canvas) {
         aim = { x: eye.x + Math.sin(heading) * reach, y: centre.y + (aim.y - centre.y) * e, z: eye.z + Math.cos(heading) * reach };
       }
     }
+    orbitWas = orbit;
     spinAt = orbit > 0 ? now : null;
     const roll = (camera?.roll || 0) * landed;
     // Keep the idle orbital motion out of the player's walk and the drone's controls.
@@ -2768,6 +2774,14 @@ export async function createView(canvas) {
       draw(clockHands[2], c.x, c.y, z - 0.06, 0, 0, c.r * 0.84, (s / 60) * Math.PI * 2);
       const said = t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).toLowerCase();
       draw(labelModel(said), c.x, c.y - c.r - 2.6, z, 0, 0, 7);
+      // ⏳ While a wave is waited for, the wait is on the tower: a row of lamps over the face, one for each second between two bells, lit one by one from the left; the last three red and blinking. Full, the bell.
+      if (goal?.tag === 'clock') {
+        const n = BELL_MS / 1000, done = Math.floor(Date.now() / 1000) % n, step = (2 * c.r + 2) / n;
+        for (let k = 0; k < n; k++) {
+          const late = k >= n - 3, on = k <= done, blink = late && on && done >= n - 3 && Math.floor(now / 160) % 2;
+          draw(clockLamps[!on ? 0 : late ? (blink ? 3 : 2) : 1], c.x + (k - (n - 1) / 2) * step, c.y + c.r + 1.5, z, 0, 0, step * (on ? 0.8 : 0.5));
+        }
+      }
     }
     // 👹 The heads that fly in at the stage: red, jawed, looking where they go, with a small bob.
     for (const [id, hx, hy, hz, hyaw] of heads) {
