@@ -87,6 +87,7 @@ let wheel = null; // { travel, timer }
 let wheelCommitted = false;
 let lastWheelAt = -Infinity;
 let wheelLast = 0, wheelSign = 0; // The stream's last move: how big, and which way.
+let pad = null; // { travel }: a pad's stick is pushing the reel.
 let pulling = false; // A downward drag on the first card went to the host.
 
 const frames = new Map(); // card key → { w, h, pixels }, the last frame seen
@@ -111,6 +112,7 @@ export function setOpen(on) {
   open = on === true;
   if (!open) {
     gesture = null;
+    pad = null;
     if (wheel) endWheel(true);
     else if (phase === "drag") settle(0);
   } else if (index >= 0) at();
@@ -505,6 +507,44 @@ function endWheel(quiet = false) {
   if (quiet) return settle(0);
   release(0);
   needsPaint();
+}
+
+// 🎮 A pad's stick pushes the reel as a finger that never lifts would: `dy` is
+// this tick's travel in screens (> 0 brings the next card up), `end` the stick
+// back at rest. Short of halfway the card springs back on release; past it the
+// card turns, and a stick still held starts on the one after once it lands.
+export function stick(content) {
+  if (!open || index < 0) return;
+  if (content?.end) {
+    if (!pad) return;
+    pad = null;
+    if (phase === "drag") release(0);
+    return;
+  }
+  const h = lastH || 1, dy = (content?.dy || 0) * h;
+  if (gesture || wheel) return void (pad = null); // A finger or a wheel has it.
+  if (!dy) return;
+  if (phase === "settle" && toward) return; // A card is turning: let it land.
+  if ((phase === "waiting" || phase === "jumping" || phase === "loading") && !canSwipePreview()) return;
+  if (!pad) {
+    if (dy < 0 && index === 0 && phase !== "settle") {
+      if (hosted) post({ type: "mime:sheet:wheel", dy: -dy }); // Above the first card is the prompt.
+      return;
+    }
+    pad = { travel: phase === "settle" ? offset : 0 };
+    if (phase !== "drag" && phase !== "settle") {
+      composed = phase !== "idle";
+      frozen = true;
+    }
+    phase = "drag";
+    toward = 0;
+  }
+  pad.travel += dy;
+  follow(pad.travel);
+  if (Math.abs(offset) >= h * COMMIT) {
+    pad = null;
+    release(0);
+  }
 }
 
 // ⌨️ Page Up / Page Down step a card; every other key belongs to the piece.

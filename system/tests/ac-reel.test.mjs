@@ -252,3 +252,19 @@ test('queued movement wins over the hold timer after a slow frame', async t => {
   assert.equal(r.jumps.at(-1),'$c1');
   assert.equal(handed,0);
 });
+
+test("a pad's stick peeks and springs back, turns a card past halfway, and held goes on to the next", async t => {
+  const r = await reel(t);
+  for (let i = 0; i < 10; i++) { r.m.stick({dy: 0.03}); r.step(); } // 30% of the screen
+  r.m.stick({end: true}); r.settle();
+  assert.deepEqual(r.jumps, ['$c0'], 'short of halfway falls back');
+  assert.equal(r.m.busy(), false);
+  for (let i = 0; i < 200 && r.jumps.length < 3; i++) {
+    const before = r.jumps.length;
+    r.m.stick({dy: 0.04}); r.step();
+    if (r.jumps.length > before) r.loaded(false);
+  }
+  assert.deepEqual(r.jumps, ['$c0', '$c1', '$c2'], 'a held stick keeps turning cards');
+  r.m.stick({end: true}); r.settle();
+  assert.deepEqual(r.jumps, ['$c0', '$c1', '$c2'], 'and rests where it stopped');
+});

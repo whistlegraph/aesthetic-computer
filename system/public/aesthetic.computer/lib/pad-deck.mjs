@@ -22,7 +22,7 @@ const PLATE = "rgba(21, 23, 30, 0.86)", TEXT = "#f2f2f2", KEY = "#2c3040", DIM =
 const HINTS = {
   curtain: [["A", "press"], ["X", "type"], ["RS", "mimes"], ["START", "rax"]],
   type: [["LS", "word"], ["A", "write"], ["LB", "more"], ["RS", "letters"], ["X", "delete"], ["Y", "space"], ["RT", "enter"], ["LT", "123"], ["B", "close"]],
-  mimes: [["RS", "scroll"], ["B", "prompt"]],
+  mimes: [["RS", "scroll"], ["D", "card"], ["B", "prompt"]],
 };
 
 // A petal's four signs sit where their buttons do: Y, B, A, X.

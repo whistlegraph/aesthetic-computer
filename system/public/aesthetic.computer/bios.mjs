@@ -4798,6 +4798,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       localStorage.setItem("ac-density", newDensity.toString());
     } catch {}
 
+    window.acMimeSheet?.resize(); // The feed under the curtain keeps the prompt's pixels.
     // Trigger reframe to apply new density
     frame();
     densityShutter(newDensity > current ? 1 : -1); // 📷 heard, as a camera's is
@@ -4848,6 +4849,7 @@ async function boot(parsed, bpm = 60, resolution, debug) {
     }, 50);
   }
 
+  window.acDensity = () => density; // (lib/mime-sheet.mjs sizes the feed by it.)
   window.acChangeDensity = changeDensity; // rax under the paper hands its ⌘± up here.
 
   // Keyboard listener for density controls (capture phase to intercept early)
@@ -4941,6 +4943,29 @@ async function boot(parsed, bpm = 60, resolution, debug) {
       reelPlaying = reelOpen && e.data.playing !== false;
       send({ type: "mime:reel:open", content: { open: reelOpen } });
       reelPlayback();
+      // The feed is the prompt's next screen: it takes the prompt's pixel
+      // size, here only (nothing is saved, the prompt owns the setting).
+      const hostDensity = e.data.density;
+      if (typeof hostDensity === "number" && hostDensity > 0 && hostDensity !== density) {
+        density = hostDensity;
+        window.acPACK_DENSITY = hostDensity;
+        frame();
+        if (!reelPlaying && reelReady) {
+          // Asleep on its slot: wake for a moment to paint at the new size.
+          window.acRESUME?.();
+          setTimeout(() => { if (!reelPlaying) window.acPAUSE?.(); }, 500);
+        }
+      }
+      return;
+    }
+    // 🎮 The host's pad: its right stick pushes the reel (lib/pad-cursor.mjs).
+    if (
+      reelHosted &&
+      e.source === window.parent &&
+      e.origin === location.origin &&
+      e.data?.type === "mime:sheet:stick"
+    ) {
+      send({ type: "mime:reel:stick", content: { dy: e.data.dy, end: e.data.end === true } });
       return;
     }
     if (e.data && e.data.type === 'ac-density-change' && typeof e.data.density === 'number') {

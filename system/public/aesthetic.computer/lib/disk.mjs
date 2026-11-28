@@ -11205,7 +11205,7 @@ async function makeFrame({ data: { type, content } }) {
     globalThis.MIME_MODE = content.mime === true && content.noauth === true;
     // 🎞️ The mime feed as one runtime: cards are pieces, swiped between here.
     if (globalThis.MIME_MODE && content.reel === true && !reel) {
-      import("./mime-reel.mjs?v=live-5").then((module) => {
+      import("./mime-reel.mjs?v=live-6").then((module) => {
         reel = module;
         const reelJump = (to, jumped) => {
           // The feed can arrive before the initial slot has booted. Starting
@@ -11687,6 +11687,12 @@ async function makeFrame({ data: { type, content } }) {
   // 🎞️ The prompt's mime sheet opened or parked the reel.
   if (type === "mime:reel:open") {
     reel?.setOpen(content?.open === true);
+    return;
+  }
+
+  // 🎮 A pad's right stick, by way of the sheet, pushes the reel.
+  if (type === "mime:reel:stick") {
+    reel?.stick(content);
     return;
   }
 

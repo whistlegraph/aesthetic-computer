@@ -51,6 +51,10 @@ let armed = false; // The prompt says its curtain is up and empty.
 
 const post = (message) =>
   frame?.contentWindow?.postMessage(message, location.origin);
+// 📏 Every word to the guest about the sheet carries the prompt's density, so
+// the feed is drawn in the pixels of the screen it slides up under.
+const sheet = (message) =>
+  post({ type: "mime:sheet", ...message, density: window.acDensity?.() });
 const stage = () => document.getElementById("aesthetic-computer");
 
 addEventListener("pointerdown", (e) => (lastDownY = e.clientY), {
@@ -200,7 +204,7 @@ function begin() {
     promptTitle = document.title;
     y = goal = innerHeight;
   }
-  post({ type: "mime:sheet", open: true, playing: false });
+  sheet({ open: true, playing: false });
   f.style.opacity = "1"; // Seen from the first pixel of the trip.
   state = "moving";
   toward = null;
@@ -228,7 +232,7 @@ function opened() {
     window.acAccountActivity?.feedOpen(entryMethod);
   }
   state = "open";
-  post({ type: "mime:sheet", open: true, playing: true });
+  sheet({ open: true, playing: true });
   write();
   pausePrompt();
   enterHistory();
@@ -280,7 +284,7 @@ function home() {
   const s = stage();
   if (s) Object.assign(s.style, { transform: "", willChange: "" });
   resumePrompt();
-  post({ type: "mime:sheet", open: false }); // Park the guest on its slot.
+  sheet({ open: false }); // Park the guest on its slot.
   leaveHistory();
   window.focus();
 }
@@ -365,7 +369,7 @@ addEventListener("message", (e) => {
   const d = e.data || {};
   if (d.type === "mime:activity") {
     if (trackingOpen) window.acAccountActivity?.feedSample(d.contentId, d.active === true && state === "open");
-  } else if (d.type === "mime:sheet:hello") post({ type: "mime:sheet", open: state !== "parked" && state !== "cold", playing: state === "open" });
+  } else if (d.type === "mime:sheet:hello") sheet({ open: state !== "parked" && state !== "cold", playing: state === "open" });
   else if (d.type === "mime:sheet:ready") frame.style.background = "transparent";
   else if (d.type === "mime:sheet:at") {
     lastPermalink = d.permalink || null;
@@ -417,9 +421,41 @@ function padStep(dir) {
     settle(0);
   }
 }
+// 🎮 A pad's right stick (lib/pad-cursor.mjs), as a finger that never lifts:
+// `f` is this tick's travel in screens, > 0 down the feed, 0 once at rest.
+// From the armed curtain it pulls the sheet up; over the feed it pushes the
+// reel's cards, whose first card hands an upward push back here as a wheel.
+// The sheet's own trip wants a fresh push after it: holding the stick down on
+// the curtain opens the feed and stops there.
+let stickLatch = false; // Held through a trip: nothing more until it rests.
+let stickSent = false; // The guest has stick travel it hasn't been told is over.
+function stick(f) {
+  if (!f) {
+    stickLatch = false;
+    if (stickSent) post({ type: "mime:sheet:stick", end: true });
+    stickSent = false;
+    return;
+  }
+  if (wheel) {
+    stickLatch = true;
+    return wheelStep(wheel.from, (wheel.from === "home" ? f : -f) * innerHeight, 0);
+  }
+  if (stickLatch) return;
+  if (state === "open") {
+    stickSent = true;
+    post({ type: "mime:sheet:stick", dy: f });
+  } else if (f > 0 && armed && (state === "parked" || state === "cold" || (state === "moving" && toward === innerHeight))) {
+    stickLatch = true;
+    wheelStep("home", f * innerHeight, 0);
+    entryMethod = "prompt_key";
+  }
+}
 window.acMimeSheet = {
   popstate,
   step: padStep,
+  stick,
+  // The prompt's density changed: the parked feed follows at once.
+  resize() { if (frame && (state === "parked" || state === "open")) sheet({ open: state === "open", playing: state === "open" }); },
   home() { if (state === "open") settle(innerHeight); },
   get up() { return state === "open" || state === "moving"; }, // (`up`: the feed has the screen)
 };

@@ -11,7 +11,7 @@
 //   START (9)    off the prompt: back to it (Escape, as the keyboard has it).
 //                On the prompt lib/rax-sheet.mjs hears START itself.
 //
-// On the curtain the right stick swipes the mime feed (lib/mime-sheet.mjs):
+// On the curtain the right stick pushes the mime feed (lib/mime-sheet.mjs):
 // down opens it and goes on a card, up comes back a card and then home; the
 // d-pad also turns cards inside the feed, and B comes home from anywhere in it.
 //
@@ -50,7 +50,7 @@ import { aim, grammar, offer, more, SLICES, PETALS, SIGNS, FACE } from "./pad-ri
 const { hypot, min, max, floor, abs, sign } = Math;
 
 const DEAD = 0.15; // The same dead zone lib/gamepad.mjs uses.
-const FLICK = 0.6, REST = 0.3; // The right stick swipes past the first and is ready again under the second.
+const SWIPE = 2.2; // Screens a second the right stick pushes the mime feed, pressed all the way.
 const BADGES = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9 }; // The buttons the deck lights while held.
 const SIZE = 3;
 
@@ -67,7 +67,6 @@ export function padCursor({ canvas, piece }) {
   let was = []; // Each button last tick.
   let hand = false; // The pad was the last thing touched: its hints are up.
   const again = []; // When a held button next repeats.
-  let flickAt = 0; // When a held swipe of the right stick next repeats (0: at rest).
   let words = null, loading = false; // The grammar the word ring offers from (lib/pad-ring.mjs).
   let page = 0, paged = ""; // Which twelve words are up, and for what line.
   let ringed = false; // X asked for the rings; until then a focused field leaves the stick the cursor.
@@ -319,19 +318,17 @@ html.pad-cursor #pad-cursor { display: block; }`;
       guestDocument = guest;
     }
 
-    // A swipe: the right stick pushed up or down (and, held, again), or the
-    // d-pad. While typing, the sticks point into the rings and the d-pad arrows.
-    let swipe = 0;
-    if (!right || abs(right.y) < REST) flickAt = 0;
-    else if (mode !== "type" && abs(right.y) > FLICK && abs(right.y) > abs(right.x) && (!flickAt || now >= flickAt)) {
-      flickAt = now + 600;
-      swipe = sign(right.y);
-    }
-    if (mode === "mimes") swipe ||= pushed(13) ? 1 : pushed(12) ? -1 : 0;
+    // A swipe: the right stick pushes the feed up or down as a finger would,
+    // faster the further it is pressed (gently near the middle, to peek at the
+    // next card and let it fall back); the d-pad turns a whole card. While
+    // typing, the sticks point into the rings and the d-pad arrows.
+    const push = mode !== "type" && right && abs(right.y) > abs(right.x) ? right.y : 0;
+    feed?.stick(sign(push) * push * push * SWIPE * dt);
+    const swipe = mode === "mimes" ? (pushed(13) ? 1 : pushed(12) ? -1 : 0) : 0;
 
     lit = new Set(Object.keys(BADGES).filter((b) => on[BADGES[b]]));
     if (on[12] || on[13] || on[14] || on[15]) lit.add("D");
-    if (mode !== "type" && right && abs(right.y) > FLICK) lit.add("RS");
+    if (push) lit.add("RS");
     let rings = null;
     const draw = () => hand ? deck.draw({ mode, held: lit, point: shown ? point : null, rings }) : deck.hide();
 
@@ -342,7 +339,6 @@ html.pad-cursor #pad-cursor { display: block; }`;
       if (edge.b) feed.home();
       return draw();
     }
-    if (swipe) feed?.step(swipe);
 
     // Typing: the sticks point into the rings and the cursor rests.
     if (mode === "type") {
