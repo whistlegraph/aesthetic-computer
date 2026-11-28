@@ -354,9 +354,11 @@ export function wallDistance(origin, dir, max = 1000, objects = [], time = 0, ha
 // objects and the floor. { t, normal } or null within max.
 // `open`: the sides that lead on to a neighbour (east, west, north, south):
 // no wall stands there, so a round flies on through (match.mjs hands it over).
-export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half = WORLD, open = null) {
+// `slab`: the room is a platform (slabOf): no walls stand round it and the
+// only floor is its block, which a round meets on any face.
+export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half = WORLD, open = null, slab = null) {
   let best = null;
-  const walls = open?.length ? wallsOf(half).filter((_, k) => !open.includes(SIDES[k])) : wallsOf(half);
+  const walls = slab ? [slab] : open?.length ? wallsOf(half).filter((_, k) => !open.includes(SIDES[k])) : wallsOf(half);
   for (const b of [...walls, ...objectBoxes(objects, time)]) {
     let near = -Infinity, far = max, axis = null, sign = 0;
     let miss = false;
@@ -380,11 +382,32 @@ export function surfaceHit(origin, dir, max = 1000, objects = [], time = 0, half
     if (!best || near < best.t)
       best = { t: near, normal: { x: axis === 'x' ? sign : 0, y: axis === 'y' ? sign : 0, z: axis === 'z' ? sign : 0 } };
   }
-  if (dir.y < 0 && origin.y >= 0) {
+  if (!slab && dir.y < 0 && origin.y >= 0) {
     const t = -origin.y / dir.y;
     if (t <= max && (!best || t < best.t)) best = { t, normal: { x: 0, y: 1, z: 0 } };
   }
   return best;
+}
+
+// 🔫 Where a held thing's barrel ends, in the thing's own metres: the face of
+// its part that reaches furthest forward (+z, the way it points in the hand),
+// as { y, z } from its origin. A round leaves from there (muzzleAt), not from
+// the middle of the hand, so it comes out of the hole the model shows.
+export function muzzleOf(geometry) {
+  let best = null;
+  for (const b of geometry?.boxes || []) {
+    const z = b.z + b.d / 2;
+    if (Number.isFinite(z) && Number.isFinite(b.y) && (!best || z > best.z)) best = { y: b.y, z };
+  }
+  return best;
+}
+// The hand (match.mjs hand(), view.mjs draws the thing there), and from it the muzzle: up the thing's own up, out along the aim.
+export function muzzleAt(p, muzzle = null) {
+  const f = direction(p.yaw, p.pitch), r = direction(p.yaw - 90);
+  const h = { x: p.x + r.x * 0.3 + f.x * 0.45, y: p.y - 0.55 + f.y * 0.45, z: p.z + r.z * 0.3 + f.z * 0.45 };
+  if (!muzzle) return h;
+  const u = { x: -f.y * r.z, y: f.x * r.z - f.z * r.x, z: f.y * r.x };
+  return { x: h.x + u.x * muzzle.y + f.x * muzzle.z, y: h.y + u.y * muzzle.y + f.y * muzzle.z, z: h.z + u.z * muzzle.y + f.z * muzzle.z };
 }
 
 // Reflect velocity v about normal n, keeping `bounce` of the normal part

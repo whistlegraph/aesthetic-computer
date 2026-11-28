@@ -2079,6 +2079,10 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           if (keptAt(c.from.room)) sendLink({ type: 'credit', room: c.from.room, seat: c.from.seat, by: c.by });
           else creditHere(c.from.room, c.from.seat, c.by);
         }
+      // 🔫 A gun that fired its last round and broke on the ground is taken out of its room (kept among what was removed, to put back).
+      for (const [key, room] of [...rooms])
+        for (const id of room.match.broken.splice(0))
+          void store.removeObject(key, id, 'spent').then((gone) => { if (gone) builders.broadcast(key); });
       // 🎒 Carried-in things left lying go home: listed where they came from again.
       for (const room of [...rooms.values()])
         for (const id of room.match.goingHome.splice(0)) {

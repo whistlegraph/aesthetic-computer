@@ -3607,8 +3607,13 @@ export async function createView(canvas) {
       players.forEach((p, i) => {
         if (!p || p.alive === false || !Number.isFinite(p.yaw)) return;
         const dir = direction(p.yaw, p.pitch || 0);
-        const reach = dir.y < -0.02 ? Math.min(40, p.y / -dir.y) : 40;
-        const at = along(p, dir, reach), s = projector.project(at.x, at.y, at.z);
+        let reach = dir.y < -0.02 ? Math.min(40, p.y / -dir.y) : 40;
+        // (A body that faces this eye aims past it, out of the picture: its mark stands a little way in front of the body, so its aim is still read.)
+        const ex = eye.x - p.x, ey = eye.y - p.y, ez = eye.z - p.z, far = Math.hypot(ex, ey, ez) || 1;
+        const facing = (dir.x * ex + dir.y * ey + dir.z * ez) / far;
+        if (facing > 0.25) reach = Math.min(reach, Math.max(1.2, far * 0.35));
+        let at = along(p, dir, reach), s = projector.project(at.x, at.y, at.z);
+        if (!(s && Math.abs(s.x) < 1 && Math.abs(s.y) < 1) && reach > 2.5) { at = along(p, dir, 2.5); s = projector.project(at.x, at.y, at.z); }
         if (s && Math.abs(s.x) < 1 && Math.abs(s.y) < 1) marks.push({ x: Math.round((s.x * W) / 2), y: Math.round((s.y * H) / 2), color: seatColor(i) });
       });
       if (marks.length) {

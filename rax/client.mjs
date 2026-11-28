@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, muzzleOf } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
@@ -588,10 +588,11 @@ function hungHere() {
   return hungKept;
 }
 let slabFor = null, slabKept = NO_BOXES;
+const platformSlab = () => (!worldPlace(room) && !game() ? slabOf(half()) : null);
 function fixedBoxes() {
   if (game()?.ledges) return game().ledges;
   // 🧱 A platform's block (world.mjs slabOf), as the server has it: the room's one solid.
-  if (!worldPlace(room) && !game()) { if (slabFor !== room) { slabFor = room; slabKept = [...hungHere(), slabOf(half())]; } return slabKept; }
+  if (platformSlab()) { if (slabFor !== room) { slabFor = room; slabKept = [...hungHere(), platformSlab()]; } return slabKept; }
   if (!hasCar()) return hungHere();
   // (Rebuilt when the room changes: only the plaza has the lobby, only the roof its parapet.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
@@ -2418,6 +2419,13 @@ function holding() {
 function heldKind() {
   return (seat >= 0 && snapshot?.items?.find((it) => it.holder === seat)?.kind) || null;
 }
+// 🔫 The held gun's barrel end (world.mjs muzzleOf), found once for each thing.
+let muzzleFor = null, muzzleKept = null;
+function heldMuzzle() {
+  const id = seat >= 0 ? snapshot?.items?.find((it) => it.holder === seat)?.id : null;
+  if (id !== muzzleFor) { muzzleFor = id; muzzleKept = muzzleOf(objects.find((o) => o.id === id)?.geometry); }
+  return muzzleKept;
+}
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim()) return false;
   if (prompt.busy) {
@@ -3778,7 +3786,7 @@ function step(now, xr) {
     jumpQueued = fireQueued = useQueued = dropQueued = bikeQueued = false;
     pending.push(c);
     // 🔫 A shot leaves the hand now, not a round trip from now (rounds.mjs).
-    if (c.use && player && player.alive !== false && heldKind() === 'shoot') rounds.fire({ ...player, yaw: c.yaw, pitch: c.pitch });
+    if (c.use && player && player.alive !== false && heldKind() === 'shoot') rounds.fire({ ...player, yaw: c.yaw, pitch: c.pitch }, undefined, heldMuzzle());
     if (carrying) {
       held = { ...move(held, c, solids(), 0, fixedBoxes(), flat(), openEdges(), half()), walk: held.walk, until: held.until };
       presentation.step(held);
@@ -4124,7 +4132,7 @@ function step(now, xr) {
     hold: prompt.open ? null : holdMeter,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
-    bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges()),
+    bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges(), platformSlab()),
       ...farShots.map((b) => { const t = Math.min(0.12, (now - b.at) / 1000); return { id: b.id, x: b.x + b.vx * t, y: b.y + b.vy * t, z: b.z + b.vz * t, vx: b.vx, vy: b.vy, vz: b.vz, flown: true }; })],
     since: (now - latestAt) / 1000,
     holding: seat >= 0 ? objects.find((o) => snapshot?.items?.some((it) => it.id === o.id && it.holder === seat)) || null : null,

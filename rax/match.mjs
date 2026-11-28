@@ -14,7 +14,7 @@ import {
   surfaceHit,
   reflect,
   WORLD,
- HORIZON, FALL_Y } from './world.mjs';
+ HORIZON, FALL_Y, muzzleOf, muzzleAt } from './world.mjs';
 import { command } from './net.mjs';
 import { objectBoxes } from './objects.mjs';
 import { RACK_RETURN_SECONDS } from './armory.mjs';
@@ -25,6 +25,8 @@ import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from '
 // what a burst can bring; the grace is how long a silent player is held
 // still and owed their time before the body runs on without them.
 // (INPUT_SLACK: how many may wait once the budget is spent.)
+// 🔫 Rounds in a gun. The last one fired, it is dropped and breaks.
+export const CLIP = 12;
 export const INPUT_BATCH = 12, INPUT_QUEUE = HORIZON, INPUT_GRACE = HORIZON, INPUT_SLACK = 3;
 // 🩸 Where on a body a round struck (gore.mjs takes it apart there): the
 // head, an arm or leg by side, or the torso. Heights from the feet, as the
@@ -83,6 +85,8 @@ export class Match {
     this.toRoof = [];
     // 🎒 Carried-in things left lying long enough to go home (server.mjs takes them).
     this.goingHome = [];
+    // 🔫 Guns that fired their last round, fell and broke: the server takes each out of the room (it is in what was removed, to be put back).
+    this.broken = [];
     // 🌐 Rounds that flew out over an open side, for the room beside (server.mjs).
     this.outbound = [];
     // 🎯 Kills made here by rounds from other rooms, owed to their shooters there.
@@ -225,6 +229,7 @@ export class Match {
   // The place's own solid boxes: a block's house walls.
   setWalls(boxes = []) {
     this.walls = this.arena ? [...this.arena, ...boxes] : boxes;
+    this.slab = boxes.find((b) => b.slab) || null; // 🧱 a platform's block (world.mjs slabOf): rounds meet it and nothing round it
   }
   setObjects(list = []) {
     this.objects = list.filter((o) => !o.item);
@@ -244,9 +249,10 @@ export class Match {
     for (const o of list.filter((o) => o.item)) {
       ids.add(o.id);
       const it = this.items.get(o.id);
-      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, carried: !!o.carried });
+      if (it) Object.assign(it, { kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, carried: !!o.carried, muzzle: o.item === 'shoot' ? muzzleOf(o.geometry) : null });
       else
         this.items.set(o.id, {
+          muzzle: o.item === 'shoot' ? muzzleOf(o.geometry) : null, ammo: o.item === 'shoot' ? CLIP : 0, spent: false,
           id: o.id, kind: o.item, effect: o.effect || null, home: { x: o.x, z: o.z }, house: !!o.house, carried: !!o.carried, fuseAt: 0, awayUntil: 0,
           x: o.x, y: 0, z: o.z,
           vx: 0, vy: 0, vz: 0, spin: 0, holder: -1, thrownBy: -1, cool: {}, ready: 0,
@@ -298,12 +304,18 @@ export class Match {
     const f = direction(p.yaw, p.pitch);
     if (it.kind === 'shoot') {
       it.ready = this.tick + Math.round(HZ * 0.3);
-      const h = this.hand(p);
+      const h = muzzleAt(p, it.muzzle); // (out of the barrel's end, where the model shows its hole)
       // Visible, dodgeable rounds; at most 24 in the air.
       this.bullets.push({ ...h, vx: f.x * 32, vy: f.y * 32, vz: f.z * 32, owner: p.seat, born: this.tick,
         safeUntil: this.tick + Math.round(HZ * 0.25), bounces: 0, id: ++this.eventId });
       while (this.bullets.length > 24) this.bullets.shift();
       this.emit('shot', { seat: p.seat, at: h });
+      // 🔫 The last round: the gun leaves the hand, and breaks where it lands (stepItems).
+      if (--it.ammo <= 0) {
+        it.spent = true;
+        this.release(it, p, 1.5, 1);
+        this.emit('drop', { seat: p.seat, item: it.id });
+      }
     } else if (it.kind === 'throw') {
       this.release(it, p, 17, 3.5);
       it.thrownBy = p.seat;
@@ -423,6 +435,15 @@ export class Match {
           } else Object.assign(it, along(it, dir, travel));
         }
       }
+      if (it.spent && it.y < 0.06) { // (the floor holds a falling thing a hair over it)
+        // 🔫 Empty, it breaks on the ground. A house gun is back on its rack, loaded, in a moment; anything else is gone from the room, to be made or put back again.
+        this.emit('removed', { at: { x: it.x, y: 0.3, z: it.z } });
+        this.emit('dust', { at: { x: it.x, y: 0.1, z: it.z } });
+        Object.assign(it, { spent: false, ammo: CLIP, vx: 0, vy: 0, vz: 0, spin: 0, thrownBy: -1, lyingSince: 0, x: it.home.x, y: -50, z: it.home.z });
+        if (it.house) it.awayUntil = this.tick + 3 * HZ;
+        else { it.awayUntil = this.tick + 600 * HZ; this.broken.push(it.id); } // (out of sight until the server has taken it out)
+        continue;
+      }
       if (it.y <= 0) {
         it.y = 0;
         if (it.vy < -2.5) {
@@ -469,7 +490,7 @@ export class Match {
           }
       }
       // Run over it to pick it up, one item per hand (not while its fuse burns).
-      if (!it.fuseAt && it.y < 1.2 && Math.hypot(it.vx, it.vy, it.vz) < 6)
+      if (!it.fuseAt && !it.spent && it.y < 1.2 && Math.hypot(it.vx, it.vy, it.vz) < 6)
         for (const o of this.seats.filter(Boolean)) {
           const q = o.player;
           if (!q.alive || this.held(q.seat) || this.tick < (it.cool[q.seat] || 0)) continue;
@@ -537,7 +558,7 @@ export class Match {
             zombie = z;
           }
         }
-        const surface = surfaceHit(b, dir, at, this.objects, time, this.half, this.open);
+        const surface = surfaceHit(b, dir, at, this.objects, time, this.half, this.open, this.slab);
         // (A target is solid too: met at the same spot, the target takes the round.)
         if (surface && (target || watcher || zombie ? surface.t < at - 0.01 : surface.t <= at)) {
           Object.assign(b, along(b, dir, Math.max(0, surface.t - 0.02)));
@@ -592,7 +613,9 @@ export class Match {
           by: b.by ?? this.nameOf?.(b.owner) ?? null, from: b.from ?? (b.owner >= 0 ? { seat: b.owner } : null) });
         b.dead = true;
       }
-      if (b.bounces > 16 || Math.abs(b.x) > this.half + 5 || Math.abs(b.z) > this.half + 5 || b.y > 80) b.dead = true;
+      // (Off a platform a round flies on into the open a good way before it is gone.)
+      const out = this.half + (this.slab ? 60 : 5);
+      if (b.bounces > 16 || Math.abs(b.x) > out || Math.abs(b.z) > out || b.y > 80 || b.y < FALL_Y) b.dead = true;
     }
     // Rounds from different players that meet in the air cancel each other.
     for (let a = 0; a < this.bullets.length; a++)
@@ -731,7 +754,7 @@ export class Match {
       if (s.queue.length) s.budget = Math.min(INPUT_GRACE + 1, s.budget + 0.05);
       while (s.queue.length > INPUT_SLACK) s.ack = s.queue.shift().seq;
       let p = s.player;
-      if (!p.alive && this.phase === 'playing' && this.tick >= p.respawnAt) {
+      if (!p.alive && (this.phase === 'playing' || this.phase === 'waiting') && this.tick >= p.respawnAt) {
         if (p.gibbed && this.roofBound && !p.roofAsked) {
           // Up to the roof (the server moves the seat after this tick); if it
           // cannot, the body comes back here a second later all the same.
@@ -824,7 +847,8 @@ export class Match {
 
   damage(seat, amount, attacker) {
     const p = this.seats[seat]?.player;
-    if (!p?.alive || this.phase !== 'playing') return;
+    // (Alone in a room, waiting, a body is hurt all the same: its own round come back off a wall ends it.)
+    if (!p?.alive || (this.phase !== 'playing' && this.phase !== 'waiting')) return;
     p.health = Math.max(0, p.health - amount);
     if (p.health) return;
     p.alive = false;
@@ -832,7 +856,7 @@ export class Match {
     const killer = this.seats[attacker]?.player;
     if (killer) killer.score += attacker === seat ? -1 : 1;
     this.emit('frag', { seat, attacker });
-    if (killer?.score >= FRAG_LIMIT) {
+    if (this.phase === 'playing' && killer?.score >= FRAG_LIMIT) {
       this.phase = 'finished';
       this.winner = attacker;
       this.until = this.tick + 5 * HZ;
@@ -953,7 +977,7 @@ export class Match {
       drones: this.drones.filter((d) => d.alive).map((d) => ({ id: d.id, x: Math.round(d.x * 1000) / 1000, y: d.y, dir: d.dir })),
       rockets: this.rockets.map((r) => ({ ...r })),
       items: [...this.items.values()].map((it) => ({
-        id: it.id, kind: it.kind, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin,
+        id: it.id, kind: it.kind, x: it.x, y: it.y, z: it.z, holder: it.holder, spin: it.spin, ...(it.kind === 'shoot' ? { ammo: it.ammo } : {}),
       })),
       bullets: this.bullets.map((b) => ({ id: b.id, owner: b.owner, x: b.x, y: b.y, z: b.z, vx: b.vx, vy: b.vy, vz: b.vz })),
       events: this.events.map((e) => ({ ...e })),

@@ -8,7 +8,7 @@
 // A round of your own leaves your hand the moment you fire: the page flies
 // it at once, and when the server's round for that shot arrives it is
 // hidden behind this one, which ends when the server's does.
-import { direction, surfaceHit, reflect, rayBox } from './world.mjs';
+import { direction, surfaceHit, reflect, rayBox, muzzleAt } from './world.mjs';
 import { objectBoxes } from './objects.mjs';
 
 export const ROUND_SPEED = 32; // (match.mjs useItem: f * 32)
@@ -58,17 +58,18 @@ export class Rounds {
   }
 
   // This page fired: show the round now. False while the gun is cooling.
-  fire(p, now = performance.now()) {
+  // (`muzzle`: the held gun's barrel end, world.mjs muzzleOf, as the server fires from.)
+  fire(p, now = performance.now(), muzzle = null) {
     if (now < this.readyAt || !p) return false;
     this.readyAt = now + COOLDOWN_MS;
-    const f = direction(p.yaw, p.pitch), h = handOf(p);
+    const f = direction(p.yaw, p.pitch), h = muzzle ? muzzleAt(p, muzzle) : handOf(p);
     this.mine.push({ id: `mine-${++this.count}`, ...h, vx: f.x * ROUND_SPEED, vy: f.y * ROUND_SPEED, vz: f.z * ROUND_SPEED,
       bornAt: now, bounces: 0, flown: true });
     return true;
   }
 
   // Fly everything on to `now`; return what to draw.
-  step(now, objects = [], time = 0, half, open = null) {
+  step(now, objects = [], time = 0, half, open = null, slab = null) {
     // A target (a scarecrow…) stops a round where it strikes: one box each, as the server has it.
     if (objects !== this.boxesFrom) {
       this.boxesFrom = objects;
@@ -91,13 +92,13 @@ export class Rounds {
     for (const r of this.flying.values()) {
       const dt = dtOf(r);
       if (r.twin) continue; // (ours: drawn as the round this page fired)
-      if (now - r.heardAt < FREE_FLIGHT_MS && !r.stopped) fly(r, dt, objects, time, half, stops, open);
+      if (now - r.heardAt < FREE_FLIGHT_MS && !r.stopped) fly(r, dt, objects, time, half, stops, open, slab);
       if (!r.stopped) out.push(r);
     }
     this.mine = this.mine.filter((m) => !m.dead && !m.stopped && now - m.bornAt < LIFE_MS && m.bounces <= MAX_BOUNCES &&
       (m.twin !== undefined || now - m.bornAt < UNCLAIMED_MS));
     for (const m of this.mine) {
-      fly(m, dtOf(m), objects, time, half, stops, open);
+      fly(m, dtOf(m), objects, time, half, stops, open, slab);
       out.push(m);
     }
     return out;
@@ -111,13 +112,13 @@ export class Rounds {
 
 // One frame of flight: along the velocity, off whatever it meets.
 // (`open`: the sides that lead on; a round goes out through one and is the next room's to show.)
-function fly(r, dt, objects, time, half, stops = [], open = null) {
+function fly(r, dt, objects, time, half, stops = [], open = null, slab = null) {
   let left = Math.hypot(r.vx, r.vy, r.vz) * dt;
   for (let k = 0; k < 4 && left > 1e-6; k++) {
     const speed = Math.hypot(r.vx, r.vy, r.vz);
     if (!speed) return;
     const dir = { x: r.vx / speed, y: r.vy / speed, z: r.vz / speed };
-    const hit = surfaceHit(r, dir, left, objects, time, half, open);
+    const hit = surfaceHit(r, dir, left, objects, time, half, open, slab);
     let stop = Infinity;
     for (const box of stops) stop = Math.min(stop, rayBox(r, dir, box, left));
     if (stop <= left && (!hit || stop <= hit.t)) {
@@ -127,7 +128,7 @@ function fly(r, dt, objects, time, half, stops = [], open = null) {
     }
     if (!hit) {
       r.x += dir.x * left; r.y += dir.y * left; r.z += dir.z * left;
-      if (half && (Math.abs(r.x) > half || Math.abs(r.z) > half)) r.stopped = true; // (over the seam: the room beside shows it now)
+      if (half && !slab && (Math.abs(r.x) > half || Math.abs(r.z) > half)) r.stopped = true; // (over the seam: the room beside shows it now; off a platform it flies on)
       return;
     }
     const t = Math.max(0, hit.t - 0.02);
