@@ -18,7 +18,7 @@ export class Headset {
       this.snapped = false;
       this.jumpHeld = false;
     }
-    let right = 0, fwd = 0, turnStick = 0, jumpHeld = false;
+    let right = 0, fwd = 0, turnStick = 0, jumpHeld = false, viewHeld = false;
     for (const pad of pads || []) {
       if (!pad?.connected || pad.mapping !== 'standard') continue;
       const [x, y] = stick(pad.axes[0], pad.axes[1]);
@@ -37,6 +37,7 @@ export class Headset {
         turnStick = pad.axes[base] || turnStick;
         jumpHeld ||= !!pad.buttons[4]?.pressed;
       }
+      viewHeld ||= !!pad.buttons[5]?.pressed; // (B on the right hand, Y on the left: the next view)
     }
     if (!this.snapped && Math.abs(turnStick) > 0.7) {
       this.turn -= Math.sign(turnStick) * Math.PI / 6;
@@ -96,12 +97,14 @@ export class Headset {
     }
     const jump = jumpHeld && !this.jumpHeld;
     this.jumpHeld = jumpHeld;
+    const viewPress = viewHeld && !this.viewHeld;
+    this.viewHeld = viewHeld;
     return {
       cullScale: 1 / extent, offset, rightAxis: rotate(m[0], m[1], m[2]), up: rotate(m[4], m[5], m[6]),
       forward: rotate(-m[8], -m[9], -m[10]),
       yaw: ((this.turn + headYaw) * degrees % 360 + 360) % 360,
       pitch: Math.asin(Math.max(-1, Math.min(1, -m[9]))) * degrees,
-      right, fwd, jump, hands, rays, walkPinch: this.walkPinch,
+      right, fwd, jump, viewPress, hands, rays, walkPinch: this.walkPinch,
     };
   }
 }
@@ -113,11 +116,14 @@ layout(location=0) in vec3 position;
 layout(location=1) in vec3 ink;
 uniform mat4 head, eye, projection;
 uniform vec2 tangent;
+uniform float world;
 out vec3 color;
 void main() {
   bool sky = position.z < 0.;
   float z = sky ? 10000. : position.z;
-  gl_Position = projection * eye * head * vec4(position.xy * tangent * z, -z, 1.);
+  // (world: metres of the room to a metre of yours. 1 is life size; a twentieth is the room on a table. The sky stays where it is.)
+  float k = sky ? 1. : world;
+  gl_Position = projection * eye * head * vec4(position.xy * tangent * z * k, -z * k, 1.);
   if (sky) gl_Position.z = (1. + position.z * .000001) * gl_Position.w;
   color = ink;
 }`;
@@ -143,7 +149,7 @@ export function stereoRenderer(gl) {
     gl.deleteProgram(program);
     throw new Error(error);
   }
-  const uniforms = Object.fromEntries(['head', 'eye', 'projection', 'tangent', 'opacity'].map(k => [k, gl.getUniformLocation(program, k)]));
+  const uniforms = Object.fromEntries(['head', 'eye', 'projection', 'tangent', 'opacity', 'world'].map(k => [k, gl.getUniformLocation(program, k)]));
   const buffer = gl.createBuffer();
   gl.useProgram(program);
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -154,8 +160,9 @@ export function stereoRenderer(gl) {
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL);
   let capacity = 0;
-  return (scene, sky, pose, layer, projector, mixed) => {
+  return (scene, sky, pose, layer, projector, mixed, world = 1) => {
     gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    gl.uniform1f(uniforms.world, world);
     if (mixed) gl.clearColor(0, 0, 0, 0);
     else gl.clearColor(...sky);
     gl.uniform1f(uniforms.opacity, mixed ? 0.66 : 1);
@@ -284,4 +291,52 @@ export function immersive({ frame, getYaw, transition, release }) {
       if (!open) message = '';
     },
   };
+}
+
+// 🖐️ The left wrist and the right hand's pointing tip, in metres from the
+// head (as `hands` and `rays` are): a tracked hand's own joints, or else the
+// controller held in that hand. The wrist slate stands a little over the
+// first and is poked with the second (client.mjs, view.mjs).
+export const SLATE_LIFT = 0.09, SLATE_REACH = 0.055;
+export function wristOf(xr) {
+  const hand = xr?.hands?.find((h) => h.side === 'left');
+  return hand?.fingers?.[0]?.[0] || xr?.rays?.find((r) => r.side === 'left')?.origin || null;
+}
+export function pokerOf(xr) {
+  const hand = xr?.hands?.find((h) => h.side === 'right');
+  return hand?.fingers?.[1]?.at(-1) || xr?.rays?.find((r) => r.side === 'right')?.origin || null;
+}
+// 🪑 The room on a table: where the eye is in the room when the room is
+// `table.scale` of its size and its floor's middle (`pivot`) stands at
+// `table.at` (metres from where the headset began, as `offset` is). A head
+// that moves a hand's width moves that many times further over the room.
+export function tableEye(table, offset) {
+  const k = 1 / table.scale;
+  return { x: table.pivot.x + (offset[0] - table.at[0]) * k, y: table.pivot.y + (offset[1] - table.at[1]) * k, z: table.pivot.z + (offset[2] - table.at[2]) * k };
+}
+
+// ✋ A hand's outline from its joints (`fingers`: thumb to little finger, each
+// wrist-to-tip): one closed line of points round the hand, or null when a
+// joint it needs is not tracked. Each finger is as wide as its own joints'
+// radius, measured across the palm (index knuckle to little knuckle); the
+// thumb across its own way (wrist to index knuckle).
+export function handOutline(fingers) {
+  if (fingers?.length !== 5 || fingers.some((chain) => chain.length < 5 || chain.some((j) => !j))) return null;
+  const wrist = fingers[0][0], unit = (a, b) => {
+    const d = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z }, n = Math.hypot(d.x, d.y, d.z) || 1;
+    return { x: d.x / n, y: d.y / n, z: d.z / n };
+  };
+  const across = unit(fingers[4][2], fingers[1][2]), along = unit(wrist, fingers[1][2]);
+  const off = (j, dir, sign) => { const r = (j.radius || 0.008) * sign; return { x: j.x + dir.x * r, y: j.y + dir.y * r, z: j.z + dir.z * r }; };
+  const out = [off(wrist, across, -2.6)];
+  for (let f = 4; f >= 1; f--) {
+    const joints = fingers[f].slice(2);
+    for (const j of joints) out.push(off(j, across, -1));
+    for (const j of joints.reverse()) out.push(off(j, across, 1));
+  }
+  const thumb = fingers[0].slice(1);
+  for (const j of thumb) out.push(off(j, along, 1));
+  for (const j of thumb.reverse()) out.push(off(j, along, -1));
+  out.push(off(wrist, across, 2.6));
+  return out;
 }

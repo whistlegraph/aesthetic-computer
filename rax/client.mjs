@@ -28,7 +28,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { immersive } from './immersive.mjs';
+import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -3141,6 +3141,25 @@ const keepBoom = () => {
 // 🚁 Looking on by choice. A signed-in body's screen can step back to a drone (P, or Y held on a pad) and take the body again (P, L3, or a tap on the handle). The choice is kept, so a page that left as a drone comes back as one, even when it is the only screen.
 let droneWanted = false, cameraHeldAt = 0;
 // ⏳ A button that does its thing only when held shows how far along the hold is, and sounds it: a meter under the crosshair that fills, a note that climbs as it does, and a pick when it is done. `holdOn(label, since, ms)` is asked each frame the button is down; nothing asked, the meter is gone.
+// 🪑 In a headset: the room on a table (immersive.mjs tableEye), or null for life size. B or Y on a controller, or a poke at the wrist slate, changes it.
+let xrTable = null, slateArmed = true;
+function stepXRView(xr) {
+  const wrist = wristOf(xr), tip = pokerOf(xr);
+  const far = wrist && tip ? Math.hypot(tip.x - wrist.x, tip.y - wrist.y - SLATE_LIFT, tip.z - wrist.z) : Infinity;
+  const poke = slateArmed && far < SLATE_REACH;
+  if (far < SLATE_REACH) slateArmed = false; else if (far > SLATE_REACH + 0.04) slateArmed = true; // (one poke, one change: the tip comes away before it counts again)
+  if (xr.viewPress || poke) {
+    if (xrTable) xrTable = null;
+    else {
+      // The room's floor, its middle an arm's reach before the head and under the chest, eighty centimetres across.
+      const flat = Math.hypot(xr.forward[0], xr.forward[2]) || 1;
+      xrTable = { scale: 0.4 / half(), pivot: { x: 0, y: 0, z: 0 },
+        at: [xr.offset[0] + (xr.forward[0] / flat) * 0.6, xr.offset[1] - 0.45, xr.offset[2] + (xr.forward[2] / flat) * 0.6] };
+    }
+    sfx.ringPick(xrTable ? 4 : 0);
+  }
+  xr.table = xrTable;
+}
 let holdMeter = null, holdStep = -1;
 let deathCount = null;
 function holdOn(label, since, ms, now = performance.now()) {
@@ -3333,7 +3352,9 @@ function step(now, xr) {
     releaseInput();
   }
   gamepad = controller.sample(down || xr ? [] : pads, document.hasFocus());
+  if (!xr) xrTable = null;
   if (xr) {
+    stepXRView(xr);
     yaw = xr.yaw; pitch = xr.pitch;
     inputAt = flownAt = now;
     if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd || (xr.walkPinch && !screenFingers.size ? 0.42 : 0), jump: xr.jump });
@@ -4023,7 +4044,7 @@ function step(now, xr) {
   carPad.y = CAR_PAD.y + lift;
   const orbit = orbitStep(now);
   const miniature = orbit >= 0.94;
-  if (xr && sheetOpen && !down && !held && !typing() && !menu && !radial.open) {
+  if (xr && !xrTable && sheetOpen && !down && !held && !typing() && !menu && !radial.open) { // (🪑 on a table the hands are giants over the room: they touch nothing in it)
     const body = seat >= 0 ? displayed : freecam;
     if (body) updateXRContacts(xr, { ...body, y: body.y + (seat >= 0 ? lift : 0) });
     else releaseXRContacts();

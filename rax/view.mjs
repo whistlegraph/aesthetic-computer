@@ -39,6 +39,7 @@ import { Projector, screen } from './project.mjs';
 import { PLANET, FAR, landTiles, viewCurvature, bend } from './planet.mjs';
 import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
+import { wristOf, tableEye, SLATE_LIFT, handOutline } from './immersive.mjs';
 import { glide } from './dock.mjs';
 import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs';
 
@@ -1102,19 +1103,55 @@ export async function createView(canvas) {
   // KidLisp program is still loading.
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
+  const handEdge = model(({ box }) => box(0, 0, 0.5, 0.09, 0.09, 1, 0x51e3ee, 0x269baa));
   const controllerStem = model(({ box }) => box(0, 0, 0.5, 0.18, 0.18, 1, 0x51e3ee));
+  // 🖐️ The wrist slate: what the corner of the screen says at a desk (who you
+  // are, where, your deaths and braincells, the link) on a small card over the
+  // left wrist, turned to the eye, with the view it will change to written at
+  // its foot: poke it with the other hand (client.mjs) for the room on a table.
+  const slates = new Map();
+  function slateModel(lines) {
+    const key = JSON.stringify(lines);
+    let m = slates.get(key);
+    if (!m) {
+      const u = 0.001, rowH = 0.012, wide = Math.max(...lines.map(([t]) => t.length)) * 6 * u + 0.012, tall = lines.length * rowH + 0.008;
+      m = model(({ rect: worldRect, text: glyphs }) => {
+        const rect = (x, y, z, w, h, c) => worldRect(-x - w, y, z, w, h, c);
+        // (A frame, not a plate: nothing stands behind or before the words whichever way the card faces.)
+        for (const [x, y, w, h] of [[-wide / 2, 0, wide, u], [-wide / 2, tall, wide, u], [-wide / 2, 0, u, tall], [wide / 2 - u, 0, u, tall + u]]) rect(x, y, 0, w, h, 0x51e3ee);
+        lines.forEach(([t, color], i) => drawSpans({ rect, text: glyphs }, [{ text: t, color }], 0, tall - 0.003 - i * rowH, u, { step: 0.0002, shadow: null }));
+      });
+      if (slates.size > 64) slates.clear();
+      slates.set(key, m);
+    }
+    return m;
+  }
+  function drawSlate(xr, eye, lines) {
+    const wrist = wristOf(xr);
+    if (!wrist || !lines.length) return;
+    const k = 1 / (xr.table?.scale || 1);
+    const x = eye.x + wrist.x * k, y = eye.y + (wrist.y + SLATE_LIFT - 0.03) * k, z = eye.z + wrist.z * k;
+    projector.draw(slateModel(lines), x, y, z, Math.atan2(eye.x - x, eye.z - z) + Math.PI, 0, k);
+  }
   function drawHands(xr, eye) {
+    // (On a table the room is small, so the hands are drawn that many times larger and further, to be their own size in the picture.)
+    const k = 1 / (xr.table?.scale || 1);
     const segment = (a, b, mesh) => {
       if (!a || !b) return;
       const dx = b.x-a.x, dy = b.y-a.y, dz = b.z-a.z, length = Math.hypot(dx, dy, dz);
       if (length < 0.001) return;
-      projector.draw(mesh, eye.x+a.x, eye.y+a.y, eye.z+a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+      projector.draw(mesh, eye.x+a.x*k, eye.y+a.y*k, eye.z+a.z*k, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length*k);
     };
-    const point = (p, size) => projector.draw(fingertip, eye.x+p.x, eye.y+p.y, eye.z+p.z, 0, 0, size);
-    for (const hand of xr.hands) for (const chain of hand.fingers) {
-      for (let i = 1; i < chain.length; i++) segment(chain[i-1], chain[i], fingerBone);
-      const tip = chain.at(-1);
-      if (tip) point(tip, 2 * tip.radius);
+    const point = (p, size) => projector.draw(fingertip, eye.x+p.x*k, eye.y+p.y*k, eye.z+p.z*k, 0, 0, size*k);
+    // ✋ A hand is its outline, not its bones (2026-11-27): up one side of each finger and down the other, the sides a finger's own thickness apart across the palm, joined at the knuckles and round the wrist. A hand seen in part (a joint untracked) falls back to its bones.
+    for (const hand of xr.hands) {
+      const edge = handOutline(hand.fingers);
+      if (edge) { for (let i = 0; i < edge.length; i++) segment(edge[i], edge[(i + 1) % edge.length], handEdge); continue; }
+      for (const chain of hand.fingers) {
+        for (let i = 1; i < chain.length; i++) segment(chain[i-1], chain[i], fingerBone);
+        const tip = chain.at(-1);
+        if (tip) point(tip, 2 * tip.radius);
+      }
     }
     for (const ray of xr.rays) {
       const { origin: p, dir: d } = ray;
@@ -1971,7 +2008,8 @@ export async function createView(canvas) {
     projector.sx *= zoom;
     projector.sy *= zoom;
     if (xr) {
-      eye = { x: eye.x + xr.offset[0], y: eye.y + xr.offset[1], z: eye.z + xr.offset[2] };
+      // 🪑 (The room on a table: the eye is over it, as far off as the head is from the table, times the room's smallness. immersive.mjs tableEye.)
+      eye = xr.table ? tableEye(xr.table, xr.offset) : { x: eye.x + xr.offset[0], y: eye.y + xr.offset[1], z: eye.z + xr.offset[2] };
       Object.assign(projector, { eye, forward: xr.forward, right: xr.rightAxis, up: xr.up,
         sx: xr.cullScale, sy: xr.cullScale, shiftX: 0, shiftY: 0 });
     }
@@ -2039,6 +2077,14 @@ export async function createView(canvas) {
     if (xr) {
       projector.bends = false;
       drawHands(xr, eye);
+      drawSlate(xr, eye, [
+        ...(self?.handle ? [[`@${self.handle}`, seat >= 0 ? seatColor(seat) : 0xd0d4e0]] : []),
+        ...(roomName ? [[String(roomName).slice(0, 18), 0xd0d4e0]] : []),
+        ...(Number.isFinite(deaths) ? [[`deaths ${Math.round(deaths)}`, 0xe6e6ee]] : []),
+        ...(Number.isFinite(braincells) ? [[`cells ${Math.round(braincells).toLocaleString('en-US')}`, 0xd7a6ff]] : []),
+        ...(connection?.label ? [[String(connection.label).toLowerCase(), 0x3fb950]] : []),
+        [xr.table ? 'poke: full size' : 'poke: on a table', 0xffe066],
+      ]);
       projector.bends = true;
     }
     if (under && !ledges) {
@@ -2418,7 +2464,7 @@ export async function createView(canvas) {
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
       if (!far) lastPose.set(i, { x: p.x, base, z: p.z, yaw: p.yaw, pitch: p.pitch || 0, vx: p.vx || 0, vy: p.vy || 0, vz: p.vz || 0, at: performance.now() });
       if (p.bike) drawBike(p, i, base, now, far ? (far.name?.startsWith('@') ? far.name.slice(1) : null) : members.find((m) => m.seat === i)?.handle); // 🛵 (in first person too: the cabin is round you)
-      if (far || i !== seat || third || !me || (idleCamera && Math.hypot(eye.x - me.x, eye.y - me.y, eye.z - me.z) > 0.7)) {
+      if (far || i !== seat || third || xr?.table || !me || (idleCamera && Math.hypot(eye.x - me.x, eye.y - me.y, eye.z - me.z) > 0.7)) {
         draw(f.torso, p.x, base, p.z, yaw);
         draw(f.head, p.x, base, p.z, yaw);
         draw(eyeFor(p, i, now, face), p.x, base, p.z, yaw);
@@ -3606,6 +3652,25 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // 🔎 How far the lens is closed, under the reticle while it is: a bar that
+    // fills with the trigger (or C) and the power beside it, 1.0x to 5.0x. An
+    // analog control shows how much of it is in use (2026-11-27).
+    if (nearZoom > 1.01 && !bare && !radial && !menu && !xr) {
+      const { unit } = hud, top = 5; // (the most there is: MAX_FOCUS_ZOOM, doubled by L3 at a screen)
+      const wide = 40 * unit, tall = 2 * unit, x = -wide / 2, y = -24 * unit;
+      const part = Math.max(0, Math.min(1, (nearZoom - 1) / (top - 1)));
+      const said = `${nearZoom.toFixed(1)}x`;
+      const m = model(({ rect: worldRect, small }) => {
+        const rect = flip(worldRect);
+        rect(x + unit, y - unit, 0.000002, wide, tall, INK);
+        rect(x, y, 0.000001, wide, tall, 0x2c3040);
+        rect(x, y, 0, Math.round((wide * part) / unit) * unit, tall, 0x00ffff);
+        const tx = x + wide + (4 + smallWidth(said) / 2) * unit, ty = y + 5 * unit;
+        small(said, tx + unit, ty - unit, 0.000002, unit, INK);
+        small(said, tx, ty, 0, unit, 0x00ffff);
+      });
+      projector.overlay(m, W, H);
+    }
     // 🎯 Looking on, everyone's aim is on the screen too: where each body
     // looks (down its yaw and pitch to the floor, or forty metres out) is
     // projected into this view and marked with that seat's own small reticle,
@@ -4505,7 +4570,7 @@ export async function createView(canvas) {
       if (count > 0) shadow = { first, count, shade };
     }
     casting = false;
-    if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector, xr.mixed);
+    if (xr) xr.draw(host.scene, sky, xr.pose, xr.layer, projector, xr.mixed, xr.table?.scale || 1);
     else host.present({ clear: sky, shadow, lens: lensNow });
     if (!xr && gpu.queued < 64) {
       const handed = performance.now();
