@@ -523,7 +523,7 @@ let lastRender = null; // [time, mouse] of the latest render, for freeze().
 
 export function render(time, mouse, day = false) {
   if (glaze === undefined || glaze.loaded === false) return;
-  lastRender = [time, mouse];
+  lastRender = [time, mouse, day]; // (day too: a freeze drawn without it was the night's picture for a frame)
 
   // A slow foreground prompt can spend most of a frame marching light through
   // fog. Measure sustained paints before reducing the shader to the piece grid.

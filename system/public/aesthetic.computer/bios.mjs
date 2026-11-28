@@ -2769,6 +2769,8 @@ async function boot(parsed, bpm = 60, resolution, debug) {
           
           // Capture current frame to freeze frame canvas
           if (freezeFrameGlaze) {
+            // The glaze's own canvas is see-through where the picture under it shows (the prompt's writes its alpha), so alone it is not what was on the screen: the picture first, the glaze over it.
+            try { ffCtx.putImageData(imageData, 0, 0); } catch (e) {}
             // Try Glaze.freeze, fallback to standard capture if it fails
             if (!Glaze.freeze(ffCtx)) {
               // Glaze capture failed, use fallback
