@@ -1,6 +1,8 @@
 # rax geometry (proposal, 2026-11-27)
 
-**Status: a proposal. Nothing here is built.** It replaces the world described
+**Status: a proposal.** One step is live (2026-11-27): home is `origin`, an
+open platform (`world.mjs` `HOME_ROOM`), and the old plaza is its own room at
+`rax.ac/~plaza`. Nothing else here is built. It replaces the world described
 in `GEOGRAPHY.md` (plaza, park blocks, tower, basement, planets), which is
 deprecated and kept as one room to visit. @jeffrey asked for one universal
 geometry: Cartesian on three axes, fractal, not built from planets, and like

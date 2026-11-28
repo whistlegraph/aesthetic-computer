@@ -31,12 +31,17 @@ export const ROOM_HOSTS = { east: 'nj.rax.ac', e1n0: 'nj.rax.ac' };
 // A room that is not a place in the world (a game's arena, a room made by
 // name) is still its own room.
 export const ONE_ROOM = true;
-export const HOME_ROOM = 'lobby';
+// 🧭 2026-11-27: home is no longer the plaza. It is `origin`, the first cube
+// of the geometry to come (GEOMETRY.md): for now one open platform. The old
+// world's plaza is still there as it stood, keyed `lobby`, and is reached
+// only by asking for it: rax.ac/~plaza.
+export const HOME_ROOM = 'origin';
+export const PLAZA = 'lobby', PLAZA_WORD = 'plaza';
 // ✨ In the one room everyone builds, and what is built is a conjuring: it
 // stands this long and is gone (the keeper's stays: the room is theirs to furnish).
 export const CONJURE_MS = 60_000;
 export const worldPlace = (id) => id === BASEMENT || id === 'lobby' || id === 'roof' || id === 'east' || /^(floor-|pod-)/.test(id || '') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id || '');
-export const placeFor = (room, one = ONE_ROOM) => (one && worldPlace(room) ? HOME_ROOM : room);
+export const placeFor = (room, one = ONE_ROOM) => (room === PLAZA_WORD ? PLAZA : one && worldPlace(room) && room !== PLAZA ? HOME_ROOM : room);
 // 🏙️ Where each host stands, for the line beside the ping: home (lith) is in
 // Santa Clara, the satellite in New Jersey. A host not listed shows its name.
 export const HOME_CITY = 'santa clara';

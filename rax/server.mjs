@@ -990,7 +990,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     }
     if (ws.readyState !== WebSocket.OPEN) return;
     // (🏠 one room: whatever place in the world was asked for, it is the one room.)
-    const roomId = placeFor(url.searchParams.get('room') || 'lobby', oneRoom);
+    const roomId = placeFor(url.searchParams.get('room') || (oneRoom ? HOME_ROOM : 'lobby'), oneRoom);
     if (
       !/^[a-z0-9-]{1,32}$/.test(roomId) ||
       !PROTOCOLS.includes(url.searchParams.get('protocol'))
@@ -1689,6 +1689,11 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // room or changes its walls: the room is theirs to furnish.
       const conjuring = oneRoom && key === HOME_ROOM && member.handle?.toLowerCase() !== keeper;
       const fades = conjuring ? conjureMs : 0;
+      // (🧭 Home is `origin`, which is no block of the old park: the same word is said here. A visitor conjures; only the keeper takes things out, clears the room or changes its walls.)
+      if (conjuring && !parseBlock(key) && ['clear-room', 'remove', 'wall-res', 'kidlisp-mod'].includes(data?.type)) {
+        send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: 'Only the keeper takes things out of the room: what you make fades by itself' });
+        return;
+      }
       const block = !openBuild && !pod && parseBlock(key);
       if (block && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore'].includes(data?.type)
         && !(conjuring && ['prompt', 'screen', 'paint', 'restore'].includes(data.type))) {

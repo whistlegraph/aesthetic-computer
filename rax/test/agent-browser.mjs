@@ -34,14 +34,14 @@ try {
 
   // 1. State: who and where, in numbers.
   const first = await state();
-  assert.equal(first.room, 'lobby');
+  assert.equal(first.room, 'origin'); // (🧭 home, world.mjs HOME_ROOM; the old plaza is ~plaza)
   assert.equal(first.you.handle, 'jeffrey');
   // (🏠 world.mjs ONE_ROOM: while the world is one room the plaza has no way out; what is asked of ways below holds when it opens again)
   const open = first.nearby.some((t) => t.kind === 'way');
   for (const t of first.nearby) assert.ok(t.name && Number.isFinite(t.distance) && t.where && t.compass, `a near thing is named and placed: ${JSON.stringify(t)}`);
 
   // 2. The mirror says the same in words, in a live region, with real buttons.
-  await wait(async () => (await page.locator('#rax-words').textContent())?.includes('plaza'), 5000, 'the mirror never described the plaza');
+  await wait(async () => (await page.locator('#rax-words').textContent())?.includes('origin'), 5000, 'the mirror never described the origin');
   const words = await page.locator('#rax-words').textContent();
   assert.match(words, /You are @jeffrey/);
   if (open) assert.match(words, /Ways out:/);
@@ -49,7 +49,6 @@ try {
   const buttons = await page.locator('#rax-mirror button').allTextContents();
   for (const label of ['Use', 'Jump', 'Turn left', 'Step forward', 'Say']) assert.ok(buttons.includes(label), `a ${label} button`);
   if (open) assert.ok(buttons.some((b) => b.startsWith('Go through the')), `a button for a way out: ${buttons.join(' | ')}`);
-  assert.ok(buttons.some((b) => b.startsWith('Walk to')), `a button for something in reach: ${buttons.join(' | ')}`);
   assert.equal(await page.locator('#rax-mirror button', { hasText: 'Sign in' }).isHidden(), true, 'signed in: no sign-in button');
 
   // (north is +z and east is +x, as geography.mjs has it)

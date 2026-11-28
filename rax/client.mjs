@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, placeFor, servedFrom } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
@@ -128,7 +128,7 @@ let roamed = !!requestedRoom;
 let room = placeFor(
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
-    : (accountExpected() && lastPlace) || 'lobby');
+    : ONE_ROOM ? HOME_ROOM : (accountExpected() && lastPlace) || 'lobby');
 let park = null, passage = null, walkAt = 0, walkEdge = null; // walkEdge: the side last walked off
 const BACK = { east: 'west', west: 'east', north: 'south', south: 'north' };
 // 🚶 The body between two rooms: where the passage sets it down, shown until
@@ -1574,13 +1574,14 @@ if (query.has('debug'))
 // stood in the old room is put away first so it never shows in the new one.
 // A place in the one world (the plaza, a block of the park, a floor of the
 // tower), as against an instance: a game's arena or a named room.
-const inWorld = (id) => id === BASEMENT || id === 'lobby' || aloft(id) || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
+const inWorld = (id) => id === HOME_ROOM || id === BASEMENT || id === 'lobby' || aloft(id) || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id);
 // 🧭 This place's AC address, for the host's address bar: a game's own word
 // (botbop, botbop~name), else rax~room; the lobby and your home are rax.
 // 🏷️ This page's own address for a room. The world has one: the plaza, a
 // block and a floor are all the bare address, and where you stand is kept for
 // you, not written in it. Only a room outside the world has a word, `~room`.
-const addressOf = (id) => new URL(inWorld(id) ? './' : `./~${id}`, import.meta.url);
+// (🧭 While home is `origin`, the old plaza is a place asked for by its word, and keeps it.)
+const addressOf = (id) => new URL(ONE_ROOM && id === PLAZA ? `./~${PLAZA_WORD}` : inWorld(id) ? './' : `./~${id}`, import.meta.url);
 function tidyAddress() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) joinURL = addressOf(room).href;
   if (window.parent !== window) return; // (under the prompt the host keeps the address)
@@ -1594,7 +1595,8 @@ tidyAddress();
 // 🦾 rax in words and calls (agent.mjs): a screen reader, a keyboard and an
 // agent read the same state the eye does, and press the same inputs.
 const placeName = (id) =>
-  id === 'lobby' ? 'The plaza, at the foot of the tower'
+  id === HOME_ROOM ? 'The origin, an open platform'
+  : id === 'lobby' ? 'The plaza, at the foot of the tower'
   : id === BASEMENT ? 'The basement'
   : aloft(id) ? (tower?.here?.number ? `Floor ${tower.here.number} of the tower${tower.here.handle ? `, @${tower.here.handle}'s` : ''}` : 'Up the tower')
   : inWorld(id) ? `Block ${id} of the park`
@@ -1639,7 +1641,7 @@ function placePath() {
   if (g?.at(room)) return room.startsWith(`${g.name}-`) ? `/${g.name}~${room.slice(g.name.length + 1)}` : `/${g.name}`;
   // The world has one address: the plaza, a block and a floor of the tower
   // are all rax. Only a room outside the world has a word of its own.
-  return inWorld(room) ? '/rax/' : `/rax~${room}`;
+  return ONE_ROOM && room === PLAZA ? `/rax~${PLAZA_WORD}` : inWorld(room) ? '/rax/' : `/rax~${room}`;
 }
 function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null, here = false) {
   if (typeof to === 'string') to = placeFor(to); // (🏠 one room: nowhere else in the world to go)
