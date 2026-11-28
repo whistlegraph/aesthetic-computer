@@ -27,6 +27,8 @@ import { BOP, DRONE, lands, landsOnDrone, arenaSpawn, drones, stepDrone } from '
 // (INPUT_SLACK: how many may wait once the budget is spent.)
 // 🔫 Rounds in a gun. The last one fired, it is dropped and breaks.
 export const CLIP = 12;
+// 👹 A flying head: its size, its speed (and the fastest a late wave flies), how near it must come to bite, how far outside the room it comes from, the seconds between two of a wave and between waves, how many the first wave has less one, and how long a bitten body lies before it stands again.
+export const HEAD = { r: 0.42, speed: 3.2, fastest: 7, bite: 0.75, from: 14, gap: 0.9, rest: 4, first: 1, down: 3 };
 export const INPUT_BATCH = 12, INPUT_QUEUE = HORIZON, INPUT_GRACE = HORIZON, INPUT_SLACK = 3;
 // 🩸 Where on a body a round struck (gore.mjs takes it apart there): the
 // head, an arm or leg by side, or the torso. Heights from the feet, as the
@@ -77,7 +79,15 @@ export class Match {
     // tick by the server: a round that meets one blows it up.
     this.watchers = [];
     this.zombies = []; // 🧟 the horde's walkers standing here, set each tick (horde.mjs inRoom)
-    this.zombieKills = []; // …and the ids a round has met, for the server to take off the horde
+    this.zombieKills = [];
+    // 👹 Heads (stepHeads): on where `waves` is set. They fly in from outside the room in waves and make for the nearest body; a round ends one, and one that reaches a body ends the body, which comes apart.
+    this.waves = false;
+    this.heads = [];
+    this.wave = 0; // the wave now flying (0: none yet)
+    this.headsOwed = 0; // still to come in this wave
+    this.headAt = 0; // the tick the next one comes, or the next wave starts
+    this.headId = 0;
+    this.random = Math.random; // …and the ids a round has met, for the server to take off the horde
     // 🏙️ Instagib: a body a round meets comes apart, and comes back on the
     // tower's roof. The server says whether there is a roof to go to
     // (roofBound) and takes the seats queued here up to it after the tick.
@@ -808,7 +818,65 @@ export class Match {
     if (this.phase === 'playing' || this.phase === 'waiting') {
       this.stepRockets();
       this.stepItems();
+      if (this.waves) this.aimHeads();
       this.stepBullets();
+      if (this.waves) this.stepHeads();
+    }
+  }
+
+  // 👹 Before the rounds fly: the heads stand among what a round can meet (as the horde's walkers do).
+  aimHeads() {
+    for (const h of this.heads) h.box = { xMin: h.x - HEAD.r, xMax: h.x + HEAD.r, yMin: h.y - HEAD.r, yMax: h.y + HEAD.r, zMin: h.z - HEAD.r, zMax: h.z + HEAD.r };
+    this.zombies = [...this.zombies.filter((z) => !z.head), ...this.heads];
+  }
+  // …and after: the ones a round met are gone; the rest fly on, each at the nearest living body.
+  stepHeads() {
+    const shot = this.heads.filter((h) => !this.zombies.includes(h));
+    if (shot.length) {
+      this.heads = this.heads.filter((h) => this.zombies.includes(h));
+      this.zombieKills = this.zombieKills.filter((id) => !shot.some((h) => h.id === id));
+    }
+    const bodies = this.seats.filter(Boolean).map((s) => s.player).filter((p) => p.alive);
+    // Nobody to come for: the sky empties and the count starts over.
+    if (!bodies.length) { this.heads = []; this.wave = 0; this.headsOwed = 0; this.headAt = 0; return; }
+    // The first wave waits for someone to take the gun up; after that they keep coming.
+    const armed = this.wave > 0 || [...this.items.values()].some((it) => it.kind === 'shoot' && it.holder >= 0);
+    if (armed && !this.heads.length && !this.headsOwed && this.tick >= this.headAt) {
+      this.wave++;
+      this.headsOwed = HEAD.first + this.wave;
+      this.headAt = this.tick;
+      this.emit('wave', { wave: this.wave, heads: this.headsOwed });
+    }
+    if (this.headsOwed && this.tick >= this.headAt) {
+      const a = this.random() * Math.PI * 2, far = this.half + HEAD.from;
+      this.heads.push({ id: `head-${++this.headId}`, head: true, x: Math.sin(a) * far, y: 2.5 + this.random() * 4, z: Math.cos(a) * far, vx: 0, vy: 0, vz: 0, yaw: 0 });
+      this.headsOwed--;
+      this.headAt = this.tick + Math.round(HZ * (this.headsOwed ? HEAD.gap : HEAD.rest));
+    }
+    const speed = Math.min(HEAD.fastest, HEAD.speed + this.wave * 0.25);
+    for (const h of this.heads) {
+      let to = null, near = Infinity;
+      for (const p of bodies) { const d = Math.hypot(p.x - h.x, p.y - h.y, p.z - h.z); if (d < near) { near = d; to = p; } }
+      const dx = to.x - h.x, dy = to.y - h.y, dz = to.z - h.z, d = near || 1;
+      // (It leans into its turn: a head that is dodged swings wide and comes round again.)
+      h.vx += ((dx / d) * speed - h.vx) * 0.045; h.vy += ((dy / d) * speed - h.vy) * 0.045; h.vz += ((dz / d) * speed - h.vz) * 0.045;
+      h.x += h.vx * DT; h.y += h.vy * DT; h.z += h.vz * DT;
+      h.yaw = (Math.atan2(h.vx, h.vz) * 180) / Math.PI;
+      if (near < HEAD.bite && to.alive) {
+        const dir = { x: dx / d, y: dy / d, z: dz / d };
+        this.hit(to, -1, 100, dir, 6, null);
+        if (!to.alive) {
+          to.gibbed = true;
+          to.respawnAt = this.tick + Math.round(HZ * HEAD.down); // (long enough to see it)
+          this.emit('gib', { seat: to.seat, attacker: -1, kind: 'head', zone: 'head', at: { x: to.x, y: to.y - 0.8, z: to.z }, hit: { x: h.x, y: h.y, z: h.z }, dir });
+        }
+        h.done = true;
+      }
+    }
+    if (this.heads.some((h) => h.done)) {
+      // It got someone: the wave is over and the count starts again, after a breath.
+      this.heads = []; this.headsOwed = 0; this.wave = 0;
+      this.headAt = this.tick + Math.round(HZ * (HEAD.down + 1));
     }
   }
 
@@ -971,6 +1039,8 @@ export class Match {
       until: this.until,
       winner: this.winner,
       players: this.seats.map((s) => s && { ...s.player }),
+      // 👹 [id, x, y, z, yaw] of each head in the air, and the wave they are.
+      ...(this.waves ? { heads: this.heads.map((h) => [h.id, Math.round(h.x * 100) / 100, Math.round(h.y * 100) / 100, Math.round(h.z * 100) / 100, Math.round(h.yaw)]), wave: this.wave } : {}),
       acks: this.seats.map((s) => s?.ack || 0),
       // ⏱️ How many steps each body has lived. A body moves by its own commands, none on a tick when they are late and several on the next, so in the server's ticks it stops and leaps; in its own steps it walks evenly. Whoever watches plays it back by these (net.mjs interpolate, `own`).
       moves: this.seats.map((s) => s?.moves || 0),

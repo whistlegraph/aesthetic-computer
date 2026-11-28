@@ -28,8 +28,8 @@ const FACE = { w: 3.2, h: 2, cols: 320, rows: 200 };
 // south, as a kiosk's does). One more line here is one more window.
 export const AC_WINDOWS = [
   // (behind the $rbc screen that stands at z -1.5 in the studio, facing the same way)
-  { id: 'ac-laer-klokken', piece: 'laer-klokken', rooms: [HOME_ROOM, 'studio'], x: 0, y: 1.5, z: 2, yaw: 0, ...FACE },
-  { id: 'ac-prompt', piece: 'prompt', rooms: [HOME_ROOM, 'studio'], x: -5.2, y: 1.5, z: 2, yaw: 0, ...FACE },
+  { id: 'ac-laer-klokken', piece: 'laer-klokken', rooms: ['studio'], x: 0, y: 1.5, z: 2, yaw: 0, ...FACE },
+  { id: 'ac-prompt', piece: 'prompt', rooms: ['studio'], x: -5.2, y: 1.5, z: 2, yaw: 0, ...FACE },
 ];
 
 export const WAKE = 9, REST_MS = 30000;

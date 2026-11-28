@@ -1104,6 +1104,15 @@ export async function createView(canvas) {
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
   const armBar = model(({ box }) => box(0, 0, 0.5, 0.2, 0.2, 1, 0xf2f2f2, 0xcfcfcf, 0xe2e2e2));
+  const enemyHead = model(({ box }) => {
+    box(0, 0, 0, 0.3, 0.34, 0.3, 0xb3202a, 0x7d141c, 0x991a23);
+    box(-0.075, 0.05, 0.152, 0.07, 0.06, 0.01, 0xfff3c4, 0xfff3c4, 0xfff3c4); // eyes
+    box(0.075, 0.05, 0.152, 0.07, 0.06, 0.01, 0xfff3c4, 0xfff3c4, 0xfff3c4);
+    box(-0.075, 0.05, 0.158, 0.025, 0.03, 0.004, 0x10131c, 0x10131c, 0x10131c);
+    box(0.075, 0.05, 0.158, 0.025, 0.03, 0.004, 0x10131c, 0x10131c, 0x10131c);
+    box(0, -0.1, 0.152, 0.2, 0.07, 0.01, 0x10131c, 0x10131c, 0x10131c); // the mouth
+    for (const x of [-0.07, -0.025, 0.025, 0.07]) box(x, -0.075, 0.158, 0.03, 0.03, 0.004, 0xf2f2f2, 0xf2f2f2, 0xf2f2f2); // teeth
+  });
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -1751,6 +1760,8 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    heads = [], // 👹 [id, x, y, z, yaw]: the heads flying in at the stage (match.mjs stepHeads)
+    wave = 0,
     farHands = [], // ✋ other people's hands in headsets, in the room's metres: [{ seat, hands: [{ side, fingers }] }]
     deaths = null, // ☠️ how many times this handle has died in rax (the database's count), or null
     hold = null, // ⏳ { label, progress 0 to 1 }: a button being held toward its action, drawn as a meter under the crosshair
@@ -2488,6 +2499,9 @@ export async function createView(canvas) {
       // (The object's code tree is no longer drawn in the room; the lingering
       // window still times the landing burst above.)
     }
+    // 👹 The heads that fly in at the stage: red, jawed, looking where they go, with a small bob.
+    for (const [id, hx, hy, hz, hyaw] of heads)
+      draw(enemyHead, hx, hy + Math.sin(now / 130 + hx) * 0.06, hz, (hyaw * Math.PI) / 180, 0, 2.4);
     for (const d of drones)
       draw(droneModel(), d.x, d.y + Math.abs(Math.sin(now / 90 + d.id)) * 0.03, 0, (d.dir > 0 ? Math.PI : -Math.PI) / 2);
     // 🔲 Hitboxes (`): every body in green, the band a stomper's feet must

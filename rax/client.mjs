@@ -4224,6 +4224,7 @@ function step(now, xr) {
     }),
     courtyard: sky,
     drones: shownDrones,
+    heads: snapshot?.heads || [], wave: snapshot?.wave || 0,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,
@@ -4247,7 +4248,7 @@ function step(now, xr) {
     })() : null,
     sticks: null, // (the whole pad drawn top right was too much: the controls' own caps light instead, LS and RS among them)
     seat,
-    third: !xr && (third || !!game()?.camera),
+    third: !xr && (third || !!game()?.camera || (seat >= 0 && player?.alive === false)), // (☠️ down: the camera steps back, so the body is seen to come apart before it stands again)
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],

@@ -4,6 +4,7 @@
 // (object-store.mjs objects). One left lying anywhere goes back to its slot
 // after a while (match.mjs), so the rack fills itself again.
 import { BALL, DISPENSER } from './ball.mjs';
+import { STAGE } from './world.mjs';
 import { sourceGeometry, fitItemSource } from './object-language.mjs';
 
 export const HOUSE = 'house';
@@ -88,6 +89,7 @@ export function rackFor(room) {
     ...RANGE_ZOMBIES.map((s) => target(s, zombie(), 'a zombie'))];
   if (room === 'east') return [...EAST.map(gun), ...EAST_TARGETS.map((s) => target(s, scarecrow(), 'a scarecrow')),
     ...EAST_ZOMBIES.map((s) => target(s, zombie(), 'a zombie'))];
+  if (room === STAGE) return [gun({ id: 'house-gun-stage', x: 0, z: 0 })]; // 👹 one gun, in the middle of the stage
   return [];
 }
 export const isHouse = (id) => typeof id === 'string' && id.startsWith('house-');
