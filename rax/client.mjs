@@ -3541,7 +3541,8 @@ function step(now, xr) {
       followFlight = { x: followed.x, z: followed.z, stoodAt, round, angle };
       // Flown there: it leans into the way it must go and takes a moment to get up to speed, faster the further it has to come.
       const gx = to.x - freecam.x, gy = to.y - freecam.y, gz = to.z - freecam.z, gap = Math.hypot(gx, gy, gz);
-      const top = clamp(gap * 1.5, 8, 70), want = Math.min(top, gap * 3.5) / (gap || 1), kv = 1 - Math.exp(-dt * 6);
+      // (Lazily, 2026-11-27: it closes the gap at twice the gap a second, not three and a half, and comes up to that speed over most of a second, so a body's quick steps and turns are followed in one long line and not in jerks.)
+      const top = clamp(gap * 1.5, 8, 70), want = Math.min(top, gap * 2) / (gap || 1), kv = 1 - Math.exp(-dt * 2.4);
       const vx = (freecam.vx || 0) + (gx * want - (freecam.vx || 0)) * kv, vy = (freecam.vy || 0) + (gy * want - (freecam.vy || 0)) * kv, vz = (freecam.vz || 0) + (gz * want - (freecam.vz || 0)) * kv;
       // The eye: where the body looks while it walks, at the body while circling (and while still a way off).
       const head = { x: followed.x - freecam.x, y: followed.y - freecam.y, z: followed.z - freecam.z };
@@ -3549,7 +3550,7 @@ function step(now, xr) {
       const atYaw = (Math.atan2(head.x, head.z) * 180) / Math.PI, atPitch = (Math.atan2(head.y, Math.hypot(head.x, head.z)) * 180) / Math.PI;
       const wantYaw = followed.yaw + ((((atYaw - followed.yaw + 540) % 360) - 180) * at);
       const wantPitch = clamp(followed.pitch - 8 + (atPitch - (followed.pitch - 8)) * at, -85, 85);
-      const turn = ((wantYaw - yaw + 540) % 360) - 180, kl = 1 - Math.exp(-dt * 7);
+      const turn = ((wantYaw - yaw + 540) % 360) - 180, kl = 1 - Math.exp(-dt * 2.6); // (the eye comes round after the body's, unhurried)
       yaw = (yaw + turn * kl + 360) % 360;
       pitch = clamp(pitch + (wantPitch - pitch) * kl, -85, 85);
       freecam = { ...freecam, x: freecam.x + vx * dt, y: freecam.y + vy * dt, z: freecam.z + vz * dt, vx, vy, vz, yaw, pitch };

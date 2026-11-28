@@ -3557,6 +3557,40 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // 🎯 Looking on, everyone's aim is on the screen too: where each body
+    // looks (down its yaw and pitch to the floor, or forty metres out) is
+    // projected into this view and marked with that seat's own small reticle,
+    // drawn on whole pixels like your own (2026-11-27).
+    if (spectator && !bare && !radial && !menu) {
+      const { unit } = hud, t = unit, half = 4 * unit, arm = 2 * unit;
+      const marks = [];
+      players.forEach((p, i) => {
+        if (!p || p.alive === false || !Number.isFinite(p.yaw)) return;
+        const dir = direction(p.yaw, p.pitch || 0);
+        const reach = dir.y < -0.02 ? Math.min(40, p.y / -dir.y) : 40;
+        const at = along(p, dir, reach), s = projector.project(at.x, at.y, at.z);
+        if (s && Math.abs(s.x) < 1 && Math.abs(s.y) < 1) marks.push({ x: Math.round((s.x * W) / 2), y: Math.round((s.y * H) / 2), color: seatColor(i) });
+      });
+      if (marks.length) {
+        const m = model(({ rect: worldRect }) => {
+          const rect = flip(worldRect);
+          for (const { x: cx, y: cy, color } of marks) {
+            const L = (x, y, w, h) => {
+              rect(cx + x + t, cy + y - t, 0.000002, w, h, INK);
+              rect(cx + x, cy + y, 0, w, h, color);
+            };
+            for (const sx of [-1, 1])
+              for (const sy of [-1, 1]) {
+                const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
+                L(sx < 0 ? x : x - arm + t, y, arm, t);
+                L(x, sy < 0 ? y : y - arm + t, t, arm);
+              }
+            L(-t, -t, 2 * t, 2 * t); // (the point itself)
+          }
+        });
+        projector.overlay(m, W, H);
+      }
+    }
     // Match the native KidLisp corner tag: prompt.ac keeps the same QR
     // matrix; modules and margins use buffer pixels, independent of HUD size.
     qrRect = null;
