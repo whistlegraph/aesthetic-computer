@@ -4986,7 +4986,7 @@ export async function createView(canvas) {
         });
         if (!seen && !remix) continue;
       }
-      if (!w.model || now - (w.at || 0) > 125 || w.wasRemix !== remix) { // (eight times a second)
+      if (!w.model || now - (w.at || 0) > 40 || w.wasRemix !== remix) { // (twenty-five times a second: a KidLisp piece moves by its frames, and at eight a second it crawled)
         w.at = now;
         w.wasRemix = remix;
         const px = w.step();
