@@ -2067,7 +2067,7 @@ function connect(adopt = null) {
         menu.selected = Math.min(menu.selected, menu.items.length - 1);
       }
     }
-    if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands) && headValid(data.head)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), head: data.head || null, at: performance.now() });
+    if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands) && headValid(data.head)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), head: data.head || null, ride: Number.isInteger(data.ride) ? data.ride : null, at: performance.now() });
     if (data.type === 'deaths' && Number.isFinite(data.deaths)) deathCount = data.deaths; // ☠️ this handle's deaths in rax, from the database (deaths.mjs)
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -3167,7 +3167,7 @@ function tellHands(xr, now) {
   const k = xrTable ? 1 / xrTable.scale : 1, hands = handsPacked(xr, eye, k);
   handsSaidAt = now;
   // (👻 The head goes with them, hands seen or not: a ghost is a head and two hands. In the body the body is the head.)
-  if (send({ type: 'hands', hands, ...(seat < 0 ? { head: headPacked(eye, xr.forward, k) } : {}) })) handsSent++;
+  if (send({ type: 'hands', hands, ...(seat < 0 && !(xr.rideSeat >= 0) ? { head: headPacked(eye, xr.forward, k) } : {}), ...(xr.rideSeat >= 0 ? { ride: xr.rideSeat } : seat >= 0 ? { ride: seat } : {}) })) handsSent++;
 }
 // 👻 A headset is its own kind in the room: not a body and not a drone, a pair of hands (a god's, when the room is on its table). It gives its handle's body up as it goes in, never takes one while it is in, and says no eye for the room to draw a drone at.
 let handsSent = 0, ghostAskedAt = -Infinity, inHeadset = false;
@@ -3176,6 +3176,17 @@ function stepGhost(xr, now) {
   if (!xrBody && seat >= 0 && selfMember?.handle && now - ghostAskedAt > 1500) { ghostAskedAt = now; send({ type: 'take-drone' }); }
 }
 // ✊ Two fists hold the world (immersive.mjs grabStep): what they held as they closed, or null.
+let xrRide0 = [0, 0, 0]; // (where the head was as it got in: from there it leans about in the body's own head)
+// 🧍 Riding: each frame the eye is put at its own body's eye, wherever the other screen's controller has taken it.
+function stepXRRide(xr, now) {
+  xr.rideSeat = -1;
+  if (!xrBody || seat >= 0 || !snapshot) return;
+  const i = ownBodySeat(), p = i >= 0 ? shownBody(i, playback.tick ?? snapshot.tick, now).p : null;
+  if (!p?.alive) return;
+  xr.rideSeat = i;
+  freecam = { ...freecam, x: p.x - xrRide0[0], y: p.y - xrRide0[1], z: p.z - xrRide0[2], vx: 0, vy: 0, vz: 0 };
+  inputAt = flownAt = performance.now();
+}
 let xrGrab = null, xrBody = false; // (xrBody: the stop `in your body`: the headset holds its handle's body, and its right hand is the body's)
 const fistWas = { left: false, right: false };
 function stepXRGrab(xr) {
@@ -3211,8 +3222,10 @@ function stepXRStops(xr) {
     xrStop = (xrStop + 1) % stops.length;
     const stop = stops[xrStop], at = Number.isInteger(stop.body) ? snapshot?.players?.[stop.body] : null;
     // 🧍 Into the body, or out of it to a ghost again (stepGhost gives the body up).
+    // (A body that walks on another screen stays that screen's: its controller goes on moving it, and the headset rides in its head. Only a handle with no body anywhere is given one here.)
     xrBody = !!stop.own;
-    if (xrBody && seat < 0) { keepDrone(false); send({ type: 'take-body' }); }
+    xrRide0 = [...xr.offset];
+    if (xrBody && seat < 0 && ownBodySeat() < 0) { keepDrone(false); send({ type: 'take-body' }); }
     if (!stop.table) xrTable = null;
     if (at) {
       // (The head's own offset is taken off, so the eye itself is where it is meant to be.)
@@ -3428,6 +3441,7 @@ function step(now, xr) {
   inHeadset = !!xr;
   if (xr) {
     stepXRView(xr);
+    stepXRRide(xr, now);
     if (ws?.readyState === WebSocket.OPEN && snapshot) { stepGhost(xr, now); tellHands(xr, now); }
     yaw = xr.yaw; pitch = xr.pitch;
     // 🔫 In the body with something in hand, the right hand aims it and its curled index finger is the trigger (held: it fires as fast as the thing can).

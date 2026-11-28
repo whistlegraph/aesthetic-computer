@@ -1103,6 +1103,7 @@ export async function createView(canvas) {
   // KidLisp program is still loading.
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
+  const armBar = model(({ box }) => box(0, 0, 0.5, 0.2, 0.2, 1, 0xf2f2f2, 0xcfcfcf, 0xe2e2e2));
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -2525,12 +2526,14 @@ export async function createView(canvas) {
         if (m) draw(m, g.x, g.y, g.z, g.yaw, g.pitch, g.scale, g.roll);
       }
     }
+    const riders = new Map(farHands.filter((h) => Number.isInteger(h.ride) && h.hands.length).map((h) => [h.ride, h])); // 🧍 by the seat each rides in
     const inRoom = Math.max(players.length, seat + 1);
     for (let n = 0; n < inRoom + beyond.length; n++) {
       // (After the room's own: the people beyond it, each drawn as the seat they hold there.)
       const far = n >= inRoom ? beyond[n - inRoom] : null, i = far ? far.seat : n;
       const p = far || (i === seat && me ? me : players[i]);
       if (!p?.alive) continue;
+      if (!far && xr && xr.rideSeat === i) continue; // (🧍 the headset rides in this body's head: it is not drawn round the eye)
       const f = fighters[i % fighters.length],
         yaw = (p.yaw * Math.PI) / 180,
         base = p.y - CFG.eyeHeight - (game ? ducked(p) : 0); // 🦆 a ducking body sits lower
@@ -2558,6 +2561,14 @@ export async function createView(canvas) {
             yaw,
             step,
           );
+          // 🧍 A body with a headset riding in it has that headset's hands for its own: each arm runs from the shoulder to the real wrist, and the hand there is the hand as it is (drawn with everyone's hands, above).
+          const real = !far && riders.get(i)?.hands.find((h) => h.side === (side === 1 ? 'right' : 'left'))?.fingers[0][0];
+          if (real) {
+            const sx = p.x + right.x * 0.3 * side, sy = base + 1.4, sz = p.z + right.z * 0.3 * side;
+            const dx = real.x - sx, dy = real.y - sy, dz = real.z - sz, length = Math.hypot(dx, dy, dz);
+            if (length > 0.01) projector.draw(armBar, sx, sy, sz, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+            continue;
+          }
           draw(
             f.limb,
             p.x + right.x * 0.3 * side,

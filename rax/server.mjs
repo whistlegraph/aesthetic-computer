@@ -1549,7 +1549,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const at = Date.now();
         if (at - (member.handsAt || 0) < 8 || !handsValid(data.hands) || !headValid(data.head)) return;
         member.handsAt = at;
-        const word = JSON.stringify({ type: 'hands', id: (member.eye ||= randomUUID().slice(0, 8)), seat: member.seat, hands: data.hands, ...(data.head ? { head: data.head } : {}) });
+        const word = JSON.stringify({ type: 'hands', id: (member.eye ||= randomUUID().slice(0, 8)), seat: member.seat, hands: data.hands, ...(data.head ? { head: data.head } : {}),
+          // 🧍 (The seat it rides in: its own, or its handle's body on another screen. Nobody rides in a stranger.)
+          ...(Number.isInteger(data.ride) && data.ride >= 0 && data.ride < MAX_PLAYERS && (data.ride === member.seat || (member.handle && room.members[data.ride]?.handle?.toLowerCase() === member.handle.toLowerCase())) ? { ride: data.ride } : {}) });
         for (const other of room.clients.keys()) if (other !== ws) sendText(other, word);
         return;
       }
