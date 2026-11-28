@@ -3144,6 +3144,17 @@ let droneWanted = false, cameraHeldAt = 0;
 // ⏳ A button that does its thing only when held shows how far along the hold is, and sounds it: a meter under the crosshair that fills, a note that climbs as it does, and a pick when it is done. `holdOn(label, since, ms)` is asked each frame the button is down; nothing asked, the meter is gone.
 // 🪑 In a headset: the room on a table (immersive.mjs tableEye), or null for life size. B or Y on a controller, or a poke at the wrist slate, changes it.
 let xrTable = null, slateArmed = true;
+// 🧭 Where a poke goes next. The stops in turn: full size where you are, the room on a table, and (looking on, with no body of your own to move) beside each body in the room, a step and a half behind it at its eye's height. So a headset with hands only is not left in the middle of the room.
+let xrStop = 0;
+function xrStops() {
+  const stops = [{ label: 'full size' }, { label: 'on a table', table: true }];
+  if (seat < 0) (snapshot?.players || []).forEach((p, i) => {
+    if (!p || p.alive === false) return;
+    const m = members.find((x) => x.seat === i);
+    stops.push({ label: `to ${m?.handle ? `@${m.handle}` : m?.name || `player ${i + 1}`}`.slice(0, 22), body: i });
+  });
+  return stops;
+}
 // ✋ Everyone's hands: this headset's are told to the room, and the room's are drawn here (by the id of the screen they are on; gone when not heard of for a moment).
 const farHands = new Map();
 let handsSaidAt = 0;
@@ -3162,9 +3173,18 @@ function stepXRView(xr) {
   const far = wrist && tip ? Math.hypot(tip.x - wrist.x, tip.y - wrist.y - SLATE_LIFT, tip.z - wrist.z) : Infinity;
   const poke = slateArmed && far < SLATE_REACH;
   if (far < SLATE_REACH) slateArmed = false; else if (far > SLATE_REACH + 0.04) slateArmed = true; // (one poke, one change: the tip comes away before it counts again)
+  const stops = xrStops();
   if (xr.viewPress || poke) {
-    if (xrTable) xrTable = null;
-    else {
+    xrStop = (xrStop + 1) % stops.length;
+    const stop = stops[xrStop], at = Number.isInteger(stop.body) ? snapshot?.players?.[stop.body] : null;
+    if (!stop.table) xrTable = null;
+    if (at) {
+      // (The head's own offset is taken off, so the eye itself is where it is meant to be.)
+      const back = direction(at.yaw);
+      freecam = { ...freecam, x: at.x - back.x * 1.5 - xr.offset[0], y: at.y - xr.offset[1], z: at.z - back.z * 1.5 - xr.offset[2], vx: 0, vy: 0, vz: 0 };
+      inputAt = flownAt = performance.now(); // (in hand: not left to the idle tour, nor taken off after its own body)
+    }
+    if (stop.table) {
       // The room's floor, its middle an arm's reach before the head and just under the eye, eighty centimetres across: looked across, at the bodies' own height, not down on from above (it was under the chest, 45 cm down, until 2026-11-27).
       const flat = Math.hypot(xr.forward[0], xr.forward[2]) || 1;
       xrTable = { scale: 0.4 / half(), pivot: { x: 0, y: 0, z: 0 },
@@ -3173,6 +3193,7 @@ function stepXRView(xr) {
     sfx.ringPick(xrTable ? 4 : 0);
   }
   xr.table = xrTable;
+  xr.nextView = stops[(Math.min(xrStop, stops.length - 1) + 1) % stops.length].label; // (the slate's foot says it: view.mjs)
 }
 let holdMeter = null, holdStep = -1;
 let deathCount = null;

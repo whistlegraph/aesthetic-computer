@@ -1108,7 +1108,8 @@ export async function createView(canvas) {
   // 🖐️ The wrist slate: what the corner of the screen says at a desk (who you
   // are, where, your deaths and braincells, the link) on a small card over the
   // left wrist, turned to the eye, with the view it will change to written at
-  // its foot: poke it with the other hand (client.mjs) for the room on a table.
+  // its foot: poke it with the other hand (client.mjs) for the next one — full
+  // size, the room on a table, or beside one of the bodies in the room.
   const slates = new Map();
   function slateModel(lines) {
     const key = JSON.stringify(lines);
@@ -2089,13 +2090,26 @@ export async function createView(canvas) {
     if (xr) {
       projector.bends = false;
       drawHands(xr, eye);
+      // 🧱 Each plane the headset knows of the real room, as its outline where it stands (cut to hand-lengths: the line's thickness goes with a piece's length).
+      for (const plane of xr.room?.outlines || []) {
+        const k = 1 / (xr.table?.scale || 1), pts = plane.points;
+        for (let i = 0; i < pts.length; i++) {
+          const a = pts[i], b = pts[(i + 1) % pts.length], dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, length = Math.hypot(dx, dy, dz);
+          const n = Math.max(1, Math.min(40, Math.ceil(length / 0.12)));
+          for (let q = 0; q < n && length > 0.001; q++)
+            projector.draw(handEdge, eye.x + (a.x + dx * q / n) * k, eye.y + (a.y + dy * q / n) * k, eye.z + (a.z + dz * q / n) * k, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), (length / n) * k);
+        }
+      }
       drawSlate(xr, eye, [
         ...(self?.handle ? [[`@${self.handle}`, seat >= 0 ? seatColor(seat) : 0xd0d4e0]] : []),
         ...(roomName ? [[String(roomName).slice(0, 18), 0xd0d4e0]] : []),
         ...(Number.isFinite(deaths) ? [[`deaths ${Math.round(deaths)}`, 0xe6e6ee]] : []),
         ...(Number.isFinite(braincells) ? [[`cells ${Math.round(braincells).toLocaleString('en-US')}`, 0xd7a6ff]] : []),
+        // 🧱 (The probe: what the headset tells of the real room. immersive.mjs roomPlanes.)
+        ...(xr.room ? [[!xr.room.known ? (xr.room.asked ? 'planes: none given' : 'planes: not offered') : `planes ${xr.room.count}`, 0x51e3ee],
+          ...Object.entries(xr.room.labels).slice(0, 5).map(([label, n]) => [`${label} ${n}`.slice(0, 18), label === 'screen' ? 0xffe066 : 0x8b90a0])] : []),
         ...(connection?.label ? [[String(connection.label).toLowerCase(), 0x3fb950]] : []),
-        [xr.table ? 'poke: full size' : 'poke: on a table', 0xffe066],
+        [`poke: ${xr.nextView || (xr.table ? 'full size' : 'on a table')}`, 0xffe066],
       ]);
       projector.bends = true;
     }
