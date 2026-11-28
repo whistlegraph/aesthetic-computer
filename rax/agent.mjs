@@ -100,9 +100,10 @@ export function createAgentSurface({ canvas, read, act }) {
       if (at.kind === 'way') within = 0; // (a way out is walked through: the room changes under you)
     } else if (target && Number.isFinite(target.x) && Number.isFinite(target.z)) at = target;
     if (!at) return Promise.resolve({ ok: false, error: 'walkTo takes a name, an id, a side, or { x, z }' });
-    if (!s.you.seated) return Promise.resolve({ ok: false, error: 'looking on: there is no body to walk' });
+    if (s.you.x === null) return Promise.resolve({ ok: false, error: 'not in the room yet' });
     finish({ ok: false, error: 'replaced by another walk' });
     held = null;
+    act.look({}); // (an input: a drone on its idle tour comes back to hand)
     return new Promise((done) => {
       goal = { x: at.x, z: at.z, side: at.side || null, room: s.room, within, until: performance.now() + seconds * 1000, done, last: null, stuckAt: performance.now() };
     });
@@ -148,6 +149,7 @@ export function createAgentSurface({ canvas, read, act }) {
     },
     move({ fwd = 0, right = 0, seconds = 1 } = {}) {
       finish({ ok: false, error: 'replaced by a move' });
+      act.look({});
       const until = performance.now() + Math.min(Math.max(seconds, 0), 20) * 1000;
       held = { fwd: Math.max(-1, Math.min(1, fwd)), right: Math.max(-1, Math.min(1, right)), until };
       return new Promise((done) => setTimeout(() => done({ ok: true, you: state().you }), until - performance.now() + 60));

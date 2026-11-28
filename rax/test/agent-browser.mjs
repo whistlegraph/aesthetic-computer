@@ -96,6 +96,25 @@ try {
     await wait(async () => (await page.locator('#rax-words').textContent())?.includes(`Block ${way.to}`), 5000, 'the mirror never named the new block');
   }
 
+  // 9. Signed out: whoever looks on (a drone) is flown by the same calls.
+  const guest = await (await browser.newContext({ viewport: { width: 640, height: 400 } })).newPage();
+  guest.on('pageerror', (e) => errors.push(e.message));
+  await guest.goto(`http://127.0.0.1:${app.server.address().port}/`);
+  const seen = () => guest.evaluate(() => window.rax?.state());
+  await wait(async () => { const s = await seen(); return s?.connected && s.you.x !== null; }, 20000, 'the guest never arrived');
+  const looking = await seen();
+  assert.equal(looking.you.signedIn, false);
+  assert.equal(await guest.locator('#rax-mirror button', { hasText: 'Sign in' }).isHidden(), false, 'signed out: a sign-in button');
+  if (!looking.you.seated) {
+    assert.match(await guest.evaluate(() => window.rax.describe()), /looking on/);
+    await guest.evaluate(() => window.rax.look({ yaw: 90, pitch: 0 }));
+    const flew = await guest.evaluate(() => window.rax.move({ fwd: 1, seconds: 1.2 }));
+    assert.ok(flew.you.x - looking.you.x > 1, `the drone flew east: x ${looking.you.x} → ${flew.you.x}`);
+    const spot = { x: flew.you.x - 5, z: flew.you.z };
+    const flown = await guest.evaluate((at) => window.rax.walkTo(at, { within: 1.5, seconds: 15 }), spot);
+    assert.equal(flown.ok, true, `the drone was flown to a point: ${JSON.stringify(flown)}`);
+  }
+
   assert.deepEqual(errors, []);
   console.log(`✔ rax by words and calls: state, mirror, turn, walk, walkTo, say${way ? `, and through the ${way.name}` : ''}`);
 } finally {

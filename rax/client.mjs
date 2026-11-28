@@ -3586,16 +3586,20 @@ function step(now, xr) {
         else if (now - rolledAt > 2000) { droneRoll -= Math.round(droneRoll / (2 * Math.PI)) * 2 * Math.PI; droneRoll *= Math.exp(-Math.min(0.1, elapsed) * 1.2); }
         if (turn) rolledAt = now;
       }
+      // 🦾 Looking on, the words-and-calls surface flies the drone as it would walk a body (agent.mjs).
+      const flown = seat < 0 ? agentSurface.drive(freecam, now, room) : null;
+      if (flown) inputAt = now; // (not left to the idle tour)
+      if (Number.isFinite(flown?.yaw)) yaw = flown.yaw;
       freecam = moveFreecam(
         { ...freecam, yaw, pitch },
         {
           fwd: clamp(
-            Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + gamepad.fwd + pad.fwd,
+            Number(keys.has('KeyW')) - Number(keys.has('KeyS')) + gamepad.fwd + pad.fwd + (flown?.fwd || 0),
             -1,
             1,
           ),
           right: clamp(
-            Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + gamepad.right + pad.right,
+            Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + gamepad.right + pad.right + (flown?.right || 0),
             -1,
             1,
           ),
