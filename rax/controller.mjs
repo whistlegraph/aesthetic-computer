@@ -12,6 +12,8 @@ export const neutralPad = () => ({
   select: false,
   focus: false,
   zoomClick: false,
+  zoomHeld: false,
+  zoomRelease: false,
   triggerHeld: false,
   use: false,
   dup: false,
@@ -83,6 +85,8 @@ export class Controller {
       result.jump = edge(0);
       result.select = edge(0);
       result.zoomClick = edge(10);
+      result.zoomHeld = !!buttons[10] && !changed && this.focused;
+      result.zoomRelease = !buttons[10] && this.previous[10] && !changed && this.focused;
       result.buildPress = edge(4);
       result.buildHeld = !!buttons[4] && !changed && this.focused;
       result.buildRelease = !buttons[4] && this.previous[4] && !changed && this.focused;
@@ -98,7 +102,9 @@ export class Controller {
       result.cancel = edge(1);
       result.backHeld = !!buttons[1] && !changed && this.focused; // (B held: the bike sinks)
       result.prompt = edge(2);
+      result.paintHeld = !!buttons[2] && !changed && this.focused; // (X held: the brush drags)
       result.camera = edge(3);
+      result.cameraHeld = !!buttons[3] && !changed && this.focused; // (Y held: step back to a drone, client.mjs)
       result.start = edge(9);
       result.debug = edge(11); // the right stick, clicked: the debugging layer
       result.swap = edge(8);

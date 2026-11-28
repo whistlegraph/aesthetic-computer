@@ -47,7 +47,7 @@ export class Room {
   assign(handle = null) {
     const winners = new Map();
     for (const r of this.connections)
-      if (r.handle && r.ready) winners.set(r.handle.toLowerCase(), r);
+      if (r.handle && r.ready && !r.drone) winners.set(r.handle.toLowerCase(), r); // (🚁 a screen that chose to look on is never given the body: server.mjs `take-drone`)
     const affected = new Set([this]);
     if (handle) for (const r of this.connections)
       if (r.handle?.toLowerCase() === handle.toLowerCase()) affected.add(r.room);
@@ -116,7 +116,7 @@ export class Room {
     };
     for (const r of this.sessions.values())
       // A member still waiting for its handle has no name to show yet.
-      if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? { ...this.public(r), canTakeBody: r.seat < 0 && !!this.counterpart(r.handle, r, true) } : null });
+      if (r.welcomed) this.send(r.ws, { ...message, self: r.ready ? { ...this.public(r), drone: !!r.drone, canTakeBody: r.seat < 0 && (!!r.drone || !!this.counterpart(r.handle, r, true)) } : null });
   }
   // 🧵 Someone already known comes in from another room on the socket they
   // have: the same record, a new seat.

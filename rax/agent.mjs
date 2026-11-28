@@ -133,7 +133,7 @@ export function createAgentSurface({ canvas, read, act }) {
   }
 
   const api = {
-    help: 'rax.state() → where you are and what is near. rax.describe() → the same in words. rax.walkTo(name | id | side | {x,z}) → Promise once there. rax.look({ yaw, pitch } | name) turns. rax.move({ fwd, right, seconds }) holds the stick. rax.use(), rax.drop(), rax.jump(). rax.say(text). rax.elevator(floor | handle). rax.stop(). Distances are metres; yaw is degrees, 0 = north (+z), 90 = east (+x).',
+    help: 'rax.state() → where you are and what is near. rax.describe() → the same in words. rax.walkTo(name | id | side | {x,z}) → Promise once there. rax.look({ yaw, pitch } | name) turns. rax.move({ fwd, right, seconds }) holds the stick. rax.use(), rax.drop(), rax.jump(). rax.say(text). rax.elevator(floor | handle). rax.spectate() and rax.takeBody(). rax.stop(). Distances are metres; yaw is degrees, 0 = north (+z), 90 = east (+x).',
     state,
     describe: () => describe(),
     walkTo,
@@ -166,6 +166,9 @@ export function createAgentSurface({ canvas, read, act }) {
     },
     elevator: (to) => (act.elevator(String(to)), { ok: true }),
     signIn: () => (act.signIn(), { ok: true }),
+    // 🚁 Step back to look on as a drone, and take the body again (signed in).
+    spectate: () => (act.drone() ? { ok: true } : { ok: false, error: 'only a signed-in body can step back to a drone' }),
+    takeBody: () => (act.body() ? { ok: true } : { ok: false, error: 'there is no body to take' }),
   };
 
   // 🪞 The mirror: text and buttons beside the canvas. Off screen, not hidden:

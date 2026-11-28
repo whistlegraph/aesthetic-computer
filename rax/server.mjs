@@ -1061,6 +1061,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
     const stays = url.searchParams.get('stay') === '1';
     let passageAsked = url.searchParams.get('passage');
     const member = room.add(ws, nativeAccount || webAccount || watching || waiting);
+    // 🚁 drone=1: this screen looks on by choice (it left as a drone and comes back as one). It is given no body until it asks (`take-body`), even when it is the handle's only screen.
+    member.drone = url.searchParams.get('drone') === '1';
     // Nobody with a handle is here: say what the seat waits for, so the
     // page can ask for it (an account, or a handle on the account).
     const gate = () => {
@@ -1429,10 +1431,23 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (body) relocate(other.room.key, bodyPose(body));
         return;
       }
+      // 🚁 A body's own screen steps back to look on: the body goes to the handle's next screen, or out of the world if this is the only one. The screen stays a drone until it asks for the body.
+      if (data?.type === 'take-drone') {
+        if (!member.ready || !member.handle || member.seat < 0) return;
+        member.drone = true;
+        room.assign(member.handle);
+        return;
+      }
       if (data?.type === 'take-body') {
         if (!member.ready || watching || waiting || member.seat >= 0 || !member.handle) return;
+        const chose = member.drone;
+        member.drone = false;
         const other = room.counterpart(member.handle, member, true);
-        if (!other) return;
+        if (!other) {
+          // (No body anywhere: a screen that had chosen to look on is seated where it is.)
+          if (chose) { connections.delete(member); connections.add(member); room.assign(member.handle); send(ws, room.match.snapshot()); }
+          return;
+        }
         const position = bodyPose(other.room.match.seats[other.seat].player);
         // Move first as a spectator. A full destination leaves the incumbent in control.
         if (other.room !== room && !relocate(other.room.key, position)) return;

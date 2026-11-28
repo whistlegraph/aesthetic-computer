@@ -1634,6 +1634,8 @@ const agentSurface = createAgentSurface({
     say: (text) => send({ type: 'say', text: text.slice(0, CHAT_MAX) }),
     elevator: (to) => send({ type: 'elevator', to }),
     signIn: () => askAccount('account'),
+    drone: () => takeDrone(),
+    body: () => (seat < 0 && selfMember?.canTakeBody ? (takeBody(), true) : false),
   },
 });
 function placePath() {
@@ -1852,7 +1854,7 @@ function connect(adopt = null) {
   // 🔐 Signed in on this page: fetch the token while the socket opens, and
   // ask the server to keep the seat for the handle (no guest name first).
   const account = accountExpected() ? accountToken() : null;
-  url.search = new URLSearchParams({ room, protocol: PROTOCOL, stay: '1', ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}), ...(query.has('film') ? { watch: '1' } : {}) }); // (stay: one socket from room to room)
+  url.search = new URLSearchParams({ room, protocol: PROTOCOL, stay: '1', ...(passage ? { passage } : {}), ...(account ? { account: '1' } : {}), ...(account && droneWanted ? { drone: '1' } : {}), ...(query.has('film') ? { watch: '1' } : {}) }); // (stay: one socket from room to room)
   unseat();
   notice = held ? '' : 'CONNECTING';
   // 🚶 Walking over a seam you are still you and the line is still the line:
@@ -2314,7 +2316,7 @@ canvas.addEventListener('click', (e) => {
   const mode = !locked() && view.headsetHit(e.offsetX, e.offsetY);
   if (mode) return void headset.enter(mode);
   if (!locked() && view.cornerHit(e.offsetX, e.offsetY)) return leave();
-  if (e.pointerType !== 'touch' && !locked() && selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return send({ type: 'take-body' });
+  if (e.pointerType !== 'touch' && !locked() && selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return takeBody();
   // The code tag in the bottom-right is a button: it opens the $code's page.
   if (!locked() && view.qrURL && view.qrHit(e.offsetX, e.offsetY)) return void window.open(view.qrURL, '_blank', 'noopener');
   // 📱 The sign-in code is a button as well: sign in here, the ordinary way.
@@ -2705,7 +2707,7 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (view.cornerHit(e.offsetX, e.offsetY)) return leave();
   if (view.pairHit(e.offsetX, e.offsetY)) return askAccount('account');
-  if (selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return send({ type: 'take-body' });
+  if (selfMember?.canTakeBody && view.handleHit(e.offsetX, e.offsetY)) return takeBody();
   if (!typing() && !chalkMode && !menu && !radial.open && beginScreenFinger(e)) {
     touch.active = true;
     void sfx.wake();
@@ -2999,7 +3001,8 @@ document.addEventListener('keydown', (e) => {
   if (seat < 0 && lockOn && e.code === 'Escape') { selectTarget(null); e.preventDefault(); return; }
   if (seat < 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) startWarp(); // 🌀 (as B does on a pad)
   // 🚁 Looking on, V steps back to see your own drone.
-  if (seat < 0 && selfMember?.canTakeBody && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) send({ type: 'take-body' });
+  if (seat < 0 && selfMember?.canTakeBody && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) takeBody();
+  else if (seat >= 0 && selfMember?.handle && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) takeDrone();
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
   // 🎯 F is the focus key, beside WASD (2026-11-27; it was Z, which still
   // works): looking at a screen it goes in, gone in or locked on it comes
@@ -3054,7 +3057,7 @@ function layTile(at, colour) {
 }
 function dragBrush() {
   if (!brush) return;
-  if (!keys.has('KeyX') || seat < 0 || chalkMode) return void (brush = null);
+  if (!(keys.has('KeyX') || gamepad.paintHeld) || seat < 0 || chalkMode) return void (brush = null);
   const at = floorAim && !focusObject ? floorAim : null;
   if (!at) return;
   const key = `${at.i},${at.j}`;
@@ -3105,6 +3108,20 @@ const keepBoom = () => {
   clearTimeout(boomSaveTimer);
   boomSaveTimer = setTimeout(() => { try { localStorage.setItem('rax-boom', boomLength.toFixed(2)); } catch {} }, 400);
 };
+// 🚁 Looking on by choice. A signed-in body's screen can step back to a drone (P, or Y held on a pad) and take the body again (P, L3, or a tap on the handle). The choice is kept, so a page that left as a drone comes back as one, even when it is the only screen.
+let droneWanted = false, cameraHeldAt = 0;
+try { droneWanted = localStorage.getItem('rax-drone') === '1'; } catch {}
+const keepDrone = (on) => { droneWanted = on; try { on ? localStorage.setItem('rax-drone', '1') : localStorage.removeItem('rax-drone'); } catch {} };
+function takeDrone() {
+  if (seat < 0 || !selfMember?.handle) return false;
+  keepDrone(true);
+  send({ type: 'take-drone' });
+  return true;
+}
+function takeBody() {
+  keepDrone(false);
+  send({ type: 'take-body' });
+}
 // 🔋 The machine's battery, where the browser tells it (Chrome does; Safari and the Mac app's web view do not): shown on your line of the HUD.
 let battery = null;
 try { navigator.getBattery?.().then((b) => { const read = () => (battery = { level: b.level, charging: b.charging }); read(); b.addEventListener('levelchange', read); b.addEventListener('chargingchange', read); }).catch(() => {}); } catch {}
@@ -3285,7 +3302,7 @@ function step(now, xr) {
     pointerSource = 'pad';
     inputAt = now;
   } else if (keys.size) inputAt = now;
-  if (seat < 0 && selfMember?.canTakeBody && gamepad.zoomClick && !dock && !menu && !typing()) send({ type: 'take-body' });
+  if (seat < 0 && selfMember?.canTakeBody && gamepad.zoomClick && !dock && !menu && !typing()) takeBody();
   const canBuild = sheetOpen && seat >= 0 && !down && !joining() && !menu && !chat.open && !chalkMode;
   if (gamepad.buildPress && canBuild && !typing() && !radial.open) bumperStart = now;
   if (bumperStart !== null && (!canBuild || !gamepad.buildHeld || typing())) bumperStart = null;
@@ -3495,6 +3512,10 @@ function step(now, xr) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
+    // 🚁 Y held for most of a second: step back to a drone.
+    if (!gamepad.cameraHeld) cameraHeldAt = 0;
+    else if (!cameraHeldAt) cameraHeldAt = performance.now();
+    else if (seat >= 0 && performance.now() - cameraHeldAt > 700) { cameraHeldAt = Infinity; takeDrone(); }
     if (gamepad.zoomRelease) {
       if (seat >= 0 && third && !dock && !boomSticked) {
         boomLength = BOOM_STEPS.find((d) => d > boomLength + 0.05) ?? BOOM_STEPS[0];

@@ -54,7 +54,7 @@ export const LEGEND = {
   // Keys and pad list the same actions, row for row (2026-11-08).
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
-    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
+    [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['p', 'KeyP'], ' drone'],
     [['f', 'KeyF'], ' focus or use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['enter', 'Enter'], ' build'],
     [['z', 'KeyZ'], ' lock / ', ['del', ['Delete', 'Backspace']], ' remove / ', ['b', 'KeyB'], ' bike'],
@@ -64,6 +64,7 @@ export const LEGEND = {
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom',
     '[Y] camera / [L3] distance, held + [RS]',
+    'hold [Y] drone',
     '[RT] use / [X] drop',
     '[X] paint / hold [LB] build',
     '[RB] lock or go in / [B] remove',

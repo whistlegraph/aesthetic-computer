@@ -104,6 +104,49 @@ test('a room asked for by name is gone to: the body comes there, and the older s
   assert.ok(seen().some(({ key, m }) => key === 'lobby' && m.seat < 0), 'the older screen looks on');
 });
 
+test('a body steps back to a drone by choice, comes back as one, and takes the body when it asks', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'rax-drone-'));
+  const app = createRaxServer({ guests: true, stateDir: dir, listHandles: async () => ['jeffrey'],
+    verifyIdentity: async (token) => ({ handle: token, sub: `account:${token}` }) });
+  await app.ready;
+  app.server.listen(0, '127.0.0.1');
+  await once(app.server, 'listening');
+  const base = `ws://127.0.0.1:${app.server.address().port}/play?`;
+  t.after(async () => { await app.close(); await rm(dir, { recursive: true, force: true }); });
+  const connect = async (more = {}) => {
+    const ws = new WebSocket(base + new URLSearchParams({ room: 'studio', protocol: PROTOCOL, stay: '1', account: '1', ...more })), messages = [];
+    ws.on('message', (raw) => messages.push(JSON.parse(raw)));
+    await once(ws, 'open');
+    ws.send(JSON.stringify({ type: 'identity' }));
+    ws.send(JSON.stringify({ type: 'account', accessToken: 'jeffrey' }));
+    return { ws, messages, say: (m) => ws.send(JSON.stringify(m)) };
+  };
+  const mine = () => [...app.rooms.values()].flatMap((r) => [...r.sessions.values()]).filter((m) => m.handle === 'jeffrey');
+  const self = (c) => c.messages.filter((m) => m.type === 'presence' && m.self).at(-1)?.self;
+  // The only screen: seated, then by choice a drone. Nobody holds the body.
+  const first = await connect();
+  await wait(() => mine().some((m) => m.seat >= 0));
+  first.say({ type: 'take-drone' });
+  await wait(() => mine().length === 1 && mine()[0].seat < 0);
+  await wait(() => self(first)?.drone === true && self(first)?.canTakeBody === true);
+  // It asks, and has the body again.
+  first.say({ type: 'take-body' });
+  await wait(() => mine()[0].seat >= 0);
+  await wait(() => self(first)?.drone === false);
+  // Left as a drone: the page that comes back says so, and is given no body though it is the only one.
+  first.say({ type: 'take-drone' });
+  await wait(() => mine()[0].seat < 0);
+  first.ws.close();
+  await wait(() => mine().length === 0);
+  const back = await connect({ drone: '1' });
+  await wait(() => self(back)?.drone === true);
+  await delay(300);
+  assert.equal(mine()[0].seat, -1, 'still looking on');
+  back.say({ type: 'take-body' });
+  await wait(() => mine()[0].seat >= 0);
+  back.ws.close();
+});
+
 test('a watched walk goes on through a quiet wire, at its own pace, for a fifth of a second', () => {
   const clock = new SnapshotClock(), history = [];
   const frame = 1000 / 120, step = 0.1; // metres a tick
