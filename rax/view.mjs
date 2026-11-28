@@ -12,7 +12,7 @@ import { OBJECT_PROXY_DISTANCE, SCREEN_SPAN, screenDetail, screenSeen, carryPixe
 import { model, INK, PAPER, rgb, tint, audit, boxesOf } from './paint.mjs';
 import { shadowVolume, groundShadow, VOLUME_TRIANGLES, SLAB_TRIANGLES, reach, shadeFor } from './shadow.mjs';
 import { describeCrossing } from './solids.mjs';
-import { phase, stepOf, skyAt, skyColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
+import { phase, stepOf, skyAt, airColor, stars as fixedStars, STEPS, blend as blendInk } from './sky.mjs';
 import { decorFor, COLS as DECOR_COLS, ROWS as DECOR_ROWS } from './bike-decor.mjs';
 import { BIKE } from './bike.mjs';
 // 🧱 `localStorage["rax:solids"] = "on"` audits every model as it is built:
@@ -529,15 +529,17 @@ export async function createView(canvas) {
   let domeKept = null;
   function skyDome(step) {
     if (domeKept?.step === step) return domeKept.model;
-    const s = skyAt(step / STEPS), R = 2350, n = 24;
+    const s = skyAt(step / STEPS), R = 2350, n = 32;
+    // (Each corner of the dome takes the air's colour along its own direction (sky.mjs airColor) and the faces cross between their corners: a gradient, with the sun's glow in it. It was seven rings of one colour each, which showed as stripes. Finer near the horizon, where the colour turns fastest.)
     const bands = model(({ quad }) => {
-      const edges = [-0.12, 0, 0.06, 0.16, 0.34, 0.65, 1.1, Math.PI / 2];
+      const edges = [-0.12, 0, 0.03, 0.07, 0.12, 0.18, 0.26, 0.36, 0.5, 0.68, 0.9, 1.2, Math.PI / 2];
       const at = (turn, e) => [Math.cos(turn) * R * Math.cos(e), R * Math.sin(e), Math.sin(turn) * R * Math.cos(e)];
+      const ink = (turn, e) => airColor(s, { x: Math.cos(turn) * Math.cos(Math.max(0, e)), y: Math.sin(Math.max(0, e)), z: Math.sin(turn) * Math.cos(Math.max(0, e)) });
       for (let b = 0; b < edges.length - 1; b++) {
-        const lo = edges[b], hi = edges[b + 1], color = skyColor(s, lo < 0 ? 0 : (lo + hi) / 2);
+        const lo = edges[b], hi = edges[b + 1];
         for (let k = 0; k < n; k++) {
           const t0 = (k / n) * Math.PI * 2, t1 = ((k + 1) / n) * Math.PI * 2;
-          quad(at(t0, lo), at(t1, lo), at(t1, hi), at(t0, hi), color);
+          quad(at(t0, lo), at(t1, lo), at(t1, hi), at(t0, hi), [ink(t0, lo), ink(t1, lo), ink(t1, hi), ink(t0, hi)]);
         }
       }
     });
@@ -552,8 +554,7 @@ export async function createView(canvas) {
       if (s.stars > 0.3) for (const star of starField)
         square(quad, star, star.size, star.bright ? 0xffffff : 0xa9b8e6);
       if (s.sun.y > -0.12) {
-        const around = skyColor(s, Math.max(0, Math.asin(s.sun.y)));
-        square(quad, s.sun, 250, blendInk(around, s.sunColor, 0.35));
+        // (The glow round the sun is in the air itself now: no square of it.)
       }
     });
     const discs = model(({ quad }) => {

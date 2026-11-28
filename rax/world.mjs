@@ -134,7 +134,7 @@ export function slabOf(half = WORLD) {
 // 🪧 West of it, on the side of a building, a billboard that runs KidLisp.
 export const CLOCK = { x: 0, z: 36, y: 21, r: 4.2, top: 30 };
 export const BELL_MS = 15000;
-export const BILLBOARD = { handle: 'fifi', code: 'xqk' }; // (whose KidLisp it shows: their newest when it can be asked for, else this one)
+export const BILLBOARD = { codes: ['bop', 'roz', 'berz'] }; // (the KidLisp it shows, one a minute in turn: jeffrey's three, 2026-11-28. It showed @fifi's newest.)
 // 🪜 The fire escape (2026-11-27): a landing all round the roof, ESCAPE_DROP
 // under its edge and ESCAPE_WIDE out from it, with a rail along its outer
 // side; and on the east and west sides a flight of steps back up to the roof.

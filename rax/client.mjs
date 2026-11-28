@@ -342,7 +342,7 @@ let focusZoom = 1;
 function focusStep(elapsed) {
   const active = !typing() && !menu && !radial.open && !chalkMode;
   if (active && dock?.way > 0 && gamepad.zoomClick) dock.extended = !dock.extended;
-  const pressure = Math.max(gamepad.lt > 0.06 ? gamepad.lt : 0, Number(keys.has('KeyC')));
+  const pressure = Math.max(gamepad.lt > 0.06 ? gamepad.lt : 0, Number(keys.has('KeyZ')));
   const want = active ? (1 + (MAX_FOCUS_ZOOM - 1) * pressure) * (dock?.way > 0 && dock.extended ? 2 : 1) : 1;
   const was = focusZoom;
   focusZoom += (want - focusZoom) * (1 - Math.exp(-Math.min(0.1, elapsed) * 9));
@@ -3792,18 +3792,7 @@ function step(now, xr) {
     // 🪧 …and the billboard runs its KidLisp (the west wall's machinery, stood on a building's side): asked for once, the handle's newest piece if the site will say, else the one named.
     if (room === STAGE && !billboardAsked) {
       billboardAsked = true;
-      setWalls({ west: BILLBOARD.code }, BILLBOARD_RES);
-      // (Their pieces, newest first, each different piece once: the billboard shows one a minute, in turn, by the room's clock, so everyone sees the same one.)
-      fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=40&handle=${BILLBOARD.handle}`, { signal: AbortSignal.timeout(6000) })
-        .then((r) => (r.ok ? r.json() : null)).then((d) => {
-          const seen = new Set(), codes = [];
-          for (const row of d?.recent || []) {
-            if (typeof row?.code !== 'string' || !/^[A-Za-z0-9]{2,16}$/.test(row.code) || seen.has(row.source)) continue;
-            seen.add(row.source); codes.push(row.code);
-            if (codes.length >= 12) break;
-          }
-          if (codes.length) { billboardCodes = codes; billboardShown = -1; }
-        }).catch(() => {});
+      billboardCodes = BILLBOARD.codes; billboardShown = -1; // (one a minute, in turn, by the room's clock, so everyone sees the same one)
     }
     if (room === STAGE && billboardCodes.length) {
       const turn = Math.floor((Date.now() + (clockOffset || 0)) / 60000) % billboardCodes.length;

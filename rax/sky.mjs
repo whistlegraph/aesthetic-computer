@@ -79,6 +79,23 @@ export function skyColor(sky, elevation) {
   return sky.zenith;
 }
 
+// 🌫️ The air: the colour of the sky along a direction (a unit vector), not only at a height. The three colours cross on eased curves, so no line shows where one gives way to the next; the air near the horizon is paler by day (more of it to look through); round the sun a wide soft glow and a tight bright one, both warmer and wider with the sun low; and round the moon a faint one.
+export function airColor(sky, d) {
+  const ease = (v) => { const t = Math.min(1, Math.max(0, v)); return t * t * (3 - 2 * t); };
+  const e = Math.asin(Math.min(1, Math.max(-1, d.y)));
+  let c = mix(sky.horizon, sky.mid, ease(e / 0.42));
+  c = mix(c, sky.zenith, ease((e - 0.12) / 1.15));
+  const up = Math.min(1, Math.max(0, sky.sun.y / 0.5)), lit = Math.min(1, Math.max(0, (sky.sun.y + 0.15) / 0.25));
+  if (sky.day) c = mix(c, 0xffffff, 0.16 * lit * (1 - ease(e / 0.14)));
+  if (lit > 0) {
+    const toSun = Math.max(0, d.x * sky.sun.x + d.y * sky.sun.y + d.z * sky.sun.z), low = 1 - up;
+    const wide = toSun ** (10 - 6 * low) * (0.2 + 0.4 * low), tight = toSun ** 90 * 0.5;
+    c = mix(c, sky.sunColor, Math.min(0.85, (wide * (1 - ease(e / 1.3) * 0.6) + tight) * lit));
+  }
+  if (sky.stars > 0.3 && sky.moon.y > -0.1) c = mix(c, 0x8f9bd0, Math.max(0, d.x * sky.moon.x + d.y * sky.moon.y + d.z * sky.moon.z) ** 40 * 0.22);
+  return c;
+}
+
 // Fixed stars over the upper sky: [x, y, z] unit directions and a size,
 // the same for everyone (a small generator, seeded).
 export function stars(count = 160) {
