@@ -2109,6 +2109,7 @@ export async function createView(canvas) {
         ...(xr.room ? [[!xr.room.known ? (xr.room.asked ? 'planes: none given' : 'planes: not offered') : `planes ${xr.room.count}`, 0x51e3ee],
           ...Object.entries(xr.room.labels).slice(0, 5).map(([label, n]) => [`${label} ${n}`.slice(0, 18), label === 'screen' ? 0xffe066 : 0x8b90a0])] : []),
         ...(connection?.label ? [[String(connection.label).toLowerCase(), 0x3fb950]] : []),
+        ...(Number.isFinite(xr.handsSent) ? [[`hands out ${xr.handsSent}`, 0x8b90a0]] : []),
         [`poke: ${xr.nextView || (xr.table ? 'full size' : 'on a table')}`, 0xffe066],
       ]);
       projector.bends = true;

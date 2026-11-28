@@ -53,6 +53,7 @@ export class Headset {
       const [dx, dy, dz] = rotate(x - m[12], y - m[13], z - m[14]);
       return { x: dx, y: dy, z: dz };
     };
+    this.point = point; // (kept for roomPlanes: the same way from the headset's space to the head's)
     const hands = [], rays = [];
     let pinchDistance = Infinity;
     for (const source of sources) {
@@ -210,7 +211,8 @@ export function immersive({ frame, getYaw, transition, release }) {
     try {
       next = await xr.requestSession(mode, {
         requiredFeatures: mixed ? ['bounded-floor'] : [],
-        optionalFeatures: ['hand-tracking'],
+        // 🧱 (plane-detection: the real room's walls, floor, tables and screens, where the headset knows them. A probe for now: roomPlanes, below.)
+        optionalFeatures: ['hand-tracking', 'plane-detection'],
       });
       session = next;
       next.addEventListener('end', () => {
@@ -264,7 +266,7 @@ export function immersive({ frame, getYaw, transition, release }) {
         const pose = xrFrame.getViewerPose(space);
         if (!pose) { release(); return; }
         const input = rig.update(pose, visible ? next.inputSources : [], getYaw(), xrFrame, space, visible ? navigator.getGamepads?.() : []);
-        frame(now, { ...input, mixed, pose, layer, draw });
+        frame(now, { ...input, mixed, pose, layer, draw, room: roomPlanes(xrFrame, space, rig.point, next) });
       }
       transition(true);
       window.cancelAnimationFrame(desktopFrame);
@@ -324,7 +326,11 @@ export function tableEye(table, offset) {
 export const HAND_NUMBERS = 29 * 3;
 export function handsPacked(xr, eye, k = 1) {
   const r3 = (v) => Math.round(v * 1000) / 1000;
-  return (xr?.hands || []).filter((h) => h.fingers.every((chain) => chain.every(Boolean))).slice(0, 2).map((h) => ({
+  // (A joint the headset did not give this frame stands where the nearest one it did give is: a hand seen in part is still sent, whole. Only a hand with no wrist and no joint at all is left out.)
+  return (xr?.hands || []).map((h) => {
+    const any = h.fingers.flat().find(Boolean);
+    return any && { ...h, fingers: h.fingers.map((chain) => { let last = chain.find(Boolean) || any; return chain.map((p) => (last = p || last)); }) };
+  }).filter(Boolean).slice(0, 2).map((h) => ({
     side: h.side, r: r3((h.fingers[1][2].radius || 0.008) * k),
     j: h.fingers.flatMap((chain) => chain.flatMap((p) => [r3(eye.x + p.x * k), r3(eye.y + p.y * k), r3(eye.z + p.z * k)])),
   }));
@@ -365,4 +371,29 @@ export function handOutline(fingers) {
   for (const j of thumb.reverse()) out.push(off(j, along, -1));
   out.push(off(wrist, across, 2.6));
   return out;
+}
+
+// 🧱 The real room, as far as the headset tells a web page (WebXR plane
+// detection): `asked` whether the feature was granted, `count` and `labels`
+// (wall, floor, table, screen… as the headset's room setup named them: how
+// many of each), and each plane's outline in metres from the head, as hands
+// are. A probe (2026-11-27): the wrist card says what came back and the
+// outlines are drawn, so one look in mixed reality shows what there is to
+// build on. `point` is Headset's own way from the headset's space to the head's.
+export function roomPlanes(frame, space, point, session) {
+  const asked = !!session?.enabledFeatures?.includes?.('plane-detection');
+  const planes = frame?.detectedPlanes;
+  if (!planes || !point) return { asked, known: !!planes, count: 0, labels: {}, outlines: [] };
+  const labels = {}, outlines = [];
+  for (const plane of planes) {
+    const label = plane.semanticLabel || 'unnamed';
+    labels[label] = (labels[label] || 0) + 1;
+    if (outlines.length >= 24) continue;
+    const pose = frame.getPose(plane.planeSpace, space);
+    if (!pose || !plane.polygon?.length) continue;
+    const m = pose.transform.matrix;
+    outlines.push({ label, points: plane.polygon.slice(0, 32).map((p) => point({
+      x: m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12], y: m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13], z: m[2] * p.x + m[6] * p.y + m[10] * p.z + m[14] })) });
+  }
+  return { asked, known: true, count: planes.size ?? outlines.length, labels, outlines };
 }

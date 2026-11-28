@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS } from '../immersive.mjs';
+import { tableEye, wristOf, pokerOf, Headset, handOutline, handsPacked, handsValid, handsUnpacked, HAND_NUMBERS, roomPlanes } from '../immersive.mjs';
 
 test('the room on a table: the eye is over the room as the head is over the table, times the room\'s smallness', () => {
   const table = { scale: 0.05, pivot: { x: 0, y: 0, z: 0 }, at: [0, -0.45, 0.6] };
@@ -52,7 +52,8 @@ test('hands are told to the room in its own metres and come back as they were, g
   const fingers = [[j(0, 0), j(0.03, 0.02), j(0.05, 0.04), j(0.07, 0.06), j(0.08, 0.07)], finger(0.03), finger(0.01), finger(-0.01), finger(-0.03)];
   const xr = { hands: [{ side: 'left', fingers }, { side: 'right', fingers: [...fingers.slice(0, 4), [j(0, 0), undefined, j(0, 0), j(0, 0), j(0, 0), j(0, 0)]] }] };
   const packed = handsPacked(xr, { x: 2, y: 10, z: -3 }, 20);
-  assert.equal(packed.length, 1, 'a hand seen in part is not sent');
+  assert.equal(packed.length, 2, 'a hand seen in part is sent whole: the joint not given stands at the one before');
+  assert.deepEqual(packed[1].j.slice(72, 75), packed[1].j.slice(69, 72));
   assert.equal(packed[0].j.length, HAND_NUMBERS);
   assert.ok(handsValid(packed));
   const [hand] = handsUnpacked(JSON.parse(JSON.stringify(packed)));
@@ -63,4 +64,35 @@ test('hands are told to the room in its own metres and come back as they were, g
   assert.equal(handsValid([{ side: 'left', r: 0.01, j: [1, 2, 3] }]), false);
   assert.equal(handsValid([{ side: 'up', r: 0.01, j: packed[0].j }]), false);
   assert.equal(handsValid([packed[0], packed[0], packed[0]]), false);
+});
+
+test('the real room\'s planes are counted by their labels and outlined from the head, and a headset that gives none says so', () => {
+  const I = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 2, 3, 1]; // (a plane standing at 1, 2, 3)
+  const plane = (semanticLabel) => ({ semanticLabel, planeSpace: {}, polygon: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { x: 1, y: 0, z: 1 }] });
+  const frame = { detectedPlanes: new Set([plane('wall'), plane('wall'), plane('screen'), plane(undefined)]), getPose: () => ({ transform: { matrix: I } }) };
+  const room = roomPlanes(frame, {}, (p) => ({ x: p.x - 1, y: p.y - 2, z: p.z - 3 }), { enabledFeatures: ['plane-detection'] });
+  assert.equal(room.asked, true); assert.equal(room.count, 4);
+  assert.deepEqual(room.labels, { wall: 2, screen: 1, unnamed: 1 });
+  assert.deepEqual(room.outlines[2].points[1], { x: 1, y: 0, z: 0 });
+  const none = roomPlanes({}, {}, (p) => p, { enabledFeatures: [] });
+  assert.deepEqual([none.asked, none.known, none.count], [false, false, 0]);
+});
+
+import { once } from 'node:events';
+import { createRequire } from 'node:module';
+import { createRaxServer } from '../server.mjs';
+import { PROTOCOL } from '../world.mjs';
+test('hands said by one screen are heard by the others in its room, and not by itself', async (t) => {
+  const { WebSocket } = createRequire(new URL('../../lith/package.json', import.meta.url))('ws');
+  const app = createRaxServer({ guests: true }); t.after(() => app.close());
+  app.server.listen(0, '127.0.0.1'); await once(app.server, 'listening');
+  const connect = () => { const ws = new WebSocket(`ws://127.0.0.1:${app.server.address().port}/play?room=hands-test&protocol=${PROTOCOL}`); ws.messages = []; ws.on('message', (b) => ws.messages.push(JSON.parse(b))); return ws; };
+  const waitFor = async (ws, predicate) => { const abort = AbortSignal.timeout(3000); while (!ws.messages.some(predicate)) await once(ws, 'message', { signal: abort }); return ws.messages.find(predicate); };
+  const a = connect(), b = connect(); t.after(() => { a.close(); b.close(); });
+  await waitFor(a, (d) => d.type === 'welcome'); await waitFor(b, (d) => d.type === 'welcome');
+  const hands = [{ side: 'left', r: 0.16, j: Array.from({ length: HAND_NUMBERS }, (_, i) => -123.456 + i) }, { side: 'right', r: 0.16, j: Array.from({ length: HAND_NUMBERS }, (_, i) => 100.001 + i) }];
+  a.send(JSON.stringify({ type: 'hands', hands }));
+  const heard = await waitFor(b, (d) => d.type === 'hands');
+  assert.deepEqual(heard.hands, hands); assert.equal(typeof heard.id, 'string');
+  assert.ok(!a.messages.some((d) => d.type === 'hands'));
 });

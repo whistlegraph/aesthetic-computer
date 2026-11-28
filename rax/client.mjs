@@ -3166,7 +3166,13 @@ function tellHands(xr, now) {
   const hands = handsPacked(xr, eye, xrTable ? 1 / xrTable.scale : 1);
   if (!hands.length) return;
   handsSaidAt = now;
-  send({ type: 'hands', hands });
+  if (send({ type: 'hands', hands })) handsSent++;
+}
+// 👻 A headset is its own kind in the room: not a body and not a drone, a pair of hands (a god's, when the room is on its table). It gives its handle's body up as it goes in, never takes one while it is in, and says no eye for the room to draw a drone at.
+let handsSent = 0, ghostAskedAt = -Infinity, inHeadset = false;
+function stepGhost(xr, now) {
+  xr.handsSent = handsSent;
+  if (seat >= 0 && selfMember?.handle && now - ghostAskedAt > 1500) { ghostAskedAt = now; send({ type: 'take-drone' }); }
 }
 function stepXRView(xr) {
   const wrist = wristOf(xr), tip = pokerOf(xr);
@@ -3214,6 +3220,7 @@ function takeDrone() {
   return true;
 }
 function takeBody() {
+  if (inHeadset) return; // (👻 a headset holds no body)
   keepDrone(false);
   send({ type: 'take-body' });
 }
@@ -3388,9 +3395,10 @@ function step(now, xr) {
   }
   gamepad = controller.sample(down || xr ? [] : pads, document.hasFocus());
   if (!xr) xrTable = null;
+  inHeadset = !!xr;
   if (xr) {
     stepXRView(xr);
-    if (ws?.readyState === WebSocket.OPEN && snapshot) tellHands(xr, now);
+    if (ws?.readyState === WebSocket.OPEN && snapshot) { stepGhost(xr, now); tellHands(xr, now); }
     yaw = xr.yaw; pitch = xr.pitch;
     inputAt = flownAt = now;
     if (!down) Object.assign(gamepad, { right: xr.right, fwd: xr.fwd || (xr.walkPinch && !screenFingers.size ? 0.42 : 0), jump: xr.jump });
@@ -3769,7 +3777,7 @@ function step(now, xr) {
   }
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
-  if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 100) { // (ten times a second: the room draws it as a drone)
+  if (seat < 0 && connected && !joining() && sheetOpen && !inHeadset && now - lookAt > 100) { // (👻 a headset says no eye: it is its hands, not a drone) // (ten times a second: the room draws it as a drone)
     // 🥽 In a headset the eye is the head: where it has moved to from the drone's own place (immersive.mjs offset), not the place alone.
     const eyeAt = xr?.offset ? { x: freecam.x + xr.offset[0], y: freecam.y + xr.offset[1], z: freecam.z + xr.offset[2] } : freecam;
     const said = `${eyeAt.x.toFixed(1)} ${eyeAt.y.toFixed(1)} ${eyeAt.z.toFixed(1)} ${Math.round(yaw / 5)}`;
