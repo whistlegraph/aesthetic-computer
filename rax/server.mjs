@@ -110,6 +110,7 @@ const assets = new Map([
     'bike', 'bike-decor', 'handle-style', // 🛵 the cabin bike, and its rider's paintings and colours
     'skin', 'textures', 'texture-loaders', 'texture-demo', // 🖼️ textures: models' skins, their sources, the cube
   ].map((n) => [`/${n}.mjs`, [`${n}.mjs`, 'text/javascript']]),
+  ['/scream.mp3', ['scream.mp3', 'audio/mpeg']], // 😱 a real scream, for a fall off the roof (sfx.mjs fallScream)
   ['/qr.mjs', ['../system/public/aesthetic.computer/dep/@akamfoad/qr/qr.mjs', 'text/javascript']],
   ['/object-compiler.mjs', ['../xbox/live/object-lisp.mjs', 'text/javascript']],
   [

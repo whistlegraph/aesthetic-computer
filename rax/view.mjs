@@ -4161,41 +4161,38 @@ export async function createView(canvas) {
       const onto = threatAt ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
       const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
       let color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
+      // 😱 (Falling, the face grows the whole way down: and it shakes harder as it does.)
+      const fell = falling ? Math.min(1, Math.max(0, -me.y / TOWER_DROP)) : 0, faceK = 2 + Math.round(fell * fell * 10); // (slowly at first, then fast: twelve units a square at the street)
       if (afraid) {
         const far = falling ? Math.max(0, me.y + TOWER_DROP - 1.6) : threat;
         const said = `${far.toFixed(0)}m`, close = !falling && threat < 6, quick = (falling || threat < 8) && Math.floor(now / 140) % 2, ink = falling ? (quick ? 0xffffff : 0xffe066) : quick ? 0xff3b3b : 0xffe066;
-        // (It lives: it blinks now and then; it cries, a tear running down from each eye in turn; and with the head right on it, it is angry instead, brows down and mouth a hard line, shaking.)
-        const blinkNow = now % 2600 < 140, tear = Math.floor(now / 160) % 6, shake = close || falling ? (Math.floor(now / 50) % 2 ? unit : -unit) : 0;
+        // (It lives: it blinks now and then; it cries, a tear running down from each eye in turn; and with the head right on it, it winces: eyes screwed shut, teeth set, shaking. Afraid, not angry.)
+        // (Eleven squares by eleven, two units each, an empty row at the top and the bottom and an empty column each side: every face stands in the middle of its plate. It was seven by seven and its faces sat high in it.)
+        const blinkNow = now % 2600 < 140, tear = Math.floor(now / 160) % 6, shake = close || falling ? (Math.floor(now / 50) % 2 ? 1 : -1) * unit * (1 + Math.round(fell * 5)) : 0;
+        const brows = ['...........', '...#...#...', '.##.....##.', '...........'], frown = ['...........', '...........', '...#####...', '..#.....#..', '...........'];
         const face = falling
-          ? (Math.floor(now / 120) % 2
-            ? ['##...##', '##...##', '.......', '..###..', '.#...#.', '.#...#.', '..###..']
-            : ['##...##', '##...##', '.......', '.#####.', '.#...#.', '.#...#.', '.#####.'])
+          ? ['...........', '.###...###.', '.#.#...#.#.', '.###...###.', '...........', ...(Math.floor(now / 120) % 2
+            ? ['...#####...', '..#.....#..', '..#.....#..', '..#.....#..', '...#####...']
+            : ['..#######..', '..#.....#..', '..#.....#..', '..#.....#..', '..#######..']), '...........']
           : close
-          ? ['#.....#', '.#...#.', '.#...#.', '.......', '.#####.', '.......', '.......']
-          : blinkNow ? ['.......', '.......', '.#...#.', '.......', '..###..', '.#...#.', '.......']
-          : ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'];
+          ? ['...........', '.#.......#.', '..#.....#..', '...#...#...', '..#.....#..', '.#.......#.', '...........', '..#######..', '..#.#.#.#..', '..#######..', '...........']
+          : [...brows, blinkNow ? '...........' : '..##...##..', '..##...##..', ...frown];
         const m = model(({ rect: worldRect, small }) => {
           const rect0f = flip(worldRect), rect = (x, y, z, w, h, c) => rect0f(x + shake, y, z, w, h, c);
+          const k = faceK * unit, square = (c, r, color) => { rect((c - 5.5) * k + unit, (4.5 - r) * k - unit, 0.000002, k, k, INK); rect((c - 5.5) * k, (4.5 - r) * k, 0, k, k, color); };
           // (A dark plate behind it, so the face is read against anything: the sky, a head, the street coming up.)
-          rect(-12 * unit, -12 * unit, 0.000004, 24 * unit, 24 * unit, 0x10131c);
+          rect(-6 * k, -6 * k, 0.000004, 12 * k, 12 * k, 0x10131c);
           // 💧 A tear under an eye, falling three squares and gone; the other eye's next.
-          if (!close && !falling) { const k = 3 * unit, col = tear < 3 ? 1 : 5, row = 3 + (tear % 3); rect((col - 3.5) * k + unit, (2.5 - row) * k - unit, 0.000002, k, k, INK); rect((col - 3.5) * k, (2.5 - row) * k, 0, k, k, 0x69bfff); }
-          // Seven by seven: two eyes, and a mouth turned down.
-          face.forEach((row, r) => [...row].forEach((ch, c) => {
-            if (ch !== '#') return;
-            // (Three units a square: a face twenty-one across, filling its bracket.)
-            const k = 3 * unit;
-            rect((c - 3.5) * k + unit, (2.5 - r) * k - unit, 0.000002, k, k, INK);
-            rect((c - 3.5) * k, (2.5 - r) * k, 0, k, k, ink);
-          }));
-          small(said, unit, -22 * unit - unit, 0.000002, unit, INK); small(said, 0, -22 * unit, 0, unit, ink);
+          if (!close && !falling) square(tear < 3 ? 2 : 8, 6 + (tear % 3), 0x69bfff);
+          face.forEach((row, r) => [...row].forEach((ch, c) => { if (ch === '#') square(c, r, ink); }));
+          small(said, unit, -7 * k - 8 * unit - unit, 0.000002, unit, INK); small(said, 0, -7 * k - 8 * unit, 0, unit, ink);
         });
         projector.overlay(m, W, H);
       } else if (threat !== null) {
         // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
       }
       aimReach = 0;
-      let half = (threat !== null && armed ? 4 : afraid ? 14 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      let half = (threat !== null && armed ? 4 : afraid ? 7 * faceK : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
       // Locked on: the corners surround the object on screen instead of
@@ -4353,13 +4350,13 @@ export async function createView(canvas) {
     if (trigger && !bare && !radial && !menu && !xr) {
       // 🔫 One small picture, at the left: the gun from its side, and the finger's pressure drawn inside its slide (the line of the last moments, the break a red row across it), the trigger going back as it is squeezed, and the flash out of the muzzle at a shot. (It was a gun and a chart beside it, in the middle, until 2026-11-28.)
       const { unit } = hud, cols = 30, rows = 6;
-      const gx = -W / 2 + hud.safeX + 2 + unit, y = handleY + 37 * unit; // (over the face cam, whose top is thirty-two units over the handle's line)
+      // (At the bottom of the screen in the middle, room asked of the pack, and on nothing: no plate behind it. It stood over the face cam at the left on a dark plate until 2026-11-28.)
+      const at = hudPack.reserve('trigger', 'bc', 46 * unit, 22 * unit), gx = at.x - W / 2 + 2 * unit, y = H / 2 - at.y - at.h + 2 * unit;
       const fresh = now - trigger.firedAt < 160, ink = fresh ? 0x7dff7a : trigger.armed ? 0xffffff : 0x8b90a0;
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
         const px = (cx, cy, w, h, c, z = 0.000002) => rect(gx + cx * unit, y + cy * unit, z, w * unit, h * unit, c);
         const kick = fresh ? 2 : 0, pull = Math.round(Math.max(0, Math.min(1, trigger.value ?? 0)) * 4), dark = 0x5a5f70, sx = 4 - kick;
-        px(-1, -1, 38, 20, 0x10131c, 0.000004); // its plate
         px(sx, 9, cols + 2, rows + 3, 0x8b90a0); px(sx + 1, 10, cols, rows + 1, 0x1b1e26, 0.000001); // the slide, and the window in it
         px(sx + 28, 18, 2, 1, dark); // the front sight
         px(6, 7, 22, 2, dark); // the frame
@@ -4379,7 +4376,7 @@ export async function createView(canvas) {
       projector.overlay(m, W, H);
     }
     // 🔎 How far the lens is closed, at the bottom of the screen in the middle while it is (it stood under the reticle, in the way of the aim, until 2026-11-27): a bar that
-    // fills as the trigger (or C) is pressed home, and the power beside it. An
+    // fills as the trigger (or Z) is pressed home, and the power beside it. An
     // analog control shows how much of it is in use (2026-11-27).
     if (nearZoom > 1.01 && !bare && !radial && !menu && !xr) {
       const { unit } = hud, top = 2.5; // (a trigger pressed home: screen-lod.mjs MAX_FOCUS_ZOOM; L3 at a screen doubles the lens past it, and the bar stays full)

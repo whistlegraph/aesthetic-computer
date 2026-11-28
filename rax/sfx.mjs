@@ -118,6 +118,31 @@ export class Sfx {
     order.forEach((n, i) => strike(a.currentTime + i * 0.34, base * 2 * 2 ** (NOTES[n] / 12), 0.55, 0.45));
     for (let n = 0; n < strokes; n++) strike(a.currentTime + 1.5 + n * 1.15, base, 1.4, 1);
   }
+  // 😱 A fall's scream: a real one (scream.mp3, four seconds of it, made for this), held for as long as the body falls and bent in pitch as it goes: a little high at the edge, sliding down as the street comes up (`depth` 0 at the roof, 1 at the street), a shake on it; cut short when the fall ends. `depth` null: not falling. True while the real scream is sounding: until it has been fetched the notes below stand in.
+  fallScream(depth) {
+    if (!this.ready) return false;
+    const a = this.audio, t = a.currentTime;
+    if (depth === null) {
+      if (this.screaming) { const { src, gain } = this.screaming; this.screaming = null; gain.gain.cancelScheduledValues(t); gain.gain.setTargetAtTime(0.0001, t, 0.03); src.stop(t + 0.2); }
+      return false;
+    }
+    if (!this.screamAsked) {
+      this.screamAsked = true;
+      fetch(new URL('./scream.mp3', import.meta.url)).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => b && a.decodeAudioData(b)).then((buffer) => { this.screamBuffer = buffer || null; }).catch(() => {});
+    }
+    if (!this.screamBuffer) return false;
+    if (!this.screaming) {
+      const src = a.createBufferSource(), gain = a.createGain(), shake = a.createOscillator(), amount = a.createGain();
+      src.buffer = this.screamBuffer; src.loop = true; src.loopStart = 0.6; src.loopEnd = Math.max(1.2, this.screamBuffer.duration - 1); // (round the held part of it: its last second dies away)
+      shake.frequency.value = 7; amount.gain.value = 0.03; shake.connect(amount).connect(src.playbackRate);
+      gain.gain.setValueAtTime(0.0001, t); gain.gain.exponentialRampToValueAtTime(0.5 * MASTER, t + 0.03);
+      src.connect(gain).connect(a.destination);
+      src.start(t); shake.start(t); src.onended = () => shake.stop();
+      this.screaming = { src, gain };
+    }
+    this.screaming.src.playbackRate.setTargetAtTime(1.18 - 0.5 * Math.min(1, Math.max(0, depth)), t, 0.08);
+    return true;
+  }
   // 😱 One note of a falling body's scream. A saw through two formants (an open "ah": 800 and 1250 Hz) with a quick shake on its pitch, so it is a voice and not a tone. `step` picks the note from a falling arpeggio (a minor seventh, two octaves of it), and `depth` (0 at the roof, 1 at the street) brings the whole thing down an octave and makes it louder.
   scream(step, depth = 0) {
     if (!this.ready) return;
