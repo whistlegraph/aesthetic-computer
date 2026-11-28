@@ -2,7 +2,9 @@
 <!-- rax in a headset, native (2026-11-27): an OpenXR app. One activity, a
      NativeActivity whose native side (main.cpp, libraxnative.so) draws both
      eyes, and whose Java side keeps the room's scene file fresh from the
-     server. Beside rax/quest's panel app, which is the flat one. -->
+     server. Beside rax/quest's panel app, which is the flat one.
+     Mixed reality and hands only (2026-11-28): the real room by passthrough,
+     the rax room small in it, no controllers. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="computer.aesthetic.raxvr" android:versionCode="1" android:versionName="0.1">
   <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="32" />
@@ -11,12 +13,18 @@
   <uses-permission android:name="org.khronos.openxr.permission.OPENXR_SYSTEM" />
   <uses-feature android:name="android.hardware.vr.headtracking" android:required="true" android:version="1" />
   <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+  <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
+  <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+  <uses-feature android:name="oculus.software.handtracking" android:required="true" />
   <queries>
     <provider android:authorities="org.khronos.openxr.runtime_broker;org.khronos.openxr.system_runtime_broker" />
     <intent><action android:name="org.khronos.openxr.OpenXRRuntimeService" /></intent>
   </queries>
-  <application android:label="rax vr" android:hasCode="true" android:extractNativeLibs="true">
+  <application android:label="rax vr" android:hasCode="true" android:extractNativeLibs="true"
+      android:networkSecurityConfig="@xml/network">
     <meta-data android:name="com.oculus.supportedDevices" android:value="quest2|questpro|quest3|quest3s" />
+    <meta-data android:name="com.oculus.handtracking.frequency" android:value="HIGH" />
+    <meta-data android:name="com.oculus.handtracking.version" android:value="V2.0" />
     <activity android:name=".RaxNativeActivity" android:exported="true" android:launchMode="singleTask"
         android:screenOrientation="landscape" android:excludeFromRecents="false"
         android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"

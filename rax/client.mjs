@@ -925,7 +925,7 @@ function setWalls(spec = {}, res = wallRes) {
     const cols = res[face] || 64;
     if (wallCodes[face] === `${code}@${cols}`) continue;
     wallCodes[face] = `${code}@${cols}`;
-    kidlispWall(code, { width: cols, height: Math.round((cols * 9) / 16) })
+    kidlispWall(code, { width: cols, height: Math.round((cols * 9) / 16), logical: 192 }) // (a wall is far off and large: its program runs on 192 across, not 320)
       .then((w) => {
         if (wallCodes[face] !== `${code}@${cols}`) return;
         const i = walls.findIndex((x) => x.face === face);
@@ -3339,7 +3339,7 @@ function replayTick(now) {
 }
 let restartAt = 0; // 📣 when the room goes for a new rax (0: no such word)
 let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
-const BILLBOARD_RES = { north: 64, west: 160 }; // 🪧 (a hundred and sixty squares across its thirty-two metres, twenty centimetres each: it was sixty-four, half a metre a square)
+const BILLBOARD_RES = { north: 64, west: 96 }; // 🪧 (ninety-six squares across its thirty-two metres, a third of a metre each. A hundred and sixty read finer but every square is two triangles turned in JavaScript each frame it is in view: 28,800 of them took the frame rate to fifteen. The finer picture wants the billboard as one texture: not yet.)
 let billboardCodes = [], billboardShown = -1; // 🪧 the pieces it turns through, and which is up
 let clockSecond = null, billboardAsked = false; // 🕰️ the last second the tower ticked on; 🪧 whether the billboard's piece was asked for
 let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on

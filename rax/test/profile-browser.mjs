@@ -22,6 +22,8 @@ try {
   await page.goto(`http://127.0.0.1:${app.server.address().port}/?debug`);
   for (const end = Date.now() + 20000; Date.now() < end; await delay(100)) { const s = await page.evaluate(() => window.rax?.state()); if (s?.connected && s.you.seated && s.you.x !== null) break; }
   await page.mouse.click(640, 360);
+  // (`play`: take the gun and wait for the bell first, so heads, their trails, the billboard and blood are all in the frame that is measured.)
+  if (process.argv[4] === 'play') { await page.evaluate(() => window.rax.walkTo({ x: 0, z: 0 }, { within: 0.4, seconds: 8 })).catch(() => {}); await delay(Number(process.argv[5] || 17) * 1000); }
   await page.evaluate((y) => window.rax.look({ yaw: y, pitch: 0 }), yaw);
   await delay(2500);
   const cdp = await page.context().newCDPSession(page);

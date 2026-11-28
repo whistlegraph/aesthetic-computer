@@ -86,14 +86,15 @@ function colorOf(name) {
   return c;
 }
 
-export async function kidlispWall(code, { width = 96, height = 54, source: given = null } = {}) {
+// (`logical`: the long side of the screen the program runs on. A quarter the pixels at half of it: its blurs and scrolls are a quarter the work.)
+export async function kidlispWall(code, { width = 96, height = 54, source: given = null, logical = LOGICAL } = {}) {
   let source = given;
   if (!source) {
     const response = await fetch(new URL(`./kidlisp-source?code=${encodeURIComponent(code)}`, import.meta.url));
     if (!response.ok) throw Error(`no KidLisp for $${code}`);
     ({ source } = await response.json());
   }
-  const scale = Math.max(1, LOGICAL / Math.max(width, height));
+  const scale = Math.max(1, logical / Math.max(width, height));
   const wide = Math.round(width * scale), tall = Math.round(height * scale);
   const frame = new Uint8ClampedArray(wide * tall * 4); // the program's screen
   const pixels = new Uint8ClampedArray(width * height * 4); // the grid shown

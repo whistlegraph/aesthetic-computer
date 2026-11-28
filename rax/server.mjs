@@ -34,6 +34,7 @@ import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_RO
 import { gameFor } from './games.mjs';
 import { handsValid, headValid } from './immersive.mjs';
 import { nativeScene } from './native-scene.mjs';
+import { nativeLive } from './native-live.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -484,6 +485,7 @@ export function createRaxServer({
     }
     // 🥽 The room as boxes, for the native headset app (native-scene.mjs): asked for every few seconds, never kept.
     if (req.method === 'GET' && path === '/native-scene.txt') return void res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }).end(nativeScene());
+    if (req.method === 'GET' && path === '/native-live.txt') return void res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' }).end(nativeLive(rooms.get(HOME_ROOM)?.match)); // 🥽 …and who is in it this instant (native-live.mjs), ten times a second
     // A $code's source from AC's KidLisp store, fetched here to avoid CORS.
     if (req.method === 'GET' && path === '/kidlisp-source') {
       const code = url.searchParams.get('code') || '';

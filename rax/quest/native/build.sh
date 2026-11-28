@@ -21,7 +21,8 @@ rm -rf out && mkdir -p out/classes out/dex out/pkg/lib/arm64-v8a
   -L "$XR/jni/arm64-v8a" -lopenxr_loader -landroid -llog -lEGL -lGLESv3 -static-libstdc++ \
   -u ANativeActivity_onCreate -o out/pkg/lib/arm64-v8a/libraxnative.so
 cp "$XR/jni/arm64-v8a/libopenxr_loader.so" out/pkg/lib/arm64-v8a/
-"$BT/aapt2" link -o out/base.apk --manifest AndroidManifest.xml -I "$JAR"
+"$BT/aapt2" compile --dir res -o out/res.zip
+"$BT/aapt2" link -o out/base.apk --manifest AndroidManifest.xml -I "$JAR" out/res.zip
 javac -source 11 -target 11 -nowarn -cp "$JAR" -d out/classes $(find src -name '*.java')
 "$BT/d8" --release --lib "$JAR" --output out/dex $(find out/classes -name '*.class')
 (cd out/dex && zip -q ../base.apk classes.dex)

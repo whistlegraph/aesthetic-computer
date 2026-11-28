@@ -4862,7 +4862,7 @@ export async function createView(canvas) {
         });
         if (!seen && !remix) continue;
       }
-      if (!w.model || now - (w.at || 0) > 100 || w.wasRemix !== remix) {
+      if (!w.model || now - (w.at || 0) > 125 || w.wasRemix !== remix) { // (eight times a second)
         w.at = now;
         w.wasRemix = remix;
         const px = w.step();
