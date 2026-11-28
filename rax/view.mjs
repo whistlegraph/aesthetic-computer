@@ -255,7 +255,7 @@ import {
   clamp,
   PLATFORM_DEPTH,
   TOWER_DROP,
-  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN,
+  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN, CLOCK, BELL_MS,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -425,6 +425,22 @@ export async function createView(canvas) {
           }
         }
         box(0, -drop - 0.5, 0, 420, 1, 420, 0x1b1e26, 0x15171e, 0x15171e); // the street
+        // 🕰️ The clock tower: a shaft from the street to over the roof's height, a pale face on its south side with twelve marks, a cap and a spike. (Its hands and its figures are drawn each frame: below.)
+        {
+          const c = CLOCK, wide = 2 * c.r + 2.4, stone = 0x5b6172, shade = 0x444a59;
+          box(c.x, (c.top - drop) / 2, c.z, wide, c.top + drop, wide, stone, shade, 0x4f5565);
+          box(c.x, c.top + 0.6, c.z, wide + 1, 1.2, wide + 1, 0x70778a, shade, shade);
+          box(c.x, c.top + 3.6, c.z, 1.2, 5, 1.2, 0x8b90a0, shade, shade);
+          const front = c.z - wide / 2 - 0.05;
+          box(c.x, c.y, front, 2 * c.r, 2 * c.r, 0.1, 0xf2ecd8, 0xf2ecd8, 0xf2ecd8);
+          for (let h = 0; h < 12; h++) {
+            const a = (h / 12) * Math.PI * 2, far = c.r * 0.86, big = h % 3 === 0;
+            box(c.x + Math.sin(a) * far, c.y + Math.cos(a) * far, front - 0.06, big ? 0.34 : 0.18, big ? 0.34 : 0.18, 0.06, 0x10131c, 0x10131c, 0x10131c);
+          }
+          // 🪧 The building whose east side the billboard hangs on (the KidLisp wall, forty metres west of the roof), from the street to over the picture's top.
+          box(-SCREEN - 6.2, (22 - drop) / 2, 0, 12, 22 + drop, 36, 0x303646, 0x262b38, 0x20242f);
+          box(-SCREEN - 0.1, 10.5, 0, 0.3, 19.4, 33.4, 0x10131c, 0x10131c, 0x10131c); // its frame
+        }
         for (const [x, z, w, h] of [[-46, -30, 22, 70], [38, -52, 26, 96], [58, 24, 20, 48], [-34, 46, 30, 84], [8, 64, 18, 36], [-72, 8, 24, 58], [84, -8, 22, 104], [-12, -70, 26, 62]]) {
           box(x, -drop + h / 2, z, w, h, w, 0x303646, 0x262b38, 0x20242f);
           box(x, -drop + h + 0.2, z, w - 2, 0.4, w - 2, 0x3a4154, 0x3a4154, 0x3a4154);
@@ -1184,6 +1200,7 @@ export async function createView(canvas) {
     }
     return outlines.get(key);
   }
+  const clockHands = [[0.5, 0x10131c], [0.3, 0x10131c], [0.12, 0xd9363e]].map(([w, c]) => model(({ box }) => box(0, 0.5, 0, w / 4, 1, 0.04, c, c, c)));
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -2647,6 +2664,17 @@ export async function createView(canvas) {
       if (until < now) lingering.delete(id);
       // (The object's code tree is no longer drawn in the room; the lingering
       // window still times the landing burst above.)
+    }
+    // 🕰️ The clock's hands and figures, by this screen's own time: an hour hand, a minute hand, a thin red second hand that steps, and under the face the time in figures, to the second.
+    if (roof && orbit <= 0.02) {
+      const c = CLOCK, t = new Date(), s = t.getSeconds(), m = t.getMinutes() + s / 60, h = (t.getHours() % 12) + m / 60;
+      const z = c.z - c.r - 1.2 - 0.14;
+      // (A hand is a bar a unit long from its foot, drawn its own length and turned about the face's middle. Seen from the roof, south of it, clockwise is to the right.)
+      draw(clockHands[0], c.x, c.y, z, 0, 0, c.r * 0.5, (h / 12) * Math.PI * 2);
+      draw(clockHands[1], c.x, c.y, z - 0.03, 0, 0, c.r * 0.78, (m / 60) * Math.PI * 2);
+      draw(clockHands[2], c.x, c.y, z - 0.06, 0, 0, c.r * 0.84, (s / 60) * Math.PI * 2);
+      const said = t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }).toLowerCase();
+      draw(labelModel(said), c.x, c.y - c.r - 2.6, z, 0, 0, 7);
     }
     // 👹 The heads that fly in at the stage: red, jawed, looking where they go, with a small bob.
     for (const [id, hx, hy, hz, hyaw] of heads) {

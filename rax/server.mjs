@@ -30,7 +30,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace, slabOf, roofBoxes, STAGE } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor, worldPlace, slabOf, roofBoxes, STAGE, BELL_MS } from './world.mjs';
 import { gameFor } from './games.mjs';
 import { handsValid, headValid } from './immersive.mjs';
 import { randomUUID } from 'node:crypto';
@@ -1035,6 +1035,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       { const made = rooms.get(key); made.match.nameOf = (seat) => { const m = made.members?.[seat]; return m ? (m.handle ? `@${m.handle}` : m.name || null) : null; }; }
       rooms.get(key).match.half = halfOf(key);
       rooms.get(key).match.waves = key === STAGE; // 👹 heads fly in at the stage (match.mjs stepHeads)
+      rooms.get(key).match.bellMs = key === STAGE ? BELL_MS : 0; // 🕰️ …each wave as the clock tower strikes
       if (flights.has(key)) {
         rooms.get(key).match.setObjects(store.objects(key));
         rooms.get(key).match.resume(flights.get(key));

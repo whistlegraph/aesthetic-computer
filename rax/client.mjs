@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf, TOWER_DROP } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf, TOWER_DROP, CLOCK, BELL_MS, BILLBOARD, STAGE } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
@@ -3307,6 +3307,7 @@ function replayTick(now) {
 }
 let restartAt = 0; // 📣 when the room goes for a new rax (0: no such word)
 let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
+let clockSecond = null, billboardAsked = false; // 🕰️ the last second the tower ticked on; 🪧 whether the billboard's piece was asked for
 let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on
 let holdMeter = null, holdStep = -1;
 let deathCount = null;
@@ -3697,6 +3698,24 @@ function step(now, xr) {
     }
   }
   // 🔫 With a gun in hand the right trigger is a trigger: it has a travel, a point where it breaks (TRIGGER_BREAK) and the shot goes, and it must be let back past TRIGGER_RESET before it will break again. No shot from a trigger rested on, none from one held. Its pressure over the last second is kept for the view to draw.
+  // 🕰️ The clock tower is heard from where it stands: a tick each second, and each BELL_MS a bell (three strokes on the minute). By the room's own clock, so everyone hears the same stroke, and the heads come on it.
+  if (platformSlab() && sheetOpen) {
+    const second = Math.floor((Date.now() + (clockOffset || 0)) / 1000);
+    if (second !== clockSecond) {
+      const first = clockSecond === null;
+      clockSecond = second;
+      const at = { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z };
+      if (!first && second % (BELL_MS / 1000) === 0) sfx.bell(at, second % 60 === 0 ? 3 : 1);
+      else if (!first) sfx.clockTick(at, second % 2);
+    }
+    // 🪧 …and the billboard runs its KidLisp (the west wall's machinery, stood on a building's side): asked for once, the handle's newest piece if the site will say, else the one named.
+    if (room === STAGE && !billboardAsked) {
+      billboardAsked = true;
+      setWalls({ west: BILLBOARD.code });
+      fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=1&handle=${BILLBOARD.handle}`, { signal: AbortSignal.timeout(6000) })
+        .then((r) => (r.ok ? r.json() : null)).then((d) => { const code = d?.recent?.[0]?.code; if (typeof code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(code) && code !== BILLBOARD.code) setWalls({ west: code }); }).catch(() => {});
+    }
+  } else clockSecond = null;
   // 😱 Falling off the roof, a scream: not one held cry but an arpeggio of short ones on the room's own sixteenths, a voice in a throat (sfx.mjs scream), each lower as the street comes up.
   if (seat >= 0 && player?.alive !== false && platformSlab() && player && player.y < -2 && (player.vy ?? 0) < -3) {
     const sixteenth = Math.floor(beatAt(Date.now() + (clockOffset || 0)) * 4);
@@ -4313,7 +4332,7 @@ function step(now, xr) {
     goal: restartAt && now - restartAt < 20000 ? { text: now < restartAt ? 'a new rax is shipping' : 'coming back', count: now < restartAt ? `${Math.ceil((restartAt - now) / 1000)}s` : '', sub: 'you will be right back', color: 0x7dff7a }
       : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
-      : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
+      : { text: `wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
     trigger: rtCurve.length > 1 ? { curve: rtCurve, breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: rtFiredAt } : null,
     stage: !!snapshot?.heads, // 👹 heads fly here: no painting, no building, and the controls say so
     roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it

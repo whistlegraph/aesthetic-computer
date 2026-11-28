@@ -90,6 +90,10 @@ export class Match {
     this.headId = 0;
     this.random = Math.random;
     // 🩸 Stains: the roof's own record of what was spilled on it, the same for everyone there. Each [x, z, size, shade]; the oldest go as new ones come (STAINS at the most). Told as they are made (a `stain` event) and whole now and then in the snapshot, so whoever comes later sees the floor as it is.
+    // 🕰️ Waves on the bell: with `bellMs` set (the stage's clock: world.mjs BELL_MS) a wave starts only as the clock strikes, by `now` (the server's own clock; a test's).
+    this.bellMs = 0;
+    this.now = Date.now;
+    this.bellWas = null;
     this.stains = [];
     this.stainsNew = false; // …and the ids a round has met, for the server to take off the horde
     // 🏙️ Instagib: a body a round meets comes apart, and comes back on the
@@ -888,7 +892,9 @@ export class Match {
     if (!bodies.length) { this.heads = []; this.wave = 0; this.headsOwed = 0; this.headAt = 0; return; }
     // The first wave waits for someone to take the gun up; after that they keep coming.
     const armed = this.wave > 0 || [...this.items.values()].some((it) => it.kind === 'shoot' && it.holder >= 0);
-    if (armed && !this.heads.length && !this.headsOwed && this.tick >= this.headAt) {
+    const bell = this.bellMs ? Math.floor(this.now() / this.bellMs) : null, struck = bell === null || (this.bellWas !== null && bell !== this.bellWas);
+    this.bellWas = bell;
+    if (armed && struck && !this.heads.length && !this.headsOwed && this.tick >= this.headAt) {
       this.wave++;
       this.headsOwed = HEAD.first + this.wave;
       this.headAt = this.tick;

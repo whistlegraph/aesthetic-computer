@@ -126,6 +126,14 @@ export function slabOf(half = WORLD) {
   if (!slabs.has(half)) slabs.set(half, { ...box(-half, half, -PLATFORM_DEPTH, 0, -half, half), slab: true });
   return slabs.get(half);
 }
+// 🕰️ The clock tower (2026-11-27): north of the roof, across the street, a
+// tower with a clock on the face that looks at the roof. It ticks every
+// second and strikes a bell every BELL_MS; at the stage a wave of heads comes
+// on the bell (match.mjs), so the clock is what the room is waiting for.
+// 🪧 West of it, on the side of a building, a billboard that runs KidLisp.
+export const CLOCK = { x: 0, z: 36, y: 21, r: 4.2, top: 30 };
+export const BELL_MS = 15000;
+export const BILLBOARD = { handle: 'fifi', code: 'xqk' }; // (whose KidLisp it shows: their newest when it can be asked for, else this one)
 // 🪜 The fire escape (2026-11-27): a landing all round the roof, ESCAPE_DROP
 // under its edge and ESCAPE_WIDE out from it, with a rail along its outer
 // side; and on the east and west sides a flight of steps back up to the roof.

@@ -43,6 +43,30 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 🕰️ The clock tower's tick, where it stands: a short high sine, tick then tock.
+  clockTick(at, tock = 0) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine'; o.frequency.value = tock ? 1320 : 1760;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * MASTER, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    o.connect(g).connect(this.positionedOutput(at));
+    o.start(t); o.stop(t + 0.07);
+  }
+  // 🔔 …and its bell: sines only, a struck bell's own partials (hum, prime, tierce, quint, nominal) each dying at its own pace, `strokes` of them a second and a bit apart.
+  bell(at, strokes = 1) {
+    if (!this.ready) return;
+    const a = this.audio, out = this.positionedOutput(at), base = 196;
+    for (let n = 0; n < strokes; n++) {
+      const t = a.currentTime + n * 1.15;
+      for (const [ratio, level, ring] of [[0.5, 0.5, 3.2], [1, 1, 2.6], [1.19, 0.6, 1.9], [1.5, 0.4, 1.5], [2, 0.5, 1.2], [2.76, 0.25, 0.8], [5.4, 0.1, 0.4]]) {
+        const o = a.createOscillator(), g = a.createGain();
+        o.type = 'sine'; o.frequency.value = base * ratio;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.4 * level * MASTER, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + ring);
+        o.connect(g).connect(out);
+        o.start(t); o.stop(t + ring + 0.05);
+      }
+    }
+  }
   // 😱 One note of a falling body's scream. A saw through two formants (an open "ah": 800 and 1250 Hz) with a quick shake on its pitch, so it is a voice and not a tone. `step` picks the note from a falling arpeggio (a minor seventh, two octaves of it), and `depth` (0 at the roof, 1 at the street) brings the whole thing down an octave and makes it louder.
   scream(step, depth = 0) {
     if (!this.ready) return;
