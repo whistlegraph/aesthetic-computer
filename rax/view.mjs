@@ -1239,6 +1239,7 @@ export async function createView(canvas) {
   const distantModels = new WeakMap();
   const chalkModels = new Map();
   let boom = 4;
+  let brokeAt = 0; // 💥 when this body came apart: its crosshair comes apart with it
   let threatAt = 0; // 👹 when the crosshair came on to a head: it takes a moment to turn red and open round it
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
@@ -3799,6 +3800,28 @@ export async function createView(canvas) {
     // prompt's crosshair fades with the paper, so this one must already be
     // there, solid, under it, and stay until the paper is whole again.
     const onPanel = !lockedOn && panels.some((p) => p.cursor); // 🖼️ on a world panel it is the panel's own mouse (below)
+    // 💥 Down, the crosshair breaks apart: its four corners and its point are thrown out from the middle, turning red, and fall off the screen. It is whole again when the body stands.
+    brokeAt = me && me.alive === false ? brokeAt || now : 0;
+    if (brokeAt && now - brokeAt < 1600 && !bare && !xr && !radial && !menu) {
+      const { unit } = hud, t = (now - brokeAt) / 1000, arm = 4 * unit, half = 7 * unit;
+      const fade = Math.max(0, 1 - t / 1.6), ink = fade > 0.5 ? 0xff3b3b : 0x8a2a2a;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        const piece = (sx, sy, n) => {
+          // (Each thrown its own way: out along its diagonal, with a kick up, then down under its weight; no two alike.)
+          const vx = sx * (70 + n * 23) * unit, vy = (60 + ((n * 37) % 50)) * unit * (sy || 1) + 40 * unit;
+          const x = Math.round(sx * half + vx * t), y = Math.round(sy * half + vy * t - 260 * unit * t * t);
+          const L = (dx, dy, w, h) => { rect(x + dx + unit, y + dy - unit, 0.000002, w, h, INK); rect(x + dx, y + dy, 0, w, h, ink); };
+          if (!sx && !sy) return L(-unit, -unit, 2 * unit, 2 * unit);
+          L(sx < 0 ? 0 : -arm + unit, 0, arm, unit);
+          L(sx < 0 ? 0 : 0, sy < 0 ? 0 : -arm + unit, unit, arm);
+        };
+        let n = 0;
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) piece(sx, sy, n++);
+        piece(0, 0, 4);
+      });
+      projector.overlay(m, W, H);
+    }
     if ((me?.alive || reticle || (spectator && (lockCursor || screenCursor))) && !radial && !menu && (!bare || reticle) && !onPanel && game?.hud?.reticle !== false) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
