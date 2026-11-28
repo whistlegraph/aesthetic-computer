@@ -439,7 +439,7 @@ export async function createView(canvas) {
           }
           // 🪧 The building whose east side the billboard hangs on (the KidLisp wall, forty metres west of the roof), from the street to over the picture's top.
           box(-SCREEN - 6.2, (22 - drop) / 2, 0, 12, 22 + drop, 36, 0x303646, 0x262b38, 0x20242f);
-          box(-SCREEN - 0.1, 10.5, 0, 0.3, 19.4, 33.4, 0x10131c, 0x10131c, 0x10131c); // its frame
+          box(-SCREEN - 0.3, 10.5, 0, 0.3, 19.4, 33.4, 0x10131c, 0x10131c, 0x10131c); // its frame (behind the picture: a hand nearer and it stood in front of it, and the billboard was a black board)
         }
         for (const [x, z, w, h] of [[-46, -30, 22, 70], [38, -52, 26, 96], [58, 24, 20, 48], [-34, 46, 30, 84], [8, 64, 18, 36], [-72, 8, 24, 58], [84, -8, 22, 104], [-12, -70, 26, 62]]) {
           box(x, -drop + h / 2, z, w, h, w, 0x303646, 0x262b38, 0x20242f);

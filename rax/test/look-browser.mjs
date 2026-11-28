@@ -25,7 +25,7 @@ try {
   const errors = [];
   const page = await (await browser.newContext({ viewport: { width: 960, height: 600 } })).newPage();
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text().slice(0, 900)); });
+  page.on('console', (m) => { if (m.type() === 'error' || /KidLisp/i.test(m.text())) errors.push(m.type() + ': ' + m.text().slice(0, 900)); });
   await page.addInitScript(() => { window.acTOKEN = 'jeffrey'; });
   await page.goto(`http://127.0.0.1:${app.server.address().port}/?debug`);
   const state = () => page.evaluate(() => window.rax?.state());
@@ -33,6 +33,8 @@ try {
   await page.mouse.click(480, 300); // (the first click: sound and the mouse)
   const shot = async (name) => { await page.screenshot({ path: join(out, `${name}.png`) }); };
   await shot('00-arrived');
+  // (LOOK_YAW=270 LOOK_PITCH=10: stand and look that way instead of walking to the gun.)
+  if (process.env.LOOK_YAW) { await page.evaluate(([y, p]) => window.rax.look({ yaw: y, pitch: p }), [Number(process.env.LOOK_YAW), Number(process.env.LOOK_PITCH || 0)]); for (let s = 1; s <= seconds; s++) { await delay(1000); await shot(`${String(s).padStart(2, '0')}-look`); } console.log(JSON.stringify({ errors: [...new Set(errors)].slice(0, 8), walls: await page.evaluate(() => window.raxDebug?.()?.walls ?? null) }, null, 1)); await browser.close(); await app.close(); process.exit(0); }
   void page.evaluate(() => window.rax.walkTo({ x: 0, z: 0 }, { within: 0.4, seconds: 12 }));
   for (let s = 1; s <= seconds; s++) {
     await delay(1000);
