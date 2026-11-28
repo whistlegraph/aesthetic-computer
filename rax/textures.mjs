@@ -156,6 +156,9 @@ export function createTextures({ host, layers = 64, maxSize = 256, loaders = {},
           if (stillOf(s) && s.frames >= STILL_FRAMES) { s.picture = { width: s.runner.width, height: s.runner.height, pixels: pixels.slice() }; s.runner = null; }
           bytes += send(s, { width: s.runnerSize, height: s.runnerSize, pixels });
         } else if (s.kind === 'fn') {
+          // (A function marked `still` draws once: its picture is kept and only sent again when its layer was given up.)
+          if (s.held) { if (s.layer < 0) bytes += send(s, s.picture); continue; }
+          if (drawn[s.ref].still) s.held = true;
           if (t < s.dueAt) continue;
           const p = s.picture, begun = now();
           drawn[s.ref](p.pixels, p.width, p.height, t / 1000);

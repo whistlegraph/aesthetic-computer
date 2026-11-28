@@ -2,7 +2,8 @@ import { poolFloor, poolView } from './pool-view.mjs';
 import { STAIR, DEPTH, POOL, treads, cellarWalls, ceiling, berths } from './basement.mjs';
 import { createFrameChart } from './ac/lib/frame-chart.mjs';
 import { LensScene3D, lensWide, TEXTURE_SIZE, TEXTURE_LAYERS } from './lens-host.mjs';
-import { createTextures } from './textures.mjs';
+import { createTextures, keyOf } from './textures.mjs';
+import { wearAll, skinOf } from './skin.mjs';
 import { loaders as textureLoaders } from './texture-loaders.mjs';
 import { BOP, DRONE, ducked } from './bop.mjs';
 import { groundsOf, promenade, GROUNDS, SPAN } from './park.mjs';
@@ -368,6 +369,26 @@ export async function createView(canvas) {
   const projector = new Projector(host.scene);
   // 🖼️ Textures (textures.mjs): paintings, pictures and KidLisp, on the card's layers.
   const textures = createTextures({ host, layers: TEXTURE_LAYERS, maxSize: TEXTURE_SIZE, loaders: textureLoaders });
+  // 🧵 Materials: small pictures made here, once, and laid over a model's faces (skin.mjs wearAll), multiplied by the face's own colour: so a thing keeps its colour and takes a surface. All near white, so nothing is darkened much.
+  //   metal: brushed, streaks along it, a few scratches   cloth: a weave, two threads over two   flesh: mottled, with darker pores   bone: nearly plain, a fine grain
+  {
+    const noise = (x, y, s) => { const v = Math.sin(x * 12.9898 * s + y * 78.233 * s + s * 37.7) * 43758.5453; return v - Math.floor(v); };
+    const soft = (x, y, cell, s) => { // value noise, eased between the corners of a cell
+      const gx = x / cell, gy = y / cell, ix = Math.floor(gx), iy = Math.floor(gy), fx = gx - ix, fy = gy - iy, ex = fx * fx * (3 - 2 * fx), ey = fy * fy * (3 - 2 * fy);
+      const a = noise(ix, iy, s), b = noise(ix + 1, iy, s), c = noise(ix, iy + 1, s), d = noise(ix + 1, iy + 1, s);
+      return a + (b - a) * ex + (c - a) * ey + (a - b - c + d) * ex * ey;
+    };
+    const make = (name, at) => {
+      const fn = (pixels, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const [r, g, b] = at(x, y, w, h), o = (y * w + x) * 4; pixels[o] = r; pixels[o + 1] = g; pixels[o + 2] = b; pixels[o + 3] = 255; } };
+      fn.still = true;
+      textures.register(name, fn);
+    };
+    make('metal', (x, y) => { const row = noise(0, y, 1.3) * 46, grain = noise(x, y, 2.1) * 14, scratch = noise(0, y, 5.7) > 0.93 && noise(x >> 3, y, 3.3) > 0.4 ? -52 : 0, glint = noise(x, y, 9.1) > 0.985 ? 40 : 0, v = Math.max(120, Math.min(255, 196 + row + grain + scratch + glint)); return [v, v, Math.min(255, v + 6)]; });
+    make('cloth', (x, y) => { const over = ((x >> 1) + (y >> 1)) % 2, thread = over ? (x % 2 ? 250 : 232) : (y % 2 ? 214 : 198), v = thread + noise(x, y, 1.7) * 12 - 6 + (soft(x, y, 16, 2.3) - 0.5) * 26; return [v, v, v]; });
+    make('flesh', (x, y) => { const blotch = soft(x, y, 14, 1.1) * 0.6 + soft(x, y, 5, 3.9) * 0.4, pore = noise(x, y, 6.3) > 0.94 ? -70 : 0, vein = Math.abs(soft(x, y, 9, 7.7) - 0.5) < 0.035 ? -46 : 0, v = 178 + blotch * 77 + pore + vein; return [Math.min(255, v + 10), v * (0.8 + blotch * 0.2), v * (0.78 + blotch * 0.2)]; });
+    make('bone', (x, y) => { const v = 228 + noise(x, y, 4.4) * 18 + (soft(x, y, 20, 1.9) - 0.5) * 22; return [v, v - 2, v - 8]; });
+  }
+  const MATERIAL = Object.fromEntries(['metal', 'cloth', 'flesh', 'bone'].map((n) => [n, keyOf(`fn:${n}:64`)]));
   projector.textures = (key) => textures.resolve(key);
   let staged = []; // 🎭 (stage)
   projector.marks = true; // 📺 screens tagged for the lens's glaze (lens-host.mjs)
@@ -1010,6 +1031,7 @@ export async function createView(canvas) {
       box(0.1, 0.03, 0.05, 0.04, 0.07, 0.04, PAPER, 0xc0c0c0, PAPER);
     }),
   }));
+  for (const f of fighters) { wearAll(f.torso, MATERIAL.cloth, 0.5); wearAll(f.limb, MATERIAL.cloth, 0.5); wearAll(f.head, MATERIAL.bone, 0.5); wearAll(f.hand, MATERIAL.bone, 0.3); }
   // 🩸 Gore (gore.mjs): the same parts, centred so a flying one spins about
   // itself, with a red cut where it came away; drops; three splats.
   const RED = 0xa8101c, DARK = 0x5c0610;
@@ -1195,7 +1217,7 @@ export async function createView(canvas) {
   const armOf = (i) => { const c = seatColor(i); if (!arms.has(c)) arms.set(c, model(({ box }) => box(0, 0, 0.5, 0.2, 0.24, 1, c, INK, PAPER))); return arms.get(c); };
   const armBar = model(({ box }) => box(0, 0, 0.5, 0.2, 0.2, 1, 0xf2f2f2, 0xcfcfcf, 0xe2e2e2));
   // 👹 A head, four ways: jaw shut or open, and the fire inside it low or high (seen through its eyes and the back of its mouth). Meaner than it was: slanted brows, a wider mouth, teeth above and below.
-  const enemyHeads = [0, 1, 2, 3].map((n) => model(({ box }) => {
+  const enemyHeads = [0, 1, 2, 3].map((n) => wearAll(model(({ box }) => {
     const open = n >= 2, glow = n % 2 ? 0xfff07a : 0xff8a1e, gape = open ? 0.13 : 0.06, low = -0.085 - (open ? 0.035 : 0);
     box(0, 0, 0, 0.3, 0.34, 0.3, 0xb3202a, 0x7d141c, 0x991a23);
     for (const s of [-1, 1]) {
@@ -1211,7 +1233,7 @@ export async function createView(canvas) {
       box(x, low + gape / 2 - 0.016, 0.16, 0.034, 0.032, 0.004, 0xf2f2f2, 0xf2f2f2, 0xf2f2f2); // teeth above
       box(x + 0.027, low - gape / 2 + 0.014, 0.16, 0.03, 0.028, 0.004, 0xe0e0e0, 0xe0e0e0, 0xe0e0e0); // …and below, between them
     }
-  }));
+  }), MATERIAL.flesh, 0.34));
   const HEAD_TRAIL = [0xff3b3b, 0xff8a1e, 0xffe066, 0x7dff7a, 0x51e3ee, 0xb46bff, 0xff6ad5].map((c) => model(({ box }) => box(0, 0, 0, 0.1, 0.1, 0.1, c, c, c)));
   const sightLines = new Map();
   const sightLine = (color) => { if (!sightLines.has(color)) sightLines.set(color, model(({ box }) => box(0, 0, 0.5, 0.006, 0.006, 1, color, color, color))); return sightLines.get(color); };
@@ -2631,7 +2653,11 @@ export async function createView(canvas) {
           }
         }
         if ((holder || it.spin) && object.geometry.format === OBJECT_FORMAT)
-          draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
+        {
+          const made = sourceFrame(object.geometry, worldTime).vertices;
+          if (!skinOf(made)) wearAll(made, MATERIAL.metal, 0.3); // 🧵 (a weapon is metal: laid on once for each of its shapes)
+          draw(made, at.x, at.y, at.z, yaw, pitch);
+        }
         else stand(object, at.x - object.x, at.z - object.z, at.y);
         // ✨ A weapon lying loose glows, so it is known from the things that only stand there: two square rings of light turning about it, breathing, and a thin beam up from it.
         // (Its own outline, not a tower of light over it: every edge of every part of the thing, drawn a little proud of it in a yellow that breathes to white, so the highlight is the thing's own form.)
@@ -4115,7 +4141,7 @@ export async function createView(canvas) {
       threatAt = threat !== null && armed ? threatAt || now : 0;
       const onto = threatAt ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
       const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
-      const color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
+      let color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       if (afraid) {
         const far = falling ? Math.max(0, me.y + TOWER_DROP - 1.6) : threat;
         const said = `${far.toFixed(0)}m`, close = !falling && threat < 6, quick = (falling || threat < 8) && Math.floor(now / 140) % 2, ink = falling ? (quick ? 0xffffff : 0xffe066) : quick ? 0xff3b3b : 0xffe066;
@@ -4205,6 +4231,20 @@ export async function createView(canvas) {
             };
             // Arms grow with the box, up to a quarter of its shorter side.
             arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
+          }
+        }
+      }
+      // 🫳 Near a thing to grab, the crosshair begins to go to it: as the aim comes within a fifth of the screen of it, the corners lean out from the middle toward the thing and take its colour, and with the aim on it they stand round it. The word over the crosshair says what; this says which.
+      let reach = 0;
+      if (!box && threat === null && goal?.verb && goal.at) {
+        const s = projector.project(goal.at.x, goal.at.y - (goal.lift || 0), goal.at.z); // (the thing itself: its marker stands `lift` over it)
+        if (s && s.depth > 0.3) {
+          const gx = (s.x * W) / 2, gy = (s.y * H) / 2, off = Math.hypot(gx, gy), within = Math.min(W, H) * 0.22;
+          if (off < within) {
+            reach = 1 - off / within; reach = reach * reach * (3 - 2 * reach);
+            const r = Math.max(6 * unit, Math.round(((0.3 / s.depth) * projector.sx * W) / 2)) + 3 * unit, rest = 7 * unit, go = (from, to) => Math.round((from + (to - from) * reach) / unit) * unit;
+            box = { left: go(-rest, gx - r), right: go(rest, gx + r), bottom: go(-rest, gy - r), top: go(rest, gy + r) };
+            color = mix(color, goal.color, reach);
           }
         }
       }
