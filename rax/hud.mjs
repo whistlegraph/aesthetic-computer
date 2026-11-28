@@ -53,7 +53,8 @@ export function hudLayout(width, height, cells, scale = 1, fixedUnit = 0) {
 // edge (up from the bottom, down from the top), and in the next column
 // inward when a corner's column is full. Rectangles are in the picture's own
 // pixels, x from the left and y from the top.
-export function createPack(width, height, { safeX = 4, safeY = 4, gap = 2 } = {}) {
+// (`reach`: how far from its own edge a part may stand before the next column is tried: 0.65 of the screen, or all of a small region of its own.)
+export function createPack(width, height, { safeX = 4, safeY = 4, gap = 2, reach = 0.65 } = {}) {
   const taken = [];
   const hits = (r) => taken.find((t) => r.x < t.x + t.w + gap && t.x < r.x + r.w + gap && r.y < t.y + t.h + gap && t.y < r.y + r.h + gap);
   const pack = {
@@ -70,7 +71,7 @@ export function createPack(width, height, { safeX = 4, safeY = 4, gap = 2 } = {}
         for (let other = hits(rect), n = 0; other && n < 64; other = hits(rect), n++)
           rect.y = y = bottom ? other.y - gap - h : other.y + other.h + gap;
         // Within the half of the screen its edge is on, it stands; past that, the next column inward.
-        if (!hits(rect) && (bottom ? rect.y >= height * 0.35 : rect.y + h <= height * 0.65)) break;
+        if (!hits(rect) && (bottom ? rect.y >= height * (1 - reach) : rect.y + h <= height * reach)) break;
         const blocker = hits({ ...rect, y: bottom ? height - safeY - h : safeY }) || rect;
         column += (blocker.w || w) + gap;
       }

@@ -30,3 +30,17 @@ test('a body fallen off a platform is stood back on it by the match', () => {
   m.step();
   assert.ok(m.seats[seat].player.y > 0, 'back on top');
 });
+
+import { createPack } from '../hud.mjs';
+test('the small lines beside the face cam pack in a region of their own: three to a column, the rest in the next, none on another', () => {
+  const side = createPack(4096, 26, { safeX: 0, safeY: 0, gap: 1, reach: 1 });
+  const widths = [60, 40, 12, 110, 30];
+  const got = widths.map((w, i) => side.reserve(`line-${i}`, 'tl', w, 8));
+  assert.deepEqual(side.overlaps(), []);
+  assert.deepEqual(got.slice(0, 3).map((r) => [r.x, r.y]), [[0, 0], [0, 9], [0, 18]]);
+  for (const r of got) assert.ok(r.y >= 0 && r.y + r.h <= 26, 'inside the cam\'s height');
+  assert.ok(got[3].x > 60 && got[3].y === 0, 'the fourth starts the next column, clear of the first');
+  // The screen's own packing still keeps to its half.
+  const screen = createPack(400, 300), tall = Array.from({ length: 5 }, (_, i) => screen.reserve(`t${i}`, 'tr', 50, 60));
+  assert.ok(tall.every((r) => r.y + r.h <= 300 * 0.65));
+});

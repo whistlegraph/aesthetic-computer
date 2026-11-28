@@ -1236,7 +1236,7 @@ function goIn(id, face) {
   return true;
 }
 // ⌨️ The panel this page has stepped in to, if its piece hears a keyboard; the keys it holds there (let go when the eye comes out, so no note is left sounding); and the keys rax keeps while inside.
-const INSIDE_KEYS = new Set(['Escape', 'Tab', 'KeyZ']), pieceKeys = new Map();
+const INSIDE_KEYS = new Set(['Escape', 'Tab']), pieceKeys = new Map();
 const keyPanel = () => {
   if (!dock || dock.way < 0 || prompt.open || chat.open || menu || radial.open || chalkMode || typing()) return null;
   const panel = panels.list.find((p) => !p.hidden && `panel:${p.id}` === dock.id);
@@ -2883,7 +2883,7 @@ document.addEventListener('keydown', (e) => {
     releaseInput();
     return;
   }
-  // Z toggles screen focus. Leave modified Z to the browser's undo shortcut.
+  // (Leave modified Z to the browser's undo shortcut.)
   if (e.code === 'KeyZ' && (e.metaKey || e.ctrlKey || e.altKey)) return;
   // The focused piece receives the other keys. Escape leaves and Tab opens the prompt.
   const inside = keyPanel();
@@ -3031,23 +3031,24 @@ document.addEventListener('keydown', (e) => {
   if (seat < 0 && selfMember?.canTakeBody && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) takeBody();
   else if (seat >= 0 && selfMember?.handle && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) takeDrone();
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
-  // 🎯 F is the focus key, beside WASD (2026-11-27; it was Z, which still
-  // works): looking at a screen it goes in, gone in or locked on it comes
-  // out. Anywhere else it is `use`, as before. Inside a piece that hears the
-  // keyboard F is the piece's own key (a note, on the Notepat) and never
-  // reaches here: Escape or Z comes out of those.
+  // 🎯 F is the lock key, beside WASD (2026-11-27; it was Z, which no longer
+  // is): aimed at a thing it locks on, at a screen it goes in, and locked on
+  // or gone in it lets go. Aimed at a KidLisp wall it opens the wall's ring;
+  // at nothing it is `use`, as before. Inside a piece that hears the keyboard
+  // F is the piece's own key (a note, on the Notepat) and never reaches here:
+  // Escape comes out of those.
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
-    if (dock || lockOn || focusObject?.panel) pressLock();
+    if (dock || lockOn || focusObject?.panel) pressLock(); // (a screen first: one that hangs on a wall is still gone in to)
     else if (focusObject?.wall && !holding()) openRadial(focusObject);
+    else if (focusObject) pressLock();
     else useQueued = true;
   }
   if (seat >= 0 && e.code === 'KeyQ' && !e.repeat) dropQueued = true;
   // 🛵 B: on or off your cabin bike (bike.mjs). Space lifts it, shift lets it sink.
   if (seat >= 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) bikeQueued = true;
-  // Lock on, as the pad's RB does (2026-11-08): Z toggles it, [ and ]
-  // change it like the d-pad, and delete removes the locked object at once
-  // (the lock is the confirmation, as B on the pad).
-  if (e.code === 'KeyZ' && !e.repeat && (seat >= 0 || !typing())) pressLock();
+  // Locked on (F, as the pad's RB: 2026-11-08), [ and ] change it like the
+  // d-pad, and delete removes the locked object at once (the lock is the
+  // confirmation, as B on the pad).
   // (the arrows step it too: a lock holds the eye, so they have no turning to do; gone in to a screen they move its mouse)
   // (In at a screen the arrows are its mouse; the brackets still step.)
   if ((lockOn || dock) && !e.repeat && !typing() && (dock ? ['BracketLeft', 'BracketRight'] : ['BracketLeft', 'BracketRight', 'ArrowLeft', 'ArrowRight']).includes(e.code)) cycleLock(e.code === 'BracketRight' || e.code === 'ArrowRight' ? 1 : -1);
@@ -3712,11 +3713,14 @@ function step(now, xr) {
   // 👀 Someone looking on tells the room where their eye is, a few times a
   // second and only when it has moved, so maps can show who is overhead.
   if (seat < 0 && connected && !joining() && sheetOpen && now - lookAt > 100) { // (ten times a second: the room draws it as a drone)
-    const said = `${freecam.x.toFixed(1)} ${freecam.y.toFixed(1)} ${freecam.z.toFixed(1)} ${Math.round(yaw / 5)}`;
-    if (said !== lookSaid) {
+    // 🥽 In a headset the eye is the head: where it has moved to from the drone's own place (immersive.mjs offset), not the place alone.
+    const eyeAt = xr?.offset ? { x: freecam.x + xr.offset[0], y: freecam.y + xr.offset[1], z: freecam.z + xr.offset[2] } : freecam;
+    const said = `${eyeAt.x.toFixed(1)} ${eyeAt.y.toFixed(1)} ${eyeAt.z.toFixed(1)} ${Math.round(yaw / 5)}`;
+    // (Said again every second though nothing moved: the room forgets an eye it has not heard of for four, and a drone that hangs still, or a head that only turns a little, was gone from everyone's picture.)
+    if (said !== lookSaid || now - lookAt > 1000) {
       lookSaid = said;
       lookAt = now;
-      send({ type: 'look', x: freecam.x, y: freecam.y, z: freecam.z, yaw });
+      send({ type: 'look', x: eyeAt.x, y: eyeAt.y, z: eyeAt.z, yaw });
       try { sessionStorage.setItem('rax-eye', JSON.stringify({ room, x: freecam.x, y: freecam.y, z: freecam.z, yaw, pitch, at: Date.now() })); } catch {}
     }
   }

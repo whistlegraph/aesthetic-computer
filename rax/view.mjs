@@ -55,9 +55,9 @@ export const LEGEND = {
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera / ', ['p', 'KeyP'], ' drone'],
-    [['f', 'KeyF'], ' focus or use / ', ['q', 'KeyQ'], ' drop'],
+    [['f', 'KeyF'], ' lock or use / ', ['q', 'KeyQ'], ' drop'],
     [['x', 'KeyX'], ' paint / ', ['enter', 'Enter'], ' build'],
-    [['z', 'KeyZ'], ' lock / ', ['del', ['Delete', 'Backspace']], ' remove / ', ['b', 'KeyB'], ' bike'],
+    [['del', ['Delete', 'Backspace']], ' remove / ', ['b', 'KeyB'], ' bike'],
     [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
   pad: [
@@ -2595,12 +2595,12 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.panel || o.screen
-          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : o.panel || spectator ? '{f} go in' : '{z} go in'
+          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : '{f} go in'
         : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
           ? pad ? `${spectator ? '[X]' : '[RB]'} ${o.far ? 'lock on' : 'go in'}` : `{f} ${o.source ? 'change' : 'build'}`
           : spectator ? pad ? '[X] lock on' : '{f} lock on' : o.owner === owner
-            ? pad ? '[RB] lock on' : '{enter} change / {z} lock on'
-            : pad ? '[RB] lock on' : '{z} lock on';
+            ? pad ? '[RB] lock on' : '{enter} change / {f} lock on'
+            : pad ? '[RB] lock on' : '{f} lock on';
       const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
       const confirming = focusObject && removeArmed === focusObject.id ? '{delete} again to remove' : null;
       // Locked on, the top-right controls become the lock's own, row for
@@ -2622,8 +2622,8 @@ export async function createView(canvas) {
                 ? ['[RS] cursor / [RB] unlock']
                 : ['[B] remove', '[RS] cursor / [DH] next', '[RB] unlock']
               : focusObject.wall
-                ? [`{f} ${focusObject.source ? 'change' : 'build'} / {z} unlock`]
-                : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {z} unlock']),
+                ? ['{f} unlock']
+                : [`${mine ? '{enter} change / ' : ''}{del} remove`, '{[} {]} next / {f} unlock']),
           ].join('\n')
         : null;
       // What the highlighted object offers ([B] remove, [RB] unlock, its
@@ -3827,90 +3827,77 @@ export async function createView(canvas) {
         px(-1, 24, 26, 1, edge);
         px(-1, 0, 1, 24, edge);
         px(24, 0, 1, 24, edge);
-        // Braincells and connection details sit in even 10-row slots, so no
-        // two overlap (2026-11-08). A slot's number is the top of small()'s
-        // 8-row glyph box; the glyphs themselves start a row lower.
-        let slot = 26;
-        const nextSlot = () => ((slot -= 10), slot + 10); // (a clear row between each line)
-        // Three rows, the cam's own height: the connection (four rising bars
-        // and its ping), where you stand, your braincells.
-        {
-          const ping = (connection?.label || '').toLowerCase();
+        // 📦 The small lines beside the cam (the connection, your braincells,
+        // your deaths, where you stand) are packed, as the screen's edges are
+        // (hud.mjs createPack), in a region of their own: the cam's height,
+        // from its right edge. Each asks for the room it needs, in order; the
+        // first three stand in a column, and what will not fit under them
+        // starts the next column beside, so nothing here lies on anything
+        // else whatever is shown (2026-11-27). A line is one 8-row box of
+        // small() glyphs; `left` and `top` are in the cam's own pixels.
+        const side = createPack(4096, 26, { safeX: 0, safeY: 0, gap: 1, reach: 1 });
+        const line = (id, width, draw) => {
+          const r = side.reserve(id, 'tl', Math.ceil(width), 8);
+          draw(27 + r.x, 26 - r.y);
+        };
+        const word = (t, left, top, color) => {
+          const cx = x0 + (left + smallWidth(t) / 2) * unit, cy = y0 + top * unit;
+          small(t, cx + unit, cy - unit, 0.000002, unit, INK);
+          small(t, cx, cy, 0, unit, color);
+        };
+        const icon = (rows, left, top, color) => {
+          rows.forEach((row, r) => [...row].forEach((ch, c) => ch === '#' && px(left + c + 1, top - 1 - r - 1, 1, 1, INK, 0.000002)));
+          rows.forEach((row, r) => [...row].forEach((ch, c) => ch === '#' && px(left + c, top - 1 - r, 1, 1, typeof color === 'function' ? color(r, c) : color)));
+        };
+        // The connection: four rising bars, its ping, and which server answers (its city, or its host).
+        const ping = (connection?.label || '').toLowerCase();
+        if (ping) {
           const bars = connection?.bars || 0;
           const good = 0x3fb950, fair = 0xffe066, poor = 0xff6b6b;
-          const pingColor = !ping ? 0x8b90a0 : bars >= 3 ? good : bars >= 2 ? fair : poor;
-          if (ping) {
-            const pt = nextSlot();
-            const base = pt - 7; // The bars' foot on the glyphs' foot.
+          const pingColor = bars >= 3 ? good : bars >= 2 ? fair : poor;
+          line('ping', 13 + smallWidth(ping) + (served ? 5 + smallWidth(served) : 0), (left, top) => {
+            const base = top - 7; // The bars' foot on the glyphs' foot.
             for (let i = 0; i < 4; i++) {
               const h = 2 + i * 2, lit = i < bars;
-              px(27 + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
-              px(27 + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
-              if (lit) px(27 + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
+              px(left + i * 3 + 1, base - 1, 2, h, INK, 0.000002);
+              px(left + i * 3, base, 2, h, lit ? pingColor : 0x2c3040, 0.000001);
+              if (lit) px(left + i * 3, base + h - 1, 2, 1, tint(pingColor, 1.25));
             }
-            // The glyphs' foot on the bars' foot (small() takes the top of an 8-row box).
-            const tx = x0 + (40 + smallWidth(ping) / 2) * unit, ty = y0 + (base + 7) * unit;
-            small(ping, tx + unit, ty - unit, 0.000002, unit, INK);
-            small(ping, tx, ty, 0, unit, pingColor);
-            // 🏙️ Which server answers, to the right of the ping: its city, or its host.
-            if (served) {
-              const sx = x0 + (40 + smallWidth(ping) + 5 + smallWidth(served) / 2) * unit;
-              small(served, sx + unit, ty - unit, 0.000002, unit, INK);
-              small(served, sx, ty, 0, unit, 0x8b90a0);
-            }
-          }
-        // ☠️ Deaths, in the slot over the braincells: a pixel skull and the count.
-        if (Number.isFinite(deaths)) {
-          const dt = nextSlot();
-          const SK = ['.#.#.', '.###.', '#.#.#', '#####', '.###.']; // (drawn foot first, as the brain is)
-          SK.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(28 + c + 1, dt - 1 - r - 1, 1, 1, INK, 0.000002)),
-          );
-          SK.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(28 + c, dt - 1 - r, 1, 1, 0xe6e6ee)),
-          );
-          const n = Math.round(deaths).toLocaleString('en-US');
-          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + dt * unit;
-          small(n, nx + unit, ny - unit, 0.000002, unit, INK);
-          small(n, nx, ny, 0, unit, 0xe6e6ee);
+            word(ping, left + 13, top, pingColor);
+            if (served) word(served, left + 13 + smallWidth(ping) + 5, top, 0x8b90a0);
+          });
         }
-        // Braincells beside the cam: a pixel brain and the count, in purple.
+        // Braincells: a pixel brain and the count, in purple; exact, with thousands separators.
         if (Number.isFinite(braincells)) {
-          const bt = nextSlot();
-          const BR = ['.##.##.', '#######', '###.###', '#######', '.##.##.'];
-          BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c + 1, bt - 1 - r - 1, 1, 1, INK, 0.000002)),
-          );
-          BR.forEach((row, r) =>
-            [...row].forEach((ch, c) => ch === '#' && px(27 + c, bt - 1 - r, 1, 1, r === 2 && c === 3 ? 0x8e44ff : 0xb46bff)),
-          );
-          // Exact, with thousands separators, shadowed for contrast.
           const n = Math.round(braincells).toLocaleString('en-US');
-          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + bt * unit;
-          small(n, nx + unit, ny - unit, 0.000002, unit, INK);
-          small(n, nx, ny, 0, unit, spending ? 0xf0d8ff : 0xd7a6ff);
-          // Spending: purple pixels fly up and away from the count.
-          if (spending && Math.random() < 0.7)
-            cellBits.push({ x: 36 + Math.random() * n.length * 4, y: bt + 1, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
-          for (let k = cellBits.length - 1; k >= 0; k--) {
-            const b = cellBits[k], t = (now - b.born) / 1000;
-            if (t > 0.9) { cellBits.splice(k, 1); continue; }
-            px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
-          }
-        }
-          // 📍 Under the braincells: the space you are in and where you stand
-          // in it, in metres, each axis in its colour. Always shown (it was
-          // the debugging layer's until 2026-11-27).
-          if (me) {
-            const pt = nextSlot();
-            let left = x0 + 27 * unit;
-            for (const [t, c] of [...(roomName ? [[roomName, 0xd0d4e0]] : []), ['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]]) {
-              const cx = left + (smallWidth(t) / 2) * unit, cy = y0 + pt * unit;
-              small(t, cx + unit, cy - unit, 0.000002, unit, INK);
-              small(t, cx, cy, 0, unit, c);
-              left += (smallWidth(t) + 6) * unit;
+          line('braincells', 9 + smallWidth(n), (left, top) => {
+            icon(['.##.##.', '#######', '###.###', '#######', '.##.##.'], left, top, (r, c) => (r === 2 && c === 3 ? 0x8e44ff : 0xb46bff));
+            word(n, left + 9, top, spending ? 0xf0d8ff : 0xd7a6ff);
+            // Spending: purple pixels fly up and away from the count.
+            if (spending && Math.random() < 0.7)
+              cellBits.push({ x: left + 9 + Math.random() * n.length * 4, y: top + 1, vx: (Math.random() - 0.3) * 30, vy: 20 + Math.random() * 30, born: now });
+            for (let k = cellBits.length - 1; k >= 0; k--) {
+              const b = cellBits[k], t = (now - b.born) / 1000;
+              if (t > 0.9) { cellBits.splice(k, 1); continue; }
+              px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
             }
-          }
+          });
+        }
+        // ☠️ Deaths: a pixel skull and the count (the database's: deaths.mjs).
+        if (Number.isFinite(deaths)) {
+          const n = Math.round(deaths).toLocaleString('en-US');
+          line('deaths', 9 + smallWidth(n), (left, top) => {
+            icon(['.#.#.', '.###.', '#.#.#', '#####', '.###.'], left + 1, top, 0xe6e6ee); // (drawn foot first, as the brain is)
+            word(n, left + 9, top, 0xe6e6ee);
+          });
+        }
+        // 📍 The space you are in and where you stand in it, in metres, each
+        // axis in its colour. Always shown (it was the debugging layer's until 2026-11-27).
+        if (me) {
+          const parts = [...(roomName ? [[roomName, 0xd0d4e0]] : []), ['x ' + (me.x + (place?.x || 0)).toFixed(1), AXIS.x], ['y ' + (me.y || 0).toFixed(1), AXIS.y], ['z ' + (me.z + (place?.z || 0)).toFixed(1), AXIS.z]];
+          line('place', parts.reduce((w, [t]) => w + smallWidth(t) + 6, -6), (left, top) => {
+            for (const [t, c] of parts) { word(t, left, top, c); left += smallWidth(t) + 6; }
+          });
         }
         // The health bar under it, in health colours.
         const hpc = hp > 60 ? 0x3fb950 : hp > 30 ? 0xffe066 : 0xff6b6b;
