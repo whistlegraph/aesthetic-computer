@@ -138,6 +138,7 @@ export class Controller {
       result.right = left[0];
       result.fwd = -left[1];
       [result.lookX, result.lookY] = lookCurve(right);
+      result.lookRaw = [pad.axes[2] || 0, pad.axes[3] || 0]; result.lookDead = this.deadzones[1]; // (the look stick as it lies, and the deadzone it is in or out of: drawn in the crosshair)
       result.lookRim = Math.abs(right[0]); // (how far across the look stick is, before the curve: the client's turn boost reads it)
       // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
       result.jump = edge(0);

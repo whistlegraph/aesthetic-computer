@@ -23,7 +23,7 @@ await once(app.server, 'listening');
 const browser = await chromium.launch({ ...(existsSync('/Applications/Google Chrome.app') ? { channel: 'chrome' } : {}), headless: true, args: ['--enable-unsafe-webgpu'] });
 try {
   const errors = [];
-  const page = await (await browser.newContext({ viewport: { width: 960, height: 600 } })).newPage();
+  const page = await (await browser.newContext({ viewport: { width: Number((process.env.LOOK_SIZE || '960x600').split('x')[0]), height: Number((process.env.LOOK_SIZE || '960x600').split('x')[1]) }, deviceScaleFactor: Number(process.env.LOOK_DPR || 1) })).newPage();
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error' || /KidLisp/i.test(m.text())) errors.push(m.type() + ': ' + m.text().slice(0, 900)); });
   await page.addInitScript(() => { window.acTOKEN = 'jeffrey'; });

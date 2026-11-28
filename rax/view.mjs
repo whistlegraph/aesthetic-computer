@@ -1354,6 +1354,8 @@ export async function createView(canvas) {
   let boom = 4;
   let stainKey = '', stainModel = null; // 🩸 the floor's stains, made again only when one is added
   let brokeAt = 0; // 💥 when this body came apart: its crosshair comes apart with it
+  let aimReach = 0; // (how far from the middle the crosshair's corners went last frame: what is written round it stands clear of them)
+  let goalBand = null; // (and where the goal's own words were, for the marker's words to keep out of)
   let threatAt = 0; // 👹 when the crosshair came on to a head: it takes a moment to turn red and open round it
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
@@ -1917,6 +1919,7 @@ export async function createView(canvas) {
     stats = false, // Shared frame chart and Rax diagnostics.
     replaying = false, // 🎞️ what is drawn is the last seconds before this body went down, played again
     stains = [], // 🩸 [x, z, size, shade]: what was spilled on the floor, as the room keeps it
+    stickAim = null, // 🕹️ { x, y, dead }: the look stick as it lies and its deadzone, on a pad
     trigger = null, // 🔫 { curve, breakAt, resetAt, armed, firedAt }: the right trigger's pressure lately, with a gun in hand
     stage = false, // 👹 the room is the stage: painting and building are off
     roof = false, // 🏙️ the room is a roof over a street (a platform): the planet and its hollow are not under it
@@ -3709,12 +3712,14 @@ export async function createView(canvas) {
     const goalSpans = (g) => [{ text: g.text, color: g.color }, ...(g.code ? (g.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: g.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + g.code, color: 0x7dff7a }]) : []),
       ...(g.count ? [{ text: '  ' + g.count, color: 0xffffff }] : []), ...(g.sub ? [{ text: '  ' + g.sub, color: THEME.dim }] : [])];
     // (Round the crosshair, where the eye is, and small: what to do over it; how many are left up its right side and what else there is to say up its left, turned a quarter round; thin rules from each toward the middle. The corner at the top left keeps saying what its button does. It was beside the corner block, 2026-11-28.)
+    goalBand = null;
     if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
-      const { unit } = hud, out = 18 * unit;
+      const { unit } = hud, clear = Math.max(12 * unit, Math.min(aimReach + 4 * unit, Math.min(W, H) / 2 - 40 * unit)), out = clear + 6 * unit; // (clear of the crosshair's corners wherever a head has taken them, and never off the screen)
       const top = [{ text: goal.text, color: goal.color }, ...(goal.code ? (goal.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: goal.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + goal.code, color: 0x7dff7a }]) : [])];
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
         const wide = spanWidthOf(top, unit);
+        goalBand = { half: wide / 2 + 4 * unit, bottom: out - 10 * unit, top: out + 8 * unit };
         drawSpans({ rect, text }, top, 0, out + 6 * unit, unit, { shadow: INK }); // (its top; the letters hang under)
         rect(-wide / 2, out - 6 * unit, 0, wide, unit, goal.color); rect(-unit / 2, out - 9 * unit, 0, unit, 3 * unit, goal.color);
         // A word up a side, read from the foot, its middle level with the crosshair.
@@ -3735,8 +3740,8 @@ export async function createView(canvas) {
           }
           return long * unit;
         };
-        if (goal.count) { const l = turned(goal.count, 15 * unit, 0xffffff); rect(13 * unit, -l / 2, 0, unit, l, 0xffffff); rect(10 * unit, -unit / 2, 0, 3 * unit, unit, 0xffffff); }
-        if (goal.sub) { const l = turned(goal.sub, -24 * unit, THEME.dim); rect(-14 * unit, -l / 2, 0, unit, l, THEME.dim); }
+        if (goal.count) { const l = turned(goal.count, clear + 3 * unit, 0xffffff); rect(clear + unit, -l / 2, 0, unit, l, 0xffffff); }
+        if (goal.sub) { const l = turned(goal.sub, -clear - 12 * unit, THEME.dim); rect(-clear - 2 * unit, -l / 2, 0, unit, l, THEME.dim); }
       });
       projector.overlay(m, W, H);
     }
@@ -3780,6 +3785,7 @@ export async function createView(canvas) {
           const wordsW = smallSpanWidth(words, unit), back = long + 5 * unit;
           let tx = tipX - ax * (back + (Math.abs(ax) > 0.5 ? wordsW / 2 : 0)), ty = tipY - ay * (back + (Math.abs(ay) > 0.5 ? 6 * unit : 0)) + 4 * unit;
           tx = Math.max(-W / 2 + wordsW / 2 + 4 * unit, Math.min(W / 2 - wordsW / 2 - 4 * unit, tx));
+          if (goalBand && Math.abs(tx) < goalBand.half + wordsW / 2 && ty > goalBand.bottom - 8 * unit && ty < goalBand.top + 4 * unit) ty = goalBand.top + 10 * unit; // (not across the goal's own words: over them)
           ty = Math.max(-H / 2 + 12 * unit, Math.min(H / 2 - 6 * unit, ty));
           drawSpans({ rect: flip(worldRect), text, small }, words, tx, ty, unit, { shadow: INK, tiny: true });
         });
@@ -4137,6 +4143,7 @@ export async function createView(canvas) {
       } else if (threat !== null) {
         // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
       }
+      aimReach = 0;
       let half = (threat !== null && armed ? 4 : afraid ? 14 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
@@ -4243,6 +4250,7 @@ export async function createView(canvas) {
             // The corner's outer pixel, then arms running inward.
             const x = box ? (sx < 0 ? box.left - t : box.right) : sx < 0 ? -half - t : half,
               y = box ? (sy < 0 ? box.bottom - t : box.top) : sy < 0 ? -half - t : half;
+            aimReach = Math.max(aimReach, Math.abs(x) + t, Math.abs(y) + t);
             L(sx < 0 ? x : x - arm + t, y, arm, t);
             L(x, sy < 0 ? y : y - arm + t, t, arm);
           }
@@ -4253,6 +4261,13 @@ export async function createView(canvas) {
           rect(x - t, y - t, 0, 2 * t, 2 * t, 0xffffff);
         };
         // (Over a head the bracket goes round the head, and the point stays where the aim truly is, inside it: a round strikes the very spot the point is on, so a shot is placed, not only landed. Empty-handed the point is the face, above.)
+        // 🕹️ The look stick, small, in the crosshair: a square the size of its deadzone (of a travel that reaches the corners) and a mark where the stick lies; dim inside the deadzone, where it turns nothing, lit outside it.
+        if (stickAim && !afraid && threat === null && !box) {
+          const reach = half - 2 * t, d = Math.max(t, Math.round((stickAim.dead * reach) / t) * t), live = Math.hypot(stickAim.x, stickAim.y) > stickAim.dead, ink = live ? 0x00ffff : 0x5a6072;
+          rect(-d - t, -d - t, 0.000003, 2 * d + t, t, 0x5a6072); rect(-d - t, d, 0.000003, 2 * d + 2 * t, t, 0x5a6072); rect(-d - t, -d - t, 0.000003, t, 2 * d + t, 0x5a6072); rect(d, -d - t, 0.000003, t, 2 * d + t, 0x5a6072);
+          const mx = Math.round((stickAim.x * reach) / t) * t, my = Math.round((-stickAim.y * reach) / t) * t;
+          rect(mx - t, my - t, 0.0000005, 2 * t, 2 * t, ink);
+        }
         if (afraid) { /* the face */ }
         else if (threat !== null) { rect0(-2 * t, -2 * t, 0.000002, 4 * t, 4 * t, INK); rect0(-t, -t, 0, 2 * t, 2 * t, Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff); }
         else if (Number.isFinite(cursorX)) {
@@ -4349,7 +4364,8 @@ export async function createView(canvas) {
             for (const sx of [-1, 1])
               for (const sy of [-1, 1]) {
                 const x = sx < 0 ? -half - t : half, y = sy < 0 ? -half - t : half;
-                L(sx < 0 ? x : x - arm + t, y, arm, t);
+                aimReach = Math.max(aimReach, Math.abs(x) + t, Math.abs(y) + t);
+            L(sx < 0 ? x : x - arm + t, y, arm, t);
                 L(x, sy < 0 ? y : y - arm + t, t, arm);
               }
             L(-t, -t, 2 * t, 2 * t); // (the point itself)
