@@ -49,3 +49,23 @@ test('the small lines beside the face cam pack in a region of their own: three t
   const screen = createPack(400, 300), tall = Array.from({ length: 5 }, (_, i) => screen.reserve(`t${i}`, 'tr', 50, 60));
   assert.ok(tall.every((r) => r.y + r.h <= 300 * 0.65));
 });
+
+import { roofBoxes, ESCAPE_DROP, ESCAPE_WIDE } from '../world.mjs';
+test('the fire escape: stepped off the roof a body lands on the landing and climbs the steps back; run off, it clears the rail and falls', () => {
+  const fixed = roofBoxes(WORLD), go = (p, cmd, n) => { for (let i = 0; i < n; i++) p = move(p, cmd, [], 0, fixed); return p; };
+  const east = { yaw: 90, pitch: 0, right: 0, buttons: 0 };
+  // Stepped off, slowly, a little north of the steps.
+  let p = go({ ...spawn(0), x: WORLD - 0.5, z: -6, yaw: 90 }, { ...east, fwd: 0.25 }, 240);
+  assert.ok(p.onGround && Math.abs(p.y - CFG.eyeHeight + ESCAPE_DROP) < 0.01, `on the landing: y ${p.y}`);
+  assert.ok(p.x > WORLD && p.x < WORLD + ESCAPE_WIDE, 'held by the rail');
+  // Along the landing to the foot of the steps and up them: back level with the roof.
+  p = { ...p, x: WORLD + 0.65, yaw: 0 };
+  for (let i = 0; i < 400 && p.z < 4; i++) p = move(p, { yaw: 0, pitch: 0, right: 0, buttons: 0, fwd: 0.6 }, [], 0, fixed);
+  assert.ok(Math.abs(p.y - CFG.eyeHeight) < 0.05, `at the top of the steps, level with the roof: y ${p.y} at z ${p.z}`);
+  // …and off the top step on to the roof itself.
+  p = go({ ...p, yaw: 270 }, { yaw: 270, pitch: 0, right: 0, buttons: 0, fwd: 0.6 }, 60);
+  assert.ok(p.x < WORLD && p.onGround && Math.abs(p.y - CFG.eyeHeight) < 0.01, `back on the roof: x ${p.x} y ${p.y}`);
+  // Run off: over the rail and down.
+  p = go({ ...spawn(0), x: 0, z: -6, yaw: 90 }, { ...east, fwd: 1 }, 600);
+  assert.ok(p.y < FALL_Y, 'the street');
+});

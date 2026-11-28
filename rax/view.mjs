@@ -255,6 +255,7 @@ import {
   clamp,
   PLATFORM_DEPTH,
   TOWER_DROP,
+  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -395,12 +396,26 @@ export async function createView(canvas) {
       if (!walled) {
         // The slab under the floor (its top a hair below, so the two never fight), each side in its wall's colour.
         box(0, -0.06 - PLATFORM_DEPTH / 2, 0, 2 * W, PLATFORM_DEPTH, 2 * W, p.floor, p.walls.east, p.walls.north);
+        // 🪜 The fire escape (world.mjs roofBoxes): the landing as a dark grating all round, a rail of posts and one bar along its outer side, and on the east and west sides the steps back up.
+        {
+          const out = W + ESCAPE_WIDE, top = -ESCAPE_DROP, iron = 0x3a3f4d, dark = 0x262a35, rail = 0x8b90a0;
+          for (const [x, z, w, d] of [[(W + out) / 2, 0, ESCAPE_WIDE, 2 * out], [-(W + out) / 2, 0, ESCAPE_WIDE, 2 * out], [0, (W + out) / 2, 2 * W, ESCAPE_WIDE], [0, -(W + out) / 2, 2 * W, ESCAPE_WIDE]])
+            box(x, top - 0.1, z, w, 0.2, d, iron, dark, dark);
+          for (const [x, z, w, d] of [[out - 0.05, 0, 0.06, 2 * out], [-out + 0.05, 0, 0.06, 2 * out], [0, out - 0.05, 2 * out, 0.06], [0, -out + 0.05, 2 * out, 0.06]])
+            box(x, top + ESCAPE_RAIL, z, w, 0.06, d, rail, rail, rail);
+          for (let n = -out; n <= out + 0.01; n += 1.4) for (const [x, z] of [[out - 0.05, n], [-out + 0.05, n], [n, out - 0.05], [n, -out + 0.05]])
+            box(x, top + ESCAPE_RAIL / 2, z, 0.06, ESCAPE_RAIL, 0.06, rail, rail, rail);
+          const rise = ESCAPE_DROP / ESCAPE_STEPS;
+          for (const side of [1, -1]) for (let k = 0; k < ESCAPE_STEPS; k++)
+            box(side * (W + 0.65), top + ((k + 1) * rise) / 2, side * (-2 + (k + 0.5) * ESCAPE_RUN), 1.3, (k + 1) * rise, ESCAPE_RUN, k % 2 ? 0x4a5061 : iron, dark, dark);
+        }
         if (!tower) return;
         // 🏙️ Under it, the skyscraper it is the roof of: a shaft a little narrower than the roof, a band of lit windows on every storey, down to the street; and round it the street, with the roofs of lower buildings to fall past.
         const drop = TOWER_DROP, shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
         box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
         for (let y = top - 2; y > -drop + 2; y -= 3.4) {
-          const lit = (n) => ((Math.sin(y * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1 > 0.35 ? 0xffe9a8 : 0x39405a;
+          // (Glass: a lit room behind it, or the sky in it. An unlit pane takes the sky's own colour, paler toward its top as the sky is, so the tower's faces read as mirror, not as holes.)
+          const lit = (n) => ((Math.sin(y * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1 > 0.6 ? 0xffe9a8 : (n + Math.round(y)) % 3 ? p.sky : tint(p.sky, 1.35);
           for (let n = 0; n < 4; n++) {
             const across = n % 2 === 0, sign = n < 2 ? 1 : -1, face = sign * (shaft / 2 + 0.02);
             for (let k = -2; k <= 2; k++) {
@@ -1125,6 +1140,9 @@ export async function createView(canvas) {
   // KidLisp program is still loading.
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
+  // An arm that reaches: a seat-coloured bar a metre long from its near end, drawn at the length it must be.
+  const arms = new Map();
+  const armOf = (i) => { const c = seatColor(i); if (!arms.has(c)) arms.set(c, model(({ box }) => box(0, 0, 0.5, 0.2, 0.24, 1, c, INK, PAPER))); return arms.get(c); };
   const armBar = model(({ box }) => box(0, 0, 0.5, 0.2, 0.2, 1, 0xf2f2f2, 0xcfcfcf, 0xe2e2e2));
   // 👹 A head, four ways: jaw shut or open, and the fire inside it low or high (seen through its eyes and the back of its mouth). Meaner than it was: slanted brows, a wider mouth, teeth above and below.
   const enemyHeads = [0, 1, 2, 3].map((n) => model(({ box }) => {
@@ -1153,7 +1171,7 @@ export async function createView(canvas) {
     const key = `${object.id}@${object.version}:${lit}`;
     if (!outlines.has(key)) {
       if (outlines.size > 64) outlines.clear();
-      const color = lit ? 0xffffff : 0xffe066, t = 0.014, proud = 0.012;
+      const color = [0xffe066, 0xffffff, 0x00ffff, 0xff3fa4][lit] ?? 0xffe066, t = 0.014, proud = 0.012;
       outlines.set(key, model(({ box }) => {
         for (const b of object.geometry?.boxes || []) {
           const c = Math.abs(Math.cos(b.roll || 0)), s = Math.abs(Math.sin(b.roll || 0));
@@ -1829,6 +1847,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    trigger = null, // 🔫 { curve, breakAt, resetAt, armed, firedAt }: the right trigger's pressure lately, with a gun in hand
     stage = false, // 👹 the room is the stage: painting and building are off
     roof = false, // 🏙️ the room is a roof over a street (a platform): the planet and its hollow are not under it
     ammo = null, // 🔫 rounds left in the gun in hand, or null
@@ -2463,6 +2482,13 @@ export async function createView(canvas) {
           if (it.holder === seat && !third) at = { x: at.x, y: at.y - 0.1, z: at.z };
           // 🔫 (In a headset, in the body: the thing is in the real right hand, pointing as the hand points.)
           if (it.holder === seat && xr?.heldAt) at = { x: eye.x + xr.heldAt.x, y: eye.y + xr.heldAt.y - 0.02, z: eye.z + xr.heldAt.z };
+          // 🔫 In first person the thing is held too: a forearm comes up to it from under the corner of the view, and a hand is on its grip.
+          if (it.holder === seat && !third && !xr && me) {
+            const fl = fighters[seat % fighters.length], elbow = { x: at.x + r.x * 0.34 - f.x * 0.3, y: at.y - 0.2, z: at.z + r.z * 0.34 - f.z * 0.3 }; // (out to the right and a little back: it comes in from the corner of the view, beside the thing, not hidden under it)
+            const dx = at.x - elbow.x, dy = at.y - 0.07 - elbow.y, dz = at.z - elbow.z, length = Math.hypot(dx, dy, dz);
+            projector.draw(armOf(seat), elbow.x, elbow.y, elbow.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+            draw(fl.hand, at.x, at.y - 0.09, at.z - 0.0, yaw, pitch);
+          }
         }
         if ((holder || it.spin) && object.geometry.format === OBJECT_FORMAT)
           draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
@@ -2470,7 +2496,17 @@ export async function createView(canvas) {
         // ✨ A weapon lying loose glows, so it is known from the things that only stand there: two square rings of light turning about it, breathing, and a thin beam up from it.
         // (Its own outline, not a tower of light over it: every edge of every part of the thing, drawn a little proud of it in a yellow that breathes to white, so the highlight is the thing's own form.)
         if (!holder && object.item === 'shoot' && it.y > -10)
-          draw(outlineOf(object, Math.floor(now / 220) % 2), it.x, it.y || 0, it.z, it.spin ? (now / 1000) * it.spin : 0);
+        {
+          // (It glistens, its yellow going to white and back; and now and then, for a blink, it glitches: the outline doubles to either side in cyan and magenta, like a picture come off its registration.)
+          const spinYaw = it.spin ? (now / 1000) * it.spin : 0, y0 = it.y || 0;
+          draw(outlineOf(object, Math.floor(now / 220) % 2), it.x, y0, it.z, spinYaw);
+          const beat = now % 1700;
+          if (beat < 120) {
+            const j = 0.02 + (beat / 120) * 0.03;
+            draw(outlineOf(object, 2), it.x + j, y0 + j / 2, it.z, spinYaw);
+            draw(outlineOf(object, 3), it.x - j, y0 - j / 2, it.z, spinYaw);
+          }
+        }
         continue;
       }
       stand(object, 0, 0);
@@ -2637,6 +2673,14 @@ export async function createView(canvas) {
         if (m) draw(m, g.x, g.y, g.z, g.yaw, g.pitch, g.scale, g.roll);
       }
     }
+    // (Where each seat's held thing is: the hand's place, as the things themselves are drawn there, above.)
+    const gripOf = new Map();
+    for (const it of items || []) if (it.holder >= 0) {
+      const holder = it.holder === seat && me ? me : players[it.holder];
+      if (!holder) continue;
+      const hf = direction(holder.yaw, holder.pitch), hr = direction(holder.yaw - 90);
+      gripOf.set(it.holder, { x: holder.x + hr.x * 0.3 + hf.x * 0.45, y: holder.y - 0.55 + hf.y * 0.45, z: holder.z + hr.z * 0.3 + hf.z * 0.45 });
+    }
     const riders = new Map(farHands.filter((h) => Number.isInteger(h.ride) && h.hands.length).map((h) => [h.ride, h])); // 🧍 by the seat each rides in
     const inRoom = Math.max(players.length, seat + 1);
     for (let n = 0; n < inRoom + beyond.length; n++) {
@@ -2673,6 +2717,15 @@ export async function createView(canvas) {
             step,
           );
           // 🧍 A body with a headset riding in it has that headset's hands for its own: each arm runs from the shoulder to the real wrist, and the hand there is the hand as it is (drawn with everyone's hands, above).
+          // 🔫 A body with something in hand holds it: the right arm runs from the shoulder to the thing, with the hand on it, where the thing is drawn (not swinging at its side while the gun floats beside it).
+          const grip = !far && side === 1 && !riders.get(i) ? gripOf.get(i) : null;
+          if (grip) {
+            const sx = p.x + right.x * 0.3, sy = base + 1.4, sz = p.z + right.z * 0.3;
+            const dx = grip.x - sx, dy = grip.y - sy, dz = grip.z - sz, length = Math.hypot(dx, dy, dz);
+            if (length > 0.01) projector.draw(armOf(i), sx, sy, sz, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length);
+            draw(f.hand, grip.x, grip.y - 0.05, grip.z, yaw, -(p.pitch * Math.PI) / 180);
+            continue;
+          }
           const real = !far && riders.get(i)?.hands.find((h) => h.side === (side === 1 ? 'right' : 'left'))?.fingers[0][0];
           if (real) {
             const sx = p.x + right.x * 0.3 * side, sy = base + 1.4, sz = p.z + right.z * 0.3 * side;
@@ -4068,6 +4121,25 @@ export async function createView(canvas) {
         else if (!screenCursor && pointerSource === 'pad') {
           dot(0, 0);
         }
+      });
+      projector.overlay(m, W, H);
+    }
+    // 🔫 The trigger's travel, bottom centre, with a gun in hand on a pad: its pressure over the last second as a line, the break point across it (the shot goes as the line crosses it) and under that the point it must come back to. The line is white, green for the moment after it breaks, and dim while the trigger has yet to be let back.
+    if (trigger && !bare && !radial && !menu && !xr) {
+      const { unit } = hud, cols = 64, tall = 18 * unit, wide = cols * unit;
+      const at = hudPack.reserve('trigger', 'bc', wide + 2 * unit, tall + 4 * unit), x = at.x - W / 2 + unit, y = H / 2 - at.y - at.h + 2 * unit;
+      const fresh = now - trigger.firedAt < 160, ink = fresh ? 0x7dff7a : trigger.armed ? 0xffffff : 0x8b90a0;
+      const m = model(({ rect: worldRect }) => {
+        const rect = flip(worldRect);
+        rect(x - unit, y - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, 0x10131c);
+        rect(x, y + Math.round((tall * trigger.breakAt) / unit) * unit, 0.000002, wide, unit, 0xff5a5f);
+        rect(x, y + Math.round((tall * trigger.resetAt) / unit) * unit, 0.000002, wide, unit, 0x39405a);
+        const from = cols - trigger.curve.length;
+        trigger.curve.forEach((v, n) => {
+          const h = Math.round(((tall - unit) * Math.max(0, Math.min(1, v))) / unit) * unit, was = n ? Math.round(((tall - unit) * Math.max(0, Math.min(1, trigger.curve[n - 1]))) / unit) * unit : h;
+          // (Each column joined to the one before it, so a quick squeeze is a line and not a scatter.)
+          rect(x + (from + n) * unit, y + Math.min(h, was), 0, unit, Math.abs(h - was) + unit, ink);
+        });
       });
       projector.overlay(m, W, H);
     }

@@ -126,6 +126,33 @@ export function slabOf(half = WORLD) {
   if (!slabs.has(half)) slabs.set(half, { ...box(-half, half, -PLATFORM_DEPTH, 0, -half, half), slab: true });
   return slabs.get(half);
 }
+// 🪜 The fire escape (2026-11-27): a landing all round the roof, ESCAPE_DROP
+// under its edge and ESCAPE_WIDE out from it, with a rail along its outer
+// side; and on the east and west sides a flight of steps back up to the roof.
+// Walk off the edge and you land on it and can climb back; run or jump off
+// and you clear the rail and go down to the street. roofBoxes is everything a
+// roof room has: its block (slabOf), then these, as move() reads them (a
+// `platform` is stood on from above, a `stair` is climbed, the rest are solid).
+// (Ten steps of 26 cm: a body steps up 32 cm at the most, and eight of 32.5 were a wall.)
+export const ESCAPE_DROP = 2.6, ESCAPE_WIDE = 2.4, ESCAPE_STEPS = 10, ESCAPE_RAIL = 1, ESCAPE_RUN = 0.64;
+const roofs = new Map();
+export function roofBoxes(half = WORLD) {
+  if (!roofs.has(half)) {
+    const out = half + ESCAPE_WIDE, top = -ESCAPE_DROP, list = [slabOf(half)];
+    const landing = (xMin, xMax, zMin, zMax) => list.push({ ...box(xMin, xMax, top - 0.2, top, zMin, zMax), platform: true, escape: 'landing' });
+    landing(half, out, -out, out); landing(-out, -half, -out, out); landing(-half, half, half, out); landing(-half, half, -out, -half);
+    const rail = (xMin, xMax, zMin, zMax) => list.push({ ...box(xMin, xMax, top, top + ESCAPE_RAIL, zMin, zMax), escape: 'rail' });
+    rail(out - 0.1, out, -out, out); rail(-out, -out + 0.1, -out, out); rail(-out, out, out - 0.1, out); rail(-out, out, -out, -out + 0.1);
+    // The steps: each a block from the landing up to its own tread, the last tread level with the roof beside it.
+    const rise = ESCAPE_DROP / ESCAPE_STEPS, run = ESCAPE_RUN;
+    for (const side of [1, -1]) for (let k = 0; k < ESCAPE_STEPS; k++) {
+      const z0 = side * (-2 + k * run), z1 = side * (-2 + (k + 1) * run);
+      list.push({ ...box(side > 0 ? half : -half - 1.3, side > 0 ? half + 1.3 : -half, top, top + (k + 1) * rise, Math.min(z0, z1), Math.max(z0, z1)), stair: true, escape: 'step' });
+    }
+    roofs.set(half, list);
+  }
+  return roofs.get(half);
+}
 export const CFG = Object.freeze({
   ...DEFAULT_CFG,
   simHz: HZ,

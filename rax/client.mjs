@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, muzzleOf } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
@@ -594,7 +594,7 @@ const platformSlab = () => (!worldPlace(room) && !game() ? slabOf(half()) : null
 function fixedBoxes() {
   if (game()?.ledges) return game().ledges;
   // 🧱 A platform's block (world.mjs slabOf), as the server has it: the room's one solid.
-  if (platformSlab()) { if (slabFor !== room) { slabFor = room; slabKept = [...hungHere(), platformSlab()]; } return slabKept; }
+  if (platformSlab()) { if (slabFor !== room) { slabFor = room; slabKept = [...hungHere(), ...roofBoxes(half())]; } return slabKept; }
   if (!hasCar()) return hungHere();
   // (Rebuilt when the room changes: only the plaza has the lobby, only the roof its parapet.)
   if (carBoxesFor !== room) { carBoxesFor = room; carBoxes = null; }
@@ -3283,6 +3283,8 @@ function stepXRStops(xr) {
   xr.table = xrTable;
   xr.nextView = stops[(Math.min(xrStop, stops.length - 1) + 1) % stops.length].label; // (the slate's foot says it: view.mjs)
 }
+const TRIGGER_BREAK = 0.62, TRIGGER_RESET = 0.3;
+let rtArmed = true, rtFiredAt = -Infinity, rtCurve = [];
 let holdMeter = null, holdStep = -1;
 let deathCount = null;
 function holdOn(label, since, ms, now = performance.now()) {
@@ -3671,7 +3673,14 @@ function step(now, xr) {
       sfx.ringBack();
     }
   }
-  if (gamepad.use && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode && holding())
+  // 🔫 With a gun in hand the right trigger is a trigger: it has a travel, a point where it breaks (TRIGGER_BREAK) and the shot goes, and it must be let back past TRIGGER_RESET before it will break again. No shot from a trigger rested on, none from one held. Its pressure over the last second is kept for the view to draw.
+  const gunHeld = seat >= 0 && heldKind() === 'shoot', rt = gamepad.rt || 0;
+  if (gunHeld && controller.id) {
+    if (rtArmed && rt >= TRIGGER_BREAK) { rtArmed = false; rtFiredAt = now; if (!typing() && !radial.open && !menu && !chalkMode) useQueued = true; }
+    else if (!rtArmed && rt < TRIGGER_RESET) rtArmed = true;
+    rtCurve.push(rt); if (rtCurve.length > 64) rtCurve.shift();
+  } else { rtArmed = true; if (rtCurve.length) rtCurve = []; }
+  if (gamepad.use && seat >= 0 && !typing() && !radial.open && !menu && !chalkMode && holding() && !(gunHeld && controller.id))
     useQueued = true;
   if (gamepad.prompt && seat >= 0 && !prompt.open && holding()) {
     dropQueued = true;
@@ -4269,6 +4278,7 @@ function step(now, xr) {
     goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
+    trigger: rtCurve.length > 1 ? { curve: rtCurve, breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: rtFiredAt } : null,
     stage: !!snapshot?.heads, // 👹 heads fly here: no painting, no building, and the controls say so
     roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it
     ammo: seat >= 0 ? snapshot?.items?.find((it) => it.holder === seat && it.kind === 'shoot')?.ammo ?? null : null,

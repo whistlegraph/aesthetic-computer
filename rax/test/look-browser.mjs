@@ -37,7 +37,10 @@ try {
   for (let s = 1; s <= seconds; s++) {
     await delay(1000);
     // (Then off the roof: the fall, the street, and standing again.)
-    if (s === Number(process.argv[4] || 9)) void page.evaluate(() => { window.rax.look({ yaw: 90 }); return window.rax.move({ fwd: 1, seconds: 6 }); }).catch(() => {});
+    if (s === Number(process.argv[4] || 9)) void page.evaluate((slow) => { window.rax.look({ yaw: 90 }); return window.rax.move({ fwd: slow ? 0.3 : 1, seconds: slow ? 9 : 6 }); }, process.argv[5] === 'slow').catch(() => {});
+    // (`slow`: stepped off, not run off: on to the fire escape; then a look back at the tower, and from behind.)
+    if (process.argv[5] === 'slow' && s === Number(process.argv[4] || 9) + 10) await page.evaluate(() => window.rax.look({ yaw: 270, pitch: 20 }));
+    if (process.argv[5] === 'slow' && s === Number(process.argv[4] || 9) + 12) await page.keyboard.press('KeyV');
     const st = await state();
     await shot(`${String(s).padStart(2, '0')}-${st?.you?.alive === false ? 'down' : 'up'}`);
   }
