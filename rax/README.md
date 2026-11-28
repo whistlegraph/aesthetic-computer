@@ -224,6 +224,30 @@ routes retain their existing query rules. It is a standalone game entry, not an
 AC disk. Deploy committed, pushed `main` with `ac-deploy`, then verify the health
 response, browser assets and two-player connection at the public URL.
 
+## In words and calls
+
+rax can be read and played without eyes or a mouse (`agent.mjs`). Beside the
+canvas the page keeps `#rax-mirror`: where you are, who and what is near and
+what was last said, in words (`#rax-words`); what changed, announced politely
+(`#rax-live`); a button for each thing in reach and each way out
+(`#rax-reach`); and Use, Drop, Jump, turn, step and Say. It is off screen
+until it has keyboard focus, then it shows. The same is `window.rax`:
+
+```js
+rax.state()            // { room, place, you, nearby: [{ kind, name, id, distance, where, compass, x, z }], said }
+rax.describe()         // the same, in sentences
+await rax.walkTo('west')          // a side, a name, an id, or { x, z }
+rax.look({ yaw: 90 })             // degrees: 0 north (+z), 90 east (+x)
+await rax.move({ fwd: 1, seconds: 2 })
+rax.use(); rax.drop(); rax.jump(); rax.say('hello'); rax.elevator(3); rax.stop()
+```
+
+An agent needs no screenshot and no extension: any browser automation that
+can run a line of page script, or press a button by its name, plays. It
+presses the client's own inputs, so the server sees an ordinary player.
+`node rax/test/agent-browser.mjs` plays a turn this way. Not yet in words:
+aiming and shooting, building, and the pieces on screens.
+
 ## Checks
 
 ```sh

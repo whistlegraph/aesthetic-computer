@@ -32,6 +32,7 @@ import { immersive } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
+import { createAgentSurface } from './agent.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons, bikeButtons } from './touch.mjs';
 import { gyroLook } from './gyro.mjs';
@@ -1590,6 +1591,49 @@ function tidyAddress() {
   } catch {}
 }
 tidyAddress();
+// 🦾 rax in words and calls (agent.mjs): a screen reader, a keyboard and an
+// agent read the same state the eye does, and press the same inputs.
+const placeName = (id) =>
+  id === 'lobby' ? 'The plaza, at the foot of the tower'
+  : id === BASEMENT ? 'The basement'
+  : aloft(id) ? (tower?.here?.number ? `Floor ${tower.here.number} of the tower${tower.here.handle ? `, @${tower.here.handle}'s` : ''}` : 'Up the tower')
+  : inWorld(id) ? `Block ${id} of the park`
+  : `The room ${id}`;
+const agentSurface = createAgentSurface({
+  canvas,
+  read: () => {
+    const me = selfMember || members.find((m) => (seat >= 0 ? m.seat === seat : false)) || null;
+    const named = (m) => (m?.handle ? `@${m.handle}` : m?.name || 'someone');
+    return {
+      room, place: placeName(room), connected: ws?.readyState === WebSocket.OPEN && !!snapshot,
+      seat, player, eye: seat < 0 ? freecam : null, yaw, pitch,
+      name: me ? named(me) : null, handle: me?.handle || null,
+      people: (snapshot?.players || []).flatMap((p, i) => {
+        if (!p || i === seat) return [];
+        const m = members.find((x) => x.seat === i);
+        return [{ id: `seat:${i}`, x: p.x, z: p.z, name: named(m), handle: m?.handle || null }];
+      }),
+      objects: objects.filter((o) => Number.isFinite(o.x)).map((o) => {
+        const it = snapshot?.items?.find((x) => x.id === o.id);
+        return { id: o.id, x: it ? it.x : o.x, z: it ? it.z : o.z, name: o.geometry?.name || o.name || (o.item ? 'something to pick up' : 'a made thing') };
+      }),
+      screens: [
+        ...screens.map((s) => ({ id: `screen:${s.id}`, x: s.x, z: s.z, name: `the screen showing $${s.code}` })),
+        ...panels.list.filter((p) => !p.hidden && p.label).map((p) => ({ id: `panel:${p.id}`, x: p.x, z: p.z, name: `${p.label}, a piece to step into` })),
+      ],
+      half: half(), edges: aloft(room) ? [] : openEdges() || [], neighbours: park?.neighbours || null,
+      said: chatLog.slice(-8).map((c) => ({ at: c.at, name: c.handle ? `@${c.handle}` : c.name || 'someone', text: c.text })),
+      notice,
+    };
+  },
+  act: {
+    look: (at) => { if (Number.isFinite(at.yaw)) yaw = at.yaw; if (Number.isFinite(at.pitch)) pitch = at.pitch; inputAt = performance.now(); },
+    press: (what) => { if (what === 'use') useQueued = true; else if (what === 'drop') dropQueued = true; else if (what === 'jump') jumpQueued = true; },
+    say: (text) => send({ type: 'say', text: text.slice(0, CHAT_MAX) }),
+    elevator: (to) => send({ type: 'elevator', to }),
+    signIn: () => askAccount('account'),
+  },
+});
 function placePath() {
   const g = game();
   if (g?.at(room)) return room.startsWith(`${g.name}-`) ? `/${g.name}~${room.slice(g.name.length + 1)}` : `/${g.name}`;
@@ -3582,8 +3626,11 @@ function step(now, xr) {
     ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 2048,
   );
   if (probe) send(probe);
-  const walkFwd = prompt.open ? 0 : (dock ? 0 : gamepad.fwd) + pad.fwd;
-  const walkRight = prompt.open ? 0 : (dock ? 0 : gamepad.right) + pad.right;
+  // 🦾 What the words-and-calls surface holds (agent.mjs): a stick, and a yaw while it walks somewhere.
+  const driven = agentSurface.drive(player, performance.now(), room);
+  if (Number.isFinite(driven?.yaw)) { yaw = driven.yaw; inputAt = performance.now(); }
+  const walkFwd = prompt.open ? 0 : (dock ? 0 : gamepad.fwd) + pad.fwd + (driven?.fwd || 0);
+  const walkRight = prompt.open ? 0 : (dock ? 0 : gamepad.right) + pad.right + (driven?.right || 0);
   const firstSequence = seq;
   while (debt >= DT) {
     debt -= DT;

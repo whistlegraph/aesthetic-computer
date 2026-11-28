@@ -63,6 +63,7 @@ const assets = new Map([
     'prompt',
     'connection',
     'account',
+    'agent',
     'controller',
     'freecam',
     'hud',
