@@ -1766,6 +1766,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    goal = null, // 🎯 { text, count, sub, color }: what there is to do here, across the top of the screen
     heads = [], // 👹 [id, x, y, z, yaw]: the heads flying in at the stage (match.mjs stepHeads)
     wave = 0,
     farHands = [], // ✋ other people's hands in headsets, in the room's metres: [{ seat, hands: [{ side, fingers }] }]
@@ -2993,7 +2994,7 @@ export async function createView(canvas) {
       if (labels.length && !bare)
         ownTag = {
           x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0)) * unit, // (past the linked-agent mark, when one stands there)
-          y: handleY,
+          y: handleY - 2 * unit, // (the small letters' middle on the handle's own letters' middle: they stood two rows high)
         };
       const meter = (connection?.label || '').toLowerCase();
       const jitter =
@@ -3423,10 +3424,40 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // 🎯 The goal, top centre, large: what to do, and how many are left to do it to.
+    if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
+      const { unit } = hud, big = 2 * unit;
+      const line = [{ text: goal.text, color: goal.color }, ...(goal.count ? [{ text: '  ' + goal.count, color: 0xffffff }] : [])];
+      const wide = spanWidthOf(line, big), at = hudPack.reserve('goal', 'tc', wide, (goal.sub ? 32 : 22) * unit);
+      const m = model(({ rect: worldRect, text, small }) => {
+        const rect = flip(worldRect);
+        drawSpans({ rect, text }, line, at.x + at.w / 2 - W / 2, H / 2 - at.y - 2 * big, big, { shadow: INK });
+        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], at.x + at.w / 2 - W / 2, H / 2 - at.y - 24 * unit, unit, { shadow: INK, tiny: true });
+      });
+      projector.overlay(m, W, H);
+    }
     // 👥 Who else is in the room, top right: each in their seat's colour, those only looking on in grey, under a count. Room asked of the pack, so the stats stand under it and nothing else lies on it.
     if (!bare && !xr && !menu && !radial) {
       const mine = self?.handle?.toLowerCase() || null;
       const others = members.filter((m) => (m.handle ? m.handle.toLowerCase() !== mine : m.owner !== self?.owner)).slice(0, 10);
+      // 📨 Nobody else here: a code to hand someone, that brings them to this room.
+      if (!others.length && self && !game) {
+        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = 'invite a friend';
+        if (n) {
+          const size = (n + 2) * unit, wide = Math.max(size, Math.ceil(smallWidth(label) * unit)), at = hudPack.reserve('invite', 'tr', wide, size + 11 * unit);
+          chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
+          const m = model(({ rect: worldRect, small }) => {
+            const rect = flip(worldRect);
+            const left = at.x + at.w - size - W / 2, top = H / 2 - at.y; // (the code's own left edge and top, from the middle of the screen, y up)
+            rect(left, top - size, 0.000002, size, size, 0xffffff);
+            cells.forEach((row, r) => row.forEach((dark, c) => dark && rect(left + (c + 1) * unit, top - (r + 2) * unit, 0.000001, unit, unit, 0x10131c)));
+            const lx = at.x + at.w - W / 2 - (smallWidth(label) * unit) / 2, ly = top - size - 2 * unit;
+            small(label, lx + unit, ly - unit, 0.000002, unit, INK);
+            small(label, lx, ly, 0, unit, 0xffe066);
+          });
+          projector.overlay(m, W, H);
+        }
+      }
       if (others.length) {
         const { unit } = hud;
         const rows = [[{ text: `${others.length} other${others.length === 1 ? '' : 's'} here`, color: THEME.dim }],

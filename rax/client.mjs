@@ -4226,6 +4226,10 @@ function step(now, xr) {
     courtyard: sky,
     drones: shownDrones,
     heads: snapshot?.heads || [], wave: snapshot?.wave || 0,
+    // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
+    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'take the gun in the middle', color: 0xffe066 }
+      : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f }
+      : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,

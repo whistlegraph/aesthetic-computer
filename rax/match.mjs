@@ -1042,7 +1042,7 @@ export class Match {
       winner: this.winner,
       players: this.seats.map((s) => s && { ...s.player }),
       // 👹 [id, x, y, z, yaw] of each head in the air, and the wave they are.
-      ...(this.waves ? { heads: this.heads.map((h) => [h.id, Math.round(h.x * 100) / 100, Math.round(h.y * 100) / 100, Math.round(h.z * 100) / 100, Math.round(h.yaw)]), wave: this.wave } : {}),
+      ...(this.waves ? { heads: this.heads.map((h) => [h.id, Math.round(h.x * 100) / 100, Math.round(h.y * 100) / 100, Math.round(h.z * 100) / 100, Math.round(h.yaw)]), wave: this.wave, left: this.heads.length + this.headsOwed, armed: this.wave > 0 || [...this.items.values()].some((it) => it.kind === 'shoot' && it.holder >= 0) } : {}),
       acks: this.seats.map((s) => s?.ack || 0),
       // ⏱️ How many steps each body has lived. A body moves by its own commands, none on a tick when they are late and several on the next, so in the server's ticks it stops and leaps; in its own steps it walks evenly. Whoever watches plays it back by these (net.mjs interpolate, `own`).
       moves: this.seats.map((s) => s?.moves || 0),
