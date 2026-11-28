@@ -1304,6 +1304,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const body = incumbent.room.match.seats[incumbent.seat]?.player;
         if (body) relocate(incumbent.room.key, bodyPose(body));
       }
+      // 🧍 A screen that comes as a drone, with no body of its handle anywhere, has one stood here idle: the body is always in the world while its person is.
+      if (member.drone && !room.counterpart(person, member, true) && ![...rooms.values()].some((r) => r.parked.has(person))) room.stand(member);
       room.assign(member.handle);
       const rest = geography.geography.whereabouts(handle),
         body = room.match.seats[member.seat]?.player;
@@ -1438,10 +1440,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         if (body) relocate(other.room.key, bodyPose(body));
         return;
       }
-      // 🚁 A body's own screen steps back to look on: the body goes to the handle's next screen, or out of the world if this is the only one. The screen stays a drone until it asks for the body.
+      // 🚁 A body's own screen steps back to look on: the body goes to the handle's next screen, and if there is none it stays where it stands, idle (room.mjs `park`). The screen stays a drone until it asks for the body.
       if (data?.type === 'take-drone') {
         if (!member.ready || !member.handle || member.seat < 0) return;
         member.drone = true;
+        const heir = room.counterpart(member.handle, member);
+        if (!heir || heir.drone) room.park(member);
         room.assign(member.handle);
         return;
       }
@@ -1451,7 +1455,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         member.drone = false;
         const other = room.counterpart(member.handle, member, true);
         if (!other) {
-          // (No body anywhere: a screen that had chosen to look on is seated where it is.)
+          // (No screen has the body: one that had chosen to look on takes up the body standing idle here, or is seated afresh. A body left idle in another room is let go.)
+          if (chose) for (const [k, r] of rooms) if (r !== room && r.unpark(member.handle.toLowerCase())) r.assign();
           if (chose) { connections.delete(member); connections.add(member); room.assign(member.handle); send(ws, room.match.snapshot()); }
           return;
         }
@@ -1828,6 +1833,9 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         room.assign(member.handle);
       }
       room.remove(ws);
+      // 🧍 The last screen of a handle is gone: its idle body goes too.
+      if (member.handle && ![...connections].some((c) => c !== member && c.ready && c.handle?.toLowerCase() === member.handle.toLowerCase()))
+        for (const r of rooms.values()) if (r.unpark(member.handle.toLowerCase())) r.assign();
       if (!room.clients.size) {
         const kept = room.match.flight();
         if (kept) flights.set(key, kept);

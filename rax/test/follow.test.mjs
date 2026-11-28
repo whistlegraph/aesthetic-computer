@@ -104,7 +104,7 @@ test('a room asked for by name is gone to: the body comes there, and the older s
   assert.ok(seen().some(({ key, m }) => key === 'lobby' && m.seat < 0), 'the older screen looks on');
 });
 
-test('a body steps back to a drone by choice, comes back as one, and takes the body when it asks', async (t) => {
+test('a body steps back to a drone by choice and its body stays, idle; it comes back as a drone, and takes the body when it asks', async (t) => {
   const dir = await mkdtemp(join(tmpdir(), 'rax-drone-'));
   const app = createRaxServer({ guests: true, stateDir: dir, listHandles: async () => ['jeffrey'],
     verifyIdentity: async (token) => ({ handle: token, sub: `account:${token}` }) });
@@ -123,27 +123,44 @@ test('a body steps back to a drone by choice, comes back as one, and takes the b
   };
   const mine = () => [...app.rooms.values()].flatMap((r) => [...r.sessions.values()]).filter((m) => m.handle === 'jeffrey');
   const self = (c) => c.messages.filter((m) => m.type === 'presence' && m.self).at(-1)?.self;
-  // The only screen: seated, then by choice a drone. Nobody holds the body.
+  const room = () => app.rooms.get('studio');
+  const bodies = () => (room()?.match.seats || []).filter(Boolean).length;
+  // The only screen: seated, then by choice a drone. The body stays where it stood, with nobody at it.
   const first = await connect();
   await wait(() => mine().some((m) => m.seat >= 0));
+  const seat = mine()[0].seat, stood = { ...room().match.seats[seat].player };
   first.say({ type: 'take-drone' });
   await wait(() => mine().length === 1 && mine()[0].seat < 0);
   await wait(() => self(first)?.drone === true && self(first)?.canTakeBody === true);
-  // It asks, and has the body again.
+  assert.equal(bodies(), 1, 'the body is still in the world');
+  assert.equal(room().parked.get('jeffrey')?.seat, seat);
+  const shown = first.messages.filter((m) => m.type === 'presence').at(-1).members.find((m) => m.seat === seat);
+  assert.equal(shown?.handle, 'jeffrey', 'and still wears its handle');
+  assert.equal(shown?.idle, true);
+  await delay(300);
+  const still = room().match.seats[seat].player;
+  assert.ok(Math.hypot(still.x - stood.x, still.z - stood.z) < 0.05, 'and stands idle');
+  // It asks, and has the same body again.
   first.say({ type: 'take-body' });
-  await wait(() => mine()[0].seat >= 0);
+  await wait(() => mine()[0].seat === seat);
   await wait(() => self(first)?.drone === false);
-  // Left as a drone: the page that comes back says so, and is given no body though it is the only one.
+  assert.equal(bodies(), 1);
+  assert.equal(room().parked.size, 0);
+  // Left as a drone: its last screen gone, the idle body goes too.
   first.say({ type: 'take-drone' });
   await wait(() => mine()[0].seat < 0);
   first.ws.close();
   await wait(() => mine().length === 0);
+  await wait(() => !room() || bodies() === 0);
+  // The page that comes back says it is a drone: it is given no body to steer, and one stands idle for it.
   const back = await connect({ drone: '1' });
   await wait(() => self(back)?.drone === true);
   await delay(300);
   assert.equal(mine()[0].seat, -1, 'still looking on');
+  assert.equal(bodies(), 1, 'with its body in the world');
   back.say({ type: 'take-body' });
   await wait(() => mine()[0].seat >= 0);
+  assert.equal(bodies(), 1, 'one body, the same one');
   back.ws.close();
 });
 

@@ -1000,6 +1000,9 @@ export async function createView(canvas) {
   const sparkModels = SPARK.map((c) => model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, c, c, c)));
   const sparkles = [],
     partCounts = new Map();
+  // 🚁 A drone that is no longer there went in a puff of its own grey (it took its body, or left).
+  const DRONE_PUFF = [0xd0d4e0, 0x8b90a0, 0xffffff, 0x69bfff].map((c) => model(({ box }) => box(0, 0, 0, 0.09, 0.09, 0.09, c, c, c)));
+  let dronesWere = new Map();
   function burstColor(x, y, z, count, models) {
     const born = performance.now();
     for (let i = 0; i < count && sparkles.length < 400; i++) {
@@ -2463,6 +2466,11 @@ export async function createView(canvas) {
     // 🚁 Those looking on: a quadcopter each, hovering with a small bob,
     // leaning into the way it goes (nose down ahead, banked to the side),
     // its rotors a blur, a light at the front, its name over it.
+    {
+      const now = new Map(eyes.map((d) => [d.name, d]));
+      for (const [name, d] of dronesWere) if (!now.has(name)) burstColor(d.x, d.y, d.z, 22, DRONE_PUFF);
+      dronesWere = now;
+    }
     for (const d of eyes) {
       const yawR = (d.yaw * Math.PI) / 180, ahead = direction(d.yaw), side = direction(d.yaw - 90);
       const along = (d.vx || 0) * ahead.x + (d.vz || 0) * ahead.z, across = (d.vx || 0) * side.x + (d.vz || 0) * side.z;
