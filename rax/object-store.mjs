@@ -239,6 +239,34 @@ export class ObjectStore {
       return back;
     });
   }
+  // ✨ Take out of a room every conjuring whose time is up (builds that stand
+  // there, screens, painted squares). Back comes where the builds stood, for
+  // a puff of dust each, and whether anything changed. A build that is in
+  // someone's hands is not in the room's list and is left to them.
+  fade(room, now = Date.now()) {
+    const due = (list) => (list || []).some((o) => o.fades && o.fades <= now);
+    const d = this.data;
+    if (!d) return Promise.resolve({ gone: [], changed: false });
+    if (!due(d.rooms?.[room]) && !due(d.screens?.[room]) && !Object.values(d.tileFades?.[room] || {}).some((f) => f.until <= now)) return Promise.resolve({ gone: [], changed: false });
+    return this.transact((data) => {
+      const gone = [];
+      const list = data.rooms[room] || [];
+      for (let i = list.length - 1; i >= 0; i--) if (list[i].fades && list[i].fades <= now) { const [o] = list.splice(i, 1); gone.push({ id: o.id, x: o.x, z: o.z }); }
+      let changed = gone.length > 0;
+      if (data.screens?.[room]) {
+        const kept = data.screens[room].filter((s) => !(s.fades && s.fades <= now));
+        if (kept.length !== data.screens[room].length) { for (const s of data.screens[room]) if (s.fades && s.fades <= now) gone.push({ id: s.id, x: s.x, z: s.z }); data.screens[room] = kept; changed = true; }
+      }
+      const faded = data.tileFades?.[room];
+      if (faded) for (const [key, f] of Object.entries(faded)) if (f.until <= now) {
+        const tiles = ((data.tiles ||= {})[room] ||= {});
+        if (f.was) tiles[key] = f.was; else delete tiles[key];
+        delete faded[key];
+        changed = true;
+      }
+      return { gone, changed };
+    });
+  }
   // Stand a build somewhere else in its room.
   moveObject(room, id, x, z) {
     return this.transact((data) => {
@@ -303,11 +331,15 @@ export class ObjectStore {
   }
   // Cycle a square through the palette and back to bare, or set it outright
   // (`colour` 0..6, 0 bare): a held brush dragged across the floor.
-  paintTile(room, i, j, colour = null) {
+  paintTile(room, i, j, colour = null, fades = 0) {
     return this.transact((data) => {
       const tiles = ((data.tiles ||= {})[room] ||= {});
       const key = `${i},${j}`;
       const next = Number.isInteger(colour) && colour >= 0 && colour <= 6 ? colour : ((tiles[key] || 0) + 1) % 7;
+      // ✨ A conjured square: what lay there before is kept, and comes back when it fades (the first of a run of them is the one kept).
+      const faded = ((data.tileFades ||= {})[room] ||= {});
+      if (fades > 0) faded[key] = { until: Date.now() + fades, was: faded[key] ? faded[key].was : tiles[key] || 0 };
+      else delete faded[key];
       if (next) tiles[key] = next;
       else delete tiles[key];
       return tiles;
@@ -337,6 +369,9 @@ export class ObjectStore {
         object = { id: job.objectId, owner: job.owner, x: job.x, z: job.z, item: job.item || null, effect: job.effect || null, versions: [] };
         objects.push(object);
       }
+      // ✨ A conjuring (server.mjs, the one room): it stands until `fades` and is gone (fade below). Said again, it stands that long again.
+      if (job.fades > 0) object.fades = Date.now() + job.fades;
+      else delete object.fades;
       object.versions.push({
         version: job.baseVersion + 1,
         prompt: job.prompt,
@@ -350,6 +385,7 @@ export class ObjectStore {
         z: object.z,
         version: object.versions.at(-1).version,
         geometry: shape,
+        ...(object.fades ? { fades: object.fades } : {}),
       };
     });
   }

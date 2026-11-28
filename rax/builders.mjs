@@ -218,7 +218,7 @@ export class Builders {
     this.broadcast(room);
   }
   // Put a copy of a remembered $code in front of the player, no Aesel needed.
-  async restore(client, room, owner, seat, code, rid = undefined, pose = null) {
+  async restore(client, room, owner, seat, code, rid = undefined, pose = null, fades = 0) {
     try {
       let entry = this.store.historyEntry(room, code), fetched = false;
       if (!entry) {
@@ -237,7 +237,7 @@ export class Builders {
       if (!player || !owner) throw Error('Rejoin the room');
       const yaw = (player.yaw * Math.PI) / 180;
       const job = {
-        id: randomUUID(), objectId: randomUUID(), owner, room, prompt: `$${code}`, baseVersion: -1,
+        id: randomUUID(), objectId: randomUUID(), owner, room, prompt: `$${code}`, baseVersion: -1, fades,
         item: entry.item, effect: entry.effect,
         x: Math.round(player.x + Math.sin(yaw) * 4), z: Math.round(player.z + Math.cos(yaw) * 4),
       };
@@ -472,7 +472,7 @@ export class Builders {
   // stays its maker's; the new version is signed and published by the keeper.
   // (`player`/`member`: the asker's body and sign-in when they stand in a room
   // another host keeps, server.mjs builds for it over the link.)
-  request(client, room, owner, seat, input, { guest = false, keeper = false, player: pose = null, member = null } = {}) {
+  request(client, room, owner, seat, input, { guest = false, keeper = false, player: pose = null, member = null, fades = 0 } = {}) {
     const requestId = randomUUID(), startedAt = Date.now(), rid = Builders.rid(input);
     try {
       if (!owner) throw Error('Identity is not ready');
@@ -552,6 +552,7 @@ export class Builders {
         owner: existing?.owner || owner,
         asker: owner,
         room,
+        fades, // ✨ a conjuring: how long it stands (ms; 0: it stays)
         prompt,
         item,
         effect,

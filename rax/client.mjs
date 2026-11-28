@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, placeFor } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase } from './presentation.mjs';
@@ -123,10 +123,11 @@ try {
   if (kept && /^[a-z0-9-]{1,32}$/.test(kept.room)) home = { room: kept.room, floor: kept.floor };
 } catch {}
 let roamed = !!requestedRoom;
-let room =
+// (🏠 One room, world.mjs ONE_ROOM: any place in the world is the one room; a game or a named room is still itself.)
+let room = placeFor(
   requestedRoom && /^[a-z0-9-]{1,32}$/.test(requestedRoom)
     ? requestedRoom
-    : (accountExpected() && lastPlace) || 'lobby';
+    : (accountExpected() && lastPlace) || 'lobby');
 let park = null, passage = null, walkAt = 0, walkEdge = null; // walkEdge: the side last walked off
 const BACK = { east: 'west', west: 'east', north: 'south', south: 'north' };
 // 🚶 The body between two rooms: where the passage sets it down, shown until
@@ -644,7 +645,7 @@ world = worlds.get(aloft(room) || room === BASEMENT ? 'lobby' : room) || null;
 void streamWorld();
 // Under the prompt the host may not have said who is signed in when this
 // loads: look again shortly, so the room behind the curtain is theirs too.
-if (!roamed && lastPlace && room !== lastPlace)
+if (!ONE_ROOM && !roamed && lastPlace && room !== lastPlace)
   for (const ms of [800, 2500, 6000])
     setTimeout(() => {
       if (!roamed && room !== lastPlace && accountExpected()) travel(lastPlace, false);
@@ -1597,6 +1598,7 @@ function placePath() {
   return inWorld(room) ? '/rax/' : `/rax~${room}`;
 }
 function travel(to, chosen = true, receipt = null, riding = null, at = null, ack = null, here = false) {
+  if (typeof to === 'string') to = placeFor(to); // (🏠 one room: nowhere else in the world to go)
   if (!/^[a-z0-9-]{1,32}$/.test(to) || to === room) return;
   // 🚶 The body goes on between the two rooms (held): it keeps walking by its
   // own commands, which the next room runs when it seats it. A walk across
@@ -2946,14 +2948,20 @@ document.addEventListener('keydown', (e) => {
   }
   if (seat >= 0 && e.code === 'KeyV' && !e.repeat) third = !third;
   // 🚁 Looking on, F fills the screen (as VIEW does on a pad) and Escape lets a lock go (as B does).
-  if (seat < 0 && e.code === 'KeyF' && !e.repeat && !typing()) fullScreen();
+  // (F is the focus key: with a thing to lock on to, or a lock to let go, it does that; with neither it fills the screen.)
+  if (seat < 0 && e.code === 'KeyF' && !e.repeat && !typing()) { if (lockOn || dock || focusObject) pressLock(); else fullScreen(); }
   if (seat < 0 && lockOn && e.code === 'Escape') { selectTarget(null); e.preventDefault(); return; }
   if (seat < 0 && e.code === 'KeyB' && !e.repeat && !typing() && !e.metaKey && !e.ctrlKey) startWarp(); // 🌀 (as B does on a pad)
   // 🚁 Looking on, V steps back to see your own drone.
   if (seat < 0 && selfMember?.canTakeBody && e.code === 'KeyP' && !e.repeat && !typing() && !menu && !dock) send({ type: 'take-body' });
   if (seat < 0 && e.code === 'KeyV' && !e.repeat && !typing()) droneView = !droneView;
+  // 🎯 F is the focus key, beside WASD (2026-11-27; it was Z, which still
+  // works): looking at a screen it goes in, gone in or locked on it comes
+  // out. Anywhere else it is `use`, as before. Inside a piece that hears the
+  // keyboard F is the piece's own key (a note, on the Notepat) and never
+  // reaches here: Escape or Z comes out of those.
   if (seat >= 0 && e.code === 'KeyF' && !e.repeat) {
-    if (focusObject?.panel) {} // (a piece on a panel is pressed, not changed)
+    if (dock || lockOn || focusObject?.panel) pressLock();
     else if (focusObject?.wall && !holding()) openRadial(focusObject);
     else useQueued = true;
   }

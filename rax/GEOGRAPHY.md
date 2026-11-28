@@ -1,5 +1,16 @@
 # rax geography
 
+> **2026-11-27: one room, for now.** Three to six people are on the whole network at a time, and
+> spread over blocks, floors, a basement and two planets they never met. `world.mjs` `ONE_ROOM`
+> is on: everyone lands in the plaza (`HOME_ROOM`, still keyed `lobby`), which has all four walls,
+> and no way leads out of it — block edges, the car, the stair, the roof, the New Jersey box. A
+> game's arena or a room made by name is still its own room. Everyone builds there, and what a
+> visitor builds, paints or calls in is a conjuring: it stands `CONJURE_MS` (60 s) and is gone
+> (`ObjectStore.fade`, the server's sweep). The keeper's work stays, and only the keeper takes
+> things out. Everything below still describes the world behind the switch; set `ONE_ROOM` false
+> (or `RAX_ONE_ROOM=0` on the server) and it opens again. `test/one-room.test.mjs` covers the
+> switch; the other tests run with the world open.
+
 > **2026-11-17: the houses are gone.** A home is a floor of the tower (`tower.mjs`). When the
 > server starts it retires every house still on a lot (`Geography.retire`), moves what stood inside
 > to its handle's floor (`ObjectStore.moveRooms`) and keeps both ledgers as they stood

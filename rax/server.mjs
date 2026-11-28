@@ -30,7 +30,7 @@ import { Builders, GUEST_BUILDS } from './builders.mjs';
 import { createDiagnostics } from './diagnostics.mjs';
 import { stallRow } from './stalls.mjs';
 import { createWalks } from './walks.mjs';
-import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG } from './world.mjs';
+import { MAX_PLAYERS, HZ, PROTOCOL, PROTOCOLS, halfOf, clamp, CHALK, CFG, ONE_ROOM, HOME_ROOM, CONJURE_MS, placeFor } from './world.mjs';
 import { randomUUID } from 'node:crypto';
 import { verifyAccount } from '../aesel/src/account-access.mjs';
 import { createPairing, ipOf, jsonBody } from './pairing.mjs';
@@ -148,6 +148,12 @@ export function createRaxServer({
   // the keeper: the first gate of papers/arxiv-gated-making (2026-11-25).
   // RAX_OPEN_BUILD=1 opens every room to everyone, as 2026-11-23 to 11-25.
   openBuild = process.env.RAX_OPEN_BUILD === '1',
+  // 🏠 One room (world.mjs ONE_ROOM): everyone lands in the plaza and no way
+  // leads out. RAX_ONE_ROOM=0 or 1 says so outright; the tests, which still
+  // cover the whole world's ways, run with it off unless they ask.
+  oneRoom = process.env.RAX_ONE_ROOM ? process.env.RAX_ONE_ROOM === '1' : process.env.NODE_TEST_CONTEXT ? false : ONE_ROOM,
+  // ✨ How long a conjuring stands there (ms).
+  conjureMs = CONJURE_MS,
   // 🏢 Every handle on the network, oldest first, for the tower's floors.
   listHandles = async () => {
     const r = await fetch('https://aesthetic.computer/api/handles?limit=100000&order=created', { signal: AbortSignal.timeout(20000) });
@@ -192,6 +198,7 @@ export function createRaxServer({
 } = {}) {
   const satellite = Array.isArray(onlyRooms) && onlyRooms.length > 0;
   // Where a room is kept, when not here (null: here).
+  if (oneRoom && !satellite) roomHosts = {}; // (🏠 one room: nothing is kept on another box)
   const keptAt = (room) => (satellite ? (onlyRooms.includes(room) ? null : homeHost) : roomHosts[room] || null);
   const peers = new Set([homeHost, ...Object.values(roomHosts)].filter((h) => h && h !== selfHost));
   if ((prefix && !/^\/[a-z0-9-]+$/.test(prefix)) || (alias && (!prefix || !/^\/[a-z0-9-]+$/.test(alias))))
@@ -268,13 +275,16 @@ export function createRaxServer({
     }
     return cached;
   };
-  const parkData = key => ({ neighbours: geography.geography.neighbours(key), plaza: key === 'lobby' });
+  // 🏠 One room: a place on the lattice has no side that leads on (an empty
+  // list, not none: the plaza is still the plaza, drawn with all four walls).
+  const neighboursOf = (key) => { const n = geography.geography.neighbours(key); return oneRoom && n ? {} : n; };
+  const parkData = key => ({ neighbours: neighboursOf(key), plaza: key === 'lobby', ...(oneRoom ? { one: true } : {}) });
   // What a socket hears of the place (its neighbours), and what the room
   // keeps of it: its solids and the sides that lead on.
   const sendPark = (ws, key) => {
     send(ws, { type: 'park', ...parkData(key) });
     rooms.get(key)?.match.setWalls(solidsFor(key)); // the elevator and the lobby are solid, and a planet hung overhead
-    if (rooms.has(key)) rooms.get(key).match.open = aloft(key) ? towerSides : Object.keys(geography.geography.neighbours(key) || {});
+    if (rooms.has(key)) rooms.get(key).match.open = aloft(key) ? towerSides : Object.keys(neighboursOf(key) || {});
   };
   // 🏠 Home is the handle's floor of the tower.
   const sendHome = (ws, handle) => {
@@ -284,6 +294,7 @@ export function createRaxServer({
   // 🏢 The tower as this socket sees it: how tall, whose floor this is, and
   // which floor is theirs.
   const hasCar = (key) => key === BASEMENT || key === GROUND || key === ROOF || isFloorRoom(key);
+  // (🏠 one room: the car still stands on the plaza, and goes nowhere.)
   // The elevator is solid on every floor; the lobby's glass on the ground; the parapet on the roof.
   const wallsFor = (key) => [...(key === BASEMENT ? cellarFixtures : []), ...(hasCar(key) ? carWalls() : []), ...(key === GROUND ? [...lobbyWalls(), DISPENSER_WALL, atriumRoof()] : key === ROOF ? roofWalls() : isFloorRoom(key) ? storeyWindows() : [])];
   // 🪐 …and the planets hung over the plaza and the blocks (orbits.mjs): what a body there meets, besides the room's own boxes.
@@ -340,6 +351,16 @@ export function createRaxServer({
     } catch {}
   };
   const weatherTimer = process.env.NODE_TEST_CONTEXT ? null : setInterval(askWeather, 10 * 60 * 1000);
+  // ✨ The conjurings' sweep (the one room): every second, what has stood its
+  // time is taken out, with a puff where each build stood.
+  const fadeTimer = oneRoom && !satellite ? setInterval(() => {
+    void store.fade(HOME_ROOM).then(({ gone, changed }) => {
+      if (!changed) return;
+      const room = rooms.get(HOME_ROOM);
+      for (const g of gone) room?.match.emit('removed', { at: { x: g.x, y: 1, z: g.z } });
+      builders.broadcast(HOME_ROOM);
+    }).catch(() => {});
+  }, Math.max(50, Math.min(1000, conjureMs / 4))) : null;
   weatherTimer?.unref?.();
   if (weatherTimer) void askWeather();
   admitTimer.unref?.();
@@ -572,7 +593,7 @@ export function createRaxServer({
           for (let di = -1; di <= 1; di++) {
             const id = blockId({ i: wrap(at.i + di), j: wrap(at.j + dj) });
             near.add(id);
-            blocks.push({ id, di, dj, plaza: id === 'lobby', neighbours: geography.geography.neighbours(id),
+            blocks.push({ id, di, dj, plaza: id === 'lobby', neighbours: neighboursOf(id),
               ...contents(id), tiles: store.tiles(id) });
           }
         // Beyond the ground tiles only occupied blocks need a record. Send
@@ -967,7 +988,8 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       return;
     }
     if (ws.readyState !== WebSocket.OPEN) return;
-    const roomId = url.searchParams.get('room') || 'lobby';
+    // (🏠 one room: whatever place in the world was asked for, it is the one room.)
+    const roomId = placeFor(url.searchParams.get('room') || 'lobby', oneRoom);
     if (
       !/^[a-z0-9-]{1,32}$/.test(roomId) ||
       !PROTOCOLS.includes(url.searchParams.get('protocol'))
@@ -1253,7 +1275,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         const last = geography.geography.whereabouts(handle)?.room;
         const open = last && (last === BASEMENT || last === 'lobby' || tower.tower.forRoom(last) || (last === ROOF && !!tower.tower.top) ||
           onLap(parseBlock(last)));
-        const place = open ? last : 'lobby';
+        const place = oneRoom ? HOME_ROOM : open ? last : 'lobby';
         passing = place !== key && !arrived;
         send(ws, { type: 'whereabouts', room: place });
       }).catch(() => {});
@@ -1535,7 +1557,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         let destination, position, walked;
         if (data.type === 'walk') {
           const edge = edgeAt(p);
-          destination = geography.geography.neighbours(key)?.[edge];
+          destination = neighboursOf(key)?.[edge];
           // Asked a moment early (the commands that carry the body over the
           // line are still queued): the world's clock asks again each tick.
           if (!destination || edge !== data.edge) {
@@ -1575,7 +1597,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       }
       // 🛗 The elevator: from the car, to a floor by number or handle, to
       // the ground, or one floor up or down.
-      if (data?.type === 'elevator' && member.owner && member.seat >= 0 && hasCar(key)) {
+      if (data?.type === 'elevator' && !oneRoom && member.owner && member.seat >= 0 && hasCar(key)) {
         const p = room.match.seats[member.seat]?.player, t = tower.tower;
         // Asked from outside the car: say so, rather than nothing.
         if (!inCar(p)) return void send(ws, { type: 'elevator-result', error: 'step into the car' });
@@ -1613,7 +1635,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         return;
       }
       // Ask for a floor number, the way a name is registered.
-      if (data?.type === 'take-floor') {
+      if (data?.type === 'take-floor' && !oneRoom) {
         if (!member.handle) return void send(ws, { type: 'elevator-result', error: 'sign in to take a floor' });
         void tower.change((t) => t.take(member.handle, Number(data.number)))
           .then((f) => { towerChanged(); send(ws, { type: 'elevator-result', note: `floor ${f.number} is yours` }); })
@@ -1656,12 +1678,19 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // in: only the keeper arranges them, or (in a block) someone who lives
       // there. A visitor builds on their own floor. Rooms outside the world
       // (a game, a room made by name) stay open to whoever is in them.
+      // ✨ In the one room everyone builds, and what they build is a
+      // conjuring: it stands for `conjureMs` and is gone (the sweep below).
+      // The keeper's stays, and only the keeper takes things out, clears the
+      // room or changes its walls: the room is theirs to furnish.
+      const conjuring = oneRoom && key === HOME_ROOM && member.handle?.toLowerCase() !== keeper;
+      const fades = conjuring ? conjureMs : 0;
       const block = !openBuild && !pod && parseBlock(key);
-      if (block && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore'].includes(data?.type)) {
+      if (block && ['prompt', 'clear-room', 'remove', 'wall-res', 'kidlisp-mod', 'screen', 'paint', 'restore'].includes(data?.type)
+        && !(conjuring && ['prompt', 'screen', 'paint', 'restore'].includes(data.type))) {
         const handle = member.handle?.toLowerCase();
         const lives = key !== GROUND && handle && geography.geography.home(handle)?.block === blockIndex(block);
         if (handle !== keeper && !lives) {
-          send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: key === GROUND ? 'The plaza is kept as it is: build on your floor' : 'Only someone who lives on this block arranges it' });
+          send(ws, { type: 'build-result', rid: Builders.rid(data) || undefined, error: key === GROUND ? (oneRoom ? 'Only the keeper takes things out of the room: what you make fades by itself' : 'The plaza is kept as it is: build on your floor') : 'Only someone who lives on this block arranges it' });
           if (data.type === 'paint') builders.broadcast(key);
           return;
         }
@@ -1673,7 +1702,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         for (const c of data.commands) if (c && c.chalk) c.chalk = null;
       if (data?.type === 'prompt') {
         if (member.seat >= 0) {
-          const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token, keeper: keeping });
+          const accepted = builders.request(ws, key, owner, member.seat, data, { guest: !member.token, keeper: keeping, fades: keeping ? 0 : fades });
           void refreshBraincells(ws, member);
           if (accepted) for (const ms of [20000, 90000, 180000]) {
             const timer = setTimeout(() => {
@@ -1732,12 +1761,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
             ...((x, z) => (hasCar(key) ? clearOfCar(x, z) : { x, z }))(clamp(Number(data.x) || 0, -halfOf(key) + 1, halfOf(key) - 1), clamp(Number(data.z) || 0, -halfOf(key) + 1, halfOf(key) - 1)),
             yaw: Number(data.yaw) || 0,
             at: Date.now(),
+            ...(fades ? { fades: Date.now() + fades } : {}),
           })
           .then(() => builders.broadcast(key));
       if (data?.type === 'paint' && member.seat >= 0 && Number.isInteger(data.i) && Number.isInteger(data.j) && data.i >= 0 && data.i < 18 && data.j >= 0 && data.j < 18)
-        void store.paintTile(key, data.i, data.j, data.c).then(() => builders.broadcast(key));
+        void store.paintTile(key, data.i, data.j, data.c, fades).then(() => builders.broadcast(key));
       if (data?.type === 'restore' && member.seat >= 0 && typeof data.code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(data.code))
-        void builders.restore(ws, key, owner, member.seat, data.code, Builders.rid(data) || undefined);
+        void builders.restore(ws, key, owner, member.seat, data.code, Builders.rid(data) || undefined, null, fades);
       if (data?.type === 'input' && member.seat >= 0) {
         if (passing && Array.isArray(data.commands) && data.commands.some((c) => c?.fwd || c?.right || c?.buttons)) passing = false;
         room.match.input(member.seat, data.commands);
@@ -1790,7 +1820,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   // different rooms in the same place: neither sees into the other.
   const overlaid = (a, b) => !!a.floor && !!b.floor && a.floor !== b.floor && a.h === b.h;
   const dispenser = createDispenser({
-    neighbours: (key) => geography.geography.neighbours(key),
+    neighbours: (key) => neighboursOf(key),
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
     bodies: (key) => keptAt(key) ? farBodies(key) : (rooms.get(key)?.match.seats || []).filter((s) => s?.player?.alive).map((s) => s.player), // (🌐 a block kept elsewhere: who stands there, as the link says)
     below: (key) => { const floor = tower.tower.forRoom(key); return floor ? { room: GROUND, dy: altitude(floor.number) } : key === ROOF && tower.tower.top ? { room: GROUND, dy: roofOf(tower.tower.top) } : null; },
@@ -1882,12 +1912,13 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
   // 🧟 The horde walks the whole lap on the world's clock (horde.mjs); a block kept on another host is a wall to it.
   const horde = satellite ? null : createHorde({
     neighbours: (key) => {
-      const n = geography.geography.neighbours(key);
+      const n = neighboursOf(key);
       if (!n) return n;
       return Object.fromEntries(Object.entries(n).filter(([, room]) => !keptAt(room)));
     },
     boxes: (key) => [...wallsFor(key), ...objectBoxes(store.objects(key).filter((o) => !o.item), Date.now() / 1000)],
-    start: ['lobby', ...Object.values(geography.geography.neighbours('lobby') || {})].filter(key => !keptAt(key)),
+    start: ['lobby', ...Object.values(neighboursOf('lobby') || {})].filter(key => !keptAt(key)),
+    ...(oneRoom ? { count: 2 } : {}), // (🏠 one room: two to shoot at, not eight shut in with you)
   });
   // 👀 The people beyond: each room is told who walks the rooms around it
   // (two blocks out, and the floors over the plaza), in its own metres, 15
@@ -1984,12 +2015,12 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
         // 🚁 Who is looking on here, for rounds to meet; 🏙️ whether a gibbed body has a roof to go to.
         room.match.watchers = [...room.sessions.values()].filter((m) => m.seat < 0 && m.eye && m.look && Date.now() - m.look.at < 3000)
           .map((m) => ({ eye: m.eye, x: m.look.x, y: m.look.y, z: m.look.z }));
-        room.match.roofBound = !satellite && key !== ROOF && !!tower.tower.top && !room.match.arena;
+        room.match.roofBound = !oneRoom && !satellite && key !== ROOF && !!tower.tower.top && !room.match.arena;
         if (horde) room.match.zombies = horde.inRoom(key); // 🧟 for rounds to meet
         room.match.step();
         if (horde && room.match.zombieKills.length) for (const id of room.match.zombieKills.splice(0)) horde.kill(id);
         walks.tick(key, room);
-        if (key === GROUND || key === BASEMENT) for (const m of room.sessions.values()) m.crossStairs?.();
+        if (!oneRoom && (key === GROUND || key === BASEMENT)) for (const m of room.sessions.values()) m.crossStairs?.();
         if (aloft(key)) for (const m of room.sessions.values()) m.crossWindow?.();
         for (const m of room.sessions.values())
           if (m.walk) { if (m.walk.until < Date.now()) m.walk = null; else m.walk.ask(); }
@@ -2007,7 +2038,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // 🌐 Rounds that flew out over an open side go on in the room beside: here, or over the link.
       for (const [key, room] of [...rooms])
         for (const r of room.match.outbound.splice(0)) {
-          const to = geography.geography.neighbours(key)?.[r.side];
+          const to = neighboursOf(key)?.[r.side];
           if (!to) continue;
           const shift = { east: [-SPAN, 0], west: [SPAN, 0], north: [0, -SPAN], south: [0, SPAN] }[r.side];
           const round = { ...r, x: r.x + shift[0], z: r.z + shift[1], from: r.from && !r.from.room ? { ...r.from, room: key } : r.from };
@@ -2067,6 +2098,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       clearInterval(timer);
       clearInterval(admitTimer);
       clearInterval(weatherTimer);
+      clearInterval(fadeTimer);
       for (const remove of detach) remove();
       for (const ws of wss.clients) ws.terminate();
       await new Promise((resolve) => wss.close(resolve));

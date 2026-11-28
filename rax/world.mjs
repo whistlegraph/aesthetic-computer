@@ -22,8 +22,23 @@ export const PROTOCOLS = [PROTOCOL, 'duel-6'];
 // `e1n0`, the block east of the plaza, is the first of the world's own blocks
 // kept there: walked into from the lobby and out again (server.mjs passages).
 export const ROOM_HOSTS = { east: 'nj.rax.ac', e1n0: 'nj.rax.ac' };
-export function playURL(room, home, where = globalThis.location) {
-  const away = ROOM_HOSTS[room], local = /^(localhost|127\.|\[::1\])/.test(where?.hostname || '');
+// 🏠 One room (2026-11-27). Three to six people are on the whole network at a
+// time; spread over a lattice of blocks, a tower of floors, a basement and
+// two planets they never met. So for now rax is one studio: everyone lands in
+// HOME_ROOM (the plaza, walled on all four sides) and no way leads out of it.
+// The blocks, the tower, the basement, the planets and the other host are all
+// still here behind this one word: set it false and the world opens again.
+// A room that is not a place in the world (a game's arena, a room made by
+// name) is still its own room.
+export const ONE_ROOM = true;
+export const HOME_ROOM = 'lobby';
+// ✨ In the one room everyone builds, and what is built is a conjuring: it
+// stands this long and is gone (the keeper's stays: the room is theirs to furnish).
+export const CONJURE_MS = 60_000;
+export const worldPlace = (id) => id === BASEMENT || id === 'lobby' || id === 'roof' || id === 'east' || /^(floor-|pod-)/.test(id || '') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id || '');
+export const placeFor = (room, one = ONE_ROOM) => (one && worldPlace(room) ? HOME_ROOM : room);
+export function playURL(room, home, where = globalThis.location, one = ONE_ROOM) {
+  const away = one ? null : ROOM_HOSTS[room], local = /^(localhost|127\.|\[::1\])/.test(where?.hostname || '');
   const url = away && !local ? new URL(`wss://${away}/rax/play`) : new URL('./play', home);
   if (!(away && !local)) url.protocol = where?.protocol === 'https:' ? 'wss:' : 'ws:';
   return url;

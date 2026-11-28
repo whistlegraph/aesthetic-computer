@@ -47,7 +47,7 @@ try {
     if (stood) break;
   }
   assert.equal((await sample()).focus, 'panel:yard-notepat', `aimed at the board: ${JSON.stringify(await sample().then((d) => ({ focus: d.focus, player: d.player, yaw: d.yaw })))}`);
-  await page.keyboard.press('KeyZ');
+  await page.keyboard.press('KeyF'); // (F is the focus key; Z still works, below)
   await until('stepped in', () => raxDebug().dock?.id === 'panel:yard-notepat' && raxDebug().dock.t === 1);
   await until('piece has the keyboard', () => raxDebug().inside?.id === 'yard-notepat');
   const at = (await sample()).player, quiet = (await sample()).inside.ink;

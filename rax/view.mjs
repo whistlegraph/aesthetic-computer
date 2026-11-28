@@ -55,9 +55,9 @@ export const LEGEND = {
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move / ', ['←', 'ArrowLeft'], ['→', 'ArrowRight'], ['↑', 'ArrowUp'], ['↓', 'ArrowDown'], ' look'],
     [['space', 'Space'], ' jump / ', ['v', 'KeyV'], ' camera'],
-    [['enter', 'Enter'], ' build / ', ['f', 'KeyF'], ' use / ', ['q', 'KeyQ'], ' drop'],
-    [['x', 'KeyX'], ' paint / ', ['b', 'KeyB'], ' bike'],
-    [['z', 'KeyZ'], ' toggle focus / ', ['del', ['Delete', 'Backspace']], ' remove'],
+    [['f', 'KeyF'], ' focus or use / ', ['q', 'KeyQ'], ' drop'],
+    [['x', 'KeyX'], ' paint / ', ['enter', 'Enter'], ' build'],
+    [['z', 'KeyZ'], ' lock / ', ['del', ['Delete', 'Backspace']], ' remove / ', ['b', 'KeyB'], ' bike'],
     [['$', 'Digit4'], ' menu / ', ['t', 'KeyT'], ' chat / ', ['tab', 'Tab'], ' prompt'],
   ],
   pad: [
@@ -76,7 +76,7 @@ const DRONE_LEGEND = {
   keys: [
     [['w', 'KeyW'], ['a', 'KeyA'], ['s', 'KeyS'], ['d', 'KeyD'], ' move'],
     [['q', 'KeyQ'], ['r', 'KeyR'], ' roll / ', ['e', 'KeyE'], ' fast / ', ['v', 'KeyV'], ' drone'],
-    [['z', 'KeyZ'], ' focus / ', ['b', 'KeyB'], ' warp / ', ['f', 'KeyF'], ' full screen'],
+    [['f', 'KeyF'], ' focus, full screen / ', ['b', 'KeyB'], ' warp'],
   ],
   pad: [
     '[LS] move / [RS] look / [LB][RB] roll',
@@ -2017,7 +2017,7 @@ export async function createView(canvas) {
     else if (tower?.here?.number > 0) draw(tower.here.roof ? towerParts().deck : towerParts().floor); // a floor of the tower: no walls, the world outside (on the roof no ceiling either)
     else if (park?.neighbours) {
       draw(groundFor('here', park.neighbours, park.plaza, field));
-      if (park.plaza) draw(cellar, 0, -DEPTH, 0);
+      if (park.plaza && !park.one) draw(cellar, 0, -DEPTH, 0); // (🏠 one room: no stair, nothing under the floor)
       // Both rooms draw the fence on their common boundary.
       if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
@@ -2561,10 +2561,10 @@ export async function createView(canvas) {
         : null;
       const whose = (o) =>
         o.panel || o.screen
-          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : '{z} go in'
+          ? input === 'touch' ? 'go in' : pad ? `${spectator ? '[X]' : '[RB]'} go in` : o.panel || spectator ? '{f} go in' : '{z} go in'
         : o.wall // (only a KidLisp wall, which has its `source`, is changed; at a standing screen or a thing in the room beside this one the ring is for a new build: client.mjs wallOf)
           ? pad ? `${spectator ? '[X]' : '[RB]'} ${o.far ? 'lock on' : 'go in'}` : `{f} ${o.source ? 'change' : 'build'}`
-          : spectator ? pad ? '[X] lock on' : '{z} lock on' : o.owner === owner
+          : spectator ? pad ? '[X] lock on' : '{f} lock on' : o.owner === owner
             ? pad ? '[RB] lock on' : '{enter} change / {z} lock on'
             : pad ? '[RB] lock on' : '{z} lock on';
       const paintHint = !focusObject && floorAim && !holding && input !== 'touch' ? (pad ? '[X] paint the floor' : '{x} paints the floor') : null;
@@ -2577,7 +2577,7 @@ export async function createView(canvas) {
             ...(input === 'touch' ? [focusObject.panel ? 'tap: press' : 'leave'] : [
               ...(pad ? ['[LS] look / [L3] 2x zoom'] : []),
               pad ? '[RS] cursor / [RT] press' : focusObject.panel ? '{enter} or click: press' : '',
-              pad ? '[DH] next / [B] leave' : '{[} {]} next / {z} leave',
+              pad ? '[DH] next / [B] leave' : '{[} {]} next / {esc} leave',
             ])].filter(Boolean).join('\n')
         : null;
       const lockHint = lockedOn && focusObject
