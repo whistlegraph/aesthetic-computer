@@ -3708,27 +3708,35 @@ export async function createView(canvas) {
     // (A $code in a goal is said as code is: the sigil dim, the name in the green of things made.)
     const goalSpans = (g) => [{ text: g.text, color: g.color }, ...(g.code ? (g.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: g.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + g.code, color: 0x7dff7a }]) : []),
       ...(g.count ? [{ text: '  ' + g.count, color: 0xffffff }] : []), ...(g.sub ? [{ text: '  ' + g.sub, color: THEME.dim }] : [])];
-    if (goal && !cornerShown && !bare && !xr && !menu && !radial && !prompt?.open) {
-      // 📐 Fitted to the screen as it is now (a narrow window, a page zoomed with ⌘+): double size on one line when that fits, else on two, else plain size on as many lines as the words need. Never wider than the screen less its margins.
-      const { unit, safeX } = hud, room = W - 2 * safeX - 8 * unit;
-      const words = [...goal.text.split(' ').map((w) => ({ text: w, color: goal.color })), ...(goal.code ? [{ text: goal.code, color: 0x7dff7a }] : []), ...(goal.count ? goal.count.split(' ').map((w) => ({ text: w, color: 0xffffff })) : [])];
-      const wrap = (size) => {
-        const lines = [[]];
-        for (const w of words) {
-          const next = [...lines.at(-1), { ...w, text: (lines.at(-1).length ? ' ' : '') + w.text }];
-          if (lines.at(-1).length && spanWidthOf(next, size) > room) lines.push([w]); else lines[lines.length - 1] = next;
-        }
-        return lines;
-      };
-      let big = 2 * unit, lines = wrap(big);
-      if (lines.length > 2 || lines.some((l) => spanWidthOf(l, big) > room)) { big = unit; lines = wrap(big); }
-      // (Over the crosshair, in the middle: a fifth of the screen above it, where the eye already is. It was at the top edge.)
-      const up = Math.min(Math.round(H * 0.2), Math.round(H / 2 - hud.safeY - lines.length * 11 * big - 2 * unit)); // (and never off the top)
+    // (Round the crosshair, where the eye is, and small: what to do over it; how many are left up its right side and what else there is to say up its left, turned a quarter round; thin rules from each toward the middle. The corner at the top left keeps saying what its button does. It was beside the corner block, 2026-11-28.)
+    if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
+      const { unit } = hud, out = 18 * unit;
+      const top = [{ text: goal.text, color: goal.color }, ...(goal.code ? (goal.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: goal.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + goal.code, color: 0x7dff7a }]) : [])];
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
-        // (The last line keeps its place over the crosshair; more lines stack upward from it.)
-        lines.forEach((line, i) => drawSpans({ rect, text }, line, 0, up + (lines.length - 1 - i) * 11 * big, big, { shadow: INK }));
-        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], 0, up - 11 * big, unit, { shadow: INK, tiny: true });
+        const wide = spanWidthOf(top, unit);
+        drawSpans({ rect, text }, top, 0, out + 6 * unit, unit, { shadow: INK }); // (its top; the letters hang under)
+        rect(-wide / 2, out - 6 * unit, 0, wide, unit, goal.color); rect(-unit / 2, out - 9 * unit, 0, unit, 3 * unit, goal.color);
+        // A word up a side, read from the foot, its middle level with the crosshair.
+        const turned = (word, x0, color) => {
+          let long = 0;
+          for (const ch of word) long += chunky[ch] ? chunky[ch][4] : 4;
+          let pen = -Math.round(long / 2);
+          for (const ch of word) {
+            const g = chunky[ch];
+            if (!g) { pen += 4; continue; }
+            const [gw, gh, gx, gy, advance, rows] = g;
+            for (let r = 0; r < gh; r++) for (let c = 0; c < gw; c++) if (rows[r] & (128 >> c)) {
+              const px = x0 + (8 - gy - gh + r) * unit, py = (pen + gx + c) * unit;
+              rect(px + unit, py - unit, 0.000002, unit, unit, INK);
+              rect(px, py, 0, unit, unit, color);
+            }
+            pen += advance;
+          }
+          return long * unit;
+        };
+        if (goal.count) { const l = turned(goal.count, 15 * unit, 0xffffff); rect(13 * unit, -l / 2, 0, unit, l, 0xffffff); rect(10 * unit, -unit / 2, 0, 3 * unit, unit, 0xffffff); }
+        if (goal.sub) { const l = turned(goal.sub, -24 * unit, THEME.dim); rect(-14 * unit, -l / 2, 0, unit, l, THEME.dim); }
       });
       projector.overlay(m, W, H);
     }
@@ -3876,7 +3884,7 @@ export async function createView(canvas) {
         bottom = H / 2 - safeY - h;
       // Beside it, what Escape does next: with the mouse held it frees the mouse, and with the mouse free it goes to the prompt.
       // (With a goal in the room, the goal stands here instead: what there is to do, and how much of it is left.)
-      let label = input === 'touch' ? [] : goal ? goalSpans(goal) : hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
+      let label = input === 'touch' ? [] : hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
       // 📐 (Fitted: the wave, then the count, go when the line is wider than the screen less the top right's share.)
       while (goal && label.length > 1 && smallSpanWidth(label, unit) > W * 0.6) label = label.slice(0, -1);
       const labelW = smallSpanWidth(label, unit);
@@ -4263,34 +4271,29 @@ export async function createView(canvas) {
     }
     // 🔫 The trigger's travel, bottom centre, with a gun in hand on a pad: its pressure over the last second as a line, the break point across it (the shot goes as the line crosses it) and under that the point it must come back to. The line is white, green for the moment after it breaks, and dim while the trigger has yet to be let back.
     if (trigger && !bare && !radial && !menu && !xr) {
-      const { unit } = hud, graph = trigger.curve.length > 1, cols = graph ? 64 : 0, tall = 18 * unit, wide = cols * unit, gunW = 34 * unit;
-      const at = hudPack.reserve('trigger', 'bc', gunW + (graph ? wide + 4 * unit : 0) + 2 * unit, tall + 4 * unit);
-      const gx = at.x - W / 2 + unit, x = gx + gunW + (graph ? 3 * unit : 0), y = H / 2 - at.y - at.h + 2 * unit;
+      // 🔫 One small picture, at the left: the gun from its side, and the finger's pressure drawn inside its slide (the line of the last moments, the break a red row across it), the trigger going back as it is squeezed, and the flash out of the muzzle at a shot. (It was a gun and a chart beside it, in the middle, until 2026-11-28.)
+      const { unit } = hud, cols = 30, rows = 6;
+      const gx = -W / 2 + hud.safeX + 2 + unit, y = handleY + 37 * unit; // (over the face cam, whose top is thirty-two units over the handle's line)
       const fresh = now - trigger.firedAt < 160, ink = fresh ? 0x7dff7a : trigger.armed ? 0xffffff : 0x8b90a0;
       const m = model(({ rect: worldRect }) => {
         const rect = flip(worldRect);
-        // 🔫 The gun, from its side, in the flat: its slide and barrel, its grip, the guard, and the trigger itself, which goes back with the finger's pressure (and the slide kicks back for the moment after a shot). So the hand is seen as well as its line.
-        {
-          const px = (cx, cy, w, h, c, z = 0) => rect(gx + cx * unit, y + cy * unit, z, w * unit, h * unit, c);
-          const kick = fresh ? 2 : 0, pull = Math.round(Math.max(0, Math.min(1, trigger.value ?? 0)) * 4), body = 0x8b90a0, dark = 0x5a5f70;
-          px(-1, -1, 34, 20, 0x10131c, 0.000004); // its plate
-          px(4 - kick, 13, 24, 4, body, 0.000001); px(4 - kick, 12, 22, 1, 0xb9bfd0, 0.000001); // the slide
-          px(26, 12, 3, 1, dark); px(28 - kick, 14, 3, 2, 0x10131c); // the front sight and the muzzle
-          px(6, 10, 18, 3, dark, 0.000001); // the frame
-          for (let r = 0; r < 8; r++) px(5 + Math.floor(r / 3), 9 - r, 6, 1, r % 2 ? 0x4a4f5e : dark, 0.000001); // the grip, raked back
-          px(12, 5, 8, 1, dark); px(19, 6, 1, 4, dark); px(12, 6, 1, 4, dark); // the guard
-          px(16 - pull, 6, 2, 4, fresh ? 0x7dff7a : pull ? 0xffe066 : 0xf2f2f2); // the trigger
-          if (fresh) { px(31, 14, 2, 2, 0xfff3c4); px(33, 13, 1, 4, 0xffb000); } // the flash
-        }
-        if (!graph) return;
-        rect(x - unit, y - unit, 0.000004, wide + 2 * unit, tall + 2 * unit, 0x10131c);
-        rect(x, y + Math.round((tall * trigger.breakAt) / unit) * unit, 0.000002, wide, unit, 0xff5a5f);
-        rect(x, y + Math.round((tall * trigger.resetAt) / unit) * unit, 0.000002, wide, unit, 0x39405a);
-        const from = cols - trigger.curve.length;
-        trigger.curve.forEach((v, n) => {
-          const h = Math.round(((tall - unit) * Math.max(0, Math.min(1, v))) / unit) * unit, was = n ? Math.round(((tall - unit) * Math.max(0, Math.min(1, trigger.curve[n - 1]))) / unit) * unit : h;
+        const px = (cx, cy, w, h, c, z = 0.000002) => rect(gx + cx * unit, y + cy * unit, z, w * unit, h * unit, c);
+        const kick = fresh ? 2 : 0, pull = Math.round(Math.max(0, Math.min(1, trigger.value ?? 0)) * 4), dark = 0x5a5f70, sx = 4 - kick;
+        px(-1, -1, 38, 20, 0x10131c, 0.000004); // its plate
+        px(sx, 9, cols + 2, rows + 3, 0x8b90a0); px(sx + 1, 10, cols, rows + 1, 0x1b1e26, 0.000001); // the slide, and the window in it
+        px(sx + 28, 18, 2, 1, dark); // the front sight
+        px(6, 7, 22, 2, dark); // the frame
+        for (let r = 0; r < 7; r++) px(5 + Math.floor(r / 3), 6 - r, 7, 1, r % 2 ? 0x4a4f5e : dark); // the grip, raked back
+        px(14, 2, 9, 1, dark); px(22, 3, 1, 4, dark); // the guard
+        px(18 - pull, 3, 2, 4, fresh ? 0x7dff7a : pull ? 0xffe066 : 0xf2f2f2, 0); // the trigger
+        if (fresh) { px(sx + cols + 2, 11, 3, 5, 0xfff3c4, 0); px(sx + cols + 5, 12, 3, 3, 0xffb000, 0); px(sx + cols + 8, 13, 2, 1, 0xff5a5f, 0); } // the flash, out of the end
+        px(sx + 1, 10 + Math.round(rows * trigger.breakAt), cols, 1, 0xff5a5f, 0.0000005);
+        const curve = trigger.curve.length > 1 ? trigger.curve.slice(-cols) : [trigger.value ?? 0, trigger.value ?? 0], from = cols - curve.length;
+        const hOf = (v) => Math.round(rows * Math.max(0, Math.min(1, v)));
+        curve.forEach((v, n) => {
           // (Each column joined to the one before it, so a quick squeeze is a line and not a scatter.)
-          rect(x + (from + n) * unit, y + Math.min(h, was), 0, unit, Math.abs(h - was) + unit, ink);
+          const h = hOf(v), was = n ? hOf(curve[n - 1]) : h;
+          px(sx + 1 + from + n, 10 + Math.min(h, was), 1, Math.abs(h - was) + 1, ink, 0);
         });
       });
       projector.overlay(m, W, H);
