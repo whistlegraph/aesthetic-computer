@@ -28,7 +28,7 @@ import { ClientDiagnostics } from './diagnostics-client.mjs';
 import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
-import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye } from './immersive.mjs';
+import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset } from './immersive.mjs';
 import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
@@ -3174,10 +3174,32 @@ function stepGhost(xr, now) {
   xr.handsSent = handsSent;
   if (seat >= 0 && selfMember?.handle && now - ghostAskedAt > 1500) { ghostAskedAt = now; send({ type: 'take-drone' }); }
 }
+// ✊ Two fists hold the world (immersive.mjs grabStep): what they held as they closed, or null.
+let xrGrab = null;
+function stepXRGrab(xr) {
+  const fists = ['left', 'right'].map((side) => fistOf(xr.hands.find((h) => h.side === side)));
+  if (!fists[0] || !fists[1]) { if (xrGrab) sfx.ringBack(); xrGrab = null; return; }
+  const [q1, q2] = fists.map((f) => [xr.offset[0] + f.x, xr.offset[1] + f.y, xr.offset[2] + f.z]);
+  if (!xrGrab) {
+    // (Held at life size, the room is first a table of its own size where it already is: the eye's own place taken off.)
+    xrTable ||= { scale: 1, rot: 0, pivot: { x: 0, y: 0, z: 0 }, at: [-freecam.x, -freecam.y, -freecam.z] };
+    xrGrab = grabStart(xrTable, q1, q2);
+    sfx.ringOpen();
+    return;
+  }
+  xrTable = grabStep(xrTable, xrGrab, q1, q2);
+}
 function stepXRView(xr) {
+  if (seat < 0) stepXRGrab(xr); else xrGrab = null;
+  stepXRStops(xr);
+  // (Last: the stops above read the headset as it is; from here on it is turned as the room is.)
+  turnHeadset(xr, xrTable?.rot || 0);
+  xr.grabbing = !!xrGrab;
+}
+function stepXRStops(xr) {
   const wrist = wristOf(xr), tip = pokerOf(xr);
   const far = wrist && tip ? Math.hypot(tip.x - wrist.x, tip.y - wrist.y - SLATE_LIFT, tip.z - wrist.z) : Infinity;
-  const poke = slateArmed && far < SLATE_REACH;
+  const poke = slateArmed && far < SLATE_REACH && !xrGrab;
   if (far < SLATE_REACH) slateArmed = false; else if (far > SLATE_REACH + 0.04) slateArmed = true; // (one poke, one change: the tip comes away before it counts again)
   const stops = xrStops();
   if (xr.viewPress || poke) {

@@ -397,3 +397,56 @@ export function roomPlanes(frame, space, point, session) {
   }
   return { asked, known: true, count: planes.size ?? outlines.length, labels, outlines };
 }
+
+// ✊ Two fists take hold of the world. A hand is a fist when its four
+// fingertips are curled in by the wrist; where it holds is its middle knuckle.
+// With both closed, the two points of the room under them stay under them:
+// move both and the room goes along (pan), part or close them and it grows or
+// shrinks (scale), turn one round the other and it turns (rotate, about the
+// upright). So the room is walked, flown and sized with two hands alone.
+// A table (tableEye) is the room placed: { scale, pivot, at, rot }, where the
+// room's point under a real point q (metres from where the headset began) is
+//   pivot + (turn(q, rot) - at) / scale.
+export const FIST_CURL = 0.095;
+export function fistOf(hand) {
+  const wrist = hand?.fingers?.[0]?.[0], hold = hand?.fingers?.[2]?.[2];
+  if (!wrist || !hold) return null;
+  const tips = hand.fingers.slice(1).map((chain) => chain.at(-1));
+  if (tips.some((t) => !t)) return null;
+  const curl = tips.reduce((sum, t) => sum + Math.hypot(t.x - wrist.x, t.y - wrist.y, t.z - wrist.z), 0) / tips.length;
+  return curl < FIST_CURL ? hold : null;
+}
+export const turn = (v, a) => {
+  const c = Math.cos(a), s = Math.sin(a), [x, y, z] = Array.isArray(v) ? v : [v.x, v.y, v.z];
+  return Array.isArray(v) ? [x * c + z * s, y, -x * s + z * c] : { ...v, x: x * c + z * s, z: -x * s + z * c };
+};
+const roomAt = (table, q) => {
+  const t = turn(q, table.rot || 0);
+  return [table.pivot.x + (t[0] - table.at[0]) / table.scale, table.pivot.y + (t[1] - table.at[1]) / table.scale, table.pivot.z + (t[2] - table.at[2]) / table.scale];
+};
+// The hold: the two points of the room under the fists as they close (q1, q2: real points, as arrays).
+export const grabStart = (table, q1, q2) => ({ a1: roomAt(table, q1), a2: roomAt(table, q2) });
+// The table that keeps them there now.
+export function grabStep(table, hold, q1, q2, { least = 0.004, most = 2 } = {}) {
+  const dq = [q2[0] - q1[0], q2[1] - q1[1], q2[2] - q1[2]], da = [hold.a2[0] - hold.a1[0], hold.a2[1] - hold.a1[1], hold.a2[2] - hold.a1[2]];
+  const far = Math.hypot(...da);
+  if (far < 1e-6 || Math.hypot(...dq) < 0.02) return table;
+  const scale = Math.min(most, Math.max(least, Math.hypot(...dq) / far));
+  // (Turned only when the fists are apart across the floor: one over the other says nothing of which way round.)
+  const flat = Math.hypot(dq[0], dq[2]) > 0.04 && Math.hypot(da[0], da[2]) > 1e-6;
+  const rot = flat ? Math.atan2(da[0], da[2]) - Math.atan2(dq[0], dq[2]) : table.rot || 0;
+  const qm = turn([(q1[0] + q2[0]) / 2, (q1[1] + q2[1]) / 2, (q1[2] + q2[2]) / 2], rot);
+  const am = [(hold.a1[0] + hold.a2[0]) / 2, (hold.a1[1] + hold.a2[1]) / 2, (hold.a1[2] + hold.a2[2]) / 2];
+  return { ...table, scale, rot,
+    at: [qm[0] - scale * (am[0] - table.pivot.x), qm[1] - scale * (am[1] - table.pivot.y), qm[2] - scale * (am[2] - table.pivot.z)] };
+}
+// 🔄 Everything the headset says of itself, turned with the room (the head's place and its three axes, the hands, the rays, the real room's planes), so what follows reads it as it always did.
+export function turnHeadset(xr, a) {
+  if (!a) return xr;
+  for (const key of ['offset', 'forward', 'rightAxis', 'up']) xr[key] = turn(xr[key], a);
+  xr.hands = xr.hands.map((h) => ({ ...h, fingers: h.fingers.map((chain) => chain.map((j) => j && turn(j, a))) }));
+  xr.rays = xr.rays.map((r) => ({ ...r, origin: turn(r.origin, a), dir: turn(r.dir, a) }));
+  if (xr.room?.outlines) xr.room = { ...xr.room, outlines: xr.room.outlines.map((o) => ({ ...o, points: o.points.map((p) => turn(p, a)) })) };
+  xr.yaw = (((xr.yaw + (a * 180) / Math.PI) % 360) + 360) % 360;
+  return xr;
+}
