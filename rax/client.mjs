@@ -15,7 +15,7 @@ import { dockPose, boxStandoff, boxMiddle, bearingFrom, glide, smooth, cursorSte
 import { PLANTERS } from './elevator.mjs'; // (the courtyard's trees, for where an eye may stand)
 import * as keypad from './pieces/keypad.mjs';
 import { gameFor } from './games.mjs';
-import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf } from './world.mjs';
+import { HZ, DT, PROTOCOL, HORIZON, move, spawn, clamp, CHALK, playURL, ONE_ROOM, HOME_ROOM, PLAZA, PLAZA_WORD, placeFor, servedFrom, worldPlace, slabOf, roofBoxes, muzzleOf, TOWER_DROP } from './world.mjs';
 import { reconcile, interpolate } from './net.mjs';
 import { Rounds } from './rounds.mjs';
 import { LocalPresentation, SnapshotClock, RemoteEase, SeatClocks } from './presentation.mjs';
@@ -29,7 +29,7 @@ import { Stalls } from './stalls.mjs';
 import { accountToken, accountExpected, askAccount } from './account.mjs';
 import { createPairDesk } from './pair-desk.mjs';
 import { immersive, wristOf, pokerOf, SLATE_LIFT, SLATE_REACH, handsPacked, handsValid, handsUnpacked, tableEye, fistOf, grabStart, grabStep, turnHeadset, handAim, headPacked, headValid } from './immersive.mjs';
-import { Controller, neutralPad } from './controller.mjs';
+import { Controller, neutralPad, TURN_RIM, TURN_BOOST, TURN_RAMP } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { createAgentSurface } from './agent.mjs';
@@ -3303,6 +3303,8 @@ function replayTick(now) {
   if (replayLog.length < 2 || replayLog[0].tick > first + 30) return null; // (not enough kept: it is not shown)
   return first + ((since / 1000) * HZ) % span;
 }
+let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
+let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on
 let holdMeter = null, holdStep = -1;
 let deathCount = null;
 function holdOn(label, since, ms, now = performance.now()) {
@@ -3692,6 +3694,11 @@ function step(now, xr) {
     }
   }
   // 🔫 With a gun in hand the right trigger is a trigger: it has a travel, a point where it breaks (TRIGGER_BREAK) and the shot goes, and it must be let back past TRIGGER_RESET before it will break again. No shot from a trigger rested on, none from one held. Its pressure over the last second is kept for the view to draw.
+  // 😱 Falling off the roof, a scream: not one held cry but an arpeggio of short ones on the room's own sixteenths, a voice in a throat (sfx.mjs scream), each lower as the street comes up.
+  if (seat >= 0 && player?.alive !== false && platformSlab() && player && player.y < -2 && (player.vy ?? 0) < -3) {
+    const sixteenth = Math.floor(beatAt(Date.now() + (clockOffset || 0)) * 4);
+    if (sixteenth !== screamStep) { screamStep = sixteenth; sfx.scream(sixteenth, Math.min(1, -player.y / TOWER_DROP)); }
+  } else screamStep = -1;
   const gunHeld = seat >= 0 && heldKind() === 'shoot', rt = gamepad.rt || 0;
   if (gunHeld && controller.id) {
     if (rtArmed && rt >= TRIGGER_BREAK) { rtArmed = false; rtFiredAt = now; if (!typing() && !radial.open && !menu && !chalkMode) useQueued = true; }
@@ -3726,8 +3733,11 @@ function step(now, xr) {
     }
     if (!dock && !lockOn && !booming) {
       const dt = Math.min(0.1, elapsed) / focusZoom;
-      yaw = (yaw - gamepad.lookX * 160 * dt + 360) % 360;
-      pitch = clamp(pitch - gamepad.lookY * 120 * dt, -85, 85);
+      // 🎯 Turning far: with the stick held hard across (past TURN_RIM) the turn grows over a third of a second to 1.7 times, and falls back the moment the stick comes in. Inside the rim nothing is added or smoothed: the stick's place is the turn's speed, at once. Up and down are slower than across, and never boosted.
+      turnHeld = (gamepad.lookRim || 0) > TURN_RIM ? Math.min(TURN_RAMP, turnHeld + Math.min(0.1, elapsed)) : 0;
+      const ramp = turnHeld / TURN_RAMP, boost = 1 + TURN_BOOST * ramp * ramp * (3 - 2 * ramp);
+      yaw = (yaw - gamepad.lookX * 150 * boost * dt + 360) % 360;
+      pitch = clamp(pitch - gamepad.lookY * 100 * dt, -85, 85);
     }
     // Arrow keys turn and tilt at a steady rate for mouse-free play.
     const turnX = Number(keys.has('ArrowRight')) - Number(keys.has('ArrowLeft')),

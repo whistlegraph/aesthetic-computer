@@ -27,24 +27,47 @@ export const neutralPad = () => ({
   start: false,
   swap: false,
 });
-export function stick(x = 0, y = 0, deadzone = 0.16) {
+// 🎯 The sticks, as console shooters that are played to win have them
+// (2026-11-27, from what is published of them: Kevin Ng's first-person
+// control design, measurements of Halo's and Call of Duty's turn, and the
+// presets players settle on in Apex and Warzone):
+//   - a round deadzone, small, with what is left of the travel rescaled to
+//     the whole range, so there is no step as the stick leaves it;
+//   - an outer threshold short of the rim (OUTER), since a worn stick never
+//     quite reaches 1 and full speed must be reachable;
+//   - for looking, a curve on the stick's whole reach, not on each axis
+//     (LOOK_CURVE, about 1.6: fine near the middle, quick at the edge, and a
+//     diagonal is not bent toward an axis);
+//   - no smoothing of any of it. What is added for turning far (the boost at
+//     full tilt) is the client's, and only at the rim (TURN_*).
+export const OUTER = 0.97, LOOK_CURVE = 1.6;
+export const TURN_RIM = 0.92, TURN_BOOST = 0.7, TURN_RAMP = 0.3; // past TURN_RIM across, the turn grows by TURN_BOOST over TURN_RAMP seconds
+export function stick(x = 0, y = 0, deadzone = 0.16, outer = 1) {
   if (!Number.isFinite(x) || !Number.isFinite(y)) return [0, 0];
   const length = Math.hypot(x, y);
   if (length <= deadzone) return [0, 0];
-  const strength = Math.min(1, (length - deadzone) / (1 - deadzone));
+  const strength = Math.min(1, (length - deadzone) / (Math.max(deadzone + 0.01, outer) - deadzone));
   return [(x / length) * strength, (y / length) * strength];
+}
+// The look stick's reach, curved: the same way it points, its length raised to LOOK_CURVE.
+export function lookCurve([x, y], power = LOOK_CURVE) {
+  const length = Math.hypot(x, y);
+  if (length < 1e-6) return [0, 0];
+  const k = Math.min(1, length) ** power / length;
+  return [x * k, y * k];
 }
 // 🎯 The deadzone is learned from the stick itself. A stick left alone sits
 // at some small offset (its drift) and shivers a little round it. Once a
 // stick has lain still for a second and a half its resting point is taken
 // as its middle, and its deadzone shrinks to just cover the shiver — far
 // smaller than the fixed one a stick starts with, so it answers a light push.
-const REST_FRAMES = 90, REST_REACH = 0.3, REST_STEP = 0.015, DEADZONE_MIN = 0.04;
+// (The least deadzone a stick is brought to once its rest is known: three hundredths. Before that, FIRST: enough for a stick that drifts a little, a third of what it was.)
+const REST_FRAMES = 90, REST_REACH = 0.3, REST_STEP = 0.015, DEADZONE_MIN = 0.03, FIRST = [0.1, 0.08];
 const newRest = () => ({ cx: 0, cy: 0, px: 0, py: 0, still: 0, noise: 0, known: false });
 export class Controller {
   constructor() {
     this.rests = new Map(); // by pad index: its two sticks' resting points
-    this.deadzones = [0.16, 0.18]; // left, right, as last sampled
+    this.deadzones = [...FIRST]; // left, right, as last sampled
     this.previous = [];
     this.id = null;
     this.index = null;
@@ -105,17 +128,17 @@ export class Controller {
       buttons[i] && !this.previous[i] && !changed && this.focused;
     if (focused) {
       // Each stick's deadzone: the widest any connected pad still needs.
-      this.deadzones = [0.16, 0.18].map((fixed, s) =>
+      this.deadzones = FIRST.map((fixed, s) =>
         Math.max(...pads.map((p) => {
           const r = this.rests.get(p.index)?.[s];
           return r?.known ? Math.min(fixed, Math.max(DEADZONE_MIN, r.noise * 2 + 0.03)) : fixed;
         })));
-      const left = stick(pad.axes[0], pad.axes[1], this.deadzones[0]),
-        right = stick(pad.axes[2], pad.axes[3], this.deadzones[1]);
+      const left = stick(pad.axes[0], pad.axes[1], this.deadzones[0], OUTER),
+        right = stick(pad.axes[2], pad.axes[3], this.deadzones[1], OUTER);
       result.right = left[0];
       result.fwd = -left[1];
-      result.lookX = Math.sign(right[0]) * Math.abs(right[0]) ** 1.4;
-      result.lookY = Math.sign(right[1]) * Math.abs(right[1]) ** 1.4;
+      [result.lookX, result.lookY] = lookCurve(right);
+      result.lookRim = Math.abs(right[0]); // (how far across the look stick is, before the curve: the client's turn boost reads it)
       // A jumps and chooses (on a screen it presses, and does not jump); the left trigger is the focus zoom (`lt`, below).
       result.jump = edge(0);
       result.select = edge(0);

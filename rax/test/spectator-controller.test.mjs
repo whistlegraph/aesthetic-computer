@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {Room} from '../room.mjs';
-import {Controller,stick} from '../controller.mjs';
+import {Controller,stick,lookCurve,OUTER,LOOK_CURVE} from '../controller.mjs';
 import {moveFreecam} from '../freecam.mjs';
 import {parseSource,sourceFrame} from '../object-language.mjs';
 
@@ -71,11 +71,20 @@ test('the rejected Big friend walks within its actual swept bounds',async()=>{
 });
 test('a drifting stick is learned: its resting point becomes its middle and its deadzone shrinks to its shiver',()=>{
  const c=new Controller();const p={id:'drifty',index:0,connected:true,mapping:'standard',axes:[.12,-.05,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};
- c.sample([p]);assert.deepEqual(c.deadzones,[.16,.18]);
+ c.sample([p]);assert.deepEqual(c.deadzones,[.1,.08]);
  for(let i=0;i<200;i++){p.axes=[.12+(i%2?.004:-.004),-.05,0,0];c.sample([p]);}
  assert.ok(c.deadzones[0]<.06,'left deadzone shrank');assert.ok(c.deadzones[1]<.06);
  const rest=c.sample([p]);assert.ok(rest.right===0&&rest.fwd===0,'at rest it gives nothing');
  p.axes=[.22,-.05,0,0];const push=c.sample([p]);assert.ok(push.right>0,'a light push past the drift now moves');
  p.axes=[.9,0,0,0];for(let i=0;i<200;i++)c.sample([p]);
  assert.ok(c.sample([p]).right>.7,'a stick held hard over is never taken for rest');
+});
+test('the look stick as shooters have it: a small round deadzone rescaled, full speed short of the rim, and a curve on its reach that keeps its direction', ()=>{
+ assert.deepEqual(stick(.02,.02,.04,OUTER),[0,0]);
+ assert.ok(Math.abs(stick(OUTER,0,.04,OUTER)[0]-1)<1e-9,'full at the outer threshold, not only at the rim');
+ assert.ok(stick(.05,0,.04,OUTER)[0]<.02,'no step as it leaves the deadzone');
+ const half=lookCurve([.5,0]);assert.ok(Math.abs(half[0]-.5**LOOK_CURVE)<1e-9);
+ const d=lookCurve([.3,.4]);assert.ok(Math.abs(d[1]/d[0]-4/3)<1e-9,'a diagonal keeps its direction');
+ assert.deepEqual(lookCurve([0,0]),[0,0]);assert.ok(Math.abs(lookCurve([1,0])[0]-1)<1e-9);
+ const c=new Controller();assert.ok(c.deadzones[0]<=.1&&c.deadzones[1]<=.08,'small from the start');
 });

@@ -23,7 +23,9 @@ export function hudLayout(width, height, cells, scale = 1, fixedUnit = 0) {
   // half CSS pixels, so the 7-pixel letters read at about 10.5 CSS pixels:
   // two units on the 0.75 buffer a HiDPI screen gets, two whole pixels on a
   // 1x screen (one unit drew them 7 pixels tall, three units read too large).
-  const least = Math.ceil(1.5 / Math.max(0.5, scale));
+  // 📐 …and more on a large window, so the HUD keeps its size to the eye whatever the picture's own density (D-pad up, a zoomed-out page, a 4K screen): the window is read as about 720 units across (405 down), never fewer CSS pixels to a unit than one and a half. A 1440-wide window has letters 14 CSS pixels tall; a 2200-wide one, 21.
+  const css = Math.max(0.5, scale), roomy = Math.max(1.5, Math.min((width * css) / 720, (height * css) / 405));
+  const least = Math.ceil(roomy / css);
   // A host that lays us on its own pixel grid fixes the unit (1 under the
   // prompt: its font_1 and ours are then the same letters, pixel for pixel).
   const unit = fixedUnit > 0 ? fixedUnit : Math.max(least, Math.round(Math.min(width / 480, height / 270)));

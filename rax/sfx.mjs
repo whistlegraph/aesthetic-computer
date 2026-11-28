@@ -43,6 +43,29 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 😱 One note of a falling body's scream. A saw through two formants (an open "ah": 800 and 1250 Hz) with a quick shake on its pitch, so it is a voice and not a tone. `step` picks the note from a falling arpeggio (a minor seventh, two octaves of it), and `depth` (0 at the roof, 1 at the street) brings the whole thing down an octave and makes it louder.
+  scream(step, depth = 0) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime, ARP = [24, 19, 15, 12, 10, 7, 3, 0];
+    const semis = ARP[((step % ARP.length) + ARP.length) % ARP.length] - depth * 12, f = 330 * 2 ** (semis / 12);
+    const o = a.createOscillator(), shake = a.createOscillator(), amount = a.createGain(), g = a.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f * 1.06, t);
+    o.frequency.exponentialRampToValueAtTime(f * 0.94, t + 0.11);
+    shake.frequency.value = 31; amount.gain.value = f * 0.035;
+    shake.connect(amount).connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime((0.05 + depth * 0.05) * MASTER, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.115);
+    for (const [hz, q, level] of [[800, 5, 1], [1250, 7, 0.7], [2700, 9, 0.25]]) {
+      const band = a.createBiquadFilter(), lift = a.createGain();
+      band.type = 'bandpass'; band.frequency.value = hz * (1 - depth * 0.12); band.Q.value = q; lift.gain.value = level;
+      o.connect(band).connect(lift).connect(g);
+    }
+    g.connect(a.destination);
+    o.start(t); shake.start(t);
+    o.stop(t + 0.13); shake.stop(t + 0.13);
+  }
   // 🎱 Two heads knock together: a short wooden clack, where they met.
   headBump(at) {
     if (!this.ready) return;
