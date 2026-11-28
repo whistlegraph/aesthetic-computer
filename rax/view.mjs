@@ -3799,7 +3799,6 @@ export async function createView(canvas) {
           const rect = flip(worldRect);
           rect(cx - 2 * unit, cy - 2 * unit, 0.000002, 4 * unit, 4 * unit, INK);
           rect(cx - unit, cy - unit, 0, 2 * unit, 2 * unit, blink);
-          small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, blink);
         });
         projector.overlay(m, W, H);
       }
@@ -3860,6 +3859,17 @@ export async function createView(canvas) {
             arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
           }
         }
+      }
+      // 👹 Over a head the corners go out to surround it, as they do a thing locked on to: its own size on the screen, a little clear of it, following it as it comes.
+      if (threat !== null && core && !box) {
+        const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
+        const r = Math.max(5 * unit, Math.round(((0.6 / core.depth) * projector.sx * W) / 2)), pad = 3 * unit;
+        const clampTo = (v, lim) => Math.max(-lim, Math.min(lim, v)), limitX = W / 2 - 2 * unit, limitY = H / 2 - 2 * unit;
+        box = { left: clampTo(cx - r - pad, limitX), right: clampTo(cx + r + pad, limitX), bottom: clampTo(cy - r - pad, limitY), top: clampTo(cy + r + pad, limitY) };
+        arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
+        // (The metres under the bracket, wherever the head has taken it.)
+        const said = `${threat.toFixed(0)}m`, lx = (box.left + box.right) / 2, ly = box.bottom - 3 * unit;
+        projector.overlay(model(({ small }) => { small(said, lx + unit, ly - unit, 0.000002, unit, INK); small(said, lx, ly, 0, unit, 0xff3b3b); }), W, H);
       }
       // With a free mouse the reticle sits on the cursor (2026-11-03).
       const pxc = canvas.width / Math.max(1, canvas.clientWidth);
