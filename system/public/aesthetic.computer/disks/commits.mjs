@@ -562,13 +562,16 @@ function paintButtons($) {
   refreshBtn.paint($, BTN_SCHEME, BTN_HOVER);
 }
 
-function act({ event: e, screen, jump, ui, net, system }) {
+function act({ event: e, screen, jump, ui, net, system, store }) {
   if (!tangledBtn) buildButtons({ ui, screen });
 
   // Flip back to the prompt; a stale build reloads here first.
   hashBtn?.btn.act(e, () => {
     if (system?.update?.ready) system.update.reload();
-    else jump("prompt");
+    else {
+      store["prompt:splash"] = true; // Land on the curtain, not the typing line.
+      jump("prompt");
+    }
   });
 
   // Buttons.
