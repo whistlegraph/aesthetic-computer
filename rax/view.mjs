@@ -2044,10 +2044,11 @@ export async function createView(canvas) {
       // Fit the entire planetary limb under the cursor, including a margin
       // at maximum hover. Use its apparent radius from this camera height.
       const tan = aspect < 1 ? Math.min(Math.sqrt(3), 1 / aspect) : 1;
-      const height = PLANET * 10;
+      // (🏙️ A roof has no planet under it to fit to the cursor: there the eye turns about the roof itself, a little off straight above, and the roof with its fire escape is what is fitted. It used to look down past the roof at the middle of a planet that is not drawn there, from a planet's radius to one side, and the roof stood off from the crosshair.)
+      const height = PLANET * 10, reach = roof ? PLANET * 0.02 : PLANET; // (over a roof the eye is all but straight above it, as far up as ever and fitted as ever: only where it looks from is changed)
       const natural = PLANET / Math.sqrt(height * (height + 2 * PLANET)) * canvas.height / (2 * tan);
       orbitZoom = Math.pow((15 * cornerScale) / natural, (1 - landed));
-      const far = { x: Math.sin(a) * PLANET, y: ground + height, z: -Math.cos(a) * PLANET };
+      const far = { x: Math.sin(a) * reach, y: ground + height, z: -Math.cos(a) * reach };
       const px = canvas.width / Math.max(1, canvas.clientWidth);
       // The crosshair's centre sits 22 prompt pixels in from the corner; on
       // the host's grid a buffer pixel is a prompt pixel.
@@ -2056,7 +2057,7 @@ export async function createView(canvas) {
       const cornerY = 2 * (inset + (grid ? paperBottom : 0)) / canvas.height - 1;
       projector.shiftX = cornerX * (1 - landed);
       projector.shiftY = cornerY * (1 - landed);
-      const centre = { x: far.x * 0.98, y: ground - PLANET, z: far.z * 0.98 };
+      const centre = roof ? { x: 0, y: ground - PLANET, z: 0 } : { x: far.x * 0.98, y: ground - PLANET, z: far.z * 0.98 };
       const me0 = me || flyTo || camera; // Before the seat is granted, fly toward the spawn.
       if (!me0 || orbit >= 1) {
         eye = far;
