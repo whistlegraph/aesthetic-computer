@@ -1202,11 +1202,24 @@ export async function createView(canvas) {
   }
   const clockHands = [[0.5, 0x10131c], [0.3, 0x10131c], [0.12, 0xd9363e]].map(([w, c]) => model(({ box }) => box(0, 0.5, 0, w / 4, 1, 0.04, c, c, c)));
   // 👻 A ghost's head is seen through: nothing here is drawn half-clear, so it is made of its edges alone (twelve thin pale bars), the room showing between them, with a thin visor band across the front and two small lights for eyes.
+  const xrReticle = model(({ box }) => {
+    const c = 0x00ffff, half = 0.045, arm = 0.022, t = 0.005;
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      box(sx * (half - arm / 2), sy * half, 0, arm, t, t, c, c, c);
+      box(sx * half, sy * (half - arm / 2), 0, t, arm, t, c, c, c);
+    }
+    box(0, 0, 0, t * 1.6, t * 1.6, t, 0xffffff, 0xffffff, 0xffffff);
+  });
   const ghostHead = model(({ box }) => {
     const w = 0.17, h = 0.21, d = 0.19, t = 0.012, pale = 0xdfe6f5, cz = -0.02;
     for (const sy of [-1, 1]) for (const sz of [-1, 1]) box(0, (sy * h) / 2, cz + (sz * d) / 2, w + t, t, t, pale, pale, pale);
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) box((sx * w) / 2, 0, cz + (sz * d) / 2, t, h + t, t, pale, pale, pale);
     for (const sx of [-1, 1]) for (const sy of [-1, 1]) box((sx * w) / 2, (sy * h) / 2, cz, t, t, d + t, pale, pale, pale);
+    // (More of a wire frame: a ring round its middle each way, so it reads as a cage and turns as one.)
+    for (const sz of [-1, 1]) box(0, 0, cz + (sz * d) / 2, w, t * 0.7, t * 0.7, pale, pale, pale);
+    for (const sx of [-1, 1]) box((sx * w) / 2, 0, cz, t * 0.7, t * 0.7, d, pale, pale, pale);
+    for (const sy of [-1, 1]) { box(0, (sy * h) / 2, cz, t * 0.7, t * 0.7, d, pale, pale, pale); box(0, (sy * h) / 2, cz, w, t * 0.7, t * 0.7, pale, pale, pale); }
+    for (const sz of [-1, 1]) box(0, 0, cz + (sz * d) / 2, t * 0.7, h, t * 0.7, pale, pale, pale);
     for (const y of [0.05, -0.01]) box(0, y, 0.078, 0.165, 0.008, 0.008, 0x8b90a0, 0x8b90a0, 0x8b90a0); // the visor: its upper and lower edge only
     box(-0.04, 0.02, 0.08, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee); // two small lights for eyes
     box(0.04, 0.02, 0.08, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee);
@@ -2292,6 +2305,12 @@ export async function createView(canvas) {
     }
     if (xr) {
       projector.bends = false;
+      // ⌖ In a headset the crosshair is in the room: the same cyan corners and point as on a screen, hung two and a half metres out along the way the head looks (the way the hand points, with a thing in it), turned to the eye.
+      {
+        const k = 1 / (xr.table?.scale || 1), f = me && xr.heldAt ? direction(me.yaw, me.pitch) : { x: xr.forward[0], y: xr.forward[1], z: xr.forward[2] };
+        const at = { x: eye.x + f.x * 2.5 * k, y: eye.y + f.y * 2.5 * k, z: eye.z + f.z * 2.5 * k };
+        projector.draw(xrReticle, at.x, at.y, at.z, Math.atan2(f.x, f.z), -Math.asin(Math.max(-1, Math.min(1, f.y))), k);
+      }
       drawHands(xr, eye);
       // 🧱 Each plane the headset knows of the real room, as its outline where it stands (cut to hand-lengths: the line's thickness goes with a piece's length).
       for (const plane of xr.room?.outlines || []) {

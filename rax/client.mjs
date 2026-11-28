@@ -3307,6 +3307,7 @@ function replayTick(now) {
 }
 let restartAt = 0; // 📣 when the room goes for a new rax (0: no such word)
 let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
+const BILLBOARD_RES = { north: 64, west: 160 }; // 🪧 (a hundred and sixty squares across its thirty-two metres, twenty centimetres each: it was sixty-four, half a metre a square)
 let clockSecond = null, billboardAsked = false; // 🕰️ the last second the tower ticked on; 🪧 whether the billboard's piece was asked for
 let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on
 let holdMeter = null, holdStep = -1;
@@ -3711,9 +3712,9 @@ function step(now, xr) {
     // 🪧 …and the billboard runs its KidLisp (the west wall's machinery, stood on a building's side): asked for once, the handle's newest piece if the site will say, else the one named.
     if (room === STAGE && !billboardAsked) {
       billboardAsked = true;
-      setWalls({ west: BILLBOARD.code });
+      setWalls({ west: BILLBOARD.code }, BILLBOARD_RES);
       fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=1&handle=${BILLBOARD.handle}`, { signal: AbortSignal.timeout(6000) })
-        .then((r) => (r.ok ? r.json() : null)).then((d) => { const code = d?.recent?.[0]?.code; if (typeof code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(code) && code !== BILLBOARD.code) setWalls({ west: code }); }).catch(() => {});
+        .then((r) => (r.ok ? r.json() : null)).then((d) => { const code = d?.recent?.[0]?.code; if (typeof code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(code) && code !== BILLBOARD.code) setWalls({ west: code }, BILLBOARD_RES); }).catch(() => {});
     }
   } else clockSecond = null;
   // 😱 Falling off the roof, a scream: not one held cry but an arpeggio of short ones on the room's own sixteenths, a voice in a throat (sfx.mjs scream), each lower as the street comes up.
