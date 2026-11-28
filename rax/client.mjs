@@ -3151,10 +3151,10 @@ function stepXRView(xr) {
   if (xr.viewPress || poke) {
     if (xrTable) xrTable = null;
     else {
-      // The room's floor, its middle an arm's reach before the head and under the chest, eighty centimetres across.
+      // The room's floor, its middle an arm's reach before the head and just under the eye, eighty centimetres across: looked across, at the bodies' own height, not down on from above (it was under the chest, 45 cm down, until 2026-11-27).
       const flat = Math.hypot(xr.forward[0], xr.forward[2]) || 1;
       xrTable = { scale: 0.4 / half(), pivot: { x: 0, y: 0, z: 0 },
-        at: [xr.offset[0] + (xr.forward[0] / flat) * 0.6, xr.offset[1] - 0.45, xr.offset[2] + (xr.forward[2] / flat) * 0.6] };
+        at: [xr.offset[0] + (xr.forward[0] / flat) * 0.6, xr.offset[1] - 0.12, xr.offset[2] + (xr.forward[2] / flat) * 0.6] };
     }
     sfx.ringPick(xrTable ? 4 : 0);
   }
