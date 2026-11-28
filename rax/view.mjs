@@ -2929,9 +2929,12 @@ export async function createView(canvas) {
                       : colourRow(hintSpans(l, confirming ? 0xff6b6b : THEME.text)),
                   )),
             ];
-      const visible = rows.slice(
+      let visible = rows.slice(
         -Math.max(3, Math.floor((height - 2 * safeY) / (11 * unit)) - 3),
       ).map((r) => clipSpans(r, columns));
+      // 📐 The controls give way to a small screen (a narrow window, a page zoomed in): while they are wider than two fifths of it, or taller than a third, the top rows go, down to the last (the hint for what is aimed at). They come back as the screen grows.
+      if (!prompt.open && !saying)
+        while (visible.length > 1 && (Math.max(...visible.map((row) => smallSpanWidth(row, unit))) > width * 0.4 || visible.length * 14 * unit > height / 3)) visible = visible.slice(1);
       promptRows = prompt.open || saying ? visible.length : 0;
       // A phone has send and cancel as caps; the key hints are for keys.
       const typing = (saying || (prompt.open && !radial && !prompt.busy)) && input !== 'touch';
@@ -3481,11 +3484,14 @@ export async function createView(canvas) {
     // 👥 Who else is in the room, top right: each in their seat's colour, those only looking on in grey, under a count. Room asked of the pack, so the stats stand under it and nothing else lies on it.
     if (!bare && !xr && !menu && !radial) {
       const mine = self?.handle?.toLowerCase() || null;
-      const others = members.filter((m) => (m.handle ? m.handle.toLowerCase() !== mine : m.owner !== self?.owner)).slice(0, 10);
+      const everyone = members.filter((m) => (m.handle ? m.handle.toLowerCase() !== mine : m.owner !== self?.owner));
+      // 📐 (As many as a quarter of the screen's height holds, ten at the most; the rest are a number.)
+      const fits = Math.max(1, Math.min(10, Math.floor((H * 0.25) / (10 * hud.unit)) - 1)), others = everyone.slice(0, fits);
       // 📨 Nobody else here: a code to hand someone, that brings them to this room.
       if (!others.length && self && !game) {
         const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = [{ text: 'join ', color: 0xffe066 }, { cap: 'rax.ac' }];
-        if (n) {
+        // 📐 (Only where there is room for it: a code a fifth of the screen wide or more, or a third of its height, is left out.)
+        if (n && (n + 2) * unit < W * 0.2 && (n + 16) * unit < H * 0.33) {
           const size = (n + 2) * unit, wide = Math.max(size, Math.ceil(smallSpanWidth(label, unit))), at = hudPack.reserve('invite', 'tr', wide, size + 14 * unit);
           chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
           const m = model(({ rect: worldRect, text, small }) => {
@@ -3501,8 +3507,9 @@ export async function createView(canvas) {
       }
       if (others.length) {
         const { unit } = hud;
-        const rows = [[{ text: `${others.length} other${others.length === 1 ? '' : 's'} here`, color: THEME.dim }],
+        const rows = [[{ text: `${everyone.length} other${everyone.length === 1 ? '' : 's'} here`, color: THEME.dim }],
           ...others.map((m) => [{ text: (m.handle ? `@${m.handle}` : m.name || 'guest').slice(0, 20), color: m.seat >= 0 ? seatColor(m.seat) : 0x8b90a0 }, ...(m.seat < 0 ? [{ text: ' looking on', color: 0x5a5f70 }] : [])])];
+        if (everyone.length > others.length) rows.push([{ text: `+${everyone.length - others.length} more`, color: THEME.dim }]);
         const wide = Math.ceil(Math.max(...rows.map((r) => smallSpanWidth(r, unit)))), at = hudPack.reserve('roster', 'tr', wide, rows.length * 10 * unit);
         chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
         const m = model(({ rect: worldRect, text, small }) => {
