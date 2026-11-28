@@ -43,6 +43,34 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 🌬️ The air a body moves through, one held voice of noise: dark and low at rest, almost nothing (the air of a cabin: Menu Band's cabin air, brown noise with a low band over it, MenuBandAirNoise.swift), opening and louder with speed over the ground, opening wide in a fall or a jump, and a narrower gust over it that rises with how fast the head turns and sits in the ear the turn leaves behind. `move`, `fall` 0..1; `turn` -1..1 (to the right is positive).
+  air(move = 0, turn = 0, fall = 0) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime;
+    if (!this.airVoice) {
+      const buffer = a.createBuffer(1, a.sampleRate * 4, a.sampleRate), data = buffer.getChannelData(0);
+      let brown = 0, dc = 0, low = 0, mid = 0;
+      for (let i = 0; i < data.length; i++) {
+        const white = Math.random() * 2 - 1;
+        brown += 0.004 * (white - brown); dc += 0.0007 * (brown - dc); low += 0.017 * (white - low); mid += 0.085 * (white - mid);
+        data[i] = Math.tanh((brown - dc) * 12 * 0.65 + low * 2.5 + mid * 0.35 + white * 0.08);
+      }
+      const src = a.createBufferSource(), body = a.createBiquadFilter(), bodyGain = a.createGain(), gust = a.createBiquadFilter(), gustGain = a.createGain(), pan = a.createStereoPanner ? a.createStereoPanner() : a.createGain();
+      src.buffer = buffer; src.loop = true;
+      body.type = 'lowpass'; body.frequency.value = 220; body.Q.value = 0.3; bodyGain.gain.value = 0;
+      gust.type = 'bandpass'; gust.frequency.value = 500; gust.Q.value = 2.4; gustGain.gain.value = 0;
+      src.connect(body).connect(bodyGain).connect(a.destination);
+      src.connect(gust).connect(gustGain).connect(pan).connect(a.destination);
+      src.start();
+      this.airVoice = { body, bodyGain, gust, gustGain, pan };
+    }
+    const v = this.airVoice, m = Math.max(0, Math.min(1, move)), f = Math.max(0, Math.min(1, fall)), turned = Math.max(-1, Math.min(1, turn)), k = Math.abs(turned);
+    v.body.frequency.setTargetAtTime(180 + 900 * m + 2600 * f, t, 0.08);
+    v.bodyGain.gain.setTargetAtTime((0.012 + 0.05 * m + 0.11 * f) * MASTER, t, 0.1);
+    v.gust.frequency.setTargetAtTime(420 + 2200 * k + 900 * f, t, 0.05);
+    v.gustGain.gain.setTargetAtTime((0.09 * k + 0.03 * f) * MASTER, t, 0.05);
+    v.pan.pan?.setTargetAtTime(-turned * 0.8, t, 0.06);
+  }
   // 🔫 The trigger's squeeze, held as one voice while a gun is in hand on a pad: silent at rest, a thin sine from the first pressure that climbs toward the break (an octave over its travel), a little rougher in the last tenth before it; quiet again while the trigger has yet to be let back.
   squeeze(pressure, breakAt = 0.62, armed = true) {
     if (!this.ready) return;

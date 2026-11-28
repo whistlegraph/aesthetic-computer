@@ -3324,6 +3324,7 @@ function stepXRStops(xr) {
   xr.table = xrTable;
   xr.nextView = stops[(Math.min(xrStop, stops.length - 1) + 1) % stops.length].label; // (the slate's foot says it: view.mjs)
 }
+let windAt = 0, windYaw = 0, windPitch = 0, windTurn = 0; // 🌬️ (the head's turning, lately, for the air's sound)
 let mouseFiring = false, lastShotAt = -Infinity; // (for the gun's picture on the keys and mouse: whether the button is down, and when this page last fired)
 const TRIGGER_BREAK = 0.62, TRIGGER_RESET = 0.3;
 let rtArmed = true, rtFiredAt = -Infinity, rtCurve = [];
@@ -4240,6 +4241,16 @@ function step(now, xr) {
       const f = direction(yaw, pitch);
       const beat = beatAt(Date.now() + (clockOffset || 0));
       tones.update([...toneSources(), ...headTones()], { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
+      // 🌬️ The air: how fast the body goes over the ground, how fast the head turns (eased, so a flick is a gust and not a click), and how fast it rises or falls off the ground.
+      {
+        const nowMs = performance.now(), dt = Math.max(0.004, Math.min(0.1, (nowMs - windAt) / 1000));
+        let dy = yaw - windYaw; dy -= Math.round(dy / 360) * 360;
+        const rate = (dy / dt) / 300 + ((pitch - windPitch) / dt) / 600 * Math.sign(dy || 1);
+        windTurn += (Math.max(-1, Math.min(1, rate)) - windTurn) * Math.min(1, dt * 10);
+        windAt = nowMs; windYaw = yaw; windPitch = pitch;
+        const body = seat >= 0 && player?.alive !== false ? player : null;
+        sfx.air(body ? Math.hypot(body.vx || 0, body.vz || 0) / 9 : 0, windTurn, body && !body.onGround ? Math.min(1, Math.abs(body.vy || 0) / 22 + 0.15) : 0);
+      }
     }
   }
   // (Everyone but this page's own body is carried on through a quiet wire and eased back: presentation.mjs.)
