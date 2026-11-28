@@ -117,7 +117,9 @@ export const WALLS = wallsOf(WORLD);
 // body walks off its edge and falls, its sides are solid from below, and
 // under FALL_Y the body is stood back where it arrives (match.mjs).
 // It rides among a room's fixed boxes, marked `slab`; move() takes it from there.
-export const PLATFORM_DEPTH = 2, FALL_Y = -40;
+// 🏙️ (2026-11-27: the platform is the roof of a skyscraper. TOWER_DROP metres down is the street, and a body that falls that far has hit it: FALL_Y, the eye's height over the street.)
+export const TOWER_DROP = 120;
+export const PLATFORM_DEPTH = 2, FALL_Y = -TOWER_DROP + 1.6;
 const ABYSS = -1e4;
 const slabs = new Map();
 export function slabOf(half = WORLD) {

@@ -21,14 +21,19 @@ test('a platform is a volume: a body stands on its top, walks off its edge and f
   for (const yaw of [90, -90]) { const q = move({ ...low, yaw }, { yaw, pitch: 0, fwd: 1, right: 0, buttons: 0 }, [], 0, fixed); assert.ok(q.x >= WORLD, 'not inside the block'); }
 });
 
-test('a body fallen off a platform is stood back on it by the match', () => {
+test('a body fallen off the roof hits the street, comes apart there, and stands on the roof again', () => {
   const m = new Match();
   m.setWalls([slabOf(WORLD)]);
   const seat = m.join();
   const s = m.seats[seat];
   s.player = { ...s.player, x: WORLD + 3, y: FALL_Y - 1, onGround: false };
   m.step();
-  assert.ok(m.seats[seat].player.y > 0, 'back on top');
+  assert.equal(m.seats[seat].player.alive, false);
+  assert.ok(m.events.some((e) => e.type === 'gib' && e.seat === seat));
+  assert.deepEqual(m.deaths, [{ seat, attacker: -1, fell: true }]);
+  for (let k = 0; k < 60 * 3; k++) m.step();
+  assert.ok(m.seats[seat].player.alive && m.seats[seat].player.y > 0, 'back on top');
+  assert.equal(m.deaths.length, 1, 'one death for one fall');
 });
 
 import { createPack } from '../hud.mjs';

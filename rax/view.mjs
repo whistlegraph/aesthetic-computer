@@ -253,6 +253,7 @@ import {
   along,
   clamp,
   PLATFORM_DEPTH,
+  TOWER_DROP,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -393,6 +394,24 @@ export async function createView(canvas) {
       if (!walled) {
         // The slab under the floor (its top a hair below, so the two never fight), each side in its wall's colour.
         box(0, -0.06 - PLATFORM_DEPTH / 2, 0, 2 * W, PLATFORM_DEPTH, 2 * W, p.floor, p.walls.east, p.walls.north);
+        // 🏙️ Under it, the skyscraper it is the roof of: a shaft a little narrower than the roof, a band of lit windows on every storey, down to the street; and round it the street, with the roofs of lower buildings to fall past.
+        const drop = TOWER_DROP, shaft = 2 * W - 1.2, top = -0.06 - PLATFORM_DEPTH;
+        box(0, top - (drop + top) / 2, 0, shaft, drop + top, shaft, 0x2a2f3c, 0x232733, 0x1d2029);
+        for (let y = top - 2; y > -drop + 2; y -= 3.4) {
+          const lit = (n) => ((Math.sin(y * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1 > 0.35 ? 0xffe9a8 : 0x39405a;
+          for (let n = 0; n < 4; n++) {
+            const across = n % 2 === 0, sign = n < 2 ? 1 : -1, face = sign * (shaft / 2 + 0.02);
+            for (let k = -2; k <= 2; k++) {
+              const at = (k * shaft) / 5.4, c = lit(n * 7 + k);
+              if (across) box(at, y, face, shaft / 7, 1.5, 0.04, c, c, c); else box(face, y, at, 0.04, 1.5, shaft / 7, c, c, c);
+            }
+          }
+        }
+        box(0, -drop - 0.5, 0, 420, 1, 420, 0x1b1e26, 0x15171e, 0x15171e); // the street
+        for (const [x, z, w, h] of [[-46, -30, 22, 70], [38, -52, 26, 96], [58, 24, 20, 48], [-34, 46, 30, 84], [8, 64, 18, 36], [-72, 8, 24, 58], [84, -8, 22, 104], [-12, -70, 26, 62]]) {
+          box(x, -drop + h / 2, z, w, h, w, 0x303646, 0x262b38, 0x20242f);
+          box(x, -drop + h + 0.2, z, w - 2, 0.4, w - 2, 0x3a4154, 0x3a4154, 0x3a4154);
+        }
         return;
       }
       box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);

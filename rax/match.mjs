@@ -793,7 +793,14 @@ export class Match {
         if (this.phase === 'playing' || this.phase === 'waiting') {
           p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open, this.half);
           // 🧱 Fallen off a platform: stood back where bodies arrive, the score kept.
-          if (p.y < FALL_Y) { this.deaths.push({ seat: p.seat, attacker: -1, fell: true }); p = { ...this.fresh(p.seat, p.life + 1), score: p.score }; s.last = {}; } // (☠️ a fall is a death, counted)
+          // 🏙️ Fallen off the roof, all the way to the street: the body comes apart there, is seen a moment, and stands on the roof again (☠️ a death, counted as a fall).
+          if (p.alive && p.y < FALL_Y) {
+            p = { ...p, y: FALL_Y, health: 0, alive: false, gibbed: true, vx: 0, vy: 0, vz: 0, respawnAt: this.tick + Math.round(HZ * 2.5) };
+            this.deaths.push({ seat: p.seat, attacker: -1, fell: true });
+            this.emit('frag', { seat: p.seat, attacker: -1 });
+            this.emit('gib', { seat: p.seat, attacker: -1, kind: 'blast', zone: 'legs', at: { x: p.x, y: p.y - 0.8, z: p.z }, hit: { x: p.x, y: p.y - 1.6, z: p.z }, dir: { x: 0, y: -1, z: 0 } });
+            s.last = {};
+          }
         } else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;
