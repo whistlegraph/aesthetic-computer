@@ -3807,14 +3807,16 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // 🔎 How far the lens is closed, under the reticle while it is: a bar that
+    // 🔎 How far the lens is closed, at the bottom of the screen in the middle while it is (it stood under the reticle, in the way of the aim, until 2026-11-27): a bar that
     // fills as the trigger (or C) is pressed home, and the power beside it. An
     // analog control shows how much of it is in use (2026-11-27).
     if (nearZoom > 1.01 && !bare && !radial && !menu && !xr) {
       const { unit } = hud, top = 2.5; // (a trigger pressed home: screen-lod.mjs MAX_FOCUS_ZOOM; L3 at a screen doubles the lens past it, and the bar stays full)
-      const wide = 40 * unit, tall = 2 * unit, x = -wide / 2, y = -24 * unit;
       const part = Math.max(0, Math.min(1, (nearZoom - 1) / (top - 1)));
       const said = `${nearZoom.toFixed(1)}x`;
+      // (Room asked of the pack: bottom centre, clear of whatever else stands there.)
+      const wide = 60 * unit, tall = 3 * unit, at = hudPack.reserve('zoom', 'bc', wide + (6 + smallWidth('9.9x')) * unit, 9 * unit);
+      const x = at.x - W / 2, y = H / 2 - at.y - at.h + 3 * unit;
       const m = model(({ rect: worldRect, small }) => {
         const rect = flip(worldRect);
         rect(x + unit, y - unit, 0.000002, wide, tall, INK);
