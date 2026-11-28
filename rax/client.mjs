@@ -3949,7 +3949,9 @@ function step(now, xr) {
       if (t > 0 && t < Math.min(60, nearest + 0.05)) {
         const x = origin.x + dir.x * t, z = origin.z + dir.z * t;
         const i = Math.floor((x + 18) / 2), j = Math.floor((z + 18) / 2);
-        if (i >= 0 && i < 18 && j >= 0 && j < 18) floorAim = { i, j };
+        // (Only a square there is floor under: the grid is the old plaza's, wider than a small room's platform, and squares out in the open air used to light and take paint.)
+        const inside = (n) => Math.abs(-18 + n * 2 + 1) < half();
+        if (i >= 0 && i < 18 && j >= 0 && j < 18 && inside(i) && inside(j)) floorAim = { i, j };
       }
     }
     if (dock || lockOn) {

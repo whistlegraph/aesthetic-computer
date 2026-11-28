@@ -3534,7 +3534,9 @@ export async function createView(canvas) {
       const { unit } = hud;
       const speed = me ? Math.min(1, Math.hypot(me.vx || 0, me.vz || 0) / 10) : 0;
       // At rest the reticle is the cyan of AC's own cursor (cursors/precise.svg).
-      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : 0x00ffff;
+      // 🎨 Aimed at a floor square that can be painted, it is the colour X would lay there (grey when X would clean it): the cursor says paintable, and what with.
+      const paint = !focusObject && !lockedOn && floorAim ? ((tiles[`${floorAim.i},${floorAim.j}`] || 0) + 1) % 7 : null;
+      const color = lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       let half = (lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
