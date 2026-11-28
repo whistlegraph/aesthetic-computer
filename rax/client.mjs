@@ -3340,6 +3340,7 @@ function replayTick(now) {
 let restartAt = 0; // 📣 when the room goes for a new rax (0: no such word)
 let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
 const BILLBOARD_RES = { north: 64, west: 160 }; // 🪧 (a hundred and sixty squares across its thirty-two metres, twenty centimetres each: it was sixty-four, half a metre a square)
+let billboardCodes = [], billboardShown = -1; // 🪧 the pieces it turns through, and which is up
 let clockSecond = null, billboardAsked = false; // 🕰️ the last second the tower ticked on; 🪧 whether the billboard's piece was asked for
 let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on
 let holdMeter = null, holdStep = -1;
@@ -3746,8 +3747,21 @@ function step(now, xr) {
     if (room === STAGE && !billboardAsked) {
       billboardAsked = true;
       setWalls({ west: BILLBOARD.code }, BILLBOARD_RES);
-      fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=1&handle=${BILLBOARD.handle}`, { signal: AbortSignal.timeout(6000) })
-        .then((r) => (r.ok ? r.json() : null)).then((d) => { const code = d?.recent?.[0]?.code; if (typeof code === 'string' && /^[A-Za-z0-9]{2,16}$/.test(code) && code !== BILLBOARD.code) setWalls({ west: code }, BILLBOARD_RES); }).catch(() => {});
+      // (Their pieces, newest first, each different piece once: the billboard shows one a minute, in turn, by the room's clock, so everyone sees the same one.)
+      fetch(`https://aesthetic.computer/api/store-kidlisp?recent=true&limit=40&handle=${BILLBOARD.handle}`, { signal: AbortSignal.timeout(6000) })
+        .then((r) => (r.ok ? r.json() : null)).then((d) => {
+          const seen = new Set(), codes = [];
+          for (const row of d?.recent || []) {
+            if (typeof row?.code !== 'string' || !/^[A-Za-z0-9]{2,16}$/.test(row.code) || seen.has(row.source)) continue;
+            seen.add(row.source); codes.push(row.code);
+            if (codes.length >= 12) break;
+          }
+          if (codes.length) { billboardCodes = codes; billboardShown = -1; }
+        }).catch(() => {});
+    }
+    if (room === STAGE && billboardCodes.length) {
+      const turn = Math.floor((Date.now() + (clockOffset || 0)) / 60000) % billboardCodes.length;
+      if (turn !== billboardShown) { billboardShown = turn; setWalls({ west: billboardCodes[turn] }, BILLBOARD_RES); }
     }
   } else clockSecond = null;
   // 😱 Falling off the roof, a scream: not one held cry but an arpeggio of short ones on the room's own sixteenths, a voice in a throat (sfx.mjs scream), each lower as the street comes up.
