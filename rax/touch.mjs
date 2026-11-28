@@ -8,10 +8,15 @@ const buttons = {
   // 🛵 Playing: the cabin bike's cap (bike.mjs), and on it a held up and down.
   play: [],
 };
-export const bikeButtons = (riding) => [
-  B('bike', 'KeyB', 'b', 0x5ef2c8),
-  ...(riding ? [B('up', 'Space', ' ', 0x3fb950), B('down', 'ShiftLeft', 'Shift', 0xff9f43)] : []),
-];
+// (No cap to get on one: the corner of the play surface is the thumb's own, 2026-11-28. A body already on a bike keeps the three, so it can come down and get off.)
+export const bikeButtons = (riding) => (riding ? [B('bike', 'KeyB', 'b', 0x5ef2c8), B('up', 'Space', ' ', 0x3fb950), B('down', 'ShiftLeft', 'Shift', 0xff9f43)] : []);
+// 👆 A tap: a finger down and up again inside TAP_MS that went nowhere (TAP_PX). It still began a stick or a look, which did nothing in that time.
+export const TAP_MS = 280, TAP_PX = 12;
+// 👆 Walking to a tapped place: the stick that takes a body looking along `yaw` (degrees) straight toward `to`, whichever way it faces. (A step right at yaw 0 goes to -x: world.mjs move.)
+export function tapSteer(from, yaw, to) {
+  const turn = Math.atan2(to.x - from.x, to.z - from.z) - (yaw * Math.PI) / 180;
+  return { fwd: Math.cos(turn), right: -Math.sin(turn) };
+}
 export function touchButtons(mode, width, height, { context = [], inset = 0 } = {}) {
   if (!buttons[mode]) return [];
   return [...buttons[mode], ...context].map((b, i) => ({
@@ -43,11 +48,12 @@ export class TouchPad {
       return hit;
     }
     if (menu) return void this.menu.set(id, { x, y });
-    if (x < width / 2 && !this.stick) this.stick = { id, ox: x, oy: y, x, y };
+    if (x < width / 2 && !this.stick) this.stick = { id, ox: x, oy: y, x, y, sx: x, sy: y, at: now, far: 0 };
     else if (!this.look)
-      this.look = { id, x, y };
+      this.look = { id, x, y, sx: x, sy: y, at: now, far: 0 };
   }
   move({ pointerId: id, clientX: x, clientY: y }, width, height) {
+    for (const f of [this.stick, this.look]) if (f?.id === id) f.far = Math.max(f.far, Math.hypot(x - f.sx, y - f.sy));
     if (this.stick?.id === id) {
       const r = this.radius(width, height);
       // The anchor trails a thumb that overshoots, so reversing is immediate.
@@ -77,8 +83,12 @@ export class TouchPad {
     if (this.menu.has(id)) {
       this.menu.delete(id);
       this.events.push({ type: 'tap', x, y, menu: true });
-    } else if (this.stick?.id === id) this.stick = null;
-    else if (this.look?.id === id) this.look = null;
+    } else for (const side of ['stick', 'look']) {
+      const f = this[side];
+      if (f?.id !== id) continue;
+      if (now - f.at <= TAP_MS && f.far <= TAP_PX) this.events.push({ type: 'tap', x: f.sx, y: f.sy });
+      this[side] = null;
+    }
   }
   cancel({ pointerId: id }) {
     const held = this.pressed.get(id);

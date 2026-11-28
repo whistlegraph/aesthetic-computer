@@ -1944,6 +1944,7 @@ export async function createView(canvas) {
     stats = false, // Shared frame chart and Rax diagnostics.
     replaying = false, // 🎞️ what is drawn is the last seconds before this body went down, played again
     stains = [], // 🩸 [x, z, size, shade]: what was spilled on the floor, as the room keeps it
+    tapTo = null, // 👆 { x, y, z, grab }: where a tap has sent the body
     stickAim = null, // 🕹️ { x, y, dead }: the look stick as it lies and its deadzone, on a pad
     trigger = null, // 🔫 { curve, breakAt, resetAt, armed, firedAt }: the right trigger's pressure lately, with a gun in hand
     stage = false, // 👹 the room is the stage: painting and building are off
@@ -3776,6 +3777,23 @@ export async function createView(canvas) {
         if (num) drawSpans({ rect, text }, [{ text: num, color: 0xffffff }], clear + 3 * unit + spanWidthOf([{ text: num }], unit) / 2, 5 * unit, unit, { shadow: INK });
       });
       projector.overlay(m, W, H);
+    }
+    // 👆 Where a tap has sent the body: four corners on the spot, closing and opening, in the goal's yellow when it is a thing to take up and cyan when it is only a place.
+    if (tapTo && !bare && !xr && !menu && !radial) {
+      const { unit } = hud, s = projector.project(tapTo.x, tapTo.y + (tapTo.grab ? 0.3 : 0), tapTo.z);
+      if (s && s.depth > 0.2 && Math.abs(s.x) < 1 && Math.abs(s.y) < 1) {
+        const x = Math.round((s.x * W) / 2 / unit) * unit, y = Math.round((s.y * H) / 2 / unit) * unit, r = (6 + Math.round(Math.abs(Math.sin(now / 160)) * 3)) * unit, arm = 3 * unit, color = tapTo.grab ? 0xffe066 : 0x00ffff;
+        const m = model(({ rect: worldRect }) => {
+          const rect = flip(worldRect);
+          for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+            const cx = x + sx * r, cy = y + sy * r;
+            rect(Math.min(cx, cx - sx * arm), cy - unit / 2, 0, arm, unit, color);
+            rect(cx - unit / 2, Math.min(cy, cy - sy * arm), 0, unit, arm, color);
+          }
+          rect(x - unit, y - unit, 0, 2 * unit, 2 * unit, color);
+        });
+        projector.overlay(m, W, H);
+      }
     }
     // 📍 The goal's own place in the room: a marker over it when it is in view (a chevron that bobs, the word and the metres), and when it is not, the same at the screen's edge on the side to turn to. A nudge toward it.
     if (goal?.at && !bare && !xr && !menu && !radial && !prompt?.open) {

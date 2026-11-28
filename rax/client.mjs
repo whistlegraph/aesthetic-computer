@@ -35,7 +35,7 @@ import { moveFreecam } from './freecam.mjs';
 import { createAgentSurface } from './agent.mjs';
 import { ORIGIN, fromWord as cubeFromWord, key as cubeKey, full as cubeFull } from './lattice.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
-import { TouchPad, touchButtons, bikeButtons } from './touch.mjs';
+import { TouchPad, touchButtons, bikeButtons, tapSteer } from './touch.mjs';
 import { gyroLook } from './gyro.mjs';
 import { Sfx, SpatialTones } from './sfx.mjs';
 // 🐌 KidLisp is some thirty modules deep (its runtime and AC's graphics): it
@@ -2608,6 +2608,49 @@ function pressKey(type, code, key) {
 }
 const typing = () => prompt.open || chat.open;
 const touchMode = () => (seat < 0 || down || radial.open || menu ? null : chalkMode ? 'chalk' : typing() ? 'typing' : canBike() ? 'play' : null);
+// 👆 A tap on the play surface is an order, as in a game of units: a place on the ground, and the body walks there; a gun lying loose, and it walks on to it (which takes it up); a head, with a gun in hand, and it turns to the head and fires. A stick moved, or a second tap, replaces the order.
+let tapWalk = null, tapFireAt = 0;
+function tapOrder(x, y, now) {
+  if (seat < 0 || !player || down || dock || typing() || menu || chalkMode) return;
+  const ray = view.aimRay(x, y), from = view.aimOrigin() || player;
+  if (!ray) return;
+  const near = (to) => { const d = [to.x - from.x, to.y - from.y, to.z - from.z], n = Math.hypot(...d) || 1; return (d[0] * ray.x + d[1] * ray.y + d[2] * ray.z) / n; }; // (the cosine of how far off the tap a thing is)
+  if (heldKind() === 'shoot') {
+    let best = null, most = 0.992;
+    for (const [, hx, hy, hz] of snapshot?.heads || []) { const c = near({ x: hx, y: hy, z: hz }); if (c > most) { most = c; best = { x: hx, y: hy, z: hz }; } }
+    if (best) {
+      const dx = best.x - player.x, dy = best.y - player.y, dz = best.z - player.z;
+      yaw = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
+      pitch = clamp((Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI, -85, 85);
+      tapFireAt = now + 90; tapWalk = null; inputAt = now; // (a moment for the camera to come round on it, so the shot goes where the crosshair then is)
+      return;
+    }
+  }
+  const gun = goalGun(), feet = player.y - eyeHeight();
+  if (gun && near(gun) > 0.985) tapWalk = { x: gun.x, z: gun.z, y: gun.y - 0.6, grab: true };
+  else if (ray.y < -0.03) {
+    const t = Math.min(40, (feet - from.y) / ray.y);
+    tapWalk = { x: from.x + ray.x * t, z: from.z + ray.z * t, y: feet, grab: false };
+  } else return;
+  Object.assign(tapWalk, { until: now + 15000, last: { x: player.x, z: player.z }, stuckAt: now });
+  inputAt = now;
+}
+// (Each frame: the stick the order holds, or null. It ends on arriving, on a thumb taking the stick, when the body has not moved for a second, or after a quarter minute. With no finger looking round, the body turns to face where it is going.)
+function tapWalkStep(now, elapsed, stick) {
+  if (tapFireAt && now >= tapFireAt) { tapFireAt = 0; useQueued = true; }
+  if (!tapWalk) return null;
+  const far = player ? Math.hypot(tapWalk.x - player.x, tapWalk.z - player.z) : 0;
+  if (!player || down || stick || now > tapWalk.until || far < (tapWalk.grab ? 0.15 : 0.35) || (tapWalk.grab && !goalGun())) return (tapWalk = null);
+  if (Math.hypot(player.x - tapWalk.last.x, player.z - tapWalk.last.z) > 0.25) { tapWalk.last = { x: player.x, z: player.z }; tapWalk.stuckAt = now; }
+  else if (now - tapWalk.stuckAt > 1000) return (tapWalk = null);
+  if (!touch.look && far > 1) {
+    const want = (Math.atan2(tapWalk.x - player.x, tapWalk.z - player.z) * 180) / Math.PI, turn = ((want - yaw + 540) % 360) - 180;
+    yaw = (yaw + turn * Math.min(1, elapsed * 3.5) + 360) % 360;
+  }
+  inputAt = now;
+  const s = tapSteer(player, yaw, tapWalk), ease = Math.min(1, far / 0.8 + 0.35);
+  return { fwd: s.fwd * ease, right: s.right * ease };
+}
 // 🛵 Where a bike may be ridden (bike.mjs), so its touch cap shows only there.
 const canBike = () => !!player && rideable(fixedBoxes(), flat(), player);
 // The home bar's inset, measured once from a probe (env() has no script API).
@@ -3669,6 +3712,7 @@ function step(now, xr) {
   } else if (!gamepad.floorDirection || !riding || menu) padFloorRepeat = 0;
   const pad = touch.sample(canvas.clientWidth, canvas.clientHeight, now);
   for (const event of pad.events) {
+    if (event.type === 'tap' && !event.menu && !radial.open) tapOrder(event.x, event.y, now);
     if (event.type === 'tap' && radial.open && !radial.bumper && event.menu) {
       const ring = touchRing();
       const x = (event.x - ring.cx) / ring.r,
@@ -3995,8 +4039,9 @@ function step(now, xr) {
   // 🦾 What the words-and-calls surface holds (agent.mjs): a stick, and a yaw while it walks somewhere.
   const driven = agentSurface.drive(player, performance.now(), room);
   if (Number.isFinite(driven?.yaw)) { yaw = driven.yaw; inputAt = performance.now(); }
-  const walkFwd = prompt.open ? 0 : (dock ? 0 : gamepad.fwd) + pad.fwd + (driven?.fwd || 0);
-  const walkRight = prompt.open ? 0 : (dock ? 0 : gamepad.right) + pad.right + (driven?.right || 0);
+  const tapped = tapWalkStep(now, elapsed, !!(pad.fwd || pad.right || gamepad.fwd || gamepad.right || driven));
+  const walkFwd = prompt.open ? 0 : (dock ? 0 : gamepad.fwd) + pad.fwd + (driven?.fwd || 0) + (tapped?.fwd || 0);
+  const walkRight = prompt.open ? 0 : (dock ? 0 : gamepad.right) + pad.right + (driven?.right || 0) + (tapped?.right || 0);
   const firstSequence = seq;
   while (debt >= DT) {
     debt -= DT;
@@ -4397,6 +4442,7 @@ function step(now, xr) {
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wait for wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
     // (With a gun in hand: always, so the gun's own picture is there; the pressure's line only where a pad gives pressure.)
+    tapTo: tapWalk,
     stickAim: gamepad?.lookRaw ? { x: gamepad.lookRaw[0], y: gamepad.lookRaw[1], dead: gamepad.lookDead } : null,
     trigger: seat >= 0 && heldKind() === 'shoot' ? { curve: rtCurve, value: rtCurve.at(-1) ?? (keys.has('KeyF') || mouseFiring ? 1 : 0), breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: Math.max(rtFiredAt, lastShotAt) } : null,
     stage: !!snapshot?.heads, // 👹 heads fly here: no painting, no building, and the controls say so

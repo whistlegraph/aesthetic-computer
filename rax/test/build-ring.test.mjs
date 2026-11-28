@@ -67,7 +67,7 @@ test('dev log keeps notes and tool summaries, redacted', () => {
   assert.ok(!secret.includes('REDACTEDREDACTED'));
 });
 
-test('touch: left thumb moves, right thumb looks; a tap or a hold there does nothing', () => {
+test('touch: left thumb moves, right thumb looks; a tap there is an order (2026-11-28), a hold is nothing', () => {
   const t = new TouchPad();
   t.down({ pointerId: 1, clientX: 100, clientY: 500 }, 800, 600, 0);
   t.move({ pointerId: 1, clientX: 100, clientY: 300 }, 800, 600);
@@ -75,7 +75,7 @@ test('touch: left thumb moves, right thumb looks; a tap or a hold there does not
   assert.ok(moved.fwd > 0.99 && Math.abs(moved.right) < 0.01);
   t.down({ pointerId: 2, clientX: 600, clientY: 300 }, 800, 600, 20);
   t.up({ pointerId: 2, clientX: 600, clientY: 300 }, 120);
-  assert.deepEqual(t.sample(800, 600, 130).events, []);
+  assert.deepEqual(t.sample(800, 600, 130).events, [{ type: 'tap', x: 600, y: 300 }]);
   t.down({ pointerId: 3, clientX: 600, clientY: 300 }, 800, 600, 200);
   assert.deepEqual(t.sample(800, 600, 700).events, []);
   t.up({ pointerId: 3, clientX: 600, clientY: 300 }, 800);
@@ -120,4 +120,31 @@ test('the join code is a corner badge that a phone can read', () => {
   assert.ok(two.unit * 2 >= 2 && two.unit <= 2, `2x: unit ${two.unit}`);
   // The sizes stay a corner badge, not a panel, on a big 1x buffer.
   assert.ok(hudLayout(1024, 600, cells, 1).qrSize <= 600 * 0.3);
+});
+
+test('a tap is a finger down and up in one place; a drag or a long hold is not', async () => {
+  const { TAP_MS, TAP_PX } = await import('../touch.mjs');
+  const t = new TouchPad(), w = 844, h = 390;
+  for (const [id, x] of [[1, 100], [2, 700]]) { // (either half of the screen)
+    t.down({ pointerId: id, clientX: x, clientY: 200 }, w, h, 0);
+    t.up({ pointerId: id, clientX: x, clientY: 200 }, TAP_MS - 10);
+  }
+  assert.deepEqual(t.sample(w, h, 0).events, [{ type: 'tap', x: 100, y: 200 }, { type: 'tap', x: 700, y: 200 }]);
+  t.down({ pointerId: 3, clientX: 100, clientY: 200 }, w, h, 0);
+  t.move({ pointerId: 3, clientX: 100 + TAP_PX + 5, clientY: 200 }, w, h);
+  t.up({ pointerId: 3, clientX: 100, clientY: 200 }, 50);
+  t.down({ pointerId: 4, clientX: 700, clientY: 200 }, w, h, 0);
+  t.up({ pointerId: 4, clientX: 700, clientY: 200 }, TAP_MS + 50);
+  assert.deepEqual(t.sample(w, h, 0).events, []);
+});
+
+test('the stick a tap holds walks a body straight to the place, whichever way it looks', async () => {
+  const { tapSteer } = await import('../touch.mjs');
+  const { move, spawn } = await import('../world.mjs');
+  for (const yaw of [0, 70, 200, 315]) {
+    const to = { x: 3, z: -2 };
+    let p = { ...spawn(0), x: 0, z: 0, yaw };
+    for (let i = 0; i < 400 && Math.hypot(to.x - p.x, to.z - p.z) > 0.3; i++) p = move(p, { yaw, pitch: 0, buttons: 0, ...tapSteer(p, yaw, to) });
+    assert.ok(Math.hypot(to.x - p.x, to.z - p.z) <= 0.3, `yaw ${yaw}: ended at ${p.x.toFixed(2)}, ${p.z.toFixed(2)}`);
+  }
 });
