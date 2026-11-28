@@ -255,7 +255,7 @@ import {
   clamp,
   PLATFORM_DEPTH,
   TOWER_DROP,
-  ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN, CLOCK, BELL_MS, OFFICE_DOOR, OFFICE_WALL, inOffice,
+  slabOf, surfaceHit, ESCAPE_DROP, ESCAPE_WIDE, ESCAPE_STEPS, ESCAPE_RAIL, ESCAPE_RUN, CLOCK, BELL_MS, OFFICE_DOOR, OFFICE_WALL, inOffice,
 } from './world.mjs';
 
 // The $ history's thumbnails: TINY-square base64 RGB from the server, decoded
@@ -1354,6 +1354,7 @@ export async function createView(canvas) {
   let boom = 4;
   let stainKey = '', stainModel = null; // 🩸 the floor's stains, made again only when one is added
   let brokeAt = 0; // 💥 when this body came apart: its crosshair comes apart with it
+  let aimMeet = 20; // (how far along the body's sightline the third-person camera looks, eased)
   let aimReach = 0; // (how far from the middle the crosshair's corners went last frame: what is written round it stands clear of them)
   let goalBand = null; // (and where the goal's own words were, for the marker's words to keep out of)
   let threatAt = 0; // 👹 when the crosshair came on to a head: it takes a moment to turn red and open round it
@@ -2078,7 +2079,18 @@ export async function createView(canvas) {
       }
       // Keep the camera on the player's sightline through open block edges.
       // Picking a surface is a separate ray; its distance must not steer the camera.
-      aim = along(origin, dir, 20);
+      // 🎯 Behind a shoulder, the camera looks at the very spot the body's sightline meets (a surface, a head, or far off in open air), so the middle of the screen is on what a shot will strike at any distance, as it is through the body's own eye. (It looked at a spot twenty metres on: right at twenty metres and off to a side at every other.) The distance is eased, so the camera does not jump as the sightline crosses an edge.
+      let meet = 20;
+      if (third && !boomOrbit) {
+        meet = surfaceHit(origin, dir, 160, objects, worldTime, half, null, game ? null : slabOf(half))?.t ?? 160;
+        for (const [, hx, hy, hz] of heads) {
+          const t = (hx - origin.x) * dir.x + (hy - origin.y) * dir.y + (hz - origin.z) * dir.z;
+          if (t > 0.5 && t < meet && Math.hypot(hx - origin.x - dir.x * t, hy - origin.y - dir.y * t, hz - origin.z - dir.z * t) < 0.7) meet = t;
+        }
+        aimMeet += (Math.max(3, meet) - aimMeet) * 0.3;
+        meet = aimMeet;
+      }
+      aim = along(origin, dir, meet);
       // 🎠 Swung round the body, the camera looks at the body, not along its sightline.
       if (third && boomOrbit) {
         const w = Math.min(1, Math.abs(boomOrbit) / 45);
@@ -2799,7 +2811,7 @@ export async function createView(canvas) {
     {
       const t = performance.now(), dt = goreAt ? (t - goreAt) / 1000 : 0;
       goreAt = t;
-      gore.step(dt, goreSolids(solidObjects), half);
+      gore.step(dt, goreSolids(solidObjects), half, game ? null : slabOf(half));
       for (const g of gore.draws()) {
         const fig = g.seat === undefined ? null : g.part.startsWith('gib-') ? gibFighters[g.seat % gibFighters.length] : fighters[g.seat % fighters.length];
         const m = fig?.[g.part] || goreModels[g.part];
@@ -3715,33 +3727,13 @@ export async function createView(canvas) {
     goalBand = null;
     if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
       const { unit } = hud, clear = Math.max(12 * unit, Math.min(aimReach + 4 * unit, Math.min(W, H) / 2 - 40 * unit)), out = clear + 6 * unit; // (clear of the crosshair's corners wherever a head has taken them, and never off the screen)
-      const top = [{ text: goal.text, color: goal.color }, ...(goal.code ? (goal.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: goal.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + goal.code, color: 0x7dff7a }]) : [])];
+      // (One word, upright: the first of what there is to do (grab, kill, wave), and beside the crosshair the number that goes with it. Whole sentences and words turned on their sides round the aim were too much to read there.)
+      const word = [{ text: goal.text.split(' ')[0].replace(/[^a-z]/gi, ''), color: goal.color }], num = (goal.count || '').match(/\d+/)?.[0];
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
-        const wide = spanWidthOf(top, unit);
-        goalBand = { half: wide / 2 + 4 * unit, bottom: out - 10 * unit, top: out + 8 * unit };
-        drawSpans({ rect, text }, top, 0, out + 6 * unit, unit, { shadow: INK }); // (its top; the letters hang under)
-        rect(-wide / 2, out - 6 * unit, 0, wide, unit, goal.color); rect(-unit / 2, out - 9 * unit, 0, unit, 3 * unit, goal.color);
-        // A word up a side, read from the foot, its middle level with the crosshair.
-        const turned = (word, x0, color) => {
-          let long = 0;
-          for (const ch of word) long += chunky[ch] ? chunky[ch][4] : 4;
-          let pen = -Math.round(long / 2);
-          for (const ch of word) {
-            const g = chunky[ch];
-            if (!g) { pen += 4; continue; }
-            const [gw, gh, gx, gy, advance, rows] = g;
-            for (let r = 0; r < gh; r++) for (let c = 0; c < gw; c++) if (rows[r] & (128 >> c)) {
-              const px = x0 + (8 - gy - gh + r) * unit, py = (pen + gx + c) * unit;
-              rect(px + unit, py - unit, 0.000002, unit, unit, INK);
-              rect(px, py, 0, unit, unit, color);
-            }
-            pen += advance;
-          }
-          return long * unit;
-        };
-        if (goal.count) { const l = turned(goal.count, clear + 3 * unit, 0xffffff); rect(clear + unit, -l / 2, 0, unit, l, 0xffffff); }
-        if (goal.sub) { const l = turned(goal.sub, -clear - 12 * unit, THEME.dim); rect(-clear - 2 * unit, -l / 2, 0, unit, l, THEME.dim); }
+        goalBand = { half: spanWidthOf(word, unit) / 2 + 4 * unit, bottom: out - 10 * unit, top: out + 8 * unit };
+        drawSpans({ rect, text }, word, 0, out + 6 * unit, unit, { shadow: INK });
+        if (num) drawSpans({ rect, text }, [{ text: num, color: 0xffffff }], clear + 3 * unit + spanWidthOf([{ text: num }], unit) / 2, 5 * unit, unit, { shadow: INK });
       });
       projector.overlay(m, W, H);
     }
@@ -3787,7 +3779,7 @@ export async function createView(canvas) {
           tx = Math.max(-W / 2 + wordsW / 2 + 4 * unit, Math.min(W / 2 - wordsW / 2 - 4 * unit, tx));
           if (goalBand && Math.abs(tx) < goalBand.half + wordsW / 2 && ty > goalBand.bottom - 8 * unit && ty < goalBand.top + 4 * unit) ty = goalBand.top + 10 * unit; // (not across the goal's own words: over them)
           ty = Math.max(-H / 2 + 12 * unit, Math.min(H / 2 - 6 * unit, ty));
-          drawSpans({ rect: flip(worldRect), text, small }, words, tx, ty, unit, { shadow: INK, tiny: true });
+          // (No words on it: the crosshair says the word, and this is that word's colour, pointing. 2026-11-28.)
         });
         projector.overlay(m, W, H);
       }

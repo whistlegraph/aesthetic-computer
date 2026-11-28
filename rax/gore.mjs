@@ -197,7 +197,9 @@ export class Gore {
   }
 
   // Move everything on `dt` seconds. `solids` and `half` as world.mjs surfaceHit takes them.
-  step(dt, solids = [], half) {
+  // (`slab`: the room is a roof, world.mjs slabOf: nothing stands at its edge and there is no floor past it. Blood went on to the air there as on to a wall, and nothing fell off, until 2026-11-28.)
+  step(dt, solids = [], half, slab = null) {
+    this.slab = slab;
     dt = Math.min(0.05, Math.max(0, dt));
     this.time += dt;
     const h = dt / SUB;
@@ -241,15 +243,15 @@ export class Gore {
   // A point pushed out of the floor, the room's walls and what is built; the floor holds it back (friction).
   collide(p, solids, half) {
     const floor = 0.05;
-    if (p.at.y < floor) {
+    if (p.at.y < floor && (!this.slab || (Math.abs(p.at.x) <= half && Math.abs(p.at.z) <= half && p.at.y > -0.6))) {
       p.at.y = floor;
       p.was.x = p.at.x - (p.at.x - p.was.x) * 0.6;
       p.was.z = p.at.z - (p.at.z - p.was.z) * 0.6;
     }
-    if (half) for (const k of ['x', 'z']) p.at[k] = Math.max(-half + 0.08, Math.min(half - 0.08, p.at[k]));
+    if (half && !this.slab) for (const k of ['x', 'z']) p.at[k] = Math.max(-half + 0.08, Math.min(half - 0.08, p.at[k]));
     const move = sub(p.at, p.was), l = len(move);
     if (l > 1e-4 && solids.length) {
-      const hit = surfaceHit(p.was, unit(move), l, solids, 0, half);
+      const hit = surfaceHit(p.was, unit(move), l, solids, 0, half, null, this.slab);
       if (hit && hit.normal.y <= 0.5) p.at = add(p.was, unit(move), Math.max(0, hit.t - 0.03));
     }
   }
@@ -258,7 +260,7 @@ export class Gore {
     if (g.resting) return;
     g.vel.y -= G * dt;
     const speed = len(g.vel), dist = speed * dt;
-    const hit = dist > 1e-5 ? surfaceHit(g.at, unit(g.vel), dist, solids, 0, half) : null;
+    const hit = dist > 1e-5 ? surfaceHit(g.at, unit(g.vel), dist, solids, 0, half, null, this.slab) : null;
     if (hit) {
       g.at = add(g.at, unit(g.vel), Math.max(0, hit.t - 0.02));
       const n = hit.normal, d = dot(g.vel, n);
@@ -268,7 +270,7 @@ export class Gore {
       if (speed > 2.5 && g.kind !== 'drop') this.splat(add(g.at, n, -0.02), n, g.kind === 'meat' ? 0.7 : 1.1);
       if (len(g.vel) < 0.6 && n.y > 0.5) { g.resting = true; g.vel = v(); }
     } else g.at = add(g.at, g.vel, dt);
-    if (half) for (const k of ['x', 'z']) if (Math.abs(g.at[k]) > half - 0.1) { g.at[k] = Math.sign(g.at[k]) * (half - 0.1); g.vel[k] *= -DAMPEN; }
+    if (half && !this.slab) for (const k of ['x', 'z']) if (Math.abs(g.at[k]) > half - 0.1) { g.at[k] = Math.sign(g.at[k]) * (half - 0.1); g.vel[k] *= -DAMPEN; }
     g.yaw += g.spin.y * dt; g.pitch += g.spin.x * dt; g.roll += g.spin.z * dt;
     // The trail: drops shed as it flies, for its first 1.8 s.
     if (this.time - g.born < TRAIL_SECONDS && (g.trail += dt) > 0.035) {
@@ -294,7 +296,7 @@ export class Gore {
     d.vel.y -= 22 * dt;
     d.vel = v(d.vel.x * (1 - 0.6 * dt), d.vel.y, d.vel.z * (1 - 0.6 * dt)); // (air: BloodSpurt's mAirResistance)
     const speed = len(d.vel), dist = speed * dt;
-    const hit = dist > 1e-5 ? surfaceHit(d.at, unit(d.vel), dist, solids, 0, half) : null;
+    const hit = dist > 1e-5 ? surfaceHit(d.at, unit(d.vel), dist, solids, 0, half, null, this.slab) : null;
     if (hit) {
       d.dead = true;
       if (this.random() < 0.18) this.splat(add(d.at, unit(d.vel), hit.t), hit.normal, 0.35 * d.size);
