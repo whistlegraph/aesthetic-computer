@@ -2431,6 +2431,17 @@ function heldMuzzle() {
   if (id !== muzzleFor) { muzzleFor = id; muzzleKept = muzzleOf(objects.find((o) => o.id === id)?.geometry); }
   return muzzleKept;
 }
+// 🎯 Where the stage's goals are: the nearest gun lying loose, the nearest head to this body.
+function goalGun() {
+  const it = snapshot?.items?.find((i) => i.kind === 'shoot' && i.holder < 0 && i.y > -10);
+  return it ? { x: it.x, y: it.y + 0.6, z: it.z } : null;
+}
+function goalHead() {
+  const from = player || freecam;
+  let best = null, near = Infinity;
+  for (const [, x, y, z] of snapshot?.heads || []) { const d = Math.hypot(x - from.x, y - from.y, z - from.z); if (d < near) { near = d; best = { x, y, z }; } }
+  return best;
+}
 function submitPrompt(gesture = true) {
   if (!prompt.text.trim()) return false;
   if (prompt.busy) {
@@ -4227,9 +4238,12 @@ function step(now, xr) {
     drones: shownDrones,
     heads: snapshot?.heads || [], wave: snapshot?.wave || 0,
     // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
-    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'take the gun in the middle', color: 0xffe066 }
-      : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f }
+    // (`at`: where in the room the goal is, for a marker over it and a nudge toward it when it is out of sight. The gun where it lies; the nearest head, marked only when it is not in view.)
+    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'take the gun in the middle', color: 0xffe066, at: goalGun(), tag: 'gun' }
+      : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
+    roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it
+    ammo: seat >= 0 ? snapshot?.items?.find((it) => it.holder === seat && it.kind === 'shoot')?.ammo ?? null : null,
     // Every seat the room holds, not only the original duel's two. Whoever
     // stands in the car while it runs rides with it.
     players: lift ? shownPlayers.map((p) => (p && inCar(p) ? { ...p, y: p.y + lift } : p)) : shownPlayers,

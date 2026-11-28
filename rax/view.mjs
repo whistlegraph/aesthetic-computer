@@ -1135,6 +1135,8 @@ export async function createView(canvas) {
   });
   const sightLines = new Map();
   const sightLine = (color) => { if (!sightLines.has(color)) sightLines.set(color, model(({ box }) => box(0, 0, 0.5, 0.006, 0.006, 1, color, color, color))); return sightLines.get(color); };
+  const weaponGlow = model(({ box }) => { for (const [x, z, w, d] of [[0, 0.45, 0.94, 0.04], [0, -0.45, 0.94, 0.04], [0.45, 0, 0.04, 0.94], [-0.45, 0, 0.04, 0.94]]) box(x, 0, z, w, 0.03, d, 0xffe066, 0xffc400, 0xffe066); });
+  const weaponBeam = model(({ box }) => { for (const [x, z] of [[0.05, 0.05], [-0.05, -0.05]]) box(x, 1.6, z, 0.02, 2.4, 0.02, 0xfff3c4, 0xffe066, 0xfff3c4); });
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -1787,6 +1789,8 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    roof = false, // 🏙️ the room is a roof over a street (a platform): the planet and its hollow are not under it
+    ammo = null, // 🔫 rounds left in the gun in hand, or null
     goal = null, // 🎯 { text, count, sub, color }: what there is to do here, across the top of the screen
     heads = [], // 👹 [id, x, y, z, yaw]: the heads flying in at the stage (match.mjs stepHeads)
     wave = 0,
@@ -2126,7 +2130,9 @@ export async function createView(canvas) {
     projector.orbitShade = 0.48 * orbit * orbit;
 
     // 🕳️ An eye under the land is inside the hollow planet: the land is a dome over it, and no sun comes in.
-    const under = !!projector.planet && eye.y < projector.ground;
+    // (🏙️ Off a roof there is a street below, not the planet's hollow with its water: falling past the edge used to show the pool's blue ball.)
+    if (roof) projector.planet = 0;
+    const under = !roof && !!projector.planet && eye.y < projector.ground;
     if (under) casting = false;
     // The sky is the clear colour alone: no banded dome (2026-11-03).
     lastEye = eye;
@@ -2419,6 +2425,13 @@ export async function createView(canvas) {
         if ((holder || it.spin) && object.geometry.format === OBJECT_FORMAT)
           draw(sourceFrame(object.geometry, worldTime).vertices, at.x, at.y, at.z, yaw, pitch);
         else stand(object, at.x - object.x, at.z - object.z, at.y);
+        // ✨ A weapon lying loose glows, so it is known from the things that only stand there: two square rings of light turning about it, breathing, and a thin beam up from it.
+        if (!holder && object.item === 'shoot' && it.y > -10) {
+          const beat = 1 + Math.sin(now / 260) * 0.12;
+          draw(weaponGlow, it.x, (it.y || 0) + 0.06, it.z, now / 700, 0, beat);
+          draw(weaponGlow, it.x, (it.y || 0) + 0.34, it.z, -now / 500, 0, beat * 0.7);
+          draw(weaponBeam, it.x, (it.y || 0), it.z, now / 1100);
+        }
         continue;
       }
       stand(object, 0, 0);
@@ -3481,6 +3494,38 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
+    // 📍 The goal's own place in the room: a marker over it when it is in view (a chevron that bobs, the word and the metres), and when it is not, the same at the screen's edge on the side to turn to. A nudge toward it.
+    if (goal?.at && !bare && !xr && !menu && !radial && !prompt?.open) {
+      const { unit } = hud, to = goal.at, s = projector.project(to.x, to.y, to.z);
+      const far = Math.hypot(to.x - eye.x, to.y - eye.y, to.z - eye.z), said = `${goal.tag || ''} ${far.toFixed(0)}m`.trim();
+      const seen = s && Math.abs(s.x) < 0.94 && Math.abs(s.y) < 0.9;
+      if (!(seen && goal.edgeOnly)) {
+        let x, y, ax = 0, ay = -1; // (where the marker stands, and the way its point faces: down on the thing when seen)
+        if (seen) { x = (s.x * W) / 2; y = (s.y * H) / 2 + (10 + Math.abs(Math.sin(now / 240)) * 5) * unit; }
+        else {
+          const r = projector.right, u = projector.up, f = projector.forward, d = [to.x - eye.x, to.y - eye.y, to.z - eye.z];
+          let rx = d[0] * r[0] + d[1] * r[1] + d[2] * r[2], uy = d[0] * u[0] + d[1] * u[1] + d[2] * u[2];
+          const ahead = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+          if (ahead < 0 && Math.abs(rx) < 0.01) rx = 0.01; // (straight behind: turn right)
+          const n = Math.hypot(rx, uy) || 1; ax = rx / n; ay = uy / n;
+          if (ahead < 0) { ax = Math.sign(ax || 1) * Math.max(0.6, Math.abs(ax)); const m2 = Math.hypot(ax, ay); ax /= m2; ay /= m2; }
+          x = ax * (W / 2 - 26 * unit); y = ay * (H / 2 - 30 * unit);
+        }
+        const m = model(({ rect: worldRect, small }) => {
+          const rect = flip(worldRect);
+          // A chevron of five dots, its point along (ax, ay).
+          for (let k = 0; k < 5; k++) for (const side of k ? [-1, 1] : [0]) {
+            const px = x + (ax * -k * 2 + -ay * side * k * 2) * unit - ax * -6 * unit, py = y + (ay * -k * 2 + ax * side * k * 2) * unit - ay * -6 * unit;
+            rect(Math.round(px) - unit, Math.round(py) - unit, 0.000002, 3 * unit, 3 * unit, INK);
+            rect(Math.round(px) - unit, Math.round(py) - unit, 0, 2 * unit, 2 * unit, goal.color);
+          }
+          const tx = Math.max(-W / 2 + (smallWidth(said) / 2 + 4) * unit, Math.min(W / 2 - (smallWidth(said) / 2 + 4) * unit, x - ax * 14 * unit)), ty = y - ay * 14 * unit + (seen ? 8 * unit : 4 * unit);
+          small(said, tx + unit, ty - unit, 0.000002, unit, INK);
+          small(said, tx, ty, 0, unit, goal.color);
+        });
+        projector.overlay(m, W, H);
+      }
+    }
     // 👥 Who else is in the room, top right: each in their seat's colour, those only looking on in grey, under a count. Room asked of the pack, so the stats stand under it and nothing else lies on it.
     if (!bare && !xr && !menu && !radial) {
       const mine = self?.handle?.toLowerCase() || null;
@@ -3738,17 +3783,24 @@ export async function createView(canvas) {
       // 🎨 Aimed at a floor square that can be painted, it is the colour X would lay there (grey when X would clean it): the cursor says paintable, and what with.
       const paint = !focusObject && !lockedOn && floorAim ? ((tiles[`${floorAim.i},${floorAim.j}`] || 0) + 1) % 7 : null;
       // 👹 Over a head that is coming for you, the crosshair is a threat's: red, drawn in tight, with how far off it is under it.
-      let threat = null;
+      let threat = null, core = null;
       for (const [, hx, hy, hz] of heads) {
         const at = projector.project(hx, hy, hz);
         if (!at) continue;
         const reach = (0.55 / at.depth) * projector.sx; // (a head's half-width, as wide as it looks from here)
-        if (Math.hypot(at.x, (at.y * H) / W) < Math.max(reach, 0.02) && (!threat || at.depth < threat)) threat = at.depth;
+        if (Math.hypot(at.x, (at.y * H) / W) < Math.max(reach, 0.02) && (!threat || at.depth < threat)) { threat = at.depth; core = at; }
       }
       const color = threat !== null ? 0xff3b3b : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       if (threat !== null) {
-        const said = `threat ${threat.toFixed(0)}m`;
-        const m = model(({ rect: worldRect, small }) => { small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, 0xff3b3b); });
+        // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
+        const said = `${threat.toFixed(0)}m`, blink = Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff;
+        const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
+        const m = model(({ rect: worldRect, small }) => {
+          const rect = flip(worldRect);
+          rect(cx - 2 * unit, cy - 2 * unit, 0.000002, 4 * unit, 4 * unit, INK);
+          rect(cx - unit, cy - unit, 0, 2 * unit, 2 * unit, blink);
+          small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, blink);
+        });
         projector.overlay(m, W, H);
       }
       let half = (threat !== null ? 4 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
@@ -4176,6 +4228,14 @@ export async function createView(canvas) {
               if (t > 0.9) { cellBits.splice(k, 1); continue; }
               px(Math.round(b.x + b.vx * t), Math.round(b.y + b.vy * t - 20 * t * t), 1, 1, t < 0.3 ? 0xf0d8ff : t < 0.6 ? 0xb46bff : 0x8e44ff);
             }
+          });
+        }
+        // 🔫 Rounds left in the gun in hand: a small round and the count, red when nearly out.
+        if (Number.isFinite(ammo)) {
+          const n = `${ammo}`;
+          line('ammo', 9 + smallWidth(n), (left, top) => {
+            icon(['.###.', '.###.', '.###.', '.###.', '..#..'], left + 1, top, 0xffc400);
+            word(n, left + 9, top, ammo <= 3 ? 0xff6b6b : 0xffe066);
           });
         }
         // ☠️ Deaths: a pixel skull and the count (the database's: deaths.mjs).
