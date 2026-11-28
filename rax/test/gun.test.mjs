@@ -34,6 +34,23 @@ test('a round leaves the barrel\'s end: forward of the hand by the gun\'s own le
   assert.ok(Math.hypot(shot.at.x - want.x, shot.at.y - want.y, shot.at.z - want.z) < 0.5, 'fired from there');
 });
 
+test('a round goes where the crosshair is: aimed at the middle of a head it meets the head, from near and from far', () => {
+  for (const far of [3, 9, 20]) {
+    const { m, seat } = armed();
+    m.waves = true;
+    m.setWalls([slabOf(WORLD)]); // (a roof: no wall between the gun and a head out in the open)
+    const p = m.seats[seat].player;
+    Object.assign(p, { x: 0, z: 0, yaw: 0, pitch: 0 });
+    // A head dead ahead at the eye's own height, standing still.
+    const head = { id: 'head-t', head: true, x: 0, y: p.y, z: far, vx: 0, vy: 0, vz: 0, yaw: 0 };
+    m.heads = [head]; m.wave = 1; m.headsOwed = 0;
+    m.stepHeads = () => { m.heads = m.heads.filter((h) => m.zombies.includes(h)); }; // (it does not come on: only the shot is tried)
+    press(m, seat);
+    for (let k = 0; k < 90 && m.heads.length; k++) m.step();
+    assert.equal(m.heads.length, 0, `met at ${far} m`);
+  }
+});
+
 test('a gun holds a clip: the last round fired it is dropped, breaks on the ground, and a made gun is taken out of the room', () => {
   for (const house of [true, false]) {
     const { m, seat, it } = armed(house);

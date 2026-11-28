@@ -317,8 +317,10 @@ export class Match {
     if (it.kind === 'shoot') {
       it.ready = this.tick + Math.round(HZ * 0.3);
       const h = muzzleAt(p, it.muzzle); // (out of the barrel's end, where the model shows its hole)
+      // 🎯 At a head the round goes where the crosshair is, not beside it: from the barrel to the head the eye's own line meets. It used to fly level with the aim from the hand, half a metre low and to the right, and so passed under a head aimed at dead centre at any range (a body is tall enough not to notice).
+      const g = this.aimFrom(p, f, h);
       // Visible, dodgeable rounds; at most 24 in the air.
-      this.bullets.push({ ...h, vx: f.x * 32, vy: f.y * 32, vz: f.z * 32, owner: p.seat, born: this.tick,
+      this.bullets.push({ ...h, vx: g.x * 32, vy: g.y * 32, vz: g.z * 32, owner: p.seat, born: this.tick,
         safeUntil: this.tick + Math.round(HZ * 0.25), bounces: 0, id: ++this.eventId });
       while (this.bullets.length > 24) this.bullets.shift();
       this.emit('shot', { seat: p.seat, at: h });
@@ -353,6 +355,19 @@ export class Match {
         this.strike(t, p.seat, 34, { x: c.x, y: Math.min(t.box.yMax, p.y - 0.3), z: c.z });
       }
     }
+  }
+
+  // The way from the barrel's end `h` to the head the eye at `p`, looking along `f`, has in its crosshair; with no head there, `f` as it always was (level with the aim, from the hand: what the room's other shooting is tuned to).
+  aimFrom(p, f, h) {
+    let reach = Infinity;
+    for (const z of this.heads) {
+      const d = rayBox(p, f, { xMin: z.x - HEAD.r, xMax: z.x + HEAD.r, yMin: z.y - HEAD.r, yMax: z.y + HEAD.r, zMin: z.z - HEAD.r, zMax: z.z + HEAD.r }, 80);
+      if (d < reach) reach = d;
+    }
+    if (!(reach < 80)) return f;
+    reach += HEAD.r; // (to the head's middle, not its near face)
+    const dx = p.x + f.x * reach - h.x, dy = p.y + f.y * reach - h.y, dz = p.z + f.z * reach - h.z, n = Math.hypot(dx, dy, dz);
+    return n > 0.2 ? { x: dx / n, y: dy / n, z: dz / n } : f;
   }
 
   // 🎯 A target takes a hit: nothing moves it and nothing ends it; it only

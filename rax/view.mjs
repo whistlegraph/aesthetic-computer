@@ -1443,6 +1443,8 @@ export async function createView(canvas) {
     if (e.at && e.type === 'headpop') {
       burstColor(e.at.x, e.at.y, e.at.z, 30, HEAD_BITS);
       burst(e.at.x, e.at.y, e.at.z, 12, 0.9);
+      // 🩸 …and blood: a burst of it thrown on along the round's way, that falls and stains where it lands (gore.mjs), the way a body's does.
+      gore.bloodBurst(e.at, e.dir || { x: 0, y: 0, z: 0 }, 46);
     }
     if (e.at && e.type === 'damage') {
       burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);
