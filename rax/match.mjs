@@ -87,6 +87,8 @@ export class Match {
     this.goingHome = [];
     // 🔫 Guns that fired their last round, fell and broke: the server takes each out of the room (it is in what was removed, to be put back).
     this.broken = [];
+    // ☠️ Bodies that died this tick, [{ seat, attacker }]: the server counts each against its handle (deaths.mjs).
+    this.deaths = [];
     // 🌐 Rounds that flew out over an open side, for the room beside (server.mjs).
     this.outbound = [];
     // 🎯 Kills made here by rounds from other rooms, owed to their shooters there.
@@ -779,7 +781,7 @@ export class Match {
         if (this.phase === 'playing' || this.phase === 'waiting') {
           p = move(p, input, this.objects, this.tick / HZ, this.walls, !!this.arena, this.open, this.half);
           // 🧱 Fallen off a platform: stood back where bodies arrive, the score kept.
-          if (p.y < FALL_Y) { p = { ...this.fresh(p.seat, p.life + 1), score: p.score }; s.last = {}; }
+          if (p.y < FALL_Y) { this.deaths.push({ seat: p.seat, attacker: -1, fell: true }); p = { ...this.fresh(p.seat, p.life + 1), score: p.score }; s.last = {}; } // (☠️ a fall is a death, counted)
         } else if (c) {
           p.yaw = c.yaw;
           p.pitch = c.pitch;
@@ -855,6 +857,7 @@ export class Match {
     p.respawnAt = this.tick + HZ;
     const killer = this.seats[attacker]?.player;
     if (killer) killer.score += attacker === seat ? -1 : 1;
+    this.deaths.push({ seat, attacker });
     this.emit('frag', { seat, attacker });
     if (this.phase === 'playing' && killer?.score >= FRAG_LIMIT) {
       this.phase = 'finished';

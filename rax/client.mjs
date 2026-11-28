@@ -2065,6 +2065,7 @@ function connect(adopt = null) {
         menu.selected = Math.min(menu.selected, menu.items.length - 1);
       }
     }
+    if (data.type === 'deaths' && Number.isFinite(data.deaths)) deathCount = data.deaths; // ☠️ this handle's deaths in rax, from the database (deaths.mjs)
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
       if (shownBraincells === null) shownBraincells = braincells;
@@ -3138,6 +3139,7 @@ const keepBoom = () => {
 let droneWanted = false, cameraHeldAt = 0;
 // ⏳ A button that does its thing only when held shows how far along the hold is, and sounds it: a meter under the crosshair that fills, a note that climbs as it does, and a pick when it is done. `holdOn(label, since, ms)` is asked each frame the button is down; nothing asked, the meter is gone.
 let holdMeter = null, holdStep = -1;
+let deathCount = null;
 function holdOn(label, since, ms, now = performance.now()) {
   const progress = Math.min(1, (now - since) / ms);
   if (now - since < 110) return false; // (a tap is not a hold: nothing shows or sounds for it)
@@ -4130,6 +4132,7 @@ function step(now, xr) {
     boomLength,
     boomOrbit,
     hold: prompt.open ? null : holdMeter,
+    deaths: deathCount,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
     bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges(), platformSlab()),

@@ -51,6 +51,7 @@ import {attachMusicalSocket} from "./musical-socket.mjs";
 import { createRaxServer } from "../rax/server.mjs";
 import { ROOM_HOSTS } from "../rax/world.mjs";
 import { kidlispPublisher } from "../rax/kidlisp-code.mjs";
+import { deathLedger } from "../rax/deaths.mjs";
 import { stateHome } from "../rax/env.mjs";
 import { startRax } from "./rax-child.mjs";
 import os from "node:os";
@@ -125,6 +126,7 @@ const rax = process.env.RAX_INLINE === '1'
       prefix: '/rax',
       alias: '/dool', // its name until 2026-11-18: old links, pages and the builder still land
       publishKidlisp: kidlispPublisher(),
+      deaths: deathLedger(), // ☠️ counted in the database (rax/deaths.mjs)
       stateDir: stateHome(),
       roomHosts: ROOM_HOSTS, // 🌐 rooms kept on other boxes (rax/satellite.mjs)
     })

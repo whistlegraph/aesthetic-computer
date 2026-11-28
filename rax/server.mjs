@@ -167,6 +167,8 @@ export function createRaxServer({
   publicURL = process.env.RAX_PUBLIC_URL,
   devLog = process.env.RAX_DEV_LOG,
   publishKidlisp = null,
+  // ☠️ Where deaths are counted (deaths.mjs deathLedger): { count(handle, kind), read(handle) }. None given, none are.
+  deaths = null,
   diagnosticsEnabled = process.env.RAX_DIAGNOSTICS === '1',
   diagnosticWrite,
   devLogRooms = (process.env.RAX_DEV_LOG_ROOMS || 'studio').split(','),
@@ -1292,6 +1294,7 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
       // Kept in memory only, to read this player's braincells.
       member.token = paired ? null : token;
       void refreshBraincells(ws, member);
+      void deaths?.read(handle).then((total) => { if (total !== null) send(ws, { type: 'deaths', deaths: total }); });
       // (🪞 A newer screen comes to where the handle's body stands. Not out of a
       // room asked for by name or a game's arena, though: nobody arrives there
       // except by asking, so the body comes to it instead — assign() below
@@ -2079,6 +2082,17 @@ const ROOM_CONNECTIONS = MAX_PLAYERS * 2;
           if (keptAt(c.from.room)) sendLink({ type: 'credit', room: c.from.room, seat: c.from.seat, by: c.by });
           else creditHere(c.from.room, c.from.seat, c.by);
         }
+      // ☠️ Each body that died is one more for its handle, in the database; every screen of that handle is told the new count.
+      if (deaths) for (const room of rooms.values())
+        for (const { seat, attacker, fell } of room.match.deaths.splice(0)) {
+          const handle = room.members?.[seat]?.handle;
+          if (!handle) continue;
+          void deaths.count(handle, fell ? 'fell' : attacker === seat ? 'self' : attacker >= 0 ? 'shot' : 'other').then((total) => {
+            if (total === null) return;
+            for (const m of connections) if (m.handle?.toLowerCase() === handle.toLowerCase()) send(m.ws, { type: 'deaths', deaths: total });
+          });
+        }
+      else for (const room of rooms.values()) room.match.deaths.length = 0;
       // 🔫 A gun that fired its last round and broke on the ground is taken out of its room (kept among what was removed, to put back).
       for (const [key, room] of [...rooms])
         for (const id of room.match.broken.splice(0))

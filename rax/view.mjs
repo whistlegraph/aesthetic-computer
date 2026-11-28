@@ -1673,6 +1673,7 @@ export async function createView(canvas) {
     gauge = null, // 🚁 { mph, rpm, feet }: a drone's dials, bottom centre
     agents = 0, // 🤖 how many agents are linked to your handle (lib/agent-presence's room): a small mark after your name
     stats = false, // Shared frame chart and Rax diagnostics.
+    deaths = null, // ☠️ how many times this handle has died in rax (the database's count), or null
     hold = null, // ⏳ { label, progress 0 to 1 }: a button being held toward its action, drawn as a meter under the crosshair
     sticks = null, // 🎮 { move: [x, y], look: [x, y], buttons: [bool] } from -1 to 1: a controller's two sticks and what is pressed, shown while looking on
     place = null, // 📍 { x, z }: this room's place in the world; your position is shown from the plaza's middle
@@ -3858,6 +3859,21 @@ export async function createView(canvas) {
               small(served, sx, ty, 0, unit, 0x8b90a0);
             }
           }
+        // ☠️ Deaths, in the slot over the braincells: a pixel skull and the count.
+        if (Number.isFinite(deaths)) {
+          const dt = nextSlot();
+          const SK = ['.#.#.', '.###.', '#.#.#', '#####', '.###.']; // (drawn foot first, as the brain is)
+          SK.forEach((row, r) =>
+            [...row].forEach((ch, c) => ch === '#' && px(28 + c + 1, dt - 1 - r - 1, 1, 1, INK, 0.000002)),
+          );
+          SK.forEach((row, r) =>
+            [...row].forEach((ch, c) => ch === '#' && px(28 + c, dt - 1 - r, 1, 1, 0xe6e6ee)),
+          );
+          const n = Math.round(deaths).toLocaleString('en-US');
+          const nx = x0 + (36 + smallWidth(n) / 2) * unit, ny = y0 + dt * unit;
+          small(n, nx + unit, ny - unit, 0.000002, unit, INK);
+          small(n, nx, ny, 0, unit, 0xe6e6ee);
+        }
         // Braincells beside the cam: a pixel brain and the count, in purple.
         if (Number.isFinite(braincells)) {
           const bt = nextSlot();
