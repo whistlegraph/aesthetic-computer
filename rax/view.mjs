@@ -1114,6 +1114,8 @@ export async function createView(canvas) {
     box(0, -0.1, 0.152, 0.2, 0.07, 0.01, 0x10131c, 0x10131c, 0x10131c); // the mouth
     for (const x of [-0.07, -0.025, 0.025, 0.07]) box(x, -0.075, 0.158, 0.03, 0.03, 0.004, 0xf2f2f2, 0xf2f2f2, 0xf2f2f2); // teeth
   });
+  const sightLines = new Map();
+  const sightLine = (color) => { if (!sightLines.has(color)) sightLines.set(color, model(({ box }) => box(0, 0, 0.5, 0.006, 0.006, 1, color, color, color))); return sightLines.get(color); };
   const ghostHead = model(({ box }) => {
     box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
     box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
@@ -2132,6 +2134,14 @@ export async function createView(canvas) {
       for (const m of hungNow) projector.draw(hungBall(m, lamp), m.x + (m.sx || 0), m.y + (m.sy || 0), m.z + (m.sz || 0), 0, 0, m.r);
       projector.bends = wrapped;
     }
+    // 👁️ Looking on, each body's sight is in the room too: four thin lines from its eye out to the corners of what it sees, and the frame they end on, in its seat's colour. A cone to read where someone looks from anywhere, not only a mark on the screen.
+    if (spectator && !bare) players.forEach((p, i) => {
+      if (!p || p.alive === false || !Number.isFinite(p.yaw)) return;
+      const mesh = sightLine(seatColor(i)), reach = 5, wide = 30, tall = 19;
+      const ends = [[-wide, tall], [wide, tall], [wide, -tall], [-wide, -tall]].map(([dy, dp]) => along(p, direction(p.yaw + dy, Math.max(-85, Math.min(85, (p.pitch || 0) + dp))), reach));
+      const line = (a, b) => { const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, length = Math.hypot(dx, dy, dz); if (length > 0.01) projector.draw(mesh, a.x, a.y, a.z, Math.atan2(dx, dz), -Math.atan2(dy, Math.hypot(dx, dz)), length); };
+      ends.forEach((e, n) => { line(p, e); line(e, ends[(n + 1) % 4]); });
+    });
     // ✋ Everyone else's hands, where they are in the room (a giant's, over it, when their room is on a table).
     for (const far of farHands) {
       // 👻 Its head: a pale block with a dark visor across the front, turned the way it looks.
@@ -3424,15 +3434,16 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // 🎯 The goal, top centre, large: what to do, and how many are left to do it to.
+    // 🎯 The goal, over the crosshair, large: what to do, and how many are left to do it to.
     if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
       const { unit } = hud, big = 2 * unit;
       const line = [{ text: goal.text, color: goal.color }, ...(goal.count ? [{ text: '  ' + goal.count, color: 0xffffff }] : [])];
-      const wide = spanWidthOf(line, big), at = hudPack.reserve('goal', 'tc', wide, (goal.sub ? 32 : 22) * unit);
+      // (Over the crosshair, in the middle: a fifth of the screen above it, where the eye already is. It was at the top edge.)
+      const up = Math.round(H * 0.2);
       const m = model(({ rect: worldRect, text, small }) => {
         const rect = flip(worldRect);
-        drawSpans({ rect, text }, line, at.x + at.w / 2 - W / 2, H / 2 - at.y - 2 * big, big, { shadow: INK });
-        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], at.x + at.w / 2 - W / 2, H / 2 - at.y - 24 * unit, unit, { shadow: INK, tiny: true });
+        drawSpans({ rect, text }, line, 0, up, big, { shadow: INK });
+        if (goal.sub) drawSpans({ rect, text, small }, [{ text: goal.sub, color: THEME.dim }], 0, up - 22 * unit, unit, { shadow: INK, tiny: true });
       });
       projector.overlay(m, W, H);
     }
@@ -3442,18 +3453,17 @@ export async function createView(canvas) {
       const others = members.filter((m) => (m.handle ? m.handle.toLowerCase() !== mine : m.owner !== self?.owner)).slice(0, 10);
       // 📨 Nobody else here: a code to hand someone, that brings them to this room.
       if (!others.length && self && !game) {
-        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = 'invite a friend';
+        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = [{ text: 'join ', color: 0xffe066 }, { cap: 'rax.ac' }];
         if (n) {
-          const size = (n + 2) * unit, wide = Math.max(size, Math.ceil(smallWidth(label) * unit)), at = hudPack.reserve('invite', 'tr', wide, size + 11 * unit);
+          const size = (n + 2) * unit, wide = Math.max(size, Math.ceil(smallSpanWidth(label, unit))), at = hudPack.reserve('invite', 'tr', wide, size + 14 * unit);
           chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
-          const m = model(({ rect: worldRect, small }) => {
+          const m = model(({ rect: worldRect, text, small }) => {
             const rect = flip(worldRect);
             const left = at.x + at.w - size - W / 2, top = H / 2 - at.y; // (the code's own left edge and top, from the middle of the screen, y up)
             rect(left, top - size, 0.000002, size, size, 0xffffff);
             cells.forEach((row, r) => row.forEach((dark, c) => dark && rect(left + (c + 1) * unit, top - (r + 2) * unit, 0.000001, unit, unit, 0x10131c)));
-            const lx = at.x + at.w - W / 2 - (smallWidth(label) * unit) / 2, ly = top - size - 2 * unit;
-            small(label, lx + unit, ly - unit, 0.000002, unit, INK);
-            small(label, lx, ly, 0, unit, 0xffe066);
+            // (Under the code, its middle on the code's: the word, and the address as a tag.)
+            drawSpans({ rect, text, small }, label, Math.min(left + size / 2, at.x + at.w - W / 2 - smallSpanWidth(label, unit) / 2), top - size - 4 * unit, unit, { shadow: INK, tiny: true });
           });
           projector.overlay(m, W, H);
         }
@@ -3833,7 +3843,7 @@ export async function createView(canvas) {
     // projected into this view and marked with that seat's own small reticle,
     // drawn on whole pixels like your own (2026-11-27).
     if (spectator && !bare && !radial && !menu) {
-      const { unit } = hud, t = unit, half = 4 * unit, arm = 2 * unit;
+      const { unit } = hud, t = unit, half = 4 * unit, arm = 2 * unit; 
       const marks = [];
       players.forEach((p, i) => {
         if (!p || p.alive === false || !Number.isFinite(p.yaw)) return;
