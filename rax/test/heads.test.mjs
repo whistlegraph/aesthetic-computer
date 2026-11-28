@@ -53,6 +53,18 @@ test('a head makes for the body, a round ends it, and the next wave is one more'
   assert.ok(n.events.some((e) => e.type === 'headpop') && !n.events.some((e) => e.type === 'gib'));
 });
 
+test('heads do not pass through one another: two that meet are put apart and pushed off', () => {
+  const { m } = stage();
+  for (let k = 0; k < HZ; k++) m.step();
+  const a = m.heads[0];
+  m.heads = [a, { ...a, id: 'head-x', x: a.x + 0.1, vx: a.vx - 6 }];
+  m.headsOwed = 0;
+  m.step();
+  const [p, q] = m.heads;
+  assert.ok(Math.hypot(q.x - p.x, q.y - p.y, q.z - p.z) >= HEAD.r * 2 - 0.2, 'apart');
+  assert.ok(m.events.some((e) => e.type === 'headbump'));
+});
+
 test('a head that reaches a body ends it: the body comes apart, the wave is over, and it stands again a few seconds on', () => {
   const { m, seat } = stage();
   for (let k = 0; k < HZ; k++) m.step();

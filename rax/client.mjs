@@ -1022,6 +1022,23 @@ function solids() {
   return solidList;
 }
 // Every object's oscillators, placed in the room.
+// 👹 Each flying head has a little voice of its own, placed where the head is (SpatialTones: HRTF), so they are heard coming: from behind, from above, from which side. A buzzing chatter in short bursts, each head at its own pitch and its own pace.
+const headVoices = new Map();
+function headTones() {
+  const heads = snapshot?.heads || [], out = [];
+  for (const id of headVoices.keys()) if (!heads.some((h) => h[0] === id)) headVoices.delete(id);
+  for (const [id, x, y, z] of heads) {
+    if (!headVoices.has(id)) {
+      const n = Number(String(id).replace(/\D/g, '')) || 0, base = 150 + ((n * 53) % 9) * 28, pace = 5 + (n % 4) * 1.3, phase = n * 1.7;
+      headVoices.set(id, {
+        frequency: (t) => base * (1 + 0.22 * Math.sin(t * 11 + phase) + 0.08 * Math.sin(t * 37 + phase)),
+        gain: (t) => Math.max(0, Math.sin(t * pace + phase)) ** 3 * 1.6,
+      });
+    }
+    out.push({ key: `head:${id}`, wave: 'sawtooth', x, y, z, ...headVoices.get(id) });
+  }
+  return out;
+}
 function toneSources() {
   const out = [];
   for (const o of objects) {
@@ -2264,6 +2281,7 @@ function connect(adopt = null) {
       // 🏙️ Instagib: a body comes apart (view.mjs 'gib'); 🚁 a drone shot down is set back at its perch.
       if (event.type === 'gib') sfx.blast();
       if (event.type === 'headpop') { sfx.bounce(); sfx.ricochet?.(0.8); }
+      if (event.type === 'headbump' && event.at) sfx.headBump(event.at);
       if (event.type === 'downed' && event.eye === myEye && seat < 0) {
         freecam = { ...freecam, x: DRONE_HOME.x, y: DRONE_HOME.y, z: DRONE_HOME.z, vx: 0, vy: 0, vz: 0 };
         notice = 'SHOT DOWN';
@@ -4106,7 +4124,7 @@ function step(now, xr) {
     if (at) {
       const f = direction(yaw, pitch);
       const beat = beatAt(Date.now() + (clockOffset || 0));
-      tones.update(toneSources(), { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
+      tones.update([...toneSources(), ...headTones()], { x: at.x, y: at.y, z: at.z, fx: f.x, fy: f.y, fz: f.z }, worldTime, beat);
     }
   }
   // (Everyone but this page's own body is carried on through a quiet wire and eased back: presentation.mjs.)

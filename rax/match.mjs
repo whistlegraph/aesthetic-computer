@@ -882,6 +882,24 @@ export class Match {
         h.done = true;
       }
     }
+    // 🎱 Heads do not pass through one another: two that meet are put apart and each takes the other's push along the line between them, so a pack jostles and spreads instead of flying as one.
+    for (let a = 0; a < this.heads.length; a++)
+      for (let b = a + 1; b < this.heads.length; b++) {
+        const p = this.heads[a], q = this.heads[b];
+        let dx = q.x - p.x, dy = q.y - p.y, dz = q.z - p.z, d = Math.hypot(dx, dy, dz);
+        const need = HEAD.r * 2;
+        if (d >= need) continue;
+        if (d < 1e-6) { dx = 1; dy = 0; dz = 0; d = 1; } // (one on top of the other: apart along x)
+        const nx = dx / d, ny = dy / d, nz = dz / d, over = (need - d) / 2;
+        p.x -= nx * over; p.y -= ny * over; p.z -= nz * over;
+        q.x += nx * over; q.y += ny * over; q.z += nz * over;
+        const closing = (p.vx - q.vx) * nx + (p.vy - q.vy) * ny + (p.vz - q.vz) * nz;
+        if (closing > 0) {
+          p.vx -= closing * nx; p.vy -= closing * ny; p.vz -= closing * nz;
+          q.vx += closing * nx; q.vy += closing * ny; q.vz += closing * nz;
+          if (closing > 0.6) this.emit('headbump', { at: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2, z: (p.z + q.z) / 2 } });
+        }
+      }
     if (this.heads.some((h) => h.done)) {
       // It got someone: the wave is over and the count starts again, after a breath.
       this.heads = []; this.headsOwed = 0; this.wave = 0;

@@ -43,6 +43,20 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
+  // 🎱 Two heads knock together: a short wooden clack, where they met.
+  headBump(at) {
+    if (!this.ready) return;
+    const a = this.audio, t = a.currentTime, o = a.createOscillator(), g = a.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(420, t);
+    o.frequency.exponentialRampToValueAtTime(160, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.12 * MASTER, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.connect(g).connect(this.positionedOutput(at));
+    o.start(t);
+    o.stop(t + 0.09);
+  }
   // ✊✊ Both closed: the world is held. A fifth, one note in each ear, and a low one under them.
   hold() {
     this.voice(196, 0.22, { volume: 0.05, pan: -0.9 });
@@ -58,7 +72,8 @@ export class Sfx {
     const a = this.audio;
     if (!at || !a.createPanner) return a.destination;
     const p = a.createPanner();
-    Object.assign(p, { panningModel: 'equalpower', distanceModel: 'inverse', refDistance: 2, maxDistance: 60, rolloffFactor: 1.4 });
+    // (HRTF, as the room's held tones are (SpatialTones): a sound is heard before, behind, over or under, not only to a side.)
+    Object.assign(p, { panningModel: 'HRTF', distanceModel: 'inverse', refDistance: 2, maxDistance: 60, rolloffFactor: 1.4 });
     if (p.positionX) { p.positionX.value = at.x; p.positionY.value = at.y; p.positionZ.value = at.z; }
     else p.setPosition?.(at.x, at.y, at.z);
     p.connect(a.destination);
