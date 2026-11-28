@@ -3097,8 +3097,17 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // in and out along its boom: up is closer. The distance is kept for next time.
 const BOOM_MIN = 1.5, BOOM_MAX = 14;
 let boomLength = 4;
-// 🎮 L3 brings the third-person camera in to half its boom and back (as it toggles the 2× zoom at a screen).
-let boomClose = false;
+// 🎮 L3 held, the right stick moves the third-person camera in and out (up is closer);
+// L3 clicked alone steps it out through these distances and round again.
+const BOOM_STEPS = [2, 4, 7, 11];
+let boomSticked = false; // the stick moved the boom during this press of L3
+const keepBoom = () => {
+  clearTimeout(boomSaveTimer);
+  boomSaveTimer = setTimeout(() => { try { localStorage.setItem('rax-boom', boomLength.toFixed(2)); } catch {} }, 400);
+};
+// 🔋 The machine's battery, where the browser tells it (Chrome does; Safari and the Mac app's web view do not): shown on your line of the HUD.
+let battery = null;
+try { navigator.getBattery?.().then((b) => { const read = () => (battery = { level: b.level, charging: b.charging }); read(); b.addEventListener('levelchange', read); b.addEventListener('chargingchange', read); }).catch(() => {}); } catch {}
 try {
   const kept = parseFloat(localStorage.getItem('rax-boom'));
   if (Number.isFinite(kept)) boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, kept));
@@ -3110,8 +3119,7 @@ addEventListener('wheel', (e) => {
   if (seat < 0 || !third || typing() || menu) return;
   const lines = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
   boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, boomLength * Math.exp(Math.max(-120, Math.min(120, lines)) * 0.004)));
-  clearTimeout(boomSaveTimer);
-  boomSaveTimer = setTimeout(() => { try { localStorage.setItem('rax-boom', boomLength.toFixed(2)); } catch {} }, 400);
+  keepBoom();
 }, { passive: false });
 // A held thumb is a control, never a selection: iOS starts its loupe and
 // selection from touchstart whatever the CSS says, so the touch is refused
@@ -3466,7 +3474,13 @@ function step(now, xr) {
   if (!prompt.open) {
     yaw = (yaw - pad.dx * 0.25 + 360) % 360;
     pitch = clamp(pitch - pad.dy * 0.25, -85, 85);
-    if (!dock && !lockOn) {
+    const booming = seat >= 0 && third && !dock && gamepad.zoomHeld;
+    if (booming && gamepad.lookY) {
+      boomLength = Math.min(BOOM_MAX, Math.max(BOOM_MIN, boomLength * Math.exp(gamepad.lookY * 1.6 * Math.min(0.1, elapsed))));
+      boomSticked = true;
+      keepBoom();
+    }
+    if (!dock && !lockOn && !booming) {
       const dt = Math.min(0.1, elapsed) / focusZoom;
       yaw = (yaw - gamepad.lookX * 160 * dt + 360) % 360;
       pitch = clamp(pitch - gamepad.lookY * 120 * dt, -85, 85);
@@ -3481,7 +3495,13 @@ function step(now, xr) {
       sfx.jump();
     }
     if (seat >= 0 && gamepad.camera) third = !third;
-    if (seat >= 0 && third && !dock && gamepad.zoomClick) boomClose = !boomClose;
+    if (gamepad.zoomRelease) {
+      if (seat >= 0 && third && !dock && !boomSticked) {
+        boomLength = BOOM_STEPS.find((d) => d > boomLength + 0.05) ?? BOOM_STEPS[0];
+        keepBoom();
+      }
+      boomSticked = false;
+    }
     if (seat < 0 && gamepad.camera) droneView = !droneView;
   }
   moveTargetCursor(elapsed);
@@ -4040,7 +4060,7 @@ function step(now, xr) {
     game: game(),
     bops: snapshot?.bops || [],
     combos: snapshot?.combos || [],
-    boomLength: boomClose ? Math.max(BOOM_MIN, boomLength / 2) : boomLength,
+    boomLength,
     rockets: snapshot?.rockets || [],
     items: snapshot?.items,
     bullets: [...rounds.step(now, solids(), (snapshot?.tick || 0) / HZ, half(), openEdges()),
@@ -4056,6 +4076,7 @@ function step(now, xr) {
       : null,
     served: ws?.url ? servedFrom(new URL(ws.url)) : null, // 🏙️ the city (or host) this room's socket is on, beside the ping
     roomName: room, // 📍 the space you are in, on the line under the braincells
+    battery,
     objects,
     prompt,
     chat: {

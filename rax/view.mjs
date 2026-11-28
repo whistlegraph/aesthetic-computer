@@ -63,7 +63,7 @@ export const LEGEND = {
   pad: [
     '[LS] move / [RS] look',
     '[A] jump / [LT] zoom',
-    '[Y] camera / [L3] near or far',
+    '[Y] camera / [L3] distance, held + [RS]',
     '[RT] use / [X] drop',
     '[X] paint / hold [LB] build',
     '[RB] lock or go in / [B] remove',
@@ -1658,6 +1658,7 @@ export async function createView(canvas) {
     spending = false,
     served = null,
     roomName = null,
+    battery = null, // 🔋 { level 0…1, charging } where the browser says (client.mjs), else null
     tiles = {},
     park = null, basement = false,
     field = null, // 🌳 this room's cell on the tower's grounds ({ i, j }), or null
@@ -2805,7 +2806,7 @@ export async function createView(canvas) {
       const hoverY = handlePoint && handlePoint.y * height / canvas.clientHeight;
       const handleHovered = !!(handlePoint && handleRect && hoverX >= handleRect.x && hoverX < handleRect.x + handleRect.w &&
         hoverY >= handleRect.y && hoverY < handleRect.y + handleRect.h);
-      if (labels.length && me && !bare)
+      if (labels.length && !bare)
         ownTag = {
           x: handleX + (labels[0].label.length * 6 + 3 + (agents ? 10 : 0)) * unit, // (past the linked-agent mark, when one stands there)
           y: handleY,
@@ -2911,10 +2912,10 @@ export async function createView(canvas) {
       // bottom left, everyone else's over their head.
       const where = (p) => [['x ' + p.x.toFixed(1), AXIS.x], ['y ' + (p.y || 0).toFixed(1), AXIS.y], ['z ' + p.z.toFixed(1), AXIS.z]];
       const m = model(({ rect: worldRect, text, handleText, small }) => {
-        const place = (p, left, y, n = 0, beside = false) => {
+        const place = (p, left, y, n = 0, beside = false, more = []) => {
           // 🍄 In the arena the count is the point; elsewhere it follows the position.
           const count = `${n} bop${n === 1 ? '' : 's'}`;
-          const parts = [...(ledges || beside || !stats ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : [])]; // (metres are the debugging layer's)
+          const parts = [...(ledges || beside || !stats ? [] : where(p)), ...(ledges || n ? [[count, THEME.dim]] : []), ...more]; // (metres are the debugging layer's)
           for (const [t, c] of parts) {
             const cx = left + (smallWidth(t) / 2) * unit;
             small(t, cx + unit, y - unit, 0.000002, unit, INK);
@@ -2923,7 +2924,11 @@ export async function createView(canvas) {
           }
         };
         // (Your own position is in the column beside the face cam.)
-        if (ownTag && !game) place(me, ownTag.x, ownTag.y, bops[seat] || 0, !!face);
+        // 🕰️🔋 On your own line, after your handle: the time of day here, and the machine's battery where the browser tells it.
+        const clock = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toLowerCase().replace(/\s+/g, ' ');
+        const charge = battery && Number.isFinite(battery.level) ? `${battery.charging ? '+' : ''}${Math.round(battery.level * 100)}%` : null;
+        const system = [[clock, 0xd0d4e0], ...(charge ? [[charge, battery.charging ? 0x69bfff : battery.level < 0.2 ? 0xff6b6b : battery.level < 0.5 ? 0xffe066 : 0x3fb950]] : [])];
+        if (ownTag && !game) place(me || { x: 0, y: 0, z: 0 }, ownTag.x, ownTag.y, me ? bops[seat] || 0 : 0, !!face || !me, system);
         // 🎮 In a game the score is the headline: top centre, large. A
         // chain in the air reads under it as +points (and xN from the
         // second bop); on landing that flies up into the score, which
@@ -3760,8 +3765,9 @@ export async function createView(canvas) {
       const { unit, safeX, safeY } = hud;
       const floor = handleY;
       const listTop = floor + 4 * unit;
+      // (The cam's frame stands on the same left edge as the handle under it, 2026-11-27.)
       const S = 24 * unit,
-        x0 = -W / 2 + safeX + 2,
+        x0 = handleX + unit,
         y0 = listTop + 4 * unit; // bottom edge of the frame
       const hurt = (now - face.hurtAt) / 1000,
         grin = (now - face.grinAt) / 1000;
