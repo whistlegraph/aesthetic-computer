@@ -1931,7 +1931,8 @@ export async function createView(canvas) {
     }
     natural = { sx: projector.sx / (camera?.zoom || 1), sy: projector.sy / (camera?.zoom || 1) };
     if (camera?.face && orbit <= 0) {
-      const { w, h } = camera.face, W = canvas.width, H = canvas.height;
+      // (A standing screen has a casing round its picture: the casing is what is fitted, so no edge of it runs under the HUD.)
+      const W = canvas.width, H = canvas.height, w = camera.face.fw || camera.face.w, h = camera.face.fh || camera.face.h;
       const layoutKey = JSON.stringify([W, H, w / h, hud.unit, previousRegions]);
       if (layoutKey !== frameLayoutKey) {
         frameLayoutKey = layoutKey;

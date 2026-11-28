@@ -1178,7 +1178,7 @@ let dock = null,
   whirr = { lens: 0, travel: 0, turn: 0 }; // what the servos were last asked for (raxDebug)
 const faceOf = (id) => {
   const s = screens.find((x) => `screen:${x.id}` === id);
-  if (s) return { x: s.x, y: 1.525, z: s.z, yaw: s.yaw || 0, w: 4, h: 2.25, cols: 160, rows: 90 };
+  if (s) return { x: s.x, y: 1.525, z: s.z, yaw: s.yaw || 0, w: 4, h: 2.25, cols: 160, rows: 90, fw: 4.3, fh: 2.55 }; // (fw, fh: its casing, view.mjs standingFrame: what must clear the HUD when gone in to)
   const wall = walls.find((w) => `wall:${w.code}` === id);
   if (wall) {
     const north = wall.face === 'north', d = SCREEN - 0.03, h = 32 * wall.height / wall.width;
@@ -4062,7 +4062,7 @@ function step(now, xr) {
     debug: !!game() && debugBoxes,
     idleCamera: xr ? null : idleShot,
     idleEffect: idleShot?.weight ?? (seat < 0 ? smooth(droneIdleWeight) : 0),
-    camera: xr ? (seat < 0 && !held ? { ...freecam, yaw, pitch } : null) : (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h}, back: dock.to.back, dockZoom: dock.to.zoom, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
+    camera: xr ? (seat < 0 && !held ? { ...freecam, yaw, pitch } : null) : (game()?.camera ? gameCamera(displayed || player, shownPlayers, elapsed) : dock && !filmShot ? { ...dock.eye, face: {w: dock.face.w, h: dock.face.h, fw: dock.face.fw, fh: dock.face.fh}, back: dock.to.back, dockZoom: dock.to.zoom, flat: smooth(dock.t), roll: seat < 0 ? droneRoll : 0 } : seat < 0 && !held ? { ...freecam, ...(droneView && !filmShot ? droneBack() : { roll: droneRoll }), yaw, pitch, ...(filmShot ? { zoom: filmShot.zoom } : {}) } : null),
     spectator: seat < 0 && !joining(),
     gate: seat < 0 ? gate : null,
     pair: pairDesk.want(ws, seat < 0 && gate === 'account' && !held && !film && sheetOpen),
