@@ -3653,10 +3653,10 @@ export async function createView(canvas) {
       projector.overlay(m, W, H);
     }
     // 🔎 How far the lens is closed, under the reticle while it is: a bar that
-    // fills with the trigger (or C) and the power beside it, 1.0x to 5.0x. An
+    // fills as the trigger (or C) is pressed home, and the power beside it. An
     // analog control shows how much of it is in use (2026-11-27).
     if (nearZoom > 1.01 && !bare && !radial && !menu && !xr) {
-      const { unit } = hud, top = 5; // (the most there is: MAX_FOCUS_ZOOM, doubled by L3 at a screen)
+      const { unit } = hud, top = 2.5; // (a trigger pressed home: screen-lod.mjs MAX_FOCUS_ZOOM; L3 at a screen doubles the lens past it, and the bar stays full)
       const wide = 40 * unit, tall = 2 * unit, x = -wide / 2, y = -24 * unit;
       const part = Math.max(0, Math.min(1, (nearZoom - 1) / (top - 1)));
       const said = `${nearZoom.toFixed(1)}x`;
