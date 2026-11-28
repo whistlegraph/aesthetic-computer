@@ -3,6 +3,7 @@ import { objectBoxes } from './objects.mjs';
 import { towerSides, carDoor } from './elevator.mjs';
 import { fly, rideable } from './bike.mjs';
 import { topOf } from './orbits.mjs';
+import { fromKey as cubeOf } from './lattice.mjs';
 import { DEFAULT_CFG, newState, pmove } from '../system/public/aesthetic.computer/lib/pmove.mjs';
 
 export const HZ = 60;
@@ -40,7 +41,7 @@ export const PLAZA = 'lobby', PLAZA_WORD = 'plaza';
 // ✨ In the one room everyone builds, and what is built is a conjuring: it
 // stands this long and is gone (the keeper's stays: the room is theirs to furnish).
 export const CONJURE_MS = 60_000;
-export const worldPlace = (id) => id === BASEMENT || id === 'lobby' || id === 'roof' || id === 'east' || /^(floor-|pod-)/.test(id || '') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id || '');
+export const worldPlace = (id) => id === BASEMENT || id === 'lobby' || id === 'roof' || id === 'east' || /^(floor-|pod-)/.test(id || '') || /^[ew]\d{1,4}[ns]\d{1,4}$/.test(id || '') || !!cubeOf(id); // (🧊 a cube of the lattice, lattice.mjs: until cubes are rooms of their own, every one is home)
 export const placeFor = (room, one = ONE_ROOM) => (room === PLAZA_WORD ? PLAZA : one && worldPlace(room) && room !== PLAZA ? HOME_ROOM : room);
 // 🏙️ Where each host stands, for the line beside the ping: home (lith) is in
 // Santa Clara, the satellite in New Jersey. A host not listed shows its name.

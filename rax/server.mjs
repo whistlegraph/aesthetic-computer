@@ -64,6 +64,7 @@ const assets = new Map([
     'connection',
     'account',
     'agent',
+    'lattice',
     'controller',
     'freecam',
     'hud',
@@ -667,7 +668,7 @@ export function createRaxServer({
       return;
     }
     // (`/~word` is the page itself, asked for a room by name: client.mjs reads the word.)
-    const asset = assets.get(/^\/~[a-z0-9-]{1,32}$/.test(path) ? '/' : path);
+    const asset = assets.get(/^\/~[a-z0-9:,-]{1,40}$/.test(decodeURIComponent(path)) ? '/' : path); // (a room's word, or a cube's: ~studio, ~1,0,-2, ~2:0,0,0)
     if (req.method !== 'GET' || !asset) {
       res.writeHead(404).end();
       return;

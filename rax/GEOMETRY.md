@@ -1,8 +1,19 @@
 # rax geometry (proposal, 2026-11-27)
 
-**Status: a proposal.** One step is live (2026-11-27): home is `origin`, an
-open platform (`world.mjs` `HOME_ROOM`), and the old plaza is its own room at
-`rax.ac/~plaza`. Nothing else here is built. It replaces the world described
+**Status: the rule is decided; the first parts are live (2026-11-27).**
+
+- Live: home is `origin`, the cube `0:0,0,0`, an open platform (`world.mjs`
+  `HOME_ROOM`). The old plaza is its own room at `rax.ac/~plaza`.
+- Live: the arithmetic of the rule, `lattice.mjs` (names, the six faces,
+  levels, metres), with `test/lattice.test.mjs`. A cube can be asked for by
+  its numbers (`rax.ac/~1,0,-2`), the HUD and `rax.state().cube` say which
+  cube you are in. Until cubes are rooms of their own, every cube is home.
+- Not built: cubes as rooms, going through a face, levels.
+
+Decided by @jeffrey ("defaults", 2026-11-27): going down a level makes you
+smaller, into a cube that is then a lattice of its own; 4 cubes on an edge
+between levels; y is climbed by flight; an empty cube is open air, with a
+floor only where someone builds one. It replaces the world described
 in `GEOGRAPHY.md` (plaza, park blocks, tower, basement, planets), which is
 deprecated and kept as one room to visit. @jeffrey asked for one universal
 geometry: Cartesian on three axes, fractal, not built from planets, and like
@@ -73,15 +84,13 @@ A handle's home becomes a cube it holds, as a floor number is held today.
 
 Steps 1 and 4 can ship first, behind the `ONE_ROOM` switch that is on today.
 
-## To decide
+## Still to settle
 
-1. **What does going down a level mean?** (a) You shrink into the cube, and
-   the 16 m room becomes a 64-cube neighbourhood of rooms, each 16 m to you.
-   (b) Levels are only a map zoom: the lattice is one size, and a level is how
-   much of it one address covers.
-2. **How many cubes per edge between levels?** 4 is proposed. 2 gives an
-   octree (8 inside); 3 keeps a centre cube.
-3. **How do you climb y?** Stairs in every cube, a lift like the tower's, or
-   flight (the bike already flies).
-4. **Is an empty cube solid ground or open air?** That is, is there a floor
-   at every y, or only where someone builds one?
+- **A cube's floor.** Home is a slab 2 m deep with its top at y 0
+  (`world.mjs` `PLATFORM_DEPTH`), and a body that walks off falls and comes
+  back (`FALL_Y`). In the lattice a body's cube is `lattice.mjs` `at()` of
+  where it is, with a cube's middle at 0,0,0: so the slab's top is the
+  middle of the origin cube, not its floor. Either the slab moves to the
+  cube's floor (y = -8) or a cube's own zero is its floor.
+- **Falling.** Through the floor of the origin is the cube `0:0,-1,0`. Until
+  that is a room, a fall ends in a fresh life at home.

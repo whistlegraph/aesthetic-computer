@@ -33,6 +33,7 @@ import { Controller, neutralPad } from './controller.mjs';
 import { createBuilds } from './build-line.mjs';
 import { moveFreecam } from './freecam.mjs';
 import { createAgentSurface } from './agent.mjs';
+import { ORIGIN, fromWord as cubeFromWord, key as cubeKey, full as cubeFull } from './lattice.mjs';
 import { Radial, HOLD_SECONDS, ringGeometry } from './radial.mjs';
 import { TouchPad, touchButtons, bikeButtons } from './touch.mjs';
 import { gyroLook } from './gyro.mjs';
@@ -74,7 +75,9 @@ const query = new URLSearchParams(location.search);
 // 🏷️ A room is asked for the way AC asks for anything: a word after `~`
 // (rax.ac/~studio, as aesthetic.computer/rax~studio). `?room=` is still read
 // (the prompt's paper loads the page that way) but never written.
-const requestedRoom = decodeURIComponent(location.pathname).match(/\/~([a-z0-9-]{1,32})$/)?.[1] || query.get('room');
+// 🧊 A cube of the lattice is asked for by its numbers (rax.ac/~1,0,-2, ~2:0,0,0: lattice.mjs) and becomes its room key.
+const askedRoom = decodeURIComponent(location.pathname).match(/\/~([a-z0-9:,-]{1,40})$/)?.[1] || query.get('room');
+const requestedRoom = cubeFromWord(askedRoom) ? cubeKey(cubeFromWord(askedRoom)) : askedRoom;
 // 🏷️ What this browser kept under the world's old name (dool, until
 // 2026-11-18) comes along: who you are, where you live, where you stood.
 try {
@@ -1595,7 +1598,7 @@ tidyAddress();
 // 🦾 rax in words and calls (agent.mjs): a screen reader, a keyboard and an
 // agent read the same state the eye does, and press the same inputs.
 const placeName = (id) =>
-  id === HOME_ROOM ? 'The origin, an open platform'
+  id === HOME_ROOM ? `The origin, cube ${cubeFull(ORIGIN)}, an open platform`
   : id === 'lobby' ? 'The plaza, at the foot of the tower'
   : id === BASEMENT ? 'The basement'
   : aloft(id) ? (tower?.here?.number ? `Floor ${tower.here.number} of the tower${tower.here.handle ? `, @${tower.here.handle}'s` : ''}` : 'Up the tower')
@@ -1607,7 +1610,7 @@ const agentSurface = createAgentSurface({
     const me = selfMember || members.find((m) => (seat >= 0 ? m.seat === seat : false)) || null;
     const named = (m) => (m?.handle ? `@${m.handle}` : m?.name || 'someone');
     return {
-      room, place: placeName(room), connected: ws?.readyState === WebSocket.OPEN && !!snapshot,
+      room, place: placeName(room), cube: room === HOME_ROOM ? ORIGIN : null, connected: ws?.readyState === WebSocket.OPEN && !!snapshot,
       seat, player, eye: seat < 0 ? freecam : null, yaw, pitch,
       name: me ? named(me) : null, handle: me?.handle || null,
       people: (snapshot?.players || []).flatMap((p, i) => {
@@ -4096,7 +4099,7 @@ function step(now, xr) {
       ? connection.state(now, ws?.readyState === WebSocket.OPEN, ws?.bufferedAmount || 0)
       : null,
     served: ws?.url ? servedFrom(new URL(ws.url)) : null, // 🏙️ the city (or host) this room's socket is on, beside the ping
-    roomName: room, // 📍 the space you are in, on the line under the braincells
+    roomName: room === HOME_ROOM ? cubeFull(ORIGIN) : room, // 📍 the space you are in, on the line under the braincells: a cube by its numbers (level:x,y,z), a room by its name
     battery,
     objects,
     prompt,

@@ -59,7 +59,7 @@ export function createAgentSurface({ canvas, read, act }) {
     }
     const nearby = things.filter(Boolean).sort((a, b) => a.distance - b.distance);
     return {
-      room: w.room, place: w.place, connected: w.connected,
+      room: w.room, place: w.place, cube: w.cube || null, connected: w.connected, // (cube: { level, x, y, z } of the lattice, lattice.mjs, when the room is one)
       you: {
         name: w.name, handle: w.handle, signedIn: !!w.handle, seated: w.seat >= 0,
         x: me ? round(me.x) : null, y: me ? round(me.y) : null, z: me ? round(me.z) : null,
