@@ -365,7 +365,7 @@ export class Match {
       if (d < reach) reach = d;
     }
     if (!(reach < 80)) return f;
-    reach += HEAD.r; // (to the head's middle, not its near face)
+    reach += 0.05; // (to the very point of the head's face the crosshair is on, a hair in: where it is struck is the shooter's doing)
     const dx = p.x + f.x * reach - h.x, dy = p.y + f.y * reach - h.y, dz = p.z + f.z * reach - h.z, n = Math.hypot(dx, dy, dz);
     return n > 0.2 ? { x: dx / n, y: dy / n, z: dz / n } : f;
   }
@@ -607,7 +607,9 @@ export class Match {
           this.zombies = this.zombies.filter((z) => z !== zombie);
           this.zombieKills.push(zombie.id);
           // (👹 A flying head has no body to come apart as: it bursts where it is.)
-          if (zombie.head) this.emit('headpop', { at: { x: zombie.x, y: zombie.y, z: zombie.z }, attacker: b.owner, dir: { x: dir.x, y: dir.y, z: dir.z } });
+          // (`off`: where on the head the round struck, from its middle, each way -1 to 1: its bits are thrown from that side.)
+          if (zombie.head) this.emit('headpop', { at: { x: zombie.x, y: zombie.y, z: zombie.z }, attacker: b.owner, dir: { x: dir.x, y: dir.y, z: dir.z }, yaw: zombie.yaw || 0,
+            off: { x: Math.max(-1, Math.min(1, (b.x - zombie.x) / HEAD.r)), y: Math.max(-1, Math.min(1, (b.y - zombie.y) / HEAD.r)), z: Math.max(-1, Math.min(1, (b.z - zombie.z) / HEAD.r)) } });
           else this.emit('gib', { seat: 3, zombie: true, attacker: b.owner, kind: 'shot', zone: hitZone(zombie, b),
             at: { x: zombie.x, y: zombie.y - 0.8, z: zombie.z }, hit: { x: b.x, y: b.y, z: b.z }, dir: { x: dir.x, y: dir.y, z: dir.z } });
           b.dead = true;

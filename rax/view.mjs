@@ -1125,15 +1125,25 @@ export async function createView(canvas) {
   const fingerBone = model(({ box }) => box(0, 0, 0.5, 0.28, 0.28, 1, 0x51e3ee, 0x269baa));
   const fingertip = model(({ box }) => box(0, 0, 0, 1, 1, 1, 0xffffff));
   const armBar = model(({ box }) => box(0, 0, 0.5, 0.2, 0.2, 1, 0xf2f2f2, 0xcfcfcf, 0xe2e2e2));
-  const enemyHead = model(({ box }) => {
+  // 👹 A head, four ways: jaw shut or open, and the fire inside it low or high (seen through its eyes and the back of its mouth). Meaner than it was: slanted brows, a wider mouth, teeth above and below.
+  const enemyHeads = [0, 1, 2, 3].map((n) => model(({ box }) => {
+    const open = n >= 2, glow = n % 2 ? 0xfff07a : 0xff8a1e, gape = open ? 0.13 : 0.06, low = -0.085 - (open ? 0.035 : 0);
     box(0, 0, 0, 0.3, 0.34, 0.3, 0xb3202a, 0x7d141c, 0x991a23);
-    box(-0.075, 0.05, 0.152, 0.07, 0.06, 0.01, 0xfff3c4, 0xfff3c4, 0xfff3c4); // eyes
-    box(0.075, 0.05, 0.152, 0.07, 0.06, 0.01, 0xfff3c4, 0xfff3c4, 0xfff3c4);
-    box(-0.075, 0.05, 0.158, 0.025, 0.03, 0.004, 0x10131c, 0x10131c, 0x10131c);
-    box(0.075, 0.05, 0.158, 0.025, 0.03, 0.004, 0x10131c, 0x10131c, 0x10131c);
-    box(0, -0.1, 0.152, 0.2, 0.07, 0.01, 0x10131c, 0x10131c, 0x10131c); // the mouth
-    for (const x of [-0.07, -0.025, 0.025, 0.07]) box(x, -0.075, 0.158, 0.03, 0.03, 0.004, 0xf2f2f2, 0xf2f2f2, 0xf2f2f2); // teeth
-  });
+    for (const s of [-1, 1]) {
+      box(s * 0.075, 0.055, 0.152, 0.075, 0.06, 0.01, glow, glow, glow); // an eye, lit from inside
+      box(s * 0.075, 0.05, 0.158, 0.022, 0.04, 0.004, 0x10131c, 0x10131c, 0x10131c); // its slit
+      box(s * 0.105, 0.105, 0.158, 0.05, 0.022, 0.006, 0x4a0b10, 0x4a0b10, 0x4a0b10); // the brow, outer end high
+      box(s * 0.05, 0.088, 0.158, 0.05, 0.022, 0.006, 0x4a0b10, 0x4a0b10, 0x4a0b10); // …inner end low: a scowl
+      box(s * 0.16, 0.19, 0, 0.05, 0.07, 0.05, 0x7d141c, 0x5c0e14, 0x7d141c); // a horn
+    }
+    box(0, low, 0.152, 0.23, gape, 0.01, 0x10131c, 0x10131c, 0x10131c); // the mouth
+    box(0, low, 0.156, 0.15, gape * 0.5, 0.004, glow, glow, glow); // the fire at the back of it
+    for (const x of [-0.085, -0.03, 0.03, 0.085]) {
+      box(x, low + gape / 2 - 0.016, 0.16, 0.034, 0.032, 0.004, 0xf2f2f2, 0xf2f2f2, 0xf2f2f2); // teeth above
+      box(x + 0.027, low - gape / 2 + 0.014, 0.16, 0.03, 0.028, 0.004, 0xe0e0e0, 0xe0e0e0, 0xe0e0e0); // …and below, between them
+    }
+  }));
+  const HEAD_TRAIL = [0xff3b3b, 0xff8a1e, 0xffe066, 0x7dff7a, 0x51e3ee, 0xb46bff, 0xff6ad5].map((c) => model(({ box }) => box(0, 0, 0, 0.1, 0.1, 0.1, c, c, c)));
   const sightLines = new Map();
   const sightLine = (color) => { if (!sightLines.has(color)) sightLines.set(color, model(({ box }) => box(0, 0, 0.5, 0.006, 0.006, 1, color, color, color))); return sightLines.get(color); };
   const weaponGlow = model(({ box }) => { for (const [x, z, w, d] of [[0, 0.45, 0.94, 0.04], [0, -0.45, 0.94, 0.04], [0.45, 0, 0.04, 0.94], [-0.45, 0, 0.04, 0.94]]) box(x, 0, z, w, 0.03, d, 0xffe066, 0xffc400, 0xffe066); });
@@ -1441,10 +1451,17 @@ export async function createView(canvas) {
     }
     // 👹 A head shot out of the air: a burst of its own red, its teeth and the dark of its mouth, and sparks. No body, no ragdoll.
     if (e.at && e.type === 'headpop') {
-      burstColor(e.at.x, e.at.y, e.at.z, 30, HEAD_BITS);
+      // (Where it was struck matters: its bits are thrown away from that spot and on along the round's way, the struck side's hardest; a clip to one cheek sends it spinning that way.)
+      const off = e.off || { x: 0, y: 0, z: 0 }, dir = e.dir || { x: 0, y: 0, z: 0 }, born = performance.now();
+      for (let i = 0; i < 34 && sparkles.length < 400; i++) {
+        const a = Math.random() * Math.PI * 2, s = 0.5 + Math.random() * 1.6;
+        sparkles.push({ x: e.at.x + off.x * 0.3, y: e.at.y + off.y * 0.3, z: e.at.z + off.z * 0.3,
+          vx: Math.cos(a) * s - off.x * 3.5 + dir.x * 4, vy: 1.5 + Math.random() * 2.5 - off.y * 3 + dir.y * 3, vz: Math.sin(a) * s - off.z * 3.5 + dir.z * 4,
+          spin: (Math.random() - 0.5) * 6 + (off.x - off.z) * 9, born, life: 700 + Math.random() * 800, model: HEAD_BITS[i % HEAD_BITS.length] });
+      }
       burst(e.at.x, e.at.y, e.at.z, 12, 0.9);
       // 🩸 …and blood: a burst of it thrown on along the round's way, that falls and stains where it lands (gore.mjs), the way a body's does.
-      gore.bloodBurst(e.at, e.dir || { x: 0, y: 0, z: 0 }, 46);
+      gore.bloodBurst({ x: e.at.x + off.x * 0.3, y: e.at.y + off.y * 0.3, z: e.at.z + off.z * 0.3 }, { x: dir.x - off.x * 0.8, y: dir.y - off.y * 0.8, z: dir.z - off.z * 0.8 }, 46);
     }
     if (e.at && e.type === 'damage') {
       burst(e.at.x, e.at.y, e.at.z, e.crit ? 14 : 8, e.crit ? 0.9 : 0.6);
@@ -2555,8 +2572,16 @@ export async function createView(canvas) {
       // window still times the landing burst above.)
     }
     // 👹 The heads that fly in at the stage: red, jawed, looking where they go, with a small bob.
-    for (const [id, hx, hy, hz, hyaw] of heads)
-      draw(enemyHead, hx, hy + Math.sin(now / 130 + hx) * 0.06, hz, (hyaw * Math.PI) / 180, 0, 2.4);
+    for (const [id, hx, hy, hz, hyaw] of heads) {
+      // (Each its own: the jaw works, it rolls from side to side as it comes, the light inside it flickers through its eyes and mouth, and it leaves a trail of colour behind it.)
+      const n = Number(String(id).replace(/\D/g, '')) || 0, t = now / 1000 + n * 0.37;
+      const jaw = Math.sin(t * 9) > 0 ? 1 : 0, hot = Math.sin(t * 23) > 0.2 ? 1 : 0;
+      const y = hy + Math.sin(now / 130 + hx) * 0.06, yaw = (hyaw * Math.PI) / 180;
+      draw(enemyHeads[jaw * 2 + hot], hx, y, hz, yaw, Math.sin(t * 2.3) * 0.18, 2.4, Math.sin(t * 3.1) * 0.35);
+      if (sparkles.length < 380 && Math.random() < 0.55)
+        sparkles.push({ x: hx - Math.sin(yaw) * 0.4 + (Math.random() - 0.5) * 0.3, y: y + (Math.random() - 0.5) * 0.3, z: hz - Math.cos(yaw) * 0.4 + (Math.random() - 0.5) * 0.3,
+          vx: (Math.random() - 0.5) * 0.4, vy: 0.3 + Math.random() * 0.5, vz: (Math.random() - 0.5) * 0.4, spin: (Math.random() - 0.5) * 8, born: performance.now(), life: 500 + Math.random() * 500, model: HEAD_TRAIL[(n + Math.floor(now / 90)) % HEAD_TRAIL.length] });
+    }
     for (const d of drones)
       draw(droneModel(), d.x, d.y + Math.abs(Math.sin(now / 90 + d.id)) * 0.03, 0, (d.dir > 0 ? Math.PI : -Math.PI) / 2);
     // 🔲 Hitboxes (`): every body in green, the band a stomper's feet must
@@ -3852,11 +3877,19 @@ export async function createView(canvas) {
       const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
       const color = afraid ? 0xffe066 : threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       if (afraid) {
-        const said = `${threat.toFixed(0)}m`, quick = threat < 8 && Math.floor(now / 140) % 2, ink = quick ? 0xff3b3b : 0xffe066;
+        const said = `${threat.toFixed(0)}m`, close = threat < 6, quick = threat < 8 && Math.floor(now / 140) % 2, ink = quick ? 0xff3b3b : 0xffe066;
+        // (It lives: it blinks now and then; it cries, a tear running down from each eye in turn; and with the head right on it, it is angry instead, brows down and mouth a hard line, shaking.)
+        const blinkNow = now % 2600 < 140, tear = Math.floor(now / 160) % 6, shake = close ? (Math.floor(now / 50) % 2 ? unit : -unit) : 0;
+        const face = close
+          ? ['#.....#', '.#...#.', '.#...#.', '.......', '.#####.', '.......', '.......']
+          : blinkNow ? ['.......', '.......', '.#...#.', '.......', '..###..', '.#...#.', '.......']
+          : ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'];
         const m = model(({ rect: worldRect, small }) => {
-          const rect = flip(worldRect);
+          const rect0f = flip(worldRect), rect = (x, y, z, w, h, c) => rect0f(x + shake, y, z, w, h, c);
+          // 💧 A tear under an eye, falling three squares and gone; the other eye's next.
+          if (!close) { const k = 3 * unit, col = tear < 3 ? 1 : 5, row = 3 + (tear % 3); rect((col - 3.5) * k + unit, (2.5 - row) * k - unit, 0.000002, k, k, INK); rect((col - 3.5) * k, (2.5 - row) * k, 0, k, k, 0x69bfff); }
           // Seven by seven: two eyes, and a mouth turned down.
-          ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'].forEach((row, r) => [...row].forEach((ch, c) => {
+          face.forEach((row, r) => [...row].forEach((ch, c) => {
             if (ch !== '#') return;
             // (Three units a square: a face twenty-one across, filling its bracket.)
             const k = 3 * unit;
@@ -3868,14 +3901,6 @@ export async function createView(canvas) {
         projector.overlay(m, W, H);
       } else if (threat !== null) {
         // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
-        const said = `${threat.toFixed(0)}m`, blink = Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff;
-        const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
-        const m = model(({ rect: worldRect, small }) => {
-          const rect = flip(worldRect);
-          rect(cx - 2 * unit, cy - 2 * unit, 0.000002, 4 * unit, 4 * unit, INK);
-          rect(cx - unit, cy - unit, 0, 2 * unit, 2 * unit, blink);
-        });
-        projector.overlay(m, W, H);
       }
       let half = (threat !== null && armed ? 4 : afraid ? 14 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
@@ -3992,8 +4017,9 @@ export async function createView(canvas) {
           rect(x - 2 * t, y - 2 * t, 0.000002, 4 * t, 4 * t, INK);
           rect(x - t, y - t, 0, 2 * t, 2 * t, 0xffffff);
         };
-        // (Over a head there is one point, not two: the crosshair's own point is the one that sits, blinking, on the head's middle (above), and none is left at the centre.)
-        if (threat !== null) { /* drawn on the head */ }
+        // (Over a head the bracket goes round the head, and the point stays where the aim truly is, inside it: a round strikes the very spot the point is on, so a shot is placed, not only landed. Empty-handed the point is the face, above.)
+        if (afraid) { /* the face */ }
+        else if (threat !== null) { rect0(-2 * t, -2 * t, 0.000002, 4 * t, 4 * t, INK); rect0(-t, -t, 0, 2 * t, 2 * t, Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff); }
         else if (Number.isFinite(cursorX)) {
           if (pointerSource === 'pad') {
             dot(cursorX, cursorY);
