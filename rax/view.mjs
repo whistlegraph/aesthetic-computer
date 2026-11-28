@@ -1201,11 +1201,15 @@ export async function createView(canvas) {
     return outlines.get(key);
   }
   const clockHands = [[0.5, 0x10131c], [0.3, 0x10131c], [0.12, 0xd9363e]].map(([w, c]) => model(({ box }) => box(0, 0.5, 0, w / 4, 1, 0.04, c, c, c)));
+  // 👻 A ghost's head is seen through: nothing here is drawn half-clear, so it is made of its edges alone (twelve thin pale bars), the room showing between them, with a thin visor band across the front and two small lights for eyes.
   const ghostHead = model(({ box }) => {
-    box(0, 0, -0.02, 0.17, 0.21, 0.19, 0xdfe6f5, 0xb9c2d6, 0xcdd5e6);
-    box(0, 0.02, 0.085, 0.165, 0.07, 0.03, 0x10131c, 0x10131c, 0x10131c); // the visor
-    box(-0.04, 0.02, 0.102, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee); // two small lights for eyes
-    box(0.04, 0.02, 0.102, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee);
+    const w = 0.17, h = 0.21, d = 0.19, t = 0.012, pale = 0xdfe6f5, cz = -0.02;
+    for (const sy of [-1, 1]) for (const sz of [-1, 1]) box(0, (sy * h) / 2, cz + (sz * d) / 2, w + t, t, t, pale, pale, pale);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) box((sx * w) / 2, 0, cz + (sz * d) / 2, t, h + t, t, pale, pale, pale);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) box((sx * w) / 2, (sy * h) / 2, cz, t, t, d + t, pale, pale, pale);
+    for (const y of [0.05, -0.01]) box(0, y, 0.078, 0.165, 0.008, 0.008, 0x8b90a0, 0x8b90a0, 0x8b90a0); // the visor: its upper and lower edge only
+    box(-0.04, 0.02, 0.08, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee); // two small lights for eyes
+    box(0.04, 0.02, 0.08, 0.03, 0.02, 0.004, 0x51e3ee, 0x51e3ee, 0x51e3ee);
   });
   const handEdge = model(({ box }) => box(0, 0, 0.5, 0.09, 0.09, 1, 0x51e3ee, 0x269baa));
   // ✊ A closed hand is drawn amber, and both closed (the world held) a hot pink, thicker, with a bar from fist to fist: what the hands are doing is seen, by their owner and by the room.
