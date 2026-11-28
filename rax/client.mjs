@@ -3740,8 +3740,8 @@ function step(now, xr) {
       const first = clockSecond === null;
       clockSecond = second;
       const at = { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z };
-      if (!first && second % (BELL_MS / 1000) === 0) sfx.bell(at, second % 60 === 0 ? 3 : 1);
-      else if (!first) sfx.clockTick(at, second % 2);
+      if (!first && second % (BELL_MS / 1000) === 0) sfx.bell(at, second % 60 === 0 ? 3 : 1, Math.floor(second / (BELL_MS / 1000)));
+      else if (!first) sfx.clockTick(at, second % (BELL_MS / 1000));
     }
     // 🪧 …and the billboard runs its KidLisp (the west wall's machinery, stood on a building's side): asked for once, the handle's newest piece if the site will say, else the one named.
     if (room === STAGE && !billboardAsked) {
@@ -4378,7 +4378,7 @@ function step(now, xr) {
     // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
     // (`at`: where in the room the goal is, for a marker over it and a nudge toward it when it is out of sight. The gun where it lies; the nearest head, marked only when it is not in view.)
     goal: restartAt && now - restartAt < 20000 ? { text: now < restartAt ? 'a new rax is shipping' : 'coming back', count: now < restartAt ? `${Math.ceil((restartAt - now) / 1000)}s` : '', sub: 'you will be right back', color: 0x7dff7a }
-      : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
+      : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'grab', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode(), verb: 'grab' }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} on the bell`, count: `${BELL_MS / 1000 - (Math.floor((Date.now() + (clockOffset || 0)) / 1000) % (BELL_MS / 1000))}s`, color: 0xffe066, at: { x: CLOCK.x, y: CLOCK.y, z: CLOCK.z }, tag: 'clock', edgeOnly: true }) : null,
     trigger: rtCurve.length > 1 ? { curve: rtCurve, breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: rtFiredAt } : null,

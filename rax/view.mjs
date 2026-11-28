@@ -3741,8 +3741,9 @@ export async function createView(canvas) {
           // (The corner itself, so the two strokes do not leave a notch at the point.)
           stroke(tipX - ax * wide * 0.5, tipY - ay * wide * 0.5, tipX + ax * wide * 0.5, tipY + ay * wide * 0.5, wide * 1.4, goal.color, 0);
           // The words stand behind the elbow, clear of it by their own size: over it when it points down at a thing in view, and inward of it at the screen's edge. Never across its arms.
+          // (What to do with the thing is said before its name, on the thing itself: grab $qrr.)
           const words = goal.tag && goal.tag[0] === '$'
-            ? [{ text: '$', color: 0x5fd0d6 }, { text: goal.tag.slice(1), color: 0x7dff7a }, { text: ` ${far.toFixed(0)}m`, color: goal.color }]
+            ? [...(goal.verb ? [{ text: goal.verb + ' ', color: goal.color }] : []), { text: '$', color: 0x5fd0d6 }, { text: goal.tag.slice(1), color: 0x7dff7a }, { text: ` ${far.toFixed(0)}m`, color: goal.color }]
             : [{ text: said, color: goal.color }];
           const wordsW = smallSpanWidth(words, unit), back = long + 5 * unit;
           let tx = tipX - ax * (back + (Math.abs(ax) > 0.5 ? wordsW / 2 : 0)), ty = tipY - ay * (back + (Math.abs(ay) > 0.5 ? 6 * unit : 0)) + 4 * unit;

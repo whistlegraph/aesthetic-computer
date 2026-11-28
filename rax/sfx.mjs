@@ -43,29 +43,36 @@ export class Sfx {
     o.start(t);
     o.stop(t + duration + 0.02);
   }
-  // 🕰️ The clock tower's tick, where it stands: a short high sine, tick then tock.
-  clockTick(at, tock = 0) {
+  // 🕰️ The clock tower's seconds, where it stands. Not one tick over and over: each second is a note of a slow tune that takes the fifteen seconds between two bells to go round (a pentatonic music box, low then climbing toward the bell), a soft sine with its octave ringing over it, the last three seconds before the bell rising and louder: it is heard coming.
+  clockTick(at, second = 0) {
     if (!this.ready) return;
-    const a = this.audio, t = a.currentTime, o = a.createOscillator(), g = a.createGain();
-    o.type = 'sine'; o.frequency.value = tock ? 1320 : 1760;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5 * MASTER, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-    o.connect(g).connect(this.positionedOutput(at));
-    o.start(t); o.stop(t + 0.07);
+    const TUNE = [0, 7, 4, 9, 7, 12, 9, 4, 7, 2, 9, 12, 14, 16, 19], step = ((second % 15) + 15) % 15, near = step >= 12;
+    const a = this.audio, t = a.currentTime, f = 392 * 2 ** (TUNE[step] / 12), out = this.positionedOutput(at);
+    for (const [ratio, level, ring] of [[1, 1, near ? 0.5 : 0.32], [2, 0.35, 0.18], [3.01, 0.12, 0.09]]) {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine'; o.frequency.value = f * ratio;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime((near ? 0.9 : 0.55) * level * MASTER, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + ring);
+      o.connect(g).connect(out);
+      o.start(t); o.stop(t + ring + 0.03);
+    }
   }
-  // 🔔 …and its bell: sines only, a struck bell's own partials (hum, prime, tierce, quint, nominal) each dying at its own pace, `strokes` of them a second and a bit apart.
-  bell(at, strokes = 1) {
+  // 🔔 …and its bell: first a chime of four notes, a different turn of the same four each time round (as a clock's quarters are), then the bell itself, `strokes` of it: sines only, a struck bell's own partials (hum, prime, tierce, quint, nominal), each dying at its own pace, the hum beating slowly against a second a hair off it.
+  bell(at, strokes = 1, turn = 0) {
     if (!this.ready) return;
     const a = this.audio, out = this.positionedOutput(at), base = 196;
-    for (let n = 0; n < strokes; n++) {
-      const t = a.currentTime + n * 1.15;
-      for (const [ratio, level, ring] of [[0.5, 0.5, 3.2], [1, 1, 2.6], [1.19, 0.6, 1.9], [1.5, 0.4, 1.5], [2, 0.5, 1.2], [2.76, 0.25, 0.8], [5.4, 0.1, 0.4]]) {
+    const strike = (t, f, loud, long) => {
+      for (const [ratio, level, ring] of [[0.5, 0.5, 3.2], [0.503, 0.3, 3.2], [1, 1, 2.6], [1.19, 0.6, 1.9], [1.5, 0.4, 1.5], [2, 0.5, 1.2], [2.76, 0.25, 0.8], [5.4, 0.1, 0.4]]) {
         const o = a.createOscillator(), g = a.createGain();
-        o.type = 'sine'; o.frequency.value = base * ratio;
-        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.4 * level * MASTER, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + ring);
+        o.type = 'sine'; o.frequency.value = f * ratio;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(loud * level * MASTER, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + ring * long);
         o.connect(g).connect(out);
-        o.start(t); o.stop(t + ring + 0.05);
+        o.start(t); o.stop(t + ring * long + 0.05);
       }
-    }
+    };
+    // The four notes (a fifth, a third, a second, the low fifth over the bell's own note) in one of four orders.
+    const NOTES = [7, 4, 2, -5], TURNS = [[1, 2, 0, 3], [0, 2, 1, 3], [1, 0, 2, 3], [3, 2, 1, 0]], order = TURNS[((turn % 4) + 4) % 4];
+    order.forEach((n, i) => strike(a.currentTime + i * 0.34, base * 2 * 2 ** (NOTES[n] / 12), 0.55, 0.45));
+    for (let n = 0; n < strokes; n++) strike(a.currentTime + 1.5 + n * 1.15, base, 1.4, 1);
   }
   // 😱 One note of a falling body's scream. A saw through two formants (an open "ah": 800 and 1250 Hz) with a quick shake on its pitch, so it is a voice and not a tone. `step` picks the note from a falling arpeggio (a minor seventh, two octaves of it), and `depth` (0 at the roof, 1 at the street) brings the whole thing down an octave and makes it louder.
   scream(step, depth = 0) {
