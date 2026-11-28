@@ -3858,10 +3858,12 @@ export async function createView(canvas) {
           // Seven by seven: two eyes, and a mouth turned down.
           ['.......', '.#...#.', '.#...#.', '.......', '..###..', '.#...#.', '.......'].forEach((row, r) => [...row].forEach((ch, c) => {
             if (ch !== '#') return;
-            rect((c - 3) * unit + unit, (3 - r) * unit - unit, 0.000002, unit, unit, INK);
-            rect((c - 3) * unit, (3 - r) * unit, 0, unit, unit, ink);
+            // (Three units a square: a face twenty-one across, filling its bracket.)
+            const k = 3 * unit;
+            rect((c - 3.5) * k + unit, (2.5 - r) * k - unit, 0.000002, k, k, INK);
+            rect((c - 3.5) * k, (2.5 - r) * k, 0, k, k, ink);
           }));
-          small(said, unit, -13 * unit - unit, 0.000002, unit, INK); small(said, 0, -13 * unit, 0, unit, ink);
+          small(said, unit, -22 * unit - unit, 0.000002, unit, INK); small(said, 0, -22 * unit, 0, unit, ink);
         });
         projector.overlay(m, W, H);
       } else if (threat !== null) {
@@ -3875,7 +3877,7 @@ export async function createView(canvas) {
         });
         projector.overlay(m, W, H);
       }
-      let half = (threat !== null && armed ? 4 : afraid ? 8 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
+      let half = (threat !== null && armed ? 4 : afraid ? 14 : lockedOn ? 4 : focusObject ? 5 : 7 + Math.round(speed * 5)) * unit,
         arm = 4 * unit,
         t = unit;
       // Locked on: the corners surround the object on screen instead of
