@@ -50,7 +50,7 @@ export function startRax({ port = Number(process.env.RAX_PORT || 8786), entry = 
       try { process.kill(was.pid, 'SIGTERM'); } catch {}
       const began = Date.now();
       const wait = setInterval(() => {
-        if (alive(was.pid) && Date.now() - began < 9000) return;
+        if (alive(was.pid) && Date.now() - began < 15000) return; // (it tells its rooms and gives them five seconds to read it, then writes down what is in the air: rax-process.mjs)
         clearInterval(wait);
         if (alive(was.pid)) { try { process.kill(was.pid, 'SIGKILL'); } catch {} }
         spawn();

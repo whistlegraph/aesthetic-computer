@@ -2085,6 +2085,8 @@ function connect(adopt = null) {
       }
     }
     if (data.type === 'hands' && typeof data.id === 'string' && handsValid(data.hands) && headValid(data.head)) farHands.set(data.id, { seat: data.seat, hands: handsUnpacked(data.hands), head: data.head || null, ride: Number.isInteger(data.ride) ? data.ride : null, at: performance.now() });
+    // 📣 A new rax is shipping: this room goes in `seconds`, and the page comes back to the new one by itself. Said on the top line until it does.
+    if (data.type === 'restart' && Number.isFinite(data.seconds)) { restartAt = performance.now() + data.seconds * 1000; sfx.ringOpen(); }
     if (data.type === 'deaths' && Number.isFinite(data.deaths)) deathCount = data.deaths; // ☠️ this handle's deaths in rax, from the database (deaths.mjs)
     if (data.type === 'braincells' && Number.isFinite(data.remaining)) {
       braincells = data.remaining;
@@ -3303,6 +3305,7 @@ function replayTick(now) {
   if (replayLog.length < 2 || replayLog[0].tick > first + 30) return null; // (not enough kept: it is not shown)
   return first + ((since / 1000) * HZ) % span;
 }
+let restartAt = 0; // 📣 when the room goes for a new rax (0: no such word)
 let turnHeld = 0; // 🎯 seconds the look stick has been hard across (the turn boost)
 let screamStep = -1; // 😱 the last sixteenth a falling body's scream sounded on
 let holdMeter = null, holdStep = -1;
@@ -4307,7 +4310,8 @@ function step(now, xr) {
     stains,
     // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
     // (`at`: where in the room the goal is, for a marker over it and a nudge toward it when it is out of sight. The gun where it lies; the nearest head, marked only when it is not in view.)
-    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
+    goal: restartAt && now - restartAt < 20000 ? { text: now < restartAt ? 'a new rax is shipping' : 'coming back', count: now < restartAt ? `${Math.ceil((restartAt - now) / 1000)}s` : '', sub: 'you will be right back', color: 0x7dff7a }
+      : snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
     trigger: rtCurve.length > 1 ? { curve: rtCurve, breakAt: TRIGGER_BREAK, resetAt: TRIGGER_RESET, armed: rtArmed, firedAt: rtFiredAt } : null,

@@ -35,13 +35,21 @@ app.server.listen(port, '127.0.0.1', () => {
   console.log(`[rax] its own process, on 127.0.0.1:${port} (${build.slice(0, 10)})`);
   try { mkdirSync(stateHome(), { recursive: true }); writeFileSync(card, JSON.stringify({ pid: process.pid, port, build })); } catch {}
 });
+const NOTICE_MS = 5000; // (rax-child.mjs gives a stopping rax fifteen seconds before it is killed: this, and the eight it has to write things down)
 let closing = false;
 for (const signal of ['SIGTERM', 'SIGINT'])
   process.on(signal, () => {
     if (closing) return;
     closing = true;
-    // What is in the air and where the ball lies are written down on the way out.
-    try { rmSync(card, { force: true }); } catch {}
-    app.close().catch(() => {}).finally(() => process.exit(0));
-    setTimeout(() => process.exit(0), 8000).unref();
+    // 📣 Asked to stop (a new rax is shipping): everyone in every room is told first, and has NOTICE_MS to read it on the top line before the room goes (client.mjs `restart`). With nobody in, it goes at once. A second ask does not wait.
+    const sockets = [...app.rooms.values()].flatMap((room) => [...room.clients.keys()]);
+    const word = JSON.stringify({ type: 'restart', seconds: NOTICE_MS / 1000 });
+    for (const ws of sockets) { try { ws.send(word); } catch {} }
+    const go = () => {
+      // What is in the air and where the ball lies are written down on the way out.
+      try { rmSync(card, { force: true }); } catch {}
+      app.close().catch(() => {}).finally(() => process.exit(0));
+      setTimeout(() => process.exit(0), 8000).unref();
+    };
+    if (sockets.length && signal === 'SIGTERM') setTimeout(go, NOTICE_MS); else go();
   });
