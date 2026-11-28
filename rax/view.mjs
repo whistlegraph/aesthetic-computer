@@ -3730,7 +3730,7 @@ export async function createView(canvas) {
       const fits = Math.max(1, Math.min(10, Math.floor((H * 0.25) / (10 * hud.unit)) - 1)), others = everyone.slice(0, fits);
       // 📨 Nobody else here: a code to hand someone, that brings them to this room.
       if (!others.length && self && !game) {
-        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = ['rax.ac', 'join'];
+        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = ['rax.ac', 'play'];
         // 📐 (Only where there is room for it: a code a fifth of the screen wide or more, or a third of its height, is left out.)
         if (n && (n + 2) * unit < W * 0.2 && (n + 16) * unit < H * 0.33) {
           const size = (n + 2) * unit, at = hudPack.reserve('invite', 'tr', size + 20 * unit, size); // (the code, and two columns of letters up its left side)
@@ -3749,7 +3749,7 @@ export async function createView(canvas) {
                 if (!g) { pen += 4; continue; }
                 const [gw, gh, gx, gy, advance, rows] = g;
                 for (let r = 0; r < gh; r++) for (let c = 0; c < gw; c++) if (rows[r] & (128 >> c)) {
-                  const px = x0 + (gy + r) * unit, py = y0 + (pen + gx + c) * unit;
+                  const px = x0 + (8 - gy - gh + r) * unit, py = y0 + (pen + gx + c) * unit; // (a letter's own rows hang from the font's ascent, as paint.mjs sets them: i and j stood a row off their neighbours)
                   rect(px + unit, py - unit, 0.000002, unit, unit, INK);
                   rect(px, py, 0, unit, unit, color);
                 }
