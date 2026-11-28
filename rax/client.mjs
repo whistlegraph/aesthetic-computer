@@ -2436,6 +2436,11 @@ function goalGun() {
   const it = snapshot?.items?.find((i) => i.kind === 'shoot' && i.holder < 0 && i.y > -10);
   return it ? { x: it.x, y: it.y + 0.6, z: it.z } : null;
 }
+// (The gun by its own name: the $code it was made as, said as code is.)
+function goalGunCode() {
+  const it = snapshot?.items?.find((i) => i.kind === 'shoot' && i.holder < 0 && i.y > -10), o = it && objects.find((x) => x.id === it.id);
+  return o?.code ? `$${o.code}` : 'gun';
+}
 function goalHead() {
   const from = player || freecam;
   let best = null, near = Infinity;
@@ -4239,7 +4244,7 @@ function step(now, xr) {
     heads: snapshot?.heads || [], wave: snapshot?.wave || 0,
     // 🎯 The room's goal, said across the top of the screen (the stage's: take the gun, then the heads).
     // (`at`: where in the room the goal is, for a marker over it and a nudge toward it when it is out of sight. The gun where it lies; the nearest head, marked only when it is not in view.)
-    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'take the gun in the middle', color: 0xffe066, at: goalGun(), tag: 'gun' }
+    goal: snapshot?.heads && seat >= 0 ? (!snapshot.armed ? { text: 'get the', code: goalGunCode(), color: 0xffe066, at: goalGun(), tag: goalGunCode() }
       : snapshot.left ? { text: 'kill the red heads!', count: `${snapshot.left} left`, sub: `wave ${snapshot.wave}`, color: 0xff5a5f, at: goalHead(), tag: 'head', edgeOnly: true }
       : { text: `wave ${snapshot.wave + 1} is coming`, color: 0xffe066 }) : null,
     roof: !!platformSlab(), // 🏙️ a roof over a street: no planet's hollow under it

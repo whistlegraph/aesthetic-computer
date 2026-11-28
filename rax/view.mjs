@@ -40,6 +40,7 @@ import { PLANET, FAR, landTiles, viewCurvature, bend } from './planet.mjs';
 import { joinCode, hudLayout, createPack, fitHudScreen } from './hud.mjs';
 import { pairLayout, pairModel } from './pair-view.mjs';
 import { wristOf, tableEye, SLATE_LIFT, handOutline, fistOf } from './immersive.mjs';
+import { glyphs as chunky } from './chunky-font.mjs';
 import { glide } from './dock.mjs';
 import { cursorOver, cursorCells, INKS as cursorInks } from './ac/lib/cursor-shape.mjs';
 
@@ -1238,6 +1239,7 @@ export async function createView(canvas) {
   const distantModels = new WeakMap();
   const chalkModels = new Map();
   let boom = 4;
+  let threatAt = 0; // 👹 when the crosshair came on to a head: it takes a moment to turn red and open round it
   let cubeModel = null, cubeAt = 0;
   const cellBits = [];
   let tileCacheKey = '', tileModel = null;
@@ -3469,11 +3471,15 @@ export async function createView(canvas) {
       });
       projector.overlay(m, W, H);
     }
-    // 🎯 The goal, over the crosshair, large: what to do, and how many are left to do it to.
-    if (goal && !bare && !xr && !menu && !radial && !prompt?.open) {
+    // 🎯 The goal: beside the corner block at the top left, in place of what Escape does (below); over the crosshair, large, only where there is no corner block to stand it by.
+    const cornerShown = corner && input !== 'touch' && !prompt?.open && !chat?.open && !jobs.some((j) => j.owner === owner) && !buildLines.length;
+    // (A $code in a goal is said as code is: the sigil dim, the name in the green of things made.)
+    const goalSpans = (g) => [{ text: g.text, color: g.color }, ...(g.code ? (g.code[0] === '$' ? [{ text: ' $', color: 0x5fd0d6 }, { text: g.code.slice(1), color: 0x7dff7a }] : [{ text: ' ' + g.code, color: 0x7dff7a }]) : []),
+      ...(g.count ? [{ text: '  ' + g.count, color: 0xffffff }] : []), ...(g.sub ? [{ text: '  ' + g.sub, color: THEME.dim }] : [])];
+    if (goal && !cornerShown && !bare && !xr && !menu && !radial && !prompt?.open) {
       // 📐 Fitted to the screen as it is now (a narrow window, a page zoomed with ⌘+): double size on one line when that fits, else on two, else plain size on as many lines as the words need. Never wider than the screen less its margins.
       const { unit, safeX } = hud, room = W - 2 * safeX - 8 * unit;
-      const words = [...goal.text.split(' ').map((w) => ({ text: w, color: goal.color })), ...(goal.count ? goal.count.split(' ').map((w) => ({ text: w, color: 0xffffff })) : [])];
+      const words = [...goal.text.split(' ').map((w) => ({ text: w, color: goal.color })), ...(goal.code ? [{ text: goal.code, color: 0x7dff7a }] : []), ...(goal.count ? goal.count.split(' ').map((w) => ({ text: w, color: 0xffffff })) : [])];
       const wrap = (size) => {
         const lines = [[]];
         for (const w of words) {
@@ -3534,18 +3540,32 @@ export async function createView(canvas) {
       const fits = Math.max(1, Math.min(10, Math.floor((H * 0.25) / (10 * hud.unit)) - 1)), others = everyone.slice(0, fits);
       // 📨 Nobody else here: a code to hand someone, that brings them to this room.
       if (!others.length && self && !game) {
-        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = [{ text: 'join ', color: 0xffe066 }, { cap: 'rax.ac' }];
+        const { unit } = hud, cells = joinCode('https://rax.ac/'), n = cells?.length || 0, label = ['rax.ac', 'join'];
         // 📐 (Only where there is room for it: a code a fifth of the screen wide or more, or a third of its height, is left out.)
         if (n && (n + 2) * unit < W * 0.2 && (n + 16) * unit < H * 0.33) {
-          const size = (n + 2) * unit, wide = Math.max(size, Math.ceil(smallSpanWidth(label, unit))), at = hudPack.reserve('invite', 'tr', wide, size + 14 * unit);
+          const size = (n + 2) * unit, at = hudPack.reserve('invite', 'tr', size + 20 * unit, size); // (the code, and two columns of letters up its left side)
           chartTop = Math.max(chartTop, at.y + at.h + 2 * unit);
           const m = model(({ rect: worldRect, text, small }) => {
             const rect = flip(worldRect);
             const left = at.x + at.w - size - W / 2, top = H / 2 - at.y; // (the code's own left edge and top, from the middle of the screen, y up)
             rect(left, top - size, 0.000002, size, size, 0xffffff);
             cells.forEach((row, r) => row.forEach((dark, c) => dark && rect(left + (c + 1) * unit, top - (r + 2) * unit, 0.000001, unit, unit, 0x10131c)));
-            // (Under the code, its middle on the code's: the word, and the address as a tag.)
-            drawSpans({ rect, text, small }, label, Math.min(left + size / 2, at.x + at.w - W / 2 - smallSpanWidth(label, unit) / 2), top - size - 4 * unit, unit, { shadow: INK, tiny: true });
+            // (Up the code's left side, turned a quarter round to read from the foot: the address next the code, the word outside it. All of it in the corner's own region, nothing under.)
+            label.forEach((word, col) => {
+              let pen = 0;
+              const x0 = left - (10 + col * 10) * unit, y0 = top - size + unit, color = col ? 0xffe066 : 0xffffff;
+              for (const ch of word) {
+                const g = chunky[ch];
+                if (!g) { pen += 4; continue; }
+                const [gw, gh, gx, gy, advance, rows] = g;
+                for (let r = 0; r < gh; r++) for (let c = 0; c < gw; c++) if (rows[r] & (128 >> c)) {
+                  const px = x0 + (gy + r) * unit, py = y0 + (pen + gx + c) * unit;
+                  rect(px + unit, py - unit, 0.000002, unit, unit, INK);
+                  rect(px, py, 0, unit, unit, color);
+                }
+                pen += advance;
+              }
+            });
           });
           projector.overlay(m, W, H);
         }
@@ -3609,7 +3629,10 @@ export async function createView(canvas) {
       const left = -W / 2 + safeX,
         bottom = H / 2 - safeY - h;
       // Beside it, what Escape does next: with the mouse held it frees the mouse, and with the mouse free it goes to the prompt.
-      const label = input === 'touch' ? [] : hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
+      // (With a goal in the room, the goal stands here instead: what there is to do, and how much of it is left.)
+      let label = input === 'touch' ? [] : goal ? goalSpans(goal) : hintSpans(input === 'pad' ? '[START] to prompt' : locked ? '{esc} to use mouse' : '{esc} to prompt', THEME.dim); // (a pad's way back is START)
+      // 📐 (Fitted: the wave, then the count, go when the line is wider than the screen less the top right's share.)
+      while (goal && label.length > 1 && smallSpanWidth(label, unit) > W * 0.6) label = label.slice(0, -1);
       const labelW = smallSpanWidth(label, unit);
       cornerRect = input === 'touch'
         ? { x: safeX, y: safeY, w: Math.max(w, 44 * pixel - safeX), h: Math.max(h, 44 * pixel - safeY) }
@@ -3790,7 +3813,11 @@ export async function createView(canvas) {
         const reach = (0.55 / at.depth) * projector.sx; // (a head's half-width, as wide as it looks from here)
         if (Math.hypot(at.x, (at.y * H) / W) < Math.max(reach, 0.02) && (!threat || at.depth < threat)) { threat = at.depth; core = at; }
       }
-      const color = threat !== null ? 0xff3b3b : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
+      // (It does not jump: over a fifth of a second the cyan turns red and the corners open out from the middle to the head.)
+      threatAt = threat !== null ? threatAt || now : 0;
+      const onto = threat !== null ? Math.min(1, (now - threatAt) / 200) : 0, eased = onto * onto * (3 - 2 * onto);
+      const mix = (a, b, k) => (Math.round(((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * k) << 16) | (Math.round(((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * k) << 8) | Math.round((a & 255) + ((b & 255) - (a & 255)) * k);
+      const color = threat !== null ? mix(0x00ffff, 0xff3b3b, eased) : lockedOn ? 0xffe066 : focusObject ? (focusObject.owner === owner ? 0x3fb950 : THEME.verb) : paint !== null ? (paint ? TILE_COLORS[paint - 1] : 0x9aa0b0) : 0x00ffff;
       if (threat !== null) {
         // (A target cursor: it blinks red and white, its inner dot leaves the middle to sit on the head's own middle, and only the metres are said.)
         const said = `${threat.toFixed(0)}m`, blink = Math.floor(now / 110) % 2 ? 0xff3b3b : 0xffffff;
@@ -3865,7 +3892,8 @@ export async function createView(canvas) {
         const cx = Math.round((core.x * W) / 2), cy = Math.round((core.y * H) / 2);
         const r = Math.max(5 * unit, Math.round(((0.6 / core.depth) * projector.sx * W) / 2)), pad = 3 * unit;
         const clampTo = (v, lim) => Math.max(-lim, Math.min(lim, v)), limitX = W / 2 - 2 * unit, limitY = H / 2 - 2 * unit;
-        box = { left: clampTo(cx - r - pad, limitX), right: clampTo(cx + r + pad, limitX), bottom: clampTo(cy - r - pad, limitY), top: clampTo(cy + r + pad, limitY) };
+        const rest = 7 * unit, go = (from, to) => Math.round(from + (to - from) * eased);
+        box = { left: go(-rest, clampTo(cx - r - pad, limitX)), right: go(rest, clampTo(cx + r + pad, limitX)), bottom: go(-rest, clampTo(cy - r - pad, limitY)), top: go(rest, clampTo(cy + r + pad, limitY)) };
         arm = Math.max(4 * unit, Math.min(12 * unit, Math.floor(Math.min(box.right - box.left, box.top - box.bottom) / 4 / unit) * unit));
         // (The metres under the bracket, wherever the head has taken it.)
         const said = `${threat.toFixed(0)}m`, lx = (box.left + box.right) / 2, ly = box.bottom - 3 * unit;
