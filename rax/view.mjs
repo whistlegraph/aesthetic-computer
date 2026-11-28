@@ -367,11 +367,16 @@ export async function createView(canvas) {
   // A small studio: a floor marked only by faint dots every two metres, four
   // plain walls and a low ceiling, all at the world's edges.
   const ROOM_HEIGHT = 4;
-  const buildArena = (p, W = WORLD) =>
+  // (walled false: a floating platform — the same floor on a slab, nothing
+  // around it but the sky. A room made by name is one, 2026-11-27; a game's
+  // arena keeps its walls. The edge still holds a body: world.mjs clamps.)
+  const buildArena = (p, W = WORLD, walled = true) =>
     model(({ box, quad }) => {
       // (No ground beyond the walls: it was the sky's colour anyway, and a
       // centimetre under the floor it z-fought from any distance.)
-      for (const b of ceiling)
+      // (A platform's floor is one piece, edge to edge; a walled room's is the cellar's ceiling, with its stair hole.)
+      if (!walled) quad([-W, 0, -W], [-W, 0, W], [W, 0, W], [W, 0, -W], p.floor);
+      else for (const b of ceiling)
           quad([b.xMin, 0, b.zMin], [b.xMin, 0, b.zMax], [b.xMax, 0, b.zMax], [b.xMax, 0, b.zMin], p.floor);
       for (let x = -W + 2; x < W; x += 2)
         for (let z = -W + 2; z < W; z += 2)
@@ -380,6 +385,11 @@ export async function createView(canvas) {
       // z-fought): north and south run the full outside width and own the
       // corners; east and west fit exactly between their inner faces.
       const h = ROOM_HEIGHT, t = 0.3, outside = 2 * W + 2 * t, inside = 2 * W;
+      if (!walled) {
+        // The slab under the floor (its top a hair below, so the two never fight), each side in its wall's colour.
+        box(0, -0.36, 0, 2 * W, 0.6, 2 * W, p.floor, p.walls.east, p.walls.north);
+        return;
+      }
       box(0, h / 2, -W - t / 2, outside, h, t, p.walls.south, p.wallSide, p.walls.south);
       box(0, h / 2, W + t / 2, outside, h, t, p.walls.north, p.wallSide, p.walls.north);
       // A box colours its x faces second and its z faces third: the long
@@ -2023,10 +2033,12 @@ export async function createView(canvas) {
       // Both rooms draw the fence on their common boundary.
       if (orbit < 1 && seam?.shown) drawSeams(park.neighbours, 0, 0, 0, seam?.crossing ? SEAM.crossing : SEAM.rest, now);
     }
-    else if (half === WORLD) draw(arena);
+    else if (half === WORLD && game) draw(arena);
     else {
-      if (!arenas.has(half)) arenas.set(half, buildArena(PALETTES[paletteName], half));
-      draw(arenas.get(half));
+      // A room made by name stands in the open, on a platform; a game's arena has its walls.
+      const kind = `${half}:${game ? 'walled' : 'open'}`;
+      if (!arenas.has(kind)) arenas.set(kind, buildArena(PALETTES[paletteName], half, !!game));
+      draw(arenas.get(kind));
     }
     for (const m of staged) {
       const far = Math.hypot(m.x - eye.x, (m.y || 0) - eye.y, m.z - eye.z);
